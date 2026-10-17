@@ -597,7 +597,7 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(sub)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 14)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	modal_box.add_child(row)
 	for i in offer.size():
@@ -616,31 +616,33 @@ func _offer_card(index: int, id: String) -> Button:
 	var button := OfferCard.new()
 	button.rarity = rarity
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.custom_minimum_size = Vector2(200, 360)
+	button.custom_minimum_size = Vector2(210, 330)
 	button.pressed.connect(_pick.bind(index))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 4)
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
-	box.offset_left = 12
-	box.offset_right = -12
-	box.offset_top = 8
-	box.offset_bottom = -12
+	box.offset_left = 16
+	box.offset_right = -16
+	box.offset_top = 18
+	box.offset_bottom = -18
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	button.add_child(box)
-	var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 18, Color.WHITE, "x", 4)
+	var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 15, UiKit.rarity_colors(rarity)["lip"], "x", 3)
 	ribbon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ribbon.custom_minimum_size = Vector2(0, 32)
 	box.add_child(ribbon)
 	var icon := CardIcon.new()
 	icon.op = str(info.get("op", ""))
+	icon.rarity = rarity
 	icon.custom_minimum_size = Vector2(0, 132)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
-	var name := UiKit.label(str(info.get("name", id)), 22, UiKit.CREAM, "x", 4)
+	var name := UiKit.label(str(info.get("name", id)), 22, UiKit.GOLD.lightened(0.2), "x", 3)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(name)
-	var desc := UiKit.label(str(info.get("desc", "")), 15, Color("f4f7ff"), "b", 3)
+	var desc := UiKit.label(str(info.get("desc", "")), 17, UiKit.MUTED.lightened(0.15), "m", 2)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(desc)
@@ -763,77 +765,51 @@ func _pause() -> void:
 	modal_box.add_child(leave)
 
 
+## A level-up blessing: a forged card in its rarity's metal over dark leather,
+## with a soft aura and a press bounce.
 class OfferCard extends Button:
 	var rarity := "common"
-	var _box: StyleBoxFlat
+	var frame: UiKit.Frame
 
 	func _ready() -> void:
 		focus_mode = Control.FOCUS_NONE
 		var empty := StyleBoxEmpty.new()
 		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 			add_theme_stylebox_override(state, empty)
-
-	func _colors() -> Dictionary:
-		match rarity:
-			"rare":
-				return {"top": Color("5eb6ff"), "bot": Color("1560b8"), "band": Color("0c4e9c"), "rim": Color("082848")}
-			"epic":
-				return {"top": Color("d07cff"), "bot": Color("6a22a4"), "band": Color("4a1478"), "rim": Color("240838")}
-			"legendary":
-				return {"top": Color("ffe38a"), "bot": Color("e09018"), "band": Color("b86808"), "rim": Color("5a3208")}
-			_:
-				return {"top": Color("f7f3ea"), "bot": Color("b7aea0"), "band": Color("6d655c"), "rim": Color("2a241c")}
-
-	func _draw() -> void:
-		var cols: Dictionary = _colors()
-		var rect := Rect2(6, 6, maxf(20.0, size.x - 12), maxf(40.0, size.y - 12))
-		_round(rect.grow(5), 22, cols["rim"])
-		_gradient(rect, 18, cols["top"], cols["bot"])
-		draw_line(rect.position + Vector2(16, 8), rect.position + Vector2(rect.size.x - 16, 8), Color(1, 1, 1, 0.55), 4.0)
-		draw_line(rect.position + Vector2(18, rect.size.y - 10), rect.position + Vector2(rect.size.x - 18, rect.size.y - 10), Color(0, 0, 0, 0.28), 5.0)
-		var band := Rect2(rect.position.x + 8, rect.position.y + 6, rect.size.x - 16, 36)
-		_round(band, 10, cols["band"])
-		_round(Rect2(band.position.x + 4, band.position.y + 3, band.size.x - 8, 8), 6, Color(1, 1, 1, 0.28))
-
-	func _gradient(rect: Rect2, radius: float, top: Color, bot: Color) -> void:
-		var steps := 18
-		for i in steps:
-			var t0 := float(i) / float(steps)
-			var t1 := float(i + 1) / float(steps)
-			var y0 := rect.position.y + rect.size.y * t0
-			var y1 := rect.position.y + rect.size.y * t1
-			var mid := (y0 + y1) * 0.5
-			var inset := _inset(rect, radius, mid)
-			draw_rect(Rect2(rect.position.x + inset, y0, maxf(2.0, rect.size.x - inset * 2.0), y1 - y0 + 1.0), top.lerp(bot, (t0 + t1) * 0.5), true)
-
-	func _inset(rect: Rect2, radius: float, y: float) -> float:
-		var top_c := rect.position.y + radius
-		var bot_c := rect.position.y + rect.size.y - radius
-		var dy := 0.0
-		if y < top_c:
-			dy = top_c - y
-		elif y > bot_c:
-			dy = y - bot_c
-		if dy <= 0.0 or dy >= radius:
-			return 0.0 if dy <= 0.0 else radius
-		return radius - sqrt(radius * radius - dy * dy)
-
-	func _round(rect: Rect2, radius: int, color: Color) -> void:
-		if _box == null:
-			_box = StyleBoxFlat.new()
-		_box.bg_color = color
-		_box.set_corner_radius_all(radius)
-		_box.draw(get_canvas_item(), rect)
+		var cols: Dictionary = UiKit.rarity_colors(rarity)
+		var metal := UiKit.rarity_metal(rarity)
+		frame = UiKit.Frame.new("card", "leather", {
+			"metal_hi": metal[0], "metal_lo": metal[1], "studs": 1.0, "frame": 7.0,
+			"glow_color": Color(cols["glow"], 0.45 if rarity != "common" else 0.15),
+			"face_top": Color(cols["bg"]).lerp(Color("1c1510"), 0.35), "face_bot": Color("0c0907"),
+		})
+		frame.margin = 4.0
+		add_child(frame)
+		button_down.connect(func() -> void:
+			pivot_offset = size * 0.5
+			create_tween().tween_property(self, "scale", Vector2(0.95, 0.95), 0.06))
+		button_up.connect(func() -> void:
+			create_tween().tween_property(self, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 
 
 class CardIcon extends Control:
 	var op := ""
 
+	var rarity := "common"
+
 	func _draw() -> void:
 		var c := Vector2(size.x * 0.5, size.y * 0.52)
-		draw_circle(c + Vector2(0, 6), 52, Color(0, 0, 0, 0.28))
-		draw_circle(c, 48, Color("24180f"))
-		draw_arc(c, 46, PI, TAU, 24, Color(1, 1, 1, 0.45), 4.0, true)
+		var metal := UiKit.rarity_metal(rarity)
+		var glow: Color = UiKit.rarity_colors(rarity)["glow"]
+		for k in 6:
+			draw_circle(c, 62.0 - k * 2.5, Color(glow, 0.035))
+		draw_circle(c + Vector2(0, 5), 54, Color(0, 0, 0, 0.55))
+		draw_circle(c, 52, Color("120a04"))
+		draw_arc(c, 48, 0, TAU, 48, metal[1], 7.0, true)
+		draw_arc(c, 48, PI * 1.05, PI * 1.95, 24, metal[0], 3.0, true)
+		draw_circle(c, 44, Color("0c0806"))
+		for k in 5:
+			draw_circle(c, 40.0 - k * 7.0, Color(glow, 0.06))
 		match op:
 			"hp":
 				_heart(c, 22, Color("ff5a6a"))
