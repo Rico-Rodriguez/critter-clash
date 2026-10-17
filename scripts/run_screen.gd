@@ -557,6 +557,13 @@ func _drain() -> void:
 				AudioDirector.haptic("levelup")
 			"banner":
 				_banner(str(ev["text"]))
+			"fx":
+				var at: Vector2 = ev.get("pos", Vector2.ZERO)
+				var col := _fx_color(str(ev.get("fx", "")))
+				_burst(at, col, 8, 160.0)
+				if ev.has("to"):
+					var to: Vector2 = ev.get("to", at)
+					_burst(at.lerp(to, 0.5), col, 5, 130.0)
 
 
 func _sync(alpha: float) -> void:
@@ -590,6 +597,47 @@ func _decay_punch(delta: float) -> void:
 
 func _burst(pos: Vector2, color: Color, count: int, speed: float) -> void:
 	sparks.burst(pos, color, count, speed)
+
+
+## Placeholder skill colours: one per fx name, unknown names fall back warm.
+func _fx_color(name: String) -> Color:
+	match name:
+		"chain_lightning", "storm_crown":
+			return Color("a9e5ff")
+		"fire_trail", "meteor", "phoenix":
+			return Color("ff7a3c")
+		"frost_nova":
+			return Color("9fe4ff")
+		"orbiting_blades":
+			return Color("e8eef7")
+		"thorns_aura":
+			return Color("7dff5a")
+		"blink", "arcane_split":
+			return Color("c9a8ff")
+		"spirit_wolf":
+			return Color("bfe9ff")
+		"static_field":
+			return Color("ffe14a")
+		"gem_burst":
+			return Color("b6f27a")
+		"volley":
+			return Color("f4f7ff")
+		"hunter_mark":
+			return Color("ffb15a")
+		"earthquake":
+			return Color("d0a060")
+		"taunt_roar":
+			return Color("ff9a6a")
+		"vampiric_kill", "crit_siphon", "execute":
+			return Color("ff5a6a")
+		"ricochet":
+			return Color("7ec8ff")
+		"bulwark":
+			return Color("8fd0ff")
+		"berserk":
+			return Color("ff8a3c")
+		_:
+			return Color("ffe08a")
 
 
 func _hurt_flash() -> void:
@@ -1377,6 +1425,38 @@ void fragment() {
 			"revive":
 				_heart(c + Vector2(0, 6), 16, _tone(Color("ff5a6a")))
 				_chevron_up(c + Vector2(0, -18), _tone(Color("ffe08a")))
+			"orbit", "ricochet":
+				_bounce(c, _tone(Color("dce8ff")))
+			"chain", "storm":
+				_bolt(c, _tone(Color("a9e5ff")))
+			"trail", "meteor", "berserk", "phoenix":
+				_flame(c, _tone(Color("ff8a3c")))
+			"nova", "split":
+				_splash(c, _tone(Color("9fe4ff")))
+			"aura":
+				_thorns(c, _tone(Color("7dff5a")))
+			"crit_siphon", "vampkill":
+				_heart(c + Vector2(0, 4), 17, _tone(Color("ff5a6a")))
+				_spark(c + Vector2(17, -16), _tone(Color("ffe08a")))
+			"execute":
+				_sword(c, _tone(Color("ff8a8a")))
+			"blink":
+				_chevrons(c, _tone(Color("c9a8ff")))
+			"wolf":
+				_spark(c + Vector2(0, 2), _tone(Color("bfe9ff")))
+				_heart(c + Vector2(15, -15), 8, _tone(Color("ff8fa0")))
+			"static":
+				_bolt(c, _tone(Color("ffe14a")))
+			"gemburst":
+				_spark(c, _tone(Color("b6f27a")))
+			"volley":
+				_arrows(c, _tone(Color("f4f7ff")))
+			"mark":
+				_spark(c, _tone(Color("ffb15a")))
+			"quake":
+				_splash(c, _tone(Color("d0a060")))
+			"bulwark", "taunt":
+				_shield(c, _tone(Color("8fd0ff")))
 			_:
 				_spark(c, _tone(Color("ffe08a")))
 
