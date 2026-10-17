@@ -146,8 +146,8 @@ func portrait(id: String, px: float) -> TextureRect:
 	return rect
 
 
-func body(text: String, size: int = 20) -> Label:
-	var label := UiKit.label(text, size, Color("e7f2ff"), "b", 4)
+func body(text: String, size: int = 24) -> Label:
+	var label := UiKit.label(text, size, Color("efe4cc"), "b", 5)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return label

@@ -605,7 +605,7 @@ class Btn extends Button:
 		for state in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 			add_theme_stylebox_override(state, empty)
 		add_theme_font_override("font", UiKit.font_x)
-		add_theme_font_size_override("font_size", int(clampf(custom_minimum_size.y * 0.36, 18, 42)))
+		add_theme_font_size_override("font_size", int(clampf(custom_minimum_size.y * 0.42, 22, 44)))
 		# Caption is painted in _draw over the frame.
 		for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color", "font_hover_pressed_color"]:
 			add_theme_color_override(key, Color(0, 0, 0, 0))

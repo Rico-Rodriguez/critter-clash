@@ -78,7 +78,7 @@ class HeroCard extends PanelContainer:
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 6)
 		add_child(box)
-		var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 14, cols["lip"], "x", 3)
+		var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 18, Color(cols["lip"]).lightened(0.25), "x", 4)
 		ribbon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(ribbon)
 		var art := ArtWindow.new()
@@ -93,18 +93,18 @@ class HeroCard extends PanelContainer:
 			badge.size = Vector2(54, 60)
 			badge.position = Vector2(-4, 22)
 			art.add_child(badge)
-		var name := UiKit.label(str(info["name"]).to_upper(), 24, UiKit.CREAM, "x", 3)
+		var name := UiKit.label(str(info["name"]).to_upper(), 29, Color("fff1d6") if unlocked else Color("cdbfa6"), "x", 5)
 		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(name)
 		if not unlocked:
-			var locked := UiKit.label(Catalog.unlock_line(id), 16, UiKit.MUTED, "b", 0)
+			var locked := UiKit.label("Unlock: " + Catalog.unlock_line(id), 21, Color("f0cf86"), "b", 4)
 			locked.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			locked.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			box.add_child(locked)
 			return
 		var level := int(row["level"])
 		if level >= Catalog.MAX_CARD_LEVEL:
-			var maxed := UiKit.label("MAX LEVEL", 18, UiKit.GOLD, "x", 3)
+			var maxed := UiKit.label("MAX LEVEL", 22, UiKit.GOLD, "x", 4)
 			maxed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			box.add_child(maxed)
 		else:
@@ -159,16 +159,56 @@ class ArtWindow extends Control:
 			var fit := minf((r.size.x - 12) / ts.x, (r.size.y - 8) / ts.y)
 			var dst := Rect2(c - ts * fit * 0.5 + Vector2(0, 4), ts * fit)
 			if locked:
-				draw_texture_rect(tex, dst, false, Color(0.05, 0.045, 0.04, 0.95))
+				# Silhouette with a faint cold edge so the shape reads.
+				draw_texture_rect(tex, dst.grow(2), false, Color(0.45, 0.55, 0.7, 0.35))
+				draw_texture_rect(tex, dst, false, Color(0.04, 0.04, 0.05, 1.0))
 			else:
 				draw_texture_rect(tex, dst, false)
 		# Inner rim shadow and a top sheen line.
 		UiKit.rr_line(self, r.grow(-1), 9, Color(0, 0, 0, 0.7), 3.0)
 		draw_line(r.position + Vector2(12, 2), Vector2(r.end.x - 12, r.position.y + 2), Color(1, 0.9, 0.7, 0.08), 1.0)
 		if locked:
+			_frost(r)
+			_chain(r.position + Vector2(10, 12), r.end - Vector2(10, 12))
+			_chain(Vector2(r.end.x - 10, r.position.y + 12), Vector2(r.position.x + 10, r.end.y - 12))
+			# A heavy padlock where the chains cross.
+			draw_circle(c + Vector2(0, 3), 34, Color(0, 0, 0, 0.5))
 			var lk := UiKit.icon("lock_closed")
-			var px := 54.0
-			UiKit.draw_icon(self, lk, Rect2(c - Vector2(px, px) * 0.5, Vector2(px, px)), UiKit.GOLD, Color(0.05, 0.03, 0.02), 2.0)
+			var px := 58.0
+			UiKit.draw_icon(self, lk, Rect2(c - Vector2(px, px) * 0.5, Vector2(px, px)), UiKit.GOLD, Color(0.05, 0.03, 0.02), 3.0)
+
+	## Frosted glass over the window: a cold milky wash, brighter at the top,
+	## with a few diagonal glints.
+	func _frost(r: Rect2) -> void:
+		UiKit.ch_fill(self, r, 12, Color(0.62, 0.7, 0.8, 0.2), Color(0.3, 0.36, 0.45, 0.1))
+		for i in 4:
+			var x := r.position.x + r.size.x * (0.12 + 0.24 * i)
+			draw_line(Vector2(x, r.position.y + 8), Vector2(x - 34, r.position.y + 70), Color(0.9, 0.95, 1.0, 0.07), 6.0)
+		draw_line(r.position + Vector2(14, 4), Vector2(r.end.x - 14, r.position.y + 4), Color(0.85, 0.92, 1.0, 0.25), 1.5)
+
+	## A run of iron chain links from a to b.
+	func _chain(a: Vector2, b: Vector2) -> void:
+		var d := b - a
+		var n := int(d.length() / 15.0)
+		var ang := d.angle()
+		for i in n + 1:
+			var p := a + d * (float(i) / float(maxi(n, 1)))
+			var flat := i % 2 == 0
+			var sx := 11.0
+			var sy := 6.0 if flat else 2.6
+			draw_set_transform(p + Vector2(0, 2), ang, Vector2(1, 1))
+			draw_arc(Vector2.ZERO, 1.0, 0, TAU, 2, Color.TRANSPARENT)
+			_link(sx, sy, Color(0, 0, 0, 0.55))
+			draw_set_transform(p, ang, Vector2(1, 1))
+			_link(sx, sy, Color("6d655c") if flat else Color("4a443d"))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	func _link(sx: float, sy: float, col: Color) -> void:
+		var pts := PackedVector2Array()
+		for k in 17:
+			var t := TAU * k / 16.0
+			pts.append(Vector2(cos(t) * sx, sin(t) * sy))
+		draw_polyline(pts, col, 3.2, true)
 
 
 class CardBar extends Control:

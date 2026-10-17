@@ -202,32 +202,34 @@ class Milestone extends Control:
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 2)
 		plaque.add_child(box)
-		var head := UiKit.label(str(e["label"]).to_upper(), 19, UiKit.GOLD.lightened(0.15) if reached else UiKit.CREAM, "x", 3)
+		var head := UiKit.label(str(e["label"]).to_upper(), 24, UiKit.GOLD.lightened(0.2) if reached else Color("fff1d6"), "x", 5)
 		box.add_child(head)
-		box.add_child(UiKit.label(str(e["detail"]), 15, UiKit.MUTED, "b", 0))
+		var detail := UiKit.label(str(e["detail"]), 20, Color("e6d8bc"), "b", 4)
+		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(detail)
 		var tag := HBoxContainer.new()
 		tag.add_theme_constant_override("separation", 6)
 		var gem := UiKit.Gem.new()
 		gem.kind = "trophy"
-		gem.custom_minimum_size = Vector2(24, 24)
+		gem.custom_minimum_size = Vector2(30, 30)
 		tag.add_child(gem)
-		tag.add_child(UiKit.label(str(need), 16, UiKit.CREAM, "b", 0))
+		tag.add_child(UiKit.label(str(need), 22, Color("fff1d6"), "b", 4))
 		box.add_child(tag)
 		if claimed:
-			box.add_child(UiKit.label("CLAIMED", 15, Color("9fe08a"), "x", 2))
+			box.add_child(UiKit.label("CLAIMED", 20, Color("b4f09e"), "x", 4))
 		elif reached:
-			var button := UiKit.confirm("CLAIM", 150, 50)
+			var button := UiKit.confirm("CLAIM", 170, 56)
 			button.pressed.connect(func() -> void: claim.emit(str(entry["id"])))
 			box.add_child(button)
 		else:
-			box.add_child(UiKit.label("%d to go" % (need - int(SaveGame.data["trophies"])), 15, Color("c8a888"), "b", 0))
+			box.add_child(UiKit.label("%d to go" % (need - int(SaveGame.data["trophies"])), 20, Color("f0c890"), "b", 4))
 		add_child(plaque)
 
 	func anchor_at(p: Vector2, w: float) -> void:
 		position = Vector2.ZERO
 		size = Vector2(w, 0)
 		medal.position = p - medal.size * 0.5
-		var pw := minf(250.0, w * 0.4)
+		var pw := minf(290.0, w * 0.43)
 		plaque.custom_minimum_size = Vector2(pw, 0)
 		plaque.reset_size()
 		# Plaque on the open side of the bend.
