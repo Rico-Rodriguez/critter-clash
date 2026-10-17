@@ -32,6 +32,9 @@ var _sparks: Array = []
 var _mark: Node3D
 var _portrait: SubViewport
 var _portrait_for := ""
+var _grass_mats: Array = []
+var _props: Array = []
+var _hero_rim: OmniLight3D
 
 
 func _ready() -> void:
@@ -87,23 +90,23 @@ func bind_pedestal(hero_id: String) -> void:
 	env.fog_enabled = false
 	env.glow_enabled = true
 	env.glow_intensity = 0.15
-	env.tonemap_exposure = 0.92
+	env.tonemap_exposure = 0.95
 	env.background_energy_multiplier = 1.0
 	_apply_env(env)
-	var key := OmniLight3D.new()
-	key.light_color = Color("ffe4bf")
-	key.light_energy = 2.4
-	key.omni_range = 8.0
-	key.position = Vector3(1.4, 2.6, 2.2)
-	key.shadow_enabled = true
-	world_root.add_child(key)
+	sun.light_energy = 0.22
+	sun.shadow_enabled = false
+	_lamp(Color("ffe0b8"), 3.4, Vector3(1.7, 2.5, 2.5), true)
+	_lamp(Color("9eb6de"), 1.35, Vector3(-1.9, 1.5, 1.6), false)
+	_lamp(Color("d5e4ff"), 2.6, Vector3(0.15, 2.3, -2.0), false)
 	_pedestal_set()
 	var body := _spawn_model(hero_id, 1.45)
 	body.position = Vector3(0, 0.55, 0)
 	world_root.add_child(body)
 	_pedestal_hero = body
+	_outline(body)
+	_hide_catch(body)
 	_play(body, "idle")
-	_frame_on(body, 0.46, 2.15)
+	_frame_on(body)
 
 
 func sync_hunt(sim: RunSim, alpha: float) -> void:
@@ -148,6 +151,12 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		if actor.kind == "hero" and actor.team == 0 and actor.alive:
 			_place_mark(_to3(actor.prev.lerp(actor.pos, alpha)))
 			break
+	for mat in _grass_mats:
+		(mat as ShaderMaterial).set_shader_parameter("hero", hero_at)
+	_open_around(hero_at)
+	if _hero_rim != null:
+		_hero_rim.visible = true
+		_hero_rim.position = hero_at + Vector3(-0.9, 1.7, 0.55)
 	_follow(hero_at, 1.0 / 60.0)
 
 
@@ -266,7 +275,14 @@ func _lights() -> void:
 	world_root.add_child(sun)
 	var rim := DirectionalLight3D.new()
 	rim.light_color = Color("c5dcff")
-	rim.light_energy = 1.55
+	rim.light_energy = 1.7
+	_hero_rim = OmniLight3D.new()
+	_hero_rim.light_color = Color("fff4dd")
+	_hero_rim.light_energy = 8.0
+	_hero_rim.omni_range = 2.8
+	_hero_rim.shadow_enabled = false
+	_hero_rim.visible = false
+	world_root.add_child(_hero_rim)
 	rim.shadow_enabled = false
 	rim.rotation_degrees = Vector3(-18, -150, 0)
 	world_root.add_child(rim)
@@ -358,32 +374,32 @@ func _ground(biome_id: String) -> void:
 func _foliage(biome_id: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(biome_id) + 17
-	var count := 220 if _tier() == "low" else (560 if _tier() == "medium" else 820)
-	_scatter(rng, "grass_tall", int(count * 0.48), 1.05, 1.65)
-	_scatter(rng, "grass_short", int(count * 0.32), 0.95, 1.45)
-	_scatter(rng, "grass_wispy", int(count * 0.12), 0.95, 1.4)
-	_scatter(rng, "flower_a", 40, 0.9, 1.3)
-	_scatter(rng, "flower_b", 32, 0.9, 1.3)
-	_scatter(rng, "fern", 26, 0.9, 1.25)
-	_scatter(rng, "clover", 34, 0.85, 1.2)
-	var trees: Array = ["tree_a", "tree_round", "tree_blossom", "bush", "bush_flower", "rock_a", "rock_b"]
+	_grass_mats.clear()
+	_props.clear()
+	var count := 480 if _tier() == "low" else (1500 if _tier() == "medium" else 2200)
+	_scatter(rng, "grass_tall", int(count * 0.5), 0.5, 0.75, true)
+	_scatter(rng, "grass_short", int(count * 0.34), 0.42, 0.62, true)
+	_scatter(rng, "grass_wispy", int(count * 0.2), 0.4, 0.58, true)
+	_scatter(rng, "flower_a", 28, 0.45, 0.68, false)
+	_scatter(rng, "flower_b", 22, 0.45, 0.68, false)
+	_scatter(rng, "clover", 36, 0.4, 0.58, false)
+	if biome_id != "meadow":
+		_scatter(rng, "fern", 18, 0.55, 0.8, false)
+	# Meadow stays oaks and bushes. Round canopies and clay rocks ship
+	# without textures and read as white boulders. Palms are not in this set.
+	var trees: Array = ["tree_a", "tree_b", "bush", "bush_flower"]
 	match biome_id:
 		"mushroom":
-			trees = ["mushroom_tall", "mushroom", "tree_twist", "bush", "rock_a", "fern"]
+			trees = ["mushroom_tall", "mushroom", "tree_twist", "bush"]
 		"frost":
-			trees = ["tree_pine", "tree_pine_b", "rock_a", "rock_c", "bush"]
+			trees = ["tree_pine", "tree_pine_b", "bush"]
 		"volcano":
-			trees = ["tree_dead", "rock_lava", "rock_c", "tree_twist", "rock_b"]
-	for i in (16 if _tier() == "low" else 26):
+			trees = ["tree_dead", "tree_twist", "rock_lava"]
+	for i in (8 if _tier() == "low" else 14):
 		var name: String = trees[i % trees.size()]
 		var at := _rim_point(rng)
-		_place_prop(name, at, rng.randf_range(1.05, 1.7), true)
-	var center := _to3(Vector2(360, 640))
-	for i in 12:
-		var ang := float(i) / 12.0 * TAU + 0.35
-		var rad := rng.randf_range(4.8, 7.6)
-		var at := center + Vector3(cos(ang) * rad, 0.0, sin(ang) * rad * 1.2)
-		_place_prop(trees[i % trees.size()], at, rng.randf_range(1.1, 1.65), true)
+		_place_prop(name, at, rng.randf_range(1.15, 1.55), true)
+	_sketchfab_nature(rng)
 	for i in 8:
 		var light := OmniLight3D.new()
 		light.light_color = Color("ffe0a8") if i % 2 == 0 else Color("c9d8ff")
@@ -395,7 +411,7 @@ func _foliage(biome_id: String) -> void:
 		world_root.add_child(light)
 
 
-func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, hi: float) -> void:
+func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, hi: float, sway: bool) -> void:
 	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
 	if packed == null:
 		return
@@ -418,6 +434,10 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 	var node := MultiMeshInstance3D.new()
 	node.multimesh = multi
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if sway:
+		var grass := _grass_material(source)
+		node.material_override = grass
+		_grass_mats.append(grass)
 	world_root.add_child(node)
 	probe.free()
 
@@ -434,6 +454,8 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 		prop.rotation.y = randf() * TAU
 	if not shadows and node is GeometryInstance3D:
 		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if node is Node3D:
+		_props.append(node)
 	world_root.add_child(node)
 
 
@@ -463,19 +485,17 @@ func _pedestal_set() -> void:
 	pad.material_override = pad_mat
 	pad.position = Vector3(0.0, 0.02, 0.0)
 	world_root.add_child(pad)
-	for model in ["rock_flat", "rock_a", "flower_a", "flower_b", "grass_short"]:
+	for model in ["rock_a", "flower_a", "flower_b", "grass_short"]:
 		var packed := load("res://assets/models/%s.glb" % model) as PackedScene
 		if packed == null:
 			continue
 		var node := packed.instantiate()
 		if node is Node3D:
 			var prop := node as Node3D
-			if model == "rock_flat":
-				prop.position = Vector3(0, 0.15, 0)
-				prop.scale *= Vector3(1.4, 0.7, 1.4)
-			elif model == "rock_a":
-				prop.position = Vector3(0.35, 0.0, 0.2)
-				prop.scale *= 0.8
+			if model == "rock_a":
+				prop.position = Vector3(0.55, 0.0, 0.35)
+				prop.scale *= 0.55
+				_paint_rock(node)
 			else:
 				prop.position = Vector3(randf_range(-0.8, 0.8), 0, randf_range(-0.6, 0.6))
 				prop.scale *= randf_range(0.7, 1.05)
@@ -511,6 +531,8 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	elif actor.kind != "hero":
 		meters = clampf(actor.radius / 40.0, 0.62, 0.92)
 	var body := _spawn_model(actor.sprite, meters)
+	if actor.kind == "hero" and actor.team == 0:
+		_outline(body)
 	body.rotation.y = _yaw(actor.facing, body)
 	actor_root.add_child(body)
 	_bodies[actor.id] = body
@@ -541,6 +563,7 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	var factor := meters / h
 	model.scale *= factor
 	model.position.y -= box.position.y * factor
+	_hide_catch(model)
 	_tint(model, Cast3D.tint(sprite))
 	return root
 
@@ -572,9 +595,7 @@ func _play(body: Node3D, state: String) -> void:
 		_pose(body, state)
 		return
 	var clips: Dictionary = body.get_meta("clips")
-	var name := str(clips.get(state, ""))
-	if name == "" or not player.has_animation(name):
-		name = str(clips.get("idle", ""))
+	var name := _clip_name(player, clips, state)
 	if name != "" and player.has_animation(name):
 		player.play(name, 0.14)
 		if state == "attack":
@@ -606,30 +627,26 @@ func _follow(hero: Vector3, delta: float) -> void:
 	if not _ready_cam:
 		_look = hero
 		_ready_cam = true
-	var delta_v := hero - _look
-	var push := Vector3(_past(delta_v.x, 0.5), 0.0, _past(delta_v.z, 0.65))
-	var target := _look + push
-	var blend := 1.0 - exp(-7.0 * delta)
-	_look = _look.lerp(target, blend)
-	_look.x = clampf(_look.x, 2.2, 720.0 * SCALE - 2.2)
-	_look.z = clampf(_look.z, 4.0, 1280.0 * SCALE - 3.2)
+	else:
+		_look = _look.lerp(hero, 1.0 - exp(-12.0 * delta))
 	_frame(_look)
 
 
 func _frame(look: Vector3) -> void:
 	var back := Vector3(0.0, sin(PITCH), cos(PITCH)) * _dist
 	camera.position = look + back + _shake
-	# Look past the hero so the body sits a little below the middle.
-	camera.look_at(look + Vector3(0.0, 0.62, -_dist * 0.11), Vector3.UP)
+	# Aim above the chest so the body sits a little below the middle.
+	camera.look_at(look + Vector3(0.0, 1.05, 0.0), Vector3.UP)
 
 
-func _frame_on(body: Node3D, height_bias: float, distance_mul: float) -> void:
-	var box := _measure(body)
-	var focus := body.position + box.position + box.size * Vector3(0.5, height_bias, 0.5)
-	var span := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.72)
-	span = maxf(span, 0.8)
-	camera.fov = 32.0
-	camera.position = focus + Vector3(span * 0.42, span * 0.2, span * distance_mul)
+func _frame_on(body: Node3D) -> void:
+	var box := _measure_local(body)
+	var focus := body.position + box.position + box.size * Vector3(0.5, 0.42, 0.5)
+	var span := maxf(box.size.x, maxf(box.size.y, box.size.z))
+	span = maxf(span, 1.0)
+	camera.fov = 28.0
+	var dist := span * 2.8
+	camera.position = focus + Vector3(dist * 0.42, dist * 0.32, dist)
 	camera.look_at(focus, Vector3.UP)
 
 
@@ -719,13 +736,21 @@ func portrait_of(hero_id: String) -> Texture2D:
 	root.add_child(cam)
 	var body := _spawn_model(hero_id, 1.2)
 	root.add_child(body)
+	_hide_catch(body)
 	_play(body, "idle")
-	var box := _measure(body)
-	var focus := box.position + box.size * Vector3(0.5, 0.7, 0.5)
-	var span := maxf(box.size.y, 0.5)
-	cam.fov = 26.0
-	cam.position = focus + Vector3(span * 0.45, span * 0.12, span * 1.05)
-	cam.look_at(focus, Vector3.UP)
+	var box := _measure_local(body)
+	var center := box.position + box.size * 0.5
+	var forward := Vector3(0.0, 0.0, 1.0)
+	var marker := _find_named(body, "Forward")
+	if marker != null:
+		var aimed := _local_point(marker, body)
+		aimed.y = 0.0
+		if aimed.length() > 0.05:
+			forward = aimed.normalized()
+	var head := center + forward * maxf(box.size.z, box.size.x) * 0.28 + Vector3(0.0, box.size.y * 0.18, 0.0)
+	cam.fov = 18.0
+	cam.position = head + forward * maxf(box.size.y, 0.6) * 1.15 + Vector3(0.0, box.size.y * 0.08, 0.0)
+	cam.look_at(head, Vector3.UP)
 	_portrait = vp
 	return vp.get_texture()
 
@@ -926,15 +951,154 @@ func _find_named(node: Node, wanted: String) -> Node3D:
 	return null
 
 
+func _lamp(color: Color, energy: float, pos: Vector3, shadows: bool) -> void:
+	var light := OmniLight3D.new()
+	light.light_color = color
+	light.light_energy = energy
+	light.omni_range = 8.0
+	light.shadow_enabled = shadows
+	light.position = pos
+	world_root.add_child(light)
+
+
+func _grass_material(source: MeshInstance3D) -> ShaderMaterial:
+	var tex: Texture2D = null
+	var mat := source.get_active_material(0)
+	if mat is StandardMaterial3D:
+		tex = (mat as StandardMaterial3D).albedo_texture
+	var shader_mat := ShaderMaterial.new()
+	shader_mat.shader = load("res://shaders/grass.gdshader")
+	shader_mat.set_shader_parameter("albedo_tex", tex)
+	shader_mat.set_shader_parameter("clear_radius", 1.45)
+	shader_mat.set_shader_parameter("fade_radius", 2.35)
+	return shader_mat
+
+
+func _open_around(hero: Vector3) -> void:
+	for node in _props:
+		var prop := node as Node3D
+		if prop == null:
+			continue
+		var flat := Vector2(prop.position.x - hero.x, prop.position.z - hero.z)
+		prop.visible = flat.length() > 3.1
+
+
+func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
+	var dir := DirAccess.open("res://assets/models/sketchfab/nature")
+	if dir == null:
+		return
+	var names: Array = []
+	dir.list_dir_begin()
+	var file := dir.get_next()
+	while file != "":
+		if not dir.current_is_dir() and file.ends_with(".glb"):
+			names.append(file)
+		file = dir.get_next()
+	dir.list_dir_end()
+	if names.is_empty():
+		return
+	for i in mini(names.size(), 8):
+		var packed := load("res://assets/models/sketchfab/nature/%s" % names[i]) as PackedScene
+		if packed == null:
+			continue
+		var node := packed.instantiate()
+		if node is Node3D:
+			var prop := node as Node3D
+			prop.position = _rim_point(rng)
+			prop.scale *= rng.randf_range(0.9, 1.3)
+			prop.rotation.y = rng.randf() * TAU
+			_props.append(prop)
+		world_root.add_child(node)
+
+
+func _paint_rock(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = load("res://assets/textures/rock_color.jpg")
+		mat.albedo_color = Color("8d847c")
+		mat.roughness = 0.92
+		(node as MeshInstance3D).material_override = mat
+	for child in node.get_children():
+		_paint_rock(child)
+
+
+func _outline(root: Node) -> void:
+	var shader: Shader = load("res://shaders/outline.gdshader")
+	_outline_walk(root, shader)
+
+
+func _outline_walk(node: Node, shader: Shader) -> void:
+	if node is MeshInstance3D and not str(node.name).begins_with("Catch"):
+		var mesh := node as MeshInstance3D
+		if mesh.mesh:
+			for i in mesh.mesh.get_surface_count():
+				var base := mesh.get_active_material(i)
+				if base == null:
+					continue
+				var mat := base.duplicate()
+				var shell := ShaderMaterial.new()
+				shell.shader = shader
+				shell.set_shader_parameter("grow", 0.04)
+				shell.set_shader_parameter("line_color", Color("ffe6a8"))
+				mat.next_pass = shell
+				mesh.set_surface_override_material(i, mat)
+	for child in node.get_children():
+		_outline_walk(child, shader)
+
+
+func _hide_catch(node: Node) -> void:
+	if str(node.name).begins_with("Catch") and node is Node3D:
+		(node as Node3D).visible = false
+	for child in node.get_children():
+		_hide_catch(child)
+
+
+func _clip_name(player: AnimationPlayer, clips: Dictionary, state: String) -> String:
+	var named := str(clips.get(state, ""))
+	if named != "" and player.has_animation(named):
+		return named
+	var keys: Array = ["idle", "stand"]
+	match state:
+		"run":
+			keys = ["run", "walk", "move", "fly", "locomotion"]
+		"attack":
+			keys = ["attack", "punch", "bite", "slash", "shoot", "fly"]
+		"hit":
+			keys = ["hit", "hurt", "react", "damage"]
+		"death":
+			keys = ["death", "die", "dead"]
+	for anim in player.get_animation_list():
+		var low := anim.to_lower()
+		for key in keys:
+			if key in low:
+				return anim
+	var idle := str(clips.get("idle", ""))
+	if idle != "" and player.has_animation(idle):
+		return idle
+	return ""
+
+
+func _measure_local(node: Node) -> AABB:
+	var acc := {"ok": false, "box": AABB()}
+	for child in node.get_children():
+		_measure_into(child, Transform3D.IDENTITY, acc)
+	if not bool(acc["ok"]):
+		return AABB(Vector3.ZERO, Vector3(0.4, 1.0, 0.4))
+	return acc["box"]
+
+
+func _local_point(node: Node3D, root: Node) -> Vector3:
+	var point := Vector3.ZERO
+	var cur: Node = node
+	while cur != null and cur != root:
+		if cur is Node3D:
+			point = (cur as Node3D).transform * point
+		cur = cur.get_parent()
+	return point
+
+
 func _to3(pos: Vector2) -> Vector3:
 	return Vector3(pos.x * SCALE, 0.0, pos.y * SCALE)
-
-
-func _past(delta: float, limit: float) -> float:
-	var excess := absf(delta) - limit
-	if excess <= 0.0:
-		return 0.0
-	return signf(delta) * excess
 
 
 func _biome_tint(biome_id: String) -> Vector3:

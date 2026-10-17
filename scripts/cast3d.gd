@@ -4,9 +4,22 @@ extends RefCounted
 ## Which licensed model plays each critter, and which clip covers each action.
 ## Heroes keep the meshes the owner already liked: dragon, fox, otter, owl,
 ## frog, cactus-hog. Minions and bosses reuse that same rigged cast, tinted.
+##
+## Drop a CC0 or CC-BY Sketchfab GLB on top of a family to replace it:
+##   assets/models/sketchfab/ember.glb    Stylized Dragon
+##   assets/models/sketchfab/juniper.glb  KAI or GIGI fox
+##   assets/models/sketchfab/pebble.glb   otter, when one is licensed
+##   assets/models/sketchfab/lumen.glb    owl
+##   assets/models/sketchfab/pip.glb      frog
+##   assets/models/sketchfab/bramble.glb  hedgehog
+##   assets/models/sketchfab/thistle.glb  Mushroom Boss
+## Rim plants from a vegetation pack go in assets/models/sketchfab/nature/.
 
 
 static func model(id: String) -> String:
+	var over := "res://assets/models/sketchfab/%s.glb" % family(id)
+	if ResourceLoader.exists(over):
+		return over
 	var file := "ember_base"
 	match id:
 		"ember", "cindling", "cinder":
@@ -42,8 +55,28 @@ static func model(id: String) -> String:
 	return "res://assets/models/%s.glb" % file
 
 
+static func family(id: String) -> String:
+	match id:
+		"ember", "cindling", "cinder":
+			return "ember"
+		"juniper", "snowpup", "nimbus":
+			return "juniper"
+		"pebble", "boarlet", "puddle":
+			return "pebble"
+		"lumen", "moth", "ashbat", "glowmoth", "icewisp":
+			return "lumen"
+		"pip", "beetle", "spore", "shard", "skink", "caplet":
+			return "pip"
+		"thistle":
+			return "thistle"
+		_:
+			return "bramble"
+
+
 static func clips(id: String) -> Dictionary:
 	var path := model(id)
+	if "/sketchfab/" in path:
+		return {"idle": "Idle", "run": "Run", "attack": "Attack", "hit": "Hit", "death": "Death"}
 	if "ember_" in path or "lumen_" in path:
 		return {"idle": "Flying_Idle" if "ember_" in path else "Idle", "run": "Fly", "attack": "Fly", "hit": "", "death": ""}
 	if "juniper_" in path or "pebble_" in path:

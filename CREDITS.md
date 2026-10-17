@@ -23,6 +23,7 @@ Critter Clash is an original game. The hunt, the roster, and the interface are o
 - Lumen the owl: Pixor "Owl" — https://pixor.art/library/creatures/owl/ — CC0. Files `lumen_*.glb`.
 - Pip the frog and Bramble the cactus-hog, plus minions that share those rigs: Quaternius Ultimate Monsters — https://quaternius.com — CC0. Files `pip_*.glb` (Frog) and `bramble_*.glb` (Cactoro, sombrero brim pulled in). Clips include Idle, Run, Punch, HitReact, and Death.
 - Thistle the meadow boss: Quaternius Ultimate Monsters "Demon" — https://quaternius.com/packs/ultimatemonsters.html — CC0. File `assets/models/thistle_boss.gltf`. Same clip set, including a trident.
+- Sketchfab replacements, when a file is present, win over the CC0 mesh. Only CC0 and CC-BY belong in this folder. Record the artist, URL, and license here before shipping one. Expected names: `assets/models/sketchfab/ember.glb` (Stylized Dragon), `juniper.glb` (KAI or GIGI fox), `thistle.glb` (Mushroom Boss), and vegetation pieces in `assets/models/sketchfab/nature/`. Nothing from Sketchfab is in the build until those files are added.
 - Trees, rocks, grass, flowers, mushrooms, and the pedestal stones: Quaternius Stylized Nature MegaKit — https://quaternius.com/packs/stylizednature.html — CC0.
 
 ## Textures and sky
