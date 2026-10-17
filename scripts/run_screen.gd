@@ -239,6 +239,8 @@ func _build_modal() -> void:
 	modal.set_anchors_preset(Control.PRESET_FULL_RECT)
 	modal.visible = false
 	modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Above the damage numbers (z 1000 in the world layer), so no float crosses a modal.
+	modal.z_index = 2000
 	add_child(modal)
 	var dim := ColorRect.new()
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -542,7 +544,7 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.visible = true
 	label.text = text
 	label.modulate = Color(1, 1, 1, 1)
-	label.z_index = 4096
+	label.z_index = 1000
 	label.add_theme_font_override("font", UiKit.font_n)
 	label.add_theme_font_size_override("font_size", 70 if big else 48)
 	label.add_theme_color_override("font_color", color)
@@ -665,7 +667,7 @@ func _offer_card(index: int, id: String) -> Button:
 	var icon := CardIcon.new()
 	icon.op = str(info.get("op", ""))
 	icon.rarity = rarity
-	icon.custom_minimum_size = Vector2(0, 132)
+	icon.custom_minimum_size = Vector2(0, 168)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
 	var name := UiKit.label(str(info.get("name", id)), 22, UiKit.GOLD.lightened(0.2), "x", 3)
@@ -1037,30 +1039,69 @@ class CardIcon extends Control:
 	var _shadow := false
 
 	func _draw() -> void:
-		var c := Vector2(size.x * 0.5, size.y * 0.52)
+		var c := Vector2(size.x * 0.5, size.y * 0.5)
 		var metal := UiKit.rarity_metal(rarity)
 		var glow: Color = UiKit.rarity_colors(rarity)["glow"]
-		for k in 6:
-			draw_circle(c, 62.0 - k * 2.5, Color(glow, 0.035))
-		draw_circle(c + Vector2(0, 5), 54, Color(0, 0, 0, 0.55))
-		draw_circle(c, 52, Color("120a04"))
-		draw_arc(c, 48, 0, TAU, 48, metal[1], 7.0, true)
-		draw_arc(c, 48, PI * 1.05, PI * 1.95, 24, metal[0], 3.0, true)
-		draw_circle(c, 44, Color("0c0806"))
-		for k in 5:
-			draw_circle(c, 40.0 - k * 7.0, Color(glow, 0.06))
-		# Cast shadow first, then the glyph in muted, metal-leaning colour.
+		var rank := {"common": 0, "rare": 1, "epic": 2, "legendary": 3}.get(rarity, 0) as int
+		# Sunburst behind the medallion: bronze for commons, brighter and
+		# denser with rarity.
+		var rays := 12 + rank * 4
+		var ray_col := Color(glow, 0.4 + rank * 0.08) if rank > 0 else Color(0.95, 0.68, 0.36, 0.38)
+		for i in rays:
+			var ang := TAU * i / float(rays) - PI * 0.5
+			var far := 84.0 if i % 2 == 0 else 70.0
+			draw_polygon(PackedVector2Array([c, c + Vector2.from_angle(ang - 0.07) * far, c + Vector2.from_angle(ang + 0.07) * far]),
+				PackedColorArray([ray_col, Color(ray_col, 0.0), Color(ray_col, 0.0)]))
+		for k in 8:
+			draw_circle(c, 70.0 - k * 3.0, Color(glow if rank > 0 else Color(0.9, 0.62, 0.3), 0.03))
+		# Forged ring: drop shadow, dark bezel, two-tone metal with a lit
+		# upper arc, engraved ticks, and four rivets.
+		draw_circle(c + Vector2(0, 6), 62, Color(0, 0, 0, 0.6))
+		draw_circle(c, 61, Color("120a04"))
+		draw_arc(c, 56, 0, TAU, 64, metal[1], 10.0, true)
+		draw_arc(c, 56, PI * 1.02, PI * 1.98, 32, metal[0], 5.0, true)
+		draw_arc(c, 61, 0, TAU, 64, Color("120a04"), 2.0, true)
+		for i in 24:
+			var ang := TAU * i / 24.0
+			draw_line(c + Vector2.from_angle(ang) * 52.5, c + Vector2.from_angle(ang) * 59.0, Color(metal[1].darkened(0.45), 0.9), 1.5, true)
+		for i in 4:
+			var at := c + Vector2.from_angle(TAU * i / 4.0 + PI * 0.25) * 56.0
+			draw_circle(at, 4.2, Color("120a04"))
+			draw_circle(at, 3.2, metal[0])
+			draw_circle(at - Vector2(1, 1), 1.2, Color(1, 1, 1, 0.7))
+		# Domed enamel face tinted by rarity, lit from the upper left.
+		var face := Color(glow).darkened(0.72) if rank > 0 else Color("2a1c12")
+		draw_circle(c, 50, Color("0a0605"))
+		for k in 10:
+			var r := 49.0 - k * 4.2
+			draw_circle(c + Vector2(-k * 0.9, -k * 1.1), r, face.lightened(k * 0.035))
+		# Glyph: larger, with a dark outline and a drop shadow.
+		var sc := 1.42
 		_shadow = true
-		draw_set_transform(Vector2(0, 4))
+		for off in [Vector2(0, 5), Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
+			draw_set_transform(c - c * sc + off, 0.0, Vector2(sc, sc))
+			_glyphs(c)
+		_shadow = false
+		draw_set_transform(c - c * sc, 0.0, Vector2(sc, sc))
 		_glyphs(c)
 		draw_set_transform(Vector2.ZERO)
-		_shadow = false
-		_glyphs(c)
+		# Glass sheen over the top of the dome.
+		var sheen := PackedVector2Array()
+		var cols := PackedColorArray()
+		for i in 17:
+			var ang := PI * 1.12 + PI * 0.76 * i / 16.0
+			sheen.append(c + Vector2.from_angle(ang) * 46.0)
+			cols.append(Color(1, 1, 1, 0.16))
+		for i in 17:
+			var ang := PI * 1.88 - PI * 0.76 * i / 16.0
+			sheen.append(c + Vector2.from_angle(ang) * 30.0 + Vector2(0, -6))
+			cols.append(Color(1, 1, 1, 0.0))
+		draw_polygon(sheen, cols)
 
 	func _tone(col: Color) -> Color:
 		if _shadow:
-			return Color(0, 0, 0, 0.6)
-		return col.lerp(Color("e2c48a"), 0.28).darkened(0.05)
+			return Color(0.03, 0.02, 0.01, 0.55)
+		return col.lerp(Color("f0d6a0"), 0.18)
 
 	func _glyphs(c: Vector2) -> void:
 		match op:
