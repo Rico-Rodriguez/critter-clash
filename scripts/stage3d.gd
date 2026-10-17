@@ -228,6 +228,9 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		var turn := 1.0 - exp(-(45.0 if actor.kind == "hero" else 16.0) * dt)
 		body.rotation.y = lerp_angle(body.rotation.y, _yaw(actor.facing, body), turn)
 		_anim(body, actor)
+		if actor.kind == "hero" and not actor.alive and bool(body.get_meta("dying", false)):
+			# The hero topples and stays down (no fade) under the defeat card.
+			_dying(body, Time.get_ticks_msec() / 1000.0, false)
 		if actor.kind == "boss":
 			_boss_fx(body, actor)
 		if actor.kind == "hero" and actor.team == 0:
@@ -267,6 +270,7 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		(mat as ShaderMaterial).set_shader_parameter("hero", hero_at)
 	_open_around(hero_at)
 	_threat_rings(sim, hero_at)
+	_sync_mob_decals(sim, hero_at)
 	var focus := hero_at
 	if boss_up:
 		# Lean the view toward the boss so its telegraphs stay on screen.
@@ -462,6 +466,20 @@ func hurt(actor_id: int) -> void:
 ## Hit flash: a quick warm emissive tint on the body's own materials. No
 ## overlay or outline swap, so nothing but the critter's surface changes.
 func _flash(body: Node3D) -> void:
+	if body.has_meta("mob"):
+		# Shared minion materials: the flash is a per-instance uniform.
+		var stamp_m := Time.get_ticks_msec()
+		body.set_meta("flash_stamp", stamp_m)
+		var gis := body.find_children("*", "MeshInstance3D", true, false)
+		for gi in gis:
+			(gi as GeometryInstance3D).set_instance_shader_parameter("flash", 0.3)
+		get_tree().create_timer(0.07).timeout.connect(func() -> void:
+			if not is_instance_valid(body) or int(body.get_meta("flash_stamp", 0)) != stamp_m:
+				return
+			for gi in gis:
+				if is_instance_valid(gi):
+					(gi as GeometryInstance3D).set_instance_shader_parameter("flash", 0.0))
+		return
 	if not body.has_meta("big"):
 		body.set_meta("big", _measure(body).size.y * body.scale.y > HERO_METERS * 2.0)
 	# Low energy: a warm glint over the painted surface, not a flat fill.
@@ -1332,15 +1350,19 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		# outline read as a thick toon stroke round the PBR cap.
 		pass
 	elif actor.kind != "hero":
-		_outline(body, Color("3a0a08"), 0.013)
-		_mob_rim(body)
+		# One draw per critter: merged mesh, shared material with the ink
+		# edge and rim folded in (see _mob_share), and the contact shadow
+		# drawn by the shared minion MultiMesh (_sync_mob_decals).
+		_mob_share(body, actor.sprite)
+		body.set_meta("mob", true)
+		body.set_meta("decal_size", meters * 1.1)
 		if _tier() != "high":
 			# Minions already sit on a contact-shadow decal; a real shadow
 			# per critter costs a draw per split for little gain on phones.
 			for gi in body.find_children("*", "GeometryInstance3D", true, false):
 				(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	if actor.kind != "hero":
-		# Every hostile gets a soft contact shadow. Its threat ring is a thin,
+	if actor.kind == "boss":
+		# The boss gets its own soft contact shadow. Its threat ring is a thin,
 		# soft, low-opacity line that fades in only when the critter is close
 		# to the hero or winding up (see _threat_rings).
 		var boss := actor.kind == "boss"
@@ -1453,6 +1475,205 @@ func _boss_fx(body: Node3D, actor: RunSim.Actor) -> void:
 ## pass, so no extra draw calls), plus a little more roughness so the
 ## surface reads as painted skin rather than plastic. One shared copy per
 ## source material keeps instances batching together.
+## Minion batching. The first critter of a sprite builds the shared parts:
+## a merged mesh when the model is several skinned pieces of flat colour
+## (the owl is 8 meshes / 10 surfaces), and one ShaderMaterial per surface
+## (mob.gdshader: paint, rim and ink edge in one pass). Every later critter
+## of that sprite reuses them, so a minion is one draw and one material.
+var _mob_cache := {}
+func _mob_share(body: Node3D, sprite: String) -> void:
+	if body.get_child_count() == 0:
+		return
+	var model := body.get_child(0)
+	var meshes: Array = []
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh != null and m.visible and not str(m.name).begins_with("Catch"):
+			meshes.append(m)
+	if meshes.is_empty():
+		return
+	var entry: Dictionary = _mob_cache.get(sprite, {})
+	if entry.is_empty():
+		entry = _mob_build(meshes, sprite)
+		_mob_cache[sprite] = entry
+	if entry.has("merged"):
+		var keep := meshes[0] as MeshInstance3D
+		keep.mesh = entry["merged"]
+		for i in (entry["mats"] as Array).size():
+			keep.set_surface_override_material(i, entry["mats"][i])
+		for k in range(1, meshes.size()):
+			(meshes[k] as Node).get_parent().remove_child(meshes[k])
+			(meshes[k] as Node).queue_free()
+		return
+	var mats: Array = entry["mats"]
+	var n := 0
+	for m in meshes:
+		for i in (m as MeshInstance3D).mesh.get_surface_count():
+			if n < mats.size() and mats[n] != null:
+				(m as MeshInstance3D).set_surface_override_material(i, mats[n])
+			n += 1
+
+
+func _mob_build(meshes: Array, sprite: String) -> Dictionary:
+	var first := meshes[0] as MeshInstance3D
+	var can_merge := meshes.size() > 1
+	for m in meshes:
+		var mi := m as MeshInstance3D
+		if mi.skin != first.skin or mi.skeleton != first.skeleton or mi.get_parent() != first.get_parent() or mi.transform != first.transform or mi.mesh.get_blend_shape_count() > 0:
+			can_merge = false
+		for i in mi.mesh.get_surface_count():
+			var mat := mi.get_active_material(i)
+			if not (mat is StandardMaterial3D) or (mat as StandardMaterial3D).albedo_texture != null or mi.mesh.surface_get_primitive_type(i) != Mesh.PRIMITIVE_TRIANGLES:
+				can_merge = false
+	if can_merge:
+		var acc := {}
+		var flags := 0
+		for m in meshes:
+			var mi := m as MeshInstance3D
+			for i in mi.mesh.get_surface_count():
+				var arr := mi.mesh.surface_get_arrays(i)
+				flags |= mi.mesh.surface_get_format(i) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+				# The part's own colour (beak, eyes, face) under the biome tint,
+				# instead of one flat tint over the whole critter.
+				var own := mi.mesh.surface_get_material(i) as StandardMaterial3D
+				var col := (own.albedo_color if own else Color.WHITE) * Cast3D.tint(sprite)
+				_mob_append(acc, arr, col.srgb_to_linear())
+		var out := []
+		out.resize(Mesh.ARRAY_MAX)
+		out[Mesh.ARRAY_VERTEX] = acc["v"]
+		out[Mesh.ARRAY_NORMAL] = acc["n"]
+		if acc.has("t"):
+			out[Mesh.ARRAY_TANGENT] = acc["t"]
+		out[Mesh.ARRAY_COLOR] = acc["c"]
+		out[Mesh.ARRAY_BONES] = acc["b"]
+		out[Mesh.ARRAY_WEIGHTS] = acc["w"]
+		out[Mesh.ARRAY_INDEX] = acc["i"]
+		var merged := ArrayMesh.new()
+		merged.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out, [], {}, flags)
+		var mat := _mob_mat(first.get_active_material(0) as StandardMaterial3D, true)
+		return {"merged": merged, "mats": [mat]}
+	var mats: Array = []
+	for m in meshes:
+		var mi := m as MeshInstance3D
+		for i in mi.mesh.get_surface_count():
+			var src := mi.get_active_material(i)
+			mats.append(_mob_mat(src as StandardMaterial3D, false) if src is StandardMaterial3D else null)
+	return {"mats": mats}
+
+
+func _mob_append(acc: Dictionary, arr: Array, col: Color) -> void:
+	if acc.is_empty():
+		acc["v"] = PackedVector3Array()
+		acc["n"] = PackedVector3Array()
+		acc["t"] = PackedFloat32Array()
+		acc["c"] = PackedColorArray()
+		acc["b"] = PackedInt32Array()
+		acc["w"] = PackedFloat32Array()
+		acc["i"] = PackedInt32Array()
+	var base: int = (acc["v"] as PackedVector3Array).size()
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	acc["v"].append_array(verts)
+	acc["n"].append_array(arr[Mesh.ARRAY_NORMAL])
+	if arr[Mesh.ARRAY_TANGENT] != null and acc.has("t"):
+		acc["t"].append_array(arr[Mesh.ARRAY_TANGENT])
+	else:
+		acc.erase("t")
+	var cols := PackedColorArray()
+	cols.resize(verts.size())
+	cols.fill(col)
+	acc["c"].append_array(cols)
+	acc["b"].append_array(arr[Mesh.ARRAY_BONES])
+	acc["w"].append_array(arr[Mesh.ARRAY_WEIGHTS])
+	var idx = arr[Mesh.ARRAY_INDEX]
+	if idx == null:
+		idx = PackedInt32Array(range(verts.size()))
+	for k in (idx as PackedInt32Array):
+		acc["i"].append(k + base)
+
+
+static var _mob_shader: Shader
+func _mob_mat(src: StandardMaterial3D, vcol: bool) -> ShaderMaterial:
+	if _mob_shader == null:
+		_mob_shader = load("res://shaders/mob.gdshader")
+	var mat := ShaderMaterial.new()
+	mat.shader = _mob_shader
+	mat.set_shader_parameter("albedo", Color.WHITE if vcol else src.albedo_color)
+	# Merged parts carry their own colour; keep the paint lift on top.
+	if vcol and src.detail_enabled:
+		mat.set_shader_parameter("albedo", Color(1.12, 1.1, 1.08))
+	mat.set_shader_parameter("use_vcol", vcol)
+	if src.albedo_texture != null:
+		mat.set_shader_parameter("use_tex", true)
+		mat.set_shader_parameter("albedo_tex", src.albedo_texture)
+	mat.set_shader_parameter("use_grain", src.detail_enabled)
+	if src.detail_enabled:
+		mat.set_shader_parameter("grain_tex", src.detail_albedo)
+		mat.set_shader_parameter("grain_nrm", src.detail_normal)
+		mat.set_shader_parameter("grain_scale", src.uv2_scale.x)
+	mat.set_shader_parameter("roughness", maxf(src.roughness, 0.7))
+	mat.set_shader_parameter("specular", src.metallic_specular)
+	mat.set_shader_parameter("rim", 0.55)
+	mat.set_shader_parameter("rim_tint", 0.35)
+	mat.set_shader_parameter("sss", src.subsurf_scatter_strength if src.subsurf_scatter_enabled and _tier() == "high" else 0.0)
+	mat.set_shader_parameter("clearcoat", src.clearcoat if src.clearcoat_enabled else 0.0)
+	mat.set_shader_parameter("ink_color", Color("3a0a08"))
+	return mat
+
+
+## Every minion's soft contact shadow and threat ring in one MultiMesh draw.
+## Per instance: transform (position, size) and custom data (ring fade,
+## shadow fade while it dies).
+var _mob_mm: MultiMeshInstance3D
+const MOB_DECALS := 96
+func _sync_mob_decals(sim: RunSim, hero_at: Vector3) -> void:
+	if _mob_mm == null or not is_instance_valid(_mob_mm):
+		if _decal_shader == null:
+			_decal_shader = load("res://shaders/ground_decal.gdshader")
+		var quad := QuadMesh.new()
+		quad.orientation = PlaneMesh.FACE_Y
+		quad.size = Vector2.ONE
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = quad
+		mm.instance_count = MOB_DECALS
+		mm.visible_instance_count = 0
+		var mat := ShaderMaterial.new()
+		mat.shader = _decal_shader
+		var params := {"ring_color": Color(0.95, 0.22, 0.12, 0.36), "ring_radius": 0.4, "ring_width": 0.012,
+				"ring_glow": 0.6, "shadow_alpha": 0.7, "shadow_radius": 0.44, "pulse": 1.0, "per_instance": true}
+		for key in params:
+			mat.set_shader_parameter(key, params[key])
+		_mob_mm = MultiMeshInstance3D.new()
+		_mob_mm.multimesh = mm
+		_mob_mm.material_override = mat
+		_mob_mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_mob_mm.custom_aabb = AABB(Vector3(-500, -5, -500), Vector3(1000, 10, 1000))
+		_mob_mm.set_meta("decal", true)
+		actor_root.add_child(_mob_mm)
+	var wind := {}
+	for actor in sim.actors:
+		if actor.kind == "minion" and actor.boss_state == "windup":
+			wind[actor.id] = true
+	var mm := _mob_mm.multimesh
+	var n := 0
+	for id in _bodies:
+		var body: Node3D = _bodies[id]
+		if not body.has_meta("mob") or n >= MOB_DECALS:
+			continue
+		var dying := bool(body.get_meta("dying", false))
+		var d := Vector2(body.position.x - hero_at.x, body.position.z - hero_at.z).length()
+		var want := 0.0 if dying else (1.0 if d < 3.6 or wind.has(id) else 0.0)
+		var ring := lerpf(float(body.get_meta("ring", 0.0)), want, 0.12)
+		body.set_meta("ring", ring)
+		var size := float(body.get_meta("decal_size", 1.0))
+		var pos := body.position + Vector3(0, 0.03, 0)
+		mm.set_instance_transform(n, Transform3D(Basis.from_scale(Vector3(size, 1.0, size)), pos))
+		mm.set_instance_custom_data(n, Color(ring, 1.0 - float(body.get_meta("fade", 0.0)), 0, 0))
+		n += 1
+	mm.visible_instance_count = n
+
+
 var _rim_cache := {}
 func _mob_rim(body: Node3D) -> void:
 	for mi in body.find_children("*", "MeshInstance3D", true, false):
@@ -2049,7 +2270,7 @@ func _motion(body: Node3D, moving: bool, now: float, speed_k: float) -> void:
 
 ## Death: the model's own clip if it has one, else a topple; either way it
 ## sinks and dissolves out instead of vanishing.
-func _dying(body: Node3D, now: float) -> void:
+func _dying(body: Node3D, now: float, vanish := true) -> void:
 	if body.get_child_count() == 0:
 		return
 	var d := clampf((now - float(body.get_meta("die_at", now))) / 1.0, 0.0, 1.0)
@@ -2066,7 +2287,7 @@ func _dying(body: Node3D, now: float) -> void:
 	var flat := 1.0 - 0.25 * smoothstep(0.2, 0.6, d)
 	var basis := Basis(side, topple)
 	model.transform = Transform3D(basis * Basis.from_scale(s0 * Vector3(1.0, flat, 1.0)), basis * base - Vector3(0, sink, 0))
-	var fade := smoothstep(0.4, 1.0, d)
+	var fade := smoothstep(0.4, 1.0, d) if vanish else 0.0
 	if absf(fade - float(body.get_meta("fade", -1.0))) > 0.02:
 		body.set_meta("fade", fade)
 		for gi in body.find_children("*", "GeometryInstance3D", true, false):

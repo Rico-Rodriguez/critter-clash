@@ -525,7 +525,11 @@ func _drain() -> void:
 					SaveGame.commit_defeat(biome_id, sim.slain)
 				AudioDirector.sting(false)
 				AudioDirector.haptic("heavy")
-				_show_defeat(str(ev.get("reason", "")))
+				# Let the fall read before the card covers it.
+				var why := str(ev.get("reason", ""))
+				get_tree().create_timer(0.2 if why == "time" else 1.3).timeout.connect(func() -> void:
+					if is_inside_tree():
+						_show_defeat(why))
 			"revive":
 				_banner("Second wind!")
 				AudioDirector.sfx("levelup")
