@@ -14,11 +14,131 @@ func build() -> void:
 	box.add_child(body("Levels 1–99 on the long curve. Gathering opens in a later season."))
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 16)
-	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(list)
 	for entry in Catalog.SKILLS:
 		list.add_child(SkillRow.new(str(entry["id"]), str(entry["name"])))
+	var hold := CenterContainer.new()
+	hold.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(hold)
+	var total := TotalPanel.new()
+	total.custom_minimum_size = Vector2(minf(620.0, get_viewport_rect().size.x - 64.0), 0)
+	hold.add_child(total)
 	box.add_child(back_button("home"))
+
+
+## Total level across every skill, which seals the milestone rewards. This is
+## the long goal on the page: a crest with the total, the next milestone, and
+## a line of lore so the page reads as a ledger, not a stub.
+const MILESTONES: Array = [
+	[10, "Wayfarer's Satchel", "A sturdier pack for the trail."],
+	[50, "Warden's Lantern", "Marks rare finds through the fog."],
+	[150, "Antler Circlet", "A crown cut from the Elder Stag."],
+	[396, "Hearthkeeper's Seal", "Every skill mastered."],
+]
+
+
+class TotalPanel extends PanelContainer:
+	func _ready() -> void:
+		var empty := StyleBoxEmpty.new()
+		for side in ["left", "right"]:
+			empty.set("content_margin_" + side, 30)
+		for side in ["top", "bottom"]:
+			empty.set("content_margin_" + side, 26)
+		add_theme_stylebox_override("panel", empty)
+		var fr := UiKit.Frame.new("plaque", "leather", {"metal_hi": UiKit.GOLD.lightened(0.1), "metal_lo": UiKit.GOLD.darkened(0.45)})
+		fr.margin = 14.0
+		add_child(fr)
+		var total := 0
+		for entry in Catalog.SKILLS:
+			total += Catalog.skill_level(int(SaveGame.data["skills"].get(str(entry["id"]), 0)))
+		var cap := 99 * Catalog.SKILLS.size()
+		var next: Array = MILESTONES[MILESTONES.size() - 1]
+		for m in MILESTONES:
+			if total < int(m[0]):
+				next = m
+				break
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 24)
+		add_child(row)
+		var crest := Crest.new()
+		crest.value = total
+		crest.custom_minimum_size = Vector2(150, 176)
+		crest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(crest)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_theme_constant_override("separation", 6)
+		row.add_child(col)
+		col.add_child(UiKit.label("TOTAL LEVEL", 30, Color("fff1d6"), "x", 6))
+		col.add_child(UiKit.label("%d of %d" % [total, cap], 22, Color("e6d8bc"), "b", 4))
+		var rule := ColorRect.new()
+		rule.color = Color(0.79, 0.64, 0.35, 0.45)
+		rule.custom_minimum_size = Vector2(0, 2)
+		col.add_child(rule)
+		col.add_child(UiKit.label("NEXT MILESTONE · TOTAL %d" % int(next[0]), 19, UiKit.GOLD.lightened(0.15), "x", 4))
+		col.add_child(UiKit.label(str(next[1]), 26, Color("fff1d6"), "x", 5))
+		var desc := UiKit.label(str(next[2]), 21, Color("d8c8aa"), "b", 4)
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(desc)
+
+
+## A forged shield crest with the total level struck into it.
+class Crest extends Control:
+	var value := 0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _shield(inset: float) -> PackedVector2Array:
+		var w := size.x
+		var h := size.y
+		var pts := PackedVector2Array()
+		pts.append(Vector2(inset, inset + 10))
+		pts.append(Vector2(w * 0.5, inset))
+		pts.append(Vector2(w - inset, inset + 10))
+		pts.append(Vector2(w - inset, h * 0.55))
+		for i in range(1, 12):
+			var t := float(i) / 12.0
+			pts.append(Vector2(lerpf(w - inset, w * 0.5, t), lerpf(h * 0.55, h - inset, sin(t * PI * 0.5))))
+		pts.append(Vector2(w * 0.5, h - inset))
+		for i in range(1, 12):
+			var t := 1.0 - float(i) / 12.0
+			pts.append(Vector2(lerpf(inset, w * 0.5, t), lerpf(h * 0.55, h - inset, sin(t * PI * 0.5))))
+		pts.append(Vector2(inset, h * 0.55))
+		return pts
+
+	func _draw() -> void:
+		var shadow := _shield(2)
+		for i in shadow.size():
+			shadow[i] += Vector2(0, 5)
+		draw_colored_polygon(shadow, Color(0, 0, 0, 0.55))
+		draw_colored_polygon(_shield(2), Color("6e5126"))
+		draw_colored_polygon(_shield(6), Color("d9b46a"))
+		draw_colored_polygon(_shield(10), Color("4a361a"))
+		draw_colored_polygon(_shield(14), Color("2c1610"))
+		var face := _shield(20)
+		var cols := PackedColorArray()
+		for p in face:
+			cols.append(Color("5a1c14").lerp(Color("24100c"), clampf(p.y / size.y, 0.0, 1.0)))
+		draw_polygon(face, cols)
+		var line := _shield(14)
+		line.append(line[0])
+		draw_polyline(line, Color(1, 0.86, 0.6, 0.25), 1.5, true)
+		var c := Vector2(size.x * 0.5, size.y * 0.47)
+		for a in [-0.5, 0.5]:
+			var d := Vector2.from_angle(PI * 0.5 + a * 1.1)
+			draw_line(c - d * 46.0, c - d * 56.0, Color("d9b46a"), 3.0, true)
+		var font := UiKit.font_n
+		var txt := str(value)
+		var fs := 58 if txt.length() < 3 else 46
+		var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var base := c + Vector2(-tw * 0.5, fs * 0.36)
+		draw_string_outline(font, base + Vector2(0, 3), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 8, Color(0, 0, 0, 0.7))
+		draw_string(font, base, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("f6dc9a"))
+		var sub := "TOTAL"
+		var sw := font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5, size.y * 0.72), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color("c9a25a"))
 
 
 class SkillRow extends PanelContainer:
