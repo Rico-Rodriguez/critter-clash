@@ -138,6 +138,7 @@ func _process(delta: float) -> void:
 
 func bind_hunt(biome_id: String) -> void:
 	_mode = "hunt"
+	_arena_built = false
 	_biome = biome_id
 	viewport.transparent_bg = false
 	_ground(biome_id)
@@ -494,8 +495,8 @@ func _lights() -> void:
 	var high := _tier() == "high"
 	sun = DirectionalLight3D.new()
 	# Warm late-afternoon key; the cool rim opposite keeps forms round.
-	sun.light_color = Color("ffc47e")
-	sun.light_energy = 1.55
+	sun.light_color = Color("ffbd72")
+	sun.light_energy = 1.8
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if high else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_blend_splits = true
@@ -505,7 +506,7 @@ func _lights() -> void:
 	world_root.add_child(sun)
 	var rim := DirectionalLight3D.new()
 	rim.light_color = Color("c5dcff")
-	rim.light_energy = 1.7
+	rim.light_energy = 1.35
 	rim.light_specular = 0.25
 	rim.shadow_enabled = false
 	rim.rotation_degrees = Vector3(-18, -150, 0)
@@ -532,7 +533,11 @@ func _environment(fog: Color, high: bool) -> Environment:
 	env.background_energy_multiplier = 0.32
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	# Lower ambient so sun shadows read as real contact and depth.
-	env.ambient_light_energy = 0.44
+	env.ambient_light_energy = 0.5
+	# Warm key, cool fill: half the ambient comes from a blue sky colour so
+	# everything in shadow leans cool against the sunlit warm side.
+	env.ambient_light_color = Color("7f9ccc")
+	env.ambient_light_sky_contribution = 0.5
 	# Filmic AgX, a hair desaturated: mature, not candy.
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.14
@@ -1318,7 +1323,57 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	if actor.kind == "boss":
 		_boss_landing(body)
 		_boss_glow(body)
+		_boss_arena(body.position)
 	return body
+
+
+## The boss fight gets a place: a broken ring of standing stones rises
+## around where the boss lands, with gnarled roots between them and a
+## fringe of giant mushrooms and ferns outside, so the wider boss camera
+## frames an arena instead of an empty field.
+var _arena_built := false
+func _boss_arena(center: Vector3) -> void:
+	if _arena_built or _mode != "hunt":
+		return
+	_arena_built = true
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7331
+	# Ring the whole fight: centred between the landing spot and the hero,
+	# wide enough that both stand inside it.
+	var radius := 8.2
+	if _mark != null:
+		var hero := Vector3(_mark.global_position.x, 0, _mark.global_position.z)
+		radius = clampf(center.distance_to(hero) * 0.5 + 6.0, 8.2, 12.0)
+		center = center.lerp(hero, 0.5)
+	var count := 15
+	for i in count:
+		if i % 5 == 4:
+			continue  # gaps so the ring reads as old and broken
+		var ang := TAU * float(i) / float(count) + rng.randf_range(-0.08, 0.08)
+		var at := center + Vector3(cos(ang), 0, sin(ang)) * (radius + rng.randf_range(-0.4, 0.4))
+		_place_prop(["rock_a", "rock_b"][i % 2], at, rng.randf_range(1.8, 2.4), i % 3 == 0)
+		var stone: Node3D = _props[-1]
+		# Tall, leaning menhirs.
+		stone.scale *= Vector3(0.7, rng.randf_range(1.8, 2.4), 0.65)
+		stone.rotation = Vector3(rng.randf_range(-0.12, 0.12), ang, rng.randf_range(-0.12, 0.12))
+		var rest: Vector3 = stone.position
+		stone.position = rest - Vector3(0, 2.6, 0)
+		var tw := create_tween()
+		tw.tween_interval(BOSS_DROP_TIME + 0.04 * i)
+		tw.tween_property(stone, "position", rest, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		# A root arcing toward the centre between neighbouring stones.
+		if i % 2 == 0:
+			var mid := ang + PI / float(count)
+			_place_prop("log", center + Vector3(cos(mid), 0, sin(mid)) * (radius - 0.6), rng.randf_range(1.4, 1.8), false)
+			var root: Node3D = _props[-1]
+			root.rotation = Vector3(0, -mid + PI * 0.5, rng.randf_range(-0.1, 0.1))
+			root.scale *= Vector3(1.6, 0.55, 0.55)
+			root.position.y -= 0.15
+	# Outer fringe: big mushrooms and ferns just beyond the stones.
+	for i in 10:
+		var ang := TAU * float(i) / 10.0 + 0.3
+		var at := center + Vector3(cos(ang), 0, sin(ang)) * (radius + rng.randf_range(1.6, 3.2))
+		_place_prop("mushroom_tall" if i % 3 != 2 else "bush_flower", at, rng.randf_range(1.6, 2.6), false)
 
 
 ## Boss wind-up glow: an additive hot rim over the whole body, driven by
@@ -1335,6 +1390,8 @@ void fragment() {
 """
 	var mat := ShaderMaterial.new()
 	mat.shader = sh
+	mat.set_shader_parameter("amount", 0.0)
+	body.set_meta("windup_amt", 0.0)
 	for m in body.find_children("*", "MeshInstance3D", true, false):
 		if (m as MeshInstance3D).material_overlay == null and not str(m.name).begins_with("Catch"):
 			(m as MeshInstance3D).material_overlay = mat
@@ -1349,9 +1406,11 @@ func _boss_fx(body: Node3D, actor: RunSim.Actor) -> void:
 	body.rotation.x = sin(now * 0.9 + 1.0) * 0.02 - (0.06 if winding else 0.0)
 	var mat: ShaderMaterial = body.get_meta("windup_mat", null)
 	if mat != null:
-		var cur := float(mat.get_shader_parameter("amount"))
+		var cur := float(body.get_meta("windup_amt", 0.0))
 		var want := (0.55 + 0.45 * sin(now * 14.0)) if winding else 0.0
-		mat.set_shader_parameter("amount", move_toward(cur, want, 0.12))
+		cur = move_toward(cur, want, 0.12)
+		body.set_meta("windup_amt", cur)
+		mat.set_shader_parameter("amount", cur)
 
 
 ## Hunt hero only: a cool fresnel rim plus a faint warm lift, added over
@@ -1381,14 +1440,18 @@ void fragment() {
 		# Ember shows through as a warm rim silhouette when occluded.
 		var xs := Shader.new()
 		xs.code = """shader_type spatial;
-render_mode unshaded, blend_mix, depth_test_disabled, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
-uniform vec3 xray_color = vec3(1.0, 0.62, 0.28);
+render_mode unshaded, blend_mix, depth_test_inverted, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
+uniform vec3 xray_color = vec3(1.0, 0.66, 0.3);
 uniform float amount = 0.0;
 void fragment() {
+	// depth_test_inverted: this pass only lands where something already
+	// in the depth buffer is nearer than the hero, i.e. where it is hidden.
+	float ahead = 1.0;
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
-	float rim = pow(1.0 - ndv, 1.6);
+	float rim = smoothstep(0.35, 0.95, 1.0 - ndv);
 	ALBEDO = xray_color;
-	ALPHA = (0.22 + 0.68 * rim) * amount;
+	// A rim-light silhouette with only a whisper of fill.
+	ALPHA = (0.06 + 0.8 * rim) * amount * ahead;
 }
 """
 		_xray_mat = ShaderMaterial.new()
@@ -1419,9 +1482,10 @@ func _update_xray(boss_up: bool, boss_at: Vector3, hero_at: Vector3, sim: RunSim
 			if not actor.alive or actor.team == 0 or actor.kind == "boss":
 				continue
 			var at := _to3(actor.pos)
-			if at.z <= hero_at.z:
+			# Depth: the mob must stand nearer the camera than the hero.
+			if at.z <= hero_at.z + 0.25:
 				continue
-			if camera.unproject_position(at + Vector3(0, HERO_METERS * 0.3, 0)).distance_to(hs) < reach:
+			if camera.unproject_position(at + Vector3(0, HERO_METERS * 0.3, 0)).distance_to(hs) < reach * 0.7:
 				want = 1.0
 				break
 	if boss_up and hero_at.z < boss_at.z:

@@ -165,7 +165,8 @@ void fragment() {
 	float dapple = smoothstep(0.42, 0.62, fbm(w * 0.32 + vec2(TIME * 0.06, TIME * 0.025)));
 	float drift = smoothstep(0.5, 0.7, fbm(w * 0.05 + vec2(TIME * 0.02, 0.0)));
 	float shade = clamp(canopy * (0.55 + dapple * 0.45) + drift * 0.16 + dapple * 0.12, 0.0, 1.0);
-	albedo *= mix(1.0, 0.58, shade);
+	// Shade goes cool (sky-lit blue-green), not just darker.
+	albedo *= mix(vec3(1.0), vec3(0.5, 0.58, 0.66), shade);
 	if (snow > 0.0) {
 		float drift = smoothstep(0.35, 0.65, fbm(w * 0.35 + 4.0) + (1.0 - dirt_w) * 0.25);
 		vec3 white = vec3(0.86, 0.91, 1.0) * (0.86 + fbm(w * 3.0) * 0.18);

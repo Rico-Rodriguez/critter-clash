@@ -131,7 +131,7 @@ static func pbr(id: String) -> Dictionary:
 	if path.ends_with("sketchfab/thistle.glb"):
 		# tools/paint_thistle.py repaints the pastel toy hide in bone and
 		# oxblood, with a damp, matte roughness map.
-		return {"roughness": 0.8, "specular": 0.3, "rim": 0.2, "albedo_tex": "res://assets/models/sketchfab/thistle_paint.png", "rough_tex": "res://assets/models/sketchfab/thistle_rough.png", "normal_tex": "res://assets/models/sketchfab/thistle_2.png", "normal_scale": 2.0, "subsurface": 0.35, "backlight": Color(0.32, 0.1, 0.06)}
+		return {"roughness": 0.8, "specular": 0.3, "rim": 0.2, "albedo_tex": "res://assets/models/sketchfab/thistle_paint.png", "rough_tex": "res://assets/models/sketchfab/thistle_rough.png", "normal_tex": "res://assets/models/sketchfab/thistle_normal_spots.png", "normal_scale": 1.6, "subsurface": 0.45, "backlight": Color(0.32, 0.1, 0.06)}
 	if path.ends_with("sketchfab/juniper.glb"):
 		return {"roughness": 0.7, "specular": 0.35, "rim": 0.3, "paint": true}
 	# The kit critters (frog, fox, otter, hedgehog, owl) ship flat atlas

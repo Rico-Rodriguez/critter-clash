@@ -213,12 +213,15 @@ func _capture() -> void:
 		if _wants("xray") and current.sim.boss != null:
 			# Tuck the hero just behind the boss to show the x-ray rim.
 			var hero_actor = current.sim.heroes[0]
-			hero_actor.pos = current.sim.boss.pos + Vector2(10, -40)
-			hero_actor.prev = hero_actor.pos
 			hero_actor.iframes = 5.0
-			for i in 20:
+			# Freeze the sim so knockback can't shove the hero back out.
+			current.sim.paused = true
+			for i in 24:
+				hero_actor.pos = current.sim.boss.pos + Vector2(6, -50)
+				hero_actor.prev = hero_actor.pos
 				await get_tree().process_frame
 			await _shot("xray")
+			current.sim.paused = false
 		SaveGame.debug_rare = true
 		current.sim.debug_slay_boss()
 		await _settle()
