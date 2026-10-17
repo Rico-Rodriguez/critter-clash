@@ -574,14 +574,15 @@ func _ground(biome_id: String) -> void:
 	plane.subdivide_depth = 120
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/terrain.gdshader")
-	mat.set_shader_parameter("grass_color", load("res://assets/textures/grass_color.jpg"))
-	mat.set_shader_parameter("grass_normal", load("res://assets/textures/grass_normal.jpg"))
-	mat.set_shader_parameter("grass_rough", load("res://assets/textures/grass_rough.jpg"))
-	mat.set_shader_parameter("lush_color", load("res://assets/textures/lush_color.jpg"))
-	mat.set_shader_parameter("lush_normal", load("res://assets/textures/lush_normal.jpg"))
-	mat.set_shader_parameter("dirt_color", load("res://assets/textures/path_color.jpg"))
-	mat.set_shader_parameter("dirt_normal", load("res://assets/textures/path_normal.jpg"))
-	mat.set_shader_parameter("dirt_rough", load("res://assets/textures/path_rough.jpg"))
+	mat.set_shader_parameter("grass_color", load("res://assets/textures/ground_grass_color.jpg"))
+	mat.set_shader_parameter("grass_normal", load("res://assets/textures/ground_grass_normal.jpg"))
+	mat.set_shader_parameter("grass_data", load("res://assets/textures/ground_grass_data.jpg"))
+	mat.set_shader_parameter("forest_color", load("res://assets/textures/ground_forest_color.jpg"))
+	mat.set_shader_parameter("forest_normal", load("res://assets/textures/ground_forest_normal.jpg"))
+	mat.set_shader_parameter("forest_data", load("res://assets/textures/ground_forest_data.jpg"))
+	mat.set_shader_parameter("dirt_color", load("res://assets/textures/ground_dirt_color.jpg"))
+	mat.set_shader_parameter("dirt_normal", load("res://assets/textures/ground_dirt_normal.jpg"))
+	mat.set_shader_parameter("dirt_data", load("res://assets/textures/ground_dirt_data.jpg"))
 	mat.set_shader_parameter("world_span", span)
 	mat.set_shader_parameter("tint", _biome_tint(biome_id))
 	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
@@ -664,6 +665,166 @@ func _foliage(biome_id: String) -> void:
 			var y := lerpf(HuntMap.PLAY.position.y + 100.0, HuntMap.PLAY.end.y - 80.0, float(i / 2) / 3.0) + rng.randf_range(-60.0, 60.0)
 			_place_prop(edge_trees[i % edge_trees.size()], _to3(Vector2(x, y)), rng.randf_range(2.2, 2.9), true)
 	_field_props(rng)
+	_clutter(rng, biome_id)
+
+
+## Small 3D ground clutter so the floor reads as material, not a painting:
+## pebbles along the trails, fallen twigs, and flat leaf litter, each one
+## multimesh (split into a grid when large) with per-instance colour.
+func _clutter(rng: RandomNumberGenerator, biome_id: String) -> void:
+	var tier := _tier()
+	var k := 0.45 if tier == "low" else (1.0 if tier == "medium" else 1.5)
+	var green := not biome_id in ["frost", "volcano"]
+	# Pebbles: squashed low-poly spheres, mostly on and beside the trails.
+	var peb := SphereMesh.new()
+	peb.radius = 0.06
+	peb.height = 0.12
+	peb.radial_segments = 7
+	peb.rings = 4
+	var peb_mat := StandardMaterial3D.new()
+	peb_mat.albedo_texture = load("res://assets/textures/rock_color.jpg")
+	peb_mat.uv1_triplanar = true
+	peb_mat.uv1_scale = Vector3(6, 6, 6)
+	peb_mat.vertex_color_use_as_albedo = true
+	peb_mat.roughness = 0.85
+	var xf: Array = []
+	var cols: Array = []
+	for i in int(300 * k):
+		var at := _field_point(rng)
+		for _t in 6:
+			if path_dist(Vector2(at.x, at.z)) < 1.6 or rng.randf() < 0.18:
+				break
+			at = _field_point(rng)
+		var s := rng.randf_range(0.5, 1.5)
+		var b := Basis.from_euler(Vector3(rng.randf_range(-0.3, 0.3), rng.randf() * TAU, rng.randf_range(-0.3, 0.3)))
+		b = b.scaled(Vector3(s * rng.randf_range(0.8, 1.5), s * rng.randf_range(0.35, 0.65), s * rng.randf_range(0.7, 1.2)))
+		xf.append(Transform3D(b, at + Vector3(0, 0.005, 0)))
+		var v := rng.randf_range(0.55, 1.0)
+		cols.append(Color(v, v * 0.92, v * 0.82) if biome_id != "volcano" else Color(v * 0.3, v * 0.28, v * 0.28))
+	_mm_grid(peb, peb_mat, xf, cols)
+	if not green and biome_id != "frost":
+		return
+	# Twigs: thin tapered sticks lying flat, a few with a short side branch.
+	var twig := CylinderMesh.new()
+	twig.top_radius = 0.009
+	twig.bottom_radius = 0.016
+	twig.height = 0.55
+	twig.radial_segments = 5
+	twig.rings = 1
+	twig.cap_top = false
+	twig.cap_bottom = false
+	var twig_mat := StandardMaterial3D.new()
+	twig_mat.albedo_texture = load("res://assets/textures/wood_color.jpg")
+	twig_mat.vertex_color_use_as_albedo = true
+	twig_mat.roughness = 0.9
+	xf = []
+	cols = []
+	for i in int(130 * k):
+		var at := _field_point(rng)
+		var yaw := rng.randf() * TAU
+		var len := rng.randf_range(0.6, 1.6)
+		var lie := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, PI * 0.5 + rng.randf_range(-0.08, 0.08))
+		var col := Color(0.42, 0.3, 0.2).lerp(Color(0.62, 0.5, 0.36), rng.randf())
+		xf.append(Transform3D(lie.scaled(Vector3(1, len, 1)), at + Vector3(0, 0.012, 0)))
+		cols.append(col)
+		if rng.randf() < 0.45:
+			var side := Basis(Vector3.UP, yaw + rng.randf_range(0.5, 0.9) * (1.0 if rng.randf() < 0.5 else -1.0)) * Basis(Vector3.RIGHT, PI * 0.5)
+			var off := Basis(Vector3.UP, yaw) * Vector3(0, 0, rng.randf_range(-0.12, 0.12) * len)
+			var tip := side * Vector3(0, 0.12 * len, 0)
+			xf.append(Transform3D(side.scaled(Vector3(0.7, len * 0.45, 0.7)), at + off + tip + Vector3(0, 0.012, 0)))
+			cols.append(col)
+	_mm_grid(twig, twig_mat, xf, cols)
+	# Leaf litter: flat alpha-cut leaves in drifts along the trails and in
+	# clumps, autumn browns and ambers with the odd green one.
+	var leaf := PlaneMesh.new()
+	leaf.size = Vector2(0.16, 0.1)
+	var leaf_mat := StandardMaterial3D.new()
+	leaf_mat.albedo_texture = _leaf_texture()
+	leaf_mat.vertex_color_use_as_albedo = true
+	leaf_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	leaf_mat.alpha_scissor_threshold = 0.5
+	leaf_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	leaf_mat.roughness = 0.8
+	xf = []
+	cols = []
+	var centers: Array = []
+	for c in int(26 * k):
+		centers.append(_field_point(rng))
+	var ambers := [Color(0.55, 0.3, 0.1), Color(0.7, 0.45, 0.14), Color(0.45, 0.24, 0.1), Color(0.5, 0.45, 0.16), Color(0.36, 0.2, 0.09)]
+	for i in int(520 * k * (0.35 if biome_id == "frost" else 1.0)):
+		var at: Vector3
+		if rng.randf() < 0.6:
+			var c: Vector3 = centers[rng.randi() % centers.size()]
+			at = c + Vector3(rng.randfn(0.0, 0.7), 0, rng.randfn(0.0, 0.7))
+		else:
+			at = _field_point(rng)
+		var s := rng.randf_range(0.7, 1.4)
+		var b := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_euler(Vector3(rng.randf_range(-0.25, 0.25), 0, rng.randf_range(-0.25, 0.25)))
+		xf.append(Transform3D(b.scaled(Vector3(s, s, s)), at + Vector3(0, 0.01 + rng.randf() * 0.01, 0)))
+		cols.append(ambers[rng.randi() % ambers.size()] * rng.randf_range(0.62, 0.92))
+	_mm_grid(leaf, leaf_mat, xf, cols)
+
+
+## Clutter instances are a few dozen triangles, so one multimesh per kind
+## (drawing the off-screen ones too) is cheaper than extra draw calls.
+func _mm_grid(mesh: Mesh, mat: Material, xf: Array, cols: Array) -> void:
+	var n := 1
+	var m := 1
+	var lo3 := _to3(HuntMap.PLAY.position)
+	var span3 := _to3(HuntMap.PLAY.end) - lo3
+	var cells: Array = []
+	for i in n * m:
+		cells.append([])
+	for i in xf.size():
+		var at: Vector3 = (xf[i] as Transform3D).origin
+		var cx := clampi(int((at.x - lo3.x) / span3.x * n), 0, n - 1)
+		var cy := clampi(int((at.z - lo3.z) / span3.z * m), 0, m - 1)
+		cells[cy * n + cx].append(i)
+	for cell in cells:
+		if cell.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = mesh
+		mm.instance_count = cell.size()
+		for j in cell.size():
+			mm.set_instance_transform(j, xf[cell[j]])
+			mm.set_instance_color(j, cols[cell[j]])
+		var node := MultiMeshInstance3D.new()
+		node.multimesh = mm
+		node.material_override = mat
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world_root.add_child(node)
+
+
+static var _leaf_tex: Texture2D
+
+## A white leaf silhouette with a darker midrib and veins; tinted per instance.
+func _leaf_texture() -> Texture2D:
+	if _leaf_tex:
+		return _leaf_tex
+	var img := Image.create(64, 40, true, Image.FORMAT_RGBA8)
+	for y in 40:
+		for x in 64:
+			var u := (x + 0.5) / 64.0 * 2.0 - 1.0
+			var v := (y + 0.5) / 40.0 * 2.0 - 1.0
+			# Pointed ellipse: narrower toward the tip (u = 1).
+			var half := sqrt(maxf(0.0, 1.0 - u * u)) * (1.0 - 0.35 * maxf(u, 0.0))
+			var inside := absf(v) < half * 0.95 and u > -0.98
+			var stem := u < -0.85 and absf(v) < 0.06
+			if not inside and not stem:
+				img.set_pixel(x, y, Color(1, 1, 1, 0))
+				continue
+			var shade := 0.85 + 0.15 * (1.0 - absf(v) / maxf(half, 0.01))
+			if absf(v) < 0.05 or stem:
+				shade *= 0.7
+			elif absf(fmod(u * 4.0 + absf(v) * 3.0, 1.0) - 0.5) < 0.06:
+				shade *= 0.86
+			img.set_pixel(x, y, Color(shade, shade, shade, 1.0))
+	img.generate_mipmaps()
+	_leaf_tex = ImageTexture.create_from_image(img)
+	return _leaf_tex
 
 
 ## Mid-field set dressing a Diablo floor needs: mossy rocks, fallen logs,
@@ -1328,7 +1489,7 @@ func _paint_grain(mat: StandardMaterial3D) -> void:
 		_grain_nrm.bump_strength = 6.0
 		_grain_nrm.noise = fine
 	mat.detail_enabled = true
-	mat.detail_uv_layout = BaseMaterial3D.DETAIL_UV_2
+	mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_2
 	mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
 	mat.detail_albedo = _grain_tex
 	mat.detail_normal = _grain_nrm

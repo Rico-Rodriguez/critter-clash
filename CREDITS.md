@@ -35,6 +35,7 @@ The older fonts below remain in the repository but the interface no longer uses 
 ## Textures and sky
 
 - Ground textures are ambientCG — https://ambientcg.com — CC0:
+  - Hunt floor (2K): Grass004 (`ground_grass_*`), Ground037 forest floor (`ground_forest_*`), and Ground078 dirt (`ground_dirt_*`). Ambient occlusion is baked into the colour maps; `*_data.jpg` packs roughness (R) and height (G) for the height-blended splat.
   - Grass004 (`assets/textures/grass_*.jpg`) and Grass001 (`lush_*.jpg`) for the turf.
   - Ground078 (`path_*.jpg`) for the dirt trails.
   - Rock051 color, normal and roughness (`rock_color.jpg`, `rock_normal.jpg`, `rock_rough.jpg`) for the pedestal and field rocks.

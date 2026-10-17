@@ -1,18 +1,20 @@
 shader_type spatial;
 
-// Meadow floor: two ambientCG grasses broken up by large soft patches, worn
-// dirt paths that wind through the clearing, and dirt rings under props.
-// Texture scale is about 2.5 m per tile, so the grass reads as turf from the
-// hunt camera instead of a noisy smear.
+// Hunt floor: three 2K ambientCG ground materials (turf, mossy forest floor,
+// packed dirt) blended by a noise splat and sharpened by each material's own
+// height map, so transitions follow the grain of the ground (dirt shows in
+// the gaps of the turf, moss creeps over the dirt) instead of a soft fade.
+// Normal detail only, no parallax: cheap on mobile and stable at any angle.
 
 uniform sampler2D grass_color : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D grass_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D grass_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D lush_color : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D lush_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D grass_data : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D forest_color : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D forest_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D forest_data : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D dirt_color : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D dirt_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D dirt_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D dirt_data : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec3 tint = vec3(1.0);
 uniform vec3 dirt_tint = vec3(1.0);
 // Biome surface: snow drifts over the turf (frost), or ash with glowing
@@ -75,95 +77,82 @@ void vertex() {
 	VERTEX.y += (roll - 0.5) * 0.12 - worn * 0.04;
 }
 
+// Height-weighted blend of three layers: weights in, normalised weights out.
+vec3 height_blend(vec3 wgt, vec3 h) {
+	vec3 sc = wgt + h * 0.55;
+	float top = max(max(sc.x, sc.y), sc.z) - 0.18;
+	vec3 b = max(sc - top, vec3(0.0)) * step(vec3(0.001), wgt);
+	return b / max(b.x + b.y + b.z, 1e-4);
+}
+
 void fragment() {
 	vec2 w = world_xz;
-	vec2 uv_g = tile_uv(w, 0.38);
-	vec2 uv_l = tile_uv(w + 11.0, 0.31);
-	vec2 uv_d = tile_uv(w, 0.33);
-	float patch = smoothstep(0.35, 0.68, fbm(w * 0.12 + 4.0));
-	// Anti-tiling: a second, rotated and rescaled sample of each turf layer,
-	// blended by low-frequency noise so no repeat lines up across the field.
+	// Anti-tiling: every layer is sampled twice, the second time rotated and
+	// rescaled, mixed by low-frequency noise so no repeat lines up.
 	vec2 wr = mat2(vec2(0.8, -0.6), vec2(0.6, 0.8)) * w * 0.73 + 37.0;
 	float swap = smoothstep(0.38, 0.62, fbm(w * 0.09 + 17.0));
-	vec3 g = mix(texture(grass_color, uv_g).rgb, texture(grass_color, tile_uv(wr, 0.38)).rgb, swap);
-	vec3 l = mix(texture(lush_color, uv_l).rgb, texture(lush_color, tile_uv(wr + 5.0, 0.31)).rgb, 1.0 - swap);
-	vec3 grass = mix(g, l * vec3(1.08, 1.06, 0.92), patch);
-	vec3 gn = mix(texture(grass_normal, uv_g).rgb, texture(lush_normal, uv_l).rgb, patch);
-	// Sun-warmed and shaded patches, very low frequency.
+	vec2 ug1 = tile_uv(w, 0.25);
+	vec2 ug2 = tile_uv(wr, 0.25);
+	vec2 uf1 = tile_uv(w + 11.0, 0.22);
+	vec2 uf2 = tile_uv(wr + 5.0, 0.22);
+	vec2 ud1 = tile_uv(w, 0.28);
+	vec2 ud2 = tile_uv(wr + 23.0, 0.26);
+	vec3 g_col = mix(texture(grass_color, ug1).rgb, texture(grass_color, ug2).rgb, swap);
+	vec3 g_n = mix(texture(grass_normal, ug1).rgb, texture(grass_normal, ug2).rgb, swap);
+	vec2 g_d = mix(texture(grass_data, ug1).rg, texture(grass_data, ug2).rg, swap);
+	vec3 f_col = mix(texture(forest_color, uf1).rgb, texture(forest_color, uf2).rgb, 1.0 - swap);
+	vec3 f_n = mix(texture(forest_normal, uf1).rgb, texture(forest_normal, uf2).rgb, 1.0 - swap);
+	vec2 f_d = mix(texture(forest_data, uf1).rg, texture(forest_data, uf2).rg, 1.0 - swap);
+	float dswap = smoothstep(0.4, 0.6, fbm(w * 0.15 + 71.0));
+	vec3 d_col = mix(texture(dirt_color, ud1).rgb, texture(dirt_color, ud2).rgb, dswap) * dirt_tint;
+	vec3 d_n = mix(texture(dirt_normal, ud1).rgb, texture(dirt_normal, ud2).rgb, dswap);
+	vec2 d_d = mix(texture(dirt_data, ud1).rg, texture(dirt_data, ud2).rg, dswap);
+
+	// Turf colour grading: broad sun-warmed, olive and deep swathes.
 	float warm = fbm(w * 0.05 + 9.0);
-	grass *= mix(vec3(0.84, 0.92, 0.78), vec3(1.08, 1.04, 0.86), warm);
-	// Macro albedo variation: broad darker/lusher swathes and olive-gold
-	// meadow patches, so the field never reads as one flat green.
+	g_col *= mix(vec3(0.88, 0.94, 0.82), vec3(1.06, 1.03, 0.9), warm);
 	float macro = fbm(w * 0.028 + 3.0);
-	grass *= mix(0.78, 1.14, macro);
+	g_col *= mix(0.84, 1.1, macro);
 	float meadow_hue = smoothstep(0.45, 0.75, fbm(w * 0.06 + 41.0));
-	grass = mix(grass, grass * vec3(1.12, 1.0, 0.7), meadow_hue * 0.35);
-	float deep = smoothstep(0.5, 0.78, fbm(w * 0.08 + 61.0));
-	grass = mix(grass, grass * vec3(0.7, 0.86, 0.74), deep * 0.4);
-	// Paths: a ragged edge, a grassy shoulder, and dirt in the middle.
+	g_col = mix(g_col, g_col * vec3(1.1, 1.0, 0.74), meadow_hue * 0.3);
+	float dry = smoothstep(0.58, 0.8, fbm(w * 0.22 + 13.0));
+	g_col = mix(g_col, g_col * vec3(1.12, 1.05, 0.78), dry * 0.25);
+
+	// Forest floor graded darker and browner so it reads as shaded humus.
+	f_col *= vec3(0.74, 0.74, 0.62);
+	// Splat weights. Forest floor: noise patches, the band along every
+	// trail, and the shaded margin under the tree line.
+	float ex = min(w.x - arena.x, arena.z - w.x);
+	float ez = min(w.y - arena.y, arena.w - w.y);
+	float edge_d = min(ex, ez);
+	float canopy = 1.0 - smoothstep(1.5, 8.0, edge_d);
 	float pd = path_dist(w);
 	float edge = path_width * (0.75 + fbm(w * 1.3) * 0.5);
-	float dirt_w = 1.0 - smoothstep(edge * 0.55, edge, pd);
-	dirt_w = clamp(dirt_w + (fbm(w * 0.9 + 2.0) - 0.82) * 1.5, 0.0, 1.0);
-	// Dirt gets the same rotated second sample so path repeats never line up.
-	vec2 uv_d2 = tile_uv(wr + 23.0, 0.29);
-	float dswap = smoothstep(0.4, 0.6, fbm(w * 0.15 + 71.0));
-	vec3 dirt = mix(texture(dirt_color, uv_d).rgb, texture(dirt_color, uv_d2).rgb, dswap) * dirt_tint;
-	vec3 dn = mix(texture(dirt_normal, uv_d).rgb, texture(dirt_normal, uv_d2).rgb, dswap);
-	float shoulder = smoothstep(edge * 1.6, edge * 0.8, pd) * (1.0 - dirt_w);
-	grass *= 1.0 - shoulder * 0.16;
-	// Clover: small dark rich clumps scattered through the turf.
-	float clover = smoothstep(0.62, 0.74, fbm(w * 1.7 + 21.0)) * (1.0 - dirt_w);
-	grass = mix(grass, grass * vec3(0.62, 0.82, 0.55), clover * 0.75);
-	// Dry, sun-bleached tufts in broad drifts.
-	float dry = smoothstep(0.58, 0.8, fbm(w * 0.22 + 13.0));
-	grass = mix(grass, grass * vec3(1.16, 1.06, 0.74), dry * 0.3);
-	// Bare dirt scuffs out in the field, away from the trails.
-	float scuff = smoothstep(0.74, 0.8, fbm(w * 0.55 + 31.0)) * (0.6 + 0.4 * fbm(w * 4.0));
-	dirt_w = max(dirt_w, scuff * 0.85);
+	float patch = smoothstep(0.56, 0.74, fbm(w * 0.12 + 4.0));
+	float trail_band = smoothstep(edge * 1.7, edge * 0.9, pd) * smoothstep(0.35, 0.6, fbm(w * 0.4 + 8.0));
+	float wf = clamp(max(max(patch * 0.85, trail_band * 0.7), canopy * 0.8) * (0.35 + 0.65 * litter), 0.0, 1.0);
+	// Dirt: the trails themselves, scuffs and bare patches out in the field.
+	float wd = 1.0 - smoothstep(edge * 0.4, edge * 0.95, pd);
+	float scuff = smoothstep(0.74, 0.8, fbm(w * 0.55 + 31.0));
+	float bare = smoothstep(0.66, 0.76, fbm(w * 0.11 + 47.0));
+	wd = clamp(max(wd, max(scuff * 0.7, bare * 0.8)), 0.0, 1.0);
+	vec3 wgt = vec3(1.0 - max(wf, wd) * 0.85, wf * (1.0 - wd * 0.6), wd);
+	vec3 bw = height_blend(wgt, vec3(g_d.y, f_d.y, d_d.y));
+	float dirt_w = bw.z;
+
 	// Path wear: a compacted, darker tread down the middle of each trail.
 	float tread = smoothstep(edge * 0.35, 0.0, pd);
-	dirt *= 1.0 - tread * 0.18;
-	// Darker grass clumps: tight, saturated tufts scattered through the turf.
-	float clump = smoothstep(0.6, 0.72, fbm(w * 0.9 + 101.0)) * (1.0 - dirt_w);
-	grass = mix(grass, grass * vec3(0.55, 0.72, 0.5), clump * 0.7);
-	// Big bare-earth patches out in the field.
-	float bare = smoothstep(0.66, 0.74, fbm(w * 0.11 + 47.0)) * (0.7 + 0.3 * fbm(w * 2.0));
-	dirt_w = max(dirt_w, bare * 0.9);
-	vec3 albedo = mix(grass, dirt, dirt_w);
-	// Leaf litter: broad drifts plus a band along every trail, drawn as
-	// individual leaves (rotated ellipses) in autumn browns and ambers.
-	float litter_zone = max(smoothstep(0.58, 0.72, fbm(w * 0.16 + 71.0)), smoothstep(edge * 2.4, edge * 0.9, pd) * 0.8) * litter;
-	vec2 lc = w * 4.2;
-	vec2 lcell = floor(lc);
-	float lh = hash21(lcell);
-	float lh2 = hash21(lcell + 13.7);
-	vec2 lf = fract(lc) - 0.5 - (vec2(lh, lh2) - 0.5) * 0.45;
-	float la = lh * 6.2831853;
-	lf = mat2(vec2(cos(la), -sin(la)), vec2(sin(la), cos(la))) * lf;
-	float leaf = (1.0 - smoothstep(0.14, 0.2, length(lf * vec2(1.0, 2.1)))) * step(1.0 - litter_zone * 0.85, lh2);
-	vec3 leaf_col = mix(vec3(0.42, 0.22, 0.08), vec3(0.62, 0.38, 0.12), lh);
-	leaf_col = mix(leaf_col, vec3(0.36, 0.33, 0.12), step(0.8, lh));
-	albedo = mix(albedo, leaf_col * (0.85 + 0.3 * lf.x), leaf * 0.9);
-	albedo = mix(albedo, albedo * vec3(0.82, 0.74, 0.62), litter_zone * 0.35 * (1.0 - dirt_w));
-	// Small flower clusters painted into the turf: white, butter and violet.
-	float cluster = smoothstep(0.7, 0.8, fbm(w * 0.33 + 91.0)) * (1.0 - dirt_w) * litter;
-	vec2 fc = w * 9.0;
-	vec2 fcell = floor(fc);
-	float fh = hash21(fcell + 3.3);
-	float bloom = (1.0 - smoothstep(0.09, 0.15, length(fract(fc) - 0.5 - (vec2(fh, hash21(fcell + 7.1)) - 0.5) * 0.5))) * step(1.0 - cluster * 0.7, fh);
-	vec3 petal = fh > 0.66 ? vec3(0.92, 0.9, 0.82) : (fh > 0.33 ? vec3(0.95, 0.82, 0.32) : vec3(0.62, 0.48, 0.82));
-	albedo = mix(albedo, petal, bloom * 0.95);
+	d_col *= 1.0 - tread * 0.16;
+	vec3 albedo = g_col * bw.x + f_col * bw.y + d_col * bw.z;
+	// Grassy shoulder darkening where turf meets the trail.
+	float shoulder = smoothstep(edge * 1.6, edge * 0.8, pd) * bw.x;
+	albedo *= 1.0 - shoulder * 0.12;
 	// Soft ground occlusion in hollows and at the trail edges.
 	float hollow = smoothstep(0.55, 0.2, fbm(w * 0.4 + 5.0));
 	albedo *= 1.0 - hollow * 0.08 - shoulder * 0.05;
 	albedo *= tint;
 	// Canopy shade: heavy under the tree line at the arena edges, plus
 	// soft dappled cloud shadow drifting across the whole clearing.
-	float ex = min(w.x - arena.x, arena.z - w.x);
-	float ez = min(w.y - arena.y, arena.w - w.y);
-	float edge_d = min(ex, ez);
-	float canopy = 1.0 - smoothstep(1.5, 8.0, edge_d);
 	float dapple = smoothstep(0.42, 0.62, fbm(w * 0.32 + vec2(TIME * 0.06, TIME * 0.025)));
 	float drift = smoothstep(0.5, 0.7, fbm(w * 0.05 + vec2(TIME * 0.02, 0.0)));
 	float shade = clamp(canopy * (0.55 + dapple * 0.45) + drift * 0.28 + dapple * 0.12, 0.0, 1.0);
@@ -191,21 +180,21 @@ void fragment() {
 		albedo = mix(albedo, vec3(0.03, 0.01, 0.01), halo * ash * 0.7);
 		glow = (vec3(1.0, 0.42, 0.08) * (core + fine * 0.6) * 1.6 + vec3(0.7, 0.1, 0.02) * halo * 0.45) * ash * pulse;
 	}
-	// Detail map: the turf texture again at ~4x frequency, as an albedo
+	// Detail layer: the same materials again at ~4x frequency, as an albedo
 	// modulation and a second normal layer, so close-up ground stays crisp.
-	vec2 uv_det = mat2(vec2(0.6, -0.8), vec2(0.8, 0.6)) * w * 1.55;
-	float det = dot(texture(grass_color, uv_det).rgb, vec3(0.333)) / 0.33;
-	float ddet = dot(texture(dirt_color, uv_det * 0.8).rgb, vec3(0.333)) / 0.44;
-	albedo *= clamp(mix(det, ddet, dirt_w), 0.65, 1.35) * 0.35 + 0.65;
-	vec3 base_n = mix(gn, dn, dirt_w) * 2.0 - 1.0;
-	vec3 det_n = mix(texture(grass_normal, uv_det).rgb, texture(dirt_normal, uv_det * 0.8).rgb, dirt_w) * 2.0 - 1.0;
-	vec3 nn = normalize(vec3(base_n.xy + det_n.xy * 0.7, base_n.z * det_n.z));
+	vec2 uv_det = mat2(vec2(0.6, -0.8), vec2(0.8, 0.6)) * w * 1.1;
+	float det = dot(texture(grass_color, uv_det).rgb, vec3(0.333)) / 0.3;
+	float fdet = dot(texture(forest_color, uv_det * 0.9).rgb, vec3(0.333)) / 0.32;
+	float ddet = dot(texture(dirt_color, uv_det * 0.8).rgb, vec3(0.333)) / 0.4;
+	albedo *= clamp(det * bw.x + fdet * bw.y + ddet * bw.z, 0.6, 1.4) * 0.25 + 0.75;
+	vec3 base_n = (g_n * bw.x + f_n * bw.y + d_n * bw.z) * 2.0 - 1.0;
+	vec3 det_n = (texture(grass_normal, uv_det).rgb * bw.x + texture(forest_normal, uv_det * 0.9).rgb * bw.y + texture(dirt_normal, uv_det * 0.8).rgb * bw.z) * 2.0 - 1.0;
+	vec3 nn = normalize(vec3(base_n.xy + det_n.xy * 0.5, base_n.z * det_n.z));
 	ALBEDO = albedo;
 	EMISSION = glow;
 	NORMAL_MAP = nn * 0.5 + 0.5;
 	NORMAL_MAP_DEPTH = 1.4;
-	float gr = texture(grass_rough, uv_g).r;
-	ROUGHNESS = mix(0.75 + 0.25 * gr, texture(dirt_rough, uv_d).r, dirt_w);
+	ROUGHNESS = clamp(g_d.x * bw.x + f_d.x * bw.y + d_d.x * bw.z, 0.55, 1.0);
 	SPECULAR = 0.3;
 	METALLIC = 0.0;
 }
