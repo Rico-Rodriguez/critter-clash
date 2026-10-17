@@ -860,7 +860,7 @@ func _spawn_boss() -> void:
 	for other in actors:
 		if other.kind == "minion" and other.alive:
 			other.alive = false
-			events.append({"type": "die", "pos": other.pos, "radius": other.radius, "sprite": other.sprite, "kind": "minion"})
+			events.append({"type": "die", "id": other.id, "pos": other.pos, "radius": other.radius, "sprite": other.sprite, "kind": "minion"})
 
 
 func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker: Actor, allow_thorns: bool) -> void:
@@ -917,6 +917,7 @@ func _kill(actor: Actor) -> void:
 	actor.hp = 0.0
 	events.append({
 		"type": "die",
+		"id": actor.id,
 		"pos": actor.pos,
 		"radius": actor.radius,
 		"sprite": actor.sprite,

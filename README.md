@@ -73,9 +73,9 @@ Progress is stored on the device at `user://critter_clash.json`.
 
 Each biome is data: a pixel size, a chunk grid, spawn zones, and a boss arena point (`HuntMap`). The hunts you can play today are one screen, 720×1280. That record is a single chunk and a single zone covering the playfield, with the boss at the top of the zone. A later map can be about four screens by four screens — sixteen times the area — by filling the same record. The fight does not assume the zone is the whole screen.
 
-The camera follows the hero. Inside a soft deadzone the view stays still; past that edge it eases after the hero, and it never slides outside the map. On a one-screen map the view and the map are the same size, so the camera stays put and the hunt looks as it does now. The heads-up display is not parented to the world, so it does not scroll.
+The simulation stores a follow camera for when maps grow. Inside a soft deadzone that camera stays still; past that edge it eases after the hero, and it never slides outside the map. On a one-screen map the view and the map are the same size, so that camera stays put. The picture you see is a separate 3D camera: it always frames the hero from about 55 degrees above, with the same deadzone and the same clamp, even on today's small map. The heads-up display is not parented to the world, so it does not scroll.
 
-Only chunks that overlap the view, plus a small margin, are instanced. Each chunk carries a ground picture and a list of props, and those nodes are freed when the chunk leaves the window. The current arenas are one chunk, so the painted backdrop is the only one on screen. A 4×4 map does not build all sixteen chunks at once.
+Only chunks that overlap the view, plus a small margin, are instanced. The 3D hunt draws one terrain mesh and a MultiMesh of grass and flowers for the whole clearing, and it keeps trees and rocks around the rim. The chunk stream is still in the project for the larger maps. A 4×4 map does not build all sixteen chunks at once.
 
 Wild critters spawn on the rim of the zone nearest the hero, not on the edge of the screen. With one zone, that rim is the edge of the playfield.
 
@@ -83,9 +83,19 @@ Wild critters spawn on the rim of the zone nearest the hero, not on the edge of 
 
 The launch build is single-player. The hunt itself does not know about buttons or sprites. `Session` can describe a solo hunt, a co-op pair that shares a team, or a duel. `RunBot.steer` is the stand-in brain for a future rival. The save keeps an unused `clan_id`. None of those modes have a screen yet.
 
+## World in 3D
+
+The hunt and the home pedestal are a 3D view. The fight itself is still the flat simulation, so steering, waves, cards, and clear times are unchanged.
+
+Desktop and the screenshot capture use Forward+. iOS export uses the Mobile renderer and Metal (`--rendering-method mobile --rendering-driver metal`). The camera sits about 55 degrees above the hero. A warm sun casts cascaded shadows (four splits on a desktop GPU, two on iOS and on software renderers). A cool rim light fills the shadow side. The sky is a Poly Haven HDRI. Tonemap is ACES, with a little bloom and height fog. SSAO and SDFGI turn on only for the high tier, which is a real desktop GPU. iPhones and lavapipe stay on the medium tier so the target stays 60fps.
+
+The ground is one shader over a baked blend of ambientCG grass, dirt, and rock, with the height map pushed into the vertices. Grass, flowers, ferns, and clover are MultiMesh instances and do not cast shadows. Trees, bushes, and rocks around the clearing do.
+
+Ember is a dragon, Juniper a fox, Pebble an otter, Lumen an owl, Pip a frog, and Bramble a cactus-hog. Minions and bosses reuse those rigs, tinted with the critter's color. Each model plays idle, run, and attack. The frog and the cactus-hog also have hit and death clips. The dragon, fox, otter, and owl tip or squash for those moments because their packs do not include those clips. Footstep dust and hit sparks are GPU particles.
+
 ## Run it
 
-Godot 4.7.2. The desktop and web renderer is GL Compatibility. iOS uses the Mobile renderer and Metal.
+Godot 4.7.2. Desktop uses Forward+. iOS uses the Mobile renderer and Metal.
 
 ```
 godot --path .
@@ -115,28 +125,9 @@ godot --headless --path . --export-release "Web" web/index.html
 python3 -m http.server 8941 --directory web
 ```
 
-## Sprite drop-in
+## Portraits
 
-Critters and arenas ship from Kenney's CC0 packs. `tools/apply_kenney.py` fills the filenames below. Replace a PNG and the next launch uses it. `SpriteBank` falls back to a flat circle if a file is missing, so a new id still runs.
-
-Rebuild the Kenney set (needs `rsvg-convert`, Pillow, and numpy):
-
-```
-python3 tools/apply_kenney.py
-```
-
-`tools/build_sprites.py` paints the effects and the vignette. It also overwrites critters and arenas with procedural stand-ins, so run it only when you want those stand-ins back.
-
-| File | Size | Notes |
-| --- | --- | --- |
-| `assets/sprites/critters/<id>.png` | 1024×1024 | Transparent. Kenney round animal, feet near the lower third, dark outline. Side view; the hunt flips them to face the way they move. |
-| `assets/sprites/arenas/<biome>.png` | 1440×2560 | Opaque portrait backdrop, 2× the 720×1280 playfield. Kenney trees and bushes around a clear center. |
-| `assets/sprites/fx/gem.png` | 128×128 | XP gem. |
-| `assets/sprites/fx/orb.png` | 128×128 | Mage and enemy projectile. |
-| `assets/sprites/fx/arrow.png` | 128×128 | Archer shot, pointing right. |
-| `assets/sprites/fx/heart.png` | 128×128 | Taming heart. |
-| `assets/sprites/fx/shadow.png` | 256×128 | Soft ellipse under a critter. |
-| `assets/sprites/ui/vignette.png` | 720×1280 | Soft edge darkening, mostly transparent. |
+The world is the 3D cast in `assets/models/`. Kenney pictures remain only for interface portraits: the hunt medallion, collection cards, the collection log, and the slayer panel. `tools/build_sprites.py` overwrites those portraits with procedural stand-ins, so leave it alone.
 
 Critter ids: `ember`, `juniper`, `pebble`, `lumen`, `pip`, `bramble`, `thistle`, `caplet`, `nimbus`, `cinder`, `sprout`, `beetle`, `moth`, `boarlet`, `capling`, `spore`, `glowmoth`, `puddle`, `snowpup`, `shard`, `icewisp`, `yeti`, `cindling`, `skink`, `ashbat`, `magmash`.
 
@@ -144,12 +135,13 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 
 ## Project layout
 
-- `scripts/` hunt simulation, map data, follow camera, chunk stream, screens (including the collection log, slayer master, and skills stub), save, sprite loader
-- `assets/sprites/` Kenney critters and arenas, plus generated effects
+- `scripts/` hunt simulation, map data, follow camera, chunk stream, 3D stage, screens (including the collection log, slayer master, and skills stub), save, portrait loader
+- `assets/models/` licensed critter and nature GLBs
+- `assets/textures/` baked ground maps, the sky HDRI, and the dust puff
+- `shaders/terrain.gdshader` ground blend
+- `assets/sprites/` Kenney portraits and generated interface effects
 - `assets/audio/` synthesized effects and the music loop
 - `assets/fonts/` Nunito for body copy, Lilita One for titles, numbers, and buttons
-- `tools/apply_kenney.py` CC0 critter and arena composer
-- `tools/build_sprites.py` effects, vignette, and procedural stand-ins
 - `tools/build_audio.py` and `tools/make_icon.py`
 - `.github/workflows/ios-ipa.yml` unsigned IPA
 

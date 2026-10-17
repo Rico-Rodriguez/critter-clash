@@ -13,7 +13,7 @@ var acc := 0.0
 var hitstop := 0.0
 var trauma := 0.0
 var committed := false
-var pet_sprite: Sprite2D
+var pet_follow := ""
 var pet_pos := Vector2.ZERO
 var pet_ready := false
 var summary: Dictionary = {}
@@ -23,6 +23,7 @@ var _actor_sprites: Dictionary = {}
 var _gem_sprites: Dictionary = {}
 var _shot_sprites: Dictionary = {}
 
+var stage: Stage3D
 var world: Node2D
 var stream: MapStream
 var cam: HuntCamera
@@ -54,15 +55,22 @@ func _init() -> void:
 
 func build() -> void:
 	UiKit.ensure()
+	stage = Stage3D.new()
+	stage.set_anchors_preset(Control.PRESET_FULL_RECT)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(stage)
 	world = Node2D.new()
 	add_child(world)
 	stream = MapStream.new()
+	stream.visible = false
 	world.add_child(stream)
 	marks = GroundMarks.new()
+	marks.visible = false
 	world.add_child(marks)
 	actors_root = Node2D.new()
 	world.add_child(actors_root)
 	sparks = SparkLayer.new()
+	sparks.visible = false
 	world.add_child(sparks)
 	var shade := TextureRect.new()
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -99,6 +107,7 @@ func open(args: Dictionary = {}) -> void:
 		hero_at = sim.heroes[0].pos
 	cam.setup(sim.map, hero_at)
 	stream.sync(sim.map, cam.view_rect())
+	stage.bind_hunt(biome_id)
 	marks.sim = sim
 	var info := Catalog.critter(hero_id)
 	name_label.text = str(info["name"])
@@ -284,7 +293,9 @@ func _place_camera(delta: float, shake: Vector2) -> void:
 		cam.follow(hero_at, delta)
 		stream.sync(sim.map, cam.view_rect())
 		origin = cam.top_left()
-	world.position = -origin + shake
+	world.position = Vector2.ZERO
+	if stage:
+		stage.set_shake(shake)
 
 
 func _move() -> Vector2:
@@ -392,10 +403,12 @@ func _drain() -> void:
 				_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ffe08a") if crit else Color("fff8ee"), crit)
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
+				stage.hurt(int(ev["id"]))
 				AudioDirector.play_throttled("hit", 0.045)
 			"hero_hurt":
 				_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ff6d6d"), true)
 				_punch[int(ev["id"])] = 0.14
+				stage.hurt(int(ev["id"]))
 				_hurt_flash()
 				AudioDirector.play_throttled("hit", 0.05)
 				AudioDirector.haptic(16)
@@ -403,11 +416,13 @@ func _drain() -> void:
 				var info := Catalog.critter(str(ev.get("sprite", "")))
 				var col := Color(str(info.get("color", "ffb070"))) if not info.is_empty() else Color("ffb070")
 				_burst(ev["pos"], col, 12, 180.0)
+				stage.died(int(ev["id"]), ev["pos"], str(ev.get("sprite", "")))
 				AudioDirector.play_throttled("death", 0.06)
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
 			"attack":
 				_punch[int(ev["id"])] = 0.2
+				stage.attack(int(ev["id"]))
 				AudioDirector.play_throttled("shoot", 0.05)
 			"gem":
 				_burst(ev["pos"], Color("b6f27a"), 4, 90.0)
@@ -445,80 +460,9 @@ func _drain() -> void:
 
 
 func _sync(alpha: float) -> void:
-	marks.alpha = alpha
-	marks.queue_redraw()
+	stage.sync_hunt(sim, alpha)
+	stage.sync_fx(sim, alpha)
 	_sync_pet(alpha)
-	var seen := {}
-	for actor in sim.actors:
-		if not actor.alive:
-			continue
-		seen[actor.id] = true
-		var sprite := _actor_sprite(actor.id, SpriteBank.critter(actor.sprite))
-		var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
-		var bob := sin(sim.time * 7.0 + float(actor.id)) * 2.6 if actor.alive else 0.0
-		sprite.position = pos + Vector2(0.0, -bob)
-		var tex_w := maxf(float(sprite.texture.get_width()), 1.0)
-		var base := actor.radius * 4.05 / tex_w
-		var punch := float(_punch.get(actor.id, 0.0))
-		# Kenney animals face left. Flip them when the sim is looking right.
-		var face := float(sprite.get_meta("face", 1.0))
-		var look := cos(actor.facing)
-		if look > 0.2:
-			face = -1.0
-		elif look < -0.2:
-			face = 1.0
-		sprite.set_meta("face", face)
-		sprite.scale = Vector2(base * (1.0 + punch) * face, base * (1.0 - punch * 0.5))
-		sprite.modulate = Color(1.7, 1.7, 1.7) if actor.flash > 0.0 else Color.WHITE
-		sprite.z_index = int(pos.y)
-		sprite.visible = true
-	for id in _actor_sprites.keys():
-		if not seen.has(id):
-			_actor_sprites[id].visible = false
-	var seen_gems := {}
-	for gem in sim.gems:
-		if not gem.alive:
-			continue
-		var gid := gem.get_instance_id()
-		seen_gems[gid] = true
-		var sprite := _pooled(_gem_sprites, gid, SpriteBank.fx("gem"))
-		var pos: Vector2 = gem.prev.lerp(gem.pos, alpha)
-		sprite.position = pos + Vector2(0.0, sin(gem.bob) * 4.0)
-		sprite.scale = Vector2.ONE * 0.42
-		sprite.rotation = 0.0
-		sprite.modulate = Color.WHITE
-		sprite.visible = true
-		sprite.z_index = int(pos.y)
-	for id in _gem_sprites.keys():
-		if not seen_gems.has(id):
-			_gem_sprites[id].visible = false
-	var seen_shots := {}
-	for shot in sim.shots:
-		if not shot.alive:
-			continue
-		var sid := shot.get_instance_id()
-		seen_shots[sid] = true
-		var kind := "arrow" if shot.kind == "arrow" else "orb"
-		var sprite := _pooled(_shot_sprites, sid, SpriteBank.fx(kind))
-		sprite.position = shot.prev.lerp(shot.pos, alpha)
-		if shot.kind == "arrow":
-			sprite.rotation = shot.vel.angle()
-			sprite.scale = Vector2(0.5, 0.5)
-			sprite.modulate = Color.WHITE
-		else:
-			sprite.rotation = 0.0
-			sprite.scale = Vector2.ONE * (0.62 if shot.kind == "bash" else 0.48)
-			if shot.kind == "enemy":
-				sprite.modulate = Color(1.0, 0.45, 0.32)
-			elif shot.kind == "bash":
-				sprite.modulate = Color(1.0, 0.92, 0.55)
-			else:
-				sprite.modulate = Color(1.0, 0.62, 0.28)
-		sprite.visible = true
-		sprite.z_index = 4000
-	for id in _shot_sprites.keys():
-		if not seen_shots.has(id):
-			_shot_sprites[id].visible = false
 
 
 func _actor_sprite(id: int, tex: Texture2D) -> Sprite2D:
@@ -575,7 +519,6 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	UiKit.ensure()
 	label.visible = true
 	label.text = text
-	label.position = pos + Vector2(randf_range(-18, 18), -36)
 	label.modulate = Color(1, 1, 1, 1)
 	label.z_index = 4096
 	label.add_theme_font_override("font", UiKit.font_x)
@@ -589,6 +532,10 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.scale = Vector2(1.45, 1.45)
 	var pop := create_tween()
 	pop.tween_property(label, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var lift := Vector2(randf_range(-18, 18), -36)
+	label.set_meta("sim", pos)
+	label.set_meta("lift", lift)
+	label.position = _projected(pos) + lift
 	label.set_meta("life", 0.7)
 
 
@@ -598,10 +545,19 @@ func _tick_floats(delta: float) -> void:
 			continue
 		var life := float(label.get_meta("life")) - delta
 		label.set_meta("life", life)
-		label.position.y -= 48.0 * delta
+		var lift: Vector2 = label.get_meta("lift")
+		lift.y -= 48.0 * delta
+		label.set_meta("lift", lift)
+		label.position = _projected(label.get_meta("sim")) + lift
 		label.modulate.a = clampf(life / 0.28, 0.0, 1.0)
 		if life <= 0.0:
 			label.visible = false
+
+
+func _projected(sim_pos: Vector2) -> Vector2:
+	if stage == null:
+		return sim_pos
+	return world.to_local(stage.project(sim_pos))
 
 
 func _clear_modal() -> void:
@@ -698,14 +654,11 @@ func _mount_pet() -> void:
 	if pet_id == "":
 		return
 	var drop := Catalog.drop_by_id(pet_id)
-	pet_sprite = Sprite2D.new()
-	pet_sprite.texture = SpriteBank.critter(str(drop.get("sprite", "thistle")))
-	pet_sprite.centered = true
-	actors_root.add_child(pet_sprite)
+	pet_follow = str(drop.get("sprite", "thistle"))
 
 
 func _sync_pet(alpha: float) -> void:
-	if pet_sprite == null or sim == null or sim.heroes.is_empty():
+	if pet_follow == "" or sim == null or sim.heroes.is_empty() or stage == null:
 		return
 	var hero: RunSim.Actor = sim.heroes[0]
 	var pos: Vector2 = hero.prev.lerp(hero.pos, alpha)
@@ -715,12 +668,7 @@ func _sync_pet(alpha: float) -> void:
 		pet_pos = goal
 		pet_ready = true
 	pet_pos = pet_pos.lerp(goal, 0.2)
-	var tex_w := maxf(float(pet_sprite.texture.get_width()), 1.0)
-	var base := hero.radius * 2.1 / tex_w
-	var face := -1.0 if cos(hero.facing) > 0.2 else 1.0
-	pet_sprite.position = pet_pos
-	pet_sprite.scale = Vector2(base * face, base)
-	pet_sprite.z_index = int(pos.y) - 1
+	stage.sync_pet(pet_follow, pet_pos, hero.facing, hero.vel.length() > 20.0)
 
 
 func _show_rare(drop: Dictionary, boss_name: String) -> void:

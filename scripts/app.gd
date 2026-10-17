@@ -83,8 +83,8 @@ func _capture() -> void:
 	await _shot("loadout")
 	go("run", {"biome": "meadow", "hero": "ember"})
 	await _settle()
-	current.drive = Vector2(0.55, 0.9).normalized()
-	await get_tree().create_timer(3.35).timeout
+	current.drive = Vector2(0.35, 0.15).normalized()
+	await get_tree().create_timer(2.6).timeout
 	await _shot("hunt")
 	current.sim.debug_offer()
 	var show: Array = ["vitality", "magnet", "mage_radius"]
@@ -95,8 +95,10 @@ func _capture() -> void:
 	await _shot("levelup")
 	current._pick(0)
 	await _settle()
+	current.drive = Vector2(0, -1)
+	await get_tree().create_timer(1.05).timeout
 	current.sim.begin_boss()
-	await get_tree().create_timer(0.35).timeout
+	await get_tree().create_timer(0.55).timeout
 	await _shot("boss")
 	SaveGame.debug_rare = true
 	current.sim.debug_slay_boss()
