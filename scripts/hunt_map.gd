@@ -168,6 +168,10 @@ var patrols: Array = []
 var loot: Array = []
 ## Landmarks: {pos, kind, r} (r is the solid radius in sim px)
 var landmarks: Array = []
+## Shrines: {pos, kind: "fury"|"haste"|"warding"|"greed"}. Claimed on contact.
+var shrines: Array = []
+## Where the treasure goblin hides, if the map rolled one. INF when none.
+var goblin_at := Vector2.INF
 var start := Vector2.ZERO
 var lair := Vector2.ZERO
 var lair_r := 680.0
@@ -378,6 +382,71 @@ func _populate(rng: RandomNumberGenerator) -> void:
 		if crowded:
 			continue
 		landmarks.append({"pos": n["pos"] + dir * n["r"] * 0.62, "kind": kind, "r": solid, "yaw": rng.randf() * TAU})
+	# Map events last, so the camps, chests and landmarks above keep their
+	# old placement (and the shipped balance) on a given seed.
+	_shrines(rng)
+	_affix_camps(rng)
+	_goblin_haunt(rng)
+
+
+## Shrines: two or three, standing in clearings or pockets well away from the
+## start and the lair. Walking within reach claims one once.
+func _shrines(rng: RandomNumberGenerator) -> void:
+	var spots: Array = []
+	for i in nodes.size():
+		var n: Dictionary = nodes[i]
+		var kind := str(n["kind"])
+		if kind != "clearing" and kind != "pocket":
+			continue
+		var pos: Vector2 = n["pos"]
+		if pos.distance_to(start) < 760.0 or pos.distance_to(lair) < 760.0:
+			continue
+		spots.append(i)
+	if spots.size() < 2:
+		# A cramped roll: fall back to any clearing or pocket off the ends.
+		for i in nodes.size():
+			var k := str(nodes[i]["kind"])
+			if (k == "clearing" or k == "pocket") and not spots.has(i):
+				spots.append(i)
+	_shuffle(spots, rng)
+	var kinds := ["fury", "haste", "warding", "greed"]
+	_shuffle(kinds, rng)
+	var count := mini(rng.randi_range(2, 3), spots.size())
+	for s in count:
+		var n: Dictionary = nodes[spots[s]]
+		# Dead centre of the clearing/pocket: it sits on the route the hero
+		# already walks to reach the camp or chest there.
+		shrines.append({"pos": n["pos"], "kind": str(kinds[s % kinds.size()])})
+
+
+## Elite packs carry one or two affixes; the odd normal camp does too.
+func _affix_camps(rng: RandomNumberGenerator) -> void:
+	var pool := ["fast", "shielded", "molten", "vampiric"]
+	for c in camps:
+		var chance := 1.0 if bool(c["elite"]) else 0.15
+		if rng.randf() >= chance:
+			continue
+		_shuffle(pool, rng)
+		var count := rng.randi_range(1, 2)
+		var picked: Array = []
+		for k in mini(count, pool.size()):
+			picked.append(pool[k])
+		c["affixes"] = picked
+
+
+## The treasure goblin hides in one pocket, or a clearing on a pocket-poor map.
+func _goblin_haunt(rng: RandomNumberGenerator) -> void:
+	var places: Array = []
+	for i in nodes.size():
+		if str(nodes[i]["kind"]) == "pocket":
+			places.append(i)
+	if places.is_empty():
+		for i in nodes.size():
+			if str(nodes[i]["kind"]) == "clearing":
+				places.append(i)
+	if places.is_empty():
+		return
+	goblin_at = nodes[places[rng.randi() % places.size()]]["pos"]
 
 
 ## Fisher-Yates on the map's seeded rng; Array.shuffle() would use the global one.

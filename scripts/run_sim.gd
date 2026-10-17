@@ -86,8 +86,25 @@ const REVEAL := 1200.0
 const AGGRO_CAMP := 430.0
 const AGGRO_PATROL := 380.0
 const LEASH := 1500.0
+## Shrines: how close the hero must walk, and how long the buff lasts.
+const SHRINE_REACH := 120.0
+const SHRINE_SECONDS := 30.0
+## Warding's regen surge: hp/s for the first few seconds of the buff.
+const WARD_REGEN := 20.0
+const WARD_REGEN_TIME := 4.0
+## Treasure goblin: one roll on first approach, then a short flight.
+const GOBLIN_CHANCE := 0.6
+const GOBLIN_SIGHT := 700.0
+const GOBLIN_LEASH := 1600.0
+const GOBLIN_LIFE := 12.0
 ## Loot chests on the map: {pos, tier, open}
 var chests: Array = []
+## Shrines on the map: {pos, kind, used}. Claimed once by walking within
+## SHRINE_REACH; the buff stacks on top of _recompute for SHRINE_SECONDS.
+var shrines: Array = []
+## The run's treasure goblin, if its roll passed, and whether the roll is spent.
+var goblin: Actor = null
+var goblin_roll := false
 var loot_coins := 0
 var boss_time := 0.0
 var _fog_t := 0.0
@@ -155,6 +172,17 @@ class Actor extends RefCounted:
 	var patrol_b := Vector2.ZERO
 	var to_b := true
 	var elite := false
+	## Elite affixes carried by this actor (fast/shielded/molten/vampiric).
+	var affixes: Array = []
+	## Damage shield: absorbs damage before hp. Shielded affix only.
+	var shield := 0.0
+	## Treasure goblin: flees instead of fighting, and drops a rare chest.
+	var goblin := false
+	var goblin_t := 0.0
+	## Temporary shrine buffs by kind, in seconds left.
+	var shrine_buffs: Dictionary = {}
+	## Warding shrine's short regen surge, in seconds left.
+	var regen_burst := 0.0
 	## Skill state: status timers, per-target blade ticks and skill cooldowns.
 	var slow := 0.0
 	var slow_k := 0.0
@@ -290,6 +318,7 @@ func step(dt: float, moves: Array) -> void:
 		if actor.alive:
 			_clamp_actor(actor)
 	if explore:
+		_step_shrines(dt)
 		_step_explore(dt)
 	else:
 		_step_spawns(dt)
@@ -526,6 +555,19 @@ func _recompute(hero: Actor) -> void:
 	stats["siphon"] = float(base["siphon"]) + siphon_add
 	stats["revive"] = 0 if revive_spent else revive
 	stats["phoenix"] = 0 if phoenix_spent else phoenix
+	# Shrine buffs sit on top of the rolled stats, so a later level-up
+	# (which rebuilds from bases) never wipes a blessing mid-fight.
+	for kind in hero.shrine_buffs.keys():
+		match str(kind):
+			"fury":
+				stats["dmg"] = float(stats["dmg"]) * 1.35
+			"haste":
+				stats["interval"] = maxf(0.16, float(stats["interval"]) / 1.30)
+				stats["speed"] = float(stats["speed"]) * 1.30
+			"warding":
+				stats["armor"] = float(stats["armor"]) + 4.0
+			"greed":
+				stats["gem_mul"] = float(stats.get("gem_mul", 1.0)) * 1.5
 	var old_max := hero.max_hp
 	hero.stats = stats
 	_copy_combat(hero)
@@ -1024,6 +1066,9 @@ func _step_minions(dt: float) -> void:
 	for actor in actors:
 		if not actor.alive or actor.kind != "minion":
 			continue
+		if actor.goblin:
+			_step_goblin(actor, dt, target)
+			continue
 		actor.flash = maxf(0.0, actor.flash - dt)
 		actor.touch_cd = maxf(0.0, actor.touch_cd - dt)
 		actor.cd = maxf(0.0, actor.cd - dt)
@@ -1415,7 +1460,8 @@ func _step_gems(dt: float) -> void:
 			gem.pos += delta / dist * pull * dt
 		if dist < hero.radius + 16.0:
 			gem.alive = false
-			_add_xp(gem.value)
+			var mul := float(hero.stats.get("gem_mul", 1.0))
+			_add_xp(maxi(1, int(round(float(gem.value) * mul))))
 			events.append({"type": "gem", "pos": gem.pos})
 			var burst := int(hero.stats.get("gemburst", 0))
 			if burst > 0 and rng.randf() < minf(0.6, 0.2 * float(burst)):
@@ -1557,6 +1603,13 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		var bulwark := float(target.stats.get("bulwark", 0.0))
 		if bulwark > 0.0 and target.still > 0.25:
 			dealt = maxf(1.0, dealt * (1.0 - minf(0.5, bulwark)))
+	# A shielded elite soaks damage with its shield first, then its hp.
+	if target.shield > 0.0:
+		var soaked := minf(target.shield, dealt)
+		target.shield -= soaked
+		dealt -= soaked
+		if target.shield <= 0.0:
+			events.append({"type": "shield_break", "pos": target.pos, "id": target.id})
 	target.hp -= dealt
 	target.flash = 0.1
 	var kick_dir := target.pos - from_pos
@@ -1566,6 +1619,9 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		kick_dir = kick_dir.normalized()
 	var kick := 2.0 if target.kind == "boss" else (10.0 if target.kind == "hero" else 16.0)
 	target.pos += kick_dir * kick
+	# Vampiric affix: the attacker drinks a share of the damage it lands.
+	if attacker != null and attacker != target and dealt > 0.0 and "vampiric" in attacker.affixes:
+		attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * 0.3)
 	if attacker != null and attacker.kind == "hero":
 		var siphon := float(attacker.stats.get("siphon", 0.0))
 		if siphon > 0.0 and attacker.alive:
@@ -1694,6 +1750,13 @@ func _kill(actor: Actor) -> void:
 		result = "win"
 		paused = true
 		events.append({"type": "boss_down", "id": actor.sprite, "name": actor.display, "shake": 0.9, "stop": 0.1})
+		return
+	if "molten" in actor.affixes:
+		# Molten death leaves a burning patch behind for the hero to respect.
+		_drop_field(actor, actor.pos, 96.0, actor.dmg * 0.6, 3.0, 0.5, "molten")
+	if actor.goblin:
+		_goblin_loot(actor)
+		events.append({"type": "goblin_down", "pos": actor.pos})
 		return
 	if actor.team == 1:
 		slain += 1
@@ -2092,14 +2155,19 @@ func _spawn_world() -> void:
 		var at: Vector2 = camp["pos"]
 		var count: int = camp["count"]
 		var base := ci % skins.size()
+		var affixes: Array = camp.get("affixes", [])
 		for k in count:
 			var ang := TAU * float(k) / float(count) + rng.randf_range(-0.3, 0.3)
 			var p := map.push_inside(at + Vector2.RIGHT.rotated(ang) * rng.randf_range(70.0, 150.0), 30.0)
 			var skin := base if k % 2 == 0 else rng.randi() % skins.size()
 			var m := _place_minion(skin, p, ci)
+			_apply_affixes(m, affixes)
 		if bool(camp["elite"]):
 			var e := _place_minion(rng.randi() % skins.size(), at, ci)
 			_make_elite(e)
+			_apply_affixes(e, affixes)
+		for affix in affixes:
+			events.append({"type": "fx", "fx": "affix_" + str(affix), "pos": at})
 	for pi in map.patrols.size():
 		var pat: Dictionary = map.patrols[pi]
 		var a: Vector2 = pat["a"]
@@ -2111,6 +2179,26 @@ func _spawn_world() -> void:
 			m.patrol_b = b
 	for c in map.loot:
 		chests.append({"pos": c["pos"], "tier": c["tier"], "open": false})
+	shrines.clear()
+	for s in map.shrines:
+		shrines.append({"pos": s["pos"], "kind": s["kind"], "used": false})
+	goblin = null
+	goblin_roll = false
+
+
+## Stamps an elite camp's affixes onto one spawned critter. Shielded reads
+## max_hp, so it must run after _make_elite() has sized the leader.
+func _apply_affixes(m: Actor, affixes: Array) -> void:
+	if affixes.is_empty():
+		return
+	m.affixes = affixes.duplicate()
+	for affix in affixes:
+		match str(affix):
+			"fast":
+				m.speed *= 1.45
+				m.interval = maxf(0.22, m.interval * 0.8)
+			"shielded":
+				m.shield = m.max_hp * 0.4
 
 
 func _place_minion(skin: int, at: Vector2, camp: int) -> Actor:
@@ -2134,7 +2222,8 @@ const EXPLORE_XP := 1.25
 
 func _make_elite(m: Actor) -> void:
 	m.elite = true
-	m.max_hp *= 5.0
+	# The pack leader is a head taller than its pack: +80% on top of the roll.
+	m.max_hp *= 5.0 * 1.8
 	m.hp = m.max_hp
 	m.dmg *= 1.6
 	m.radius *= 1.35
@@ -2220,19 +2309,157 @@ func _step_explore(dt: float) -> void:
 	for c in chests:
 		if bool(c["open"]) or hero.pos.distance_to(c["pos"]) > hero.radius + 56.0:
 			continue
-		c["open"] = true
-		var rare: bool = str(c["tier"]) == "rare"
-		var value := (40 if rare else 18) + level * 2
-		var coins := 40 if rare else 15
-		loot_coins += coins
-		for k in (9 if rare else 6):
-			_drop_gem(c["pos"] + Vector2.RIGHT.rotated(TAU * k / 6.0) * rng.randf_range(40.0, 90.0), maxi(1, value / (9 if rare else 6)))
-		hero.hp = minf(hero.max_hp, hero.hp + hero.max_hp * 0.2)
-		events.append({"type": "loot", "pos": c["pos"], "tier": c["tier"], "coins": coins, "shake": 0.25})
+		_claim_chest(c, hero)
+	# The treasure goblin: the first time the hero nears its haunt the run
+	# rolls once (seeded). Whatever the roll, it never rolls again.
+	if goblin == null and not goblin_roll and map.goblin_at != Vector2.INF:
+		if hero.pos.distance_to(map.goblin_at) < GOBLIN_SIGHT:
+			goblin_roll = true
+			if rng.randf() < GOBLIN_CHANCE:
+				_spawn_goblin(map.goblin_at)
 	# The lair: walk in and the boss rises.
 	if phase == "hunt" and hero.pos.distance_to(map.lair) < map.lair_r * 0.72:
 		begin_boss()
 		_add_t = 6.0
+
+
+## Opens a chest: coins home, a ring of gems, a sip of health and the loot
+## event run_screen turns into a chest sent home. Goblin loot borrows this too.
+func _claim_chest(c: Dictionary, hero: Actor) -> void:
+	c["open"] = true
+	var rare: bool = str(c["tier"]) == "rare"
+	var value := (40 if rare else 18) + level * 2
+	var coins := 40 if rare else 15
+	loot_coins += coins
+	for k in (9 if rare else 6):
+		_drop_gem(c["pos"] + Vector2.RIGHT.rotated(TAU * k / 6.0) * rng.randf_range(40.0, 90.0), maxi(1, value / (9 if rare else 6)))
+	hero.hp = minf(hero.max_hp, hero.hp + hero.max_hp * 0.2)
+	events.append({"type": "loot", "pos": c["pos"], "tier": c["tier"], "coins": coins, "shake": 0.25})
+
+
+## Shrine pass: claim any shrine a hero has walked within reach of, tick the
+## buffs down, and rebuild the stats the moment one expires.
+func _step_shrines(dt: float) -> void:
+	for s in shrines:
+		if bool(s["used"]):
+			continue
+		var claimed := false
+		for hero in heroes:
+			if hero.alive and hero.pos.distance_to(s["pos"]) <= SHRINE_REACH + hero.radius:
+				claimed = true
+				_activate_shrine(hero, str(s["kind"]), s["pos"])
+		if claimed:
+			s["used"] = true
+	for hero in heroes:
+		if not hero.alive:
+			continue
+		var changed := false
+		for kind in hero.shrine_buffs.keys():
+			var left := float(hero.shrine_buffs[kind]) - dt
+			if left <= 0.0:
+				hero.shrine_buffs.erase(kind)
+				changed = true
+				events.append({"type": "shrine_end", "kind": str(kind), "id": hero.id})
+			else:
+				hero.shrine_buffs[kind] = left
+		if hero.regen_burst > 0.0:
+			hero.regen_burst = maxf(0.0, hero.regen_burst - dt)
+			hero.hp = minf(hero.max_hp, hero.hp + WARD_REGEN * dt)
+		if changed:
+			_recompute(hero)
+
+
+func _activate_shrine(hero: Actor, kind: String, pos: Vector2) -> void:
+	hero.shrine_buffs[kind] = SHRINE_SECONDS
+	if kind == "warding":
+		hero.regen_burst = WARD_REGEN_TIME
+	_recompute(hero)
+	events.append({"type": "shrine", "kind": kind, "pos": pos, "seconds": SHRINE_SECONDS})
+
+
+## The treasure goblin: a fragile chaser that never fights, only runs. It
+## uses the same slide and open-ground rules as everything else.
+func _spawn_goblin(at: Vector2) -> Actor:
+	if goblin != null and goblin.alive:
+		return goblin
+	var skins: Array = biome["skins"]
+	var id := str(skins[0])
+	var info := Catalog.critter(id)
+	var actor := Actor.new()
+	actor.id = _nid()
+	actor.team = 1
+	actor.kind = "minion"
+	actor.goblin = true
+	actor.sprite = id
+	actor.display = "Treasure Goblin"
+	actor.archetype = str(info.get("archetype", "chaser"))
+	actor.pos = map.push_inside(at, 30.0)
+	actor.prev = actor.pos
+	actor.radius = 26.0
+	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * 5.0
+	actor.hp = actor.max_hp
+	var base_speed := 150.0
+	if not heroes.is_empty() and bases.has(heroes[0].id):
+		base_speed = float(bases[heroes[0].id]["speed"])
+	actor.speed = base_speed * 1.15
+	actor.dmg = 0.0
+	actor.interval = 999.0
+	actor.range = 0.0
+	actor.xp = 3
+	actor.aggro = false
+	actor.goblin_t = GOBLIN_LIFE
+	actors.append(actor)
+	goblin = actor
+	events.append({"type": "fx", "fx": "goblin_spawn", "pos": actor.pos})
+	return actor
+
+
+func _step_goblin(actor: Actor, dt: float, target: Actor) -> void:
+	actor.goblin_t -= dt
+	var far := target == null or actor.pos.distance_to(target.pos) > GOBLIN_LEASH
+	if actor.goblin_t <= 0.0 or far:
+		actor.alive = false
+		if goblin == actor:
+			goblin = null
+		events.append({"type": "goblin_escape", "pos": actor.pos})
+		return
+	actor.flash = maxf(0.0, actor.flash - dt)
+	var away := actor.pos - target.pos
+	if away.length() < 1.0:
+		away = Vector2.RIGHT.rotated(rng.randf() * TAU)
+	var base := away.normalized()
+	# Prefer to keep running away, but lean toward whichever heading stays on
+	# open ground so the goblin does not wedge itself into the forest.
+	var best_dir := base
+	var best_score := -1.0e9
+	for k in 8:
+		var d := base.rotated(TAU * float(k) / 8.0)
+		var probe := actor.pos + d * 220.0
+		var score := d.dot(base) * 120.0 + map.depth(probe)
+		if not play.grow(-actor.radius).has_point(probe):
+			score -= 500.0
+		for o in obstacles:
+			score -= maxf(0.0, 200.0 - probe.distance_to(Vector2(o.x, o.y)))
+		if score > best_score:
+			best_score = score
+			best_dir = d
+	actor.facing = best_dir.angle()
+	actor.vel = _slide(actor, best_dir * actor.speed * _slow_mul(actor))
+	var was := actor.pos
+	actor.pos += actor.vel * dt
+	actor.pos = map.push_inside(actor.pos, actor.radius * 0.8)
+	actor.vel = (actor.pos - was) / maxf(dt, 0.0001)
+
+
+func _goblin_loot(actor: Actor) -> void:
+	goblin = null
+	var chest := {"pos": actor.pos, "tier": "rare", "open": false}
+	chests.append(chest)
+	var hero := _nearest_living_hero(actor.pos)
+	if hero != null:
+		_claim_chest(chest, hero)
+	for k in 10:
+		_drop_gem(actor.pos + Vector2.RIGHT.rotated(TAU * float(k) / 10.0) * rng.randf_range(36.0, 96.0), 2)
 
 
 func _reveal(at: Vector2) -> void:

@@ -521,6 +521,22 @@ func _drain() -> void:
 				_float(ev["pos"] + Vector2(0, -70), "Chest sent home" if sent == "sent" else "Chest drawer full", Color("f4e3b5") if sent == "sent" else Color("c98b7a"), false)
 				AudioDirector.sfx("chest_open")
 				AudioDirector.haptic("rare" if str(ev.get("tier", "")) == "rare" else "medium")
+			"shrine":
+				var sk := str(ev.get("kind", ""))
+				_banner("Shrine of " + _shrine_word(sk))
+				_burst(ev.get("pos", Vector2.ZERO), _shrine_color(sk), 24, 250.0)
+				AudioDirector.sfx("levelup", -4.0)
+				AudioDirector.haptic("light")
+			"goblin_down":
+				_banner("Treasure goblin slain!")
+				_burst(ev.get("pos", Vector2.ZERO), Color("ffd27a"), 26, 280.0)
+				AudioDirector.sfx("chest_open")
+				AudioDirector.haptic("rare")
+			"goblin_escape":
+				_burst(ev.get("pos", Vector2.ZERO), Color("b7a06a"), 8, 120.0)
+			"shield_break":
+				_burst(ev.get("pos", Vector2.ZERO), Color("8fd0ff"), 12, 190.0)
+				AudioDirector.sfx("hit", -2.0)
 			"dodge":
 				_burst(ev["pos"], Color("c9b79a"), 8, 140.0)
 				AudioDirector.sfx("ui_tap", -6.0)
@@ -674,6 +690,45 @@ func _fx_color(name: String) -> Color:
 			return Color("8fd0ff")
 		"berserk":
 			return Color("ff8a3c")
+		"affix_fast":
+			return Color("ffd15a")
+		"affix_shielded":
+			return Color("8fd0ff")
+		"affix_molten", "molten":
+			return Color("ff7a3c")
+		"affix_vampiric":
+			return Color("ff5a6a")
+		"goblin_spawn":
+			return Color("ffd27a")
+		_:
+			return Color("ffe08a")
+
+
+## Display word for a shrine kind (the banner reads "Shrine of Fury").
+func _shrine_word(kind: String) -> String:
+	match kind:
+		"fury":
+			return "Fury"
+		"haste":
+			return "Haste"
+		"warding":
+			return "Warding"
+		"greed":
+			return "Greed"
+		_:
+			return kind.capitalize()
+
+
+func _shrine_color(kind: String) -> Color:
+	match kind:
+		"fury":
+			return Color("ff7a5a")
+		"haste":
+			return Color("ffe14a")
+		"warding":
+			return Color("8fd0ff")
+		"greed":
+			return Color("b6f27a")
 		_:
 			return Color("ffe08a")
 

@@ -266,7 +266,7 @@ static func explore_steer(sim: RunSim, index: int, mem: Dictionary) -> Vector2:
 				best = d
 				goal = c["pos"]
 		for a in sim.actors:
-			if a.alive and a.kind == "minion" and not a.aggro:
+			if a.alive and a.kind == "minion" and not a.aggro and not a.goblin:
 				var d := from_hero[sim.map.cell_index(a.pos)]
 				if d >= 0 and d < best:
 					best = d
