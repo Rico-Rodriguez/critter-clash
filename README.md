@@ -83,9 +83,7 @@ godot --headless --path . --export-release "Web" web/index.html
 
 Bundle id `com.rico.critterclash`, display name Critter Clash, minimum iOS 15. The export preset writes an Xcode project only (`application/export_project_only`). Team id `ABCDE12345` is a placeholder so Godot will export; SideInstaller replaces the signature with your Apple ID.
 
-`.github/workflows/ios-ipa.yml` runs on `macos-15`. It installs Godot 4.7.2 and the export templates, exports the Xcode project, archives with `CODE_SIGNING_ALLOWED=NO`, zips `Payload/*.app` into `CritterClash.ipa`, and publishes a prerelease on tag `ios-v1` (workflow dispatch does the same).
-
-This environment cannot produce that IPA. It is Linux, so `xcodebuild` is unavailable, and the git remote is the Cursor origin rather than GitHub. The signed-in forge CLI cannot open `Rico-Rodriguez/critter-clash` or run GitHub Actions. After this project is on GitHub, run the workflow (or push the tag `ios-v1`) and the prerelease asset is `CritterClash.ipa`.
+`.github/workflows/ios-ipa.yml` runs on `macos-15` for pushes to `main` and for workflow dispatch. It installs Godot 4.7.2 and the export templates, exports the Xcode project with the Mobile renderer and Metal so the shader baker can run, archives with `CODE_SIGNING_ALLOWED=NO`, zips `Payload/*.app` into `CritterClash.ipa`, and publishes a prerelease tagged `ios-v1`.
 
 ### Art and audio rebuild
 

@@ -3,12 +3,14 @@ name: Unsigned iOS IPA
 on:
   workflow_dispatch:
   push:
-    tags:
-      - ios-v1
+    branches:
+      - main
 
 jobs:
   ipa:
     runs-on: macos-15
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,15 +36,46 @@ jobs:
       - name: Export the Xcode project
         run: |
           set -euo pipefail
+          # Headless import only fills the asset cache. The iOS preset bakes
+          # shaders for the Mobile renderer, and that baker needs a real Metal
+          # device. --headless has no rendering device, and the desktop default
+          # (Compatibility) cannot bake Mobile core shaders.
           "$GODOT" --headless --path . --import --quit || true
           mkdir -p build/ios
-          "$GODOT" --headless --path . --export-release "iOS" build/ios/CritterClash.xcodeproj
+          "$GODOT" --path . \
+            --rendering-method mobile \
+            --rendering-driver metal \
+            --export-release "iOS" build/ios/CritterClash.xcodeproj
+          test -d build/ios/CritterClash.xcodeproj
 
       - name: Archive without signing and zip the IPA
         run: |
           set -euo pipefail
           cd build/ios
           PROJECT="$(find . -maxdepth 2 -name '*.xcodeproj' | head -n 1)"
+          # The preset keeps the placeholder team id ABCDE12345 so Godot will
+          # export. Automatic signing would ask Apple for that team, so the
+          # generated project is switched to an empty manual identity first.
+          python3 - << 'PY'
+          from pathlib import Path
+          projects = list(Path(".").rglob("project.pbxproj"))
+          if not projects:
+              raise SystemExit("no project.pbxproj")
+          replacements = {
+              "CODE_SIGN_STYLE = Automatic;": "CODE_SIGN_STYLE = Manual;",
+              'CODE_SIGN_IDENTITY = "Apple Distribution";': 'CODE_SIGN_IDENTITY = "";',
+              'CODE_SIGN_IDENTITY = "Apple Development";': 'CODE_SIGN_IDENTITY = "";',
+              'CODE_SIGN_IDENTITY = "iPhone Distribution";': 'CODE_SIGN_IDENTITY = "";',
+              'CODE_SIGN_IDENTITY = "iPhone Developer";': 'CODE_SIGN_IDENTITY = "";',
+              "DEVELOPMENT_TEAM = ABCDE12345;": 'DEVELOPMENT_TEAM = "";',
+          }
+          for path in projects:
+              text = path.read_text()
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              path.write_text(text)
+              print(f"cleared signing in {path}")
+          PY
           xcodebuild -list -project "$PROJECT"
           SCHEME="$(xcodebuild -list -project "$PROJECT" -json | python3 -c 'import json,sys; print(json.load(sys.stdin)["project"]["schemes"][0])')"
           echo "Using scheme ${SCHEME}"
@@ -64,8 +97,13 @@ jobs:
           mkdir Payload
           cp -R "$APP" Payload/
           # Display name and bundle id are baked by the Godot export (Critter Clash / com.rico.critterclash).
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "Payload/$(basename "$APP")/Info.plist"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "Payload/$(basename "$APP")/Info.plist" || true
+          BUNDLE="Payload/$(basename "$APP")"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$BUNDLE/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$BUNDLE/Info.plist" || true
+          # xcodebuild can still leave an ad-hoc signature. Drop it so the IPA is unsigned.
+          codesign --remove-signature "$BUNDLE" || true
+          rm -rf "$BUNDLE/_CodeSignature"
+          test ! -e "$BUNDLE/_CodeSignature"
           zip -qry CritterClash.ipa Payload
           ls -lh CritterClash.ipa
 
