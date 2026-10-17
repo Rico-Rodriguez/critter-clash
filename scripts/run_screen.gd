@@ -449,7 +449,7 @@ func _drain() -> void:
 				var crit := bool(ev.get("crit", false))
 				if float(ev["amount"]) < 99999.0:
 					if crit or not _merge_float(int(ev["id"]), float(ev["amount"])):
-						_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ffc93a") if crit else Color("fbf2de"), crit, int(ev["id"]), float(ev["amount"]))
+						_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ff8a2a") if crit else Color("fbf2de"), crit, int(ev["id"]), float(ev["amount"]))
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
 				var struck := sim._actor_by_id(int(ev["id"]))
@@ -646,7 +646,7 @@ func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, a
 	label.set_meta("eid", id)
 	label.set_meta("total", amount)
 	label.set_meta("big", big)
-	label.add_theme_font_size_override("font_size", 84 if big else 48)
+	label.add_theme_font_size_override("font_size", 96 if big else 50)
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color(0.04, 0.015, 0.01))
 	label.add_theme_constant_override("outline_size", 16 if big else 13)
@@ -1515,11 +1515,22 @@ class XpBar extends Meter:
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
 		var rad := size.y * 0.5
-		UiKit.ch_fill(self, r.grow(3), rad + 3, Color(0, 0, 0, 0.55), Color(0, 0, 0, 0.55))
-		UiKit.ch_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
+		# Forged frame: a dark iron plate with a bevelled bronze band and a
+		# rivet at each end, so the bar reads as a bar even when empty.
+		UiKit.ch_fill(self, r.grow(7), rad + 7, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
+		UiKit.ch_fill(self, r.grow(5), rad + 5, Color("5a5048"), Color("1e1a16"))
+		UiKit.ch_fill(self, r, rad, Color("f0d18e"), Color("5a3814"))
+		for end in [rad, size.x - rad]:
+			draw_circle(Vector2(end, rad), 5.0, Color("2a1c10"))
+			draw_circle(Vector2(end - 0.8, rad - 0.8), 3.6, Color("e7c27a"))
 		var groove := r.grow(-3)
 		UiKit.ch_fill(self, groove, rad - 3, Color("030202"), Color("1a130d"))
+		# The empty track keeps a faint enamel tint and notches every tenth.
+		UiKit.ch_fill(self, groove.grow(-2), rad - 5, Color(fill, 0.16), Color(fill.darkened(0.5), 0.12))
 		UiKit.ch_fill(self, Rect2(groove.position, Vector2(groove.size.x, groove.size.y * 0.42)), rad - 3, Color(0, 0, 0, 0.7), Color(0, 0, 0, 0.0))
+		for i in range(1, 10):
+			var x := groove.position.x + groove.size.x * i / 10.0
+			draw_line(Vector2(x, groove.position.y + 3), Vector2(x, groove.end.y - 3), Color(0.9, 0.75, 0.45, 0.28), 2.0)
 		var bar := groove.grow(-3)
 		var w := bar.size.x * clampf(ratio, 0.0, 1.0)
 		if w > bar.size.y * 0.6:
