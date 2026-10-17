@@ -51,28 +51,61 @@ func build() -> void:
 	scroll.add_child(list)
 	for entry in ENTRIES:
 		list.add_child(_card(entry))
-	list.add_child(body("CC0: Pixor dragon and owl, Gamideo otter, Quaternius monsters and nature, ambientCG ground, Poly Haven sky, Kenney interface pictures. Godot Engine is MIT. Nunito and Lilita One are SIL Open Font License."))
+	list.add_child(_plain("Also used (CC0 / open licences)", [
+		"Pixor — dragon and owl critters",
+		"Gamideo — otter critter",
+		"Quaternius — monsters and nature kit",
+		"ambientCG — ground, rock and moss textures",
+		"Poly Haven — sky",
+		"Kenney — interface pictures",
+		"Godot Engine — MIT",
+		"Cinzel, Nunito, Lilita One — SIL Open Font License",
+	]))
 	box.add_child(back_button("home"))
 
 
-func _card(entry: Dictionary) -> PanelContainer:
+func _plaque() -> PanelContainer:
 	var panel := PanelContainer.new()
-	var frame := UiKit.panel(Color("163e86"), 16)
-	frame.content_margin_left = 14
-	frame.content_margin_right = 14
-	frame.content_margin_top = 10
-	frame.content_margin_bottom = 10
-	panel.add_theme_stylebox_override("panel", frame)
+	var empty := StyleBoxEmpty.new()
+	for side in ["left", "right"]:
+		empty.set("content_margin_" + side, 26)
+	for side in ["top", "bottom"]:
+		empty.set("content_margin_" + side, 20)
+	panel.add_theme_stylebox_override("panel", empty)
+	var metal := UiKit.rarity_metal("common")
+	var fr := UiKit.Frame.new("plaque", "leather", {"metal_hi": metal[0], "metal_lo": metal[1]})
+	fr.margin = 12.0
+	panel.add_child(fr)
+	return panel
+
+
+func _card(entry: Dictionary) -> PanelContainer:
+	var panel := _plaque()
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	var title := UiKit.label(str(entry["title"]), 22, UiKit.CREAM, "x", 4)
+	box.add_theme_constant_override("separation", 4)
+	var title := UiKit.label(str(entry["title"]), 25, Color("fff1d6"), "x", 5)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var meta := UiKit.label("%s  ·  %s  ·  %s" % [entry["used"], entry["author"], entry["license"]], 16, Color("ffe08a"), "b", 3)
+	var used := UiKit.label("Used for %s" % entry["used"], 21, Color("efe4cc"), "b", 4)
+	var meta := UiKit.label("by %s  ·  %s" % [entry["author"], entry["license"]], 21, UiKit.GOLD.lightened(0.15), "b", 4)
 	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var url := UiKit.label(str(entry["url"]), 14, Color("d5e6ff"), "m", 2)
-	url.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var url := UiKit.label(str(entry["url"]).replace("https://", ""), 17, Color("bcd0ea"), "m", 3)
+	url.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	box.add_child(title)
+	box.add_child(used)
 	box.add_child(meta)
 	box.add_child(url)
+	panel.add_child(box)
+	return panel
+
+
+func _plain(heading: String, lines: Array) -> PanelContainer:
+	var panel := _plaque()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.add_child(UiKit.label(heading.to_upper(), 21, UiKit.GOLD.lightened(0.15), "x", 4))
+	for line in lines:
+		var l := UiKit.label("•  " + str(line), 21, Color("efe4cc"), "b", 4)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(l)
 	panel.add_child(box)
 	return panel

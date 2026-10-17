@@ -870,14 +870,23 @@ class Dock extends Control:
 				draw_rect(Rect2(x, 22, 1, bar_h - 44), Color(1, 0.9, 0.7, 0.08), true)
 			var top := -20.0 if on else 0.0
 			var tex := UiKit.icon(str(TABS[i][2]))
-			var px := 62.0 if on else 48.0
-			var icon_r := Rect2(x + (slot - px) * 0.5, top + (16.0 if on else 18.0), px, px)
-			var fill := UiKit.GOLD.lightened(0.3) if on else Color(0.62, 0.56, 0.47)
-			UiKit.draw_icon(self, tex, icon_r, fill, Color(0.05, 0.03, 0.02), 2.0)
-			var font := UiKit.font_x
-			var fpx := 22 if on else 18
-			var ink := UiKit.CREAM if on else Color(0.62, 0.56, 0.47)
-			UiKit.draw_text(self, font, Vector2(x, top + bar_h - (14.0 if on else 22.0)), str(TABS[i][1]).to_upper(), fpx, ink, Color(0.04, 0.03, 0.02), 2, slot)
+			var px := 76.0 if on else 60.0
+			var icon_r := Rect2(x + (slot - px) * 0.5, top + (10.0 if on else 12.0), px, px)
+			if on:
+				# Warm halo behind the active icon.
+				for k in 10:
+					draw_circle(icon_r.get_center(), px * (0.75 - k * 0.05), Color(1.0, 0.75, 0.35, 0.035))
+			var fill := Color("ffe3a0") if on else Color(0.84, 0.77, 0.64)
+			UiKit.draw_icon(self, tex, icon_r, fill, Color(0.05, 0.03, 0.02), 3.0 if on else 2.5)
+			var font := UiKit.font_n if on else UiKit.font_x
+			var fpx := 25 if on else 21
+			var ink := Color("fff1d6") if on else Color(0.84, 0.77, 0.64)
+			UiKit.draw_text(self, font, Vector2(x, top + bar_h - (10.0 if on else 18.0)), str(TABS[i][1]).to_upper(), fpx, ink, Color(0.04, 0.03, 0.02), 4 if on else 3, slot)
+			if on:
+				# Gilt underline so the active tab reads even at a glance.
+				var ux := x + slot * 0.28
+				draw_rect(Rect2(ux, top + bar_h - 2.0, slot * 0.44, 4.0), Color("ffd27a"), true)
+				draw_rect(Rect2(ux, top + bar_h + 2.0, slot * 0.44, 2.0), Color(0, 0, 0, 0.5), true)
 
 
 ## A circular portrait in a gilded, riveted ring (hunt HUD, map bosses).

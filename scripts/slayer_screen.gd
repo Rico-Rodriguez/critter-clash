@@ -83,11 +83,58 @@ func build() -> void:
 	box.add_child(_section("POINTS SHOP"))
 	for offer in Catalog.SLAYER_SHOP:
 		box.add_child(_offer(offer))
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(spacer)
+	# The warden's ledger: every hunting ground, its tasks and their worth,
+	# sealed until the biome opens. Fills the page with the long goal.
+	box.add_child(_section("HUNTING GROUNDS"))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var grounds := VBoxContainer.new()
+	grounds.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grounds.add_theme_constant_override("separation", 10)
+	scroll.add_child(grounds)
+	for biome in Catalog.BIOMES:
+		grounds.add_child(_ground(biome))
 	box.add_child(back_button("home"))
 	_refresh()
+
+
+func _ground(biome: Dictionary) -> Control:
+	var id := str(biome["id"])
+	var open := SaveGame.biome_open(id)
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 14
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	plate.add_child(row)
+	var medal := UiKit.Medal.new()
+	medal.tex = SpriteBank.head(str(biome["boss"]))
+	medal.locked = not open
+	medal.custom_minimum_size = Vector2(86, 86)
+	medal.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(medal)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	row.add_child(col)
+	var ink := Color("fff1d6") if open else Color("9a8e7c")
+	col.add_child(UiKit.label(str(biome["name"]).to_upper(), 24, ink, "x", 4))
+	for task in Catalog.SLAYER_TASKS:
+		if str(task["biome"]) != id:
+			continue
+		var line := HBoxContainer.new()
+		var t := UiKit.label(str(task["text"]), 20, Color("e6d8bc") if open else Color("8a7e6c"), "b", 3)
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		t.clip_text = true
+		t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		line.add_child(t)
+		line.add_child(UiKit.label("%d PTS" % int(task["points"]), 20, UiKit.GOLD.lightened(0.15) if open else Color("8a7e6c"), "x", 3))
+		col.add_child(line)
+	if not open:
+		col.add_child(UiKit.label("SEALED · " + SaveGame.biome_lock_text(id), 18, Color("c8b8a0"), "x", 3))
+	return plate
 
 
 func _section(text: String) -> Control:

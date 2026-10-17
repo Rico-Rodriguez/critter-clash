@@ -218,7 +218,7 @@ class Burst extends Control:
 	func pop() -> void:
 		shaking = false
 		rotation = 0.0
-		var origin := size * 0.5 - Vector2(0, 40)
+		var origin := size * 0.5 - Vector2(0, 60)
 		for i in 36:
 			var ang := float(i) / 36.0 * TAU + randf_range(-0.1, 0.1)
 			var speed := randf_range(180.0, 520.0)
@@ -232,35 +232,80 @@ class Burst extends Control:
 			})
 
 	func _draw() -> void:
-		var c := size * 0.5 + Vector2(0, 20)
+		# Chest scales to the space: about 72% of the width, centred low.
+		var cw := minf(size.x * 0.74, size.y * 0.95)
+		var k := cw / 400.0
+		var c := Vector2(size.x * 0.5, size.y * 0.5 + 30.0 * k)
+		var floor_y := c.y + 152.0 * k + 64.0 * k
+		# Shafts from above: always faintly there, flaring when it opens.
+		var src := Vector2(c.x + 40.0 * k, -40.0)
+		for i in 7:
+			var x := c.x + (i - 3) * 64.0 * k + sin(t * 0.4 + i) * 6.0
+			var half := (26.0 + (i % 3) * 14.0) * k
+			var top_half := half * 0.35
+			var aa := (0.1 + 0.06 * float(i % 2)) * (0.75 + rays * 0.8)
+			var lit := Color(1.0, 0.86, 0.6, aa)
+			var clear := Color(1.0, 0.86, 0.6, 0.0)
+			var src_x := src.x + (x - c.x) * 0.25
+			draw_polygon(PackedVector2Array([Vector2(src_x - top_half, src.y), Vector2(src_x + top_half, src.y), Vector2(x + half, floor_y), Vector2(x - half, floor_y)]),
+				PackedColorArray([clear, clear, lit, lit]))
 		# Floor light pool.
-		for k in 28:
-			var w := 380.0 - k * 12.0
-			_ellipse(c + Vector2(0, 150), Vector2(w, w * 0.28), Color(1.0, 0.7, 0.35, 0.013 + rays * 0.007))
-		if rays > 0.0:
-			for k in 12:
-				var a := -PI * 0.5 + (k - 5.5) * 0.17 + sin(t * 0.7 + k) * 0.03
-				var tip := c - Vector2(0, 40) + Vector2.from_angle(a) * 620.0
-				var side := Vector2.from_angle(a + PI * 0.5) * 34.0
-				var col := Color(1.0, 0.85, 0.5, 0.10 * rays)
-				var clear := Color(1.0, 0.85, 0.5, 0.0)
-				draw_polygon(PackedVector2Array([c - Vector2(0, 40), tip + side, tip - side]), PackedColorArray([col, clear, clear]))
-		for k in 8:
-			_ellipse(c + Vector2(0, 150), Vector2(230 - k * 8, 46 - k * 2), Color(0, 0, 0, 0.09))
-		var chest := Rect2(c.x - 200, c.y - 160, 400, 312)
+		for i in 26:
+			var w := (420.0 - i * 14.0) * k
+			_ellipse(Vector2(c.x, floor_y), Vector2(w, w * 0.22), Color(1.0, 0.72, 0.38, 0.016 + rays * 0.01))
+		# Stone pedestal: two tiers with lit tops, dark faces and a gilt lip.
+		var ped_w := 250.0 * k
+		var tiers := [[floor_y - 6.0 * k, ped_w * 1.12, 34.0 * k], [floor_y - 40.0 * k, ped_w, 30.0 * k]]
+		for tier in tiers:
+			var ty: float = tier[0]
+			var tw: float = tier[1]
+			var th: float = tier[2]
+			var face := PackedVector2Array()
+			var cols := PackedColorArray()
+			for j in 21:
+				var aj := PI * j / 20.0
+				face.append(Vector2(c.x + cos(aj) * tw, ty + sin(aj) * tw * 0.2))
+				cols.append(Color("2a221c").lerp(Color("4a3e32"), 0.5 + 0.5 * cos(aj) * 0.6 + 0.2))
+			for j in 21:
+				var aj := PI - PI * j / 20.0
+				face.append(Vector2(c.x + cos(aj) * tw, ty - th + sin(aj) * tw * 0.2))
+				cols.append(Color("3a3028").lerp(Color("6a5a48"), 0.5 + 0.5 * cos(aj) * 0.6 + 0.2))
+			draw_polygon(face, cols)
+			_ellipse(Vector2(c.x, ty - th), Vector2(tw, tw * 0.2), Color("6e604e"))
+			_ellipse(Vector2(c.x - tw * 0.1, ty - th - 2.0 * k), Vector2(tw * 0.8, tw * 0.14), Color(1.0, 0.86, 0.6, 0.12 + rays * 0.08))
+			var lip := PackedVector2Array()
+			for j in 41:
+				var aj := TAU * j / 40.0
+				lip.append(Vector2(c.x + cos(aj) * tw, ty - th + sin(aj) * tw * 0.2))
+			draw_polyline(lip, Color("c9a25a"), 2.5 * k, true)
+		# Contact shadow under the chest.
+		for i in 8:
+			_ellipse(Vector2(c.x, floor_y - 70.0 * k), Vector2((210.0 - i * 9.0) * k, (40.0 - i * 2.5) * k), Color(0, 0, 0, 0.1))
+		var chest := Rect2(c.x - 200.0 * k, floor_y - 70.0 * k - 300.0 * k, 400.0 * k, 312.0 * k)
 		UiKit.draw_chest(self, chest, "wood", not empty)
+		# Warm rim from the shafts on the lid.
+		draw_line(chest.position + Vector2(30.0 * k, 8.0 * k), chest.position + Vector2(chest.size.x - 30.0 * k, 8.0 * k), Color(1.0, 0.9, 0.65, 0.35), 3.0 * k, true)
 		if opened > 0.0:
-			for k in 20:
-				_ellipse(c - Vector2(0, 90), Vector2(200 - k * 9, 70 - k * 3) * opened, Color(1.0, 0.9, 0.6, 0.035))
+			var mouth := chest.position + Vector2(chest.size.x * 0.5, chest.size.y * 0.32)
+			for i in 20:
+				_ellipse(mouth, Vector2(200 - i * 9, 70 - i * 3) * k * opened, Color(1.0, 0.9, 0.6, 0.035))
+		# Dust motes drifting in the light.
+		for i in 26:
+			var fx := fmod(float(i) * 97.3 + t * (6.0 + float(i % 5)), size.x * 0.7) + size.x * 0.15
+			var fy := fmod(float(i) * 53.1 - t * (10.0 + float(i % 4) * 3.0), floor_y) 
+			if fy < 0.0:
+				fy += floor_y
+			var flick := 0.5 + 0.5 * sin(t * 2.0 + i)
+			draw_circle(Vector2(fx, fy), (1.5 + float(i % 3)) * k, Color(1.0, 0.88, 0.6, 0.18 + 0.25 * flick * (0.5 + rays)))
 
 		for part in parts:
 			var life := float(part["life"])
 			if life <= 0.0:
 				continue
-			var a := clampf(life / float(part["max"]), 0.0, 1.0)
+			var al := clampf(life / float(part["max"]), 0.0, 1.0)
 			var col: Color = part["c"]
-			col.a = a
-			draw_circle(part["p"], float(part["s"]) * a, col)
+			col.a = al
+			draw_circle(part["p"], float(part["s"]) * al, col)
 
 	func _ellipse(center: Vector2, r: Vector2, col: Color) -> void:
 		var pts := PackedVector2Array()

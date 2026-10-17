@@ -25,16 +25,37 @@ void fragment() {
 	float row = floor(p.y / blk.y);
 	vec2 b = vec2(mod(p.x + mod(row, 2.0) * blk.x * 0.5, blk.x), mod(p.y, blk.y));
 	float edge = min(min(b.x, blk.x - b.x), min(b.y, blk.y - b.y));
-	float mortar = 1.0 - smoothstep(1.0, 5.0, edge);
-	float bevel = smoothstep(5.0, 10.0, edge) * (1.0 - smoothstep(10.0, 40.0, edge));
-	vec3 c = mix(base.rgb, deep.rgb, smoothstep(0.25, 1.0, uv.y));
+	float mortar = 1.0 - smoothstep(1.5, 6.0, edge);
+	// Per-block relief: a bevelled face lit from the torch above. The bevel
+	// normal points toward the nearest block edge; faces turned to the light
+	// catch it, the far sides fall into shadow.
+	vec2 cid = vec2(floor((p.x + mod(row, 2.0) * blk.x * 0.5) / blk.x), row);
+	float tone = hash(cid) * 0.22 - 0.08;
+	vec2 to_edge = vec2(b.x < blk.x * 0.5 ? -1.0 : 1.0, b.y < blk.y * 0.5 ? -1.0 : 1.0);
+	float ex = min(b.x, blk.x - b.x);
+	float ey = min(b.y, blk.y - b.y);
+	float bev_w = 14.0;
+	vec2 bn = vec2(to_edge.x * (1.0 - smoothstep(0.0, bev_w, ex)), to_edge.y * (1.0 - smoothstep(0.0, bev_w, ey)));
+	vec2 block_c = (vec2(cid.x * blk.x - mod(row, 2.0) * blk.x * 0.5 + blk.x * 0.5, row * blk.y + blk.y * 0.5)) / px_size;
+	vec2 ldir = normalize((vec2(0.5, glow_y) - block_c) * vec2(1.0, px_size.y / px_size.x) + vec2(0.0001));
+	float relief = dot(bn, ldir);
+	vec3 c = mix(base.rgb, deep.rgb, smoothstep(0.2, 0.95, uv.y));
 	c *= 0.65 + s * 0.6 + (s2 - 0.5) * 0.3;
-	c *= 1.0 - mortar * 0.55;
-	c += vec3(0.05, 0.04, 0.03) * bevel * step(b.y, blk.y * 0.5);
+	c *= 1.0 + tone;
+	// Light falls off with distance from the torch: near blocks show their
+	// relief strongly, far ones sink into the dark.
+	vec2 dd = (uv - vec2(0.5, glow_y)) * vec2(1.0, px_size.y / px_size.x * 0.6);
+	float near = exp(-dot(dd, dd) * 1.6);
+	c *= 1.0 + relief * (0.35 + near * 0.55);
+	c *= 1.0 - mortar * 0.7;
+	// Mortar recess casts a thin shadow under each block's lower edge.
+	c *= 1.0 - (1.0 - smoothstep(0.0, 9.0, blk.y - b.y)) * 0.25;
 	// Torch glow pooled behind the upper content.
-	vec2 d = (uv - vec2(0.5, glow_y)) * vec2(1.0, px_size.y / px_size.x * 0.6);
+	vec2 d = dd;
 	float pool = exp(-dot(d, d) * 3.2);
-	c += warm.rgb * pool * (0.55 + s * 0.5);
+	c += warm.rgb * pool * (0.5 + s * 0.5) * (1.0 + relief * 0.4);
+	// Overall falloff toward the floor.
+	c *= mix(1.0, 0.55, smoothstep(0.45, 1.0, uv.y));
 	// Faint drifting embers.
 	vec2 ep = p / 90.0 + vec2(0.0, TIME * 0.35);
 	vec2 cell = floor(ep);
