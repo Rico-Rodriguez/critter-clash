@@ -537,7 +537,6 @@ func open_next(index: int = 0) -> Dictionary:
 	var chest: Dictionary = data["chests"].pop_at(index)
 	var loot := _roll_loot(chest)
 	_write()
-	AudioDirector.play("win", -8.0)
 	return loot
 
 

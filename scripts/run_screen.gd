@@ -56,6 +56,7 @@ func _init() -> void:
 
 
 func build() -> void:
+	music_track = ""
 	UiKit.ensure()
 	stage = Stage3D.new()
 	stage.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -114,6 +115,7 @@ func open(args: Dictionary = {}) -> void:
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
 	sim.start(session, stats)
+	AudioDirector.music("hunt")
 	cam = HuntCamera.new()
 	var hero_at := sim.play.get_center()
 	if not sim.heroes.is_empty():
@@ -437,51 +439,80 @@ func _drain() -> void:
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
 				stage.hurt(int(ev["id"]))
-				AudioDirector.play_throttled("hit", 0.045)
+				var struck := sim._actor_by_id(int(ev["id"]))
+				var on_boss := struck != null and struck.kind == "boss"
+				if crit:
+					AudioDirector.sfx("crit")
+					AudioDirector.haptic("heavy")
+				elif on_boss:
+					AudioDirector.sfx("boss_hit")
+					AudioDirector.haptic("heavy")
+				else:
+					AudioDirector.sfx("hit")
+					AudioDirector.haptic("medium")
 			"hero_hurt":
 				_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ff6d6d"), true)
 				_punch[int(ev["id"])] = 0.14
 				stage.hurt(int(ev["id"]))
 				_hurt_flash()
-				AudioDirector.play_throttled("hit", 0.05)
-				AudioDirector.haptic(16)
+				AudioDirector.sfx("hero_hurt")
+				AudioDirector.haptic("heavy")
 			"die":
 				var info := Catalog.critter(str(ev.get("sprite", "")))
 				var col := Color(str(info.get("color", "ffb070"))) if not info.is_empty() else Color("ffb070")
 				_burst(ev["pos"], col, 12, 180.0)
 				stage.died(int(ev["id"]), ev["pos"], str(ev.get("sprite", "")))
-				AudioDirector.play_throttled("death", 0.06)
+				AudioDirector.sfx("enemy_die")
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
 			"attack":
 				_punch[int(ev["id"])] = 0.2
 				stage.attack(int(ev["id"]))
-				AudioDirector.play_throttled("shoot", 0.05)
+				var who := sim._actor_by_id(int(ev["id"]))
+				if who != null and who.kind == "hero":
+					AudioDirector.sfx({"mage": "atk_mage", "archer": "atk_archer", "tank": "atk_tank"}.get(str(ev.get("role", who.role)), "atk_archer"))
+				elif who != null and who.kind == "boss":
+					AudioDirector.sfx("boss_slam")
+					AudioDirector.haptic("medium")
+				else:
+					AudioDirector.sfx("atk_enemy")
+			"windup":
+				stage.windup(int(ev["id"]), float(ev.get("time", 0.4)))
+				var winder := sim._actor_by_id(int(ev["id"]))
+				if winder != null and winder.kind == "boss":
+					AudioDirector.sfx("boss_windup")
 			"gem":
 				_burst(ev["pos"], Color("b6f27a"), 4, 90.0)
-				AudioDirector.play_throttled("deploy", 0.06)
+				AudioDirector.gem()
 			"levelup":
-				AudioDirector.play("merge")
-				AudioDirector.haptic(18)
+				AudioDirector.sfx("levelup")
+				AudioDirector.duck(-6.0, 0.8)
+				AudioDirector.haptic("levelup")
+				if not sim.heroes.is_empty():
+					stage.celebrate(sim.heroes[0].id)
 				_show_levelup(int(ev["level"]), ev["offer"])
 			"boss_in":
 				_banner("%s awakens" % str(ev["name"]))
-				AudioDirector.play("den")
-				AudioDirector.haptic(24)
+				# The hunt loop hands over to the boss theme as it arrives.
+				AudioDirector.music("boss", 1.0)
+				AudioDirector.sfx("boss_roar")
+				AudioDirector.duck(-9.0, 1.6, 1.2)
+				AudioDirector.haptic("heavy")
 				# Ground-shake when the boss slams down.
 				get_tree().create_timer(Stage3D.BOSS_DROP_TIME).timeout.connect(func() -> void:
 					trauma = minf(1.0, trauma + 0.75)
 					hitstop = maxf(hitstop, 0.05)
-					AudioDirector.play_throttled("death", 0.1)
-					AudioDirector.haptic(40))
+					AudioDirector.sfx("boss_slam", 2.0)
+					AudioDirector.haptic("heavy"))
 			"boss_down":
 				if not committed:
 					committed = true
 					summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain)
-				AudioDirector.haptic(30)
+				AudioDirector.sfx("boss_die")
+				AudioDirector.haptic("heavy")
+				AudioDirector.sting(true)
 				var reveal: Dictionary = summary.get("reveal", {})
 				if reveal.is_empty():
-					AudioDirector.play("win")
 					_show_victory(str(ev["name"]))
 				else:
 					_show_rare(reveal, str(ev["name"]))
@@ -489,11 +520,13 @@ func _drain() -> void:
 				if not committed:
 					committed = true
 					SaveGame.commit_defeat(biome_id, sim.slain)
-				AudioDirector.play("lose")
+				AudioDirector.sting(false)
+				AudioDirector.haptic("heavy")
 				_show_defeat(str(ev.get("reason", "")))
 			"revive":
 				_banner("Second wind!")
-				AudioDirector.play("merge")
+				AudioDirector.sfx("levelup")
+				AudioDirector.haptic("levelup")
 			"banner":
 				_banner(str(ev["text"]))
 
@@ -695,6 +728,7 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 		card.modulate.a = 0.0
 		var tw := create_tween()
 		tw.tween_interval(0.12 * float(i))
+		tw.tween_callback(AudioDirector.sfx.bind("card_flip", 0.0, 1.0 + 0.06 * i))
 		tw.tween_property(card, "modulate:a", 1.0, 0.06)
 		tw.tween_property(card, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
@@ -742,7 +776,8 @@ func _pick(index: int) -> void:
 	if sim == null:
 		return
 	var nxt: Array = sim.choose(index)
-	AudioDirector.play("click")
+	AudioDirector.sfx("card_pick")
+	AudioDirector.haptic("medium")
 	if nxt.is_empty():
 		_close_modal()
 	else:
@@ -800,9 +835,10 @@ func _show_rare(drop: Dictionary, boss_name: String) -> void:
 		_show_victory(boss_name)
 	)
 	modal_box.add_child(button)
-	AudioDirector.play("win")
-	AudioDirector.play("den", -4.0)
-	AudioDirector.haptic(30)
+	AudioDirector.sfx("rare_chime")
+	AudioDirector.sfx("sparkle")
+	AudioDirector.duck(-10.0, 1.2, 1.5)
+	AudioDirector.haptic("rare")
 
 
 ## A forged end-of-hunt panel with a crest on top. Returns the inner column.
@@ -997,6 +1033,9 @@ func _pause() -> void:
 	var leave := UiKit.danger("LEAVE HUNT", 420, 72)
 	leave.pressed.connect(func() -> void: go("home"))
 	modal_box.add_child(leave)
+	var panel := SettingsPanel.new()
+	panel.custom_minimum_size = Vector2(640, 0)
+	modal_box.add_child(panel)
 
 
 ## A level-up blessing: a forged card in its rarity's metal over dark leather,

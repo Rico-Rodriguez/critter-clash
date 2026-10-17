@@ -4,6 +4,41 @@ extends ScreenBase
 
 const ENTRIES := [
 	{
+		"title": "Achaidh Cheide",
+		"used": "Home theme",
+		"author": "Kevin MacLeod (incompetech.com)",
+		"url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Achaidh%20Cheide.mp3",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Heroic Age",
+		"used": "Hunt theme",
+		"author": "Kevin MacLeod (incompetech.com)",
+		"url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Heroic%20Age.mp3",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Five Armies",
+		"used": "Boss theme",
+		"author": "Kevin MacLeod (incompetech.com)",
+		"url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Five%20Armies.mp3",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Cute Dragon",
+		"used": "Ember",
+		"author": "shakiller",
+		"url": "https://sketchfab.com/3d-models/cute-dragon-df14ec74767c4598920132758dab8a49",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Crazy Critter Crate - Swinecone",
+		"used": "Bramble and its pack",
+		"author": "Moped (mopedgames)",
+		"url": "https://sketchfab.com/3d-models/crazy-critter-crate-swinecone-bae685e5a9d9442a85e78b1525b08aaf",
+		"license": "CC-BY 4.0",
+	},
+	{
 		"title": "\"KAI\" — The Little Fox Warrior (Animated)",
 		"used": "Juniper",
 		"author": "Realidad Aumentada Empezando Desde Cero",
@@ -12,7 +47,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "Stylized Dragon",
-		"used": "Ember",
+		"used": "Cinder and Cindling",
 		"author": "Stan",
 		"url": "https://sketchfab.com/3d-models/stylized-dragon-97d00c182fa24fa4838493c41ad8e52c",
 		"license": "CC-BY 4.0",
@@ -40,7 +75,7 @@ func build() -> void:
 	var box := column()
 	box.add_child(header())
 	box.add_child(h1("Credits"))
-	box.add_child(body("CC-BY models keep the artist's name. CC0 models are listed because we use them."))
+	box.add_child(body("CC-BY music and models keep the artist's name. CC0 work is listed because we use it."))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -57,7 +92,9 @@ func build() -> void:
 		"Quaternius — monsters and nature kit",
 		"ambientCG — ground, rock and moss textures",
 		"Poly Haven — sky",
-		"Kenney — interface pictures, treasure chest",
+		"Kenney — interface pictures, treasure chest, sound effects and jingles",
+		"OpenGameArt sound effects (CC0): rubberduck (80 CC0 RPG SFX, 80 CC0 creature SFX, 100 CC0 SFX 1 and 2), trazzz123 (Deep Monster Roar), Darsycho (Monster snarls)",
+		"cynicmusic — Victory Fanfare Short (CC0)",
 		"Godot Engine — MIT",
 		"Cinzel, Nunito, Lilita One — SIL Open Font License",
 	]))

@@ -124,14 +124,15 @@ func _tap_slot(i: int) -> void:
 			_slots[i].nudge()
 		"locked":
 			if SaveGame.start_unlock(i):
-				AudioDirector.play("merge", -6.0)
-				AudioDirector.haptic(12)
+				AudioDirector.sfx("unlock_start")
+				AudioDirector.haptic("medium")
 				toast("Unlocking: ready in %s" % SaveGame.span(SaveGame.chest_total(i)))
 				_slots[i].nudge()
 			else:
 				var busy := SaveGame.unlocking_index()
 				toast("Another chest is unlocking (%s left)" % SaveGame.clock(SaveGame.chest_wait(busy)))
-				AudioDirector.play("error", -8.0)
+				AudioDirector.sfx("ui_error")
+				AudioDirector.haptic("light")
 				_slots[i].nudge()
 
 
@@ -217,8 +218,8 @@ class ChestSlot extends Control:
 		tw.tween_callback(func() -> void:
 			_flash = 1.0
 			_shake = 1.0
-			AudioDirector.play("hit", -6.0)
-			AudioDirector.haptic(16)
+			AudioDirector.sfx("chest_land")
+			AudioDirector.haptic("medium")
 		)
 
 	func nudge() -> void:

@@ -106,8 +106,14 @@ func _reveal() -> void:
 	title_label.text = "Yours"
 	if burst:
 		burst.pop()
-		AudioDirector.play("merge")
-		AudioDirector.haptic(18)
+		AudioDirector.sfx("chest_open")
+		if burst.tone in ["gold", "magic", "silver"]:
+			# Rare and epic chests sparkle as the lid flies.
+			get_tree().create_timer(0.18).timeout.connect(AudioDirector.sfx.bind("sparkle"))
+			AudioDirector.duck(-8.0, 0.9)
+			AudioDirector.haptic("rare")
+		else:
+			AudioDirector.haptic("medium")
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 18)

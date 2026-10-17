@@ -12,6 +12,7 @@ const SCREENS := {
 	"slayer": preload("res://scripts/slayer_screen.gd"),
 	"skills": preload("res://scripts/skills_screen.gd"),
 	"credits": preload("res://scripts/credits_screen.gd"),
+	"settings": preload("res://scripts/settings_screen.gd"),
 	"run": preload("res://scripts/run_screen.gd"),
 }
 
@@ -141,6 +142,10 @@ func _capture() -> void:
 		go("slayer")
 		await _settle()
 		await _shot("slayer")
+	if _wants("settings"):
+		go("settings")
+		await _settle()
+		await _shot("settings")
 	if _wants("skills"):
 		go("skills")
 		await _settle()

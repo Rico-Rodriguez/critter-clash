@@ -165,7 +165,7 @@ static func _btn(text: String, wide: float, tall: float, tone: String, round: bo
 	b.round = round
 	b.text = text
 	b.custom_minimum_size = Vector2(wide, tall)
-	b.pressed.connect(func() -> void: AudioDirector.play("click"))
+	b.pressed.connect(func() -> void: AudioDirector.sfx("ui_press"))
 	return b
 
 
@@ -633,7 +633,7 @@ class Btn extends Button:
 		var tw := create_tween()
 		tw.tween_property(self, "scale", Vector2(0.95, 0.94), 0.05)
 		skin.set_param("press", 1.0)
-		AudioDirector.haptic(14)
+		AudioDirector.haptic("light")
 		queue_redraw()
 
 	func _rise() -> void:
@@ -655,8 +655,9 @@ class Btn extends Button:
 
 	func _draw_tile(face: Rect2) -> void:
 		var tex := UiKit.icon(icon_name)
-		var px := face.size.y * 0.42
-		var r := Rect2(face.position + Vector2((face.size.x - px) * 0.5, face.size.y * 0.15), Vector2(px, px))
+		var px := face.size.y * (0.42 if caption != "" else 0.56)
+		var top := face.size.y * 0.15 if caption != "" else (face.size.y - px) * 0.5
+		var r := Rect2(face.position + Vector2((face.size.x - px) * 0.5, top), Vector2(px, px))
 		if tone == "forged":
 			# Recessed medallion lit from the top left, the same key as the
 			# baked 3D chests: bevel ring light above, dark below, a warm
@@ -794,7 +795,8 @@ class Pill extends Control:
 		if hit:
 			var at: Vector2 = event.position
 			if at.x > size.x - size.y - 4 and _plus.is_valid():
-				AudioDirector.play("click")
+				AudioDirector.sfx("ui_tap")
+				AudioDirector.haptic("light")
 				_plus.call()
 				pivot_offset = size * 0.5
 				var tw := create_tween()
@@ -881,8 +883,8 @@ class Dock extends Control:
 		var i := clampi(int(event.position.x / (size.x / TABS.size())), 0, TABS.size() - 1)
 		var id := str(TABS[i][0])
 		if id != current:
-			AudioDirector.play("click")
-			AudioDirector.haptic(10)
+			AudioDirector.sfx("ui_tap")
+			AudioDirector.haptic("light")
 			_go.call(id)
 
 	func _draw() -> void:

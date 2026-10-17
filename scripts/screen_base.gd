@@ -6,6 +6,8 @@ signal travel(screen: String, args: Dictionary)
 var paint_bg := true
 var show_nav := false
 var nav_tab := ""
+## Menu screens share the calm home theme; the hunt sets its own.
+var music_track := "home"
 
 
 func _ready() -> void:
@@ -19,6 +21,8 @@ func _ready() -> void:
 	if paint_bg:
 		add_child(UiKit.Backdrop.new())
 	build()
+	if music_track != "":
+		AudioDirector.music(music_track)
 	_touch_scroll(self)
 	if show_nav:
 		_dock = UiKit.Dock.new(nav_tab, _nav)
@@ -158,6 +162,12 @@ func header() -> HBoxContainer:
 	row.add_child(trophies)
 	row.add_child(coins)
 	row.add_child(gems)
+	# Settings cog at the end of the currency bar.
+	var cog := UiKit.tile_button("", "gear", 64, "steel")
+	cog.custom_minimum_size = Vector2(64, 64)
+	cog.tooltip_text = "Settings"
+	cog.pressed.connect(func() -> void: go("settings"))
+	row.add_child(cog)
 	return row
 
 

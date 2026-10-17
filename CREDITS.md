@@ -62,8 +62,21 @@ The older fonts below remain in the repository but the interface no longer uses 
 
 ## Audio
 
-- Effects and the music loop are synthesized by `tools/build_audio.py`.
-- No sampled libraries and no third-party tracks.
+Built from the sources below by `tools/build_sfx.py` (trim, layer, peak-normalise, OGG). Music is in `assets/audio/music/`, effects in `assets/audio/sfx/`.
+
+### Music (CC-BY 4.0)
+
+- "Achaidh Cheide" (home theme), "Heroic Age" (hunt theme), and "Five Armies" (boss theme) by Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 — https://creativecommons.org/licenses/by/4.0/ . Sources: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Achaidh%20Cheide.mp3 , .../Heroic%20Age.mp3 , .../Five%20Armies.mp3 . Re-encoded to OGG and loudness-matched; otherwise unchanged.
+- Victory sting: "Victory Fanfare Short" by cynicmusic — https://opengameart.org/content/victory-fanfare-short — CC0 (trimmed to 8 s).
+
+### Sound effects (CC0)
+
+- Kenney (www.kenney.nl) — CC0: Impact Sounds, Interface Sounds, UI Audio, RPG Audio, Casino Audio, Music Jingles (pizzicato jingles for the level-up and defeat stings). https://kenney.nl/assets
+- rubberduck on OpenGameArt — CC0: "80 CC0 RPG SFX" (fire spells, gems, coins, roar, locks) https://opengameart.org/content/80-cc0-rpg-sfx , "80 CC0 creature SFX" (critter squeaks, hurts, spits) https://opengameart.org/content/80-cc0-creature-sfx , "100 CC0 SFX" (bells, slams, plops, gong, box open) https://opengameart.org/content/100-cc0-sfx , "100 CC0 SFX #2" (air whooshes, stones) https://opengameart.org/content/100-cc0-sfx-2
+- trazzz123 — "CC0 Deep Monster Roar" — https://opengameart.org/content/cc0-deep-monster-roar — CC0 (boss roar).
+- Darsycho — "Monster snarls" — https://opengameart.org/content/monster-snarls — CC0 (boss wind-up).
+
+The earlier synthesized effects from `tools/build_audio.py` are no longer shipped.
 
 ## Chest
 - Chest model: Kenney Pirate Kit 2.1 (`chest.glb`), www.kenney.nl, CC0. Restyled in-engine (shaders/chest.gdshader, scripts/chest3d.gd).
