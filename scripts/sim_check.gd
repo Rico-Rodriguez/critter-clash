@@ -14,6 +14,7 @@ static func run() -> int:
 	_cards()
 	_fights()
 	_kite()
+	_boss_intro_check()
 	_dodge_check()
 	if failures == 0:
 		print("SIM CHECK PASSED")
@@ -433,6 +434,79 @@ static func _kite() -> void:
 	print("KITE boss worst stall %.2fs over %.0fs, legs %d" % [worst, t, leg])
 	if worst > 1.0:
 		_fail("boss stalled %.2fs while chasing" % worst)
+
+
+## Boss intro: walking into the lair spawns a live boss immediately, but it
+## holds still and cannot be hurt or attack for BOSS_INTRO seconds, and its
+## first telegraph only opens once it shares the hero's view.
+static func _boss_intro_check() -> void:
+	var session := Session.solo("meadow", "ember")
+	session.seed = 11
+	var sim := RunSim.new()
+	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	if not sim.explore:
+		_fail("boss intro check needs an explore map")
+		return
+	var hero: RunSim.Actor = sim.heroes[0]
+	hero.hp = 1e9
+	hero.max_hp = 1e9
+	hero.pos = sim.map.lair
+	sim.step(STEP, [Vector2.ZERO])
+	sim.drain_events()
+	if sim.boss == null or not sim.boss.alive:
+		_fail("boss missing right after the lair triggered")
+		return
+	if sim.phase != "boss":
+		_fail("lair did not start the boss phase")
+	if sim.boss.boss_state != "intro":
+		_fail("boss did not enter its intro (state %s)" % sim.boss.boss_state)
+	if str(sim.boss_title).is_empty():
+		_fail("boss intro had no title")
+	var boss: RunSim.Actor = sim.boss
+	var hp0 := boss.hp
+	# The reveal is untouchable, even by a direct blow.
+	sim._hurt(boss, 100.0, hero.pos, false, hero, false)
+	if boss.hp < hp0:
+		_fail("the boss took damage during its intro")
+	var seen_attack := false
+	var guard := 0
+	while boss.boss_state == "intro" and guard < 600:
+		guard += 1
+		_step_one(sim)
+		for e in sim.drain_events():
+			var kind := str(e.get("type", ""))
+			if (kind == "windup" or kind == "attack") and int(e.get("id", -1)) == boss.id:
+				seen_attack = true
+		if boss.hp < hp0:
+			_fail("the boss took damage during its intro")
+			break
+	if seen_attack:
+		_fail("the boss attacked during its intro")
+	if boss.boss_state == "intro":
+		_fail("the boss intro never ended")
+	# After the intro the first telegraph must land with the boss in view.
+	var windup_d := -1.0
+	for _i in int(30.0 / STEP):
+		_step_one(sim)
+		for e in sim.drain_events():
+			if str(e.get("type", "")) == "windup" and int(e.get("id", -1)) == boss.id:
+				windup_d = boss.pos.distance_to(hero.pos)
+		if windup_d >= 0.0 or not boss.alive:
+			break
+	if windup_d < 0.0:
+		_fail("the boss never telegraphed an attack")
+	elif windup_d > RunSim.BOSS_ENGAGE:
+		_fail("first boss windup was %.0f px away" % windup_d)
+
+
+## One bot-sized step: resolves a pending level-up before advancing, so the
+## intro timing check is never frozen behind a card offer.
+static func _step_one(sim: RunSim) -> void:
+	while sim.paused and sim.offer.size() > 0:
+		sim.choose(0)
+	if sim.paused:
+		sim.paused = false
+	sim.step(STEP, [Vector2.ZERO])
 
 
 ## Dodge roll: covers ground in the open, grants i-frames while dashing,

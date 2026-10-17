@@ -47,6 +47,9 @@ var fields: Array[Field] = []
 var boss: Actor = null
 var slain := 0
 var boss_mark := 0
+## True once the boss has opened with its first attack; only that first
+## telegraph waits until the boss shares the hero's view.
+var boss_opened := false
 var spawn_cd := 0.35
 const MAX_MINIONS := 14
 const PACK_SIZE := 8
@@ -90,6 +93,20 @@ const LEASH := 1500.0
 var chests: Array = []
 var loot_coins := 0
 var boss_time := 0.0
+## Fancy title for the boss name card, keyed by biome ("Lord of the Lair" else).
+var boss_title := ""
+## Boss intro beat: once the lair triggers, the boss rises but holds still and
+## cannot be hurt or attack for this long, so the reveal can play out.
+const BOSS_INTRO := 1.6
+## The boss only starts an attack within this range of the hero, so its first
+## telegraph ring can never open off-screen; it closes the gap first.
+const BOSS_ENGAGE := 900.0
+const BOSS_TITLES := {
+	"meadow": "Warden of the Moss",
+	"mushroom": "Sovereign of Spores",
+	"frost": "The Rime Colossus",
+	"volcano": "Tyrant of Ash",
+}
 var _fog_t := 0.0
 var _flow := PackedInt32Array()
 var _flow_cell := -1
@@ -345,7 +362,8 @@ func begin_boss() -> void:
 	phase = "boss"
 	time = maxf(time, Catalog.BOSS_AT)
 	_spawn_boss()
-	events.append({"type": "boss_in", "name": boss.display if boss else "Boss", "shake": 0.5, "stop": 0.06})
+	boss_title = _boss_title()
+	events.append({"type": "boss_in", "name": boss.display if boss else "Boss", "title": boss_title, "pos": boss.pos if boss != null else map.lair, "shake": 0.5, "stop": 0.06})
 
 
 func debug_slay_boss() -> void:
@@ -1030,6 +1048,10 @@ func _step_minions(dt: float) -> void:
 		if actor.stun > 0.0:
 			actor.vel = Vector2.ZERO
 			continue
+		# While the boss rises, its lair guards hold their ground with it.
+		if explore and boss != null and boss.boss_state == "intro" and actor.pos.distance_to(map.lair) < map.lair_r + 200.0:
+			actor.vel = Vector2.ZERO
+			continue
 		var spd := actor.speed * _slow_mul(actor)
 		var delta := target.pos - actor.pos
 		var dist := delta.length()
@@ -1096,6 +1118,14 @@ func _step_boss(dt: float) -> void:
 		boss.vel = Vector2.ZERO
 		_clamp_actor(boss)
 		return
+	if boss.boss_state == "intro":
+		# Planted and silent while the reveal plays; the hero moves freely.
+		boss.vel = Vector2.ZERO
+		if boss.boss_timer <= 0.0:
+			boss.boss_state = "idle"
+			boss.boss_timer = 0.9
+		_clamp_actor(boss)
+		return
 	var bspd := boss.speed * _slow_mul(boss)
 	if boss.boss_state == "idle":
 		var focus := _focus_hero()
@@ -1103,7 +1133,15 @@ func _step_boss(dt: float) -> void:
 			var delta := focus.pos - boss.pos
 			var d := delta.length()
 			if d > 168.0:
-				var want := delta.normalized() * bspd
+				var heading := delta.normalized()
+				# While it is closing to open, follow the trail so it does
+				# not wedge in the lair's standing stones.
+				if _boss_approaching() and not _flow.is_empty():
+					var way := _chase_point(boss, focus)
+					var to := way - boss.pos
+					if to.length() > 1.0:
+						heading = to.normalized()
+				var want := heading * bspd
 				# Unstick: no real progress for half a second means a stone
 				# or a wall is in the way, so sidestep along it for a beat.
 				boss.stall_t += dt
@@ -1134,7 +1172,9 @@ func _step_boss(dt: float) -> void:
 				boss.facing = lerp_angle(boss.facing, delta.angle(), 1.0 - exp(-9.0 * dt))
 				boss.best_d = d
 				boss.stall_t = 0.0
-		if boss.boss_timer <= 0.0:
+		# No telegraph until the hero and the boss share the frame: if the
+		# boss is still far off, the idle walk above closes the gap first.
+		if boss.boss_timer <= 0.0 and (boss_opened or _boss_engage()):
 			_begin_attack()
 	elif boss.boss_state == "windup":
 		boss.vel = Vector2.ZERO
@@ -1179,6 +1219,7 @@ func _step_boss(dt: float) -> void:
 
 
 func _begin_attack() -> void:
+	boss_opened = true
 	boss.attack = _pick_attack()
 	boss.boss_state = "windup"
 	events.append({"type": "windup", "id": boss.id, "time": 0.6})
@@ -1430,7 +1471,8 @@ func _step_spawns(dt: float) -> void:
 	if phase == "hunt" and time >= Catalog.BOSS_AT:
 		phase = "boss"
 		_spawn_boss()
-		events.append({"type": "boss_in", "name": boss.display if boss else "Boss", "shake": 0.55, "stop": 0.07})
+		boss_title = _boss_title()
+		events.append({"type": "boss_in", "name": boss.display if boss else "Boss", "title": boss_title, "pos": boss.pos if boss != null else play.get_center(), "shake": 0.55, "stop": 0.07})
 		return
 	if phase != "hunt":
 		return
@@ -1513,8 +1555,10 @@ func _spawn_boss() -> void:
 	actor.dmg = float(info.get("boss_touch", 16)) * mul
 	actor.pos = map.lair if explore else map.boss_spawn(actor.radius)
 	actor.prev = actor.pos
-	actor.boss_state = "idle"
-	actor.boss_timer = 0.9
+	# Rise and hold: the intro beat keeps the boss planted and untouchable
+	# until the reveal has played, then normal AI resumes.
+	actor.boss_state = "intro"
+	actor.boss_timer = BOSS_INTRO
 	actor.bias_charge = float(info.get("bias_charge", 0.33))
 	actor.bias_aoe = float(info.get("bias_aoe", 0.33))
 	actor.aoe_dmg = float(info.get("aoe", 22)) * mul
@@ -1523,6 +1567,7 @@ func _spawn_boss() -> void:
 	actors.append(actor)
 	boss = actor
 	boss_mark = 0
+	boss_opened = false
 	_build_arena(actor.pos)
 	if explore:
 		# Anything left in the lair joins the fight; the rest of the map stays put.
@@ -1536,8 +1581,16 @@ func _spawn_boss() -> void:
 			events.append({"type": "die", "id": other.id, "pos": other.pos, "radius": other.radius, "sprite": other.sprite, "kind": "minion"})
 
 
+## The boss name card's subtitle: one per biome, a neutral fallback otherwise.
+func _boss_title() -> String:
+	return str(BOSS_TITLES.get(biome_id, "Lord of the Lair"))
+
+
 func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker: Actor, allow_thorns: bool) -> void:
 	if target == null or not target.alive:
+		return
+	# The intro beat is untouchable: no chip damage can skip the reveal.
+	if target.kind == "boss" and target.boss_state == "intro":
 		return
 	if explore and target.kind == "minion" and not target.aggro:
 		_set_camp_aggro(target, true)
@@ -1818,6 +1871,27 @@ func _focus_hero() -> Actor:
 			best = hero
 			best_d = dist
 	return best
+
+
+## True once the boss is close enough to the focused hero that an attack's
+## telegraph ring will read on screen (BOSS_ENGAGE). While the hero is still
+## at the lair the boss holds its opening until it is in view; once the hero
+## leaves the lair theatre the fight is a normal chase and attacks may start.
+func _boss_engage() -> bool:
+	if boss == null:
+		return false
+	var focus := _focus_hero()
+	if focus == null:
+		return true
+	if boss.pos.distance_to(focus.pos) <= BOSS_ENGAGE:
+		return true
+	return explore and focus.pos.distance_to(map.lair) > map.lair_r * 2.0
+
+
+## The boss is out of its intro but must still cross to the hero before it
+## may open with its first attack.
+func _boss_approaching() -> bool:
+	return boss != null and boss.alive and boss.boss_state == "idle" and not boss_opened and not _boss_engage()
 
 
 func _nearest_living_hero(at: Vector2) -> Actor:

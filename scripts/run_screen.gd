@@ -48,6 +48,7 @@ var hero_medal: UiKit.Medal
 var clock_label: Label
 var boss_label: Label
 var banner: Label
+var boss_card: BossNameCard
 var floats: Array = []
 var _jitter: Dictionary = {}
 var finger := -1
@@ -257,6 +258,21 @@ func _build_hud() -> void:
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner.modulate.a = 0.0
 	top.add_child(banner)
+	# The boss name card floats above the HUD in the upper-middle band,
+	# clear of the boss bar above it and the hero below.
+	boss_card = BossNameCard.new()
+	boss_card.anchor_left = 0.0
+	boss_card.anchor_right = 1.0
+	boss_card.anchor_top = 0.27
+	boss_card.anchor_bottom = 0.27
+	boss_card.offset_left = float(pad["l"]) + 42.0
+	boss_card.offset_right = -(float(pad["r"]) + 42.0)
+	boss_card.offset_top = 0.0
+	boss_card.offset_bottom = float(BossNameCard.CARD_H)
+	boss_card.z_index = 1600
+	boss_card.visible = false
+	boss_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(boss_card)
 
 
 func _build_modal() -> void:
@@ -554,7 +570,10 @@ func _drain() -> void:
 					stage.celebrate(sim.heroes[0].id)
 				_show_levelup(int(ev["level"]), ev["offer"])
 			"boss_in":
-				_banner("%s awakens" % str(ev["name"]))
+				if boss_card != null:
+					boss_card.present(str(ev["name"]), str(ev.get("title", "")))
+				if cam != null and ev.has("pos"):
+					cam.nudge(ev["pos"], RunSim.BOSS_INTRO)
 				# The hunt loop hands over to the boss theme as it arrives.
 				AudioDirector.music("boss", 1.0)
 				AudioDirector.sfx("boss_roar")
@@ -2549,6 +2568,70 @@ class DodgeButton extends Control:
 			]), glyph, 5.0, true)
 		if _flash > 0.01:
 			draw_arc(c, r + 2.5, 0.0, TAU, 40, Color(1.0, 0.85, 0.4, 0.7 * _flash), 3.5, true)
+
+
+## The boss reveal name card: a dark leather panel in a forged bronze frame,
+## the boss NAME in large gilded caps over its TITLE between thin gilt rules.
+## It slides and fades in over 0.25 s, holds ~1.2 s, then fades out.
+class BossNameCard extends Control:
+	const CARD_H := 178.0
+	var boss_name := ""
+	var boss_title := ""
+	var _rest_top := 0.0
+	var _rest_bottom := CARD_H
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_rest_top = offset_top
+		_rest_bottom = offset_bottom
+		resized.connect(queue_redraw)
+
+	func present(name_text: String, title_text: String) -> void:
+		boss_name = name_text
+		boss_title = title_text
+		visible = true
+		modulate.a = 0.0
+		offset_top = _rest_top + 34.0
+		offset_bottom = _rest_bottom + 34.0
+		queue_redraw()
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(self, "modulate:a", 1.0, 0.25)
+		tw.tween_property(self, "offset_top", _rest_top, 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(self, "offset_bottom", _rest_bottom, 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.set_parallel(false)
+		tw.tween_interval(1.2)
+		tw.tween_property(self, "modulate:a", 0.0, 0.35)
+		tw.tween_callback(func() -> void: visible = false)
+
+	func _draw() -> void:
+		if boss_name == "" or size.x < 60.0 or size.y < 50.0:
+			return
+		var face := Rect2(Vector2(12, 12), size - Vector2(24, 24))
+		UiKit.rr_shadow(self, face, 12.0, 12.0, 0.45)
+		UiKit.rr_fill(self, face, 12.0, Color("322417"), Color("140f0b"))
+		UiKit.rr_line(self, face, 12.0, Color("e2bb6a"), 3.5)
+		UiKit.rr_line(self, face.grow(-5.0), 9.0, Color("8a6a3a"), 1.5)
+		var fx := UiKit.font_x
+		var name_px := clampi(int(size.y * 0.32), 30, 46)
+		var name_base := face.position.y + 16.0 + fx.get_ascent(name_px)
+		UiKit.draw_text(self, fx, Vector2(face.position.x, name_base), boss_name.to_upper(), name_px, Color("f6d98e"), Color("0e0906"), 3, face.size.x)
+		var ft := UiKit.font_b
+		var title_px := clampi(int(size.y * 0.15), 18, 26)
+		var title_base := name_base + fx.get_height(name_px) * 0.32 + float(title_px)
+		var tw := ft.get_string_size(boss_title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_px).x
+		var mid := face.get_center().x
+		var y := title_base - float(title_px) * 0.34
+		_gilt_rule(face.position.x + 42.0, mid - tw * 0.5 - 28.0, y)
+		_gilt_rule(mid + tw * 0.5 + 28.0, face.end.x - 42.0, y)
+		UiKit.draw_text(self, ft, Vector2(face.position.x, title_base), boss_title, title_px, Color("e6d2a4"), Color("0e0906"), 2, face.size.x)
+
+	## A thin bronze rule with a soft gold highlight, guarding the title.
+	func _gilt_rule(x0: float, x1: float, y: float) -> void:
+		if x1 <= x0:
+			return
+		draw_line(Vector2(x0, y), Vector2(x1, y), Color("c9a35a"), 2.0, true)
+		draw_line(Vector2(x0, y), Vector2(x1, y), Color(1.0, 0.9, 0.62, 0.35), 0.8, true)
 
 
 ## Draws the minimap's frame and markers above its paper.
