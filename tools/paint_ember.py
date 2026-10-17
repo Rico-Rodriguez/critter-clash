@@ -103,7 +103,13 @@ col = mix(np.broadcast_to(flank, base.shape).copy(), crimson, back)
 col = mix(col, deep, np.clip(spine * 1.2, 0, 1))
 col = mix(col, amber * 0.85, np.clip(side_amber * 0.5, 0, 1))
 col = mix(col, amber, belly)
-col = mix(col, cream, np.clip(throat * 0.75 + belly * 0.2, 0, 1))
+# Front view: keep the pale plates to a narrow keel down the chest; the
+# sides of the chest and throat roll back into deep crimson so the cream
+# reads as an accent, not a bib.
+side = smooth(0.3, 0.75, np.abs(nx))
+front = np.clip(belly + neck * 0.7, 0, 1) * (1 - head)
+col = mix(col, crimson * 1.1, np.clip(side * front * 0.85, 0, 1))
+col = mix(col, cream, np.clip((throat * 0.55 + belly * 0.1) * (1 - side), 0, 1))
 
 # Scales: hex cells as a height field; belly plates are broader bands.
 def hexes(cell):
