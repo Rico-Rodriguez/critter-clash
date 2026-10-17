@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://1bi418wuue3q"
-path="res://.godot/imported/cinder_golem_0.png-12b0e92279daced95a976c9e152bf902.ctex"
+uid="uid://cp1wl3bterfiq"
+path="res://.godot/imported/golem_ice.png-40e6059a6271f146057736765af81d27.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "2bf0511b0fee9190ccd53e8f6bd0a4ca"
 }
 
 [deps]
 
-source_file="res://assets/models/sketchfab/cinder_golem_0.png"
-dest_files=["res://.godot/imported/cinder_golem_0.png-12b0e92279daced95a976c9e152bf902.ctex"]
+source_file="res://assets/models/sketchfab/mon/golem_ice.png"
+dest_files=["res://.godot/imported/golem_ice.png-40e6059a6271f146057736765af81d27.ctex"]
 
 [params]
 
@@ -26,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

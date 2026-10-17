@@ -668,15 +668,20 @@ func _step_boss(dt: float) -> void:
 				if boss.side_t > 0.0:
 					boss.side_t -= dt
 					want = (boss.side_dir * 0.85 + delta.normalized() * 0.3).normalized() * boss.speed
-				boss.vel = _steer(boss, want)
+				# Heavy and smooth: velocity eases toward the steered heading
+				# (about a quarter second to turn) and the body turns after it.
+				boss.vel = boss.vel.lerp(_steer(boss, want), 1.0 - exp(-7.0 * dt))
 				boss.pos += boss.vel * dt
 				_push_out(boss)
 				if explore:
 					# Never into the trees: the lair's open ground holds it.
 					boss.pos = map.push_inside(boss.pos, boss.radius * 0.6)
-				boss.facing = boss.vel.angle()
+				if boss.vel.length() > 8.0:
+					boss.facing = lerp_angle(boss.facing, boss.vel.angle(), 1.0 - exp(-9.0 * dt))
 			else:
-				boss.vel = Vector2.ZERO
+				boss.vel = boss.vel.lerp(Vector2.ZERO, 1.0 - exp(-10.0 * dt))
+				boss.pos += boss.vel * dt
+				boss.facing = lerp_angle(boss.facing, delta.angle(), 1.0 - exp(-9.0 * dt))
 				boss.best_d = d
 				boss.stall_t = 0.0
 		if boss.boss_timer <= 0.0:
@@ -726,7 +731,7 @@ func _step_boss(dt: float) -> void:
 func _begin_attack() -> void:
 	boss.attack = _pick_attack()
 	boss.boss_state = "windup"
-	events.append({"type": "windup", "id": boss.id, "time": 0.5})
+	events.append({"type": "windup", "id": boss.id, "time": 0.6})
 	var focus := _focus_hero()
 	if focus == null:
 		boss.boss_state = "idle"
@@ -753,7 +758,20 @@ func _begin_attack() -> void:
 		ping.max_life = 0.5
 		pings.append(ping)
 	else:
-		boss.boss_timer = 0.36
+		# Fan: five thin lanes show where the volley will fly.
+		boss.boss_timer = 0.55
+		var base := (focus.pos - boss.pos).angle()
+		boss.boss_dir = Vector2.RIGHT.rotated(base)
+		for i in 5:
+			var ping := Ping.new()
+			ping.kind = "lane"
+			ping.dir = Vector2.RIGHT.rotated(base + lerpf(-0.58, 0.58, float(i) / 4.0))
+			ping.pos = boss.pos + ping.dir * boss.radius * 0.7
+			ping.length = 300.0
+			ping.width = 22.0
+			ping.life = 0.55
+			ping.max_life = 0.55
+			pings.append(ping)
 
 
 func _release_attack() -> void:
@@ -765,9 +783,8 @@ func _release_attack() -> void:
 		return
 	if boss.attack == "fan":
 		boss.boss_timer = 0.42
-		var focus := _focus_hero()
-		var origin := focus.pos if focus else boss.pos + Vector2.DOWN * 80.0
-		var base := (origin - boss.pos).angle()
+		# Fire along the lanes that were telegraphed.
+		var base := boss.boss_dir.angle()
 		for i in 5:
 			var ang := base + lerpf(-0.58, 0.58, float(i) / 4.0)
 			var dir := Vector2.RIGHT.rotated(ang)

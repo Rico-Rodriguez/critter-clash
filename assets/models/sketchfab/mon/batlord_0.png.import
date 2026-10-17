@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cwdmvwtor5mnc"
-path="res://.godot/imported/cinder_golem_paint.png-60083a8d23c8d58892633c8d1dcd69cd.ctex"
+uid="uid://27br5uxyddyp"
+path="res://.godot/imported/batlord_0.png-fb7338ef5e7f2badeb49d66d7a55ff93.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "9065342ad675d644afde3f31efceca18"
 }
 
 [deps]
 
-source_file="res://assets/models/sketchfab/cinder_golem_paint.png"
-dest_files=["res://.godot/imported/cinder_golem_paint.png-60083a8d23c8d58892633c8d1dcd69cd.ctex"]
+source_file="res://assets/models/sketchfab/mon/batlord_0.png"
+dest_files=["res://.godot/imported/batlord_0.png-fb7338ef5e7f2badeb49d66d7a55ff93.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

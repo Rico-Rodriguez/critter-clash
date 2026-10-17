@@ -458,12 +458,31 @@ func celebrate(actor_id: int) -> void:
 		_spark(body.position + Vector3(cos(a), 0.3, sin(a)) * 0.9, Color("ffe08a"))
 
 
-func hurt(actor_id: int) -> void:
+func hurt(actor_id: int, boss := false, heavy := false) -> void:
 	if not _bodies.has(actor_id):
 		return
 	var body: Node3D = _bodies[actor_id]
 	if str(body.get_meta("lock", "")) == "death":
 		return
+	if boss:
+		# A boss shrugs off chip damage: a flash, a spark and a small recoil
+		# every hit; the full stagger clip only on a heavy hit, at most every
+		# 1.6 s, and never mid wind-up or swing so telegraphs stay honest.
+		var now := Time.get_ticks_msec() / 1000.0
+		body.set_meta("hit_t", now)
+		body.set_meta("hit_amp", 0.45)
+		_spark(body.position + Vector3(0, BOSS_METERS * 0.25, 0), Color("ffb15a"))
+		_flash(body)
+		var winding := now - float(body.get_meta("wind_t", -10.0)) < float(body.get_meta("wind_len", 0.0))
+		var busy := winding or str(body.get_meta("lock", "")) == "attack"
+		if heavy and not busy and now - float(body.get_meta("stagger_t", -10.0)) > 1.6:
+			body.set_meta("stagger_t", now)
+			body.set_meta("hit_amp", 1.0)
+			body.set_meta("lock", "hit")
+			body.set_meta("lock_until", now + 0.32)
+			_play(body, "hit")
+		return
+	body.set_meta("hit_amp", 1.0)
 	body.set_meta("lock", "hit")
 	body.set_meta("hit_t", Time.get_ticks_msec() / 1000.0)
 	body.set_meta("lock_until", Time.get_ticks_msec() / 1000.0 + 0.22)
@@ -1934,6 +1953,7 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 		var low := run_name.to_lower()
 		has_run = run_name != "" and (run_name == str(Cast3D.clips(sprite).get("run", "")) or ["run", "walk", "move", "locomotion"].any(func(k: String) -> bool: return k in low))
 	root.set_meta("has_run", has_run)
+	root.set_meta("flyer", Cast3D.flies(sprite))
 	if Cast3D.model(sprite) == Cast3D.EMBER_CUTE:
 		root.set_meta("bob", true)
 		_add_wings(root, model, meters)
@@ -2097,6 +2117,28 @@ func _paint_grain(mat: StandardMaterial3D) -> void:
 	mat.albedo_color = mat.albedo_color * Color(1.12, 1.1, 1.08)
 
 
+## De-toy a flat-coloured monster material (Quaternius names its eyes
+## Eye_White / Eye_Black): eyes become glowing sockets, hides go muted.
+func _menace(mat: StandardMaterial3D, glow: Color) -> void:
+	var n := mat.resource_name
+	if n.begins_with("Eye_White"):
+		mat.albedo_color = Color(0.02, 0.015, 0.012)
+		mat.emission_enabled = true
+		mat.emission = glow
+		mat.emission_energy_multiplier = 1.8
+		mat.rim_enabled = false
+		return
+	if n.begins_with("Eye_Black"):
+		mat.albedo_color = Color(0.0, 0.0, 0.0)
+		mat.roughness = 0.3
+		return
+	var c := mat.albedo_color
+	var grey := c.get_luminance()
+	c = Color(grey, grey, grey).lerp(c, 0.68) * 0.78
+	c.a = 1.0
+	mat.albedo_color = c
+
+
 func _fix_pbr(node: Node, sprite: String) -> void:
 	var opts := Cast3D.pbr(sprite)
 	if opts.is_empty():
@@ -2151,6 +2193,17 @@ func _fix_pbr(node: Node, sprite: String) -> void:
 				mat.rim_tint = float(opts.get("rim_tint", 0.35))
 			if bool(opts.get("paint", false)):
 				_paint_grain(mat)
+			if opts.has("menace"):
+				_menace(mat, opts["menace"])
+			if opts.has("glow_core"):
+				# Molten (or frozen) veins burn through the hide.
+				mat.emission_enabled = true
+				mat.emission = opts["glow_core"]
+				mat.emission_energy_multiplier = 2.4
+				if opts.has("glow_tex"):
+					# Multiply: the mask picks the veins (Add would light it all).
+					mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+					mat.emission_texture = load(str(opts["glow_tex"]))
 			if opts.has("clearcoat"):
 				mat.clearcoat_enabled = true
 				mat.clearcoat = float(opts["clearcoat"])
@@ -2255,7 +2308,7 @@ func _motion(body: Node3D, moving: bool, now: float, speed_k: float) -> void:
 	var ht := now - float(body.get_meta("hit_t", -10.0))
 	if ht < 0.24:
 		var e := 1.0 - ht / 0.24
-		e *= e
+		e *= e * float(body.get_meta("hit_amp", 1.0))
 		sq *= Vector3(1.0 + 0.12 * e, 1.0 - 0.16 * e, 1.0 + 0.12 * e)
 		lean -= 0.22 * e
 		off -= fwd * 0.06 * m * e
@@ -2273,6 +2326,13 @@ func _motion(body: Node3D, moving: bool, now: float, speed_k: float) -> void:
 		off += fwd * 0.22 * m * e
 		lean += 0.2 * e
 		sq *= Vector3(1.0 - 0.05 * e, 1.0 + 0.1 * e, 1.0 - 0.05 * e)
+	if bool(body.get_meta("flyer", false)):
+		# Flyers hold altitude with a slow bob and pitch nose-down into a
+		# dart while moving, instead of sliding along the ground.
+		var ph := float(body.get_instance_id() % 97)
+		off.y += m * (0.55 + 0.1 * sin(now * 3.3 + ph) + 0.05 * sin(now * 7.1 + ph))
+		lean += 0.3 * k
+		off += axis * sin(now * 2.1 + ph) * 0.06 * m
 	var lt := now - float(body.get_meta("lvl_t", -10.0))
 	if lt < 0.6:
 		var p := lt / 0.6
@@ -3575,12 +3635,14 @@ func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -
 	if ResourceLoader.exists(HANDPAINTED):
 		match biome_id:
 			"meadow":
-				pack = ["pine_1", "pine_2", "pine_3", "spruce_2", "spruce_3", "oak_green_1", "oak_green_2", "pine_2", "pine_3"]
+				# Five pieces, not eight: each extra species costs a draw per
+				# render chunk, and the pack fight peaked at 157 3D draws.
+				pack = ["pine_2", "pine_3", "spruce_3", "oak_green_1", "pine_2", "pine_3"]
 			"mushroom":
 				pack = ["spruce_2", "spruce_3", "oak_green_1", "oak_dead_3"]
 				grade = Color(0.62, 0.66, 0.8)
 			"frost":
-				pack = ["pine_1", "pine_2", "pine_3", "spruce_2", "spruce_3", "pine_dead_2"]
+				pack = ["pine_2", "pine_3", "spruce_3", "pine_2", "pine_dead_2"]
 				grade = Color(0.78, 0.88, 0.98)
 			"volcano":
 				pack = ["oak_dead_1", "oak_dead_3", "pine_dead_2", "birch_dead", "spruce_dead"]
@@ -3613,7 +3675,7 @@ func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -
 				# and drop a dead snag or stump in now and then.
 				s = rng.randf_range(0.95, 1.35) * (1.1 if d < -300.0 else 1.0)
 				if rng.randf() < 0.07:
-					kind = ["pine_dead_2", "oak_dead_1", "oak_stump", "birch_dead"][rng.randi() % 4]
+					kind = ["pine_dead_2", "oak_dead_1"][rng.randi() % 2]
 			var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * rng.randf_range(0.9, 1.1), s * rng.randf_range(0.9, 1.25), s * rng.randf_range(0.9, 1.1)))
 			if not by_kind.has(kind):
 				by_kind[kind] = []

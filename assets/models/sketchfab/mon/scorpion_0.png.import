@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cbcv6iaqwt4ye"
-path="res://.godot/imported/frost_golem_paint.png-cc7ad81313c454e19fc4e634c7297dad.ctex"
+uid="uid://g4ddy0guxcsg"
+path="res://.godot/imported/scorpion_0.png-c55e6ece599563d8a157b01a9a6004c9.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "1ed14cca5d18747549b977ec20874e44"
 }
 
 [deps]
 
-source_file="res://assets/models/sketchfab/frost_golem_paint.png"
-dest_files=["res://.godot/imported/frost_golem_paint.png-cc7ad81313c454e19fc4e634c7297dad.ctex"]
+source_file="res://assets/models/sketchfab/mon/scorpion_0.png"
+dest_files=["res://.godot/imported/scorpion_0.png-c55e6ece599563d8a157b01a9a6004c9.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

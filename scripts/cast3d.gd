@@ -18,22 +18,13 @@ extends RefCounted
 
 
 const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
-## Volcano lair boss: "Drugdör The Golem Animated" by Phons (CC-BY 4.0), a
-## rune-hearted rock golem, graded to basalt so the heart reads as magma.
-## Nimbus (frost lair) wears the same golem repainted as glacier ice.
-const CINDER_GOLEM := "res://assets/models/sketchfab/cinder_golem.glb"
 
 
 ## Wild critters and bosses wear their own species (Quaternius Ultimate
 ## Monsters, CC0), never a playable hero's mesh.
 const MONSTERS := {
-	"sprout": "mushnub", "beetle": "armabee", "moth": "hywirl", "boarlet": "monkroose",
-	"capling": "mushnub_evolved", "spore": "spiky_blob", "glowmoth": "ghost", "puddle": "glub",
-	"caplet": "mushroom_king",
-	"snowpup": "bunny", "shard": "goleling", "icewisp": "ghost_skull", "yeti": "yeti2",
-	"nimbus": "goleling_evolved",
-	"cindling": "demon", "skink": "dino", "ashbat": "squidle", "magmash": "blue_demon",
-	"cinder": "demon2",
+	"sprout": "mushnub", "beetle": "armabee", "capling": "mushnub_evolved",
+	"spore": "spiky_blob", "puddle": "glub", "yeti": "yeti2", "cindling": "demon",
 }
 ## Monsters that fly (no walk cycle): they hover on Flying_Idle and dart on Fast_Flying.
 const FLYERS := ["armabee", "hywirl", "ghost", "ghost_skull", "goleling", "goleling_evolved", "demon", "squidle", "glub"]
@@ -41,13 +32,50 @@ const FLYERS := ["armabee", "hywirl", "ghost", "ghost_skull", "goleling", "golel
 const BITERS := ["mushnub", "mushnub_evolved", "spiky_blob"]
 
 
+## Higher-detail, hand-painted PBR creatures from Sketchfab (CC-BY 4.0,
+## see CREDITS.md). One rig serves a few species, graded per biome.
+const SKETCH_MON := {
+	"boarlet": "boar", "snowpup": "boar", "magmash": "boar",
+	"moth": "batlord", "glowmoth": "batlord", "ashbat": "batlord", "icewisp": "batlord",
+	"skink": "scorpion", "shard": "scorpion",
+	"cinder": "golem", "nimbus": "golem",
+}
+const SKETCH_CLIPS := {
+	"boar": {"idle": "idle", "run": "run", "walk": "walk", "attack": "Attack01", "hit": "hit", "death": "Death"},
+	"batlord": {"idle": "Fly Forward In Place", "run": "Fly Forward In Place", "attack": "Bite Attack", "hit": "", "death": "Die"},
+	"scorpion": {"idle": "idle", "run": "walkForward", "attack": "clawAttackLeft", "hit": "", "death": "death"},
+	"golem": {"idle": "idle", "run": "walk", "attack": "hit", "hit": "damage", "death": "die"},
+}
+## Biome grade multiplied over each painted hide: frost goes pale and cold,
+## volcano charred, the mushroom wood dim violet.
+const SKETCH_TINT := {
+	"snowpup": Color(0.82, 0.95, 1.1), "magmash": Color(0.55, 0.42, 0.38),
+	"glowmoth": Color(0.72, 0.8, 0.95), "ashbat": Color(0.6, 0.45, 0.42), "icewisp": Color(0.8, 0.95, 1.15),
+	"shard": Color(0.7, 0.9, 1.1), "skink": Color(0.75, 0.5, 0.42),
+	"nimbus": Color(1, 1, 1), "cinder": Color(0.8, 0.72, 0.68),
+}
+
+
+## Species that fly: hovered and pitched in the motion layer.
+static func flies(id: String) -> bool:
+	return monster(id) in FLYERS or sketch_mon(id) == "batlord"
+
+
+static func sketch_mon(id: String) -> String:
+	return str(SKETCH_MON.get(id, ""))
+
+
 static func monster(id: String) -> String:
 	return str(MONSTERS.get(id, ""))
 
 
 static func model(id: String) -> String:
-	if id in ["cinder", "nimbus"] and ResourceLoader.exists(CINDER_GOLEM):
-		return CINDER_GOLEM
+	if id == "caplet" and ResourceLoader.exists("res://assets/models/sketchfab/thistle.glb"):
+		# The mushroom wood's lord: the Mushroom Boss rig, dyed violet.
+		return "res://assets/models/sketchfab/thistle.glb"
+	var sk := sketch_mon(id)
+	if sk != "" and ResourceLoader.exists("res://assets/models/sketchfab/mon/%s.glb" % sk):
+		return "res://assets/models/sketchfab/mon/%s.glb" % sk
 	var mon := monster(id)
 	if mon != "":
 		return "res://assets/models/monsters/%s.glb" % mon
@@ -111,8 +139,8 @@ static func family(id: String) -> String:
 
 static func clips(id: String) -> Dictionary:
 	var path := model(id)
-	if path == CINDER_GOLEM:
-		return {"idle": "Idle", "run": "Walk", "attack": "Attack1", "hit": "Defence3", "death": ""}
+	if "/sketchfab/mon/" in path:
+		return SKETCH_CLIPS[sketch_mon(id)]
 	var mon := monster(id)
 	if mon != "":
 		var a := "CharacterArmature|"
@@ -154,14 +182,34 @@ static func clips(id: String) -> Dictionary:
 ## Empty means "leave the file's materials alone".
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
-	if path == CINDER_GOLEM:
-		# The blue rock hide is regraded to basalt with glowing seams
-		# (assets/models/sketchfab/cinder_golem_paint.png).
-		return {"roughness": 0.86, "specular": 0.3, "rim": 0.3, "rim_tint": 0.9, "backlight": Color(0.5, 0.12, 0.02), "albedo_tex": "res://assets/models/sketchfab/cinder_golem_paint.png"} if id == "cinder" else {"roughness": 0.55, "specular": 0.5, "rim": 0.35, "rim_tint": 0.4, "clearcoat": 0.25, "subsurface": 0.15, "backlight": Color(0.1, 0.35, 0.5), "albedo_tex": "res://assets/models/sketchfab/frost_golem_paint.png"}
-	if monster(id) != "" and path != CINDER_GOLEM:
+	if "/sketchfab/mon/" in path:
+		# Painted PBR hides: matte, a cool rim, a little backlight. Bosses'
+		# cores glow through (golem cracks), set per biome.
+		var o := {"roughness": 0.78, "specular": 0.3, "rim": 0.3, "rim_tint": 0.7}
+		if id == "cinder":
+			o["backlight"] = Color(0.25, 0.06, 0.01)
+			o["glow_core"] = Color(1.0, 0.35, 0.06)
+			o["glow_tex"] = "res://assets/models/sketchfab/mon/golem_glow.png"
+		elif id == "nimbus":
+			o["backlight"] = Color(0.05, 0.15, 0.25)
+			o["glow_core"] = Color(0.35, 0.85, 1.0)
+			o["glow_tex"] = "res://assets/models/sketchfab/mon/golem_glow.png"
+			# Ice repaint: grey-blue stone with cyan veins (golem_ice.png).
+			o["albedo_tex"] = "res://assets/models/sketchfab/mon/golem_ice.png"
+		return o
+	if monster(id) != "":
 		# Flat toy colours: take the gloss off, add grain, rim and a little
 		# subsurface so they sit in the painted world.
-		return {"roughness": 0.72, "specular": 0.3, "rim": 0.45, "rim_tint": 0.6, "paint": true, "subsurface": 0.15}
+		# Menace grade: the googly white eyes become dark sockets lit by a
+		# biome-coloured glow, and the candy hides are muted and darkened.
+		var glow := Color(1.0, 0.62, 0.18)
+		if id in ["capling", "spore", "glowmoth", "puddle", "caplet"]:
+			glow = Color(0.62, 1.0, 0.3)
+		elif id in ["snowpup", "shard", "icewisp", "yeti", "nimbus"]:
+			glow = Color(0.35, 0.85, 1.0)
+		elif id in ["cindling", "skink", "ashbat", "magmash", "cinder"]:
+			glow = Color(1.0, 0.3, 0.08)
+		return {"roughness": 0.8, "specular": 0.28, "rim": 0.35, "rim_tint": 0.75, "paint": true, "subsurface": 0.1, "menace": glow}
 	if path.ends_with("sketchfab/bramble.glb"):
 		# Hand-painted pinecone hide: matte with a soft rim, no plastic sheen.
 		return {"roughness": 0.78, "specular": 0.3, "rim": 0.3, "rim_tint": 0.7}
@@ -213,8 +261,8 @@ static func tint(id: String) -> Color:
 	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
 	# catalog color.
 	var path := model(id)
-	if path == CINDER_GOLEM:
-		return Color.WHITE
+	if "/sketchfab/mon/" in path:
+		return SKETCH_TINT.get(id, Color.WHITE)
 	if monster(id) != "":
 		return Color.WHITE
 	if id == "juniper" and path.ends_with("sketchfab/juniper.glb"):
@@ -244,7 +292,7 @@ static func nose(id: String) -> float:
 	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
 	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
 	var path := model(id)
-	if monster(id) != "" or path == CINDER_GOLEM:
+	if monster(id) != "" or "/sketchfab/mon/" in path:
 		return 0.0
 	# The dragon, KAI, and the mushroom all face +Z. A turntable render
 	# showed KAI's back under the old "nose is -Z" default.
@@ -274,7 +322,12 @@ static func portrait_time(id: String) -> float:
 ## tail, and wings widen that band). Empty uses head_share.
 static func head_window(id: String) -> Rect2:
 	if model(id) == EMBER_CUTE:
-		return Rect2(0.4, 0.1, 0.6, 0.6)
+		# Head plus a wing and horns, so the medallion reads "dragon" and
+		# not a big-eyed chick.
+		return Rect2(0.22, 0.0, 0.78, 0.82)
+	if id == "pebble":
+		# The otter stands side-on: its head sits top right of the body box.
+		return Rect2(0.36, 0.0, 0.64, 0.62)
 	return Rect2()
 
 

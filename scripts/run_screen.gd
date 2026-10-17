@@ -452,9 +452,9 @@ func _drain() -> void:
 						_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ffc93a") if crit else Color("fbf2de"), crit, int(ev["id"]), float(ev["amount"]))
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
-				stage.hurt(int(ev["id"]))
 				var struck := sim._actor_by_id(int(ev["id"]))
 				var on_boss := struck != null and struck.kind == "boss"
+				stage.hurt(int(ev["id"]), on_boss, crit or float(ev["amount"]) >= 40.0)
 				if crit:
 					AudioDirector.sfx("crit")
 					AudioDirector.haptic("heavy")

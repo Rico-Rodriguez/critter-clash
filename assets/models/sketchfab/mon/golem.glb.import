@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://xvg8fwye28f0"
-path="res://.godot/imported/cinder_golem.glb-6c37054047abd9e01e6c7467d32995fb.scn"
+uid="uid://cqdma5cjjjwld"
+path="res://.godot/imported/golem.glb-9625a102a7d6735b729298586ed06fa0.scn"
 
 [deps]
 
-source_file="res://assets/models/sketchfab/cinder_golem.glb"
-dest_files=["res://.godot/imported/cinder_golem.glb-6c37054047abd9e01e6c7467d32995fb.scn"]
+source_file="res://assets/models/sketchfab/mon/golem.glb"
+dest_files=["res://.godot/imported/golem.glb-9625a102a7d6735b729298586ed06fa0.scn"]
 
 [params]
 

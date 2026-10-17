@@ -38,7 +38,12 @@ The older fonts below remain in the repository but the interface no longer uses 
 
 - Every wild enemy and lair boss uses Quaternius's **Ultimate Monsters** pack (CC0) — https://quaternius.com/packs/ultimatemonsters.html , downloaded via https://poly.pizza (glb, rigged and animated). Files in `assets/models/monsters/`. Hero critter models are no longer reused for enemies. Restyled in-engine (PBR roughness/rim pass in `scripts/cast3d.gd`).
 
-- Volcano and frost lair bosses (Cinder, Nimbus): "Drugdör The Golem Animated" by **Phons** — https://sketchfab.com/3d-models/drugdor-the-golem-animated-19c1855bdb2c4cdc89da2cfb64da48cf — CC-BY 4.0. File `assets/models/sketchfab/cinder_golem.glb`. Changes: albedo regraded to basalt (`cinder_golem_paint.png`) and glacier ice (`frost_golem_paint.png`).
+- Sketchfab creatures, all CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/), files in `assets/models/sketchfab/mon/`, tinted per biome in `scripts/cast3d.gd`:
+  - "Golem" by **DWN (dwn76)** — https://sketchfab.com/3d-models/golem-241619b4423148029ceecddbbe691af0 — Cinder and Nimbus lair bosses. Changes: clip times rebased to zero, vein emission mask (`golem_glow.png`), ice repaint for Nimbus (`golem_ice.png`).
+  - "fantasy boar animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/fantasy-boar-animation-a9dd958971ea462fbaab621410c30748 — Boarlet, Snowpup, Magmash.
+  - "giant scorpion animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/giant-scorpion-animation-651c17e0a3784c0386790e5b7c565f1a — Skink, Shard.
+  - "Bat Lord" by **Huh (SkibidiSanya)** — https://sketchfab.com/3d-models/bat-lord-8ee898e9c5384493989a5f1cbc38dab3 — Moth, Glowmoth, Ashbat, Icewisp.
+- Caplet (mushroom lair boss) reuses the Mushroom Boss model listed above, dyed violet.
 - Enemy portraits in `assets/sprites/portraits/` are re-baked from these models.
 
 ### Hunt forest
