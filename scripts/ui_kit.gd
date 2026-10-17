@@ -79,6 +79,51 @@ static func panel(bg: Color, radius: int = 28) -> StyleBoxFlat:
 	return s
 
 
+static func secondary(text: String, wide: float = 280, tall: float = 72) -> Button:
+	ensure()
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(wide, tall)
+	b.add_theme_font_override("font", font_b)
+	b.add_theme_font_size_override("font_size", 26)
+	b.add_theme_color_override("font_color", Color("3a241c"))
+	b.add_theme_color_override("font_hover_color", Color("3a241c"))
+	b.add_theme_color_override("font_pressed_color", Color("3a241c"))
+	b.add_theme_color_override("font_focus_color", Color("3a241c"))
+	var normal := chunky(Color("fff6ea"), Color("c4a07a"))
+	var hover := chunky(Color("fffaf3"), Color("c4a07a"))
+	var pressed := chunky(Color("f0e2d0"), Color("a88460"), true)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", hover)
+	b.add_theme_stylebox_override("disabled", chunky(Color("efe6da"), Color("d5c4b0"), true))
+	b.pressed.connect(func() -> void: AudioDirector.play("click"))
+	return b
+
+
+static func rarity_box(rarity: String) -> StyleBoxFlat:
+	var bg := Color("fffaf3")
+	var lip := Color("b7a48e")
+	match rarity:
+		"rare":
+			bg = Color("e5f2ff")
+			lip = Color("2c78c4")
+		"epic":
+			bg = Color("f4e6ff")
+			lip = Color("7a38b0")
+		"legendary":
+			bg = Color("fff1c9")
+			lip = Color("d39212")
+	var s := panel(bg, 18)
+	s.border_color = lip
+	s.border_width_left = 8
+	s.border_width_right = 8
+	s.border_width_top = 8
+	s.border_width_bottom = 8
+	return s
+
+
 static func safe_insets() -> Dictionary:
 	var vp := Vector2(720, 1280)
 	var tree := Engine.get_main_loop()

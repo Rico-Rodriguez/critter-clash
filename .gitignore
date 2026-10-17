@@ -8,3 +8,4 @@ android/
 *.import.bak
 agent-tools/
 build/
+captures/
