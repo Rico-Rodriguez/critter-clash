@@ -40,6 +40,7 @@ var hp_meter: Meter
 var xp_meter: Meter
 var boss_meter: Meter
 var level_label: Label
+var level_badge: UiKit.Badge
 var name_label: Label
 var hero_medal: UiKit.Medal
 var clock_label: Label
@@ -199,18 +200,17 @@ func _build_hud() -> void:
 	var xp_row := HBoxContainer.new()
 	xp_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	xp_row.add_theme_constant_override("separation", 8)
-	var lvl := UiKit.Plate.new()
-	lvl.kind = "plaque"
-	lvl.pad = 6
-	lvl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	level_label = UiKit.label("1", 24, UiKit.GOLD.lightened(0.2), "x", 3)
-	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	level_label.custom_minimum_size = Vector2(34, 0)
-	lvl.add_child(level_label)
-	xp_row.add_child(lvl)
-	xp_meter = Meter.new()
-	xp_meter.fill = Color("3fb8a0")
-	xp_meter.custom_minimum_size = Vector2(0, 20)
+	# Level shield (the same gilt-and-enamel badge as Home) beside a
+	# recessed XP track with a glowing fill.
+	level_badge = UiKit.Badge.new()
+	level_badge.custom_minimum_size = Vector2(58, 64)
+	xp_row.add_child(level_badge)
+	level_label = Label.new()
+	level_label.visible = false
+	xp_row.add_child(level_label)
+	xp_meter = XpBar.new()
+	xp_meter.fill = Color("3fd0b0")
+	xp_meter.custom_minimum_size = Vector2(0, 28)
 	xp_meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	xp_meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	xp_row.add_child(xp_meter)
@@ -414,6 +414,9 @@ func _hud() -> void:
 	var secs := int(sim.time)
 	clock_label.text = "%d:%02d" % [secs / 60, secs % 60]
 	level_label.text = str(sim.level)
+	if level_badge.level != sim.level:
+		level_badge.level = sim.level
+		level_badge.queue_redraw()
 	var show_boss := sim.phase == "boss"
 	boss_meter.visible = show_boss and sim.boss != null
 	boss_label.visible = show_boss and sim.boss != null
@@ -622,9 +625,12 @@ func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, a
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color(0.04, 0.015, 0.01))
 	label.add_theme_constant_override("outline_size", 16 if big else 13)
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
-	label.add_theme_constant_override("shadow_offset_y", 5)
-	label.add_theme_constant_override("shadow_offset_x", 0)
+	# Dark outline plus a soft drop shadow (the shadow takes its own wide
+	# outline so it reads as a blurred cast, not a second hard copy).
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+	label.add_theme_constant_override("shadow_offset_y", 6)
+	label.add_theme_constant_override("shadow_offset_x", 3)
+	label.add_theme_constant_override("shadow_outline_size", 22 if big else 18)
 	label.reset_size()
 	label.pivot_offset = label.size * 0.5
 	# Pop: overshoot big, settle, with a little tilt on crits.
@@ -642,7 +648,7 @@ func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, a
 	var lift := Vector2(randf_range(-42, 42) + (24.0 if stack % 2 == 1 else -24.0 if stack > 0 else 0.0), -36.0 - 44.0 * mini(stack, 3)) - label.size * 0.5
 	label.set_meta("sim", pos)
 	label.set_meta("lift", lift)
-	label.position = _projected(pos) + lift
+	label.position = _keep_in_safe(label, _projected(pos) + lift)
 	label.set_meta("life", 0.85 if big else 0.7)
 	# Stagger: a number born into a crowd waits a beat before showing.
 	label.set_meta("delay", 0.06 * mini(stack, 3))
@@ -672,10 +678,21 @@ func _tick_floats(delta: float) -> void:
 		lift += vel * delta
 		label.set_meta("vel", vel)
 		label.set_meta("lift", lift)
-		label.position = _projected(label.get_meta("sim")) + lift
+		label.position = _keep_in_safe(label, _projected(label.get_meta("sim")) + lift)
 		label.modulate.a = clampf(life / 0.28, 0.0, 1.0)
 		if life <= 0.0:
 			label.visible = false
+
+
+## Numbers never clip at the screen edge or slide under the notch / HUD:
+## they are held inside the safe area with a margin.
+func _keep_in_safe(label: Label, at: Vector2) -> Vector2:
+	var ins := UiKit.safe_insets()
+	var vp := get_viewport_rect().size
+	var tl := world.get_global_transform().affine_inverse() * Vector2(float(ins["l"]) + 16.0, float(ins["t"]) + 170.0)
+	var br := world.get_global_transform().affine_inverse() * Vector2(vp.x - float(ins["r"]) - 16.0, vp.y - float(ins["b"]) - 40.0)
+	var sz := label.size * label.scale
+	return Vector2(clampf(at.x, tl.x, maxf(tl.x, br.x - sz.x)), clampf(at.y, tl.y, maxf(tl.y, br.y - sz.y)))
 
 
 func _projected(sim_pos: Vector2) -> Vector2:
@@ -1380,6 +1397,42 @@ class Scrim extends Control:
 			var c0 := Color(0.04, 0.025, 0.015, a0)
 			var c1 := Color(0.04, 0.025, 0.015, a1)
 			draw_polygon(PackedVector2Array([Vector2(0, y0 + h * t0), Vector2(size.x, y0 + h * t0), Vector2(size.x, y0 + h * t1), Vector2(0, y0 + h * t1)]), PackedColorArray([c0, c0, c1, c1]))
+
+
+## XP: a track sunk into a dark groove (inner shadow along the top), a
+## gilt rim, a teal fill with a soft breathing glow and a light sweep.
+class XpBar extends Meter:
+	var _t := 0.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		var rad := size.y * 0.5
+		UiKit.ch_fill(self, r.grow(3), rad + 3, Color(0, 0, 0, 0.55), Color(0, 0, 0, 0.55))
+		UiKit.ch_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
+		var groove := r.grow(-3)
+		UiKit.ch_fill(self, groove, rad - 3, Color("030202"), Color("1a130d"))
+		UiKit.ch_fill(self, Rect2(groove.position, Vector2(groove.size.x, groove.size.y * 0.42)), rad - 3, Color(0, 0, 0, 0.7), Color(0, 0, 0, 0.0))
+		var bar := groove.grow(-3)
+		var w := bar.size.x * clampf(ratio, 0.0, 1.0)
+		if w > bar.size.y * 0.6:
+			var fr := Rect2(bar.position, Vector2(w, bar.size.y))
+			var glow := 0.18 + 0.1 * sin(_t * 3.0)
+			for i in 3:
+				UiKit.ch_fill(self, fr.grow(2.0 + i * 2.0), bar.size.y * 0.5 + 2.0 + i * 2.0, Color(fill, glow / (i + 1)), Color(fill, glow / (i + 1)))
+			UiKit.ch_fill(self, fr, bar.size.y * 0.5, fill.lightened(0.3), fill.darkened(0.4))
+			UiKit.ch_fill(self, Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.36)), fr.size.y * 0.2, Color(1, 1, 1, 0.38), Color(1, 1, 1, 0.0))
+			# A soft sweep of light running along the fill.
+			var sx := fmod(_t * 0.45, 1.6) - 0.3
+			var cx := fr.position.x + fr.size.x * sx
+			if cx > fr.position.x and cx < fr.end.x:
+				var hw := minf(28.0, fr.end.x - cx)
+				draw_rect(Rect2(cx, fr.position.y + 2, hw, fr.size.y - 4), Color(1, 1, 1, 0.18))
+			# Bright leading edge.
+			draw_circle(Vector2(fr.end.x - bar.size.y * 0.5, fr.get_center().y), bar.size.y * 0.42, Color(fill.lightened(0.6), 0.55))
 
 
 class Meter extends Control:

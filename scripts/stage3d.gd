@@ -1319,7 +1319,8 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		meters = BOSS_METERS
 	elif actor.kind != "hero":
 		# Rank-and-file critters stand roughly hero height so they read.
-		meters = clampf(actor.radius / 40.0, 0.5, 0.66) * HERO_METERS
+		# A touch bigger than before so mobs read at the pulled-back camera.
+		meters = clampf(actor.radius / 40.0, 0.5, 0.66) * HERO_METERS * 1.12
 	var body := _spawn_model(actor.sprite, meters)
 	# Outlines keep silhouettes readable from the far camera: a dark hairline
 	# on the hero (its ring marks it), deep red for anything hostile.
@@ -1332,6 +1333,7 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		pass
 	elif actor.kind != "hero":
 		_outline(body, Color("3a0a08"), 0.013)
+		_mob_rim(body)
 		if _tier() != "high":
 			# Minions already sit on a contact-shadow decal; a real shadow
 			# per critter costs a draw per split for little gain on phones.
@@ -1345,7 +1347,7 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		var blob := _decal(meters * (0.95 if boss else 1.1), {
 			"ring_color": Color(0.95, 0.22, 0.12, 0.42 if boss else 0.36),
 			"ring_radius": 0.4, "ring_width": 0.006 if boss else 0.012, "ring_glow": 0.6,
-			"shadow_alpha": 0.78 if boss else 0.58, "shadow_radius": 0.36 if boss else 0.42,
+			"shadow_alpha": 0.78 if boss else 0.7, "shadow_radius": 0.36 if boss else 0.44,
 			"pulse": 1.0, "ring_fade": 0.0,
 		})
 		blob.position.y = 0.03
@@ -1445,6 +1447,31 @@ func _boss_fx(body: Node3D, actor: RunSim.Actor) -> void:
 		cur = move_toward(cur, want, 0.12)
 		body.set_meta("windup_amt", cur)
 		mat.set_shader_parameter("amount", cur)
+
+
+## Mobs: a warm fresnel rim baked into their own materials (no extra
+## pass, so no extra draw calls), plus a little more roughness so the
+## surface reads as painted skin rather than plastic. One shared copy per
+## source material keeps instances batching together.
+var _rim_cache := {}
+func _mob_rim(body: Node3D) -> void:
+	for mi in body.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		for si in m.mesh.get_surface_count():
+			var src := m.get_active_material(si)
+			if not (src is StandardMaterial3D):
+				continue
+			var mat: StandardMaterial3D = _rim_cache.get(src)
+			if mat == null:
+				mat = (src as StandardMaterial3D).duplicate()
+				mat.rim_enabled = true
+				mat.rim = 0.55
+				mat.rim_tint = 0.35
+				mat.roughness = maxf(mat.roughness, 0.7)
+				_rim_cache[src] = mat
+			m.set_surface_override_material(si, mat)
 
 
 ## Hunt hero only: a cool fresnel rim plus a faint warm lift, added over
