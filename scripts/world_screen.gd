@@ -2,6 +2,8 @@ extends ScreenBase
 
 
 func build() -> void:
+	show_nav = true
+	nav_tab = "world"
 	var box := column()
 	box.add_child(header())
 	box.add_child(h1("Biomes"))
@@ -12,36 +14,65 @@ func build() -> void:
 	box.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 12)
+	list.add_theme_constant_override("separation", 14)
 	scroll.add_child(list)
 	for entry in Catalog.BIOMES:
-		list.add_child(_card(entry))
-	box.add_child(back_button("home"))
+		list.add_child(_banner(entry))
 
 
-func _card(entry: Dictionary) -> PanelContainer:
+func _banner(entry: Dictionary) -> PanelContainer:
 	var id := str(entry["id"])
 	var unlocked := SaveGame.biome_open(id)
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", UiKit.panel(Color("fffaf3") if unlocked else Color("efe4d6"), 22))
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	panel.add_child(box)
+	var frame := UiKit.panel(Color("102848"), 20)
+	frame.content_margin_left = 0
+	frame.content_margin_right = 0
+	frame.content_margin_top = 0
+	frame.content_margin_bottom = 0
+	panel.add_theme_stylebox_override("panel", frame)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 0)
+	panel.add_child(stack)
+	var art := TextureRect.new()
+	art.custom_minimum_size = Vector2(0, 168)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.texture = SpriteBank.arena(id)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not unlocked:
+		art.modulate = Color(0.45, 0.5, 0.6)
+	stack.add_child(art)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_child(row)
+	stack.add_child(margin)
+	var medal := portrait(str(entry["boss"]), 84)
+	var ring := PanelContainer.new()
+	ring.add_theme_stylebox_override("panel", UiKit.rarity_box("legendary"))
+	ring.add_child(medal)
+	row.add_child(ring)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 2)
+	row.add_child(text)
 	var boss := Catalog.critter(str(entry["boss"]))
-	box.add_child(UiKit.label(str(entry["name"]), 32, Color("3a241c"), "x", 0))
-	box.add_child(UiKit.label("Boss %s · %s" % [str(boss["name"]), Catalog.role_name(str(boss["role"]))], 20, Color("6d5144"), "b", 0))
-	var blurb := UiKit.label(str(entry["blurb"]), 18, Color("6d5144"), "m", 0)
-	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(blurb)
+	text.add_child(UiKit.label(str(entry["name"]), 30, UiKit.CREAM, "x", 5))
+	text.add_child(UiKit.label("%s · %s" % [str(boss["name"]), Catalog.role_name(str(boss["role"]))], 16, Color("d5e6ff"), "b", 3))
 	if SaveGame.biome_cleared(id):
-		box.add_child(UiKit.label("Cleared · hunt again any time", 18, Color("3e7a32"), "b", 0))
+		text.add_child(UiKit.label("CLEARED", 16, Color("b6ff9a"), "x", 3))
 	if unlocked:
-		var button := UiKit.button("Choose hero", 420, 70)
+		var button := UiKit.button("CHOOSE HERO", 280, 64)
 		button.pressed.connect(_open_biome.bind(id))
-		box.add_child(button)
+		text.add_child(button)
 	else:
-		box.add_child(UiKit.label(SaveGame.biome_lock_text(id), 18, Color("8a5a3a"), "b", 0))
+		text.add_child(UiKit.label("LOCKED", 18, Color("ffb0b0"), "x", 4))
+		text.add_child(UiKit.label(SaveGame.biome_lock_text(id), 16, Color("d5e6ff"), "b", 3))
 	return panel
 
 

@@ -54,6 +54,7 @@ func _capture() -> void:
 	go("heroes", {"biome": "meadow"})
 	await _settle()
 	await _shot("heroes")
+	SaveGame.data["heroes"]["ember"]["cards"] = 8
 	go("collection")
 	await _settle()
 	await _shot("collection")
@@ -69,7 +70,7 @@ func _capture() -> void:
 	await get_tree().create_timer(1.1).timeout
 	await _shot("hunt")
 	current.sim.debug_offer()
-	await _settle()
+	await get_tree().create_timer(0.55).timeout
 	await _shot("levelup")
 	current._pick(0)
 	await _settle()
@@ -91,7 +92,7 @@ func _capture() -> void:
 func _settle() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
-	await get_tree().create_timer(0.22).timeout
+	await get_tree().create_timer(0.42).timeout
 
 
 func _shot(shot_name: String) -> void:

@@ -213,64 +213,90 @@ def _finish(img: Image.Image, size: int) -> Image.Image:
 def arena(name: str) -> Image.Image:
     w, h = 720, 1280
     palettes = {
-        "meadow": ((186, 214, 112), (112, 168, 78), (246, 232, 170), (255, 255, 255)),
-        "mushroom": ((92, 78, 130), (48, 86, 78), (214, 120, 168), (232, 210, 255)),
-        "frost": ((186, 214, 232), (120, 164, 196), (255, 255, 255), (210, 230, 245)),
-        "volcano": ((92, 48, 40), (48, 28, 32), (255, 120, 48), (255, 196, 90)),
+        "meadow": ((168, 206, 96), (78, 140, 58), (246, 214, 96), (255, 250, 236), (92, 64, 36)),
+        "mushroom": ((126, 96, 168), (42, 72, 64), (214, 96, 140), (236, 220, 255), (48, 32, 40)),
+        "frost": ((198, 220, 236), (110, 150, 186), (255, 255, 255), (230, 242, 250), (90, 110, 130)),
+        "volcano": ((120, 58, 42), (42, 24, 28), (255, 120, 40), (255, 196, 80), (40, 22, 20)),
     }
-    top, bot, accent, light = palettes[name]
-    col = np.zeros((h, w, 3), dtype=np.uint8)
-    for y in range(h):
-        t = y / (h - 1)
-        col[y, :, 0] = int(top[0] * (1 - t) + bot[0] * t)
-        col[y, :, 1] = int(top[1] * (1 - t) + bot[1] * t)
-        col[y, :, 2] = int(top[2] * (1 - t) + bot[2] * t)
-    img = Image.fromarray(col, "RGB")
-    blot = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(blot, "RGBA")
+    top, bot, accent, light, soil = palettes[name]
+    yy = np.linspace(0, 1, h)[:, None]
+    xx = np.linspace(0, 1, w)[None, :]
+    dx = (xx - 0.5) / 0.46
+    dy = (yy - 0.55) / 0.40
+    ell = np.clip(dx * dx + dy * dy, 0, 2.4)
+    shade = np.clip(1.08 - ell * 0.28, 0.55, 1.12)
+    rng_np = np.random.default_rng(abs(hash(name)) % 10007)
+    noise = rng_np.normal(0, 10, (h, w))
+    blotch = rng_np.normal(0, 1, (h // 8, w // 8))
+    blotch = np.array(Image.fromarray(blotch.astype(np.float32), "F").resize((w, h), Image.Resampling.BILINEAR))
+    col = np.zeros((h, w, 3), dtype=np.float32)
+    for c in range(3):
+        grad = top[c] * (1 - yy) + bot[c] * yy
+        col[:, :, c] = grad * shade + noise * 0.35 + blotch * 14
+    col = np.clip(col, 0, 255).astype(np.uint8)
+    img = Image.fromarray(col, "RGB").convert("RGBA")
+    layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer, "RGBA")
     rng = random.Random(name)
-    for _ in range(70):
-        x = rng.randrange(w)
-        y = rng.randrange(h)
-        rx = rng.randint(30, 110)
-        ry = rng.randint(18, 60)
-        shade = tuple(clamp(c + rng.randint(-24, 24)) for c in (top if y < h * 0.45 else bot))
-        d.ellipse([x - rx, y - ry, x + rx, y + ry], fill=(*shade, 90))
-    # Clearing where the hunt happens.
-    d.ellipse([80, 260, w - 80, h - 180], fill=(*light, 70))
-    # Edge thicket.
-    for i in range(16):
-        x = rng.choice([rng.randint(-20, 80), rng.randint(w - 90, w + 20)])
-        y = rng.randint(180, h - 80)
-        d.ellipse([x - 50, y - 30, x + 70, y + 46], fill=(*bot, 180))
-        d.ellipse([x - 20, y - 70, x + 40, y + 10], fill=(*accent, 160))
-    for _ in range(48):
-        x = rng.randint(40, w - 40)
-        y = rng.randint(200, h - 80)
-        if 160 < x < w - 160 and 420 < y < h - 280:
-            if rng.random() < 0.7:
-                continue
-        r = rng.randint(4, 9)
-        d.ellipse([x - r, y - r, x + r, y + r], fill=(*accent, 210))
-        d.ellipse([x - 2, y - r - 8, x + 2, y], fill=(*bot, 180))
+    # Soft center light, not a flat oval.
+    d.ellipse([90, 300, w - 90, h - 200], fill=(*light, 28))
+    for _ in range(26):
+        x = rng.randint(30, w - 30)
+        y = rng.randint(160, h - 40)
+        rw = rng.randint(18, 46)
+        d.ellipse([x - rw, y - 8, x + rw, y + 10], fill=(*soil, 50))
+        d.ellipse([x - rw + 4, y - 14, x + rw - 6, y + 2], fill=(*tuple(clamp(c + 18) for c in bot), 90))
+    for _ in range(90):
+        x = rng.randint(16, w - 16)
+        y = rng.randint(140, h - 24)
+        blade = rng.randint(10, 22)
+        stem = (*tuple(clamp(c - 20) for c in bot), 210)
+        d.line([(x, y), (x + rng.randint(-4, 4), y - blade)], fill=stem, width=2)
+        d.line([(x + 4, y), (x + rng.randint(2, 8), y - blade + 4)], fill=(*bot, 180), width=2)
+    for _ in range(40):
+        x = rng.randint(24, w - 24)
+        y = rng.randint(180, h - 40)
+        if ell[min(y, h - 1), min(x, w - 1)] < 0.35 and rng.random() < 0.55:
+            continue
+        r = rng.randint(4, 8)
+        petal = accent if rng.random() < 0.7 else light
+        d.ellipse([x - r, y - r, x + r, y + r], fill=(*petal, 230))
+        d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=(255, 236, 140, 240))
+        d.line([(x, y + r), (x, y + r + 8)], fill=(*bot, 200), width=2)
+    for _ in range(14):
+        x = rng.randint(20, w - 20)
+        y = rng.randint(200, h - 30)
+        rw = rng.randint(14, 28)
+        d.ellipse([x - rw + 4, y - 2, x + rw + 6, y + 12], fill=(40, 28, 18, 70))
+        d.ellipse([x - rw, y - 10, x + rw, y + 8], fill=(*soil, 230))
+        d.ellipse([x - rw + 6, y - 8, x + 2, y], fill=(255, 255, 255, 40))
+    for i in range(22):
+        side = i % 2 == 0
+        x = rng.randint(-30, 110) if side else rng.randint(w - 130, w + 30)
+        y = rng.randint(120, h - 40)
+        d.ellipse([x - 8, y + 10, x + 70, y + 36], fill=(30, 24, 16, 60))
+        d.ellipse([x, y, x + 64, y + 36], fill=(*bot, 230))
+        d.ellipse([x + 8, y - 28, x + 48, y + 16], fill=(*tuple(clamp(c + 16) for c in bot), 230))
+        d.ellipse([x + 18, y - 8, x + 34, y + 6], fill=(*accent, 180))
     if name == "mushroom":
-        for _ in range(8):
+        for _ in range(10):
             x = rng.randint(40, w - 40)
-            y = rng.randint(160, h - 100)
-            d.ellipse([x - 28, y - 18, x + 28, y + 16], fill=(220, 90, 110, 230))
-            d.rectangle([x - 8, y, x + 8, y + 36], fill=(236, 220, 190, 230))
+            y = rng.randint(180, h - 80)
+            d.ellipse([x - 26, y - 16, x + 26, y + 14], fill=(210, 70, 96, 235))
+            d.ellipse([x - 10, y - 12, x + 4, y - 2], fill=(255, 210, 220, 160))
+            d.rectangle([x - 7, y, x + 7, y + 30], fill=(236, 214, 186, 235))
     if name == "frost":
-        for _ in range(18):
-            x = rng.randint(20, w - 20)
-            y = rng.randint(140, h - 40)
-            d.ellipse([x - 26, y - 10, x + 26, y + 12], fill=(255, 255, 255, 160))
+        for _ in range(24):
+            x = rng.randint(16, w - 16)
+            y = rng.randint(140, h - 30)
+            d.ellipse([x - 22, y - 8, x + 22, y + 10], fill=(255, 255, 255, 150))
     if name == "volcano":
-        for _ in range(7):
-            x1 = rng.randint(60, w - 60)
-            y1 = rng.randint(300, h - 120)
-            d.line([(x1, y1), (x1 + rng.randint(-80, 80), y1 + rng.randint(40, 140))], fill=(255, 140, 40, 180), width=6)
-    img = Image.alpha_composite(img.convert("RGBA"), blot).convert("RGB")
-    return img.filter(ImageFilter.SMOOTH)
+        for _ in range(8):
+            x1 = rng.randint(50, w - 50)
+            y1 = rng.randint(280, h - 80)
+            d.line([(x1, y1), (x1 + rng.randint(-70, 70), y1 + rng.randint(30, 120))], fill=(255, 120, 36, 190), width=7)
+    img = Image.alpha_composite(img, layer)
+    return img.filter(ImageFilter.SMOOTH_MORE).convert("RGB")
 
 
 def fx_images() -> None:

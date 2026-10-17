@@ -123,7 +123,7 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 - `scripts/` hunt simulation, screens, save, sprite loader
 - `assets/sprites/` placeholder critters, arenas, and effects
 - `assets/audio/` synthesized effects and the music loop
-- `assets/fonts/` Nunito
+- `assets/fonts/` Nunito for body copy, Lilita One for titles, numbers, and buttons
 - `tools/build_sprites.py` placeholder painter
 - `tools/build_audio.py` and `tools/make_icon.py`
 - `.github/workflows/ios-ipa.yml` unsigned IPA

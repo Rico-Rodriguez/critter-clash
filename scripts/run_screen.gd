@@ -35,6 +35,8 @@ var hp_meter: Meter
 var xp_meter: Meter
 var boss_meter: Meter
 var level_label: Label
+var name_label: Label
+var face: TextureRect
 var clock_label: Label
 var boss_label: Label
 var banner: Label
@@ -93,7 +95,10 @@ func open(args: Dictionary = {}) -> void:
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
 	sim.start(session, stats)
 	marks.sim = sim
-	level_label.text = Catalog.critter(hero_id)["name"]
+	var info := Catalog.critter(hero_id)
+	name_label.text = str(info["name"])
+	face.texture = SpriteBank.critter(hero_id)
+	SaveGame.set_featured(hero_id)
 
 
 func _build_hud() -> void:
@@ -112,35 +117,92 @@ func _build_hud() -> void:
 	margin.add_child(top)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	level_label = UiKit.label("Hero", 26, Color("fff6ea"), "x", 6)
+	row.add_theme_constant_override("separation", 8)
+	var medallion := VBoxContainer.new()
+	medallion.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	medallion.add_theme_constant_override("separation", 2)
+	var ring := PanelContainer.new()
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ring_style := UiKit.rarity_box("legendary")
+	ring_style.content_margin_left = 4
+	ring_style.content_margin_right = 4
+	ring_style.content_margin_top = 4
+	ring_style.content_margin_bottom = 4
+	ring.add_theme_stylebox_override("panel", ring_style)
+	face = TextureRect.new()
+	face.custom_minimum_size = Vector2(72, 72)
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	face.texture = SpriteBank.critter("ember")
+	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.add_child(face)
+	medallion.add_child(ring)
+	name_label = UiKit.label("Hero", 16, UiKit.CREAM, "x", 3)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	medallion.add_child(name_label)
+	hp_meter = Meter.new()
+	hp_meter.fill = Color("ff4d4d")
+	hp_meter.segments = 10
+	hp_meter.custom_minimum_size = Vector2(168, 22)
+	medallion.add_child(hp_meter)
+	row.add_child(medallion)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clock_label = UiKit.label("0:00", 26, Color("fff6ea"), "x", 6)
-	var pause := UiKit.secondary("Pause", 130, 54)
-	pause.pressed.connect(_pause)
-	row.add_child(level_label)
 	row.add_child(gap)
-	row.add_child(clock_label)
-	row.add_child(pause)
+	var side := VBoxContainer.new()
+	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.alignment = BoxContainer.ALIGNMENT_END
+	side.add_theme_constant_override("separation", 6)
+	var clock_plate := PanelContainer.new()
+	clock_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var clock_style := UiKit.panel(Color("102848"), 16)
+	clock_style.content_margin_left = 12
+	clock_style.content_margin_right = 12
+	clock_style.content_margin_top = 2
+	clock_style.content_margin_bottom = 4
+	clock_plate.add_theme_stylebox_override("panel", clock_style)
+	clock_label = UiKit.label("0:00", 26, UiKit.CREAM, "x", 5)
+	clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	clock_plate.add_child(clock_label)
+	side.add_child(clock_plate)
+	var pause := UiKit.icon_button("II", 58, "blue")
+	pause.size_flags_horizontal = Control.SIZE_SHRINK_END
+	pause.pressed.connect(_pause)
+	side.add_child(pause)
+	row.add_child(side)
 	top.add_child(row)
-	hp_meter = Meter.new()
-	hp_meter.fill = Color("e25b4a")
-	hp_meter.custom_minimum_size = Vector2(0, 22)
-	top.add_child(hp_meter)
+	var xp_row := HBoxContainer.new()
+	xp_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	xp_row.add_theme_constant_override("separation", 6)
+	level_label = UiKit.label("1", 22, UiKit.CREAM, "x", 4)
+	var badge := PanelContainer.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var badge_style := UiKit.panel(Color("f0a020"), 14)
+	badge_style.border_color = Color("5a3208")
+	badge_style.content_margin_left = 8
+	badge_style.content_margin_right = 8
+	badge_style.content_margin_top = 0
+	badge_style.content_margin_bottom = 2
+	badge.add_theme_stylebox_override("panel", badge_style)
+	badge.add_child(level_label)
+	xp_row.add_child(badge)
 	xp_meter = Meter.new()
-	xp_meter.fill = Color("7dcea0")
-	xp_meter.custom_minimum_size = Vector2(0, 12)
-	top.add_child(xp_meter)
-	boss_label = UiKit.label("", 24, Color("ffe08a"), "x", 6)
+	xp_meter.fill = Color("7dff5a")
+	xp_meter.custom_minimum_size = Vector2(0, 18)
+	xp_meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	xp_row.add_child(xp_meter)
+	top.add_child(xp_row)
+	boss_label = UiKit.label("", 28, Color("ffe08a"), "x", 6)
 	boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boss_label.visible = false
 	top.add_child(boss_label)
 	boss_meter = Meter.new()
 	boss_meter.fill = Color("ffd15a")
-	boss_meter.custom_minimum_size = Vector2(0, 18)
+	boss_meter.custom_minimum_size = Vector2(0, 26)
 	boss_meter.visible = false
 	top.add_child(boss_meter)
-	banner = UiKit.label("", 36, Color("fff6ea"), "x", 8)
+	banner = UiKit.label("", 36, UiKit.CREAM, "x", 8)
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner.modulate.a = 0.0
 	top.add_child(banner)
@@ -154,7 +216,7 @@ func _build_modal() -> void:
 	add_child(modal)
 	var dim := ColorRect.new()
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0.12, 0.07, 0.05, 0.55)
+	dim.color = Color(0.02, 0.05, 0.14, 0.78)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	modal.add_child(dim)
 	var center := CenterContainer.new()
@@ -279,7 +341,8 @@ func _hud() -> void:
 	hp_meter.ratio = hero.hp / maxf(hero.max_hp, 1.0)
 	xp_meter.ratio = float(sim.xp) / float(maxi(sim.xp_need, 1))
 	var secs := int(sim.time)
-	clock_label.text = "%d:%02d  Lv%d" % [secs / 60, secs % 60, sim.level]
+	clock_label.text = "%d:%02d" % [secs / 60, secs % 60]
+	level_label.text = str(sim.level)
 	var show_boss := sim.phase == "boss" or sim.phase == "tame"
 	boss_meter.visible = show_boss and sim.boss != null
 	boss_label.visible = show_boss and sim.boss != null
@@ -480,10 +543,16 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.modulate = Color(1, 1, 1, 1)
 	label.z_index = 4096
 	label.add_theme_font_override("font", UiKit.font_x)
-	label.add_theme_font_size_override("font_size", 34 if big else 22)
+	label.add_theme_font_size_override("font_size", 40 if big else 28)
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Color(0.12, 0.05, 0.04, 0.92))
-	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_color_override("font_outline_color", UiKit.INK)
+	label.add_theme_constant_override("outline_size", 8 if big else 6)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
+	label.add_theme_constant_override("shadow_offset_y", 3)
+	label.pivot_offset = Vector2(18, 16)
+	label.scale = Vector2(1.45, 1.45)
+	var pop := create_tween()
+	pop.tween_property(label, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	label.set_meta("life", 0.7)
 
 
@@ -521,10 +590,9 @@ func _close_modal() -> void:
 
 func _show_levelup(level_n: int, offer: Array) -> void:
 	_open_modal()
-	var title := UiKit.label("Level %d" % level_n, 40, Color("fff6ea"), "x", 8)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := UiKit.title("LEVEL %d" % level_n, 44)
 	modal_box.add_child(title)
-	var sub := UiKit.label("Pick a blessing", 22, Color("ffe0bf"), "m", 0)
+	var sub := UiKit.label("Pick a blessing", 22, Color("ffe7b0"), "x", 4)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(sub)
 	var row := HBoxContainer.new()
@@ -532,28 +600,52 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	modal_box.add_child(row)
 	for i in offer.size():
-		row.add_child(_offer_card(i, str(offer[i])))
+		var card := _offer_card(i, str(offer[i]))
+		row.add_child(card)
+		card.pivot_offset = Vector2(95, 160)
+		card.scale = Vector2(0.08, 1.0)
+		var tw := create_tween()
+		tw.tween_interval(0.06 * float(i))
+		tw.tween_property(card, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _offer_card(index: int, id: String) -> Button:
-	var card := Catalog.card(id)
+	var info := Catalog.card(id)
+	var rarity := str(info.get("rarity", "common"))
 	var button := Button.new()
+	button.focus_mode = Control.FOCUS_NONE
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.custom_minimum_size = Vector2(190, 300)
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button.add_theme_font_override("font", UiKit.font_b)
-	button.add_theme_font_size_override("font_size", 22)
-	button.add_theme_color_override("font_color", Color("3a241c"))
-	button.add_theme_color_override("font_hover_color", Color("3a241c"))
-	button.add_theme_color_override("font_pressed_color", Color("3a241c"))
-	button.text = "%s\n\n%s\n\n%s" % [Catalog.rarity_name(str(card.get("rarity", "common"))), str(card.get("name", id)), str(card.get("desc", ""))]
-	var box := UiKit.rarity_box(str(card.get("rarity", "common")))
-	button.add_theme_stylebox_override("normal", box)
-	button.add_theme_stylebox_override("hover", box)
-	button.add_theme_stylebox_override("pressed", box)
-	button.add_theme_stylebox_override("focus", box)
+	button.custom_minimum_size = Vector2(200, 340)
+	button.clip_contents = true
+	var frame := UiKit.rarity_box(rarity)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		button.add_theme_stylebox_override(state, frame)
 	button.pressed.connect(_pick.bind(index))
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 6)
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 10
+	box.offset_right = -10
+	box.offset_top = 12
+	box.offset_bottom = -12
+	button.add_child(box)
+	var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 16, UiKit.CREAM, "x", 3)
+	ribbon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(ribbon)
+	var icon := CardIcon.new()
+	icon.op = str(info.get("op", ""))
+	icon.custom_minimum_size = Vector2(0, 72)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(icon)
+	var name := UiKit.label(str(info.get("name", id)), 22, UiKit.CREAM, "x", 4)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(name)
+	var desc := UiKit.label(str(info.get("desc", "")), 15, Color("f4f7ff"), "b", 3)
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(desc)
 	return button
 
 
@@ -572,13 +664,13 @@ func _show_tame(boss_name: String) -> void:
 	hearts = 0
 	tame_p = 0.0
 	_open_modal()
-	var title := UiKit.label("%s is calm" % boss_name, 40, Color("fff6ea"), "x", 8)
+	var title := UiKit.title("%s is calm" % boss_name, 36)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(title)
 	var face := portrait(sim.boss.sprite if sim.boss else hero_id, 180)
 	face.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	modal_box.add_child(face)
-	var sub := UiKit.label("Tap the hearts to tame.", 22, Color("ffe0bf"), "m", 0)
+	var sub := UiKit.label("Tap the hearts to tame.", 22, Color("ffe7b0"), "x", 4)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(sub)
 	var row := HBoxContainer.new()
@@ -609,11 +701,11 @@ func _tap_heart(button: Button, boss_name: String) -> void:
 func _show_victory(boss_name: String) -> void:
 	_open_modal()
 	var already := bool(summary.get("already", false))
-	var title := UiKit.label("Tamed", 44, Color("fff6ea"), "x", 8)
+	var title := UiKit.title("TAMED", 52)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(title)
 	var line := "%s bonded closer." % boss_name if already else "%s joined your collection." % boss_name
-	var sub := UiKit.label(line, 24, Color("ffe0bf"), "b", 0)
+	var sub := UiKit.label(line, 24, Color("ffe7b0"), "x", 4)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	modal_box.add_child(sub)
@@ -627,11 +719,11 @@ func _show_victory(boss_name: String) -> void:
 
 func _show_defeat(reason: String) -> void:
 	_open_modal()
-	var title := UiKit.label("Bounced out", 44, Color("fff6ea"), "x", 8)
+	var title := UiKit.title("BOUNCED OUT", 44)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(title)
 	var line := "The wilds outlasted you." if reason == "time" else "The wilds were a bit much."
-	var sub := UiKit.label(line, 24, Color("ffe0bf"), "m", 0)
+	var sub := UiKit.label(line, 24, Color("ffe7b0"), "x", 4)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(sub)
 	var button := UiKit.button("Open the pouch", 460, 86)
@@ -643,31 +735,76 @@ func _pause() -> void:
 	if _modal_up or sim == null or sim.result != "":
 		return
 	_open_modal()
-	var title := UiKit.label("Paused", 44, Color("fff6ea"), "x", 8)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := UiKit.title("PAUSED", 52)
 	modal_box.add_child(title)
-	var resume := UiKit.button("Resume", 420, 80)
+	var resume := UiKit.confirm("RESUME", 420, 84)
 	resume.pressed.connect(_close_modal)
 	modal_box.add_child(resume)
-	var leave := UiKit.secondary("Leave hunt", 420, 70)
+	var leave := UiKit.danger("LEAVE HUNT", 420, 72)
 	leave.pressed.connect(func() -> void: go("home"))
 	modal_box.add_child(leave)
+
+
+class CardIcon extends Control:
+	var op := ""
+
+	func _draw() -> void:
+		var c := Vector2(size.x * 0.5, size.y * 0.5)
+		var col := Color("ffe08a")
+		match op:
+			"hp", "heal":
+				col = Color("ff5a6a")
+				draw_circle(c + Vector2(-10, -4), 12, col)
+				draw_circle(c + Vector2(10, -4), 12, col)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-20, 2), c + Vector2(0, 22), c + Vector2(20, 2)]), col)
+			"swift", "haste":
+				col = Color("7ec8ff")
+				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -18), c + Vector2(14, 2), c + Vector2(2, 2), c + Vector2(8, 18), c + Vector2(-8, 0), c + Vector2(2, 0)]), col)
+			"regen", "siphon":
+				draw_circle(c, 16, Color("5dce45"))
+				draw_circle(c + Vector2(-5, -6), 5, Color(1, 1, 1, 0.45))
+			_:
+				draw_circle(c, 18, Color(0, 0, 0, 0.25))
+				draw_colored_polygon(PackedVector2Array([
+					c + Vector2(0, -16), c + Vector2(6, -4), c + Vector2(18, -2), c + Vector2(8, 6),
+					c + Vector2(10, 18), c + Vector2(0, 10), c + Vector2(-10, 18), c + Vector2(-8, 6),
+					c + Vector2(-18, -2), c + Vector2(-6, -4)
+				]), col)
 
 
 class Meter extends Control:
 	var ratio := 1.0
 	var fill := Color("e25b4a")
+	var segments := 1
+	var _plate: StyleBoxFlat
+	var _ink: StyleBoxFlat
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_plate = StyleBoxFlat.new()
+		_plate.bg_color = Color("24160f")
+		_plate.set_corner_radius_all(8)
+		_plate.set_border_width_all(3)
+		_plate.border_color = Color("1a100c")
+		_ink = StyleBoxFlat.new()
+		_ink.set_corner_radius_all(5)
 
 	func _process(_delta: float) -> void:
 		queue_redraw()
 
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.16, 0.08, 0.05, 0.55), true)
-		var width := maxf(0.0, (size.x - 6.0) * clampf(ratio, 0.0, 1.0))
-		draw_rect(Rect2(3, 3, width, maxf(0.0, size.y - 6.0)), fill, true)
+		_plate.draw(get_canvas_item(), Rect2(Vector2.ZERO, size))
+		var inner := Rect2(4, 4, maxf(0.0, size.x - 8.0), maxf(0.0, size.y - 8.0))
+		var width := inner.size.x * clampf(ratio, 0.0, 1.0)
+		if width > 1.0:
+			_ink.bg_color = fill
+			_ink.draw(get_canvas_item(), Rect2(inner.position, Vector2(width, inner.size.y)))
+			_ink.bg_color = Color(1, 1, 1, 0.35)
+			_ink.draw(get_canvas_item(), Rect2(inner.position.x, inner.position.y, width, maxf(2.0, inner.size.y * 0.35)))
+		if segments > 1:
+			for i in range(1, segments):
+				var x := inner.position.x + inner.size.x * float(i) / float(segments)
+				draw_line(Vector2(x, inner.position.y), Vector2(x, inner.position.y + inner.size.y), Color(0, 0, 0, 0.45), 2.0)
 
 
 class StickLayer extends Control:
@@ -687,7 +824,7 @@ class StickLayer extends Control:
 			UiKit.ensure()
 			var text := "Drag to steer"
 			var width := 220.0
-			draw_string(UiKit.font_b, Vector2(size.x * 0.5 - width * 0.5, size.y * 0.78), text, HORIZONTAL_ALIGNMENT_LEFT, width, 28, Color(1, 1, 1, 0.7 * hint))
+			draw_string(UiKit.font_x, Vector2(size.x * 0.5 - width * 0.5, size.y * 0.78), text, HORIZONTAL_ALIGNMENT_LEFT, width, 28, Color(1, 1, 1, 0.85 * hint))
 
 
 class GroundMarks extends Node2D:
@@ -706,13 +843,14 @@ class GroundMarks extends Node2D:
 			var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
 			var w := actor.radius * 2.1
 			draw_texture_rect(shadow, Rect2(pos.x - w, pos.y + actor.radius * 0.2, w * 2.0, w * 0.7), false, Color(1, 1, 1, 0.42))
-			if actor.kind != "hero" and actor.alive and actor.max_hp > 0.0:
-				var width := 34.0 if actor.kind != "boss" else 70.0
-				var y := pos.y - actor.radius * 1.55
+			if actor.kind == "minion" and actor.alive and actor.max_hp > 0.0:
+				var width := 28.0
+				var y := pos.y - actor.radius * 1.65
 				var t := clampf(actor.hp / actor.max_hp, 0.0, 1.0)
-				draw_rect(Rect2(pos.x - width, y, width * 2.0, 7.0), Color(0, 0, 0, 0.45), true)
-				var col := Color("ffd15a") if actor.kind == "boss" else Color("ff6d5a")
-				draw_rect(Rect2(pos.x - width, y, width * 2.0 * t, 7.0), col, true)
+				draw_rect(Rect2(pos.x - width - 2, y - 2, width * 2.0 + 4, 12.0), Color("1a100c"), true)
+				draw_rect(Rect2(pos.x - width, y, width * 2.0, 8.0), Color("3a1814"), true)
+				draw_rect(Rect2(pos.x - width, y, width * 2.0 * t, 8.0), Color("ff4d4d"), true)
+				draw_rect(Rect2(pos.x - width, y, width * 2.0 * t, 3.0), Color(1, 1, 1, 0.35), true)
 		for ping in sim.pings:
 			if not ping.alive or ping.max_life <= 0.0:
 				continue

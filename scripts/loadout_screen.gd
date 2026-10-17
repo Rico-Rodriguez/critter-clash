@@ -75,9 +75,11 @@ func _fill() -> void:
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.custom_minimum_size = Vector2(0, 84)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_override("font", UiKit.font_b)
-		button.add_theme_font_size_override("font_size", 20)
-		button.add_theme_color_override("font_color", Color("3a241c"))
+		button.add_theme_font_override("font", UiKit.font_x)
+		button.add_theme_font_size_override("font_size", 22)
+		button.add_theme_color_override("font_color", Color.WHITE)
+		button.add_theme_color_override("font_outline_color", UiKit.INK)
+		button.add_theme_constant_override("outline_size", 4)
 		button.text = SaveGame.gear_text(piece)
 		button.add_theme_stylebox_override("normal", UiKit.rarity_box(str(piece["rarity"])))
 		button.pressed.connect(_equip.bind(int(piece["uid"])))

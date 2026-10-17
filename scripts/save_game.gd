@@ -54,6 +54,20 @@ func hero(id: String) -> Dictionary:
 	return data["heroes"][id]
 
 
+func featured_id() -> String:
+	var id := str(data.get("featured", "ember"))
+	if not data["heroes"].has(id) or not bool(data["heroes"][id]["unlocked"]):
+		return "ember"
+	return id
+
+
+func set_featured(id: String) -> void:
+	if featured_id() == id and str(data.get("featured", "")) == id:
+		return
+	data["featured"] = id
+	_write()
+
+
 func can_level(id: String) -> bool:
 	var row: Dictionary = hero(id)
 	if not bool(row["unlocked"]):
@@ -355,6 +369,7 @@ func _fresh() -> Dictionary:
 		"bag": [],
 		"clan_id": "",
 		"duel_rating": 0,
+		"featured": "ember",
 		"heroes": heroes,
 	}
 
@@ -373,6 +388,8 @@ func _reconcile() -> void:
 		data["clan_id"] = ""
 	if not data.has("duel_rating"):
 		data["duel_rating"] = 0
+	if not data.has("featured"):
+		data["featured"] = "ember"
 	for id in Catalog.playable_ids():
 		if not data["heroes"].has(id):
 			data["heroes"][id] = {

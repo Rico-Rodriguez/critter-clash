@@ -12,6 +12,9 @@ Critter Clash is an original game. The hunt, the roster, and the interface are o
 - Files: `assets/fonts/Nunito-SemiBold.ttf`, `Nunito-Bold.ttf`, `Nunito-ExtraBold.ttf`.
 - License: SIL Open Font License 1.1. See `assets/fonts/OFL.txt`.
 - Source: [fontsource Nunito](https://fontsource.org/fonts/nunito) latin weights 600, 700, and 800.
+- Lilita One by Juan Montoreano. File: `assets/fonts/LilitaOne-Regular.ttf`.
+- License: SIL Open Font License 1.1, reserved font name Lilita. See `assets/fonts/OFL-LilitaOne.txt`.
+- Source: [google/fonts](https://github.com/google/fonts) `ofl/lilitaone`.
 
 ## Pictures
 
