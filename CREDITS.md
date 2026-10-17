@@ -6,7 +6,12 @@ Critter Clash is an original game. The hunt, the roster, and the interface are o
 
 - Godot Engine 4.7.2 — https://godotengine.org — MIT License.
 
-## Font
+## Fonts
+
+- Cinzel by Natanael Gama and the Cinzel Project Authors (display type). File: `assets/fonts/Cinzel-Variable.ttf`, plus `CinzelDecorative-Black.ttf`. License: SIL Open Font License 1.1. See `assets/fonts/OFL-Cinzel.txt`. Source: [google/fonts](https://github.com/google/fonts) `ofl/cinzel`, `ofl/cinzeldecorative`.
+- Alegreya Sans by Juan Pablo del Peral and Huerta Tipográfica (body text). Files: `assets/fonts/AlegreyaSans-Bold.ttf`, `AlegreyaSans-Medium.ttf`. License: SIL Open Font License 1.1. See `assets/fonts/OFL-AlegreyaSans.txt`. Source: [google/fonts](https://github.com/google/fonts) `ofl/alegreyasans`.
+
+The older fonts below remain in the repository but the interface no longer uses them:
 
 - Nunito by Vernon Adams, Cyreal, Jacques Le Bailly, and other contributors.
 - Files: `assets/fonts/Nunito-SemiBold.ttf`, `Nunito-Bold.ttf`, `Nunito-ExtraBold.ttf`.
@@ -33,12 +38,20 @@ Critter Clash is an original game. The hunt, the roster, and the interface are o
   - Grass004 (`assets/textures/grass_*.jpg`) and Grass001 (`lush_*.jpg`) for the turf.
   - Ground078 (`path_*.jpg`) for the dirt trails.
   - Rock051 color (`rock_color.jpg`) for the pedestal rock.
+- Interface materials are ambientCG — CC0, reduced to 512 px in `assets/textures/ui/`:
+  - Rock030 (`ui_stone.jpg`) for the carved-stone backdrop and the tab bar.
+  - Marble006 (`ui_marble.jpg`) for the panel faces.
+  - Leather037 normal map (`ui_leather_n.jpg`) for the leather bump under the frames.
+  - Planks037A (`ui_wood.jpg`).
+- The metal frames, bevels, rivets, and glows are procedural (`shaders/ui_frame.gdshader`).
+- Ember's painted albedo (`assets/models/sketchfab/ember_paint.png`) is derived from the Stylized Dragon's own textures by `tools/paint_ember.py` (CC-BY 4.0, same credit as the model).
 - Sky: Poly Haven `kloofendal_48d_partly_cloudy_puresky` (1k) — https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky — CC0. File `assets/textures/sky.hdr`.
 - `assets/textures/dust.png` is drawn for this game.
 
 ## Interface pictures
 
 - Critter portraits on cards, the collection log, the slayer panel, and the hunt medallion are renders of each critter's own 3D model (credited above), baked by `scripts/portrait_baker.gd` into `assets/sprites/portraits/`. Kenney's [Animal Pack Redux](https://opengameart.org/content/animal-pack-redux) (CC0) stays in `assets/sprites/critters/` only as a fallback.
+- Interface icons (`assets/sprites/icons/`) are from Kenney's [Board Game Icons](https://kenney.nl/assets/board-game-icons) and [Game Icons](https://kenney.nl/assets/game-icons), CC0, recoloured to white at 128 px.
 - Credit to Kenney (www.kenney.nl) is appreciated and not required.
 - `icon.png` is drawn by `tools/make_icon.py`.
 

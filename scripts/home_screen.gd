@@ -120,9 +120,14 @@ class Fade extends Control:
 		# Vertex-colored quads interpolate per pixel, so there are no bands.
 		var h := size.y
 		var w := size.x
-		var bottom := Color(0.06, 0.18, 0.42)
-		_grad(Rect2(0, h * 0.72, w, h * 0.28 + 1.0), Color(bottom, 0.0), bottom)
-		_grad(Rect2(0, 0, w, h * 0.2), Color(0, 0.03, 0.12, 0.45), Color(0, 0.03, 0.12, 0.0))
+		var bottom := Color(0.075, 0.06, 0.05)
+		_grad(Rect2(0, h * 0.6, w, h * 0.4 + 1.0), Color(bottom, 0.0), bottom)
+		_grad(Rect2(0, 0, w, h * 0.24), Color(0.02, 0.015, 0.01, 0.7), Color(0.02, 0.015, 0.01, 0.0))
+		# Side vignette so the scene sinks into the stone frame.
+		var side := Color(0.02, 0.015, 0.01, 0.55)
+		var clear := Color(0.02, 0.015, 0.01, 0.0)
+		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w * 0.22, 0), Vector2(w * 0.22, h), Vector2(0, h)]), PackedColorArray([side, clear, clear, side]))
+		draw_polygon(PackedVector2Array([Vector2(w * 0.78, 0), Vector2(w, 0), Vector2(w, h), Vector2(w * 0.78, h)]), PackedColorArray([clear, side, side, clear]))
 
 	func _grad(r: Rect2, top: Color, bot: Color) -> void:
 		var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
@@ -133,36 +138,34 @@ class ChestSlot extends Control:
 	var filled := false
 	var tone := "wood"
 	var t := 0.0
+	var frame: UiKit.Frame
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP if filled else Control.MOUSE_FILTER_IGNORE
+		frame = UiKit.Frame.new("slot", "leather")
+		frame.margin = 14.0
+		add_child(frame)
+		if filled:
+			frame.set_param("metal_hi", Color("ffe3a0"))
 
 	func _process(delta: float) -> void:
 		t += delta
 		if filled:
+			frame.set_param("glow_color", Color(1.0, 0.7, 0.3, 0.22 + 0.16 * sin(t * 2.4)))
 			queue_redraw()
 
 	func _draw() -> void:
 		UiKit.ensure()
-		var r := Rect2(4, 4, size.x - 8, size.y - 12)
-		UiKit.rr_shadow(self, r, 18, 6.0, 0.3)
-		UiKit.rr_fill(self, r.grow(3), 21, Color("0a1d45"), Color("0a1d45"))
+		var r := Rect2(Vector2.ZERO, size)
 		if filled:
-			UiKit.rr_fill(self, r, 18, Color("3d86e0"), Color("1a4596"))
-			var glow := 0.5 + 0.5 * sin(t * 3.0)
-			UiKit.rr_line(self, r.grow(-3), 15, Color(1.0, 0.86, 0.35, 0.5 + glow * 0.4), 4.0)
-		else:
-			UiKit.rr_fill(self, r, 18, Color(0.06, 0.14, 0.32, 0.92), Color(0.04, 0.1, 0.24, 0.92))
-		var bob := sin(t * 3.2) * 4.0 if filled else 0.0
-		var art := Rect2(r.position + Vector2(r.size.x * 0.12, 10 + bob), Vector2(r.size.x * 0.76, r.size.x * 0.66))
+			# Warm light spilling from the chest onto the slot floor.
+			var c := Vector2(r.size.x * 0.5, r.size.y * 0.5)
+			for i in 6:
+				draw_circle(c, r.size.x * (0.42 - i * 0.05), Color(1.0, 0.62, 0.25, 0.035))
+		var bob := sin(t * 2.6) * 3.0 if filled else 0.0
+		var art := Rect2(r.position + Vector2(r.size.x * 0.13, 16 + bob), Vector2(r.size.x * 0.74, r.size.x * 0.64))
 		UiKit.draw_chest(self, art, tone, filled)
 		var font := UiKit.font_x
-		var caption := "Open!" if filled else "Empty"
-		var ink := Color.WHITE if filled else Color(0.62, 0.72, 0.9)
-		if filled:
-			var chip := Rect2(r.position.x + 12, r.end.y - 42, r.size.x - 24, 34)
-			UiKit.rr_fill(self, chip.grow(2), 12, Color("0e3d0c"), Color("0e3d0c"))
-			UiKit.rr_fill(self, chip, 10, Color("a4f56a"), Color("38a826"))
-			UiKit.draw_text(self, font, Vector2(chip.position.x, chip.end.y - 8), caption, 22, ink, Color("0e3d0c"), 3, chip.size.x)
-		else:
-			UiKit.draw_text(self, font, Vector2(r.position.x, r.end.y - 14), caption, 22, ink, UiKit.INK, 3, r.size.x)
+		var caption := "OPEN" if filled else "EMPTY"
+		var ink := UiKit.GOLD.lightened(0.2) if filled else Color(0.5, 0.45, 0.38)
+		UiKit.draw_text(self, font, Vector2(r.position.x, r.end.y - 16), caption, 20 if filled else 17, ink, Color(0.05, 0.03, 0.02), 2, r.size.x)

@@ -1,16 +1,19 @@
 class_name UiKit
 extends RefCounted
 
-## Supercell-style chrome: chunky type, glossy buttons, blue menu plates.
-## Gameplay screens call button() / label() and never invent a second palette.
+## Premium fantasy chrome: forged metal frames around leather and stone,
+## engraved Cinzel display type, restrained gold. Frames are drawn by
+## shaders/ui_frame.gdshader through Frame. Screens call button() / label()
+## / Plate and never invent a second palette.
 
 static var font_m: Font
 static var font_b: Font
 static var font_x: Font
 
-const INK := Color("1a120c")
-const CREAM := Color("fff6ea")
-const GOLD := Color("ffc83a")
+const INK := Color("120c08")
+const CREAM := Color("f3e6c8")
+const GOLD := Color("e2bb6a")
+const MUTED := Color("b8a888")
 const GOLD_LIP := Color("c47a12")
 const BLUE := Color("3aa0f5")
 const BLUE_LIP := Color("1456a8")
@@ -23,12 +26,16 @@ const RED_LIP := Color("a11e28")
 static func ensure() -> void:
 	if font_x:
 		return
-	font_m = load("res://assets/fonts/Nunito-SemiBold.ttf")
-	font_b = load("res://assets/fonts/Nunito-Bold.ttf")
-	font_x = load("res://assets/fonts/LilitaOne-Regular.ttf")
+	font_m = load("res://assets/fonts/AlegreyaSans-Medium.ttf")
+	font_b = load("res://assets/fonts/AlegreyaSans-Bold.ttf")
+	var cinzel := FontVariation.new()
+	cinzel.base_font = load("res://assets/fonts/Cinzel-Variable.ttf")
+	cinzel.variation_opentype = {"wght": 800}
+	font_x = cinzel
 	if font_x == null:
 		font_x = font_b
 	_load_icons()
+	Frame.preload_assets()
 
 
 static func label(text: String, size: int, color: Color, weight: String = "m", outline: int = -1) -> Label:
@@ -43,15 +50,19 @@ static func label(text: String, size: int, color: Color, weight: String = "m", o
 	l.add_theme_font_override("font", font)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
+	# Engraved look: a thin dark keyline and a soft drop shadow, never the
+	# fat cartoon outline.
 	var outline_px := outline
 	if outline_px < 0 and (weight == "x" or size >= 28):
-		outline_px = maxi(6, int(size / 7))
+		outline_px = clampi(int(size / 12), 3, 6)
+	outline_px = mini(outline_px, maxi(3, int(size / 9)))
 	if outline_px > 0:
-		l.add_theme_color_override("font_outline_color", INK)
+		l.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02, 0.9))
 		l.add_theme_constant_override("outline_size", outline_px)
-		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
-		l.add_theme_constant_override("shadow_offset_x", 0)
-		l.add_theme_constant_override("shadow_offset_y", maxi(2, int(outline_px * 0.45)))
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	l.add_theme_constant_override("shadow_offset_x", 0)
+	l.add_theme_constant_override("shadow_offset_y", maxi(2, int(size / 14)))
+	l.add_theme_constant_override("shadow_outline_size", maxi(2, int(size / 10)))
 	return l
 
 
@@ -61,7 +72,7 @@ static func paint_menu(_c: Control) -> void:
 
 
 static func title(text: String, size: int = 52) -> Label:
-	var l := label(text, size, CREAM, "x", maxi(8, int(size / 5)))
+	var l := label(text, size, GOLD.lightened(0.25), "x", maxi(4, int(size / 10)))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_constant_override("shadow_offset_y", maxi(4, int(size / 9)))
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
@@ -85,14 +96,16 @@ static func chunky(bg: Color, lip: Color, pressed: bool = false) -> StyleBoxFlat
 	return s
 
 
-## Menu plate: deep blue face, dark navy outline, soft drop shadow.
+## Flat fallback plate for StyleBox users: dark leather with a bronze rim.
+## The caller's hue only nudges the tone; the palette stays dark and warm.
 static func panel(bg: Color = Color("1c4c97"), radius: int = 22) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = bg
-	s.set_corner_radius_all(radius)
-	s.set_border_width_all(4)
-	s.border_width_bottom = 7
-	s.border_color = Color("0a1d45")
+	var lum := bg.get_luminance()
+	s.bg_color = Color("221a14").lerp(Color("3a2c20"), clampf(lum * 1.4, 0.0, 1.0))
+	s.set_corner_radius_all(mini(radius, 12))
+	s.set_border_width_all(3)
+	s.border_width_bottom = 4
+	s.border_color = Color("8a6a3a")
 	s.shadow_color = Color(0, 0, 0, 0.4)
 	s.shadow_size = 12
 	s.shadow_offset = Vector2(0, 6)
@@ -172,20 +185,118 @@ static func _load_icons() -> void:
 				_icons[f.get_basename()] = tex
 
 
+## Enamel and metal for each tone. "hi"/"lo" are the face, "rim_hi"/"rim_lo"
+## the metal frame, "edge" the darkest keyline, "ink" the caption colour.
 static func tone_colors(tone: String) -> Dictionary:
 	match tone:
-		"blue":
-			return {"hi": Color("6fd0ff"), "lo": Color("2a80e6"), "lip": Color("1650a6"), "edge": Color("0b2a5e")}
+		"blue", "steel":
+			return {"hi": Color("4a586c"), "lo": Color("1c2430"), "rim_hi": Color("dfe4ea"), "rim_lo": Color("4a525e"), "edge": Color("0c1016"), "lip": Color("2a323e"), "ink": Color("eef1f5")}
 		"green":
-			return {"hi": Color("a4f56a"), "lo": Color("43b42e"), "lip": Color("217a1c"), "edge": Color("0e3d0c")}
+			return {"hi": Color("2f8a4a"), "lo": Color("10381d"), "rim_hi": Color("f0d896"), "rim_lo": Color("5a3e18"), "edge": Color("08140c"), "lip": Color("164a26"), "ink": Color("f6ecd0")}
 		"red":
-			return {"hi": Color("ff8a7a"), "lo": Color("e23d3d"), "lip": Color("a01c26"), "edge": Color("4c0a10")}
+			return {"hi": Color("9a2a26"), "lo": Color("3e0c0c"), "rim_hi": Color("e8c886"), "rim_lo": Color("4e3012"), "edge": Color("160606"), "lip": Color("5a1414"), "ink": Color("f6ecd0")}
 		"purple":
-			return {"hi": Color("d69bff"), "lo": Color("9046d8"), "lip": Color("5a1e96"), "edge": Color("2a0a4a")}
+			return {"hi": Color("6a3a9a"), "lo": Color("26103e"), "rim_hi": Color("e8d0f0"), "rim_lo": Color("4a2e5a"), "edge": Color("12081c"), "lip": Color("3a1a5a"), "ink": Color("f4ecf8")}
 		"grey":
-			return {"hi": Color("b9c2cf"), "lo": Color("7d8796"), "lip": Color("4d5562"), "edge": Color("23272e")}
+			return {"hi": Color("4a4540"), "lo": Color("26221e"), "rim_hi": Color("8a8278"), "rim_lo": Color("3a3530"), "edge": Color("100e0c"), "lip": Color("2e2a26"), "ink": Color("b0a898")}
+		"leather":
+			return {"hi": Color("3a2c22"), "lo": Color("1a130e"), "rim_hi": Color("e8c886"), "rim_lo": Color("4e3214"), "edge": Color("0e0906"), "lip": Color("2a1e14"), "ink": CREAM}
 		_:
-			return {"hi": Color("ffe36a"), "lo": Color("f7a817"), "lip": Color("b9650b"), "edge": Color("4a2604")}
+			# The primary call to action: crimson enamel in a gilded frame.
+			return {"hi": Color("b23a2a"), "lo": Color("4e0f0e"), "rim_hi": Color("ffe3a0"), "rim_lo": Color("6a4416"), "edge": Color("1a0806"), "lip": Color("6a1a14"), "ink": Color("fff0cc")}
+
+
+## Shader uniforms for each Frame preset, coloured by tone.
+static func skin_params(preset: String, tone: String) -> Dictionary:
+	var c: Dictionary = tone_colors(tone)
+	var p := {
+		"face_top": c["hi"], "face_bot": c["lo"], "metal_hi": c["rim_hi"], "metal_lo": c["rim_lo"],
+		"radius": 12.0, "frame": 6.0, "sheen": 0.0, "studs": 0.0, "bump_amt": 0.5,
+		"detail_amt": 0.18, "detail_scale": 1.0, "shadow_alpha": 0.55, "press": 0.0,
+		"glow_color": Color(1, 0.75, 0.3, 0.0), "detail_tex": "marble", "leather": true, "time_glow": 0.0,
+	}
+	match preset:
+		"panel":
+			p["face_top"] = Color("2a2019")
+			p["face_bot"] = Color("140f0b")
+			p["metal_hi"] = Color("e9cd8e")
+			p["metal_lo"] = Color("4a2e12")
+			p["frame"] = 7.0
+			p["radius"] = 14.0
+			p["studs"] = 1.0
+			p["bump_amt"] = 0.7
+		"card":
+			p["frame"] = 6.0
+			p["radius"] = 12.0
+			p["bump_amt"] = 0.4
+			p["detail_amt"] = 0.3
+		"plaque":
+			p["face_top"] = Color("3a2d22")
+			p["face_bot"] = Color("1c150f")
+			p["frame"] = 5.0
+			p["radius"] = 10.0
+		"inset":
+			p["face_top"] = Color("0c0907")
+			p["face_bot"] = Color("1e1712")
+			p["metal_hi"] = Color("a8875a")
+			p["metal_lo"] = Color("2e1e0e")
+			p["frame"] = 3.5
+			p["radius"] = 999.0
+			p["bump_amt"] = 0.25
+			p["shadow_alpha"] = 0.35
+		"button":
+			p["frame"] = 6.0
+			p["radius"] = 10.0
+			p["sheen"] = 1.0
+			p["bump_amt"] = 0.2
+			p["studs"] = 1.0
+			p["detail_amt"] = 0.12
+			p["time_glow"] = 0.4 if tone == "gold" else 0.0
+		"round":
+			p["frame"] = 4.0
+			p["radius"] = 999.0
+			p["sheen"] = 1.0
+			p["bump_amt"] = 0.1
+		"tile":
+			p["face_top"] = Color("3a2e24")
+			p["face_bot"] = Color("17110c")
+			p["metal_hi"] = Color("d8b878")
+			p["metal_lo"] = Color("3e2810")
+			p["frame"] = 5.0
+			p["radius"] = 12.0
+			p["sheen"] = 0.35
+			p["bump_amt"] = 0.6
+		"slot":
+			p["face_top"] = Color("120e0b")
+			p["face_bot"] = Color("221a14")
+			p["metal_hi"] = Color("b8955e")
+			p["metal_lo"] = Color("33220f")
+			p["frame"] = 5.0
+			p["radius"] = 12.0
+			p["bump_amt"] = 0.4
+			p["shadow_alpha"] = 0.45
+		"dock":
+			p["face_top"] = Color("2c2620")
+			p["face_bot"] = Color("0f0c0a")
+			p["metal_hi"] = Color("e2c27e")
+			p["metal_lo"] = Color("4a3012")
+			p["frame"] = 6.0
+			p["radius"] = 6.0
+			p["detail_tex"] = "stone"
+			p["detail_amt"] = 0.35
+			p["leather"] = false
+			p["shadow_alpha"] = 0.7
+		"tab":
+			p["face_top"] = Color("5a2a1e")
+			p["face_bot"] = Color("26100c")
+			p["metal_hi"] = Color("ffe6a8")
+			p["metal_lo"] = Color("6a4416")
+			p["frame"] = 6.0
+			p["radius"] = 14.0
+			p["sheen"] = 0.6
+			p["studs"] = 1.0
+			p["glow_color"] = Color(1.0, 0.72, 0.32, 0.38)
+	return p
 
 
 ## Rounded-rect outline as a polygon, for gradient fills.
@@ -238,8 +349,10 @@ static func rr_shadow(ci: CanvasItem, rect: Rect2, radius: float, depth: float, 
 ## Outlined, shadowed text drawn by hand (buttons, badges, nav labels).
 static func draw_text(ci: CanvasItem, font: Font, origin: Vector2, text: String, px: int, ink: Color, edge: Color = INK, ring: int = 4, width: float = -1) -> void:
 	var w := width
-	ci.draw_string(font, origin + Vector2(0, maxf(3.0, ring * 0.8)), text, HORIZONTAL_ALIGNMENT_CENTER if w > 0 else HORIZONTAL_ALIGNMENT_LEFT, w, px, Color(0, 0, 0, 0.5))
-	ci.draw_string_outline(font, origin, text, HORIZONTAL_ALIGNMENT_CENTER if w > 0 else HORIZONTAL_ALIGNMENT_LEFT, w, px, ring * 2, edge)
+	var align := HORIZONTAL_ALIGNMENT_CENTER if w > 0 else HORIZONTAL_ALIGNMENT_LEFT
+	var keyline := clampi(ring, 2, 4)
+	ci.draw_string_outline(font, origin + Vector2(0, maxf(2.0, px * 0.07)), text, align, w, px, keyline * 2 + 2, Color(0, 0, 0, 0.55))
+	ci.draw_string_outline(font, origin, text, align, w, px, keyline * 2, edge)
 	ci.draw_string(font, origin, text, HORIZONTAL_ALIGNMENT_CENTER if w > 0 else HORIZONTAL_ALIGNMENT_LEFT, w, px, ink)
 
 
@@ -260,13 +373,13 @@ static func draw_icon(ci: CanvasItem, tex: Texture2D, rect: Rect2, fill: Color, 
 static func rarity_colors(rarity: String) -> Dictionary:
 	match rarity:
 		"rare":
-			return {"bg": Color("1d6ec4"), "lip": Color("08386e"), "ink": CREAM}
+			return {"bg": Color("1e3a5e"), "lip": Color("6aa8e8"), "glow": Color("4a9cff"), "ink": CREAM}
 		"epic":
-			return {"bg": Color("8c3ec4"), "lip": Color("4a1478"), "ink": CREAM}
+			return {"bg": Color("3a1e5a"), "lip": Color("c08cf0"), "glow": Color("b060ff"), "ink": CREAM}
 		"legendary":
-			return {"bg": Color("f0a020"), "lip": Color("8a4e08"), "ink": CREAM}
+			return {"bg": Color("4a3010"), "lip": Color("ffd77a"), "glow": Color("ffb030"), "ink": CREAM}
 		_:
-			return {"bg": Color("d9d3c8"), "lip": Color("6a6258"), "ink": Color("2a241c")}
+			return {"bg": Color("2e2924"), "lip": Color("b8aa94"), "glow": Color("d8ccb8"), "ink": CREAM}
 
 
 static func hero_rarity(id: String) -> String:
@@ -279,12 +392,13 @@ static func hero_rarity(id: String) -> String:
 
 static func rarity_box(rarity: String) -> StyleBoxFlat:
 	var cols: Dictionary = rarity_colors(rarity)
-	var s := panel(cols["bg"], 18)
+	var s := panel(cols["bg"], 12)
+	s.bg_color = cols["bg"]
 	s.border_color = cols["lip"]
-	s.border_width_left = 8
-	s.border_width_right = 8
-	s.border_width_top = 8
-	s.border_width_bottom = 12
+	s.set_border_width_all(4)
+	s.shadow_color = Color(cols["glow"], 0.35)
+	s.shadow_size = 10
+	s.shadow_offset = Vector2.ZERO
 	return s
 
 
@@ -336,23 +450,106 @@ static func draw_currency(ci: CanvasItem, kind: String, rect: Rect2) -> void:
 		"trophy":
 			var tex := icon("trophy")
 			var box := Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0)
-			draw_icon(ci, tex, box, Color("ffd34a"), Color("4a2604"), 3.0)
+			draw_icon(ci, tex, box, Color("e2bb6a"), Color("120a04"), 2.0)
 		"gem":
-			var pts := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r * 0.9, -r * 0.25), c + Vector2(0, r), c + Vector2(-r * 0.9, -r * 0.25)])
+			# A cut emerald in a thin gold setting.
+			var pts := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r * 0.86, -r * 0.3), c + Vector2(r * 0.55, r * 0.7), c + Vector2(0, r), c + Vector2(-r * 0.55, r * 0.7), c + Vector2(-r * 0.86, -r * 0.3)])
 			var big := PackedVector2Array()
 			for p in pts:
-				big.append(c + (p - c) * 1.18)
-			ci.draw_colored_polygon(big, Color("063a33"))
-			ci.draw_polygon(pts, PackedColorArray([Color("b8fff2"), Color("3fe0c4"), Color("0f8f84"), Color("5cf0d6")]))
-			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -r * 0.7), c + Vector2(r * 0.45, -r * 0.2), c + Vector2(0, r * 0.1), c + Vector2(-r * 0.45, -r * 0.2)]), Color(1, 1, 1, 0.45))
+				big.append(c + (p - c) * 1.16)
+			ci.draw_colored_polygon(big, Color("0c0806"))
+			var rim := PackedVector2Array()
+			for p in pts:
+				rim.append(c + (p - c) * 1.08)
+			ci.draw_colored_polygon(rim, Color("c9a35a"))
+			ci.draw_polygon(pts, PackedColorArray([Color("9af0c8"), Color("2fa878"), Color("0e5a3c"), Color("063a26"), Color("0e5a3c"), Color("3cc28a")]))
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -r * 0.62), c + Vector2(r * 0.42, -r * 0.18), c + Vector2(0, r * 0.15), c + Vector2(-r * 0.42, -r * 0.18)]), Color(0.75, 1.0, 0.9, 0.35))
 		_:
-			ci.draw_circle(c + Vector2(0, 3), r + 3, Color(0, 0, 0, 0.35))
-			ci.draw_circle(c, r + 3, Color("4a2604"))
-			ci.draw_circle(c, r, Color("e08a10"))
-			ci.draw_circle(c + Vector2(0, -r * 0.08), r * 0.84, Color("ffcc3a"))
-			ci.draw_circle(c + Vector2(0, -r * 0.08), r * 0.6, Color("f2a81c"))
-			ci.draw_arc(c + Vector2(0, -r * 0.08), r * 0.6, PI * 1.1, PI * 1.9, 12, Color("fff2b0"), 3.0, true)
-			ci.draw_circle(c + Vector2(-r * 0.35, -r * 0.45), r * 0.16, Color(1, 1, 1, 0.8))
+			# A stamped gold coin: dark keyline, bevelled rim, engraved field.
+			ci.draw_circle(c + Vector2(0, 2), r + 3, Color(0, 0, 0, 0.45))
+			ci.draw_circle(c, r + 2.5, Color("120a04"))
+			ci.draw_circle(c, r, Color("8a5a18"))
+			ci.draw_circle(c + Vector2(0, -r * 0.05), r * 0.9, Color("e8c070"))
+			ci.draw_circle(c + Vector2(0, r * 0.04), r * 0.7, Color("a8742a"))
+			ci.draw_circle(c, r * 0.66, Color("d8a850"))
+			ci.draw_arc(c, r * 0.66, PI * 1.05, PI * 1.95, 14, Color("fff0c0"), 2.0, true)
+			ci.draw_arc(c, r * 0.4, 0.0, TAU, 18, Color(0.45, 0.28, 0.08, 0.7), 2.0, true)
+
+
+## A shader-drawn frame behind its parent (show_behind_parent). It reaches
+## `margin` px past the parent on every side so the shadow and glow fit, and
+## the framed box itself lines up with the parent rect (or `box` if set).
+class Frame extends Control:
+	static var _shader: Shader
+	static var _stone: Texture2D
+	static var _marble: Texture2D
+	static var _leather: Texture2D
+	static var _flat: Texture2D
+	var preset := "panel"
+	var tone := "gold"
+	var margin := 16.0
+	var box := Rect2()
+	var mat: ShaderMaterial
+	var params := {}
+
+	static func preload_assets() -> void:
+		if _shader != null:
+			return
+		_shader = load("res://shaders/ui_frame.gdshader")
+		_stone = load("res://assets/textures/ui/ui_stone.jpg")
+		_marble = load("res://assets/textures/ui/ui_marble.jpg")
+		_leather = load("res://assets/textures/ui/ui_leather_n.jpg")
+		var img := Image.create(4, 4, false, Image.FORMAT_RGB8)
+		img.fill(Color(0.5, 0.5, 1.0))
+		_flat = ImageTexture.create_from_image(img)
+
+	func _init(which: String = "panel", which_tone: String = "gold", extra: Dictionary = {}) -> void:
+		preset = which
+		tone = which_tone
+		params = extra
+
+	func _ready() -> void:
+		preload_assets()
+		show_behind_parent = true
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mat = ShaderMaterial.new()
+		mat.shader = _shader
+		material = mat
+		apply()
+		var host := get_parent() as Control
+		if host != null:
+			host.resized.connect(_fit)
+		_fit()
+
+	func _fit() -> void:
+		var host := get_parent() as Control
+		if host == null:
+			return
+		var r := box if box.size != Vector2.ZERO else Rect2(Vector2.ZERO, host.size)
+		position = r.position - Vector2(margin, margin)
+		size = r.size + Vector2(margin, margin) * 2.0
+		mat.set_shader_parameter("px", size)
+		mat.set_shader_parameter("margin", margin)
+		queue_redraw()
+
+	func set_param(key: String, value: Variant) -> void:
+		if mat != null:
+			mat.set_shader_parameter(key, value)
+
+	func apply() -> void:
+		var p := UiKit.skin_params(preset, tone)
+		for key in params:
+			p[key] = params[key]
+		var detail: Texture2D = _marble if str(p.get("detail_tex", "marble")) == "marble" else _stone
+		mat.set_shader_parameter("detail", detail)
+		mat.set_shader_parameter("bump", _leather if bool(p.get("leather", true)) else _flat)
+		for key in p:
+			if key in ["detail_tex", "leather"]:
+				continue
+			mat.set_shader_parameter(key, p[key])
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), Color.WHITE, true)
 
 
 class Btn extends Button:
@@ -361,6 +558,7 @@ class Btn extends Button:
 	var icon_name := ""
 	var caption := ""
 	var _down := false
+	var skin: Frame
 
 	func _ready() -> void:
 		UiKit.ensure()
@@ -369,11 +567,19 @@ class Btn extends Button:
 		for state in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 			add_theme_stylebox_override(state, empty)
 		add_theme_font_override("font", UiKit.font_x)
-		add_theme_font_size_override("font_size", int(clampf(custom_minimum_size.y * 0.40, 18, 46)))
-		# Caption is painted in _draw on top of the gloss.
+		add_theme_font_size_override("font_size", int(clampf(custom_minimum_size.y * 0.36, 18, 42)))
+		# Caption is painted in _draw over the frame.
 		for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color", "font_hover_pressed_color"]:
 			add_theme_color_override(key, Color(0, 0, 0, 0))
 		add_theme_constant_override("outline_size", 0)
+		var kind := "button"
+		if icon_name != "":
+			kind = "tile"
+		elif round:
+			kind = "round"
+		skin = Frame.new(kind, "grey" if disabled else tone)
+		skin.margin = 14.0
+		add_child(skin)
 		button_down.connect(_sink)
 		button_up.connect(_rise)
 
@@ -381,37 +587,23 @@ class Btn extends Button:
 		_down = true
 		pivot_offset = size * 0.5
 		var tw := create_tween()
-		tw.tween_property(self, "scale", Vector2(0.94, 0.92), 0.05)
+		tw.tween_property(self, "scale", Vector2(0.95, 0.94), 0.05)
+		skin.set_param("press", 1.0)
 		AudioDirector.haptic(14)
 		queue_redraw()
 
 	func _rise() -> void:
 		_down = false
 		pivot_offset = size * 0.5
+		skin.set_param("press", 0.0)
 		var tw := create_tween()
-		tw.tween_property(self, "scale", Vector2(1.05, 1.05), 0.07).set_ease(Tween.EASE_OUT)
+		tw.tween_property(self, "scale", Vector2(1.04, 1.04), 0.07).set_ease(Tween.EASE_OUT)
 		tw.tween_property(self, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		queue_redraw()
 
 	func _draw() -> void:
-		var cols: Dictionary = UiKit.tone_colors("grey" if disabled else tone)
-		var sunk := _down or button_pressed
-		var lip := 4.0 if sunk else maxf(7.0, size.y * 0.1)
-		var outer := Rect2(4, 2, maxf(8.0, size.x - 8), maxf(12.0, size.y - 10))
-		var radius := outer.size.y * 0.5 if round else minf(22.0, outer.size.y * 0.3)
-		var drop := (maxf(7.0, size.y * 0.1) - lip)
-		if not sunk:
-			UiKit.rr_shadow(self, outer, radius, 6.0, 0.32)
-		# Dark edge, lip, then the face.
-		UiKit.rr_fill(self, outer.grow(3), radius + 3, cols["edge"], cols["edge"])
-		UiKit.rr_fill(self, outer, radius, cols["lip"], cols["lip"].darkened(0.15))
-		var face := Rect2(outer.position + Vector2(0, drop), Vector2(outer.size.x, outer.size.y - lip - drop + (drop * 0.0)))
-		face.size.y = outer.size.y - lip - drop
-		UiKit.rr_fill(self, face, radius, cols["hi"], cols["lo"])
-		# Gloss band across the top and a bright rim line.
-		var gloss := Rect2(face.position + Vector2(6, 4), Vector2(face.size.x - 12, face.size.y * 0.44))
-		UiKit.rr_fill(self, gloss, maxf(4.0, radius - 4.0), Color(1, 1, 1, 0.5), Color(1, 1, 1, 0.08))
-		UiKit.rr_line(self, face.grow(-1.5), radius - 1.5, Color(1, 1, 1, 0.35), 2.0)
+		var sunk := 2.0 if (_down or button_pressed) else 0.0
+		var face := Rect2(Vector2(0, sunk), size)
 		if icon_name != "":
 			_draw_tile(face)
 		else:
@@ -419,13 +611,13 @@ class Btn extends Button:
 
 	func _draw_tile(face: Rect2) -> void:
 		var tex := UiKit.icon(icon_name)
-		var px := face.size.y * 0.5
-		var r := Rect2(face.position + Vector2((face.size.x - px) * 0.5, face.size.y * 0.1), Vector2(px, px))
-		UiKit.draw_icon(self, tex, r, Color.WHITE, UiKit.INK, 3.0)
+		var px := face.size.y * 0.42
+		var r := Rect2(face.position + Vector2((face.size.x - px) * 0.5, face.size.y * 0.15), Vector2(px, px))
+		UiKit.draw_icon(self, tex, r, UiKit.GOLD.lightened(0.2), Color(0.06, 0.04, 0.02), 2.0)
 		if caption != "":
 			var font := UiKit.font_x
-			var fpx := int(clampf(face.size.y * 0.2, 14, 28))
-			UiKit.draw_text(self, font, Vector2(face.position.x, face.position.y + face.size.y * 0.9), caption, fpx, Color.WHITE, UiKit.INK, 3, face.size.x)
+			var fpx := int(clampf(face.size.y * 0.16, 14, 24))
+			UiKit.draw_text(self, font, Vector2(face.position.x, face.position.y + face.size.y * 0.84), caption, fpx, UiKit.CREAM, Color(0.05, 0.03, 0.02), 2, face.size.x)
 
 	func _draw_caption(face: Rect2) -> void:
 		if text == "":
@@ -433,24 +625,25 @@ class Btn extends Button:
 		var font := UiKit.font_x
 		if font == null:
 			return
-		var px := int(clampf(face.size.y * (0.5 if round else 0.46), 16, 48))
+		var px := int(clampf(face.size.y * (0.42 if round else 0.36), 16, 46))
 		var bounds := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px)
-		while bounds.x > face.size.x - 16 and px > 14:
+		while bounds.x > face.size.x - 28 and px > 14:
 			px -= 2
 			bounds = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px)
-		var baseline := face.position.y + (face.size.y - font.get_height(px)) * 0.5 + font.get_ascent(px)
-		var ink := Color(1, 1, 1, 0.75) if disabled else Color.WHITE
-		var edge: Color = UiKit.tone_colors("grey" if disabled else tone)["edge"]
-		UiKit.draw_text(self, font, Vector2(face.position.x, baseline), text, px, ink, edge, maxi(3, int(px / 9)), face.size.x)
+		var baseline := face.position.y + (face.size.y - font.get_height(px)) * 0.5 + font.get_ascent(px) - 1.0
+		var cols: Dictionary = UiKit.tone_colors("grey" if disabled else tone)
+		UiKit.draw_text(self, font, Vector2(face.position.x, baseline), text, px, cols["ink"], cols["edge"], 2, face.size.x)
 
 
-## Full-screen layered backdrop (shaders/menu_bg.gdshader).
+## Full-screen backdrop: torch-lit dark stone (shaders/menu_bg.gdshader).
 class Backdrop extends ColorRect:
 	func _ready() -> void:
 		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		Frame.preload_assets()
 		var mat := ShaderMaterial.new()
 		mat.shader = load("res://shaders/menu_bg.gdshader")
+		mat.set_shader_parameter("stone", Frame._stone)
 		material = mat
 		resized.connect(_fit)
 		_fit()
@@ -459,37 +652,35 @@ class Backdrop extends ColorRect:
 		(material as ShaderMaterial).set_shader_parameter("px_size", size)
 
 
-## A panel drawn by hand: gradient face, navy outline, inner light rim,
-## and a soft shadow. Content margins come from `pad`.
+## A framed panel: forged rim over dark leather. `kind` picks the preset
+## ("panel", "inset", "card", "plaque"); `glow` adds an outer aura.
 class Plate extends PanelContainer:
-	var top := Color("2a6cc6")
-	var bottom := Color("173f86")
-	var edge := Color("0a1d45")
-	var rim := Color(1, 1, 1, 0.22)
-	var radius := 22.0
+	var kind := "panel"
+	var tone := "leather"
 	var glow := Color(0, 0, 0, 0)
-	var pad := 14
+	var pad := 16
+	var skin: Frame
+	# Old callers set these; they now only tint the face.
+	var top := Color(0, 0, 0, 0)
+	var bottom := Color(0, 0, 0, 0)
+	var edge := Color(0, 0, 0, 0)
+	var rim := Color(0, 0, 0, 0)
+	var radius := 14.0
 
 	func _ready() -> void:
 		var box := StyleBoxEmpty.new()
 		box.content_margin_left = pad
 		box.content_margin_right = pad
 		box.content_margin_top = pad
-		box.content_margin_bottom = pad + 4
+		box.content_margin_bottom = pad
 		add_theme_stylebox_override("panel", box)
 		mouse_filter = Control.MOUSE_FILTER_PASS
-
-	func _draw() -> void:
-		var r := Rect2(Vector2(3, 2), size - Vector2(6, 8))
+		var extra := {}
 		if glow.a > 0.0:
-			for i in 5:
-				var g := 4.0 + float(i) * 4.0
-				UiKit.rr_fill(self, r.grow(g), radius + g, Color(glow, glow.a / (1.0 + i * 1.3)), Color(glow, glow.a / (1.0 + i * 1.3)))
-		UiKit.rr_shadow(self, r, radius, 7.0, 0.3)
-		UiKit.rr_fill(self, r.grow(3), radius + 3, edge, edge)
-		UiKit.rr_fill(self, Rect2(r.position + Vector2(0, r.size.y - 10), Vector2(r.size.x, 10)), minf(radius, 10.0), bottom.darkened(0.35), bottom.darkened(0.35))
-		UiKit.rr_fill(self, Rect2(r.position, r.size - Vector2(0, 5)), radius, top, bottom)
-		UiKit.rr_line(self, Rect2(r.position, r.size - Vector2(0, 5)).grow(-2), radius - 2, rim, 2.0)
+			extra["glow_color"] = glow
+		skin = Frame.new(kind, tone, extra)
+		skin.margin = 18.0
+		add_child(skin)
 
 
 class Pill extends Control:
@@ -505,6 +696,20 @@ class Pill extends Control:
 		_plus = plus
 		custom_minimum_size = Vector2(0, 62)
 		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _ready() -> void:
+		var bar := Frame.new("inset", "leather")
+		bar.margin = 10.0
+		add_child(bar)
+		var plus := Frame.new("round", "green", {"frame": 3.5, "studs": 0.0})
+		plus.margin = 8.0
+		add_child(plus)
+		resized.connect(func() -> void:
+			var h := size.y
+			bar.box = Rect2(h * 0.4, h * 0.16, size.x - h * 0.4 - 2, h * 0.68)
+			bar._fit()
+			plus.box = Rect2(size.x - h * 0.66, h * 0.16, h * 0.62, h * 0.62)
+			plus._fit())
 
 	func set_amount(text: String) -> void:
 		value = int(text) if text.is_valid_int() else 0
@@ -533,30 +738,23 @@ class Pill extends Control:
 
 	func _draw() -> void:
 		var h := size.y
-		var bar := Rect2(h * 0.42, h * 0.16, size.x - h * 0.42 - 2, h * 0.68)
-		UiKit.rr_fill(self, bar.grow(3), bar.size.y * 0.5 + 3, Color("06122c"), Color("06122c"))
-		UiKit.rr_fill(self, bar, bar.size.y * 0.5, Color(0.02, 0.06, 0.16, 0.92), Color(0.08, 0.16, 0.34, 0.92))
-		UiKit.rr_line(self, bar.grow(-1.5), bar.size.y * 0.5, Color(1, 1, 1, 0.12), 2.0)
-		# Plus button on the right end.
-		var pb := Rect2(size.x - h * 0.74, h * 0.1, h * 0.72, h * 0.72)
-		UiKit.rr_fill(self, pb.grow(2), 12, Color("0e3d0c"), Color("0e3d0c"))
-		UiKit.rr_fill(self, pb, 10, Color("a4f56a"), Color("38a826"))
-		UiKit.rr_fill(self, Rect2(pb.position + Vector2(4, 3), Vector2(pb.size.x - 8, pb.size.y * 0.42)), 7, Color(1, 1, 1, 0.5), Color(1, 1, 1, 0.08))
+		var pb := Rect2(size.x - h * 0.66, h * 0.16, h * 0.62, h * 0.62)
 		var c := pb.get_center()
-		var arm := pb.size.x * 0.24
-		var thick := pb.size.x * 0.13
+		var arm := pb.size.x * 0.22
+		var thick := maxf(3.0, pb.size.x * 0.1)
 		for a in [Rect2(c.x - arm, c.y - thick * 0.5, arm * 2.0, thick), Rect2(c.x - thick * 0.5, c.y - arm, thick, arm * 2.0)]:
-			draw_rect((a as Rect2).grow(2.5), Color("0e3d0c"), true)
+			draw_rect((a as Rect2).grow(1.5), Color(0.04, 0.1, 0.05, 0.9), true)
 		for a in [Rect2(c.x - arm, c.y - thick * 0.5, arm * 2.0, thick), Rect2(c.x - thick * 0.5, c.y - arm, thick, arm * 2.0)]:
-			draw_rect(a, Color.WHITE, true)
+			draw_rect(a, Color("f6e7c1"), true)
 		# Currency icon overlapping the left end.
 		UiKit.draw_currency(self, kind, Rect2(0, 0, h, h))
-		var font := UiKit.font_x
-		var px := int(h * 0.44)
-		UiKit.draw_text(self, font, Vector2(h * 0.95, h * 0.5 + font.get_ascent(px) * 0.42), str(int(round(_shown))), px, Color.WHITE, UiKit.INK, 3, -1)
+		var font := UiKit.font_b
+		var px := int(h * 0.46)
+		UiKit.draw_text(self, font, Vector2(h * 0.98, h * 0.5 + font.get_ascent(px) * 0.4), str(int(round(_shown))), px, UiKit.CREAM, Color(0.04, 0.03, 0.02), 2, -1)
 
 
-## Bottom tab bar: icons over labels, the current tab raised and glowing.
+## Bottom tab bar on carved stone: icons over engraved labels, the current
+## tab raised on a gilded plaque with a warm glow.
 class Dock extends Control:
 	const TABS := [
 		["collection", "Cards", "cards_fan"],
@@ -569,6 +767,8 @@ class Dock extends Control:
 	var bar_h := 118.0
 	var bottom_pad := 12.0
 	var _t := 0.0
+	var _bar: Frame
+	var _tab: Frame
 
 	func _init(tab: String, go: Callable) -> void:
 		current = tab
@@ -582,10 +782,32 @@ class Dock extends Control:
 		offset_top = -(bar_h + bottom_pad)
 		offset_bottom = 0
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		_bar = Frame.new("dock", "leather")
+		_bar.margin = 20.0
+		add_child(_bar)
+		_tab = Frame.new("tab", "gold")
+		_tab.margin = 22.0
+		add_child(_tab)
+		resized.connect(_layout)
+		_layout()
+
+	func _layout() -> void:
+		# The bar's frame runs off the sides and bottom so only its top trim shows.
+		_bar.box = Rect2(-12, 0, size.x + 24, size.y + 30)
+		_bar._fit()
+		var slot := size.x / TABS.size()
+		var i := 0
+		for n in TABS.size():
+			if str(TABS[n][0]) == current:
+				i = n
+		_tab.visible = current in TABS.map(func(t: Array) -> String: return str(t[0]))
+		_tab.box = Rect2(slot * i + 4, -20, slot - 8, bar_h + 10)
+		_tab._fit()
 
 	func _process(delta: float) -> void:
 		_t += delta
-		queue_redraw()
+		if _tab != null:
+			_tab.set_param("glow_color", Color(1.0, 0.72, 0.32, 0.32 + 0.12 * sin(_t * 2.6)))
 
 	func _gui_input(event: InputEvent) -> void:
 		var hit := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed) or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
@@ -599,37 +821,25 @@ class Dock extends Control:
 			_go.call(id)
 
 	func _draw() -> void:
-		var w := size.x
-		var top := 0.0
-		# Bar body: dark navy with a bevelled top edge, bleeding to the bottom.
-		draw_rect(Rect2(0, top - 10, w, 10), Color(0, 0, 0, 0.25), true)
-		UiKit.rr_fill(self, Rect2(-4, top, w + 8, size.y + 20), 0, Color("1c3f7c"), Color("0a1a3c"))
-		draw_rect(Rect2(0, top, w, 4), Color("4f86d6"), true)
-		draw_rect(Rect2(0, top + 4, w, 2), Color("08142e"), true)
-		var slot := w / TABS.size()
+		var slot := size.x / TABS.size()
 		for i in TABS.size():
 			var id := str(TABS[i][0])
 			var x := slot * i
-			if i > 0:
-				draw_rect(Rect2(x - 1, top + 16, 2, bar_h - 30), Color(0, 0, 0, 0.3), true)
 			var on := id == current
-			var cell := Rect2(x + 6, top + 10, slot - 12, bar_h - 18)
-			if on:
-				cell = Rect2(x + 2, top - 22, slot - 4, bar_h + 14)
-				var pulse := 0.5 + 0.5 * sin(_t * 3.0)
-				for g in 4:
-					var gg := 4.0 + g * 5.0
-					UiKit.rr_fill(self, cell.grow(gg), 22 + gg, Color(1.0, 0.85, 0.35, (0.14 + pulse * 0.06) / (1.0 + g)), Color(1.0, 0.85, 0.35, 0.0))
-				UiKit.rr_fill(self, cell.grow(3), 22, Color("0b2a5e"), Color("0b2a5e"))
-				UiKit.rr_fill(self, cell, 20, Color("7fd3ff"), Color("2a74d6"))
-				UiKit.rr_fill(self, Rect2(cell.position + Vector2(6, 4), Vector2(cell.size.x - 12, cell.size.y * 0.4)), 14, Color(1, 1, 1, 0.45), Color(1, 1, 1, 0.05))
+			if i > 0 and not on and str(TABS[i - 1][0]) != current:
+				# Carved divider.
+				draw_rect(Rect2(x - 1, 22, 1, bar_h - 44), Color(0, 0, 0, 0.45), true)
+				draw_rect(Rect2(x, 22, 1, bar_h - 44), Color(1, 0.9, 0.7, 0.08), true)
+			var top := -20.0 if on else 0.0
 			var tex := UiKit.icon(str(TABS[i][2]))
-			var px := 70.0 if on else 54.0
-			var icon_r := Rect2(x + (slot - px) * 0.5, cell.position.y + (8.0 if on else 6.0), px, px)
-			UiKit.draw_icon(self, tex, icon_r, Color.WHITE if on else Color(0.72, 0.8, 0.95), UiKit.INK, 3.5 if on else 3.0)
+			var px := 62.0 if on else 48.0
+			var icon_r := Rect2(x + (slot - px) * 0.5, top + (16.0 if on else 18.0), px, px)
+			var fill := UiKit.GOLD.lightened(0.3) if on else Color(0.62, 0.56, 0.47)
+			UiKit.draw_icon(self, tex, icon_r, fill, Color(0.05, 0.03, 0.02), 2.0)
 			var font := UiKit.font_x
-			var fpx := 26 if on else 21
-			UiKit.draw_text(self, font, Vector2(x, cell.position.y + cell.size.y - 12), str(TABS[i][1]), fpx, Color.WHITE if on else Color(0.75, 0.83, 0.96), UiKit.INK, 3, slot)
+			var fpx := 22 if on else 18
+			var ink := UiKit.CREAM if on else Color(0.62, 0.56, 0.47)
+			UiKit.draw_text(self, font, Vector2(x, top + bar_h - (14.0 if on else 22.0)), str(TABS[i][1]).to_upper(), fpx, ink, Color(0.04, 0.03, 0.02), 2, slot)
 
 
 class Gem extends Control:
@@ -642,7 +852,7 @@ class Gem extends Control:
 		UiKit.draw_currency(self, kind, Rect2(Vector2.ZERO, size))
 
 
-## Level badge: a gold shield with the number, Clash card style.
+## Level badge: a gilded shield with dark enamel and the number engraved.
 class Badge extends Control:
 	var level := 1
 	var tone := "gold"
@@ -651,25 +861,31 @@ class Badge extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var r := Rect2(Vector2(2, 2), size - Vector2(4, 4))
-		var cols: Dictionary = UiKit.tone_colors(tone)
+		var r := Rect2(Vector2(3, 3), size - Vector2(6, 6))
 		var pts := PackedVector2Array([
-			r.position + Vector2(r.size.x * 0.5, 0), r.position + Vector2(r.size.x, r.size.y * 0.18),
-			r.position + Vector2(r.size.x, r.size.y * 0.62), r.position + Vector2(r.size.x * 0.5, r.size.y),
-			r.position + Vector2(0, r.size.y * 0.62), r.position + Vector2(0, r.size.y * 0.18),
+			r.position + Vector2(r.size.x * 0.5, 0), r.position + Vector2(r.size.x, r.size.y * 0.16),
+			r.position + Vector2(r.size.x * 0.94, r.size.y * 0.64), r.position + Vector2(r.size.x * 0.5, r.size.y),
+			r.position + Vector2(r.size.x * 0.06, r.size.y * 0.64), r.position + Vector2(0, r.size.y * 0.16),
 		])
-		var outline := PackedVector2Array()
 		var c := r.get_center()
+		var outer := PackedVector2Array()
+		var inner := PackedVector2Array()
 		for p in pts:
-			outline.append(c + (p - c) * 1.12)
-		draw_colored_polygon(outline, cols["edge"])
-		var colors := PackedColorArray()
+			outer.append(c + (p - c) * 1.1)
+			inner.append(c + (p - c) * 0.74)
+		draw_colored_polygon(outer, Color(0.06, 0.04, 0.02))
+		var gold := PackedColorArray()
 		for p in pts:
-			colors.append((cols["hi"] as Color).lerp(cols["lo"], (p.y - r.position.y) / r.size.y))
-		draw_polygon(pts, colors)
+			gold.append(Color("ffe3a0").lerp(Color("7a4e18"), (p.y - r.position.y) / r.size.y))
+		draw_polygon(pts, gold)
+		var enamel := PackedColorArray()
+		var cols: Dictionary = UiKit.tone_colors("red" if tone == "gold" else tone)
+		for p in inner:
+			enamel.append((cols["hi"] as Color).lerp(cols["lo"], (p.y - r.position.y) / r.size.y))
+		draw_polygon(inner, enamel)
 		var font := UiKit.font_x
-		var px := int(r.size.y * 0.5)
-		UiKit.draw_text(self, font, Vector2(r.position.x, c.y + font.get_ascent(px) * 0.36), str(level), px, Color.WHITE, UiKit.INK, 3, r.size.x)
+		var px := int(r.size.y * 0.42)
+		UiKit.draw_text(self, font, Vector2(r.position.x, c.y + font.get_ascent(px) * 0.34), str(level), px, Color("fff0cc"), Color(0.05, 0.02, 0.01), 2, r.size.x)
 
 
 ## A Clash-style chest: wooden body and arched lid with gold bands and a
@@ -678,55 +894,73 @@ static func draw_chest(ci: CanvasItem, rect: Rect2, tone: String = "wood", lit: 
 	var w := rect.size.x
 	var h := rect.size.y
 	var o := rect.position
-	var wood_hi := Color("c9783a")
-	var wood_lo := Color("7a3f18")
-	var band := Color("ffd34a")
-	var band_lo := Color("c98a12")
+	# Dark walnut bound in blackened iron with a brass lock; "silver" is
+	# steel-bound ash, "gold" gilded, "magic" violet-stained.
+	var wood_hi := Color("7a4a2a")
+	var wood_lo := Color("3a1f10")
+	var band := Color("5a5650")
+	var band_lo := Color("24221f")
+	var lock_hi := Color("f0cf7a")
+	var lock_lo := Color("8a5a1a")
 	match tone:
 		"silver":
-			wood_hi = Color("8fb4d8")
-			wood_lo = Color("3f6590")
-			band = Color("f2f6fa")
-			band_lo = Color("9aa8b8")
+			wood_hi = Color("8a6a4a")
+			wood_lo = Color("4a3420")
+			band = Color("d8dce2")
+			band_lo = Color("6a707a")
 		"gold":
-			wood_hi = Color("ffcf4a")
-			wood_lo = Color("c47a10")
-			band = Color("fff2b0")
-			band_lo = Color("d9a32a")
+			band = Color("ffe3a0")
+			band_lo = Color("9a6a20")
 		"magic":
-			wood_hi = Color("c58bff")
-			wood_lo = Color("5a24a8")
+			wood_hi = Color("5a3a7a")
+			wood_lo = Color("24143a")
+			band = Color("c8b0e8")
+			band_lo = Color("5a4a7a")
 	if not lit:
-		wood_hi = wood_hi.darkened(0.55)
-		wood_lo = wood_lo.darkened(0.55)
-		band = band.darkened(0.55)
-		band_lo = band_lo.darkened(0.55)
-	var ink := Color("2a1406") if lit else Color(0, 0, 0, 0.6)
-	var body := Rect2(o + Vector2(w * 0.1, h * 0.42), Vector2(w * 0.8, h * 0.48))
-	var lid := Rect2(o + Vector2(w * 0.08, h * 0.12), Vector2(w * 0.84, h * 0.36))
-	# Ground shadow.
-	ci.draw_set_transform(o + Vector2(w * 0.5, h * 0.92), 0.0, Vector2(1.0, 0.25))
-	ci.draw_circle(Vector2.ZERO, w * 0.44, Color(0, 0, 0, 0.3))
+		for k in 3:
+			pass
+		wood_hi = wood_hi.darkened(0.6)
+		wood_lo = wood_lo.darkened(0.6)
+		band = band.darkened(0.6)
+		band_lo = band_lo.darkened(0.6)
+		lock_hi = lock_hi.darkened(0.6)
+		lock_lo = lock_lo.darkened(0.6)
+	var ink := Color("120a05") if lit else Color(0, 0, 0, 0.6)
+	var body := Rect2(o + Vector2(w * 0.1, h * 0.44), Vector2(w * 0.8, h * 0.46))
+	var lid := Rect2(o + Vector2(w * 0.08, h * 0.14), Vector2(w * 0.84, h * 0.34))
+	ci.draw_set_transform(o + Vector2(w * 0.5, h * 0.92), 0.0, Vector2(1.0, 0.22))
+	ci.draw_circle(Vector2.ZERO, w * 0.46, Color(0, 0, 0, 0.45))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	rr_fill(ci, body.grow(3), 8, ink, ink)
-	rr_fill(ci, body, 6, wood_hi, wood_lo)
-	rr_fill(ci, lid.grow(3), lid.size.y * 0.55, ink, ink)
-	rr_fill(ci, lid, lid.size.y * 0.5, wood_hi.lightened(0.12), wood_hi.darkened(0.1))
-	# Planks.
+	rr_fill(ci, body.grow(2.5), 5, ink, ink)
+	rr_fill(ci, body, 4, wood_hi, wood_lo)
+	rr_fill(ci, lid.grow(2.5), lid.size.y * 0.5, ink, ink)
+	rr_fill(ci, lid, lid.size.y * 0.46, wood_hi.lightened(0.08), wood_lo.lightened(0.05))
+	# Plank seams and grain.
 	for i in 3:
-		var y := body.position.y + body.size.y * (0.3 + i * 0.25)
-		ci.draw_line(Vector2(body.position.x + 4, y), Vector2(body.end.x - 4, y), Color(0, 0, 0, 0.18), 2.0)
-	# Gold bands on lid and body, the lid rim, and the lock plate.
-	for fx: float in [0.2, 0.8]:
-		var bx: float = o.x + w * fx - w * 0.055
-		rr_fill(ci, Rect2(bx - 2, lid.position.y - 2, w * 0.11 + 4, lid.size.y + body.size.y + 6), 4, ink, ink)
-		rr_fill(ci, Rect2(bx, lid.position.y, w * 0.11, lid.size.y + body.size.y + 2), 3, band, band_lo)
-	rr_fill(ci, Rect2(lid.position.x - 2, lid.end.y - h * 0.05, lid.size.x + 4, h * 0.08), 4, ink, ink)
-	rr_fill(ci, Rect2(lid.position.x, lid.end.y - h * 0.04, lid.size.x, h * 0.06), 3, band, band_lo)
-	var lock := Rect2(o + Vector2(w * 0.4, h * 0.4), Vector2(w * 0.2, h * 0.22))
-	rr_fill(ci, lock.grow(3), 6, ink, ink)
-	rr_fill(ci, lock, 5, band, band_lo)
-	ci.draw_circle(lock.get_center() + Vector2(0, -lock.size.y * 0.08), lock.size.x * 0.14, ink)
-	ci.draw_rect(Rect2(lock.get_center() + Vector2(-lock.size.x * 0.05, 0), Vector2(lock.size.x * 0.1, lock.size.y * 0.28)), ink, true)
-	# Gloss on the lid.
-	rr_fill(ci, Rect2(lid.position + Vector2(lid.size.x * 0.12, lid.size.y * 0.1), Vector2(lid.size.x * 0.76, lid.size.y * 0.3)), lid.size.y * 0.15, Color(1, 1, 1, 0.4 if lit else 0.08), Color(1, 1, 1, 0.0))
+		var y := body.position.y + body.size.y * (0.28 + i * 0.24)
+		ci.draw_line(Vector2(body.position.x + 3, y), Vector2(body.end.x - 3, y), Color(0, 0, 0, 0.35), 1.5)
+		ci.draw_line(Vector2(body.position.x + 3, y + 1.5), Vector2(body.end.x - 3, y + 1.5), Color(1, 0.85, 0.6, 0.08), 1.0)
+	for i in 2:
+		var y := lid.position.y + lid.size.y * (0.45 + i * 0.25)
+		ci.draw_line(Vector2(lid.position.x + 6, y), Vector2(lid.end.x - 6, y), Color(0, 0, 0, 0.3), 1.5)
+	# Iron straps with rivets.
+	for fx: float in [0.22, 0.78]:
+		var bx: float = o.x + w * fx - w * 0.05
+		var strap := Rect2(bx, lid.position.y + 1, w * 0.1, lid.size.y + body.size.y + 1)
+		rr_fill(ci, strap.grow(1.5), 2, ink, ink)
+		rr_fill(ci, strap, 2, band, band_lo)
+		for k in 3:
+			var ry: float = strap.position.y + strap.size.y * (0.18 + k * 0.32)
+			ci.draw_circle(Vector2(strap.get_center().x, ry), w * 0.018, band.lightened(0.35))
+	# Rim and the brass lock plate.
+	rr_fill(ci, Rect2(lid.position.x - 2, lid.end.y - h * 0.045, lid.size.x + 4, h * 0.075), 2, ink, ink)
+	rr_fill(ci, Rect2(lid.position.x, lid.end.y - h * 0.035, lid.size.x, h * 0.055), 2, band, band_lo)
+	var lock := Rect2(o + Vector2(w * 0.41, h * 0.41), Vector2(w * 0.18, h * 0.22))
+	rr_fill(ci, lock.grow(2.5), 4, ink, ink)
+	rr_fill(ci, lock, 3, lock_hi, lock_lo)
+	ci.draw_circle(lock.get_center() + Vector2(0, -lock.size.y * 0.1), lock.size.x * 0.13, ink)
+	ci.draw_rect(Rect2(lock.get_center() + Vector2(-lock.size.x * 0.05, -lock.size.y * 0.02), Vector2(lock.size.x * 0.1, lock.size.y * 0.3)), ink, true)
+	if lit:
+		# A thin warm line of light leaking from under the lid.
+		ci.draw_line(Vector2(lid.position.x + 4, lid.end.y + 1), Vector2(lid.end.x - 4, lid.end.y + 1), Color(1.0, 0.8, 0.4, 0.55), 2.0)
+		rr_fill(ci, Rect2(lid.position + Vector2(lid.size.x * 0.15, lid.size.y * 0.12), Vector2(lid.size.x * 0.7, lid.size.y * 0.2)), lid.size.y * 0.1, Color(1, 0.9, 0.75, 0.18), Color(1, 1, 1, 0.0))
