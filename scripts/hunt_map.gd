@@ -7,7 +7,11 @@ extends RefCounted
 ## (about 4 by 4 screens, sixteen times the area).
 
 const VIEW := Vector2(720, 1280)
-const PLAY := Rect2(40, 168, 640, 980)
+## The shipped hunt arena: about twice the old one-screen field, so the far
+## follow camera (RunSim.VIEW_BOX) fits inside it with room for packs to
+## appear just off screen and still inside the arena.
+const ARENA := Vector2(980, 1736)
+const PLAY := Rect2(40, 168, 900, 1400)
 const CHUNK := Vector2(720, 1280)
 ## A zone this close to the hero (or holding the hero) is allowed to spawn.
 const ZONE_REACH := 1100.0
@@ -28,9 +32,9 @@ var boss_at := Vector2(360, 168)
 static func for_biome(biome_id: String) -> HuntMap:
 	var map := HuntMap.new()
 	map.id = biome_id
-	map.size = VIEW
+	map.size = ARENA
 	map.play = PLAY
-	map.chunk_size = CHUNK
+	map.chunk_size = ARENA
 	map.boss_at = Vector2(PLAY.get_center().x, PLAY.position.y)
 	map.chunks = [{
 		"col": 0,

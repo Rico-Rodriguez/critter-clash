@@ -60,11 +60,11 @@ vec2 tile_uv(vec2 w, float scale) {
 float path_dist(vec2 w) {
 	float wob = (fbm(w * 0.35) - 0.5) * 1.1;
 	// A long trail down the clearing.
-	float a = abs(w.x - (7.2 + sin(w.y * 0.23 + 0.6) * 2.6 + wob));
+	float a = abs(w.x - (9.8 + sin(w.y * 0.19 + 0.6) * 3.4 + wob));
 	// A cross trail that bends over it.
-	float b = abs(w.y - (13.0 + sin(w.x * 0.31 + 1.8) * 2.2 + wob * 0.8));
+	float b = abs(w.y - (18.6 + sin(w.x * 0.27 + 1.8) * 2.6 + wob * 0.8));
 	// A spur toward the boss clearing.
-	float c = abs(w.x - (3.4 + w.y * 0.18 + wob)) + max(w.y - 11.0, 0.0) * 4.0;
+	float c = abs(w.x - (4.4 + w.y * 0.2 + wob)) + max(w.y - 15.0, 0.0) * 4.0;
 	return min(min(a, b), c);
 }
 

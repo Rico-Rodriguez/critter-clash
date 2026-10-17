@@ -23,6 +23,10 @@ func _ready() -> void:
 	# asks for 120Hz via display/window/ios/allow_high_refresh_rate.
 	Engine.max_fps = 0
 	Input.use_accumulated_input = false
+	if OS.get_cmdline_user_args().has("--balance"):
+		SimCheck.balance()
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("--sim-check"):
 		var code := SimCheck.run()
 		get_tree().quit(code)

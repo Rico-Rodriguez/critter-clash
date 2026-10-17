@@ -150,11 +150,11 @@ static func _steer() -> void:
 
 
 static func _maps() -> void:
-	var play := Rect2(40, 168, 640, 980)
+	var play := HuntMap.PLAY
 	for biome in ["meadow", "mushroom", "frost", "volcano"]:
 		var map := HuntMap.for_biome(biome)
-		if map.size != Vector2(720, 1280) or map.zones.size() != 1 or map.chunks.size() != 1:
-			_fail("%s is not a single-screen map" % biome)
+		if map.size != HuntMap.ARENA or map.zones.size() != 1 or map.chunks.size() != 1:
+			_fail("%s is not a single-arena map" % biome)
 			return
 		var zone: Dictionary = map.zones[0]
 		var rect: Rect2 = zone["rect"]
@@ -164,15 +164,16 @@ static func _maps() -> void:
 		if map.chunks_in(Rect2(Vector2.ZERO, HuntMap.VIEW)).size() != 1:
 			_fail("%s streamed more than its one chunk" % biome)
 			return
-		if map.boss_spawn(76.0) != Vector2(360, 252):
+		if map.boss_spawn(76.0) != Vector2(play.get_center().x, play.position.y + 84.0):
 			_fail("%s boss arena moved" % biome)
 			return
 	var pinned := HuntCamera.new()
 	var meadow := HuntMap.for_biome("meadow")
 	pinned.setup(meadow, Vector2(40, 168))
-	pinned.follow(Vector2(680, 1100), 1.0)
-	if pinned.top_left().length() > 0.01:
-		_fail("one-screen camera left the origin")
+	pinned.follow(Vector2(900, 1500), 1.0)
+	var tl := pinned.top_left()
+	if tl.x < -0.01 or tl.y < -0.01 or tl.x > HuntMap.ARENA.x - HuntMap.VIEW.x + 0.01 or tl.y > HuntMap.ARENA.y - HuntMap.VIEW.y + 0.01:
+		_fail("arena camera left the map")
 	var session := Session.solo("meadow", "ember")
 	session.seed = 11
 	var sim := RunSim.new()
@@ -184,7 +185,7 @@ static func _maps() -> void:
 			continue
 		minions += 1
 		# Packs land just outside the camera's view, inside the zone.
-		if not play.grow(RunSim.ENTRY_REACH).has_point(actor.pos):
+		if not play.has_point(actor.pos):
 			_fail("spawn left the zone")
 			return
 		var rel: Vector2 = actor.pos - hero_at
@@ -256,6 +257,25 @@ static func _fights() -> void:
 	print("FIGHT idle ", idle)
 	if str(idle["result"]) != "lose":
 		_fail("standing still should lose")
+
+
+## Balance sweep: each hero over several seeds, plus idle. Prints the
+## average win time as a share of the 120 s hunt limit.
+##   godot --path . -- --balance
+static func balance() -> void:
+	for hero in ["ember", "juniper", "pebble", "idle"]:
+		var times: Array = []
+		var wins := 0
+		for seed in [3, 7, 11, 19, 23, 31, 42, 57]:
+			var r := _play("ember" if hero == "idle" else hero, "meadow", seed, hero == "idle")
+			times.append(float(r["time"]))
+			if str(r["result"]) == "win":
+				wins += 1
+		var total := 0.0
+		for t in times:
+			total += t
+		var avg := total / times.size()
+		print("BALANCE %s wins %d/8 avg %.1fs (%.0f%% of 120) min %.1f max %.1f" % [hero, wins, avg, avg / 1.2, times.min(), times.max()])
 
 
 static func _play(hero: String, biome: String, seed: int, idle: bool) -> Dictionary:

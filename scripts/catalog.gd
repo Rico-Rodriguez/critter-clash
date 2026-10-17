@@ -4,7 +4,7 @@ extends RefCounted
 ## Static roster, biomes, waves, upgrade cards, and trophy milestones.
 ## Habitat never changes a critter's role. Bosses drop loot. They are not heroes.
 
-const BOSS_AT := 68.0
+const BOSS_AT := 62.0
 const MAX_CARD_LEVEL := 10
 const MAX_RUN_LEVEL := 8
 
@@ -287,7 +287,7 @@ const CRITTERS: Dictionary = {
 		"name": "Pebble", "role": "tank", "kind": "hero", "color": "3aa8a0",
 		"blurb": "Otter tank. Melee, and hard to move.",
 		"unlock": "A starter hero.",
-		"hp": 280, "dmg": 27, "interval": 0.42, "range": 138, "speed": 244,
+		"hp": 280, "dmg": 31, "interval": 0.42, "range": 138, "speed": 256,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 3,
 	},
 	"lumen": {

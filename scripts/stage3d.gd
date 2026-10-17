@@ -141,7 +141,7 @@ func bind_hunt(biome_id: String) -> void:
 	_build_contacts()
 	_biome_mood(biome_id)
 	_apply_render_scale()
-	_look = _to3(Vector2(360, 700))
+	_look = _to3(HuntMap.PLAY.get_center())
 	_dist = DIST
 	_ready_cam = false
 	_frame(_look)
@@ -568,7 +568,7 @@ func _ground(biome_id: String) -> void:
 	var plane := PlaneMesh.new()
 	plane.orientation = PlaneMesh.FACE_Y
 	var pad := 28.0
-	var span := Vector2(720.0 * SCALE + pad * 2.0, 1280.0 * SCALE + pad * 2.0)
+	var span := Vector2(HuntMap.ARENA.x * SCALE + pad * 2.0, HuntMap.ARENA.y * SCALE + pad * 2.0)
 	plane.size = span
 	plane.subdivide_width = 96
 	plane.subdivide_depth = 120
@@ -587,14 +587,14 @@ func _ground(biome_id: String) -> void:
 	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
 	mat.set_shader_parameter("snow", 0.75 if biome_id == "frost" else 0.0)
 	mat.set_shader_parameter("ash", 0.85 if biome_id == "volcano" else 0.0)
-	var a0 := _to3(Vector2(0.0, 110.0))
-	var a1 := _to3(Vector2(720.0, 1230.0))
+	var a0 := _to3(HuntMap.PLAY.position - Vector2(40.0, 58.0))
+	var a1 := _to3(HuntMap.PLAY.end + Vector2(40.0, 82.0))
 	mat.set_shader_parameter("arena", Vector4(a0.x, a0.z, a1.x, a1.z))
 	mat.set_shader_parameter("litter", 0.0 if biome_id == "volcano" else (0.3 if biome_id == "frost" else 1.0))
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = plane
 	mesh.material_override = mat
-	mesh.position = Vector3(720.0 * SCALE * 0.5, 0, 1280.0 * SCALE * 0.5)
+	mesh.position = Vector3(HuntMap.ARENA.x * SCALE * 0.5, 0, HuntMap.ARENA.y * SCALE * 0.5)
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	world_root.add_child(mesh)
 
@@ -602,9 +602,9 @@ func _ground(biome_id: String) -> void:
 ## Distance in meters to the dirt trails the terrain shader paints, without
 ## the shader's wobble. Grass and props keep off the trails with it.
 static func path_dist(w: Vector2) -> float:
-	var a := absf(w.x - (7.2 + sin(w.y * 0.23 + 0.6) * 2.6))
-	var b := absf(w.y - (13.0 + sin(w.x * 0.31 + 1.8) * 2.2))
-	var c := absf(w.x - (3.4 + w.y * 0.18)) + maxf(w.y - 11.0, 0.0) * 4.0
+	var a := absf(w.x - (9.8 + sin(w.y * 0.19 + 0.6) * 3.4))
+	var b := absf(w.y - (18.6 + sin(w.x * 0.27 + 1.8) * 2.6))
+	var c := absf(w.x - (4.4 + w.y * 0.2)) + maxf(w.y - 15.0, 0.0) * 4.0
 	return minf(minf(a, b), c)
 
 
@@ -619,7 +619,10 @@ func _foliage(biome_id: String) -> void:
 	# blade is drawn. grass_short is ~155 tris, wispy ~620, flowers ~1700,
 	# so the cheap blade carries the density and the costly ones accent.
 	var tier := _tier()
-	var count := 420 if tier == "low" else (1300 if tier == "medium" else 2100)
+	# The arena is ~2x the old field; density scales with it (the grid cut in
+	# _scatter keeps what is drawn close to the old budget).
+	var area_k := 1.7
+	var count := int((420 if tier == "low" else (1300 if tier == "medium" else 2100)) * area_k)
 	var accent := 0.4 if tier == "low" else (0.6 if tier == "medium" else 1.0)
 	_scatter(rng, "grass_short", int(count * 0.62), 0.4, 0.6, true)
 	_scatter(rng, "grass_wispy", int(count * 0.14 * accent), 0.38, 0.55, true)
@@ -627,10 +630,10 @@ func _foliage(biome_id: String) -> void:
 		# Taller tufts in clumps break up the turf at the hunt zoom.
 		_scatter(rng, "grass_tall", int(count * 0.08 * accent), 0.45, 0.7, true)
 	if not biome_id in ["frost", "volcano"]:
-		_scatter(rng, "flower_a", int(34 * accent), 0.5, 0.75, false)
-		_scatter(rng, "flower_b", int(30 * accent), 0.5, 0.75, false)
-	_scatter(rng, "clover", 40, 0.45, 0.62, false)
-	_scatter(rng, "fern", 22 if biome_id == "meadow" else 34, 0.6, 0.9, false)
+		_scatter(rng, "flower_a", int(34 * accent * area_k), 0.5, 0.75, false)
+		_scatter(rng, "flower_b", int(30 * accent * area_k), 0.5, 0.75, false)
+	_scatter(rng, "clover", int(40 * area_k), 0.45, 0.62, false)
+	_scatter(rng, "fern", int((22 if biome_id == "meadow" else 34) * area_k), 0.6, 0.9, false)
 	var trees: Array = ["tree_a", "tree_b", "bush_flower", "tree_a"]
 	match biome_id:
 		"mushroom":
@@ -641,7 +644,7 @@ func _foliage(biome_id: String) -> void:
 			trees = ["tree_dead", "tree_dead", "rock_lava"]
 	var pack := biome_id == "meadow" and ResourceLoader.exists("res://assets/models/sketchfab/nature/grove.glb")
 	if not pack:
-		for i in (8 if _tier() == "low" else 14):
+		for i in (11 if _tier() == "low" else 20):
 			var name: String = trees[i % trees.size()]
 			var at := _rim_point(rng)
 			_place_prop(name, at, rng.randf_range(1.15, 1.55), true)
@@ -655,8 +658,10 @@ func _foliage(biome_id: String) -> void:
 			var side := -1.0 if i % 2 == 0 else 1.0
 			# Right at the frame edge: the canopy crops off-screen while the
 			# trunk and its shadow read inside the clearing.
-			var x := 360.0 + side * rng.randf_range(330.0, 380.0)
-			var y := lerpf(250.0, 1150.0, float(i / 2) / 3.0) + rng.randf_range(-60.0, 60.0)
+			# Outside the playable bounds: trunks stand past the arena edge
+			# and only the canopy edge overhangs the clearing.
+			var x := HuntMap.PLAY.position.x - rng.randf_range(90.0, 140.0) if side < 0.0 else HuntMap.PLAY.end.x + rng.randf_range(90.0, 140.0)
+			var y := lerpf(HuntMap.PLAY.position.y + 100.0, HuntMap.PLAY.end.y - 80.0, float(i / 2) / 3.0) + rng.randf_range(-60.0, 60.0)
 			_place_prop(edge_trees[i % edge_trees.size()], _to3(Vector2(x, y)), rng.randf_range(2.2, 2.9), true)
 	_field_props(rng)
 
@@ -671,6 +676,8 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 		["mushroom", 0.4, 0.6, 7], ["mushroom_shelf", 0.35, 0.5, 3],
 		["fern", 0.8, 1.1, 6], ["flower_b", 0.7, 0.95, 6], ["flower_a", 0.7, 0.95, 6],
 	]
+	for row in kit:
+		row[3] = int(round(int(row[3]) * 1.8))
 	if _tier() == "low":
 		for row in kit:
 			row[3] = maxi(1, int(row[3]) / 2)
@@ -731,28 +738,45 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 	if source == null or source.mesh == null:
 		probe.free()
 		return
-	var multi := MultiMesh.new()
-	multi.transform_format = MultiMesh.TRANSFORM_3D
-	multi.use_colors = false
-	multi.mesh = source.mesh
-	multi.instance_count = count
 	var posed := _chain(source, probe)
+	# The arena is about twice what the camera frames: big scatters are cut
+	# into a 2x3 grid of multimeshes so off-screen cells are culled whole.
+	var cols := 2 if count > 200 else 1
+	var rows := 3 if count > 200 else 1
+	var cells: Array = []
+	for i in cols * rows:
+		cells.append([])
+	var lo3 := _to3(HuntMap.PLAY.position)
+	var span3 := _to3(HuntMap.PLAY.end) - lo3
 	for i in count:
 		var at := _off_path_point(rng, 1.0)
 		var s := rng.randf_range(lo, hi)
 		var spin := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s))
-		multi.set_instance_transform(i, Transform3D(spin, at) * posed)
-	var node := MultiMeshInstance3D.new()
-	node.multimesh = multi
-	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_grass_nodes.append(node)
-	# Coarser mesh LODs: blades are a few pixels tall at the hunt zoom.
-	node.lod_bias = 0.35 if _tier() != "high" else 0.6
-	if sway:
-		var grass := _grass_material(source)
-		node.material_override = grass
+		var cx := clampi(int((at.x - lo3.x) / span3.x * cols), 0, cols - 1)
+		var cy := clampi(int((at.z - lo3.z) / span3.z * rows), 0, rows - 1)
+		cells[cy * cols + cx].append(Transform3D(spin, at) * posed)
+	var grass: ShaderMaterial = _grass_material(source) if sway else null
+	if grass:
 		_grass_mats.append(grass)
-	world_root.add_child(node)
+	for cell in cells:
+		if cell.is_empty():
+			continue
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		multi.use_colors = false
+		multi.mesh = source.mesh
+		multi.instance_count = cell.size()
+		for i in cell.size():
+			multi.set_instance_transform(i, cell[i])
+		var node := MultiMeshInstance3D.new()
+		node.multimesh = multi
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_grass_nodes.append(node)
+		# Coarser mesh LODs: blades are a few pixels tall at the hunt zoom.
+		node.lod_bias = 0.35 if _tier() != "high" else 0.6
+		if grass:
+			node.material_override = grass
+		world_root.add_child(node)
 	probe.free()
 
 
@@ -998,22 +1022,25 @@ func _pedestal_set() -> void:
 
 
 func _field_point(rng: RandomNumberGenerator) -> Vector3:
-	return _to3(Vector2(rng.randf_range(48.0, 672.0), rng.randf_range(190.0, 1140.0)))
+	var f := HuntMap.PLAY.grow_individual(-8.0, -22.0, -8.0, 8.0)
+	return _to3(Vector2(rng.randf_range(f.position.x, f.end.x), rng.randf_range(f.position.y, f.end.y)))
 
 
 func _rim_point(rng: RandomNumberGenerator) -> Vector3:
+	# A band hugging the arena edge, mostly just outside the playable rect.
+	var p := HuntMap.PLAY
 	var edge := rng.randi() % 4
-	var x := rng.randf_range(30.0, 690.0)
-	var y := rng.randf_range(150.0, 1180.0)
+	var x := rng.randf_range(p.position.x - 30.0, p.end.x + 30.0)
+	var y := rng.randf_range(p.position.y - 30.0, p.end.y + 40.0)
 	match edge:
 		0:
-			x = rng.randf_range(16.0, 150.0)
+			x = rng.randf_range(p.position.x - 40.0, p.position.x + 90.0)
 		1:
-			x = rng.randf_range(570.0, 700.0)
+			x = rng.randf_range(p.end.x - 90.0, p.end.x + 40.0)
 		2:
-			y = rng.randf_range(140.0, 280.0)
+			y = rng.randf_range(p.position.y - 30.0, p.position.y + 100.0)
 		_:
-			y = rng.randf_range(1000.0, 1220.0)
+			y = rng.randf_range(p.end.y - 140.0, p.end.y + 60.0)
 	return _to3(Vector2(x, y))
 
 
@@ -2047,7 +2074,7 @@ func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 	if sources.is_empty():
 		lib.visible = false
 		return
-	var count := 8 if _tier() == "low" else 16
+	var count := 12 if _tier() == "low" else 24
 	for i in count:
 		var src: Node3D = sources[rng.randi() % sources.size()]
 		if i % 5 == 4 and not stones.is_empty():
