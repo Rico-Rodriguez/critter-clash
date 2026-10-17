@@ -324,7 +324,7 @@ static func _pools_check() -> void:
 			if text.strip_edges() == "":
 				_fail("empty card_text for %s rank %d" % [id, have])
 				return
-			if bool(entry.get("stack", false)):
+			if bool(entry.get("stack", false)) and have > 0:
 				var total := float(entry.get("n", 0)) * float(have + 1)
 				if text.find(Catalog.fmt_amount(total)) < 0:
 					_fail("card_text %s rank %d missing total %s" % [id, have, Catalog.fmt_amount(total)])

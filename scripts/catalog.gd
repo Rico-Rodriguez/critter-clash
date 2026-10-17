@@ -51,7 +51,8 @@ static func card_text(id: String, have: int) -> String:
 	if entry.is_empty():
 		return ""
 	var fmt := str(entry.get("rank_desc", ""))
-	if fmt == "":
+	# A first pick reads the plain description; ranks II+ show the running total.
+	if fmt == "" or have <= 0:
 		return str(entry.get("desc", ""))
 	var amount := float(entry.get("n", 0))
 	var rank := maxi(1, have + 1)
