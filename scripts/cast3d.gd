@@ -12,7 +12,7 @@ extends RefCounted
 ##   assets/models/sketchfab/pebble.glb   otter, when one is licensed
 ##   assets/models/sketchfab/lumen.glb    owl
 ##   assets/models/sketchfab/pip.glb      frog
-##   assets/models/sketchfab/bramble.glb  hedgehog
+##   assets/models/sketchfab/bramble.glb  Realistic Animated Bear (bramble family)
 ##   assets/models/sketchfab/thistle.glb  Mushroom Boss
 ## Rim plants from a vegetation pack go in assets/models/sketchfab/nature/.
 
@@ -95,6 +95,8 @@ static func clips(id: String) -> Dictionary:
 			# Pedestal pose: the head-turn clip.
 			"perch": "head turn",
 		}
+	if path.ends_with("sketchfab/bramble.glb"):
+		return {"idle": "Stand_Idle_01", "run": "Trot", "attack": "Attack_StandAngry_01_High", "hit": "Hit_Stand_F01", "death": "Death_Stand_R01"}
 	if path.ends_with("sketchfab/juniper.glb"):
 		return {"idle": "Idle", "run": "Run", "attack": "Punch", "hit": "", "death": ""}
 	if path.ends_with("sketchfab/thistle.glb"):
@@ -112,6 +114,9 @@ static func clips(id: String) -> Dictionary:
 ## Empty means "leave the file's materials alone".
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
+	if path.ends_with("sketchfab/bramble.glb"):
+		# Scanned-looking fur texture: matte, no sheen, a faint rim only.
+		return {"roughness": 0.9, "specular": 0.2, "rim": 0.15, "rim_tint": 0.6}
 	if path == EMBER_CUTE:
 		# Hand-painted scale albedo ships in the file; just take the plastic
 		# sheen off and add a warm rim so it reads from the hunt camera.
@@ -160,6 +165,17 @@ static func tint(id: String) -> Color:
 		return Color(0.68, 0.90, 0.84)
 	if id in ["ember", "juniper", "lumen", "pip", "bramble", "thistle"]:
 		return Color.WHITE
+	# The bear's fur is a real texture: biome tints stay a light wash
+	# (a frost bear goes pale, a lava bear goes ashen) instead of a dye.
+	if path.ends_with("sketchfab/bramble.glb"):
+		match id:
+			"yeti":
+				return Color(1.0, 1.0, 1.06)
+			"magmash":
+				return Color(0.55, 0.45, 0.42)
+			"capling":
+				return Color(0.82, 0.86, 0.72)
+		return Color(0.86, 0.8, 0.74)
 	var info := Catalog.critter(id)
 	if info.is_empty():
 		return Color.WHITE
@@ -172,7 +188,7 @@ static func nose(id: String) -> float:
 	var path := model(id)
 	# The dragon, KAI, and the mushroom all face +Z. A turntable render
 	# showed KAI's back under the old "nose is -Z" default.
-	if path == EMBER_CUTE or path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb") or path.ends_with("sketchfab/juniper.glb"):
+	if path.ends_with("sketchfab/bramble.glb") or path == EMBER_CUTE or path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb") or path.ends_with("sketchfab/juniper.glb"):
 		return 0.0
 	return -1.0
 
