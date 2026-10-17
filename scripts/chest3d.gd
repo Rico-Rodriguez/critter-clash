@@ -285,14 +285,10 @@ func _build_hoard(_base: Node3D) -> void:
 		gem_mat.rim_tint = 1.0
 		gem_mat.emission_enabled = true
 		gem_mat.emission = g[1]
-		gem_mat.emission_energy_multiplier = 0.55
+		gem_mat.emission_energy_multiplier = 0.3
 		var gem := MeshInstance3D.new()
-		var gm := SphereMesh.new()
-		gm.radius = g[2]
-		gm.height = g[2] * 1.5
-		gm.radial_segments = 8
-		gm.rings = 2
-		gem.mesh = gm
+		gem.mesh = _brilliant(float(g[2]) * 1.35)
+		gem_mat.vertex_color_use_as_albedo = true
 		gem.position = g[0]
 		gem.rotation = Vector3(rng.randf_range(-0.5, 0.5), rng.randf() * TAU, rng.randf_range(-0.5, 0.5))
 		gem.material_override = gem_mat
@@ -353,3 +349,55 @@ void fragment() {
 	mi.multimesh = mm
 	mi.material_override = mat
 	hoard.add_child(mi)
+
+
+## A brilliant-cut gem: octagonal table, a crown of 16 facets and a
+## pavilion down to a point, with flat normals so every facet catches its
+## own highlight. Alternate facets are tinted lighter or darker to fake
+## the internal fire a real stone shows.
+static func _brilliant(r: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 8
+	var table: Array[Vector3] = []
+	var girdle: Array[Vector3] = []
+	for i in n:
+		var a := TAU * float(i) / float(n)
+		table.append(Vector3(cos(a), 0, sin(a)) * r * 0.55 + Vector3(0, r * 0.42, 0))
+	for i in n * 2:
+		var a := TAU * (float(i) + 0.5) / float(n * 2)
+		girdle.append(Vector3(cos(a), 0, sin(a)) * r)
+	var apex := Vector3(0, -r * 0.95, 0)
+	var top := Vector3(0, r * 0.42, 0)
+	var tris: Array = []
+	for i in n:
+		tris.append([top, table[(i + 1) % n], table[i], 1.15])
+		var g0 := girdle[i * 2]
+		var g1 := girdle[i * 2 + 1]
+		var g2 := girdle[(i * 2 + 2) % (n * 2)]
+		var gprev := girdle[(i * 2 - 1 + n * 2) % (n * 2)]
+		# Crown: star and kite facets between table and girdle.
+		tris.append([table[i], table[(i + 1) % n], g1, 1.0])
+		tris.append([table[i], g1, g0, 0.82])
+		tris.append([table[i], g0, gprev, 0.95])
+		tris.append([table[(i + 1) % n], g2, g1, 0.88])
+	for i in n * 2:
+		tris.append([girdle[i], girdle[(i + 1) % (n * 2)], apex, 0.62 if i % 2 == 0 else 0.45])
+	for t in tris:
+		var a: Vector3 = t[0]
+		var b: Vector3 = t[1]
+		var c: Vector3 = t[2]
+		var nrm := (b - a).cross(c - a).normalized()
+		if nrm.dot((a + b + c) / 3.0) < 0.0:
+			var tmp := b
+			b = c
+			c = tmp
+			nrm = -nrm
+		var k := float(t[3])
+		st.set_color(Color(k, k, k))
+		st.set_normal(nrm)
+		# Godot front faces wind clockwise.
+		st.add_vertex(a)
+		st.add_vertex(c)
+		st.add_vertex(b)
+	return st.commit()

@@ -23,9 +23,17 @@ func run(host: Node, clip: String) -> void:
 			await _boss()
 		"profile":
 			await _profile()
+		"home":
+			await _home()
 		_:
 			await _tour()
 	get_tree().quit()
+
+
+## Home idle: the pedestal hero breathing, wings and UI shimmer, 7 s.
+func _home() -> void:
+	app.go("home")
+	await _wait(7.0)
 
 
 func _wait(seconds: float) -> void:

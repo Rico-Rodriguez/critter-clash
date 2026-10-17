@@ -1038,6 +1038,9 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 		for gi in node.find_children("*", "GeometryInstance3D", true, false):
 			(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if node is Node3D:
+		(node as Node3D).set_meta("model", model)
+		if model.begins_with("tree") or (model == "mushroom_tall" and scale > 2.0):
+			(node as Node3D).set_meta("canopy", true)
 		_props.append(node)
 	world_root.add_child(node)
 
@@ -2003,10 +2006,11 @@ func _reframe_posed(body: Node3D) -> void:
 		box.position.y -= drop
 	box = box.grow(box.size.length() * 0.06)
 	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7)
-	var view_h := h / 0.57
+	# The hero takes half the stage height and sits low, so horns and wing
+	# tips clear the title plate and the feet stay above the name badge.
+	var view_h := h / 0.46
 	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
-	# Sit the hero a touch below center, clear of the logo plate above it.
-	var focus := box.get_center() + Vector3(0, view_h * 0.165, 0)
+	var focus := box.get_center() + Vector3(0, view_h * 0.215, 0)
 	var dir := Vector3(0.0, 0.3, 1.0).normalized()
 	camera.position = focus + dir * dist
 	camera.look_at(focus, Vector3.UP)
@@ -2510,11 +2514,31 @@ func _grass_material(source: MeshInstance3D) -> ShaderMaterial:
 
 
 func _open_around(hero: Vector3) -> void:
+	var hs := Vector2.INF
+	var reach := 0.0
+	if camera != null and _mode == "hunt":
+		hs = camera.unproject_position(hero + Vector3(0, HERO_METERS * 0.4, 0))
+		reach = viewport.size.x * 0.24 if viewport != null else 280.0
 	for node in _props:
 		var prop := node as Node3D
 		if prop == null:
 			continue
 		var flat := Vector2(prop.position.x - hero.x, prop.position.z - hero.z)
+		if bool(prop.get_meta("canopy", false)):
+			# Canopy fade: a tree whose crown covers the hero on screen
+			# eases to see-through instead of hiding the fight.
+			var want := 0.0
+			if hs != Vector2.INF and prop.position.z > hero.z - 1.0:
+				var crown := camera.unproject_position(prop.position + Vector3(0, 2.2 * prop.scale.y, 0))
+				var d := crown.distance_to(hs)
+				want = clampf(1.0 - (d - reach * 0.5) / reach, 0.0, 1.0) * 0.72
+			var cur := float(prop.get_meta("fade", 0.0))
+			if absf(cur - want) > 0.005:
+				cur = move_toward(cur, want, 0.06)
+				prop.set_meta("fade", cur)
+				for gi in prop.find_children("*", "GeometryInstance3D", true, false):
+					(gi as GeometryInstance3D).transparency = cur
+			continue
 		prop.visible = flat.length() > 3.1
 
 
