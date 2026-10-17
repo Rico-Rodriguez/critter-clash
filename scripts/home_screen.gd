@@ -29,9 +29,14 @@ func build() -> void:
 	box.add_theme_constant_override("separation", 16)
 	margin.add_child(box)
 	box.add_child(header())
-	var logo := UiKit.title("CRITTER CLASH", 46)
+	var logo := UiKit.title("CRITTER CLASH", 50)
 	logo.add_theme_color_override("font_color", Color("ffe9a8"))
-	box.add_child(logo)
+	var plate := LogoPlate.new()
+	plate.add_child(logo)
+	logo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	logo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	plate.custom_minimum_size = Vector2(0, 96)
+	box.add_child(plate)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -169,3 +174,34 @@ class ChestSlot extends Control:
 		var caption := "OPEN" if filled else "EMPTY"
 		var ink := UiKit.GOLD.lightened(0.2) if filled else Color(0.5, 0.45, 0.38)
 		UiKit.draw_text(self, font, Vector2(r.position.x, r.end.y - 16), caption, 20 if filled else 17, ink, Color(0.05, 0.03, 0.02), 2, r.size.x)
+
+
+## A dark smoked plate behind the logo with gilt rules either side, so the
+## title never fights the 3D scene behind it.
+class LogoPlate extends Control:
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var rx := size.x * 0.5
+		var ry := size.y * 0.95
+		# Soft elliptical smoke: concentric vertex-coloured fans, no banding.
+		var pts := PackedVector2Array([c])
+		var cols := PackedColorArray([Color(0.03, 0.02, 0.015, 0.82)])
+		for i in 49:
+			var a := TAU * i / 48.0
+			pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
+			cols.append(Color(0.03, 0.02, 0.015, 0.0))
+		for i in 48:
+			draw_polygon(PackedVector2Array([pts[0], pts[i + 1], pts[i + 2]]), PackedColorArray([cols[0], cols[i + 1], cols[i + 2]]))
+		var gold := Color("c8963a")
+		var y := size.y - 10.0
+		var half := size.x * 0.34
+		draw_line(Vector2(c.x - half, y), Vector2(c.x - 34, y), Color(gold, 0.85), 2.0, true)
+		draw_line(Vector2(c.x + 34, y), Vector2(c.x + half, y), Color(gold, 0.85), 2.0, true)
+		var d := 9.0
+		draw_colored_polygon(PackedVector2Array([Vector2(c.x, y - d), Vector2(c.x + d * 1.6, y), Vector2(c.x, y + d), Vector2(c.x - d * 1.6, y)]), Color("e8c886"))
+		draw_circle(Vector2(c.x - half, y), 3.0, gold)
+		draw_circle(Vector2(c.x + half, y), 3.0, gold)

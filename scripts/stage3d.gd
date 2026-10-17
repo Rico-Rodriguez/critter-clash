@@ -983,13 +983,20 @@ func _reframe_posed(body: Node3D) -> void:
 		box.position.y -= drop
 	box = box.grow(box.size.length() * 0.06)
 	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7)
-	var view_h := h / 0.56
+	var view_h := h / 0.5
 	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
-	# Sit the hero a little below center, clear of the logo above it.
-	var focus := box.get_center() + Vector3(0, view_h * 0.1, 0)
+	# Sit the hero below center, well clear of the logo plate above it.
+	var focus := box.get_center() + Vector3(0, view_h * 0.17, 0)
 	var dir := Vector3(0.0, 0.3, 1.0).normalized()
 	camera.position = focus + dir * dist
 	camera.look_at(focus, Vector3.UP)
+	# Defocus the glade behind the hero so the silhouette pops.
+	var fx := CameraAttributesPractical.new()
+	fx.dof_blur_far_enabled = true
+	fx.dof_blur_far_distance = dist + box.size.z * 0.5 + 0.6
+	fx.dof_blur_far_transition = 3.5
+	fx.dof_blur_amount = 0.11
+	camera.attributes = fx
 
 
 func _decal(size: float, params: Dictionary) -> MeshInstance3D:
