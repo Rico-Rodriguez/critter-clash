@@ -6,24 +6,23 @@ extends Control
 
 const SCALE := 0.02
 const PITCH := 0.907571  # 52 degrees: Diablo-style tilt so faces and silhouettes read
-## The follow camera sits far back so a wave is on screen well before it
-## reaches the hero: about 9 m of ground across at the hero, ~1.9x the
-## previous framing and well past 2.5x the original.
-const DIST := 51.0
+## The follow camera sits far back so two or three camps of forest are on
+## screen and a camp shows well before the hero reaches it.
+const DIST := 65.0
 const FOV := 40.0
-const BOSS_DIST := 62.0
+const BOSS_DIST := 79.0
 ## Aim a metre above the ground so the hero sits just below screen centre,
 ## leaving room to see what comes from above.
 const AIM := 1.5
 ## On-screen size targets. With the camera at DIST these put the hero near
 ## 10% of the screen height; the boss stands about 3x the hero's footprint.
-const HERO_METERS := 3.2
+const HERO_METERS := 3.6
 const PEDESTAL_TOP := 0.34
 const HERO_BOOST := 1.18
 ## Screen fraction (from the top) the boss's cap must stay below: the bottom
 ## of the boss bar plus a margin.
 const BOSS_TOP_LIMIT := 0.185
-const BOSS_METERS := 13.0
+const BOSS_METERS := 14.5
 ## Highest render density over the logical canvas (device px per canvas px).
 const MAX_DENSITY := 1.65
 
@@ -561,7 +560,7 @@ func _lights() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if high else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_blend_splits = true
-	sun.directional_shadow_max_distance = 62.0 if high else 50.0
+	sun.directional_shadow_max_distance = 80.0 if high else 64.0
 	sun.shadow_bias = 0.04
 	sun.rotation_degrees = Vector3(-48, 38, 0)
 	world_root.add_child(sun)
@@ -575,7 +574,7 @@ func _lights() -> void:
 	camera = Camera3D.new()
 	camera.fov = FOV
 	camera.near = 0.08
-	camera.far = 120.0
+	camera.far = 150.0
 	camera.current = true
 	world_root.add_child(camera)
 	_apply_env(_environment(Color("c5d4e8"), high))
@@ -1899,6 +1898,7 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	root.add_child(model)
 	var player := _find_player(model)
 	root.set_meta("player", player)
+	_loop_clips(player, root.get_meta("clips"))
 	var marker := _find_named(model, "Forward")
 	var face := PI
 	if marker != null:
@@ -2183,6 +2183,11 @@ func _anim(body: Node3D, actor: RunSim.Actor) -> void:
 			_play(body, "walk")
 		else:
 			_play(body, "run")
+		# Belt and braces: a locomotion clip that has stopped is restarted.
+		var p1: AnimationPlayer = body.get_meta("player")
+		if p1 != null and not p1.is_playing() and str(body.get_meta("state", "")) in ["run", "walk"]:
+			body.set_meta("state", "")
+			_play(body, "walk" if slow and _has_walk(p1, body) else "run")
 		# Cadence follows speed: half-tilted stick, half-speed legs.
 		var player: AnimationPlayer = body.get_meta("player")
 		var stt := str(body.get_meta("state", ""))
@@ -2306,6 +2311,29 @@ func _dying(body: Node3D, now: float, vanish := true) -> void:
 		body.set_meta("fade", fade)
 		for gi in body.find_children("*", "GeometryInstance3D", true, false):
 			(gi as GeometryInstance3D).transparency = fade
+
+
+## Every imported clip arrives as LOOP_NONE, so a 0.7 s run cycle played
+## once and froze on its last frame: the hero then slid along with no legs
+## moving. Locomotion and idle clips loop; one-shots (attack, hit, death)
+## stay one-shot unless the model reuses its only clip for them.
+func _loop_clips(player: AnimationPlayer, clips: Dictionary) -> void:
+	if player == null:
+		return
+	var once := []
+	for k in ["attack", "hit", "death"]:
+		once.append(str(clips.get(k, "")))
+	var loops := []
+	for k in ["idle", "run", "walk", "perch"]:
+		loops.append(str(clips.get(k, "")))
+	for name in player.get_animation_list():
+		var low := String(name).to_lower()
+		var cyc := String(name) in loops or ["walk", "run", "idle", "fly", "move", "swim"].any(func(w: String) -> bool: return w in low)
+		if not cyc or (String(name) in once and not String(name) in loops):
+			continue
+		var anim := player.get_animation(name)
+		if anim != null and anim.loop_mode == Animation.LOOP_NONE and anim.length > 0.05:
+			anim.loop_mode = Animation.LOOP_LINEAR
 
 
 func _has_walk(player: AnimationPlayer, body: Node3D) -> bool:
