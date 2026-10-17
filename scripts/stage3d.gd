@@ -25,6 +25,9 @@ var viewport: SubViewport
 var camera: Camera3D
 var sun: DirectionalLight3D
 var _flash_mat: ShaderMaterial
+var _ped_focus := Vector3.ZERO
+var _ped_dir := Vector3.BACK
+var _ped_dist := 0.0
 var world_root: Node3D
 var actor_root: Node3D
 var _look := Vector3.ZERO
@@ -93,7 +96,13 @@ func _process(delta: float) -> void:
 		viewport.size = target
 	if _mode == "pedestal" and _pedestal_hero != null:
 		_pedestal_hero.position.y = PEDESTAL_TOP + absf(sin(Time.get_ticks_msec() * 0.0021)) * 0.03
-		_pedestal_hero.rotation.y = -float(_pedestal_hero.get_meta("face", PI)) + 0.45 + sin(Time.get_ticks_msec() * 0.0005) * 0.5
+		_pedestal_hero.rotation.y = -float(_pedestal_hero.get_meta("face", PI)) + 0.45 + sin(Time.get_ticks_msec() * 0.0005) * 0.22
+		if _ped_dist > 0.0:
+			# A slow handheld drift so the glade breathes and parallaxes.
+			var t := Time.get_ticks_msec() * 0.001
+			var drift := Vector3(sin(t * 0.31) * 0.08 * _ped_dist, sin(t * 0.23 + 1.3) * 0.025 * _ped_dist, 0.0)
+			camera.position = _ped_focus + _ped_dir * _ped_dist + drift
+			camera.look_at(_ped_focus + drift * 0.2, Vector3.UP)
 
 
 func bind_hunt(biome_id: String) -> void:
@@ -122,7 +131,7 @@ func bind_pedestal(hero_id: String) -> void:
 	env.ambient_light_color = Color("c8a888")
 	env.tonemap_exposure = 1.0
 	env.fog_enabled = true
-	env.fog_density = 0.035
+	env.fog_density = 0.06
 	env.fog_light_color = Color(0.5, 0.36, 0.26)
 	env.fog_sky_affect = 0.6
 	env.glow_enabled = true
@@ -713,7 +722,7 @@ func _pedestal_set() -> void:
 		_place_prop("grass_short", Vector3(cos(ang) * r, PEDESTAL_TOP, sin(ang) * r), rng.randf_range(0.35, 0.5), false)
 	# A real forest edge behind the glade: layered trees, then a dense band
 	# of bushes and tall grass, so the backdrop has depth instead of flat fog.
-	var trees := ["tree_a", "tree_b", "tree_twist", "tree_pine", "tree_pine_b", "tree_blossom"]
+	var trees := ["tree_a", "tree_b", "tree_pine", "tree_pine_b", "tree_a", "tree_b"]
 	for i in 16:
 		var x := lerpf(-9.0, 9.0, float(i) / 15.0) + rng.randf_range(-0.6, 0.6)
 		var z := -6.5 - rng.randf_range(0.0, 4.5) - absf(x) * 0.1
@@ -721,7 +730,7 @@ func _pedestal_set() -> void:
 	for i in 18:
 		var x := rng.randf_range(-7.5, 7.5)
 		var z := rng.randf_range(-5.8, -3.6)
-		_place_prop("bush_flower" if i % 3 == 0 else "bush", Vector3(x, 0, z), rng.randf_range(1.1, 1.8), true)
+		_place_prop("bush_flower", Vector3(x, 0, z), rng.randf_range(1.1, 1.8), true)
 	for i in 120:
 		var ang := rng.randf_range(PI * 0.95, TAU * 1.02)
 		var r := rng.randf_range(2.2, 6.5)
@@ -1026,20 +1035,109 @@ func _reframe_posed(body: Node3D) -> void:
 		box.position.y -= drop
 	box = box.grow(box.size.length() * 0.06)
 	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7)
-	var view_h := h / 0.5
+	var view_h := h / 0.6
 	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
-	# Sit the hero below center, well clear of the logo plate above it.
-	var focus := box.get_center() + Vector3(0, view_h * 0.17, 0)
+	# Sit the hero a touch below center, clear of the logo plate above it.
+	var focus := box.get_center() + Vector3(0, view_h * 0.135, 0)
 	var dir := Vector3(0.0, 0.3, 1.0).normalized()
 	camera.position = focus + dir * dist
 	camera.look_at(focus, Vector3.UP)
-	# Defocus the glade behind the hero so the silhouette pops.
-	var fx := CameraAttributesPractical.new()
-	fx.dof_blur_far_enabled = true
-	fx.dof_blur_far_distance = dist + box.size.z * 0.5 + 0.6
-	fx.dof_blur_far_transition = 3.5
-	fx.dof_blur_amount = 0.11
-	camera.attributes = fx
+	_ped_focus = focus
+	_ped_dir = dir
+	_ped_dist = dist
+	_pedestal_atmos(box)
+	# No depth of field: on this renderer it smeared the hero along with the
+	# glade. Warm fog does the separation instead.
+	camera.attributes = null
+
+
+## Life for the glade: slanted shafts of sun through the canopy and a slow
+## drift of fireflies and pollen around the hero.
+func _pedestal_atmos(box: AABB) -> void:
+	var c := box.get_center()
+	var ray_shader := Shader.new()
+	ray_shader.code = """shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+uniform vec4 tint : source_color = vec4(1.0, 0.78, 0.48, 1.0);
+uniform float strength = 0.9;
+uniform float phase = 0.0;
+void fragment() {
+	float across = smoothstep(0.0, 0.35, UV.x) * smoothstep(1.0, 0.65, UV.x);
+	float down = smoothstep(1.0, 0.25, UV.y) * smoothstep(0.0, 0.12, UV.y);
+	float flicker = 0.75 + 0.25 * sin(TIME * 0.6 + phase + UV.y * 3.0);
+	ALBEDO = tint.rgb * strength * across * down * flicker;
+}
+"""
+	var rays := [[Vector3(-1.3, 0, -1.4), 0.8, 0.0], [Vector3(0.1, 0, -1.9), 1.2, 1.7], [Vector3(1.4, 0, -1.3), 0.6, 3.1], [Vector3(-2.4, 0, -0.9), 0.55, 4.4]]
+	for r in rays:
+		var plane := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(float(r[1]), 7.0)
+		plane.mesh = quad
+		var mat := ShaderMaterial.new()
+		mat.shader = ray_shader
+		mat.set_shader_parameter("phase", float(r[2]))
+		plane.material_override = mat
+		plane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world_root.add_child(plane)
+		plane.global_position = Vector3(c.x, PEDESTAL_TOP, c.z) + (r[0] as Vector3) + Vector3(0, 3.0, 0)
+		# Lean the shafts away from the low sun, facing the camera.
+		plane.rotation = Vector3(0.0, 0.0, deg_to_rad(-24.0))
+	var flies := GPUParticles3D.new()
+	flies.amount = 46
+	flies.lifetime = 7.0
+	flies.preprocess = 7.0
+	flies.visibility_aabb = AABB(Vector3(-6, -2, -6), Vector3(12, 8, 12))
+	var proc := ParticleProcessMaterial.new()
+	proc.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	proc.emission_box_extents = Vector3(box.size.x * 0.9 + 1.2, box.size.y * 0.6 + 0.4, 1.4)
+	proc.gravity = Vector3(0, 0.03, 0)
+	proc.initial_velocity_min = 0.02
+	proc.initial_velocity_max = 0.12
+	proc.direction = Vector3(0, 1, 0)
+	proc.spread = 180.0
+	proc.turbulence_enabled = true
+	proc.turbulence_noise_strength = 0.4
+	proc.turbulence_noise_scale = 2.5
+	proc.turbulence_influence_min = 0.05
+	proc.turbulence_influence_max = 0.12
+	proc.scale_min = 0.5
+	proc.scale_max = 1.2
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 0))
+	fade.set_color(1, Color(1, 1, 1, 0))
+	fade.add_point(0.2, Color(1, 1, 1, 1))
+	fade.add_point(0.8, Color(1, 1, 1, 1))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	proc.color_ramp = ramp
+	flies.process_material = proc
+	var dot := QuadMesh.new()
+	dot.size = Vector2(0.08, 0.08)
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	glow.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	glow.vertex_color_use_as_albedo = true
+	glow.albedo_color = Color(1.0, 0.86, 0.5)
+	glow.disable_fog = true
+	glow.albedo_texture = _soft_dot()
+	glow.disable_receive_shadows = true
+	dot.material = glow
+	flies.draw_pass_1 = dot
+	world_root.add_child(flies)
+	flies.global_position = c + Vector3(0, 0.2, 0.3)
+
+
+func _soft_dot() -> Texture2D:
+	var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	for y in 32:
+		for x in 32:
+			var d := Vector2(x - 15.5, y - 15.5).length() / 16.0
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a * a))
+	return ImageTexture.create_from_image(img)
 
 
 func _decal(size: float, params: Dictionary) -> MeshInstance3D:
