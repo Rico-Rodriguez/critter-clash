@@ -51,10 +51,37 @@ const MINION_XP := 0.7
 ## What the far follow camera frames on the ground, relative to the hero
 ## (sim px; Stage3D DIST 34, FOV 40, AIM +1.5, pitch 58; tools: viewbox.py). The far edge is
 ## wider than the near one; the box takes the wider. Packs spawn just past it.
-const VIEW_BOX := Rect2(-418.0, -1238.0, 836.0, 1807.0)
+const VIEW_BOX := Rect2(-627.0, -1857.0, 1254.0, 2710.0)
 const SPAWN_MARGIN := 24.0
+## Heroes fight only when planted: moving is a clean run, and the first shot
+## comes this long after the stick is released.
+const PLANT := 0.08
 var _next_id := 1
 var bases: Dictionary = {}
+
+## --- Explore mode (solo and co-op hunts) ---
+## The hunt is a map to explore: camps, patrols, elite packs and loot chests
+## are placed up front, the boss waits in its lair at the far end, and
+## killing it ends the run. No wave spawner and no clock.
+var explore := false
+## Fog of war on the map's pathing grid: seen stays 1 once revealed, now is
+## what the hero can see this moment.
+var fog_seen := PackedByteArray()
+var fog_now := PackedByteArray()
+var fog_dirty := true
+const REVEAL := 780.0
+const AGGRO_CAMP := 430.0
+const AGGRO_PATROL := 380.0
+const LEASH := 1500.0
+## Loot chests on the map: {pos, tier, open}
+var chests: Array = []
+var loot_coins := 0
+var boss_time := 0.0
+var _fog_t := 0.0
+var _flow := PackedInt32Array()
+var _flow_cell := -1
+var _flow_t := 0.0
+var _add_t := 0.0
 
 
 class Actor extends RefCounted:
@@ -101,6 +128,16 @@ class Actor extends RefCounted:
 	var stall_t := 0.0
 	var side_t := 0.0
 	var side_dir := Vector2.ZERO
+	## Seconds since the stick was released (0 while moving).
+	var still := 0.0
+	# Explore: camps and patrols wait until the hero comes close.
+	var camp := -1
+	var home := Vector2.ZERO
+	var aggro := true
+	var patrol_a := Vector2.INF
+	var patrol_b := Vector2.ZERO
+	var to_b := true
+	var elite := false
 
 
 class Shot extends RefCounted:
@@ -148,8 +185,12 @@ func start(session: Session, stats_for: Dictionary) -> void:
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
-	map = HuntMap.for_biome(biome_id)
+	explore = mode != Session.Mode.DUEL
+	map = HuntMap.world(biome_id, rng.seed) if explore else HuntMap.for_biome(biome_id)
 	play = map.play
+	if explore:
+		fog_seen.resize(map.grid_w * map.grid_h)
+		fog_now.resize(map.grid_w * map.grid_h)
 	xp_need = Catalog.xp_for_level(1)
 	var count := session.hero_ids.size()
 	if mode == Session.Mode.SOLO:
@@ -193,7 +234,10 @@ func step(dt: float, moves: Array) -> void:
 	for actor in actors:
 		if actor.alive:
 			_clamp_actor(actor)
-	_step_spawns(dt)
+	if explore:
+		_step_explore(dt)
+	else:
+		_step_spawns(dt)
 	_enrage_and_timeout()
 	_compact()
 
@@ -277,7 +321,7 @@ func _spawn_hero(id: String, stats: Dictionary, index: int) -> void:
 	hero.role = str(info.get("role", "mage"))
 	hero.display = str(info.get("name", id))
 	hero.radius = 32.0
-	hero.pos = play.get_center() + Vector2(-70 if index > 0 else 0, 40 if index > 0 else 0)
+	hero.pos = (map.start if explore else play.get_center()) + Vector2(-70 if index > 0 else 0, 40 if index > 0 else 0)
 	hero.prev = hero.pos
 	hero.alive = true
 	bases[hero.id] = stats.duplicate(true)
@@ -286,7 +330,10 @@ func _spawn_hero(id: String, stats: Dictionary, index: int) -> void:
 	hero.hp = hero.max_hp
 	actors.append(hero)
 	heroes.append(hero)
-	if index == 0:
+	if index == 0 and explore:
+		_spawn_world()
+		_landmark_stones()
+	elif index == 0:
 		# Open on a pack already closing in, so the first second has a fight.
 		_spawn_pack(0, PACK_SIZE, Catalog.WAVES[0]["pool"])
 
@@ -408,10 +455,18 @@ func _move_heroes(dt: float, moves: Array) -> void:
 		if mv.length() > 1.0:
 			mv = mv.normalized()
 		hero.vel = _slide(hero, mv * hero.speed)
+		var was := hero.pos
 		hero.pos += hero.vel * dt
 		_push_out(hero)
+		if explore:
+			# Slide along the forest edge; the body's speed is what it really moved.
+			hero.pos = map.push_inside(hero.pos, hero.radius * 0.8)
+			hero.vel = (hero.pos - was) / maxf(dt, 0.0001)
 		if mv.length() > 0.08:
 			hero.facing = mv.angle()
+			hero.still = 0.0
+		else:
+			hero.still += dt
 		hero.iframes = maxf(0.0, hero.iframes - dt)
 		hero.flash = maxf(0.0, hero.flash - dt)
 		hero.cd = maxf(0.0, hero.cd - dt)
@@ -423,16 +478,14 @@ func _move_heroes(dt: float, moves: Array) -> void:
 
 func _hero_attacks() -> void:
 	for hero in heroes:
-		if not hero.alive or hero.cd > 0.0:
+		# Run or fight, never both: no shots and no aim-turning on the move.
+		if not hero.alive or hero.cd > 0.0 or hero.still < PLANT:
 			continue
 		var target := nearest_hostile(hero, hero.range)
 		if target == null:
 			continue
-		# Aim is separate from facing: while moving the hero keeps facing the
-		# stick; it only turns to its target when it stands still.
 		hero.aim = (target.pos - hero.pos).angle()
-		if hero.vel.length() < 20.0:
-			hero.facing = hero.aim
+		hero.facing = hero.aim
 		hero.cd = hero.interval
 		events.append({
 			"type": "attack",
@@ -536,6 +589,19 @@ func _step_minions(dt: float) -> void:
 		var delta := target.pos - actor.pos
 		var dist := delta.length()
 		var dir := delta / dist if dist > 0.001 else Vector2.RIGHT
+		if explore:
+			if not actor.aggro:
+				_idle_minion(actor, dt, dist)
+				continue
+			if actor.pos.distance_to(actor.home) > LEASH and dist > 700.0:
+				# Leashed: give up and walk home.
+				_set_camp_aggro(actor, false)
+				continue
+			if dist > 240.0:
+				var way := _chase_point(actor, target)
+				var to := way - actor.pos
+				if to.length() > 1.0:
+					dir = to.normalized()
 		actor.facing = dir.angle()
 		if actor.archetype == "shooter":
 			if actor.windup > 0.0:
@@ -562,6 +628,8 @@ func _step_minions(dt: float) -> void:
 			actor.vel = _steer(actor, dir * actor.speed)
 			actor.pos += actor.vel * dt
 		_push_out(actor)
+		if explore:
+			actor.pos = map.push_inside(actor.pos, actor.radius * 0.8)
 		if actor.pos.distance_to(target.pos) < actor.radius + target.radius and actor.touch_cd <= 0.0:
 			actor.touch_cd = 0.74
 			events.append({"type": "attack", "id": actor.id})
@@ -921,7 +989,7 @@ func _spawn_boss() -> void:
 	actor.hp = actor.max_hp
 	actor.speed = float(info.get("boss_speed", 70))
 	actor.dmg = float(info.get("boss_touch", 16)) * mul
-	actor.pos = map.boss_spawn(actor.radius)
+	actor.pos = map.lair if explore else map.boss_spawn(actor.radius)
 	actor.prev = actor.pos
 	actor.boss_state = "idle"
 	actor.boss_timer = 0.9
@@ -934,6 +1002,12 @@ func _spawn_boss() -> void:
 	boss = actor
 	boss_mark = 0
 	_build_arena(actor.pos)
+	if explore:
+		# Anything left in the lair joins the fight; the rest of the map stays put.
+		for other in actors:
+			if other.kind == "minion" and other.alive and other.pos.distance_to(map.lair) < map.lair_r + 200.0:
+				other.aggro = true
+		return
 	for other in actors:
 		if other.kind == "minion" and other.alive:
 			other.alive = false
@@ -941,6 +1015,8 @@ func _spawn_boss() -> void:
 
 
 func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker: Actor, allow_thorns: bool) -> void:
+	if explore and target.kind == "minion" and not target.aggro:
+		_set_camp_aggro(target, true)
 	if target == null or not target.alive:
 		return
 	if target.kind == "hero" and target.iframes > 0.0:
@@ -1124,6 +1200,11 @@ func _separate() -> void:
 
 
 func _enrage_and_timeout() -> void:
+	if explore:
+		if phase == "boss" and not enraged and boss_time >= 75.0:
+			enraged = true
+			events.append({"type": "banner", "text": "The boss is furious"})
+		return
 	if phase == "boss" and not enraged and time >= 100.0:
 		enraged = true
 		events.append({"type": "banner", "text": "The boss is furious"})
@@ -1218,6 +1299,8 @@ static func _on_rect(r: Rect2, d: float) -> Vector2:
 
 func _clamp_actor(actor: Actor) -> void:
 	actor.pos = _clamp_point(actor.pos, actor.radius)
+	if explore:
+		actor.pos = map.push_inside(actor.pos, actor.radius * (0.6 if actor.kind == "boss" else 0.8))
 
 
 func _clamp_point(at: Vector2, radius: float) -> Vector2:
@@ -1291,6 +1374,8 @@ const SHOOT_WINDUP := 0.28
 ## through rather than walling the hero in. Stage3D renders these.
 func _build_arena(boss_at: Vector2) -> void:
 	obstacles.clear()
+	if explore:
+		_landmark_stones()
 	var hero_at := boss_at
 	if not heroes.is_empty():
 		hero_at = heroes[0].pos
@@ -1306,7 +1391,7 @@ func _build_arena(boss_at: Vector2) -> void:
 			continue
 		var ang := TAU * float(i) / float(count) + jitter
 		var at := center + Vector2(cos(ang), sin(ang)) * (radius + wob)
-		if play.grow(-50.0).has_point(at):
+		if play.grow(-50.0).has_point(at) and (not explore or map.depth(at) > ARENA_STONE_R + 20.0):
 			obstacles.append(Vector3(at.x, at.y, ARENA_STONE_R))
 
 
@@ -1397,3 +1482,205 @@ func _open_side(actor: Actor, dir: Vector2) -> Vector2:
 			best_score = score
 			best = side
 	return best
+
+
+# --- Explore ------------------------------------------------------------------
+
+## Places the map's camps, elite packs and patrols. Critters further north
+## (closer to the lair) are tougher and pay more.
+func _spawn_world() -> void:
+	var skins: Array = biome["skins"]
+	for ci in map.camps.size():
+		var camp: Dictionary = map.camps[ci]
+		var at: Vector2 = camp["pos"]
+		var count: int = camp["count"]
+		var base := ci % skins.size()
+		for k in count:
+			var ang := TAU * float(k) / float(count) + rng.randf_range(-0.3, 0.3)
+			var p := map.push_inside(at + Vector2.RIGHT.rotated(ang) * rng.randf_range(70.0, 150.0), 30.0)
+			var skin := base if k % 2 == 0 else rng.randi() % skins.size()
+			var m := _place_minion(skin, p, ci)
+		if bool(camp["elite"]):
+			var e := _place_minion(rng.randi() % skins.size(), at, ci)
+			_make_elite(e)
+	for pi in map.patrols.size():
+		var pat: Dictionary = map.patrols[pi]
+		var a: Vector2 = pat["a"]
+		var b: Vector2 = pat["b"]
+		var tag := 1000 + pi
+		for k in int(pat["count"]):
+			var m := _place_minion(rng.randi() % skins.size(), a + Vector2(rng.randf_range(-50, 50), rng.randf_range(-50, 50)), tag)
+			m.patrol_a = a
+			m.patrol_b = b
+	for c in map.loot:
+		chests.append({"pos": c["pos"], "tier": c["tier"], "open": false})
+
+
+func _place_minion(skin: int, at: Vector2, camp: int) -> Actor:
+	_spawn_minion(skin, at)
+	var m: Actor = actors[-1]
+	m.camp = camp
+	m.home = at
+	m.aggro = false
+	m.facing = rng.randf() * TAU
+	var depth := 1.0 - clampf(at.y / maxf(map.size.y, 1.0), 0.0, 1.0)
+	m.max_hp *= EXPLORE_HP * (1.0 + depth * 0.9)
+	m.hp = m.max_hp
+	m.dmg *= 1.0 + depth * 0.5
+	m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * (1.0 + depth * 0.6))))
+	return m
+
+
+const EXPLORE_HP := 1.6
+const EXPLORE_XP := 1.25
+
+
+func _make_elite(m: Actor) -> void:
+	m.elite = true
+	m.max_hp *= 5.0
+	m.hp = m.max_hp
+	m.dmg *= 1.6
+	m.radius *= 1.35
+	m.xp *= 6
+	m.display = "Elite " + m.display
+
+
+func _idle_minion(actor: Actor, dt: float, dist: float) -> void:
+	var reach := AGGRO_PATROL if actor.patrol_a != Vector2.INF else AGGRO_CAMP
+	if dist < reach and fog_now.size() > 0:
+		_set_camp_aggro(actor, true)
+		return
+	var goal := actor.home
+	var pace := 0.55
+	if actor.patrol_a != Vector2.INF:
+		goal = actor.patrol_b if actor.to_b else actor.patrol_a
+		pace = 0.42
+		if actor.pos.distance_to(goal) < 40.0:
+			actor.to_b = not actor.to_b
+	var to := goal - actor.pos
+	if to.length() > 24.0:
+		actor.vel = to.normalized() * actor.speed * pace
+		actor.pos += actor.vel * dt
+		actor.facing = actor.vel.angle()
+		actor.pos = map.push_inside(actor.pos, actor.radius * 0.8)
+	else:
+		actor.vel = Vector2.ZERO
+		# Back home after a leash: patch up.
+		actor.hp = minf(actor.max_hp, actor.hp + actor.max_hp * 0.25 * dt)
+
+
+func _set_camp_aggro(actor: Actor, on: bool) -> void:
+	for a in actors:
+		if a.alive and a.kind == "minion" and (a == actor or (actor.camp >= 0 and a.camp == actor.camp)):
+			a.aggro = on
+			if not on:
+				a.vel = Vector2.ZERO
+	if on and actor.camp >= 0:
+		events.append({"type": "aggro", "id": actor.id, "pos": actor.pos})
+
+
+## Where a chaser should head: straight at the hero when close, otherwise
+## down the shared flow field around the forest.
+func _chase_point(actor: Actor, target: Actor) -> Vector2:
+	if _flow.is_empty():
+		return target.pos
+	var way := map.downhill(_flow, actor.pos)
+	if way == Vector2.INF:
+		return target.pos
+	return way
+
+
+func _step_explore(dt: float) -> void:
+	if heroes.is_empty():
+		return
+	var hero: Actor = heroes[0]
+	if phase == "boss":
+		boss_time += dt
+		_add_t -= dt
+		if _add_t <= 0.0 and boss != null and boss.alive and _minion_count() < 6:
+			# The boss calls adds from the lair's edge.
+			_add_t = 9.0
+			var skins: Array = biome["skins"]
+			for k in 2:
+				var ang := rng.randf() * TAU
+				var at := map.push_inside(map.lair + Vector2.RIGHT.rotated(ang) * (map.lair_r - 80.0), 30.0)
+				var m := _place_minion(rng.randi() % skins.size(), at, -1)
+				m.aggro = true
+			events.append({"type": "banner", "text": "Adds incoming"})
+	# Shared flow field from the hero, rebuilt when the hero changes cell.
+	_flow_t -= dt
+	var cell := map.cell_index(hero.pos)
+	if cell != _flow_cell or _flow_t <= 0.0:
+		_flow_cell = cell
+		_flow_t = 0.5
+		_flow = map.flow(hero.pos, 34)
+	# Fog of war.
+	_fog_t -= dt
+	if _fog_t <= 0.0:
+		_fog_t = 0.1
+		_reveal(hero.pos)
+	# Loot chests.
+	for c in chests:
+		if bool(c["open"]) or hero.pos.distance_to(c["pos"]) > hero.radius + 56.0:
+			continue
+		c["open"] = true
+		var rare: bool = str(c["tier"]) == "rare"
+		var value := (40 if rare else 18) + level * 2
+		var coins := 40 if rare else 15
+		loot_coins += coins
+		for k in (9 if rare else 6):
+			_drop_gem(c["pos"] + Vector2.RIGHT.rotated(TAU * k / 6.0) * rng.randf_range(40.0, 90.0), maxi(1, value / (9 if rare else 6)))
+		hero.hp = minf(hero.max_hp, hero.hp + hero.max_hp * 0.2)
+		events.append({"type": "loot", "pos": c["pos"], "tier": c["tier"], "coins": coins, "shake": 0.25})
+	# The lair: walk in and the boss rises.
+	if phase == "hunt" and hero.pos.distance_to(map.lair) < map.lair_r * 0.72:
+		begin_boss()
+		_add_t = 6.0
+
+
+func _reveal(at: Vector2) -> void:
+	fog_now.fill(0)
+	var r := int(ceil(REVEAL / HuntMap.GRID))
+	var c := map.cell_index(at)
+	var cx := c % map.grid_w
+	var cy := c / map.grid_w
+	var r2 := (REVEAL / HuntMap.GRID) * (REVEAL / HuntMap.GRID)
+	for y in range(maxi(0, cy - r), mini(map.grid_h, cy + r + 1)):
+		for x in range(maxi(0, cx - r), mini(map.grid_w, cx + r + 1)):
+			var dx := float(x - cx)
+			var dy := float(y - cy) * 0.8
+			if dx * dx + dy * dy <= r2:
+				var i := y * map.grid_w + x
+				fog_now[i] = 1
+				if fog_seen[i] == 0:
+					fog_seen[i] = 1
+	fog_dirty = true
+
+
+func seen_at(p: Vector2) -> bool:
+	return not explore or fog_seen[map.cell_index(p)] == 1
+
+
+func visible_at(p: Vector2) -> bool:
+	return not explore or fog_now[map.cell_index(p)] == 1
+
+
+## Share of the map's open ground revealed so far (0..1).
+func explored() -> float:
+	if not explore:
+		return 1.0
+	var open := 0
+	var seen := 0
+	for i in map.open_cells.size():
+		if map.open_cells[i] == 1:
+			open += 1
+			if fog_seen[i] == 1:
+				seen += 1
+	return float(seen) / maxf(float(open), 1.0)
+
+
+## Landmarks (great trees, standing stones, ruins) are solid.
+func _landmark_stones() -> void:
+	for l in map.landmarks:
+		var p: Vector2 = l["pos"]
+		obstacles.append(Vector3(p.x, p.y, float(l["r"])))

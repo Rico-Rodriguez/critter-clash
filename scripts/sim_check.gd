@@ -170,28 +170,7 @@ static func _maps() -> void:
 	var tl := pinned.top_left()
 	if tl.x < -0.01 or tl.y < -0.01 or tl.x > HuntMap.ARENA.x - HuntMap.VIEW.x + 0.01 or tl.y > HuntMap.ARENA.y - HuntMap.VIEW.y + 0.01:
 		_fail("arena camera left the map")
-	var session := Session.solo("meadow", "ember")
-	session.seed = 11
-	var sim := RunSim.new()
-	sim.start(session, {"ember": Catalog.base_stats("ember")})
-	var minions := 0
-	var hero_at: Vector2 = sim.heroes[0].pos
-	for actor in sim.actors:
-		if actor.kind != "minion":
-			continue
-		minions += 1
-		# Packs land just outside the camera's view, inside the zone.
-		if not play.has_point(actor.pos):
-			_fail("spawn left the zone")
-			return
-		var rel: Vector2 = actor.pos - hero_at
-		var view := RunSim.VIEW_BOX
-		var outer := view.grow(RunSim.SPAWN_MARGIN + 80.0)
-		if view.grow(-30.0).has_point(rel) or not outer.has_point(rel):
-			_fail("opening pack spawned at %s, not just outside the view" % str(rel))
-			return
-	if minions != RunSim.PACK_SIZE:
-		_fail("expected an opening pack of %d" % RunSim.PACK_SIZE)
+	_world_maps()
 	var wide := HuntMap.explore("meadow", 4, 4)
 	if wide.size != Vector2(2880, 5120) or wide.chunks.size() != 16 or wide.zones.size() != 16:
 		_fail("4x4 map is not 16 chunks")
@@ -240,19 +219,69 @@ static func _maps() -> void:
 
 
 static func _fights() -> void:
+	# Explore hunts: each hero clears a map and kills the lair boss in a
+	# 3-7 minute run (bots walk the map greedily; players take longer).
 	for hero in ["ember", "juniper", "pebble"]:
 		var report := _play(hero, "meadow", 11, false)
 		print("FIGHT ", hero, " ", report)
 		if str(report["result"]) != "win":
 			_fail("%s should clear the meadow, got %s" % [hero, report["result"]])
-		if float(report["time"]) < 60.0 or float(report["time"]) >= 119.0:
-			_fail("%s time %s outside the hunt window" % [hero, report["time"]])
-		if int(report["level"]) < 3:
+		if float(report["time"]) < 150.0 or float(report["time"]) > 420.0:
+			_fail("%s time %s outside the 3-7 min window" % [hero, report["time"]])
+		if int(report["level"]) < 6:
 			_fail("%s only reached level %s" % [hero, report["level"]])
-	var idle := _play("ember", "meadow", 11, true)
+	# No clock and no wave spawner: a hero who stands at the start is safe.
+	var idle := _play("ember", "meadow", 11, true, 60.0 * 90.0)
 	print("FIGHT idle ", idle)
-	if str(idle["result"]) != "lose":
-		_fail("standing still should lose")
+	if str(idle["result"]) != "" or float(idle["hp"]) <= 0.0:
+		_fail("standing at the start should be safe in an explore hunt")
+
+
+## Explore map invariants: the start and lair are open, the lair is
+## reachable, every camp and chest sits on reachable open ground, and the
+## opening has no critters in sight.
+static func _world_maps() -> void:
+	for biome in ["meadow", "mushroom", "frost", "volcano"]:
+		for seed in [3, 11, 42]:
+			var m := HuntMap.world(biome, seed)
+			var arena := HuntMap.ARENA.x * HuntMap.ARENA.y
+			if m.size.x * m.size.y < arena * 15.0:
+				_fail("world map is not ~16x the arena")
+			var field := m.flow(m.start)
+			if field[m.cell_index(m.lair)] < 0:
+				_fail("%s/%d lair unreachable" % [biome, seed])
+			for c in m.camps:
+				if field[m.cell_index(c["pos"])] < 0 or m.depth(c["pos"]) < 0.0:
+					_fail("%s/%d camp off the open ground" % [biome, seed])
+			for c in m.loot:
+				if field[m.cell_index(c["pos"])] < 0:
+					_fail("%s/%d chest unreachable" % [biome, seed])
+			if m.camps.size() < 8 or m.loot.size() < 3 or m.patrols.size() < 2:
+				_fail("%s/%d too few camps/chests/patrols (%d/%d/%d)" % [biome, seed, m.camps.size(), m.loot.size(), m.patrols.size()])
+			var elites := 0
+			for c in m.camps:
+				if bool(c["elite"]):
+					elites += 1
+			if elites < 2:
+				_fail("%s/%d needs two elite packs" % [biome, seed])
+	var session := Session.solo("meadow", "ember")
+	session.seed = 11
+	var sim := RunSim.new()
+	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	if not sim.explore:
+		_fail("solo hunts should be explore maps")
+		return
+	var hero_at: Vector2 = sim.heroes[0].pos
+	for actor in sim.actors:
+		if actor.kind == "minion" and actor.pos.distance_to(hero_at) < RunSim.AGGRO_CAMP + 150.0:
+			_fail("a camp sits on the start")
+	# Walls hold: walking into the forest slides along the edge.
+	for _i in 240:
+		sim.step(1.0 / 60.0, [Vector2(1, 0)])
+		sim.drain_events()
+	if sim.map.depth(sim.heroes[0].pos) < sim.heroes[0].radius * 0.8 - 1.0:
+		_fail("hero walked into the forest")
+	print("WORLD maps ok, opening clear")
 
 
 ## Balance sweep: each hero over several seeds, plus idle. Prints the
@@ -271,10 +300,10 @@ static func balance() -> void:
 		for t in times:
 			total += t
 		var avg := total / times.size()
-		print("BALANCE %s wins %d/8 avg %.1fs (%.0f%% of 120) min %.1f max %.1f" % [hero, wins, avg, avg / 1.2, times.min(), times.max()])
+		print("BALANCE %s wins %d/8 avg %.1fs min %.1f max %.1f" % [hero, wins, avg, times.min(), times.max()])
 
 
-static func _play(hero: String, biome: String, seed: int, idle: bool) -> Dictionary:
+static func _play(hero: String, biome: String, seed: int, idle: bool, frames: float = 60.0 * 600.0) -> Dictionary:
 	var session := Session.solo(biome, hero)
 	session.seed = seed
 	var sim := RunSim.new()
@@ -282,7 +311,8 @@ static func _play(hero: String, biome: String, seed: int, idle: bool) -> Diction
 	stats[hero] = Catalog.base_stats(hero)
 	sim.start(session, stats)
 	var guard := 0
-	while sim.result == "" and guard < 9000:
+	var mem := {}
+	while sim.result == "" and guard < int(frames):
 		guard += 1
 		if sim.paused and sim.offer.size() > 0:
 			sim.choose(_best(sim))
@@ -290,7 +320,7 @@ static func _play(hero: String, biome: String, seed: int, idle: bool) -> Diction
 			continue
 		if sim.paused:
 			return {"result": "stuck", "time": sim.time, "level": sim.level, "hp": 0}
-		var mv := Vector2.ZERO if idle else RunBot.steer(sim, 0)
+		var mv := Vector2.ZERO if idle else (RunBot.explore_steer(sim, 0, mem) if sim.explore else RunBot.steer(sim, 0))
 		sim.step(1.0 / 60.0, [mv])
 		sim.drain_events()
 	var hp := 0.0
