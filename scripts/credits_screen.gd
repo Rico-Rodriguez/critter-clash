@@ -74,6 +74,27 @@ const ENTRIES := [
 		"license": "CC-BY 4.0",
 	},
 	{
+		"title": "Animated Fox 3D Model",
+		"used": "Juniper, the fox ranger (armour built in-engine)",
+		"author": "AnimalMesh 3D",
+		"url": "https://sketchfab.com/3d-models/animated-fox-3d-model-7b7d4f07d47a444ab6c08b62adfd4aff",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Animated Badger – 3D Animal Model",
+		"used": "Rot Badger",
+		"author": "AnimalMesh 3D",
+		"url": "https://sketchfab.com/3d-models/animated-badger-3d-animal-model-c495442f215d4f2ba18c29fcd9cc7587",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Animated Realistic Bear – 3D Animal Model",
+		"used": "Grave Bear",
+		"author": "AnimalMesh 3D",
+		"url": "https://sketchfab.com/3d-models/animated-realistic-bear-3d-animal-model-77a1fcdc92e14db698767da9ee09f84a",
+		"license": "CC-BY 4.0",
+	},
+	{
 		"title": "Golem",
 		"used": "Cinder and Nimbus, the volcano and frost lair bosses",
 		"author": "DWN (dwn76)",
@@ -82,7 +103,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "fantasy boar animation",
-		"used": "Boarlet, Snowpup and Magmash",
+		"used": "Snowpup and Magmash",
 		"author": "blam (Blam577895)",
 		"url": "https://sketchfab.com/3d-models/fantasy-boar-animation-a9dd958971ea462fbaab621410c30748",
 		"license": "CC-BY 4.0",

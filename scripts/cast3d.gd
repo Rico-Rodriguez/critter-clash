@@ -23,7 +23,7 @@ const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
 ## Wild critters and bosses wear their own species (Quaternius Ultimate
 ## Monsters, CC0), never a playable hero's mesh.
 const MONSTERS := {
-	"sprout": "mushnub", "beetle": "armabee", "capling": "mushnub_evolved",
+	"beetle": "armabee", "capling": "mushnub_evolved",
 	"spore": "spiky_blob", "puddle": "glub", "yeti": "yeti2", "cindling": "demon",
 }
 ## Monsters that fly (no walk cycle): they hover on Flying_Idle and dart on Fast_Flying.
@@ -35,7 +35,7 @@ const BITERS := ["mushnub", "mushnub_evolved", "spiky_blob"]
 ## Higher-detail, hand-painted PBR creatures from Sketchfab (CC-BY 4.0,
 ## see CREDITS.md). One rig serves a few species, graded per biome.
 const SKETCH_MON := {
-	"boarlet": "boar", "snowpup": "boar", "magmash": "boar",
+	"snowpup": "boar", "magmash": "boar",
 	"moth": "batlord", "glowmoth": "batlord", "ashbat": "batlord", "icewisp": "batlord",
 	"skink": "scorpion", "shard": "scorpion",
 	"cinder": "golem", "nimbus": "golem",
@@ -61,6 +61,26 @@ static func flies(id: String) -> bool:
 	return monster(id) in FLYERS or sketch_mon(id) == "batlord"
 
 
+## Dark-fantasy pass (art direction 2026-10-17): realistic, worn creatures.
+## Heroes keep their animal and wear Armor3D kit; enemies are feral beasts.
+## Files in assets/models/sketchfab/dark/ (CC-BY 4.0, see CREDITS.md).
+const DARK := {"juniper": "fox", "sprout": "badger", "boarlet": "bear"}
+const DARK_CLIPS := {
+	"fox": {"idle": "A5_StandAngry_Breathing_01", "walk": "Loco_Walk", "run": "Run", "attack": "Attack_StandAngry_02_High", "hit": "Hit_Stand_R01", "death": "Death_Stand_L01", "perch": "A3_Stand_Idle_01"},
+	"badger": {"idle": "Badger|european_badger_aggressive_idle_01", "walk": "Badger|european_badger_trot_fwd_01", "run": "Badger|european_badger_sprint_fwd_01", "attack": "Badger|european_badger_aggressive_attack_fwd_01", "hit": "Badger|european_badger_hit_chest_front_01", "death": "Badger|european_badger_dead_run_01"},
+	"bear": {"idle": "Armature|stand angry breathing", "walk": "Armature|walk", "run": "Armature|run", "attack": "Armature|atk run", "hit": "Armature|hit lying", "death": "Armature|stand to lying"},
+}
+
+
+static func dark(id: String) -> String:
+	return str(DARK.get(id, ""))
+
+
+## Armour kit Armor3D builds onto a hero rig ("" for none).
+static func armor(id: String) -> String:
+	return "fox_ranger" if dark(id) == "fox" else ""
+
+
 static func sketch_mon(id: String) -> String:
 	return str(SKETCH_MON.get(id, ""))
 
@@ -70,6 +90,9 @@ static func monster(id: String) -> String:
 
 
 static func model(id: String) -> String:
+	var dk := dark(id)
+	if dk != "" and ResourceLoader.exists("res://assets/models/sketchfab/dark/%s.glb" % dk):
+		return "res://assets/models/sketchfab/dark/%s.glb" % dk
 	if id == "caplet" and ResourceLoader.exists("res://assets/models/sketchfab/thistle.glb"):
 		# The mushroom wood's lord: the Mushroom Boss rig, dyed violet.
 		return "res://assets/models/sketchfab/thistle.glb"
@@ -139,6 +162,8 @@ static func family(id: String) -> String:
 
 static func clips(id: String) -> Dictionary:
 	var path := model(id)
+	if "/sketchfab/dark/" in path:
+		return DARK_CLIPS[dark(id)]
 	if "/sketchfab/mon/" in path:
 		return SKETCH_CLIPS[sketch_mon(id)]
 	var mon := monster(id)
@@ -182,6 +207,17 @@ static func clips(id: String) -> Dictionary:
 ## Empty means "leave the file's materials alone".
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
+	if "/sketchfab/dark/" in path:
+		# Real fur and hide maps: matte, desaturated and a shade darker, a
+		# cold rim. Enemies get burning eyes via the motion layer's glow.
+		var d := {"roughness": 0.86, "specular": 0.28, "rim": 0.22, "rim_tint": 0.8, "grade": 0.72}
+		if id == "sprout":
+			d["albedo"] = Color(0.62, 0.6, 0.52)
+		elif id == "boarlet":
+			d["albedo"] = Color(0.5, 0.46, 0.44)
+		else:
+			d["albedo"] = Color(0.86, 0.8, 0.74)
+		return d
 	if "/sketchfab/mon/" in path:
 		# Painted PBR hides: matte, a cool rim, a little backlight. Bosses'
 		# cores glow through (golem cracks), set per biome.
@@ -253,6 +289,15 @@ static func pbr(id: String) -> Dictionary:
 static func size_boost(id: String) -> float:
 	if model(id).ends_with("sketchfab/ember.glb"):
 		return 1.6
+	# Dark quadrupeds are sized by height, so long low bodies need a nudge:
+	# the fox reads oversized next to mobs, the rot-bear must loom over it.
+	match dark(id):
+		"fox":
+			return 0.82
+		"bear":
+			return 1.55
+		"badger":
+			return 1.05
 	return 1.0
 
 
@@ -261,6 +306,8 @@ static func tint(id: String) -> Color:
 	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
 	# catalog color.
 	var path := model(id)
+	if "/sketchfab/dark/" in path:
+		return Color.WHITE
 	if "/sketchfab/mon/" in path:
 		return SKETCH_TINT.get(id, Color.WHITE)
 	if monster(id) != "":
@@ -292,7 +339,13 @@ static func nose(id: String) -> float:
 	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
 	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
 	var path := model(id)
-	if monster(id) != "" or "/sketchfab/mon/" in path:
+	if dark(id) == "badger":
+		# Measured from the rig (pelvis -> head) at spawn; the badger's rest
+		# pose matches its clips. The AnimalMesh3D fox and bear face +Z.
+		return -2.0
+	if dark(id) != "":
+		return 0.0
+	if monster(id) != "" or "/sketchfab/mon/" in path or "/sketchfab/dark/" in path:
 		return 0.0
 	# The dragon, KAI, and the mushroom all face +Z. A turntable render
 	# showed KAI's back under the old "nose is -Z" default.
@@ -310,6 +363,11 @@ static func portrait_turn(id: String) -> float:
 	return 0.55
 
 
+## Yaw for the head close-up: quadrupeds look almost straight at the camera.
+static func head_turn(id: String) -> float:
+	return 0.25 if dark(id) != "" else 0.55
+
+
 ## Clip time to freeze for a portrait. The dragon's wings are spread mid-flap.
 static func portrait_time(id: String) -> float:
 	if model(id).ends_with("sketchfab/ember.glb"):
@@ -325,6 +383,11 @@ static func head_window(id: String) -> Rect2:
 		# Head plus a wing and horns, so the medallion reads "dragon" and
 		# not a big-eyed chick.
 		return Rect2(0.22, 0.0, 0.78, 0.82)
+	if dark(id) != "":
+		# Side-on quadrupeds face right in the 3/4 render: head top right.
+		# Head crops render near-frontal (head_turn), so the face is the
+		# upper middle of the body box.
+		return Rect2(0.18, 0.28, 0.64, 0.72)
 	if id == "pebble":
 		# The otter stands side-on: its head sits top right of the body box.
 		return Rect2(0.36, 0.0, 0.64, 0.62)

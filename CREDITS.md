@@ -29,7 +29,7 @@ The older fonts below remain in the repository but the interface no longer uses 
 - Pebble the otter: "Cozy Animals" by Gamideo — https://dragofive.itch.io/cozy-animals-3d — CC0. File `pebble_*.glb`. No CC0 or CC-BY rigged otter on Sketchfab was a real otter with a walk cycle, so this mesh stays. It is tinted teal-brown in game.
 - Lumen the owl: Pixor "Owl" — https://pixor.art/library/creatures/owl/ — CC0. Files `lumen_*.glb`. Searches did not turn up a rigged CC0 or CC-BY owl that was actually an owl.
 - Pip the frog and Bramble the cactus-hog, plus minions that share those rigs: Quaternius Ultimate Monsters — https://quaternius.com — CC0. Files `pip_*.glb` (Frog) and `bramble_*.glb` (Cactoro). Clips include Idle, Run, Punch, HitReact, and Death. No rigged CC0 or CC-BY frog or hedgehog cleared the license and character checks.
-- Bramble and its minions (Conelet, Mossback, Yeti, Magmash): "Crazy Critter Crate - Swinecone" by Moped (mopedgames) — https://sketchfab.com/3d-models/crazy-critter-crate-swinecone-bae685e5a9d9442a85e78b1525b08aaf — CC-BY 4.0. File `assets/models/sketchfab/bramble.glb` (the display rock is stripped out). It replaces the sombrero cactus (Quaternius Cactoro), whose `bramble_*.glb` files remain only as unused fallbacks.
+- Bramble and its minions (Mossback, Yeti, Magmash): "Crazy Critter Crate - Swinecone" by Moped (mopedgames) — https://sketchfab.com/3d-models/crazy-critter-crate-swinecone-bae685e5a9d9442a85e78b1525b08aaf — CC-BY 4.0. File `assets/models/sketchfab/bramble.glb` (the display rock is stripped out). It replaces the sombrero cactus (Quaternius Cactoro), whose `bramble_*.glb` files remain only as unused fallbacks.
 - Thistle the meadow boss: "Mushroom Boss - game ready with animations" by iamjohnhult — https://sketchfab.com/3d-models/mushroom-boss-game-ready-with-animations-ee611e4925e94a98baa4cfd3d89d3449 — CC-BY 4.0. File `assets/models/sketchfab/thistle.glb`. Idle, Walk, Attack, and Die. The CC0 fallback is Quaternius "Demon" in `assets/models/thistle_boss.gltf`.
 - Meadow trees, bushes, and rocks: "Nature Vegetation Pack" by AnderArts — https://sketchfab.com/3d-models/nature-vegetation-pack-c257b444645542da867fce0cf221e52d — CC-BY 4.0. File `assets/models/sketchfab/nature/grove.glb`. The shipped file keeps one LOD0 of each tree, bush, and rock. The astronaut, ground plane, cliffs, and extra LODs are not included.
 - Grass, flowers, mushrooms, pedestal stones, and the trees outside the meadow: Quaternius Stylized Nature MegaKit — https://quaternius.com/packs/stylizednature.html — CC0.
@@ -40,9 +40,13 @@ The older fonts below remain in the repository but the interface no longer uses 
 
 - Sketchfab creatures, all CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/), files in `assets/models/sketchfab/mon/`, tinted per biome in `scripts/cast3d.gd`:
   - "Golem" by **DWN (dwn76)** — https://sketchfab.com/3d-models/golem-241619b4423148029ceecddbbe691af0 — Cinder and Nimbus lair bosses. Changes: clip times rebased to zero, vein emission mask (`golem_glow.png`), ice repaint for Nimbus (`golem_ice.png`).
-  - "fantasy boar animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/fantasy-boar-animation-a9dd958971ea462fbaab621410c30748 — Boarlet, Snowpup, Magmash.
+  - "fantasy boar animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/fantasy-boar-animation-a9dd958971ea462fbaab621410c30748 — Snowpup, Magmash.
   - "giant scorpion animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/giant-scorpion-animation-651c17e0a3784c0386790e5b7c565f1a — Skink, Shard.
   - "Bat Lord" by **Huh (SkibidiSanya)** — https://sketchfab.com/3d-models/bat-lord-8ee898e9c5384493989a5f1cbc38dab3 — Moth, Glowmoth, Ashbat, Icewisp.
+- Dark-fantasy pass, all CC-BY 4.0 by **AnimalMesh 3D (AnimalMesh3D)**, files in `assets/models/sketchfab/dark/`, graded darker in `scripts/cast3d.gd`:
+  - "Animated Fox 3D Model" — https://sketchfab.com/3d-models/animated-fox-3d-model-7b7d4f07d47a444ab6c08b62adfd4aff — Juniper, the hero fox ranger. Armour (iron saddle-plate, bronze bands, pauldrons, brow helm, quiver) is built in-engine by `scripts/armor3d.gd`.
+  - "Animated Badger – 3D Animal Model" — https://sketchfab.com/3d-models/animated-badger-3d-animal-model-c495442f215d4f2ba18c29fcd9cc7587 — Rot Badger (id `sprout`).
+  - "Animated Realistic Bear – 3D Animal Model" — https://sketchfab.com/3d-models/animated-realistic-bear-3d-animal-model-77a1fcdc92e14db698767da9ee09f84a — Grave Bear (id `boarlet`).
 - Caplet (mushroom lair boss) reuses the Mushroom Boss model listed above, dyed violet.
 - Enemy portraits in `assets/sprites/portraits/` are re-baked from these models.
 

@@ -112,6 +112,11 @@ func _capture() -> void:
 	SaveGame.data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": 3, "ready_at": now - 1})
 	SaveGame.data["chests"].append({"kind": "scrap", "biome": "meadow", "seed": 4})
 	SaveGame.data["chests"].append({"kind": "hunt", "biome": "volcano", "seed": 5, "ready_at": now + 2537})
+	# CC_HERO equips another hero for the whole capture (home, heroes, hunts).
+	var cap_hero := OS.get_environment("CC_HERO")
+	if cap_hero != "":
+		SaveGame.hero(cap_hero)["unlocked"] = true
+		SaveGame.set_featured(cap_hero)
 	if _wants("home"):
 		go("home")
 		await _settle()
@@ -164,7 +169,7 @@ func _capture() -> void:
 		await _shot("loadout")
 	if _wants("explore") or _wants("fog") or _wants("minimap") or _wants("lair"):
 		var cap_biome := OS.get_environment("CC_BIOME")
-		go("run", {"biome": cap_biome if cap_biome != "" else "meadow", "hero": "ember"})
+		go("run", {"biome": cap_biome if cap_biome != "" else "meadow", "hero": SaveGame.featured_id()})
 		await _settle()
 		var run = current
 		var sim: RunSim = run.sim
@@ -234,7 +239,7 @@ func _capture() -> void:
 			get_tree().quit()
 			return
 	if _wants("hunt") or _wants("boss") or _wants("levelup") or _wants("rare") or _wants("victory") or _wants("defeat"):
-		go("run", {"biome": "meadow", "hero": "ember"})
+		go("run", {"biome": "meadow", "hero": SaveGame.featured_id()})
 		await _settle()
 		current.drive = Vector2(0.35, 0.15).normalized()
 		# Sim time, not wall time: software rendering runs the hunt slowly.
@@ -317,7 +322,7 @@ func _capture() -> void:
 			await _shot("drawer")
 			await get_tree().create_timer(1.2).timeout
 			await _shot("drawer_full")
-			go("run", {"biome": "meadow", "hero": "ember"})
+			go("run", {"biome": "meadow", "hero": SaveGame.featured_id()})
 			await _settle()
 		if _wants("defeat"):
 			SaveGame.last_chest = {"tone": "wood", "rarity": "common", "full": SaveGame.slots_full()}

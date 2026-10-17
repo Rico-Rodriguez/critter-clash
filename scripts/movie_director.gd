@@ -43,7 +43,10 @@ func _wait(seconds: float) -> void:
 
 
 func _run_screen() -> Node:
-	app.go("run", {"biome": "meadow", "hero": "ember"})
+	var hero := OS.get_environment("CC_HERO") if OS.has_environment("CC_HERO") else "ember"
+	if hero != "ember":
+		SaveGame.hero(hero)["unlocked"] = true
+	app.go("run", {"biome": "meadow", "hero": hero})
 	await _wait(0.6)
 	return app.current
 

@@ -1520,7 +1520,7 @@ func _mob_share(body: Node3D, sprite: String) -> void:
 	var meshes: Array = []
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
-		if m.mesh != null and m.visible and not str(m.name).begins_with("Catch"):
+		if m.mesh != null and m.visible and not str(m.name).begins_with("Catch") and not str(m.name).begins_with("GlowEye") and not str(m.name).begins_with("Armor"):
 			meshes.append(m)
 	if meshes.is_empty():
 		return
@@ -1928,7 +1928,10 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 		var hinted := Cast3D.nose(sprite)
 		if hinted >= 0.0:
 			face = hinted
+		elif hinted < -1.5:
+			face = _rig_nose(model, root, face)
 	root.set_meta("face", face)
+	_fix_far_skins(model)
 	var box := _measure(model)
 	# Wide critters (the dragon's wingspan) read by footprint from the
 	# high camera, so size by whichever is larger.
@@ -1944,6 +1947,10 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	_hide_catch(model)
 	_fix_pbr(model, sprite)
 	_tint(model, Cast3D.tint(sprite))
+	if Cast3D.armor(sprite) != "":
+		Armor3D.dress(model, Cast3D.armor(sprite))
+	elif Cast3D.dark(sprite) != "":
+		Armor3D.glow_eyes(model, Color(1.0, 0.45, 0.12))
 	root.set_meta("model_base", model.position)
 	root.set_meta("meters", meters)
 	# No real run clip (or none at all): the procedural gait hops it along.
@@ -2802,6 +2809,56 @@ func _expand_aabb(acc: Dictionary, point: Vector3) -> void:
 		acc["box"] = (acc["box"] as AABB).expand(point)
 
 
+## Some exports bind skinned vertices far from the origin (the hyena's
+## bind box sits ~1000 units away): their mesh box means nothing.
+func _far_skin(mi: MeshInstance3D) -> bool:
+	if mi.skin == null and String(mi.skeleton) == "":
+		return false
+	var box := mi.mesh.get_aabb()
+	return box.get_center().length() > 20.0 * maxf(box.size.length(), 0.001)
+
+
+## Give far-bound skinned meshes a culling box around their bones, or the
+## renderer culls them whenever the phantom box leaves the view.
+func _fix_far_skins(model: Node) -> void:
+	for n in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null or not _far_skin(mi):
+			continue
+		var sk := mi.get_node_or_null(mi.skeleton) as Skeleton3D
+		if sk == null:
+			continue
+		var box := AABB()
+		for b in sk.get_bone_count():
+			var p := mi.transform.affine_inverse() * (sk.transform * sk.get_bone_global_rest(b).origin)
+			box = AABB(p, Vector3.ZERO) if b == 0 else box.expand(p)
+		mi.custom_aabb = box.grow(box.size.length() * 0.4)
+
+
+## Nose direction read off the skeleton: from the hips/pelvis bone to the
+## head bone at rest, in the body's frame (y ignored).
+func _rig_nose(model: Node, root: Node3D, fallback: float) -> float:
+	var found := model.find_children("*", "Skeleton3D", true, false)
+	if found.is_empty():
+		return fallback
+	var sk := found[0] as Skeleton3D
+	var head := -1
+	var tail := -1
+	for b in sk.get_bone_count():
+		var n := sk.get_bone_name(b).to_lower()
+		if head < 0 and "head" in n:
+			head = b
+		if tail < 0 and ("pelvis" in n or "hips" in n):
+			tail = b
+	if head < 0 or tail < 0:
+		return fallback
+	var xf := _chain(sk, root)
+	var d := xf * sk.get_bone_global_rest(head).origin - xf * sk.get_bone_global_rest(tail).origin
+	if Vector2(d.x, d.z).length() < 0.0001:
+		return fallback
+	return fposmod(atan2(d.x, d.z), TAU)
+
+
 func _measure(node: Node) -> AABB:
 	var acc := {"ok": false, "box": AABB()}
 	_measure_into(node, Transform3D.IDENTITY, acc)
@@ -2814,7 +2871,7 @@ func _measure_into(node: Node, parent: Transform3D, acc: Dictionary) -> void:
 	var xf := parent
 	if node is Node3D:
 		xf = parent * (node as Node3D).transform
-	if node is MeshInstance3D and (node as MeshInstance3D).mesh:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh and not _far_skin(node as MeshInstance3D):
 		var local: AABB = (node as MeshInstance3D).mesh.get_aabb()
 		for i in 8:
 			_expand_aabb(acc, xf * local.get_endpoint(i))

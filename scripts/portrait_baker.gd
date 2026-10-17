@@ -104,7 +104,7 @@ func _bake(id: String, head: bool) -> void:
 	_stage._hide_catch(body)
 	var face := float(body.get_meta("face", PI))
 	# Nose toward the camera, turned a little for a 3/4 read.
-	body.rotation.y = -face + (0.55 if head else Cast3D.portrait_turn(id)) + _turn_override
+	body.rotation.y = -face + (Cast3D.head_turn(id) if head else Cast3D.portrait_turn(id)) + _turn_override
 	var clips: Dictionary = body.get_meta("clips", {})
 	# Full-body cards use the standing perch pose; the head crop keeps the
 	# idle, where the head sits above the wings.
