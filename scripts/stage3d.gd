@@ -844,7 +844,8 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 	var kit := [
 		["rock_a", 0.55, 0.95, 5], ["rock_b", 0.45, 0.8, 5], ["rock_c", 0.6, 1.0, 3],
 		["pebble_rock", 0.5, 0.8, 6], ["pebble_rock_b", 0.45, 0.7, 5],
-		["log", 0.9, 1.3, 4], ["stump", 0.45, 0.65, 4],
+		# No logs or stumps: from the hunt camera they read as dark red
+		# primitives. Rocks, ferns, blossoms and mushrooms carry the field.
 		["mushroom_tall", 1.3, 2.1, 7], ["mushroom_shelf", 0.35, 0.5, 3],
 		["fern", 0.8, 1.1, 6], ["flower_b", 0.7, 0.95, 6], ["flower_a", 0.7, 0.95, 6],
 	]
@@ -1343,10 +1344,10 @@ func _boss_arena(center: Vector3) -> void:
 	rng.seed = 7331
 	# Ring the whole fight: centred between the landing spot and the hero,
 	# wide enough that both stand inside it.
-	var radius := 8.2
+	var radius := 10.0
 	if _mark != null:
 		var hero := Vector3(_mark.global_position.x, 0, _mark.global_position.z)
-		radius = clampf(center.distance_to(hero) * 0.5 + 6.0, 8.2, 12.0)
+		radius = clampf(center.distance_to(hero) * 0.5 + 7.5, 10.0, 13.0)
 		center = center.lerp(hero, 0.5)
 	var count := 15
 	for i in count:
@@ -1354,7 +1355,7 @@ func _boss_arena(center: Vector3) -> void:
 			continue  # gaps so the ring reads as old and broken
 		var ang := TAU * float(i) / float(count) + rng.randf_range(-0.08, 0.08)
 		var at := center + Vector3(cos(ang), 0, sin(ang)) * (radius + rng.randf_range(-0.4, 0.4))
-		_place_prop(["rock_a", "rock_b"][i % 2], at, rng.randf_range(1.8, 2.4), i % 3 == 0)
+		_place_prop(["rock_a", "rock_b"][i % 2], at, rng.randf_range(2.8, 3.4), i % 3 == 0)
 		var stone: Node3D = _props[-1]
 		# Tall, leaning menhirs.
 		stone.scale *= Vector3(0.7, rng.randf_range(1.8, 2.4), 0.65)
@@ -1364,14 +1365,11 @@ func _boss_arena(center: Vector3) -> void:
 		var tw := create_tween()
 		tw.tween_interval(BOSS_DROP_TIME + 0.04 * i)
 		tw.tween_property(stone, "position", rest, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		# A root arcing toward the centre between neighbouring stones.
+		# A low rock slab between neighbouring stones, sunk like a root.
 		if i % 2 == 0:
 			var mid := ang + PI / float(count)
-			_place_prop("log", center + Vector3(cos(mid), 0, sin(mid)) * (radius - 0.6), rng.randf_range(1.4, 1.8), false)
-			var root: Node3D = _props[-1]
-			root.rotation = Vector3(0, -mid + PI * 0.5, rng.randf_range(-0.1, 0.1))
-			root.scale *= Vector3(1.6, 0.55, 0.55)
-			root.position.y -= 0.15
+			_place_prop("rock_flat", center + Vector3(cos(mid), 0, sin(mid)) * (radius - 0.4), rng.randf_range(1.6, 2.2), false)
+			_shape_rock(_props[-1], rng)
 	# Outer fringe: big mushrooms and ferns just beyond the stones.
 	for i in 10:
 		var ang := TAU * float(i) / 10.0 + 0.3
@@ -1424,9 +1422,9 @@ func _hero_glow(body: Node3D) -> void:
 		var sh := Shader.new()
 		sh.code = """shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
-uniform vec3 rim_color = vec3(0.55, 0.75, 1.0);
-uniform float rim_power = 5.0;
-uniform float rim_strength = 0.32;
+uniform vec3 rim_color = vec3(0.62, 0.86, 1.0);
+uniform float rim_power = 3.2;
+uniform float rim_strength = 0.62;
 uniform vec3 lift = vec3(0.022, 0.008, 0.006);
 void fragment() {
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
@@ -1444,17 +1442,17 @@ void fragment() {
 		var xs := Shader.new()
 		xs.code = """shader_type spatial;
 render_mode unshaded, blend_mix, depth_test_inverted, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
-uniform vec3 xray_color = vec3(1.0, 0.66, 0.3);
+uniform vec3 xray_color = vec3(1.0, 0.46, 0.14);
 uniform float amount = 0.0;
 void fragment() {
 	// depth_test_inverted: this pass only lands where something already
 	// in the depth buffer is nearer than the hero, i.e. where it is hidden.
 	float ahead = 1.0;
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
-	float rim = smoothstep(0.35, 0.95, 1.0 - ndv);
-	ALBEDO = xray_color;
-	// A rim-light silhouette with only a whisper of fill.
-	ALPHA = (0.06 + 0.8 * rim) * amount * ahead;
+	float rim = smoothstep(0.62, 0.98, 1.0 - ndv);
+	ALBEDO = xray_color * 1.4;
+	// A thin hero-coloured outline with only a whisper of fill.
+	ALPHA = (0.03 + 0.85 * rim) * amount * ahead;
 }
 """
 		_xray_mat = ShaderMaterial.new()
@@ -1658,21 +1656,46 @@ func _add_wings(root: Node3D, model: Node3D, meters: float) -> void:
 	rig.position = shoulder + Vector3(0, meters * 0.12, 0) - fwd * meters * 0.04
 	rig.basis = Basis(Vector3.UP, face)
 	root.set_meta("wing_base", rig.position)
-	var mat := StandardMaterial3D.new()
-	mat.vertex_color_use_as_albedo = true
-	mat.vertex_color_is_srgb = true
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.roughness = 0.62
-	mat.metallic_specular = 0.35
-	mat.rim_enabled = true
-	mat.rim = 0.35
-	mat.rim_tint = 0.6
-	mat.backlight_enabled = true
-	mat.backlight = Color(0.55, 0.18, 0.05)
+	# Membrane: leathery skin with a fine pebbled grain matched to the
+	# body's scale size, veins running out along the fingers, warm light
+	# glowing through it, and soft, slightly transparent trailing edges.
+	var msh := Shader.new()
+	msh.code = """shader_type spatial;
+render_mode cull_disabled, depth_draw_always;
+varying vec2 wuv;
+float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+void vertex() { wuv = UV; }
+void fragment() {
+	vec3 base = COLOR.rgb;
+	// Pebbled grain (cells) plus broad mottling.
+	vec2 g = wuv * 11.0;
+	float cell = vn(g) * 0.6 + vn(g * 2.3) * 0.4;
+	float mott = vn(wuv * 4.0);
+	// Veins: thin ridges radiating from the wrist (stored in UV2.x as angle).
+	float vein = smoothstep(0.86, 1.0, abs(sin(UV2.x * 9.0 + vn(wuv * 3.0) * 0.8))) * UV2.y;
+	vec3 col = base * (0.78 + cell * 0.32) * (0.85 + mott * 0.25);
+	col = mix(col, base * 0.32, vein * 0.85);
+	// Darker toward the scalloped edge, like the hide's scale outlines.
+	col *= mix(1.0, 0.7, smoothstep(0.6, 1.0, UV2.y));
+	ALBEDO = col;
+	ROUGHNESS = 0.58 - cell * 0.12;
+	SPECULAR = 0.35;
+	RIM = 0.4;
+	RIM_TINT = 0.5;
+	BACKLIGHT = vec3(0.75, 0.28, 0.08) * (0.6 + 0.4 * (1.0 - vein));
+	ALPHA = COLOR.a * (0.86 + cell * 0.14);
+	ALPHA_SCISSOR_THRESHOLD = 0.35;
+	ALPHA_ANTIALIASING_EDGE = 0.3;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = msh
 	var rib_mat := StandardMaterial3D.new()
-	rib_mat.albedo_color = Color(0.36, 0.17, 0.08)
+	rib_mat.albedo_color = Color(0.3, 0.13, 0.07)
 	rib_mat.roughness = 0.55
-	var span := meters * 0.58
+	var span := meters * 0.36
 	var pivots: Array = []
 	for side in [-1.0, 1.0]:
 		var pivot := Node3D.new()
@@ -1686,8 +1709,10 @@ func _add_wings(root: Node3D, model: Node3D, meters: float) -> void:
 		var root_back := Vector3(side * 0.08, -0.02, -0.42) * span
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		var inner := Color(0.86, 0.5, 0.22)
-		var outer := Color(0.5, 0.14, 0.08)
+		# Matched to Ember's painted hide: amber near the body, rust to
+		# deep oxblood toward the trailing edge.
+		var inner := Color(0.72, 0.4, 0.2).srgb_to_linear()
+		var outer := Color(0.36, 0.12, 0.07).srgb_to_linear()
 		var edge := [wrist, tips[0], tips[1], tips[2], root_back]
 		var fan := [sh, elbow]
 		# Membrane: fan from the wrist and elbow to each scalloped panel.
@@ -1700,19 +1725,15 @@ func _add_wings(root: Node3D, model: Node3D, meters: float) -> void:
 			var hub: Vector3 = wrist if i < 2 else elbow
 			for tri in [[hub, a, dip], [hub, dip, b]]:
 				for v in tri:
-					var t := clampf((v as Vector3).length() / (1.1 * span), 0.0, 1.0)
-					st.set_color(inner.lerp(outer, t))
-					st.add_vertex(v)
+					_wing_vert(st, v, span, inner, outer, wrist, (v == a or v == b or v == dip) and v != wrist)
 		for tri in [[sh, elbow, root_back], [elbow, edge[3], root_back], [sh, elbow, wrist]]:
 			for v in tri:
-				var t := clampf((v as Vector3).length() / (1.1 * span), 0.0, 1.0)
-				st.set_color(inner.lerp(outer, t))
-				st.add_vertex(v)
+				_wing_vert(st, v, span, inner, outer, wrist, false)
 		st.generate_normals()
 		var memb := MeshInstance3D.new()
 		memb.mesh = st.commit()
 		memb.material_override = mat
-		memb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		memb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		pivot.add_child(memb)
 		# Ribs: arm bones and three fingers, tapering.
 		var segs := [[sh, elbow, 0.035], [elbow, wrist, 0.028], [wrist, tips[0], 0.016], [wrist, tips[1], 0.014], [elbow, tips[2], 0.013]]
@@ -1735,6 +1756,20 @@ func _add_wings(root: Node3D, model: Node3D, meters: float) -> void:
 			pivot.add_child(bone)
 		pivots.append(pivot)
 	_wing_sets.append({"l": pivots[0], "r": pivots[1], "body": root})
+
+
+## One membrane vertex: colour by distance from the body, alpha softened
+## on the scalloped trailing edge, grain UVs in wing space, and in UV2 the
+## angle around the wrist plus a vein weight that fades near the body.
+func _wing_vert(st: SurfaceTool, v: Vector3, span: float, inner: Color, outer: Color, wrist: Vector3, edge: bool) -> void:
+	var t := clampf(v.length() / (1.1 * span), 0.0, 1.0)
+	var c := inner.lerp(outer, t)
+	c.a = 1.0
+	st.set_color(c)
+	st.set_uv(Vector2(v.x, v.z) / span)
+	var rel := v - wrist
+	st.set_uv2(Vector2(atan2(rel.z, rel.x), clampf(t * 1.4 - 0.2, 0.0, 1.0)))
+	st.add_vertex(v)
 
 
 ## Flap: a slow breathing beat at rest, quicker and wider on the move.
@@ -2181,6 +2216,27 @@ func _place_mark(at: Vector3) -> void:
 		})
 		_mark.position.y = 0.035
 		actor_root.add_child(_mark)
+		# Ground glow: a soft pool of cool light under the hero so it
+		# separates from the warm dirt and grass at the hunt zoom.
+		var pool := MeshInstance3D.new()
+		var quad := PlaneMesh.new()
+		quad.size = Vector2.ONE * HERO_METERS * 2.0
+		pool.mesh = quad
+		var gs := Shader.new()
+		gs.code = """shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, shadows_disabled, fog_disabled, cull_disabled;
+void fragment() {
+	float d = length(UV - 0.5) * 2.0;
+	float g = pow(clamp(1.0 - d, 0.0, 1.0), 2.2);
+	ALBEDO = vec3(0.5, 0.72, 1.0) * g * 0.42;
+}
+"""
+		var gm := ShaderMaterial.new()
+		gm.shader = gs
+		pool.material_override = gm
+		pool.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pool.position.y = 0.01
+		_mark.add_child(pool)
 	_mark.visible = true
 	_mark.position = Vector3(at.x, 0.035, at.z)
 

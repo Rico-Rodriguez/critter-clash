@@ -34,7 +34,7 @@ func build() -> void:
 	logo.text = "CRITTER CLASH"
 	plate.add_child(logo)
 	logo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	plate.custom_minimum_size = Vector2(0, 104)
+	plate.custom_minimum_size = Vector2(0, 92)
 	box.add_child(plate)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -237,7 +237,7 @@ class LogoPlate extends Control:
 ## chisel shadow above, a warm lip below, and a gilt face.
 class Wordmark extends Control:
 	var text := ""
-	var size_px := 60
+	var size_px := 52
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE

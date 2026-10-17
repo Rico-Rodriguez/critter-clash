@@ -118,6 +118,12 @@ void fragment() {
 	float dry = smoothstep(0.5, 0.85, fbm(w * 0.45 + 13.0));
 	g_col = mix(g_col, g_col * vec3(1.08, 1.04, 0.84), dry * 0.12);
 
+	// Large-scale value: broad dark moss beds and lighter sun-dried swathes
+	// so the clearing never reads as one flat carpet.
+	float moss_bed = smoothstep(0.42, 0.72, fbm(w * 0.055 + 90.0) * 0.7 + fbm(w * 0.2 + 3.0) * 0.3);
+	g_col *= mix(vec3(1.0), vec3(0.5, 0.62, 0.46), moss_bed * 0.75);
+	float sunlit = smoothstep(0.55, 0.8, fbm(w * 0.04 + 130.0));
+	g_col *= mix(1.0, 1.14, sunlit * (1.0 - moss_bed));
 	// Forest floor graded darker and browner so it reads as shaded humus.
 	// Cool brown humus with mossy green creeping through, not olive.
 	f_col *= vec3(0.66, 0.66, 0.56);
@@ -151,11 +157,11 @@ void fragment() {
 
 	// Path wear: a compacted, darker tread down the middle of each trail.
 	float tread = smoothstep(edge * 0.35, 0.0, pd);
-	d_col *= 1.0 - tread * 0.16;
+	d_col *= 1.0 - tread * 0.3;
 	vec3 albedo = g_col * bw.x + f_col * bw.y + d_col * bw.z;
 	// Grassy shoulder darkening where turf meets the trail.
 	float shoulder = smoothstep(edge * 1.6, edge * 0.8, pd) * bw.x;
-	albedo *= 1.0 - shoulder * 0.12;
+	albedo *= 1.0 - shoulder * 0.22;
 	// Soft ground occlusion in hollows and at the trail edges.
 	float hollow = smoothstep(0.55, 0.2, fbm(w * 0.4 + 5.0));
 	albedo *= 1.0 - hollow * 0.08 - shoulder * 0.05;

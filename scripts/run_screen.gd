@@ -244,7 +244,22 @@ func _build_modal() -> void:
 	add_child(modal)
 	var dim := ColorRect.new()
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0.02, 0.05, 0.14, 0.78)
+	dim.color = Color(1, 1, 1, 1)
+	# Dimmed battlefield with a warm-black vignette: the fight stays
+	# visible in the middle, the edges sink, no flat navy wash.
+	var vig := Shader.new()
+	vig.code = """shader_type canvas_item;
+void fragment() {
+	vec2 c = UV - 0.5;
+	c.x *= 0.62;
+	float r = length(c) * 2.0;
+	float a = mix(0.5, 0.92, smoothstep(0.25, 1.05, r));
+	COLOR = vec4(0.035, 0.022, 0.015, a);
+}
+"""
+	var vm := ShaderMaterial.new()
+	vm.shader = vig
+	dim.material = vm
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	modal.add_child(dim)
 	var center := CenterContainer.new()
@@ -672,7 +687,7 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 		row.add_child(card)
 		# Staggered slam-in: each card flips edge-on to face while dropping
 		# from slightly oversize, one after another.
-		card.pivot_offset = Vector2(111, 215)
+		card.pivot_offset = Vector2(113, 240)
 		card.scale = Vector2(0.06, 1.22)
 		card.modulate.a = 0.0
 		var tw := create_tween()
@@ -687,7 +702,7 @@ func _offer_card(index: int, id: String) -> Button:
 	var button := OfferCard.new()
 	button.rarity = rarity
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.custom_minimum_size = Vector2(222, 430)
+	button.custom_minimum_size = Vector2(226, 480)
 	button.pressed.connect(_pick.bind(index))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -706,10 +721,10 @@ func _offer_card(index: int, id: String) -> Button:
 	var icon := CardIcon.new()
 	icon.op = str(info.get("op", ""))
 	icon.rarity = rarity
-	icon.custom_minimum_size = Vector2(0, 186)
+	icon.custom_minimum_size = Vector2(0, 214)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
-	var name := UiKit.label(str(info.get("name", id)), 25, UiKit.GOLD.lightened(0.2), "x", 3)
+	var name := UiKit.label(str(info.get("name", id)), 28, UiKit.GOLD.lightened(0.2), "x", 3)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(name)
