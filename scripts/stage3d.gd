@@ -11,15 +11,15 @@ const PITCH := 1.012291  # 58 degrees, high enough to read the ground
 ## previous framing and well past 2.5x the original.
 const DIST := 26.0
 const FOV := 40.0
-const BOSS_DIST := 32.0
+const BOSS_DIST := 36.0
 ## Aim a metre above the ground so the hero sits just below screen centre,
 ## leaving room to see what comes from above.
 const AIM := 1.0
 ## On-screen size targets. With the camera at DIST these put the hero near
-## 13% of the screen height; the boss is about 2.6 times the hero.
+## 10% of the screen height; the boss stands about 3x the hero's footprint.
 const HERO_METERS := 2.5
 const PEDESTAL_TOP := 0.34
-const BOSS_METERS := 6.4
+const BOSS_METERS := 11.0
 ## Highest render density over the logical canvas (device px per canvas px).
 const MAX_DENSITY := 1.65
 
@@ -218,12 +218,13 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 	for mat in _grass_mats:
 		(mat as ShaderMaterial).set_shader_parameter("hero", hero_at)
 	_open_around(hero_at)
+	_threat_rings(sim, hero_at)
 	var focus := hero_at
 	if boss_up:
 		# Lean the view toward the boss so its telegraphs stay on screen.
-		var lean := (boss_at - hero_at) * 0.45
+		var lean := (boss_at - hero_at) * 0.5
 		lean.y = 0.0
-		focus = hero_at + lean.limit_length(4.0)
+		focus = hero_at + lean.limit_length(5.5)
 	_follow(focus, 1.0 / 60.0)
 
 
@@ -779,27 +780,90 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	if actor.kind == "hero" and actor.team == 0:
 		_outline(body, Color("1a0806"), 0.008)
 	elif actor.kind == "boss":
-		_outline(body, Color("4a0a0a"), 0.012)
+		_outline(body, Color("2a0806"), 0.007)
 	elif actor.kind != "hero":
-		_outline(body, Color("5a0d0d"), 0.018)
+		_outline(body, Color("3a0a08"), 0.013)
 	if actor.kind != "hero":
-		# Hostiles stand in a thin red ground ring so they read as threats at a
-		# glance; the boss gets a heavy shadow and a wide pulsing telegraph.
+		# Every hostile gets a soft contact shadow. Its threat ring is a thin,
+		# soft, low-opacity line that fades in only when the critter is close
+		# to the hero or winding up (see _threat_rings).
 		var boss := actor.kind == "boss"
 		var blob := _decal(meters * (0.95 if boss else 1.1), {
-			"ring_color": Color(0.9, 0.14, 0.08, 0.7 if boss else 0.55),
-			"ring_radius": 0.4, "ring_width": 0.018 if boss else 0.035, "ring_glow": 0.18 if boss else 0.25,
+			"ring_color": Color(0.95, 0.22, 0.12, 0.42 if boss else 0.36),
+			"ring_radius": 0.4, "ring_width": 0.006 if boss else 0.012, "ring_glow": 0.6,
 			"shadow_alpha": 0.72 if boss else 0.42, "shadow_radius": 0.36 if boss else 0.42,
-			"pulse": 1.0 if boss else 0.0,
+			"pulse": 1.0, "ring_fade": 0.0,
 		})
 		blob.position.y = 0.03
 		body.add_child(blob)
+		body.set_meta("threat", blob.material_override)
 	body.rotation.y = _yaw(actor.facing, body)
 	actor_root.add_child(body)
 	_bodies[actor.id] = body
 	if actor.kind == "hero" and actor.team == 0:
 		_center_posed(body, 0.45)
+	if actor.kind == "boss":
+		_boss_landing(body)
 	return body
+
+
+## Threat rings show only where they matter: critters near the hero and
+## anything winding up an attack. They ease in and out rather than pop.
+func _threat_rings(sim: RunSim, hero_at: Vector3) -> void:
+	for actor in sim.actors:
+		if actor.team == 0 or not _bodies.has(actor.id):
+			continue
+		var body: Node3D = _bodies[actor.id]
+		var mat: ShaderMaterial = body.get_meta("threat", null)
+		if mat == null:
+			continue
+		var near := 5.0 if actor.kind == "boss" else 3.6
+		var d := Vector2(body.position.x - hero_at.x, body.position.z - hero_at.z).length()
+		var want := 0.0
+		if actor.alive and (d < near + (BOSS_METERS * 0.4 if actor.kind == "boss" else 0.0) or actor.boss_state == "windup"):
+			want = 1.0
+		var now := float(mat.get_shader_parameter("ring_fade"))
+		mat.set_shader_parameter("ring_fade", lerpf(now, want, 0.12))
+
+
+## The boss drops in from above and slams down in a ring of dust. The screen
+## rumble is timed to the impact (RunScreen adds it on "boss_in").
+const BOSS_DROP_TIME := 0.42
+func _boss_landing(body: Node3D) -> void:
+	if body.get_child_count() == 0:
+		return
+	var model := body.get_child(0) as Node3D
+	var rest := model.position
+	model.position = rest + Vector3(0, 9.0, 0)
+	var tw := create_tween()
+	tw.tween_property(model, "position", rest, BOSS_DROP_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void:
+		if not is_instance_valid(body):
+			return
+		for k in 3:
+			var dust := _puff(Color("a88a66"), 48, 1.4)
+			var pm := dust.process_material as ParticleProcessMaterial
+			pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+			pm.emission_ring_axis = Vector3.UP
+			pm.emission_ring_radius = BOSS_METERS * (0.3 + 0.12 * k)
+			pm.emission_ring_inner_radius = BOSS_METERS * 0.2
+			pm.emission_ring_height = 0.1
+			pm.direction = Vector3(0, 0.35, 0)
+			pm.spread = 80.0
+			pm.initial_velocity_min = 2.0
+			pm.initial_velocity_max = 5.5
+			pm.damping_min = 2.0
+			pm.damping_max = 4.0
+			pm.gravity = Vector3(0, -0.6, 0)
+			pm.scale_min = 3.0
+			pm.scale_max = 6.0
+			world_root.add_child(dust)
+			dust.global_position = body.global_position + Vector3(0, 0.2, 0)
+			dust.emitting = true
+			get_tree().create_timer(2.0).timeout.connect(dust.queue_free)
+		var squash := create_tween()
+		squash.tween_property(model, "scale", model.scale * Vector3(1.12, 0.86, 1.12), 0.08)
+		squash.tween_property(model, "scale", model.scale, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 
 
 ## Flying rigs hover off-centre from their rest-pose bounds, so the hero drifted
@@ -912,6 +976,12 @@ func _fix_pbr(node: Node, sprite: String) -> void:
 				# Thin membranes glow where the sun shines through them.
 				mat.backlight_enabled = true
 				mat.backlight = opts["backlight"]
+			if opts.has("normal_scale") and not opts.has("normal_tex") and mat.normal_enabled:
+				mat.normal_scale = float(opts["normal_scale"])
+			if opts.has("subsurface"):
+				mat.subsurf_scatter_enabled = true
+				mat.subsurf_scatter_strength = float(opts["subsurface"])
+				mat.subsurf_scatter_skin_mode = true
 			if opts.has("albedo_tex") and mat.albedo_texture != null:
 				mat.albedo_texture = load(str(opts["albedo_tex"]))
 			var lift: Color = opts.get("albedo", Color.WHITE)

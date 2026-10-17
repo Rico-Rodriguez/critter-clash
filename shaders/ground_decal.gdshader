@@ -15,6 +15,8 @@ uniform float fill_progress = 1.0;
 uniform float shadow_alpha = 0.0;
 uniform float shadow_radius = 0.32;
 uniform float pulse = 0.0;
+// Scales the ring alone (not the shadow) so threat rings can fade in and out.
+uniform float ring_fade = 1.0;
 uniform bool lane = false;
 
 float coverage(float dist, float width) {
@@ -47,10 +49,11 @@ void fragment() {
 		col.rgb = mix(col.rgb, fill_color.rgb, a / max(col.a + a * (1.0 - col.a), 0.001));
 		col.a = col.a + a * (1.0 - col.a);
 	}
-	if (ring_color.a > 0.0) {
+	if (ring_color.a * ring_fade > 0.001) {
 		float line = coverage(d - r, ring_width);
 		float halo = exp(-pow((d - r) / (ring_width * 2.2), 2.0)) * ring_glow;
-		float a = clamp(line + halo * (1.0 - line), 0.0, 1.0) * ring_color.a;
+		float a = clamp(line + halo * (1.0 - line), 0.0, 1.0) * ring_color.a * ring_fade;
+		a *= 1.0 - pulse * 0.25 * (0.5 + 0.5 * sin(TIME * 4.0));
 		col.rgb = mix(col.rgb, ring_color.rgb, a / max(col.a + a * (1.0 - col.a), 0.001));
 		col.a = col.a + a * (1.0 - col.a);
 	}

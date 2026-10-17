@@ -112,7 +112,9 @@ static func pbr(id: String) -> Dictionary:
 		# tools/bake_ember_normal.py adds hex scales to the source normal map.
 		return {"roughness": 0.66, "specular": 0.35, "backlight": Color(0.55, 0.12, 0.04), "albedo_tex": "res://assets/models/sketchfab/ember_paint.png", "rough_tex": "res://assets/models/sketchfab/ember_1.png", "ao_tex": "res://assets/models/sketchfab/ember_1.png", "normal_tex": "res://assets/models/sketchfab/ember_normal_scales.png", "normal_scale": 1.6, "rim": 0.3}
 	if path.ends_with("sketchfab/thistle.glb"):
-		return {"roughness": 0.68, "specular": 0.4, "rim": 0.25}
+		# tools/paint_thistle.py repaints the pastel toy hide in bone and
+		# oxblood, with a damp, matte roughness map.
+		return {"roughness": 0.8, "specular": 0.3, "rim": 0.2, "albedo_tex": "res://assets/models/sketchfab/thistle_paint.png", "rough_tex": "res://assets/models/sketchfab/thistle_rough.png", "normal_scale": 1.4, "subsurface": 0.35, "backlight": Color(0.32, 0.1, 0.06)}
 	if path.ends_with("sketchfab/juniper.glb"):
 		return {"roughness": 0.7, "specular": 0.35, "rim": 0.3}
 	return {"roughness": 0.72, "specular": 0.4}
