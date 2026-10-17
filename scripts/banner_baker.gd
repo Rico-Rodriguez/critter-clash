@@ -25,7 +25,9 @@ func _bake(entry: Dictionary) -> void:
 	stage.viewport.msaa_3d = Viewport.MSAA_8X
 	stage.bind_hunt(id)
 	var look := stage._to3(Vector2(360, 640))
-	var boss := stage._spawn_model(str(entry["boss"]), Stage3D.BOSS_METERS * 0.58)
+	# Fixed banner scale: the hunt boss grew to 11 m, which pushed the
+	# flying dragon's head out of frame.
+	var boss := stage._spawn_model(str(entry["boss"]), 3.7)
 	boss.position = look + Vector3(1.2, 0, -1.0)
 	boss.rotation.y = -float(boss.get_meta("face", PI)) + 0.5
 	stage.world_root.add_child(boss)
@@ -126,12 +128,8 @@ func _bake(entry: Dictionary) -> void:
 		var in_lens := p.distance_to(cam_at) < 8.0
 		if behind_boss or in_lens:
 			n.visible = false
-	var cam_fx := CameraAttributesPractical.new()
-	cam_fx.dof_blur_far_enabled = true
-	cam_fx.dof_blur_far_distance = 17.0
-	cam_fx.dof_blur_far_transition = 12.0
-	cam_fx.dof_blur_amount = 0.06
-	stage.camera.attributes = cam_fx
+	# No engine DOF: on this renderer it softened the whole banner.
+	stage.camera.attributes = null
 	for i in 12:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
