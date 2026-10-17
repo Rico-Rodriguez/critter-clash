@@ -989,7 +989,7 @@ func _fix_pbr(node: Node, sprite: String) -> void:
 			if opts.has("rim"):
 				mat.rim_enabled = true
 				mat.rim = float(opts["rim"])
-				mat.rim_tint = 0.35
+				mat.rim_tint = float(opts.get("rim_tint", 0.35))
 			mesh.set_surface_override_material(i, mat)
 	for child in node.get_children():
 		_fix_pbr(child, sprite)

@@ -87,6 +87,9 @@ head = smooth(13.5, 15.0, Y) * smooth(-4.0, -1.5, Z)
 neck = smooth(6.0, 10.0, Y) * smooth(-7.0, -3.0, Z) * (1 - head)
 belly_dir = ny * -1.0 * (1 - neck) + nz * neck
 belly = smooth(0.05, 0.6, belly_dir)
+# Seen from the high hunt camera the true belly is hidden, so the amber
+# climbs the lower flanks as a gradient band.
+side_amber = smooth(-0.45, 0.2, belly_dir) * (1 - head)
 back = smooth(0.1, 0.75, -belly_dir)
 spine = np.exp(-(X / 0.9) ** 2) * back
 throat = belly * neck
@@ -98,6 +101,7 @@ amber = np.array([0.80, 0.40, 0.15])
 cream = np.array([0.86, 0.62, 0.36])
 col = mix(np.broadcast_to(flank, base.shape).copy(), crimson, back)
 col = mix(col, deep, np.clip(spine * 1.2, 0, 1))
+col = mix(col, amber * 0.85, np.clip(side_amber * 0.8, 0, 1))
 col = mix(col, amber, belly)
 col = mix(col, cream, np.clip(throat * 0.75 + belly * 0.2, 0, 1))
 
@@ -122,13 +126,15 @@ col = col * tone[..., None]
 tilt = 1.0 - np.clip(tn[..., 2], 0, 1)
 tb = np.asarray(Image.fromarray((tilt * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(5))).astype(np.float32) / 255
 vein = np.clip((tilt - tb) * 6.0, 0, 1)
+# Widen the veins a little so they still read at gameplay zoom.
+vein = np.clip(ndimage.grey_dilation(vein, size=(3, 3)) * 0.7 + vein * 0.5, 0, 1)
 edge_d = ndimage.distance_transform_edt(wing)
 edge = np.exp(-edge_d / 14.0)
-memb = np.array([0.22, 0.03, 0.06])
-vein_c = np.array([0.66, 0.20, 0.14])
-rim_c = np.array([0.74, 0.26, 0.16])
-wcol = mix(np.broadcast_to(memb, base.shape).copy(), vein_c, np.clip(vein * 1.3, 0, 1))
-wcol = mix(wcol, rim_c, edge * 0.7)
+memb = np.array([0.11, 0.014, 0.032])
+vein_c = np.array([0.86, 0.40, 0.18])
+rim_c = np.array([0.88, 0.46, 0.18])
+wcol = mix(np.broadcast_to(memb, base.shape).copy(), vein_c, np.clip(vein * 1.8, 0, 1))
+wcol = mix(wcol, rim_c, edge * 0.85)
 wcol = wcol * (0.9 + 0.1 * smooth(-1, 1, ny))[..., None]
 col = np.where(wing[..., None], wcol, col)
 
