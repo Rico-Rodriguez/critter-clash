@@ -14,6 +14,7 @@ var rng := RandomNumberGenerator.new()
 var mode := Session.Mode.SOLO
 var biome_id := "meadow"
 var biome: Dictionary = {}
+var map: HuntMap
 var play := Rect2(40, 168, 640, 980)
 var time := 0.0
 var phase := "hunt"
@@ -126,6 +127,8 @@ func start(session: Session, stats_for: Dictionary) -> void:
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
+	map = HuntMap.for_biome(biome_id)
+	play = map.play
 	xp_need = Catalog.xp_for_level(1)
 	var count := session.hero_ids.size()
 	if mode == Session.Mode.SOLO:
@@ -810,7 +813,7 @@ func _spawn_minion(skin_index: int) -> void:
 	actor.sprite = id
 	actor.display = str(info.get("name", id))
 	actor.archetype = str(info.get("archetype", "chaser"))
-	actor.pos = _edge_point()
+	actor.pos = _spawn_point()
 	actor.prev = actor.pos
 	actor.radius = float(info.get("radius", 24))
 	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"])
@@ -842,7 +845,7 @@ func _spawn_boss() -> void:
 	actor.hp = actor.max_hp
 	actor.speed = float(info.get("boss_speed", 70))
 	actor.dmg = float(info.get("boss_touch", 16)) * mul
-	actor.pos = Vector2(play.get_center().x, play.position.y + actor.radius + 8.0)
+	actor.pos = map.boss_spawn(actor.radius)
 	actor.prev = actor.pos
 	actor.boss_state = "idle"
 	actor.boss_timer = 0.9
@@ -1089,17 +1092,14 @@ func _wave() -> Dictionary:
 	return {}
 
 
-func _edge_point() -> Vector2:
-	var side := rng.randi() % 4
-	match side:
-		0:
-			return Vector2(play.position.x + 8.0, rng.randf_range(play.position.y, play.end.y))
-		1:
-			return Vector2(play.end.x - 8.0, rng.randf_range(play.position.y, play.end.y))
-		2:
-			return Vector2(rng.randf_range(play.position.x, play.end.x), play.position.y + 8.0)
-		_:
-			return Vector2(rng.randf_range(play.position.x, play.end.x), play.end.y - 8.0)
+## The zone nearest the hero. Today's map has one zone the size of the
+## playfield, so the rim is the same edge the minions used to walk in from.
+func _spawn_point() -> Vector2:
+	var at := play.get_center()
+	if not heroes.is_empty():
+		at = heroes[0].pos
+	var zone := map.zone_near(at)
+	return HuntMap.rim_point(zone["rect"], rng)
 
 
 func _clamp_actor(actor: Actor) -> void:

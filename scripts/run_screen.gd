@@ -24,7 +24,8 @@ var _gem_sprites: Dictionary = {}
 var _shot_sprites: Dictionary = {}
 
 var world: Node2D
-var arena: Sprite2D
+var stream: MapStream
+var cam: HuntCamera
 var marks: GroundMarks
 var actors_root: Node2D
 var sparks: SparkLayer
@@ -55,10 +56,8 @@ func build() -> void:
 	UiKit.ensure()
 	world = Node2D.new()
 	add_child(world)
-	arena = Sprite2D.new()
-	arena.centered = false
-	arena.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	world.add_child(arena)
+	stream = MapStream.new()
+	world.add_child(stream)
 	marks = GroundMarks.new()
 	world.add_child(marks)
 	actors_root = Node2D.new()
@@ -89,15 +88,17 @@ func build() -> void:
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
 	hero_id = str(args.get("hero", "ember"))
-	var tex := SpriteBank.arena(biome_id)
-	arena.texture = tex
-	if tex.get_width() > 0:
-		arena.scale = Vector2(720.0 / float(tex.get_width()), 1280.0 / float(tex.get_height()))
 	var session := Session.solo(biome_id, hero_id)
 	sim = RunSim.new()
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
 	sim.start(session, stats)
+	cam = HuntCamera.new()
+	var hero_at := sim.play.get_center()
+	if not sim.heroes.is_empty():
+		hero_at = sim.heroes[0].pos
+	cam.setup(sim.map, hero_at)
+	stream.sync(sim.map, cam.view_rect())
 	marks.sim = sim
 	var info := Catalog.critter(hero_id)
 	name_label.text = str(info["name"])
@@ -250,7 +251,8 @@ func _process(delta: float) -> void:
 		return
 	trauma = maxf(0.0, trauma - delta * 2.3)
 	var mag := trauma * trauma * 11.0
-	world.position = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * mag
+	var shake := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * mag
+	_place_camera(delta, shake)
 	_decay_punch(delta)
 	if not _modal_up and sim.result == "" and not sim.paused:
 		acc += delta
@@ -271,6 +273,18 @@ func _process(delta: float) -> void:
 		stick.hint_left = maxf(0.0, stick.hint_left - delta)
 		stick.hint = 1.0 if stick.hint_left > 0.35 else stick.hint_left / 0.35
 	stick.queue_redraw()
+
+
+func _place_camera(delta: float, shake: Vector2) -> void:
+	var origin := Vector2.ZERO
+	if cam != null and sim != null and sim.map != null:
+		var hero_at := sim.play.get_center()
+		if not sim.heroes.is_empty():
+			hero_at = sim.heroes[0].pos
+		cam.follow(hero_at, delta)
+		stream.sync(sim.map, cam.view_rect())
+		origin = cam.top_left()
+	world.position = -origin + shake
 
 
 func _move() -> Vector2:

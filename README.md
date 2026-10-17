@@ -69,6 +69,16 @@ Each critter has a weapon slot, an armor slot, and a charm slot. A piece can onl
 
 Progress is stored on the device at `user://critter_clash.json`.
 
+## Maps
+
+Each biome is data: a pixel size, a chunk grid, spawn zones, and a boss arena point (`HuntMap`). The hunts you can play today are one screen, 720×1280. That record is a single chunk and a single zone covering the playfield, with the boss at the top of the zone. A later map can be about four screens by four screens — sixteen times the area — by filling the same record. The fight does not assume the zone is the whole screen.
+
+The camera follows the hero. Inside a soft deadzone the view stays still; past that edge it eases after the hero, and it never slides outside the map. On a one-screen map the view and the map are the same size, so the camera stays put and the hunt looks as it does now. The heads-up display is not parented to the world, so it does not scroll.
+
+Only chunks that overlap the view, plus a small margin, are instanced. Each chunk carries a ground picture and a list of props, and those nodes are freed when the chunk leaves the window. The current arenas are one chunk, so the painted backdrop is the only one on screen. A 4×4 map does not build all sixteen chunks at once.
+
+Wild critters spawn on the rim of the zone nearest the hero, not on the edge of the screen. With one zone, that rim is the edge of the playfield.
+
 ## Later modes
 
 The launch build is single-player. The hunt itself does not know about buttons or sprites. `Session` can describe a solo hunt, a co-op pair that shares a team, or a duel. `RunBot.steer` is the stand-in brain for a future rival. The save keeps an unused `clan_id`. None of those modes have a screen yet.
@@ -134,7 +144,7 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 
 ## Project layout
 
-- `scripts/` hunt simulation, screens (including the collection log, slayer master, and skills stub), save, sprite loader
+- `scripts/` hunt simulation, map data, follow camera, chunk stream, screens (including the collection log, slayer master, and skills stub), save, sprite loader
 - `assets/sprites/` Kenney critters and arenas, plus generated effects
 - `assets/audio/` synthesized effects and the music loop
 - `assets/fonts/` Nunito for body copy, Lilita One for titles, numbers, and buttons

@@ -10,6 +10,7 @@ static func run() -> int:
 	_modes()
 	_save()
 	_steer()
+	_maps()
 	_fights()
 	if failures == 0:
 		print("SIM CHECK PASSED")
@@ -146,6 +147,96 @@ static func _steer() -> void:
 	vel = RunSim.ease_stick(vel, Vector2.ZERO, STEP)
 	if vel.x >= -0.02 or vel.x < -0.85:
 		_fail("stop should ease, got %s" % vel)
+
+
+static func _maps() -> void:
+	var play := Rect2(40, 168, 640, 980)
+	for biome in ["meadow", "mushroom", "frost", "volcano"]:
+		var map := HuntMap.for_biome(biome)
+		if map.size != Vector2(720, 1280) or map.zones.size() != 1 or map.chunks.size() != 1:
+			_fail("%s is not a single-screen map" % biome)
+			return
+		var zone: Dictionary = map.zones[0]
+		var rect: Rect2 = zone["rect"]
+		if rect != play or map.play != play:
+			_fail("%s playfield moved" % biome)
+			return
+		if map.chunks_in(Rect2(Vector2.ZERO, HuntMap.VIEW)).size() != 1:
+			_fail("%s streamed more than its one chunk" % biome)
+			return
+		if map.boss_spawn(76.0) != Vector2(360, 252):
+			_fail("%s boss arena moved" % biome)
+			return
+	var pinned := HuntCamera.new()
+	var meadow := HuntMap.for_biome("meadow")
+	pinned.setup(meadow, Vector2(40, 168))
+	pinned.follow(Vector2(680, 1100), 1.0)
+	if pinned.top_left().length() > 0.01:
+		_fail("one-screen camera left the origin")
+	var session := Session.solo("meadow", "ember")
+	session.seed = 11
+	var sim := RunSim.new()
+	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var minions := 0
+	for actor in sim.actors:
+		if actor.kind != "minion":
+			continue
+		minions += 1
+		var expect := HuntMap.rim_point(play, rng)
+		if actor.pos.distance_to(expect) > 0.01:
+			_fail("spawn left the zone rim")
+			return
+		rng.randf_range(0.15, 0.8)
+		rng.randf_range(0.0, 0.3)
+	if minions != 2:
+		_fail("expected two opening spawns")
+	var wide := HuntMap.explore("meadow", 4, 4)
+	if wide.size != Vector2(2880, 5120) or wide.chunks.size() != 16 or wide.zones.size() != 16:
+		_fail("4x4 map is not 16 chunks")
+		return
+	var near: Dictionary = wide.zone_near(wide.zones[0]["rect"].get_center())
+	if str(near["id"]) != "0_0":
+		_fail("spawn zone did not follow the hero")
+	var far: Dictionary = wide.zone_near(wide.zones[15]["rect"].get_center())
+	if str(far["id"]) != "3_3":
+		_fail("far zone was not chosen")
+	var cam := HuntCamera.new()
+	cam.setup(wide, wide.size * 0.5)
+	var before: float = cam.center.x
+	cam.follow(cam.center + Vector2(cam.deadzone.x + 40.0, 0), 1.0 / 60.0)
+	var eased: float = cam.center.x - before
+	if eased <= 1.0 or eased >= 20.0:
+		_fail("camera deadzone is not soft (%s)" % eased)
+	for _i in 180:
+		cam.follow(Vector2.ZERO, 1.0 / 60.0)
+	if cam.top_left().length() > 1.0:
+		_fail("camera crossed the north-west bound")
+	for _i in 180:
+		cam.follow(wide.size, 1.0 / 60.0)
+	var corner := cam.top_left()
+	if absf(corner.x - (wide.size.x - 720.0)) > 1.0 or absf(corner.y - (wide.size.y - 1280.0)) > 1.0:
+		_fail("camera crossed the south-east bound")
+	var shown: Array = wide.chunks_in(Rect2(Vector2.ZERO, HuntMap.VIEW))
+	if shown.size() != 4:
+		_fail("stream window loaded %d chunks" % shown.size())
+		return
+	var stream := MapStream.new()
+	stream.sync(meadow, Rect2(Vector2.ZERO, HuntMap.VIEW))
+	if stream.get_child_count() != 1 or stream.get_child(0).get_child_count() != 1:
+		_fail("small map did not keep a single backdrop")
+	stream.free()
+	var wide_stream := MapStream.new()
+	wide_stream.sync(wide, Rect2(Vector2.ZERO, HuntMap.VIEW))
+	if wide_stream.get_child_count() != 4:
+		_fail("wide map instanced %d chunks" % wide_stream.get_child_count())
+	elif wide_stream.get_child(0).get_child_count() != 3:
+		_fail("chunk props were not instanced")
+	wide_stream.sync(wide, Rect2(wide.size - HuntMap.VIEW, HuntMap.VIEW))
+	if wide_stream.get_child_count() != 4 or wide_stream.get_node_or_null("0_0") != null:
+		_fail("off-screen chunks stayed loaded")
+	wide_stream.free()
 
 
 static func _fights() -> void:
