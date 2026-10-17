@@ -73,6 +73,7 @@ func build_visual() -> void:
 		shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(shadow)
 		if form != "base":
+			_add_aura()
 			var ring := MeshInstance3D.new()
 			var tor := TorusMesh.new()
 			tor.inner_radius = rad * 0.7
@@ -84,6 +85,48 @@ func build_visual() -> void:
 			add_child(ring)
 	_build_bar()
 	_place_height()
+
+
+func _add_aura() -> void:
+	var color := Color("ff8a3a")
+	var gravity_y := 0.5
+	if form == "water":
+		color = Color("9adfff")
+		gravity_y = -0.7
+	elif form == "forest":
+		color = Color("8ed25a")
+		gravity_y = -0.22
+	elif form != "lava":
+		return
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.04
+	mesh.height = 0.08
+	mesh.radial_segments = 6
+	mesh.rings = 3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy_multiplier = 2.4
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh.material = mat
+	var p := CPUParticles3D.new()
+	p.mesh = mesh
+	p.amount = 18
+	p.lifetime = 1.2
+	p.preprocess = 0.5
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = float(stats.get("radius", 0.4)) * 1.2
+	p.direction = Vector3(0, 1, 0)
+	p.spread = 75.0
+	p.gravity = Vector3(0, gravity_y, 0)
+	p.initial_velocity_min = 0.12
+	p.initial_velocity_max = 0.5
+	p.scale_amount_min = 0.35
+	p.scale_amount_max = 1.0
+	p.position = Vector3(0, 0.55, 0)
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(p)
 
 
 func tick(dt: float) -> void:

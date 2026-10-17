@@ -214,6 +214,11 @@ func _capture() -> void:
 	await _shot("merge")
 	await get_tree().create_timer(1.15).timeout
 	await _shot("evolution")
+	battle._spawn_critter(0, "pip", "base", Vector3(-1.15, 0, -1.5))
+	battle._spawn_critter(0, "juniper", "forest", Vector3(0.35, 0, -1.15))
+	battle._spawn_critter(1, "bramble", "lava", Vector3(1.35, 0, 1.7))
+	await get_tree().create_timer(0.55).timeout
+	await _shot("field")
 	if is_instance_valid(battle.enemy_den):
 		battle._hurt(battle.enemy_den, 8000.0, null, false)
 	await get_tree().create_timer(0.45).timeout

@@ -207,8 +207,21 @@ def wrap_and_scale(target_height, forward):
     return root
 
 
+def head_world(fallback):
+    arm = next((obj for obj in bpy.context.scene.objects if obj.type == "ARMATURE"), None)
+    if arm is not None:
+        bone = arm.data.bones.get("Head")
+        if bone is None and arm.data.bones:
+            bone = max(arm.data.bones, key=lambda item: (arm.matrix_world @ item.head_local).z)
+        if bone is not None:
+            return arm.matrix_world @ bone.head_local
+    return fallback
+
+
 def add_glow(root, forward, height, color):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.08, location=(0, 0, 0))
+    spot = head_world(Vector((forward.x * 0.05, forward.y * 0.05, height * 0.78)))
+    spot.z += 0.06
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.07, location=spot)
     orb = bpy.context.active_object
     orb.name = "GlowCrest"
     mat = bpy.data.materials.new("Glow")
@@ -218,8 +231,8 @@ def add_glow(root, forward, height, color):
     bsdf.inputs["Emission Color"].default_value = color
     bsdf.inputs["Emission Strength"].default_value = 4.0
     orb.data.materials.append(mat)
-    orb.parent = root
-    orb.location = (forward.x * 0.05, forward.y * 0.05, height * 1.05)
+    bpy.context.view_layer.update()
+    _keep_world(orb, root)
 
 
 def export(path):
@@ -241,6 +254,202 @@ def export(path):
         export_texcoords=True,
     )
     print("exported", os.path.basename(path), os.path.getsize(path))
+
+
+def _mesh_objs():
+    return [obj for obj in bpy.context.scene.objects if obj.type == "MESH" and not obj.name.startswith("Icosphere")]
+
+
+def _edit_world(obj, fn):
+    inv = obj.matrix_world.inverted()
+    for vert in obj.data.vertices:
+        vert.co = inv @ fn(obj.matrix_world @ vert.co)
+
+
+def _scale_about_center(obj, factor):
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.transform.resize(value=(factor, factor, factor))
+    bpy.ops.object.mode_set(mode="OBJECT")
+    obj.select_set(False)
+
+
+def cute_dragon():
+    """Pull the snout back, turn the spines into nubs, and give the wings some thickness."""
+    for obj in _mesh_objs():
+        low = obj.name.lower()
+        if "body" in low:
+            def shorten(w, _low=low):
+                if w.y < -0.42:
+                    w.y = -0.42 + (w.y + 0.42) * 0.32
+                    if w.z > 0.7:
+                        w.z = 0.7 + (w.z - 0.7) * 0.4
+                return w
+            _edit_world(obj, shorten)
+        elif "horn" in low or "spine" in low:
+            _scale_about_center(obj, 0.42 if "spine" in low else 0.5)
+        elif "wing" in low:
+            bpy.ops.object.select_all(action="DESELECT")
+            bpy.context.view_layer.objects.active = obj
+            obj.select_set(True)
+            mod = obj.modifiers.new("Thick", "SOLIDIFY")
+            mod.thickness = 0.045
+            mod.offset = 0.0
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+            obj.select_set(False)
+            # Keep the membranes beside the body. A tall tip reads as a horn.
+            def fold(w):
+                if w.z > 0.64:
+                    w.z = 0.64
+                return w
+            _edit_world(obj, fold)
+
+
+def add_catchlights(radius=0.032):
+    mat = bpy.data.materials.new("Catch")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    bsdf.inputs["Base Color"].default_value = (1, 1, 1, 1)
+    bsdf.inputs["Emission Color"].default_value = (1, 1, 1, 1)
+    bsdf.inputs["Emission Strength"].default_value = 1.6
+    for obj in _mesh_objs():
+        if "eye" not in obj.name.lower() or "lid" in obj.name.lower():
+            continue
+        groups = {"l": [], "r": []}
+        for vert in obj.data.vertices:
+            groups["l" if vert.co.x >= 0 else "r"].append(obj.matrix_world @ vert.co)
+        for pts in groups.values():
+            if len(pts) < 3:
+                continue
+            center = sum(pts, Vector()) / len(pts)
+            center.y -= radius * 1.4
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=6, radius=radius, location=center)
+            ball = bpy.context.active_object
+            ball.name = "Catch"
+            ball.data.materials.append(mat)
+
+
+def compact_idle():
+    """Replace a spread-arm Idle with the middle of Walk, plus a small breathe."""
+    arm = next((obj for obj in bpy.context.scene.objects if obj.type == "ARMATURE"), None)
+    if arm is None:
+        return
+    walk = next((act for act in bpy.data.actions if act.name.lower().endswith("walk") and "jump" not in act.name.lower()), None)
+    if walk is None:
+        return
+    arm.animation_data_create()
+    arm.animation_data.action = walk
+    if hasattr(arm.animation_data, "action_slot") and getattr(walk, "slots", None):
+        if len(walk.slots):
+            arm.animation_data.action_slot = walk.slots[0]
+    mid = int((walk.frame_range[0] + walk.frame_range[1]) * 0.5)
+    bpy.context.scene.frame_set(mid)
+    bpy.context.view_layer.update()
+    snapshot = []
+    for pb in arm.pose.bones:
+        snapshot.append((pb.name, pb.rotation_mode, pb.rotation_quaternion.copy(), pb.rotation_euler.copy(), pb.location.copy(), pb.scale.copy()))
+    for act in list(bpy.data.actions):
+        if act.name.lower() in ("idle",) or act.name.lower().endswith("|idle"):
+            bpy.data.actions.remove(act)
+    action = bpy.data.actions.new("Idle")
+    _fake(action)
+    arm.animation_data.action = action
+    if hasattr(arm.animation_data, "action_slot") and hasattr(action, "slots"):
+        slot = action.slots.new(arm.id_type, "Idle") if len(action.slots) == 0 else action.slots[0]
+        arm.animation_data.action_slot = slot
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode="POSE")
+    for frame, breathe in ((1, 0.0), (9, 0.1), (18, 0.0)):
+        for name, mode, quat, euler, loc, scale in snapshot:
+            pb = arm.pose.bones.get(name)
+            if pb is None:
+                continue
+            pb.rotation_mode = mode
+            pb.rotation_quaternion = quat
+            pb.rotation_euler = euler
+            pb.location = loc
+            pb.scale = scale
+            if breathe and name in ("Torso", "Abdomen", "Chest", "Body"):
+                pb.location.z += breathe * 0.08
+            pb.keyframe_insert("location", frame=frame)
+            pb.keyframe_insert("scale", frame=frame)
+            if pb.rotation_mode == "QUATERNION":
+                pb.keyframe_insert("rotation_quaternion", frame=frame)
+            else:
+                pb.keyframe_insert("rotation_euler", frame=frame)
+    action.frame_range = (1, 18)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def _keep_world(obj, root):
+    world = obj.matrix_world.copy()
+    obj.parent = root
+    obj.matrix_world = world
+
+
+def _paint(obj, name, color, emission):
+    mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    bsdf.inputs["Base Color"].default_value = color
+    bsdf.inputs["Emission Color"].default_value = color
+    bsdf.inputs["Emission Strength"].default_value = emission
+    if obj.data.materials:
+        obj.data.materials[0] = mat
+    else:
+        obj.data.materials.append(mat)
+
+
+def dress(root, height, forward, kind):
+    """Add a readable upgrade on top of an evolution. kind is lava, water, or forest."""
+    if not kind or kind == "base":
+        return
+    head = head_world(Vector((forward.x * 0.04, forward.y * 0.04, height * 0.72)))
+    side = Vector((-forward.y, forward.x, 0.0))
+    if side.length < 0.01:
+        side = Vector((1, 0, 0))
+    else:
+        side.normalize()
+    specs = {
+        "lava": ("ff6a1a", "Glow", 3.2),
+        "water": ("7fd4ff", "Glow", 2.6),
+        "forest": ("7dce55", "Foliage", 0.35),
+    }
+    hex_color, mat_name, emission = specs[kind]
+    color = srgb(hex_color)
+
+    def add(prim, loc, scale, rot, label):
+        if prim == "cone":
+            bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.055, depth=0.22, location=loc)
+        elif prim == "leaf":
+            bpy.ops.mesh.primitive_plane_add(size=0.18, location=loc)
+        else:
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=6, radius=0.06, location=loc)
+        obj = bpy.context.active_object
+        obj.name = label
+        obj.scale = scale
+        obj.rotation_euler = rot
+        bpy.context.view_layer.update()
+        _keep_world(obj, root)
+        _paint(obj, mat_name, color, emission)
+        return obj
+
+    if kind == "lava":
+        add("cone", head + Vector((0, 0, 0.1)), (1.05, 1.05, 1.35), (0.2, 0, 0), "GlowCrest")
+        add("cone", head + side * 0.1 + Vector((0, 0, 0.02)), (0.65, 0.65, 0.95), (0.6, 0.2, 0.5), "GlowHorn")
+        add("cone", head - side * 0.1 + Vector((0, 0, 0.02)), (0.65, 0.65, 0.95), (0.6, -0.2, -0.5), "GlowHorn")
+        add("cone", head - forward * 0.42 + Vector((0, 0, -height * 0.35)), (1.2, 1.2, 1.6), (1.2, 0, 0), "GlowTail")
+    elif kind == "water":
+        for offset in (-0.12, 0.0, 0.12):
+            add("cone", head + side * offset + Vector((0, 0, 0.08 + abs(offset))), (0.6, 0.6, 1.15), (0.3, 0, offset * 3), "GlowSpike")
+        add("uv", head + Vector((0, -0.02, 0.12)), (0.9, 0.9, 0.9), (0, 0, 0), "GlowCrest")
+    else:
+        for i, offset in enumerate((-0.14, -0.05, 0.05, 0.14)):
+            add("leaf", head + side * offset + Vector((0, 0, 0.02 + 0.03 * (i % 2))), (1.05, 0.65, 1), (0.8, 0.2, offset * 4), "LeafMane")
+        add("leaf", head + Vector((0, 0.08, -height * 0.22)), (1.4, 0.95, 1), (1.05, 0, 0.3), "LeafArmor")
 
 
 def plump_eyes(scale):
@@ -326,7 +535,7 @@ def prepare_anims():
         _fake(hover)
 
 
-def critter(src, dest, height, colors=None, hue=None, glow=None, eyes=1.0, force=False):
+def critter(src, dest, height, colors=None, hue=None, glow=None, eyes=1.0, force=False, cute=False, pose=False, kit=None):
     if not force and os.path.exists(dest) and os.path.getsize(dest) > 50000:
         print("skip", os.path.basename(dest))
         return
@@ -334,8 +543,13 @@ def critter(src, dest, height, colors=None, hue=None, glow=None, eyes=1.0, force
     reset()
     import_gltf(src)
     drop_normal_maps(512)
+    if cute:
+        cute_dragon()
     if eyes != 1.0:
         plump_eyes(eyes)
+        add_catchlights(0.02 * eyes)
+    if pose:
+        compact_idle()
     if colors:
         for part, col in colors.items():
             set_base(part, srgb(col))
@@ -344,9 +558,35 @@ def critter(src, dest, height, colors=None, hue=None, glow=None, eyes=1.0, force
     prepare_anims()
     fwd = guess_forward()
     root = wrap_and_scale(height, fwd)
-    if glow:
+    if glow and not kit:
         add_glow(root, fwd, height, srgb(glow))
+    if kit:
+        dress(root, height, fwd, kit)
+    if eyes != 1.0:
+        seat_catchlights()
     export(dest)
+
+
+def seat_catchlights():
+    balls = [obj for obj in _mesh_objs() if obj.name.startswith("Catch")]
+    centers = []
+    for obj in _mesh_objs():
+        if "eye" not in obj.name.lower() or "lid" in obj.name.lower() or obj.name.startswith("Catch"):
+            continue
+        groups = {}
+        for vert in obj.data.vertices:
+            point = obj.matrix_world @ vert.co
+            groups.setdefault("l" if point.x >= 0 else "r", []).append(point)
+        for group in groups.values():
+            if len(group) < 3:
+                continue
+            center = sum(group, Vector()) / len(group)
+            center.y -= 0.015
+            centers.append(center)
+    for ball, center in zip(balls, centers):
+        world = ball.matrix_world.copy()
+        world.translation = center
+        ball.matrix_world = world
 
 
 def prep_nature(src_name, dest_name, hue=None, height=None):
@@ -367,6 +607,9 @@ def prep_nature(src_name, dest_name, hue=None, height=None):
 
 
 def assemble(path, parts, mouth, flag_color):
+    if os.path.exists(path) and os.path.getsize(path) > 2000:
+        print("skip", os.path.basename(path))
+        return
     print("assemble", os.path.basename(path))
     reset()
     for src, loc, scale, rot in parts:
@@ -431,8 +674,8 @@ def main():
     }
     for form, colors in dragon_colors.items():
         glow = "ff6a1e" if form == "lava" else ("d8f4ff" if form == "water" else None)
-        height = 0.95 if form == "base" else 1.06
-        critter(DRAGON, os.path.join(OUT, "ember_%s.glb" % form), height, colors=colors, glow=glow, eyes=1.45, force=True)
+        height = 0.95 if form == "base" else 0.95 * 1.3
+        critter(DRAGON, os.path.join(OUT, "ember_%s.glb" % form), height, colors=colors, glow=glow, eyes=2.15, force=True, cute=True, kit=form)
 
     # Juniper matches Pebble: the same Gamideo cozy pack, already chibi.
     fox_hues = {
@@ -442,12 +685,12 @@ def main():
     }
     for form, hue in fox_hues.items():
         glow = "ff7a28" if form == "lava" else ("9ed060" if form == "forest" else None)
-        height = 0.92 if form == "base" else 1.02
-        critter(COZY_FOX, os.path.join(OUT, "juniper_%s.glb" % form), height, hue=hue, glow=glow, force=True)
+        height = 0.92 if form == "base" else 0.92 * 1.3
+        critter(COZY_FOX, os.path.join(OUT, "juniper_%s.glb" % form), height, hue=hue, glow=glow, force=(form != "base"), kit=form)
 
     critter(OTTER, os.path.join(OUT, "pebble_base.glb"), 0.9, hue=(0.07, 0.25, 1.08))
-    critter(OTTER, os.path.join(OUT, "pebble_water.glb"), 1.0, hue=(0.52, 0.45, 1.1), glow="b9ecff")
-    critter(OTTER, os.path.join(OUT, "pebble_forest.glb"), 1.0, hue=(0.28, 0.55, 1.08), glow="b6e090")
+    critter(OTTER, os.path.join(OUT, "pebble_water.glb"), 0.9 * 1.3, hue=(0.52, 0.45, 1.1), glow="b9ecff", force=True, kit="water")
+    critter(OTTER, os.path.join(OUT, "pebble_forest.glb"), 0.9 * 1.3, hue=(0.28, 0.55, 1.08), glow="b6e090", force=True, kit="forest")
 
     frog = {
         "base": {"Frog_Main": "3ea844", "Frog_Secondary": "e7f3b4", "Eye_White": "f4f7ef"},
@@ -456,7 +699,7 @@ def main():
     }
     for form, colors in frog.items():
         glow = "d8ff9a" if form == "forest" else None
-        critter(os.path.join(UM, "Big/glTF/Frog.gltf"), os.path.join(OUT, "pip_%s.glb" % form), 0.88 if form == "base" else 0.98, colors=colors, glow=glow)
+        critter(os.path.join(UM, "Big/glTF/Frog.gltf"), os.path.join(OUT, "pip_%s.glb" % form), 0.88 if form == "base" else 0.88 * 1.3, colors=colors, glow=glow, force=True, pose=True, kit=form)
 
     # Lumen is the Pixor CC0 owl, recolored cream so it sits with the cozy cast.
     owl_colors = {
@@ -469,11 +712,12 @@ def main():
         critter(
             OWL,
             os.path.join(OUT, "lumen_%s.glb" % form),
-            0.9 if form == "base" else 1.0,
+            0.9 if form == "base" else 0.9 * 1.3,
             colors=colors,
             glow=glow,
             eyes=1.28,
-            force=True,
+            force=(form != "base"),
+            kit=form,
         )
 
     hog = {
@@ -483,7 +727,7 @@ def main():
     }
     for form, colors in hog.items():
         glow = "ff6a1e" if form == "lava" else None
-        critter(os.path.join(UM, "Big/glTF/Cactoro.gltf"), os.path.join(OUT, "bramble_%s.glb" % form), 0.98 if form == "base" else 1.1, colors=colors, glow=glow)
+        critter(os.path.join(UM, "Big/glTF/Cactoro.gltf"), os.path.join(OUT, "bramble_%s.glb" % form), 0.98 if form == "base" else 0.98 * 1.3, colors=colors, glow=glow, force=True, pose=True, kit=form)
 
     props = [
         ("CommonTree_1.gltf", "tree_a", None, 2.4),
@@ -538,6 +782,10 @@ def main():
         "ffb15a",
     )
     # Lane bridge from path stones.
+    bridge_path = os.path.join(OUT, "bridge.glb")
+    if os.path.exists(bridge_path) and os.path.getsize(bridge_path) > 2000:
+        print("skip bridge.glb")
+        return
     print("assemble bridge")
     reset()
     for i, x in enumerate((-0.35, 0.35)):

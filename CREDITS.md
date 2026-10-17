@@ -21,7 +21,7 @@ All of these are CC0. Attribution is not required. It is recorded here so the so
 - Juniper, the fox. [Cozy Animals](https://dragofive.itch.io/cozy-animals-3d) by Gamideo. CC0. The fox mesh, texture, and idle / walk / gesture clips. Gamideo generated the meshes in Meshy and authored the animation clips. Forest and lava forms are hue shifts of that texture.
 - Pebble, the otter. Same Gamideo Cozy Animals pack. CC0. Idle, walk, gesture, swim, and swim-idle.
 - Lumen, the owl. [Pixor owl](https://pixor.art/library/creatures/owl/) by Pixor. CC0. Rigged, with the pack's blink used as idle. A wingbeat clip was added in `tools/prepare_cast.py`. Recolored cream, grove green, and storm blue, and the eyes are scaled up.
-- Pip, the frog, and Bramble, the cactus-hog. [Ultimate Monsters](https://quaternius.com) by Quaternius. CC0. `Frog.gltf` and `Cactoro.gltf`, recolored per evolution.
+- Pip, the frog, and Bramble, the cactus-hog. [Ultimate Monsters](https://quaternius.com) by Quaternius. CC0. `Frog.gltf` and `Cactoro.gltf`. Their idle is a standing pose taken from the walk cycle, because the pack's own idle holds the arms out. Evolutions are about 1.3 times as tall and wear a leaf mane or a flame crest.
 
 ## Glade
 
