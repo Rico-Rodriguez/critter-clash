@@ -78,6 +78,8 @@ func _capture() -> void:
 	SaveGame.reset_new()
 	SaveGame.data["trophies"] = 46
 	SaveGame.data["coins"] = 135
+	SaveGame.data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": 3})
+	SaveGame.data["chests"].append({"kind": "scrap", "biome": "meadow", "seed": 4})
 	if _wants("home"):
 		go("home")
 		await _settle()

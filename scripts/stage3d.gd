@@ -12,7 +12,10 @@ const BOSS_DIST := 14.5
 ## On-screen size targets. With the camera at DIST these put the hero near
 ## 13% of the screen height; the boss is about 2.6 times the hero.
 const HERO_METERS := 1.9
+const PEDESTAL_TOP := 0.34
 const BOSS_METERS := 4.9
+## Highest render density over the logical canvas (device px per canvas px).
+const MAX_DENSITY := 1.65
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -38,11 +41,16 @@ var _grass_mats: Array = []
 var _props: Array = []
 var _pings: Dictionary = {}
 var _decal_shader: Shader
+var _view: TextureRect
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stretch = true
+	# Render at device pixels rather than logical canvas pixels, so the 3D
+	# isn't upscaled (and soft) on high-density screens. The container's own
+	# 1:1 draw is hidden and a scaled TextureRect shows the frame instead.
+	stretch = false
+	self_modulate = Color(1, 1, 1, 0)
 	viewport = SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.transparent_bg = false
@@ -51,6 +59,14 @@ func _ready() -> void:
 	viewport.msaa_3d = Viewport.MSAA_2X
 	viewport.size = Vector2i(720, 1280)
 	add_child(viewport)
+	_view = TextureRect.new()
+	_view.texture = viewport.get_texture()
+	_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_view.stretch_mode = TextureRect.STRETCH_SCALE
+	_view.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_view)
 	world_root = Node3D.new()
 	viewport.add_child(world_root)
 	_lights()
@@ -60,12 +76,13 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	var target := Vector2i(maxi(16, int(size.x)), maxi(16, int(size.y)))
+	var density := clampf(get_viewport().get_final_transform().get_scale().x, 1.0, MAX_DENSITY)
+	var target := Vector2i(maxi(16, int(size.x * density)), maxi(16, int(size.y * density)))
 	if viewport.size != target:
 		viewport.size = target
 	if _mode == "pedestal" and _pedestal_hero != null:
-		_pedestal_hero.position.y = 0.48 + sin(Time.get_ticks_msec() * 0.0021) * 0.04
-		_pedestal_hero.rotation.y += delta * 0.35
+		_pedestal_hero.position.y = PEDESTAL_TOP + absf(sin(Time.get_ticks_msec() * 0.0021)) * 0.03
+		_pedestal_hero.rotation.y = -float(_pedestal_hero.get_meta("face", PI)) + 0.45 + sin(Time.get_ticks_msec() * 0.0005) * 0.5
 
 
 func bind_hunt(biome_id: String) -> void:
@@ -84,32 +101,36 @@ func bind_pedestal(hero_id: String) -> void:
 	_mode = "pedestal"
 	_hero_id = hero_id
 	viewport.transparent_bg = false
-	var env := _environment(Color("8aa0b8"), false)
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("142033")
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("6d88b0")
-	env.ambient_light_energy = 0.55
-	env.fog_enabled = false
+	# A sunny meadow clearing: the sky HDRI behind, a warm key with soft
+	# shadows, and a cool fill so the hero reads from every side.
+	var env := _environment(Color("a8c4e0"), false)
+	env.background_energy_multiplier = 0.9
+	env.ambient_light_energy = 0.75
+	env.tonemap_exposure = 1.0
+	env.fog_enabled = true
+	env.fog_density = 0.012
+	env.fog_light_color = Color(0.62, 0.74, 0.9)
+	env.fog_sky_affect = 0.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.15
-	env.tonemap_exposure = 0.95
-	env.background_energy_multiplier = 1.0
+	env.glow_intensity = 0.12
 	_apply_env(env)
-	sun.light_energy = 0.22
-	sun.shadow_enabled = false
-	_lamp(Color("ffe0b8"), 3.4, Vector3(1.7, 2.5, 2.5), true)
-	_lamp(Color("9eb6de"), 1.35, Vector3(-1.9, 1.5, 1.6), false)
-	_lamp(Color("d5e4ff"), 2.6, Vector3(0.15, 2.3, -2.0), false)
+	sun.light_energy = 1.55
+	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 14.0
+	sun.rotation_degrees = Vector3(-42, 28, 0)
+	_lamp(Color("ffe6c4"), 1.6, Vector3(1.6, 2.4, 2.6), false)
+	_lamp(Color("9fc0ff"), 1.4, Vector3(-2.2, 1.8, 1.2), false)
 	_pedestal_set()
-	var body := _spawn_model(hero_id, 1.45)
-	body.position = Vector3(0, 0.55, 0)
+	var body := _spawn_model(hero_id, 1.5)
+	body.position = Vector3(0, PEDESTAL_TOP, 0)
+	body.rotation.y = -float(body.get_meta("face", PI)) + 0.45
 	world_root.add_child(body)
 	_pedestal_hero = body
 	_outline(body)
 	_hide_catch(body)
 	_play(body, "idle")
 	_frame_on(body)
+	_reframe_posed(body)
 
 
 func sync_hunt(sim: RunSim, alpha: float) -> void:
@@ -529,47 +550,93 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 	world_root.add_child(node)
 
 
+## A raised grassy platform with a stone rim, flowers, rocks, and a ring of
+## trees and bushes behind, all from the CC0 kits already in the project.
 func _pedestal_set() -> void:
-	var dais := MeshInstance3D.new()
-	var stone := CylinderMesh.new()
-	stone.top_radius = 1.05
-	stone.bottom_radius = 1.28
-	stone.height = 0.46
-	stone.radial_segments = 24
-	var rock_mat := StandardMaterial3D.new()
-	rock_mat.albedo_color = Color("6a5c50")
-	rock_mat.roughness = 0.9
-	dais.mesh = stone
-	dais.material_override = rock_mat
-	dais.position = Vector3(0.0, 0.2, 0.0)
-	world_root.add_child(dais)
-	var pad := MeshInstance3D.new()
+	var grass := StandardMaterial3D.new()
+	grass.albedo_texture = load("res://assets/textures/lush_color.jpg")
+	grass.normal_enabled = true
+	grass.normal_texture = load("res://assets/textures/lush_normal.jpg")
+	grass.uv1_triplanar = true
+	grass.uv1_scale = Vector3(0.9, 0.9, 0.9)
+	grass.albedo_color = Color(0.95, 1.0, 0.85)
+	grass.roughness = 0.95
+	var stone := StandardMaterial3D.new()
+	stone.albedo_texture = load("res://assets/textures/rock_color.jpg")
+	stone.uv1_triplanar = true
+	stone.uv1_scale = Vector3(1.2, 1.2, 1.2)
+	stone.albedo_color = Color("b9b0a4")
+	stone.roughness = 0.9
+	var dirt := StandardMaterial3D.new()
+	dirt.albedo_texture = load("res://assets/textures/path_color.jpg")
+	dirt.uv1_triplanar = true
+	dirt.uv1_scale = Vector3(0.6, 0.6, 0.6)
+	dirt.roughness = 1.0
+	# Ground that runs to the horizon, softened by fog.
+	var field := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(60, 60)
+	field.mesh = plane
+	var far_grass := grass.duplicate() as StandardMaterial3D
+	far_grass.uv1_scale = Vector3(0.45, 0.45, 0.45)
+	far_grass.albedo_color = Color(0.82, 0.92, 0.7)
+	field.material_override = far_grass
+	world_root.add_child(field)
+	# Stone plinth with a grassy top.
+	var base := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 1.35
+	cyl.bottom_radius = 1.5
+	cyl.height = PEDESTAL_TOP
+	cyl.radial_segments = 48
+	base.mesh = cyl
+	base.material_override = stone
+	base.position = Vector3(0, PEDESTAL_TOP * 0.5, 0)
+	world_root.add_child(base)
+	var top := MeshInstance3D.new()
+	var cap := CylinderMesh.new()
+	cap.top_radius = 1.3
+	cap.bottom_radius = 1.36
+	cap.height = 0.06
+	cap.radial_segments = 48
+	top.mesh = cap
+	top.material_override = grass
+	top.position = Vector3(0, PEDESTAL_TOP + 0.01, 0)
+	world_root.add_child(top)
+	# A worn dirt apron around the plinth.
+	var apron := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
-	disc.top_radius = 2.6
-	disc.bottom_radius = 2.6
-	disc.height = 0.08
-	var pad_mat := StandardMaterial3D.new()
-	pad_mat.albedo_color = Color("3d4a38")
-	pad_mat.roughness = 0.95
-	pad.mesh = disc
-	pad.material_override = pad_mat
-	pad.position = Vector3(0.0, 0.02, 0.0)
-	world_root.add_child(pad)
-	for model in ["rock_a", "flower_a", "flower_b", "grass_short"]:
-		var packed := load("res://assets/models/%s.glb" % model) as PackedScene
-		if packed == null:
-			continue
-		var node := packed.instantiate()
-		if node is Node3D:
-			var prop := node as Node3D
-			if model == "rock_a":
-				prop.position = Vector3(0.55, 0.0, 0.35)
-				prop.scale *= 0.55
-				_paint_rock(node)
-			else:
-				prop.position = Vector3(randf_range(-0.8, 0.8), 0, randf_range(-0.6, 0.6))
-				prop.scale *= randf_range(0.7, 1.05)
-		world_root.add_child(node)
+	disc.top_radius = 2.3
+	disc.bottom_radius = 2.3
+	disc.height = 0.02
+	disc.radial_segments = 48
+	apron.mesh = disc
+	apron.material_override = dirt
+	apron.position = Vector3(0, 0.005, 0)
+	world_root.add_child(apron)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var dressing := [
+		["rock_a", Vector3(1.75, 0, 0.9), 0.55], ["rock_b", Vector3(-1.9, 0, 0.5), 0.5],
+		["pebble_rock", Vector3(0.9, 0, 1.9), 0.5], ["mushroom", Vector3(-1.3, 0, 1.55), 0.45],
+		["mushroom", Vector3(1.55, 0, -0.6), 0.4], ["flower_a", Vector3(-0.95, PEDESTAL_TOP, 0.55), 0.55],
+		["flower_b", Vector3(0.95, PEDESTAL_TOP, 0.45), 0.55], ["fern", Vector3(-2.2, 0, -0.6), 0.75],
+		["bush_flower", Vector3(2.4, 0, -1.2), 1.0], ["bush_flower", Vector3(-2.6, 0, -1.6), 1.1],
+		["log", Vector3(-2.1, 0, 1.4), 0.9], ["flower_b", Vector3(2.0, 0, 1.6), 0.7],
+		["tree_a", Vector3(-3.6, 0, -3.4), 2.6], ["tree_b", Vector3(3.9, 0, -3.8), 2.8],
+		["tree_a", Vector3(0.8, 0, -5.8), 3.0], ["bush_flower", Vector3(-1.4, 0, -3.2), 1.2],
+		["rock_c", Vector3(2.6, 0, -2.4), 0.9],
+	]
+	for row in dressing:
+		_place_prop(str(row[0]), row[1], float(row[2]), true)
+	for i in 70:
+		var ang := rng.randf() * TAU
+		var r := rng.randf_range(1.6, 4.5)
+		_place_prop("grass_short" if i % 3 else "clover", Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.5, 0.8), false)
+	for i in 14:
+		var ang := rng.randf() * TAU
+		var r := rng.randf_range(0.5, 1.15)
+		_place_prop("grass_short", Vector3(cos(ang) * r, PEDESTAL_TOP, sin(ang) * r), rng.randf_range(0.35, 0.5), false)
 
 
 func _field_point(rng: RandomNumberGenerator) -> Vector3:
@@ -762,15 +829,47 @@ func _frame(look: Vector3) -> void:
 	camera.look_at(look + Vector3(0.0, 1.05, 0.0), Vector3.UP)
 
 
+## Frames the hero so its body fills about 60% of the stage height, standing
+## a little below center with the plinth and props in view.
 func _frame_on(body: Node3D) -> void:
 	var box := _measure_local(body)
-	var focus := body.position + box.position + box.size * Vector3(0.5, 0.42, 0.5)
-	var span := maxf(box.size.x, maxf(box.size.y, box.size.z))
-	span = maxf(span, 1.0)
-	# The stage is a short window, and the dragon's wings pass the rest pose.
-	camera.fov = 34.0
-	var dist := span * 6.4
-	camera.position = focus + Vector3(dist * 0.42, dist * 0.32, dist)
+	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.75)
+	camera.fov = 30.0
+	var view_h := h / 0.6
+	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
+	var focus := body.position + Vector3(0, box.position.y + box.size.y * 0.5 - h * 0.06, 0)
+	var dir := Vector3(0.0, 0.32, 1.0).normalized()
+	camera.position = focus + dir * dist
+	camera.look_at(focus, Vector3.UP)
+
+
+## Skinned meshes report their rest-pose bounds, which can be far bigger than
+## the animated pose (the dragon's spread wings). After the idle has started,
+## measure the posed skeleton and frame on that instead.
+func _reframe_posed(body: Node3D) -> void:
+	for i in 3:
+		await get_tree().process_frame
+	if not is_instance_valid(body) or _mode != "pedestal":
+		return
+	var pts: Array[Vector3] = []
+	for sk in body.find_children("*", "Skeleton3D", true, false):
+		var skel := sk as Skeleton3D
+		for b in skel.get_bone_count():
+			pts.append(skel.global_transform * skel.get_bone_global_pose(b).origin)
+	if pts.size() < 4:
+		return
+	var box := AABB(pts[0], Vector3.ZERO)
+	for p in pts:
+		box = box.expand(p)
+	# Bones sit inside the skin: pad, and always include the feet line.
+	box = box.grow(box.size.length() * 0.08)
+	box = box.merge(AABB(Vector3(box.position.x, body.position.y, box.position.z), Vector3.ZERO))
+	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7)
+	var view_h := h / 0.6
+	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
+	var focus := box.get_center() + Vector3(0, -h * 0.06, 0)
+	var dir := Vector3(0.0, 0.32, 1.0).normalized()
+	camera.position = focus + dir * dist
 	camera.look_at(focus, Vector3.UP)
 
 

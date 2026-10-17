@@ -83,7 +83,7 @@ func _bake(id: String, head: bool) -> void:
 		var packed := load("res://assets/models/%s.glb" % id.substr(5)) as PackedScene
 		if packed:
 			body.add_child(packed.instantiate())
-		id = id.replace(":", "_")
+		id = id.replace(":", "_").replace("/", "_")
 	else:
 		body = _stage._spawn_model(id, 1.0)
 	_root.add_child(body)

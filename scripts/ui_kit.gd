@@ -670,3 +670,63 @@ class Badge extends Control:
 		var font := UiKit.font_x
 		var px := int(r.size.y * 0.5)
 		UiKit.draw_text(self, font, Vector2(r.position.x, c.y + font.get_ascent(px) * 0.36), str(level), px, Color.WHITE, UiKit.INK, 3, r.size.x)
+
+
+## A Clash-style chest: wooden body and arched lid with gold bands and a
+## lock plate. `tone` picks the wood: "wood", "silver", "gold", "magic".
+static func draw_chest(ci: CanvasItem, rect: Rect2, tone: String = "wood", lit: bool = true) -> void:
+	var w := rect.size.x
+	var h := rect.size.y
+	var o := rect.position
+	var wood_hi := Color("c9783a")
+	var wood_lo := Color("7a3f18")
+	var band := Color("ffd34a")
+	var band_lo := Color("c98a12")
+	match tone:
+		"silver":
+			wood_hi = Color("8fb4d8")
+			wood_lo = Color("3f6590")
+			band = Color("f2f6fa")
+			band_lo = Color("9aa8b8")
+		"gold":
+			wood_hi = Color("ffcf4a")
+			wood_lo = Color("c47a10")
+			band = Color("fff2b0")
+			band_lo = Color("d9a32a")
+		"magic":
+			wood_hi = Color("c58bff")
+			wood_lo = Color("5a24a8")
+	if not lit:
+		wood_hi = wood_hi.darkened(0.55)
+		wood_lo = wood_lo.darkened(0.55)
+		band = band.darkened(0.55)
+		band_lo = band_lo.darkened(0.55)
+	var ink := Color("2a1406") if lit else Color(0, 0, 0, 0.6)
+	var body := Rect2(o + Vector2(w * 0.1, h * 0.42), Vector2(w * 0.8, h * 0.48))
+	var lid := Rect2(o + Vector2(w * 0.08, h * 0.12), Vector2(w * 0.84, h * 0.36))
+	# Ground shadow.
+	ci.draw_set_transform(o + Vector2(w * 0.5, h * 0.92), 0.0, Vector2(1.0, 0.25))
+	ci.draw_circle(Vector2.ZERO, w * 0.44, Color(0, 0, 0, 0.3))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	rr_fill(ci, body.grow(3), 8, ink, ink)
+	rr_fill(ci, body, 6, wood_hi, wood_lo)
+	rr_fill(ci, lid.grow(3), lid.size.y * 0.55, ink, ink)
+	rr_fill(ci, lid, lid.size.y * 0.5, wood_hi.lightened(0.12), wood_hi.darkened(0.1))
+	# Planks.
+	for i in 3:
+		var y := body.position.y + body.size.y * (0.3 + i * 0.25)
+		ci.draw_line(Vector2(body.position.x + 4, y), Vector2(body.end.x - 4, y), Color(0, 0, 0, 0.18), 2.0)
+	# Gold bands on lid and body, the lid rim, and the lock plate.
+	for fx: float in [0.2, 0.8]:
+		var bx: float = o.x + w * fx - w * 0.055
+		rr_fill(ci, Rect2(bx - 2, lid.position.y - 2, w * 0.11 + 4, lid.size.y + body.size.y + 6), 4, ink, ink)
+		rr_fill(ci, Rect2(bx, lid.position.y, w * 0.11, lid.size.y + body.size.y + 2), 3, band, band_lo)
+	rr_fill(ci, Rect2(lid.position.x - 2, lid.end.y - h * 0.05, lid.size.x + 4, h * 0.08), 4, ink, ink)
+	rr_fill(ci, Rect2(lid.position.x, lid.end.y - h * 0.04, lid.size.x, h * 0.06), 3, band, band_lo)
+	var lock := Rect2(o + Vector2(w * 0.4, h * 0.4), Vector2(w * 0.2, h * 0.22))
+	rr_fill(ci, lock.grow(3), 6, ink, ink)
+	rr_fill(ci, lock, 5, band, band_lo)
+	ci.draw_circle(lock.get_center() + Vector2(0, -lock.size.y * 0.08), lock.size.x * 0.14, ink)
+	ci.draw_rect(Rect2(lock.get_center() + Vector2(-lock.size.x * 0.05, 0), Vector2(lock.size.x * 0.1, lock.size.y * 0.28)), ink, true)
+	# Gloss on the lid.
+	rr_fill(ci, Rect2(lid.position + Vector2(lid.size.x * 0.12, lid.size.y * 0.1), Vector2(lid.size.x * 0.76, lid.size.y * 0.3)), lid.size.y * 0.15, Color(1, 1, 1, 0.4 if lit else 0.08), Color(1, 1, 1, 0.0))
