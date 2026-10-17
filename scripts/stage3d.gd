@@ -138,6 +138,9 @@ func bind_pedestal(hero_id: String) -> void:
 	sun.rotation_degrees = Vector3(-24, 38, 0)
 	_lamp(Color("ffd6a0"), 2.2, Vector3(-1.8, 2.6, -1.8), false)
 	_lamp(Color("8fb0ff"), 1.0, Vector3(-2.2, 1.8, 1.6), false)
+	# Rim: a hot back light behind the hero carves its silhouette from the forest.
+	_lamp(Color("ffc27a"), 3.2, Vector3(1.2, 2.8, -2.0), false, 3.6)
+	_lamp(Color("ffe2b8"), 1.6, Vector3(-1.4, 2.4, -1.6), false, 3.2)
 	_pedestal_set()
 	var body := _spawn_model(hero_id, 1.5)
 	body.position = Vector3(0, PEDESTAL_TOP, 0)
@@ -673,6 +676,26 @@ func _pedestal_set() -> void:
 		var ang := rng.randf() * TAU
 		var r := rng.randf_range(0.5, 1.15)
 		_place_prop("grass_short", Vector3(cos(ang) * r, PEDESTAL_TOP, sin(ang) * r), rng.randf_range(0.35, 0.5), false)
+	# A real forest edge behind the glade: layered trees, then a dense band
+	# of bushes and tall grass, so the backdrop has depth instead of flat fog.
+	var trees := ["tree_a", "tree_b", "tree_twist", "tree_pine", "tree_round", "tree_blossom"]
+	for i in 16:
+		var x := lerpf(-9.0, 9.0, float(i) / 15.0) + rng.randf_range(-0.6, 0.6)
+		var z := -6.5 - rng.randf_range(0.0, 4.5) - absf(x) * 0.1
+		_place_prop(trees[i % trees.size()], Vector3(x, 0, z), rng.randf_range(2.4, 3.4), true)
+	for i in 18:
+		var x := rng.randf_range(-7.5, 7.5)
+		var z := rng.randf_range(-5.8, -3.6)
+		_place_prop("bush_flower" if i % 3 == 0 else "bush", Vector3(x, 0, z), rng.randf_range(1.1, 1.8), true)
+	for i in 120:
+		var ang := rng.randf_range(PI * 0.95, TAU * 1.02)
+		var r := rng.randf_range(2.2, 6.5)
+		var kind := "grass_tall" if i % 3 == 0 else ("grass_wispy" if i % 3 == 1 else "fern")
+		_place_prop(kind, Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.7, 1.15), false)
+	for i in 26:
+		var ang := rng.randf() * TAU
+		var r := rng.randf_range(1.7, 3.6)
+		_place_prop(["flower_a", "flower_b", "flower_warm", "pebble_rock_b"][i % 4], Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.4, 0.65), false)
 
 
 func _field_point(rng: RandomNumberGenerator) -> Vector3:
@@ -705,10 +728,10 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		# Rank-and-file critters stand roughly hero height so they read.
 		meters = clampf(actor.radius / 40.0, 0.5, 0.66) * HERO_METERS
 	var body := _spawn_model(actor.sprite, meters)
-	# Bold outlines keep silhouettes readable from the far camera: warm gold
-	# for the player's hero, deep red for anything hostile.
+	# Outlines keep silhouettes readable from the far camera: a dark hairline
+	# on the hero (its ring marks it), deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
-		_outline(body, Color("ffd45a"), 0.02)
+		_outline(body, Color("1a0806"), 0.008)
 	elif actor.kind == "boss":
 		_outline(body, Color("4a0a0a"), 0.012)
 	elif actor.kind != "hero":
@@ -819,6 +842,22 @@ func _fix_pbr(node: Node, sprite: String) -> void:
 			if bool(opts.get("drop_ao", false)):
 				mat.ao_enabled = false
 				mat.ao_texture = null
+			if opts.has("rough_tex"):
+				mat.roughness_texture = load(str(opts["rough_tex"]))
+				mat.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
+			if opts.has("ao_tex"):
+				mat.ao_enabled = true
+				mat.ao_texture = load(str(opts["ao_tex"]))
+				mat.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+				mat.ao_light_affect = 1.0
+			if opts.has("normal_tex"):
+				mat.normal_enabled = true
+				mat.normal_texture = load(str(opts["normal_tex"]))
+				mat.normal_scale = float(opts.get("normal_scale", 1.0))
+			if opts.has("backlight"):
+				# Thin membranes glow where the sun shines through them.
+				mat.backlight_enabled = true
+				mat.backlight = opts["backlight"]
 			if opts.has("albedo_tex") and mat.albedo_texture != null:
 				mat.albedo_texture = load(str(opts["albedo_tex"]))
 			var lift: Color = opts.get("albedo", Color.WHITE)
@@ -1249,11 +1288,11 @@ func _find_loose(node: Node, needle: String) -> Node3D:
 	return null
 
 
-func _lamp(color: Color, energy: float, pos: Vector3, shadows: bool) -> void:
+func _lamp(color: Color, energy: float, pos: Vector3, shadows: bool, reach := 8.0) -> void:
 	var light := OmniLight3D.new()
 	light.light_color = color
 	light.light_energy = energy
-	light.omni_range = 8.0
+	light.omni_range = reach
 	light.shadow_enabled = shadows
 	light.position = pos
 	world_root.add_child(light)
@@ -1341,6 +1380,9 @@ func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 			target = rng.randf_range(1.5, 2.3)
 		var box := _measure(prop)
 		var fit := target / maxf(box.size.y, 0.05)
+		if "rock" in low or "stone" in low:
+			# Flat slabs scaled by height alone became car-sized; cap the footprint.
+			fit = minf(fit, 1.7 / maxf(maxf(box.size.x, box.size.z), 0.05))
 		prop.scale *= fit
 		box = _measure(prop)
 		var dest := _rim_point(rng)
@@ -1356,11 +1398,12 @@ func _bark(node: Node) -> void:
 	if node is MeshInstance3D:
 		var mat := StandardMaterial3D.new()
 		mat.albedo_texture = load("res://assets/models/tree_a_Bark_NormalTree.png")
-		mat.albedo_color = Color("c9a98a")
+		mat.albedo_color = Color("8a7d70")
 		mat.uv1_triplanar = true
-		mat.uv1_world_triplanar = false
-		mat.uv1_scale = Vector3(1.6, 1.6, 1.6)
-		mat.roughness = 0.9
+		mat.uv1_world_triplanar = true
+		mat.uv1_scale = Vector3(1.4, 1.4, 1.4)
+		mat.roughness = 1.0
+		mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 		(node as MeshInstance3D).material_override = mat
 	for child in node.get_children():
 		_bark(child)

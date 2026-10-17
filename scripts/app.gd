@@ -137,10 +137,27 @@ func _capture() -> void:
 		# Sim time, not wall time: software rendering runs the hunt slowly.
 		# Wait for a pack to close in so the shot shows a real wave.
 		var start := Time.get_ticks_msec()
-		while Time.get_ticks_msec() - start < 120000 and (current.sim.time < 1.2 or _near_minions(current.sim) < 8):
+		# Hold until the frame tells the story: 3+ critters in clear view below
+		# the HUD, one already wounded (health bar), and one off screen (arrow).
+		var staged := false
+		while Time.get_ticks_msec() - start < 150000:
 			await get_tree().process_frame
 			if current.sim.time > 1.0:
 				current.drive = Vector2.ZERO
+			if current.sim.time < 1.2:
+				continue
+			if not staged and current.sim.time > 2.5:
+				# Packs die at range before they close in, so stage one real
+				# wave in view plus two stragglers off screen for the arrows.
+				staged = true
+				var hero_at: Vector2 = current.sim.heroes[0].pos
+				for off in [Vector2(-140, -170), Vector2(130, -140), Vector2(-110, 190), Vector2(150, 210), Vector2(10, -260), Vector2(-170, 40)]:
+					current.sim._spawn_minion(0, current.sim._clamp_point(hero_at + off, 24.0))
+				for off in [Vector2(-330, 120), Vector2(310, -540)]:
+					current.sim._spawn_minion(1, current.sim._clamp_point(hero_at + off, 24.0))
+			var seen := _framing(current)
+			if seen[0] >= 3 and seen[1] >= 1 and seen[2] >= 1:
+				break
 		var waited := 0.0
 		if OS.get_cmdline_user_args().has("--debug-wave"):
 			var hero: Vector2 = current.sim.heroes[0].pos
@@ -184,6 +201,29 @@ func _capture() -> void:
 
 func _wants(name: String) -> bool:
 	return _want.is_empty() or name in _want
+
+
+## [critters on screen in the clear play area, wounded among them, off screen]
+func _framing(run: Node) -> Array:
+	var sim: RunSim = run.sim
+	var stage: Stage3D = run.stage
+	var view := get_viewport().get_visible_rect()
+	var pad := UiKit.safe_insets()
+	var clear := Rect2(view.position.x + 40.0, view.position.y + float(pad["t"]) + 340.0, view.size.x - 80.0, view.size.y - float(pad["t"]) - float(pad["b"]) - 500.0)
+	var on := 0
+	var hurt := 0
+	var off := 0
+	for actor in sim.actors:
+		if not actor.alive or actor.team == 0 or actor.kind != "minion":
+			continue
+		var p: Vector2 = stage.project(actor.pos, 0.0)
+		if clear.has_point(p):
+			on += 1
+			if actor.hp < actor.max_hp:
+				hurt += 1
+		elif not view.has_point(p):
+			off += 1
+	return [on, hurt, off]
 
 
 func _near_minions(sim: RunSim) -> int:

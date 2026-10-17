@@ -796,6 +796,7 @@ class CardIcon extends Control:
 	var op := ""
 
 	var rarity := "common"
+	var _shadow := false
 
 	func _draw() -> void:
 		var c := Vector2(size.x * 0.5, size.y * 0.52)
@@ -810,49 +811,63 @@ class CardIcon extends Control:
 		draw_circle(c, 44, Color("0c0806"))
 		for k in 5:
 			draw_circle(c, 40.0 - k * 7.0, Color(glow, 0.06))
+		# Cast shadow first, then the glyph in muted, metal-leaning colour.
+		_shadow = true
+		draw_set_transform(Vector2(0, 4))
+		_glyphs(c)
+		draw_set_transform(Vector2.ZERO)
+		_shadow = false
+		_glyphs(c)
+
+	func _tone(col: Color) -> Color:
+		if _shadow:
+			return Color(0, 0, 0, 0.6)
+		return col.lerp(Color("e2c48a"), 0.28).darkened(0.05)
+
+	func _glyphs(c: Vector2) -> void:
 		match op:
 			"hp":
-				_heart(c, 22, Color("ff5a6a"))
+				_heart(c, 22, _tone(Color("ff5a6a")))
 			"heal":
-				_heart(c + Vector2(0, 2), 18, Color("ff5a6a"))
-				_plus(c + Vector2(16, -16), 8, Color.WHITE)
+				_heart(c + Vector2(0, 2), 18, _tone(Color("ff5a6a")))
+				_plus(c + Vector2(16, -16), 8, _tone(Color.WHITE))
 			"dmg":
-				_sword(c, Color("f2f4f8"))
+				_sword(c, _tone(Color("f2f4f8")))
 			"haste":
-				_bolt(c, Color("ffe14a"))
+				_bolt(c, _tone(Color("ffe14a")))
 			"swift":
-				_chevrons(c, Color("7ec8ff"))
+				_chevrons(c, _tone(Color("7ec8ff")))
 			"crit":
-				_spark(c, Color("ffe08a"))
+				_spark(c, _tone(Color("ffe08a")))
 			"regen":
-				_drop(c, Color("5dce45"))
+				_drop(c, _tone(Color("5dce45")))
 			"magnet":
 				_magnet(c)
 			"bounce":
-				_bounce(c, Color("7ec8ff"))
+				_bounce(c, _tone(Color("7ec8ff")))
 			"shots":
-				_arrows(c, Color("f4f7ff"))
+				_arrows(c, _tone(Color("f4f7ff")))
 			"armor":
-				_shield(c, Color("8fd0ff"))
+				_shield(c, _tone(Color("8fd0ff")))
 			"siphon":
-				_drop(c + Vector2(-8, -6), Color("ff5a6a"))
-				_heart(c + Vector2(14, 12), 12, Color("ff8fa0"))
+				_drop(c + Vector2(-8, -6), _tone(Color("ff5a6a")))
+				_heart(c + Vector2(14, 12), 12, _tone(Color("ff8fa0")))
 			"splash":
-				_splash(c, Color("7ec8ff"))
+				_splash(c, _tone(Color("7ec8ff")))
 			"splash_mul":
-				_flame(c, Color("ff8a3c"))
+				_flame(c, _tone(Color("ff8a3c")))
 			"pierce":
-				_pierce(c, Color("f4f7ff"))
+				_pierce(c, _tone(Color("f4f7ff")))
 			"thorns":
-				_thorns(c, Color("7dff5a"))
+				_thorns(c, _tone(Color("7dff5a")))
 			"bash":
-				_shield(c + Vector2(-4, 2), Color("ffe08a"))
-				_spark(c + Vector2(16, -14), Color("fff6ea"))
+				_shield(c + Vector2(-4, 2), _tone(Color("ffe08a")))
+				_spark(c + Vector2(16, -14), _tone(Color("fff6ea")))
 			"revive":
-				_heart(c + Vector2(0, 6), 16, Color("ff5a6a"))
-				_chevron_up(c + Vector2(0, -18), Color("ffe08a"))
+				_heart(c + Vector2(0, 6), 16, _tone(Color("ff5a6a")))
+				_chevron_up(c + Vector2(0, -18), _tone(Color("ffe08a")))
 			_:
-				_spark(c, Color("ffe08a"))
+				_spark(c, _tone(Color("ffe08a")))
 
 	func _heart(c: Vector2, s: float, col: Color) -> void:
 		draw_circle(c + Vector2(-s * 0.42, -s * 0.2), s * 0.48, col)
@@ -866,8 +881,8 @@ class CardIcon extends Control:
 	func _sword(c: Vector2, col: Color) -> void:
 		draw_line(c + Vector2(0, -28), c + Vector2(0, 16), col, 8.0)
 		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -34), c + Vector2(8, -18), c + Vector2(-8, -18)]), col)
-		draw_line(c + Vector2(-14, 8), c + Vector2(14, 8), Color("e0a04a"), 6.0)
-		draw_line(c + Vector2(0, 16), c + Vector2(0, 28), Color("8a5a28"), 6.0)
+		draw_line(c + Vector2(-14, 8), c + Vector2(14, 8), _tone(Color("e0a04a")), 6.0)
+		draw_line(c + Vector2(0, 16), c + Vector2(0, 28), _tone(Color("8a5a28")), 6.0)
 
 	func _bolt(c: Vector2, col: Color) -> void:
 		draw_colored_polygon(PackedVector2Array([
@@ -894,16 +909,16 @@ class CardIcon extends Control:
 		draw_circle(c + Vector2(-5, -2), 4, Color(1, 1, 1, 0.55))
 
 	func _magnet(c: Vector2) -> void:
-		draw_arc(c + Vector2(0, 4), 20, PI, TAU, 18, Color("ef4b4b"), 10.0, true)
-		draw_line(c + Vector2(-20, 4), c + Vector2(-20, 22), Color("ef4b4b"), 10.0)
-		draw_line(c + Vector2(20, 4), c + Vector2(20, 22), Color("f0f2f6"), 10.0)
-		draw_rect(Rect2(c.x - 26, c.y + 16, 12, 10), Color("ffe08a"), true)
-		draw_rect(Rect2(c.x + 14, c.y + 16, 12, 10), Color("9aa3b2"), true)
+		draw_arc(c + Vector2(0, 4), 20, PI, TAU, 18, _tone(Color("ef4b4b")), 10.0, true)
+		draw_line(c + Vector2(-20, 4), c + Vector2(-20, 22), _tone(Color("ef4b4b")), 10.0)
+		draw_line(c + Vector2(20, 4), c + Vector2(20, 22), _tone(Color("f0f2f6")), 10.0)
+		draw_rect(Rect2(c.x - 26, c.y + 16, 12, 10), _tone(Color("ffe08a")), true)
+		draw_rect(Rect2(c.x + 14, c.y + 16, 12, 10), _tone(Color("9aa3b2")), true)
 
 	func _bounce(c: Vector2, col: Color) -> void:
 		draw_arc(c + Vector2(-6, 4), 22, PI * 0.15, PI * 0.95, 16, col, 5.0, true)
 		draw_colored_polygon(PackedVector2Array([c + Vector2(12, -16), c + Vector2(22, -4), c + Vector2(6, -4)]), col)
-		draw_arc(c + Vector2(6, 8), 16, PI * 1.1, TAU * 0.92, 14, Color("ffe08a"), 5.0, true)
+		draw_arc(c + Vector2(6, 8), 16, PI * 1.1, TAU * 0.92, 14, _tone(Color("ffe08a")), 5.0, true)
 
 	func _arrows(c: Vector2, col: Color) -> void:
 		for i in 3:
@@ -931,12 +946,12 @@ class CardIcon extends Control:
 			c + Vector2(14, 18), c + Vector2(0, 26), c + Vector2(-14, 18),
 			c + Vector2(-8, 0), c + Vector2(-16, -4)
 		]), col)
-		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -6), c + Vector2(6, 10), c + Vector2(0, 16), c + Vector2(-6, 10)]), Color("ffe08a"))
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -6), c + Vector2(6, 10), c + Vector2(0, 16), c + Vector2(-6, 10)]), _tone(Color("ffe08a")))
 
 	func _pierce(c: Vector2, col: Color) -> void:
 		draw_line(c + Vector2(-28, 0), c + Vector2(16, 0), col, 5.0)
 		draw_colored_polygon(PackedVector2Array([c + Vector2(10, -10), c + Vector2(30, 0), c + Vector2(10, 10)]), col)
-		draw_line(c + Vector2(-4, -16), c + Vector2(-4, 16), Color("ff5a6a"), 3.0)
+		draw_line(c + Vector2(-4, -16), c + Vector2(-4, 16), _tone(Color("ff5a6a")), 3.0)
 
 	func _thorns(c: Vector2, col: Color) -> void:
 		for ang in [-0.9, -0.2, 0.45, 1.15, 1.9]:
