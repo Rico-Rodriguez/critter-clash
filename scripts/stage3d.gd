@@ -169,6 +169,9 @@ func bind_pedestal(hero_id: String) -> void:
 	# Rim: a hot back light behind the hero carves its silhouette from the forest.
 	_lamp(Color("ffd8b0"), 3.2, Vector3(1.2, 2.8, -2.0), false, 3.6)
 	_lamp(Color("ffe2b8"), 1.6, Vector3(-1.4, 2.4, -1.6), false, 3.2)
+	# Low back rim at chest height: traces the flanks and wing roots so the
+	# front view reads as a rounded body, not a flat cream bib.
+	_lamp(Color("ffb48a"), 2.4, Vector3(0.2, 1.3, -1.25), false, 2.2)
 	_pedestal_set()
 	var body := _spawn_model(hero_id, 1.5)
 	body.position = Vector3(0, PEDESTAL_TOP, 0)
@@ -400,21 +403,34 @@ func hurt(actor_id: int) -> void:
 
 
 ## A brief additive white pulse over the whole body: the classic hit flash.
+var _flash_soft: ShaderMaterial
+
+
 func _flash(body: Node3D) -> void:
 	if _flash_mat == null:
 		var sh := Shader.new()
 		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_add, cull_back, depth_draw_never;\nuniform float amount = 0.6;\nvoid fragment() {\n\tALBEDO = vec3(1.0, 0.86, 0.72) * amount;\n}\n"
 		_flash_mat = ShaderMaterial.new()
 		_flash_mat.shader = sh
-	var meshes := body.find_children("*", "MeshInstance3D", true, false)
-	for m in meshes:
-		if not str(m.name).begins_with("Catch"):
-			(m as MeshInstance3D).material_overlay = _flash_mat
+	if _flash_soft == null:
+		_flash_soft = _flash_mat.duplicate()
+		_flash_soft.set_shader_parameter("amount", 0.22)
+	# Ground decals are flat quads: flashing them painted a white square
+	# under the boss. Big bodies get a softer pulse so they tint, not bleach.
+	if not body.has_meta("big"):
+		body.set_meta("big", _measure(body).size.y * body.scale.y > HERO_METERS * 2.0)
+	var big := bool(body.get_meta("big"))
+	var meshes: Array = []
+	for m in body.find_children("*", "MeshInstance3D", true, false):
+		if str(m.name).begins_with("Catch") or m.has_meta("decal"):
+			continue
+		meshes.append(m)
+		(m as MeshInstance3D).material_overlay = _flash_soft if big else _flash_mat
 	get_tree().create_timer(0.08).timeout.connect(func() -> void:
 		for m in meshes:
 			if is_instance_valid(m):
 				# Restore the hero's fresnel lift, or clear for everyone else.
-				(m as MeshInstance3D).material_overlay = m.get_meta("overlay", null))
+				(m as MeshInstance3D).material_overlay = m.get_meta("overlay") if m.has_meta("overlay") else null)
 
 
 func died(actor_id: int, sim_pos: Vector2, sprite: String) -> void:
@@ -453,6 +469,7 @@ func _lights() -> void:
 	var rim := DirectionalLight3D.new()
 	rim.light_color = Color("c5dcff")
 	rim.light_energy = 1.7
+	rim.light_specular = 0.25
 	rim.shadow_enabled = false
 	rim.rotation_degrees = Vector3(-18, -150, 0)
 	world_root.add_child(rim)
@@ -571,7 +588,7 @@ func _foliage(biome_id: String) -> void:
 	var trees: Array = ["tree_a", "tree_b", "bush_flower", "tree_a"]
 	match biome_id:
 		"mushroom":
-			trees = ["mushroom_tall", "mushroom", "tree_twist", "bush"]
+			trees = ["mushroom_tall", "mushroom", "mushroom_tall", "tree_pine_b"]
 		"frost":
 			trees = ["tree_pine", "tree_pine_b", "bush"]
 		"volcano":
@@ -862,7 +879,10 @@ uniform float rim_power = 4.0;
 uniform float rim_strength = 0.32;
 uniform vec3 lift = vec3(0.022, 0.008, 0.006);
 void fragment() {
-	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_power);
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	// Fade out at exact grazing: a flat wing turned edge-on would otherwise
+	// light up blue across its whole surface for a frame.
+	float f = pow(1.0 - ndv, rim_power) * smoothstep(0.0, 0.14, ndv);
 	ALBEDO = rim_color * f * rim_strength + lift;
 }
 """
@@ -1329,6 +1349,7 @@ func _decal(size: float, params: Dictionary) -> MeshInstance3D:
 		mat.set_shader_parameter(key, params[key])
 	node.material_override = mat
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.set_meta("decal", true)
 	return node
 
 

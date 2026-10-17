@@ -552,7 +552,14 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.rotation = randf_range(-0.12, 0.12) if big else 0.0
 	var pop := create_tween()
 	pop.tween_property(label, "scale", Vector2.ONE, 0.2 if big else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var lift := Vector2(randf_range(-18, 18), -36) - label.size * 0.5
+	# Hits landing together stack upward instead of overprinting.
+	var at := _projected(pos)
+	var stack := 0
+	for other in floats:
+		if other != label and other.visible and float(other.get_meta("life", 0.0)) > 0.5:
+			if (other.position + other.size * 0.5).distance_to(at + Vector2(0, -36)) < 90.0:
+				stack += 1
+	var lift := Vector2(randf_range(-18, 18) + (24.0 if stack % 2 == 1 else -24.0 if stack > 0 else 0.0), -36.0 - 44.0 * mini(stack, 3)) - label.size * 0.5
 	label.set_meta("sim", pos)
 	label.set_meta("lift", lift)
 	label.position = _projected(pos) + lift

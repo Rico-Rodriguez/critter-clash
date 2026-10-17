@@ -45,6 +45,12 @@ func _ready() -> void:
 		await banners.run()
 		get_tree().quit()
 		return
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--movie="):
+			var director := MovieDirector.new()
+			add_child(director)
+			director.run(self, arg.substr(8))
+			return
 	if OS.get_cmdline_user_args().has("--capture"):
 		_capture()
 		return

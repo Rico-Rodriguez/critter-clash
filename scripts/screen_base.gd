@@ -20,8 +20,8 @@ func _ready() -> void:
 		add_child(UiKit.Backdrop.new())
 	build()
 	if show_nav:
-		var dock := UiKit.Dock.new(nav_tab, _nav)
-		add_child(dock)
+		_dock = UiKit.Dock.new(nav_tab, _nav)
+		add_child(_dock)
 	if paint_bg:
 		scale = Vector2(0.96, 0.96)
 		call_deferred("_intro")
@@ -32,6 +32,7 @@ func _ready() -> void:
 
 ## Direction the next screen slides in from: -1 left, 1 right, 0 zoom.
 static var slide_from := 0
+var _dock: Control
 
 
 func _intro() -> void:
@@ -43,6 +44,11 @@ func _intro() -> void:
 		scale = Vector2.ONE
 		position.x = 90.0 * slide_from
 		tw.tween_property(self, "position:x", 0.0, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		if _dock != null:
+			# The nav bar is shared furniture: hold it still while the page
+			# slides, so tab switches read as content moving, not the dock.
+			_dock.position.x = -90.0 * slide_from
+			tw.tween_property(_dock, "position:x", 0.0, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	else:
 		tw.tween_property(self, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	slide_from = 0
@@ -52,11 +58,15 @@ func _intro() -> void:
 func leave(toward: int) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_process_input(false)
+	# Stay opaque underneath while the incoming screen fades in on top; two
+	# half-faded screens over black read as a dark flash between pages.
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(self, "modulate:a", 0.0, 0.16)
 	if toward != 0:
-		tw.tween_property(self, "position:x", -70.0 * toward, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tw.tween_property(self, "position:x", -40.0 * toward, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		if _dock != null:
+			tw.tween_property(_dock, "position:x", 40.0 * toward, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_interval(0.05)
 	tw.chain().tween_callback(queue_free)
 
 
