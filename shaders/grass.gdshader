@@ -6,6 +6,7 @@ render_mode cull_disabled;
 
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
 uniform vec3 hero = vec3(0.0);
+uniform vec3 biome_tint = vec3(1.0);
 uniform float clear_radius = 1.45;
 uniform float fade_radius = 2.35;
 
@@ -36,6 +37,6 @@ void fragment() {
 	float patch = fract(sin(dot(floor(world_pos.xz * 0.11), vec2(19.1, 73.4))) * 23421.63);
 	vec3 vary = mix(vec3(0.58, 0.92, 0.46), vec3(1.05, 0.88, 0.5), blade);
 	vary *= mix(0.84, 1.14, patch);
-	ALBEDO = tex.rgb * vary;
+	ALBEDO = tex.rgb * vary * biome_tint;
 	ROUGHNESS = 0.88;
 }

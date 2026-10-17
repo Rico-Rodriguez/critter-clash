@@ -17,8 +17,8 @@ func build() -> void:
 	grid = GridContainer.new()
 	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 22)
 	scroll.add_child(grid)
 	_fill()
 
@@ -44,6 +44,8 @@ func _gear(id: String) -> void:
 	go("loadout", {"hero": id, "biome": "meadow", "from": "collection"})
 
 
+## A collectible card: rarity-forged frame with a soft aura, the critter's
+## 3D render backlit in an inset window, a level shield, and a name plaque.
 class HeroCard extends PanelContainer:
 	signal upgrade(id: String)
 	signal gear(id: String)
@@ -56,128 +58,142 @@ class HeroCard extends PanelContainer:
 		var row: Dictionary = SaveGame.hero(id)
 		var rarity := UiKit.hero_rarity(id)
 		var cols: Dictionary = UiKit.rarity_colors(rarity)
-		var frame := UiKit.rarity_box(rarity)
-		frame.content_margin_left = 8
-		frame.content_margin_right = 8
-		frame.content_margin_top = 8
-		frame.content_margin_bottom = 8
-		add_theme_stylebox_override("panel", frame)
-		custom_minimum_size = Vector2(0, 360)
+		var unlocked := bool(row["unlocked"])
+		var box_style := StyleBoxEmpty.new()
+		box_style.content_margin_left = 14
+		box_style.content_margin_right = 14
+		box_style.content_margin_top = 14
+		box_style.content_margin_bottom = 14
+		add_theme_stylebox_override("panel", box_style)
+		custom_minimum_size = Vector2(0, 430)
 		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var metal := UiKit.rarity_metal(rarity)
+		var frame := UiKit.Frame.new("card", "leather", {
+			"metal_hi": metal[0], "metal_lo": metal[1], "studs": 1.0, "frame": 7.0,
+			"glow_color": Color(cols["glow"], 0.3 if unlocked else 0.0),
+			"face_top": Color("221a14") if unlocked else Color("15110e"), "face_bot": Color("0e0b08"),
+		})
+		frame.margin = 18.0
+		add_child(frame)
 		var box := VBoxContainer.new()
-		box.add_theme_constant_override("separation", 4)
+		box.add_theme_constant_override("separation", 6)
 		add_child(box)
-		var ribbon := UiKit.label(Catalog.rarity_name(rarity), 16, cols["ink"], "x", 3)
+		var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 14, cols["lip"], "x", 3)
 		ribbon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(ribbon)
-		var unlocked := bool(row["unlocked"])
+		var art := ArtWindow.new()
+		art.tex = SpriteBank.critter(id)
+		art.glow = cols["glow"]
+		art.locked = not unlocked
+		art.custom_minimum_size = Vector2(0, 190)
+		box.add_child(art)
 		if unlocked:
-			var face := TextureRect.new()
-			face.custom_minimum_size = Vector2(0, 150)
-			face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			face.texture = SpriteBank.critter(id)
-			face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			box.add_child(face)
-		else:
-			var face := Silhouette.new()
-			face.tex = SpriteBank.critter(id)
-			face.custom_minimum_size = Vector2(0, 150)
-			box.add_child(face)
-		var name := UiKit.label(str(info["name"]), 26, UiKit.CREAM, "x", 5)
+			var badge := UiKit.Badge.new()
+			badge.level = int(row["level"])
+			badge.size = Vector2(54, 60)
+			badge.position = Vector2(-4, 22)
+			art.add_child(badge)
+		var name := UiKit.label(str(info["name"]).to_upper(), 24, UiKit.CREAM, "x", 3)
 		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(name)
 		if not unlocked:
-			var locked := UiKit.label(Catalog.unlock_line(id), 16, Color("ffe08a"), "x", 3)
+			var locked := UiKit.label(Catalog.unlock_line(id), 16, UiKit.MUTED, "b", 0)
 			locked.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			locked.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			box.add_child(locked)
 			return
 		var level := int(row["level"])
-		var badge_row := HBoxContainer.new()
-		badge_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		badge_row.add_theme_constant_override("separation", 6)
-		var badge := UiKit.label("LV %d" % level, 20, UiKit.CREAM, "x", 4)
-		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		badge_row.add_child(badge)
-		if SaveGame.can_level(id):
-			var arrow := UiKit.label("▲", 26, Color("7dff4a"), "x", 5)
-			badge_row.add_child(arrow)
-		box.add_child(badge_row)
 		if level >= Catalog.MAX_CARD_LEVEL:
-			box.add_child(UiKit.label("MAX", 18, Color("ffe08a"), "x", 4))
+			var maxed := UiKit.label("MAX LEVEL", 18, UiKit.GOLD, "x", 3)
+			maxed.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			box.add_child(maxed)
 		else:
 			var need := SaveGame.cards_needed(level)
 			var have := int(row["cards"])
 			var bar := CardBar.new()
 			bar.ratio = clampf(float(have) / float(maxi(need, 1)), 0.0, 1.0)
-			bar.caption = "%d/%d" % [mini(have, need), need]
+			bar.caption = "%d / %d" % [mini(have, need), need]
 			bar.surplus = maxi(0, have - need)
-			bar.custom_minimum_size = Vector2(0, 28)
+			bar.ready_up = SaveGame.can_level(id)
+			bar.custom_minimum_size = Vector2(0, 30)
 			box.add_child(bar)
-			box.add_child(UiKit.label("%d coins" % SaveGame.coins_needed(level), 14, Color("d5e6ff"), "b", 3))
 		var actions := HBoxContainer.new()
 		actions.alignment = BoxContainer.ALIGNMENT_CENTER
-		actions.add_theme_constant_override("separation", 6)
+		actions.add_theme_constant_override("separation", 8)
 		if SaveGame.can_level(id):
-			var up := UiKit.confirm("UP", 100, 48)
+			var up := UiKit.confirm("UPGRADE", 150, 52)
 			up.pressed.connect(func() -> void: upgrade.emit(hero_id))
 			actions.add_child(up)
-		var gear_b := UiKit.secondary("GEAR", 100, 48)
+		var gear_b := UiKit.secondary("GEAR", 110 if SaveGame.can_level(id) else 150, 52)
 		gear_b.pressed.connect(func() -> void: gear.emit(hero_id))
 		actions.add_child(gear_b)
 		box.add_child(actions)
 
 
-class Silhouette extends Control:
+## Inset art window: dark recess, rarity-coloured backlight, the render,
+## and a floor shadow. Locked critters show as a dark silhouette with a lock.
+class ArtWindow extends Control:
 	var tex: Texture2D
+	var glow := Color.WHITE
+	var locked := false
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		clip_contents = false
 
 	func _draw() -> void:
-		if tex == null:
-			return
-		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false, Color(0.06, 0.07, 0.1, 1))
-		var c := Vector2(size.x * 0.5, size.y * 0.58)
-		draw_circle(c, 28, Color(0, 0, 0, 0.4))
-		draw_arc(c + Vector2(0, -8), 13, PI, TAU, 16, Color("ffe7a0"), 4.0, true)
-		draw_rect(Rect2(c.x - 15, c.y - 2, 30, 24), Color("ffe7a0"), true)
-		draw_circle(c + Vector2(0, 8), 4, Color("3a2a12"))
+		var r := Rect2(Vector2(4, 0), size - Vector2(8, 0))
+		UiKit.rr_fill(self, r.grow(2), 12, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
+		UiKit.rr_fill(self, r, 10, Color("0a0806"), Color("16110d"))
+		var c := r.get_center() + Vector2(0, -6)
+		var g := glow if not locked else Color(0.4, 0.4, 0.45)
+		for i in 10:
+			var k := float(i) / 10.0
+			draw_circle(c, r.size.y * (0.62 - k * 0.5), Color(g, 0.05 + k * 0.012))
+		# Floor shadow.
+		draw_set_transform(Vector2(c.x, r.end.y - 16), 0.0, Vector2(1.0, 0.22))
+		draw_circle(Vector2.ZERO, r.size.x * 0.32, Color(0, 0, 0, 0.55))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if tex != null:
+			var ts := tex.get_size()
+			var fit := minf((r.size.x - 12) / ts.x, (r.size.y - 8) / ts.y)
+			var dst := Rect2(c - ts * fit * 0.5 + Vector2(0, 4), ts * fit)
+			if locked:
+				draw_texture_rect(tex, dst, false, Color(0.05, 0.045, 0.04, 0.95))
+			else:
+				draw_texture_rect(tex, dst, false)
+		# Inner rim shadow and a top sheen line.
+		UiKit.rr_line(self, r.grow(-1), 9, Color(0, 0, 0, 0.7), 3.0)
+		draw_line(r.position + Vector2(12, 2), Vector2(r.end.x - 12, r.position.y + 2), Color(1, 0.9, 0.7, 0.08), 1.0)
+		if locked:
+			var lk := UiKit.icon("lock_closed")
+			var px := 54.0
+			UiKit.draw_icon(self, lk, Rect2(c - Vector2(px, px) * 0.5, Vector2(px, px)), UiKit.GOLD, Color(0.05, 0.03, 0.02), 2.0)
 
 
 class CardBar extends Control:
 	var ratio := 0.0
 	var caption := ""
 	var surplus := 0
+	var ready_up := false
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var plate := StyleBoxFlat.new()
-		plate.bg_color = Color("10284f")
-		plate.set_corner_radius_all(8)
-		plate.set_border_width_all(3)
-		plate.border_color = Color("081018")
-		plate.draw(get_canvas_item(), Rect2(Vector2.ZERO, size))
-		var inner := Rect2(4, 4, maxf(0.0, (size.x - 8.0) * ratio), maxf(0.0, size.y - 8.0))
-		if inner.size.x > 1.0:
-			var fill := StyleBoxFlat.new()
-			fill.bg_color = Color("3ecf4a")
-			fill.set_corner_radius_all(6)
-			fill.draw(get_canvas_item(), inner)
-			var gloss := StyleBoxFlat.new()
-			gloss.bg_color = Color(1, 1, 1, 0.28)
-			gloss.set_corner_radius_all(5)
-			gloss.draw(get_canvas_item(), Rect2(inner.position, Vector2(inner.size.x, maxf(3.0, inner.size.y * 0.38))))
 		UiKit.ensure()
-		var reserve := 36.0 if surplus > 0 else 0.0
-		draw_string(UiKit.font_x, Vector2(8, size.y * 0.78), caption, HORIZONTAL_ALIGNMENT_CENTER, size.x - 16.0 - reserve, 16, Color.WHITE)
+		var r := Rect2(Vector2.ZERO, size)
+		UiKit.rr_fill(self, r.grow(1), size.y * 0.5, Color("8a6a3a"), Color("3a2410"))
+		UiKit.rr_fill(self, r.grow(-2), size.y * 0.5 - 2, Color("070504"), Color("1a140f"))
+		var inner := Rect2(4, 4, maxf(0.0, (size.x - 8.0) * ratio), maxf(0.0, size.y - 8.0))
+		if inner.size.x > inner.size.y:
+			var hi := Color("7ad06a") if ready_up else Color("4aa3d8")
+			var lo := Color("1e5a22") if ready_up else Color("123e66")
+			UiKit.rr_fill(self, inner, inner.size.y * 0.5, hi, lo)
+			UiKit.rr_fill(self, Rect2(inner.position + Vector2(4, 1), Vector2(inner.size.x - 8, inner.size.y * 0.4)), inner.size.y * 0.2, Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.0))
+		var reserve := 40.0 if surplus > 0 else 0.0
+		UiKit.draw_text(self, UiKit.font_b, Vector2(8, size.y * 0.74), caption, 18, UiKit.CREAM, Color(0.04, 0.03, 0.02), 2, size.x - 16.0 - reserve)
 		if surplus > 0:
-			var pill := Rect2(size.x - 40, 2, 36, size.y - 4)
-			var gold := StyleBoxFlat.new()
-			gold.bg_color = Color("f0a020")
-			gold.set_corner_radius_all(8)
-			gold.draw(get_canvas_item(), pill)
-			draw_string(UiKit.font_x, Vector2(pill.position.x, size.y * 0.75), "+%d" % surplus, HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 14, Color("3a2208"))
+			var pill := Rect2(size.x - 42, 3, 38, size.y - 6)
+			UiKit.rr_fill(self, pill, pill.size.y * 0.5, Color("ffe3a0"), Color("9a6a20"))
+			UiKit.draw_text(self, UiKit.font_b, Vector2(pill.position.x, size.y * 0.72), "+%d" % surplus, 15, Color("2a1806"), Color(1, 0.95, 0.8, 0.0), 0, pill.size.x)

@@ -39,6 +39,12 @@ func _ready() -> void:
 		await baker.run(only)
 		get_tree().quit()
 		return
+	if OS.get_cmdline_user_args().has("--bake-banners"):
+		var banners := BannerBaker.new()
+		add_child(banners)
+		await banners.run()
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture"):
 		_capture()
 		return
@@ -117,6 +123,8 @@ func _capture() -> void:
 	if _wants("trophy"):
 		go("trophy")
 		await _settle()
+		# Let the gilded fill finish climbing to the trophy count.
+		await get_tree().create_timer(1.3).timeout
 		await _shot("trophy")
 	if _wants("loadout"):
 		go("loadout", {"hero": "ember", "biome": "meadow"})

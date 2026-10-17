@@ -46,6 +46,8 @@ var _props: Array = []
 var _pings: Dictionary = {}
 var _decal_shader: Shader
 var _view: TextureRect
+## Offline bakers pin the render size instead of following the control.
+var fixed_px := Vector2i.ZERO
 
 
 func _ready() -> void:
@@ -84,6 +86,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var density := clampf(get_viewport().get_final_transform().get_scale().x, 1.0, MAX_DENSITY)
 	var target := Vector2i(maxi(16, int(size.x * density)), maxi(16, int(size.y * density)))
+	if fixed_px != Vector2i.ZERO:
+		target = fixed_px
 	if viewport.size != target:
 		viewport.size = target
 	if _mode == "pedestal" and _pedestal_hero != null:
@@ -97,6 +101,7 @@ func bind_hunt(biome_id: String) -> void:
 	viewport.transparent_bg = false
 	_ground(biome_id)
 	_foliage(biome_id)
+	_biome_mood(biome_id)
 	_look = _to3(Vector2(360, 700))
 	_dist = DIST
 	_ready_cam = false
@@ -443,6 +448,8 @@ func _ground(biome_id: String) -> void:
 	mat.set_shader_parameter("world_span", span)
 	mat.set_shader_parameter("tint", _biome_tint(biome_id))
 	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
+	mat.set_shader_parameter("snow", 0.75 if biome_id == "frost" else 0.0)
+	mat.set_shader_parameter("ash", 0.85 if biome_id == "volcano" else 0.0)
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = plane
 	mesh.material_override = mat
@@ -468,8 +475,9 @@ func _foliage(biome_id: String) -> void:
 	var count := 360 if _tier() == "low" else (900 if _tier() == "medium" else 1300)
 	_scatter(rng, "grass_short", int(count * 0.55), 0.4, 0.6, true)
 	_scatter(rng, "grass_wispy", int(count * 0.25), 0.38, 0.55, true)
-	_scatter(rng, "flower_a", 34, 0.5, 0.75, false)
-	_scatter(rng, "flower_b", 30, 0.5, 0.75, false)
+	if not biome_id in ["frost", "volcano"]:
+		_scatter(rng, "flower_a", 34, 0.5, 0.75, false)
+		_scatter(rng, "flower_b", 30, 0.5, 0.75, false)
 	_scatter(rng, "clover", 40, 0.45, 0.62, false)
 	_scatter(rng, "fern", 22 if biome_id == "meadow" else 34, 0.6, 0.9, false)
 	var trees: Array = ["tree_a", "tree_b", "bush_flower", "tree_a"]
@@ -486,7 +494,9 @@ func _foliage(biome_id: String) -> void:
 			var name: String = trees[i % trees.size()]
 			var at := _rim_point(rng)
 			_place_prop(name, at, rng.randf_range(1.15, 1.55), true)
-	_sketchfab_nature(rng)
+	if not biome_id in ["frost", "volcano"]:
+		# The leafy, blossoming nature pack belongs in green biomes only.
+		_sketchfab_nature(rng)
 	_field_props(rng)
 
 
@@ -503,6 +513,9 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 	if _tier() == "low":
 		for row in kit:
 			row[3] = maxi(1, int(row[3]) / 2)
+	if _biome in ["frost", "volcano"]:
+		# No blossoms on snow or ash.
+		kit = kit.filter(func(row: Array) -> bool: return not ("flower" in str(row[0])))
 	for row in kit:
 		for _n in int(row[3]):
 			var at := _off_path_point(rng, 1.5)
@@ -1446,6 +1459,39 @@ func _local_point(node: Node3D, root: Node) -> Vector3:
 
 func _to3(pos: Vector2) -> Vector3:
 	return Vector3(pos.x * SCALE, 0.0, pos.y * SCALE)
+
+
+## Light, fog, and foliage grade per biome so each hunt has its own air.
+func _biome_mood(biome_id: String) -> void:
+	var holder := world_root.get_node_or_null("World") as WorldEnvironment
+	if holder == null or holder.environment == null:
+		return
+	var env := holder.environment
+	var grass := Vector3.ONE
+	match biome_id:
+		"mushroom":
+			env.fog_light_color = Color(0.42, 0.32, 0.52)
+			env.fog_density = 0.006
+			env.ambient_light_color = Color("a890c8")
+			sun.light_color = Color("e0b8ff")
+			sun.light_energy = 1.1
+			grass = Vector3(0.78, 0.84, 1.0)
+		"frost":
+			env.fog_light_color = Color(0.72, 0.8, 0.94)
+			env.fog_density = 0.005
+			env.ambient_light_color = Color("c8d8f0")
+			sun.light_color = Color("e8f0ff")
+			sun.light_energy = 1.45
+			grass = Vector3(0.8, 0.95, 1.05)
+		"volcano":
+			env.fog_light_color = Color(0.4, 0.16, 0.08)
+			env.fog_density = 0.007
+			env.ambient_light_color = Color("c07050")
+			sun.light_color = Color("ff9a5a")
+			sun.light_energy = 1.25
+			grass = Vector3(0.45, 0.36, 0.3)
+	for mat in _grass_mats:
+		(mat as ShaderMaterial).set_shader_parameter("biome_tint", grass)
 
 
 func _biome_tint(biome_id: String) -> Vector3:

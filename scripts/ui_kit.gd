@@ -382,6 +382,19 @@ static func rarity_colors(rarity: String) -> Dictionary:
 			return {"bg": Color("2e2924"), "lip": Color("b8aa94"), "glow": Color("d8ccb8"), "ink": CREAM}
 
 
+## Frame metal (hi, lo) for each rarity: silver, steel blue, amethyst, gold.
+static func rarity_metal(rarity: String) -> Array:
+	match rarity:
+		"rare":
+			return [Color("cfe2f6"), Color("2a4668")]
+		"epic":
+			return [Color("e6cef8"), Color("4a2a6a")]
+		"legendary":
+			return [Color("ffe6a8"), Color("6a4416")]
+		_:
+			return [Color("d8d0c0"), Color("4a443c")]
+
+
 static func hero_rarity(id: String) -> String:
 	if id in ["thistle", "caplet", "nimbus", "cinder"]:
 		return "legendary"
@@ -479,7 +492,9 @@ static func draw_currency(ci: CanvasItem, kind: String, rect: Rect2) -> void:
 ## A shader-drawn frame behind its parent (show_behind_parent). It reaches
 ## `margin` px past the parent on every side so the shadow and glow fit, and
 ## the framed box itself lines up with the parent rect (or `box` if set).
-class Frame extends Control:
+class Frame extends Node2D:
+	# A Node2D, not a Control, so Container parents leave its layout alone.
+	var size := Vector2.ZERO
 	static var _shader: Shader
 	static var _stone: Texture2D
 	static var _marble: Texture2D
@@ -511,7 +526,6 @@ class Frame extends Control:
 	func _ready() -> void:
 		preload_assets()
 		show_behind_parent = true
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mat = ShaderMaterial.new()
 		mat.shader = _shader
 		material = mat

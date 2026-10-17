@@ -91,7 +91,10 @@ func _bake(id: String, head: bool) -> void:
 	var face := float(body.get_meta("face", PI))
 	# Nose toward the camera, turned a little for a 3/4 read.
 	body.rotation.y = -face + Cast3D.portrait_turn(id) + _turn_override
-	_stage._play(body, "idle")
+	var clips: Dictionary = body.get_meta("clips", {})
+	# Full-body cards use the standing perch pose; the head crop keeps the
+	# idle, where the head sits above the wings.
+	_stage._play(body, "perch" if clips.has("perch") and not head else "idle")
 	var player: AnimationPlayer = body.get_meta("player")
 	if player != null and player.is_playing():
 		player.seek(Cast3D.portrait_time(id), true)

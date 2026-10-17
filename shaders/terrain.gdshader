@@ -15,6 +15,10 @@ uniform sampler2D dirt_normal : hint_normal, filter_linear_mipmap_anisotropic, r
 uniform sampler2D dirt_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec3 tint = vec3(1.0);
 uniform vec3 dirt_tint = vec3(1.0);
+// Biome surface: snow drifts over the turf (frost), or ash with glowing
+// cracks (volcano). 0 leaves the meadow look.
+uniform float snow = 0.0;
+uniform float ash = 0.0;
 uniform vec2 world_span = vec2(70.0, 82.0);
 uniform vec2 world_origin = vec2(0.0);
 uniform float path_width = 1.25;
@@ -90,7 +94,22 @@ void fragment() {
 	float shoulder = smoothstep(edge * 1.6, edge * 0.8, pd) * (1.0 - dirt_w);
 	grass *= 1.0 - shoulder * 0.16;
 	vec3 albedo = mix(grass, dirt, dirt_w);
-	ALBEDO = albedo * tint;
+	albedo *= tint;
+	float emit = 0.0;
+	if (snow > 0.0) {
+		float drift = smoothstep(0.35, 0.65, fbm(w * 0.35 + 4.0) + (1.0 - dirt_w) * 0.25);
+		vec3 white = vec3(0.86, 0.91, 1.0) * (0.86 + fbm(w * 3.0) * 0.18);
+		albedo = mix(albedo, white, clamp(drift * snow + snow * 0.35, 0.0, 1.0));
+	}
+	if (ash > 0.0) {
+		float lum = dot(albedo, vec3(0.3, 0.59, 0.11));
+		vec3 soot = vec3(0.16, 0.13, 0.12) * (0.6 + lum * 1.6);
+		albedo = mix(albedo, soot, ash);
+		float crack = 1.0 - smoothstep(0.0, 0.018, abs(fbm(w * 0.32 + 7.0) - 0.5));
+		emit = crack * ash * (0.6 + 0.4 * sin(TIME * 1.5 + w.x));
+	}
+	ALBEDO = albedo;
+	EMISSION = vec3(1.0, 0.35, 0.08) * emit * 2.0;
 	NORMAL_MAP = mix(gn, dn, dirt_w);
 	NORMAL_MAP_DEPTH = 1.2;
 	ROUGHNESS = mix(0.9, texture(dirt_rough, uv_d).r, dirt_w);
