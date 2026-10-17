@@ -16,6 +16,8 @@ func _ready() -> void:
 	offset_bottom = 0
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	modulate.a = 0.0
+	if paint_bg:
+		add_child(UiKit.Backdrop.new())
 	build()
 	if show_nav:
 		var dock := UiKit.Dock.new(nav_tab, _nav)
@@ -28,27 +30,46 @@ func _ready() -> void:
 		tw.tween_property(self, "modulate:a", 1.0, 0.12)
 
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED and paint_bg:
-		queue_redraw()
-
-
-func _draw() -> void:
-	if paint_bg:
-		UiKit.paint_menu(self)
+## Direction the next screen slides in from: -1 left, 1 right, 0 zoom.
+static var slide_from := 0
 
 
 func _intro() -> void:
 	pivot_offset = size * 0.5
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(self, "modulate:a", 1.0, 0.22)
-	tw.tween_property(self, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "modulate:a", 1.0, 0.18)
+	if slide_from != 0:
+		scale = Vector2.ONE
+		position.x = 90.0 * slide_from
+		tw.tween_property(self, "position:x", 0.0, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	else:
+		tw.tween_property(self, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	slide_from = 0
+
+
+## Leaves the screen: fades and drifts the other way, then frees it.
+func leave(toward: int) -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_process_input(false)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(self, "modulate:a", 0.0, 0.16)
+	if toward != 0:
+		tw.tween_property(self, "position:x", -70.0 * toward, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(queue_free)
+
+
+const NAV_ORDER := ["collection", "home", "trophy", "world"]
 
 
 func _nav(screen: String) -> void:
 	if screen == nav_tab:
 		return
+	var a := NAV_ORDER.find(nav_tab)
+	var b := NAV_ORDER.find(screen)
+	if a >= 0 and b >= 0:
+		slide_from = 1 if b > a else -1
 	go(screen)
 
 
@@ -89,7 +110,7 @@ func column() -> VBoxContainer:
 
 func header() -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 14)
 	var trophies := UiKit.Pill.new("trophy", func() -> void: go("trophy"))
 	trophies.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	trophies.set_amount(str(int(SaveGame.data["trophies"])))
@@ -106,7 +127,7 @@ func header() -> HBoxContainer:
 
 
 func h1(text: String) -> Label:
-	return UiKit.title(text, 48)
+	return UiKit.title(text, 54)
 
 
 func back_button(target: String, args: Dictionary = {}) -> Button:

@@ -51,7 +51,10 @@ func go(screen: String, args: Dictionary = {}) -> void:
 
 func _swap(screen: String, args: Dictionary) -> void:
 	if current:
-		current.queue_free()
+		if current.has_method("leave") and screen != "run" and current.get_script() != SCREENS["run"]:
+			current.leave(ScreenBase.slide_from)
+		else:
+			current.queue_free()
 		current = null
 	current = SCREENS[screen].new()
 	add_child(current)
