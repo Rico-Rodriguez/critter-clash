@@ -84,6 +84,8 @@ static func clips(id: String) -> Dictionary:
 			"attack": "head turn_wing flaps",
 			"hit": "head turn",
 			"death": "",
+			# Pedestal pose: the head-turn clip.
+			"perch": "head turn",
 		}
 	if path.ends_with("sketchfab/juniper.glb"):
 		return {"idle": "Idle", "run": "Run", "attack": "Punch", "hit": "", "death": ""}
@@ -103,14 +105,24 @@ static func clips(id: String) -> Dictionary:
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
 	if path.ends_with("sketchfab/ember.glb"):
-		# Packed ORM reads as full metal. The AO channel is black outside the
-		# UV islands, so it goes too. The normal map carries the wing veins.
-		return {"roughness": 0.66, "specular": 0.45, "drop_ao": true, "albedo": Color(1.05, 1.0, 1.0), "rim": 0.5}
+		# The source base color is flat red. tools/paint_ember.py bakes AO,
+		# cavities and scales into ember_paint.png. The packed ORM reads as
+		# full metal, so only the normal map stays live.
+		return {"roughness": 0.58, "specular": 0.5, "drop_ao": true, "albedo_tex": "res://assets/models/sketchfab/ember_paint.png", "rim": 0.18}
 	if path.ends_with("sketchfab/thistle.glb"):
 		return {"roughness": 0.68, "specular": 0.4, "rim": 0.25}
 	if path.ends_with("sketchfab/juniper.glb"):
 		return {"roughness": 0.7, "specular": 0.35, "rim": 0.3}
 	return {"roughness": 0.72, "specular": 0.4}
+
+
+## Extra scale for models whose bounds overstate what you see. The dragon's
+## rest pose spreads its wings flat, but it flies with them raised, so it
+## came out about half the height of the ring under it.
+static func size_boost(id: String) -> float:
+	if model(id).ends_with("sketchfab/ember.glb"):
+		return 1.6
+	return 1.0
 
 
 static func tint(id: String) -> Color:

@@ -1,5 +1,5 @@
 class_name Stage3D
-extends SubViewportContainer
+extends Control
 
 ## The hunt and the home pedestal, drawn in 3D. The simulation stays on the
 ## flat playfield. This view follows it with a tilted camera.
@@ -47,16 +47,18 @@ var _view: TextureRect
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Render at device pixels rather than logical canvas pixels, so the 3D
-	# isn't upscaled (and soft) on high-density screens. The container's own
-	# 1:1 draw is hidden and a scaled TextureRect shows the frame instead.
-	stretch = false
-	self_modulate = Color(1, 1, 1, 0)
+	# isn't upscaled (and soft) on high-density screens. A plain Control
+	# hosts the SubViewport and a TextureRect scales its frame to fit. (An
+	# unstretched SubViewportContainer takes the viewport size as its minimum
+	# size, which feeds back into the viewport size.)
+	clip_contents = true
 	viewport = SubViewport.new()
 	viewport.own_world_3d = true
 	viewport.transparent_bg = false
 	viewport.handle_input_locally = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	viewport.msaa_3d = Viewport.MSAA_2X
+	viewport.use_debanding = true
 	viewport.size = Vector2i(720, 1280)
 	add_child(viewport)
 	_view = TextureRect.new()
@@ -128,7 +130,12 @@ func bind_pedestal(hero_id: String) -> void:
 	_pedestal_hero = body
 	_outline(body)
 	_hide_catch(body)
-	_play(body, "idle")
+	var clips: Dictionary = body.get_meta("clips")
+	if clips.has("perch"):
+		var player: AnimationPlayer = body.get_meta("player")
+		if player != null and player.has_animation(str(clips["perch"])):
+			player.get_animation(str(clips["perch"])).loop_mode = Animation.LOOP_PINGPONG
+	_play(body, "perch" if clips.has("perch") else "idle")
 	_frame_on(body)
 	_reframe_posed(body)
 
@@ -666,7 +673,8 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	if actor.kind == "boss":
 		meters = BOSS_METERS
 	elif actor.kind != "hero":
-		meters = clampf(actor.radius / 40.0, 0.62, 0.92) * 1.45
+		# Rank-and-file critters stand roughly hero height so they read.
+		meters = clampf(actor.radius / 40.0, 0.8, 1.0) * HERO_METERS
 	var body := _spawn_model(actor.sprite, meters)
 	if actor.kind == "hero" and actor.team == 0:
 		_outline(body)
@@ -707,7 +715,7 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	# Wide critters (the dragon's wingspan) read by footprint from the
 	# high camera, so size by whichever is larger.
 	var h := maxf(maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7), 0.05)
-	var factor := meters / h
+	var factor := meters / h * Cast3D.size_boost(sprite)
 	model.scale *= factor
 	# Feet on the ground, and the body centered. Sketchfab rigs often sit
 	# far from the origin (Mixamo hips, FBX axes).
@@ -747,6 +755,8 @@ func _fix_pbr(node: Node, sprite: String) -> void:
 			if bool(opts.get("drop_ao", false)):
 				mat.ao_enabled = false
 				mat.ao_texture = null
+			if opts.has("albedo_tex") and mat.albedo_texture != null:
+				mat.albedo_texture = load(str(opts["albedo_tex"]))
 			var lift: Color = opts.get("albedo", Color.WHITE)
 			mat.albedo_color = mat.albedo_color * lift
 			if opts.has("rim"):
@@ -861,14 +871,20 @@ func _reframe_posed(body: Node3D) -> void:
 	var box := AABB(pts[0], Vector3.ZERO)
 	for p in pts:
 		box = box.expand(p)
-	# Bones sit inside the skin: pad, and always include the feet line.
-	box = box.grow(box.size.length() * 0.08)
-	box = box.merge(AABB(Vector3(box.position.x, body.position.y, box.position.z), Vector3.ZERO))
+	# Plant the lowest bone (a foot or the tail) on the plinth. The rest-pose
+	# bounds put the feet well below where the perch pose has them.
+	var model := body.get_child(0) as Node3D
+	var drop := box.position.y - (PEDESTAL_TOP + 0.03)
+	if model != null and absf(drop) > 0.02:
+		model.position.y -= drop
+		box.position.y -= drop
+	box = box.grow(box.size.length() * 0.06)
 	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7)
-	var view_h := h / 0.6
+	var view_h := h / 0.56
 	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
-	var focus := box.get_center() + Vector3(0, -h * 0.06, 0)
-	var dir := Vector3(0.0, 0.32, 1.0).normalized()
+	# Sit the hero a little below center, clear of the logo above it.
+	var focus := box.get_center() + Vector3(0, view_h * 0.1, 0)
+	var dir := Vector3(0.0, 0.3, 1.0).normalized()
 	camera.position = focus + dir * dist
 	camera.look_at(focus, Vector3.UP)
 
@@ -1312,8 +1328,8 @@ func _outline_walk(node: Node, shader: Shader) -> void:
 				# Grow is in mesh space. A quantized Sketchfab mesh is thousands
 				# of units tall before its node scale, so the outline tracks height.
 				var height := mesh.mesh.get_aabb().size.y
-				shell.set_shader_parameter("grow", maxf(height * 0.018, 0.001))
-				shell.set_shader_parameter("line_color", Color("ffe6a8"))
+				shell.set_shader_parameter("grow", maxf(height * 0.012, 0.001))
+				shell.set_shader_parameter("line_color", Color("2b1210"))
 				mat.next_pass = shell
 				mesh.set_surface_override_material(i, mat)
 	for child in node.get_children():

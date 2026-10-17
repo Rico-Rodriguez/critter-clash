@@ -117,17 +117,16 @@ class Fade extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
+		# Vertex-colored quads interpolate per pixel, so there are no bands.
 		var h := size.y
 		var w := size.x
 		var bottom := Color(0.06, 0.18, 0.42)
-		var steps := 24
-		for i in steps:
-			var t := float(i) / float(steps)
-			var y := h * (0.78 + 0.22 * t)
-			draw_rect(Rect2(0, y, w, h * 0.22 / steps + 1.0), Color(bottom, t * t), true)
-		for i in steps:
-			var t := float(i) / float(steps)
-			draw_rect(Rect2(0, h * 0.16 * t, w, h * 0.16 / steps + 1.0), Color(0, 0.03, 0.12, 0.42 * (1.0 - t)), true)
+		_grad(Rect2(0, h * 0.72, w, h * 0.28 + 1.0), Color(bottom, 0.0), bottom)
+		_grad(Rect2(0, 0, w, h * 0.2), Color(0, 0.03, 0.12, 0.45), Color(0, 0.03, 0.12, 0.0))
+
+	func _grad(r: Rect2, top: Color, bot: Color) -> void:
+		var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+		draw_polygon(pts, PackedColorArray([top, top, bot, bot]))
 
 
 class ChestSlot extends Control:

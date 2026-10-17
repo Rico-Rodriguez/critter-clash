@@ -38,5 +38,8 @@ void fragment() {
 	// Vignette.
 	vec2 v = (uv - 0.5) * vec2(1.25, 0.9);
 	c *= 1.0 - dot(v, v) * 0.85;
+	// Dither by half an 8-bit step so the long gradients don't band.
+	float n = fract(sin(dot(FRAGCOORD.xy, vec2(12.9898, 78.233))) * 43758.5453);
+	c += (n - 0.5) / 255.0;
 	COLOR = vec4(c, 1.0);
 }
