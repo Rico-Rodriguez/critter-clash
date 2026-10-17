@@ -322,7 +322,7 @@ func _populate(rng: RandomNumberGenerator) -> void:
 			var off := Vector2.RIGHT.rotated(rng.randf() * TAU) * r * rng.randf_range(0.0, 0.35)
 			camps.append({"pos": n["pos"] + off, "count": rng.randi_range(4, 6), "elite": false, "node": i})
 	# Pockets: each holds a chest; two get an elite pack guarding it.
-	pockets.shuffle()
+	_shuffle(pockets, rng)
 	var elites := 0
 	for i in pockets:
 		var n: Dictionary = nodes[i]
@@ -346,7 +346,7 @@ func _populate(rng: RandomNumberGenerator) -> void:
 	for s in segs:
 		if bool(s["trail"]) and (s["a"] as Vector2).distance_to(start) > 900.0 and (s["b"] as Vector2).distance_to(start) > 900.0:
 			trail_segs.append(s)
-	trail_segs.shuffle()
+	_shuffle(trail_segs, rng)
 	for k in mini(4, trail_segs.size()):
 		var s: Dictionary = trail_segs[k]
 		var a: Vector2 = s["a"]
@@ -373,6 +373,15 @@ func _populate(rng: RandomNumberGenerator) -> void:
 		if crowded:
 			continue
 		landmarks.append({"pos": n["pos"] + dir * n["r"] * 0.62, "kind": kind, "r": solid, "yaw": rng.randf() * TAU})
+
+
+## Fisher-Yates on the map's seeded rng; Array.shuffle() would use the global one.
+func _shuffle(a: Array, rng: RandomNumberGenerator) -> void:
+	for i in range(a.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp: Variant = a[i]
+		a[i] = a[j]
+		a[j] = tmp
 
 
 ## The direction from a node's centre that is furthest from its corridors.

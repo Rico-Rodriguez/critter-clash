@@ -13,6 +13,7 @@ static func run() -> int:
 	_maps()
 	_fights()
 	_kite()
+	_dodge_check()
 	if failures == 0:
 		print("SIM CHECK PASSED")
 		return 0
@@ -394,6 +395,74 @@ static func _kite() -> void:
 	print("KITE boss worst stall %.2fs over %.0fs, legs %d" % [worst, t, leg])
 	if worst > 1.0:
 		_fail("boss stalled %.2fs while chasing" % worst)
+
+
+## Dodge roll: covers ground in the open, grants i-frames while dashing,
+## respects the cooldown, shoots a dodge event, and never ends inside an
+## obstacle (dodged straight into the forest edge, the hero stays outside).
+static func _dodge_check() -> void:
+	var session := Session.solo("meadow", "ember")
+	session.seed = 11
+	var sim := RunSim.new()
+	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	if not sim.explore:
+		_fail("dodge check needs an explore map")
+		return
+	var hero: RunSim.Actor = sim.heroes[0]
+	var map := sim.map
+	var start: Vector2 = hero.pos
+	var dir := Vector2.ZERO
+	for cand in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN, Vector2(1, -1).normalized()]:
+		var clear := true
+		for s in 11:
+			if map.depth(start + cand * (240.0 * float(s) / 10.0)) < hero.radius * 1.4:
+				clear = false
+				break
+		if clear:
+			dir = cand
+			break
+	if dir == Vector2.ZERO:
+		_fail("no open lane from the start for the dodge")
+		return
+	if not sim.dodge(0, dir):
+		_fail("dodge refused at full cooldown")
+		return
+	var landed := false
+	for i in 15:
+		if sim.dodge(0, dir):
+			_fail("second dodge succeeded during cooldown")
+			return
+		sim.step(1.0 / 60.0, [Vector2.ZERO])
+		landed = hero.pos.distance_to(start) > 150.0
+		if i == 4 and hero.iframes <= 0.0:
+			_fail("dodge i-frames expired early")
+	if not landed:
+		_fail("dodge did not cover 150 px within 0.25 s")
+	var ev := false
+	for e in sim.drain_events():
+		if str(e.get("type", "")) == "dodge" and int(e.get("id", -1)) == hero.id:
+			ev = true
+	if not ev:
+		_fail("dodge emitted no event")
+	# Cooldown releases: after ~2.3 s a second roll goes through.
+	for _i in 140:
+		sim.step(1.0 / 60.0, [Vector2.ZERO])
+		sim.drain_events()
+	if not sim.dodge(0, dir):
+		_fail("dodge stayed on cooldown past 2.3 s")
+	# Into the wall: the roll ends at the edge, never inside the forest.
+	for _i in 240:
+		sim.step(1.0 / 60.0, [Vector2(1, 0)])
+		sim.drain_events()
+	hero = sim.heroes[0]
+	if not hero.alive:
+		return
+	if sim.dodge(0, Vector2(1, 0)):
+		for _i in 15:
+			sim.step(1.0 / 60.0, [Vector2.ZERO])
+			sim.drain_events()
+		if sim.map.depth(sim.heroes[0].pos) < sim.heroes[0].radius * 0.8 - 1.0:
+			_fail("dodge ended inside an obstacle")
 
 
 ## Chest drawer rules: earned chests arrive locked with a rarity timer,

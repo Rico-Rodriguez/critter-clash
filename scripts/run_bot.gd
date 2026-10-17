@@ -13,6 +13,7 @@ static func steer(sim: RunSim, index: int) -> Vector2:
 		return Vector2.ZERO
 	var dodge := _dodge(sim, hero)
 	var shots := _shots(sim, hero)
+	_roll(sim, index, hero, dodge, shots)
 	var crowd := _crowd(sim, hero)
 	var aim := _kite(sim, hero)
 	var wall := _wall(sim, hero)
@@ -36,6 +37,50 @@ static func steer(sim: RunSim, index: int) -> Vector2:
 	if chosen.length() > 1.0:
 		return chosen.normalized()
 	return chosen
+
+
+## Modest dodge roll: only when a strike is already about to land on the hero
+## (a slap or lane nearly expired, or a shot inside the hit window), never on
+## every scare, so the bot fights still read as dangerous rather than perfect.
+static func _roll(sim: RunSim, index: int, hero: RunSim.Actor, dodge: Vector2, shots: Vector2) -> void:
+	if sim.dodge_ready(index) < 1.0:
+		return
+	var life := 1.0
+	for ping in sim.pings:
+		if not ping.alive:
+			continue
+		if ping.kind == "circle" and hero.pos.distance_to(ping.pos) < ping.radius + 14.0:
+			life = minf(life, ping.life)
+		elif ping.kind == "lane" and _in_lane(hero.pos, ping.pos, ping.dir, ping.length, ping.width):
+			life = minf(life, ping.life)
+	var impact := _shot_impact(sim, hero)
+	if life >= 0.2 and impact >= 0.2:
+		return
+	var vec := dodge if dodge.length() > 0.12 else shots
+	if vec.length() < 0.12:
+		vec = Vector2.RIGHT.rotated(hero.facing + PI * 0.5)
+	sim.dodge(index, vec)
+
+
+static func _shot_impact(sim: RunSim, hero: RunSim.Actor) -> float:
+	var best := 1.0
+	for shot in sim.shots:
+		if not shot.alive or shot.team == hero.team:
+			continue
+		var speed := shot.vel.length()
+		if speed < 8.0:
+			continue
+		var rel := hero.pos - shot.pos
+		if shot.vel.dot(rel) <= 0.0:
+			continue
+		var t := clampf(rel.length() / speed, 0.0, 1.0)
+		if t >= best:
+			continue
+		var future := shot.pos + shot.vel * t
+		if future.distance_to(hero.pos) > shot.radius + hero.radius + 22.0:
+			continue
+		best = t
+	return best
 
 
 static func _gem(sim: RunSim, hero: RunSim.Actor) -> Vector2:

@@ -19,6 +19,7 @@ var pet_ready := false
 var summary: Dictionary = {}
 var _modal_up := false
 var minimap: MiniMap
+var dodge_btn: DodgeButton
 var _punch: Dictionary = {}
 var _actor_sprites: Dictionary = {}
 var _gem_sprites: Dictionary = {}
@@ -95,6 +96,9 @@ func build() -> void:
 	minimap.screen = self
 	minimap.visible = false
 	add_child(minimap)
+	dodge_btn = DodgeButton.new()
+	dodge_btn.screen = self
+	add_child(dodge_btn)
 	stick = StickLayer.new()
 	stick.set_anchors_preset(Control.PRESET_FULL_RECT)
 	stick.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -370,6 +374,9 @@ func _input(event: InputEvent) -> void:
 	var limit := height * 0.40
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
+		# The DODGE button owns its own taps; they never plant the stick.
+		if touch.pressed and _in_dodge(touch.position):
+			return
 		if touch.pressed and touch.position.y > limit and finger < 0:
 			finger = touch.index
 			_begin_stick(touch.position)
@@ -383,6 +390,8 @@ func _input(event: InputEvent) -> void:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index != MOUSE_BUTTON_LEFT:
 			return
+		if mouse.pressed and _in_dodge(mouse.position):
+			return
 		if mouse.pressed and mouse.position.y > limit:
 			finger = -2
 			_begin_stick(mouse.position)
@@ -390,6 +399,23 @@ func _input(event: InputEvent) -> void:
 			_end_stick()
 	elif event is InputEventMouseMotion and finger == -2 and stick.active:
 		_drag_stick((event as InputEventMouseMotion).position)
+
+
+func _in_dodge(at: Vector2) -> bool:
+	return dodge_btn != null and dodge_btn.visible and Rect2(dodge_btn.position, dodge_btn.size).has_point(at)
+
+
+## The DODGE tap: dash along the stick vector, or the hero's facing when idle.
+## The sim owns the cooldown, the i-frames, and the obstacle slide.
+func _try_dodge() -> void:
+	if sim == null or _modal_up or sim.paused or sim.result != "":
+		return
+	if sim.heroes.is_empty():
+		return
+	var want := stick.vec if stick.active else Vector2.ZERO
+	if drive.length() > 0.05:
+		want = drive.normalized()
+	sim.dodge(0, want)
 
 
 func _begin_stick(at: Vector2) -> void:
@@ -487,6 +513,10 @@ func _drain() -> void:
 				_float(ev["pos"] + Vector2(0, -70), "Chest sent home" if sent == "sent" else "Chest drawer full", Color("f4e3b5") if sent == "sent" else Color("c98b7a"), false)
 				AudioDirector.sfx("chest_open")
 				AudioDirector.haptic("rare" if str(ev.get("tier", "")) == "rare" else "medium")
+			"dodge":
+				_burst(ev["pos"], Color("c9b79a"), 8, 140.0)
+				AudioDirector.sfx("ui_tap", -6.0)
+				AudioDirector.haptic("light")
 			"aggro":
 				AudioDirector.sfx("ui_tap", -8.0)
 			"attack":
@@ -2234,6 +2264,80 @@ class MiniMap extends Control:
 			var line := "Explored %d%%   ·   Tap to close" % pct
 			var lw := font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
 			ci.draw_string(font, Vector2((r.size.x - lw) * 0.5, r.size.y + 56), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.95, 0.88, 0.72, 0.85))
+
+
+## The DODGE button: a cast-bronze disc with a dash glyph in the lower-right
+## thumb zone. A dark veil sweeps away as the cooldown refills, and a gold
+## ring flashes when the roll becomes ready again.
+class DodgeButton extends Control:
+	var screen: Node
+	var frac := 1.0
+	var _flash := 0.0
+	const DIAM := 92.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_layout()
+		get_viewport().size_changed.connect(_layout)
+
+	func _layout() -> void:
+		var view := get_viewport_rect().size
+		var pad := UiKit.safe_insets()
+		size = Vector2(DIAM, DIAM)
+		position = Vector2(view.x - float(pad["r"]) - DIAM - 30.0, view.y - float(pad["b"]) - DIAM - 34.0)
+		queue_redraw()
+
+	func _process(delta: float) -> void:
+		if screen == null or screen.get("sim") == null:
+			return
+		var sim: RunSim = screen.get("sim")
+		var now := sim.dodge_ready(0)
+		if now >= 1.0 and frac < 1.0:
+			_flash = 1.0
+		_flash = maxf(0.0, _flash - delta * 2.4)
+		frac = now
+		queue_redraw()
+
+	func _gui_input(event: InputEvent) -> void:
+		var tap := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+		if tap:
+			accept_event()
+			screen.call("_try_dodge")
+
+	## Steel well, bronze rim lit from the top left, and twin chevrons for
+	## the dash. While on cooldown the un-refilled part of the disc is veiled.
+	func _draw() -> void:
+		var c := Vector2(size.x * 0.5, size.y * 0.5)
+		var r := size.x * 0.5 - 8.0
+		draw_circle(c + Vector2(0, 3), r + 5.0, Color(0, 0, 0, 0.35))
+		for k in 40:
+			var a0 := TAU * k / 40.0
+			var lit := 0.5 + 0.5 * cos(a0 + 2.36)
+			var col := Color(0.3, 0.2, 0.1).lerp(Color(0.82, 0.6, 0.3), lit)
+			draw_arc(c, r + 2.5, a0, a0 + TAU / 40.0 + 0.01, 3, col, 5.0, true)
+		draw_arc(c, r + 5.5, 0.0, TAU, 48, Color(0.16, 0.09, 0.04, 0.9), 1.5, true)
+		draw_arc(c, r - 0.5, 0.0, TAU, 48, Color(1.0, 0.88, 0.6, 0.5), 1.0, true)
+		for k in 6:
+			var t := float(k) / 5.0
+			draw_circle(c, r * (1.0 - t * 0.55), Color(0.06, 0.08, 0.1, 0.62).lerp(Color(0.16, 0.2, 0.24, 0.7), t))
+		if frac < 0.999:
+			# Radial veil: covers the still-cooling slice and recedes clockwise.
+			var a0 := -PI * 0.5
+			var a1 := a0 + TAU * clampf(1.0 - frac, 0.0, 1.0)
+			var pts := PackedVector2Array([c])
+			for s in 27:
+				pts.append(c + Vector2.RIGHT.rotated(a0 + (a1 - a0) * float(s) / 26.0) * r)
+			draw_colored_polygon(pts, Color(0.05, 0.06, 0.08, 0.66))
+		var glyph := Color(0.94, 0.87, 0.68, 0.95) if frac >= 0.999 else Color(0.6, 0.52, 0.4, 0.5)
+		for side in 2:
+			var off := Vector2(-8.0 + float(side) * 16.0, 2.0)
+			draw_polyline(PackedVector2Array([
+				c + off + Vector2(-6.5, -11.0),
+				c + off + Vector2(6.5, 0.0),
+				c + off + Vector2(-6.5, 11.0),
+			]), glyph, 5.0, true)
+		if _flash > 0.01:
+			draw_arc(c, r + 2.5, 0.0, TAU, 40, Color(1.0, 0.85, 0.4, 0.7 * _flash), 3.5, true)
 
 
 ## Draws the minimap's frame and markers above its paper.
