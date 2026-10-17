@@ -1,7 +1,9 @@
 extends ScreenBase
 
-## Choose a hero: the selected critter on the lit 3D plinth, framed hero
-## tiles to pick from, a stats plaque, then Loadout and Hunt.
+## Heroes tab: the critter you are looking at on the lit 3D plinth, framed
+## hero tiles to browse, a stats plaque, then SELECT (or EQUIPPED when it is
+## already the active hero) and Loadout. Home and every hunt use the
+## equipped hero.
 
 const Home := preload("res://scripts/home_screen.gd")
 
@@ -17,6 +19,8 @@ var showcase: Control
 
 
 func build() -> void:
+	show_nav = true
+	nav_tab = "heroes"
 	var pad := insets()
 	stage_slot = Control.new()
 	stage_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -29,14 +33,14 @@ func build() -> void:
 	margin.add_theme_constant_override("margin_left", int(pad["l"]))
 	margin.add_theme_constant_override("margin_right", int(pad["r"]))
 	margin.add_theme_constant_override("margin_top", int(pad["t"]))
-	margin.add_theme_constant_override("margin_bottom", int(pad["b"]))
+	margin.add_theme_constant_override("margin_bottom", int(pad["b"]) + 140)
 	add_child(margin)
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 14)
 	margin.add_child(box)
 	box.add_child(header())
-	box.add_child(h1("Choose a hero"))
+	box.add_child(h1("Heroes"))
 	detail = body("")
 	box.add_child(detail)
 	var spacer := Control.new()
@@ -67,21 +71,24 @@ func build() -> void:
 	row.add_theme_constant_override("separation", 14)
 	var loadout := UiKit.secondary("Loadout", 250, 96)
 	loadout.pressed.connect(func() -> void: go("loadout", {"hero": selected, "biome": biome_id}))
-	hunt = UiKit.button("HUNT", 440, 110, "gold")
+	hunt = UiKit.button("SELECT", 440, 110, "gold")
 	hunt.pressed.connect(func() -> void:
+		if selected == SaveGame.featured_id():
+			return
 		SaveGame.set_featured(selected)
-		go("run", {"biome": biome_id, "hero": selected})
+		AudioDirector.sfx("card_pick")
+		AudioDirector.haptic("medium")
+		toast("%s is now your hero" % str(Catalog.critter(selected)["name"]))
+		_fill()
 	)
 	row.add_child(loadout)
 	row.add_child(hunt)
 	box.add_child(row)
-	box.add_child(back_button("world"))
 
 
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
-	var biome := Catalog.biome(biome_id)
-	detail.text = "%s  ·  guarded by %s" % [str(biome["name"]), str(Catalog.critter(str(biome["boss"]))["name"])]
+	detail.text = "Tap a hero to look, then Select. Home and hunts use your equipped hero."
 	selected = SaveGame.featured_id()
 	if not bool(SaveGame.hero(selected)["unlocked"]):
 		for id in Catalog.playable_ids():
@@ -106,7 +113,10 @@ func _fill() -> void:
 	stage_slot.add_child(showcase)
 	var info := Catalog.critter(selected)
 	var stats := SaveGame.build_run_stats(selected)
-	hunt.text = "HUNT"
+	var equipped := selected == SaveGame.featured_id()
+	hunt.text = "✓ EQUIPPED" if equipped else "SELECT"
+	hunt.disabled = equipped
+	hunt.modulate = Color(0.85, 0.95, 0.8) if equipped else Color.WHITE
 	stat_line.text = "%s  ·  %s" % [str(info["name"]).to_upper(), Catalog.role_name(str(info["role"])).to_upper()]
 	gear_line.text = "Health %d   ·   Damage %d\n%s" % [
 		int(round(float(stats["hp"]))),
@@ -152,6 +162,10 @@ func _tile(id: String) -> Control:
 	var l := UiKit.label("Level %d" % int(row["level"]), 17, UiKit.MUTED, "m", 2)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l)
+	if id == SaveGame.featured_id():
+		var tag := UiKit.label("EQUIPPED", 15, Color("9fe08a"), "x", 3)
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(tag)
 	if not on:
 		b.modulate = Color(0.78, 0.78, 0.78)
 	b.pressed.connect(_select.bind(id))

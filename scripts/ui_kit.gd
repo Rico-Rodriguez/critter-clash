@@ -825,9 +825,9 @@ class Pill extends Control:
 class Dock extends Control:
 	const TABS := [
 		["collection", "Cards", "cards_fan"],
+		["heroes", "Heroes", "crown_a"],
 		["home", "Battle", "sword"],
 		["trophy", "Road", "trophy"],
-		["world", "Map", "flag_triangle"],
 	]
 	var current := ""
 	var _go: Callable

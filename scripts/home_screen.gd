@@ -45,18 +45,30 @@ func build() -> void:
 	play.text = "HUNT"
 	play.custom_minimum_size = Vector2(600, 136)
 	play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# HUNT replays the last biome with the featured hero; the map (World
-	# tab) is where a different biome is picked.
-	play.pressed.connect(func() -> void:
-		var last := str(SaveGame.data.get("last_biome", ""))
-		if last != "" and SaveGame.biome_open(last):
-			go("run", {"biome": last, "hero": hero_id})
-		else:
-			go("world")
-	)
+	# HUNT opens the map sheet: pick a biome (sealed ones show why), then
+	# Start runs it with the equipped hero.
+	play.pressed.connect(open_map_sheet)
 	box.add_child(play)
 	box.add_child(_chests())
 	box.add_child(_tiles())
+
+
+var sheet: Control
+
+
+func open_map_sheet() -> void:
+	if sheet != null:
+		return
+	AudioDirector.sfx("ui_tap")
+	sheet = MapSheet.new()
+	sheet.home = self
+	sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(sheet)
+
+
+func start_hunt(biome_id: String) -> void:
+	SaveGame.data["last_biome"] = biome_id
+	go("run", {"biome": biome_id, "hero": SaveGame.featured_id()})
 
 
 func _nameplate(hero_id: String) -> Control:
@@ -456,3 +468,164 @@ class ForgedButton extends BaseButton:
 		draw_string(font, at + Vector2(0, -2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("2a0a06"))
 		draw_string(font, at + Vector2(0, 2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffe9b0"))
 		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8b85a") if not down else Color("c89a48"))
+
+
+## Map choice: a sheet that rises over Home with one row per biome (art
+## strip, name, boss, status; sealed biomes greyed with their unlock rule),
+## the chosen row lit, and START at the foot.
+class MapSheet extends Control:
+	var home: Node
+	var chosen := ""
+	var _rows := {}
+	var _start: Button
+	var _panel: Control
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.62)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		dim.gui_input.connect(func(e: InputEvent) -> void:
+			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+				close()
+		)
+		add_child(dim)
+		var pad := UiKit.safe_insets()
+		_panel = PanelContainer.new()
+		var empty := StyleBoxEmpty.new()
+		for side in ["left", "right", "top", "bottom"]:
+			empty.set("content_margin_" + side, 26)
+		_panel.add_theme_stylebox_override("panel", empty)
+		_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		_panel.offset_left = float(pad["l"]) + 18.0
+		_panel.offset_right = -float(pad["r"]) - 18.0
+		_panel.offset_bottom = -float(pad["b"]) - 18.0
+		_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		add_child(_panel)
+		var frame := UiKit.Frame.new("panel", "leather", {})
+		frame.margin = 26.0
+		_panel.add_child(frame)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 14)
+		_panel.add_child(box)
+		var title := UiKit.title("Choose a hunt", 46)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(title)
+		var last := str(SaveGame.data.get("last_biome", ""))
+		for entry in Catalog.BIOMES:
+			var id := str(entry["id"])
+			if chosen == "" and SaveGame.biome_open(id):
+				chosen = id
+			box.add_child(_row(entry))
+		if last != "" and SaveGame.biome_open(last):
+			chosen = last
+		var foot := HBoxContainer.new()
+		foot.alignment = BoxContainer.ALIGNMENT_CENTER
+		foot.add_theme_constant_override("separation", 16)
+		var back := UiKit.secondary("Close", 200, 92)
+		back.pressed.connect(close)
+		foot.add_child(back)
+		_start = UiKit.button("START", 400, 104, "gold")
+		_start.pressed.connect(func() -> void:
+			if chosen != "":
+				AudioDirector.sfx("card_pick")
+				home.start_hunt(chosen)
+		)
+		foot.add_child(_start)
+		box.add_child(foot)
+		_light()
+		_panel.modulate.a = 0.0
+		_panel.position.y += 80.0
+		var tw := create_tween().set_parallel(true)
+		tw.tween_property(_panel, "modulate:a", 1.0, 0.16)
+		tw.tween_property(_panel, "position:y", _panel.position.y - 80.0, 0.26).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+	func close() -> void:
+		AudioDirector.sfx("ui_tap")
+		home.sheet = null
+		queue_free()
+
+	func _row(entry: Dictionary) -> Control:
+		var id := str(entry["id"])
+		var open := SaveGame.biome_open(id)
+		var cleared := SaveGame.biome_cleared(id)
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.flat = true
+		b.custom_minimum_size = Vector2(0, 132)
+		var none := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+			b.add_theme_stylebox_override(st, none)
+		var holder := Control.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		b.add_child(holder)
+		var h := HBoxContainer.new()
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		h.offset_left = 14
+		h.offset_right = -14
+		h.offset_top = 10
+		h.offset_bottom = -10
+		h.add_theme_constant_override("separation", 16)
+		b.add_child(h)
+		var art := TextureRect.new()
+		art.texture = _art(id)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.custom_minimum_size = Vector2(196, 0)
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if not open:
+			art.modulate = Color(0.35, 0.35, 0.38)
+		h.add_child(art)
+		var v := VBoxContainer.new()
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_theme_constant_override("separation", 2)
+		h.add_child(v)
+		v.add_child(UiKit.label(str(entry["name"]).to_upper(), 30, UiKit.GOLD.lightened(0.2) if open else Color("8d8478"), "x", 4))
+		var boss := Catalog.critter(str(entry["boss"]))
+		v.add_child(UiKit.label("Guarded by %s" % str(boss["name"]), 18, UiKit.CREAM if open else UiKit.MUTED, "b", 0))
+		var status := "✦ CLEARED" if cleared else ("OPEN" if open else "SEALED · " + SaveGame.biome_lock_text(id))
+		var st_label := UiKit.label(status, 16, Color("9fe08a") if cleared else (UiKit.GOLD if open else Color("c89a8a")), "x", 2)
+		st_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(st_label)
+		if not open:
+			var lock := TextureRect.new()
+			lock.texture = UiKit.icon("lock_closed")
+			lock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			lock.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			lock.custom_minimum_size = Vector2(48, 48)
+			lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.add_child(lock)
+		b.pressed.connect(func() -> void:
+			if not open:
+				AudioDirector.sfx("ui_error")
+				return
+			chosen = id
+			AudioDirector.sfx("ui_tap")
+			_light()
+		)
+		_rows[id] = [b, holder]
+		return b
+
+	func _art(id: String) -> Texture2D:
+		var path := "res://assets/sprites/arenas/%s_banner.png" % id
+		return load(path) if ResourceLoader.exists(path) else SpriteBank.arena(id)
+
+	func _light() -> void:
+		for id in _rows:
+			var holder: Control = _rows[id][1]
+			for c in holder.get_children():
+				c.queue_free()
+			var on: bool = id == chosen
+			var metal := [Color("ffe6a8"), Color("6a4416")] if on else UiKit.rarity_metal("common")
+			var frame := UiKit.Frame.new("card", "leather", {
+				"metal_hi": metal[0], "metal_lo": metal[1], "frame": 5.0 if on else 3.0,
+				"glow_color": Color(1.0, 0.72, 0.3, 0.5) if on else Color(0, 0, 0, 0),
+				"face_top": Color("2a2016") if on else Color("15100c"), "face_bot": Color("0c0907"),
+			})
+			frame.margin = 2.0
+			holder.add_child(frame)
+		_start.disabled = chosen == ""

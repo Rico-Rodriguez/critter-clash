@@ -117,7 +117,9 @@ func _capture() -> void:
 		await _settle()
 		await _shot("home")
 	if _wants("map"):
-		go("world")
+		go("home")
+		await _settle()
+		current.open_map_sheet()
 		await _settle()
 		await _shot("map")
 	if _wants("heroes"):
