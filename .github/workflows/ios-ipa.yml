@@ -36,19 +36,24 @@ jobs:
           cp -R /tmp/godot-templates/templates/. "$HOME/Library/Application Support/Godot/export_templates/${VER}.stable/"
           "$GODOT" --version
 
-      - name: Export the Xcode project
+      - name: Import assets
+        timeout-minutes: 10
         run: |
           set -euo pipefail
-          # Headless import only fills the asset cache. The iOS preset bakes
-          # shaders for the Mobile renderer, and that baker needs a real Metal
-          # device. --headless has no rendering device, and the desktop default
-          # (Compatibility) cannot bake Mobile core shaders.
-          "$GODOT" --headless --path . --import --quit || true
+          # Cold import of the GLBs, textures, and sky. Its own limit so a
+          # stuck import fails without eating the export window.
+          "$GODOT" --headless --path . --import --quit
+          test -d .godot/imported
+
+      - name: Export the Xcode project
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
           mkdir -p build/ios
-          # Godot 4.7.2 can abort (exit 134) while quitting the Metal shader
-          # baker, after the Xcode project and pack are already written.
-          # Keep the project when those files exist. A real export failure
-          # still stops the job.
+          # The iOS preset leaves the shader baker off. Baking every 3D
+          # material on a fresh checkout hung this step (run 39009952296).
+          # Shaders compile on device. Godot 4.7.2 can still abort (exit 134)
+          # while quitting after the Xcode project and pack are written.
           set +e
           "$GODOT" --path . \
             --rendering-method mobile \

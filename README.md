@@ -114,7 +114,7 @@ The first command fills the class cache. The second prints `SIM CHECK PASSED` an
 
 Bundle id `com.rico.critterclash`, display name Critter Clash, minimum iOS 15, version 1.1.0. The export preset writes an Xcode project only (`application/export_project_only`). Team id `ABCDE12345` is a placeholder so Godot will export.
 
-`.github/workflows/ios-ipa.yml` runs on `macos-26` for pushes to `main` and for workflow dispatch. The Godot 4.7.2 iOS template links Metal symbols from the iOS 26 SDK, so an older Xcode cannot archive it. The workflow installs Godot 4.7.2 and the export templates, exports with the Mobile renderer and Metal so the shader baker can run, archives with signing turned off, zips `Payload/*.app` into `CritterClash.ipa`, and publishes that file on the `ios-v1` prerelease.
+`.github/workflows/ios-ipa.yml` runs on `macos-26` for pushes to `main` and for workflow dispatch. The Godot 4.7.2 iOS template links Metal symbols from the iOS 26 SDK, so an older Xcode cannot archive it. The workflow installs Godot 4.7.2 and the export templates, imports assets headless (10 minute limit), then exports with the Mobile renderer and Metal (20 minute limit). The iOS shader baker is off, because baking the 3D materials hung the export. Shaders compile on device. The job archives with signing turned off, zips `Payload/*.app` into `CritterClash.ipa`, and publishes that file on the `ios-v1` prerelease.
 
 ### Web
 
