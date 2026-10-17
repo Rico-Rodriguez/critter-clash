@@ -7,6 +7,11 @@ extends RefCounted
 ##   2 a duel rival
 ## Hostility is "other team". Moves come from outside, one vector per hero.
 ## The launch game only feeds team 0 from the thumbstick.
+##
+## Skill FX hooks (presentation placeholders, drained by run_screen.gd):
+##   events.append({"type": "fx", "fx": <name>, "pos": <Vector2>,
+##                  "to": <Vector2, optional>, "radius": <float, optional>})
+## Unknown names are safe; run_screen picks a colour and sparks.
 
 const STEP_HINT := 1.0 / 60.0
 
@@ -28,6 +33,7 @@ var offer: Array = []
 var offer_queue := 0
 var stacks: Dictionary = {}
 var revive_spent := false
+var phoenix_spent := false
 var events: Array = []
 var actors: Array[Actor] = []
 var heroes: Array[Actor] = []
@@ -37,6 +43,7 @@ var obstacles: Array[Vector3] = []
 var shots: Array[Shot] = []
 var gems: Array[Gem] = []
 var pings: Array[Ping] = []
+var fields: Array[Field] = []
 var boss: Actor = null
 var slain := 0
 var boss_mark := 0
@@ -148,6 +155,32 @@ class Actor extends RefCounted:
 	var patrol_b := Vector2.ZERO
 	var to_b := true
 	var elite := false
+	## Skill state: status timers, per-target blade ticks and skill cooldowns.
+	var slow := 0.0
+	var slow_k := 0.0
+	var stun := 0.0
+	var mark := 0.0
+	var weaken := 0.0
+	var blade_ang := 0.0
+	var blade_cd: Dictionary = {}
+	var cds: Dictionary = {}
+	var atk_count := 0
+	var owner_hero := 0
+	var summon_ids: Array = []
+
+
+class Field extends RefCounted:
+	var pos := Vector2.ZERO
+	var radius := 40.0
+	var life := 2.0
+	var delay := 0.0
+	var dmg := 5.0
+	var tick := 0.35
+	var tick_cd := 0.0
+	var team := 0
+	var owner_id := -1
+	var kind := "fire"
+	var alive := true
 
 
 class Shot extends RefCounted:
@@ -167,6 +200,8 @@ class Shot extends RefCounted:
 	var crit := false
 	var kind := "orb"
 	var hit_ids: Array = []
+	var split := 0
+	var did_split := false
 
 
 class Gem extends RefCounted:
@@ -221,11 +256,21 @@ func step(dt: float, moves: Array) -> void:
 		shot.prev = shot.pos
 	for gem in gems:
 		gem.prev = gem.pos
+	_step_status(dt)
 	_move_heroes(dt, moves)
 	_step_gems(dt)
 	if _halt():
 		return
+	_step_skills(dt)
+	if _halt():
+		return
+	_step_fields(dt)
+	if _halt():
+		return
 	_hero_attacks()
+	if _halt():
+		return
+	_step_allies(dt)
 	if _halt():
 		return
 	_step_minions(dt)
@@ -410,6 +455,8 @@ func _recompute(hero: Actor) -> void:
 	var bash_add := 0
 	var siphon_add := 0.0
 	var revive := 0
+	var phoenix := 0
+	var skill := {}
 	for id in stacks.keys():
 		var n := int(stacks[id])
 		var card := Catalog.card(str(id))
@@ -449,7 +496,18 @@ func _recompute(hero: Actor) -> void:
 				siphon_add += amount
 			"revive":
 				revive = 1
+			"phoenix":
+				phoenix = 1
+			"orbit", "chain", "trail", "nova", "aura", "blink", "wolf", "static", "gemburst", "meteor", "volley", "quake", "taunt", "storm":
+				skill[str(card.get("op", ""))] = skill.get(str(card.get("op", "")), 0.0) + amount
+			"crit_siphon", "ricochet", "execute", "vampkill", "berserk", "mark", "bulwark":
+				skill[str(card.get("op", ""))] = skill.get(str(card.get("op", "")), 0.0) + amount
+			"split":
+				skill["split"] = int(skill.get("split", 0)) + n
+				pierce_add += n
 	var stats := base.duplicate(true)
+	for key in skill.keys():
+		stats[str(key)] = skill[key]
 	stats["dmg"] = float(base["dmg"]) + dmg_add
 	stats["hp"] = float(base["hp"]) + hp_add
 	stats["interval"] = maxf(0.16, float(base["interval"]) / (1.0 + haste))
@@ -467,6 +525,7 @@ func _recompute(hero: Actor) -> void:
 	stats["bash"] = int(base["bash"]) + bash_add
 	stats["siphon"] = float(base["siphon"]) + siphon_add
 	stats["revive"] = 0 if revive_spent else revive
+	stats["phoenix"] = 0 if phoenix_spent else phoenix
 	var old_max := hero.max_hp
 	hero.stats = stats
 	_copy_combat(hero)
@@ -538,7 +597,10 @@ func _hero_attacks() -> void:
 			continue
 		hero.aim = (target.pos - hero.pos).angle()
 		hero.facing = hero.aim
-		hero.cd = hero.interval
+		var berserk := float(hero.stats.get("berserk", 0.0))
+		var missing := clampf(1.0 - hero.hp / maxf(hero.max_hp, 1.0), 0.0, 1.0)
+		hero.cd = hero.interval / (1.0 + berserk * missing)
+		hero.atk_count += 1
 		events.append({
 			"type": "attack",
 			"id": hero.id,
@@ -551,8 +613,31 @@ func _hero_attacks() -> void:
 			_melee(hero, target)
 			if int(hero.stats.get("bash", 0)) > 0:
 				_bash(hero)
+			var quake := int(hero.stats.get("quake", 0))
+			if quake > 0 and rng.randf() < 0.18 + 0.1 * float(quake):
+				_quake(hero, quake)
+				if result != "":
+					return
 		else:
 			_fan(hero, target)
+		var chain := int(hero.stats.get("chain", 0))
+		if chain > 0 and hero.atk_count % maxi(2, 5 - chain) == 0:
+			_chain(hero, hero.pos, chain, hero.dmg * (0.45 + 0.15 * float(chain)), 280.0)
+			if result != "":
+				return
+		var volley := int(hero.stats.get("volley", 0))
+		if volley > 0 and hero.role == "archer" and hero.atk_count % maxi(2, 5 - volley) == 0:
+			_volley(hero, target, volley)
+			if result != "":
+				return
+		var static_n := int(hero.stats.get("static", 0))
+		if static_n > 0 and hero.still >= 1.0 and float(hero.cds.get("static", 0.0)) <= 0.0:
+			hero.cds["static"] = 2.0
+			var radius := 80.0 + 15.0 * float(static_n)
+			_aoe(hero, hero.pos, radius, hero.dmg * (0.4 + 0.2 * float(static_n)))
+			events.append({"type": "fx", "fx": "static_field", "pos": hero.pos, "radius": radius})
+			if result != "":
+				return
 
 
 func _melee(hero: Actor, primary: Actor) -> void:
@@ -607,6 +692,7 @@ func _fan(hero: Actor, target: Actor) -> void:
 		shot.pierce = int(hero.stats["pierce"])
 		shot.bounce = int(hero.stats["bounce"])
 		shot.kind = "orb" if hero.role == "mage" else "arrow"
+		shot.split = int(hero.stats.get("split", 0)) if hero.role == "mage" else 0
 		shots.append(shot)
 
 
@@ -628,6 +714,309 @@ func _bash(hero: Actor) -> void:
 	shots.append(shot)
 
 
+## Damage every hostile in a circle. All skill damage funnels through _hurt so
+## hit numbers, flash, thorns and kill credit stay consistent.
+func _aoe(attacker: Actor, at: Vector2, radius: float, amount: float, crit := false) -> void:
+	for actor in actors:
+		if not actor.alive or actor.team == attacker.team:
+			continue
+		if actor.pos.distance_to(at) > radius + actor.radius * 0.5:
+			continue
+		_hurt(actor, amount, at, crit, attacker, false)
+		if result != "":
+			return
+
+
+## Arc lightning from `from`, hopping to the nearest hostile not yet struck.
+func _chain(hero: Actor, from: Vector2, jumps: int, amount: float, hop: float) -> void:
+	var src := from
+	var hit := {}
+	for _j in jumps:
+		var best: Actor = null
+		var best_d := hop
+		for actor in actors:
+			if not actor.alive or actor.team == hero.team or hit.has(actor.id):
+				continue
+			var dist := src.distance_to(actor.pos)
+			if dist < best_d:
+				best = actor
+				best_d = dist
+		if best == null:
+			return
+		hit[best.id] = true
+		events.append({"type": "fx", "fx": "chain_lightning", "pos": src, "to": best.pos})
+		_hurt(best, amount, src, false, hero, false)
+		if result != "":
+			return
+		src = best.pos
+
+
+func _quake(hero: Actor, n: int) -> void:
+	var radius := 100.0 + 15.0 * float(n)
+	for actor in actors:
+		if not actor.alive or actor.team == hero.team:
+			continue
+		if actor.pos.distance_to(hero.pos) > radius + actor.radius:
+			continue
+		actor.stun = maxf(actor.stun, 0.45 + 0.15 * float(n))
+		_hurt(actor, hero.dmg * (0.15 + 0.1 * float(n)), hero.pos, false, hero, false)
+		if result != "":
+			return
+	events.append({"type": "fx", "fx": "earthquake", "pos": hero.pos, "radius": radius})
+
+
+func _volley(hero: Actor, target: Actor, n: int) -> void:
+	var count := 3 + n
+	var base := (target.pos - hero.pos).angle()
+	for i in count:
+		var ang := base + lerpf(-0.5, 0.5, float(i) / float(count - 1))
+		var dir := Vector2.RIGHT.rotated(ang)
+		var crit := rng.randf() < float(hero.stats["crit"])
+		var amount := hero.dmg * 0.55 * (float(hero.stats["crit_mult"]) if crit else 1.0)
+		var shot := Shot.new()
+		shot.team = hero.team
+		shot.owner_id = hero.id
+		shot.pos = hero.pos + dir * (hero.radius + 8.0)
+		shot.prev = shot.pos
+		shot.vel = dir * float(hero.stats["proj_speed"])
+		shot.dmg = amount
+		shot.crit = crit
+		shot.radius = 8.0
+		shot.ttl = 1.3
+		shot.kind = "arrow"
+		shots.append(shot)
+	events.append({"type": "fx", "fx": "volley", "pos": hero.pos, "to": target.pos})
+
+
+func _slow_mul(actor: Actor) -> float:
+	return 1.0 - clampf(actor.slow_k, 0.0, 0.7)
+
+
+func _step_status(dt: float) -> void:
+	for actor in actors:
+		if not actor.alive:
+			continue
+		actor.slow = maxf(0.0, actor.slow - dt)
+		if actor.slow <= 0.0:
+			actor.slow_k = 0.0
+		actor.stun = maxf(0.0, actor.stun - dt)
+		actor.mark = maxf(0.0, actor.mark - dt)
+		actor.weaken = maxf(0.0, actor.weaken - dt)
+		for key in actor.cds.keys():
+			actor.cds[key] = maxf(0.0, float(actor.cds[key]) - dt)
+
+
+## Per-hero skill timers: orbit blades, trail drops, nova/aura pulses, summons,
+## meteor, taunt and storm. All dt-driven so a run stays deterministic.
+func _step_skills(dt: float) -> void:
+	for hero in heroes:
+		if not hero.alive:
+			continue
+		var stats := hero.stats
+		var orbit := int(stats.get("orbit", 0))
+		if orbit > 0:
+			_step_orbit(hero, orbit, dt)
+			if result != "":
+				return
+		var trail := int(stats.get("trail", 0))
+		if trail > 0 and hero.vel.length() > 40.0 and float(hero.cds.get("trail", 0.0)) <= 0.0:
+			hero.cds["trail"] = 0.32
+			_drop_field(hero, hero.pos, 34.0 + 6.0 * float(trail), hero.dmg * (0.12 + 0.05 * float(trail)), 2.2 + 0.4 * float(trail), 0.35, "fire_trail")
+		var nova := int(stats.get("nova", 0))
+		if nova > 0 and float(hero.cds.get("nova", 0.0)) <= 0.0:
+			hero.cds["nova"] = maxf(2.5, 6.5 - 1.2 * float(nova))
+			var nr := 110.0 + 25.0 * float(nova)
+			for actor in actors:
+				if not actor.alive or actor.team == hero.team:
+					continue
+				if actor.pos.distance_to(hero.pos) > nr + actor.radius:
+					continue
+				actor.slow = maxf(actor.slow, 1.6 + 0.3 * float(nova))
+				actor.slow_k = maxf(actor.slow_k, minf(0.65, 0.3 + 0.1 * float(nova)))
+				_hurt(actor, hero.dmg * (0.35 + 0.15 * float(nova)), hero.pos, false, hero, false)
+				if result != "":
+					return
+			events.append({"type": "fx", "fx": "frost_nova", "pos": hero.pos, "radius": nr})
+		var aura := int(stats.get("aura", 0))
+		if aura > 0 and float(hero.cds.get("aura", 0.0)) <= 0.0:
+			hero.cds["aura"] = maxf(1.2, 2.8 - 0.5 * float(aura))
+			var ar := 90.0 + 20.0 * float(aura)
+			_aoe(hero, hero.pos, ar, hero.dmg * (0.3 + 0.12 * float(aura)))
+			events.append({"type": "fx", "fx": "thorns_aura", "pos": hero.pos, "radius": ar})
+			if result != "":
+				return
+		var wolf := int(stats.get("wolf", 0))
+		if wolf > 0:
+			_step_wolves(hero, wolf)
+		var meteor := int(stats.get("meteor", 0))
+		if meteor > 0 and float(hero.cds.get("meteor", 0.0)) <= 0.0:
+			var foe := nearest_hostile(hero, 520.0)
+			if foe != null:
+				hero.cds["meteor"] = maxf(3.0, 6.5 - 0.8 * float(meteor))
+				var at := foe.pos + Vector2(rng.randf_range(-40.0, 40.0), rng.randf_range(-30.0, 30.0))
+				_drop_field(hero, at, 100.0 + 20.0 * float(meteor), hero.dmg * (2.0 + 0.8 * float(meteor)), 0.06, 0.12, "meteor", 0.85)
+		var taunt := int(stats.get("taunt", 0))
+		if taunt > 0 and float(hero.cds.get("taunt", 0.0)) <= 0.0:
+			hero.cds["taunt"] = maxf(3.0, 7.0 - 1.0 * float(taunt))
+			var tr := 150.0 + 25.0 * float(taunt)
+			for actor in actors:
+				if not actor.alive or actor.team == hero.team:
+					continue
+				if actor.pos.distance_to(hero.pos) > tr + actor.radius:
+					continue
+				actor.weaken = maxf(actor.weaken, 2.0 + 0.3 * float(taunt))
+				var to := hero.pos - actor.pos
+				if to.length() > 1.0:
+					actor.pos += to.normalized() * minf(26.0, to.length() * 0.12)
+			events.append({"type": "fx", "fx": "taunt_roar", "pos": hero.pos, "radius": tr})
+		var storm := int(stats.get("storm", 0))
+		if storm > 0 and float(hero.cds.get("storm", 0.0)) <= 0.0:
+			hero.cds["storm"] = maxf(1.0, 2.4 - 0.3 * float(storm))
+			_chain(hero, hero.pos, 1 + storm, hero.dmg * (0.25 + 0.1 * float(storm)), 300.0)
+			events.append({"type": "fx", "fx": "storm_crown", "pos": hero.pos})
+			if result != "":
+				return
+
+
+func _step_orbit(hero: Actor, n: int, dt: float) -> void:
+	hero.blade_ang = fmod(hero.blade_ang + dt * (2.4 + 0.25 * float(n)), TAU)
+	var radius := 68.0 + 8.0 * float(n)
+	for key in hero.blade_cd.keys():
+		hero.blade_cd[key] = maxf(0.0, float(hero.blade_cd[key]) - dt)
+	for i in n:
+		var ang := hero.blade_ang + TAU * float(i) / float(n)
+		var bp := hero.pos + Vector2.from_angle(ang) * radius
+		for actor in actors:
+			if not actor.alive or actor.team == hero.team:
+				continue
+			if actor.pos.distance_to(bp) > 20.0 + actor.radius:
+				continue
+			if float(hero.blade_cd.get(actor.id, 0.0)) > 0.0:
+				continue
+			hero.blade_cd[actor.id] = 0.45
+			_hurt(actor, hero.dmg * (0.2 + 0.1 * float(n)), bp, false, hero, false)
+			events.append({"type": "fx", "fx": "orbiting_blades", "pos": bp})
+			if result != "":
+				return
+
+
+func _drop_field(hero: Actor, at: Vector2, radius: float, dmg: float, life: float, tick: float, kind: String, delay := 0.0) -> void:
+	if fields.size() > 48:
+		fields.remove_at(0)
+	var f := Field.new()
+	f.pos = at
+	f.radius = radius
+	f.life = life
+	f.delay = delay
+	f.dmg = dmg
+	f.tick = tick
+	f.tick_cd = 0.0
+	f.team = hero.team
+	f.owner_id = hero.id
+	f.kind = kind
+	fields.append(f)
+	events.append({"type": "fx", "fx": kind, "pos": at, "radius": radius})
+
+
+func _step_fields(dt: float) -> void:
+	for f in fields:
+		if not f.alive:
+			continue
+		if f.delay > 0.0:
+			f.delay -= dt
+			if f.delay > 0.0:
+				continue
+		f.life -= dt
+		f.tick_cd -= dt
+		if f.tick_cd <= 0.0:
+			f.tick_cd = f.tick
+			var owner := _actor_by_id(f.owner_id)
+			for actor in actors:
+				if not actor.alive or actor.team == f.team:
+					continue
+				if actor.pos.distance_to(f.pos) > f.radius + actor.radius * 0.4:
+					continue
+				_hurt(actor, f.dmg, f.pos, false, owner, false)
+				if result != "":
+					return
+			events.append({"type": "fx", "fx": f.kind, "pos": f.pos, "radius": f.radius})
+		if f.life <= 0.0:
+			f.alive = false
+
+
+func _step_wolves(hero: Actor, n: int) -> void:
+	var keep: Array = []
+	for id in hero.summon_ids:
+		var a := _actor_by_id(int(id))
+		if a != null and a.alive and a.kind == "ally":
+			keep.append(int(id))
+	hero.summon_ids = keep
+	if keep.size() >= n or float(hero.cds.get("wolf", 0.0)) > 0.0:
+		return
+	hero.cds["wolf"] = 3.0
+	var a := Actor.new()
+	a.id = _nid()
+	a.team = hero.team
+	a.kind = "ally"
+	a.sprite = "juniper"
+	a.display = "Spirit Wolf"
+	a.radius = 22.0
+	a.pos = _clamp_point(hero.pos + Vector2.RIGHT.rotated(rng.randf() * TAU) * 64.0, 24.0)
+	a.prev = a.pos
+	a.speed = 300.0
+	a.max_hp = 34.0 + 26.0 * float(n)
+	a.hp = a.max_hp
+	a.dmg = hero.dmg * (0.3 + 0.12 * float(n))
+	a.interval = 0.62
+	a.range = 66.0
+	a.cd = 0.25
+	a.owner_hero = hero.id
+	actors.append(a)
+	hero.summon_ids.append(a.id)
+	events.append({"type": "fx", "fx": "spirit_wolf", "pos": a.pos})
+
+
+func _step_allies(dt: float) -> void:
+	for a in actors:
+		if not a.alive or a.kind != "ally":
+			continue
+		a.flash = maxf(0.0, a.flash - dt)
+		a.cd = maxf(0.0, a.cd - dt)
+		a.touch_cd = maxf(0.0, a.touch_cd - dt)
+		if a.stun > 0.0:
+			a.vel = Vector2.ZERO
+			continue
+		var foe := nearest_hostile(a, 1400.0)
+		if foe == null:
+			var owner := _actor_by_id(a.owner_hero)
+			if owner != null and owner.alive and a.pos.distance_to(owner.pos) > 90.0:
+				var to := owner.pos - a.pos
+				a.vel = to.normalized() * a.speed * _slow_mul(a)
+				a.pos += a.vel * dt
+				a.facing = a.vel.angle()
+			else:
+				a.vel = Vector2.ZERO
+			continue
+		var delta := foe.pos - a.pos
+		var dist := delta.length()
+		var dir := delta / dist if dist > 0.001 else Vector2.RIGHT
+		a.facing = dir.angle()
+		if dist > a.range + foe.radius + 4.0:
+			a.vel = _steer(a, dir * a.speed * _slow_mul(a))
+			a.pos += a.vel * dt
+		else:
+			a.vel = Vector2.ZERO
+			if a.cd <= 0.0:
+				a.cd = a.interval
+				_hurt(foe, a.dmg, a.pos, false, a, true)
+				events.append({"type": "fx", "fx": "spirit_wolf", "pos": foe.pos})
+				if result != "":
+					return
+		_push_out(a)
+		if explore:
+			a.pos = map.push_inside(a.pos, a.radius * 0.8)
+
+
 func _step_minions(dt: float) -> void:
 	var target := _focus_hero()
 	if target == null:
@@ -638,6 +1027,10 @@ func _step_minions(dt: float) -> void:
 		actor.flash = maxf(0.0, actor.flash - dt)
 		actor.touch_cd = maxf(0.0, actor.touch_cd - dt)
 		actor.cd = maxf(0.0, actor.cd - dt)
+		if actor.stun > 0.0:
+			actor.vel = Vector2.ZERO
+			continue
+		var spd := actor.speed * _slow_mul(actor)
 		var delta := target.pos - actor.pos
 		var dist := delta.length()
 		var dir := delta / dist if dist > 0.001 else Vector2.RIGHT
@@ -666,20 +1059,20 @@ func _step_minions(dt: float) -> void:
 					actor.cd = actor.interval
 			else:
 				if dist > actor.range:
-					actor.vel = dir * actor.speed
+					actor.vel = dir * spd
 				elif dist < actor.range * (0.36 if explore else 0.55):
 					# Backpedal only when crowded: a melee hero must be able
 					# to close in on a shooter (it used to hold just out of reach).
-					actor.vel = -dir * actor.speed
+					actor.vel = -dir * spd
 				else:
-					actor.vel = Vector2(-dir.y, dir.x) * actor.speed * 0.6
+					actor.vel = Vector2(-dir.y, dir.x) * spd * 0.6
 				actor.vel = _steer(actor, actor.vel)
 				actor.pos += actor.vel * dt
 				if dist <= actor.range and actor.cd <= 0.0:
 					actor.windup = SHOOT_WINDUP
 					events.append({"type": "windup", "id": actor.id, "time": SHOOT_WINDUP})
 		else:
-			actor.vel = _steer(actor, dir * actor.speed)
+			actor.vel = _steer(actor, dir * spd)
 			actor.pos += actor.vel * dt
 		_push_out(actor)
 		if explore:
@@ -699,13 +1092,18 @@ func _step_boss(dt: float) -> void:
 	boss.boss_timer -= dt
 	boss.touch_cd = maxf(0.0, boss.touch_cd - dt)
 	boss.charge_cd = maxf(0.0, boss.charge_cd - dt)
+	if boss.stun > 0.0:
+		boss.vel = Vector2.ZERO
+		_clamp_actor(boss)
+		return
+	var bspd := boss.speed * _slow_mul(boss)
 	if boss.boss_state == "idle":
 		var focus := _focus_hero()
 		if focus != null:
 			var delta := focus.pos - boss.pos
 			var d := delta.length()
 			if d > 168.0:
-				var want := delta.normalized() * boss.speed
+				var want := delta.normalized() * bspd
 				# Unstick: no real progress for half a second means a stone
 				# or a wall is in the way, so sidestep along it for a beat.
 				boss.stall_t += dt
@@ -719,7 +1117,7 @@ func _step_boss(dt: float) -> void:
 					boss.best_d = d
 				if boss.side_t > 0.0:
 					boss.side_t -= dt
-					want = (boss.side_dir * 0.85 + delta.normalized() * 0.3).normalized() * boss.speed
+					want = (boss.side_dir * 0.85 + delta.normalized() * 0.3).normalized() * bspd
 				# Heavy and smooth: velocity eases toward the steered heading
 				# (about a quarter second to turn) and the body turns after it.
 				boss.vel = boss.vel.lerp(_steer(boss, want), 1.0 - exp(-7.0 * dt))
@@ -876,6 +1274,7 @@ func _circle(at: Vector2, radius: float, life: float, dmg: float) -> void:
 
 
 func _step_shots(dt: float) -> void:
+	var spawned: Array = []
 	for shot in shots:
 		if not shot.alive:
 			continue
@@ -908,6 +1307,9 @@ func _step_shots(dt: float) -> void:
 				events.append({"type": "boom", "pos": shot.pos, "radius": shot.splash, "shake": 0.28, "stop": 0.02})
 			if result != "":
 				return
+			if shot.split > 0 and not shot.did_split:
+				shot.did_split = true
+				_split_shot(shot, actor, spawned)
 			if shot.pierce > 0:
 				shot.pierce -= 1
 				continue
@@ -920,11 +1322,48 @@ func _step_shots(dt: float) -> void:
 						shot.vel = dir.normalized() * shot.vel.length()
 						shot.ttl = maxf(shot.ttl, 0.35)
 						break
+			var ricochet := 0.0
+			if owner != null and owner.kind == "hero":
+				ricochet = float(owner.stats.get("ricochet", 0.0))
+			if ricochet > 0.0 and rng.randf() < ricochet:
+				var hop := _bounce_target(shot)
+				if hop != null:
+					var hdir := hop.pos - shot.pos
+					if hdir.length() > 1.0:
+						shot.vel = hdir.normalized() * shot.vel.length()
+						shot.ttl = maxf(shot.ttl, 0.3)
+						events.append({"type": "fx", "fx": "ricochet", "pos": shot.pos, "to": hop.pos})
+						break
 			shot.alive = false
 			break
+	for extra in spawned:
+		shots.append(extra)
 	if shots.size() > 56:
 		while shots.size() > 48:
 			shots.remove_at(0)
+
+
+## Arcane Orb: on first impact, peel off a short pair of orbs.
+func _split_shot(shot: Shot, at: Actor, out: Array) -> void:
+	var n := shot.split
+	for i in n:
+		var ang := shot.vel.angle() + lerpf(-1.0, 1.0, float(i) / float(maxi(1, n - 1)))
+		var dir := Vector2.RIGHT.rotated(ang)
+		var child := Shot.new()
+		child.team = shot.team
+		child.owner_id = shot.owner_id
+		child.pos = at.pos
+		child.prev = at.pos
+		child.vel = dir * maxf(shot.vel.length(), 260.0)
+		child.dmg = shot.dmg * 0.45
+		child.crit = shot.crit
+		child.radius = 10.0
+		child.ttl = 0.55
+		child.kind = "orb"
+		child.splash = 0.0
+		child.hit_ids = [at.id]
+		out.append(child)
+	events.append({"type": "fx", "fx": "arcane_split", "pos": at.pos})
 
 
 func _bounce_target(shot: Shot) -> Actor:
@@ -978,6 +1417,13 @@ func _step_gems(dt: float) -> void:
 			gem.alive = false
 			_add_xp(gem.value)
 			events.append({"type": "gem", "pos": gem.pos})
+			var burst := int(hero.stats.get("gemburst", 0))
+			if burst > 0 and rng.randf() < minf(0.6, 0.2 * float(burst)):
+				var radius := 60.0 + 10.0 * float(burst)
+				_aoe(hero, gem.pos, radius, hero.dmg * (0.2 + 0.1 * float(burst)))
+				events.append({"type": "fx", "fx": "gem_burst", "pos": gem.pos, "radius": radius})
+				if result != "":
+					return
 
 
 func _step_spawns(dt: float) -> void:
@@ -1091,13 +1537,26 @@ func _spawn_boss() -> void:
 
 
 func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker: Actor, allow_thorns: bool) -> void:
-	if explore and target.kind == "minion" and not target.aggro:
-		_set_camp_aggro(target, true)
 	if target == null or not target.alive:
 		return
+	if explore and target.kind == "minion" and not target.aggro:
+		_set_camp_aggro(target, true)
 	if target.kind == "hero" and target.iframes > 0.0:
 		return
-	var dealt := maxf(1.0, amount - target.armor)
+	var scaled := amount
+	if attacker != null and attacker.weaken > 0.0 and attacker.team != target.team:
+		scaled *= 0.72
+	if attacker != null and attacker.kind == "hero":
+		if target.kind != "hero" and target.max_hp > 0.0 and target.hp / target.max_hp <= 0.25:
+			scaled *= 1.0 + float(attacker.stats.get("execute", 0.0))
+		var mark_bonus := float(attacker.stats.get("mark", 0.0))
+		if mark_bonus > 0.0 and target.mark > 0.0:
+			scaled *= 1.0 + mark_bonus
+	var dealt := maxf(1.0, scaled - target.armor)
+	if target.kind == "hero":
+		var bulwark := float(target.stats.get("bulwark", 0.0))
+		if bulwark > 0.0 and target.still > 0.25:
+			dealt = maxf(1.0, dealt * (1.0 - minf(0.5, bulwark)))
 	target.hp -= dealt
 	target.flash = 0.1
 	var kick_dir := target.pos - from_pos
@@ -1111,6 +1570,15 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		var siphon := float(attacker.stats.get("siphon", 0.0))
 		if siphon > 0.0 and attacker.alive:
 			attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * siphon)
+		var crit_siphon := float(attacker.stats.get("crit_siphon", 0.0))
+		if crit and crit_siphon > 0.0 and attacker.alive:
+			attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * crit_siphon)
+			events.append({"type": "fx", "fx": "crit_siphon", "pos": attacker.pos})
+		var mark_bonus := float(attacker.stats.get("mark", 0.0))
+		if mark_bonus > 0.0 and target.kind != "hero":
+			if target.mark <= 0.0:
+				events.append({"type": "fx", "fx": "hunter_mark", "pos": target.pos})
+			target.mark = maxf(target.mark, 3.0)
 	if target.kind == "hero":
 		target.iframes = 0.3
 		events.append({
@@ -1137,8 +1605,37 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		var thorns := float(target.stats.get("thorns", 0.0))
 		if thorns > 0.0:
 			_hurt(attacker, dealt * thorns, target.pos, false, null, false)
+	if target.kind == "hero" and target.hp > 0.0:
+		_try_blink(target, from_pos)
 	if target.hp <= 0.0 and target.alive:
+		if attacker != null and attacker.kind == "hero" and attacker.alive and target.kind != "hero":
+			var vamp := float(attacker.stats.get("vampkill", 0.0))
+			if vamp > 0.0:
+				attacker.hp = minf(attacker.max_hp, attacker.hp + attacker.max_hp * vamp)
+				events.append({"type": "fx", "fx": "vampiric_kill", "pos": attacker.pos})
 		_kill(target)
+
+
+## Blink: below 40% health, a hit teleports the hero away on a cooldown.
+func _try_blink(target: Actor, from_pos: Vector2) -> void:
+	var n := int(target.stats.get("blink", 0))
+	if n <= 0 or float(target.cds.get("blink", 0.0)) > 0.0:
+		return
+	if target.hp / maxf(target.max_hp, 1.0) >= 0.4:
+		return
+	var away := target.pos - from_pos
+	if away.length() < 1.0:
+		away = Vector2.RIGHT.rotated(rng.randf() * TAU)
+	var dist := 120.0 + 30.0 * float(n)
+	var to := _clamp_point(target.pos + away.normalized() * dist, target.radius)
+	if explore:
+		to = map.push_inside(to, target.radius * 0.8)
+	var from := target.pos
+	target.pos = to
+	target.prev = to
+	target.iframes = 0.55
+	target.cds["blink"] = maxf(3.0, 8.0 - 1.5 * float(n))
+	events.append({"type": "fx", "fx": "blink", "pos": from, "to": to})
 
 
 func _kill(actor: Actor) -> void:
@@ -1161,6 +1658,24 @@ func _kill(actor: Actor) -> void:
 			actor.alive = true
 			actor.hp = actor.max_hp * 0.5
 			actor.iframes = 1.15
+			events.append({"type": "revive", "pos": actor.pos, "shake": 0.4, "stop": 0.08})
+			return
+		if int(stats.get("phoenix", 0)) > 0 and not phoenix_spent and actor.team == 0:
+			phoenix_spent = true
+			stats["phoenix"] = 0
+			actor.stats = stats
+			actor.alive = true
+			actor.hp = actor.max_hp * 0.6
+			actor.iframes = 1.2
+			var radius := 190.0
+			for other in actors:
+				if not other.alive or other.team == actor.team:
+					continue
+				if other.pos.distance_to(actor.pos) <= radius + other.radius:
+					_hurt(other, actor.dmg * 2.4, actor.pos, false, actor, false)
+					if result != "":
+						break
+			events.append({"type": "fx", "fx": "phoenix", "pos": actor.pos, "radius": radius})
 			events.append({"type": "revive", "pos": actor.pos, "shake": 0.4, "stop": 0.08})
 			return
 		if result == "" and _team_wiped(actor.team) and actor.team == 0:
@@ -1433,6 +1948,12 @@ func _compact() -> void:
 			i += 1
 		else:
 			pings.remove_at(i)
+	i = 0
+	while i < fields.size():
+		if fields[i].alive:
+			i += 1
+		else:
+			fields.remove_at(i)
 
 
 func _nid() -> int:
@@ -1635,7 +2156,7 @@ func _idle_minion(actor: Actor, dt: float, dist: float) -> void:
 			actor.to_b = not actor.to_b
 	var to := goal - actor.pos
 	if to.length() > 24.0:
-		actor.vel = to.normalized() * actor.speed * pace
+		actor.vel = to.normalized() * actor.speed * _slow_mul(actor) * pace
 		actor.pos += actor.vel * dt
 		actor.facing = actor.vel.angle()
 		actor.pos = map.push_inside(actor.pos, actor.radius * 0.8)

@@ -11,6 +11,7 @@ static func run() -> int:
 	_save()
 	_steer()
 	_maps()
+	_cards()
 	_fights()
 	_kite()
 	_dodge_check()
@@ -25,9 +26,9 @@ static func _roles() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	var exclusive := {
-		"mage": ["mage_radius", "mage_power"],
-		"archer": ["archer_pierce"],
-		"tank": ["tank_thorns", "tank_bash"],
+		"mage": ["mage_radius", "mage_power", "meteor", "arcane_orb"],
+		"archer": ["archer_pierce", "volley", "hunters_mark"],
+		"tank": ["tank_thorns", "tank_bash", "earthquake", "bulwark", "taunt_roar"],
 	}
 	var all_ex: Array = []
 	for role in exclusive.keys():
@@ -217,6 +218,43 @@ static func _maps() -> void:
 	if wide_stream.get_child_count() != 4 or wide_stream.get_node_or_null("0_0") != null:
 		_fail("off-screen chunks stayed loaded")
 	wide_stream.free()
+
+
+## Card table coverage: at least 33 cards, unique ids, and every op can be
+## applied and simulated for five seconds without error.
+static func _cards() -> void:
+	if Catalog.CARDS.size() < 33:
+		_fail("only %d cards" % Catalog.CARDS.size())
+	var seen := {}
+	for entry in Catalog.CARDS:
+		var id := str(entry.get("id", ""))
+		if id == "" or seen.has(id):
+			_fail("duplicate or empty card id " + id)
+			continue
+		seen[id] = true
+		var roles: Array = entry.get("roles", [])
+		var hero := "ember"
+		if roles.size() > 0:
+			hero = str({"mage": "ember", "archer": "juniper", "tank": "pebble"}.get(str(roles[0]), "ember"))
+		var session := Session.solo("meadow", hero)
+		session.seed = 77
+		var sim := RunSim.new()
+		sim.start(session, {hero: Catalog.base_stats(hero)})
+		sim.stacks[id] = 1
+		for h in sim.heroes:
+			sim._recompute(h)
+		# Put a couple of foes in reach so attack and pulse skills run too.
+		var me: RunSim.Actor = sim.heroes[0]
+		sim._spawn_minion(0, sim._clamp_point(me.pos + Vector2(120, 0), 24.0))
+		sim._spawn_minion(1, sim._clamp_point(me.pos + Vector2(-110, 44), 24.0))
+		for i in 300:
+			var mv := Vector2.ZERO if i < 140 else Vector2(1, 0.2).normalized()
+			sim.step(1.0 / 60.0, [mv])
+			sim.drain_events()
+			if sim.paused and sim.offer.size() > 0:
+				sim.choose(0)
+				sim.drain_events()
+	print("CARDS ", Catalog.CARDS.size(), " ok")
 
 
 static func _fights() -> void:
@@ -501,14 +539,14 @@ static func _best(sim: RunSim) -> int:
 		var card := Catalog.card(str(sim.offer[i]))
 		var score := 1
 		match str(card.get("op", "")):
-			"revive":
+			"revive", "phoenix":
 				score = 7
-			"dmg", "haste", "pierce", "splash", "splash_mul", "bash":
+			"dmg", "haste", "pierce", "splash", "splash_mul", "bash", "volley", "meteor", "storm":
 				score = 6
-			"hp", "regen", "armor", "thorns":
+			"quake", "chain", "orbit", "aura", "nova", "trail", "split", "hp", "regen", "armor", "thorns", "bulwark", "wolf":
+				score = 5
+			"swift", "bounce", "shots", "crit", "execute", "mark", "ricochet", "crit_siphon", "vampkill", "berserk", "static", "gemburst", "blink":
 				score = 4
-			"swift", "bounce", "shots", "crit":
-				score = 3
 			_:
 				score = 1
 		if score > best_s:
