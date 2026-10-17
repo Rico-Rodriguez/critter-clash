@@ -595,6 +595,7 @@ class Btn extends Button:
 	var round := false
 	var icon_name := ""
 	var caption := ""
+	var font_px := 0
 	var _down := false
 	var skin: Frame
 
@@ -605,7 +606,7 @@ class Btn extends Button:
 		for state in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 			add_theme_stylebox_override(state, empty)
 		add_theme_font_override("font", UiKit.font_x)
-		add_theme_font_size_override("font_size", int(clampf(custom_minimum_size.y * 0.42, 22, 44)))
+		add_theme_font_size_override("font_size", font_px if font_px > 0 else int(clampf(custom_minimum_size.y * 0.42, 22, 44)))
 		# Caption is painted in _draw over the frame.
 		for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color", "font_hover_pressed_color"]:
 			add_theme_color_override(key, Color(0, 0, 0, 0))
@@ -663,9 +664,10 @@ class Btn extends Button:
 		var font := UiKit.font_x
 		if font == null:
 			return
-		var px := int(clampf(face.size.y * (0.42 if round else 0.36), 16, 46))
+		var px := font_px if font_px > 0 else int(clampf(face.size.y * (0.42 if round else 0.36), 16, 46))
+		var pad := 18.0 if font_px > 0 else 28.0
 		var bounds := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px)
-		while bounds.x > face.size.x - 28 and px > 14:
+		while bounds.x > face.size.x - pad and px > 14:
 			px -= 2
 			bounds = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px)
 		var baseline := face.position.y + (face.size.y - font.get_height(px)) * 0.5 + font.get_ascent(px) - 1.0

@@ -121,10 +121,12 @@ class HeroCard extends PanelContainer:
 		actions.alignment = BoxContainer.ALIGNMENT_CENTER
 		actions.add_theme_constant_override("separation", 8)
 		if SaveGame.can_level(id):
-			var up := UiKit.confirm("UPGRADE", 150, 52)
+			var up := UiKit.confirm("UPGRADE", 168, 60)
+			up.font_px = 27
 			up.pressed.connect(func() -> void: upgrade.emit(hero_id))
 			actions.add_child(up)
-		var gear_b := UiKit.secondary("GEAR", 110 if SaveGame.can_level(id) else 150, 52)
+		var gear_b := UiKit.secondary("GEAR", 118 if SaveGame.can_level(id) else 168, 60)
+		gear_b.font_px = 27
 		gear_b.pressed.connect(func() -> void: gear.emit(hero_id))
 		actions.add_child(gear_b)
 		box.add_child(actions)
