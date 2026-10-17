@@ -111,7 +111,7 @@ func open(args: Dictionary = {}) -> void:
 	marks.sim = sim
 	var info := Catalog.critter(hero_id)
 	name_label.text = str(info["name"])
-	face.texture = stage.portrait_of(hero_id)
+	face.texture = SpriteBank.head(hero_id)
 	SaveGame.set_featured(hero_id)
 	_mount_pet()
 
@@ -264,7 +264,8 @@ func _process(delta: float) -> void:
 	_place_camera(delta, shake)
 	_decay_punch(delta)
 	if not _modal_up and sim.result == "" and not sim.paused:
-		acc += delta
+		# Cap the backlog: after a hitch, drop time instead of fast-forwarding.
+		acc = minf(acc + delta, STEP * 5.0)
 		var steps := 0
 		while acc >= STEP and steps < 5 and not sim.paused and sim.result == "" and not _modal_up:
 			sim.step(STEP, [_move()])

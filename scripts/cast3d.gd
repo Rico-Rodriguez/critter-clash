@@ -98,13 +98,26 @@ static func clips(id: String) -> Dictionary:
 	return {"idle": "Idle", "run": "Run", "attack": "Punch", "hit": "HitReact", "death": "Death"}
 
 
+## Material fixes for licensed meshes whose PBR maps import badly.
+## Empty means "leave the file's materials alone".
+static func pbr(id: String) -> Dictionary:
+	var path := model(id)
+	if path.ends_with("sketchfab/ember.glb"):
+		# Packed ORM reads as full metal. The AO channel is black outside the
+		# UV islands, so it goes too. The normal map carries the wing veins.
+		return {"roughness": 0.66, "specular": 0.45, "drop_ao": true, "albedo": Color(1.05, 1.0, 1.0), "rim": 0.5}
+	if path.ends_with("sketchfab/thistle.glb"):
+		return {"roughness": 0.68, "specular": 0.4, "rim": 0.25}
+	if path.ends_with("sketchfab/juniper.glb"):
+		return {"roughness": 0.7, "specular": 0.35, "rim": 0.3}
+	return {"roughness": 0.72, "specular": 0.4}
+
+
 static func tint(id: String) -> Color:
 	# Multiply the painted texture. Heroes stay recognizable: Ember orange-red,
 	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
 	# catalog color.
 	var path := model(id)
-	if id == "ember" and path.ends_with("sketchfab/ember.glb"):
-		return Color(1.0, 0.78, 0.55)
 	if id == "juniper" and path.ends_with("sketchfab/juniper.glb"):
 		return Color(1.0, 0.90, 0.78)
 	if id == "pebble":
@@ -121,8 +134,33 @@ static func nose(id: String) -> float:
 	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
 	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
 	var path := model(id)
-	# KAI's head sits on -Z, so the old "nose is -Z" default is already right.
-	# The dragon and the mushroom face +Z.
-	if path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb"):
+	# The dragon, KAI, and the mushroom all face +Z. A turntable render
+	# showed KAI's back under the old "nose is -Z" default.
+	if path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb") or path.ends_with("sketchfab/juniper.glb"):
 		return 0.0
 	return -1.0
+
+
+## Yaw added to a portrait so the face reads in 3/4.
+static func portrait_turn(id: String) -> float:
+	return 0.55
+
+
+## Clip time to freeze for a portrait. The dragon's wings are spread mid-flap.
+static func portrait_time(id: String) -> float:
+	if model(id).ends_with("sketchfab/ember.glb"):
+		return 0.35
+	return 0.2
+
+
+## Share of the body height that is head, for the medallion close-up.
+static func head_share(id: String) -> float:
+	match family(id):
+		"ember":
+			return 0.3
+		"thistle":
+			return 0.6
+		"juniper":
+			return 0.42
+	return 0.55
+

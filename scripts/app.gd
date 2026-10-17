@@ -27,6 +27,18 @@ func _ready() -> void:
 		var code := SimCheck.run()
 		get_tree().quit(code)
 		return
+	if OS.get_cmdline_user_args().has("--bake-portraits"):
+		var baker := PortraitBaker.new()
+		add_child(baker)
+		var only: Array = []
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--only="):
+				only = arg.substr(7).split(",")
+			if arg.begins_with("--turn="):
+				baker._turn_override = float(arg.substr(7))
+		await baker.run(only)
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture"):
 		_capture()
 		return
@@ -49,73 +61,118 @@ func _swap(screen: String, args: Dictionary) -> void:
 		current.open(args)
 
 
+var _shot_dir := "/workspace/captures"
+var _want: Array = []
+
+
 func _capture() -> void:
-	DirAccess.make_dir_recursive_absolute("/opt/cursor/artifacts/screenshots")
-	DirAccess.make_dir_recursive_absolute("/workspace/captures")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shots="):
+			_want = arg.substr(8).split(",")
+		if arg.begins_with("--out="):
+			_shot_dir = arg.substr(6)
+	DirAccess.make_dir_recursive_absolute(_shot_dir)
 	SaveGame.reset_new()
-	go("home")
-	await _settle()
-	await _shot("home")
-	go("world")
-	await _settle()
-	await _shot("world")
-	go("heroes", {"biome": "meadow"})
-	await _settle()
-	await _shot("heroes")
+	SaveGame.data["trophies"] = 46
+	SaveGame.data["coins"] = 135
+	if _wants("home"):
+		go("home")
+		await _settle()
+		await _shot("home")
+	if _wants("map"):
+		go("world")
+		await _settle()
+		await _shot("map")
+	if _wants("heroes"):
+		go("heroes", {"biome": "meadow"})
+		await _settle()
+		await _shot("heroes")
 	SaveGame.data["heroes"]["ember"]["cards"] = 8
-	go("collection")
-	await _settle()
-	await _shot("collection")
-	go("credits")
-	await _settle()
-	await _shot("credits")
+	if _wants("collection"):
+		go("collection")
+		await _settle()
+		await _shot("collection")
+	if _wants("credits"):
+		go("credits")
+		await _settle()
+		await _shot("credits")
 	_seed_log()
-	go("log")
-	await _settle()
-	await _shot("log")
-	go("slayer")
-	await _settle()
-	await _shot("slayer")
-	go("skills")
-	await _settle()
-	await _shot("skills")
-	go("trophy")
-	await _settle()
-	await _shot("trophy")
-	go("loadout", {"hero": "ember", "biome": "meadow"})
-	await _settle()
-	await _shot("loadout")
-	go("run", {"biome": "meadow", "hero": "ember"})
-	await _settle()
-	current.drive = Vector2(0.35, 0.15).normalized()
-	# Mid first wave, so the shot has critters on the field with the hero.
-	await get_tree().create_timer(8.0).timeout
-	await _shot("hunt")
-	current.sim.debug_offer()
-	var show: Array = ["vitality", "magnet", "mage_radius"]
-	current.sim.offer = show
-	if current.sim.events.size() > 0:
-		current.sim.events[current.sim.events.size() - 1]["offer"] = show.duplicate()
-	await get_tree().create_timer(0.55).timeout
-	await _shot("levelup")
-	current._pick(0)
-	await _settle()
-	current.drive = Vector2(0, -1)
-	await get_tree().create_timer(1.05).timeout
-	current.sim.begin_boss()
-	await get_tree().create_timer(0.55).timeout
-	await _shot("boss")
-	SaveGame.debug_rare = true
-	current.sim.debug_slay_boss()
-	await _settle()
-	await _shot("rare")
-	go("chest")
-	await _settle()
-	await _shot("chest")
-	current._reveal()
-	await _settle()
-	await _shot("loot")
+	if _wants("log"):
+		go("log")
+		await _settle()
+		await _shot("log")
+	if _wants("slayer"):
+		go("slayer")
+		await _settle()
+		await _shot("slayer")
+	if _wants("skills"):
+		go("skills")
+		await _settle()
+		await _shot("skills")
+	if _wants("trophy"):
+		go("trophy")
+		await _settle()
+		await _shot("trophy")
+	if _wants("loadout"):
+		go("loadout", {"hero": "ember", "biome": "meadow"})
+		await _settle()
+		await _shot("loadout")
+	if _wants("hunt") or _wants("boss") or _wants("levelup") or _wants("rare"):
+		go("run", {"biome": "meadow", "hero": "ember"})
+		await _settle()
+		current.drive = Vector2(0.35, 0.15).normalized()
+		# Sim time, not wall time: software rendering runs the hunt slowly.
+		# Wait for a pack to close in so the shot shows a real wave.
+		var start := Time.get_ticks_msec()
+		while Time.get_ticks_msec() - start < 120000 and (current.sim.time < 1.2 or _near_minions(current.sim) < 8):
+			await get_tree().process_frame
+			if current.sim.time > 1.0:
+				current.drive = Vector2.ZERO
+		var waited := 0.0
+		await _shot("hunt")
+		current.sim.debug_offer()
+		var show: Array = ["vitality", "magnet", "mage_radius"]
+		current.sim.offer = show
+		if current.sim.events.size() > 0:
+			current.sim.events[current.sim.events.size() - 1]["offer"] = show.duplicate()
+		await get_tree().create_timer(0.55).timeout
+		await _shot("levelup")
+		current._pick(0)
+		await _settle()
+		current.drive = Vector2(0, -1)
+		await get_tree().create_timer(1.05).timeout
+		current.drive = Vector2.ZERO
+		current.sim.begin_boss()
+		var t0: float = current.sim.time
+		while current.sim.time < t0 + 2.4 and waited < 180.0:
+			await get_tree().create_timer(0.2).timeout
+			waited += 0.2
+		await _shot("boss")
+		SaveGame.debug_rare = true
+		current.sim.debug_slay_boss()
+		await _settle()
+		await _shot("rare")
+	if _wants("chest"):
+		go("chest")
+		await _settle()
+		await _shot("chest")
+		current._reveal()
+		await _settle()
+		await _shot("loot")
 	get_tree().quit()
+
+
+func _wants(name: String) -> bool:
+	return _want.is_empty() or name in _want
+
+
+func _near_minions(sim: RunSim) -> int:
+	var n := 0
+	var hero: Vector2 = sim.heroes[0].pos if not sim.heroes.is_empty() else Vector2.ZERO
+	for actor in sim.actors:
+		if actor.alive and actor.kind == "minion" and actor.pos.distance_to(hero) < 380.0:
+			n += 1
+	return n
 
 
 func _seed_log() -> void:
@@ -149,5 +206,4 @@ func _shot(shot_name: String) -> void:
 	var image := get_viewport().get_texture().get_image()
 	if image == null:
 		return
-	image.save_png("/opt/cursor/artifacts/screenshots/%s.png" % shot_name)
-	image.save_png("/workspace/captures/%s.png" % shot_name)
+	image.save_png("%s/%s.png" % [_shot_dir, shot_name])

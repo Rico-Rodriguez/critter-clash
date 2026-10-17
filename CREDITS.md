@@ -29,13 +29,16 @@ Critter Clash is an original game. The hunt, the roster, and the interface are o
 
 ## Textures and sky
 
-- Ground color, normal, and roughness are ambientCG Grass004, Ground037, and Rock051 — https://ambientcg.com — CC0. The hunt shader splats `assets/textures/grass_*.jpg`, `dirt_*.jpg`, and `rock_*.jpg`.
+- Ground textures are ambientCG — https://ambientcg.com — CC0:
+  - Grass004 (`assets/textures/grass_*.jpg`) and Grass001 (`lush_*.jpg`) for the turf.
+  - Ground078 (`path_*.jpg`) for the dirt trails.
+  - Rock051 color (`rock_color.jpg`) for the pedestal rock.
 - Sky: Poly Haven `kloofendal_48d_partly_cloudy_puresky` (1k) — https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky — CC0. File `assets/textures/sky.hdr`.
 - `assets/textures/dust.png` is drawn for this game.
 
 ## Interface pictures
 
-- The hunt medallion is a live render of the hero's 3D model. Collection cards, the collection log, and the slayer panel still use Kenney's [Animal Pack Redux](https://opengameart.org/content/animal-pack-redux) (CC0).
+- Critter portraits on cards, the collection log, the slayer panel, and the hunt medallion are renders of each critter's own 3D model (credited above), baked by `scripts/portrait_baker.gd` into `assets/sprites/portraits/`. Kenney's [Animal Pack Redux](https://opengameart.org/content/animal-pack-redux) (CC0) stays in `assets/sprites/critters/` only as a fallback.
 - Credit to Kenney (www.kenney.nl) is appreciated and not required.
 - `icon.png` is drawn by `tools/make_icon.py`.
 

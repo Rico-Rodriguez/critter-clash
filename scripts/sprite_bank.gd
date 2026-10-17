@@ -8,8 +8,21 @@ extends RefCounted
 static var _cache: Dictionary = {}
 
 
+## Renders of the critter's actual 3D model (tools: --bake-portraits).
+## The old 2D pictures stay only as a fallback for an id with no render.
 static func critter(id: String) -> Texture2D:
+	var baked := "res://assets/sprites/portraits/%s.png" % id
+	if ResourceLoader.exists(baked):
+		return _load(baked, id)
 	return _load("res://assets/sprites/critters/%s.png" % id, id)
+
+
+## Head close-up of the 3D model, for the hunt medallion.
+static func head(id: String) -> Texture2D:
+	var baked := "res://assets/sprites/portraits/%s_head.png" % id
+	if ResourceLoader.exists(baked):
+		return _load(baked, id + "_head")
+	return critter(id)
 
 
 static func arena(id: String) -> Texture2D:
