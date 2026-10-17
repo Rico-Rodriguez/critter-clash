@@ -56,6 +56,12 @@ const SPAWN_MARGIN := 24.0
 ## Heroes fight only when planted: moving is a clean run, and the first shot
 ## comes this long after the stick is released.
 const PLANT := 0.08
+## Dodge roll: ~0.18 s dash for ~230 px, brief invulnerability, fixed cooldown.
+## dodge_ready() reports progress through DODGE_CD for the HUD's sweep.
+const DODGE_DIST := 230.0
+const DODGE_TIME := 0.18
+const DODGE_CD := 2.2
+const DODGE_GRACE := 0.08
 var _next_id := 1
 var bases: Dictionary = {}
 
@@ -130,6 +136,10 @@ class Actor extends RefCounted:
 	var side_dir := Vector2.ZERO
 	## Seconds since the stick was released (0 while moving).
 	var still := 0.0
+	# Dodge roll: cooldown left, dash time left, dash heading.
+	var dodge_cd := 0.0
+	var dodge_t := 0.0
+	var dodge_dir := Vector2.RIGHT
 	# Explore: camps and patrols wait until the hero comes close.
 	var camp := -1
 	var home := Vector2.ZERO
@@ -298,6 +308,38 @@ func debug_slay_boss() -> void:
 		_hurt(boss, 999999.0, boss.pos, false, null, false)
 
 
+## Dodge roll: a short dash with brief invulnerability on a fixed cooldown.
+## Cancels an in-progress attack windup and ignores stick input while dashing.
+## Returns true when the hero started the dash this call.
+func dodge(index: int, dir: Vector2) -> bool:
+	if index < 0 or index >= heroes.size():
+		return false
+	var hero: Actor = heroes[index]
+	if not hero.alive or hero.dodge_cd > 0.0:
+		return false
+	var heading := dir
+	if heading.length() < 0.1:
+		# facing is an angle: fall back to the hero's nose when idle.
+		heading = Vector2.from_angle(hero.facing) if not is_nan(hero.facing) else Vector2.RIGHT
+	hero.dodge_dir = heading.normalized()
+	hero.dodge_t = DODGE_TIME
+	hero.dodge_cd = DODGE_CD
+	hero.iframes = maxf(hero.iframes, DODGE_TIME + DODGE_GRACE)
+	hero.still = 0.0
+	events.append({"type": "dodge", "id": hero.id, "pos": hero.pos, "to": hero.pos + hero.dodge_dir * DODGE_DIST})
+	return true
+
+
+## 1.0 when the dodge is ready, easing back to 0.0 just after it is used
+## (readiness fraction; the HUD's cooldown sweep darkens the unused part).
+func dodge_ready(index: int) -> float:
+	if index < 0 or index >= heroes.size():
+		return 0.0
+	if heroes[index].dodge_cd <= 0.0:
+		return 1.0
+	return clampf(1.0 - heroes[index].dodge_cd / DODGE_CD, 0.0, 1.0)
+
+
 func nearest_hostile(from: Actor, max_range: float) -> Actor:
 	var best: Actor = null
 	var best_d := max_range
@@ -454,7 +496,13 @@ func _move_heroes(dt: float, moves: Array) -> void:
 			mv = moves[i]
 		if mv.length() > 1.0:
 			mv = mv.normalized()
-		hero.vel = _slide(hero, mv * hero.speed)
+		var dashing := hero.dodge_t > 0.0
+		if dashing:
+			# The roll owns this frame: fixed heading and speed, stick ignored.
+			hero.dodge_t = maxf(0.0, hero.dodge_t - dt)
+			hero.vel = _slide(hero, hero.dodge_dir * (DODGE_DIST / DODGE_TIME))
+		else:
+			hero.vel = _slide(hero, mv * hero.speed)
 		var was := hero.pos
 		hero.pos += hero.vel * dt
 		_push_out(hero)
@@ -462,7 +510,10 @@ func _move_heroes(dt: float, moves: Array) -> void:
 			# Slide along the forest edge; the body's speed is what it really moved.
 			hero.pos = map.push_inside(hero.pos, hero.radius * 0.8)
 			hero.vel = (hero.pos - was) / maxf(dt, 0.0001)
-		if mv.length() > 0.08:
+		if dashing:
+			hero.facing = hero.dodge_dir.angle()
+			hero.still = 0.0
+		elif mv.length() > 0.08:
 			hero.facing = mv.angle()
 			hero.still = 0.0
 		else:
@@ -470,6 +521,7 @@ func _move_heroes(dt: float, moves: Array) -> void:
 		hero.iframes = maxf(0.0, hero.iframes - dt)
 		hero.flash = maxf(0.0, hero.flash - dt)
 		hero.cd = maxf(0.0, hero.cd - dt)
+		hero.dodge_cd = maxf(0.0, hero.dodge_cd - dt)
 		var regen := float(hero.stats.get("regen", 0.0))
 		if regen > 0.0 and hero.hp < hero.max_hp:
 			hero.hp = minf(hero.max_hp, hero.hp + regen * dt)
@@ -479,7 +531,7 @@ func _move_heroes(dt: float, moves: Array) -> void:
 func _hero_attacks() -> void:
 	for hero in heroes:
 		# Run or fight, never both: no shots and no aim-turning on the move.
-		if not hero.alive or hero.cd > 0.0 or hero.still < PLANT:
+		if not hero.alive or hero.cd > 0.0 or hero.still < PLANT or hero.dodge_t > 0.0:
 			continue
 		var target := nearest_hostile(hero, hero.range)
 		if target == null:
