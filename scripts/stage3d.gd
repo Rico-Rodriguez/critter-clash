@@ -239,8 +239,11 @@ func sync_fx(sim: RunSim, alpha: float) -> void:
 		seen[id] = true
 		var node := _fx_node(id, "gem")
 		var pos: Vector2 = gem.prev.lerp(gem.pos, alpha)
-		node.position = _to3(pos) + Vector3(0.0, 0.3 + sin(gem.bob) * 0.06, 0.0)
+		node.position = _to3(pos) + Vector3(0.0, 0.4 + sin(gem.bob) * 0.08, 0.0)
 		node.rotate_y(0.05)
+		var trail := node.get_node_or_null("Trail") as GPUParticles3D
+		if trail != null:
+			trail.emitting = gem.pos.distance_to(gem.prev) > 1.2
 	for shot in sim.shots:
 		if not shot.alive:
 			continue
@@ -1390,15 +1393,59 @@ func _fx_node(id: int, kind: String) -> MeshInstance3D:
 		var gem := SphereMesh.new()
 		gem.radial_segments = 6
 		gem.rings = 2
-		gem.radius = 0.1
-		gem.height = 0.26
+		gem.radius = 0.15
+		gem.height = 0.4
 		mesh_node.mesh = gem
-		mat.albedo_color = Color("2ee87a")
+		mat.albedo_color = Color("3af08a")
 		mat.emission_enabled = true
 		mat.emission = Color("1fd468")
-		mat.emission_energy_multiplier = 0.55
+		mat.emission_energy_multiplier = 1.1
 		mat.rim_enabled = true
-		mat.rim = 0.6
+		mat.rim = 0.8
+		mat.metallic_specular = 1.0
+		mat.roughness = 0.12
+		# A soft additive halo so the gem glows at the far hunt zoom.
+		var halo := MeshInstance3D.new()
+		var hq := QuadMesh.new()
+		hq.size = Vector2(0.7, 0.7)
+		var hm := StandardMaterial3D.new()
+		hm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		hm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		hm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		hm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		hm.albedo_color = Color(0.3, 1.0, 0.55, 0.55)
+		hm.albedo_texture = _soft_dot()
+		hm.disable_fog = true
+		hq.material = hm
+		halo.mesh = hq
+		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mesh_node.add_child(halo)
+		# Magnet trail: a short green streak, only while the gem is pulled.
+		var trail := GPUParticles3D.new()
+		trail.name = "Trail"
+		trail.amount = 18
+		trail.lifetime = 0.3
+		trail.local_coords = false
+		trail.emitting = false
+		var tp := ParticleProcessMaterial.new()
+		tp.gravity = Vector3.ZERO
+		tp.scale_min = 0.6
+		tp.scale_max = 1.0
+		var tf := Gradient.new()
+		tf.set_color(0, Color(1, 1, 1, 0.9))
+		tf.set_color(1, Color(1, 1, 1, 0))
+		var tr := GradientTexture1D.new()
+		tr.gradient = tf
+		tp.color_ramp = tr
+		trail.process_material = tp
+		var tq := QuadMesh.new()
+		tq.size = Vector2(0.22, 0.22)
+		var tm := hm.duplicate() as StandardMaterial3D
+		tm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		tm.vertex_color_use_as_albedo = true
+		tq.material = tm
+		trail.draw_pass_1 = tq
+		mesh_node.add_child(trail)
 	elif kind == "arrow":
 		var cyl := CylinderMesh.new()
 		cyl.top_radius = 0.0

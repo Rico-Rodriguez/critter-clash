@@ -9,6 +9,8 @@ extends RefCounted
 static var font_m: Font
 static var font_b: Font
 static var font_x: Font
+## Heaviest Cinzel, slightly emboldened: combat numbers.
+static var font_n: Font
 
 const INK := Color("120c08")
 const CREAM := Color("f3e6c8")
@@ -34,6 +36,11 @@ static func ensure() -> void:
 	font_x = cinzel
 	if font_x == null:
 		font_x = font_b
+	var heavy := FontVariation.new()
+	heavy.base_font = load("res://assets/fonts/Cinzel-Variable.ttf")
+	heavy.variation_opentype = {"wght": 900}
+	heavy.variation_embolden = 0.6
+	font_n = heavy
 	_load_icons()
 	Frame.preload_assets()
 

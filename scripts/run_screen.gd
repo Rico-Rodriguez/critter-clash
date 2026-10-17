@@ -409,7 +409,7 @@ func _drain() -> void:
 			"hit":
 				var crit := bool(ev.get("crit", false))
 				if float(ev["amount"]) < 99999.0:
-					_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ffe08a") if crit else Color("fff8ee"), crit)
+					_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ffb52e") if crit else Color("f6ead2"), crit)
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
 				stage.hurt(int(ev["id"]))
@@ -537,18 +537,22 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.text = text
 	label.modulate = Color(1, 1, 1, 1)
 	label.z_index = 4096
-	label.add_theme_font_override("font", UiKit.font_x)
-	label.add_theme_font_size_override("font_size", 40 if big else 28)
+	label.add_theme_font_override("font", UiKit.font_n)
+	label.add_theme_font_size_override("font_size", 46 if big else 32)
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", UiKit.INK)
-	label.add_theme_constant_override("outline_size", 8 if big else 6)
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
-	label.add_theme_constant_override("shadow_offset_y", 3)
-	label.pivot_offset = Vector2(18, 16)
-	label.scale = Vector2(1.45, 1.45)
+	label.add_theme_color_override("font_outline_color", Color("1a0a06") if not big else Color("3a1204"))
+	label.add_theme_constant_override("outline_size", 11 if big else 8)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	label.add_theme_constant_override("shadow_offset_y", 4)
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.reset_size()
+	label.pivot_offset = label.size * 0.5
+	# Pop: overshoot big, settle, with a little tilt on crits.
+	label.scale = Vector2(1.9, 1.9) if big else Vector2(1.5, 1.5)
+	label.rotation = randf_range(-0.12, 0.12) if big else 0.0
 	var pop := create_tween()
-	pop.tween_property(label, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var lift := Vector2(randf_range(-18, 18), -36)
+	pop.tween_property(label, "scale", Vector2.ONE, 0.2 if big else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var lift := Vector2(randf_range(-18, 18), -36) - label.size * 0.5
 	label.set_meta("sim", pos)
 	label.set_meta("lift", lift)
 	label.position = _projected(pos) + lift
@@ -1353,16 +1357,31 @@ class ThreatLayer extends Control:
 		elif dir.y < -0.001:
 			ty = (band.position.y - from.y) / dir.y
 		var at := from + dir * minf(tx, ty)
-		var s := 26.0 if boss else 15.0
-		s *= 1.0 + 0.08 * sin(t * 6.0)
+		# A forged chevron: iron body with a lit and a shadowed facet, a gilt
+		# edge, and a gem in the throat (ember red for the boss).
+		var s := 30.0 if boss else 19.0
+		s *= 1.0 + 0.06 * sin(t * 6.0)
 		var side := dir.orthogonal()
 		var tip := at + dir * s
-		var pts := PackedVector2Array([tip, at - dir * s * 0.4 + side * s * 0.8, at - dir * s * 0.1, at - dir * s * 0.4 - side * s * 0.8])
-		var glow := Color(1.0, 0.25, 0.15, 0.35) if boss else Color(0.95, 0.3, 0.2, 0.22)
-		draw_circle(at, s * 1.15, glow)
-		var outline := PackedVector2Array(pts)
-		outline.append(pts[0])
-		draw_colored_polygon(pts, Color("e8462e") if boss else Color("d9a441"))
-		draw_polyline(outline, Color(0.12, 0.04, 0.02, 0.95), 3.0, true)
-		if boss:
-			draw_circle(at - dir * s * 0.9, 7.0, Color("f3d9a0"))
+		var wl := at - dir * s * 0.55 + side * s * 0.85
+		var wr := at - dir * s * 0.55 - side * s * 0.85
+		var notch := at - dir * s * 0.12
+		var shadow := PackedVector2Array()
+		for p in [tip, wl, notch, wr]:
+			shadow.append(p + Vector2(0, 4))
+		draw_colored_polygon(shadow, Color(0, 0, 0, 0.5))
+		# Light falls from the top-left: pick which facet is lit.
+		var lit_left := side.dot(Vector2(-0.6, -0.8)) > 0.0
+		var lit := Color("8a7a66") if not boss else Color("9a5a44")
+		var dark := Color("2e2620") if not boss else Color("3a1612")
+		draw_colored_polygon(PackedVector2Array([tip, wl, notch]), lit if lit_left else dark)
+		draw_colored_polygon(PackedVector2Array([tip, notch, wr]), dark if lit_left else lit)
+		var outline := PackedVector2Array([tip, wl, notch, wr, tip])
+		draw_polyline(outline, Color(0.07, 0.04, 0.02, 0.95), 4.5, true)
+		draw_polyline(outline, Color("c9a25a"), 1.8, true)
+		draw_line(tip, notch, Color(1.0, 0.9, 0.7, 0.35), 1.2, true)
+		var g := at - dir * s * 0.05
+		var gs := s * (0.2 if boss else 0.17)
+		var gem := PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g - dir * gs, g - side * gs * 0.8])
+		draw_colored_polygon(gem, Color("e8462e") if boss else Color("f0a830"))
+		draw_colored_polygon(PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g]), Color(1, 0.85, 0.7, 0.55))
