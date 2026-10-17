@@ -1,0 +1,85 @@
+name: Unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - ios-v1
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.7.2 and export templates
+        run: |
+          set -euo pipefail
+          VER=4.7.2
+          mkdir -p "$HOME/godot" "$HOME/Library/Application Support/Godot/export_templates/${VER}.stable"
+          curl -fsSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/${VER}-stable/Godot_v${VER}-stable_macos.universal.zip"
+          unzip -q /tmp/godot.zip -d "$HOME/godot"
+          xattr -dr com.apple.quarantine "$HOME/godot" || true
+          GODOT="$(find "$HOME/godot" -type f -path '*/MacOS/Godot' | head -n 1)"
+          chmod +x "$GODOT"
+          echo "GODOT=$GODOT" >> "$GITHUB_ENV"
+          curl -fsSL -o /tmp/templates.tpz "https://github.com/godotengine/godot/releases/download/${VER}-stable/Godot_v${VER}-stable_export_templates.tpz"
+          rm -rf /tmp/godot-templates
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -R /tmp/godot-templates/templates/. "$HOME/Library/Application Support/Godot/export_templates/${VER}.stable/"
+          "$GODOT" --version
+
+      - name: Export the Xcode project
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --path . --import --quit || true
+          mkdir -p build/ios
+          "$GODOT" --headless --path . --export-release "iOS" build/ios/CritterClash.xcodeproj
+
+      - name: Archive without signing and zip the IPA
+        run: |
+          set -euo pipefail
+          cd build/ios
+          PROJECT="$(find . -maxdepth 2 -name '*.xcodeproj' | head -n 1)"
+          xcodebuild -list -project "$PROJECT"
+          SCHEME="$(xcodebuild -list -project "$PROJECT" -json | python3 -c 'import json,sys; print(json.load(sys.stdin)["project"]["schemes"][0])')"
+          echo "Using scheme ${SCHEME}"
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/CritterClash.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=""
+          APP="$(find CritterClash.xcarchive/Products -type d -name '*.app' | head -n 1)"
+          test -n "$APP"
+          rm -rf Payload CritterClash.ipa
+          mkdir Payload
+          cp -R "$APP" Payload/
+          # Display name and bundle id are baked by the Godot export (Critter Clash / com.rico.critterclash).
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "Payload/$(basename "$APP")/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "Payload/$(basename "$APP")/Info.plist" || true
+          zip -qry CritterClash.ipa Payload
+          ls -lh CritterClash.ipa
+
+      - name: Publish prerelease ios-v1
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-v1
+          name: Critter Clash ios-v1
+          prerelease: true
+          files: build/ios/CritterClash.ipa
+          body: |
+            Unsigned Critter Clash build for sideloading.
+            Bundle id `com.rico.critterclash`, display name Critter Clash.
+            Re-sign with SideInstaller using your Apple ID. The export team id ABCDE12345 is a placeholder and is replaced when you re-sign.
+            Godot 4.7.2, Mobile renderer, minimum iOS 15.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

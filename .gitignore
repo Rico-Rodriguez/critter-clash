@@ -1,0 +1,10 @@
+.godot/
+*.tmp
+*.blend
+*.blend1
+.DS_Store
+tools/__pycache__/
+android/
+*.import.bak
+agent-tools/
+build/
