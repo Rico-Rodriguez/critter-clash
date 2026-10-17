@@ -49,6 +49,7 @@ var clock_label: Label
 var boss_label: Label
 var banner: Label
 var floats: Array = []
+var _jitter: Dictionary = {}
 var finger := -1
 var finger_at := Vector2.ZERO
 var _stick_out := Vector2.ZERO
@@ -475,7 +476,7 @@ func _drain() -> void:
 				var crit := bool(ev.get("crit", false))
 				if float(ev["amount"]) < 99999.0:
 					if crit or not _merge_float(int(ev["id"]), float(ev["amount"])):
-						_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ff8a2a") if crit else Color("fbf2de"), crit, int(ev["id"]), float(ev["amount"]))
+						_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ff8a2a") if crit else Color("fbf2de"), crit, int(ev["id"]), float(ev["amount"]), "hit")
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
 				var struck := sim._actor_by_id(int(ev["id"]))
@@ -491,7 +492,7 @@ func _drain() -> void:
 					AudioDirector.sfx("hit")
 					AudioDirector.haptic("medium")
 			"hero_hurt":
-				_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ff6d6d"), true)
+				_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ff6d6d"), true, int(ev["id"]), float(ev["amount"]), "hero")
 				_punch[int(ev["id"])] = 0.14
 				stage.hurt(int(ev["id"]))
 				_hurt_flash()
@@ -695,16 +696,24 @@ func _merge_float(id: int, amount: float) -> bool:
 			other.set_meta("total", total)
 			other.text = str(int(round(total)))
 			other.set_meta("life", 0.7)
+			other.set_meta("life_max", 0.7)
 			other.reset_size()
 			other.pivot_offset = other.size * 0.5
+			_kill_tween(other, "pop")
+			_kill_tween(other, "shrink")
 			var grow := minf(1.0 + total / 400.0, 1.35)
 			other.scale = Vector2.ONE * grow * 1.25
-			create_tween().tween_property(other, "scale", Vector2.ONE * grow, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			var gt := create_tween()
+			gt.tween_property(other, "scale", Vector2.ONE * grow, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			other.set_meta("pop", gt)
+			_arm_shrink(other, 0.7)
 			return true
 	return false
 
 
-func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, amount: float = 0.0) -> void:
+## One floating label for a hit, a crit, hero damage, or a loot line (kind
+## ""). Damage kinds run smaller and are spaced with jitter and rows.
+func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, amount: float = 0.0, kind: String = "") -> void:
 	var label: Label = null
 	for entry in floats:
 		if not entry.visible:
@@ -715,6 +724,9 @@ func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, a
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		world.add_child(label)
 		floats.append(label)
+	# A pooled label may still carry tweens from its last life.
+	_kill_tween(label, "pop")
+	_kill_tween(label, "shrink")
 	UiKit.ensure()
 	label.visible = true
 	label.text = text
@@ -724,39 +736,146 @@ func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, a
 	label.set_meta("eid", id)
 	label.set_meta("total", amount)
 	label.set_meta("big", big)
-	label.add_theme_font_size_override("font_size", 96 if big else 50)
-	label.add_theme_color_override("font_color", color)
+	var is_damage := kind != ""
+	var crit := kind == "hit" and big
+	var hero := kind == "hero"
+	var big_hit := kind == "hit" and not crit and amount >= 40.0
+	# Damage numbers run smaller so a crowd of hits stays legible; coins and
+	# banner texts keep the old display size.
+	if crit:
+		label.add_theme_font_size_override("font_size", 76)
+		label.add_theme_color_override("font_color", Color("ffcf4a"))
+	elif hero:
+		label.add_theme_font_size_override("font_size", 48)
+		label.add_theme_color_override("font_color", color)
+	elif is_damage:
+		label.add_theme_font_size_override("font_size", 42)
+		label.add_theme_color_override("font_color", color)
+	else:
+		label.add_theme_font_size_override("font_size", 96 if big else 50)
+		label.add_theme_color_override("font_color", color)
+	# Dark warm keyline plus a soft cast shadow; kept thin so the smaller
+	# combat numbers stay crisp instead of muddy.
 	label.add_theme_color_override("font_outline_color", Color(0.04, 0.015, 0.01))
-	label.add_theme_constant_override("outline_size", 16 if big else 13)
-	# Dark outline plus a soft drop shadow (the shadow takes its own wide
-	# outline so it reads as a blurred cast, not a second hard copy).
-	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
-	label.add_theme_constant_override("shadow_offset_y", 6)
-	label.add_theme_constant_override("shadow_offset_x", 3)
-	label.add_theme_constant_override("shadow_outline_size", 22 if big else 18)
+	if crit:
+		label.add_theme_constant_override("outline_size", 14)
+		label.add_theme_constant_override("shadow_outline_size", 12)
+		label.add_theme_constant_override("shadow_offset_y", 4)
+		label.add_theme_constant_override("shadow_offset_x", 2)
+	elif is_damage:
+		label.add_theme_constant_override("outline_size", 10)
+		label.add_theme_constant_override("shadow_outline_size", 8)
+		label.add_theme_constant_override("shadow_offset_y", 3)
+		label.add_theme_constant_override("shadow_offset_x", 1)
+	else:
+		label.add_theme_constant_override("outline_size", 16 if big else 13)
+		label.add_theme_constant_override("shadow_outline_size", 22 if big else 18)
+		label.add_theme_constant_override("shadow_offset_y", 6)
+		label.add_theme_constant_override("shadow_offset_x", 3)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45 if is_damage else 0.5))
 	label.reset_size()
 	label.pivot_offset = label.size * 0.5
-	# Pop: overshoot big, settle, with a little tilt on crits.
-	label.scale = Vector2(1.9, 1.9) if big else Vector2(1.5, 1.5)
-	label.rotation = randf_range(-0.12, 0.12) if big else 0.0
+	# Pop in: crits start huge and crash down through 1.15x to settle at
+	# 1.0x with an orange-to-gold flash, other hits just punch up from 1.5x.
+	var hold := Vector2.ONE * (1.15 if big_hit else 1.0)
+	label.set_meta("hold", hold)
+	label.scale = Vector2.ONE * (2.1 if crit else (1.9 if (not is_damage and big) else 1.5))
+	label.rotation = randf_range(-0.12, 0.12) if crit else 0.0
 	var pop := create_tween()
-	pop.tween_property(label, "scale", Vector2.ONE, 0.2 if big else 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# Hits landing together stack upward instead of overprinting.
+	if crit:
+		label.modulate = Color(1.0, 0.55, 0.28, 1.0)
+		pop.tween_property(label, "scale", Vector2.ONE * 1.15, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		pop.parallel().tween_property(label, "modulate", Color(1, 1, 1, 1), 0.18)
+		pop.tween_property(label, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	else:
+		pop.tween_property(label, "scale", hold, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	label.set_meta("pop", pop)
 	var at := _projected(pos)
-	var stack := 0
-	for other in floats:
-		if other != label and other.visible and float(other.get_meta("life", 0.0)) > 0.5:
-			if (other.position + other.size * 0.5).distance_to(at + Vector2(0, -36)) < 90.0:
-				stack += 1
-	var lift := Vector2(randf_range(-42, 42) + (24.0 if stack % 2 == 1 else -24.0 if stack > 0 else 0.0), -36.0 - 44.0 * mini(stack, 3)) - label.size * 0.5
+	var row := 0
+	var lift := Vector2.ZERO
+	if is_damage:
+		# Alternating jitter per target: successive hits on one foe fan out
+		# left and right instead of retracing the same pixels.
+		var seq := int(_jitter.get(id, 0))
+		_jitter[id] = seq + 1
+		var side := 1.0 if seq % 2 == 0 else -1.0
+		var jx := side * randf_range(18.0, 46.0)
+		# Fixed rows climb at 0.9x the label height, capped at four; a fifth
+		# number evicts the oldest, which then fades out quickly.
+		row = _claim_row(label, at, label.size.y)
+		var row_h := maxf(label.size.y * 0.9, 1.0)
+		lift = Vector2(jx, -36.0 - row_h * float(row)) - label.size * 0.5
+		label.set_meta("vel", Vector2(side * randf_range(15.0, 45.0), -randf_range(190.0, 215.0)))
+		label.set_meta("delay", 0.0)
+		label.set_meta("life", 0.95 if crit else 0.75)
+		label.set_meta("fade", 0.25)
+		_arm_shrink(label, 0.95 if crit else 0.75)
+	else:
+		# Banner texts keep the old crowd-stack and toss.
+		var stack := 0
+		for other in floats:
+			if other != label and other.visible and float(other.get_meta("life", 0.0)) > 0.5:
+				if (other.position + other.size * 0.5).distance_to(at + Vector2(0, -36)) < 90.0:
+					stack += 1
+		lift = Vector2(randf_range(-42, 42) + (24.0 if stack % 2 == 1 else -24.0 if stack > 0 else 0.0), -36.0 - 44.0 * mini(stack, 3)) - label.size * 0.5
+		label.set_meta("vel", Vector2(randf_range(-70.0, 70.0), -150.0 if big else -120.0))
+		label.set_meta("delay", 0.06 * mini(stack, 3))
+		label.set_meta("life", 0.85 if big else 0.7)
+		label.set_meta("fade", 0.28)
+	label.set_meta("life_max", float(label.get_meta("life")))
+	label.set_meta("row", row)
+	label.set_meta("base", at)
 	label.set_meta("sim", pos)
 	label.set_meta("lift", lift)
-	label.position = _keep_in_safe(label, _projected(pos) + lift)
-	label.set_meta("life", 0.85 if big else 0.7)
-	# Stagger: a number born into a crowd waits a beat before showing.
-	label.set_meta("delay", 0.06 * mini(stack, 3))
-	# A slight arc: tossed up and sideways, then easing down.
-	label.set_meta("vel", Vector2(randf_range(-70.0, 70.0), -150.0 if big else -120.0))
+	label.position = _keep_in_safe(label, at + lift)
+
+
+## Lowest free row of live numbers near a spawn point, so a volley climbs
+## instead of overprinting; when all four rows are taken the oldest is cut
+## short and its row reused.
+func _claim_row(label: Label, at: Vector2, height: float) -> int:
+	var used := {}
+	var oldest: Label = null
+	var oldest_life := 1e9
+	var reach := maxf(height * 1.6, 64.0)
+	for other in floats:
+		if other == label or not other.visible:
+			continue
+		if float(other.get_meta("life", 0.0)) <= 0.0:
+			continue
+		var base: Vector2 = other.get_meta("base", other.position)
+		if base.distance_to(at) > reach:
+			continue
+		used[int(other.get_meta("row", 0))] = true
+		var life := float(other.get_meta("life", 0.0))
+		if life < oldest_life:
+			oldest_life = life
+			oldest = other
+	for r in 4:
+		if not used.has(r):
+			return r
+	if oldest != null:
+		oldest.set_meta("life", minf(oldest_life, 0.12))
+		_kill_tween(oldest, "shrink")
+		return int(oldest.get_meta("row", 0))
+	return 0
+
+
+## Fade-out shrink: a number eases down to 0.85x over its last 0.25 s.
+func _arm_shrink(label: Label, life_max: float) -> void:
+	var hold: Vector2 = label.get_meta("hold", Vector2.ONE)
+	var st := create_tween()
+	st.tween_interval(maxf(0.0, life_max - 0.25))
+	st.tween_property(label, "scale", hold * 0.85, 0.25)
+	label.set_meta("shrink", st)
+
+
+func _kill_tween(label: Label, key: String) -> void:
+	if not label.has_meta(key):
+		return
+	var tw := label.get_meta(key) as Tween
+	if tw != null and tw.is_valid():
+		tw.kill()
 
 
 func _tick_floats(delta: float) -> void:
@@ -782,7 +901,7 @@ func _tick_floats(delta: float) -> void:
 		label.set_meta("vel", vel)
 		label.set_meta("lift", lift)
 		label.position = _keep_in_safe(label, _projected(label.get_meta("sim")) + lift)
-		label.modulate.a = clampf(life / 0.28, 0.0, 1.0)
+		label.modulate.a = clampf(life / float(label.get_meta("fade", 0.28)), 0.0, 1.0)
 		if life <= 0.0:
 			label.visible = false
 
