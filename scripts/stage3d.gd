@@ -1364,6 +1364,8 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		meters = HERO_METERS * HERO_BOOST
 	elif actor.kind == "boss":
 		meters = BOSS_METERS
+	elif actor.kind == "ally":
+		meters = HERO_METERS * 0.8
 	elif actor.kind != "hero":
 		# Rank-and-file critters stand roughly hero height so they read.
 		# A touch bigger than before so mobs read at the pulled-back camera.
@@ -1373,6 +1375,9 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	# on the hero (its ring marks it), deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
 		_outline(body, Color("1a0806"), 0.011)
+		_hero_glow(body)
+	elif actor.kind == "ally":
+		# Summoned spirit: the hero's cool rim glow, no hostile ring.
 		_hero_glow(body)
 	elif actor.kind == "boss":
 		# No ink line on bosses: their size carries the silhouette and the

@@ -299,7 +299,7 @@ const CARDS: Array = [
 	{"id": "ricochet_plus", "name": "Ricochet+", "rarity": "rare", "op": "ricochet", "n": 0.15, "max": 3, "roles": [], "desc": "Hits can bounce to another foe."},
 	{"id": "executioner", "name": "Executioner", "rarity": "rare", "op": "execute", "n": 0.25, "max": 3, "roles": [], "desc": "Deal more damage to foes below 25% health."},
 	{"id": "blink", "name": "Blink", "rarity": "rare", "op": "blink", "n": 1, "max": 3, "roles": [], "desc": "When badly hurt, teleport away with brief safety."},
-	{"id": "spirit_wolf", "name": "Spirit Wolf", "rarity": "rare", "op": "wolf", "n": 1, "max": 3, "roles": [], "desc": "A loyal wolf fights beside you."},
+	{"id": "spirit_wolf", "name": "Spirit Fox", "rarity": "rare", "op": "wolf", "n": 1, "max": 3, "roles": [], "desc": "A spectral fox fights beside you."},
 	{"id": "static_field", "name": "Static Field", "rarity": "rare", "op": "static", "n": 1, "max": 3, "roles": [], "desc": "Standing still charges a shocking attack."},
 	{"id": "vampiric_kill", "name": "Vampiric Kill", "rarity": "rare", "op": "vampkill", "n": 0.04, "max": 3, "roles": [], "desc": "Heal when you kill a foe."},
 	{"id": "berserk", "name": "Berserk", "rarity": "rare", "op": "berserk", "n": 0.25, "max": 3, "roles": [], "desc": "Attack faster as your health drops."},

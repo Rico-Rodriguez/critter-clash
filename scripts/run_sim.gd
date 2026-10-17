@@ -958,8 +958,8 @@ func _step_wolves(hero: Actor, n: int) -> void:
 	a.id = _nid()
 	a.team = hero.team
 	a.kind = "ally"
-	a.sprite = "juniper"
-	a.display = "Spirit Wolf"
+	a.sprite = "spirit_wolf"
+	a.display = "Spirit Fox"
 	a.radius = 22.0
 	a.pos = _clamp_point(hero.pos + Vector2.RIGHT.rotated(rng.randf() * TAU) * 64.0, 24.0)
 	a.prev = a.pos

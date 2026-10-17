@@ -64,7 +64,7 @@ static func flies(id: String) -> bool:
 ## Dark-fantasy pass (art direction 2026-10-17): realistic, worn creatures.
 ## Heroes keep their animal and wear Armor3D kit; enemies are feral beasts.
 ## Files in assets/models/sketchfab/dark/ (CC-BY 4.0, see CREDITS.md).
-const DARK := {"juniper": "fox", "sprout": "badger", "boarlet": "bear"}
+const DARK := {"juniper": "fox", "sprout": "badger", "boarlet": "bear", "spirit_wolf": "fox"}
 const DARK_CLIPS := {
 	"fox": {"idle": "A5_StandAngry_Breathing_01", "walk": "Loco_Walk", "run": "Run", "attack": "Attack_StandAngry_02_High", "hit": "Hit_Stand_R01", "death": "Death_Stand_L01", "perch": "A3_Stand_Idle_01"},
 	"badger": {"idle": "Badger|european_badger_aggressive_idle_01", "walk": "Badger|european_badger_trot_fwd_01", "run": "Badger|european_badger_sprint_fwd_01", "attack": "Badger|european_badger_aggressive_attack_fwd_01", "hit": "Badger|european_badger_hit_chest_front_01", "death": "Badger|european_badger_dead_run_01"},
@@ -75,6 +75,8 @@ const DARK_CLIPS := {
 ## Corruption colour of a feral enemy: its eye embers and the fresnel
 ## glow round its silhouette, so species read apart at the far camera.
 static func feral_color(id: String) -> Color:
+	if id == "spirit_wolf":
+		return Color(0.55, 0.85, 1.0)
 	match dark(id):
 		"badger":
 			return Color(0.55, 1.0, 0.25)
@@ -89,7 +91,7 @@ static func dark(id: String) -> String:
 
 ## Armour kit Armor3D builds onto a hero rig ("" for none).
 static func armor(id: String) -> String:
-	return "fox_ranger" if dark(id) == "fox" else ""
+	return "fox_ranger" if id == "juniper" else ""
 
 
 static func sketch_mon(id: String) -> String:
@@ -226,6 +228,8 @@ static func pbr(id: String) -> Dictionary:
 			d["albedo"] = Color(0.42, 0.43, 0.33)
 		elif id == "boarlet":
 			d["albedo"] = Color(0.5, 0.46, 0.44)
+		elif id == "spirit_wolf":
+			d["albedo"] = Color(0.48, 0.6, 0.78)
 		else:
 			d["albedo"] = Color(0.74, 0.66, 0.6)
 		return d
