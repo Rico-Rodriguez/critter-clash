@@ -102,6 +102,7 @@ static func _save() -> void:
 		_fail("slayer payout")
 	if not SaveGame.biome_open("mushroom") or SaveGame.biome_open("frost"):
 		_fail("meadow clear should open mushroom only")
+	_drawer()
 	var loot := SaveGame.open_next()
 	if int(loot.get("coins", 0)) <= 0 or loot.get("cards", []).is_empty():
 		_fail("chest loot empty")
@@ -351,6 +352,35 @@ static func _kite() -> void:
 	print("KITE boss worst stall %.2fs over %.0fs, legs %d" % [worst, t, leg])
 	if worst > 1.0:
 		_fail("boss stalled %.2fs while chasing" % worst)
+
+
+## Chest drawer rules: earned chests arrive locked with a rarity timer,
+## one unlocks at a time, a fifth is refused and reported.
+static func _drawer() -> void:
+	var keep: Array = SaveGame.data["chests"].duplicate(true)
+	SaveGame.data["chests"].clear()
+	SaveGame.commit_defeat("meadow", 0)
+	if SaveGame.chest_state(0) != "locked" or SaveGame.chest_total(0) != SaveGame.UNLOCK_SECONDS["common"]:
+		_fail("a pouch should arrive locked with the common timer")
+	if not SaveGame.start_unlock(0) or SaveGame.chest_state(0) != "unlocking":
+		_fail("tapping a locked chest should start its timer")
+	SaveGame.commit_defeat("meadow", 0)
+	if SaveGame.start_unlock(1):
+		_fail("only one chest may unlock at a time")
+	SaveGame.data["chests"][0]["ready_at"] = 0
+	if SaveGame.chest_state(0) != "ready" or SaveGame.first_ready() != 0:
+		_fail("an elapsed timer should make the chest ready")
+	SaveGame.commit_defeat("meadow", 0)
+	SaveGame.commit_defeat("meadow", 0)
+	SaveGame.commit_defeat("meadow", 0)
+	if SaveGame.pending_count() != SaveGame.SLOTS or not bool(SaveGame.last_chest.get("full", false)):
+		_fail("a chest earned with full slots should be refused and reported")
+	if SaveGame.take_fresh().size() != SaveGame.SLOTS or not SaveGame.take_fresh().is_empty():
+		_fail("fresh chests should be reported once for the fly-in")
+	if SaveGame.UNLOCK_SECONDS["common"] >= SaveGame.UNLOCK_SECONDS["rare"] or SaveGame.UNLOCK_SECONDS["rare"] >= SaveGame.UNLOCK_SECONDS["epic"]:
+		_fail("timers should grow with rarity")
+	SaveGame.data["chests"] = keep
+	SaveGame.last_chest = {}
 
 
 static func _best(sim: RunSim) -> int:

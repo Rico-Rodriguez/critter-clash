@@ -23,33 +23,116 @@ func pending_count() -> int:
 	return data["chests"].size()
 
 
-## Hunt chests unlock on a short timer, Clash style; pouches from a loss are
-## quicker, and reward chests (milestones, the slayer shop) open at once.
-const UNLOCK_SECONDS := {"hunt": 180, "scrap": 60}
+## Clash-style chest drawer: four slots. Earned chests arrive locked; the
+## player taps one to start its timer (one unlocks at a time), and the
+## timer scales with rarity. Reward chests (milestones, the slayer shop)
+## arrive ready. A chest earned with every slot taken is lost.
+const SLOTS := 4
+const UNLOCK_SECONDS := {"common": 15 * 60, "rare": 60 * 60, "epic": 3 * 60 * 60}
+const RARITY_OF_TONE := {"wood": "common", "silver": "rare", "magic": "epic", "gold": "epic"}
+
+## What the last hunt sent home: {"tone", "rarity", "full", "index"}. Not saved.
+var last_chest: Dictionary = {}
 
 
 func _new_chest(kind: String, biome_id: String, timed: bool) -> Dictionary:
 	var chest := {"kind": kind, "biome": biome_id, "seed": randi()}
-	if timed:
-		chest["ready_at"] = int(Time.get_unix_time_from_system()) + int(UNLOCK_SECONDS.get(kind, 0))
-	else:
+	if not timed:
 		chest["tone"] = "gold"
+		chest["ready_at"] = 0
 	return chest
 
 
-## Seconds until chest i can be opened (0 = ready).
+## Put a chest in the drawer; false (and the chest is dropped) when full.
+## Reward chests pass force so a claimed prize is never thrown away.
+func add_chest(chest: Dictionary, force := false) -> bool:
+	if data["chests"].size() >= SLOTS and not force:
+		return false
+	chest["fresh"] = true
+	data["chests"].append(chest)
+	return true
+
+
+func slots_full() -> bool:
+	return data["chests"].size() >= SLOTS
+
+
+func chest_rarity(i: int) -> String:
+	return str(RARITY_OF_TONE.get(chest_tone(i), "rare"))
+
+
+## Full unlock time of chest i, from its rarity.
+func chest_total(i: int) -> int:
+	return int(UNLOCK_SECONDS.get(chest_rarity(i), 3600))
+
+
+## "locked" (timer not started), "unlocking", or "ready".
+func chest_state(i: int) -> String:
+	if i < 0 or i >= data["chests"].size():
+		return ""
+	if not data["chests"][i].has("ready_at"):
+		return "locked"
+	return "ready" if chest_wait(i) <= 0 else "unlocking"
+
+
+## Seconds until chest i can be opened (0 = ready). A locked chest reports
+## its full timer so the slot can show how long it will take.
 func chest_wait(i: int) -> int:
 	if i < 0 or i >= data["chests"].size():
 		return 0
-	var at := int(data["chests"][i].get("ready_at", 0))
-	return maxi(0, at - int(Time.get_unix_time_from_system()))
+	var chest: Dictionary = data["chests"][i]
+	if not chest.has("ready_at"):
+		return chest_total(i)
+	return maxi(0, int(chest["ready_at"]) - int(Time.get_unix_time_from_system()))
+
+
+func unlocking_index() -> int:
+	for i in data["chests"].size():
+		if chest_state(i) == "unlocking":
+			return i
+	return -1
+
+
+## Start chest i's timer. Only one chest unlocks at a time.
+func start_unlock(i: int) -> bool:
+	if chest_state(i) != "locked" or unlocking_index() >= 0:
+		return false
+	data["chests"][i]["ready_at"] = int(Time.get_unix_time_from_system()) + chest_total(i)
+	_write()
+	return true
 
 
 func first_ready() -> int:
 	for i in data["chests"].size():
-		if chest_wait(i) <= 0:
+		if chest_state(i) == "ready":
 			return i
 	return -1
+
+
+## Chests that arrived since Home last showed them (for the fly-in).
+func take_fresh() -> Array:
+	var out: Array = []
+	for i in data["chests"].size():
+		if bool(data["chests"][i].get("fresh", false)):
+			out.append(i)
+			data["chests"][i].erase("fresh")
+	if not out.is_empty():
+		_write()
+	return out
+
+
+static func clock(seconds: int) -> String:
+	if seconds >= 3600:
+		return "%d:%02d:%02d" % [seconds / 3600, (seconds % 3600) / 60, seconds % 60]
+	return "%d:%02d" % [seconds / 60, seconds % 60]
+
+
+static func span(seconds: int) -> String:
+	if seconds >= 3600 and seconds % 3600 == 0:
+		return "%dh" % (seconds / 3600)
+	if seconds >= 3600:
+		return "%dh %dm" % [seconds / 3600, (seconds % 3600) / 60]
+	return "%dm" % (seconds / 60)
 
 
 ## The look of chest i: pouches are plain wood, hunt chests take their
@@ -258,7 +341,7 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictio
 		elif reveal.is_empty() and Catalog.is_reveal(drop):
 			reveal = drop
 	_note_slayer(biome_id, slain, true)
-	data["chests"].append(_new_chest("hunt", biome_id, true))
+	_send_home(_new_chest("hunt", biome_id, true))
 	_write()
 	return {
 		"trophies": gained,
@@ -270,9 +353,20 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictio
 	}
 
 
+func _send_home(chest: Dictionary) -> void:
+	var ok := add_chest(chest)
+	if not ok:
+		# Measure what would have come home, then drop it.
+		data["chests"].append(chest)
+	var i: int = data["chests"].size() - 1
+	last_chest = {"tone": chest_tone(i), "rarity": chest_rarity(i), "full": not ok, "index": i if ok else -1}
+	if not ok:
+		data["chests"].pop_back()
+
+
 func commit_defeat(biome_id: String, slain: int = 0) -> void:
 	_note_slayer(biome_id, slain, false)
-	data["chests"].append(_new_chest("scrap", biome_id, true))
+	_send_home(_new_chest("scrap", biome_id, true))
 	_write()
 
 
@@ -363,7 +457,7 @@ func buy_slayer(offer_id: String) -> bool:
 		"cosmetic":
 			data["cosmetic"] = str(offer.get("cosmetic", "ribbon"))
 		"chest":
-			data["chests"].append(_new_chest("hunt", "meadow", false))
+			add_chest(_new_chest("hunt", "meadow", false), true)
 	_write()
 	AudioDirector.play("merge")
 	return true
@@ -460,7 +554,7 @@ func claim(id: String) -> bool:
 		"coins":
 			data["coins"] = int(data["coins"]) + int(entry["amount"])
 		"chest":
-			data["chests"].append(_new_chest("hunt", "meadow", false))
+			add_chest(_new_chest("hunt", "meadow", false), true)
 		"unlock":
 			var row: Dictionary = data["heroes"][str(entry["hero"])]
 			row["unlocked"] = true

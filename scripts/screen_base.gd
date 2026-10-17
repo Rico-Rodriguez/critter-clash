@@ -19,6 +19,7 @@ func _ready() -> void:
 	if paint_bg:
 		add_child(UiKit.Backdrop.new())
 	build()
+	_touch_scroll(self)
 	if show_nav:
 		_dock = UiKit.Dock.new(nav_tab, _nav)
 		add_child(_dock)
@@ -28,6 +29,30 @@ func _ready() -> void:
 	else:
 		var tw := create_tween()
 		tw.tween_property(self, "modulate:a", 1.0, 0.12)
+
+
+## Touch drags only reach a ScrollContainer when the controls under the
+## finger pass the event up, so everything inside a scroll list (cards,
+## frames, buttons) is set to PASS; buttons still take taps, and the list
+## follows the finger. Content added later is caught as it enters.
+func _touch_scroll(node: Node) -> void:
+	for child in node.get_children():
+		if child is ScrollContainer:
+			var sc := child as ScrollContainer
+			sc.scroll_deadzone = 14
+			_pass_all(sc)
+			sc.child_entered_tree.connect(func(_n: Node) -> void: _pass_all.call_deferred(sc))
+		else:
+			_touch_scroll(child)
+
+
+func _pass_all(node: Node) -> void:
+	for child in node.get_children():
+		if child is ScrollBar:
+			continue
+		if child is Control and (child as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+		_pass_all(child)
 
 
 ## Direction the next screen slides in from: -1 left, 1 right, 0 zoom.

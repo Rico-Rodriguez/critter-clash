@@ -133,8 +133,11 @@ func _banner_texture(id: String) -> Texture2D:
 	return crop
 
 
+## Straight into the hunt with the featured hero: the hero is picked on
+## the Heroes tab (and shown on Home), not re-chosen before every run.
 func _open_biome(id: String) -> void:
-	go("heroes", {"biome": id})
+	SaveGame.data["last_biome"] = id
+	go("run", {"biome": id, "hero": SaveGame.featured_id()})
 
 
 ## The boss's head in a gilded ring.

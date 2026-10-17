@@ -663,6 +663,9 @@ func _open_modal() -> void:
 	_end_stick()
 	_clear_modal()
 	modal.visible = true
+	# Ease the dim in rather than snapping the whole frame dark.
+	modal.modulate.a = 0.0
+	create_tween().tween_property(modal, "modulate:a", 1.0, 0.16)
 
 
 func _close_modal() -> void:
@@ -849,28 +852,45 @@ func _end_stats() -> VBoxContainer:
 	return v
 
 
-## The chest that comes home: its baked icon and unlock time.
-func _end_chest(win: bool) -> HBoxContainer:
+## The chest that comes home: its baked icon, rarity and unlock time, and
+## where it went (the Home chest slots), or a Clash-style notice when every
+## slot was taken.
+func _end_chest(win: bool) -> Control:
+	var info: Dictionary = SaveGame.last_chest
+	var tone := str(info.get("tone", "silver" if win else "wood"))
+	var rarity := str(info.get("rarity", "rare" if win else "common"))
+	var full := bool(info.get("full", false))
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 14
+	plate.glow = Color(UiKit.rarity_colors(rarity)["glow"], 0.55)
+	plate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	var i := SaveGame.pending_count() - 1
-	var tone := SaveGame.chest_tone(i) if i >= 0 else ("silver" if win else "wood")
+	row.add_theme_constant_override("separation", 18)
+	plate.add_child(row)
 	var icon := TextureRect.new()
 	icon.texture = SpriteBank._load("res://assets/sprites/chests/%s.png" % tone, "chest_" + tone)
-	icon.custom_minimum_size = Vector2(128, 128)
+	icon.custom_minimum_size = Vector2(136, 136)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	if full:
+		icon.modulate = Color(0.45, 0.42, 0.4)
 	row.add_child(icon)
 	var v := VBoxContainer.new()
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 2)
 	row.add_child(v)
-	var name := UiKit.label("HUNT CHEST" if win else "SMALL POUCH", 24, UiKit.GOLD.lightened(0.2), "x", 3)
-	v.add_child(name)
-	var wait := SaveGame.chest_wait(i) if i >= 0 else 0
-	var line := "Unlocks in %d:%02d" % [wait / 60, wait % 60] if wait > 0 else "Ready to open"
-	v.add_child(UiKit.label(line, 19, UiKit.MUTED.lightened(0.15), "b", 2))
-	return row
+	var kind := "HUNT CHEST" if win else "SMALL POUCH"
+	v.add_child(UiKit.label("%s CHEST EARNED" % rarity.to_upper() if win else "%s POUCH EARNED" % rarity.to_upper(), 24, UiKit.rarity_colors(rarity)["glow"].lightened(0.25), "x", 3))
+	if full:
+		v.add_child(UiKit.label("Chest slots full!", 26, Color("ff8a6a"), "x", 3))
+		v.add_child(UiKit.label("Open a chest to make room next time.", 19, UiKit.MUTED.lightened(0.15), "b", 2))
+	else:
+		v.add_child(UiKit.label("Sent to your chest slots", 26, UiKit.CREAM, "x", 3))
+		v.add_child(UiKit.label("Unlock time %s · tap it on Home" % SaveGame.span(int(SaveGame.UNLOCK_SECONDS.get(rarity, 3600))), 19, UiKit.MUTED.lightened(0.15), "b", 2))
+	plate.tooltip_text = kind
+	return plate
 
 
 func _show_victory(boss_name: String) -> void:
@@ -932,9 +952,9 @@ func _show_victory(boss_name: String) -> void:
 	prize.add_child(trophies)
 	col.add_child(prize)
 	col.add_child(_end_chest(true))
-	var button := UiKit.button("OPEN THE CHEST", 660, 104, "gold")
+	var button := UiKit.button("CONTINUE", 660, 104, "gold")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(func() -> void: go("chest"))
+	button.pressed.connect(func() -> void: go("home"))
 	col.add_child(button)
 
 
@@ -955,9 +975,9 @@ func _show_defeat(reason: String) -> void:
 	col.add_child(_end_stats())
 	col.add_child(_end_chest(false))
 	col.add_child(hint)
-	var button := UiKit.button("OPEN THE POUCH", 660, 104, "steel")
+	var button := UiKit.button("CONTINUE", 660, 104, "steel")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(func() -> void: go("chest"))
+	button.pressed.connect(func() -> void: go("home"))
 	col.add_child(button)
 	var again := UiKit.secondary("TRY AGAIN", 300, 64)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

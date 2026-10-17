@@ -106,9 +106,11 @@ func _capture() -> void:
 	SaveGame.reset_new()
 	SaveGame.data["trophies"] = 46
 	SaveGame.data["coins"] = 135
-	SaveGame.data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": 3})
+	# Drawer: one ready, one locked (shows its timer), one unlocking.
+	var now := int(Time.get_unix_time_from_system())
+	SaveGame.data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": 3, "ready_at": now - 1})
 	SaveGame.data["chests"].append({"kind": "scrap", "biome": "meadow", "seed": 4})
-	SaveGame.data["chests"].append({"kind": "hunt", "biome": "volcano", "seed": 5, "ready_at": int(Time.get_unix_time_from_system()) + 107})
+	SaveGame.data["chests"].append({"kind": "hunt", "biome": "volcano", "seed": 5, "ready_at": now + 2537})
 	if _wants("home"):
 		go("home")
 		await _settle()
@@ -230,12 +232,22 @@ func _capture() -> void:
 			current._show_victory("Thistle")
 			await get_tree().create_timer(0.8).timeout
 			await _shot("victory")
+		if _wants("drawer"):
+			# Back home: the chest just won drops into the last slot.
+			go("home")
+			await get_tree().create_timer(0.75).timeout
+			await _shot("drawer")
+			await get_tree().create_timer(1.2).timeout
+			await _shot("drawer_full")
+			go("run", {"biome": "meadow", "hero": "ember"})
+			await _settle()
 		if _wants("defeat"):
+			SaveGame.last_chest = {"tone": "wood", "rarity": "common", "full": SaveGame.slots_full()}
 			current._show_defeat("")
 			await get_tree().create_timer(0.8).timeout
 			await _shot("defeat")
 	if _wants("chest"):
-		go("chest")
+		go("chest", {"index": SaveGame.first_ready()})
 		await _settle()
 		await _shot("chest")
 		current._reveal()

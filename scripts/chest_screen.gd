@@ -23,68 +23,66 @@ func build() -> void:
 	loot_box = VBoxContainer.new()
 	loot_box.add_theme_constant_override("separation", 14)
 	loot_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Fixed-height loot and button bands, so the chest and its plinth hold
+	# the same spot (centred) whether it is closed, bursting or showing loot.
+	loot_box.custom_minimum_size = Vector2(0, 300)
 	box.add_child(loot_box)
+	var foot := VBoxContainer.new()
+	foot.custom_minimum_size = Vector2(0, 176)
+	foot.alignment = BoxContainer.ALIGNMENT_BEGIN
+	foot.add_theme_constant_override("separation", 12)
+	box.add_child(foot)
 	open_button = UiKit.button("Open", 420, 90)
 	open_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	open_button.pressed.connect(_on_open)
-	box.add_child(open_button)
+	foot.add_child(open_button)
 	home_button = UiKit.secondary("Home", 220, 64)
 	home_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	home_button.visible = false
 	home_button.pressed.connect(func() -> void: go("home"))
-	box.add_child(home_button)
+	foot.add_child(home_button)
 
 
-func open(_args: Dictionary = {}) -> void:
+var _want := -1
+
+
+func open(args: Dictionary = {}) -> void:
+	_want = int(args.get("index", -1))
 	_arm()
 
 
+## Only a ready chest reaches this scene (Home starts timers); with none
+## ready it says so and points back to the drawer.
 func _arm() -> void:
 	for child in loot_box.get_children():
 		child.queue_free()
 	home_button.visible = false
 	showing_loot = false
-	if SaveGame.pending_count() <= 0:
-		title_label.text = "No chests"
+	_index = _want if SaveGame.chest_state(_want) == "ready" else SaveGame.first_ready()
+	_want = -1
+	if _index < 0:
+		title_label.text = "No chest ready"
 		open_button.visible = false
 		home_button.visible = true
-		loot_box.add_child(body("Win or lose a hunt and one comes home with you."))
-		burst.empty = true
-		burst.locked = false
+		var line := "Win or lose a hunt and one comes home with you." if SaveGame.pending_count() == 0 else "Your chests are still unlocking. Tap one on Home to start its timer."
+		loot_box.add_child(body(line))
+		burst.empty = SaveGame.pending_count() == 0
+		burst.locked = not burst.empty
+		burst.tone = SaveGame.chest_tone(0)
 		burst.arm()
 		return
-	_index = SaveGame.first_ready()
-	var shown := maxi(_index, 0)
-	var chest: Dictionary = SaveGame.data["chests"][shown]
-	var hunt := str(chest.get("kind", "hunt")) == "hunt"
-	title_label.text = "Hunt chest" if hunt else "Small pouch"
+	var chest: Dictionary = SaveGame.data["chests"][_index]
+	var rarity := SaveGame.chest_rarity(_index)
+	title_label.text = "%s chest" % rarity.capitalize() if str(chest.get("kind", "hunt")) != "scrap" else "Common pouch"
 	open_button.visible = true
+	open_button.disabled = false
 	open_button.text = "Open"
-	burst.tone = SaveGame.chest_tone(shown)
-	burst.locked = _index < 0
+	burst.tone = SaveGame.chest_tone(_index)
+	burst.locked = false
 	burst.empty = false
 	burst.arm()
 	var biome := Catalog.biome(str(chest.get("biome", "meadow")))
 	loot_box.add_child(body("From the %s." % str(biome["name"])))
-	_tick_lock()
-
-
-## While every chest is still unlocking, the button counts down.
-func _tick_lock() -> void:
-	if showing_loot or not open_button.visible or _index >= 0:
-		open_button.disabled = false
-		return
-	var wait := SaveGame.chest_wait(0)
-	if wait <= 0:
-		_arm()
-		return
-	open_button.disabled = true
-	open_button.text = "Unlocks in %d:%02d" % [wait / 60, wait % 60]
-
-
-func _process(_delta: float) -> void:
-	if burst and burst.locked:
-		_tick_lock()
 
 
 func _on_open() -> void:
@@ -146,7 +144,7 @@ func _reveal() -> void:
 		gear_label.custom_minimum_size = Vector2(560, 0)
 		plate.add_child(gear_label)
 		loot_box.add_child(plate)
-	if SaveGame.pending_count() > 0:
+	if SaveGame.first_ready() >= 0:
 		open_button.visible = true
 		open_button.text = "Next chest"
 		showing_loot = true
@@ -278,13 +276,18 @@ class Burst extends Control:
 		rim.rotation_degrees = Vector3(-25, 170, 0)
 		root.add_child(rim)
 		chest = Chest3D.new("wood")
-		chest.rotation.y = -0.32
+		# A light three-quarter turn: enough to show the side band, not so much
+		# that the chest's bulk drifts off the plinth's centre line.
+		chest.rotation.y = -0.16
+		# The turn swings the near corner left; nudge the body back over the
+		# plinth's centre line.
+		chest.position.x = 0.06
 		root.add_child(chest)
 		cam = Camera3D.new()
 		cam.fov = 30.0
-		cam.position = Vector3(0, 2.0, 3.9)
+		cam.position = Vector3(0, 2.2, 4.5)
 		root.add_child(cam)
-		cam.look_at(Vector3(0, 0.6, 0))
+		cam.look_at(Vector3(0, 0.62, 0))
 		fx = Control.new()
 		fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(fx)
@@ -339,7 +342,7 @@ class Burst extends Control:
 				# Rattle in bursts; the lid hops and light leaks out.
 				var burst_on := maxf(0.0, sin(t * 2.2))
 				chest.rotation.z = sin(t * 19.0) * 0.035 * burst_on
-				chest.rotation.y = -0.32 + sin(t * 13.0) * 0.03 * burst_on
+				chest.rotation.y = -0.16 + sin(t * 13.0) * 0.03 * burst_on
 				chest.set_open(0.05 * burst_on * absf(sin(t * 9.0)))
 			else:
 				chest.rotation.z = lerpf(chest.rotation.z, 0.0, 0.3)
