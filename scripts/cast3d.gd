@@ -29,12 +29,16 @@ static func model(id: String) -> String:
 			file = "pip_base"
 		"caplet":
 			file = "pip_water"
-		"bramble", "sprout", "thistle", "capling", "yeti":
+		"thistle":
+			file = "thistle_boss"
+		"bramble", "sprout", "capling", "yeti":
 			file = "bramble_base"
 		"magmash":
 			file = "bramble_lava"
 		_:
 			file = "bramble_forest"
+	if file == "thistle_boss":
+		return "res://assets/models/thistle_boss.gltf"
 	return "res://assets/models/%s.glb" % file
 
 
@@ -50,7 +54,7 @@ static func clips(id: String) -> Dictionary:
 static func tint(id: String) -> Color:
 	# The hero GLBs are already painted. Everyone else takes the catalog color
 	# so a shared mesh still reads as that critter.
-	if id in ["ember", "juniper", "pebble", "lumen", "pip", "bramble"]:
+	if id in ["ember", "juniper", "pebble", "lumen", "pip", "bramble", "thistle"]:
 		return Color.WHITE
 	var info := Catalog.critter(id)
 	if info.is_empty():

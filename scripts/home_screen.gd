@@ -56,6 +56,11 @@ class Showcase extends Control:
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var plate := ColorRect.new()
+		plate.set_anchors_preset(Control.PRESET_FULL_RECT)
+		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plate.color = Color("142033")
+		add_child(plate)
 		stage = Stage3D.new()
 		stage.set_anchors_preset(Control.PRESET_FULL_RECT)
 		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -21,18 +21,19 @@ Critter Clash is an original game. The hunt, the roster, and the interface are o
 - Ember the dragon: Pixor "Small Dragon" — https://pixor.art/library/creatures/dragon-small/ — CC0. Files `assets/models/ember_*.glb`. The pack includes a fly cycle. Hit and death are posed in game.
 - Juniper the fox and Pebble the otter: "Cozy Animals" by Gamideo — https://dragofive.itch.io/cozy-animals-3d — CC0. Files `juniper_*.glb` and `pebble_*.glb` (the otter). Meshes were generated in Meshy; the clips were authored by Gamideo. Idle, walk, and gesture ship in the file.
 - Lumen the owl: Pixor "Owl" — https://pixor.art/library/creatures/owl/ — CC0. Files `lumen_*.glb`.
-- Pip the frog and Bramble the cactus-hog, plus the bosses and minions that share those rigs: Quaternius Ultimate Monsters — https://quaternius.com — CC0. Files `pip_*.glb` (Frog) and `bramble_*.glb` (Cactoro). Clips include Idle, Run, Punch, HitReact, and Death.
+- Pip the frog and Bramble the cactus-hog, plus minions that share those rigs: Quaternius Ultimate Monsters — https://quaternius.com — CC0. Files `pip_*.glb` (Frog) and `bramble_*.glb` (Cactoro, sombrero brim pulled in). Clips include Idle, Run, Punch, HitReact, and Death.
+- Thistle the meadow boss: Quaternius Ultimate Monsters "Demon" — https://quaternius.com/packs/ultimatemonsters.html — CC0. File `assets/models/thistle_boss.gltf`. Same clip set, including a trident.
 - Trees, rocks, grass, flowers, mushrooms, and the pedestal stones: Quaternius Stylized Nature MegaKit — https://quaternius.com/packs/stylizednature.html — CC0.
 
 ## Textures and sky
 
-- Ground albedo, normal, roughness, and height are a blend of ambientCG Grass004, Ground037, and Rock051 — https://ambientcg.com — CC0. Baked into `assets/textures/ground_*.jpg`.
+- Ground color, normal, and roughness are ambientCG Grass004, Ground037, and Rock051 — https://ambientcg.com — CC0. The hunt shader splats `assets/textures/grass_*.jpg`, `dirt_*.jpg`, and `rock_*.jpg`.
 - Sky: Poly Haven `kloofendal_48d_partly_cloudy_puresky` (1k) — https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky — CC0. File `assets/textures/sky.hdr`.
 - `assets/textures/dust.png` is drawn for this game.
 
 ## Interface pictures
 
-- Portraits on the hunt medallion, collection cards, the collection log, and the slayer panel are Kenney's [Animal Pack Redux](https://opengameart.org/content/animal-pack-redux) (CC0).
+- The hunt medallion is a live render of the hero's 3D model. Collection cards, the collection log, and the slayer panel still use Kenney's [Animal Pack Redux](https://opengameart.org/content/animal-pack-redux) (CC0).
 - Credit to Kenney (www.kenney.nl) is appreciated and not required.
 - `icon.png` is drawn by `tools/make_icon.py`.
 

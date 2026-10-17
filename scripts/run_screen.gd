@@ -111,7 +111,7 @@ func open(args: Dictionary = {}) -> void:
 	marks.sim = sim
 	var info := Catalog.critter(hero_id)
 	name_label.text = str(info["name"])
-	face.texture = SpriteBank.critter(hero_id)
+	face.texture = stage.portrait_of(hero_id)
 	SaveGame.set_featured(hero_id)
 	_mount_pet()
 
@@ -1012,7 +1012,7 @@ class StickLayer extends Control:
 	var knob := Vector2.ZERO
 	var vec := Vector2.ZERO
 	var hint := 1.0
-	var hint_left := 3.0
+	var hint_left := 1.2
 
 	func place(at: Vector2) -> void:
 		var delta := at - origin
