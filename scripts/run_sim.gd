@@ -51,7 +51,7 @@ const MINION_XP := 0.7
 ## What the far follow camera frames on the ground, relative to the hero
 ## (sim px; Stage3D DIST 34, FOV 40, AIM +1.5, pitch 58; tools: viewbox.py). The far edge is
 ## wider than the near one; the box takes the wider. Packs spawn just past it.
-const VIEW_BOX := Rect2(-627.0, -1857.0, 1254.0, 2710.0)
+const VIEW_BOX := Rect2(-802.0, -2377.0, 1604.0, 3469.0)
 const SPAWN_MARGIN := 24.0
 ## Heroes fight only when planted: moving is a clean run, and the first shot
 ## comes this long after the stick is released.
@@ -69,7 +69,7 @@ var explore := false
 var fog_seen := PackedByteArray()
 var fog_now := PackedByteArray()
 var fog_dirty := true
-const REVEAL := 980.0
+const REVEAL := 1200.0
 const AGGRO_CAMP := 430.0
 const AGGRO_PATROL := 380.0
 const LEASH := 1500.0

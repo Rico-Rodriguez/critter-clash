@@ -1859,10 +1859,26 @@ class MiniMap extends Control:
 	var _veil: ImageTexture
 	var _veil_img: Image
 	var _t := 0.0
-	const SMALL := Vector2(176, 300)
+	var _paper: TextureRect
+	var _mat: ShaderMaterial
+	var _marks: Control
+	## Corner disc, in UI px, and how much of the map it spans (px of world).
+	const DIAM := 150.0
+	const SPAN := 3600.0
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		_mat = ShaderMaterial.new()
+		_mat.shader = load("res://shaders/minimap.gdshader")
+		_paper = TextureRect.new()
+		_paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_paper.material = _mat
+		_paper.stretch_mode = TextureRect.STRETCH_SCALE
+		add_child(_paper)
+		_marks = Marks.new()
+		_marks.map = self
+		_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_marks)
 		_layout()
 		get_viewport().size_changed.connect(_layout)
 
@@ -1876,8 +1892,14 @@ class MiniMap extends Control:
 			size = Vector2(w, h)
 			position = Vector2((view.x - w) * 0.5, float(pad["t"]) + 120.0 + (view.y - float(pad["t"]) - float(pad["b"]) - 200.0 - h) * 0.5)
 		else:
-			size = SMALL
-			position = Vector2(view.x - float(pad["r"]) - SMALL.x - 18.0, float(pad["t"]) + 200.0)
+			size = Vector2(DIAM, DIAM)
+			position = Vector2(view.x - float(pad["r"]) - DIAM - 22.0, float(pad["t"]) + 196.0)
+		if _paper != null:
+			_paper.position = Vector2.ZERO
+			_paper.size = size
+			_marks.size = size
+			_mat.set_shader_parameter("round_mask", not big)
+			_mat.set_shader_parameter("px_size", size)
 		queue_redraw()
 
 	func _gui_input(event: InputEvent) -> void:
@@ -1902,7 +1924,18 @@ class MiniMap extends Control:
 		if _t >= 0.25:
 			_t = 0.0
 			_bake_veil()
+		_aim()
 		queue_redraw()
+		_marks.queue_redraw()
+
+	## Where the paper looks: the whole map when big, else a disc on the hero.
+	func _aim() -> void:
+		if big or sim.heroes.is_empty():
+			_mat.set_shader_parameter("center_uv", Vector2(0.5, 0.5))
+			_mat.set_shader_parameter("span_uv", Vector2.ONE)
+			return
+		_mat.set_shader_parameter("center_uv", sim.heroes[0].pos / sim.map.size)
+		_mat.set_shader_parameter("span_uv", Vector2(SPAN, SPAN) / sim.map.size)
 
 	func _bake_base() -> void:
 		var m := sim.map
@@ -1911,55 +1944,112 @@ class MiniMap extends Control:
 			for x in m.grid_w:
 				var c := Vector2((x + 0.5) * HuntMap.GRID, (y + 0.5) * HuntMap.GRID)
 				var open := m.open_cells[y * m.grid_w + x] == 1
-				var col := Color(0.07, 0.1, 0.07, 0.92)
+				# Explored woods: deep green. Open ground: pale moss. Paths: sand.
+				var col := Color(0.13, 0.22, 0.14)
 				if open:
-					col = Color(0.62, 0.55, 0.38, 0.95)
+					col = Color(0.5, 0.62, 0.36)
 					if m.trail_dist(c) < 70.0:
-						col = Color(0.78, 0.64, 0.42, 0.98)
+						col = Color(0.9, 0.76, 0.5)
 				img.set_pixel(x, y, col)
 		_base = ImageTexture.create_from_image(img)
 		_veil_img = Image.create(m.grid_w, m.grid_h, false, Image.FORMAT_RGBA8)
 		_bake_veil()
+		_paper.texture = _base
+		_mat.set_shader_parameter("base_tex", _base)
 
 	func _bake_veil() -> void:
 		var m := sim.map
 		var data := PackedByteArray()
 		data.resize(m.grid_w * m.grid_h * 4)
 		for i in m.grid_w * m.grid_h:
-			data[i * 4] = 8
-			data[i * 4 + 1] = 7
-			data[i * 4 + 2] = 10
-			data[i * 4 + 3] = 0 if sim.fog_seen[i] == 1 else 250
+			data[i * 4 + 3] = 0 if sim.fog_seen[i] == 1 else 255
 		_veil_img.set_data(m.grid_w, m.grid_h, false, Image.FORMAT_RGBA8, data)
 		if _veil == null:
 			_veil = ImageTexture.create_from_image(_veil_img)
+			_mat.set_shader_parameter("veil_tex", _veil)
 		else:
 			_veil.update(_veil_img)
 
-	func _to_map(p: Vector2, r: Rect2) -> Vector2:
-		return r.position + p / sim.map.size * r.size
+	## World px -> local UI px, for the current view.
+	func _to_ui(p: Vector2) -> Vector2:
+		if big:
+			return p / sim.map.size * size
+		var h: Vector2 = sim.heroes[0].pos if not sim.heroes.is_empty() else sim.map.size * 0.5
+		return size * 0.5 + (p - h) / SPAN * DIAM
+
+	func _inside(q: Vector2, margin: float) -> bool:
+		return big or q.distance_to(size * 0.5) <= DIAM * 0.5 - margin
+
+	func _bronze_ring(ci: CanvasItem, c: Vector2, r: float) -> void:
+		# Forged bronze: a dark outer lip, a warm cast band lit from the top
+		# left, a thin bright bevel on the inside, and four rivets.
+		ci.draw_arc(c, r + 7.0, 0.0, TAU, 64, Color(0.09, 0.06, 0.03, 0.85), 13.0, true)
+		var band := 9.0
+		for k in 48:
+			var a0 := TAU * k / 48.0
+			var a1 := TAU * (k + 1) / 48.0
+			var lit := 0.5 + 0.5 * cos(a0 + 2.36)
+			var col := Color(0.42, 0.27, 0.12).lerp(Color(0.86, 0.62, 0.32), lit)
+			col = col.darkened(0.12 * float(k % 3 == 0))
+			ci.draw_arc(c, r + band * 0.5 + 1.0, a0, a1 + 0.01, 3, col, band, true)
+		ci.draw_arc(c, r + band + 1.5, 0.0, TAU, 64, Color(0.2, 0.12, 0.05), 2.0, true)
+		ci.draw_arc(c, r + 1.0, 0.0, TAU, 64, Color(1.0, 0.86, 0.55, 0.85), 1.5, true)
+		ci.draw_arc(c, r - 0.5, 0.0, TAU, 64, Color(0.1, 0.06, 0.02, 0.9), 1.5, true)
+		for k in 4:
+			var ang := PI * 0.25 + PI * 0.5 * k
+			var at := c + Vector2.RIGHT.rotated(ang) * (r + band * 0.5 + 1.0)
+			ci.draw_circle(at, 3.6, Color(0.18, 0.1, 0.04))
+			ci.draw_circle(at, 2.6, Color(0.95, 0.78, 0.45))
+			ci.draw_circle(at + Vector2(-0.8, -0.8), 1.0, Color(1, 0.97, 0.85))
+		# Engraved north notch.
+		var n := c + Vector2(0, -(r + band * 0.5 + 1.0))
+		ci.draw_colored_polygon(PackedVector2Array([n + Vector2(0, -5), n + Vector2(4, 3), n + Vector2(-4, 3)]), Color(0.16, 0.08, 0.03))
+
+	func _bronze_frame(ci: CanvasItem, r: Rect2) -> void:
+		ci.draw_rect(r.grow(8.0), Color(0.62, 0.42, 0.2), false, 7.0)
+		ci.draw_rect(r.grow(11.0), Color(0.24, 0.14, 0.06), false, 1.5)
+		ci.draw_rect(r.grow(4.5), Color(1.0, 0.86, 0.55, 0.85), false, 1.5)
+		for corner in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
+			ci.draw_circle(corner, 7.0, Color(0.2, 0.11, 0.04))
+			ci.draw_circle(corner, 5.0, Color(0.93, 0.74, 0.42))
+
+	func _skull(ci: CanvasItem, p: Vector2, s: float, found: bool) -> void:
+		var bone := Color(0.95, 0.9, 0.78) if found else Color(0.8, 0.76, 0.66, 0.75)
+		var ink := Color(0.12, 0.04, 0.06)
+		ci.draw_circle(p + Vector2(0, -s * 0.15), s * 1.05, ink)
+		ci.draw_rect(Rect2(p + Vector2(-s * 0.62, s * 0.2), Vector2(s * 1.24, s * 0.85)), ink, true)
+		ci.draw_circle(p + Vector2(0, -s * 0.15), s * 0.85, bone)
+		ci.draw_rect(Rect2(p + Vector2(-s * 0.45, s * 0.25), Vector2(s * 0.9, s * 0.6)), bone, true)
+		ci.draw_circle(p + Vector2(-s * 0.33, -s * 0.12), s * 0.24, ink)
+		ci.draw_circle(p + Vector2(s * 0.33, -s * 0.12), s * 0.24, ink)
+		ci.draw_colored_polygon(PackedVector2Array([p + Vector2(0, s * 0.12), p + Vector2(s * 0.12, s * 0.34), p + Vector2(-s * 0.12, s * 0.34)]), ink)
+		for k in 3:
+			ci.draw_line(p + Vector2(-s * 0.22 + k * s * 0.22, s * 0.5), p + Vector2(-s * 0.22 + k * s * 0.22, s * 0.85), ink, 1.0)
 
 	func _draw() -> void:
+		if big:
+			draw_rect(Rect2(-position, get_viewport_rect().size), Color(0, 0, 0, 0.6), true)
+
+	func draw_marks(ci: CanvasItem) -> void:
 		if sim == null or _base == null:
 			return
 		var r := Rect2(Vector2.ZERO, size)
+		var c := size * 0.5
 		if big:
-			draw_rect(Rect2(-position, get_viewport_rect().size), Color(0, 0, 0, 0.6), true)
-		# Frame: dark iron with a thin gilt line.
-		draw_rect(r.grow(7.0), Color(0.05, 0.04, 0.03, 0.9), true)
-		draw_rect(r.grow(4.0), Color(0.72, 0.56, 0.3, 0.9), false, 2.0)
-		draw_texture_rect(_base, r, false)
-		draw_texture_rect(_veil, r, false)
-		var k := r.size.x / sim.map.size.x
+			_bronze_frame(ci, r)
+		else:
+			_bronze_ring(ci, c, DIAM * 0.5)
 		var dot := 3.0 if not big else 5.0
 		# Chests once seen.
-		for c in sim.chests:
-			if bool(c["open"]) or not sim.seen_at(c["pos"]):
+		for ch in sim.chests:
+			if bool(ch["open"]) or not sim.seen_at(ch["pos"]):
 				continue
-			var p := _to_map(c["pos"], r)
-			draw_rect(Rect2(p - Vector2(dot, dot) * 1.2, Vector2(dot, dot) * 2.4), Color("ffd24a"), true)
-			draw_rect(Rect2(p - Vector2(dot, dot) * 1.2, Vector2(dot, dot) * 2.4), Color(0.2, 0.12, 0.02), false, 1.0)
-		# Known camps: one mark per camp with living members.
+			var p := _to_ui(ch["pos"])
+			if not _inside(p, 5.0):
+				continue
+			ci.draw_rect(Rect2(p - Vector2(dot, dot) * 1.3, Vector2(dot, dot) * 2.6), Color(0.2, 0.12, 0.02), true)
+			ci.draw_rect(Rect2(p - Vector2(dot, dot), Vector2(dot, dot) * 2.0), Color("ffd24a"), true)
+		# Known camps: crossed-blade marks, orange for elites.
 		var camps := {}
 		for a in sim.actors:
 			if a.alive and a.kind == "minion" and sim.seen_at(a.pos):
@@ -1969,28 +2059,42 @@ class MiniMap extends Control:
 				elif a.elite:
 					camps[key][1] = true
 		for key in camps:
-			var p := _to_map(camps[key][0], r)
-			draw_circle(p, dot * (1.6 if camps[key][1] else 1.1), Color("e0452f") if not camps[key][1] else Color("ff9a2a"))
-		# The lair: always marked, brighter once found.
-		var lp := _to_map(sim.map.lair, r)
+			var p := _to_ui(camps[key][0])
+			if not _inside(p, 6.0):
+				continue
+			var s := dot * (1.9 if camps[key][1] else 1.5)
+			var col := Color("ff9a2a") if camps[key][1] else Color("e8442c")
+			ci.draw_circle(p, s + 1.5, Color(0.12, 0.03, 0.02))
+			ci.draw_circle(p, s, col)
+			ci.draw_line(p + Vector2(-s, -s) * 0.55, p + Vector2(s, s) * 0.55, Color(0.15, 0.04, 0.02), 1.5)
+			ci.draw_line(p + Vector2(s, -s) * 0.55, p + Vector2(-s, s) * 0.55, Color(0.15, 0.04, 0.02), 1.5)
+		# The lair: a skull, always marked; on the corner disc it pins to the
+		# rim in its direction when it is out of view.
+		var lp := _to_ui(sim.map.lair)
 		var found := sim.seen_at(sim.map.lair)
-		var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 300.0)
-		draw_arc(lp, dot * 3.2, 0.0, TAU, 24, Color(0.85, 0.25, 0.9, 0.9 if found else 0.5 * pulse), 2.0)
-		draw_circle(lp, dot * 1.5, Color(0.85, 0.25, 0.9, 1.0 if found else 0.55))
+		var ls := dot * (2.6 if big else 2.2)
+		if not _inside(lp, ls + 2.0):
+			lp = c + (lp - c).normalized() * (DIAM * 0.5 - ls - 3.0)
+		_skull(ci, lp, ls, found)
 		# The hero: a gold arrowhead pointing where it faces.
 		if not sim.heroes.is_empty():
 			var h: RunSim.Actor = sim.heroes[0]
-			var hp := _to_map(h.pos, r)
+			var hp := _to_ui(h.pos)
 			var f := Vector2.RIGHT.rotated(h.facing)
-			var s := dot * 2.4
-			var pts := PackedVector2Array([hp + f * s, hp + f.rotated(2.5) * s * 0.8, hp + f.rotated(-2.5) * s * 0.8])
-			draw_colored_polygon(pts, Color("fff0b0"))
-			draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[0]]), Color(0.2, 0.1, 0.02), 1.5)
-			# What the screen shows, as a faint box.
-			var view := RunSim.VIEW_BOX
-			draw_rect(Rect2(hp + view.position * k * 0.62, view.size * k * 0.62), Color(1, 0.95, 0.8, 0.25), false, 1.0)
+			var s := dot * 2.6
+			var pts := PackedVector2Array([hp + f * s, hp + f.rotated(2.5) * s * 0.85, hp - f * s * 0.35, hp + f.rotated(-2.5) * s * 0.85])
+			ci.draw_colored_polygon(pts, Color("fff0b0"))
+			ci.draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color(0.2, 0.1, 0.02), 1.5, true)
 		if big:
 			var font: Font = UiKit.font_b
 			var pct := int(round(sim.explored() * 100.0))
-			draw_string(font, Vector2(0, -16), "%s   explored %d%%" % [str(sim.biome.get("name", "Map")).to_upper(), pct], HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color("f2e4c4"))
-			draw_string(font, Vector2(0, r.size.y + 40), "Tap to close", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.9, 0.85, 0.75, 0.7))
+			ci.draw_string(font, Vector2(0, -20), "%s   explored %d%%" % [str(sim.biome.get("name", "Map")).to_upper(), pct], HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color("f2e4c4"))
+			ci.draw_string(font, Vector2(0, r.size.y + 44), "Tap to close", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.9, 0.85, 0.75, 0.7))
+
+
+## Draws the minimap's frame and markers above its paper.
+class Marks extends Control:
+	var map: Control
+
+	func _draw() -> void:
+		map.call("draw_marks", self)
