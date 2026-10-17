@@ -12,6 +12,7 @@ static func run() -> int:
 	_steer()
 	_maps()
 	_cards()
+	_pools_check()
 	_fights()
 	_kite()
 	_dodge_check()
@@ -26,9 +27,9 @@ static func _roles() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	var exclusive := {
-		"mage": ["mage_radius", "mage_power", "meteor", "arcane_orb"],
-		"archer": ["archer_pierce", "volley", "hunters_mark"],
-		"tank": ["tank_thorns", "tank_bash", "earthquake", "bulwark", "taunt_roar"],
+		"mage": ["mage_radius", "mage_power", "mage_chain", "mage_crit", "meteor", "arcane_orb"],
+		"archer": ["archer_pierce", "multishot", "archer_crit", "archer_haste", "volley", "hunters_mark"],
+		"tank": ["tank_thorns", "tank_bash", "earthquake", "bulwark", "taunt_roar", "tank_armor"],
 	}
 	var all_ex: Array = []
 	for role in exclusive.keys():
@@ -255,6 +256,89 @@ static func _cards() -> void:
 				sim.choose(0)
 				sim.drain_events()
 	print("CARDS ", Catalog.CARDS.size(), " ok")
+
+
+## Blessing pools: each card in exactly one pool, class pools hold enough
+## cards, and 2000 seeded offers per role respect class exclusivity, maxes,
+## uniques, duplicates and the one-class-card guarantee. card_text is checked
+## for every rank and must carry the rank total for stackables.
+static func _pools_check() -> void:
+	var counts := {"general": 0, "tank": 0, "archer": 0, "mage": 0}
+	for entry in Catalog.CARDS:
+		var id := str(entry.get("id", ""))
+		var pool := Catalog.pool_of(id)
+		if not counts.has(pool):
+			_fail("card %s has unknown pool %s" % [id, pool])
+			return
+		counts[pool] = int(counts[pool]) + 1
+		if bool(entry.get("stack", false)) != (int(entry.get("max", 1)) > 1):
+			_fail("card %s stack flag mismatch" % id)
+			return
+	if int(counts["general"]) < 14:
+		_fail("general pool only %d" % int(counts["general"]))
+	for role in ["tank", "archer", "mage"]:
+		if int(counts[role]) < 6:
+			_fail("%s pool only %d" % [role, int(counts[role])])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	for role in ["tank", "archer", "mage"]:
+		for _i in 2000:
+			var stacks := {}
+			for entry in Catalog.CARDS:
+				stacks[str(entry["id"])] = rng.randi_range(0, int(entry["max"]))
+			var offer: Array = Catalog.roll_offer(role, stacks, rng)
+			if offer.size() != 3:
+				_fail("%s offer size %d" % [role, offer.size()])
+				return
+			var seen := {}
+			var has_class := false
+			for id in offer:
+				var sid := str(id)
+				if seen.has(sid):
+					_fail("%s duplicate %s" % [role, sid])
+					return
+				seen[sid] = true
+				if sid == "snack":
+					continue
+				var entry := Catalog.card(sid)
+				if entry.is_empty():
+					_fail("unknown card " + sid)
+					return
+				var card_pool := Catalog.pool_of(sid)
+				if card_pool != "general" and card_pool != role:
+					_fail("%s offered %s from %s" % [role, sid, card_pool])
+					return
+				if card_pool == role:
+					has_class = true
+				var have := int(stacks.get(sid, 0))
+				if have >= int(entry.get("max", 1)):
+					_fail("%s offered %s at max" % [role, sid])
+					return
+			if _class_available(role, stacks) and not has_class:
+				_fail("%s offer had no class card" % role)
+				return
+	for entry in Catalog.CARDS:
+		var id := str(entry["id"])
+		for have in range(0, int(entry["max"])):
+			var text := Catalog.card_text(id, have)
+			if text.strip_edges() == "":
+				_fail("empty card_text for %s rank %d" % [id, have])
+				return
+			if bool(entry.get("stack", false)):
+				var total := float(entry.get("n", 0)) * float(have + 1)
+				if text.find(Catalog.fmt_amount(total)) < 0:
+					_fail("card_text %s rank %d missing total %s" % [id, have, Catalog.fmt_amount(total)])
+					return
+	print("POOLS ok, general %d tank %d archer %d mage %d" % [int(counts["general"]), int(counts["tank"]), int(counts["archer"]), int(counts["mage"])])
+
+
+static func _class_available(role: String, stacks: Dictionary) -> bool:
+	for entry in Catalog.CARDS:
+		if Catalog.pool_of(str(entry["id"])) != role:
+			continue
+		if int(stacks.get(str(entry["id"]), 0)) < int(entry["max"]):
+			return true
+	return false
 
 
 static func _fights() -> void:

@@ -987,6 +987,9 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 func _offer_card(index: int, id: String) -> Button:
 	var info := Catalog.card(id)
 	var rarity := str(info.get("rarity", "common"))
+	var have := int(sim.stacks.get(id, 0)) if sim != null else 0
+	var rank := have + 1
+	var stack := bool(info.get("stack", false))
 	var button := OfferCard.new()
 	button.rarity = rarity
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1012,15 +1015,42 @@ func _offer_card(index: int, id: String) -> Button:
 	icon.custom_minimum_size = Vector2(0, 214)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
+	var name_row := HBoxContainer.new()
+	name_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	name_row.add_theme_constant_override("separation", 6)
+	name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(name_row)
 	var name := UiKit.label(str(info.get("name", id)), 28, UiKit.GOLD.lightened(0.2), "x", 3)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(name)
-	var desc := UiKit.label(str(info.get("desc", "")), 26, UiKit.MUTED.lightened(0.3), "m", 3)
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(name)
+	if stack and rank >= 2:
+		# Rank badge: the numeral this pick would reach (I stays bare).
+		var badge := UiKit.label(_roman(rank), 22, UiKit.GOLD, "x", 3)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		badge.custom_minimum_size = Vector2(30, 30)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_row.add_child(badge)
+	var desc := UiKit.label(Catalog.card_text(id, have), 26, UiKit.MUTED.lightened(0.3), "m", 3)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(desc)
 	return button
+
+
+## Roman numeral for a card rank badge, capped at X.
+static func _roman(n: int) -> String:
+	var value := clampi(n, 1, 10)
+	var vals := [10, 9, 5, 4, 1]
+	var syms := ["X", "IX", "V", "IV", "I"]
+	var out := ""
+	for i in vals.size():
+		while value >= int(vals[i]):
+			out += str(syms[i])
+			value -= int(vals[i])
+	return out
 
 
 func _pick(index: int) -> void:
