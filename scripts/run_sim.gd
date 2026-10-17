@@ -38,6 +38,14 @@ var boss: Actor = null
 var slain := 0
 var boss_mark := 0
 var spawn_cd := 0.35
+const MAX_MINIONS := 14
+const PACK_SIZE := 8
+## Packs are bigger and each critter softer than the old trickle, so a wave
+## crowds the screen without changing how much XP a hunt pays.
+const MINION_HP := 0.5
+const MINION_XP := 0.5
+## Ellipse just outside the hunt camera's view, in playfield pixels.
+const SPAWN_RING := Vector2(250.0, 330.0)
 var _next_id := 1
 var bases: Dictionary = {}
 
@@ -266,8 +274,8 @@ func _spawn_hero(id: String, stats: Dictionary, index: int) -> void:
 	actors.append(hero)
 	heroes.append(hero)
 	if index == 0:
-		_spawn_minion(0)
-		_spawn_minion(0)
+		# Open on a pack already closing in, so the first second has a fight.
+		_spawn_pack(0, PACK_SIZE)
 
 
 func _copy_combat(hero: Actor) -> void:
@@ -790,19 +798,32 @@ func _step_spawns(dt: float) -> void:
 	spawn_cd -= dt
 	if spawn_cd > 0.0:
 		return
-	if _minion_count() >= 8:
+	if _minion_count() >= MAX_MINIONS:
 		spawn_cd = 0.28
 		return
 	var wave := _wave()
 	if wave.is_empty():
 		spawn_cd = 0.4
 		return
+	# Critters arrive as packs from one side, so the screen fills in waves
+	# instead of one at a time. The pack interval keeps the old pace per critter.
 	var pool: Array = wave["pool"]
-	_spawn_minion(int(pool[rng.randi() % pool.size()]))
-	spawn_cd = float(wave["every"])
+	var size := mini(PACK_SIZE + int(time / 30.0), MAX_MINIONS - _minion_count())
+	_spawn_pack(int(pool[rng.randi() % pool.size()]), size, pool)
+	spawn_cd = float(wave["every"]) * float(maxi(size, 2)) * 0.45
 
 
-func _spawn_minion(skin_index: int) -> void:
+func _spawn_pack(skin_index: int, count: int, pool: Array = []) -> void:
+	var center := _spawn_point()
+	for i in count:
+		var skin := skin_index
+		if not pool.is_empty() and i % 3 == 2:
+			skin = int(pool[rng.randi() % pool.size()])
+		var offset := Vector2(rng.randf_range(-70, 70), rng.randf_range(-70, 70))
+		_spawn_minion(skin, _clamp_point(center + offset, 24.0))
+
+
+func _spawn_minion(skin_index: int, at: Vector2 = Vector2.INF) -> void:
 	var skins: Array = biome["skins"]
 	var id := str(skins[clampi(skin_index, 0, skins.size() - 1)])
 	var info := Catalog.critter(id)
@@ -813,14 +834,14 @@ func _spawn_minion(skin_index: int) -> void:
 	actor.sprite = id
 	actor.display = str(info.get("name", id))
 	actor.archetype = str(info.get("archetype", "chaser"))
-	actor.pos = _spawn_point()
+	actor.pos = at if at != Vector2.INF else _spawn_point()
 	actor.prev = actor.pos
 	actor.radius = float(info.get("radius", 24))
-	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"])
+	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP
 	actor.hp = actor.max_hp
 	actor.speed = float(info.get("speed", 100))
 	actor.dmg = float(info.get("dmg", 8)) * float(biome["dmg_mul"])
-	actor.xp = int(info.get("xp", 2))
+	actor.xp = maxi(1, int(round(float(info.get("xp", 2)) * MINION_XP)))
 	actor.interval = float(info.get("interval", 1.35))
 	actor.shot_speed = float(info.get("shot_speed", 240))
 	actor.range = float(info.get("shot_range", 280))
@@ -1099,8 +1120,16 @@ func _spawn_point() -> Vector2:
 	var at := play.get_center()
 	if not heroes.is_empty():
 		at = heroes[0].pos
-	var zone := map.zone_near(at)
-	return HuntMap.rim_point(zone["rect"], rng)
+	# Just past the edge of the follow camera's view, inside the zone. The
+	# playfield is far wider than what the 3D camera frames, so spawning on
+	# the zone rim left most of a wave walking in off screen.
+	var zone: Rect2 = map.zone_near(at)["rect"]
+	for _try in 8:
+		var dir := Vector2.from_angle(rng.randf() * TAU)
+		var p := at + Vector2(dir.x * SPAWN_RING.x, dir.y * SPAWN_RING.y)
+		if zone.grow(-30.0).has_point(p):
+			return p
+	return HuntMap.rim_point(zone, rng)
 
 
 func _clamp_actor(actor: Actor) -> void:

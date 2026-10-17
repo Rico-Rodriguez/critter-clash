@@ -177,21 +177,22 @@ static func _maps() -> void:
 	session.seed = 11
 	var sim := RunSim.new()
 	sim.start(session, {"ember": Catalog.base_stats("ember")})
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 11
 	var minions := 0
+	var hero_at: Vector2 = sim.heroes[0].pos
 	for actor in sim.actors:
 		if actor.kind != "minion":
 			continue
 		minions += 1
-		var expect := HuntMap.rim_point(play, rng)
-		if actor.pos.distance_to(expect) > 0.01:
-			_fail("spawn left the zone rim")
+		# Packs land just outside the camera's view, inside the zone.
+		if not play.has_point(actor.pos):
+			_fail("spawn left the zone")
 			return
-		rng.randf_range(0.15, 0.8)
-		rng.randf_range(0.0, 0.3)
-	if minions != 2:
-		_fail("expected two opening spawns")
+		var d := actor.pos.distance_to(hero_at)
+		if d < 150.0 or d > 480.0:
+			_fail("opening pack spawned %d px from the hero" % int(d))
+			return
+	if minions != RunSim.PACK_SIZE:
+		_fail("expected an opening pack of %d" % RunSim.PACK_SIZE)
 	var wide := HuntMap.explore("meadow", 4, 4)
 	if wide.size != Vector2(2880, 5120) or wide.chunks.size() != 16 or wide.zones.size() != 16:
 		_fail("4x4 map is not 16 chunks")
