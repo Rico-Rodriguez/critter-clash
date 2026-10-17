@@ -93,7 +93,22 @@ void fragment() {
 	vec3 dn = texture(dirt_normal, uv_d).rgb;
 	float shoulder = smoothstep(edge * 1.6, edge * 0.8, pd) * (1.0 - dirt_w);
 	grass *= 1.0 - shoulder * 0.16;
+	// Clover: small dark rich clumps scattered through the turf.
+	float clover = smoothstep(0.62, 0.74, fbm(w * 1.7 + 21.0)) * (1.0 - dirt_w);
+	grass = mix(grass, grass * vec3(0.62, 0.82, 0.55), clover * 0.75);
+	// Dry, sun-bleached tufts in broad drifts.
+	float dry = smoothstep(0.58, 0.8, fbm(w * 0.22 + 13.0));
+	grass = mix(grass, grass * vec3(1.18, 1.05, 0.7), dry * 0.45);
+	// Bare dirt scuffs out in the field, away from the trails.
+	float scuff = smoothstep(0.74, 0.8, fbm(w * 0.55 + 31.0)) * (0.6 + 0.4 * fbm(w * 4.0));
+	dirt_w = max(dirt_w, scuff * 0.85);
+	// Path wear: a compacted, darker tread down the middle of each trail.
+	float tread = smoothstep(edge * 0.35, 0.0, pd);
+	dirt *= 1.0 - tread * 0.18;
 	vec3 albedo = mix(grass, dirt, dirt_w);
+	// Soft ground occlusion in hollows and at the trail edges.
+	float hollow = smoothstep(0.55, 0.2, fbm(w * 0.4 + 5.0));
+	albedo *= 1.0 - hollow * 0.14 - shoulder * 0.06;
 	albedo *= tint;
 	float emit = 0.0;
 	if (snow > 0.0) {

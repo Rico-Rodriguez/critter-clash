@@ -409,8 +409,9 @@ func set_shake(offset: Vector2) -> void:
 func _lights() -> void:
 	var high := _tier() == "high"
 	sun = DirectionalLight3D.new()
-	sun.light_color = Color("f6c98a")
-	sun.light_energy = 1.35
+	# Warm late-afternoon key; the cool rim opposite keeps forms round.
+	sun.light_color = Color("ffc47e")
+	sun.light_energy = 1.55
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if high else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_blend_splits = true
@@ -445,22 +446,25 @@ func _environment(fog: Color, high: bool) -> Environment:
 	env.sky = sky
 	env.background_energy_multiplier = 0.32
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.55
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.95
+	# Lower ambient so sun shadows read as real contact and depth.
+	env.ambient_light_energy = 0.44
+	# Filmic AgX, a hair desaturated: mature, not candy.
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	env.tonemap_exposure = 1.08
 	env.tonemap_white = 6.5
 	env.adjustment_enabled = true
 	env.adjustment_brightness = 1.0
-	env.adjustment_contrast = 1.1
-	env.adjustment_saturation = 1.15
+	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 0.98
 	env.glow_enabled = true
 	env.glow_intensity = 0.12 if high else 0.08
 	env.glow_strength = 0.45
 	env.glow_bloom = 0.04
 	env.glow_hdr_threshold = 1.4
 	env.ssao_enabled = high
-	env.ssao_radius = 1.15
-	env.ssao_intensity = 1.35
+	env.ssao_radius = 1.3
+	env.ssao_intensity = 2.0
+	env.ssao_power = 1.8
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.42, 0.5, 0.6)
 	env.fog_density = 0.0016
@@ -794,7 +798,7 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		var blob := _decal(meters * (0.95 if boss else 1.1), {
 			"ring_color": Color(0.95, 0.22, 0.12, 0.42 if boss else 0.36),
 			"ring_radius": 0.4, "ring_width": 0.006 if boss else 0.012, "ring_glow": 0.6,
-			"shadow_alpha": 0.72 if boss else 0.42, "shadow_radius": 0.36 if boss else 0.42,
+			"shadow_alpha": 0.78 if boss else 0.58, "shadow_radius": 0.36 if boss else 0.42,
 			"pulse": 1.0, "ring_fade": 0.0,
 		})
 		blob.position.y = 0.03
@@ -1240,7 +1244,7 @@ func _place_mark(at: Vector3) -> void:
 			"ring_radius": 0.4,
 			"ring_width": 0.04,
 			"ring_glow": 0.45,
-			"shadow_alpha": 0.5,
+			"shadow_alpha": 0.64,
 			"shadow_radius": 0.34,
 			"pulse": 1.0,
 		})

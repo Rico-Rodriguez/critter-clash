@@ -80,7 +80,7 @@ func build() -> void:
 	shade.texture = SpriteBank.vignette()
 	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
-	shade.modulate = Color(1, 1, 1, 0.55)
+	shade.modulate = Color(1, 1, 1, 0.72)
 	add_child(shade)
 	threats = ThreatLayer.new()
 	threats.screen = self
