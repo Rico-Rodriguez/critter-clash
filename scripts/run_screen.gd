@@ -408,7 +408,8 @@ func _drain() -> void:
 		match str(ev.get("type", "")):
 			"hit":
 				var crit := bool(ev.get("crit", false))
-				_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ffe08a") if crit else Color("fff8ee"), crit)
+				if float(ev["amount"]) < 99999.0:
+					_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ffe08a") if crit else Color("fff8ee"), crit)
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
 				stage.hurt(int(ev["id"]))
@@ -718,6 +719,8 @@ func _show_rare(drop: Dictionary, boss_name: String) -> void:
 
 ## A forged end-of-hunt panel with a crest on top. Returns the inner column.
 func _end_panel(win: bool) -> VBoxContainer:
+	for f in floats:
+		f.visible = false
 	for c in modal.get_children():
 		if c is GoldBeam:
 			c.queue_free()
@@ -1112,19 +1115,19 @@ class Meter extends Control:
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
 		var rad := size.y * 0.5
-		UiKit.rr_fill(self, r.grow(2), rad + 2, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
-		UiKit.rr_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
+		UiKit.ch_fill(self, r.grow(2), rad + 2, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
+		UiKit.ch_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
 		var inner := r.grow(-3)
-		UiKit.rr_fill(self, inner, rad - 3, Color("080605"), Color("1c1510"))
+		UiKit.ch_fill(self, inner, rad - 3, Color("080605"), Color("1c1510"))
 		var bar := inner.grow(-2)
 		var ghost_w := bar.size.x * clampf(_ghost, 0.0, 1.0)
 		if ghost_w > bar.size.y * 0.6:
-			UiKit.rr_fill(self, Rect2(bar.position, Vector2(ghost_w, bar.size.y)), bar.size.y * 0.5, Color(1, 0.92, 0.8, 0.55), Color(1, 0.8, 0.6, 0.4))
+			UiKit.ch_fill(self, Rect2(bar.position, Vector2(ghost_w, bar.size.y)), bar.size.y * 0.5, Color(1, 0.92, 0.8, 0.55), Color(1, 0.8, 0.6, 0.4))
 		var width := bar.size.x * clampf(ratio, 0.0, 1.0)
 		if width > bar.size.y * 0.6:
 			var fr := Rect2(bar.position, Vector2(width, bar.size.y))
-			UiKit.rr_fill(self, fr, bar.size.y * 0.5, fill.lightened(0.25), fill.darkened(0.45))
-			UiKit.rr_fill(self, Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.38)), fr.size.y * 0.2, Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.0))
+			UiKit.ch_fill(self, fr, bar.size.y * 0.5, fill.lightened(0.25), fill.darkened(0.45))
+			UiKit.ch_fill(self, Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.38)), fr.size.y * 0.2, Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.0))
 		if segments > 1:
 			for i in range(1, segments):
 				var x := bar.position.x + bar.size.x * float(i) / float(segments)
@@ -1315,10 +1318,12 @@ class ThreatLayer extends Control:
 				if not boss and actor.max_hp > 0.0 and actor.hp < actor.max_hp:
 					_bar(head + Vector2(0, -10), clampf(actor.hp / actor.max_hp, 0.0, 1.0))
 				if boss:
-					# Keep the tag below the HUD even when the head is under it.
-					var tag := head + Vector2(0, -14)
-					tag.y = maxf(tag.y, band.position.y + 110.0)
-					_nameplate(tag, str(actor.display))
+					# Centred on the body's true middle. When the head is up under
+					# the HUD the boss bar already names it, so skip the tag
+					# rather than stacking a second title on the bar.
+					var tag := get_global_transform().affine_inverse() * stage.project_body(actor.id, pos, head_h) + Vector2(0, -14)
+					if tag.y >= band.position.y + 110.0:
+						_nameplate(tag, str(actor.display))
 			else:
 				offscreen.append([foot, boss])
 		for item in offscreen:

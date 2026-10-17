@@ -91,9 +91,9 @@ back = smooth(0.1, 0.75, -belly_dir)
 spine = np.exp(-(X / 0.9) ** 2) * back
 throat = belly * neck
 
-deep = np.array([0.26, 0.035, 0.04])
-crimson = np.array([0.50, 0.06, 0.06])
-flank = np.array([0.72, 0.13, 0.08])
+deep = np.array([0.17, 0.02, 0.05])
+crimson = np.array([0.28, 0.025, 0.065])
+flank = np.array([0.42, 0.035, 0.075])
 amber = np.array([0.80, 0.40, 0.15])
 cream = np.array([0.86, 0.62, 0.36])
 col = mix(np.broadcast_to(flank, base.shape).copy(), crimson, back)
@@ -124,9 +124,9 @@ tb = np.asarray(Image.fromarray((tilt * 255).astype(np.uint8)).filter(ImageFilte
 vein = np.clip((tilt - tb) * 6.0, 0, 1)
 edge_d = ndimage.distance_transform_edt(wing)
 edge = np.exp(-edge_d / 14.0)
-memb = np.array([0.30, 0.045, 0.05])
-vein_c = np.array([0.80, 0.30, 0.14])
-rim_c = np.array([0.86, 0.38, 0.16])
+memb = np.array([0.22, 0.03, 0.06])
+vein_c = np.array([0.66, 0.20, 0.14])
+rim_c = np.array([0.74, 0.26, 0.16])
 wcol = mix(np.broadcast_to(memb, base.shape).copy(), vein_c, np.clip(vein * 1.3, 0, 1))
 wcol = mix(wcol, rim_c, edge * 0.7)
 wcol = wcol * (0.9 + 0.1 * smooth(-1, 1, ny))[..., None]
@@ -139,7 +139,11 @@ col = np.where(horn[..., None], gold, col)
 
 # AO and cavities from the model's own maps over everything painted.
 cav = np.clip((tilt - tb) * 3.0, -1, 1)
-col = col * (0.45 + 0.55 * ao)[..., None]
+# Cool the occluded areas toward wine-violet so the shading is not just
+# darker orange.
+shade = (0.45 + 0.55 * ao)[..., None]
+cool = np.array([0.82, 0.86, 1.12])
+col = col * shade * (cool + (1 - cool) * ao[..., None])
 col = col * (1 - 0.3 * np.clip(-cav, 0, 1))[..., None]
 col = np.where(keep[..., None], base, col)
 col = np.where(cov[..., None], col, base)

@@ -24,6 +24,7 @@ const MAX_DENSITY := 1.65
 var viewport: SubViewport
 var camera: Camera3D
 var sun: DirectionalLight3D
+var _flash_mat: ShaderMaterial
 var world_root: Node3D
 var actor_root: Node3D
 var _look := Vector3.ZERO
@@ -315,6 +316,22 @@ func project(sim_pos: Vector2, height := 1.1) -> Vector2:
 	return rect.position + Vector2(screen.x / vp.x * rect.size.x, screen.y / vp.y * rect.size.y)
 
 
+## Like project(), but over the body's visual centre (models are often
+## offset from their origin), for tags that must sit centred on a creature.
+func project_body(actor_id: int, sim_pos: Vector2, height: float) -> Vector2:
+	var body: Node3D = _bodies.get(actor_id)
+	if camera == null or body == null:
+		return project(sim_pos, height)
+	if not body.has_meta("center_off"):
+		var c := _measure(body).get_center()
+		body.set_meta("center_off", Vector3(c.x, 0, c.z))
+	var at: Vector3 = body.global_transform * (body.get_meta("center_off") as Vector3) + Vector3(0, height, 0)
+	var screen := camera.unproject_position(at)
+	var rect := get_global_rect()
+	var vp := Vector2(viewport.size)
+	return rect.position + Vector2(screen.x / vp.x * rect.size.x, screen.y / vp.y * rect.size.y)
+
+
 func attack(actor_id: int) -> void:
 	if not _bodies.has(actor_id):
 		return
@@ -334,6 +351,24 @@ func hurt(actor_id: int) -> void:
 	body.set_meta("lock_until", Time.get_ticks_msec() / 1000.0 + 0.22)
 	_play(body, "hit")
 	_spark(body.position, Color("ffb15a"))
+	_flash(body)
+
+
+## A brief additive white pulse over the whole body: the classic hit flash.
+func _flash(body: Node3D) -> void:
+	if _flash_mat == null:
+		var sh := Shader.new()
+		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_add, cull_back, depth_draw_never;\nuniform float amount = 0.6;\nvoid fragment() {\n\tALBEDO = vec3(1.0, 0.86, 0.72) * amount;\n}\n"
+		_flash_mat = ShaderMaterial.new()
+		_flash_mat.shader = sh
+	var meshes := body.find_children("*", "MeshInstance3D", true, false)
+	for m in meshes:
+		if not str(m.name).begins_with("Catch"):
+			(m as MeshInstance3D).material_overlay = _flash_mat
+	get_tree().create_timer(0.08).timeout.connect(func() -> void:
+		for m in meshes:
+			if is_instance_valid(m):
+				(m as MeshInstance3D).material_overlay = null)
 
 
 func died(actor_id: int, sim_pos: Vector2, sprite: String) -> void:
@@ -490,7 +525,7 @@ func _foliage(biome_id: String) -> void:
 		"frost":
 			trees = ["tree_pine", "tree_pine_b", "bush"]
 		"volcano":
-			trees = ["tree_dead", "tree_twist", "rock_lava"]
+			trees = ["tree_dead", "tree_dead", "rock_lava"]
 	var pack := biome_id == "meadow" and ResourceLoader.exists("res://assets/models/sketchfab/nature/grove.glb")
 	if not pack:
 		for i in (8 if _tier() == "low" else 14):
@@ -1335,6 +1370,18 @@ func _open_around(hero: Vector3) -> void:
 		prop.visible = flat.length() > 3.1
 
 
+func _has_surface(root: Node, material_name: String) -> bool:
+	for m in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh := (m as MeshInstance3D).mesh
+		if mesh == null:
+			continue
+		for i in mesh.get_surface_count():
+			var mat := mesh.surface_get_material(i)
+			if mat != null and mat.resource_name == material_name:
+				return true
+	return false
+
+
 func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 	var path := "res://assets/models/sketchfab/nature/grove.glb"
 	if not ResourceLoader.exists(path):
@@ -1358,6 +1405,10 @@ func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 			piece.visible = false
 			continue
 		piece.visible = false
+		if _has_surface(piece, "Leaf_B"):
+			# Leaf_B is the pack's red-pink blossom; it fought every boss
+			# silhouette and read as candy against the forged palette.
+			continue
 		if "rock" in low or "stone" in low:
 			stones.append(piece)
 		else:

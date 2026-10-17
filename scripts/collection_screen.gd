@@ -183,17 +183,17 @@ class CardBar extends Control:
 	func _draw() -> void:
 		UiKit.ensure()
 		var r := Rect2(Vector2.ZERO, size)
-		UiKit.rr_fill(self, r.grow(1), size.y * 0.5, Color("8a6a3a"), Color("3a2410"))
-		UiKit.rr_fill(self, r.grow(-2), size.y * 0.5 - 2, Color("070504"), Color("1a140f"))
+		UiKit.ch_fill(self, r.grow(1), size.y * 0.5, Color("8a6a3a"), Color("3a2410"))
+		UiKit.ch_fill(self, r.grow(-2), size.y * 0.5 - 2, Color("070504"), Color("1a140f"))
 		var inner := Rect2(4, 4, maxf(0.0, (size.x - 8.0) * ratio), maxf(0.0, size.y - 8.0))
 		if inner.size.x > inner.size.y:
 			var hi := Color("7ad06a") if ready_up else Color("4aa3d8")
 			var lo := Color("1e5a22") if ready_up else Color("123e66")
-			UiKit.rr_fill(self, inner, inner.size.y * 0.5, hi, lo)
-			UiKit.rr_fill(self, Rect2(inner.position + Vector2(4, 1), Vector2(inner.size.x - 8, inner.size.y * 0.4)), inner.size.y * 0.2, Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.0))
+			UiKit.ch_fill(self, inner, inner.size.y * 0.5, hi, lo)
+			UiKit.ch_fill(self, Rect2(inner.position + Vector2(4, 1), Vector2(inner.size.x - 8, inner.size.y * 0.4)), inner.size.y * 0.2, Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.0))
 		var reserve := 40.0 if surplus > 0 else 0.0
-		UiKit.draw_text(self, UiKit.font_b, Vector2(8, size.y * 0.74), caption, 18, UiKit.CREAM, Color(0.04, 0.03, 0.02), 2, size.x - 16.0 - reserve)
+		UiKit.draw_text(self, UiKit.font_b, Vector2(8, size.y * 0.74), caption, 21, UiKit.CREAM, Color(0.04, 0.03, 0.02), 3, size.x - 16.0 - reserve)
 		if surplus > 0:
 			var pill := Rect2(size.x - 42, 3, 38, size.y - 6)
-			UiKit.rr_fill(self, pill, pill.size.y * 0.5, Color("ffe3a0"), Color("9a6a20"))
+			UiKit.ch_fill(self, pill, pill.size.y * 0.5, Color("ffe3a0"), Color("9a6a20"))
 			UiKit.draw_text(self, UiKit.font_b, Vector2(pill.position.x, size.y * 0.72), "+%d" % surplus, 15, Color("2a1806"), Color(1, 0.95, 0.8, 0.0), 0, pill.size.x)

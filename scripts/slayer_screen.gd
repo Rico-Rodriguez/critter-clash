@@ -181,12 +181,12 @@ class TaskBar extends Control:
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
 		var rad := size.y * 0.5
-		UiKit.rr_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
-		UiKit.rr_fill(self, r.grow(-3), rad - 3, Color("080605"), Color("1c1510"))
+		UiKit.ch_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
+		UiKit.ch_fill(self, r.grow(-3), rad - 3, Color("080605"), Color("1c1510"))
 		var bar := r.grow(-5)
 		var w := bar.size.x * ratio
 		if w > bar.size.y:
-			UiKit.rr_fill(self, Rect2(bar.position, Vector2(w, bar.size.y)), bar.size.y * 0.5, Color("d8352a").lightened(0.2), Color("d8352a").darkened(0.45))
+			UiKit.ch_fill(self, Rect2(bar.position, Vector2(w, bar.size.y)), bar.size.y * 0.5, Color("d8352a").lightened(0.2), Color("d8352a").darkened(0.45))
 
 
 class SectionRule extends Control:

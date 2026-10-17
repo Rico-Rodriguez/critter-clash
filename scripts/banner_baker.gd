@@ -89,7 +89,7 @@ func _bake(entry: Dictionary) -> void:
 				stage._place_prop(["grass_tall", "grass_wispy", "flower_a", "flower_b", "clover"][i % 5], at, frng.randf_range(0.6, 1.0), false)
 			for i in 14:
 				var at := look + Vector3(lerpf(-14.0, 14.0, i / 13.0) + frng.randf_range(-0.8, 0.8), 0, -11.0 - frng.randf_range(0.0, 5.0))
-				stage._place_prop(["tree_a", "tree_b", "tree_twist", "tree_pine"][i % 4], at, frng.randf_range(2.6, 3.6), true)
+				stage._place_prop(["tree_a", "tree_b", "tree_pine", "tree_pine_b"][i % 4], at, frng.randf_range(2.6, 3.6), true)
 		"mushroom":
 			# Dusk: indigo zenith over a rose-amber horizon.
 			if holder != null:
@@ -111,6 +111,21 @@ func _bake(entry: Dictionary) -> void:
 				holder.environment.adjustment_saturation = 0.72
 				holder.environment.adjustment_contrast = 1.18
 				holder.environment.tonemap_exposure = 0.88
+	# Clean silhouettes: no tall prop directly behind the boss (Thistle was
+	# lost against a red tree) and none filling the lens up front.
+	var cam_at := stage.camera.global_position
+	for prop in stage._props:
+		if not is_instance_valid(prop) or not prop is Node3D:
+			continue
+		var n := prop as Node3D
+		var tall := stage._measure(n).size.y * n.scale.y > 1.4
+		if not tall:
+			continue
+		var p := n.global_position
+		var behind_boss := absf(p.x - boss.position.x) < 3.2 and p.z < boss.position.z - 0.5
+		var in_lens := p.distance_to(cam_at) < 8.0
+		if behind_boss or in_lens:
+			n.visible = false
 	var cam_fx := CameraAttributesPractical.new()
 	cam_fx.dof_blur_far_enabled = true
 	cam_fx.dof_blur_far_distance = 17.0
