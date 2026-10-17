@@ -31,6 +31,9 @@ var revive_spent := false
 var events: Array = []
 var actors: Array[Actor] = []
 var heroes: Array[Actor] = []
+## Solid obstacles (x, y, radius) in sim space: the boss arena's standing
+## stones. Everything that walks steers around and slides along them.
+var obstacles: Array[Vector3] = []
 var shots: Array[Shot] = []
 var gems: Array[Gem] = []
 var pings: Array[Ping] = []
@@ -92,6 +95,12 @@ class Actor extends RefCounted:
 	var aoe_dmg := 20.0
 	var charge_dmg := 20.0
 	var shot_dmg := 10.0
+	var aim := 0.0
+	var windup := 0.0
+	var best_d := 1e9
+	var stall_t := 0.0
+	var side_t := 0.0
+	var side_dir := Vector2.ZERO
 
 
 class Shot extends RefCounted:
@@ -381,19 +390,11 @@ func _recompute(hero: Actor) -> void:
 ## smoothing. Speed eases only for a start or a stop, and that ramp is under
 ## 60ms. A reverse, or any change once already moving, snaps.
 static func ease_stick(current: Vector2, want: Vector2, dt: float) -> Vector2:
+	# No smoothing: the stick drives velocity directly on the next step.
+	# Start and stop feel comes from the visual lean and settle in Stage3D.
 	if want.length() > 1.0:
 		want = want.normalized()
-	var current_speed := current.length()
-	var rate := 1.0 / 0.045 * dt
-	if want.length() <= 0.02:
-		var speed := move_toward(current_speed, 0.0, rate)
-		if speed <= 0.02 or current_speed <= 0.0:
-			return Vector2.ZERO
-		return current / current_speed * speed
-	if current_speed < 0.2:
-		var speed := move_toward(current_speed, want.length(), rate)
-		return want / want.length() * speed
-	return want
+	return want if want.length() > 0.02 else Vector2.ZERO
 
 
 func _move_heroes(dt: float, moves: Array) -> void:
@@ -406,8 +407,9 @@ func _move_heroes(dt: float, moves: Array) -> void:
 			mv = moves[i]
 		if mv.length() > 1.0:
 			mv = mv.normalized()
-		hero.vel = mv * hero.speed
+		hero.vel = _slide(hero, mv * hero.speed)
 		hero.pos += hero.vel * dt
+		_push_out(hero)
 		if mv.length() > 0.08:
 			hero.facing = mv.angle()
 		hero.iframes = maxf(0.0, hero.iframes - dt)
@@ -426,14 +428,18 @@ func _hero_attacks() -> void:
 		var target := nearest_hostile(hero, hero.range)
 		if target == null:
 			continue
-		hero.facing = (target.pos - hero.pos).angle()
+		# Aim is separate from facing: while moving the hero keeps facing the
+		# stick; it only turns to its target when it stands still.
+		hero.aim = (target.pos - hero.pos).angle()
+		if hero.vel.length() < 20.0:
+			hero.facing = hero.aim
 		hero.cd = hero.interval
 		events.append({
 			"type": "attack",
 			"id": hero.id,
 			"role": hero.role,
 			"pos": hero.pos,
-			"facing": hero.facing,
+			"facing": hero.aim,
 			"range": hero.range,
 		})
 		if hero.role == "tank":
@@ -501,7 +507,7 @@ func _fan(hero: Actor, target: Actor) -> void:
 
 func _bash(hero: Actor) -> void:
 	var stacks_n := int(hero.stats["bash"])
-	var dir := Vector2.RIGHT.rotated(hero.facing)
+	var dir := Vector2.RIGHT.rotated(hero.aim)
 	var shot := Shot.new()
 	shot.team = hero.team
 	shot.owner_id = hero.id
@@ -532,21 +538,33 @@ func _step_minions(dt: float) -> void:
 		var dir := delta / dist if dist > 0.001 else Vector2.RIGHT
 		actor.facing = dir.angle()
 		if actor.archetype == "shooter":
-			if dist > actor.range:
-				actor.vel = dir * actor.speed
-			elif dist < actor.range * 0.55:
-				actor.vel = -dir * actor.speed
+			if actor.windup > 0.0:
+				# Brace and wind up; the shot leaves on the release frame.
+				actor.vel = Vector2.ZERO
+				actor.windup -= dt
+				if actor.windup <= 0.0:
+					_enemy_shot(actor, target, actor.dmg, actor.shot_speed)
+					events.append({"type": "attack", "id": actor.id})
+					actor.cd = actor.interval
 			else:
-				actor.vel = Vector2(-dir.y, dir.x) * actor.speed * 0.6
-			actor.pos += actor.vel * dt
-			if dist <= actor.range and actor.cd <= 0.0:
-				_enemy_shot(actor, target, actor.dmg, actor.shot_speed)
-				actor.cd = actor.interval
+				if dist > actor.range:
+					actor.vel = dir * actor.speed
+				elif dist < actor.range * 0.55:
+					actor.vel = -dir * actor.speed
+				else:
+					actor.vel = Vector2(-dir.y, dir.x) * actor.speed * 0.6
+				actor.vel = _steer(actor, actor.vel)
+				actor.pos += actor.vel * dt
+				if dist <= actor.range and actor.cd <= 0.0:
+					actor.windup = SHOOT_WINDUP
+					events.append({"type": "windup", "id": actor.id, "time": SHOOT_WINDUP})
 		else:
-			actor.vel = dir * actor.speed
+			actor.vel = _steer(actor, dir * actor.speed)
 			actor.pos += actor.vel * dt
+		_push_out(actor)
 		if actor.pos.distance_to(target.pos) < actor.radius + target.radius and actor.touch_cd <= 0.0:
 			actor.touch_cd = 0.74
+			events.append({"type": "attack", "id": actor.id})
 			_hurt(target, actor.dmg, actor.pos, false, actor, true)
 			if result != "":
 				return
@@ -563,12 +581,31 @@ func _step_boss(dt: float) -> void:
 		var focus := _focus_hero()
 		if focus != null:
 			var delta := focus.pos - boss.pos
-			if delta.length() > 168.0:
-				boss.vel = delta.normalized() * boss.speed
+			var d := delta.length()
+			if d > 168.0:
+				var want := delta.normalized() * boss.speed
+				# Unstick: no real progress for half a second means a stone
+				# or a wall is in the way, so sidestep along it for a beat.
+				boss.stall_t += dt
+				if d < boss.best_d - 14.0:
+					boss.best_d = d
+					boss.stall_t = 0.0
+				if boss.stall_t > 0.5 and boss.side_t <= 0.0:
+					boss.side_t = 0.6
+					boss.side_dir = _open_side(boss, delta.normalized())
+					boss.stall_t = 0.0
+					boss.best_d = d
+				if boss.side_t > 0.0:
+					boss.side_t -= dt
+					want = (boss.side_dir * 0.85 + delta.normalized() * 0.3).normalized() * boss.speed
+				boss.vel = _steer(boss, want)
 				boss.pos += boss.vel * dt
+				_push_out(boss)
 				boss.facing = boss.vel.angle()
 			else:
 				boss.vel = Vector2.ZERO
+				boss.best_d = d
+				boss.stall_t = 0.0
 		if boss.boss_timer <= 0.0:
 			_begin_attack()
 	elif boss.boss_state == "windup":
@@ -579,8 +616,14 @@ func _step_boss(dt: float) -> void:
 		if boss.attack == "charge":
 			var dash := 680.0 if enraged else 560.0
 			boss.vel = boss.boss_dir * dash
-			boss.pos += boss.vel * dt
+			var before := boss.pos + boss.vel * dt
+			boss.pos = before
+			_push_out(boss)
+			var clamped := _clamp_point(boss.pos, boss.radius)
 			boss.facing = boss.boss_dir.angle()
+			if boss.pos.distance_to(before) > 2.0 or clamped.distance_to(boss.pos) > 2.0:
+				# Slammed into a stone or the arena edge: end the charge.
+				boss.boss_timer = 0.0
 			for hero in heroes:
 				if hero.alive and boss.pos.distance_to(hero.pos) < boss.radius * 0.82 + hero.radius and boss.charge_cd <= 0.0:
 					boss.charge_cd = 0.38
@@ -608,6 +651,7 @@ func _step_boss(dt: float) -> void:
 func _begin_attack() -> void:
 	boss.attack = _pick_attack()
 	boss.boss_state = "windup"
+	events.append({"type": "windup", "id": boss.id, "time": 0.5})
 	var focus := _focus_hero()
 	if focus == null:
 		boss.boss_state = "idle"
@@ -638,6 +682,7 @@ func _begin_attack() -> void:
 
 
 func _release_attack() -> void:
+	events.append({"type": "attack", "id": boss.id})
 	boss.boss_state = "act"
 	if boss.attack == "charge":
 		boss.boss_timer = 0.38
@@ -888,6 +933,7 @@ func _spawn_boss() -> void:
 	actors.append(actor)
 	boss = actor
 	boss_mark = 0
+	_build_arena(actor.pos)
 	for other in actors:
 		if other.kind == "minion" and other.alive:
 			other.alive = false
@@ -1234,3 +1280,120 @@ func _nid() -> int:
 	var id := _next_id
 	_next_id += 1
 	return id
+
+
+const SHOOT_WINDUP := 0.28
+
+
+## The boss arena: a broken ring of standing stones around the fight,
+## centred between the boss's landing spot and the hero, wide enough that
+## both stand inside it. Gaps between stones fit the boss, so it weaves
+## through rather than walling the hero in. Stage3D renders these.
+func _build_arena(boss_at: Vector2) -> void:
+	obstacles.clear()
+	var hero_at := boss_at
+	if not heroes.is_empty():
+		hero_at = heroes[0].pos
+	var center := boss_at.lerp(hero_at, 0.5)
+	var radius := clampf(boss_at.distance_to(hero_at) * 0.5 + 375.0, 500.0, 650.0)
+	var r := RandomNumberGenerator.new()
+	r.seed = 7331
+	var count := 15
+	for i in count:
+		var jitter := r.randf_range(-0.08, 0.08)
+		var wob := r.randf_range(-20.0, 20.0)
+		if i % 5 == 4:
+			continue
+		var ang := TAU * float(i) / float(count) + jitter
+		var at := center + Vector2(cos(ang), sin(ang)) * (radius + wob)
+		if play.grow(-50.0).has_point(at):
+			obstacles.append(Vector3(at.x, at.y, ARENA_STONE_R))
+
+
+const ARENA_STONE_R := 40.0
+
+
+## Obstacle avoidance: look ahead along the wanted velocity and bend it
+## away from any stone in the path, and ease off the arena walls.
+func _steer(actor: Actor, want: Vector2) -> Vector2:
+	var speed := want.length()
+	if speed < 0.01:
+		return want
+	var dir := want / speed
+	var out := want
+	var body := actor.radius * (0.6 if actor.kind == "boss" else 0.8)
+	for o in obstacles:
+		var to := Vector2(o.x, o.y) - actor.pos
+		var along := to.dot(dir)
+		var look := body + o.z + speed * 0.45
+		if along <= 0.0 or along > look:
+			continue
+		var lateral := to - dir * along
+		var clear := o.z + body + 8.0
+		var ld := lateral.length()
+		if ld < clear:
+			var away := -lateral / ld if ld > 0.01 else Vector2(-dir.y, dir.x)
+			out += away * speed * 1.4 * (1.0 - ld / clear) * (1.0 - along / look * 0.5)
+	if actor.kind == "boss":
+		var margin := actor.radius + 70.0
+		var inward := Vector2.ZERO
+		inward.x += maxf(0.0, play.position.x + margin - actor.pos.x) - maxf(0.0, actor.pos.x - (play.end.x - margin))
+		inward.y += maxf(0.0, play.position.y + margin - actor.pos.y) - maxf(0.0, actor.pos.y - (play.end.y - margin))
+		out += inward * 2.0
+	return out.normalized() * speed if out.length() > 0.01 else want
+
+
+## Running into a stone slides along it instead of sticking: the inward
+## part of the velocity is dropped, and a head-on push turns into a glide
+## around the side the stick leans toward.
+func _slide(actor: Actor, vel: Vector2) -> Vector2:
+	var speed := vel.length()
+	if speed < 0.01:
+		return vel
+	var body := actor.radius * 0.8
+	for o in obstacles:
+		var c := Vector2(o.x, o.y)
+		var off := actor.pos - c
+		var d := off.length()
+		if d > o.z + body + 4.0 or d < 0.01:
+			continue
+		var n := off / d
+		var inward := vel.dot(n)
+		if inward >= 0.0:
+			continue
+		vel -= n * inward
+		if vel.length() < speed * 0.35:
+			var tangent := Vector2(-n.y, n.x)
+			if tangent.dot(vel) < 0.0 or (vel.length() < 1.0 and n.cross(-vel.normalized() if vel.length() > 0.0 else n) < 0.0):
+				tangent = -tangent
+			vel = tangent * speed * 0.8
+	return vel
+
+
+## Slide out of any stone the actor overlaps.
+func _push_out(actor: Actor) -> void:
+	var body := actor.radius * (0.6 if actor.kind == "boss" else 0.8)
+	for o in obstacles:
+		var c := Vector2(o.x, o.y)
+		var off := actor.pos - c
+		var d := off.length()
+		var need := o.z + body
+		if d < need:
+			actor.pos = c + (off / d if d > 0.01 else Vector2.RIGHT) * need
+
+
+## Which perpendicular has more open room: away from stones and walls.
+func _open_side(actor: Actor, dir: Vector2) -> Vector2:
+	var best := Vector2(-dir.y, dir.x)
+	var best_score := -1e9
+	for side in [Vector2(-dir.y, dir.x), Vector2(dir.y, -dir.x)]:
+		var probe: Vector2 = actor.pos + side * 160.0
+		var score := 0.0
+		if not play.grow(-actor.radius).has_point(probe):
+			score -= 1000.0
+		for o in obstacles:
+			score -= maxf(0.0, 220.0 - probe.distance_to(Vector2(o.x, o.y)))
+		if score > best_score:
+			best_score = score
+			best = side
+	return best

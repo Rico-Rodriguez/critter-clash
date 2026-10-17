@@ -224,7 +224,9 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		var body := _body_for(actor)
 		var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
 		body.position = _to3(pos)
-		body.rotation.y = lerp_angle(body.rotation.y, _yaw(actor.facing, body), 0.4)
+		var dt := get_process_delta_time()
+		var turn := 1.0 - exp(-(45.0 if actor.kind == "hero" else 16.0) * dt)
+		body.rotation.y = lerp_angle(body.rotation.y, _yaw(actor.facing, body), turn)
 		_anim(body, actor)
 		if actor.kind == "boss":
 			_boss_fx(body, actor)
@@ -240,11 +242,13 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 	_dist = lerpf(_dist, BOSS_DIST if boss_up else DIST, 0.08)
 	_update_xray(boss_up, boss_at, hero_at, sim)
 	var drop: Array = []
+	var now_s := Time.get_ticks_msec() / 1000.0
 	for id in _bodies.keys():
 		if seen.has(id):
 			continue
 		var body: Node3D = _bodies[id]
 		if bool(body.get_meta("dying", false)):
+			_dying(body, now_s)
 			if float(body.get_meta("die_at", 0.0)) + 1.1 < Time.get_ticks_msec() / 1000.0:
 				drop.append(id)
 		else:
@@ -282,7 +286,7 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		focus.z -= _boss_shift
 	else:
 		_boss_shift = 0.0
-	_follow(focus, 1.0 / 60.0)
+	_follow(focus, get_process_delta_time())
 
 
 func sync_fx(sim: RunSim, alpha: float) -> void:
@@ -409,8 +413,35 @@ func attack(actor_id: int) -> void:
 		return
 	var body: Node3D = _bodies[actor_id]
 	body.set_meta("lock", "attack")
+	body.set_meta("att_t", Time.get_ticks_msec() / 1000.0)
+	body.set_meta("wind_len", 0.0)
 	body.set_meta("lock_until", Time.get_ticks_msec() / 1000.0 + 0.38)
 	_play(body, "attack")
+	# Release flash at the mouth or weapon side.
+	var face := float(body.get_meta("face", PI))
+	var fwd := body.global_transform.basis * Vector3(sin(face), 0.0, cos(face))
+	var m := float(body.get_meta("meters", 1.0))
+	_spark(body.position + fwd.normalized() * m * 0.45 + Vector3(0, m * 0.45, 0), Color("ffd28a"))
+
+
+## Wind-up before a release: crouch, lean back and shiver (motion layer).
+func windup(actor_id: int, seconds: float) -> void:
+	if not _bodies.has(actor_id):
+		return
+	var body: Node3D = _bodies[actor_id]
+	body.set_meta("wind_t", Time.get_ticks_msec() / 1000.0)
+	body.set_meta("wind_len", seconds)
+
+
+## Level-up: a hop and full spin with a golden spark ring.
+func celebrate(actor_id: int) -> void:
+	if not _bodies.has(actor_id):
+		return
+	var body: Node3D = _bodies[actor_id]
+	body.set_meta("lvl_t", Time.get_ticks_msec() / 1000.0)
+	for i in 6:
+		var a := TAU * float(i) / 6.0
+		_spark(body.position + Vector3(cos(a), 0.3, sin(a)) * 0.9, Color("ffe08a"))
 
 
 func hurt(actor_id: int) -> void:
@@ -420,6 +451,7 @@ func hurt(actor_id: int) -> void:
 	if str(body.get_meta("lock", "")) == "death":
 		return
 	body.set_meta("lock", "hit")
+	body.set_meta("hit_t", Time.get_ticks_msec() / 1000.0)
 	body.set_meta("lock_until", Time.get_ticks_msec() / 1000.0 + 0.22)
 	_play(body, "hit")
 	_spark(body.position, Color("ffb15a"))
@@ -1588,6 +1620,9 @@ func _center_posed(body: Node3D, lift: float) -> void:
 	model.position -= Vector3(mid.x, 0.0, mid.z) / body.scale.x
 	if low > lift:
 		model.position.y -= (low - lift) / body.scale.y
+	# The procedural motion layer rebuilds the model transform from this
+	# base every frame, so the centred position must become the new base.
+	body.set_meta("model_base", model.position)
 
 
 func _spawn_model(sprite: String, meters: float) -> Node3D:
@@ -1629,9 +1664,19 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	_fix_pbr(model, sprite)
 	_tint(model, Cast3D.tint(sprite))
 	root.set_meta("model_base", model.position)
+	root.set_meta("meters", meters)
+	# No real run clip (or none at all): the procedural gait hops it along.
+	var has_run := false
+	if player != null:
+		var run_name := _clip_name(player, Cast3D.clips(sprite), "run")
+		var low := run_name.to_lower()
+		has_run = run_name != "" and (run_name == str(Cast3D.clips(sprite).get("run", "")) or ["run", "walk", "move", "locomotion"].any(func(k: String) -> bool: return k in low))
+	root.set_meta("has_run", has_run)
 	if Cast3D.model(sprite) == Cast3D.EMBER_CUTE:
 		root.set_meta("bob", true)
 		_add_wings(root, model, meters)
+	elif not has_run:
+		root.set_meta("bob", true)
 	return root
 
 
@@ -1857,6 +1902,8 @@ func _anim(body: Node3D, actor: RunSim.Actor) -> void:
 	var lock := str(body.get_meta("lock", ""))
 	var until := float(body.get_meta("lock_until", 0.0))
 	var now := Time.get_ticks_msec() / 1000.0
+	body.set_meta("speed_ms", actor.vel.length() * SCALE)
+	_motion(body, actor.vel.length() > 18.0, now, clampf(actor.vel.length() / maxf(actor.speed, 1.0), 0.0, 1.3))
 	if lock == "death" or not actor.alive:
 		body.set_meta("lock", "death")
 		_play(body, "death")
@@ -1867,37 +1914,148 @@ func _anim(body: Node3D, actor: RunSim.Actor) -> void:
 		body.set_meta("lock", "")
 	var moving := actor.vel.length() > 18.0
 	body.set_meta("moving", moving)
-	if bool(body.get_meta("bob", false)):
-		_bob(body, moving, now)
 	if moving:
-		_play(body, "run")
+		var player0: AnimationPlayer = body.get_meta("player")
+		var slow := actor.vel.length() < actor.speed * 0.5
+		if slow and player0 != null and _has_walk(player0, body):
+			_play(body, "walk")
+		else:
+			_play(body, "run")
+		# Cadence follows speed: half-tilted stick, half-speed legs.
+		var player: AnimationPlayer = body.get_meta("player")
+		var stt := str(body.get_meta("state", ""))
+		if player != null and (stt == "run" or stt == "walk"):
+			var ref := actor.speed * (0.5 if stt == "walk" else 1.0)
+			player.speed_scale = (1.0 if stt == "walk" else 1.15) * clampf(actor.vel.length() / maxf(ref, 1.0), 0.45, 1.3)
+		elif player != null and bool(body.get_meta("bob", false)):
+			# Hopping on the idle clip: keep it calm so the hop leads.
+			player.speed_scale = 0.6
 	else:
 		_play(body, "idle")
 
 
-## Procedural gait for a model with no run clip: a quick hop and a forward
-## lean while moving, so it never glides across the ground.
-func _bob(body: Node3D, moving: bool, now: float) -> void:
-	if body.get_child_count() == 0:
+## Procedural motion layer, rebuilt every frame on top of any clip:
+## - gait: a hop and forward lean for models without a run clip (a light
+##   lean for the rest), scaled by speed so it never glides
+## - idle breathing for models with no idle clip
+## - hit recoil (squash and a kick back), attack lunge on the release,
+##   a wind-up crouch and shiver before it, and a level-up hop and spin.
+func _motion(body: Node3D, moving: bool, now: float, speed_k: float) -> void:
+	if body.get_child_count() == 0 or bool(body.get_meta("dying", false)):
 		return
 	var model := body.get_child(0) as Node3D
 	var base: Vector3 = body.get_meta("model_base", model.position)
+	if not body.has_meta("model_scale"):
+		body.set_meta("model_scale", model.scale)
+	var s0: Vector3 = body.get_meta("model_scale")
+	var m := float(body.get_meta("meters", 1.0)) / maxf(body.scale.x, 0.001)
 	var face := float(body.get_meta("face", PI))
 	var fwd := Vector3(sin(face), 0.0, cos(face))
 	var axis := Vector3.UP.cross(fwd).normalized()
-	var k := float(body.get_meta("gait", 0.0))
-	k = move_toward(k, 1.0 if moving else 0.0, 0.08)
+	var dt := get_process_delta_time()
+	var was := float(body.get_meta("gait", 0.0))
+	# Fast in, fast out: the lean snaps on within ~60 ms and off within ~90.
+	var k := move_toward(was, 1.0 if moving else 0.0, dt / (0.06 if moving else 0.09))
 	body.set_meta("gait", k)
-	var hop := absf(sin(now * 11.0)) * 0.14 * k
-	var lean := (0.16 + sin(now * 22.0) * 0.03) * k
-	var s := model.scale
-	model.transform = Transform3D(Basis(axis, lean) * Basis.from_scale(s), base + Vector3(0, hop, 0))
+	if was > 0.6 and not moving and float(body.get_meta("stop_t", -10.0)) < now - 0.3:
+		body.set_meta("stop_t", now)
+	var off := Vector3.ZERO
+	var lean := 0.0
+	var spin := 0.0
+	var sq := Vector3.ONE
+	if bool(body.get_meta("bob", false)):
+		# Hop gait driven by distance covered, not time: one hop per stride,
+		# so the feet land where the ground is and nothing glides.
+		var meters := float(body.get_meta("meters", 1.0))
+		var stride := meters * 0.42
+		var phase := float(body.get_meta("phase", 0.0)) + float(body.get_meta("speed_ms", 0.0)) * dt / stride * PI
+		body.set_meta("phase", fmod(phase, TAU * 8.0))
+		var hop := absf(sin(phase))
+		off.y += hop * 0.1 * m * k
+		lean += (0.14 + 0.06 * speed_k) * k
+		# Squash on landing, stretch at the top of each hop.
+		sq *= Vector3(1.0 + 0.06 * (1.0 - hop) * k, 1.0 + (0.08 * hop - 0.05) * k, 1.0 + 0.06 * (1.0 - hop) * k)
+	else:
+		lean += 0.07 * k
+	# Settle on stop: a quick forward rock and squash that eases out.
+	var st := now - float(body.get_meta("stop_t", -10.0))
+	if st < 0.22:
+		var e := sin(PI * st / 0.22) * (1.0 - st / 0.22)
+		lean += 0.12 * e
+		sq *= Vector3(1.0 + 0.05 * e, 1.0 - 0.07 * e, 1.0 + 0.05 * e)
+	if body.get_meta("player") == null:
+		sq.y *= 1.0 + 0.03 * sin(now * 2.2 + float(body.get_instance_id() % 7))
+	var ht := now - float(body.get_meta("hit_t", -10.0))
+	if ht < 0.24:
+		var e := 1.0 - ht / 0.24
+		e *= e
+		sq *= Vector3(1.0 + 0.12 * e, 1.0 - 0.16 * e, 1.0 + 0.12 * e)
+		lean -= 0.22 * e
+		off -= fwd * 0.06 * m * e
+	var wt := now - float(body.get_meta("wind_t", -10.0))
+	var wl := float(body.get_meta("wind_len", 0.0))
+	if wt < wl:
+		var p := wt / maxf(wl, 0.01)
+		sq *= Vector3(1.0 + 0.08 * p, 1.0 - 0.12 * p, 1.0 + 0.08 * p)
+		lean -= 0.18 * p
+		off -= fwd * 0.1 * m * p
+		off += axis * sin(now * 70.0) * 0.012 * m * p
+	var at := now - float(body.get_meta("att_t", -10.0))
+	if at < 0.3:
+		var e := sin(PI * at / 0.3)
+		off += fwd * 0.22 * m * e
+		lean += 0.2 * e
+		sq *= Vector3(1.0 - 0.05 * e, 1.0 + 0.1 * e, 1.0 - 0.05 * e)
+	var lt := now - float(body.get_meta("lvl_t", -10.0))
+	if lt < 0.6:
+		var p := lt / 0.6
+		off.y += 4.0 * p * (1.0 - p) * 0.5 * m
+		spin = TAU * (1.0 - pow(1.0 - p, 3.0))
+	var basis := Basis(Vector3.UP, spin) * Basis(axis, lean)
+	model.transform = Transform3D(basis * Basis.from_scale(s0 * sq), basis * base + off)
 	var wings := body.get_node_or_null("Wings") as Node3D
 	if wings:
 		var wb: Vector3 = body.get_meta("wing_base", wings.position)
-		# Follow the hop, and tip forward with the lean around the hips.
-		wings.position = Basis(axis, lean) * wb + Vector3(0, hop, 0)
-		wings.basis = Basis(axis, lean) * Basis(Vector3.UP, face)
+		wings.position = basis * wb + off
+		wings.basis = basis * Basis(Vector3.UP, face)
+
+
+## Death: the model's own clip if it has one, else a topple; either way it
+## sinks and dissolves out instead of vanishing.
+func _dying(body: Node3D, now: float) -> void:
+	if body.get_child_count() == 0:
+		return
+	var d := clampf((now - float(body.get_meta("die_at", now))) / 1.0, 0.0, 1.0)
+	var model := body.get_child(0) as Node3D
+	var base: Vector3 = body.get_meta("model_base", model.position)
+	var s0: Vector3 = body.get_meta("model_scale", model.scale)
+	var m := float(body.get_meta("meters", 1.0)) / maxf(body.scale.x, 0.001)
+	var face := float(body.get_meta("face", PI))
+	var fwd := Vector3(sin(face), 0.0, cos(face))
+	var side := Vector3.UP.cross(fwd).normalized()
+	var has_clip := bool(body.get_meta("death_clip", false))
+	var topple := 0.0 if has_clip else 1.45 * (1.0 - pow(1.0 - minf(d * 2.2, 1.0), 3.0))
+	var sink := 0.35 * m * smoothstep(0.45, 1.0, d)
+	var flat := 1.0 - 0.25 * smoothstep(0.2, 0.6, d)
+	var basis := Basis(side, topple)
+	model.transform = Transform3D(basis * Basis.from_scale(s0 * Vector3(1.0, flat, 1.0)), basis * base - Vector3(0, sink, 0))
+	var fade := smoothstep(0.4, 1.0, d)
+	if absf(fade - float(body.get_meta("fade", -1.0))) > 0.02:
+		body.set_meta("fade", fade)
+		for gi in body.find_children("*", "GeometryInstance3D", true, false):
+			(gi as GeometryInstance3D).transparency = fade
+
+
+func _has_walk(player: AnimationPlayer, body: Node3D) -> bool:
+	if body.has_meta("walk_clip"):
+		return str(body.get_meta("walk_clip")) != ""
+	var found := ""
+	for anim in player.get_animation_list():
+		if "walk" in anim.to_lower():
+			found = anim
+			break
+	body.set_meta("walk_clip", found)
+	return found != ""
 
 
 func _play(body: Node3D, state: String) -> void:
@@ -1910,6 +2068,15 @@ func _play(body: Node3D, state: String) -> void:
 		return
 	var clips: Dictionary = body.get_meta("clips")
 	var name := _clip_name(player, clips, state)
+	if state == "walk":
+		name = str(body.get_meta("walk_clip", ""))
+	if state == "death":
+		var dn := _clip_name(player, clips, "death")
+		var has_death := dn != "" and dn != str(clips.get("idle", "")) and ["death", "die", "dead"].any(func(k: String) -> bool: return k in dn.to_lower())
+		body.set_meta("death_clip", has_death)
+		if not has_death:
+			player.pause()
+			return
 	if name != "" and player.has_animation(name):
 		player.play(name, 0.14)
 		if state == "attack":
@@ -1925,10 +2092,7 @@ func _play(body: Node3D, state: String) -> void:
 func _pose(body: Node3D, state: String) -> void:
 	# Models that have no death or hit clip still read the moment.
 	if state == "death":
-		body.rotation.z = 1.15
-		body.position.y -= 0.15
-	elif state == "hit":
-		body.scale = Vector3(1.08, 0.9, 1.08)
+		body.set_meta("death_clip", false)
 
 
 func _yaw(facing: float, body: Node3D) -> float:
@@ -1942,7 +2106,9 @@ func _follow(hero: Vector3, delta: float) -> void:
 		_look = hero
 		_ready_cam = true
 	else:
-		_look = _look.lerp(hero, 1.0 - exp(-12.0 * delta))
+		# Tight follow: the camera trails by a few cm at full speed, so the
+		# hero doesn't swim against the frame.
+		_look = _look.lerp(hero, 1.0 - exp(-22.0 * delta))
 	_frame(_look)
 
 

@@ -12,6 +12,7 @@ static func run() -> int:
 	_steer()
 	_maps()
 	_fights()
+	_kite()
 	if failures == 0:
 		print("SIM CHECK PASSED")
 		return 0
@@ -129,24 +130,18 @@ static func _save() -> void:
 
 
 static func _steer() -> void:
+	# The stick drives velocity directly: full speed on the first step,
+	# instant reverse, instant stop (feel comes from Stage3D's lean/settle).
 	var vel := Vector2.ZERO
 	vel = RunSim.ease_stick(vel, Vector2.RIGHT, STEP)
-	if vel.x <= 0.02 or vel.x > 0.55:
-		_fail("start should ease, got %s" % vel)
-	if vel.normalized().dot(Vector2.RIGHT) < 0.99:
-		_fail("heading did not match the stick")
-	for _i in 6:
-		vel = RunSim.ease_stick(vel, Vector2.RIGHT, STEP)
-	if vel.x < 0.95:
-		_fail("did not reach full speed, got %s" % vel)
-	vel = RunSim.ease_stick(vel, Vector2.LEFT, STEP)
-	if vel.x > -0.95:
-		_fail("reverse should snap, got %s" % vel)
-	if vel.normalized().dot(Vector2.LEFT) < 0.99:
-		_fail("reverse heading lagged")
+	if vel.x < 0.99:
+		_fail("start should be immediate, got %s" % vel)
+	vel = RunSim.ease_stick(vel, Vector2.LEFT * 0.5, STEP)
+	if absf(vel.x + 0.5) > 0.01:
+		_fail("partial tilt should map straight through, got %s" % vel)
 	vel = RunSim.ease_stick(vel, Vector2.ZERO, STEP)
-	if vel.x >= -0.02 or vel.x < -0.85:
-		_fail("stop should ease, got %s" % vel)
+	if vel != Vector2.ZERO:
+		_fail("stop should be immediate, got %s" % vel)
 
 
 static func _maps() -> void:
@@ -301,6 +296,61 @@ static func _play(hero: String, biome: String, seed: int, idle: bool) -> Diction
 	if sim.heroes.size() > 0:
 		hp = sim.heroes[0].hp
 	return {"result": sim.result, "time": sim.time, "level": sim.level, "hp": hp}
+
+
+## The hero kites the boss around the arena stones and into the corners;
+## the boss must keep closing in (no stall longer than ~1 s while chasing)
+## and never end up inside a stone.
+static func _kite() -> void:
+	var session := Session.solo("meadow", "pebble")
+	session.seed = 11
+	var sim := RunSim.new()
+	var stats := {"pebble": Catalog.base_stats("pebble")}
+	sim.start(session, stats)
+	sim.heroes[0].hp = 1e9
+	sim.heroes[0].max_hp = 1e9
+	sim.begin_boss()
+	if sim.obstacles.is_empty():
+		_fail("boss arena built no stones")
+	var inner := sim.play.grow(-110.0)
+	var corners := [inner.position, Vector2(inner.end.x, inner.position.y), inner.end, Vector2(inner.position.x, inner.end.y)]
+	var leg_t := 0.0
+	var leg := 0
+	var stall := 0.0
+	var worst := 0.0
+	var last := Vector2.INF
+	var t := 0.0
+	while t < 40.0 and sim.boss != null and sim.boss.alive:
+		if sim.paused:
+			if sim.offer.size() > 0:
+				sim.choose(0)
+			sim.paused = false
+		var hero: RunSim.Actor = sim.heroes[0]
+		var goal: Vector2 = corners[leg % 4]
+		leg_t += 1.0 / 60.0
+		# A corner can sit behind a stone; a player would give up and turn.
+		if hero.pos.distance_to(goal) < 60.0 or leg_t > 6.0:
+			leg += 1
+			leg_t = 0.0
+		var mv := (goal - hero.pos).normalized()
+		sim.step(1.0 / 60.0, [mv])
+		sim.drain_events()
+		t += 1.0 / 60.0
+		var b := sim.boss
+		for o in sim.obstacles:
+			if b.pos.distance_to(Vector2(o.x, o.y)) < o.z + b.radius * 0.6 - 1.0:
+				_fail("boss inside a stone")
+				return
+		var chasing := b.boss_state == "idle" and b.pos.distance_to(hero.pos) > 220.0
+		if chasing and last != Vector2.INF and b.pos.distance_to(last) < 0.5:
+			stall += 1.0 / 60.0
+		else:
+			stall = 0.0
+		worst = maxf(worst, stall)
+		last = b.pos
+	print("KITE boss worst stall %.2fs over %.0fs, legs %d" % [worst, t, leg])
+	if worst > 1.0:
+		_fail("boss stalled %.2fs while chasing" % worst)
 
 
 static func _best(sim: RunSim) -> int:

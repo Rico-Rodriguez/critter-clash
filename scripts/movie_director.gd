@@ -112,10 +112,13 @@ func _boss() -> void:
 	var run := await _run_screen()
 	await _wait(0.6)
 	run.sim.begin_boss()
-	await _wait(5.5)
+	await _wait(4.0)
+	# Kite the boss around the ring: it has to steer past the stones.
 	_touch(run, STICK_HOME, true)
-	await _hold(run, Vector2(-1, 0.3), 1.5)
+	for d in [Vector2(-1, 0.3), Vector2(0, 1), Vector2(1, 0.4), Vector2(1, -0.6), Vector2(-0.4, -1), Vector2(-1, 0)]:
+		await _hold(run, d, 1.1)
 	_touch(run, _finger_at, false)
+	await _wait(1.5)
 	await _wait(0.6)
 
 
