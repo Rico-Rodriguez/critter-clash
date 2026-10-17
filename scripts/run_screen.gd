@@ -41,7 +41,7 @@ var xp_meter: Meter
 var boss_meter: Meter
 var level_label: Label
 var name_label: Label
-var face: TextureRect
+var hero_medal: UiKit.Medal
 var clock_label: Label
 var boss_label: Label
 var banner: Label
@@ -118,13 +118,19 @@ func open(args: Dictionary = {}) -> void:
 	marks.sim = sim
 	var info := Catalog.critter(hero_id)
 	name_label.text = str(info["name"])
-	face.texture = SpriteBank.head(hero_id)
+	hero_medal.tex = SpriteBank.head(hero_id)
+	if hero_medal.face != null:
+		hero_medal.face.texture = hero_medal.tex
 	SaveGame.set_featured(hero_id)
 	_mount_pet()
 
 
 func _build_hud() -> void:
 	var pad := insets()
+	var scrim := Scrim.new()
+	scrim.top_h = float(pad["t"]) + 300.0
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(scrim)
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -140,91 +146,83 @@ func _build_hud() -> void:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 8)
-	var medallion := VBoxContainer.new()
-	medallion.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	medallion.add_theme_constant_override("separation", 2)
-	var ring := PanelContainer.new()
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ring_style := UiKit.rarity_box("legendary")
-	ring_style.content_margin_left = 4
-	ring_style.content_margin_right = 4
-	ring_style.content_margin_top = 4
-	ring_style.content_margin_bottom = 4
-	ring.add_theme_stylebox_override("panel", ring_style)
-	face = TextureRect.new()
-	face.custom_minimum_size = Vector2(72, 72)
-	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	face.texture = SpriteBank.critter("ember")
-	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.add_child(face)
-	medallion.add_child(ring)
-	name_label = UiKit.label("Hero", 16, UiKit.CREAM, "x", 3)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	medallion.add_child(name_label)
+	# Hero plate: portrait medal, name, and a segmented life bar.
+	var medal := UiKit.Medal.new()
+	medal.tex = SpriteBank.head("ember")
+	medal.custom_minimum_size = Vector2(98, 98)
+	row.add_child(medal)
+	hero_medal = medal
+	var info := VBoxContainer.new()
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.alignment = BoxContainer.ALIGNMENT_CENTER
+	info.add_theme_constant_override("separation", 4)
+	name_label = UiKit.label("Hero", 26, UiKit.GOLD.lightened(0.2), "x", 3)
+	info.add_child(name_label)
 	hp_meter = Meter.new()
-	hp_meter.fill = Color("ff4d4d")
+	hp_meter.fill = Color("d8352a")
 	hp_meter.segments = 10
-	hp_meter.custom_minimum_size = Vector2(168, 22)
-	medallion.add_child(hp_meter)
-	row.add_child(medallion)
+	hp_meter.custom_minimum_size = Vector2(230, 26)
+	info.add_child(hp_meter)
+	row.add_child(info)
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
-	var side := VBoxContainer.new()
+	var side := HBoxContainer.new()
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	side.alignment = BoxContainer.ALIGNMENT_END
-	side.add_theme_constant_override("separation", 6)
-	var clock_plate := PanelContainer.new()
+	side.alignment = BoxContainer.ALIGNMENT_CENTER
+	side.add_theme_constant_override("separation", 12)
+	var clock_plate := UiKit.Plate.new()
+	clock_plate.kind = "plaque"
+	clock_plate.pad = 10
 	clock_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var clock_style := UiKit.panel(Color("102848"), 16)
-	clock_style.content_margin_left = 12
-	clock_style.content_margin_right = 12
-	clock_style.content_margin_top = 2
-	clock_style.content_margin_bottom = 4
-	clock_plate.add_theme_stylebox_override("panel", clock_style)
-	clock_label = UiKit.label("0:00", 26, UiKit.CREAM, "x", 5)
+	clock_plate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	clock_label = UiKit.label("0:00", 26, UiKit.CREAM, "b", 3)
 	clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	clock_label.custom_minimum_size = Vector2(70, 0)
 	clock_plate.add_child(clock_label)
 	side.add_child(clock_plate)
-	var pause := UiKit.icon_button("II", 58, "blue")
-	pause.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var pause := UiKit.icon_button("II", 64, "steel")
+	pause.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pause.pressed.connect(_pause)
 	side.add_child(pause)
 	row.add_child(side)
 	top.add_child(row)
 	var xp_row := HBoxContainer.new()
 	xp_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	xp_row.add_theme_constant_override("separation", 6)
-	level_label = UiKit.label("1", 22, UiKit.CREAM, "x", 4)
-	var badge := PanelContainer.new()
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var badge_style := UiKit.panel(Color("f0a020"), 14)
-	badge_style.border_color = Color("5a3208")
-	badge_style.content_margin_left = 8
-	badge_style.content_margin_right = 8
-	badge_style.content_margin_top = 0
-	badge_style.content_margin_bottom = 2
-	badge.add_theme_stylebox_override("panel", badge_style)
-	badge.add_child(level_label)
-	xp_row.add_child(badge)
+	xp_row.add_theme_constant_override("separation", 8)
+	var lvl := UiKit.Plate.new()
+	lvl.kind = "plaque"
+	lvl.pad = 6
+	lvl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	level_label = UiKit.label("1", 24, UiKit.GOLD.lightened(0.2), "x", 3)
+	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_label.custom_minimum_size = Vector2(34, 0)
+	lvl.add_child(level_label)
+	xp_row.add_child(lvl)
 	xp_meter = Meter.new()
-	xp_meter.fill = Color("7dff5a")
-	xp_meter.custom_minimum_size = Vector2(0, 18)
+	xp_meter.fill = Color("3fb8a0")
+	xp_meter.custom_minimum_size = Vector2(0, 20)
 	xp_meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	xp_meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	xp_row.add_child(xp_meter)
 	top.add_child(xp_row)
-	boss_label = UiKit.label("", 28, Color("ffe08a"), "x", 6)
+	boss_label = UiKit.label("", 28, UiKit.GOLD.lightened(0.2), "x", 4)
 	boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	boss_label.visible = false
 	top.add_child(boss_label)
 	boss_meter = Meter.new()
-	boss_meter.fill = Color("ffd15a")
-	boss_meter.custom_minimum_size = Vector2(0, 26)
+	boss_meter.fill = Color("b8241c")
+	boss_meter.ornate = true
+	boss_meter.custom_minimum_size = Vector2(0, 30)
 	boss_meter.visible = false
-	top.add_child(boss_meter)
-	banner = UiKit.label("", 36, UiKit.CREAM, "x", 8)
+	var boss_wrap := MarginContainer.new()
+	boss_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_wrap.add_theme_constant_override("margin_left", 30)
+	boss_wrap.add_theme_constant_override("margin_right", 30)
+	boss_wrap.add_child(boss_meter)
+	top.add_child(boss_wrap)
+	banner = UiKit.label("", 38, UiKit.GOLD.lightened(0.25), "x", 4)
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner.modulate.a = 0.0
 	top.add_child(banner)
@@ -977,39 +975,81 @@ class CardIcon extends Control:
 		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -12), c + Vector2(14, 6), c + Vector2(-14, 6)]), col)
 
 
-class Meter extends Control:
-	var ratio := 1.0
-	var fill := Color("e25b4a")
-	var segments := 1
-	var _plate: StyleBoxFlat
-	var _ink: StyleBoxFlat
+## A forged bar: dark inset in a bronze rim, an enamel fill with a sheen,
+## segment ticks, and a pale "recent damage" ghost that drains behind it.
+## Soft dark gradients at the top and bottom so the HUD reads over bright ground.
+class Scrim extends Control:
+	var top_h := 360.0
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_plate = StyleBoxFlat.new()
-		_plate.bg_color = Color("24160f")
-		_plate.set_corner_radius_all(8)
-		_plate.set_border_width_all(3)
-		_plate.border_color = Color("1a100c")
-		_ink = StyleBoxFlat.new()
-		_ink.set_corner_radius_all(5)
+		resized.connect(queue_redraw)
 
-	func _process(_delta: float) -> void:
+	func _draw() -> void:
+		_band(0.0, top_h, 0.62, true)
+		_band(size.y - 260.0, 260.0, 0.45, false)
+
+	func _band(y0: float, h: float, peak: float, fade_down: bool) -> void:
+		var strips := 8
+		for i in strips:
+			var t0 := float(i) / strips
+			var t1 := float(i + 1) / strips
+			var a0 := peak * pow(1.0 - t0 if fade_down else t0, 1.6)
+			var a1 := peak * pow(1.0 - t1 if fade_down else t1, 1.6)
+			var c0 := Color(0.04, 0.025, 0.015, a0)
+			var c1 := Color(0.04, 0.025, 0.015, a1)
+			draw_polygon(PackedVector2Array([Vector2(0, y0 + h * t0), Vector2(size.x, y0 + h * t0), Vector2(size.x, y0 + h * t1), Vector2(0, y0 + h * t1)]), PackedColorArray([c0, c0, c1, c1]))
+
+
+class Meter extends Control:
+	var ratio := 1.0
+	var fill := Color("d8352a")
+	var segments := 1
+	var ornate := false
+	var _ghost := 1.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_ghost = ratio
+
+	func _process(delta: float) -> void:
+		if _ghost > ratio:
+			_ghost = maxf(ratio, _ghost - delta * 0.5)
+		else:
+			_ghost = ratio
 		queue_redraw()
 
 	func _draw() -> void:
-		_plate.draw(get_canvas_item(), Rect2(Vector2.ZERO, size))
-		var inner := Rect2(4, 4, maxf(0.0, size.x - 8.0), maxf(0.0, size.y - 8.0))
-		var width := inner.size.x * clampf(ratio, 0.0, 1.0)
-		if width > 1.0:
-			_ink.bg_color = fill
-			_ink.draw(get_canvas_item(), Rect2(inner.position, Vector2(width, inner.size.y)))
-			_ink.bg_color = Color(1, 1, 1, 0.35)
-			_ink.draw(get_canvas_item(), Rect2(inner.position.x, inner.position.y, width, maxf(2.0, inner.size.y * 0.35)))
+		var r := Rect2(Vector2.ZERO, size)
+		var rad := size.y * 0.5
+		UiKit.rr_fill(self, r.grow(2), rad + 2, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
+		UiKit.rr_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
+		var inner := r.grow(-3)
+		UiKit.rr_fill(self, inner, rad - 3, Color("080605"), Color("1c1510"))
+		var bar := inner.grow(-2)
+		var ghost_w := bar.size.x * clampf(_ghost, 0.0, 1.0)
+		if ghost_w > bar.size.y * 0.6:
+			UiKit.rr_fill(self, Rect2(bar.position, Vector2(ghost_w, bar.size.y)), bar.size.y * 0.5, Color(1, 0.92, 0.8, 0.55), Color(1, 0.8, 0.6, 0.4))
+		var width := bar.size.x * clampf(ratio, 0.0, 1.0)
+		if width > bar.size.y * 0.6:
+			var fr := Rect2(bar.position, Vector2(width, bar.size.y))
+			UiKit.rr_fill(self, fr, bar.size.y * 0.5, fill.lightened(0.25), fill.darkened(0.45))
+			UiKit.rr_fill(self, Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.38)), fr.size.y * 0.2, Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.0))
 		if segments > 1:
 			for i in range(1, segments):
-				var x := inner.position.x + inner.size.x * float(i) / float(segments)
-				draw_line(Vector2(x, inner.position.y), Vector2(x, inner.position.y + inner.size.y), Color(0, 0, 0, 0.45), 2.0)
+				var x := bar.position.x + bar.size.x * float(i) / float(segments)
+				draw_line(Vector2(x, bar.position.y + 1), Vector2(x, bar.end.y - 1), Color(0, 0, 0, 0.55), 2.0)
+		if ornate:
+			# Gilded end caps for the boss bar.
+			for side in [0.0, 1.0]:
+				var cx := lerpf(r.position.x + 2.0, r.end.x - 2.0, side)
+				var c := Vector2(cx, r.get_center().y)
+				var pts := PackedVector2Array([c + Vector2(0, -rad - 6), c + Vector2(rad * 0.9, 0), c + Vector2(0, rad + 6), c + Vector2(-rad * 0.9, 0)])
+				var big := PackedVector2Array()
+				for p in pts:
+					big.append(c + (p - c) * 1.2)
+				draw_colored_polygon(big, Color("120a04"))
+				draw_polygon(pts, PackedColorArray([Color("ffe6a8"), Color("c8963a"), Color("6a4416"), Color("c8963a")]))
 
 
 class StickLayer extends Control:

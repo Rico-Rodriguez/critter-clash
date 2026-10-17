@@ -856,6 +856,69 @@ class Dock extends Control:
 			UiKit.draw_text(self, font, Vector2(x, top + bar_h - (14.0 if on else 22.0)), str(TABS[i][1]).to_upper(), fpx, ink, Color(0.04, 0.03, 0.02), 2, slot)
 
 
+## A circular portrait in a gilded, riveted ring (hunt HUD, map bosses).
+class Medal extends Control:
+	var tex: Texture2D
+	var locked := false
+	var face: TextureRect
+	var _mat: ShaderMaterial
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face = TextureRect.new()
+		face.texture = tex
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.stretch_mode = TextureRect.STRETCH_SCALE
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_mat = ShaderMaterial.new()
+		_mat.shader = load("res://shaders/ui_art.gdshader")
+		_mat.set_shader_parameter("circle", 1.0)
+		_mat.set_shader_parameter("fade_alpha", 0.0)
+		_mat.set_shader_parameter("desat", 0.9 if locked else 0.0)
+		_mat.set_shader_parameter("darken", 0.6 if locked else 0.0)
+		face.material = _mat
+		add_child(face)
+		var ring := MedalRing.new()
+		ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(ring)
+		resized.connect(_fit)
+		_fit()
+
+	func _fit() -> void:
+		var inset := size.x * 0.09
+		face.position = Vector2(inset, inset)
+		face.size = size - Vector2(inset, inset) * 2.0
+		_mat.set_shader_parameter("px", face.size)
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := size.x * 0.5
+		draw_circle(c + Vector2(0, 4), r, Color(0, 0, 0, 0.55))
+		draw_circle(c, r - 4, Color("1a110a"))
+		for i in 8:
+			draw_circle(c, (r - 8) * (1.0 - i * 0.09), Color(0.55, 0.22, 0.12, 0.08))
+
+
+class MedalRing extends Control:
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var w := maxf(6.0, size.x * 0.075)
+		var r := size.x * 0.5 - w * 0.6
+		draw_arc(c, r, 0, TAU, 64, Color("120a04"), w + 3.0, true)
+		draw_arc(c, r, 0, TAU, 64, Color("8a5a1a"), w, true)
+		draw_arc(c, r, PI * 1.05, PI * 1.95, 32, Color("ffe6a8"), w * 0.38, true)
+		draw_arc(c, r, PI * 0.1, PI * 0.9, 32, Color("4a2e0e"), w * 0.38, true)
+		draw_arc(c, r - w * 0.6, 0, TAU, 64, Color(0, 0, 0, 0.6), 2.0, true)
+		for k in 4:
+			var a := PI * 0.25 + k * PI * 0.5
+			var p := c + Vector2.from_angle(a) * r
+			draw_circle(p, w * 0.62, Color("120a04"))
+			draw_circle(p, w * 0.45, Color("f0d08a"))
+
+
 class Gem extends Control:
 	var kind := "coin"
 
