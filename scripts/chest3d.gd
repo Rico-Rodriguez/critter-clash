@@ -76,7 +76,7 @@ func set_flash(f: float) -> void:
 	for mat in _mats:
 		mat.set_shader_parameter("flash", f)
 	if _hoard_mat:
-		_hoard_mat.emission_energy_multiplier = 0.12 + 0.8 * f
+		_hoard_mat.emission_energy_multiplier = 0.9 * f
 
 
 ## Environment for any stage showing the chest: transparent background but a
@@ -189,65 +189,115 @@ func _trim(base_mesh: Node3D, tone: String) -> void:
 
 
 ## A heap of coins and gems that fills the top of the box; visible only when
-## the lid lifts, lit from within.
+## the lid lifts, lit from within. Coins are instanced metallic discs piled
+## over a dark gold core, with faceted gems and a few twinkling glints.
 func _build_hoard(_base: Node3D) -> void:
 	hoard = Node3D.new()
 	add_child(hoard)
+	var metal_n := load("res://assets/textures/metal_normal.jpg") as Texture2D
 	_hoard_mat = StandardMaterial3D.new()
-	_hoard_mat.albedo_color = Color(0.95, 0.76, 0.42)
+	_hoard_mat.albedo_color = Color(1.0, 0.86, 0.52)
+	_hoard_mat.vertex_color_use_as_albedo = true
 	_hoard_mat.metallic = 1.0
-	_hoard_mat.roughness = 0.3
+	_hoard_mat.roughness = 0.34
+	_hoard_mat.metallic_specular = 0.7
+	if metal_n:
+		_hoard_mat.normal_enabled = true
+		_hoard_mat.normal_texture = metal_n
+		_hoard_mat.normal_scale = 0.25
+	_hoard_mat.rim_enabled = true
+	_hoard_mat.rim = 0.25
+	_hoard_mat.rim_tint = 0.8
 	_hoard_mat.emission_enabled = true
-	_hoard_mat.emission = Color(0.9, 0.5, 0.15)
-	_hoard_mat.emission_energy_multiplier = 0.12
+	_hoard_mat.emission = Color(0.55, 0.32, 0.08)
+	_hoard_mat.emission_energy_multiplier = 0.0
+	# Core: a dark, rough gold lump so gaps between coins read as depth.
+	var core_mat := StandardMaterial3D.new()
+	core_mat.albedo_color = Color(0.42, 0.28, 0.1)
+	core_mat.metallic = 1.0
+	core_mat.roughness = 0.55
 	var mound := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.5
-	sm.height = 0.3
+	sm.height = 0.26
 	mound.mesh = sm
-	mound.scale = Vector3(1.55, 1.0, 1.1)
-	mound.position = Vector3(0, 0.5, 0)
-	mound.material_override = _hoard_mat
+	mound.scale = Vector3(1.5, 1.0, 1.05)
+	mound.position = Vector3(0, 0.49, 0)
+	mound.material_override = core_mat
 	hoard.add_child(mound)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	var coin := CylinderMesh.new()
-	coin.top_radius = 0.07
-	coin.bottom_radius = 0.07
-	coin.height = 0.018
-	coin.radial_segments = 16
+	coin.top_radius = 0.054
+	coin.bottom_radius = 0.054
+	coin.height = 0.014
+	coin.radial_segments = 18
+	coin.rings = 1
+	var golds := [Color(1.0, 0.86, 0.5), Color(0.98, 0.8, 0.42), Color(1.0, 0.9, 0.62), Color(0.92, 0.74, 0.4)]
+	var xf: Array[Transform3D] = []
+	var tints: Array[Color] = []
+	# Two layers: a dense bed hugging the mound and a scatter of tilted coins
+	# on top, so the heap silhouette is lumpy rather than a smooth dome.
+	for i in 460:
+		var x := rng.randf_range(-0.7, 0.7)
+		var z := rng.randf_range(-0.47, 0.47)
+		var dome := maxf(0.0, (1.0 - pow(x / 0.76, 2.0)) * (1.0 - pow(z / 0.53, 2.0)))
+		var top := i >= 340
+		var y := 0.49 + 0.135 * dome + (rng.randf_range(0.012, 0.05) if top else rng.randf_range(-0.012, 0.012))
+		var tilt := 0.8 if top else 0.3
+		var basis := Basis.from_euler(Vector3(rng.randf_range(-tilt, tilt), rng.randf() * TAU, rng.randf_range(-tilt, tilt)))
+		xf.append(Transform3D(basis, Vector3(x, y, z)))
+		tints.append(golds[rng.randi() % golds.size()])
+	# A couple of short stacks for scale and silhouette.
+	for st in [[Vector3(0.5, 0.52, 0.22), 6], [Vector3(-0.56, 0.5, -0.18), 4]]:
+		for k in int(st[1]):
+			var off := Vector3(rng.randf_range(-0.006, 0.006), 0.015 * k, rng.randf_range(-0.006, 0.006))
+			xf.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), st[0] + off))
+			tints.append(golds[rng.randi() % golds.size()])
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
 	mm.mesh = coin
-	mm.instance_count = 60
-	for i in 60:
-		var x := rng.randf_range(-0.65, 0.65)
-		var z := rng.randf_range(-0.45, 0.45)
-		var y := 0.5 + 0.15 * (1.0 - pow(x / 0.75, 2.0)) * (1.0 - pow(z / 0.55, 2.0)) + 0.01
-		var basis := Basis.from_euler(Vector3(rng.randf_range(-0.6, 0.6), rng.randf(), rng.randf_range(-0.6, 0.6)))
-		mm.set_instance_transform(i, Transform3D(basis, Vector3(x, y, z)))
+	mm.instance_count = xf.size()
+	for i in xf.size():
+		mm.set_instance_transform(i, xf[i])
+		mm.set_instance_color(i, tints[i])
 	var coins := MultiMeshInstance3D.new()
 	coins.multimesh = mm
 	coins.material_override = _hoard_mat
 	hoard.add_child(coins)
-	var gem_mat := StandardMaterial3D.new()
-	gem_mat.albedo_color = Color(0.9, 0.12, 0.2)
-	gem_mat.roughness = 0.1
-	gem_mat.metallic_specular = 1.0
-	gem_mat.emission_enabled = true
-	gem_mat.emission = Color(0.8, 0.05, 0.15)
-	gem_mat.emission_energy_multiplier = 0.8
-	for g in [Vector3(-0.3, 0.64, 0.1), Vector3(0.35, 0.62, -0.1)]:
+	# Faceted gems: low-poly so each facet catches a highlight.
+	var gems := [
+		[Vector3(-0.3, 0.66, 0.08), Color(0.85, 0.06, 0.14), 0.075],
+		[Vector3(0.33, 0.645, -0.12), Color(0.1, 0.65, 0.3), 0.065],
+		[Vector3(0.05, 0.67, 0.22), Color(0.16, 0.32, 0.95), 0.06],
+		[Vector3(-0.08, 0.68, -0.2), Color(0.85, 0.06, 0.14), 0.05],
+		[Vector3(0.52, 0.6, 0.02), Color(0.62, 0.2, 0.85), 0.055],
+	]
+	for g in gems:
+		var gem_mat := StandardMaterial3D.new()
+		gem_mat.albedo_color = (g[1] as Color).darkened(0.25)
+		gem_mat.roughness = 0.04
+		gem_mat.metallic = 0.25
+		gem_mat.metallic_specular = 1.0
+		gem_mat.rim_enabled = true
+		gem_mat.rim = 0.6
+		gem_mat.rim_tint = 1.0
+		gem_mat.emission_enabled = true
+		gem_mat.emission = g[1]
+		gem_mat.emission_energy_multiplier = 0.55
 		var gem := MeshInstance3D.new()
 		var gm := SphereMesh.new()
-		gm.radius = 0.07
-		gm.height = 0.14
-		gm.radial_segments = 6
-		gm.rings = 3
+		gm.radius = g[2]
+		gm.height = g[2] * 1.5
+		gm.radial_segments = 8
+		gm.rings = 2
 		gem.mesh = gm
-		gem.position = g
+		gem.position = g[0]
+		gem.rotation = Vector3(rng.randf_range(-0.5, 0.5), rng.randf() * TAU, rng.randf_range(-0.5, 0.5))
 		gem.material_override = gem_mat
 		hoard.add_child(gem)
+	_build_glints(rng)
 	inner_light = OmniLight3D.new()
 	inner_light.light_color = Color(1.0, 0.85, 0.6)
 	inner_light.omni_range = 3.5
@@ -257,3 +307,49 @@ func _build_hoard(_base: Node3D) -> void:
 	for c in hoard.get_children():
 		(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	hoard.visible = false
+
+
+## Star-shaped additive glints that twinkle over the coins.
+func _build_glints(rng: RandomNumberGenerator) -> void:
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+varying float phase;
+varying float speed;
+void vertex() {
+	phase = INSTANCE_CUSTOM.r * 6.2831;
+	speed = 1.6 + INSTANCE_CUSTOM.b;
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+	VERTEX *= (0.6 + 0.4 * INSTANCE_CUSTOM.g);
+}
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float star = max(0.0, 1.0 - abs(p.x) * 9.0 - abs(p.y) * 1.1) + max(0.0, 1.0 - abs(p.y) * 9.0 - abs(p.x) * 1.1);
+	float core = exp(-dot(p, p) * 14.0);
+	float tw = pow(max(0.0, sin(TIME * speed + phase)), 6.0);
+	float a = (star * 0.8 + core) * tw;
+	ALBEDO = vec3(1.0, 0.9, 0.62) * a * 2.2;
+	ALPHA = clamp(a, 0.0, 1.0);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	var q := QuadMesh.new()
+	q.size = Vector2(0.22, 0.22)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = q
+	mm.instance_count = 9
+	for i in 9:
+		var x := rng.randf_range(-0.6, 0.6)
+		var z := rng.randf_range(-0.38, 0.38)
+		var dome := maxf(0.0, (1.0 - pow(x / 0.76, 2.0)) * (1.0 - pow(z / 0.53, 2.0)))
+		mm.set_instance_transform(i, Transform3D(Basis(), Vector3(x, 0.52 + 0.14 * dome + 0.03, z)))
+		mm.set_instance_custom_data(i, Color(float(i) / 9.0, rng.randf(), rng.randf_range(0.0, 1.4), 0.0))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = mat
+	hoard.add_child(mi)
