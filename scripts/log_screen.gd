@@ -136,10 +136,20 @@ class LogCell extends PanelContainer:
 				var tint := Color.WHITE if got else Color(0.05, 0.05, 0.06, 1)
 				ci.draw_texture_rect(tex, Rect2(center.x - 44, center.y - 46, 88, 88), false, tint)
 		else:
-			var col := Color(str(drop.get("color", "f0b429")))
-			if not got:
-				col = Color(0.08, 0.075, 0.07)
-			_icon_on(ci, center, kind, col, got)
+			# Rendered 3D prop (tools: --bake-icons); unfound items show as a
+			# dark silhouette of the same prop.
+			var path := "res://assets/sprites/items/%s.png" % str(drop.get("id", ""))
+			if ResourceLoader.exists(path):
+				# Cached: canvas draw commands keep only the RID, so a local
+				# texture would be freed after paint() and draw as white.
+				var tex: Texture2D = SpriteBank._load(path, "item")
+				var tint := Color.WHITE if got else Color(0.17, 0.14, 0.12, 0.9)
+				ci.draw_texture_rect(tex, Rect2(center.x - 52, center.y - 52, 104, 104), false, tint)
+			else:
+				var col := Color(str(drop.get("color", "f0b429")))
+				if not got:
+					col = Color(0.08, 0.075, 0.07)
+				_icon_on(ci, center, kind, col, got)
 		if not got:
 			var lk := UiKit.icon("lock_closed")
 			if lk:

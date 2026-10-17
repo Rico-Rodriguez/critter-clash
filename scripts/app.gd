@@ -39,6 +39,12 @@ func _ready() -> void:
 		await baker.run(only)
 		get_tree().quit()
 		return
+	if OS.get_cmdline_user_args().has("--bake-icons"):
+		var icons := IconBaker.new()
+		add_child(icons)
+		await icons.run()
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("--bake-banners"):
 		var banners := BannerBaker.new()
 		add_child(banners)
