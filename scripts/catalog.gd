@@ -239,7 +239,7 @@ const MILESTONES: Array = [
 	{"id": "m45", "trophies": 45, "kind": "unlock", "hero": "lumen", "cards": 8, "label": "Lumen joins", "detail": "Owl archer unlocked"},
 	{"id": "m80", "trophies": 80, "kind": "gear", "slot": "charm", "rarity": "rare", "label": "Rare charm", "detail": "A charm for any hero"},
 	{"id": "m110", "trophies": 110, "kind": "unlock", "hero": "pip", "cards": 8, "label": "Pip joins", "detail": "Frog mage unlocked"},
-	{"id": "m150", "trophies": 150, "kind": "unlock", "hero": "bramble", "cards": 8, "label": "Bramble joins", "detail": "Bear tank unlocked"},
+	{"id": "m150", "trophies": 150, "kind": "unlock", "hero": "bramble", "cards": 8, "label": "Bramble joins", "detail": "Pinecone boar tank unlocked"},
 	{"id": "m190", "trophies": 190, "kind": "coins", "amount": 120, "label": "Heavy purse", "detail": "120 coins"},
 	{"id": "m240", "trophies": 240, "kind": "gear", "slot": "weapon", "rarity": "epic", "label": "Epic weapon", "detail": "A strong weapon"},
 ]
@@ -306,7 +306,7 @@ const CRITTERS: Dictionary = {
 	},
 	"bramble": {
 		"name": "Bramble", "role": "tank", "kind": "hero", "color": "8d6244",
-		"blurb": "Bear tank. Shoulders down, claws planted.",
+		"blurb": "Pinecone boar. Scales up, tusks forward.",
 		"unlock": "Trophy road.",
 		"hp": 276, "dmg": 20, "interval": 0.52, "range": 110, "speed": 214,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 4,
@@ -351,7 +351,7 @@ const CRITTERS: Dictionary = {
 		"aoe": 28, "charge": 32, "shot": 13,
 		"bias_charge": 0.22, "bias_aoe": 0.50,
 	},
-	"sprout": {"name": "Bruin", "kind": "minion", "archetype": "chaser", "color": "67b85a", "hp": 28, "dmg": 7, "speed": 96, "radius": 24, "xp": 2},
+	"sprout": {"name": "Conelet", "kind": "minion", "archetype": "chaser", "color": "67b85a", "hp": 28, "dmg": 7, "speed": 96, "radius": 24, "xp": 2},
 	"beetle": {"name": "Beetle", "kind": "minion", "archetype": "runner", "color": "d2a03a", "hp": 38, "dmg": 8, "speed": 128, "radius": 22, "xp": 3},
 	"moth": {"name": "Moth", "kind": "minion", "archetype": "shooter", "color": "f0e2b0", "hp": 22, "dmg": 7, "speed": 72, "radius": 22, "xp": 3, "interval": 1.55, "shot_speed": 200, "shot_range": 250},
 	"boarlet": {"name": "Boarlet", "kind": "minion", "archetype": "brute", "color": "c47858", "hp": 78, "dmg": 11, "speed": 88, "radius": 30, "xp": 5},

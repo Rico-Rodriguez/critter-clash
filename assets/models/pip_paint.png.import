@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c36y3swp68nli"
-path="res://.godot/imported/bramble_2.png-f8386486f3ad402911004a5c08b12ddd.ctex"
+uid="uid://de2axkcujidv7"
+path="res://.godot/imported/pip_paint.png-0097d24211e25f4d03c0a433ed225f77.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "60cf0ffcce7e6868c91aea094932d491"
 }
 
 [deps]
 
-source_file="res://assets/models/sketchfab/bramble_2.png"
-dest_files=["res://.godot/imported/bramble_2.png-f8386486f3ad402911004a5c08b12ddd.ctex"]
+source_file="res://assets/models/pip_paint.png"
+dest_files=["res://.godot/imported/pip_paint.png-0097d24211e25f4d03c0a433ed225f77.ctex"]
 
 [params]
 
@@ -26,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

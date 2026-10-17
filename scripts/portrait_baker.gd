@@ -128,7 +128,10 @@ func _bake(id: String, head: bool) -> void:
 		body.queue_free()
 		return
 	var pick := Rect2(used)
-	if head:
+	var window_k := Cast3D.head_window(id)
+	if head and window_k.size != Vector2.ZERO:
+		pick = Rect2(Vector2(used.position) + Vector2(used.size) * window_k.position, Vector2(used.size) * window_k.size)
+	elif head:
 		var band := int(used.size.y * Cast3D.head_share(id))
 		var top := img.get_region(Rect2i(used.position.x, used.position.y, used.size.x, maxi(band, 2)))
 		var crown := top.get_used_rect()

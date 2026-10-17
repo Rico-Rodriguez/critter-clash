@@ -12,7 +12,7 @@ extends RefCounted
 ##   assets/models/sketchfab/pebble.glb   otter, when one is licensed
 ##   assets/models/sketchfab/lumen.glb    owl
 ##   assets/models/sketchfab/pip.glb      frog
-##   assets/models/sketchfab/bramble.glb  Realistic Animated Bear (bramble family)
+##   assets/models/sketchfab/bramble.glb  Swinecone, pinecone boar (bramble family)
 ##   assets/models/sketchfab/thistle.glb  Mushroom Boss
 ## Rim plants from a vegetation pack go in assets/models/sketchfab/nature/.
 
@@ -96,7 +96,7 @@ static func clips(id: String) -> Dictionary:
 			"perch": "head turn",
 		}
 	if path.ends_with("sketchfab/bramble.glb"):
-		return {"idle": "Stand_Idle_01", "run": "Trot", "attack": "Attack_StandAngry_01_High", "hit": "Hit_Stand_F01", "death": "Death_Stand_R01"}
+		return {"idle": "Idle1", "run": "Move1 (jump)", "attack": "Attack2 (tusks)", "hit": "", "death": ""}
 	if path.ends_with("sketchfab/juniper.glb"):
 		return {"idle": "Idle", "run": "Run", "attack": "Punch", "hit": "", "death": ""}
 	if path.ends_with("sketchfab/thistle.glb"):
@@ -115,12 +115,12 @@ static func clips(id: String) -> Dictionary:
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
 	if path.ends_with("sketchfab/bramble.glb"):
-		# Scanned-looking fur texture: matte, no sheen, a faint rim only.
-		return {"roughness": 0.9, "specular": 0.2, "rim": 0.15, "rim_tint": 0.6}
+		# Hand-painted pinecone hide: matte with a soft rim, no plastic sheen.
+		return {"roughness": 0.78, "specular": 0.3, "rim": 0.3, "rim_tint": 0.7}
 	if path == EMBER_CUTE:
 		# Hand-painted scale albedo ships in the file; just take the plastic
 		# sheen off and add a warm rim so it reads from the hunt camera.
-		return {"roughness": 0.62, "specular": 0.32, "rim": 0.35, "rim_tint": 0.8}
+		return {"roughness": 0.62, "specular": 0.32, "rim": 0.55, "rim_tint": 0.15}
 	if path.ends_with("sketchfab/ember.glb"):
 		# The source albedo is one flat red. tools/paint_ember.py paints a
 		# multi-tone hide from it by body region (back, belly, wings, horns).
@@ -140,8 +140,14 @@ static func pbr(id: String) -> Dictionary:
 	# like vinyl toys. Frogs get a wet clearcoat.
 	var opts := {"roughness": 0.6, "specular": 0.45, "rim": 0.4, "rim_tint": 0.7, "paint": true, "subsurface": 0.18}
 	if family(id) == "pip":
-		opts["clearcoat"] = 0.5
-		opts["roughness"] = 0.45
+		# Damp, not lacquered: a faint clearcoat over a satin skin, and a
+		# pale throat and belly (tools: assets/models/pip_paint.png) in place
+		# of the atlas's near-black swatch.
+		opts["clearcoat"] = 0.12
+		opts["roughness"] = 0.62
+		opts["specular"] = 0.35
+		opts["albedo_tex"] = "res://assets/models/pip_paint.png"
+		opts["rim"] = 0.22
 	return opts
 
 
@@ -165,12 +171,12 @@ static func tint(id: String) -> Color:
 		return Color(0.68, 0.90, 0.84)
 	if id in ["ember", "juniper", "lumen", "pip", "bramble", "thistle"]:
 		return Color.WHITE
-	# The bear's fur is a real texture: biome tints stay a light wash
-	# (a frost bear goes pale, a lava bear goes ashen) instead of a dye.
+	# The swinecone's hide is painted: biome tints stay a light wash
+	# (frost goes pale, lava goes ashen) instead of a dye.
 	if path.ends_with("sketchfab/bramble.glb"):
 		match id:
 			"yeti":
-				return Color(1.0, 1.0, 1.06)
+				return Color(0.8, 0.92, 1.12)
 			"magmash":
 				return Color(0.55, 0.45, 0.42)
 			"capling":
@@ -207,6 +213,15 @@ static func portrait_time(id: String) -> float:
 	if model(id).ends_with("sketchfab/ember.glb"):
 		return 0.35
 	return 0.2
+
+
+## Medallion crop as fractions of the full-body bounds (x, y, w, h), for
+## models whose head is not simply the top band (the baby dragon's horns,
+## tail, and wings widen that band). Empty uses head_share.
+static func head_window(id: String) -> Rect2:
+	if model(id) == EMBER_CUTE:
+		return Rect2(0.4, 0.1, 0.6, 0.6)
+	return Rect2()
 
 
 ## Share of the body height that is head, for the medallion close-up.

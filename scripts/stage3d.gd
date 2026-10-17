@@ -46,6 +46,8 @@ var _biome := "meadow"
 var _mode := "hunt"
 var _hero_id := "ember"
 var _pedestal_hero: Node3D
+## Procedural wing pairs to flap each frame: {"l": Node3D, "r": Node3D, "body": Node3D}.
+var _wing_sets: Array = []
 var _pet: Node3D
 var _pet_ready := false
 var _dust: GPUParticles3D
@@ -119,6 +121,8 @@ func _process(delta: float) -> void:
 			_hero_vp.size = viewport.size
 		_hero_cam.global_transform = camera.global_transform
 		_hero_cam.fov = camera.fov
+	if not _wing_sets.is_empty():
+		_flap_wings()
 	if _mode == "hunt":
 		_watch_frames(delta)
 	if _mode == "pedestal" and _pedestal_hero != null:
@@ -1451,7 +1455,134 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	_hide_catch(model)
 	_fix_pbr(model, sprite)
 	_tint(model, Cast3D.tint(sprite))
+	root.set_meta("model_base", model.position)
+	if Cast3D.model(sprite) == Cast3D.EMBER_CUTE:
+		root.set_meta("bob", true)
+		_add_wings(root, model, meters)
 	return root
+
+
+## The baby dragon's own wings are nubs fused to the spine (no wing bones),
+## so from the hunt camera it read as a spiky hedgehog. These are real wings:
+## a scalloped membrane on three finger ribs, warm amber fading to ember red,
+## pinned at the shoulders and flapped procedurally in _flap_wings.
+func _add_wings(root: Node3D, model: Node3D, meters: float) -> void:
+	var skel := _skeleton_of(model) as Skeleton3D
+	var shoulder := Vector3(0.0, 0.62, 0.05)
+	var idx := skel.find_bone("Bone006_06") if skel else -1
+	if idx >= 0:
+		# Skeleton space -> model space, then into root (meters).
+		var xf := Transform3D.IDENTITY
+		var n: Node = skel
+		while n != null and n != root:
+			if n is Node3D:
+				xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		shoulder = xf * skel.get_bone_global_rest(idx).origin
+	var face := float(root.get_meta("face", PI))
+	var fwd := Vector3(sin(face), 0.0, cos(face))
+	var rig := Node3D.new()
+	rig.name = "Wings"
+	root.add_child(rig)
+	rig.position = shoulder + Vector3(0, meters * 0.12, 0) - fwd * meters * 0.04
+	rig.basis = Basis(Vector3.UP, face)
+	root.set_meta("wing_base", rig.position)
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.roughness = 0.62
+	mat.metallic_specular = 0.35
+	mat.rim_enabled = true
+	mat.rim = 0.35
+	mat.rim_tint = 0.6
+	mat.backlight_enabled = true
+	mat.backlight = Color(0.55, 0.18, 0.05)
+	var rib_mat := StandardMaterial3D.new()
+	rib_mat.albedo_color = Color(0.36, 0.17, 0.08)
+	rib_mat.roughness = 0.55
+	var span := meters * 0.58
+	var pivots: Array = []
+	for side in [-1.0, 1.0]:
+		var pivot := Node3D.new()
+		rig.add_child(pivot)
+		pivot.position = Vector3(side * 0.07, 0, 0)
+		# Rig space: x out to the side, y up, +z forward.
+		var sh := Vector3.ZERO
+		var elbow := Vector3(side * 0.4, 0.42, -0.08) * span
+		var wrist := Vector3(side * 0.92, 0.66, -0.26) * span
+		var tips := [Vector3(side * 1.08, 0.22, -0.66) * span, Vector3(side * 0.82, 0.06, -0.86) * span, Vector3(side * 0.46, 0.04, -0.76) * span]
+		var root_back := Vector3(side * 0.08, -0.02, -0.42) * span
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var inner := Color(0.86, 0.5, 0.22)
+		var outer := Color(0.5, 0.14, 0.08)
+		var edge := [wrist, tips[0], tips[1], tips[2], root_back]
+		var fan := [sh, elbow]
+		# Membrane: fan from the wrist and elbow to each scalloped panel.
+		for i in edge.size() - 1:
+			var a: Vector3 = edge[i]
+			var b: Vector3 = edge[i + 1]
+			var mid := (a + b) * 0.5
+			# Scallop: pull the panel edge in toward the shoulder.
+			var dip := mid.lerp(elbow, 0.18 if i > 0 else 0.0)
+			var hub: Vector3 = wrist if i < 2 else elbow
+			for tri in [[hub, a, dip], [hub, dip, b]]:
+				for v in tri:
+					var t := clampf((v as Vector3).length() / (1.1 * span), 0.0, 1.0)
+					st.set_color(inner.lerp(outer, t))
+					st.add_vertex(v)
+		for tri in [[sh, elbow, root_back], [elbow, edge[3], root_back], [sh, elbow, wrist]]:
+			for v in tri:
+				var t := clampf((v as Vector3).length() / (1.1 * span), 0.0, 1.0)
+				st.set_color(inner.lerp(outer, t))
+				st.add_vertex(v)
+		st.generate_normals()
+		var memb := MeshInstance3D.new()
+		memb.mesh = st.commit()
+		memb.material_override = mat
+		memb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		pivot.add_child(memb)
+		# Ribs: arm bones and three fingers, tapering.
+		var segs := [[sh, elbow, 0.035], [elbow, wrist, 0.028], [wrist, tips[0], 0.016], [wrist, tips[1], 0.014], [elbow, tips[2], 0.013]]
+		for sg in segs:
+			var a: Vector3 = sg[0]
+			var b: Vector3 = sg[1]
+			var cyl := CylinderMesh.new()
+			cyl.top_radius = float(sg[2]) * 0.6
+			cyl.bottom_radius = float(sg[2])
+			cyl.height = a.distance_to(b)
+			cyl.radial_segments = 6
+			cyl.rings = 1
+			var bone := MeshInstance3D.new()
+			bone.mesh = cyl
+			bone.material_override = rib_mat
+			var dir := (b - a).normalized()
+			var ax := Vector3.UP.cross(dir)
+			var basis := Basis.IDENTITY if ax.length() < 0.001 else Basis(ax.normalized(), Vector3.UP.angle_to(dir))
+			bone.transform = Transform3D(basis, (a + b) * 0.5)
+			pivot.add_child(bone)
+		pivots.append(pivot)
+	_wing_sets.append({"l": pivots[0], "r": pivots[1], "body": root})
+
+
+## Flap: a slow breathing beat at rest, quicker and wider on the move.
+func _flap_wings() -> void:
+	var t := Time.get_ticks_msec() * 0.001
+	var keep: Array = []
+	for w in _wing_sets:
+		var body = w["body"]
+		if not is_instance_valid(body):
+			continue
+		keep.append(w)
+		var moving := bool((body as Node3D).get_meta("moving", false))
+		var rate := 9.0 if moving else 3.2
+		var amp := 0.42 if moving else 0.16
+		var beat := sin(t * rate + float(body.get_instance_id() % 7))
+		var lift := 0.12 + beat * amp
+		(w["l"] as Node3D).rotation = Vector3(0, 0, -lift)
+		(w["r"] as Node3D).rotation = Vector3(0, 0, lift)
+	_wing_sets = keep
 
 
 ## Sketchfab exports pack AO, roughness, and metal into one map. Godot reads
@@ -1575,10 +1706,39 @@ func _anim(body: Node3D, actor: RunSim.Actor) -> void:
 		return
 	if lock != "":
 		body.set_meta("lock", "")
-	if actor.vel.length() > 18.0:
+	var moving := actor.vel.length() > 18.0
+	body.set_meta("moving", moving)
+	if bool(body.get_meta("bob", false)):
+		_bob(body, moving, now)
+	if moving:
 		_play(body, "run")
 	else:
 		_play(body, "idle")
+
+
+## Procedural gait for a model with no run clip: a quick hop and a forward
+## lean while moving, so it never glides across the ground.
+func _bob(body: Node3D, moving: bool, now: float) -> void:
+	if body.get_child_count() == 0:
+		return
+	var model := body.get_child(0) as Node3D
+	var base: Vector3 = body.get_meta("model_base", model.position)
+	var face := float(body.get_meta("face", PI))
+	var fwd := Vector3(sin(face), 0.0, cos(face))
+	var axis := Vector3.UP.cross(fwd).normalized()
+	var k := float(body.get_meta("gait", 0.0))
+	k = move_toward(k, 1.0 if moving else 0.0, 0.08)
+	body.set_meta("gait", k)
+	var hop := absf(sin(now * 11.0)) * 0.14 * k
+	var lean := (0.16 + sin(now * 22.0) * 0.03) * k
+	var s := model.scale
+	model.transform = Transform3D(Basis(axis, lean) * Basis.from_scale(s), base + Vector3(0, hop, 0))
+	var wings := body.get_node_or_null("Wings") as Node3D
+	if wings:
+		var wb: Vector3 = body.get_meta("wing_base", wings.position)
+		# Follow the hop, and tip forward with the lean around the hips.
+		wings.position = Basis(axis, lean) * wb + Vector3(0, hop, 0)
+		wings.basis = Basis(axis, lean) * Basis(Vector3.UP, face)
 
 
 func _play(body: Node3D, state: String) -> void:
