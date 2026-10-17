@@ -483,6 +483,8 @@ func _drain() -> void:
 				stage.loot_open(ev["pos"])
 				_burst(ev["pos"], Color("ffd27a"), 18, 220.0)
 				_float(ev["pos"], "+%d coins" % int(ev.get("coins", 0)), Color("ffd27a"), true)
+				var sent := SaveGame.send_camp_chest(str(ev.get("tier", "common")), biome_id)
+				_float(ev["pos"] + Vector2(0, -70), "Chest sent home" if sent == "sent" else "Chest drawer full", Color("f4e3b5") if sent == "sent" else Color("c98b7a"), false)
 				AudioDirector.sfx("chest_open")
 				AudioDirector.haptic("rare" if str(ev.get("tier", "")) == "rare" else "medium")
 			"aggro":

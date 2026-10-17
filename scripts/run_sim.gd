@@ -69,7 +69,7 @@ var explore := false
 var fog_seen := PackedByteArray()
 var fog_now := PackedByteArray()
 var fog_dirty := true
-const REVEAL := 780.0
+const REVEAL := 980.0
 const AGGRO_CAMP := 430.0
 const AGGRO_PATROL := 380.0
 const LEASH := 1500.0
@@ -615,7 +615,9 @@ func _step_minions(dt: float) -> void:
 			else:
 				if dist > actor.range:
 					actor.vel = dir * actor.speed
-				elif dist < actor.range * 0.55:
+				elif dist < actor.range * (0.36 if explore else 0.55):
+					# Backpedal only when crowded: a melee hero must be able
+					# to close in on a shooter (it used to hold just out of reach).
 					actor.vel = -dir * actor.speed
 				else:
 					actor.vel = Vector2(-dir.y, dir.x) * actor.speed * 0.6

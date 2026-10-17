@@ -364,6 +364,18 @@ func _send_home(chest: Dictionary) -> void:
 		data["chests"].pop_back()
 
 
+## A camp chest opened mid-hunt goes home locked on its timer: commons as
+## wood (15m), elite chests as silver (1h). One slot stays free for the
+## boss's chest. Returns "sent" or "full".
+func send_camp_chest(tier: String, biome_id: String) -> String:
+	if data["chests"].size() >= SLOTS - 1:
+		return "full"
+	var chest := {"kind": "camp", "biome": biome_id, "seed": randi(), "tone": "silver" if tier == "rare" else "wood"}
+	add_chest(chest)
+	_write()
+	return "sent"
+
+
 func commit_defeat(biome_id: String, slain: int = 0) -> void:
 	_note_slayer(biome_id, slain, false)
 	_send_home(_new_chest("scrap", biome_id, true))

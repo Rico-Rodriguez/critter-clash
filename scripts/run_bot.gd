@@ -144,7 +144,7 @@ static func _kite(sim: RunSim, hero: RunSim.Actor) -> Vector2:
 	var dir := delta / dist
 	var prefer := hero.range * (0.9 if hero.role == "tank" else 0.78)
 	if hero.role == "tank":
-		if dist > prefer + 18.0:
+		if dist > prefer:
 			return dir
 		if dist < hero.radius + foe.radius + 14.0:
 			return -dir

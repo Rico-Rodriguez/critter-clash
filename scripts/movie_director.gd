@@ -90,27 +90,32 @@ var _log: Array = []
 var _logging := false
 var _stick_dir := Vector2.ZERO
 var _reversals: Array = []
+var _release_t: Array = []
+## Game time (sums frame deltas) so the log is right under the movie writer.
+var _gt := 0.0
 
 
 func _start_log(run: Node) -> void:
 	_logging = true
 	_log.clear()
 	while _logging and is_instance_valid(run):
-		var row := {"t": Time.get_ticks_msec() / 1000.0, "stick": _stick_dir}
+		var row := {"t": _gt, "stick": _stick_dir}
 		var h = run.sim.heroes[0]
 		row["hero"] = h.pos
 		row["hero_alive"] = h.alive
+		row["cd"] = h.cd
 		for a in run.sim.actors:
 			if a.kind == "boss" and a.alive:
 				row["boss"] = a.pos
 				row["boss_state"] = a.boss_state
 		_log.append(row)
 		await get_tree().process_frame
+		_gt += get_process_delta_time()
 
 
 ## Snap the thumb straight across (no easing): a hard 180.
 func _snap(run: Node, dir: Vector2, seconds: float) -> void:
-	_reversals.append({"t": Time.get_ticks_msec() / 1000.0, "dir": dir.normalized(), "from": _stick_dir})
+	_reversals.append({"t": _gt, "dir": dir.normalized(), "from": _stick_dir})
 	_drag(run, STICK_HOME + dir.normalized() * 70.0)
 	_stick_dir = dir.normalized()
 	var t := 0.0
@@ -145,6 +150,27 @@ func _feel_report() -> void:
 			if k > 30:
 				break
 		print("FEEL reversal dir=%s slide_px=%.1f frames_to_new_heading=%d" % [str(rev["dir"]), carried, turn_frames])
+	# Plant: from letting go to the first swing (cd jumps up), and how far
+	# the hero carries on after the release.
+	for t0 in _release_t:
+		var prev_cd := 999.0
+		var swing := -1.0
+		var p0 := Vector2.INF
+		var drift := 0.0
+		for row in _log:
+			if row["t"] < t0:
+				prev_cd = row["cd"]
+				continue
+			if p0 == Vector2.INF:
+				p0 = row["hero"]
+			if row["t"] - t0 < 0.5:
+				drift = maxf(drift, (row["hero"] - p0).length())
+			if swing < 0.0 and float(row["cd"]) > prev_cd + 0.01:
+				swing = row["t"] - t0
+			prev_cd = row["cd"]
+			if row["t"] - t0 > 2.0:
+				break
+		print("FEEL plant release_to_swing_s=%.3f drift_px=%.1f" % [swing, drift])
 	# Boss snag: 0.5 s windows while it is chasing and far from the hero.
 	var stalls := 0
 	var windows := 0
@@ -173,32 +199,64 @@ func _hunt() -> void:
 	_start_log(run)
 	await _wait(0.8)
 	_touch(run, STICK_HOME, true)
-	await _hold(run, Vector2(1, 0), 1.4)
-	_stick_dir = Vector2(1, 0)
-	# Hard 180s: the thumb snaps straight across, right -> left -> right.
-	await _snap(run, Vector2(-1, 0), 1.2)
-	await _snap(run, Vector2(1, 0), 0.9)
-	await _hold(run, Vector2(0, -1), 1.3)
-	# A pack closes in from above while we strafe.
-	var hero: Vector2 = run.sim.heroes[0].pos
-	for k in 7:
-		var off := Vector2(-150 + k * 50, -330 - (k % 2) * 60)
-		run.sim._spawn_minion([0, 1, 2][k % 3], run.sim._clamp_point(hero + off, 24.0))
-	await _hold(run, Vector2(0, 1), 1.0)
-	await _hold(run, Vector2(1, 1), 1.2)
-	_touch(run, _finger_at, false)
-	# Stand and fight, then sweep through the dropped gems.
-	await _wait(2.6)
+	await _hold(run, Vector2(0, -1), 1.2)
+	_stick_dir = Vector2(0, -1)
+	# Hard 180s in the starting clearing: the thumb snaps straight across.
+	await _snap(run, Vector2(0, 1), 0.9)
+	await _snap(run, Vector2(0, -1), 0.9)
+	await _snap(run, Vector2(1, 0), 0.7)
+	await _snap(run, Vector2(-1, 0), 0.7)
+	# Explore: the thumb follows the bot's route, letting go to fight.
+	var mem := {}
+	var t := 0.0
+	var down := true
+	var showed_map := false
+	while t < 40.0 and run.sim.heroes[0].alive and run.sim.phase == "hunt":
+		if run._modal_up:
+			# Level up: read the cards a beat, then take one.
+			if down:
+				_touch(run, _finger_at, false)
+				down = false
+			await _wait(1.0)
+			run._pick(int(t) % 3)
+			await _wait(0.3)
+			continue
+		if not showed_map and t > 22.0 and not down:
+			# Tap the corner map open to show what has been explored, then close.
+			showed_map = true
+			run.minimap.toggle()
+			await _wait(2.5)
+			run.minimap.toggle()
+			await _wait(0.3)
+			continue
+		var dir: Vector2 = RunBot.explore_steer(run.sim, 0, mem)
+		if dir.length() < 0.2:
+			if down:
+				_touch(run, _finger_at, false)
+				_release_t.append(_gt)
+				_stick_dir = Vector2.ZERO
+				down = false
+		else:
+			if not down:
+				_touch(run, STICK_HOME, true)
+				down = true
+			_stick_dir = dir.normalized()
+			_drag(run, STICK_HOME + _stick_dir * 70.0)
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	if down:
+		_touch(run, _finger_at, false)
+	# Skip ahead to the lair mouth and walk in: the boss rises.
+	var hero = run.sim.heroes[0]
+	var lair: Vector2 = run.sim.map.lair
+	hero.pos = run.sim.map.push_inside(lair + (hero.pos - lair).normalized() * run.sim.map.lair_r * 1.15, hero.radius)
+	hero.iframes = 3.0
+	await _wait(1.0)
 	_touch(run, STICK_HOME, true)
-	await _hold(run, Vector2(0, -1), 1.4)
-	await _hold(run, Vector2(-1, -0.4), 1.4)
+	await _hold(run, lair - hero.pos, 1.6)
 	_touch(run, _finger_at, false)
-	await _wait(0.8)
-	# The hero falls: the death topple, then the defeat card.
-	var h = run.sim.heroes[0]
-	h.stats["revive"] = 0
-	run.sim._kill(h)
-	await _wait(3.0)
+	_release_t.append(_gt)
+	await _wait(5.0)
 	_feel_report()
 
 
@@ -267,16 +325,28 @@ func _tour() -> void:
 func _profile() -> void:
 	var run := await _run_screen()
 	await _wait(1.0)
-	var hero: Vector2 = run.sim.heroes[0].pos
-	for k in 10:
-		var off := Vector2(-220 + k * 50, -300 - (k % 3) * 50)
-		run.sim._spawn_minion([0, 1, 2, 3][k % 4], run.sim._clamp_point(hero + off, 24.0))
+	var sim = run.sim
+	var hero = sim.heroes[0]
+	# Explore: walk the route through the dense forest with fog live.
+	var e := await _sample_route(run, 6.0)
+	# Pack: close on the biggest nearby camp so it aggroes on screen.
+	var best: Vector2 = sim.map.camps[0]["pos"]
+	for c in sim.map.camps:
+		if (c["pos"] as Vector2).distance_to(hero.pos) < best.distance_to(hero.pos) and (c["pos"] as Vector2).distance_to(sim.map.start) > 600.0:
+			best = c["pos"]
+	hero.pos = sim.map.push_inside(best + Vector2(0, 420), hero.radius)
+	hero.iframes = 30.0
+	await _wait(0.5)
 	_touch(run, STICK_HOME, true)
-	var a := await _sample(run, 4.0, Vector2(1, -0.3))
+	var a := await _sample(run, 4.0, Vector2(0.2, -1))
 	_touch(run, _finger_at, false)
 	_minion_census(run)
-	run.sim.begin_boss()
+	var lair: Vector2 = sim.map.lair
+	hero.pos = sim.map.push_inside(lair + Vector2(0, sim.map.lair_r * 0.5), hero.radius)
 	await _wait(3.0)
+	if sim.phase == "hunt":
+		sim.begin_boss()
+		await _wait(3.0)
 	_touch(run, STICK_HOME, true)
 	var b := await _sample(run, 5.0, Vector2(-1, 0.4))
 	_touch(run, _finger_at, false)
@@ -325,6 +395,7 @@ func _profile() -> void:
 	print("PROFILE geometry nodes=%d shadow_casters=%d" % [rows.size(), casters])
 	for k in keys.slice(0, 16):
 		print("PROFILE   %-40s tris=%d nodes=%d surfaces=%d" % [k, rows[k][0], rows[k][1], rows[k][2]])
+	_report("explore", e)
 	_report("pack", a)
 	_report("boss", b)
 
@@ -404,6 +475,30 @@ func _sample(run: Node, seconds: float, dir: Vector2) -> Dictionary:
 		stats["dc3d"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME))
 		stats["dcshadow"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME))
 		stats["prim3d"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME))
+	return stats
+
+
+## Like _sample, but the thumb follows the bot's explore route.
+func _sample_route(run: Node, seconds: float) -> Dictionary:
+	var stats := {"dc": [], "prim": [], "obj": [], "ms": [], "dc3d": [], "dcshadow": [], "prim3d": []}
+	var rid: RID = (run.stage as Stage3D).viewport.get_viewport_rid()
+	var mem := {}
+	_touch(run, STICK_HOME, true)
+	var t := 0.0
+	while t < seconds:
+		var dir: Vector2 = RunBot.explore_steer(run.sim, 0, mem)
+		_drag(run, STICK_HOME + (dir.normalized() if dir.length() > 0.2 else Vector2(0, -1)) * 70.0)
+		await get_tree().process_frame
+		var d := get_process_delta_time()
+		t += d
+		stats["dc"].append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		stats["prim"].append(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+		stats["obj"].append(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))
+		stats["ms"].append(d * 1000.0)
+		stats["dc3d"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME))
+		stats["dcshadow"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME))
+		stats["prim3d"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME))
+	_touch(run, _finger_at, false)
 	return stats
 
 

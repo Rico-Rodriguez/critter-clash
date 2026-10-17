@@ -218,12 +218,16 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 	var seen := {}
 	var hero_at := _look
 	_sim_ref = sim
+	var builds := 0
 	for actor in sim.actors:
 		if not actor.alive and actor.kind != "hero":
 			continue
-		if sim.explore and actor.kind == "minion" and not _bodies.has(actor.id) and not sim.visible_at(actor.pos):
-			# Camps out in the fog are built when the hero first sees them.
-			continue
+		if sim.explore and actor.kind == "minion" and not _bodies.has(actor.id):
+			# Camps out in the fog are built when the hero first sees them,
+			# two bodies a frame so a revealed camp never hitches.
+			if not sim.visible_at(actor.pos) or builds >= 2:
+				continue
+			builds += 1
 		seen[actor.id] = true
 		var body := _body_for(actor)
 		if sim.explore and actor.kind == "minion":
@@ -3463,7 +3467,8 @@ func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -
 			kinds = ["tree_dead", "tree_dead", "rock_lava"]
 			edge = ["rock_b"]
 	var tier := _tier()
-	var step := 175.0 if tier == "high" else (200.0 if tier == "medium" else 240.0)
+	# Dense walls: trees every ~2.4 m along the edge, thinning deeper in.
+	var step := 115.0 if tier == "high" else (125.0 if tier == "medium" else 150.0)
 	var by_kind := {}
 	var span := map.size + Vector2(600, 600)
 	var y := -300.0
@@ -3475,13 +3480,13 @@ func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -
 			x += step
 			if d > -60.0 or d < -620.0:
 				continue
-			if d < -330.0 and rng.randf() < 0.45:
+			if d < -260.0 and rng.randf() < 0.6:
 				continue
-			# Trees cluster: noise thins them into groves with dark gaps.
-			if sin(p.x * 0.004 + 1.3) * cos(p.y * 0.0035) > 0.55 and rng.randf() < 0.6:
+			# Trees cluster: noise thins the deep woods into groves with dark gaps.
+			if d < -160.0 and sin(p.x * 0.004 + 1.3) * cos(p.y * 0.0035) > 0.55 and rng.randf() < 0.6:
 				continue
 			var kind: String = kinds[rng.randi() % kinds.size()]
-			var s := rng.randf_range(1.9, 2.9) * (1.15 if d < -300.0 else 1.0)
+			var s := rng.randf_range(2.2, 3.2) * (1.15 if d < -300.0 else 1.0)
 			var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * rng.randf_range(0.9, 1.1), s * rng.randf_range(0.9, 1.25), s * rng.randf_range(0.9, 1.1)))
 			if not by_kind.has(kind):
 				by_kind[kind] = []

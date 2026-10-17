@@ -220,14 +220,14 @@ static func _maps() -> void:
 
 static func _fights() -> void:
 	# Explore hunts: each hero clears a map and kills the lair boss in a
-	# 3-7 minute run (bots walk the map greedily; players take longer).
+	# 2.5-5.5 minute bot run (bots walk the map greedily; players land at 3-5+).
 	for hero in ["ember", "juniper", "pebble"]:
 		var report := _play(hero, "meadow", 11, false)
 		print("FIGHT ", hero, " ", report)
 		if str(report["result"]) != "win":
 			_fail("%s should clear the meadow, got %s" % [hero, report["result"]])
-		if float(report["time"]) < 150.0 or float(report["time"]) > 420.0:
-			_fail("%s time %s outside the 3-7 min window" % [hero, report["time"]])
+		if float(report["time"]) < 150.0 or float(report["time"]) > 330.0:
+			_fail("%s time %s outside the 2.5-5.5 min bot window" % [hero, report["time"]])
 		if int(report["level"]) < 6:
 			_fail("%s only reached level %s" % [hero, report["level"]])
 	# No clock and no wave spawner: a hero who stands at the start is safe.
@@ -323,6 +323,18 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 		var mv := Vector2.ZERO if idle else (RunBot.explore_steer(sim, 0, mem) if sim.explore else RunBot.steer(sim, 0))
 		sim.step(1.0 / 60.0, [mv])
 		sim.drain_events()
+		if OS.get_environment("CC_TRACE") == hero and guard % 600 == 0:
+			var h: RunSim.Actor = sim.heroes[0]
+			var bosses := []
+			for a in sim.actors:
+				if a.kind == "boss" and a.alive:
+					bosses.append([a.pos.round(), int(a.hp), a.boss_state])
+			var near := []
+			for a in sim.actors:
+				if a.alive and a.kind == "minion" and a.pos.distance_to(h.pos) < 700.0:
+					near.append([a.sprite, a.pos.round(), a.aggro, int(a.pos.distance_to(h.pos)), a.range])
+			print("TRACE near=", near)
+			print("TRACE t=%d hp=%d pos=%s mv=%s phase=%s boss=%s goal=%s" % [int(sim.time), int(h.hp), str(h.pos.round()), str(mv.snapped(Vector2(0.01, 0.01))), sim.phase, str(bosses), str(mem.get("goal", ""))])
 	var hp := 0.0
 	if sim.heroes.size() > 0:
 		hp = sim.heroes[0].hp
