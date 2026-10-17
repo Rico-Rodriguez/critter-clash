@@ -160,6 +160,69 @@ func _capture() -> void:
 		go("loadout", {"hero": "ember", "biome": "meadow"})
 		await _settle()
 		await _shot("loadout")
+	if _wants("explore") or _wants("fog") or _wants("minimap") or _wants("lair"):
+		go("run", {"biome": "meadow", "hero": "ember"})
+		await _settle()
+		var run = current
+		var sim: RunSim = run.sim
+		# Walk out of the start a little so the fog shows a trail behind.
+		run.drive = Vector2(0.2, -1).normalized()
+		var t0 := sim.time
+		while sim.time < t0 + 2.2:
+			await get_tree().process_frame
+		run.drive = Vector2.ZERO
+		if OS.get_cmdline_user_args().has("--debug-wave"):
+			var st: Stage3D = run.stage
+			print("CAMDBG hero=", sim.heroes[0].pos, " hero3=", st._to3(sim.heroes[0].pos), " look=", st._look, " cam=", st.camera.global_position, " proj=", st.project(sim.heroes[0].pos), " view=", get_viewport().get_visible_rect().size, " vp=", st.viewport.size, " start=", sim.map.start)
+			get_tree().quit()
+			return
+		await _shot("fog")
+		if OS.get_environment("CC_FOGONLY") == "1":
+			var stg: Stage3D = run.stage
+			stg._fog_img.save_png("/tmp/fogimg.png")
+			var hc: int = sim.map.cell_index(sim.heroes[0].pos)
+			print("FOGDBG hero=", sim.heroes[0].pos, " cell=", hc % sim.map.grid_w, ",", hc / sim.map.grid_w, " grid=", sim.map.grid_w, "x", sim.map.grid_h, " decal=", stg._fog_decal.global_position, " hero3=", stg._to3(sim.heroes[0].pos))
+			get_tree().quit()
+			return
+		# Close on the nearest camp: it notices the hero and the fight starts.
+		var hero = sim.heroes[0]
+		var best: Dictionary = {}
+		for c in sim.map.camps:
+			if best.is_empty() or (c["pos"] as Vector2).distance_to(hero.pos) < (best["pos"] as Vector2).distance_to(hero.pos):
+				best = c
+		var near: Vector2 = sim.map.push_inside((best["pos"] as Vector2) + Vector2(0, 520), 40.0)
+		hero.pos = near
+		hero.prev = near
+		hero.iframes = 30.0
+		t0 = sim.time
+		while sim.time < t0 + 2.6:
+			await get_tree().process_frame
+		await _shot("explore")
+		run.minimap.toggle()
+		await get_tree().create_timer(0.4).timeout
+		await _shot("minimap")
+		run.minimap.toggle()
+		await get_tree().create_timer(0.2).timeout
+		# The lair, from just outside its rune circle.
+		var at: Vector2 = sim.map.push_inside(sim.map.lair + Vector2(0, sim.map.lair_r * 0.95), 40.0)
+		hero.pos = at
+		hero.prev = at
+		t0 = sim.time
+		while sim.time < t0 + 1.2:
+			await get_tree().process_frame
+		await _shot("lair")
+		run.drive = Vector2(0, -1)
+		t0 = sim.time
+		while sim.phase != "boss" and sim.time < t0 + 6.0:
+			await get_tree().process_frame
+		run.drive = Vector2.ZERO
+		t0 = sim.time
+		while sim.time < t0 + 2.4:
+			await get_tree().process_frame
+		await _shot("boss")
+		if _want.has("explore") or _want.has("lair"):
+			get_tree().quit()
+			return
 	if _wants("hunt") or _wants("boss") or _wants("levelup") or _wants("rare") or _wants("victory") or _wants("defeat"):
 		go("run", {"biome": "meadow", "hero": "ember"})
 		await _settle()
