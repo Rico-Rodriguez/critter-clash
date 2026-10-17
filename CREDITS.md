@@ -23,7 +23,8 @@ The older fonts below remain in the repository but the interface no longer uses 
 
 ## 3D models
 
-- Ember the dragon: "Stylized Dragon" by Stan (Stas_SayHallo) — https://sketchfab.com/3d-models/stylized-dragon-97d00c182fa24fa4838493c41ad8e52c — CC-BY 4.0. File `assets/models/sketchfab/ember.glb`. Clips are wing flaps and a head turn. The CC0 fallback is Pixor's "Small Dragon" — https://pixor.art/library/creatures/dragon-small/ — files `assets/models/ember_*.glb`, used for lava and water variants.
+- Ember the dragon: "Cute Dragon" by shakiller — https://sketchfab.com/3d-models/cute-dragon-df14ec74767c4598920132758dab8a49 — CC-BY 4.0. File `assets/models/sketchfab/ember_cute.glb`, with its own hand-painted scale textures and one idle clip.
+- Cinder and Cindling (volcano dragons): "Stylized Dragon" by Stan (Stas_SayHallo) — https://sketchfab.com/3d-models/stylized-dragon-97d00c182fa24fa4838493c41ad8e52c — CC-BY 4.0. File `assets/models/sketchfab/ember.glb`. Clips are wing flaps and a head turn. The CC0 fallback is Pixor's "Small Dragon" — https://pixor.art/library/creatures/dragon-small/ — files `assets/models/ember_*.glb`, used for lava and water variants.
 - Juniper the fox: "KAI" — The Little Fox Warrior (Animated) by Realidad Aumentada Empezando Desde Cero — https://sketchfab.com/3d-models/kai-the-little-fox-warrior-animated-aa56e447b578470b8d6b1b9587fd29ac — CC-BY 4.0. File `assets/models/sketchfab/juniper.glb`. Idle, Run, and Punch. The CC0 fallback is Gamideo's fox in `juniper_*.glb`.
 - Pebble the otter: "Cozy Animals" by Gamideo — https://dragofive.itch.io/cozy-animals-3d — CC0. File `pebble_*.glb`. No CC0 or CC-BY rigged otter on Sketchfab was a real otter with a walk cycle, so this mesh stays. It is tinted teal-brown in game.
 - Lumen the owl: Pixor "Owl" — https://pixor.art/library/creatures/owl/ — CC0. Files `lumen_*.glb`. Searches did not turn up a rigged CC0 or CC-BY owl that was actually an owl.

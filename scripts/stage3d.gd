@@ -9,9 +9,9 @@ const PITCH := 1.012291  # 58 degrees, high enough to read the ground
 ## The follow camera sits far back so a wave is on screen well before it
 ## reaches the hero: about 9 m of ground across at the hero, ~1.9x the
 ## previous framing and well past 2.5x the original.
-const DIST := 29.5
+const DIST := 34.0
 const FOV := 40.0
-const BOSS_DIST := 40.0
+const BOSS_DIST := 44.0
 ## Aim a metre above the ground so the hero sits just below screen centre,
 ## leaving room to see what comes from above.
 const AIM := 1.5
@@ -603,9 +603,9 @@ func _ground(biome_id: String) -> void:
 ## Distance in meters to the dirt trails the terrain shader paints, without
 ## the shader's wobble. Grass and props keep off the trails with it.
 static func path_dist(w: Vector2) -> float:
-	var a := absf(w.x - (9.8 + sin(w.y * 0.19 + 0.6) * 3.4))
-	var b := absf(w.y - (18.6 + sin(w.x * 0.27 + 1.8) * 2.6))
-	var c := absf(w.x - (4.4 + w.y * 0.2)) + maxf(w.y - 15.0, 0.0) * 4.0
+	var a := absf(w.x - (11.2 + sin(w.y * 0.17 + 0.6) * 3.8))
+	var b := absf(w.y - (24.0 + sin(w.x * 0.25 + 1.8) * 2.8))
+	var c := absf(w.x - (5.0 + w.y * 0.2)) + maxf(w.y - 19.0, 0.0) * 4.0
 	return minf(minf(a, b), c)
 
 
@@ -622,7 +622,7 @@ func _foliage(biome_id: String) -> void:
 	var tier := _tier()
 	# The arena is ~2x the old field; density scales with it (the grid cut in
 	# _scatter keeps what is drawn close to the old budget).
-	var area_k := 1.7
+	var area_k := 2.4
 	var count := int((420 if tier == "low" else (1300 if tier == "medium" else 2100)) * area_k)
 	var accent := 0.4 if tier == "low" else (0.6 if tier == "medium" else 1.0)
 	_scatter(rng, "grass_short", int(count * 0.62), 0.4, 0.6, true)
@@ -673,7 +673,7 @@ func _foliage(biome_id: String) -> void:
 ## multimesh (split into a grid when large) with per-instance colour.
 func _clutter(rng: RandomNumberGenerator, biome_id: String) -> void:
 	var tier := _tier()
-	var k := 0.45 if tier == "low" else (1.0 if tier == "medium" else 1.5)
+	var k := (0.45 if tier == "low" else (1.0 if tier == "medium" else 1.5)) * 1.5
 	var green := not biome_id in ["frost", "volcano"]
 	# Pebbles: squashed low-poly spheres, mostly on and beside the trails.
 	var peb := SphereMesh.new()
@@ -838,7 +838,7 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 		["fern", 0.8, 1.1, 6], ["flower_b", 0.7, 0.95, 6], ["flower_a", 0.7, 0.95, 6],
 	]
 	for row in kit:
-		row[3] = int(round(int(row[3]) * 1.8))
+		row[3] = int(round(int(row[3]) * 2.0))
 	if _tier() == "low":
 		for row in kit:
 			row[3] = maxi(1, int(row[3]) / 2)
@@ -861,7 +861,7 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 			if model.begins_with("rock") or model.begins_with("pebble_rock"):
 				_shape_rock(_props[-1], rng)
 				# Rocks sit in groups: a couple of chips beside each one.
-				var chips := rng.randi_range(1, 2) if _tier() == "high" else (rng.randi_range(0, 1) if _tier() == "medium" else 0)
+				var chips := rng.randi_range(1, 2) if _tier() == "high" else 0
 				for k in chips:
 					var off := Vector3(rng.randf_range(-0.9, 0.9), 0, rng.randf_range(-0.7, 0.7)) * sc * 1.6
 					_place_prop(["rock_c", "pebble_rock_b", "rock_flat"][k % 3], at + off, sc * rng.randf_range(0.3, 0.5), false)
@@ -902,8 +902,10 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 	var posed := _chain(source, probe)
 	# The arena is about twice what the camera frames: big scatters are cut
 	# into a 2x3 grid of multimeshes so off-screen cells are culled whole.
-	var cols := 2 if count > 200 else 1
-	var rows := 3 if count > 200 else 1
+	# The far camera now frames most of the arena, so cells rarely cull:
+	# one multimesh per kind keeps the draw-call count down.
+	var cols := 1
+	var rows := 1
 	var cells: Array = []
 	for i in cols * rows:
 		cells.append([])

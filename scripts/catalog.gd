@@ -317,7 +317,7 @@ const CRITTERS: Dictionary = {
 		"unlock": "Meadow boss.",
 		"hp": 252, "dmg": 23, "interval": 0.48, "range": 118, "speed": 232,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 3,
-		"boss_hp": 1720, "boss_speed": 74, "boss_radius": 78, "boss_touch": 15,
+		"boss_hp": 1600, "boss_speed": 74, "boss_radius": 78, "boss_touch": 15,
 		"aoe": 24, "charge": 30, "shot": 11,
 		"bias_charge": 0.46, "bias_aoe": 0.34,
 	},

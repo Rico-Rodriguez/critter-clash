@@ -7,11 +7,11 @@ extends RefCounted
 ## (about 4 by 4 screens, sixteen times the area).
 
 const VIEW := Vector2(720, 1280)
-## The shipped hunt arena: about twice the old one-screen field, so the far
+## The shipped hunt arena: about three times the old one-screen field, so the far
 ## follow camera (RunSim.VIEW_BOX) fits inside it with room for packs to
 ## appear just off screen and still inside the arena.
-const ARENA := Vector2(980, 1736)
-const PLAY := Rect2(40, 168, 900, 1400)
+const ARENA := Vector2(1120, 2236)
+const PLAY := Rect2(40, 168, 1040, 1900)
 const CHUNK := Vector2(720, 1280)
 ## A zone this close to the hero (or holding the hero) is allowed to spawn.
 const ZONE_REACH := 1100.0

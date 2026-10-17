@@ -46,9 +46,9 @@ const MINION_HP := 0.5
 const MINION_XP := 0.7
 ## Ellipse just outside the hunt camera's view, in playfield pixels.
 ## What the far follow camera frames on the ground, relative to the hero
-## (sim px; Stage3D DIST 29.5, FOV 40, AIM +1.5, pitch 58). The far edge is
+## (sim px; Stage3D DIST 34, FOV 40, AIM +1.5, pitch 58; tools: viewbox.py). The far edge is
 ## wider than the near one; the box takes the wider. Packs spawn just past it.
-const VIEW_BOX := Rect2(-333.0, -916.0, 666.0, 1395.0)
+const VIEW_BOX := Rect2(-381.0, -1040.0, 763.0, 1597.0)
 const SPAWN_MARGIN := 24.0
 var _next_id := 1
 var bases: Dictionary = {}

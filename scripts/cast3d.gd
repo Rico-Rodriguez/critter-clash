@@ -6,7 +6,8 @@ extends RefCounted
 ## frog, cactus-hog. Minions and bosses reuse that same rigged cast, tinted.
 ##
 ## Drop a CC0 or CC-BY Sketchfab GLB on top of a family to replace it:
-##   assets/models/sketchfab/ember.glb    Stylized Dragon
+##   assets/models/sketchfab/ember_cute.glb  Cute Dragon (Ember only)
+##   assets/models/sketchfab/ember.glb    Stylized Dragon (volcano dragons)
 ##   assets/models/sketchfab/juniper.glb  KAI or GIGI fox
 ##   assets/models/sketchfab/pebble.glb   otter, when one is licensed
 ##   assets/models/sketchfab/lumen.glb    owl
@@ -16,7 +17,12 @@ extends RefCounted
 ## Rim plants from a vegetation pack go in assets/models/sketchfab/nature/.
 
 
+const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
+
+
 static func model(id: String) -> String:
+	if id == "ember" and ResourceLoader.exists(EMBER_CUTE):
+		return EMBER_CUTE
 	var over := "res://assets/models/sketchfab/%s.glb" % family(id)
 	if ResourceLoader.exists(over):
 		return over
@@ -77,6 +83,8 @@ static func clips(id: String) -> Dictionary:
 	var path := model(id)
 	# Names are the clips inside each Sketchfab file. The dragon has no Idle
 	# or Run, and the mushroom's death clip is "Die".
+	if path == EMBER_CUTE:
+		return {"idle": "Take 001", "run": "Take 001", "attack": "Take 001", "hit": "", "death": "", "perch": "Take 001"}
 	if path.ends_with("sketchfab/ember.glb"):
 		return {
 			"idle": "Wing flaps",
@@ -104,6 +112,10 @@ static func clips(id: String) -> Dictionary:
 ## Empty means "leave the file's materials alone".
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
+	if path == EMBER_CUTE:
+		# Hand-painted scale albedo ships in the file; just take the plastic
+		# sheen off and add a warm rim so it reads from the hunt camera.
+		return {"roughness": 0.62, "specular": 0.32, "rim": 0.35, "rim_tint": 0.8}
 	if path.ends_with("sketchfab/ember.glb"):
 		# The source albedo is one flat red. tools/paint_ember.py paints a
 		# multi-tone hide from it by body region (back, belly, wings, horns).
@@ -160,7 +172,7 @@ static func nose(id: String) -> float:
 	var path := model(id)
 	# The dragon, KAI, and the mushroom all face +Z. A turntable render
 	# showed KAI's back under the old "nose is -Z" default.
-	if path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb") or path.ends_with("sketchfab/juniper.glb"):
+	if path == EMBER_CUTE or path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb") or path.ends_with("sketchfab/juniper.glb"):
 		return 0.0
 	return -1.0
 
@@ -183,6 +195,8 @@ static func portrait_time(id: String) -> float:
 
 ## Share of the body height that is head, for the medallion close-up.
 static func head_share(id: String) -> float:
+	if model(id) == EMBER_CUTE:
+		return 0.6
 	match family(id):
 		"ember":
 			return 0.3
