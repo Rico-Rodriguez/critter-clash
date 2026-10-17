@@ -9,21 +9,21 @@ const PITCH := 0.907571  # 52 degrees: Diablo-style tilt so faces and silhouette
 ## The follow camera sits far back so a wave is on screen well before it
 ## reaches the hero: about 9 m of ground across at the hero, ~1.9x the
 ## previous framing and well past 2.5x the original.
-const DIST := 34.0
+const DIST := 51.0
 const FOV := 40.0
-const BOSS_DIST := 44.0
+const BOSS_DIST := 62.0
 ## Aim a metre above the ground so the hero sits just below screen centre,
 ## leaving room to see what comes from above.
 const AIM := 1.5
 ## On-screen size targets. With the camera at DIST these put the hero near
 ## 10% of the screen height; the boss stands about 3x the hero's footprint.
-const HERO_METERS := 2.5
+const HERO_METERS := 3.2
 const PEDESTAL_TOP := 0.34
 const HERO_BOOST := 1.18
 ## Screen fraction (from the top) the boss's cap must stay below: the bottom
 ## of the boss bar plus a margin.
 const BOSS_TOP_LIMIT := 0.185
-const BOSS_METERS := 11.0
+const BOSS_METERS := 13.0
 ## Highest render density over the logical canvas (device px per canvas px).
 const MAX_DENSITY := 1.65
 
@@ -217,11 +217,17 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		return
 	var seen := {}
 	var hero_at := _look
+	_sim_ref = sim
 	for actor in sim.actors:
 		if not actor.alive and actor.kind != "hero":
 			continue
+		if sim.explore and actor.kind == "minion" and not _bodies.has(actor.id) and not sim.visible_at(actor.pos):
+			# Camps out in the fog are built when the hero first sees them.
+			continue
 		seen[actor.id] = true
 		var body := _body_for(actor)
+		if sim.explore and actor.kind == "minion":
+			body.visible = actor.aggro or sim.visible_at(actor.pos)
 		var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
 		body.position = _to3(pos)
 		var dt := get_process_delta_time()
@@ -271,6 +277,7 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 	_open_around(hero_at)
 	_threat_rings(sim, hero_at)
 	_sync_mob_decals(sim, hero_at)
+	sync_fog(sim, get_process_delta_time())
 	var focus := hero_at
 	if boss_up:
 		# Lean the view toward the boss so its telegraphs stay on screen.
@@ -550,7 +557,7 @@ func _lights() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if high else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_blend_splits = true
-	sun.directional_shadow_max_distance = 42.0 if high else 34.0
+	sun.directional_shadow_max_distance = 62.0 if high else 50.0
 	sun.shadow_bias = 0.04
 	sun.rotation_degrees = Vector3(-48, 38, 0)
 	world_root.add_child(sun)
@@ -564,7 +571,7 @@ func _lights() -> void:
 	camera = Camera3D.new()
 	camera.fov = FOV
 	camera.near = 0.08
-	camera.far = 80.0
+	camera.far = 120.0
 	camera.current = true
 	world_root.add_child(camera)
 	_apply_env(_environment(Color("c5d4e8"), high))
@@ -1343,7 +1350,7 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	# Outlines keep silhouettes readable from the far camera: a dark hairline
 	# on the hero (its ring marks it), deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
-		_outline(body, Color("1a0806"), 0.008)
+		_outline(body, Color("1a0806"), 0.011)
 		_hero_glow(body)
 	elif actor.kind == "boss":
 		# No ink line on bosses: their size carries the silhouette and the
@@ -1396,6 +1403,9 @@ func _boss_arena(center: Vector3) -> void:
 	if _arena_built or _mode != "hunt":
 		return
 	_arena_built = true
+	if _sim_ref != null and _sim_ref.explore:
+		_arena_from_sim(_sim_ref)
+		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7331
 	# Ring the whole fight: centred between the landing spot and the hero,
@@ -1659,7 +1669,7 @@ func _sync_mob_decals(sim: RunSim, hero_at: Vector3) -> void:
 	var n := 0
 	for id in _bodies:
 		var body: Node3D = _bodies[id]
-		if not body.has_meta("mob") or n >= MOB_DECALS:
+		if not body.has_meta("mob") or n >= MOB_DECALS or not body.visible:
 			continue
 		var dying := bool(body.get_meta("dying", false))
 		var d := Vector2(body.position.x - hero_at.x, body.position.z - hero_at.z).length()
@@ -1791,9 +1801,9 @@ func _threat_rings(sim: RunSim, hero_at: Vector3) -> void:
 		if actor.team == 0 or not _bodies.has(actor.id):
 			continue
 		var body: Node3D = _bodies[actor.id]
-		var mat: ShaderMaterial = body.get_meta("threat", null)
-		if mat == null:
+		if not body.has_meta("threat"):
 			continue
+		var mat: ShaderMaterial = body.get_meta("threat")
 		var near := 5.0 if actor.kind == "boss" else 3.6
 		var d := Vector2(body.position.x - hero_at.x, body.position.z - hero_at.z).length()
 		var want := 0.0
@@ -3286,3 +3296,450 @@ func _apply_low() -> void:
 		_env_ref.ssao_enabled = false
 		_env_ref.glow_enabled = false
 		_env_ref.ssil_enabled = false
+
+
+# --- Explore world ------------------------------------------------------------
+# The explore map drawn in 3D: chunked terrain with the trails and forest edge
+# from the map's shapes, forest walls and ground cover as per-chunk
+# MultiMeshes (one draw per mesh per visible chunk), a few unique landmarks,
+# loot chests, the boss lair, and fog of war as one big projected decal.
+
+var world_map: HuntMap = null
+var _fog_decal: Decal
+var _fog_dirty_t := 0.0
+var _fog_pending := false
+var _fog_img: Image
+var _fog_tex: ImageTexture
+var _fog_alpha := PackedFloat32Array()
+var _chest_nodes: Array = []
+var _sim_ref: RunSim = null
+const FOG_PAD := 20
+## Render chunk: 2x2 map cells, so a screen touches 2-4 chunks.
+const RCHUNK := Vector2(2240, 2560)
+
+
+func bind_world(map: HuntMap, biome_id: String) -> void:
+	_mode = "hunt"
+	_arena_built = false
+	_biome = biome_id
+	world_map = map
+	viewport.transparent_bg = false
+	_grass_mats.clear()
+	_grass_nodes.clear()
+	_props.clear()
+	_contacts.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(biome_id) + 91
+	_world_ground(map, biome_id)
+	_world_forest(map, biome_id, rng)
+	_world_cover(map, biome_id, rng)
+	_world_landmarks(map, biome_id)
+	_world_chests(map)
+	_world_lair(map)
+	_world_fog(map)
+	_biome_mood(biome_id)
+	_apply_render_scale()
+	_look = _to3(map.start)
+	_dist = DIST
+	_ready_cam = false
+	_frame(_look)
+
+
+func _world_ground(map: HuntMap, biome_id: String) -> void:
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/terrain.gdshader")
+	for layer in ["grass", "forest", "dirt"]:
+		mat.set_shader_parameter(layer + "_color", load("res://assets/textures/ground_%s_color.jpg" % layer))
+		mat.set_shader_parameter(layer + "_normal", load("res://assets/textures/ground_%s_normal.jpg" % layer))
+		mat.set_shader_parameter(layer + "_data", load("res://assets/textures/ground_%s_data.jpg" % layer))
+	mat.set_shader_parameter("tint", _biome_tint(biome_id))
+	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
+	mat.set_shader_parameter("snow", 0.75 if biome_id == "frost" else 0.0)
+	mat.set_shader_parameter("ash", 0.85 if biome_id == "volcano" else 0.0)
+	mat.set_shader_parameter("litter", 0.0 if biome_id == "volcano" else (0.3 if biome_id == "frost" else 1.0))
+	mat.set_shader_parameter("arena", Vector4(-100, -100, 1000, 1000))
+	mat.set_shader_parameter("path_width", 1.35)
+	mat.set_shader_parameter("world_mode", true)
+	var nodes := PackedVector3Array()
+	for n in map.nodes:
+		var p: Vector2 = (n["pos"] as Vector2) * SCALE
+		nodes.append(Vector3(p.x, p.y, float(n["r"]) * SCALE))
+	var segs := PackedVector4Array()
+	var widths := PackedFloat32Array()
+	for sg in map.segs:
+		var a: Vector2 = (sg["a"] as Vector2) * SCALE
+		var b: Vector2 = (sg["b"] as Vector2) * SCALE
+		segs.append(Vector4(a.x, a.y, b.x, b.y))
+		widths.append(float(sg["w"]) * SCALE)
+	mat.set_shader_parameter("w_nodes", nodes)
+	mat.set_shader_parameter("w_segs", segs)
+	mat.set_shader_parameter("w_seg_w", widths)
+	mat.set_shader_parameter("w_nnode", mini(nodes.size(), 20))
+	mat.set_shader_parameter("w_nseg", mini(segs.size(), 40))
+	# One plane per map cell (plus a forest margin ring) so off-screen ground culls.
+	var margin := 1
+	var cell3 := HuntMap.CELL * SCALE
+	var plane := PlaneMesh.new()
+	plane.size = cell3
+	plane.subdivide_width = 22
+	plane.subdivide_depth = 26
+	for row in range(-margin, HuntMap.WORLD_ROWS + margin):
+		for col in range(-margin, HuntMap.WORLD_COLS + margin):
+			var mesh := MeshInstance3D.new()
+			mesh.mesh = plane
+			mesh.material_override = mat
+			mesh.position = Vector3((col + 0.5) * cell3.x, 0, (row + 0.5) * cell3.y)
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			world_root.add_child(mesh)
+
+
+## Instances every mesh of a kit model through per-render-chunk MultiMeshes.
+## `spots` are world transforms; each mesh keeps its offset in the model.
+func _kit_chunks(model: String, spots: Array, shadows: bool) -> void:
+	if spots.is_empty():
+		return
+	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
+	if packed == null:
+		return
+	var probe := packed.instantiate()
+	if model.begins_with("tree") or model.begins_with("bush"):
+		_crisp_leaves(probe)
+	if model == "mushroom_tall":
+		_paint_mushroom(probe)
+	if (model.begins_with("rock") or model.begins_with("pebble_rock")) and model != "rock_lava":
+		_paint_rock(probe)
+	if model in ["log", "stump"]:
+		_bark(probe)
+	var buckets := {}
+	var rc := RCHUNK * SCALE
+	for xf in spots:
+		var at: Vector3 = (xf as Transform3D).origin
+		var key := Vector2i(int(floor(at.x / rc.x)), int(floor(at.z / rc.y)))
+		if not buckets.has(key):
+			buckets[key] = []
+		buckets[key].append(xf)
+	for mi_node in probe.find_children("*", "MeshInstance3D", true, false):
+		var mi := mi_node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var local := _chain(mi, probe)
+		var mesh: Mesh = mi.mesh
+		var baked := false
+		for si in mesh.get_surface_count():
+			if mi.get_surface_override_material(si) != null:
+				baked = true
+		if baked:
+			mesh = mi.mesh.duplicate()
+			for si in mesh.get_surface_count():
+				(mesh as ArrayMesh).surface_set_material(si, mi.get_active_material(si))
+		for key in buckets:
+			var list: Array = buckets[key]
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.mesh = mesh
+			mm.instance_count = list.size()
+			for i in list.size():
+				mm.set_instance_transform(i, (list[i] as Transform3D) * local)
+			var inst := MultiMeshInstance3D.new()
+			inst.multimesh = mm
+			inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			if mi.material_override:
+				inst.material_override = mi.material_override
+			world_root.add_child(inst)
+	probe.free()
+
+
+func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -> void:
+	var kinds: Array = ["tree_a", "tree_b", "tree_pine"]
+	var edge: Array = ["bush", "bush_flower"]
+	match biome_id:
+		"mushroom":
+			kinds = ["mushroom_tall", "tree_pine_b", "tree_twist"]
+			edge = ["bush"]
+		"frost":
+			kinds = ["tree_pine", "tree_pine_b"]
+			edge = ["rock_b"]
+		"volcano":
+			kinds = ["tree_dead", "tree_dead", "rock_lava"]
+			edge = ["rock_b"]
+	var tier := _tier()
+	var step := 175.0 if tier == "high" else (200.0 if tier == "medium" else 240.0)
+	var by_kind := {}
+	var span := map.size + Vector2(600, 600)
+	var y := -300.0
+	while y < span.y - 300.0:
+		var x := -300.0
+		while x < span.x - 300.0:
+			var p := Vector2(x, y) + Vector2(rng.randf_range(-0.4, 0.4), rng.randf_range(-0.4, 0.4)) * step
+			var d := map.depth(p)
+			x += step
+			if d > -60.0 or d < -620.0:
+				continue
+			if d < -330.0 and rng.randf() < 0.45:
+				continue
+			# Trees cluster: noise thins them into groves with dark gaps.
+			if sin(p.x * 0.004 + 1.3) * cos(p.y * 0.0035) > 0.55 and rng.randf() < 0.6:
+				continue
+			var kind: String = kinds[rng.randi() % kinds.size()]
+			var s := rng.randf_range(1.9, 2.9) * (1.15 if d < -300.0 else 1.0)
+			var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * rng.randf_range(0.9, 1.1), s * rng.randf_range(0.9, 1.25), s * rng.randf_range(0.9, 1.1)))
+			if not by_kind.has(kind):
+				by_kind[kind] = []
+			by_kind[kind].append(Transform3D(basis, _to3(p)))
+		y += step
+	for kind in by_kind:
+		_kit_chunks(kind, by_kind[kind], tier == "high")
+	# Undergrowth along the edge softens the forest line.
+	var bushes := {}
+	for sg in map.segs:
+		var a: Vector2 = sg["a"]
+		var b: Vector2 = sg["b"]
+		var len := a.distance_to(b)
+		var n := int(len / 140.0)
+		for k in n:
+			for side in [-1.0, 1.0]:
+				if rng.randf() < 0.35:
+					continue
+				var t := (float(k) + rng.randf()) / float(maxi(n, 1))
+				var dir := (b - a).normalized()
+				var p: Vector2 = a.lerp(b, t) + dir.orthogonal() * side * (float(sg["w"]) * 0.5 + rng.randf_range(10.0, 70.0))
+				if map.depth(p) > -8.0:
+					continue
+				var kind: String = edge[rng.randi() % edge.size()]
+				var s := rng.randf_range(1.1, 1.9)
+				if not bushes.has(kind):
+					bushes[kind] = []
+				bushes[kind].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), _to3(p)))
+	for kind in bushes:
+		_kit_chunks(kind, bushes[kind], false)
+
+
+func _world_cover(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -> void:
+	var tier := _tier()
+	var green := not biome_id in ["frost", "volcano"]
+	# Grass: sparse accent blades on the open ground (the terrain carries the turf).
+	var per_m2 := 0.5 if tier == "high" else (0.3 if tier == "medium" else 0.14)
+	var probe := (load("res://assets/models/grass_short.glb") as PackedScene).instantiate()
+	var src := _first_mesh(probe)
+	var posed := _chain(src, probe)
+	var grass := _grass_material(src)
+	_grass_mats.append(grass)
+	var cells := {}
+	var area_px := map.size.x * map.size.y
+	var tries := int(area_px * SCALE * SCALE * per_m2 * 1.6)
+	for i in tries:
+		var p := Vector2(rng.randf() * map.size.x, rng.randf() * map.size.y)
+		if map.depth(p) < 20.0 or map.trail_dist(p) < 50.0:
+			continue
+		var key := Vector2i(int(p.x / HuntMap.CELL.x), int(p.y / HuntMap.CELL.y))
+		if not cells.has(key):
+			cells[key] = []
+		var s := rng.randf_range(0.45, 0.7)
+		cells[key].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), _to3(p)) * posed)
+	for key in cells:
+		var list: Array = cells[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = src.mesh
+		mm.instance_count = list.size()
+		for i in list.size():
+			mm.set_instance_transform(i, list[i])
+		var node := MultiMeshInstance3D.new()
+		node.multimesh = mm
+		node.material_override = grass
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.lod_bias = 0.35
+		_grass_nodes.append(node)
+		world_root.add_child(node)
+	probe.free()
+	# Clustered dressing: each cluster is one kind, a few pieces of varied size.
+	var kit: Array = [["fern", 0.9, 1.5], ["rock_a", 0.5, 1.1], ["mushroom_tall", 1.0, 2.0], ["clover", 0.6, 0.9]]
+	if green:
+		kit.append(["flower_a", 1.6, 2.4])
+		kit.append(["flower_b", 1.6, 2.4])
+	else:
+		kit = [["rock_a", 0.5, 1.2], ["rock_b", 0.5, 1.0], ["pebble_rock", 0.6, 1.0]]
+	var spots := {}
+	var clusters := int(area_px * SCALE * SCALE / 900.0 * (1.0 if tier != "low" else 0.6))
+	for c in clusters:
+		var center := Vector2(rng.randf() * map.size.x, rng.randf() * map.size.y)
+		var d := map.depth(center)
+		if d < 30.0 or map.trail_dist(center) < 90.0:
+			continue
+		var row: Array = kit[rng.randi() % kit.size()]
+		var kind: String = row[0]
+		for k in rng.randi_range(3, 7):
+			var p := center + Vector2(rng.randfn(0.0, 55.0), rng.randfn(0.0, 55.0))
+			if map.depth(p) < 10.0 or map.trail_dist(p) < 60.0:
+				continue
+			var s := rng.randf_range(float(row[1]), float(row[2])) * (1.4 if k == 0 else 1.0)
+			if not spots.has(kind):
+				spots[kind] = []
+			spots[kind].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.85, 1.2), s)), _to3(p)))
+	for kind in spots:
+		_kit_chunks(kind, spots[kind], false)
+
+
+var _landmarks: Array = []
+func _world_landmarks(map: HuntMap, biome_id: String) -> void:
+	for l in map.landmarks:
+		var at := _to3(l["pos"])
+		var yaw: float = l["yaw"]
+		match str(l["kind"]):
+			"great_tree":
+				_place_prop("tree_a" if biome_id in ["meadow", "mushroom"] else ("tree_pine" if biome_id == "frost" else "tree_dead"), at, 4.6, true)
+			"standing_stones":
+				for k in 3:
+					var off := Vector3(cos(yaw + k * 2.1), 0, sin(yaw + k * 2.1)) * 1.3
+					_place_prop("rock_b", at + off, 2.2, true)
+					var st: Node3D = _props[-1]
+					st.scale *= Vector3(0.6, 2.3, 0.6)
+					st.rotation = Vector3(randf_range(-0.1, 0.1), yaw + k, randf_range(-0.1, 0.1))
+			"ruin":
+				_place_prop("den", at, 2.6, true)
+			"crystal":
+				_place_prop("crystal", at, 3.2, true)
+			"hollow_log":
+				_place_prop("log", at, 3.6, true)
+			_:
+				_place_prop("rock_a", at, 2.5, true)
+		var node: Node3D = _props[-1]
+		node.rotation.y = yaw
+		# Landmarks are not field dressing: keep them out of the near-hero hide.
+		_props.erase(node)
+		if str(l["kind"]) == "standing_stones":
+			for k in 2:
+				_props.erase(_props[-1])
+		_landmarks.append(node)
+
+
+func _world_chests(map: HuntMap) -> void:
+	_chest_nodes.clear()
+	for c in map.loot:
+		var chest := Chest3D.new("silver" if str(c["tier"]) == "rare" else "wood")
+		chest.scale = Vector3.ONE * 1.5
+		chest.position = _to3(c["pos"])
+		chest.rotation.y = randf_range(-0.6, 0.6)
+		if chest.inner_light:
+			chest.inner_light.visible = false
+		var glow := _decal(3.2, {"ring_color": Color(1.0, 0.8, 0.35, 0.5), "ring_radius": 0.36, "ring_width": 0.02, "ring_glow": 0.9, "shadow_alpha": 0.55, "shadow_radius": 0.3, "pulse": 1.0})
+		glow.position = chest.position + Vector3(0, 0.03, 0)
+		world_root.add_child(glow)
+		world_root.add_child(chest)
+		_chest_nodes.append({"pos": c["pos"], "node": chest, "glow": glow})
+
+
+## A looted chest throws its lid and its ring goes out.
+func loot_open(at: Vector2) -> void:
+	for c in _chest_nodes:
+		if (c["pos"] as Vector2).distance_to(at) > 4.0:
+			continue
+		var chest: Chest3D = c["node"]
+		var tw := create_tween()
+		tw.tween_method(chest.set_open, 0.0, 1.0, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		(c["glow"] as Node3D).visible = false
+		_spark(chest.position + Vector3(0, 0.8, 0), Color("ffd27a"))
+
+
+func _world_lair(map: HuntMap) -> void:
+	var r := map.lair_r * SCALE
+	var rune := _decal(r * 1.7, {"ring_color": Color(0.85, 0.2, 0.12, 0.55), "ring_radius": 0.42, "ring_width": 0.01, "ring_glow": 0.7, "shadow_alpha": 0.35, "shadow_radius": 0.5, "rune": true, "pulse": 0.0})
+	rune.position = _to3(map.lair) + Vector3(0, 0.025, 0)
+	world_root.add_child(rune)
+	# Dead trees and bones of rock lean in around the lair's rim.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 404
+	var spots: Array = []
+	for i in 14:
+		var ang := TAU * float(i) / 14.0 + rng.randf_range(-0.12, 0.12)
+		var p := map.lair + Vector2(cos(ang), sin(ang)) * (map.lair_r + rng.randf_range(20.0, 120.0))
+		if map.depth(p) > 0.0:
+			continue
+		var s := rng.randf_range(2.2, 3.2)
+		spots.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), _to3(p)))
+	_kit_chunks("tree_dead", spots, false)
+
+
+func _world_fog(map: HuntMap) -> void:
+	var w := map.grid_w + FOG_PAD * 2
+	var h := map.grid_h + FOG_PAD * 2
+	_fog_img = Image.create(w, h, false, Image.FORMAT_RGBA8)
+	_fog_img.fill(Color(0.012, 0.014, 0.02, 0.95))
+	_fog_alpha.resize(map.grid_w * map.grid_h)
+	_fog_alpha.fill(0.95)
+	_fog_tex = ImageTexture.create_from_image(_fog_img)
+	var cell := HuntMap.GRID * SCALE
+	_fog_decal = Decal.new()
+	_fog_decal.size = Vector3(w * cell, 40.0, h * cell)
+	_fog_decal.position = Vector3((map.grid_w * 0.5) * cell, 0.0, (map.grid_h * 0.5) * cell)
+	_fog_decal.texture_albedo = _fog_tex
+	_fog_decal.albedo_mix = 1.0
+	_fog_decal.upper_fade = 0.0
+	_fog_decal.lower_fade = 0.0
+	_fog_decal.normal_fade = 0.0
+	_fog_decal.distance_fade_enabled = false
+	world_root.add_child(_fog_decal)
+	if OS.get_environment("CC_NOFOG") == "1":
+		_fog_decal.visible = false
+
+
+## Fog follows the sim's reveal: unexplored ground is near-black, seen but
+## out-of-sight ground dims, and what the hero sees is clear. Each cell eases
+## toward its target so the reveal edge glides instead of stepping.
+func sync_fog(sim: RunSim, delta: float) -> void:
+	if _fog_img == null or not sim.explore:
+		return
+	var map := sim.map
+	var w := map.grid_w
+	var data := _fog_img.get_data()
+	var stride := (w + FOG_PAD * 2) * 4
+	var k := clampf(delta * 6.0, 0.0, 1.0)
+	var changed := false
+	for i in _fog_alpha.size():
+		var want := 0.0 if sim.fog_now[i] == 1 else (0.5 if sim.fog_seen[i] == 1 else 0.95)
+		var a := _fog_alpha[i]
+		if absf(a - want) < 0.004:
+			continue
+		a = lerpf(a, want, k) if absf(a - want) > 0.02 else want
+		_fog_alpha[i] = a
+		var x := i % w + FOG_PAD
+		var y := i / w + FOG_PAD
+		data[y * stride + x * 4 + 3] = int(a * 255.0)
+		changed = true
+	# Decals read their textures from a shared atlas that only rebuilds when a
+	# decal's texture changes identity, so updating in place never shows; hand
+	# the decal a fresh texture instead, at most ~8 times a second.
+	if changed:
+		_fog_img.set_data(w + FOG_PAD * 2, map.grid_h + FOG_PAD * 2, false, Image.FORMAT_RGBA8, data)
+		_fog_pending = true
+	_fog_dirty_t += delta
+	if _fog_pending and _fog_dirty_t >= 0.12:
+		_fog_dirty_t = 0.0
+		_fog_pending = false
+		_fog_tex = ImageTexture.create_from_image(_fog_img)
+		_fog_decal.texture_albedo = _fog_tex
+
+
+
+## Explore lairs: raise a standing stone on every stone the sim placed (the
+## ring is trimmed to the lair's open ground there), so what blocks is what shows.
+func _arena_from_sim(sim: RunSim) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7331
+	var i := 0
+	for o in sim.obstacles:
+		var at := _to3(Vector2(o.x, o.y))
+		if Vector2(o.x, o.y).distance_to(sim.map.lair) > sim.map.lair_r + 200.0:
+			continue
+		_place_prop(["rock_a", "rock_b"][i % 2], at, rng.randf_range(2.8, 3.4), i % 3 == 0)
+		var stone: Node3D = _props[-1]
+		_props.erase(stone)
+		stone.scale *= Vector3(0.7, rng.randf_range(1.8, 2.4), 0.65)
+		stone.rotation = Vector3(rng.randf_range(-0.12, 0.12), rng.randf() * TAU, rng.randf_range(-0.12, 0.12))
+		var rest: Vector3 = stone.position
+		stone.position = rest - Vector3(0, 2.6, 0)
+		var tw := create_tween()
+		# The ring rises while the boss drops, so the intro shows it.
+		tw.tween_interval(0.03 * i)
+		tw.tween_property(stone, "position", rest, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		i += 1

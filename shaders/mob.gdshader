@@ -23,8 +23,8 @@ uniform float rim_tint = 0.35;
 uniform float sss = 0.0;
 uniform float clearcoat = 0.0;
 uniform vec4 ink_color : source_color = vec4(0.23, 0.04, 0.03, 1.0);
-uniform float ink = 0.9;
-uniform float ink_edge = 0.66;
+uniform float ink = 0.95;
+uniform float ink_edge = 0.56;
 
 instance uniform float flash = 0.0;
 

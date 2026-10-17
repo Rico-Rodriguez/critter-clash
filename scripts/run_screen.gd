@@ -18,6 +18,7 @@ var pet_pos := Vector2.ZERO
 var pet_ready := false
 var summary: Dictionary = {}
 var _modal_up := false
+var minimap: MiniMap
 var _punch: Dictionary = {}
 var _actor_sprites: Dictionary = {}
 var _gem_sprites: Dictionary = {}
@@ -90,6 +91,10 @@ func build() -> void:
 	threats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(threats)
 	_build_hud()
+	minimap = MiniMap.new()
+	minimap.screen = self
+	minimap.visible = false
+	add_child(minimap)
 	stick = StickLayer.new()
 	stick.set_anchors_preset(Control.PRESET_FULL_RECT)
 	stick.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -123,7 +128,13 @@ func open(args: Dictionary = {}) -> void:
 		hero_at = sim.heroes[0].pos
 	cam.setup(sim.map, hero_at)
 	stream.sync(sim.map, cam.view_rect())
-	stage.bind_hunt(biome_id)
+	if sim.explore:
+		stage.bind_world(sim.map, biome_id)
+		minimap.sim = sim
+		minimap.visible = true
+	else:
+		stage.bind_hunt(biome_id)
+		minimap.visible = false
 	marks.sim = sim
 	var info := Catalog.critter(hero_id)
 	name_label.text = str(info["name"])
@@ -468,6 +479,14 @@ func _drain() -> void:
 				AudioDirector.sfx("enemy_die")
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
+			"loot":
+				stage.loot_open(ev["pos"])
+				_burst(ev["pos"], Color("ffd27a"), 18, 220.0)
+				_float(ev["pos"], "+%d coins" % int(ev.get("coins", 0)), Color("ffd27a"), true)
+				AudioDirector.sfx("chest_open")
+				AudioDirector.haptic("rare" if str(ev.get("tier", "")) == "rare" else "medium")
+			"aggro":
+				AudioDirector.sfx("ui_tap", -8.0)
 			"attack":
 				_punch[int(ev["id"])] = 0.2
 				stage.attack(int(ev["id"]))
@@ -1733,6 +1752,8 @@ class ThreatLayer extends Control:
 		for actor in sim.actors:
 			if not actor.alive or actor.team == 0:
 				continue
+			if sim.explore and actor.kind == "minion" and not actor.aggro:
+				continue
 			var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
 			var boss: bool = actor.kind == "boss"
 			var head_h: float = Stage3D.BOSS_METERS * 1.05 if boss else Stage3D.HERO_METERS * 0.95
@@ -1821,3 +1842,153 @@ class ThreatLayer extends Control:
 		var gem := PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g - dir * gs, g - side * gs * 0.8])
 		draw_colored_polygon(gem, Color("e8462e") if boss else Color("f0a830"))
 		draw_colored_polygon(PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g]), Color(1, 0.85, 0.7, 0.55))
+
+
+
+## Corner minimap for explore hunts. Fills in as the fog lifts: open ground,
+## the hero, camps and chests once seen, and the boss lair (always marked as
+## the goal). Tap to enlarge it over a dimmed screen (the hunt pauses); tap
+## again to close.
+class MiniMap extends Control:
+	var screen: Node
+	var sim: RunSim
+	var big := false
+	var _base: ImageTexture
+	var _veil: ImageTexture
+	var _veil_img: Image
+	var _t := 0.0
+	const SMALL := Vector2(176, 300)
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		_layout()
+		get_viewport().size_changed.connect(_layout)
+
+	func _layout() -> void:
+		var view := get_viewport_rect().size
+		var pad := UiKit.safe_insets()
+		if big:
+			var w := view.x - 80.0
+			var h := minf(w * 2.0, view.y - float(pad["t"]) - float(pad["b"]) - 200.0)
+			w = h * 0.5
+			size = Vector2(w, h)
+			position = Vector2((view.x - w) * 0.5, float(pad["t"]) + 120.0 + (view.y - float(pad["t"]) - float(pad["b"]) - 200.0 - h) * 0.5)
+		else:
+			size = SMALL
+			position = Vector2(view.x - float(pad["r"]) - SMALL.x - 18.0, float(pad["t"]) + 200.0)
+		queue_redraw()
+
+	func _gui_input(event: InputEvent) -> void:
+		var tap := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+		if tap:
+			accept_event()
+			toggle()
+
+	func toggle() -> void:
+		big = not big
+		if screen != null:
+			screen.set("_modal_up", big)
+		AudioDirector.sfx("ui_tap")
+		_layout()
+
+	func _process(delta: float) -> void:
+		if sim == null or not visible:
+			return
+		_t += delta
+		if _base == null:
+			_bake_base()
+		if _t >= 0.25:
+			_t = 0.0
+			_bake_veil()
+		queue_redraw()
+
+	func _bake_base() -> void:
+		var m := sim.map
+		var img := Image.create(m.grid_w, m.grid_h, false, Image.FORMAT_RGBA8)
+		for y in m.grid_h:
+			for x in m.grid_w:
+				var c := Vector2((x + 0.5) * HuntMap.GRID, (y + 0.5) * HuntMap.GRID)
+				var open := m.open_cells[y * m.grid_w + x] == 1
+				var col := Color(0.07, 0.1, 0.07, 0.92)
+				if open:
+					col = Color(0.62, 0.55, 0.38, 0.95)
+					if m.trail_dist(c) < 70.0:
+						col = Color(0.78, 0.64, 0.42, 0.98)
+				img.set_pixel(x, y, col)
+		_base = ImageTexture.create_from_image(img)
+		_veil_img = Image.create(m.grid_w, m.grid_h, false, Image.FORMAT_RGBA8)
+		_bake_veil()
+
+	func _bake_veil() -> void:
+		var m := sim.map
+		var data := PackedByteArray()
+		data.resize(m.grid_w * m.grid_h * 4)
+		for i in m.grid_w * m.grid_h:
+			data[i * 4] = 8
+			data[i * 4 + 1] = 7
+			data[i * 4 + 2] = 10
+			data[i * 4 + 3] = 0 if sim.fog_seen[i] == 1 else 250
+		_veil_img.set_data(m.grid_w, m.grid_h, false, Image.FORMAT_RGBA8, data)
+		if _veil == null:
+			_veil = ImageTexture.create_from_image(_veil_img)
+		else:
+			_veil.update(_veil_img)
+
+	func _to_map(p: Vector2, r: Rect2) -> Vector2:
+		return r.position + p / sim.map.size * r.size
+
+	func _draw() -> void:
+		if sim == null or _base == null:
+			return
+		var r := Rect2(Vector2.ZERO, size)
+		if big:
+			draw_rect(Rect2(-position, get_viewport_rect().size), Color(0, 0, 0, 0.6), true)
+		# Frame: dark iron with a thin gilt line.
+		draw_rect(r.grow(7.0), Color(0.05, 0.04, 0.03, 0.9), true)
+		draw_rect(r.grow(4.0), Color(0.72, 0.56, 0.3, 0.9), false, 2.0)
+		draw_texture_rect(_base, r, false)
+		draw_texture_rect(_veil, r, false)
+		var k := r.size.x / sim.map.size.x
+		var dot := 3.0 if not big else 5.0
+		# Chests once seen.
+		for c in sim.chests:
+			if bool(c["open"]) or not sim.seen_at(c["pos"]):
+				continue
+			var p := _to_map(c["pos"], r)
+			draw_rect(Rect2(p - Vector2(dot, dot) * 1.2, Vector2(dot, dot) * 2.4), Color("ffd24a"), true)
+			draw_rect(Rect2(p - Vector2(dot, dot) * 1.2, Vector2(dot, dot) * 2.4), Color(0.2, 0.12, 0.02), false, 1.0)
+		# Known camps: one mark per camp with living members.
+		var camps := {}
+		for a in sim.actors:
+			if a.alive and a.kind == "minion" and sim.seen_at(a.pos):
+				var key := a.camp
+				if not camps.has(key):
+					camps[key] = [a.pos, a.elite]
+				elif a.elite:
+					camps[key][1] = true
+		for key in camps:
+			var p := _to_map(camps[key][0], r)
+			draw_circle(p, dot * (1.6 if camps[key][1] else 1.1), Color("e0452f") if not camps[key][1] else Color("ff9a2a"))
+		# The lair: always marked, brighter once found.
+		var lp := _to_map(sim.map.lair, r)
+		var found := sim.seen_at(sim.map.lair)
+		var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 300.0)
+		draw_arc(lp, dot * 3.2, 0.0, TAU, 24, Color(0.85, 0.25, 0.9, 0.9 if found else 0.5 * pulse), 2.0)
+		draw_circle(lp, dot * 1.5, Color(0.85, 0.25, 0.9, 1.0 if found else 0.55))
+		# The hero: a gold arrowhead pointing where it faces.
+		if not sim.heroes.is_empty():
+			var h: RunSim.Actor = sim.heroes[0]
+			var hp := _to_map(h.pos, r)
+			var f := Vector2.RIGHT.rotated(h.facing)
+			var s := dot * 2.4
+			var pts := PackedVector2Array([hp + f * s, hp + f.rotated(2.5) * s * 0.8, hp + f.rotated(-2.5) * s * 0.8])
+			draw_colored_polygon(pts, Color("fff0b0"))
+			draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[0]]), Color(0.2, 0.1, 0.02), 1.5)
+			# What the screen shows, as a faint box.
+			var view := RunSim.VIEW_BOX
+			draw_rect(Rect2(hp + view.position * k * 0.62, view.size * k * 0.62), Color(1, 0.95, 0.8, 0.25), false, 1.0)
+		if big:
+			var font: Font = UiKit.font_b
+			var pct := int(round(sim.explored() * 100.0))
+			draw_string(font, Vector2(0, -16), "%s   explored %d%%" % [str(sim.biome.get("name", "Map")).to_upper(), pct], HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color("f2e4c4"))
+			draw_string(font, Vector2(0, r.size.y + 40), "Tap to close", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.9, 0.85, 0.75, 0.7))

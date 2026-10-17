@@ -28,6 +28,15 @@ uniform float path_width = 1.25;
 // gathers toward the edges where the tree line stands.
 uniform vec4 arena = vec4(0.0, 0.0, 30.0, 50.0);
 uniform float litter = 1.0;
+// Explore maps: open ground is a union of clearings (xy centre, z radius)
+// and corridor segments (xy -> zw, width in w_seg_w), all in metres. The
+// trails and the forest edge come from these instead of the arena paths.
+uniform bool world_mode = false;
+uniform int w_nnode = 0;
+uniform int w_nseg = 0;
+uniform vec3 w_nodes[20];
+uniform vec4 w_segs[40];
+uniform float w_seg_w[40];
 
 varying vec2 world_xz;
 
@@ -70,10 +79,40 @@ float path_dist(vec2 w) {
 	return min(min(a, b), c);
 }
 
+float seg_dist(vec2 p, vec2 a, vec2 b) {
+	vec2 ab = b - a;
+	float t = clamp(dot(p - a, ab) / max(dot(ab, ab), 1e-4), 0.0, 1.0);
+	return length(p - a - ab * t);
+}
+
+// Metres inside the open ground (negative in the forest).
+float open_depth(vec2 p) {
+	float best = -1e4;
+	for (int i = 0; i < w_nnode; i++) {
+		best = max(best, w_nodes[i].z - length(p - w_nodes[i].xy));
+	}
+	for (int i = 0; i < w_nseg; i++) {
+		best = max(best, w_seg_w[i] * 0.5 - seg_dist(p, w_segs[i].xy, w_segs[i].zw));
+	}
+	return best;
+}
+
+float trail_dist(vec2 p) {
+	float best = 1e4;
+	for (int i = 0; i < w_nseg; i++) {
+		best = min(best, seg_dist(p, w_segs[i].xy, w_segs[i].zw));
+	}
+	return best + (fbm(p * 0.35) - 0.5) * 1.1;
+}
+
+float any_path(vec2 w) {
+	return world_mode ? trail_dist(w) : path_dist(w);
+}
+
 void vertex() {
 	world_xz = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
 	float roll = noise(world_xz * 0.18);
-	float worn = smoothstep(path_width * 1.4, 0.0, path_dist(world_xz));
+	float worn = smoothstep(path_width * 1.4, 0.0, any_path(world_xz));
 	VERTEX.y += (roll - 0.5) * 0.12 - worn * 0.04;
 }
 
@@ -135,7 +174,14 @@ void fragment() {
 	float ez = min(w.y - arena.y, arena.w - w.y);
 	float edge_d = min(ex, ez);
 	float canopy = 1.0 - smoothstep(1.5, 8.0, edge_d);
-	float pd = path_dist(w);
+	float forest = 0.0;
+	if (world_mode) {
+		// Ragged forest edge: the open ground's border wobbles with noise.
+		float od = open_depth(w) + (fbm(w * 0.3 + 5.0) - 0.5) * 2.2;
+		canopy = 1.0 - smoothstep(-0.5, 3.5, od);
+		forest = 1.0 - smoothstep(-2.5, 0.5, od);
+	}
+	float pd = any_path(w);
 	float edge = path_width * (0.75 + fbm(w * 1.3) * 0.5);
 	// Multi-octave patch mask: small, broken drifts of litter with soft
 	// borders instead of big blotches.
@@ -173,6 +219,8 @@ void fragment() {
 	float shade = clamp(canopy * (0.55 + dapple * 0.45) + drift * 0.16 + dapple * 0.12, 0.0, 1.0);
 	// Shade goes cool (sky-lit blue-green), not just darker.
 	albedo *= mix(vec3(1.0), vec3(0.5, 0.58, 0.66), shade);
+	// Deep forest floor: dark, damp humus under the canopy.
+	albedo *= mix(vec3(1.0), vec3(0.3, 0.33, 0.28), forest);
 	if (snow > 0.0) {
 		float drift = smoothstep(0.35, 0.65, fbm(w * 0.35 + 4.0) + (1.0 - dirt_w) * 0.25);
 		vec3 white = vec3(0.86, 0.91, 1.0) * (0.86 + fbm(w * 3.0) * 0.18);
