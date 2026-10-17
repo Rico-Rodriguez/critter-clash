@@ -648,7 +648,7 @@ func _foliage(biome_id: String) -> void:
 		# Big trunks just outside the arena: their canopies frame the
 		# corners and their shadows fall into the clearing.
 		var edge_trees := ["tree_a", "tree_b", "tree_pine"] if biome_id == "meadow" else ["mushroom_tall", "tree_pine_b"]
-		for i in (4 if tier == "low" else 8):
+		for i in (4 if tier == "low" else (6 if tier == "medium" else 8)):
 			var side := -1.0 if i % 2 == 0 else 1.0
 			# Right at the frame edge: the canopy crops off-screen while the
 			# trunk and its shadow read inside the clearing.
@@ -671,6 +671,12 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 	if _tier() == "low":
 		for row in kit:
 			row[3] = maxi(1, int(row[3]) / 2)
+	elif _tier() == "medium":
+		# The wider camera sees the whole field: thin the small dressing
+		# (each flower or mushroom group is several draws), keep the rocks.
+		for row in kit:
+			if not str(row[0]).begins_with("rock") and not str(row[0]).begins_with("pebble"):
+				row[3] = maxi(1, int(round(int(row[3]) * 0.6)))
 	if _biome in ["frost", "volcano"]:
 		# No blossoms on snow or ash.
 		kit = kit.filter(func(row: Array) -> bool: return not ("flower" in str(row[0])))
@@ -684,7 +690,8 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 			if model.begins_with("rock") or model.begins_with("pebble_rock"):
 				_shape_rock(_props[-1], rng)
 				# Rocks sit in groups: a couple of chips beside each one.
-				for k in rng.randi_range(1, 2):
+				var chips := rng.randi_range(1, 2) if _tier() == "high" else (rng.randi_range(0, 1) if _tier() == "medium" else 0)
+				for k in chips:
 					var off := Vector3(rng.randf_range(-0.9, 0.9), 0, rng.randf_range(-0.7, 0.7)) * sc * 1.6
 					_place_prop(["rock_c", "pebble_rock_b", "rock_flat"][k % 3], at + off, sc * rng.randf_range(0.3, 0.5), false)
 					_shape_rock(_props[-1], rng)
