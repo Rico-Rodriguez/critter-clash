@@ -122,36 +122,52 @@ static func _torus(inner: float, outer: float) -> TorusMesh:
 	return t
 
 
-## A ranger's kit for the AnimalMesh3D fox (chest ~y43 z5, head ~y51 z28,
-## pelvis ~y40 z-21): an iron saddle-cuirass over leather, bronze girth
-## bands, layered pauldrons, a brow helm with a nasal spike, and a quiver.
+## A ranger's barding for the AnimalMesh3D fox (spine y43-44 from pelvis
+## z-21 to chest z5, neck z22-25, head y51 z28). Overlapping blackened iron
+## lames run down the back like a pangolin's scales, each with a bronze lip,
+## over a dark gambeson; a lamellar neck guard, collar pauldrons, a brow helm
+## with a nasal spike, and a quiver strapped to the right flank.
 static func _fox_ranger(sk: Skeleton3D) -> void:
-	var along := Vector3(PI * 0.5, 0, 0)
-	# Leather undercoat over the back, then the iron plate on top of it.
-	_pin(sk, "RigSpine2_012", _caps(9.6, 40.0), "leather", _xf(Vector3(0, 45.5, -6), Vector3(1.04, 0.5, 1.0), along))
-	_pin(sk, "RigChest_013", _caps(8.6, 22.0), "iron", _xf(Vector3(0, 49.5, 4), Vector3(1.0, 0.45, 1.0), along))
-	_pin(sk, "RigSpine1_011", _caps(8.0, 17.0), "iron", _xf(Vector3(0, 49.0, -15), Vector3(0.98, 0.42, 1.0), along))
-	# Girth bands.
-	for z in [-2.0, 10.0]:
-		_pin(sk, "RigChest_013", _torus(10.0, 11.0), "bronze", _xf(Vector3(0, 45.0, z), Vector3(0.9, 1.0, 1.1), Vector3(PI * 0.5, 0, 0)))
-	# Pauldrons: two stacked lames a side.
+	# Gambeson: a low quilted pad the plates sit on, mostly sunk in the fur.
+	_pin(sk, "RigSpine2_012", _sphere(10.0), "leather", _xf(Vector3(0, 44.5, -5.0), Vector3(1.0, 0.42, 2.0)))
+	# Back lames, tail to shoulders; each overlaps the one behind it.
+	var lames := [
+		["RigPelvis_02", -22.0, 46.0, 7.6],
+		["RigSpine1_011", -14.5, 47.4, 8.4],
+		["RigSpine2_012", -6.5, 48.2, 8.8],
+		["RigSpine2_012", 1.0, 48.4, 8.8],
+		["RigChest_013", 8.0, 48.6, 8.4],
+	]
+	for l in lames:
+		var z: float = l[1]
+		var y: float = l[2]
+		var r: float = l[3]
+		_pin(sk, l[0], _sphere(r), "bronze", _xf(Vector3(0, y - 0.8, z - 1.0), Vector3(1.26, 0.27, 0.64)))
+		_pin(sk, l[0], _sphere(r), "iron", _xf(Vector3(0, y, z), Vector3(1.22, 0.29, 0.62), Vector3(-0.12, 0, 0)))
+	# Lamellar neck guard: three narrowing scales up the nape.
+	var neck := [["RigNeck1_019", 19.0, 49.0, 6.4], ["RigNeck2_00", 22.5, 51.2, 5.6], ["RigNeck2_00", 25.5, 53.0, 4.8]]
+	for l in neck:
+		_pin(sk, l[0], _sphere(l[3]), "iron", _xf(Vector3(0, l[2], l[1]), Vector3(1.0, 0.34, 0.7), Vector3(-0.35, 0, 0)))
+	# Collar pauldrons ride the shoulder blades, two lames a side.
 	for side in [-1.0, 1.0]:
-		_pin(sk, "RigChest_013", _sphere(5.0), "iron", _xf(Vector3(side * 7.2, 46.5, 13.0), Vector3(0.8, 0.5, 1.1)))
-		_pin(sk, "RigChest_013", _sphere(4.3), "bronze", _xf(Vector3(side * 8.0, 44.5, 13.5), Vector3(0.75, 0.4, 1.0)))
-	# Brow helm with a nasal spike and two swept cheek guards.
-	_pin(sk, "RigHead_020", _sphere(5.2), "iron", _xf(Vector3(0, 55.0, 26.5), Vector3(0.95, 0.45, 1.2)))
-	_pin(sk, "RigHead_020", _cyl(0.0, 1.4, 9.0, 6), "iron", _xf(Vector3(0, 54.5, 33.5), Vector3.ONE, Vector3(PI * 0.42, 0, 0)))
-	for side in [-1.0, 1.0]:
-		_pin(sk, "RigHead_020", _caps(1.4, 9.0), "bronze", _xf(Vector3(side * 5.2, 51.5, 27.0), Vector3.ONE, Vector3(0.5, 0, side * 0.3)))
-	# Quiver on the right flank with three arrows.
-	var q_at := Vector3(8.5, 50.0, -13.0)
-	var q_rot := Vector3(-0.9, 0, -0.35)
-	_pin(sk, "RigSpine1_011", _cyl(3.4, 3.0, 24.0, 10), "leather", _xf(q_at, Vector3.ONE, q_rot))
-	_pin(sk, "RigSpine1_011", _torus(3.1, 3.9), "bronze", _xf(q_at + Basis.from_euler(q_rot) * Vector3(0, 11.0, 0), Vector3.ONE, q_rot))
+		var bone := "RigLFLegCollarbone_014" if side > 0 else "RigRFLegCollarbone_029"
+		_pin(sk, bone, _sphere(5.4), "iron", _xf(Vector3(side * 7.0, 45.5, 14.5), Vector3(0.55, 0.85, 1.0), Vector3(0, 0, side * 0.5)))
+		_pin(sk, bone, _sphere(4.6), "bronze", _xf(Vector3(side * 7.8, 42.0, 15.0), Vector3(0.5, 0.7, 0.95), Vector3(0, 0, side * 0.5)))
+	# Chamfron: a riveted face plate down the brow and muzzle bridge, with a
+	# bronze lip and a short brow spike, the way war-horses were barded.
+	var cham := Vector3(0, 57.0, 35.0)
+	_pin(sk, "RigHead_020", _sphere(8.4), "bronze", Transform3D(Basis.from_euler(Vector3(0.45, 0, 0)) * Basis.from_scale(Vector3(0.5, 0.22, 1.0)), cham + Vector3(0, -0.5, 0)))
+	_pin(sk, "RigHead_020", _sphere(8.0), "iron", Transform3D(Basis.from_euler(Vector3(0.45, 0, 0)) * Basis.from_scale(Vector3(0.44, 0.3, 1.0)), cham))
+	_pin(sk, "RigHead_020", _cyl(0.0, 1.2, 5.0, 6), "iron", _xf(Vector3(0, 58.6, 31.5), Vector3.ONE, Vector3(-0.35, 0, 0)))
+	# Quiver low on the right flank, slung tail-ward, three arrows.
+	var q_at := Vector3(-8.8, 45.0, -12.0)
+	var q_rot := Vector3(-1.05, 0, 0.25)
+	_pin(sk, "RigSpine1_011", _cyl(2.6, 2.2, 18.0, 10), "leather", _xf(q_at, Vector3.ONE, q_rot))
+	_pin(sk, "RigSpine1_011", _cyl(2.9, 2.9, 1.4, 10), "bronze", _xf(q_at + Basis.from_euler(q_rot) * Vector3(0, 8.0, 0), Vector3.ONE, q_rot))
 	for k in 3:
-		var o := Basis.from_euler(q_rot) * Vector3((k - 1) * 1.4, 15.5, (k % 2) * 1.0)
-		_pin(sk, "RigSpine1_011", _cyl(0.35, 0.35, 10.0, 4), "cloth", _xf(q_at + o, Vector3.ONE, q_rot))
-		_pin(sk, "RigSpine1_011", _cyl(0.0, 1.3, 3.0, 3), "fletch", _xf(q_at + o + Basis.from_euler(q_rot) * Vector3(0, 4.5, 0), Vector3.ONE, q_rot))
+		var o := Basis.from_euler(q_rot) * Vector3((k - 1) * 1.1, 11.5, (k % 2) * 0.8)
+		_pin(sk, "RigSpine1_011", _cyl(0.3, 0.3, 7.0, 4), "cloth", _xf(q_at + o, Vector3.ONE, q_rot))
+		_pin(sk, "RigSpine1_011", _cyl(0.0, 1.0, 2.4, 3), "fletch", _xf(q_at + o + Basis.from_euler(q_rot) * Vector3(0, 3.6, 0), Vector3.ONE, q_rot))
 
 
 ## Feral enemies: a burning ember in each eye socket, sized from the gap

@@ -216,7 +216,7 @@ static func pbr(id: String) -> Dictionary:
 		elif id == "boarlet":
 			d["albedo"] = Color(0.5, 0.46, 0.44)
 		else:
-			d["albedo"] = Color(0.86, 0.8, 0.74)
+			d["albedo"] = Color(0.74, 0.66, 0.6)
 		return d
 	if "/sketchfab/mon/" in path:
 		# Painted PBR hides: matte, a cool rim, a little backlight. Bosses'
@@ -328,7 +328,7 @@ static func tint(id: String) -> Color:
 				return Color(0.55, 0.45, 0.42)
 			"capling":
 				return Color(0.82, 0.86, 0.72)
-		return Color(0.86, 0.8, 0.74)
+		return Color(0.74, 0.66, 0.6)
 	var info := Catalog.critter(id)
 	if info.is_empty():
 		return Color.WHITE
