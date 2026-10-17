@@ -88,7 +88,8 @@ func _capture() -> void:
 	go("run", {"biome": "meadow", "hero": "ember"})
 	await _settle()
 	current.drive = Vector2(0.35, 0.15).normalized()
-	await get_tree().create_timer(2.6).timeout
+	# Mid first wave, so the shot has critters on the field with the hero.
+	await get_tree().create_timer(8.0).timeout
 	await _shot("hunt")
 	current.sim.debug_offer()
 	var show: Array = ["vitality", "magnet", "mage_radius"]

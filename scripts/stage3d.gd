@@ -659,7 +659,7 @@ func _frame_on(body: Node3D) -> void:
 	span = maxf(span, 1.0)
 	# The stage is a short window, and the dragon's wings pass the rest pose.
 	camera.fov = 34.0
-	var dist := span * 5.2
+	var dist := span * 6.4
 	camera.position = focus + Vector3(dist * 0.42, dist * 0.32, dist)
 	camera.look_at(focus, Vector3.UP)
 
@@ -768,9 +768,13 @@ func portrait_of(hero_id: String) -> Texture2D:
 		if flat.length() > 0.02:
 			forward = flat.normalized()
 		head = aim
-	cam.fov = 18.0
-	cam.position = head + forward * maxf(box.size.y, 0.6) * 1.15 + Vector3(0.0, box.size.y * 0.08, 0.0)
-	cam.look_at(head, Vector3.UP)
+	# The head bone sits up in the horns. Look a little below it and stay
+	# far enough back that the snout and jaw stay inside the medallion.
+	var reach := maxf(box.size.y, 0.6)
+	var look := head + Vector3(0.0, -reach * 0.1, 0.0)
+	cam.fov = 24.0
+	cam.position = look + forward * reach * 2.55 + Vector3(0.0, reach * 0.22, 0.0)
+	cam.look_at(look, Vector3.UP)
 	_portrait = vp
 	return vp.get_texture()
 
