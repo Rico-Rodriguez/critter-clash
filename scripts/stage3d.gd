@@ -3555,7 +3555,7 @@ func bind_world(map: HuntMap, biome_id: String) -> void:
 	_props.clear()
 	_contacts.clear()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(biome_id) + 91
+	rng.seed = hash(biome_id) + 91 + map.seed * 31
 	_world_ground(map, biome_id)
 	_world_forest(map, biome_id, rng)
 	_world_cover(map, biome_id, rng)

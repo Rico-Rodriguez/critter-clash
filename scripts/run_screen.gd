@@ -122,6 +122,13 @@ func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
 	hero_id = str(args.get("hero", "ember"))
 	var session := Session.solo(biome_id, hero_id)
+	# Real runs keep Session.solo's fresh random seed, so every load lays out
+	# a slightly different map. Captures, movies and a future daily challenge
+	# pin one through args["seed"] (or CC_SEED for the capture scripts).
+	if args.has("seed"):
+		session.seed = int(args["seed"])
+	elif OS.get_environment("CC_SEED").is_valid_int():
+		session.seed = OS.get_environment("CC_SEED").to_int()
 	sim = RunSim.new()
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
@@ -714,6 +721,11 @@ func _merge_float(id: int, amount: float) -> bool:
 ## One floating label for a hit, a crit, hero damage, or a loot line (kind
 ## ""). Damage kinds run smaller and are spaced with jitter and rows.
 func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, amount: float = 0.0, kind: String = "") -> void:
+	# Numbers anchor to their target: a hit landing off screen (a long
+	# archer shot) shows nothing rather than being clamped into a corner
+	# far from the fight.
+	if kind != "" and stage != null and not get_viewport_rect().grow(-12.0).has_point(stage.project(pos)):
+		return
 	var label: Label = null
 	for entry in floats:
 		if not entry.visible:

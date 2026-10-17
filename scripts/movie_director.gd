@@ -46,7 +46,7 @@ func _run_screen() -> Node:
 	var hero := OS.get_environment("CC_HERO") if OS.has_environment("CC_HERO") else "ember"
 	if hero != "ember":
 		SaveGame.hero(hero)["unlocked"] = true
-	app.go("run", {"biome": "meadow", "hero": hero})
+	app.go("run", {"biome": "meadow", "hero": hero, "seed": 11})
 	await _wait(0.6)
 	return app.current
 
@@ -271,7 +271,7 @@ func _hunt() -> void:
 ## is actually advancing, so a clip that stops (the old LOOP_NONE slide)
 ## shows up as frozen_anim frames.
 func _walk(hero_id: String) -> void:
-	app.go("run", {"biome": "meadow", "hero": hero_id})
+	app.go("run", {"biome": "meadow", "hero": hero_id, "seed": 11})
 	await _wait(0.6)
 	var run: Node = app.current
 	var sim = run.sim

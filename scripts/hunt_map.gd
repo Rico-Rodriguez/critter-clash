@@ -177,9 +177,14 @@ var grid_h := 0
 var open_cells := PackedByteArray()
 
 
+## The seed this world was built from; the stage scatters its scenery from
+## it too, so every load looks a little different (fixed only when asked).
+var seed: int = 0
+
 static func world(biome_id: String, seed: int) -> HuntMap:
 	var m := HuntMap.new()
 	m.id = biome_id
+	m.seed = seed
 	m.is_world = true
 	m.size = Vector2(CELL.x * WORLD_COLS, CELL.y * WORLD_ROWS)
 	m.play = Rect2(Vector2.ZERO, m.size)
