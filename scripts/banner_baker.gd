@@ -55,6 +55,31 @@ func _bake(entry: Dictionary) -> void:
 		holder.environment.adjustment_contrast = 1.12
 		holder.environment.glow_enabled = true
 		holder.environment.glow_intensity = 0.3
+	# Cinematic grade: a low sun raking across the clearing from behind the
+	# boss (rim light on every silhouette), and the far field softly defocused.
+	stage.sun.rotation_degrees = Vector3(-16, 160, 0)
+	stage.sun.light_energy *= 1.25
+	stage.sun.shadow_enabled = true
+	if id == "meadow":
+		stage.sun.light_color = Color("ffb26a")
+		if holder != null:
+			var env := holder.environment
+			env.fog_light_color = Color(0.86, 0.62, 0.42)
+			env.ambient_light_color = Color("b8a07e")
+			env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+			env.ambient_light_energy = 0.85
+			env.fog_sky_affect = 0.4
+			env.background_energy_multiplier = 0.55
+			env.adjustment_saturation = 1.05
+			env.tonemap_exposure = 0.95
+	# Front fill from over the camera so faces are not lost against the sun.
+	stage._lamp(Color("ffe2c0"), 3.0, stage.camera.position + Vector3(0.0, 1.0, -4.0), false, 14.0)
+	var cam_fx := CameraAttributesPractical.new()
+	cam_fx.dof_blur_far_enabled = true
+	cam_fx.dof_blur_far_distance = 17.0
+	cam_fx.dof_blur_far_transition = 12.0
+	cam_fx.dof_blur_amount = 0.06
+	stage.camera.attributes = cam_fx
 	for i in 12:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
