@@ -37,7 +37,9 @@ The older fonts below remain in the repository but the interface no longer uses 
 - Ground textures are ambientCG — https://ambientcg.com — CC0:
   - Grass004 (`assets/textures/grass_*.jpg`) and Grass001 (`lush_*.jpg`) for the turf.
   - Ground078 (`path_*.jpg`) for the dirt trails.
-  - Rock051 color (`rock_color.jpg`) for the pedestal rock.
+  - Rock051 color, normal and roughness (`rock_color.jpg`, `rock_normal.jpg`, `rock_rough.jpg`) for the pedestal and field rocks.
+  - Moss002 color and normal (`moss_color.jpg`, `moss_normal.jpg`) for moss on the field rocks.
+- Collection-log item icons are rendered in-engine from primitives and the game's own models by `scripts/icon_baker.gd`.
 - Interface materials are ambientCG — CC0, reduced to 512 px in `assets/textures/ui/`:
   - Rock030 (`ui_stone.jpg`) for the carved-stone backdrop and the tab bar.
   - Marble006 (`ui_marble.jpg`) for the panel faces.

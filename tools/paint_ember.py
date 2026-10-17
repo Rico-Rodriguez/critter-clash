@@ -136,7 +136,9 @@ vein = np.clip((tilt - tb) * 6.0, 0, 1)
 vein = np.clip(ndimage.grey_dilation(vein, size=(3, 3)) * 0.7 + vein * 0.5, 0, 1)
 edge_d = ndimage.distance_transform_edt(wing)
 edge = np.exp(-edge_d / 14.0)
-memb = np.array([0.11, 0.014, 0.032])
+# Deep crimson membrane (it read mauve-grey from the hunt camera when it
+# was near-black wine).
+memb = np.array([0.26, 0.026, 0.038])
 vein_c = np.array([0.86, 0.40, 0.18])
 rim_c = np.array([0.88, 0.46, 0.18])
 wcol = mix(np.broadcast_to(memb, base.shape).copy(), vein_c, np.clip(vein * 1.8, 0, 1))
@@ -155,7 +157,8 @@ cav = np.clip((tilt - tb) * 3.0, -1, 1)
 # darker orange.
 shade = (0.45 + 0.55 * ao)[..., None]
 cool = np.array([0.82, 0.86, 1.12])
-col = col * shade * (cool + (1 - cool) * ao[..., None])
+tintc = np.where(wing[..., None], np.ones(3), cool + (1 - cool) * ao[..., None])
+col = col * shade * tintc
 col = col * (1 - 0.3 * np.clip(-cav, 0, 1))[..., None]
 col = np.where(keep[..., None], base, col)
 col = np.where(cov[..., None], col, base)

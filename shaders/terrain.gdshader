@@ -77,13 +77,25 @@ void fragment() {
 	vec2 uv_l = tile_uv(w + 11.0, 0.31);
 	vec2 uv_d = tile_uv(w, 0.33);
 	float patch = smoothstep(0.35, 0.68, fbm(w * 0.12 + 4.0));
-	vec3 g = texture(grass_color, uv_g).rgb;
-	vec3 l = texture(lush_color, uv_l).rgb;
+	// Anti-tiling: a second, rotated and rescaled sample of each turf layer,
+	// blended by low-frequency noise so no repeat lines up across the field.
+	vec2 wr = mat2(vec2(0.8, -0.6), vec2(0.6, 0.8)) * w * 0.73 + 37.0;
+	float swap = smoothstep(0.38, 0.62, fbm(w * 0.09 + 17.0));
+	vec3 g = mix(texture(grass_color, uv_g).rgb, texture(grass_color, tile_uv(wr, 0.38)).rgb, swap);
+	vec3 l = mix(texture(lush_color, uv_l).rgb, texture(lush_color, tile_uv(wr + 5.0, 0.31)).rgb, 1.0 - swap);
 	vec3 grass = mix(g, l * vec3(1.08, 1.06, 0.92), patch);
 	vec3 gn = mix(texture(grass_normal, uv_g).rgb, texture(lush_normal, uv_l).rgb, patch);
 	// Sun-warmed and shaded patches, very low frequency.
 	float warm = fbm(w * 0.05 + 9.0);
 	grass *= mix(vec3(0.84, 0.92, 0.78), vec3(1.08, 1.04, 0.86), warm);
+	// Macro albedo variation: broad darker/lusher swathes and olive-gold
+	// meadow patches, so the field never reads as one flat green.
+	float macro = fbm(w * 0.028 + 3.0);
+	grass *= mix(0.78, 1.14, macro);
+	float meadow_hue = smoothstep(0.45, 0.75, fbm(w * 0.06 + 41.0));
+	grass = mix(grass, grass * vec3(1.12, 1.0, 0.7), meadow_hue * 0.35);
+	float deep = smoothstep(0.5, 0.78, fbm(w * 0.08 + 61.0));
+	grass = mix(grass, grass * vec3(0.7, 0.86, 0.74), deep * 0.4);
 	// Paths: a ragged edge, a grassy shoulder, and dirt in the middle.
 	float pd = path_dist(w);
 	float edge = path_width * (0.75 + fbm(w * 1.3) * 0.5);
@@ -110,21 +122,31 @@ void fragment() {
 	float hollow = smoothstep(0.55, 0.2, fbm(w * 0.4 + 5.0));
 	albedo *= 1.0 - hollow * 0.08 - shoulder * 0.05;
 	albedo *= tint;
-	float emit = 0.0;
 	if (snow > 0.0) {
 		float drift = smoothstep(0.35, 0.65, fbm(w * 0.35 + 4.0) + (1.0 - dirt_w) * 0.25);
 		vec3 white = vec3(0.86, 0.91, 1.0) * (0.86 + fbm(w * 3.0) * 0.18);
 		albedo = mix(albedo, white, clamp(drift * snow + snow * 0.35, 0.0, 1.0));
 	}
+	vec3 glow = vec3(0.0);
 	if (ash > 0.0) {
+		// Dark basalt with grey ash drifts; thin glowing lava cracks with a
+		// hot core and a deep red bleed, never a flat bright stripe.
 		float lum = dot(albedo, vec3(0.3, 0.59, 0.11));
-		vec3 soot = vec3(0.16, 0.13, 0.12) * (0.6 + lum * 1.6);
-		albedo = mix(albedo, soot, ash);
-		float crack = 1.0 - smoothstep(0.0, 0.018, abs(fbm(w * 0.32 + 7.0) - 0.5));
-		emit = crack * ash * (0.6 + 0.4 * sin(TIME * 1.5 + w.x));
+		vec3 basalt = vec3(0.075, 0.068, 0.07) * (0.7 + lum * 1.2);
+		float drift = smoothstep(0.45, 0.75, fbm(w * 0.4 + 23.0));
+		basalt = mix(basalt, vec3(0.26, 0.24, 0.23) * (0.8 + fbm(w * 3.0) * 0.4), drift * 0.55);
+		albedo = mix(albedo, basalt, ash);
+		float f = abs(fbm(w * 0.32 + 7.0) - 0.5);
+		float f2 = abs(fbm(w * 0.7 + 19.0) - 0.5);
+		float core = 1.0 - smoothstep(0.0, 0.006, f);
+		float halo = 1.0 - smoothstep(0.0, 0.03, f);
+		float fine = (1.0 - smoothstep(0.0, 0.004, f2)) * smoothstep(0.5, 0.7, fbm(w * 0.2 + 3.0));
+		float pulse = 0.75 + 0.25 * sin(TIME * 1.3 + w.x * 0.7 + w.y * 0.4);
+		albedo = mix(albedo, vec3(0.03, 0.01, 0.01), halo * ash * 0.7);
+		glow = (vec3(1.0, 0.42, 0.08) * (core + fine * 0.6) * 1.6 + vec3(0.7, 0.1, 0.02) * halo * 0.45) * ash * pulse;
 	}
 	ALBEDO = albedo;
-	EMISSION = vec3(1.0, 0.35, 0.08) * emit * 2.0;
+	EMISSION = glow;
 	NORMAL_MAP = mix(gn, dn, dirt_w);
 	NORMAL_MAP_DEPTH = 1.2;
 	ROUGHNESS = mix(0.9, texture(dirt_rough, uv_d).r, dirt_w);

@@ -30,7 +30,6 @@ const MAX_DENSITY := 1.65
 var viewport: SubViewport
 var camera: Camera3D
 var sun: DirectionalLight3D
-var _flash_mat: ShaderMaterial
 var _boss_shift := 0.0
 var _ped_focus := Vector3.ZERO
 var _ped_dir := Vector3.BACK
@@ -403,34 +402,48 @@ func hurt(actor_id: int) -> void:
 
 
 ## A brief additive white pulse over the whole body: the classic hit flash.
-var _flash_soft: ShaderMaterial
-
-
+## Hit flash: a quick warm emissive tint on the body's own materials. No
+## overlay or outline swap, so nothing but the critter's surface changes.
 func _flash(body: Node3D) -> void:
-	if _flash_mat == null:
-		var sh := Shader.new()
-		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_add, cull_back, depth_draw_never;\nuniform float amount = 0.6;\nvoid fragment() {\n\tALBEDO = vec3(1.0, 0.86, 0.72) * amount;\n}\n"
-		_flash_mat = ShaderMaterial.new()
-		_flash_mat.shader = sh
-	if _flash_soft == null:
-		_flash_soft = _flash_mat.duplicate()
-		_flash_soft.set_shader_parameter("amount", 0.22)
-	# Ground decals are flat quads: flashing them painted a white square
-	# under the boss. Big bodies get a softer pulse so they tint, not bleach.
 	if not body.has_meta("big"):
 		body.set_meta("big", _measure(body).size.y * body.scale.y > HERO_METERS * 2.0)
-	var big := bool(body.get_meta("big"))
-	var meshes: Array = []
-	for m in body.find_children("*", "MeshInstance3D", true, false):
-		if str(m.name).begins_with("Catch") or m.has_meta("decal"):
-			continue
-		meshes.append(m)
-		(m as MeshInstance3D).material_overlay = _flash_soft if big else _flash_mat
-	get_tree().create_timer(0.08).timeout.connect(func() -> void:
-		for m in meshes:
-			if is_instance_valid(m):
-				# Restore the hero's fresnel lift, or clear for everyone else.
-				(m as MeshInstance3D).material_overlay = m.get_meta("overlay") if m.has_meta("overlay") else null)
+	# Low energy: a warm glint over the painted surface, not a flat fill.
+	var energy := 0.1 if bool(body.get_meta("big")) else 0.3
+	var mats: Array = body.get_meta("flash_mats", [])
+	if mats.is_empty():
+		for m in body.find_children("*", "MeshInstance3D", true, false):
+			var mi := m as MeshInstance3D
+			if str(mi.name).begins_with("Catch") or mi.has_meta("decal") or mi.mesh == null:
+				continue
+			for i in mi.mesh.get_surface_count():
+				var base := mi.get_active_material(i)
+				if not base is StandardMaterial3D:
+					continue
+				# Own copy per body so one hit never lights the whole pack.
+				var own := base as StandardMaterial3D
+				if mi.get_surface_override_material(i) != base:
+					own = base.duplicate() as StandardMaterial3D
+					mi.set_surface_override_material(i, own)
+				own.set_meta("emit_on", own.emission_enabled)
+				own.set_meta("emit_col", own.emission)
+				own.set_meta("emit_e", own.emission_energy_multiplier)
+				mats.append(own)
+		body.set_meta("flash_mats", mats)
+	for mat in mats:
+		var sm := mat as StandardMaterial3D
+		sm.emission_enabled = true
+		sm.emission = Color(1.0, 0.6, 0.4)
+		sm.emission_energy_multiplier = energy
+	var stamp := Time.get_ticks_msec()
+	body.set_meta("flash_stamp", stamp)
+	get_tree().create_timer(0.07).timeout.connect(func() -> void:
+		if not is_instance_valid(body) or int(body.get_meta("flash_stamp", 0)) != stamp:
+			return
+		for mat in mats:
+			var sm := mat as StandardMaterial3D
+			sm.emission_enabled = bool(sm.get_meta("emit_on"))
+			sm.emission = sm.get_meta("emit_col")
+			sm.emission_energy_multiplier = float(sm.get_meta("emit_e")))
 
 
 func died(actor_id: int, sim_pos: Vector2, sprite: String) -> void:
@@ -577,9 +590,12 @@ func _foliage(biome_id: String) -> void:
 	rng.seed = hash(biome_id) + 17
 	_grass_mats.clear()
 	_props.clear()
-	var count := 360 if _tier() == "low" else (900 if _tier() == "medium" else 1300)
+	var count := 420 if _tier() == "low" else (1300 if _tier() == "medium" else 2100)
 	_scatter(rng, "grass_short", int(count * 0.55), 0.4, 0.6, true)
 	_scatter(rng, "grass_wispy", int(count * 0.25), 0.38, 0.55, true)
+	if not biome_id in ["frost", "volcano"]:
+		# Taller tufts in clumps break up the turf at the hunt zoom.
+		_scatter(rng, "grass_tall", int(count * 0.1), 0.45, 0.7, true)
 	if not biome_id in ["frost", "volcano"]:
 		_scatter(rng, "flower_a", 34, 0.5, 0.75, false)
 		_scatter(rng, "flower_b", 30, 0.5, 0.75, false)
@@ -675,6 +691,8 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 	node.position = at
 	if model in ["log", "stump"]:
 		_bark(node)
+	if (model.begins_with("rock") or model.begins_with("pebble_rock")) and model != "rock_lava":
+		_paint_rock(node)
 	if node is Node3D:
 		var prop := node as Node3D
 		prop.scale *= scale
@@ -875,7 +893,7 @@ func _hero_glow(body: Node3D) -> void:
 		sh.code = """shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
 uniform vec3 rim_color = vec3(0.55, 0.75, 1.0);
-uniform float rim_power = 4.0;
+uniform float rim_power = 5.0;
 uniform float rim_strength = 0.32;
 uniform vec3 lift = vec3(0.022, 0.008, 0.006);
 void fragment() {
@@ -1357,13 +1375,15 @@ func _decal(size: float, params: Dictionary) -> MeshInstance3D:
 func _place_mark(at: Vector3) -> void:
 	if _mark == null:
 		_mark = _decal(HERO_METERS * 0.82, {
-			"ring_color": Color(1.0, 0.86, 0.42, 0.95),
-			"ring_radius": 0.4,
-			"ring_width": 0.04,
-			"ring_glow": 0.45,
+			# A faint gilt rune circle: reads as "you", never as a donut.
+			"ring_color": Color(0.95, 0.82, 0.55, 0.42),
+			"ring_radius": 0.42,
+			"ring_width": 0.008,
+			"ring_glow": 0.0,
+			"rune": true,
 			"shadow_alpha": 0.86,
 			"shadow_radius": 0.27,
-			"pulse": 1.0,
+			"pulse": 0.0,
 		})
 		_mark.position.y = 0.035
 		actor_root.add_child(_mark)
@@ -1813,15 +1833,25 @@ func _bark(node: Node) -> void:
 		_bark(child)
 
 
+var _rock_mat: ShaderMaterial
+
+
 func _paint_rock(node: Node) -> void:
+	if _rock_mat == null:
+		_rock_mat = ShaderMaterial.new()
+		_rock_mat.shader = load("res://shaders/rock.gdshader")
+		_rock_mat.set_shader_parameter("rock_color", load("res://assets/textures/rock_color.jpg"))
+		_rock_mat.set_shader_parameter("rock_normal", load("res://assets/textures/rock_normal.jpg"))
+		_rock_mat.set_shader_parameter("rock_rough", load("res://assets/textures/rock_rough.jpg"))
+		_rock_mat.set_shader_parameter("moss_color", load("res://assets/textures/moss_color.jpg"))
+		_rock_mat.set_shader_parameter("moss_normal", load("res://assets/textures/moss_normal.jpg"))
+		var b := _biome
+		_rock_mat.set_shader_parameter("moss", 0.0 if b in ["frost", "volcano"] else (0.9 if b == "mushroom" else 0.7))
+		_rock_mat.set_shader_parameter("snow", 0.9 if b == "frost" else 0.0)
+		if b == "volcano":
+			_rock_mat.set_shader_parameter("rock_tint", Vector3(0.3, 0.27, 0.27))
 	if node is MeshInstance3D:
-		var mat := StandardMaterial3D.new()
-		mat.albedo_texture = load("res://assets/textures/rock_color.jpg")
-		mat.albedo_color = Color("8d847c")
-		mat.uv1_triplanar = true
-		mat.uv1_scale = Vector3(0.8, 0.8, 0.8)
-		mat.roughness = 0.92
-		(node as MeshInstance3D).material_override = mat
+		(node as MeshInstance3D).material_override = _rock_mat
 	for child in node.get_children():
 		_paint_rock(child)
 

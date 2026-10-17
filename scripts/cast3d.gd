@@ -110,7 +110,7 @@ static func pbr(id: String) -> Dictionary:
 		# The packed ORM's metal channel is bogus (full metal), so roughness
 		# (G) and AO (R) are bound and metal is forced off.
 		# tools/bake_ember_normal.py adds hex scales to the source normal map.
-		return {"roughness": 0.5, "specular": 0.6, "backlight": Color(0.75, 0.2, 0.05), "albedo_tex": "res://assets/models/sketchfab/ember_paint.png", "rough_tex": "res://assets/models/sketchfab/ember_1.png", "ao_tex": "res://assets/models/sketchfab/ember_1.png", "normal_tex": "res://assets/models/sketchfab/ember_normal_scales.png", "normal_scale": 1.8, "rim": 0.75, "rim_tint": 0.7}
+		return {"roughness": 0.58, "specular": 0.4, "backlight": Color(0.9, 0.16, 0.04), "albedo_tex": "res://assets/models/sketchfab/ember_paint.png", "rough_tex": "res://assets/models/sketchfab/ember_1.png", "ao_tex": "res://assets/models/sketchfab/ember_1.png", "normal_tex": "res://assets/models/sketchfab/ember_normal_scales.png", "normal_scale": 1.8, "rim": 0.45, "rim_tint": 0.85}
 	if path.ends_with("sketchfab/thistle.glb"):
 		# tools/paint_thistle.py repaints the pastel toy hide in bone and
 		# oxblood, with a damp, matte roughness map.

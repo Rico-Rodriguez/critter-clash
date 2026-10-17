@@ -96,6 +96,12 @@ func build() -> void:
 	flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	flash_rect.color = Color(1, 0.2, 0.15, 0)
+	# Damage reads as a red bite at the screen edges; the playfield in the
+	# middle stays clear (a full-screen wash hid the fight for a frame).
+	var edge := ShaderMaterial.new()
+	edge.shader = Shader.new()
+	edge.shader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec2 d = (UV - 0.5) * vec2(1.0, 0.8);\n\tfloat v = smoothstep(0.28, 0.62, length(d));\n\tCOLOR = vec4(COLOR.rgb, COLOR.a * v);\n}\n"
+	flash_rect.material = edge
 	add_child(flash_rect)
 	_build_modal()
 
@@ -508,9 +514,9 @@ func _burst(pos: Vector2, color: Color, count: int, speed: float) -> void:
 
 
 func _hurt_flash() -> void:
-	flash_rect.color = Color(1, 0.25, 0.18, 0.32)
+	flash_rect.color = Color(0.85, 0.08, 0.04, 0.5)
 	var tw := create_tween()
-	tw.tween_property(flash_rect, "color:a", 0.0, 0.2)
+	tw.tween_property(flash_rect, "color:a", 0.0, 0.28).set_ease(Tween.EASE_OUT)
 
 
 func _banner(text: String) -> void:
