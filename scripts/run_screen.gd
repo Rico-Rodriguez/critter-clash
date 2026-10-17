@@ -749,7 +749,7 @@ func _end_panel(win: bool) -> VBoxContainer:
 			c.queue_free()
 	var crest := EndCrest.new()
 	crest.win = win
-	crest.custom_minimum_size = Vector2(0, 150)
+	crest.custom_minimum_size = Vector2(0, 210)
 	modal_box.add_child(crest)
 	var plate := UiKit.Plate.new()
 	plate.kind = "panel"
@@ -771,6 +771,55 @@ func _end_panel(win: bool) -> VBoxContainer:
 	return col
 
 
+## Three forged stat tiles: time, foes slain, level reached.
+func _end_stats() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	var t := int(sim.time) if sim else 0
+	var cells := [["TIME", "%d:%02d" % [t / 60, t % 60]], ["SLAIN", str(sim.slain if sim else 0)], ["LEVEL", str(sim.level if sim else 1)]]
+	for cell in cells:
+		var tile := UiKit.Plate.new()
+		tile.kind = "plaque"
+		tile.pad = 10
+		tile.custom_minimum_size = Vector2(196, 0)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 0)
+		tile.add_child(v)
+		var k := UiKit.label(str(cell[0]), 17, UiKit.MUTED, "x", 2)
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(k)
+		var val := UiKit.label(str(cell[1]), 32, UiKit.CREAM, "x", 3)
+		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(val)
+		row.add_child(tile)
+	return row
+
+
+## The chest that comes home: its baked icon and unlock time.
+func _end_chest(win: bool) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	var i := SaveGame.pending_count() - 1
+	var tone := SaveGame.chest_tone(i) if i >= 0 else ("silver" if win else "wood")
+	var icon := TextureRect.new()
+	icon.texture = SpriteBank._load("res://assets/sprites/chests/%s.png" % tone, "chest_" + tone)
+	icon.custom_minimum_size = Vector2(128, 128)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(icon)
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(v)
+	var name := UiKit.label("HUNT CHEST" if win else "SMALL POUCH", 24, UiKit.GOLD.lightened(0.2), "x", 3)
+	v.add_child(name)
+	var wait := SaveGame.chest_wait(i) if i >= 0 else 0
+	var line := "Unlocks in %d:%02d" % [wait / 60, wait % 60] if wait > 0 else "Ready to open"
+	v.add_child(UiKit.label(line, 19, UiKit.MUTED.lightened(0.15), "b", 2))
+	return row
+
+
 func _show_victory(boss_name: String) -> void:
 	_open_modal()
 	var col := _end_panel(true)
@@ -780,6 +829,9 @@ func _show_victory(boss_name: String) -> void:
 	var sub := UiKit.label("%s has fallen." % boss_name, 24, UiKit.MUTED.lightened(0.2), "m", 2)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(sub)
+	var rule := GiltRule.new()
+	rule.custom_minimum_size = Vector2(0, 18)
+	col.add_child(rule)
 	var drops: Array = summary.get("drops", [])
 	if not drops.is_empty():
 		var row := HBoxContainer.new()
@@ -788,12 +840,29 @@ func _show_victory(boss_name: String) -> void:
 		col.add_child(row)
 		for drop in drops:
 			var tag := UiKit.Plate.new()
-			tag.kind = "plaque"
-			tag.pad = 12
-			var line := UiKit.label(str(drop.get("name", "Drop")), 20, UiKit.GOLD.lightened(0.2), "x", 2)
+			tag.kind = "card"
+			tag.pad = 10
+			tag.glow = Color(1.0, 0.75, 0.35, 0.3)
+			tag.custom_minimum_size = Vector2(170, 0)
+			var dv := VBoxContainer.new()
+			dv.add_theme_constant_override("separation", 2)
+			tag.add_child(dv)
+			var ico := TextureRect.new()
+			var did := str(drop.get("id", ""))
+			if str(drop.get("kind", "")) == "pet" and str(drop.get("sprite", "")) != "":
+				ico.texture = SpriteBank.head(str(drop["sprite"]))
+			else:
+				ico.texture = SpriteBank._load("res://assets/sprites/items/%s.png" % did, did)
+			ico.custom_minimum_size = Vector2(84, 84)
+			ico.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			ico.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			dv.add_child(ico)
+			var line := UiKit.label(str(drop.get("name", "Drop")), 18, UiKit.GOLD.lightened(0.2), "x", 2)
 			line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			tag.add_child(line)
+			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			dv.add_child(line)
 			row.add_child(tag)
+	col.add_child(_end_stats())
 	var prize := HBoxContainer.new()
 	prize.alignment = BoxContainer.ALIGNMENT_CENTER
 	prize.add_theme_constant_override("separation", 10)
@@ -807,6 +876,7 @@ func _show_victory(boss_name: String) -> void:
 	var trophies := UiKit.label("+%d" % int(summary.get("trophies", 0)), 40, UiKit.GOLD.lightened(0.25), "x", 3)
 	prize.add_child(trophies)
 	col.add_child(prize)
+	col.add_child(_end_chest(true))
 	var button := UiKit.button("OPEN THE CHEST", 480, 96, "gold")
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.pressed.connect(func() -> void: go("chest"))
@@ -827,11 +897,17 @@ func _show_defeat(reason: String) -> void:
 	var hint := UiKit.label("Level your critters with cards and gear, then return.", 19, UiKit.MUTED, "m", 2)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_end_stats())
+	col.add_child(_end_chest(false))
 	col.add_child(hint)
 	var button := UiKit.button("OPEN THE POUCH", 480, 96, "steel")
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.pressed.connect(func() -> void: go("chest"))
 	col.add_child(button)
+	var again := UiKit.secondary("TRY AGAIN", 300, 64)
+	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	again.pressed.connect(func() -> void: go("run", {"biome": biome_id, "hero": hero_id}))
+	col.add_child(again)
 
 
 func _pause() -> void:
@@ -852,6 +928,22 @@ func _pause() -> void:
 ## with a soft aura and a press bounce.
 ## Crest over the end panel: crossed blades behind a gilded (victory) or
 ## blackened (defeat) shield with a crown or a skull.
+class GiltRule extends Control:
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var gold := Color("c8963a")
+		var clear := Color(gold, 0.0)
+		for side in [-1.0, 1.0]:
+			var a := c + Vector2(side * 16.0, 0)
+			var b := c + Vector2(side * size.x * 0.4, 0)
+			draw_polygon(PackedVector2Array([a + Vector2(0, -1.5), b + Vector2(0, -0.5), b + Vector2(0, 0.5), a + Vector2(0, 1.5)]), PackedColorArray([gold, clear, clear, gold]))
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -7), c + Vector2(9, 0), c + Vector2(0, 7), c + Vector2(-9, 0)]), Color("f0d08a"))
+
+
 class EndCrest extends Control:
 	var win := true
 	var t := 0.0
@@ -866,6 +958,21 @@ class EndCrest extends Control:
 	func _draw() -> void:
 		var c := Vector2(size.x * 0.5, size.y * 0.55)
 		var glow := Color(1.0, 0.75, 0.35) if win else Color(0.85, 0.15, 0.1)
+		if win:
+			# Slow-turning gilt rays behind the shield.
+			for i in 16:
+				var a := TAU * i / 16.0 + t * 0.15
+				var a2 := a + 0.09
+				var far := 190.0
+				var clear := Color(1.0, 0.82, 0.45, 0.0)
+				draw_polygon(PackedVector2Array([c, c + Vector2.from_angle(a) * far, c + Vector2.from_angle(a2) * far]),
+					PackedColorArray([Color(1.0, 0.82, 0.45, 0.22), clear, clear]))
+		else:
+			# Embers drifting up off a dying fire.
+			for i in 14:
+				var x := c.x + sin(i * 12.9) * 150.0 + sin(t + i) * 8.0
+				var y := c.y + 70.0 - fmod(t * (24.0 + i % 4 * 8.0) + i * 31.0, 180.0)
+				draw_circle(Vector2(x, y), 2.0 + float(i % 3), Color(1.0, 0.45, 0.15, 0.5 * clampf((y - c.y + 110.0) / 180.0, 0.0, 1.0)))
 		for k in 12:
 			draw_circle(c, 120.0 - k * 7.0, Color(glow, 0.018 + 0.006 * sin(t * 2.0)))
 		var steel := Color("cfd4da") if win else Color("6a6460")

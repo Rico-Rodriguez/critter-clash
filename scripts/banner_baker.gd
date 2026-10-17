@@ -130,7 +130,12 @@ func _bake(entry: Dictionary) -> void:
 			for i in 12:
 				var side := -1.0 if i % 2 == 0 else 1.0
 				var at := look + Vector3(side * mrng.randf_range(4.0, 9.0), 0, mrng.randf_range(-12.0, 2.0))
-				stage._place_prop(["mushroom_tall", "mushroom", "mushroom_tall"][i % 3], at, mrng.randf_range(3.0, 5.5), true)
+				var sc := mrng.randf_range(3.6, 6.5)
+				stage._place_prop("mushroom_tall", at, sc, true)
+				var shroom: Node3D = stage._props[-1]
+				shroom.rotation.z = mrng.randf_range(-0.12, 0.12)
+				# A pool of gill light on the ground under each cap.
+				_glow_pool(stage, at + Vector3(0, 0.04, 0), sc * 0.4, Color(0.3, 0.95, 0.8) if i % 3 != 1 else Color(0.7, 0.45, 1.0))
 			for i in 30:
 				var at := look + Vector3(mrng.randf_range(-6.0, 6.0), 0, mrng.randf_range(1.5, 6.0))
 				stage._place_prop(["mushroom", "fern", "grass_tall", "mushroom_shelf"][i % 4], at, mrng.randf_range(0.5, 1.0), false)
@@ -217,6 +222,32 @@ func _bake(entry: Dictionary) -> void:
 
 ## Drifting particles for atmosphere: spores, snow, or rising embers.
 ## rise > 0 floats up, < 0 falls. Pre-simulated so a still frame is full.
+## Additive radial pool of light lying on the ground.
+func _glow_pool(stage: Node, at: Vector3, radius: float, col: Color) -> void:
+	var quad := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(radius * 2.0, radius * 2.0)
+	quad.mesh = pm
+	var grad := Gradient.new()
+	grad.set_color(0, Color(col, 0.3))
+	grad.set_color(1, Color(col, 0.0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_texture = tex
+	mat.albedo_color = Color(1.0, 1.0, 1.0)
+	quad.material_override = mat
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	quad.position = at
+	stage.world_root.add_child(quad)
+
+
 func _motes(stage: Stage3D, at: Vector3, extents: Vector3, color: Color, amount: int, size: float, rise: float) -> void:
 	var p := GPUParticles3D.new()
 	p.amount = amount

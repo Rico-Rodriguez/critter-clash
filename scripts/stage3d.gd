@@ -746,6 +746,8 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 		_bark(node)
 	if (model.begins_with("rock") or model.begins_with("pebble_rock")) and model != "rock_lava":
 		_paint_rock(node)
+	if model == "mushroom_tall":
+		_paint_mushroom(node)
 	if node is Node3D:
 		var prop := node as Node3D
 		prop.scale *= scale
@@ -759,6 +761,27 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 	if node is Node3D:
 		_props.append(node)
 	world_root.add_child(node)
+
+
+## Giant mushrooms: the kit's clay caps repainted with plum tops, freckles,
+## glowing gills and rim light; lilac fibrous stems.
+static var _cap_mat: ShaderMaterial
+static var _stem_mat: ShaderMaterial
+
+
+func _paint_mushroom(node: Node) -> void:
+	if _cap_mat == null:
+		_cap_mat = ShaderMaterial.new()
+		_cap_mat.shader = load("res://shaders/mushcap.gdshader")
+		_stem_mat = ShaderMaterial.new()
+		_stem_mat.shader = load("res://shaders/mushstem.gdshader")
+	for mi in node.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		var n := m.name.to_lower()
+		if n.contains("cap"):
+			m.material_override = _cap_mat
+		elif n.contains("stem"):
+			m.material_override = _stem_mat
 
 
 ## A raised grassy platform with a stone rim, flowers, rocks, and a ring of

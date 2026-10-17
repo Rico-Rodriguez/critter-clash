@@ -144,10 +144,63 @@ func _fill() -> void:
 		button.pressed.connect(_equip.bind(int(piece["uid"])))
 		list.add_child(button)
 	if not found:
-		var hint := body("Your bag holds no %s yet. Hunt chests drop weapons, armor, and charms." % slot)
-		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		list.add_child(hint)
+		# Empty bag: ghost sockets show what this slot can hold and where
+		# it comes from, instead of a blank gap.
+		var gains := {"weapon": "damage and attack speed", "armor": "health and armor", "charm": "crit, move speed or regen"}
+		var where := [["common", "Common", "From any hunt chest"], ["rare", "Rare", "Bosses, the trophy road, the slayer shop"], ["epic", "Epic", "Lucky hunt chests"]]
+		for w in where:
+			var ghost := GhostRow.new()
+			ghost.rarity = str(w[0])
+			ghost.title = "%s %s" % [str(w[1]), slot]
+			ghost.hint = "%s · %s" % [str(w[2]), str(gains[slot])]
+			ghost.custom_minimum_size = Vector2(0, 92)
+			list.add_child(ghost)
+	list.add_child(_stats_panel())
+
+
+## The hero's battle stats with the worn gear's share picked out in green.
+func _stats_panel() -> Control:
+	var base := Catalog.base_stats(hero_id)
+	var level := int(SaveGame.hero(hero_id)["level"])
+	var scale := 1.0 + 0.08 * float(level - 1)
+	base["hp"] = float(base["hp"]) * scale
+	base["dmg"] = float(base["dmg"]) * scale
+	var full := SaveGame.build_run_stats(hero_id)
+	var rows := [
+		["Health", "%d" % int(full["hp"]), int(full["hp"]) - int(base["hp"]), "%+d"],
+		["Damage", "%d" % int(full["dmg"]), int(round(float(full["dmg"]) - float(base["dmg"]))), "%+d"],
+		["Attacks / s", "%.1f" % (1.0 / float(full["interval"])), 0, ""],
+		["Armor", "%d" % int(full["armor"]), int(full["armor"]) - int(base["armor"]), "%+d"],
+		["Crit", "%d%%" % int(round(float(full["crit"]) * 100.0)), int(round((float(full["crit"]) - float(base["crit"])) * 100.0)), "%+d%%"],
+		["Regen", "%.1f/s" % float(full["regen"]), 0, ""],
+	]
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 18
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	plate.add_child(v)
+	var head := UiKit.label("BATTLE STATS · LEVEL %d" % level, 21, UiKit.GOLD.lightened(0.2), "x", 3)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(head)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 30)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(grid)
+	for row in rows:
+		var h := HBoxContainer.new()
+		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var name := UiKit.label(str(row[0]), 21, UiKit.MUTED, "b", 2)
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(name)
+		var val := UiKit.label(str(row[1]), 23, UiKit.CREAM, "b", 2)
+		h.add_child(val)
+		if int(row[2]) != 0 and str(row[3]) != "":
+			var bonus := UiKit.label("  " + (str(row[3]) % int(row[2])), 20, Color("8fdc7a"), "b", 2)
+			h.add_child(bonus)
+		grid.add_child(h)
+	return plate
 
 
 func _equip(uid: int) -> void:
@@ -206,3 +259,31 @@ class Socket extends Button:
 		var fs := 20
 		var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		draw_string(font, Vector2(size.x * 0.5 - w * 0.5, size.y - 8), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8c886") if active else UiKit.MUTED)
+
+
+## A greyed placeholder for gear not found yet: an empty dashed socket, the
+## rarity it could be, and where it drops.
+class GhostRow extends Control:
+	var rarity := "common"
+	var title := ""
+	var hint := ""
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		var r := Rect2(Vector2.ZERO, size)
+		draw_rect(r, Color(0.04, 0.03, 0.02, 0.55))
+		var lip: Color = UiKit.rarity_colors(rarity)["lip"]
+		draw_rect(r.grow(-1.0), Color(lip, 0.28), false, 2.0)
+		var c := Vector2(r.size.y * 0.55, r.size.y * 0.5)
+		var rad := r.size.y * 0.32
+		# Dashed empty socket.
+		for k in 16:
+			var a0 := TAU * k / 16.0
+			draw_arc(c, rad, a0, a0 + TAU / 32.0, 4, Color(lip, 0.6), 3.0, true)
+		draw_string(UiKit.font_x, Vector2(c.x - 9, c.y + 12), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(lip, 0.55))
+		var x := r.size.y * 1.1
+		draw_string(UiKit.font_x, Vector2(x, r.size.y * 0.44), title.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, r.size.x - x - 12, 22, Color(lip.lightened(0.25), 0.85))
+		draw_string(UiKit.font_b, Vector2(x, r.size.y * 0.78), hint, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - x - 12, 18, Color(UiKit.MUTED, 0.95))
