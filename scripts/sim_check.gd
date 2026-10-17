@@ -75,9 +75,29 @@ static func _save() -> void:
 	SaveGame.reset_new()
 	if not SaveGame.biome_open("meadow") or SaveGame.biome_open("mushroom"):
 		_fail("biome gates at start")
-	var summary := SaveGame.commit_victory("meadow", "thistle")
-	if int(summary["trophies"]) != 30 or not bool(SaveGame.hero("thistle")["unlocked"]):
-		_fail("tame did not unlock thistle")
+	if Catalog.PET_RATE != 50:
+		_fail("pet rate")
+	if Catalog.skill_xp_to_level(2) != 83 or Catalog.skill_xp_to_level(99) != 13034431:
+		_fail("skill curve")
+	if Catalog.skill_level(0) != 1 or Catalog.skill_level(83) != 2 or Catalog.skill_level(13034431) != 99:
+		_fail("skill level")
+	if Catalog.all_drops().size() != 48:
+		_fail("drop log size %d" % Catalog.all_drops().size())
+	SaveGame.assign_task("meadow_critters")
+	var summary := SaveGame.commit_victory("meadow", "thistle", 40)
+	if int(summary["trophies"]) != 30:
+		_fail("clear trophies")
+	if SaveGame.data["heroes"].has("thistle"):
+		_fail("boss became a hero")
+	if int(summary.get("kills", 0)) != 1 or SaveGame.boss_kills("thistle") != 1:
+		_fail("boss kill count")
+	var drops: Array = summary.get("drops", [])
+	if drops.is_empty() or not SaveGame.has_log(str(drops[0]["id"])):
+		_fail("drop was not logged")
+	if int(SaveGame.data["slayer"]["task"].get("have", 0)) != 40:
+		_fail("slayer progress")
+	if SaveGame.complete_task() != 25:
+		_fail("slayer payout")
 	if not SaveGame.biome_open("mushroom") or SaveGame.biome_open("frost"):
 		_fail("meadow clear should open mushroom only")
 	var loot := SaveGame.open_next()
@@ -133,7 +153,7 @@ static func _fights() -> void:
 		var report := _play(hero, "meadow", 11, false)
 		print("FIGHT ", hero, " ", report)
 		if str(report["result"]) != "win":
-			_fail("%s should tame the meadow, got %s" % [hero, report["result"]])
+			_fail("%s should clear the meadow, got %s" % [hero, report["result"]])
 		if float(report["time"]) < 60.0 or float(report["time"]) >= 119.0:
 			_fail("%s time %s outside the hunt window" % [hero, report["time"]])
 		if int(report["level"]) < 3:

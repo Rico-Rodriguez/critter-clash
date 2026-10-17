@@ -8,6 +8,9 @@ const SCREENS := {
 	"collection": preload("res://scripts/collection_screen.gd"),
 	"trophy": preload("res://scripts/trophy_screen.gd"),
 	"chest": preload("res://scripts/chest_screen.gd"),
+	"log": preload("res://scripts/log_screen.gd"),
+	"slayer": preload("res://scripts/slayer_screen.gd"),
+	"skills": preload("res://scripts/skills_screen.gd"),
 	"run": preload("res://scripts/run_screen.gd"),
 }
 
@@ -62,6 +65,16 @@ func _capture() -> void:
 	go("collection")
 	await _settle()
 	await _shot("collection")
+	_seed_log()
+	go("log")
+	await _settle()
+	await _shot("log")
+	go("slayer")
+	await _settle()
+	await _shot("slayer")
+	go("skills")
+	await _settle()
+	await _shot("skills")
 	go("trophy")
 	await _settle()
 	await _shot("trophy")
@@ -85,9 +98,10 @@ func _capture() -> void:
 	current.sim.begin_boss()
 	await get_tree().create_timer(0.35).timeout
 	await _shot("boss")
+	SaveGame.debug_rare = true
 	current.sim.debug_slay_boss()
 	await _settle()
-	await _shot("tame")
+	await _shot("rare")
 	go("chest")
 	await _settle()
 	await _shot("chest")
@@ -95,6 +109,26 @@ func _capture() -> void:
 	await _settle()
 	await _shot("loot")
 	get_tree().quit()
+
+
+func _seed_log() -> void:
+	var want := [
+		"thistle_purse", "meadow_fiber", "pollen", "thistle_ember_cards", "thistle_claw", "flower_crown", "thistle_pet",
+		"caplet_purse", "cap_bits", "caplet_wand", "toad_cap", "caplet_pet",
+	]
+	for id in want:
+		if id not in SaveGame.data["log"]:
+			SaveGame.data["log"].append(id)
+	SaveGame.data["pets"]["thistle_pet"] = true
+	SaveGame.data["active_pet"] = "thistle_pet"
+	SaveGame.data["kills"]["thistle"] = 3
+	SaveGame.data["skills"]["foraging"] = 200
+	SaveGame.data["slayer"]["points"] = 55
+	SaveGame.data["slayer"]["streak"] = 2
+	var task := Catalog.slayer_task("meadow_critters").duplicate()
+	task["have"] = 18
+	SaveGame.data["slayer"]["task"] = task
+	SaveGame.data["cosmetic"] = "ribbon"
 
 
 func _settle() -> void:

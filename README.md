@@ -1,6 +1,6 @@
 # Critter Clash
 
-A portrait hero-run in Godot 4.7.2. Pick one critter, steer it through a biome, and tame the boss at the end. That boss joins your collection as a new hero.
+A portrait hero-run in Godot 4.7.2. Pick one critter, steer it through a biome, and defeat the boss. Bosses drop loot. They do not become heroes.
 
 The game is free. There are no ads, no in-app purchases, and no paid currency. A critter's role never changes because of where it stands. Roles are fixed on the critter.
 
@@ -24,7 +24,21 @@ Shared cards cover health, regen, attack speed, ricochet, multishot, move speed,
 
 Around 68 seconds the minions leave and the biome boss arrives. It telegraphs area circles, a charge lane, and a fan of projectiles. Dodge those. Defeat the boss to win. Losing the hero, or still fighting at 119 seconds, ends the hunt.
 
-On a win, tap three hearts to tame the boss. The tame is saved as soon as the boss falls, so leaving during the hearts still keeps the new hero and the chest.
+On a win the boss rolls a drop table and you still bring a hunt chest home. The clear is saved as soon as the boss falls.
+
+## Boss drops
+
+Each boss has a weighted table of common, uncommon, rare, and very rare loot: coins, critter cards, gear, and crafting materials. A boss pet is a separate roll at 1/50 (`Catalog.PET_RATE`). Pets are cosmetic. The active pet follows your hero in a hunt and does not fight. A pet or a very rare drop plays a gold beam and a fanfare before the loot list.
+
+The collection log lists every drop and pet, 48 in all. Unobtained pictures are silhouettes. The header shows an obtained count such as 12/48, and each boss tab shows that boss's kill count.
+
+## Slayer
+
+The slayer master offers tasks such as "Defeat 40 Meadow critters" or "Defeat Thistle". Progress counts the critters you defeat in that biome, and a boss task counts that boss. Turning a task in pays slayer points plus 5 points for each task already in the streak. Cancelling a task resets the streak. The points shop sells a rare charm, a trail ribbon for the home pedestal, and a hunt chest.
+
+## Skills
+
+Foraging, Fishing, Taming, and Crafting are saved as XP. Levels run from 1 to 99 on the same curve as Old School RuneScape (83 XP to reach level 2, 13,034,431 XP to reach level 99). The skills screen only shows the level and the next XP total. There is no gathering yet.
 
 ## Heroes
 
@@ -36,10 +50,8 @@ On a win, tap three hearts to tame the boss. The tame is saved as soon as the bo
 | Lumen, owl | Archer | Trophy road |
 | Pip, frog | Mage | Trophy road |
 | Bramble, hedgehog | Tank | Trophy road |
-| Thistle | Tank | Tame the Meadow boss |
-| Caplet | Mage | Tame the Mushroom Forest boss |
-| Nimbus | Archer | Tame the Frost Peaks boss |
-| Cinder | Mage | Tame the Ember Volcano boss |
+
+Thistle, Caplet, Nimbus, and Cinder are bosses. They stay in the world.
 
 ## World and the road
 
@@ -76,7 +88,7 @@ godot --headless --path . --import --quit
 godot --headless --path . -- --sim-check
 ```
 
-The first command fills the class cache. The second prints `SIM CHECK PASSED` and exits 0 when Ember, Juniper, and Pebble can tame the Meadow inside the hunt window, and a hero who never moves loses.
+The first command fills the class cache. The second prints `SIM CHECK PASSED` and exits 0 when Ember, Juniper, and Pebble can clear the Meadow inside the hunt window, and a hero who never moves loses.
 
 ### iOS
 
@@ -122,7 +134,7 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 
 ## Project layout
 
-- `scripts/` hunt simulation, screens, save, sprite loader
+- `scripts/` hunt simulation, screens (including the collection log, slayer master, and skills stub), save, sprite loader
 - `assets/sprites/` Kenney critters and arenas, plus generated effects
 - `assets/audio/` synthesized effects and the music loop
 - `assets/fonts/` Nunito for body copy, Lilita One for titles, numbers, and buttons

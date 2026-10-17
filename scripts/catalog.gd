@@ -2,7 +2,7 @@ class_name Catalog
 extends RefCounted
 
 ## Static roster, biomes, waves, upgrade cards, and trophy milestones.
-## Habitat never changes a critter's role. A tamed boss is a new hero with a fixed role.
+## Habitat never changes a critter's role. Bosses drop loot. They are not heroes.
 
 const BOSS_AT := 68.0
 const MAX_CARD_LEVEL := 10
@@ -64,10 +64,7 @@ static func unlock_line(id: String) -> String:
 	for entry in MILESTONES:
 		if str(entry.get("hero", "")) == id:
 			return "Trophy Road %d" % int(entry["trophies"])
-	var text := str(critter(id).get("unlock", "Locked"))
-	if text.begins_with("Tame"):
-		return "Tame the boss"
-	return text
+	return str(critter(id).get("unlock", "Locked"))
 
 
 static func rarity_name(rarity: String) -> String:
@@ -180,8 +177,10 @@ static func _index_cards() -> void:
 
 const PLAYABLE: Array = [
 	"ember", "juniper", "pebble", "lumen", "pip", "bramble",
-	"thistle", "caplet", "nimbus", "cinder",
 ]
+
+## Boss pet roll. 1 in PET_RATE, separate from the weighted table.
+const PET_RATE := 50
 
 const BIOMES: Array = [
 	{
@@ -315,7 +314,7 @@ const CRITTERS: Dictionary = {
 	"thistle": {
 		"name": "Thistle", "role": "tank", "kind": "boss", "color": "c46b8a",
 		"blurb": "Meadow boss. A flower-crowned boar.",
-		"unlock": "Tame the Meadow boss.",
+		"unlock": "Meadow boss.",
 		"hp": 252, "dmg": 23, "interval": 0.48, "range": 118, "speed": 232,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 3,
 		"boss_hp": 1720, "boss_speed": 74, "boss_radius": 78, "boss_touch": 15,
@@ -325,7 +324,7 @@ const CRITTERS: Dictionary = {
 	"caplet": {
 		"name": "Caplet", "role": "mage", "kind": "boss", "color": "d45ad0",
 		"blurb": "Mushroom boss. A toad in a red cap.",
-		"unlock": "Tame the Mushroom Forest boss.",
+		"unlock": "Mushroom Forest boss.",
 		"hp": 160, "dmg": 17, "interval": 0.55, "range": 300, "speed": 246,
 		"splash": 86, "splash_mul": 0.7, "proj_speed": 450, "armor": 0,
 		"boss_hp": 1500, "boss_speed": 64, "boss_radius": 80, "boss_touch": 15,
@@ -335,7 +334,7 @@ const CRITTERS: Dictionary = {
 	"nimbus": {
 		"name": "Nimbus", "role": "archer", "kind": "boss", "color": "d7e7f6",
 		"blurb": "Frost boss. A hare made of weather.",
-		"unlock": "Tame the Frost Peaks boss.",
+		"unlock": "Frost Peaks boss.",
 		"hp": 128, "dmg": 16, "interval": 0.32, "range": 410, "speed": 308,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 800, "armor": 0,
 		"boss_hp": 1420, "boss_speed": 92, "boss_radius": 70, "boss_touch": 14,
@@ -345,7 +344,7 @@ const CRITTERS: Dictionary = {
 	"cinder": {
 		"name": "Cinder", "role": "mage", "kind": "boss", "color": "ff5a32",
 		"blurb": "Volcano boss. A round lava salamander.",
-		"unlock": "Tame the Ember Volcano boss.",
+		"unlock": "Ember Volcano boss.",
 		"hp": 168, "dmg": 19, "interval": 0.52, "range": 290, "speed": 248,
 		"splash": 98, "splash_mul": 0.74, "proj_speed": 440, "armor": 1,
 		"boss_hp": 1680, "boss_speed": 68, "boss_radius": 82, "boss_touch": 18,
@@ -369,3 +368,153 @@ const CRITTERS: Dictionary = {
 	"ashbat": {"name": "Ashbat", "kind": "minion", "archetype": "shooter", "color": "6a534c", "hp": 32, "dmg": 11, "speed": 84, "radius": 22, "xp": 3, "interval": 1.2, "shot_speed": 255, "shot_range": 300},
 	"magmash": {"name": "Magmash", "kind": "minion", "archetype": "brute", "color": "ff5a2a", "hp": 120, "dmg": 15, "speed": 86, "radius": 34, "xp": 5},
 }
+
+
+## One row per obtainable drop. Pets are rolled at 1/PET_RATE and are not weighted.
+const DROPS: Array = [
+	{"id": "thistle_purse", "boss": "thistle", "name": "Coin purse", "kind": "coins", "amount": 40, "rarity": "common", "weight": 22, "color": "f0b429"},
+	{"id": "thistle_pouch", "boss": "thistle", "name": "Heavy purse", "kind": "coins", "amount": 90, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
+	{"id": "meadow_fiber", "boss": "thistle", "name": "Meadow fiber", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "67b85a"},
+	{"id": "pollen", "boss": "thistle", "name": "Pollen", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "f2d35a"},
+	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Ember cards", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "ff7a3c"},
+	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Juniper cards", "kind": "cards", "hero": "juniper", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "e07a3d"},
+	{"id": "thistle_claw", "boss": "thistle", "name": "Thistle claw", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "c46b8a"},
+	{"id": "thistle_shell", "boss": "thistle", "name": "Flower shell", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8d4e6a"},
+	{"id": "boar_bristle", "boss": "thistle", "name": "Boar bristle", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "a86848"},
+	{"id": "thistle_bell", "boss": "thistle", "name": "Thistle bell", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffe08a"},
+	{"id": "flower_crown", "boss": "thistle", "name": "Flower crown", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ffd15a"},
+	{"id": "thistle_pet", "boss": "thistle", "name": "Thistling", "kind": "pet", "sprite": "thistle", "rarity": "very_rare", "weight": 0, "color": "c46b8a"},
+	{"id": "caplet_purse", "boss": "caplet", "name": "Coin purse", "kind": "coins", "amount": 48, "rarity": "common", "weight": 22, "color": "f0b429"},
+	{"id": "caplet_pouch", "boss": "caplet", "name": "Heavy purse", "kind": "coins", "amount": 110, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
+	{"id": "cap_bits", "boss": "caplet", "name": "Cap bits", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d45ad0"},
+	{"id": "spore_dust", "boss": "caplet", "name": "Spore dust", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "c9b6ef"},
+	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Pebble cards", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "common", "weight": 12, "color": "3aa8a0"},
+	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Pip cards", "kind": "cards", "hero": "pip", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "7dce6a"},
+	{"id": "caplet_wand", "boss": "caplet", "name": "Cap wand", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d45ad0"},
+	{"id": "caplet_wrap", "boss": "caplet", "name": "Toad wrap", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8a3a86"},
+	{"id": "toad_cap", "boss": "caplet", "name": "Toad cap", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e23a4a"},
+	{"id": "glow_bead", "boss": "caplet", "name": "Glow bead", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "8ef0c8"},
+	{"id": "giant_cap", "boss": "caplet", "name": "Giant cap", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a6a"},
+	{"id": "caplet_pet", "boss": "caplet", "name": "Toadlet", "kind": "pet", "sprite": "caplet", "rarity": "very_rare", "weight": 0, "color": "d45ad0"},
+	{"id": "nimbus_purse", "boss": "nimbus", "name": "Coin purse", "kind": "coins", "amount": 56, "rarity": "common", "weight": 22, "color": "f0b429"},
+	{"id": "nimbus_pouch", "boss": "nimbus", "name": "Heavy purse", "kind": "coins", "amount": 130, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
+	{"id": "frost_wool", "boss": "nimbus", "name": "Frost wool", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d7e7f6"},
+	{"id": "ice_shard", "boss": "nimbus", "name": "Ice shard", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "9fd4ef"},
+	{"id": "nimbus_lumen_cards", "boss": "nimbus", "name": "Lumen cards", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "common", "weight": 12, "color": "f0d7a2"},
+	{"id": "nimbus_bramble_cards", "boss": "nimbus", "name": "Bramble cards", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6a8f4e"},
+	{"id": "nimbus_sling", "boss": "nimbus", "name": "Wind sling", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d7e7f6"},
+	{"id": "nimbus_coat", "boss": "nimbus", "name": "Hare coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8aa4c0"},
+	{"id": "hare_fluff", "boss": "nimbus", "name": "Hare fluff", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
+	{"id": "storm_bell", "boss": "nimbus", "name": "Storm bell", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffe08a"},
+	{"id": "aurora_shard", "boss": "nimbus", "name": "Aurora shard", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "b7f0ff"},
+	{"id": "nimbus_pet", "boss": "nimbus", "name": "Nimlet", "kind": "pet", "sprite": "nimbus", "rarity": "very_rare", "weight": 0, "color": "d7e7f6"},
+	{"id": "cinder_purse", "boss": "cinder", "name": "Coin purse", "kind": "coins", "amount": 64, "rarity": "common", "weight": 22, "color": "f0b429"},
+	{"id": "cinder_pouch", "boss": "cinder", "name": "Heavy purse", "kind": "coins", "amount": 150, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
+	{"id": "ash_clump", "boss": "cinder", "name": "Ash clump", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "6a534c"},
+	{"id": "ember_ore", "boss": "cinder", "name": "Ember ore", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "ff8a3c"},
+	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Ember cards", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "common", "weight": 12, "color": "ff7a3c"},
+	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Pebble cards", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "3aa8a0"},
+	{"id": "cinder_mallet", "boss": "cinder", "name": "Cinder mallet", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "ff5a32"},
+	{"id": "cinder_plate", "boss": "cinder", "name": "Ash plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "a84830"},
+	{"id": "salamander_scale", "boss": "cinder", "name": "Salamander scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
+	{"id": "magma_charm", "boss": "cinder", "name": "Magma charm", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffd15a"},
+	{"id": "heart_of_ash", "boss": "cinder", "name": "Heart of ash", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
+	{"id": "cinder_pet", "boss": "cinder", "name": "Ashkit", "kind": "pet", "sprite": "cinder", "rarity": "very_rare", "weight": 0, "color": "ff5a32"},
+]
+
+const SKILLS: Array = [
+	{"id": "foraging", "name": "Foraging"},
+	{"id": "fishing", "name": "Fishing"},
+	{"id": "taming", "name": "Taming"},
+	{"id": "crafting", "name": "Crafting"},
+]
+
+const SLAYER_TASKS: Array = [
+	{"id": "meadow_critters", "text": "Defeat 40 Meadow critters", "biome": "meadow", "kind": "minion", "need": 40, "points": 25},
+	{"id": "thistle_task", "text": "Defeat Thistle", "biome": "meadow", "kind": "boss", "need": 1, "points": 40},
+	{"id": "mushroom_critters", "text": "Defeat 50 Mushroom critters", "biome": "mushroom", "kind": "minion", "need": 50, "points": 30},
+	{"id": "caplet_task", "text": "Defeat Caplet", "biome": "mushroom", "kind": "boss", "need": 1, "points": 50},
+	{"id": "frost_critters", "text": "Defeat 50 Frost critters", "biome": "frost", "kind": "minion", "need": 50, "points": 35},
+	{"id": "nimbus_task", "text": "Defeat Nimbus", "biome": "frost", "kind": "boss", "need": 1, "points": 60},
+	{"id": "volcano_critters", "text": "Defeat 60 Volcano critters", "biome": "volcano", "kind": "minion", "need": 60, "points": 40},
+	{"id": "cinder_task", "text": "Defeat Cinder", "biome": "volcano", "kind": "boss", "need": 1, "points": 70},
+]
+
+const SLAYER_SHOP: Array = [
+	{"id": "rare_charm", "name": "Rare charm", "kind": "charm", "cost": 50, "detail": "A rare charm for any hero."},
+	{"id": "trail_ribbon", "name": "Trail ribbon", "kind": "cosmetic", "cosmetic": "ribbon", "cost": 30, "detail": "A gold ribbon on your home pedestal."},
+	{"id": "slayer_chest", "name": "Hunt chest", "kind": "chest", "cost": 20, "detail": "A hunt chest for the shelf."},
+]
+
+
+static func drop_table(boss_id: String) -> Array:
+	var rows: Array = []
+	for entry in DROPS:
+		if str(entry["boss"]) == boss_id:
+			rows.append(entry)
+	return rows
+
+
+static func all_drops() -> Array:
+	return DROPS
+
+
+static func drop_by_id(id: String) -> Dictionary:
+	for entry in DROPS:
+		if str(entry["id"]) == id:
+			return entry
+	return {}
+
+
+static func bosses() -> Array:
+	var ids: Array = []
+	for entry in BIOMES:
+		ids.append(str(entry["boss"]))
+	return ids
+
+
+static func is_reveal(drop: Dictionary) -> bool:
+	return str(drop.get("kind", "")) == "pet" or str(drop.get("rarity", "")) == "very_rare"
+
+
+static func rarity_label(rarity: String) -> String:
+	match rarity:
+		"uncommon":
+			return "Uncommon"
+		"rare":
+			return "Rare"
+		"very_rare":
+			return "Very rare"
+		_:
+			return "Common"
+
+
+static func slayer_task(id: String) -> Dictionary:
+	for entry in SLAYER_TASKS:
+		if str(entry["id"]) == id:
+			return entry
+	return {}
+
+
+static func slayer_offer(id: String) -> Dictionary:
+	for entry in SLAYER_SHOP:
+		if str(entry["id"]) == id:
+			return entry
+	return {}
+
+
+## Total XP required to reach `level`, matching the Old School curve (1–99).
+static func skill_xp_to_level(level: int) -> int:
+	var points := 0
+	var lvl := 1
+	while lvl < level:
+		points += int(floor(float(lvl) + 300.0 * pow(2.0, float(lvl) / 7.0)))
+		lvl += 1
+	return int(floor(float(points) / 4.0))
+
+
+static func skill_level(xp: int) -> int:
+	var level := 1
+	while level < 99 and skill_xp_to_level(level + 1) <= xp:
+		level += 1
+	return level

@@ -34,6 +34,7 @@ var shots: Array[Shot] = []
 var gems: Array[Gem] = []
 var pings: Array[Ping] = []
 var boss: Actor = null
+var slain := 0
 var boss_mark := 0
 var spawn_cd := 0.35
 var _next_id := 1
@@ -941,12 +942,13 @@ func _kill(actor: Actor) -> void:
 			events.append({"type": "duel_win"})
 		return
 	if actor.kind == "boss":
-		phase = "tame"
+		phase = "over"
 		result = "win"
 		paused = true
 		events.append({"type": "boss_down", "id": actor.sprite, "name": actor.display, "shake": 0.9, "stop": 0.1})
 		return
 	if actor.team == 1:
+		slain += 1
 		_drop_gem(actor.pos, actor.xp)
 
 
@@ -1135,7 +1137,7 @@ func _compact() -> void:
 	var i := 0
 	while i < actors.size():
 		var actor: Actor = actors[i]
-		var keep := actor.alive or actor.kind == "hero" or (actor.kind == "boss" and phase == "tame")
+		var keep := actor.alive or actor.kind == "hero"
 		if keep:
 			i += 1
 		else:

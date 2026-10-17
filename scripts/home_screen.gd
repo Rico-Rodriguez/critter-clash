@@ -16,7 +16,19 @@ func build() -> void:
 	play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	play.pressed.connect(func() -> void: go("world"))
 	box.add_child(play)
+	box.add_child(_more())
 	box.add_child(_chests())
+
+
+func _more() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	for tab in [["log", "LOG"], ["slayer", "SLAYER"], ["skills", "SKILLS"]]:
+		var button := UiKit.secondary(str(tab[1]), 190, 60)
+		button.pressed.connect(go.bind(str(tab[0]), {}))
+		row.add_child(button)
+	return row
 
 
 func _chests() -> HBoxContainer:
@@ -97,6 +109,10 @@ class Showcase extends Control:
 		draw_colored_polygon(PackedVector2Array([
 			foot + Vector2(-70, -24), foot + Vector2(40, -24), foot + Vector2(70, -8), foot + Vector2(-40, -8)
 		]), Color(1, 1, 1, 0.35))
+		if str(SaveGame.data.get("cosmetic", "")) == "ribbon":
+			draw_colored_polygon(PackedVector2Array([
+				foot + Vector2(-18, -36), foot + Vector2(18, -36), foot + Vector2(8, -8), foot + Vector2(-8, -8)
+			]), Color("ffd15a"))
 
 
 class ChestSlot extends Control:

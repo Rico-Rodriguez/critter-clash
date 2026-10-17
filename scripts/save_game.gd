@@ -196,23 +196,203 @@ func build_run_stats(hero_id: String) -> Dictionary:
 	return stats
 
 
-func commit_victory(biome_id: String, boss_id: String) -> Dictionary:
+var debug_rare := false
+
+
+func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictionary:
 	var first := not biome_cleared(biome_id)
 	data["cleared"][biome_id] = true
 	var gained := 30 if first else 16
 	data["trophies"] = int(data["trophies"]) + gained
-	var row: Dictionary = data["heroes"][boss_id]
-	var already := bool(row["unlocked"])
-	row["unlocked"] = true
-	row["cards"] = int(row["cards"]) + (4 if already else 8)
+	data["kills"][boss_id] = int(data["kills"].get(boss_id, 0)) + 1
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var drops := _roll_boss(boss_id, rng)
+	var reveal := {}
+	for drop in drops:
+		_apply_drop(drop, rng)
+		if str(drop.get("kind", "")) == "pet":
+			reveal = drop
+		elif reveal.is_empty() and Catalog.is_reveal(drop):
+			reveal = drop
+	_note_slayer(biome_id, slain, true)
 	data["chests"].append({"kind": "hunt", "biome": biome_id, "seed": randi()})
 	_write()
-	return {"trophies": gained, "first": first, "already": already, "boss": boss_id}
+	return {
+		"trophies": gained,
+		"first": first,
+		"boss": boss_id,
+		"drops": drops,
+		"reveal": reveal,
+		"kills": int(data["kills"][boss_id]),
+	}
 
 
-func commit_defeat(biome_id: String) -> void:
+func commit_defeat(biome_id: String, slain: int = 0) -> void:
+	_note_slayer(biome_id, slain, false)
 	data["chests"].append({"kind": "scrap", "biome": biome_id, "seed": randi()})
 	_write()
+
+
+func obtained_count() -> int:
+	return data["log"].size()
+
+
+func has_log(id: String) -> bool:
+	return id in data["log"]
+
+
+func boss_kills(id: String) -> int:
+	return int(data["kills"].get(id, 0))
+
+
+func active_pet() -> String:
+	var id := str(data.get("active_pet", ""))
+	if id == "" or not bool(data["pets"].get(id, false)):
+		return ""
+	return id
+
+
+func set_active_pet(id: String) -> void:
+	if not bool(data["pets"].get(id, false)):
+		return
+	data["active_pet"] = id
+	_write()
+
+
+func material_count(id: String) -> int:
+	return int(data["materials"].get(id, 0))
+
+
+func assign_task(task_id: String = "") -> Dictionary:
+	var pick := {}
+	if task_id != "":
+		pick = Catalog.slayer_task(task_id).duplicate()
+	else:
+		var choices: Array = []
+		var current := str(data["slayer"]["task"].get("id", ""))
+		for entry in Catalog.SLAYER_TASKS:
+			if str(entry["id"]) != current:
+				choices.append(entry)
+		if choices.is_empty():
+			return {}
+		pick = (choices[randi() % choices.size()] as Dictionary).duplicate()
+	if pick.is_empty():
+		return {}
+	pick["have"] = 0
+	data["slayer"]["task"] = pick
+	_write()
+	AudioDirector.play("click")
+	return pick
+
+
+func cancel_task() -> void:
+	data["slayer"]["task"] = {}
+	data["slayer"]["streak"] = 0
+	_write()
+
+
+func complete_task() -> int:
+	var task: Dictionary = data["slayer"]["task"]
+	if task.is_empty() or int(task.get("have", 0)) < int(task.get("need", 1)):
+		AudioDirector.play("error")
+		return 0
+	var streak := int(data["slayer"]["streak"])
+	var gained := int(task["points"]) + streak * 5
+	data["slayer"]["points"] = int(data["slayer"]["points"]) + gained
+	data["slayer"]["streak"] = streak + 1
+	data["slayer"]["task"] = {}
+	_write()
+	AudioDirector.play("merge")
+	return gained
+
+
+func buy_slayer(offer_id: String) -> bool:
+	var offer := Catalog.slayer_offer(offer_id)
+	if offer.is_empty() or int(data["slayer"]["points"]) < int(offer["cost"]):
+		AudioDirector.play("error")
+		return false
+	data["slayer"]["points"] = int(data["slayer"]["points"]) - int(offer["cost"])
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	match str(offer["kind"]):
+		"charm":
+			data["bag"].append(_roll_gear(rng, "charm", "rare", "meadow"))
+		"cosmetic":
+			data["cosmetic"] = str(offer.get("cosmetic", "ribbon"))
+		"chest":
+			data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": randi()})
+	_write()
+	AudioDirector.play("merge")
+	return true
+
+
+func _roll_boss(boss_id: String, rng: RandomNumberGenerator) -> Array:
+	var weighted: Array = []
+	var pet := {}
+	for entry in Catalog.drop_table(boss_id):
+		if str(entry["kind"]) == "pet":
+			pet = (entry as Dictionary).duplicate()
+		else:
+			weighted.append((entry as Dictionary).duplicate())
+	var got: Array = []
+	var picked := _weighted(rng, weighted)
+	if not picked.is_empty():
+		got.append(picked)
+	var force := debug_rare
+	debug_rare = false
+	if not pet.is_empty() and (force or rng.randi_range(1, Catalog.PET_RATE) == 1):
+		got.append(pet)
+	return got
+
+
+func _weighted(rng: RandomNumberGenerator, rows: Array) -> Dictionary:
+	var total := 0
+	for row in rows:
+		total += int(row["weight"])
+	if total <= 0:
+		return {}
+	var roll := rng.randi_range(1, total)
+	var acc := 0
+	for row in rows:
+		acc += int(row["weight"])
+		if roll <= acc:
+			return row
+	return {}
+
+
+func _apply_drop(drop: Dictionary, rng: RandomNumberGenerator) -> void:
+	var id := str(drop["id"])
+	match str(drop["kind"]):
+		"coins":
+			data["coins"] = int(data["coins"]) + int(drop.get("amount", 0))
+		"material":
+			data["materials"][id] = int(data["materials"].get(id, 0)) + int(drop.get("amount", 1))
+		"cards":
+			var hero_id := str(drop.get("hero", ""))
+			if data["heroes"].has(hero_id):
+				var row: Dictionary = data["heroes"][hero_id]
+				row["cards"] = int(row["cards"]) + int(drop.get("amount", 1))
+		"gear":
+			var piece := _roll_gear(rng, str(drop.get("slot", "charm")), str(drop.get("gear_rarity", "common")), "meadow")
+			piece["name"] = str(drop.get("name", piece["name"]))
+			data["bag"].append(piece)
+		"pet":
+			data["pets"][id] = true
+			if str(data.get("active_pet", "")) == "":
+				data["active_pet"] = id
+	if id not in data["log"]:
+		data["log"].append(id)
+
+
+func _note_slayer(biome_id: String, slain: int, boss: bool) -> void:
+	var task: Dictionary = data["slayer"]["task"]
+	if task.is_empty() or str(task.get("biome", "")) != biome_id:
+		return
+	if str(task.get("kind", "")) == "minion":
+		task["have"] = mini(int(task["need"]), int(task.get("have", 0)) + maxi(0, slain))
+	elif str(task.get("kind", "")) == "boss" and boss:
+		task["have"] = mini(int(task["need"]), int(task.get("have", 0)) + 1)
 
 
 func open_next() -> Dictionary:
@@ -371,6 +551,14 @@ func _fresh() -> Dictionary:
 		"duel_rating": 0,
 		"featured": "ember",
 		"heroes": heroes,
+		"kills": {},
+		"log": [],
+		"pets": {},
+		"active_pet": "",
+		"materials": {},
+		"cosmetic": "",
+		"slayer": {"points": 0, "streak": 0, "task": {}},
+		"skills": {"foraging": 0, "fishing": 0, "taming": 0, "crafting": 0},
 	}
 
 
@@ -390,6 +578,31 @@ func _reconcile() -> void:
 		data["duel_rating"] = 0
 	if not data.has("featured"):
 		data["featured"] = "ember"
+	for key in ["log"]:
+		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
+			data[key] = []
+	for key in ["kills", "pets", "materials"]:
+		if not data.has(key) or typeof(data[key]) != TYPE_DICTIONARY:
+			data[key] = {}
+	if not data.has("active_pet"):
+		data["active_pet"] = ""
+	if not data.has("cosmetic"):
+		data["cosmetic"] = ""
+	if not data.has("slayer") or typeof(data["slayer"]) != TYPE_DICTIONARY:
+		data["slayer"] = {"points": 0, "streak": 0, "task": {}}
+	else:
+		if not data["slayer"].has("points"):
+			data["slayer"]["points"] = 0
+		if not data["slayer"].has("streak"):
+			data["slayer"]["streak"] = 0
+		if not data["slayer"].has("task") or typeof(data["slayer"]["task"]) != TYPE_DICTIONARY:
+			data["slayer"]["task"] = {}
+	if not data.has("skills") or typeof(data["skills"]) != TYPE_DICTIONARY:
+		data["skills"] = {}
+	for entry in Catalog.SKILLS:
+		var sid := str(entry["id"])
+		if not data["skills"].has(sid):
+			data["skills"][sid] = 0
 	for id in Catalog.playable_ids():
 		if not data["heroes"].has(id):
 			data["heroes"][id] = {

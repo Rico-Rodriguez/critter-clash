@@ -1,6 +1,6 @@
 extends ScreenBase
 
-## Renders a RunSim. The thumbstick, cards, and taming live here.
+## Renders a RunSim. The thumbstick, cards, and boss loot live here.
 ## Combat steps at a fixed 60Hz. The stick is sampled every displayed frame.
 
 const STEP := 1.0 / 60.0
@@ -12,9 +12,10 @@ var drive := Vector2.ZERO
 var acc := 0.0
 var hitstop := 0.0
 var trauma := 0.0
-var tame_p := 0.0
-var hearts := 0
 var committed := false
+var pet_sprite: Sprite2D
+var pet_pos := Vector2.ZERO
+var pet_ready := false
 var summary: Dictionary = {}
 var _modal_up := false
 var _punch: Dictionary = {}
@@ -102,6 +103,7 @@ func open(args: Dictionary = {}) -> void:
 	name_label.text = str(info["name"])
 	face.texture = SpriteBank.critter(hero_id)
 	SaveGame.set_featured(hero_id)
+	_mount_pet()
 
 
 func _build_hud() -> void:
@@ -354,7 +356,7 @@ func _hud() -> void:
 	var secs := int(sim.time)
 	clock_label.text = "%d:%02d" % [secs / 60, secs % 60]
 	level_label.text = str(sim.level)
-	var show_boss := sim.phase == "boss" or sim.phase == "tame"
+	var show_boss := sim.phase == "boss"
 	boss_meter.visible = show_boss and sim.boss != null
 	boss_label.visible = show_boss and sim.boss != null
 	if show_boss and sim.boss != null:
@@ -407,14 +409,18 @@ func _drain() -> void:
 			"boss_down":
 				if not committed:
 					committed = true
-					summary = SaveGame.commit_victory(biome_id, str(ev["id"]))
-				AudioDirector.play("win")
+					summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain)
 				AudioDirector.haptic(30)
-				_show_tame(str(ev["name"]))
+				var reveal: Dictionary = summary.get("reveal", {})
+				if reveal.is_empty():
+					AudioDirector.play("win")
+					_show_victory(str(ev["name"]))
+				else:
+					_show_rare(reveal, str(ev["name"]))
 			"hero_down":
 				if not committed:
 					committed = true
-					SaveGame.commit_defeat(biome_id)
+					SaveGame.commit_defeat(biome_id, sim.slain)
 				AudioDirector.play("lose")
 				_show_defeat(str(ev.get("reason", "")))
 			"revive":
@@ -426,12 +432,11 @@ func _drain() -> void:
 
 func _sync(alpha: float) -> void:
 	marks.alpha = alpha
-	marks.tame_p = tame_p
 	marks.queue_redraw()
+	_sync_pet(alpha)
 	var seen := {}
 	for actor in sim.actors:
-		var show: bool = actor.alive or (actor.kind == "boss" and sim.phase == "tame")
-		if not show:
+		if not actor.alive:
 			continue
 		seen[actor.id] = true
 		var sprite := _actor_sprite(actor.id, SpriteBank.critter(actor.sprite))
@@ -440,8 +445,6 @@ func _sync(alpha: float) -> void:
 		sprite.position = pos + Vector2(0.0, -bob)
 		var tex_w := maxf(float(sprite.texture.get_width()), 1.0)
 		var base := actor.radius * 4.05 / tex_w
-		if actor.kind == "boss" and sim.phase == "tame":
-			base *= lerpf(1.0, 0.4, tame_p)
 		var punch := float(_punch.get(actor.id, 0.0))
 		# Kenney animals face left. Flip them when the sim is looking right.
 		var face := float(sprite.get_meta("face", 1.0))
@@ -676,55 +679,83 @@ func _pick(index: int) -> void:
 		_show_levelup(sim.level, nxt)
 
 
-func _show_tame(boss_name: String) -> void:
-	hearts = 0
-	tame_p = 0.0
+func _mount_pet() -> void:
+	var pet_id := SaveGame.active_pet()
+	if pet_id == "":
+		return
+	var drop := Catalog.drop_by_id(pet_id)
+	pet_sprite = Sprite2D.new()
+	pet_sprite.texture = SpriteBank.critter(str(drop.get("sprite", "thistle")))
+	pet_sprite.centered = true
+	actors_root.add_child(pet_sprite)
+
+
+func _sync_pet(alpha: float) -> void:
+	if pet_sprite == null or sim == null or sim.heroes.is_empty():
+		return
+	var hero: RunSim.Actor = sim.heroes[0]
+	var pos: Vector2 = hero.prev.lerp(hero.pos, alpha)
+	var behind := -46.0 if cos(hero.facing) < 0.0 else 46.0
+	var goal := pos + Vector2(behind, 22.0)
+	if not pet_ready:
+		pet_pos = goal
+		pet_ready = true
+	pet_pos = pet_pos.lerp(goal, 0.2)
+	var tex_w := maxf(float(pet_sprite.texture.get_width()), 1.0)
+	var base := hero.radius * 2.1 / tex_w
+	var face := -1.0 if cos(hero.facing) > 0.2 else 1.0
+	pet_sprite.position = pet_pos
+	pet_sprite.scale = Vector2(base * face, base)
+	pet_sprite.z_index = int(pos.y) - 1
+
+
+func _show_rare(drop: Dictionary, boss_name: String) -> void:
 	_open_modal()
-	var title := UiKit.title("%s is calm" % boss_name, 36)
+	var beam := GoldBeam.new()
+	beam.set_anchors_preset(Control.PRESET_FULL_RECT)
+	beam.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modal.add_child(beam)
+	modal.move_child(beam, 1)
+	var kind := "BOSS PET" if str(drop.get("kind", "")) == "pet" else "VERY RARE"
+	var title := UiKit.title(kind, 48)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(title)
-	var face := portrait(sim.boss.sprite if sim.boss else hero_id, 180)
-	face.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	modal_box.add_child(face)
-	var sub := UiKit.label("Tap the hearts to tame.", 22, Color("ffe7b0"), "x", 4)
+	var sprite_id := str(drop.get("sprite", ""))
+	if sprite_id != "":
+		var face := portrait(sprite_id, 200)
+		face.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		modal_box.add_child(face)
+	var name := UiKit.label(str(drop.get("name", "Drop")), 32, Color("ffe08a"), "x", 6)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	modal_box.add_child(name)
+	var sub := UiKit.label("%s dropped something rare." % boss_name, 20, Color("ffe7b0"), "x", 4)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(sub)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	modal_box.add_child(row)
-	for _i in 3:
-		var heart := UiKit.button("♥", 120, 110)
-		heart.pressed.connect(_tap_heart.bind(heart, boss_name))
-		row.add_child(heart)
-
-
-func _tap_heart(button: Button, boss_name: String) -> void:
-	if button.disabled:
-		return
-	button.disabled = true
-	button.text = "♥"
-	hearts += 1
-	tame_p = float(hearts) / 3.0
-	AudioDirector.play("merge")
-	AudioDirector.haptic(12)
-	if sim.boss:
-		_burst(sim.boss.pos, Color("ff8fb0"), 8, 120.0)
-	if hearts >= 3:
+	var button := UiKit.button("LOVELY", 420, 80)
+	button.pressed.connect(func() -> void:
+		if is_instance_valid(beam):
+			beam.queue_free()
 		_show_victory(boss_name)
+	)
+	modal_box.add_child(button)
+	AudioDirector.play("win")
+	AudioDirector.play("den", -4.0)
+	AudioDirector.haptic(30)
 
 
 func _show_victory(boss_name: String) -> void:
 	_open_modal()
-	var already := bool(summary.get("already", false))
-	var title := UiKit.title("TAMED", 52)
+	var title := UiKit.title("VICTORY", 52)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(title)
-	var line := "%s bonded closer." % boss_name if already else "%s joined your collection." % boss_name
-	var sub := UiKit.label(line, 24, Color("ffe7b0"), "x", 4)
+	var sub := UiKit.label("%s dropped loot." % boss_name, 24, Color("ffe7b0"), "x", 4)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	modal_box.add_child(sub)
+	var drops: Array = summary.get("drops", [])
+	for drop in drops:
+		var line := UiKit.label(str(drop.get("name", "Drop")), 22, Color("ffe08a"), "x", 4)
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		modal_box.add_child(line)
 	var trophies := UiKit.label("+%d trophies" % int(summary.get("trophies", 0)), 28, Color("ffe08a"), "x", 6)
 	trophies.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(trophies)
@@ -1050,18 +1081,41 @@ class StickLayer extends Control:
 			draw_string(UiKit.font_x, Vector2(size.x * 0.5 - width * 0.5, size.y * 0.78), text, HORIZONTAL_ALIGNMENT_LEFT, width, 28, Color(1, 1, 1, 0.85 * hint))
 
 
+class GoldBeam extends Control:
+	var spin := 0.0
+
+	func _process(delta: float) -> void:
+		spin += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		if size.y < 10.0:
+			return
+		var c := Vector2(size.x * 0.5, size.y * 0.42)
+		var top := Vector2(size.x * 0.5, -40.0)
+		draw_colored_polygon(PackedVector2Array([
+			top + Vector2(-36, 0), top + Vector2(36, 0), c + Vector2(90, 120), c + Vector2(-90, 120)
+		]), Color(1.0, 0.82, 0.28, 0.38))
+		draw_colored_polygon(PackedVector2Array([
+			top + Vector2(-12, 0), top + Vector2(12, 0), c + Vector2(28, 140), c + Vector2(-28, 140)
+		]), Color(1.0, 0.95, 0.7, 0.55))
+		for i in 10:
+			var ang := spin * 0.7 + float(i) * TAU / 10.0
+			var dir := Vector2.from_angle(ang)
+			draw_line(c, c + dir * 240.0, Color(1.0, 0.86, 0.4, 0.28), 10.0)
+		draw_circle(c, 90, Color(1.0, 0.9, 0.45, 0.22))
+
+
 class GroundMarks extends Node2D:
 	var sim: RunSim
 	var alpha := 1.0
-	var tame_p := 0.0
 
 	func _draw() -> void:
 		if sim == null:
 			return
 		var shadow := SpriteBank.fx("shadow")
 		for actor in sim.actors:
-			var show: bool = actor.alive or (actor.kind == "boss" and sim.phase == "tame")
-			if not show:
+			if not actor.alive:
 				continue
 			var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
 			var w := actor.radius * 2.1

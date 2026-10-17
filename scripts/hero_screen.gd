@@ -48,7 +48,7 @@ func build() -> void:
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
 	var biome := Catalog.biome(biome_id)
-	detail.text = "%s · tame %s" % [str(biome["name"]), str(Catalog.critter(str(biome["boss"]))["name"])]
+	detail.text = "%s · boss %s" % [str(biome["name"]), str(Catalog.critter(str(biome["boss"]))["name"])]
 	selected = SaveGame.featured_id()
 	if not bool(SaveGame.hero(selected)["unlocked"]):
 		for id in Catalog.playable_ids():

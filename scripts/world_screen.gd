@@ -7,7 +7,7 @@ func build() -> void:
 	var box := column()
 	box.add_child(header())
 	box.add_child(h1("Biomes"))
-	box.add_child(body("Clear them in order. Each boss can be tamed."))
+	box.add_child(body("Clear them in order. Each boss has a drop table."))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -63,7 +63,7 @@ func _banner(entry: Dictionary) -> PanelContainer:
 	row.add_child(text)
 	var boss := Catalog.critter(str(entry["boss"]))
 	text.add_child(UiKit.label(str(entry["name"]), 30, UiKit.CREAM, "x", 5))
-	text.add_child(UiKit.label("%s · %s" % [str(boss["name"]), Catalog.role_name(str(boss["role"]))], 16, Color("d5e6ff"), "b", 3))
+	text.add_child(UiKit.label("Boss · %s" % str(boss["name"]), 16, Color("d5e6ff"), "b", 3))
 	if SaveGame.biome_cleared(id):
 		text.add_child(UiKit.label("CLEARED", 16, Color("b6ff9a"), "x", 3))
 	if unlocked:
