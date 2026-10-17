@@ -145,7 +145,7 @@ func bind_pedestal(hero_id: String) -> void:
 	var env := _environment(Color("6a5a4a"), false)
 	env.background_energy_multiplier = 0.42
 	env.ambient_light_energy = 0.42
-	env.ambient_light_color = Color("c8a888")
+	env.ambient_light_color = Color("b4aab0")
 	env.tonemap_exposure = 1.0
 	env.fog_enabled = true
 	env.fog_density = 0.06
@@ -158,15 +158,16 @@ func bind_pedestal(hero_id: String) -> void:
 	env.adjustment_contrast = 1.12
 	env.adjustment_saturation = 1.08
 	_apply_env(env)
-	sun.light_color = Color("ffb874")
+	# Warm but not orange: the glade stays golden, the hero keeps its reds.
+	sun.light_color = Color("ffd2a8")
 	sun.light_energy = 2.1
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 14.0
 	sun.rotation_degrees = Vector3(-24, 38, 0)
-	_lamp(Color("ffd6a0"), 2.2, Vector3(-1.8, 2.6, -1.8), false)
+	_lamp(Color("fff0e4"), 2.2, Vector3(-1.8, 2.6, -1.8), false)
 	_lamp(Color("8fb0ff"), 1.0, Vector3(-2.2, 1.8, 1.6), false)
 	# Rim: a hot back light behind the hero carves its silhouette from the forest.
-	_lamp(Color("ffc27a"), 3.2, Vector3(1.2, 2.8, -2.0), false, 3.6)
+	_lamp(Color("ffd8b0"), 3.2, Vector3(1.2, 2.8, -2.0), false, 3.6)
 	_lamp(Color("ffe2b8"), 1.6, Vector3(-1.4, 2.4, -1.6), false, 3.2)
 	_pedestal_set()
 	var body := _spawn_model(hero_id, 1.5)
@@ -1174,10 +1175,10 @@ func _reframe_posed(body: Node3D) -> void:
 		box.position.y -= drop
 	box = box.grow(box.size.length() * 0.06)
 	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7)
-	var view_h := h / 0.6
+	var view_h := h / 0.57
 	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
 	# Sit the hero a touch below center, clear of the logo plate above it.
-	var focus := box.get_center() + Vector3(0, view_h * 0.135, 0)
+	var focus := box.get_center() + Vector3(0, view_h * 0.165, 0)
 	var dir := Vector3(0.0, 0.3, 1.0).normalized()
 	camera.position = focus + dir * dist
 	camera.look_at(focus, Vector3.UP)
@@ -1233,7 +1234,7 @@ func _pedestal_atmos(box: AABB) -> void:
 	ray_shader.code = """shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
 uniform vec4 tint : source_color = vec4(1.0, 0.78, 0.48, 1.0);
-uniform float strength = 0.9;
+uniform float strength = 1.7;
 uniform float phase = 0.0;
 void fragment() {
 	float across = smoothstep(0.0, 0.35, UV.x) * smoothstep(1.0, 0.65, UV.x);
@@ -1258,7 +1259,7 @@ void fragment() {
 		# Lean the shafts away from the low sun, facing the camera.
 		plane.rotation = Vector3(0.0, 0.0, deg_to_rad(-24.0))
 	var flies := GPUParticles3D.new()
-	flies.amount = 46
+	flies.amount = 72
 	flies.lifetime = 7.0
 	flies.preprocess = 7.0
 	flies.visibility_aabb = AABB(Vector3(-6, -2, -6), Vector3(12, 8, 12))
@@ -1287,7 +1288,7 @@ void fragment() {
 	proc.color_ramp = ramp
 	flies.process_material = proc
 	var dot := QuadMesh.new()
-	dot.size = Vector2(0.08, 0.08)
+	dot.size = Vector2(0.09, 0.09)
 	var glow := StandardMaterial3D.new()
 	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

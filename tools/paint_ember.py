@@ -97,11 +97,11 @@ throat = belly * neck
 deep = np.array([0.17, 0.02, 0.05])
 crimson = np.array([0.28, 0.025, 0.065])
 flank = np.array([0.42, 0.035, 0.075])
-amber = np.array([0.80, 0.40, 0.15])
+amber = np.array([0.74, 0.47, 0.19])
 cream = np.array([0.86, 0.62, 0.36])
 col = mix(np.broadcast_to(flank, base.shape).copy(), crimson, back)
 col = mix(col, deep, np.clip(spine * 1.2, 0, 1))
-col = mix(col, amber * 0.85, np.clip(side_amber * 0.8, 0, 1))
+col = mix(col, amber * 0.85, np.clip(side_amber * 0.5, 0, 1))
 col = mix(col, amber, belly)
 col = mix(col, cream, np.clip(throat * 0.75 + belly * 0.2, 0, 1))
 
