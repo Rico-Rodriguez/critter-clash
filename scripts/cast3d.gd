@@ -72,6 +72,17 @@ const DARK_CLIPS := {
 }
 
 
+## Corruption colour of a feral enemy: its eye embers and the fresnel
+## glow round its silhouette, so species read apart at the far camera.
+static func feral_color(id: String) -> Color:
+	match dark(id):
+		"badger":
+			return Color(0.55, 1.0, 0.25)
+		"bear":
+			return Color(1.0, 0.36, 0.08)
+	return Color(1.0, 0.45, 0.12)
+
+
 static func dark(id: String) -> String:
 	return str(DARK.get(id, ""))
 
@@ -210,7 +221,7 @@ static func pbr(id: String) -> Dictionary:
 	if "/sketchfab/dark/" in path:
 		# Real fur and hide maps: matte, desaturated and a shade darker, a
 		# cold rim. Enemies get burning eyes via the motion layer's glow.
-		var d := {"roughness": 0.86, "specular": 0.28, "rim": 0.22, "rim_tint": 0.8, "grade": 0.72}
+		var d := {"roughness": 0.86, "specular": 0.28, "rim": 0.22, "rim_tint": 0.8, "grade": 0.72, "fur_cut": 0.5}
 		if id == "sprout":
 			d["albedo"] = Color(0.42, 0.43, 0.33)
 		elif id == "boarlet":

@@ -81,6 +81,13 @@ const ENTRIES := [
 		"license": "CC-BY 4.0",
 	},
 	{
+		"title": "Quiver and Arrows",
+		"used": "Juniper's quiver",
+		"author": "Finley Searle",
+		"url": "https://sketchfab.com/3d-models/quiver-and-arrows-078aa762143e4c399edcf4529e76340e",
+		"license": "CC-BY 4.0",
+	},
+	{
 		"title": "Animated Badger – 3D Animal Model",
 		"used": "Rot Badger",
 		"author": "AnimalMesh 3D",

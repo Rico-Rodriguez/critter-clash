@@ -19,6 +19,7 @@ var _turn_override := 0.0
 
 
 func run(only: Array = []) -> void:
+	Armor3D.eye_scale = 1.0
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	_stage = Stage3D.new()
 	_vp = SubViewport.new()

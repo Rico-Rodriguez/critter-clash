@@ -25,6 +25,8 @@ uniform float clearcoat = 0.0;
 uniform vec4 ink_color : source_color = vec4(0.23, 0.04, 0.03, 1.0);
 uniform float ink = 0.95;
 uniform float ink_edge = 0.56;
+// Feral corruption: an emissive fresnel band just inside the silhouette.
+uniform vec4 rim_glow : source_color = vec4(0.0);
 
 instance uniform float flash = 0.0;
 
@@ -66,5 +68,6 @@ void fragment() {
 	}
 	CLEARCOAT = clearcoat;
 	CLEARCOAT_ROUGHNESS = 0.35;
-	EMISSION = vec3(1.0, 0.6, 0.4) * flash;
+	float band = smoothstep(0.35, 0.8, f) * (1.0 - edge * 0.5);
+	EMISSION = vec3(1.0, 0.6, 0.4) * flash + rim_glow.rgb * rim_glow.a * band;
 }

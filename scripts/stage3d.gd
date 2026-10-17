@@ -1582,14 +1582,14 @@ func _mob_build(meshes: Array, sprite: String) -> Dictionary:
 		out[Mesh.ARRAY_INDEX] = acc["i"]
 		var merged := ArrayMesh.new()
 		merged.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out, [], {}, flags)
-		var mat := _mob_mat(first.get_active_material(0) as StandardMaterial3D, true)
+		var mat := _mob_mat(first.get_active_material(0) as StandardMaterial3D, true, sprite)
 		return {"merged": merged, "mats": [mat]}
 	var mats: Array = []
 	for m in meshes:
 		var mi := m as MeshInstance3D
 		for i in mi.mesh.get_surface_count():
 			var src := mi.get_active_material(i)
-			mats.append(_mob_mat(src as StandardMaterial3D, false) if src is StandardMaterial3D else null)
+			mats.append(_mob_mat(src as StandardMaterial3D, false, sprite) if src is StandardMaterial3D else null)
 	return {"mats": mats}
 
 
@@ -1624,7 +1624,7 @@ func _mob_append(acc: Dictionary, arr: Array, col: Color) -> void:
 
 
 static var _mob_shader: Shader
-func _mob_mat(src: StandardMaterial3D, vcol: bool) -> ShaderMaterial:
+func _mob_mat(src: StandardMaterial3D, vcol: bool, sprite := "") -> ShaderMaterial:
 	if _mob_shader == null:
 		_mob_shader = load("res://shaders/mob.gdshader")
 	var mat := ShaderMaterial.new()
@@ -1649,6 +1649,15 @@ func _mob_mat(src: StandardMaterial3D, vcol: bool) -> ShaderMaterial:
 	mat.set_shader_parameter("sss", src.subsurf_scatter_strength if src.subsurf_scatter_enabled and _tier() == "high" else 0.0)
 	mat.set_shader_parameter("clearcoat", src.clearcoat if src.clearcoat_enabled else 0.0)
 	mat.set_shader_parameter("ink_color", Color("3a0a08"))
+	if Cast3D.dark(sprite) != "":
+		# Dark-furred feral beasts went to black blobs at the far camera: lift
+		# the fur, thin the ink, and wrap them in a corruption-coloured
+		# fresnel glow that reads against the grass.
+		mat.set_shader_parameter("albedo", src.albedo_color * 1.9)
+		mat.set_shader_parameter("ink", 0.55)
+		mat.set_shader_parameter("rim", 0.8)
+		var g := Cast3D.feral_color(sprite)
+		mat.set_shader_parameter("rim_glow", Color(g.r, g.g, g.b, 0.9))
 	return mat
 
 
@@ -1695,7 +1704,9 @@ func _sync_mob_decals(sim: RunSim, hero_at: Vector3) -> void:
 			continue
 		var dying := bool(body.get_meta("dying", false))
 		var d := Vector2(body.position.x - hero_at.x, body.position.z - hero_at.z).length()
-		var want := 0.0 if dying else (1.0 if d < 3.6 or wind.has(id) else 0.0)
+		# A faint red ring always marks hostiles at the far camera; it
+		# brightens when they close in or wind up.
+		var want := 0.0 if dying else (1.0 if d < 3.6 or wind.has(id) else 0.45)
 		var ring := lerpf(float(body.get_meta("ring", 0.0)), want, 0.12)
 		body.set_meta("ring", ring)
 		var size := float(body.get_meta("decal_size", 1.0))
@@ -1918,6 +1929,7 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	var player := _find_player(model)
 	root.set_meta("player", player)
 	_loop_clips(player, root.get_meta("clips"))
+	_strip_root_motion(player, root.get_meta("clips"))
 	var marker := _find_named(model, "Forward")
 	var face := PI
 	if marker != null:
@@ -1950,7 +1962,7 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	if Cast3D.armor(sprite) != "":
 		Armor3D.dress(model, Cast3D.armor(sprite))
 	elif Cast3D.dark(sprite) != "":
-		Armor3D.glow_eyes(model, Color(1.0, 0.45, 0.12))
+		Armor3D.glow_eyes(model, Cast3D.feral_color(sprite))
 	root.set_meta("model_base", model.position)
 	root.set_meta("meters", meters)
 	# No real run clip (or none at all): the procedural gait hops it along.
@@ -2211,6 +2223,13 @@ func _fix_pbr(node: Node, sprite: String) -> void:
 					# Multiply: the mask picks the veins (Add would light it all).
 					mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
 					mat.emission_texture = load(str(opts["glow_tex"]))
+			if opts.has("fur_cut") and mat.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				# Fur cards: a hard alpha cut (with coverage AA) instead of a
+				# soft blend, so tips clump instead of fraying see-through.
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				mat.alpha_scissor_threshold = float(opts["fur_cut"])
+				mat.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+				mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 			if opts.has("clearcoat"):
 				mat.clearcoat_enabled = true
 				mat.clearcoat = float(opts["clearcoat"])
@@ -2401,6 +2420,41 @@ func _loop_clips(player: AnimationPlayer, clips: Dictionary) -> void:
 		var anim := player.get_animation(name)
 		if anim != null and anim.loop_mode == Animation.LOOP_NONE and anim.length > 0.05:
 			anim.loop_mode = Animation.LOOP_LINEAR
+
+
+## Clips authored with root motion (the AnimalMesh3D walk carries the rig
+## root ~80 cm per cycle, the death throws it sideways) drift the model off
+## its actor, so the body slides away from its ring. Remove the net XZ
+## travel from root/pelvis tracks (linear de-trend keeps the bob and sway).
+## Clips are shared resources, and a second pass finds no drift.
+func _strip_root_motion(player: AnimationPlayer, clips: Dictionary) -> void:
+	if player == null:
+		return
+	for key in clips:
+		var name := str(clips[key])
+		if name == "" or not player.has_animation(name):
+			continue
+		var anim := player.get_animation(name)
+		for t in anim.get_track_count():
+			if anim.track_get_type(t) != Animation.TYPE_POSITION_3D:
+				continue
+			var bone := str(anim.track_get_path(t).get_concatenated_subnames()).to_lower()
+			if not ("root" in bone or "pelvis" in bone or "hips" in bone):
+				continue
+			var n := anim.track_get_key_count(t)
+			if n < 2:
+				continue
+			var p0: Vector3 = anim.track_get_key_value(t, 0)
+			var p1: Vector3 = anim.track_get_key_value(t, n - 1)
+			var drift := Vector3(p1.x - p0.x, 0.0, p1.z - p0.z)
+			if drift.length() < 0.5:
+				continue
+			var t0 := anim.track_get_key_time(t, 0)
+			var span := maxf(anim.track_get_key_time(t, n - 1) - t0, 0.0001)
+			for k in n:
+				var f := (anim.track_get_key_time(t, k) - t0) / span
+				var v: Vector3 = anim.track_get_key_value(t, k)
+				anim.track_set_key_value(t, k, v - drift * f)
 
 
 func _has_walk(player: AnimationPlayer, body: Node3D) -> bool:
@@ -2680,11 +2734,12 @@ func _decal(size: float, params: Dictionary) -> MeshInstance3D:
 func _place_mark(at: Vector3) -> void:
 	if _mark == null:
 		_mark = _decal(HERO_METERS * 0.82, {
-			# A faint gilt rune circle: reads as "you", never as a donut.
-			"ring_color": Color(0.95, 0.82, 0.55, 0.42),
+			# A gilt rune circle with a soft glow: reads as "you" at the far
+			# camera, never as a donut.
+			"ring_color": Color(1.0, 0.8, 0.42, 0.85),
 			"ring_radius": 0.42,
-			"ring_width": 0.008,
-			"ring_glow": 0.0,
+			"ring_width": 0.013,
+			"ring_glow": 0.55,
 			"rune": true,
 			"shadow_alpha": 0.86,
 			"shadow_radius": 0.27,
@@ -2713,6 +2768,17 @@ void fragment() {
 		pool.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		pool.position.y = 0.01
 		_mark.add_child(pool)
+		# A personal key light that rides with the hero: lifts its fur and
+		# armour out of the forest gloom without brightening the whole map.
+		var key := OmniLight3D.new()
+		key.light_color = Color("ffe2b8")
+		key.light_energy = 0.9
+		key.omni_range = HERO_METERS * 1.7
+		key.omni_attenuation = 1.6
+		key.light_specular = 0.4
+		key.shadow_enabled = false
+		key.position = Vector3(-0.6, HERO_METERS * 1.1, 0.9)
+		_mark.add_child(key)
 	_mark.visible = true
 	_mark.position = Vector3(at.x, 0.035, at.z)
 
@@ -3096,6 +3162,8 @@ func _grass_material(source: MeshInstance3D) -> ShaderMaterial:
 
 
 func _open_around(hero: Vector3) -> void:
+	if _mode == "hunt":
+		_fade_occluders(hero)
 	var hs := Vector2.INF
 	var reach := 0.0
 	if camera != null and _mode == "hunt":
@@ -3592,10 +3660,15 @@ func _kit_chunks(model: String, spots: Array, shadows: bool) -> void:
 			var list: Array = buckets[key]
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = true
 			mm.mesh = mesh
 			mm.instance_count = list.size()
+			var top := (local * mesh.get_aabb()).end.y
 			for i in list.size():
-				mm.set_instance_transform(i, (list[i] as Transform3D) * local)
+				var txf := list[i] as Transform3D
+				mm.set_instance_transform(i, txf * local)
+				mm.set_instance_color(i, Color.WHITE)
+				_occl_add(txf.origin, top * txf.basis.get_scale().y, mm, i)
 			var inst := MultiMeshInstance3D.new()
 			inst.multimesh = mm
 			inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -3613,6 +3686,55 @@ var _hp_mats := {}
 ## One piece of the hand-painted tree pack (rudolfs, CC-BY 4.0) chunked into
 ## MultiMeshes like _kit_chunks. Each tree is a single mesh and material.
 ## The material is graded toward a darker, cooler, damp forest.
+## Occluder index: every packed tree instance by 4 m ground cell, so the
+## few that stand between the camera and the hero can fade.
+var _occl := {}
+var _occl_faded := {}
+const OCCL_CELL := 4.0
+func _occl_add(at: Vector3, height: float, mm: MultiMesh, idx: int) -> void:
+	if height < 1.2:
+		return
+	var key := Vector2i(int(floor(at.x / OCCL_CELL)), int(floor(at.z / OCCL_CELL)))
+	if not _occl.has(key):
+		_occl[key] = []
+	_occl[key].append([at, height, mm, idx])
+
+
+## Trees whose crown covers the hero (or a nearby fight) on screen and stand
+## nearer the camera fade to a dithered ghost; they ease back once clear.
+func _fade_occluders(hero: Vector3) -> void:
+	if camera == null or _occl.is_empty():
+		return
+	var hs := camera.unproject_position(hero + Vector3(0, HERO_METERS * 0.4, 0))
+	var reach: float = (viewport.size.x if viewport != null else 1179.0) * 0.16
+	var want := {}
+	var c := Vector2i(int(floor(hero.x / OCCL_CELL)), int(floor(hero.z / OCCL_CELL)))
+	for dx in range(-3, 4):
+		for dz in range(-1, 6):
+			for e in _occl.get(c + Vector2i(dx, dz), []):
+				var at: Vector3 = e[0]
+				if at.z < hero.z - 0.5:
+					continue
+				var h: float = e[1]
+				# Distance from the hero to the trunk-to-crown segment on screen.
+				var a := camera.unproject_position(at + Vector3(0, h * 0.35, 0))
+				var b := camera.unproject_position(at + Vector3(0, h, 0))
+				var ab := b - a
+				var t := clampf((hs - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
+				if (a + ab * t).distance_to(hs) < reach:
+					want[e] = true
+	for e in want:
+		_occl_faded[e] = true
+	for e in _occl_faded.keys():
+		var mm: MultiMesh = e[2]
+		var cur := mm.get_instance_color(e[3]).a
+		var to := 0.3 if want.has(e) else 1.0
+		var nxt := move_toward(cur, to, 0.08)
+		mm.set_instance_color(e[3], Color(1, 1, 1, nxt))
+		if nxt >= 1.0 and not want.has(e):
+			_occl_faded.erase(e)
+
+
 func _pack_chunks(piece_name: String, spots: Array, shadows: bool, grade: Color) -> void:
 	if spots.is_empty() or not ResourceLoader.exists(HANDPAINTED):
 		return
@@ -3649,9 +3771,13 @@ func _pack_chunks(piece_name: String, spots: Array, shadows: bool, grade: Color)
 				mat.roughness = 0.88
 				mat.metallic_specular = 0.25
 				if mat.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-					mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-					mat.alpha_scissor_threshold = 0.45
 					mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+				# Dithered (hashed) alpha so a tree between the camera and the
+				# fight can fade per instance through its MultiMesh colour
+				# (see _fade_occluders); opaque trees stay a single pass.
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_HASH
+				mat.alpha_hash_scale = 1.0
+				mat.vertex_color_use_as_albedo = true
 				mat.rim_enabled = true
 				mat.rim = 0.25
 				mat.rim_tint = 0.7
@@ -3662,10 +3788,15 @@ func _pack_chunks(piece_name: String, spots: Array, shadows: bool, grade: Color)
 			var list: Array = buckets[key]
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_colors = true
 			mm.mesh = mesh
 			mm.instance_count = list.size()
+			var top := (local * mesh.get_aabb()).end.y
 			for i in list.size():
-				mm.set_instance_transform(i, (list[i] as Transform3D) * local)
+				var txf := list[i] as Transform3D
+				mm.set_instance_transform(i, txf * local)
+				mm.set_instance_color(i, Color.WHITE)
+				_occl_add(txf.origin, top * txf.basis.get_scale().y, mm, i)
 			var inst := MultiMeshInstance3D.new()
 			inst.multimesh = mm
 			inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

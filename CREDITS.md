@@ -44,7 +44,8 @@ The older fonts below remain in the repository but the interface no longer uses 
   - "giant scorpion animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/giant-scorpion-animation-651c17e0a3784c0386790e5b7c565f1a — Skink, Shard.
   - "Bat Lord" by **Huh (SkibidiSanya)** — https://sketchfab.com/3d-models/bat-lord-8ee898e9c5384493989a5f1cbc38dab3 — Moth, Glowmoth, Ashbat, Icewisp.
 - Dark-fantasy pass, all CC-BY 4.0 by **AnimalMesh 3D (AnimalMesh3D)**, files in `assets/models/sketchfab/dark/`, graded darker in `scripts/cast3d.gd`:
-  - "Animated Fox 3D Model" — https://sketchfab.com/3d-models/animated-fox-3d-model-7b7d4f07d47a444ab6c08b62adfd4aff — Juniper, the hero fox ranger. Armour (iron saddle-plate, bronze bands, pauldrons, brow helm, quiver) is built in-engine by `scripts/armor3d.gd`.
+  - "Animated Fox 3D Model" — https://sketchfab.com/3d-models/animated-fox-3d-model-7b7d4f07d47a444ab6c08b62adfd4aff — Juniper, the hero fox ranger. Barding (banded steel lames with rivets, neck lamellar, collar pauldrons, brow chamfron, leather girths) is built in-engine by `scripts/armor3d.gd`, textured with ambientCG CC0 scans (Metal032 steel, Metal035 bronze, Leather037 leather → `assets/textures/armor_*`).
+  - "Quiver and Arrows" by **Finley Searle (FinleySearle)** — https://sketchfab.com/3d-models/quiver-and-arrows-078aa762143e4c399edcf4529e76340e — CC-BY 4.0. File `assets/models/sketchfab/armor/quiver.glb`, baked into Juniper's barding.
   - "Animated Badger – 3D Animal Model" — https://sketchfab.com/3d-models/animated-badger-3d-animal-model-c495442f215d4f2ba18c29fcd9cc7587 — Rot Badger (id `sprout`).
   - "Animated Realistic Bear – 3D Animal Model" — https://sketchfab.com/3d-models/animated-realistic-bear-3d-animal-model-77a1fcdc92e14db698767da9ee09f84a — Grave Bear (id `boarlet`).
 - Caplet (mushroom lair boss) reuses the Mushroom Boss model listed above, dyed violet.

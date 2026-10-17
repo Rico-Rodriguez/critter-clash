@@ -2,12 +2,15 @@ class_name Armor3D
 extends RefCounted
 
 ## Worn armour for the dark-fantasy animal heroes, built from primitives and
-## pinned to the rig with BoneAttachment3D so it rides every clip.
+## baked into ONE skinned mesh (one surface per material) bound rigidly to
+## the rig's bones, so it rides every clip for a handful of draws.
 ## Pieces are authored in skeleton space at the rest pose (Y up, nose +Z,
 ## the rig's own units: AnimalMesh3D rigs are in centimetres), then
 ## re-expressed in each bone's frame.
 
 static var _mats := {}
+static var _build := {}
+static var _binds := {}
 
 
 static func dress(model: Node, kind: String) -> void:
@@ -15,9 +18,46 @@ static func dress(model: Node, kind: String) -> void:
 	if found.is_empty():
 		return
 	var sk := found[0] as Skeleton3D
+	_build = {}
+	_binds = {}
 	match kind:
 		"fox_ranger":
 			_fox_ranger(sk)
+	_finish(sk)
+
+
+## Bake everything _pin collected into a skinned mesh under the skeleton.
+static func _finish(sk: Skeleton3D) -> void:
+	if _build.is_empty():
+		return
+	var skin := Skin.new()
+	var order: Array = _binds.keys()
+	order.sort_custom(func(a, b): return _binds[a] < _binds[b])
+	for b in order:
+		skin.add_bind(b, sk.get_bone_global_rest(b).affine_inverse())
+	var mesh := ArrayMesh.new()
+	var mats: Array = []
+	for kind in _build:
+		var acc: Dictionary = _build[kind]
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = acc["v"]
+		arr[Mesh.ARRAY_NORMAL] = acc["n"]
+		arr[Mesh.ARRAY_TEX_UV] = acc["uv"]
+		arr[Mesh.ARRAY_BONES] = acc["b"]
+		arr[Mesh.ARRAY_WEIGHTS] = acc["w"]
+		arr[Mesh.ARRAY_INDEX] = acc["i"]
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		mats.append(_mat(kind))
+	var mi := MeshInstance3D.new()
+	mi.name = "Armor"
+	mi.mesh = mesh
+	for i in mats.size():
+		mi.set_surface_override_material(i, mats[i])
+	mi.skin = skin
+	sk.add_child(mi)
+	mi.skeleton = mi.get_path_to(sk)
+	_build = {}
 
 
 static func _mat(kind: String) -> StandardMaterial3D:
@@ -25,35 +65,35 @@ static func _mat(kind: String) -> StandardMaterial3D:
 		return _mats[kind]
 	var m := StandardMaterial3D.new()
 	match kind:
-		"iron":
-			# Blackened, dented iron: dark albedo, metal, a hammered normal.
-			m.albedo_color = Color(0.17, 0.165, 0.16)
-			m.metallic = 0.15
-			m.metallic_specular = 0.25
-			m.roughness = 0.9
+		"iron", "bronze", "leather":
+			# Scanned CC0 PBR sets (ambientCG): worn steel, tarnished bronze,
+			# creased leather. Mapped by the primitives' own UVs so nothing
+			# swims while the rig moves.
+			var tex: String = {"iron": "armor_steel", "bronze": "armor_bronze", "leather": "armor_leather"}[kind]
+			m.albedo_texture = load("res://assets/textures/%s_col.jpg" % tex)
 			m.normal_enabled = true
-			m.normal_texture = load("res://assets/textures/metal_normal.jpg")
-			m.normal_scale = 1.4
-			m.uv1_triplanar = true
-			m.uv1_scale = Vector3(0.08, 0.08, 0.08)
-		"bronze":
-			m.albedo_color = Color(0.5, 0.34, 0.16)
-			m.metallic = 0.5
-			m.roughness = 0.6
-			m.normal_enabled = true
-			m.normal_texture = load("res://assets/textures/metal_normal.jpg")
-			m.uv1_triplanar = true
-			m.uv1_scale = Vector3(0.1, 0.1, 0.1)
-		"leather":
-			# Worn oxblood leather.
-			m.albedo_color = Color(0.26, 0.15, 0.09)
-			m.roughness = 1.0
-			m.metallic_specular = 0.12
-			m.normal_enabled = true
-			m.normal_texture = load("res://assets/textures/rock_normal.jpg")
-			m.normal_scale = 0.5
-			m.uv1_triplanar = true
-			m.uv1_scale = Vector3(0.12, 0.12, 0.12)
+			m.normal_texture = load("res://assets/textures/%s_nrm.jpg" % tex)
+			if kind == "leather":
+				m.roughness_texture = load("res://assets/textures/%s_rgh.jpg" % tex)
+				m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
+			m.uv1_scale = Vector3(3.0, 2.0, 1.0)
+			match kind:
+				"iron":
+					# Blackened, oil-dark steel; edges catch a little light.
+					m.albedo_color = Color(0.3, 0.29, 0.28)
+					m.metallic = 0.45
+					m.roughness = 0.74
+					m.normal_scale = 1.6
+				"bronze":
+					m.albedo_color = Color(0.58, 0.54, 0.42)
+					m.metallic = 0.5
+					m.roughness = 0.68
+					m.normal_scale = 1.2
+				"leather":
+					m.albedo_color = Color(0.55, 0.42, 0.36)
+					m.metallic_specular = 0.25
+					m.roughness = 1.0
+					m.normal_scale = 1.4
 		"cloth":
 			m.albedo_color = Color(0.16, 0.14, 0.13)
 			m.roughness = 0.95
@@ -65,20 +105,38 @@ static func _mat(kind: String) -> StandardMaterial3D:
 	return m
 
 
-## Pin `mesh` to `bone`, placed at `xf` in skeleton space (rest pose).
+## Add `mesh` rigidly bound to `bone`, placed at `xf` in skeleton space
+## (rest pose).
 static func _pin(sk: Skeleton3D, bone: String, mesh: Mesh, mat: String, xf: Transform3D) -> void:
 	var idx := sk.find_bone(bone)
 	if idx < 0:
 		return
-	var att := BoneAttachment3D.new()
-	att.bone_name = bone
-	sk.add_child(att)
-	var mi := MeshInstance3D.new()
-	mi.name = "Armor"
-	mi.mesh = mesh
-	mi.material_override = _mat(mat)
-	mi.transform = sk.get_bone_global_rest(idx).affine_inverse() * xf
-	att.add_child(mi)
+	if not _binds.has(idx):
+		_binds[idx] = _binds.size()
+	var bind: int = _binds[idx]
+	if not _build.has(mat):
+		_build[mat] = {"v": PackedVector3Array(), "n": PackedVector3Array(), "uv": PackedVector2Array(),
+				"b": PackedInt32Array(), "w": PackedFloat32Array(), "i": PackedInt32Array()}
+	var acc: Dictionary = _build[mat]
+	var src := mesh.surface_get_arrays(0)
+	var verts: PackedVector3Array = src[Mesh.ARRAY_VERTEX]
+	var norms: PackedVector3Array = src[Mesh.ARRAY_NORMAL]
+	var uvs = src[Mesh.ARRAY_TEX_UV]
+	var nb := xf.basis.inverse().transposed()
+	var base: int = (acc["v"] as PackedVector3Array).size()
+	for k in verts.size():
+		acc["v"].append(xf * verts[k])
+		acc["n"].append((nb * norms[k]).normalized())
+		acc["uv"].append(uvs[k] if uvs != null else Vector2.ZERO)
+		acc["b"].append_array([bind, 0, 0, 0])
+		acc["w"].append_array([1.0, 0.0, 0.0, 0.0])
+	var idxs = src[Mesh.ARRAY_INDEX]
+	if idxs == null:
+		for k in verts.size():
+			acc["i"].append(base + k)
+	else:
+		for k in (idxs as PackedInt32Array):
+			acc["i"].append(base + k)
 
 
 static func _xf(at: Vector3, scale: Vector3 = Vector3.ONE, rot: Vector3 = Vector3.ZERO) -> Transform3D:
@@ -130,20 +188,23 @@ static func _torus(inner: float, outer: float) -> TorusMesh:
 static func _fox_ranger(sk: Skeleton3D) -> void:
 	# Gambeson: a low quilted pad the plates sit on, mostly sunk in the fur.
 	_pin(sk, "RigSpine2_012", _sphere(10.0), "leather", _xf(Vector3(0, 44.5, -5.0), Vector3(1.0, 0.42, 2.0)))
-	# Back lames, tail to shoulders; each overlaps the one behind it.
+	# Back lames, tail to shoulders: faceted arched steel bands (lorica
+	# style), each overlapping the one behind, with a bronze lip on the
+	# leading edge. [bone, z, arch centre y, radius]
 	var lames := [
-		["RigPelvis_02", -22.0, 46.0, 7.6],
-		["RigSpine1_011", -14.5, 47.4, 8.4],
-		["RigSpine2_012", -6.5, 48.2, 8.8],
-		["RigSpine2_012", 1.0, 48.4, 8.8],
-		["RigChest_013", 8.0, 48.6, 8.4],
+		["RigPelvis_02", -21.0, 38.5, 9.0],
+		["RigSpine1_011", -14.5, 39.6, 9.6],
+		["RigSpine2_012", -8.0, 40.2, 10.0],
+		["RigSpine2_012", -1.5, 40.4, 10.0],
+		["RigChest_013", 5.0, 40.4, 9.8],
 	]
 	for l in lames:
 		var z: float = l[1]
-		var y: float = l[2]
+		var cy: float = l[2]
 		var r: float = l[3]
-		_pin(sk, l[0], _sphere(r), "bronze", _xf(Vector3(0, y - 0.8, z - 1.0), Vector3(1.26, 0.27, 0.64)))
-		_pin(sk, l[0], _sphere(r), "iron", _xf(Vector3(0, y, z), Vector3(1.22, 0.29, 0.62), Vector3(-0.12, 0, 0)))
+		var band := Transform3D(Basis.from_euler(Vector3(PI * 0.5 - 0.14, 0, 0)), Vector3.ZERO)
+		_pin(sk, l[0], _cyl(r, r, 7.2, 12), "iron", Transform3D(Basis.from_scale(Vector3(1.0, 0.92, 1.0)), Vector3(0, cy, z)) * band)
+		_pin(sk, l[0], _cyl(r + 0.45, r + 0.45, 1.3, 12), "bronze", Transform3D(Basis.from_scale(Vector3(1.0, 0.92, 1.0)), Vector3(0, cy + 0.5, z + 3.3)) * band)
 	# Lamellar neck guard: three narrowing scales up the nape.
 	var neck := [["RigNeck1_019", 19.0, 49.0, 6.4], ["RigNeck2_00", 22.5, 51.2, 5.6], ["RigNeck2_00", 25.5, 53.0, 4.8]]
 	for l in neck:
@@ -159,19 +220,71 @@ static func _fox_ranger(sk: Skeleton3D) -> void:
 	_pin(sk, "RigHead_020", _sphere(8.4), "bronze", Transform3D(Basis.from_euler(Vector3(0.45, 0, 0)) * Basis.from_scale(Vector3(0.5, 0.22, 1.0)), cham + Vector3(0, -0.5, 0)))
 	_pin(sk, "RigHead_020", _sphere(8.0), "iron", Transform3D(Basis.from_euler(Vector3(0.45, 0, 0)) * Basis.from_scale(Vector3(0.44, 0.3, 1.0)), cham))
 	_pin(sk, "RigHead_020", _cyl(0.0, 1.2, 5.0, 6), "iron", _xf(Vector3(0, 58.6, 31.5), Vector3.ONE, Vector3(-0.35, 0, 0)))
-	# Quiver low on the right flank, slung tail-ward, three arrows.
-	var q_at := Vector3(-8.8, 45.0, -12.0)
-	var q_rot := Vector3(-1.05, 0, 0.25)
-	_pin(sk, "RigSpine1_011", _cyl(2.6, 2.2, 18.0, 10), "leather", _xf(q_at, Vector3.ONE, q_rot))
-	_pin(sk, "RigSpine1_011", _cyl(2.9, 2.9, 1.4, 10), "bronze", _xf(q_at + Basis.from_euler(q_rot) * Vector3(0, 8.0, 0), Vector3.ONE, q_rot))
-	for k in 3:
-		var o := Basis.from_euler(q_rot) * Vector3((k - 1) * 1.1, 11.5, (k % 2) * 0.8)
-		_pin(sk, "RigSpine1_011", _cyl(0.3, 0.3, 7.0, 4), "cloth", _xf(q_at + o, Vector3.ONE, q_rot))
-		_pin(sk, "RigSpine1_011", _cyl(0.0, 1.0, 2.4, 3), "fletch", _xf(q_at + o + Basis.from_euler(q_rot) * Vector3(0, 3.6, 0), Vector3.ONE, q_rot))
+	# Belly straps: two flat leather girths that hold the barding on.
+	for z in [-1.0, 9.0]:
+		_pin(sk, "RigChest_013" if z > 4.0 else "RigSpine2_012", _torus(9.6, 10.5), "leather", _xf(Vector3(0, 41.5, z), Vector3(0.78, 0.98, 1.0), Vector3(PI * 0.5, 0, 0)))
+	# Rivet rows along each band's arch.
+	for l in lames:
+		var lz: float = l[1]
+		var cy2: float = l[2]
+		var lr: float = l[3]
+		for k in 5:
+			var th := (k - 2) * 0.32
+			_pin(sk, l[0], _rivet(), "bronze", _xf(Vector3(sin(th) * (lr + 0.2), cy2 + cos(th) * (lr + 0.2) * 0.92, lz + 1.6)))
+	# Quiver: a scanned leather quiver (Finley Searle, CC-BY) slung low on
+	# the right flank, nocks pointing back over the haunch.
+	_pin_scene(sk, "RigSpine1_011", QUIVER, "quiver",
+			Transform3D(Basis.from_euler(Vector3(-1.1, 0, 0.3)) * Basis.from_scale(Vector3.ONE * 10.5), Vector3(-9.6, 44.5, -11.0)))
 
 
-## Feral enemies: a burning ember in each eye socket, sized from the gap
-## between the rig's two eye(lid) bones so it fits any unit scale.
+const QUIVER := "res://assets/models/sketchfab/armor/quiver.glb"
+
+
+static func _rivet() -> SphereMesh:
+	var s := SphereMesh.new()
+	s.radius = 0.75
+	s.height = 1.1
+	s.radial_segments = 6
+	s.rings = 3
+	return s
+
+
+## Bake every mesh of a scanned prop into the armour (its own material),
+## centred on its bounds; loose arrows lying beside the quiver are dropped
+## and the quivered ones pushed up so their fletching shows.
+static func _pin_scene(sk: Skeleton3D, bone: String, path: String, mat: String, xf: Transform3D) -> void:
+	if not ResourceLoader.exists(path):
+		return
+	var scene := (load(path) as PackedScene).instantiate()
+	var meshes := scene.find_children("*", "MeshInstance3D", true, false)
+	var body: AABB
+	for m in meshes:
+		var mi := m as MeshInstance3D
+		if mi.mesh.get_aabb().size.x > 0.3:
+			body = mi.mesh.get_aabb()
+	var centre := body.get_center()
+	for m in meshes:
+		var mi := m as MeshInstance3D
+		var box := mi.mesh.get_aabb()
+		if box.end.z < 0.0:
+			continue
+		if not _mats.has(mat):
+			var src := mi.mesh.surface_get_material(0) as StandardMaterial3D
+			var dm := src.duplicate() as StandardMaterial3D if src else StandardMaterial3D.new()
+			dm.albedo_color = Color(0.72, 0.66, 0.6)
+			dm.roughness = 0.95
+			dm.metallic = 0.0
+			_mats[mat] = dm
+		var lift := Vector3(0, 0.55, 0) if box.size.x < 0.1 else Vector3.ZERO
+		_pin(sk, bone, mi.mesh, mat, xf * Transform3D(Basis(), lift - centre))
+	scene.free()
+
+
+## Eye size multiplier: big enough to read at the far hunt camera; the
+## portrait baker drops it to 1 for close-ups.
+static var eye_scale := 1.8
+
+
 static func glow_eyes(model: Node, color: Color) -> void:
 	var found := model.find_children("*", "Skeleton3D", true, false)
 	if found.is_empty():
@@ -209,26 +322,27 @@ static func glow_eyes(model: Node, color: Color) -> void:
 	# Lid-only rigs (the bear) pivot deeper in the socket than eyeball bones.
 	var lids := not balls.size() >= 2
 	var r := maxf(a.distance_to(c) * (0.2 if lids else 0.11), 0.0001)
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = color
-	m.emission_enabled = true
-	m.emission = color
-	m.albedo_color = color.lightened(0.35)
-	m.emission_energy_multiplier = 6.0
+	var hb := -1
+	for b in sk.get_bone_count():
+		if "head" in sk.get_bone_name(b).to_lower():
+			hb = b
+			break
+	if hb < 0:
+		hb = sk.get_bone_parent(eyes[0])
+	# Both embers go in one mesh on the head bone: one draw per critter.
+	r *= eye_scale
+	var head_rest := sk.get_bone_global_rest(hb)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ball := _sphere(r)
+	ball.radial_segments = 10
+	ball.rings = 6
 	for b in eyes:
-		var att := BoneAttachment3D.new()
-		att.bone_name = sk.get_bone_name(b)
-		sk.add_child(att)
-		var mi := MeshInstance3D.new()
-		mi.name = "GlowEye"
-		mi.mesh = _sphere(r)
-		mi.material_override = m
-		# Eye bones sit at the socket pivot, inside the skull: push the ember
-		# forward and a little outward so it shows on the surface.
 		var at := sk.get_bone_global_rest(b)
 		var side := (at.origin - mid).normalized()
-		var push := fwd * r * 1.6 + side * r * 0.6
+		# Eye bones sit at the socket pivot, inside the skull: push the ember
+		# forward and a little outward so it shows on the surface.
+		var push := fwd * r * 1.2 + side * r * 0.5
 		if lids:
 			# Lid bones hinge at the brow; the eye sits a little down the lid
 			# toward its end bone, proud of the fur.
@@ -237,7 +351,20 @@ static func glow_eyes(model: Node, color: Color) -> void:
 				if sk.get_bone_parent(k) == b:
 					tip = sk.get_bone_global_rest(k).origin
 					break
-			push = (tip - at.origin) * 0.36 + side * r * 1.0
-		mi.position = at.basis.inverse() * push
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		att.add_child(mi)
+			push = (tip - at.origin) * 0.36 + side * r * 0.8
+		st.append_from(ball, 0, head_rest.affine_inverse() * Transform3D(Basis(), at.origin + push))
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = color.lightened(0.35)
+	m.emission_enabled = true
+	m.emission = color
+	m.emission_energy_multiplier = 6.0
+	var att := BoneAttachment3D.new()
+	att.bone_name = sk.get_bone_name(hb)
+	sk.add_child(att)
+	var mi := MeshInstance3D.new()
+	mi.name = "GlowEye"
+	mi.mesh = st.commit()
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	att.add_child(mi)
