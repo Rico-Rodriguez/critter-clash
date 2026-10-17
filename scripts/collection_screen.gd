@@ -143,8 +143,8 @@ class ArtWindow extends Control:
 
 	func _draw() -> void:
 		var r := Rect2(Vector2(4, 0), size - Vector2(8, 0))
-		UiKit.rr_fill(self, r.grow(2), 12, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
-		UiKit.rr_fill(self, r, 10, Color("0a0806"), Color("16110d"))
+		UiKit.ch_fill(self, r.grow(2), 14, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
+		UiKit.ch_fill(self, r, 12, Color("0a0806"), Color("16110d"))
 		var c := r.get_center() + Vector2(0, -6)
 		var g := glow if not locked else Color(0.4, 0.4, 0.45)
 		for i in 10:

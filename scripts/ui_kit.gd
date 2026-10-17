@@ -320,6 +320,18 @@ static func rr_points(rect: Rect2, radius: float, seg: int = 6) -> PackedVector2
 
 ## Vertical two-stop gradient in a rounded rect. Color is linear in y, so
 ## the triangulated fill reproduces it exactly.
+## Square-cut (chamfered) panel fill with a vertical gradient: forged windows.
+static func ch_fill(ci: CanvasItem, rect: Rect2, cut: float, top: Color, bottom: Color) -> void:
+	var c := minf(cut, minf(rect.size.x, rect.size.y) * 0.5)
+	var p := rect.position
+	var e := rect.end
+	var pts := PackedVector2Array([Vector2(p.x + c, p.y), Vector2(e.x - c, p.y), Vector2(e.x, p.y + c), Vector2(e.x, e.y - c), Vector2(e.x - c, e.y), Vector2(p.x + c, e.y), Vector2(p.x, e.y - c), Vector2(p.x, p.y + c)])
+	var cols := PackedColorArray()
+	for q in pts:
+		cols.append(top.lerp(bottom, (q.y - p.y) / maxf(rect.size.y, 1.0)))
+	ci.draw_polygon(pts, cols)
+
+
 static func rr_fill(ci: CanvasItem, rect: Rect2, radius: float, top: Color, bottom: Color) -> void:
 	if rect.size.x < 1.0 or rect.size.y < 1.0:
 		return

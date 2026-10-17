@@ -678,7 +678,7 @@ func _pedestal_set() -> void:
 		_place_prop("grass_short", Vector3(cos(ang) * r, PEDESTAL_TOP, sin(ang) * r), rng.randf_range(0.35, 0.5), false)
 	# A real forest edge behind the glade: layered trees, then a dense band
 	# of bushes and tall grass, so the backdrop has depth instead of flat fog.
-	var trees := ["tree_a", "tree_b", "tree_twist", "tree_pine", "tree_round", "tree_blossom"]
+	var trees := ["tree_a", "tree_b", "tree_twist", "tree_pine", "tree_pine_b", "tree_blossom"]
 	for i in 16:
 		var x := lerpf(-9.0, 9.0, float(i) / 15.0) + rng.randf_range(-0.6, 0.6)
 		var z := -6.5 - rng.randf_range(0.0, 4.5) - absf(x) * 0.1

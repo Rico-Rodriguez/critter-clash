@@ -13,9 +13,13 @@ uniform float fade_alpha = 0.9;
 uniform float desat = 0.0;
 uniform float darken = 0.0;
 
+// Forged windows: square-cut 45 degree corners, sized by `radius`.
 float sd_box(vec2 p, vec2 b, float r) {
-	vec2 q = abs(p) - b + vec2(r);
-	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+	vec2 q = abs(p) - b;
+	float d_box = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+	float c = r * 1.1;
+	float d_cut = (abs(p.x) + abs(p.y) - (b.x + b.y - c)) * 0.70710678;
+	return max(d_box, d_cut);
 }
 
 void fragment() {
