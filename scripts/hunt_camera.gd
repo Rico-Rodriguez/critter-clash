@@ -9,7 +9,7 @@ extends RefCounted
 var center := Vector2.ZERO
 var view := HuntMap.VIEW
 var map_size := HuntMap.VIEW
-var deadzone := Vector2(84, 130)
+var deadzone := Vector2(56, 64)
 var softness := 8.0
 
 

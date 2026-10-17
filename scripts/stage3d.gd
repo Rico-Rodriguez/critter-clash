@@ -7,12 +7,14 @@ extends Control
 const SCALE := 0.02
 const PITCH := 1.012291  # 58 degrees, high enough to read the ground
 ## The follow camera sits far back so a wave is on screen well before it
-## reaches the hero: about 7 m of ground across at the hero, 3x the old view.
-const DIST := 20.0
+## reaches the hero: about 9 m of ground across at the hero, ~1.9x the
+## previous framing and well past 2.5x the original.
+const DIST := 26.0
 const FOV := 40.0
-const BOSS_DIST := 25.0
-## Aim below the ground plane to centre the hero rather than sit it low.
-const AIM := -2.0
+const BOSS_DIST := 32.0
+## Aim a metre above the ground so the hero sits just below screen centre,
+## leaving room to see what comes from above.
+const AIM := 1.0
 ## On-screen size targets. With the camera at DIST these put the hero near
 ## 13% of the screen height; the boss is about 2.6 times the hero.
 const HERO_METERS := 2.5
