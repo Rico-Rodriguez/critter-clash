@@ -103,26 +103,89 @@ func _bake(entry: Dictionary) -> void:
 				var at := look + Vector3(lerpf(-14.0, 14.0, i / 13.0) + frng.randf_range(-0.8, 0.8), 0, -11.0 - frng.randf_range(0.0, 5.0))
 				stage._place_prop(["tree_a", "tree_b", "tree_pine", "tree_pine_b"][i % 4], at, frng.randf_range(2.6, 3.6), true)
 		"mushroom":
-			# Dusk: indigo zenith over a rose-amber horizon.
+			# A glowing mushroom forest at violet dusk: giant caps framing the
+			# clearing, cool teal spores drifting, a deep plum horizon.
 			if holder != null:
 				var sky_mat := ProceduralSkyMaterial.new()
-				sky_mat.sky_top_color = Color("1c1638")
-				sky_mat.sky_horizon_color = Color("c8705a")
-				sky_mat.sky_curve = 0.12
-				sky_mat.ground_horizon_color = Color("c8705a")
-				sky_mat.ground_bottom_color = Color("8a4a48")
-				sky_mat.sun_angle_max = 8.0
+				sky_mat.sky_top_color = Color("120c26")
+				sky_mat.sky_horizon_color = Color("5a3a6e")
+				sky_mat.sky_curve = 0.16
+				sky_mat.ground_horizon_color = Color("4a3058")
+				sky_mat.ground_bottom_color = Color("201628")
+				sky_mat.sun_angle_max = 6.0
 				holder.environment.sky.sky_material = sky_mat
-				holder.environment.background_energy_multiplier = 0.9
-				holder.environment.fog_light_color = Color(0.55, 0.36, 0.42)
-				holder.environment.fog_sky_affect = 0.35
-			stage.sun.light_color = Color("ff9a78")
-		"volcano":
-			# The ember trees glowed candy red; pull the grade back to soot.
+				holder.environment.background_energy_multiplier = 0.85
+				holder.environment.fog_light_color = Color(0.36, 0.3, 0.5)
+				holder.environment.fog_sky_affect = 0.5
+				holder.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+				holder.environment.ambient_light_color = Color("7a6aa8")
+				holder.environment.ambient_light_energy = 0.7
+				holder.environment.adjustment_saturation = 1.1
+				holder.environment.glow_intensity = 0.6
+				holder.environment.glow_bloom = 0.12
+			stage.sun.light_color = Color("ffb08a")
+			stage.sun.light_energy *= 0.8
+			var mrng := RandomNumberGenerator.new()
+			mrng.seed = 5
+			for i in 12:
+				var side := -1.0 if i % 2 == 0 else 1.0
+				var at := look + Vector3(side * mrng.randf_range(4.0, 9.0), 0, mrng.randf_range(-12.0, 2.0))
+				stage._place_prop(["mushroom_tall", "mushroom", "mushroom_tall"][i % 3], at, mrng.randf_range(3.0, 5.5), true)
+			for i in 30:
+				var at := look + Vector3(mrng.randf_range(-6.0, 6.0), 0, mrng.randf_range(1.5, 6.0))
+				stage._place_prop(["mushroom", "fern", "grass_tall", "mushroom_shelf"][i % 4], at, mrng.randf_range(0.5, 1.0), false)
+			# Bioluminescent pools of light under the caps.
+			for i in 6:
+				var lp := look + Vector3(mrng.randf_range(-6.0, 6.0), 0.6, mrng.randf_range(-8.0, 3.0))
+				stage._lamp(Color("6fe0d0") if i % 2 == 0 else Color("c08aff"), 2.5, lp, false, 4.0)
+			_motes(stage, look + Vector3(0, 2.0, -1.0), Vector3(9, 2.5, 6), Color(0.5, 1.0, 0.85), 160, 0.07, 0.05)
+		"frost":
+			# Cold clear air: a steel-blue sky, pale ice horizon, cool key,
+			# and fine snow in the air.
 			if holder != null:
-				holder.environment.adjustment_saturation = 0.72
-				holder.environment.adjustment_contrast = 1.18
-				holder.environment.tonemap_exposure = 0.88
+				var sky_mat := ProceduralSkyMaterial.new()
+				sky_mat.sky_top_color = Color("3a5a88")
+				sky_mat.sky_horizon_color = Color("bcd2ea")
+				sky_mat.sky_curve = 0.14
+				sky_mat.ground_horizon_color = Color("bcd2ea")
+				sky_mat.ground_bottom_color = Color("6a7e98")
+				holder.environment.sky.sky_material = sky_mat
+				holder.environment.background_energy_multiplier = 1.0
+				holder.environment.fog_light_color = Color(0.7, 0.8, 0.94)
+				holder.environment.fog_sky_affect = 0.35
+				holder.environment.adjustment_saturation = 1.08
+			stage.sun.light_color = Color("dfeaff")
+			_motes(stage, look + Vector3(0, 3.0, -1.0), Vector3(10, 3.5, 7), Color(0.95, 0.97, 1.0), 260, 0.05, -0.35)
+		"volcano":
+			# Dark basalt, ash haze, ember-lit undersides, embers rising.
+			if holder != null:
+				var env := holder.environment
+				var sky_mat := ProceduralSkyMaterial.new()
+				sky_mat.sky_top_color = Color("120a0a")
+				sky_mat.sky_horizon_color = Color("5a2a18")
+				sky_mat.sky_curve = 0.2
+				sky_mat.ground_horizon_color = Color("3a1a12")
+				sky_mat.ground_bottom_color = Color("120a08")
+				env.sky.sky_material = sky_mat
+				env.background_energy_multiplier = 0.9
+				env.fog_light_color = Color(0.42, 0.22, 0.14)
+				env.fog_density *= 1.3
+				env.fog_sky_affect = 0.6
+				env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+				env.ambient_light_color = Color("6a4a40")
+				env.ambient_light_energy = 0.55
+				env.adjustment_saturation = 0.95
+				env.adjustment_contrast = 1.18
+				env.tonemap_exposure = 0.95
+				env.glow_intensity = 0.7
+				env.glow_bloom = 0.15
+				env.glow_hdr_threshold = 0.9
+			stage.sun.light_color = Color("ff9a5a")
+			stage.sun.light_energy *= 0.75
+			# Lava glow from below lights the dragon's belly and the rocks.
+			stage._lamp(Color("ff5a1a"), 5.0, boss.position + Vector3(0, 0.4, 1.5), false, 7.0)
+			stage._lamp(Color("ff6a2a"), 3.0, look + Vector3(-4.0, 0.3, 2.0), false, 5.0)
+			_motes(stage, look + Vector3(0, 1.8, -1.0), Vector3(9, 2.5, 6), Color(1.0, 0.5, 0.15), 180, 0.06, 0.6)
 	# Clean silhouettes: no tall prop directly behind the boss (Thistle was
 	# lost against a red tree) and none filling the lens up front.
 	var cam_at := stage.camera.global_position
@@ -150,3 +213,68 @@ func _bake(entry: Dictionary) -> void:
 	print("BANNER ", id)
 	stage.queue_free()
 	await get_tree().process_frame
+
+
+## Drifting particles for atmosphere: spores, snow, or rising embers.
+## rise > 0 floats up, < 0 falls. Pre-simulated so a still frame is full.
+func _motes(stage: Stage3D, at: Vector3, extents: Vector3, color: Color, amount: int, size: float, rise: float) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = 6.0
+	p.preprocess = 6.0
+	p.position = at
+	p.visibility_aabb = AABB(-extents * 2.0, extents * 4.0)
+	var proc := ParticleProcessMaterial.new()
+	proc.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	proc.emission_box_extents = extents
+	proc.gravity = Vector3(0, rise, 0)
+	proc.initial_velocity_min = 0.02
+	proc.initial_velocity_max = 0.15
+	proc.direction = Vector3(0, signf(rise), 0)
+	proc.spread = 60.0
+	proc.turbulence_enabled = true
+	proc.turbulence_noise_strength = 0.5
+	proc.turbulence_noise_scale = 3.0
+	proc.scale_min = 0.5
+	proc.scale_max = 1.4
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 0))
+	fade.set_color(1, Color(1, 1, 1, 0))
+	fade.add_point(0.15, Color(1, 1, 1, 1))
+	fade.add_point(0.8, Color(1, 1, 1, 1))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	proc.color_ramp = ramp
+	p.process_material = proc
+	var dot := QuadMesh.new()
+	dot.size = Vector2(size, size)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	m.albedo_color = color
+	m.albedo_texture = _soft_dot()
+	dot.material = m
+	p.draw_pass_1 = dot
+	stage.world_root.add_child(p)
+
+
+var _dot_tex: Texture2D
+
+
+func _soft_dot() -> Texture2D:
+	if _dot_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.5)
+		t.fill_to = Vector2(1.0, 0.5)
+		t.width = 32
+		t.height = 32
+		_dot_tex = t
+	return _dot_tex
