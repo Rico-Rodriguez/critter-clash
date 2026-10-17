@@ -1363,8 +1363,9 @@ func _boss_arena(center: Vector3) -> void:
 		var rest: Vector3 = stone.position
 		stone.position = rest - Vector3(0, 2.6, 0)
 		var tw := create_tween()
-		tw.tween_interval(BOSS_DROP_TIME + 0.04 * i)
-		tw.tween_property(stone, "position", rest, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		# The ring rises while the boss drops, so the intro shows it.
+		tw.tween_interval(0.03 * i)
+		tw.tween_property(stone, "position", rest, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		# A low rock slab between neighbouring stones, sunk like a root.
 		if i % 2 == 0:
 			var mid := ang + PI / float(count)
@@ -1442,17 +1443,20 @@ void fragment() {
 		var xs := Shader.new()
 		xs.code = """shader_type spatial;
 render_mode unshaded, blend_mix, depth_test_inverted, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
-uniform vec3 xray_color = vec3(1.0, 0.46, 0.14);
+uniform vec3 xray_color = vec3(1.0, 0.36, 0.03);
 uniform float amount = 0.0;
 void fragment() {
 	// depth_test_inverted: this pass only lands where something already
 	// in the depth buffer is nearer than the hero, i.e. where it is hidden.
 	float ahead = 1.0;
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
-	float rim = smoothstep(0.62, 0.98, 1.0 - ndv);
-	ALBEDO = xray_color * 1.4;
-	// A thin hero-coloured outline with only a whisper of fill.
-	ALPHA = (0.03 + 0.85 * rim) * amount * ahead;
+	float r = 1.0 - ndv;
+	// A saturated orange outer line with a dark inner line just inside it,
+	// so the silhouette holds up over the boss's pale cap.
+	float outer = smoothstep(0.7, 0.92, r);
+	float inner = smoothstep(0.48, 0.58, r) * (1.0 - smoothstep(0.64, 0.72, r));
+	ALBEDO = mix(vec3(0.12, 0.03, 0.01), xray_color, outer / max(outer + inner, 1e-3));
+	ALPHA = max(outer * 0.98, inner * 0.8) * amount * ahead;
 }
 """
 		_xray_mat = ShaderMaterial.new()
@@ -1656,120 +1660,69 @@ func _add_wings(root: Node3D, model: Node3D, meters: float) -> void:
 	rig.position = shoulder + Vector3(0, meters * 0.12, 0) - fwd * meters * 0.04
 	rig.basis = Basis(Vector3.UP, face)
 	root.set_meta("wing_base", rig.position)
-	# Membrane: leathery skin with a fine pebbled grain matched to the
-	# body's scale size, veins running out along the fingers, warm light
-	# glowing through it, and soft, slightly transparent trailing edges.
-	var msh := Shader.new()
-	msh.code = """shader_type spatial;
-render_mode cull_disabled, depth_draw_always;
-varying vec2 wuv;
-float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float vn(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
-void vertex() { wuv = UV; }
-void fragment() {
-	vec3 base = COLOR.rgb;
-	// Pebbled grain (cells) plus broad mottling.
-	vec2 g = wuv * 11.0;
-	float cell = vn(g) * 0.6 + vn(g * 2.3) * 0.4;
-	float mott = vn(wuv * 4.0);
-	// Veins: thin ridges radiating from the wrist (stored in UV2.x as angle).
-	float vein = smoothstep(0.86, 1.0, abs(sin(UV2.x * 9.0 + vn(wuv * 3.0) * 0.8))) * UV2.y;
-	vec3 col = base * (0.78 + cell * 0.32) * (0.85 + mott * 0.25);
-	col = mix(col, base * 0.32, vein * 0.85);
-	// Darker toward the scalloped edge, like the hide's scale outlines.
-	col *= mix(1.0, 0.7, smoothstep(0.6, 1.0, UV2.y));
-	ALBEDO = col;
-	ROUGHNESS = 0.58 - cell * 0.12;
-	SPECULAR = 0.35;
-	RIM = 0.4;
-	RIM_TINT = 0.5;
-	BACKLIGHT = vec3(0.75, 0.28, 0.08) * (0.6 + 0.4 * (1.0 - vein));
-	ALPHA = COLOR.a * (0.86 + cell * 0.14);
-	ALPHA_SCISSOR_THRESHOLD = 0.35;
-	ALPHA_ANTIALIASING_EDGE = 0.3;
-}
-"""
-	var mat := ShaderMaterial.new()
-	mat.shader = msh
-	var rib_mat := StandardMaterial3D.new()
-	rib_mat.albedo_color = Color(0.3, 0.13, 0.07)
-	rib_mat.roughness = 0.55
-	var span := meters * 0.36
+	# Membrane: tools/paint_wing.py paints it from the model's own wing
+	# art (struts, veins, dark root to warm edge, feathered scallops). The
+	# alpha cut-out gives the outline; the mesh is a bent grid so the skin
+	# billows between the struts instead of reading as flat triangles.
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = load("res://assets/models/sketchfab/ember_wing_paint.png")
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	mat.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+	mat.normal_enabled = true
+	mat.normal_texture = load("res://assets/models/sketchfab/ember_wing_normal.png")
+	mat.normal_scale = 1.2
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.roughness = 0.62
+	mat.metallic_specular = 0.35
+	mat.rim_enabled = true
+	mat.rim = 0.3
+	mat.rim_tint = 0.6
+	mat.backlight_enabled = true
+	mat.backlight = Color(0.62, 0.26, 0.08)
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	var span := meters * 0.62
+	var chord := span * 0.652
 	var pivots: Array = []
 	for side in [-1.0, 1.0]:
 		var pivot := Node3D.new()
 		rig.add_child(pivot)
 		pivot.position = Vector3(side * 0.07, 0, 0)
-		# Rig space: x out to the side, y up, +z forward.
-		var sh := Vector3.ZERO
-		var elbow := Vector3(side * 0.4, 0.42, -0.08) * span
-		var wrist := Vector3(side * 0.92, 0.66, -0.26) * span
-		var tips := [Vector3(side * 1.08, 0.22, -0.66) * span, Vector3(side * 0.82, 0.06, -0.86) * span, Vector3(side * 0.46, 0.04, -0.76) * span]
-		var root_back := Vector3(side * 0.08, -0.02, -0.42) * span
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		# Matched to Ember's painted hide: amber near the body, rust to
-		# deep oxblood toward the trailing edge.
-		var inner := Color(0.72, 0.4, 0.2).srgb_to_linear()
-		var outer := Color(0.36, 0.12, 0.07).srgb_to_linear()
-		var edge := [wrist, tips[0], tips[1], tips[2], root_back]
-		var fan := [sh, elbow]
-		# Membrane: fan from the wrist and elbow to each scalloped panel.
-		for i in edge.size() - 1:
-			var a: Vector3 = edge[i]
-			var b: Vector3 = edge[i + 1]
-			var mid := (a + b) * 0.5
-			# Scallop: pull the panel edge in toward the shoulder.
-			var dip := mid.lerp(elbow, 0.18 if i > 0 else 0.0)
-			var hub: Vector3 = wrist if i < 2 else elbow
-			for tri in [[hub, a, dip], [hub, dip, b]]:
-				for v in tri:
-					_wing_vert(st, v, span, inner, outer, wrist, (v == a or v == b or v == dip) and v != wrist)
-		for tri in [[sh, elbow, root_back], [elbow, edge[3], root_back], [sh, elbow, wrist]]:
-			for v in tri:
-				_wing_vert(st, v, span, inner, outer, wrist, false)
+		var nu := 16
+		var nv := 10
+		var grid: Array = []
+		for j in nv + 1:
+			var row: Array = []
+			for i in nu + 1:
+				var u := float(i) / float(nu)
+				var v := float(j) / float(nv)
+				# Rig space: x out to the side, y up, +z forward. The arm
+				# rises and sweeps back; the skin sags between the struts.
+				var x: float = side * (0.04 + u) * span
+				var y := (0.85 * u - 0.28 * v) * span
+				y -= 0.07 * span * sin(PI * v) * (0.3 + u)
+				y += 0.025 * span * sin(u * TAU * 2.0) * v
+				var z := (0.12 - v) * chord - 0.12 * u * span
+				row.append([Vector3(x, y, z), Vector2(u, v)])
+			grid.append(row)
+		for j in nv:
+			for i in nu:
+				var q: Array = [grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]]
+				# Mirrored side: flip the winding so both wings face up.
+				for k in ([0, 1, 2, 0, 2, 3] if side > 0.0 else [0, 2, 1, 0, 3, 2]):
+					st.set_uv(q[k][1])
+					st.add_vertex(q[k][0])
 		st.generate_normals()
+		st.generate_tangents()
 		var memb := MeshInstance3D.new()
 		memb.mesh = st.commit()
 		memb.material_override = mat
-		memb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		memb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		pivot.add_child(memb)
-		# Ribs: arm bones and three fingers, tapering.
-		var segs := [[sh, elbow, 0.035], [elbow, wrist, 0.028], [wrist, tips[0], 0.016], [wrist, tips[1], 0.014], [elbow, tips[2], 0.013]]
-		for sg in segs:
-			var a: Vector3 = sg[0]
-			var b: Vector3 = sg[1]
-			var cyl := CylinderMesh.new()
-			cyl.top_radius = float(sg[2]) * 0.6
-			cyl.bottom_radius = float(sg[2])
-			cyl.height = a.distance_to(b)
-			cyl.radial_segments = 6
-			cyl.rings = 1
-			var bone := MeshInstance3D.new()
-			bone.mesh = cyl
-			bone.material_override = rib_mat
-			var dir := (b - a).normalized()
-			var ax := Vector3.UP.cross(dir)
-			var basis := Basis.IDENTITY if ax.length() < 0.001 else Basis(ax.normalized(), Vector3.UP.angle_to(dir))
-			bone.transform = Transform3D(basis, (a + b) * 0.5)
-			pivot.add_child(bone)
 		pivots.append(pivot)
 	_wing_sets.append({"l": pivots[0], "r": pivots[1], "body": root})
-
-
-## One membrane vertex: colour by distance from the body, alpha softened
-## on the scalloped trailing edge, grain UVs in wing space, and in UV2 the
-## angle around the wrist plus a vein weight that fades near the body.
-func _wing_vert(st: SurfaceTool, v: Vector3, span: float, inner: Color, outer: Color, wrist: Vector3, edge: bool) -> void:
-	var t := clampf(v.length() / (1.1 * span), 0.0, 1.0)
-	var c := inner.lerp(outer, t)
-	c.a = 1.0
-	st.set_color(c)
-	st.set_uv(Vector2(v.x, v.z) / span)
-	var rel := v - wrist
-	st.set_uv2(Vector2(atan2(rel.z, rel.x), clampf(t * 1.4 - 0.2, 0.0, 1.0)))
-	st.add_vertex(v)
 
 
 ## Flap: a slow breathing beat at rest, quicker and wider on the move.

@@ -616,7 +616,12 @@ class Btn extends Button:
 			kind = "tile"
 		elif round:
 			kind = "round"
-		skin = Frame.new(kind, "grey" if disabled else tone)
+		if kind == "tile" and tone == "forged":
+			# Home tiles: the same riveted bronze-on-leather trim as the
+			# chest slots beside them, with a heavier bevel.
+			skin = Frame.new("tile", "leather", {"metal_hi": Color("f0cf8a"), "metal_lo": Color("5e3f1f"), "studs": 1.0, "frame": 8.0})
+		else:
+			skin = Frame.new(kind, "grey" if disabled else tone)
 		skin.margin = 14.0
 		add_child(skin)
 		button_down.connect(_sink)
@@ -652,7 +657,27 @@ class Btn extends Button:
 		var tex := UiKit.icon(icon_name)
 		var px := face.size.y * 0.42
 		var r := Rect2(face.position + Vector2((face.size.x - px) * 0.5, face.size.y * 0.15), Vector2(px, px))
-		UiKit.draw_icon(self, tex, r, UiKit.GOLD.lightened(0.2), Color(0.06, 0.04, 0.02), 2.0)
+		if tone == "forged":
+			# Recessed medallion lit from the top left, the same key as the
+			# baked 3D chests: bevel ring light above, dark below, a warm
+			# pool behind the glyph, a cast shadow and a top highlight.
+			var c := r.get_center()
+			var rad := px * 0.78
+			for i in 8:
+				var k := float(i) / 7.0
+				draw_circle(c, rad * (1.0 - k * 0.08), Color(0.03, 0.02, 0.01, 0.12))
+			draw_arc(c, rad, PI * 0.95, PI * 1.85, 40, Color(1.0, 0.86, 0.6, 0.55), 3.0, true)
+			draw_arc(c, rad, -0.15 * PI, 0.85 * PI, 40, Color(0.0, 0.0, 0.0, 0.6), 3.0, true)
+			draw_circle(c, rad - 3.0, Color(0.09, 0.06, 0.04, 0.95))
+			for i in 5:
+				draw_circle(c + Vector2(-rad * 0.12, -rad * 0.18), rad * (0.8 - i * 0.13), Color(1.0, 0.7, 0.32, 0.05))
+			if tex:
+				draw_texture_rect(tex, Rect2(r.position + Vector2(3, 4), r.size), false, Color(0, 0, 0, 0.55))
+			UiKit.draw_icon(self, tex, r, Color("e9c47c"), Color(0.06, 0.04, 0.02), 2.0)
+			if tex:
+				draw_texture_rect_region(tex, Rect2(r.position + Vector2(-1, -1.5), Vector2(r.size.x, r.size.y * 0.5)), Rect2(Vector2.ZERO, Vector2(tex.get_width(), tex.get_height() * 0.5)), Color(1.0, 0.96, 0.82, 0.35))
+		else:
+			UiKit.draw_icon(self, tex, r, UiKit.GOLD.lightened(0.2), Color(0.06, 0.04, 0.02), 2.0)
 		if caption != "":
 			var font := UiKit.font_x
 			var fpx := int(clampf(face.size.y * 0.16, 14, 24))

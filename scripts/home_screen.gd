@@ -95,7 +95,7 @@ func _tiles() -> HBoxContainer:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 14)
 	for tab in [["log", "Log", "book_open"], ["slayer", "Slayer", "skull"], ["skills", "Skills", "flask_full"], ["credits", "Credits", "notepad"]]:
-		var tile := UiKit.tile_button(str(tab[1]), str(tab[2]), 150, "blue")
+		var tile := UiKit.tile_button(str(tab[1]), str(tab[2]), 150, "forged")
 		tile.custom_minimum_size = Vector2(150, 128)
 		tile.pressed.connect(go.bind(str(tab[0]), {}))
 		row.add_child(tile)
@@ -151,7 +151,7 @@ class ChestSlot extends Control:
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP if filled else Control.MOUSE_FILTER_IGNORE
-		frame = UiKit.Frame.new("slot", "leather")
+		frame = UiKit.Frame.new("slot", "leather", {"metal_hi": Color("f0cf8a"), "metal_lo": Color("5e3f1f"), "studs": 1.0, "frame": 8.0})
 		frame.margin = 14.0
 		add_child(frame)
 		if filled:
