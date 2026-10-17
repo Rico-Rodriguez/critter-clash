@@ -1165,8 +1165,96 @@ class CardIcon extends Control:
 
 	var rarity := "common"
 	var _shadow := false
+	## True for the off-screen copy that only paints the glyph into a
+	## texture for the sculpting shader.
+	var glyph_only := false
+	var _sculpt: TextureRect
+
+	const SCULPT := """shader_type canvas_item;
+uniform vec3 metal_hi = vec3(1.0, 0.86, 0.55);
+uniform vec3 metal_lo = vec3(0.36, 0.22, 0.08);
+uniform float px = 0.00390625;
+#define A(p) texture(TEXTURE, p).a
+void fragment() {
+	vec2 uv = UV;
+	vec4 g = texture(TEXTURE, uv);
+	// Bevel normal from the glyph's own alpha: a soft gradient across a few
+	// pixels of its edge, lit from the top left like the rest of the UI.
+	float r = 3.5 * px;
+	float dx = A(uv + vec2(r, 0.0)) - A(uv - vec2(r, 0.0)) + 0.5 * (A(uv + vec2(r, r)) - A(uv - vec2(r, r)) + A(uv + vec2(r, -r)) - A(uv - vec2(r, -r)));
+	float dy = A(uv + vec2(0.0, r)) - A(uv - vec2(0.0, r)) + 0.5 * (A(uv + vec2(r, r)) - A(uv - vec2(r, r)) + A(uv + vec2(-r, r)) - A(uv - vec2(-r, r)));
+	vec3 n = normalize(vec3(-dx, -dy, 0.55));
+	vec3 L = normalize(vec3(-0.55, -0.6, 0.6));
+	float diff = clamp(dot(n, L), 0.0, 1.0);
+	float spec = pow(clamp(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 22.0);
+	// Metal rim band: where the glyph is present but its eroded copy is not.
+	float e = 6.0 * px;
+	float inner = min(min(A(uv + vec2(e, 0.0)), A(uv - vec2(e, 0.0))), min(A(uv + vec2(0.0, e)), A(uv - vec2(0.0, e))));
+	inner = min(inner, min(min(A(uv + vec2(e, e) * 0.7), A(uv - vec2(e, e) * 0.7)), min(A(uv + vec2(e, -e) * 0.7), A(uv - vec2(e, -e) * 0.7))));
+	float edge = clamp(g.a - inner, 0.0, 1.0);
+	vec3 base0 = g.rgb / max(g.a, 0.001);
+	// The rim takes some of the glyph's hue, so thin strokes (all rim)
+	// keep their colour identity as tinted metal.
+	vec3 metal = mix(metal_lo, metal_hi, diff) * mix(vec3(1.0), base0 * 1.25, 0.45) + spec * 0.85;
+	// Enamel inlay: the glyph's colour, deepened, domed and glossy.
+	vec3 base = g.rgb / max(g.a, 0.001);
+	vec3 enamel = base * base * (0.7 + 0.5 * diff) + vec3(spec * 0.55);
+	enamel += vec3(0.16) * smoothstep(0.55, 0.15, uv.y) * inner;
+	vec3 col = mix(enamel, metal, smoothstep(0.1, 0.55, edge));
+	// Cast shadow down and to the right.
+	float sh = A(uv - vec2(3.0, 6.0) * px);
+	vec4 shadow = vec4(0.0, 0.0, 0.0, 0.6 * sh);
+	COLOR = mix(shadow, vec4(col, 1.0), g.a);
+}
+"""
+
+	func _ready() -> void:
+		if glyph_only:
+			return
+		# Paint the glyph once at 2x into a texture, then show it through
+		# the sculpting shader: enamel inlay set in a bevelled metal rim.
+		var vp := SubViewport.new()
+		vp.size = Vector2i(256, 256)
+		vp.transparent_bg = true
+		vp.disable_3d = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+		var painter := CardIcon.new()
+		painter.glyph_only = true
+		painter.op = op
+		painter.rarity = rarity
+		painter.size = Vector2(256, 256)
+		vp.add_child(painter)
+		add_child(vp)
+		_sculpt = TextureRect.new()
+		_sculpt.texture = vp.get_texture()
+		_sculpt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_sculpt.stretch_mode = TextureRect.STRETCH_SCALE
+		_sculpt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sh := Shader.new()
+		sh.code = SCULPT
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		var metal := UiKit.rarity_metal(rarity)
+		mat.set_shader_parameter("metal_hi", Vector3(metal[0].r, metal[0].g, metal[0].b))
+		mat.set_shader_parameter("metal_lo", Vector3(metal[1].r, metal[1].g, metal[1].b) * 0.7)
+		_sculpt.material = mat
+		add_child(_sculpt)
+		resized.connect(_place)
+		_place()
+
+	func _place() -> void:
+		if _sculpt:
+			_sculpt.size = Vector2(128, 128)
+			_sculpt.position = size * 0.5 - Vector2(64, 64)
 
 	func _draw() -> void:
+		if glyph_only:
+			var gc := size * 0.5
+			var gs := 2.84
+			draw_set_transform(gc - gc * gs, 0.0, Vector2(gs, gs))
+			_glyphs(gc)
+			draw_set_transform(Vector2.ZERO)
+			return
 		var c := Vector2(size.x * 0.5, size.y * 0.5)
 		var metal := UiKit.rarity_metal(rarity)
 		var glow: Color = UiKit.rarity_colors(rarity)["glow"]
@@ -1203,16 +1291,7 @@ class CardIcon extends Control:
 		for k in 10:
 			var r := 49.0 - k * 4.2
 			draw_circle(c + Vector2(-k * 0.9, -k * 1.1), r, face.lightened(k * 0.035))
-		# Glyph: larger, with a dark outline and a drop shadow.
-		var sc := 1.42
-		_shadow = true
-		for off in [Vector2(0, 5), Vector2(-2, 0), Vector2(2, 0), Vector2(0, -2), Vector2(0, 2)]:
-			draw_set_transform(c - c * sc + off, 0.0, Vector2(sc, sc))
-			_glyphs(c)
-		_shadow = false
-		draw_set_transform(c - c * sc, 0.0, Vector2(sc, sc))
-		_glyphs(c)
-		draw_set_transform(Vector2.ZERO)
+		# The glyph itself is the sculpted child (_sculpt) drawn over this.
 		# Glass sheen over the top of the dome.
 		var sheen := PackedVector2Array()
 		var cols := PackedColorArray()
