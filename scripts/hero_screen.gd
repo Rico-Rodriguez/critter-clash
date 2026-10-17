@@ -9,7 +9,7 @@ const Home := preload("res://scripts/home_screen.gd")
 
 var biome_id := "meadow"
 var selected := "ember"
-var list: HBoxContainer
+var list: GridContainer
 var detail: Label
 var gear_line: Label
 var stat_line: Label
@@ -62,9 +62,13 @@ func build() -> void:
 	gear_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pv.add_child(gear_line)
 	box.add_child(plaque)
-	list = HBoxContainer.new()
-	list.alignment = BoxContainer.ALIGNMENT_CENTER
-	list.add_theme_constant_override("separation", 16)
+	# Three tiles a row: six unlocked heroes wrap to two rows instead of
+	# running off the screen.
+	list = GridContainer.new()
+	list.columns = 3
+	list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	list.add_theme_constant_override("h_separation", 16)
+	list.add_theme_constant_override("v_separation", 12)
 	box.add_child(list)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER

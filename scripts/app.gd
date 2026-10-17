@@ -163,7 +163,8 @@ func _capture() -> void:
 		await _settle()
 		await _shot("loadout")
 	if _wants("explore") or _wants("fog") or _wants("minimap") or _wants("lair"):
-		go("run", {"biome": "meadow", "hero": "ember"})
+		var cap_biome := OS.get_environment("CC_BIOME")
+		go("run", {"biome": cap_biome if cap_biome != "" else "meadow", "hero": "ember"})
 		await _settle()
 		var run = current
 		var sim: RunSim = run.sim

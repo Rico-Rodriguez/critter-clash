@@ -34,6 +34,17 @@ The older fonts below remain in the repository but the interface no longer uses 
 - Meadow trees, bushes, and rocks: "Nature Vegetation Pack" by AnderArts — https://sketchfab.com/3d-models/nature-vegetation-pack-c257b444645542da867fce0cf221e52d — CC-BY 4.0. File `assets/models/sketchfab/nature/grove.glb`. The shipped file keeps one LOD0 of each tree, bush, and rock. The astronaut, ground plane, cliffs, and extra LODs are not included.
 - Grass, flowers, mushrooms, pedestal stones, and the trees outside the meadow: Quaternius Stylized Nature MegaKit — https://quaternius.com/packs/stylizednature.html — CC0.
 
+### Enemies and bosses
+
+- Every wild enemy and lair boss uses Quaternius's **Ultimate Monsters** pack (CC0) — https://quaternius.com/packs/ultimatemonsters.html , downloaded via https://poly.pizza (glb, rigged and animated). Files in `assets/models/monsters/`. Hero critter models are no longer reused for enemies. Restyled in-engine (PBR roughness/rim pass in `scripts/cast3d.gd`).
+
+- Volcano and frost lair bosses (Cinder, Nimbus): "Drugdör The Golem Animated" by **Phons** — https://sketchfab.com/3d-models/drugdor-the-golem-animated-19c1855bdb2c4cdc89da2cfb64da48cf — CC-BY 4.0. File `assets/models/sketchfab/cinder_golem.glb`. Changes: albedo regraded to basalt (`cinder_golem_paint.png`) and glacier ice (`frost_golem_paint.png`).
+- Enemy portraits in `assets/sprites/portraits/` are re-baked from these models.
+
+### Hunt forest
+
+- "Handpainted Tree Pack" by **rudolfs** — https://sketchfab.com/3d-models/handpainted-tree-pack-d246b8b4439d44c6adc854ebc5ffc5ba — licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/). File `assets/models/sketchfab/nature/handpainted.glb`. Changes: colour-graded darker per biome, alpha-scissor leaves, instanced in `scripts/stage3d.gd`.
+
 ## Textures and sky
 
 - Ground textures are ambientCG — https://ambientcg.com — CC0:

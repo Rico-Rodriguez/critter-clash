@@ -671,6 +671,9 @@ func _step_boss(dt: float) -> void:
 				boss.vel = _steer(boss, want)
 				boss.pos += boss.vel * dt
 				_push_out(boss)
+				if explore:
+					# Never into the trees: the lair's open ground holds it.
+					boss.pos = map.push_inside(boss.pos, boss.radius * 0.6)
 				boss.facing = boss.vel.angle()
 			else:
 				boss.vel = Vector2.ZERO
@@ -689,6 +692,8 @@ func _step_boss(dt: float) -> void:
 			var before := boss.pos + boss.vel * dt
 			boss.pos = before
 			_push_out(boss)
+			if explore:
+				boss.pos = map.push_inside(boss.pos, boss.radius * 0.6)
 			var clamped := _clamp_point(boss.pos, boss.radius)
 			boss.facing = boss.boss_dir.angle()
 			if boss.pos.distance_to(before) > 2.0 or clamped.distance_to(boss.pos) > 2.0:

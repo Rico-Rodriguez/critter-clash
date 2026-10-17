@@ -18,9 +18,39 @@ extends RefCounted
 
 
 const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
+## Volcano lair boss: "Drugdör The Golem Animated" by Phons (CC-BY 4.0), a
+## rune-hearted rock golem, graded to basalt so the heart reads as magma.
+## Nimbus (frost lair) wears the same golem repainted as glacier ice.
+const CINDER_GOLEM := "res://assets/models/sketchfab/cinder_golem.glb"
+
+
+## Wild critters and bosses wear their own species (Quaternius Ultimate
+## Monsters, CC0), never a playable hero's mesh.
+const MONSTERS := {
+	"sprout": "mushnub", "beetle": "armabee", "moth": "hywirl", "boarlet": "monkroose",
+	"capling": "mushnub_evolved", "spore": "spiky_blob", "glowmoth": "ghost", "puddle": "glub",
+	"caplet": "mushroom_king",
+	"snowpup": "bunny", "shard": "goleling", "icewisp": "ghost_skull", "yeti": "yeti2",
+	"nimbus": "goleling_evolved",
+	"cindling": "demon", "skink": "dino", "ashbat": "squidle", "magmash": "blue_demon",
+	"cinder": "demon2",
+}
+## Monsters that fly (no walk cycle): they hover on Flying_Idle and dart on Fast_Flying.
+const FLYERS := ["armabee", "hywirl", "ghost", "ghost_skull", "goleling", "goleling_evolved", "demon", "squidle", "glub"]
+## Monsters whose rig has the short clip set (Walk, Bite_Front, HitRecieve).
+const BITERS := ["mushnub", "mushnub_evolved", "spiky_blob"]
+
+
+static func monster(id: String) -> String:
+	return str(MONSTERS.get(id, ""))
 
 
 static func model(id: String) -> String:
+	if id in ["cinder", "nimbus"] and ResourceLoader.exists(CINDER_GOLEM):
+		return CINDER_GOLEM
+	var mon := monster(id)
+	if mon != "":
+		return "res://assets/models/monsters/%s.glb" % mon
 	if id == "ember" and ResourceLoader.exists(EMBER_CUTE):
 		return EMBER_CUTE
 	var over := "res://assets/models/sketchfab/%s.glb" % family(id)
@@ -81,6 +111,16 @@ static func family(id: String) -> String:
 
 static func clips(id: String) -> Dictionary:
 	var path := model(id)
+	if path == CINDER_GOLEM:
+		return {"idle": "Idle", "run": "Walk", "attack": "Attack1", "hit": "Defence3", "death": ""}
+	var mon := monster(id)
+	if mon != "":
+		var a := "CharacterArmature|"
+		if mon in FLYERS:
+			return {"idle": a + "Flying_Idle", "run": a + "Fast_Flying", "attack": a + "Headbutt", "hit": a + "HitReact", "death": a + "Death"}
+		if mon in BITERS:
+			return {"idle": a + "Idle", "run": a + "Walk", "attack": a + "Bite_Front", "hit": a + "HitRecieve", "death": a + "Death"}
+		return {"idle": a + "Idle", "run": a + "Run", "attack": a + "Punch", "hit": a + "HitReact", "death": a + "Death"}
 	# Names are the clips inside each Sketchfab file. The dragon has no Idle
 	# or Run, and the mushroom's death clip is "Die".
 	if path == EMBER_CUTE:
@@ -114,6 +154,14 @@ static func clips(id: String) -> Dictionary:
 ## Empty means "leave the file's materials alone".
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
+	if path == CINDER_GOLEM:
+		# The blue rock hide is regraded to basalt with glowing seams
+		# (assets/models/sketchfab/cinder_golem_paint.png).
+		return {"roughness": 0.86, "specular": 0.3, "rim": 0.3, "rim_tint": 0.9, "backlight": Color(0.5, 0.12, 0.02), "albedo_tex": "res://assets/models/sketchfab/cinder_golem_paint.png"} if id == "cinder" else {"roughness": 0.55, "specular": 0.5, "rim": 0.35, "rim_tint": 0.4, "clearcoat": 0.25, "subsurface": 0.15, "backlight": Color(0.1, 0.35, 0.5), "albedo_tex": "res://assets/models/sketchfab/frost_golem_paint.png"}
+	if monster(id) != "" and path != CINDER_GOLEM:
+		# Flat toy colours: take the gloss off, add grain, rim and a little
+		# subsurface so they sit in the painted world.
+		return {"roughness": 0.72, "specular": 0.3, "rim": 0.45, "rim_tint": 0.6, "paint": true, "subsurface": 0.15}
 	if path.ends_with("sketchfab/bramble.glb"):
 		# Hand-painted pinecone hide: matte with a soft rim, no plastic sheen.
 		return {"roughness": 0.78, "specular": 0.3, "rim": 0.3, "rim_tint": 0.7}
@@ -165,6 +213,10 @@ static func tint(id: String) -> Color:
 	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
 	# catalog color.
 	var path := model(id)
+	if path == CINDER_GOLEM:
+		return Color.WHITE
+	if monster(id) != "":
+		return Color.WHITE
 	if id == "juniper" and path.ends_with("sketchfab/juniper.glb"):
 		return Color(1.0, 0.90, 0.78)
 	if id == "pebble":
@@ -192,6 +244,8 @@ static func nose(id: String) -> float:
 	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
 	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
 	var path := model(id)
+	if monster(id) != "" or path == CINDER_GOLEM:
+		return 0.0
 	# The dragon, KAI, and the mushroom all face +Z. A turntable render
 	# showed KAI's back under the old "nose is -Z" default.
 	if path.ends_with("sketchfab/bramble.glb") or path == EMBER_CUTE or path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb") or path.ends_with("sketchfab/juniper.glb"):

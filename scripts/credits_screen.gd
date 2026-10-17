@@ -66,6 +66,27 @@ const ENTRIES := [
 		"url": "https://sketchfab.com/3d-models/nature-vegetation-pack-c257b444645542da867fce0cf221e52d",
 		"license": "CC-BY 4.0",
 	},
+	{
+		"title": "Handpainted Tree Pack",
+		"used": "Hunt forests: pines, spruces, oaks, dead snags, stumps and bushes",
+		"author": "rudolfs",
+		"url": "https://sketchfab.com/3d-models/handpainted-tree-pack-d246b8b4439d44c6adc854ebc5ffc5ba",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Drugdör The Golem Animated",
+		"used": "Cinder and Nimbus, the volcano and frost lair bosses",
+		"author": "Phons",
+		"url": "https://sketchfab.com/3d-models/drugdor-the-golem-animated-19c1855bdb2c4cdc89da2cfb64da48cf",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Ultimate Monsters",
+		"used": "Every wild enemy and lair boss",
+		"author": "Quaternius",
+		"url": "https://quaternius.com/packs/ultimatemonsters.html",
+		"license": "CC0",
+	},
 ]
 
 
