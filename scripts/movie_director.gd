@@ -25,6 +25,8 @@ func run(host: Node, clip: String) -> void:
 			await _profile()
 		"home":
 			await _home()
+		"walk_ember", "walk_juniper", "walk_pebble":
+			await _walk(clip.trim_prefix("walk_"))
 		_:
 			await _tour()
 	get_tree().quit()
@@ -258,6 +260,66 @@ func _hunt() -> void:
 	_release_t.append(_gt)
 	await _wait(5.0)
 	_feel_report()
+
+
+## 22 s of unbroken walking on the explore map: the thumb follows the
+## route (never let go, so no attacks), with turns and two hard 180s. Each
+## frame logs whether the hero is moving and whether its locomotion clip
+## is actually advancing, so a clip that stops (the old LOOP_NONE slide)
+## shows up as frozen_anim frames.
+func _walk(hero_id: String) -> void:
+	app.go("run", {"biome": "meadow", "hero": hero_id})
+	await _wait(0.6)
+	var run: Node = app.current
+	var sim = run.sim
+	sim.heroes[0].iframes = 999.0
+	var st: Stage3D = run.stage
+	var mem := {}
+	_touch(run, STICK_HOME, true)
+	var t := 0.0
+	var frames := 0
+	var moving := 0
+	var frozen := 0
+	var worst_run := 0
+	var run_len := 0
+	var last_pos := -1.0
+	var states := {}
+	while t < 22.0:
+		var dir: Vector2 = RunBot.explore_steer(sim, 0, mem)
+		# Ignore fights: keep walking the route toward the next goal.
+		if mem.has("field"):
+			var way: Vector2 = sim.map.downhill(mem["field"], sim.heroes[0].pos)
+			if way != Vector2.INF:
+				dir = (way - sim.heroes[0].pos).normalized()
+		if t > 8.0 and t < 8.6 or t > 15.0 and t < 15.6:
+			dir = -_stick_dir if _stick_dir != Vector2.ZERO else Vector2(0, 1)
+		elif dir.length() > 0.2:
+			_stick_dir = dir.normalized()
+		else:
+			dir = _stick_dir if _stick_dir != Vector2.ZERO else Vector2(0, -1)
+		_drag(run, STICK_HOME + dir.normalized() * 70.0)
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		frames += 1
+		var h = sim.heroes[0]
+		if not st._bodies.has(h.id):
+			continue
+		var body: Node3D = st._bodies[h.id]
+		var player: AnimationPlayer = body.get_meta("player")
+		var state := str(body.get_meta("state", ""))
+		states[state] = int(states.get(state, 0)) + 1
+		if h.vel.length() > 18.0 and t > 0.5:
+			moving += 1
+			var pos := player.current_animation_position if player != null and player.is_playing() else -2.0
+			if player != null and (not player.is_playing() or is_equal_approx(pos, last_pos)):
+				frozen += 1
+				run_len += 1
+				worst_run = maxi(worst_run, run_len)
+			else:
+				run_len = 0
+			last_pos = pos
+	_touch(run, _finger_at, false)
+	print("FEEL walk hero=%s frames=%d moving=%d frozen_anim=%d worst_frozen_run=%d states=%s" % [hero_id, frames, moving, frozen, worst_run, str(states)])
 
 
 func _boss() -> void:
