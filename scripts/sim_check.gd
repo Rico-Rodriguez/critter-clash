@@ -187,9 +187,11 @@ static func _maps() -> void:
 		if not play.has_point(actor.pos):
 			_fail("spawn left the zone")
 			return
-		var d := actor.pos.distance_to(hero_at)
-		if d < 150.0 or d > 480.0:
-			_fail("opening pack spawned %d px from the hero" % int(d))
+		var rel: Vector2 = actor.pos - hero_at
+		var view := RunSim.VIEW_BOX
+		var outer := view.grow(RunSim.SPAWN_MARGIN + 40.0)
+		if view.has_point(rel) or not outer.has_point(rel):
+			_fail("opening pack spawned at %s, not just outside the view" % str(rel))
 			return
 	if minions != RunSim.PACK_SIZE:
 		_fail("expected an opening pack of %d" % RunSim.PACK_SIZE)

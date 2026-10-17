@@ -45,7 +45,10 @@ const PACK_SIZE := 8
 const MINION_HP := 0.5
 const MINION_XP := 0.5
 ## Ellipse just outside the hunt camera's view, in playfield pixels.
-const SPAWN_RING := Vector2(250.0, 330.0)
+## What the far follow camera frames on the ground, relative to the hero
+## (sim px; Stage3D DIST 20, FOV 40). Packs spawn just past this box.
+const VIEW_BOX := Rect2(-210.0, -460.0, 420.0, 860.0)
+const SPAWN_MARGIN := 50.0
 var _next_id := 1
 var bases: Dictionary = {}
 
@@ -1124,12 +1127,27 @@ func _spawn_point() -> Vector2:
 	# playfield is far wider than what the 3D camera frames, so spawning on
 	# the zone rim left most of a wave walking in off screen.
 	var zone: Rect2 = map.zone_near(at)["rect"]
-	for _try in 8:
-		var dir := Vector2.from_angle(rng.randf() * TAU)
-		var p := at + Vector2(dir.x * SPAWN_RING.x, dir.y * SPAWN_RING.y)
+	var ring := Rect2(at + VIEW_BOX.position, VIEW_BOX.size).grow(SPAWN_MARGIN)
+	var perimeter := (ring.size.x + ring.size.y) * 2.0
+	for _try in 12:
+		var p := _on_rect(ring, rng.randf() * perimeter)
 		if zone.grow(-30.0).has_point(p):
 			return p
 	return HuntMap.rim_point(zone, rng)
+
+
+## A point `d` px along the rectangle's edge, clockwise from the top left.
+static func _on_rect(r: Rect2, d: float) -> Vector2:
+	if d < r.size.x:
+		return Vector2(r.position.x + d, r.position.y)
+	d -= r.size.x
+	if d < r.size.y:
+		return Vector2(r.end.x, r.position.y + d)
+	d -= r.size.y
+	if d < r.size.x:
+		return Vector2(r.end.x - d, r.end.y)
+	d -= r.size.x
+	return Vector2(r.position.x, r.end.y - d)
 
 
 func _clamp_actor(actor: Actor) -> void:

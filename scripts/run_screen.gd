@@ -28,6 +28,8 @@ var world: Node2D
 var stream: MapStream
 var cam: HuntCamera
 var marks: GroundMarks
+var threats: ThreatLayer
+var sync_alpha := 1.0
 var actors_root: Node2D
 var sparks: SparkLayer
 var stick: StickLayer
@@ -80,6 +82,11 @@ func build() -> void:
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	shade.modulate = Color(1, 1, 1, 0.55)
 	add_child(shade)
+	threats = ThreatLayer.new()
+	threats.screen = self
+	threats.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	threats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(threats)
 	_build_hud()
 	stick = StickLayer.new()
 	stick.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -279,6 +286,8 @@ func _process(delta: float) -> void:
 	sparks.tick(delta)
 	_tick_floats(delta)
 	_hud()
+	if threats != null:
+		threats.queue_redraw()
 	if not stick.active:
 		stick.hint_left = maxf(0.0, stick.hint_left - delta)
 		stick.hint = 1.0 if stick.hint_left > 0.35 else stick.hint_left / 0.35
@@ -461,6 +470,7 @@ func _drain() -> void:
 
 
 func _sync(alpha: float) -> void:
+	sync_alpha = alpha
 	stage.sync_hunt(sim, alpha)
 	stage.sync_fx(sim, alpha)
 	_sync_pet(alpha)
@@ -1138,3 +1148,81 @@ class SparkLayer extends Node2D:
 			var col: Color = part["c"]
 			col.a = a
 			draw_circle(part["p"], float(part["s"]) * (0.45 + a), col)
+
+
+## Enemy health bars over the 3D bodies, and arrows at the screen edge for
+## anything hostile outside the view. The edge band respects the safe area
+## and keeps clear of the top HUD and the joystick zone.
+class ThreatLayer extends Control:
+	var screen: Node
+	var t := 0.0
+
+	func _process(delta: float) -> void:
+		t += delta
+
+	func _draw() -> void:
+		var run := screen as Object
+		var sim: RunSim = run.get("sim")
+		var stage: Stage3D = run.get("stage")
+		if sim == null or stage == null or stage.camera == null:
+			return
+		var pad := UiKit.safe_insets()
+		var band := Rect2(Vector2.ZERO, size)
+		band.position += Vector2(float(pad["l"]) + 26.0, float(pad["t"]) + 230.0)
+		band.size -= Vector2(float(pad["l"]) + float(pad["r"]) + 52.0, float(pad["t"]) + float(pad["b"]) + 230.0 + 150.0)
+		var center := band.get_center()
+		var alpha := float(run.get("sync_alpha"))
+		var offscreen: Array = []
+		for actor in sim.actors:
+			if not actor.alive or actor.team == 0:
+				continue
+			var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
+			var boss: bool = actor.kind == "boss"
+			var head_h: float = Stage3D.BOSS_METERS * 1.05 if boss else Stage3D.HERO_METERS * 0.95
+			var foot := get_global_transform().affine_inverse() * stage.project(pos, 0.0)
+			var head := get_global_transform().affine_inverse() * stage.project(pos, head_h)
+			if Rect2(Vector2.ZERO, size).grow(-8.0).has_point(foot):
+				if not boss and actor.max_hp > 0.0 and actor.hp < actor.max_hp:
+					_bar(head + Vector2(0, -10), clampf(actor.hp / actor.max_hp, 0.0, 1.0))
+			else:
+				offscreen.append([foot, boss])
+		for item in offscreen:
+			_arrow(center, item[0], band, item[1])
+
+	func _bar(at: Vector2, ratio: float) -> void:
+		var w := 30.0
+		var r := Rect2(at.x - w, at.y - 5.0, w * 2.0, 9.0)
+		draw_rect(r.grow(2.0), Color(0.05, 0.03, 0.02, 0.85), true)
+		draw_rect(r, Color(0.22, 0.06, 0.05), true)
+		draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, r.size.y)), Color("d8352a"), true)
+		draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, 3.0)), Color(1, 0.8, 0.7, 0.35), true)
+
+	func _arrow(from: Vector2, target: Vector2, band: Rect2, boss: bool) -> void:
+		var dir := (target - from).normalized()
+		if dir == Vector2.ZERO:
+			return
+		# Walk out from the centre to the band edge along the direction.
+		var tx := INF
+		var ty := INF
+		if dir.x > 0.001:
+			tx = (band.end.x - from.x) / dir.x
+		elif dir.x < -0.001:
+			tx = (band.position.x - from.x) / dir.x
+		if dir.y > 0.001:
+			ty = (band.end.y - from.y) / dir.y
+		elif dir.y < -0.001:
+			ty = (band.position.y - from.y) / dir.y
+		var at := from + dir * minf(tx, ty)
+		var s := 26.0 if boss else 15.0
+		s *= 1.0 + 0.08 * sin(t * 6.0)
+		var side := dir.orthogonal()
+		var tip := at + dir * s
+		var pts := PackedVector2Array([tip, at - dir * s * 0.4 + side * s * 0.8, at - dir * s * 0.1, at - dir * s * 0.4 - side * s * 0.8])
+		var glow := Color(1.0, 0.25, 0.15, 0.35) if boss else Color(0.95, 0.3, 0.2, 0.22)
+		draw_circle(at, s * 1.15, glow)
+		var outline := PackedVector2Array(pts)
+		outline.append(pts[0])
+		draw_colored_polygon(pts, Color("e8462e") if boss else Color("d9a441"))
+		draw_polyline(outline, Color(0.12, 0.04, 0.02, 0.95), 3.0, true)
+		if boss:
+			draw_circle(at - dir * s * 0.9, 7.0, Color("f3d9a0"))

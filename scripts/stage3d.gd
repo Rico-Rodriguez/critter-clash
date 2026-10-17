@@ -6,14 +6,18 @@ extends Control
 
 const SCALE := 0.02
 const PITCH := 1.012291  # 58 degrees, high enough to read the ground
-const DIST := 11.0
-const FOV := 38.0
-const BOSS_DIST := 14.5
+## The follow camera sits far back so a wave is on screen well before it
+## reaches the hero: about 7 m of ground across at the hero, 3x the old view.
+const DIST := 20.0
+const FOV := 40.0
+const BOSS_DIST := 25.0
+## Aim below the ground plane to centre the hero rather than sit it low.
+const AIM := -2.0
 ## On-screen size targets. With the camera at DIST these put the hero near
 ## 13% of the screen height; the boss is about 2.6 times the hero.
-const HERO_METERS := 1.9
+const HERO_METERS := 2.5
 const PEDESTAL_TOP := 0.34
-const BOSS_METERS := 4.9
+const BOSS_METERS := 6.4
 ## Highest render density over the logical canvas (device px per canvas px).
 const MAX_DENSITY := 1.65
 
@@ -103,25 +107,32 @@ func bind_pedestal(hero_id: String) -> void:
 	_mode = "pedestal"
 	_hero_id = hero_id
 	viewport.transparent_bg = false
-	# A sunny meadow clearing: the sky HDRI behind, a warm key with soft
-	# shadows, and a cool fill so the hero reads from every side.
-	var env := _environment(Color("a8c4e0"), false)
-	env.background_energy_multiplier = 0.9
-	env.ambient_light_energy = 0.75
+	# Golden hour in a quiet glade: a low warm sun, a dim dusky sky, warm fog
+	# that swallows the distance, and a cool fill so the hero still reads.
+	# It sits under dark, torch-lit menu chrome, so it must not be noon-bright.
+	var env := _environment(Color("6a5a4a"), false)
+	env.background_energy_multiplier = 0.42
+	env.ambient_light_energy = 0.42
+	env.ambient_light_color = Color("c8a888")
 	env.tonemap_exposure = 1.0
 	env.fog_enabled = true
-	env.fog_density = 0.012
-	env.fog_light_color = Color(0.62, 0.74, 0.9)
-	env.fog_sky_affect = 0.0
+	env.fog_density = 0.035
+	env.fog_light_color = Color(0.5, 0.36, 0.26)
+	env.fog_sky_affect = 0.6
 	env.glow_enabled = true
-	env.glow_intensity = 0.12
+	env.glow_intensity = 0.28
+	env.glow_bloom = 0.06
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 1.08
 	_apply_env(env)
-	sun.light_energy = 1.55
+	sun.light_color = Color("ffb874")
+	sun.light_energy = 2.1
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 14.0
-	sun.rotation_degrees = Vector3(-42, 28, 0)
-	_lamp(Color("ffe6c4"), 1.6, Vector3(1.6, 2.4, 2.6), false)
-	_lamp(Color("9fc0ff"), 1.4, Vector3(-2.2, 1.8, 1.2), false)
+	sun.rotation_degrees = Vector3(-24, 38, 0)
+	_lamp(Color("ffd6a0"), 2.2, Vector3(-1.8, 2.6, -1.8), false)
+	_lamp(Color("8fb0ff"), 1.0, Vector3(-2.2, 1.8, 1.6), false)
 	_pedestal_set()
 	var body := _spawn_model(hero_id, 1.5)
 	body.position = Vector3(0, PEDESTAL_TOP, 0)
@@ -287,10 +298,10 @@ func sync_pet(sprite: String, sim_pos: Vector2, facing: float, moving: bool) -> 
 	_play(_pet, "run" if moving else "idle")
 
 
-func project(sim_pos: Vector2) -> Vector2:
+func project(sim_pos: Vector2, height := 1.1) -> Vector2:
 	if camera == null:
 		return sim_pos
-	var screen := camera.unproject_position(_to3(sim_pos) + Vector3(0, 1.1, 0))
+	var screen := camera.unproject_position(_to3(sim_pos) + Vector3(0, height, 0))
 	var rect := get_global_rect()
 	var vp := Vector2(viewport.size)
 	return rect.position + Vector2(screen.x / vp.x * rect.size.x, screen.y / vp.y * rect.size.y)
@@ -630,8 +641,13 @@ func _pedestal_set() -> void:
 		["flower_b", Vector3(0.95, PEDESTAL_TOP, 0.45), 0.55], ["fern", Vector3(-2.2, 0, -0.6), 0.75],
 		["bush_flower", Vector3(2.4, 0, -1.2), 1.0], ["bush_flower", Vector3(-2.6, 0, -1.6), 1.1],
 		["log", Vector3(-2.1, 0, 1.4), 0.9], ["flower_b", Vector3(2.0, 0, 1.6), 0.7],
-		["tree_a", Vector3(-3.6, 0, -3.4), 2.6], ["tree_b", Vector3(3.9, 0, -3.8), 2.8],
-		["tree_a", Vector3(0.8, 0, -5.8), 3.0], ["bush_flower", Vector3(-1.4, 0, -3.2), 1.2],
+		# Close framing only ever shows tree trunks, so the backdrop is low
+		# growth that the warm fog swallows, with trees well off to the sides.
+		["tree_a", Vector3(-4.6, 0, -3.0), 2.6], ["tree_b", Vector3(5.0, 0, -3.6), 2.8],
+		["bush_flower", Vector3(-1.4, 0, -3.2), 1.2], ["bush_flower", Vector3(1.2, 0, -4.4), 1.4],
+		["fern", Vector3(0.2, 0, -3.0), 1.1], ["fern", Vector3(-0.9, 0, -5.2), 1.3],
+		["rock_c", Vector3(-2.8, 0, -4.8), 1.1], ["bush_flower", Vector3(3.2, 0, -6.5), 1.8],
+		["bush_flower", Vector3(-3.4, 0, -7.0), 1.9],
 		["rock_c", Vector3(2.6, 0, -2.4), 0.9],
 	]
 	for row in dressing:
@@ -674,18 +690,53 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		meters = BOSS_METERS
 	elif actor.kind != "hero":
 		# Rank-and-file critters stand roughly hero height so they read.
-		meters = clampf(actor.radius / 40.0, 0.8, 1.0) * HERO_METERS
+		meters = clampf(actor.radius / 40.0, 0.5, 0.66) * HERO_METERS
 	var body := _spawn_model(actor.sprite, meters)
+	# Bold outlines keep silhouettes readable from the far camera: warm gold
+	# for the player's hero, deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
-		_outline(body)
+		_outline(body, Color("ffd45a"), 0.02)
+	elif actor.kind == "boss":
+		_outline(body, Color("4a0a0a"), 0.012)
 	elif actor.kind != "hero":
+		_outline(body, Color("5a0d0d"), 0.018)
+	if actor.kind != "hero":
 		var blob := _decal(meters * 1.1, {"ring_color": Color(0, 0, 0, 0), "shadow_alpha": 0.42, "shadow_radius": 0.42})
 		blob.position.y = 0.03
 		body.add_child(blob)
 	body.rotation.y = _yaw(actor.facing, body)
 	actor_root.add_child(body)
 	_bodies[actor.id] = body
+	if actor.kind == "hero" and actor.team == 0:
+		_center_posed(body, 0.45)
 	return body
+
+
+## Flying rigs hover off-centre from their rest-pose bounds, so the hero drifted
+## away from its ground ring. Once the clip is running, pull the posed
+## skeleton over the body origin and bring its lowest bone down to `lift` m.
+func _center_posed(body: Node3D, lift: float) -> void:
+	for i in 4:
+		await get_tree().process_frame
+	if not is_instance_valid(body) or body.get_child_count() == 0:
+		return
+	var model := body.get_child(0) as Node3D
+	var sum := Vector3.ZERO
+	var low := INF
+	var n := 0
+	for sk in body.find_children("*", "Skeleton3D", true, false):
+		var skel := sk as Skeleton3D
+		for b in skel.get_bone_count():
+			var lp := body.to_local(skel.global_transform * skel.get_bone_global_pose(b).origin)
+			sum += lp
+			low = minf(low, lp.y)
+			n += 1
+	if n < 4 or model == null:
+		return
+	var mid := sum / float(n)
+	model.position -= Vector3(mid.x, 0.0, mid.z) / body.scale.x
+	if low > lift:
+		model.position.y -= (low - lift) / body.scale.y
 
 
 func _spawn_model(sprite: String, meters: float) -> Node3D:
@@ -836,7 +887,7 @@ func _frame(look: Vector3) -> void:
 	var back := Vector3(0.0, sin(PITCH), cos(PITCH)) * _dist
 	camera.position = look + back + _shake
 	# Aim above the chest so the body sits a little below the middle.
-	camera.look_at(look + Vector3(0.0, 1.05, 0.0), Vector3.UP)
+	camera.look_at(look + Vector3(0.0, AIM, 0.0), Vector3.UP)
 
 
 ## Frames the hero so its body fills about 60% of the stage height, standing
@@ -1260,6 +1311,10 @@ func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 		# Yaw only. Setting rotation.y would wipe the pack's axis fix.
 		prop.rotate_y(rng.randf() * TAU)
 		var low := str(src.name).to_lower()
+		# The pack's rocks have no usable material and rendered as white
+		# slabs once the wider camera brought the rim into view.
+		if "rock" in low or "stone" in low:
+			_paint_rock(prop)
 		var target := rng.randf_range(2.1, 3.3)
 		if "bush" in low:
 			target = rng.randf_range(0.55, 0.95)
@@ -1268,7 +1323,7 @@ func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 		elif "rock_medium" in low or "rock-medium" in low:
 			target = rng.randf_range(0.7, 1.15)
 		elif "rock" in low:
-			target = rng.randf_range(1.05, 1.7)
+			target = rng.randf_range(0.8, 1.2)
 		elif "dead" in low:
 			target = rng.randf_range(1.5, 2.3)
 		var box := _measure(prop)
@@ -1303,18 +1358,20 @@ func _paint_rock(node: Node) -> void:
 		var mat := StandardMaterial3D.new()
 		mat.albedo_texture = load("res://assets/textures/rock_color.jpg")
 		mat.albedo_color = Color("8d847c")
+		mat.uv1_triplanar = true
+		mat.uv1_scale = Vector3(0.8, 0.8, 0.8)
 		mat.roughness = 0.92
 		(node as MeshInstance3D).material_override = mat
 	for child in node.get_children():
 		_paint_rock(child)
 
 
-func _outline(root: Node) -> void:
+func _outline(root: Node, color := Color("2b1210"), width := 0.012) -> void:
 	var shader: Shader = load("res://shaders/outline.gdshader")
-	_outline_walk(root, shader)
+	_outline_walk(root, shader, color, width)
 
 
-func _outline_walk(node: Node, shader: Shader) -> void:
+func _outline_walk(node: Node, shader: Shader, color: Color, width: float) -> void:
 	if node is MeshInstance3D and not str(node.name).begins_with("Catch"):
 		var mesh := node as MeshInstance3D
 		if mesh.mesh:
@@ -1328,12 +1385,12 @@ func _outline_walk(node: Node, shader: Shader) -> void:
 				# Grow is in mesh space. A quantized Sketchfab mesh is thousands
 				# of units tall before its node scale, so the outline tracks height.
 				var height := mesh.mesh.get_aabb().size.y
-				shell.set_shader_parameter("grow", maxf(height * 0.012, 0.001))
-				shell.set_shader_parameter("line_color", Color("2b1210"))
+				shell.set_shader_parameter("grow", maxf(height * width, 0.001))
+				shell.set_shader_parameter("line_color", color)
 				mat.next_pass = shell
 				mesh.set_surface_override_material(i, mat)
 	for child in node.get_children():
-		_outline_walk(child, shader)
+		_outline_walk(child, shader, color, width)
 
 
 func _hide_catch(node: Node) -> void:

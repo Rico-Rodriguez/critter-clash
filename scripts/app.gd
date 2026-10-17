@@ -134,6 +134,13 @@ func _capture() -> void:
 			if current.sim.time > 1.0:
 				current.drive = Vector2.ZERO
 		var waited := 0.0
+		if OS.get_cmdline_user_args().has("--debug-wave"):
+			var hero: Vector2 = current.sim.heroes[0].pos
+			for actor in current.sim.actors:
+				if actor.kind == "minion" and actor.alive:
+					var body = current.stage._bodies.get(actor.id)
+					print("WAVE rel=", actor.pos - hero, " scr=", current.stage.project(actor.pos), " body=", body != null and body.visible, " sprite=", actor.sprite, " gpos=", body.global_position if body else null)
+			print("WAVE cam=", current.stage.camera.global_position, " hero3=", current.stage._to3(hero))
 		await _shot("hunt")
 		current.sim.debug_offer()
 		var show: Array = ["vitality", "magnet", "mage_radius"]
@@ -175,7 +182,7 @@ func _near_minions(sim: RunSim) -> int:
 	var n := 0
 	var hero: Vector2 = sim.heroes[0].pos if not sim.heroes.is_empty() else Vector2.ZERO
 	for actor in sim.actors:
-		if actor.alive and actor.kind == "minion" and actor.pos.distance_to(hero) < 380.0:
+		if actor.alive and actor.kind == "minion" and RunSim.VIEW_BOX.grow(-20.0).has_point(actor.pos - hero):
 			n += 1
 	return n
 
