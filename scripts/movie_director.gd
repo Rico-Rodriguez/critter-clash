@@ -21,6 +21,8 @@ func run(host: Node, clip: String) -> void:
 			await _hunt()
 		"boss":
 			await _boss()
+		"profile":
+			await _profile()
 		_:
 			await _tour()
 	get_tree().quit()
@@ -152,3 +154,101 @@ func _tour() -> void:
 	if hunt != null:
 		await _click(hunt.get_global_rect().get_center(), 0.35)
 	await _wait(1.8)
+
+
+# --- Profile: a pack fight then the boss, sampling render stats each frame --
+func _profile() -> void:
+	var run := await _run_screen()
+	await _wait(1.0)
+	var hero: Vector2 = run.sim.heroes[0].pos
+	for k in 10:
+		var off := Vector2(-220 + k * 50, -300 - (k % 3) * 50)
+		run.sim._spawn_minion([0, 1, 2, 3][k % 4], run.sim._clamp_point(hero + off, 24.0))
+	_touch(run, STICK_HOME, true)
+	var a := await _sample(run, 4.0, Vector2(1, -0.3))
+	_touch(run, _finger_at, false)
+	run.sim.begin_boss()
+	await _wait(3.0)
+	_touch(run, STICK_HOME, true)
+	var b := await _sample(run, 5.0, Vector2(-1, 0.4))
+	_touch(run, _finger_at, false)
+	var st: Stage3D = run.stage
+	var grass := 0
+	for node in st._grass_nodes:
+		grass += node.multimesh.instance_count if node.multimesh.visible_instance_count < 0 else node.multimesh.visible_instance_count
+	var lights := st.world_root.find_children("*", "Light3D", true, false).size()
+	var parts := 0
+	for p in st.world_root.find_children("*", "GPUParticles3D", true, false):
+		parts += (p as GPUParticles3D).amount
+	print("PROFILE tier=%s renderer=%s scale=%.2f viewport=%s" % [Quality.level(), RenderingServer.get_current_rendering_method(), st.viewport.scaling_3d_scale, str(st.viewport.size)])
+	print("PROFILE scene grass_instances=%d lights=%d particle_amount=%d" % [grass, lights, parts])
+	var cam := st.camera
+	var rows := {}
+	var casters := 0
+	for gi in st.world_root.find_children("*", "GeometryInstance3D", true, false):
+		var g := gi as GeometryInstance3D
+		if not g.is_visible_in_tree():
+			continue
+		var mesh: Mesh = null
+		var inst := 1
+		if g is MeshInstance3D:
+			mesh = (g as MeshInstance3D).mesh
+		elif g is MultiMeshInstance3D and (g as MultiMeshInstance3D).multimesh:
+			var mm := (g as MultiMeshInstance3D).multimesh
+			mesh = mm.mesh
+			inst = mm.instance_count if mm.visible_instance_count < 0 else mm.visible_instance_count
+		if mesh == null:
+			continue
+		var tris := 0
+		for si in mesh.get_surface_count():
+			var arr := mesh.surface_get_arrays(si)
+			var idx = arr[Mesh.ARRAY_INDEX]
+			tris += (idx.size() if idx != null else arr[Mesh.ARRAY_VERTEX].size()) / 3
+		var key := str(g.get_parent().name) + "/" + str(g.name) if g is MeshInstance3D else "MM:" + str(mesh.resource_name if mesh.resource_name != "" else mesh.get_instance_id())
+		if g.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			casters += 1
+		var row: Array = rows.get(key, [0, 0, 0])
+		row[0] += tris * inst
+		row[1] += 1
+		row[2] += mesh.get_surface_count()
+		rows[key] = row
+	var keys := rows.keys()
+	keys.sort_custom(func(x, y) -> bool: return rows[x][0] > rows[y][0])
+	print("PROFILE geometry nodes=%d shadow_casters=%d" % [rows.size(), casters])
+	for k in keys.slice(0, 16):
+		print("PROFILE   %-40s tris=%d nodes=%d surfaces=%d" % [k, rows[k][0], rows[k][1], rows[k][2]])
+	_report("pack", a)
+	_report("boss", b)
+
+
+func _sample(run: Node, seconds: float, dir: Vector2) -> Dictionary:
+	var stats := {"dc": [], "prim": [], "obj": [], "ms": [], "dc3d": [], "dcshadow": [], "prim3d": []}
+	var rid: RID = (run.stage as Stage3D).viewport.get_viewport_rid()
+	var target := STICK_HOME + dir.normalized() * 70.0
+	_drag(run, target)
+	var t := 0.0
+	while t < seconds:
+		await get_tree().process_frame
+		var d := get_process_delta_time()
+		t += d
+		_drag(run, target + Vector2(sin(t * 3.0), cos(t * 2.0)) * 20.0)
+		stats["dc"].append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		stats["prim"].append(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+		stats["obj"].append(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))
+		stats["ms"].append(d * 1000.0)
+		stats["dc3d"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME))
+		stats["dcshadow"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME))
+		stats["prim3d"].append(RenderingServer.viewport_get_render_info(rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME))
+	return stats
+
+
+func _report(label: String, stats: Dictionary) -> void:
+	var line := "PROFILE %s frames=%d" % [label, stats["ms"].size()]
+	for key in ["dc", "dc3d", "dcshadow", "prim", "prim3d", "obj", "ms"]:
+		var arr: Array = stats[key]
+		arr.sort()
+		var total := 0.0
+		for v in arr:
+			total += float(v)
+		line += "  %s avg=%.0f p95=%.0f max=%.0f" % [key, total / maxf(arr.size(), 1), float(arr[int(arr.size() * 0.95)]), float(arr[-1])]
+	print(line)

@@ -52,6 +52,11 @@ var _dust: GPUParticles3D
 var _sparks: Array = []
 var _mark: Node3D
 var _grass_mats: Array = []
+var _grass_nodes: Array[MultiMeshInstance3D] = []
+var _env_ref: Environment
+var _frame_acc := 0.0
+var _frame_n := 0
+var _slow_windows := 0
 var _props: Array = []
 var _pings: Dictionary = {}
 var _decal_shader: Shader
@@ -110,6 +115,8 @@ func _process(delta: float) -> void:
 			_hero_vp.size = viewport.size
 		_hero_cam.global_transform = camera.global_transform
 		_hero_cam.fov = camera.fov
+	if _mode == "hunt":
+		_watch_frames(delta)
 	if _mode == "pedestal" and _pedestal_hero != null:
 		_pedestal_hero.position.y = PEDESTAL_TOP + absf(sin(Time.get_ticks_msec() * 0.0021)) * 0.03
 		_pedestal_hero.rotation.y = -float(_pedestal_hero.get_meta("face", PI)) + 0.45 + sin(Time.get_ticks_msec() * 0.0005) * 0.22
@@ -128,6 +135,7 @@ func bind_hunt(biome_id: String) -> void:
 	_ground(biome_id)
 	_foliage(biome_id)
 	_biome_mood(biome_id)
+	_apply_render_scale()
 	_look = _to3(Vector2(360, 700))
 	_dist = DIST
 	_ready_cam = false
@@ -475,7 +483,7 @@ func _lights() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if high else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_blend_splits = true
-	sun.directional_shadow_max_distance = 42.0
+	sun.directional_shadow_max_distance = 42.0 if high else 34.0
 	sun.shadow_bias = 0.04
 	sun.rotation_degrees = Vector3(-48, 38, 0)
 	world_root.add_child(sun)
@@ -538,6 +546,7 @@ func _apply_env(env: Environment) -> void:
 	var old := world_root.get_node_or_null("World")
 	if old:
 		old.queue_free()
+	_env_ref = env
 	var holder := WorldEnvironment.new()
 	holder.name = "World"
 	holder.environment = env
@@ -589,16 +598,22 @@ func _foliage(biome_id: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(biome_id) + 17
 	_grass_mats.clear()
+	_grass_nodes.clear()
 	_props.clear()
-	var count := 420 if _tier() == "low" else (1300 if _tier() == "medium" else 2100)
-	_scatter(rng, "grass_short", int(count * 0.55), 0.4, 0.6, true)
-	_scatter(rng, "grass_wispy", int(count * 0.25), 0.38, 0.55, true)
+	# Budget: the pulled-back camera sees nearly the whole field, so every
+	# blade is drawn. grass_short is ~155 tris, wispy ~620, flowers ~1700,
+	# so the cheap blade carries the density and the costly ones accent.
+	var tier := _tier()
+	var count := 420 if tier == "low" else (1300 if tier == "medium" else 2100)
+	var accent := 0.4 if tier == "low" else (0.6 if tier == "medium" else 1.0)
+	_scatter(rng, "grass_short", int(count * 0.62), 0.4, 0.6, true)
+	_scatter(rng, "grass_wispy", int(count * 0.14 * accent), 0.38, 0.55, true)
 	if not biome_id in ["frost", "volcano"]:
 		# Taller tufts in clumps break up the turf at the hunt zoom.
-		_scatter(rng, "grass_tall", int(count * 0.1), 0.45, 0.7, true)
+		_scatter(rng, "grass_tall", int(count * 0.08 * accent), 0.45, 0.7, true)
 	if not biome_id in ["frost", "volcano"]:
-		_scatter(rng, "flower_a", 34, 0.5, 0.75, false)
-		_scatter(rng, "flower_b", 30, 0.5, 0.75, false)
+		_scatter(rng, "flower_a", int(34 * accent), 0.5, 0.75, false)
+		_scatter(rng, "flower_b", int(30 * accent), 0.5, 0.75, false)
 	_scatter(rng, "clover", 40, 0.45, 0.62, false)
 	_scatter(rng, "fern", 22 if biome_id == "meadow" else 34, 0.6, 0.9, false)
 	var trees: Array = ["tree_a", "tree_b", "bush_flower", "tree_a"]
@@ -640,7 +655,9 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 	for row in kit:
 		for _n in int(row[3]):
 			var at := _off_path_point(rng, 1.5)
-			_place_prop(str(row[0]), at, rng.randf_range(float(row[1]), float(row[2])), str(row[0]).begins_with("rock") or str(row[0]) in ["log", "stump"])
+			var sc := rng.randf_range(float(row[1]), float(row[2]))
+			# Shadow casters cost a draw per split: only the big pieces cast.
+			_place_prop(str(row[0]), at, sc, (str(row[0]).begins_with("rock") and sc > 0.75) or str(row[0]) == "log")
 
 
 func _off_path_point(rng: RandomNumberGenerator, keep: float) -> Vector3:
@@ -675,6 +692,9 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 	var node := MultiMeshInstance3D.new()
 	node.multimesh = multi
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_grass_nodes.append(node)
+	# Coarser mesh LODs: blades are a few pixels tall at the hunt zoom.
+	node.lod_bias = 0.35 if _tier() != "high" else 0.6
 	if sway:
 		var grass := _grass_material(source)
 		node.material_override = grass
@@ -697,8 +717,12 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 		var prop := node as Node3D
 		prop.scale *= scale
 		prop.rotation.y = randf() * TAU
-	if not shadows and node is GeometryInstance3D:
-		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if not shadows:
+		# glTF roots are plain Node3D: switch off every mesh under the prop.
+		if node is GeometryInstance3D:
+			(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for gi in node.find_children("*", "GeometryInstance3D", true, false):
+			(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if node is Node3D:
 		_props.append(node)
 	world_root.add_child(node)
@@ -860,6 +884,11 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		_outline(body, Color("2a0806"), 0.007)
 	elif actor.kind != "hero":
 		_outline(body, Color("3a0a08"), 0.013)
+		if _tier() != "high":
+			# Minions already sit on a contact-shadow decal; a real shadow
+			# per critter costs a draw per split for little gain on phones.
+			for gi in body.find_children("*", "GeometryInstance3D", true, false):
+				(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if actor.kind != "hero":
 		# Every hostile gets a soft contact shadow. Its threat ring is a thin,
 		# soft, low-opacity line that fades in only when the critter is close
@@ -1995,13 +2024,55 @@ func _dirt_tint(biome_id: String) -> Vector3:
 
 
 func _tier() -> String:
-	if OS.has_feature("mobile") or OS.get_name() == "iOS":
+	if _software() and Quality.level() == "high":
 		return "medium"
-	if _software():
-		return "medium"
-	return "high"
+	return Quality.level()
 
 
 func _software() -> bool:
 	var name := RenderingServer.get_video_adapter_name().to_lower()
 	return "llvmpipe" in name or "lavapipe" in name or "swiftshader" in name
+
+
+# --- Quality tiers -----------------------------------------------------------
+
+func _apply_render_scale() -> void:
+	var scale := Quality.render_scale()
+	viewport.scaling_3d_scale = scale
+	viewport.mesh_lod_threshold = {"high": 1.0, "medium": 3.0, "low": 6.0}.get(Quality.level(), 3.0)
+	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if scale < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
+	if Quality.level() == "low":
+		_apply_low()
+
+
+## Rolling frame-time watch: two slow 2 s windows in a row drop one tier.
+func _watch_frames(delta: float) -> void:
+	if not Quality.can_auto_drop() or Quality.level() == "low":
+		return
+	_frame_acc += delta
+	_frame_n += 1
+	if _frame_acc < Quality.WINDOW:
+		return
+	var avg := _frame_acc / float(_frame_n)
+	_frame_acc = 0.0
+	_frame_n = 0
+	_slow_windows = _slow_windows + 1 if avg > Quality.SLOW_FRAME else 0
+	if _slow_windows < 2:
+		return
+	_slow_windows = 0
+	Quality.set_level("medium" if Quality.level() == "high" else "low")
+	print("QUALITY drop to ", Quality.level(), " (avg frame %.1f ms)" % (avg * 1000.0))
+	_apply_render_scale()
+
+
+## Low tier: thin the grass, no sun shadows, no SSAO or glow.
+func _apply_low() -> void:
+	for node in _grass_nodes:
+		if is_instance_valid(node) and node.multimesh != null:
+			node.multimesh.visible_instance_count = int(node.multimesh.instance_count * 0.4)
+	if sun != null:
+		sun.shadow_enabled = false
+	if _env_ref != null:
+		_env_ref.ssao_enabled = false
+		_env_ref.glow_enabled = false
+		_env_ref.ssil_enabled = false
