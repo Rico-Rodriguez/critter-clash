@@ -9,7 +9,7 @@ const MAX_CARD_LEVEL := 10
 const MAX_RUN_LEVEL := 8
 
 const WAVES: Array = [
-	{"until": 18.0, "every": 1.62, "pool": [0, 0, 0, 1]},
+	{"until": 18.0, "every": 1.62, "pool": [0, 0, 1, 1, 2]},
 	{"until": 36.0, "every": 1.32, "pool": [0, 1, 1, 2]},
 	{"until": 52.0, "every": 1.18, "pool": [1, 2, 2, 3]},
 	{"until": 68.0, "every": 1.08, "pool": [1, 2, 3, 2, 2]},

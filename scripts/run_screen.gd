@@ -1215,10 +1215,39 @@ class ThreatLayer extends Control:
 			if Rect2(Vector2.ZERO, size).grow(-8.0).has_point(foot):
 				if not boss and actor.max_hp > 0.0 and actor.hp < actor.max_hp:
 					_bar(head + Vector2(0, -10), clampf(actor.hp / actor.max_hp, 0.0, 1.0))
+				if boss:
+					# Keep the tag below the HUD even when the head is under it.
+					var tag := head + Vector2(0, -14)
+					tag.y = maxf(tag.y, band.position.y + 110.0)
+					_nameplate(tag, str(actor.display))
 			else:
 				offscreen.append([foot, boss])
 		for item in offscreen:
 			_arrow(center, item[0], band, item[1])
+
+	## A dark forged tag with a skull and the boss's name over its head.
+	func _nameplate(at: Vector2, text: String) -> void:
+		var font := UiKit.font_x
+		var fs := 26
+		var label := text.to_upper()
+		var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 70.0
+		var r := Rect2(at.x - w * 0.5, at.y - 44.0, w, 44.0)
+		var cut := 10.0
+		var pts := PackedVector2Array([r.position + Vector2(cut, 0), Vector2(r.end.x - cut, r.position.y), Vector2(r.end.x, r.position.y + cut), Vector2(r.end.x, r.end.y - cut), Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x + cut, r.end.y), Vector2(r.position.x, r.end.y - cut), Vector2(r.position.x, r.position.y + cut)])
+		var shadow := PackedVector2Array()
+		for p in pts:
+			shadow.append(p + Vector2(0, 4))
+		draw_colored_polygon(shadow, Color(0, 0, 0, 0.5))
+		draw_colored_polygon(pts, Color(0.09, 0.03, 0.025, 0.92))
+		var loop := PackedVector2Array(pts)
+		loop.append(pts[0])
+		draw_polyline(loop, Color("8a2a1e"), 3.0, true)
+		draw_polyline(loop, Color(0.9, 0.6, 0.35, 0.35), 1.0, true)
+		draw_colored_polygon(PackedVector2Array([Vector2(at.x - 9, r.end.y), Vector2(at.x + 9, r.end.y), Vector2(at.x, r.end.y + 10)]), Color("8a2a1e"))
+		var skull := UiKit.icon("skull")
+		if skull != null:
+			draw_texture_rect(skull, Rect2(r.position + Vector2(14, 9), Vector2(26, 26)), false, Color("e8462e"))
+		draw_string(font, Vector2(r.position.x + 50, r.end.y - 12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("f0d6a8"))
 
 	func _bar(at: Vector2, ratio: float) -> void:
 		var w := 30.0

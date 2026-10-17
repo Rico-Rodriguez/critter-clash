@@ -278,7 +278,7 @@ func _spawn_hero(id: String, stats: Dictionary, index: int) -> void:
 	heroes.append(hero)
 	if index == 0:
 		# Open on a pack already closing in, so the first second has a fight.
-		_spawn_pack(0, PACK_SIZE)
+		_spawn_pack(0, PACK_SIZE, Catalog.WAVES[0]["pool"])
 
 
 func _copy_combat(hero: Actor) -> void:
@@ -818,11 +818,17 @@ func _step_spawns(dt: float) -> void:
 
 func _spawn_pack(skin_index: int, count: int, pool: Array = []) -> void:
 	var center := _spawn_point()
+	# Mixed packs: each member draws from the wave's weighted pool, so the
+	# species mix per critter is unchanged but no pack is a single species.
 	for i in count:
 		var skin := skin_index
-		if not pool.is_empty() and i % 3 == 2:
+		if not pool.is_empty() and i > 0:
 			skin = int(pool[rng.randi() % pool.size()])
-		var offset := Vector2(rng.randf_range(-70, 70), rng.randf_range(-70, 70))
+		# Spread along the view edge and outward only, so no member pops in
+		# inside the camera's view.
+		var hero_at := heroes[0].pos if not heroes.is_empty() else play.get_center()
+		var out := (center - hero_at).normalized()
+		var offset := out * rng.randf_range(0.0, 70.0) + out.orthogonal() * rng.randf_range(-80.0, 80.0)
 		_spawn_minion(skin, _clamp_point(center + offset, 24.0))
 
 

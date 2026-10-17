@@ -151,8 +151,10 @@ func _capture() -> void:
 				# wave in view plus two stragglers off screen for the arrows.
 				staged = true
 				var hero_at: Vector2 = current.sim.heroes[0].pos
-				for off in [Vector2(-140, -170), Vector2(130, -140), Vector2(-110, 190), Vector2(150, 210), Vector2(10, -260), Vector2(-170, 40)]:
-					current.sim._spawn_minion(0, current.sim._clamp_point(hero_at + off, 24.0))
+				var mix := [0, 1, 2, 0, 1, 3]
+				var offs := [Vector2(-160, -190), Vector2(150, -160), Vector2(-130, 220), Vector2(170, 240), Vector2(20, -280), Vector2(-190, 60)]
+				for k in offs.size():
+					current.sim._spawn_minion(mix[k], current.sim._clamp_point(hero_at + offs[k], 24.0))
 				for off in [Vector2(-330, 120), Vector2(310, -540)]:
 					current.sim._spawn_minion(1, current.sim._clamp_point(hero_at + off, 24.0))
 			var seen := _framing(current)

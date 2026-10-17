@@ -737,7 +737,15 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	elif actor.kind != "hero":
 		_outline(body, Color("5a0d0d"), 0.018)
 	if actor.kind != "hero":
-		var blob := _decal(meters * 1.1, {"ring_color": Color(0, 0, 0, 0), "shadow_alpha": 0.42, "shadow_radius": 0.42})
+		# Hostiles stand in a thin red ground ring so they read as threats at a
+		# glance; the boss gets a heavy shadow and a wide pulsing telegraph.
+		var boss := actor.kind == "boss"
+		var blob := _decal(meters * (0.95 if boss else 1.1), {
+			"ring_color": Color(0.9, 0.14, 0.08, 0.7 if boss else 0.55),
+			"ring_radius": 0.4, "ring_width": 0.018 if boss else 0.035, "ring_glow": 0.18 if boss else 0.25,
+			"shadow_alpha": 0.72 if boss else 0.42, "shadow_radius": 0.36 if boss else 0.42,
+			"pulse": 1.0 if boss else 0.0,
+		})
 		blob.position.y = 0.03
 		body.add_child(blob)
 	body.rotation.y = _yaw(actor.facing, body)
