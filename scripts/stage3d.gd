@@ -395,10 +395,14 @@ func _foliage(biome_id: String) -> void:
 			trees = ["tree_pine", "tree_pine_b", "bush"]
 		"volcano":
 			trees = ["tree_dead", "tree_twist", "rock_lava"]
-	for i in (8 if _tier() == "low" else 14):
-		var name: String = trees[i % trees.size()]
-		var at := _rim_point(rng)
-		_place_prop(name, at, rng.randf_range(1.15, 1.55), true)
+	# The meadow rim uses the Sketchfab vegetation pack when it is present.
+	# Other biomes keep the CC0 kit.
+	var pack := biome_id == "meadow" and ResourceLoader.exists("res://assets/models/sketchfab/nature/grove.glb")
+	if not pack:
+		for i in (8 if _tier() == "low" else 14):
+			var name: String = trees[i % trees.size()]
+			var at := _rim_point(rng)
+			_place_prop(name, at, rng.randf_range(1.15, 1.55), true)
 	_sketchfab_nature(rng)
 	for i in 8:
 		var light := OmniLight3D.new()
@@ -557,12 +561,21 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 		var p := marker.position
 		if Vector2(p.x, p.z).length() > 0.02:
 			face = atan2(p.x, p.z)
+	else:
+		var hinted := Cast3D.nose(sprite)
+		if hinted >= 0.0:
+			face = hinted
 	root.set_meta("face", face)
 	var box := _measure(model)
 	var h := maxf(box.size.y, 0.05)
 	var factor := meters / h
 	model.scale *= factor
+	# Feet on the ground, and the body centered. Sketchfab rigs often sit
+	# far from the origin (Mixamo hips, FBX axes).
+	var center := box.get_center()
 	model.position.y -= box.position.y * factor
+	model.position.x -= center.x * factor
+	model.position.z -= center.z * factor
 	_hide_catch(model)
 	_tint(model, Cast3D.tint(sprite))
 	return root
@@ -644,8 +657,9 @@ func _frame_on(body: Node3D) -> void:
 	var focus := body.position + box.position + box.size * Vector3(0.5, 0.42, 0.5)
 	var span := maxf(box.size.x, maxf(box.size.y, box.size.z))
 	span = maxf(span, 1.0)
-	camera.fov = 28.0
-	var dist := span * 2.8
+	# The stage is a short window, and the dragon's wings pass the rest pose.
+	camera.fov = 34.0
+	var dist := span * 5.2
 	camera.position = focus + Vector3(dist * 0.42, dist * 0.32, dist)
 	camera.look_at(focus, Vector3.UP)
 
@@ -748,6 +762,12 @@ func portrait_of(hero_id: String) -> Texture2D:
 		if aimed.length() > 0.05:
 			forward = aimed.normalized()
 	var head := center + forward * maxf(box.size.z, box.size.x) * 0.28 + Vector3(0.0, box.size.y * 0.18, 0.0)
+	var aim := _head_point(body)
+	if aim.length() > 0.001 or _has_head(body):
+		var flat := Vector3(aim.x - center.x, 0.0, aim.z - center.z)
+		if flat.length() > 0.02:
+			forward = flat.normalized()
+		head = aim
 	cam.fov = 18.0
 	cam.position = head + forward * maxf(box.size.y, 0.6) * 1.15 + Vector3(0.0, box.size.y * 0.08, 0.0)
 	cam.look_at(head, Vector3.UP)
@@ -839,6 +859,14 @@ func _tint(node: Node, color: Color) -> void:
 		_tint(child, color)
 
 
+func _expand_aabb(acc: Dictionary, point: Vector3) -> void:
+	if not bool(acc["ok"]):
+		acc["box"] = AABB(point, Vector3.ZERO)
+		acc["ok"] = true
+	else:
+		acc["box"] = (acc["box"] as AABB).expand(point)
+
+
 func _measure(node: Node) -> AABB:
 	var acc := {"ok": false, "box": AABB()}
 	_measure_into(node, Transform3D.IDENTITY, acc)
@@ -854,12 +882,13 @@ func _measure_into(node: Node, parent: Transform3D, acc: Dictionary) -> void:
 	if node is MeshInstance3D and (node as MeshInstance3D).mesh:
 		var local: AABB = (node as MeshInstance3D).mesh.get_aabb()
 		for i in 8:
-			var point: Vector3 = xf * local.get_endpoint(i)
-			if not bool(acc["ok"]):
-				acc["box"] = AABB(point, Vector3.ZERO)
-				acc["ok"] = true
-			else:
-				acc["box"] = (acc["box"] as AABB).expand(point)
+			_expand_aabb(acc, xf * local.get_endpoint(i))
+	if node is Skeleton3D:
+		# Skinned meshes often report the bind-pose box, which is tiny on
+		# Mixamo rigs. Bone joints are the size the player actually sees.
+		var skel := node as Skeleton3D
+		for b in skel.get_bone_count():
+			_expand_aabb(acc, xf * skel.get_bone_global_pose(b).origin)
 	for child in node.get_children():
 		_measure_into(child, xf, acc)
 
@@ -951,6 +980,52 @@ func _find_named(node: Node, wanted: String) -> Node3D:
 	return null
 
 
+func _has_head(body: Node) -> bool:
+	return _skeleton_of(body) != null or _find_loose(body, "head") != null
+
+
+func _head_point(body: Node) -> Vector3:
+	var skel := _skeleton_of(body)
+	if skel:
+		for b in skel.get_bone_count():
+			if "head" in skel.get_bone_name(b).to_lower():
+				return _in_body(skel, body, skel.get_bone_global_pose(b).origin)
+	var bone := _find_loose(body, "head")
+	if bone:
+		return _local_point(bone, body)
+	return Vector3.ZERO
+
+
+func _skeleton_of(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node
+	for child in node.get_children():
+		var found := _skeleton_of(child)
+		if found:
+			return found
+	return null
+
+
+func _in_body(node: Node3D, body: Node, point: Vector3) -> Vector3:
+	var cur: Node = node
+	while cur != null and cur != body:
+		if cur is Node3D:
+			point = (cur as Node3D).transform * point
+		cur = cur.get_parent()
+	return point
+
+
+func _find_loose(node: Node, needle: String) -> Node3D:
+	var low := str(node.name).to_lower()
+	if node is Node3D and needle in low and node is not AnimationPlayer:
+		return node
+	for child in node.get_children():
+		var found := _find_loose(child, needle)
+		if found:
+			return found
+	return null
+
+
 func _lamp(color: Color, energy: float, pos: Vector3, shadows: bool) -> void:
 	var light := OmniLight3D.new()
 	light.light_color = color
@@ -984,31 +1059,68 @@ func _open_around(hero: Vector3) -> void:
 
 
 func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
-	var dir := DirAccess.open("res://assets/models/sketchfab/nature")
-	if dir == null:
+	var path := "res://assets/models/sketchfab/nature/grove.glb"
+	if not ResourceLoader.exists(path):
 		return
-	var names: Array = []
-	dir.list_dir_begin()
-	var file := dir.get_next()
-	while file != "":
-		if not dir.current_is_dir() and file.ends_with(".glb"):
-			names.append(file)
-		file = dir.get_next()
-	dir.list_dir_end()
-	if names.is_empty():
+	var packed := load(path) as PackedScene
+	if packed == null:
 		return
-	for i in mini(names.size(), 8):
-		var packed := load("res://assets/models/sketchfab/nature/%s" % names[i]) as PackedScene
-		if packed == null:
+	var lib := packed.instantiate()
+	world_root.add_child(lib)
+	var holder := _find_named(lib, "GLTF_SceneRootNode")
+	if holder == null:
+		holder = lib
+	var plants: Array[Node3D] = []
+	var stones: Array[Node3D] = []
+	for child in holder.get_children():
+		if not child is Node3D:
 			continue
-		var node := packed.instantiate()
-		if node is Node3D:
-			var prop := node as Node3D
-			prop.position = _rim_point(rng)
-			prop.scale *= rng.randf_range(0.9, 1.3)
-			prop.rotation.y = rng.randf() * TAU
-			_props.append(prop)
-		world_root.add_child(node)
+		var piece := child as Node3D
+		var low := str(piece.name).to_lower()
+		if "cliff" in low or "astronaut" in low or "plane" in low or "lod1" in low or "lod2" in low:
+			piece.visible = false
+			continue
+		piece.visible = false
+		if "rock" in low or "stone" in low:
+			stones.append(piece)
+		else:
+			plants.append(piece)
+	var sources: Array[Node3D] = plants if not plants.is_empty() else stones
+	if sources.is_empty():
+		lib.visible = false
+		return
+	var count := 8 if _tier() == "low" else 16
+	for i in count:
+		var src: Node3D = sources[rng.randi() % sources.size()]
+		if i % 5 == 4 and not stones.is_empty():
+			src = stones[rng.randi() % stones.size()]
+		var prop := src.duplicate() as Node3D
+		prop.visible = true
+		world_root.add_child(prop)
+		prop.global_transform = src.global_transform
+		# Yaw only. Setting rotation.y would wipe the pack's axis fix.
+		prop.rotate_y(rng.randf() * TAU)
+		var low := str(src.name).to_lower()
+		var target := rng.randf_range(2.1, 3.3)
+		if "bush" in low:
+			target = rng.randf_range(0.55, 0.95)
+		elif "stone" in low:
+			target = rng.randf_range(0.35, 0.6)
+		elif "rock_medium" in low or "rock-medium" in low:
+			target = rng.randf_range(0.7, 1.15)
+		elif "rock" in low:
+			target = rng.randf_range(1.05, 1.7)
+		elif "dead" in low:
+			target = rng.randf_range(1.5, 2.3)
+		var box := _measure(prop)
+		var fit := target / maxf(box.size.y, 0.05)
+		prop.scale *= fit
+		box = _measure(prop)
+		var dest := _rim_point(rng)
+		var mid := box.get_center()
+		prop.position += Vector3(dest.x - mid.x, -box.position.y, dest.z - mid.z)
+		_props.append(prop)
+	lib.visible = false
 
 
 func _paint_rock(node: Node) -> void:
@@ -1038,7 +1150,10 @@ func _outline_walk(node: Node, shader: Shader) -> void:
 				var mat := base.duplicate()
 				var shell := ShaderMaterial.new()
 				shell.shader = shader
-				shell.set_shader_parameter("grow", 0.04)
+				# Grow is in mesh space. A quantized Sketchfab mesh is thousands
+				# of units tall before its node scale, so the outline tracks height.
+				var height := mesh.mesh.get_aabb().size.y
+				shell.set_shader_parameter("grow", maxf(height * 0.018, 0.001))
 				shell.set_shader_parameter("line_color", Color("ffe6a8"))
 				mat.next_pass = shell
 				mesh.set_surface_override_material(i, mat)

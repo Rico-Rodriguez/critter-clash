@@ -17,6 +17,10 @@ func build() -> void:
 	play.pressed.connect(func() -> void: go("world"))
 	box.add_child(play)
 	box.add_child(_more())
+	var credits := UiKit.secondary("CREDITS", 280, 56)
+	credits.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	credits.pressed.connect(go.bind("credits", {}))
+	box.add_child(credits)
 	box.add_child(_chests())
 
 

@@ -91,7 +91,7 @@ Desktop and the screenshot capture use Forward+. iOS export uses the Mobile rend
 
 The ground is one shader over a baked blend of ambientCG grass, dirt, and rock, with the height map pushed into the vertices. Grass, flowers, ferns, and clover are MultiMesh instances and do not cast shadows. Trees, bushes, and rocks around the clearing do.
 
-Ember is a dragon, Juniper a fox, Pebble an otter, Lumen an owl, Pip a frog, and Bramble a cactus-hog. Minions and bosses reuse those rigs, tinted with the critter's color. Each model plays idle, run, and attack. The frog and the cactus-hog also have hit and death clips. The dragon, fox, otter, and owl tip or squash for those moments because their packs do not include those clips. Footstep dust and hit sparks are GPU particles.
+Ember is a dragon, Juniper a fox, Pebble an otter, Lumen an owl, Pip a frog, and Bramble a cactus-hog. Ember, Juniper, and the meadow boss Thistle use CC-BY Sketchfab models (a stylized dragon, the KAI fox, and a mushroom boss). The meadow rim uses the Nature Vegetation Pack. Pebble, Lumen, Pip, and Bramble stay on CC0 meshes. Minions reuse those rigs, tinted with the critter's color. The home screen opens an in-game Credits list with the CC-BY title, author, URL, and license. Footstep dust and hit sparks are GPU particles.
 
 ## Run it
 

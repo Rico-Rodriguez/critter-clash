@@ -75,6 +75,20 @@ static func family(id: String) -> String:
 
 static func clips(id: String) -> Dictionary:
 	var path := model(id)
+	# Names are the clips inside each Sketchfab file. The dragon has no Idle
+	# or Run, and the mushroom's death clip is "Die".
+	if path.ends_with("sketchfab/ember.glb"):
+		return {
+			"idle": "Wing flaps",
+			"run": "Wing flaps",
+			"attack": "head turn_wing flaps",
+			"hit": "head turn",
+			"death": "",
+		}
+	if path.ends_with("sketchfab/juniper.glb"):
+		return {"idle": "Idle", "run": "Run", "attack": "Punch", "hit": "", "death": ""}
+	if path.ends_with("sketchfab/thistle.glb"):
+		return {"idle": "Idle", "run": "Walk", "attack": "Attack", "hit": "", "death": "Die"}
 	if "/sketchfab/" in path:
 		return {"idle": "Idle", "run": "Run", "attack": "Attack", "hit": "Hit", "death": "Death"}
 	if "ember_" in path or "lumen_" in path:
@@ -85,11 +99,30 @@ static func clips(id: String) -> Dictionary:
 
 
 static func tint(id: String) -> Color:
-	# The hero GLBs are already painted. Everyone else takes the catalog color
-	# so a shared mesh still reads as that critter.
-	if id in ["ember", "juniper", "pebble", "lumen", "pip", "bramble", "thistle"]:
+	# Multiply the painted texture. Heroes stay recognizable: Ember orange-red,
+	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
+	# catalog color.
+	var path := model(id)
+	if id == "ember" and path.ends_with("sketchfab/ember.glb"):
+		return Color(1.0, 0.78, 0.55)
+	if id == "juniper" and path.ends_with("sketchfab/juniper.glb"):
+		return Color(1.0, 0.90, 0.78)
+	if id == "pebble":
+		return Color(0.68, 0.90, 0.84)
+	if id in ["ember", "juniper", "lumen", "pip", "bramble", "thistle"]:
 		return Color.WHITE
 	var info := Catalog.critter(id)
 	if info.is_empty():
 		return Color.WHITE
 	return Color(str(info.get("color", "ffffff"))).lerp(Color.WHITE, 0.42)
+
+
+static func nose(id: String) -> float:
+	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
+	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
+	var path := model(id)
+	# KAI's head sits on -Z, so the old "nose is -Z" default is already right.
+	# The dragon and the mushroom face +Z.
+	if path.ends_with("sketchfab/ember.glb") or path.ends_with("sketchfab/thistle.glb"):
+		return 0.0
+	return -1.0

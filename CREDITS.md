@@ -18,13 +18,14 @@ Critter Clash is an original game. The hunt, the roster, and the interface are o
 
 ## 3D models
 
-- Ember the dragon: Pixor "Small Dragon" — https://pixor.art/library/creatures/dragon-small/ — CC0. Files `assets/models/ember_*.glb`. The pack includes a fly cycle. Hit and death are posed in game.
-- Juniper the fox and Pebble the otter: "Cozy Animals" by Gamideo — https://dragofive.itch.io/cozy-animals-3d — CC0. Files `juniper_*.glb` and `pebble_*.glb` (the otter). Meshes were generated in Meshy; the clips were authored by Gamideo. Idle, walk, and gesture ship in the file.
-- Lumen the owl: Pixor "Owl" — https://pixor.art/library/creatures/owl/ — CC0. Files `lumen_*.glb`.
-- Pip the frog and Bramble the cactus-hog, plus minions that share those rigs: Quaternius Ultimate Monsters — https://quaternius.com — CC0. Files `pip_*.glb` (Frog) and `bramble_*.glb` (Cactoro, sombrero brim pulled in). Clips include Idle, Run, Punch, HitReact, and Death.
-- Thistle the meadow boss: Quaternius Ultimate Monsters "Demon" — https://quaternius.com/packs/ultimatemonsters.html — CC0. File `assets/models/thistle_boss.gltf`. Same clip set, including a trident.
-- Sketchfab replacements, when a file is present, win over the CC0 mesh. Only CC0 and CC-BY belong in this folder. Record the artist, URL, and license here before shipping one. Expected names: `assets/models/sketchfab/ember.glb` (Stylized Dragon), `juniper.glb` (KAI or GIGI fox), `thistle.glb` (Mushroom Boss), and vegetation pieces in `assets/models/sketchfab/nature/`. Nothing from Sketchfab is in the build until those files are added.
-- Trees, rocks, grass, flowers, mushrooms, and the pedestal stones: Quaternius Stylized Nature MegaKit — https://quaternius.com/packs/stylizednature.html — CC0.
+- Ember the dragon: "Stylized Dragon" by Stan (Stas_SayHallo) — https://sketchfab.com/3d-models/stylized-dragon-97d00c182fa24fa4838493c41ad8e52c — CC-BY 4.0. File `assets/models/sketchfab/ember.glb`. Clips are wing flaps and a head turn. The CC0 fallback is Pixor's "Small Dragon" — https://pixor.art/library/creatures/dragon-small/ — files `assets/models/ember_*.glb`, used for lava and water variants.
+- Juniper the fox: "KAI" — The Little Fox Warrior (Animated) by Realidad Aumentada Empezando Desde Cero — https://sketchfab.com/3d-models/kai-the-little-fox-warrior-animated-aa56e447b578470b8d6b1b9587fd29ac — CC-BY 4.0. File `assets/models/sketchfab/juniper.glb`. Idle, Run, and Punch. The CC0 fallback is Gamideo's fox in `juniper_*.glb`.
+- Pebble the otter: "Cozy Animals" by Gamideo — https://dragofive.itch.io/cozy-animals-3d — CC0. File `pebble_*.glb`. No CC0 or CC-BY rigged otter on Sketchfab was a real otter with a walk cycle, so this mesh stays. It is tinted teal-brown in game.
+- Lumen the owl: Pixor "Owl" — https://pixor.art/library/creatures/owl/ — CC0. Files `lumen_*.glb`. Searches did not turn up a rigged CC0 or CC-BY owl that was actually an owl.
+- Pip the frog and Bramble the cactus-hog, plus minions that share those rigs: Quaternius Ultimate Monsters — https://quaternius.com — CC0. Files `pip_*.glb` (Frog) and `bramble_*.glb` (Cactoro). Clips include Idle, Run, Punch, HitReact, and Death. No rigged CC0 or CC-BY frog or hedgehog cleared the license and character checks.
+- Thistle the meadow boss: "Mushroom Boss - game ready with animations" by iamjohnhult — https://sketchfab.com/3d-models/mushroom-boss-game-ready-with-animations-ee611e4925e94a98baa4cfd3d89d3449 — CC-BY 4.0. File `assets/models/sketchfab/thistle.glb`. Idle, Walk, Attack, and Die. The CC0 fallback is Quaternius "Demon" in `assets/models/thistle_boss.gltf`.
+- Meadow trees, bushes, and rocks: "Nature Vegetation Pack" by AnderArts — https://sketchfab.com/3d-models/nature-vegetation-pack-c257b444645542da867fce0cf221e52d — CC-BY 4.0. File `assets/models/sketchfab/nature/grove.glb`. The shipped file keeps one LOD0 of each tree, bush, and rock. The astronaut, ground plane, cliffs, and extra LODs are not included.
+- Grass, flowers, mushrooms, pedestal stones, and the trees outside the meadow: Quaternius Stylized Nature MegaKit — https://quaternius.com/packs/stylizednature.html — CC0.
 
 ## Textures and sky
 
