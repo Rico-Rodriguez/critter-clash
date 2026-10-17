@@ -19,6 +19,10 @@ const AIM := 1.0
 ## 10% of the screen height; the boss stands about 3x the hero's footprint.
 const HERO_METERS := 2.5
 const PEDESTAL_TOP := 0.34
+const HERO_BOOST := 1.18
+## Screen fraction (from the top) the boss's cap must stay below: the bottom
+## of the boss bar plus a margin.
+const BOSS_TOP_LIMIT := 0.185
 const BOSS_METERS := 11.0
 ## Highest render density over the logical canvas (device px per canvas px).
 const MAX_DENSITY := 1.65
@@ -27,6 +31,7 @@ var viewport: SubViewport
 var camera: Camera3D
 var sun: DirectionalLight3D
 var _flash_mat: ShaderMaterial
+var _boss_shift := 0.0
 var _ped_focus := Vector3.ZERO
 var _ped_dir := Vector3.BACK
 var _ped_dist := 0.0
@@ -236,6 +241,19 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		var lean := (boss_at - hero_at) * 0.5
 		lean.y = 0.0
 		focus = hero_at + lean.limit_length(5.5)
+		# Keep the whole cap under the boss bar: if the top of the boss
+		# projects too high, ease the view up-screen, as long as the hero
+		# stays clear of the bottom HUD.
+		var vh := float(viewport.size.y)
+		var head_y := camera.unproject_position(boss_at + Vector3(0, BOSS_METERS * 1.02, 0)).y / vh
+		var hero_y := camera.unproject_position(hero_at).y / vh
+		if head_y < BOSS_TOP_LIMIT and hero_y < 0.8:
+			_boss_shift = minf(_boss_shift + 0.12, 9.0)
+		elif head_y > BOSS_TOP_LIMIT + 0.06 or hero_y > 0.84:
+			_boss_shift = maxf(_boss_shift - 0.08, 0.0)
+		focus.z -= _boss_shift
+	else:
+		_boss_shift = 0.0
 	_follow(focus, 1.0 / 60.0)
 
 
@@ -394,7 +412,8 @@ func _flash(body: Node3D) -> void:
 	get_tree().create_timer(0.08).timeout.connect(func() -> void:
 		for m in meshes:
 			if is_instance_valid(m):
-				(m as MeshInstance3D).material_overlay = null)
+				# Restore the hero's fresnel lift, or clear for everyone else.
+				(m as MeshInstance3D).material_overlay = m.get_meta("overlay", null))
 
 
 func died(actor_id: int, sim_pos: Vector2, sprite: String) -> void:
@@ -461,12 +480,12 @@ func _environment(fog: Color, high: bool) -> Environment:
 	env.ambient_light_energy = 0.44
 	# Filmic AgX, a hair desaturated: mature, not candy.
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = 1.08
+	env.tonemap_exposure = 1.14
 	env.tonemap_white = 6.5
 	env.adjustment_enabled = true
 	env.adjustment_brightness = 1.0
-	env.adjustment_contrast = 1.12
-	env.adjustment_saturation = 0.98
+	env.adjustment_contrast = 1.18
+	env.adjustment_saturation = 1.1
 	env.glow_enabled = true
 	env.glow_intensity = 0.12 if high else 0.08
 	env.glow_strength = 0.45
@@ -787,7 +806,10 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	if _bodies.has(actor.id):
 		return _bodies[actor.id]
 	var meters := HERO_METERS
-	if actor.kind == "boss":
+	if actor.kind == "hero" and actor.team == 0:
+		# The wider hunt camera shrank the hero; it gets a bump over the cast.
+		meters = HERO_METERS * HERO_BOOST
+	elif actor.kind == "boss":
 		meters = BOSS_METERS
 	elif actor.kind != "hero":
 		# Rank-and-file critters stand roughly hero height so they read.
@@ -797,6 +819,7 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	# on the hero (its ring marks it), deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
 		_outline(body, Color("1a0806"), 0.008)
+		_hero_glow(body)
 	elif actor.kind == "boss":
 		_outline(body, Color("2a0806"), 0.007)
 	elif actor.kind != "hero":
@@ -823,6 +846,32 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	if actor.kind == "boss":
 		_boss_landing(body)
 	return body
+
+
+## Hunt hero only: a cool fresnel rim plus a faint warm lift, added over
+## the lit surface, so the hero reads off the ground at the far zoom.
+var _glow_mat: ShaderMaterial
+func _hero_glow(body: Node3D) -> void:
+	if _glow_mat == null:
+		var sh := Shader.new()
+		sh.code = """shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
+uniform vec3 rim_color = vec3(0.55, 0.75, 1.0);
+uniform float rim_power = 4.0;
+uniform float rim_strength = 0.32;
+uniform vec3 lift = vec3(0.022, 0.008, 0.006);
+void fragment() {
+	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_power);
+	ALBEDO = rim_color * f * rim_strength + lift;
+}
+"""
+		_glow_mat = ShaderMaterial.new()
+		_glow_mat.shader = sh
+	for m in body.find_children("*", "MeshInstance3D", true, false):
+		if str(m.name).begins_with("Catch"):
+			continue
+		m.set_meta("overlay", _glow_mat)
+		(m as MeshInstance3D).material_overlay = _glow_mat
 
 
 ## Threat rings show only where they matter: critters near the hero and
@@ -1290,8 +1339,8 @@ func _place_mark(at: Vector3) -> void:
 			"ring_radius": 0.4,
 			"ring_width": 0.04,
 			"ring_glow": 0.45,
-			"shadow_alpha": 0.64,
-			"shadow_radius": 0.34,
+			"shadow_alpha": 0.86,
+			"shadow_radius": 0.27,
 			"pulse": 1.0,
 		})
 		_mark.position.y = 0.035
@@ -1879,7 +1928,8 @@ func _biome_tint(biome_id: String) -> Vector3:
 		"volcano":
 			return Vector3(1.08, 0.78, 0.62)
 		_:
-			return Vector3(0.95, 1.02, 0.9)
+			# Richer, cleaner green; less olive in the midtones.
+			return Vector3(0.9, 1.06, 0.8)
 
 
 func _dirt_tint(biome_id: String) -> Vector3:

@@ -538,12 +538,12 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.modulate = Color(1, 1, 1, 1)
 	label.z_index = 4096
 	label.add_theme_font_override("font", UiKit.font_n)
-	label.add_theme_font_size_override("font_size", 46 if big else 32)
+	label.add_theme_font_size_override("font_size", 70 if big else 48)
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color("1a0a06") if not big else Color("3a1204"))
-	label.add_theme_constant_override("outline_size", 11 if big else 8)
+	label.add_theme_constant_override("outline_size", 15 if big else 12)
 	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
-	label.add_theme_constant_override("shadow_offset_y", 4)
+	label.add_theme_constant_override("shadow_offset_y", 5)
 	label.add_theme_constant_override("shadow_offset_x", 0)
 	label.reset_size()
 	label.pivot_offset = label.size * 0.5
