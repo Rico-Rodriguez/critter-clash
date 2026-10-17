@@ -22,6 +22,10 @@ uniform float ash = 0.0;
 uniform vec2 world_span = vec2(70.0, 82.0);
 uniform vec2 world_origin = vec2(0.0);
 uniform float path_width = 1.25;
+// Arena bounds in world xz (min.x, min.z, max.x, max.z): canopy shade
+// gathers toward the edges where the tree line stands.
+uniform vec4 arena = vec4(0.0, 0.0, 30.0, 50.0);
+uniform float litter = 1.0;
 
 varying vec2 world_xz;
 
@@ -117,11 +121,50 @@ void fragment() {
 	// Path wear: a compacted, darker tread down the middle of each trail.
 	float tread = smoothstep(edge * 0.35, 0.0, pd);
 	dirt *= 1.0 - tread * 0.18;
+	// Darker grass clumps: tight, saturated tufts scattered through the turf.
+	float clump = smoothstep(0.6, 0.72, fbm(w * 0.9 + 101.0)) * (1.0 - dirt_w);
+	grass = mix(grass, grass * vec3(0.55, 0.72, 0.5), clump * 0.7);
+	// Big bare-earth patches out in the field.
+	float bare = smoothstep(0.66, 0.74, fbm(w * 0.11 + 47.0)) * (0.7 + 0.3 * fbm(w * 2.0));
+	dirt_w = max(dirt_w, bare * 0.9);
 	vec3 albedo = mix(grass, dirt, dirt_w);
+	// Leaf litter: broad drifts plus a band along every trail, drawn as
+	// individual leaves (rotated ellipses) in autumn browns and ambers.
+	float litter_zone = max(smoothstep(0.58, 0.72, fbm(w * 0.16 + 71.0)), smoothstep(edge * 2.4, edge * 0.9, pd) * 0.8) * litter;
+	vec2 lc = w * 4.2;
+	vec2 lcell = floor(lc);
+	float lh = hash21(lcell);
+	float lh2 = hash21(lcell + 13.7);
+	vec2 lf = fract(lc) - 0.5 - (vec2(lh, lh2) - 0.5) * 0.45;
+	float la = lh * 6.2831853;
+	lf = mat2(vec2(cos(la), -sin(la)), vec2(sin(la), cos(la))) * lf;
+	float leaf = (1.0 - smoothstep(0.14, 0.2, length(lf * vec2(1.0, 2.1)))) * step(1.0 - litter_zone * 0.85, lh2);
+	vec3 leaf_col = mix(vec3(0.42, 0.22, 0.08), vec3(0.62, 0.38, 0.12), lh);
+	leaf_col = mix(leaf_col, vec3(0.36, 0.33, 0.12), step(0.8, lh));
+	albedo = mix(albedo, leaf_col * (0.85 + 0.3 * lf.x), leaf * 0.9);
+	albedo = mix(albedo, albedo * vec3(0.82, 0.74, 0.62), litter_zone * 0.35 * (1.0 - dirt_w));
+	// Small flower clusters painted into the turf: white, butter and violet.
+	float cluster = smoothstep(0.7, 0.8, fbm(w * 0.33 + 91.0)) * (1.0 - dirt_w) * litter;
+	vec2 fc = w * 9.0;
+	vec2 fcell = floor(fc);
+	float fh = hash21(fcell + 3.3);
+	float bloom = (1.0 - smoothstep(0.09, 0.15, length(fract(fc) - 0.5 - (vec2(fh, hash21(fcell + 7.1)) - 0.5) * 0.5))) * step(1.0 - cluster * 0.7, fh);
+	vec3 petal = fh > 0.66 ? vec3(0.92, 0.9, 0.82) : (fh > 0.33 ? vec3(0.95, 0.82, 0.32) : vec3(0.62, 0.48, 0.82));
+	albedo = mix(albedo, petal, bloom * 0.95);
 	// Soft ground occlusion in hollows and at the trail edges.
 	float hollow = smoothstep(0.55, 0.2, fbm(w * 0.4 + 5.0));
 	albedo *= 1.0 - hollow * 0.08 - shoulder * 0.05;
 	albedo *= tint;
+	// Canopy shade: heavy under the tree line at the arena edges, plus
+	// soft dappled cloud shadow drifting across the whole clearing.
+	float ex = min(w.x - arena.x, arena.z - w.x);
+	float ez = min(w.y - arena.y, arena.w - w.y);
+	float edge_d = min(ex, ez);
+	float canopy = 1.0 - smoothstep(1.5, 8.0, edge_d);
+	float dapple = smoothstep(0.42, 0.62, fbm(w * 0.32 + vec2(TIME * 0.06, TIME * 0.025)));
+	float drift = smoothstep(0.5, 0.7, fbm(w * 0.05 + vec2(TIME * 0.02, 0.0)));
+	float shade = clamp(canopy * (0.55 + dapple * 0.45) + drift * 0.28 + dapple * 0.12, 0.0, 1.0);
+	albedo *= mix(1.0, 0.58, shade);
 	if (snow > 0.0) {
 		float drift = smoothstep(0.35, 0.65, fbm(w * 0.35 + 4.0) + (1.0 - dirt_w) * 0.25);
 		vec3 white = vec3(0.86, 0.91, 1.0) * (0.86 + fbm(w * 3.0) * 0.18);

@@ -39,10 +39,11 @@ void fragment() {
 	// Cavity darkening from the texture's own luminance.
 	float lum = dot(rock, vec3(0.3, 0.59, 0.11));
 	rock *= 0.8 + lum * 0.5;
-	float up = smoothstep(0.35, 0.85, wnrm.y);
+	float up = smoothstep(0.55, 0.9, wnrm.y);
 	float breakup = tri(moss_color, p * 0.37 + 3.0, w).g;
 	float mossw = clamp(up * moss * (0.6 + breakup * 0.9), 0.0, 1.0);
-	mossw = smoothstep(0.3, 0.6, mossw);
+	// Moss only on the tops, with a crisp edge, so the stone shape reads.
+	mossw = smoothstep(0.5, 0.62, mossw);
 	vec3 m = tri(moss_color, p * 1.4, w).rgb * vec3(0.82, 0.95, 0.66);
 	vec3 albedo = mix(rock, m, mossw);
 	vec3 nm = mix(rn, tri(moss_normal, p * 1.4, w).rgb, mossw);
@@ -50,7 +51,7 @@ void fragment() {
 	albedo = mix(albedo, vec3(0.86, 0.9, 0.97), snoww);
 	ALBEDO = albedo;
 	NORMAL_MAP = nm;
-	NORMAL_MAP_DEPTH = 1.4;
+	NORMAL_MAP_DEPTH = 2.2;
 	ROUGHNESS = mix(mix(rr, 0.95, mossw), 0.6, snoww);
 	SPECULAR = 0.35;
 	AO = 1.0 - (1.0 - up) * 0.15;

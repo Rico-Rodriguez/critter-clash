@@ -577,6 +577,10 @@ func _ground(biome_id: String) -> void:
 	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
 	mat.set_shader_parameter("snow", 0.75 if biome_id == "frost" else 0.0)
 	mat.set_shader_parameter("ash", 0.85 if biome_id == "volcano" else 0.0)
+	var a0 := _to3(Vector2(0.0, 110.0))
+	var a1 := _to3(Vector2(720.0, 1230.0))
+	mat.set_shader_parameter("arena", Vector4(a0.x, a0.z, a1.x, a1.z))
+	mat.set_shader_parameter("litter", 0.0 if biome_id == "volcano" else (0.3 if biome_id == "frost" else 1.0))
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = plane
 	mesh.material_override = mat
@@ -633,6 +637,14 @@ func _foliage(biome_id: String) -> void:
 	if not biome_id in ["frost", "volcano"]:
 		# The leafy, blossoming nature pack belongs in green biomes only.
 		_sketchfab_nature(rng)
+		# Big trunks just outside the arena: their canopies frame the
+		# corners and their shadows fall into the clearing.
+		var edge_trees := ["tree_a", "tree_b", "tree_pine"] if biome_id == "meadow" else ["mushroom_tall", "tree_pine_b"]
+		for i in (4 if tier == "low" else 8):
+			var side := -1.0 if i % 2 == 0 else 1.0
+			var x := 360.0 + side * rng.randf_range(400.0, 470.0)
+			var y := lerpf(250.0, 1150.0, float(i / 2) / 3.0) + rng.randf_range(-60.0, 60.0)
+			_place_prop(edge_trees[i % edge_trees.size()], _to3(Vector2(x, y)), rng.randf_range(2.2, 2.9), true)
 	_field_props(rng)
 
 
@@ -656,8 +668,29 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 		for _n in int(row[3]):
 			var at := _off_path_point(rng, 1.5)
 			var sc := rng.randf_range(float(row[1]), float(row[2]))
+			var model := str(row[0])
 			# Shadow casters cost a draw per split: only the big pieces cast.
-			_place_prop(str(row[0]), at, sc, (str(row[0]).begins_with("rock") and sc > 0.75) or str(row[0]) == "log")
+			_place_prop(model, at, sc, (model.begins_with("rock") and sc > 0.75) or model == "log")
+			if model.begins_with("rock") or model.begins_with("pebble_rock"):
+				_shape_rock(_props[-1], rng)
+				# Rocks sit in groups: a couple of chips beside each one.
+				for k in rng.randi_range(1, 2):
+					var off := Vector3(rng.randf_range(-0.9, 0.9), 0, rng.randf_range(-0.7, 0.7)) * sc * 1.6
+					_place_prop(["rock_c", "pebble_rock_b", "rock_flat"][k % 3], at + off, sc * rng.randf_range(0.3, 0.5), false)
+					_shape_rock(_props[-1], rng)
+
+
+## Breaks the kit rocks' rounded look: non-uniform stretch (tall shards,
+## flat slabs), a tilt so they sit bedded in the ground, partly sunk.
+func _shape_rock(node: Node3D, rng: RandomNumberGenerator) -> void:
+	var kind := rng.randi() % 3
+	var stretch := Vector3(rng.randf_range(0.8, 1.3), rng.randf_range(0.9, 1.7), rng.randf_range(0.8, 1.2))
+	if kind == 1:
+		stretch = Vector3(rng.randf_range(1.2, 1.7), rng.randf_range(0.45, 0.7), rng.randf_range(1.0, 1.4))
+	node.scale *= stretch
+	node.rotate_object_local(Vector3.RIGHT, rng.randf_range(-0.25, 0.25))
+	node.rotate_object_local(Vector3.FORWARD, rng.randf_range(-0.25, 0.25))
+	node.position.y -= 0.08 * node.scale.y
 
 
 func _off_path_point(rng: RandomNumberGenerator, keep: float) -> Vector3:
