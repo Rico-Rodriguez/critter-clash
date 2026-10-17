@@ -68,7 +68,7 @@ const DARK := {"juniper": "fox", "sprout": "badger", "boarlet": "bear", "spirit_
 const DARK_CLIPS := {
 	"fox": {"idle": "A5_StandAngry_Breathing_01", "walk": "Loco_Walk", "run": "Run", "attack": "Attack_StandAngry_02_High", "hit": "Hit_Stand_R01", "death": "Death_Stand_L01", "perch": "A3_Stand_Idle_01"},
 	"badger": {"idle": "Badger|european_badger_aggressive_idle_01", "walk": "Badger|european_badger_trot_fwd_01", "run": "Badger|european_badger_sprint_fwd_01", "attack": "Badger|european_badger_aggressive_attack_fwd_01", "hit": "Badger|european_badger_hit_chest_front_01", "death": "Badger|european_badger_dead_run_01"},
-	"bear": {"idle": "Armature|stand angry breathing", "walk": "Armature|walk", "run": "Armature|run", "attack": "Armature|atk run", "hit": "Armature|hit lying", "death": "Armature|stand to lying"},
+	"bear": {"idle": "Armature|stand angry breathing", "walk": "Armature|walk", "run": "Armature|run", "attack": "Armature|atk run", "hit": "Armature|stand angry breathing", "death": "Armature|stand to lying"},
 }
 
 
