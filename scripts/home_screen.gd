@@ -29,20 +29,21 @@ func build() -> void:
 	box.add_theme_constant_override("separation", 16)
 	margin.add_child(box)
 	box.add_child(header())
-	var logo := UiKit.title("CRITTER CLASH", 50)
-	logo.add_theme_color_override("font_color", Color("ffe9a8"))
 	var plate := LogoPlate.new()
+	var logo := Wordmark.new()
+	logo.text = "CRITTER CLASH"
 	plate.add_child(logo)
 	logo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	logo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	plate.custom_minimum_size = Vector2(0, 96)
+	plate.custom_minimum_size = Vector2(0, 104)
 	box.add_child(plate)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(spacer)
 	box.add_child(_nameplate(hero_id))
-	var play := UiKit.button("HUNT", 600, 132, "gold")
+	var play := ForgedButton.new()
+	play.text = "HUNT"
+	play.custom_minimum_size = Vector2(600, 136)
 	play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	play.pressed.connect(func() -> void: go("world"))
 	box.add_child(play)
@@ -58,13 +59,13 @@ func _nameplate(hero_id: String) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var badge := UiKit.Badge.new()
 	badge.level = int(SaveGame.hero(hero_id).get("level", 1))
-	badge.custom_minimum_size = Vector2(64, 70)
+	badge.custom_minimum_size = Vector2(76, 84)
 	row.add_child(badge)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", -6)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(UiKit.label(str(info.get("name", "Hero")), 44, UiKit.CREAM, "x", 8))
-	col.add_child(UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 22, Color("ffd34a"), "x", 5))
+	col.add_child(UiKit.label(str(info.get("name", "Hero")).to_upper(), 58, Color("fff1d0"), "x", 12))
+	col.add_child(UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 27, Color("ffcf5a"), "x", 7))
 	row.add_child(col)
 	return row
 
@@ -205,3 +206,107 @@ class LogoPlate extends Control:
 		draw_colored_polygon(PackedVector2Array([Vector2(c.x, y - d), Vector2(c.x + d * 1.6, y), Vector2(c.x, y + d), Vector2(c.x - d * 1.6, y)]), Color("e8c886"))
 		draw_circle(Vector2(c.x - half, y), 3.0, gold)
 		draw_circle(Vector2(c.x + half, y), 3.0, gold)
+
+
+## The carved wordmark: heavy Cinzel cut into the plate, with a dark
+## chisel shadow above, a warm lip below, and a gilt face.
+class Wordmark extends Control:
+	var text := ""
+	var size_px := 60
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		UiKit.ensure()
+		var font := UiKit.font_n
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x
+		var at := Vector2((size.x - w) * 0.5, size.y * 0.5 + size_px * 0.34)
+		draw_string_outline(font, at + Vector2(0, 5), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, 14, Color(0, 0, 0, 0.55))
+		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, 8, Color("1c0f06"))
+		draw_string(font, at + Vector2(0, -2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color("3a2208"))
+		draw_string(font, at + Vector2(0, 2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color("fff0bf"))
+		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color("e2b252"))
+		# Gilt sheen across the top half of the letters.
+		var clip_h := size_px * 0.42
+		var top := at.y - size_px * 0.72
+		draw_set_transform(Vector2.ZERO)
+		for i in 3:
+			var a := 0.12 - 0.035 * i
+			draw_rect(Rect2(at.x - 4, top + i * clip_h / 3.0, w + 8, clip_h / 3.0), Color(1, 0.95, 0.8, 0.0))
+			draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color(1, 0.93, 0.7, a))
+
+
+## HUNT: a slab of oxblood leather in a forged iron frame with gilt bevels
+## and rivets, an embossed gilt label, and a real pressed state.
+class ForgedButton extends BaseButton:
+	var text := "HUNT"
+
+	func _ready() -> void:
+		button_down.connect(queue_redraw)
+		button_up.connect(queue_redraw)
+		mouse_entered.connect(queue_redraw)
+		mouse_exited.connect(queue_redraw)
+		resized.connect(queue_redraw)
+		pivot_offset = size * 0.5
+
+	func _poly(r: Rect2, cut: float) -> PackedVector2Array:
+		return PackedVector2Array([
+			r.position + Vector2(cut, 0), Vector2(r.end.x - cut, r.position.y), Vector2(r.end.x, r.position.y + cut),
+			Vector2(r.end.x, r.end.y - cut), Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x + cut, r.end.y),
+			Vector2(r.position.x, r.end.y - cut), Vector2(r.position.x, r.position.y + cut)])
+
+	func _draw() -> void:
+		UiKit.ensure()
+		var down := is_pressed() or button_pressed
+		var sink := 6.0 if down else 0.0
+		var r := Rect2(Vector2(0, sink), size - Vector2(0, 8))
+		# Drop shadow shrinks when pressed.
+		var sh := _poly(Rect2(r.position + Vector2(0, 8.0 - sink), r.size), 18)
+		draw_colored_polygon(sh, Color(0, 0, 0, 0.55 if not down else 0.35))
+		# Forged iron frame: dark rim, lit top bevel, gilt inner lip.
+		draw_colored_polygon(_poly(r, 18), Color("17110c"))
+		var iron := r.grow(-4)
+		var top := Color("6a5c4c") if not down else Color("4a4036")
+		var bot := Color("2a221b")
+		var ip := _poly(iron, 15)
+		draw_polygon(ip, PackedColorArray([top, top, top, bot, bot, bot, bot, top]))
+		var gilt := iron.grow(-7)
+		var gp := _poly(gilt, 11)
+		var gl := PackedVector2Array(gp)
+		gl.append(gp[0])
+		draw_polyline(gl, Color("e6c06a"), 2.5, true)
+		# Leather: deep oxblood, lighter toward the top, with stitching.
+		var lea := gilt.grow(-4)
+		var lt := Color("7c1e18") if not down else Color("5e1612")
+		var lb := Color("3a0c0a")
+		var lp := _poly(lea, 8)
+		draw_polygon(lp, PackedColorArray([lt, lt, lt, lb, lb, lb, lb, lt]))
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 41
+		for i in 90:
+			var p := lea.position + Vector2(rng.randf() * lea.size.x, rng.randf() * lea.size.y)
+			draw_line(p, p + Vector2(rng.randf_range(2, 6), rng.randf_range(-1, 1)), Color(0, 0, 0, 0.12), 1.0)
+		var st := lea.grow(-8)
+		var x := st.position.x + 6.0
+		while x < st.end.x - 6.0:
+			draw_line(Vector2(x, st.position.y), Vector2(x + 7, st.position.y), Color(0.85, 0.62, 0.35, 0.55), 1.5)
+			draw_line(Vector2(x, st.end.y), Vector2(x + 7, st.end.y), Color(0.85, 0.62, 0.35, 0.45), 1.5)
+			x += 13.0
+		# Gloss band across the upper leather.
+		draw_rect(Rect2(lea.position + Vector2(10, 5), Vector2(lea.size.x - 20, lea.size.y * 0.22)), Color(1, 0.85, 0.75, 0.08 if not down else 0.03))
+		# Rivets in the iron corners.
+		for c in [iron.position + Vector2(18, iron.size.y * 0.5), Vector2(iron.end.x - 18, iron.position.y + iron.size.y * 0.5)]:
+			draw_circle(c + Vector2(0, 1.5), 6.5, Color(0, 0, 0, 0.6))
+			draw_circle(c, 6.0, Color("b08a48"))
+			draw_circle(c - Vector2(1.5, 1.5), 2.5, Color("ffe6a8"))
+		# Embossed gilt label: dark chisel above, light lip below, gold face.
+		var font := UiKit.font_n
+		var fs := 62
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var at := Vector2((size.x - w) * 0.5, r.position.y + r.size.y * 0.5 + fs * 0.35)
+		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 7, Color("1e0604"))
+		draw_string(font, at + Vector2(0, -2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("2a0a06"))
+		draw_string(font, at + Vector2(0, 2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffe9b0"))
+		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8b85a") if not down else Color("c89a48"))

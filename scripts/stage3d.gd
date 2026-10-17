@@ -52,6 +52,11 @@ var _props: Array = []
 var _pings: Dictionary = {}
 var _decal_shader: Shader
 var _view: TextureRect
+## Pedestal: the hero renders sharp in its own transparent pass over a
+## blurred, darkened backdrop (engine DOF smeared the hero too).
+var _hero_vp: SubViewport
+var _hero_cam: Camera3D
+var _hero_view: TextureRect
 ## Offline bakers pin the render size instead of following the control.
 var fixed_px := Vector2i.ZERO
 
@@ -96,6 +101,11 @@ func _process(delta: float) -> void:
 		target = fixed_px
 	if viewport.size != target:
 		viewport.size = target
+	if _hero_vp != null:
+		if _hero_vp.size != viewport.size:
+			_hero_vp.size = viewport.size
+		_hero_cam.global_transform = camera.global_transform
+		_hero_cam.fov = camera.fov
 	if _mode == "pedestal" and _pedestal_hero != null:
 		_pedestal_hero.position.y = PEDESTAL_TOP + absf(sin(Time.get_ticks_msec() * 0.0021)) * 0.03
 		_pedestal_hero.rotation.y = -float(_pedestal_hero.get_meta("face", PI)) + 0.45 + sin(Time.get_ticks_msec() * 0.0005) * 0.22
@@ -169,6 +179,7 @@ func bind_pedestal(hero_id: String) -> void:
 	_play(body, "perch" if clips.has("perch") else "idle")
 	_frame_on(body)
 	_reframe_posed(body)
+	_split_hero(body)
 
 
 func sync_hunt(sim: RunSim, alpha: float) -> void:
@@ -1128,6 +1139,41 @@ func _reframe_posed(body: Node3D) -> void:
 	# No depth of field: on this renderer it smeared the hero along with the
 	# glade. Warm fog does the separation instead.
 	camera.attributes = null
+
+
+const HERO_LAYER := 1 << 1
+func _split_hero(body: Node3D) -> void:
+	for v in body.find_children("*", "VisualInstance3D", true, false):
+		(v as VisualInstance3D).layers = HERO_LAYER
+	# The main pass still draws (and lights) the hero. The second pass only
+	# renders the hero's silhouette, which the backdrop blur uses as a mask
+	# to keep the hero's pixels sharp.
+	_hero_vp = SubViewport.new()
+	_hero_vp.transparent_bg = true
+	_hero_vp.world_3d = viewport.find_world_3d()
+	_hero_vp.msaa_3d = viewport.msaa_3d
+	_hero_vp.use_debanding = true
+	_hero_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_hero_vp.size = viewport.size
+	add_child(_hero_vp)
+	_hero_cam = Camera3D.new()
+	_hero_cam.cull_mask = HERO_LAYER
+	var env := (camera.environment as Environment).duplicate() as Environment
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.background_color = Color(0, 0, 0, 0)
+	env.glow_enabled = false
+	env.fog_enabled = false
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	_hero_cam.environment = env
+	_hero_vp.add_child(_hero_cam)
+	_hero_cam.current = true
+	_hero_cam.global_transform = camera.global_transform
+	_hero_cam.fov = camera.fov
+	var blur := ShaderMaterial.new()
+	blur.shader = load("res://shaders/backdrop_blur.gdshader")
+	_view.material = blur
+	blur.set_shader_parameter("mask", _hero_vp.get_texture())
 
 
 ## Life for the glade: slanted shafts of sun through the canopy and a slow
