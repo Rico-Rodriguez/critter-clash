@@ -130,7 +130,7 @@ func _capture() -> void:
 		go("loadout", {"hero": "ember", "biome": "meadow"})
 		await _settle()
 		await _shot("loadout")
-	if _wants("hunt") or _wants("boss") or _wants("levelup") or _wants("rare"):
+	if _wants("hunt") or _wants("boss") or _wants("levelup") or _wants("rare") or _wants("victory") or _wants("defeat"):
 		go("run", {"biome": "meadow", "hero": "ember"})
 		await _settle()
 		current.drive = Vector2(0.35, 0.15).normalized()
@@ -191,6 +191,14 @@ func _capture() -> void:
 		current.sim.debug_slay_boss()
 		await _settle()
 		await _shot("rare")
+		if _wants("victory"):
+			current._show_victory("Thistle")
+			await get_tree().create_timer(0.8).timeout
+			await _shot("victory")
+		if _wants("defeat"):
+			current._show_defeat("")
+			await get_tree().create_timer(0.8).timeout
+			await _shot("defeat")
 	if _wants("chest"):
 		go("chest")
 		await _settle()

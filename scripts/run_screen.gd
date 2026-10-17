@@ -716,39 +716,96 @@ func _show_rare(drop: Dictionary, boss_name: String) -> void:
 	AudioDirector.haptic(30)
 
 
+## A forged end-of-hunt panel with a crest on top. Returns the inner column.
+func _end_panel(win: bool) -> VBoxContainer:
+	for c in modal.get_children():
+		if c is GoldBeam:
+			c.queue_free()
+	var crest := EndCrest.new()
+	crest.win = win
+	crest.custom_minimum_size = Vector2(0, 150)
+	modal_box.add_child(crest)
+	var plate := UiKit.Plate.new()
+	plate.kind = "panel"
+	plate.pad = 30
+	plate.glow = Color(1.0, 0.72, 0.3, 0.4) if win else Color(0.8, 0.12, 0.08, 0.35)
+	plate.custom_minimum_size = Vector2(720, 0)
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	modal_box.add_child(plate)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 16)
+	plate.add_child(col)
+	plate.pivot_offset = Vector2(360, 200)
+	plate.scale = Vector2(0.85, 0.85)
+	plate.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(plate, "modulate:a", 1.0, 0.2)
+	tw.parallel().tween_property(plate, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	return col
+
+
 func _show_victory(boss_name: String) -> void:
 	_open_modal()
-	var title := UiKit.title("VICTORY", 52)
+	var col := _end_panel(true)
+	var title := UiKit.title("VICTORY", 64)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	modal_box.add_child(title)
-	var sub := UiKit.label("%s dropped loot." % boss_name, 24, Color("ffe7b0"), "x", 4)
+	col.add_child(title)
+	var sub := UiKit.label("%s has fallen." % boss_name, 24, UiKit.MUTED.lightened(0.2), "m", 2)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	modal_box.add_child(sub)
+	col.add_child(sub)
 	var drops: Array = summary.get("drops", [])
-	for drop in drops:
-		var line := UiKit.label(str(drop.get("name", "Drop")), 22, Color("ffe08a"), "x", 4)
-		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		modal_box.add_child(line)
-	var trophies := UiKit.label("+%d trophies" % int(summary.get("trophies", 0)), 28, Color("ffe08a"), "x", 6)
-	trophies.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	modal_box.add_child(trophies)
-	var button := UiKit.button("Open the chest", 460, 86)
+	if not drops.is_empty():
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 12)
+		col.add_child(row)
+		for drop in drops:
+			var tag := UiKit.Plate.new()
+			tag.kind = "plaque"
+			tag.pad = 12
+			var line := UiKit.label(str(drop.get("name", "Drop")), 20, UiKit.GOLD.lightened(0.2), "x", 2)
+			line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tag.add_child(line)
+			row.add_child(tag)
+	var prize := HBoxContainer.new()
+	prize.alignment = BoxContainer.ALIGNMENT_CENTER
+	prize.add_theme_constant_override("separation", 10)
+	var cup := TextureRect.new()
+	cup.texture = UiKit.icon("trophy")
+	cup.custom_minimum_size = Vector2(46, 46)
+	cup.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	cup.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	cup.modulate = UiKit.GOLD
+	prize.add_child(cup)
+	var trophies := UiKit.label("+%d" % int(summary.get("trophies", 0)), 40, UiKit.GOLD.lightened(0.25), "x", 3)
+	prize.add_child(trophies)
+	col.add_child(prize)
+	var button := UiKit.button("OPEN THE CHEST", 480, 96, "gold")
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.pressed.connect(func() -> void: go("chest"))
-	modal_box.add_child(button)
+	col.add_child(button)
 
 
 func _show_defeat(reason: String) -> void:
 	_open_modal()
-	var title := UiKit.title("BOUNCED OUT", 44)
+	var col := _end_panel(false)
+	var title := UiKit.title("DEFEATED", 60)
+	title.add_theme_color_override("font_color", Color("d8a090"))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	modal_box.add_child(title)
-	var line := "The wilds outlasted you." if reason == "time" else "The wilds were a bit much."
-	var sub := UiKit.label(line, 24, Color("ffe7b0"), "x", 4)
+	col.add_child(title)
+	var line := "The wilds outlasted you." if reason == "time" else "The wilds were too much this time."
+	var sub := UiKit.label(line, 24, UiKit.MUTED.lightened(0.2), "m", 2)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	modal_box.add_child(sub)
-	var button := UiKit.button("Open the pouch", 460, 86)
+	col.add_child(sub)
+	var hint := UiKit.label("Level your critters with cards and gear, then return.", 19, UiKit.MUTED, "m", 2)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(hint)
+	var button := UiKit.button("OPEN THE POUCH", 480, 96, "steel")
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.pressed.connect(func() -> void: go("chest"))
-	modal_box.add_child(button)
+	col.add_child(button)
 
 
 func _pause() -> void:
@@ -767,6 +824,48 @@ func _pause() -> void:
 
 ## A level-up blessing: a forged card in its rarity's metal over dark leather,
 ## with a soft aura and a press bounce.
+## Crest over the end panel: crossed blades behind a gilded (victory) or
+## blackened (defeat) shield with a crown or a skull.
+class EndCrest extends Control:
+	var win := true
+	var t := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta: float) -> void:
+		t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := Vector2(size.x * 0.5, size.y * 0.55)
+		var glow := Color(1.0, 0.75, 0.35) if win else Color(0.85, 0.15, 0.1)
+		for k in 12:
+			draw_circle(c, 120.0 - k * 7.0, Color(glow, 0.018 + 0.006 * sin(t * 2.0)))
+		var steel := Color("cfd4da") if win else Color("6a6460")
+		for side in [-1.0, 1.0]:
+			var a := Vector2(c.x - side * 110.0, c.y + 50.0)
+			var b := Vector2(c.x + side * 110.0, c.y - 60.0)
+			draw_line(a, b, Color("120a04"), 14.0, true)
+			draw_line(a, b, steel, 8.0, true)
+			draw_line(a + (b - a) * 0.12 + Vector2(0, -16).rotated(side * 0.5), a + (b - a) * 0.12 + Vector2(0, 16).rotated(side * 0.5), Color("c8963a"), 8.0, true)
+		var w := 64.0
+		var pts := PackedVector2Array([c + Vector2(-w, -w * 0.9), c + Vector2(w, -w * 0.9), c + Vector2(w * 0.95, w * 0.15), c + Vector2(0, w * 1.05), c + Vector2(-w * 0.95, w * 0.15)])
+		var outer := PackedVector2Array()
+		for p in pts:
+			outer.append(c + (p - c) * 1.14)
+		draw_colored_polygon(outer, Color("120a04"))
+		var metal_hi := Color("ffe6a8") if win else Color("8a7a70")
+		var metal_lo := Color("6a4416") if win else Color("2a2220")
+		draw_polygon(outer, PackedColorArray([metal_hi, metal_hi, metal_lo, metal_lo, metal_lo]))
+		var face_hi := Color("8a2620") if win else Color("2a2422")
+		var face_lo := Color("3a0c0a") if win else Color("100c0a")
+		draw_polygon(pts, PackedColorArray([face_hi, face_hi, face_lo, face_lo, face_lo]))
+		var ico := UiKit.icon("crown_a" if win else "skull")
+		if ico != null:
+			UiKit.draw_icon(self, ico, Rect2(c - Vector2(34, 40), Vector2(68, 68)), Color("f0d08a") if win else Color("d8c8b8"), Color("120a04"), 3.0)
+
+
 class OfferCard extends Button:
 	var rarity := "common"
 	var frame: UiKit.Frame
