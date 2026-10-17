@@ -554,6 +554,11 @@ class Frame extends Node2D:
 		var p := UiKit.skin_params(preset, tone)
 		for key in params:
 			p[key] = params[key]
+		# Angular forged metal: square-cut corners on everything but true rounds.
+		var r := float(p.get("radius", 12.0))
+		if r < 100.0 and not p.has("chamfer"):
+			p["chamfer"] = r * 1.1
+			p["radius"] = 2.0
 		var detail: Texture2D = _marble if str(p.get("detail_tex", "marble")) == "marble" else _stone
 		mat.set_shader_parameter("detail", detail)
 		mat.set_shader_parameter("bump", _leather if bool(p.get("leather", true)) else _flat)

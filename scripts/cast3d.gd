@@ -156,6 +156,10 @@ static func nose(id: String) -> float:
 
 ## Yaw added to a portrait so the face reads in 3/4.
 static func portrait_turn(id: String) -> float:
+	# The dragon's raised wings make a tall, narrow box; a deeper turn shows
+	# its long body and fills the square card.
+	if model(id).ends_with("sketchfab/ember.glb"):
+		return 1.0
 	return 0.55
 
 

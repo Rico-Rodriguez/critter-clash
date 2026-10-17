@@ -38,6 +38,10 @@ func run(only: Array = []) -> void:
 	_stage.free()
 
 
+var _env: Environment
+var _key: DirectionalLight3D
+
+
 func _lights() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_CLEAR_COLOR
@@ -50,10 +54,12 @@ func _lights() -> void:
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.08
 	env.adjustment_saturation = 1.12
+	_env = env
 	var holder := WorldEnvironment.new()
 	holder.environment = env
 	_root.add_child(holder)
 	var key := DirectionalLight3D.new()
+	_key = key
 	key.light_color = Color("fff0d8")
 	key.light_energy = 1.9
 	key.rotation_degrees = Vector3(-35, 30, 0)
@@ -76,6 +82,12 @@ func _lights() -> void:
 
 
 func _bake(id: String, head: bool) -> void:
+	# The dragon's source albedo is one flat red, so its form has to come
+	# from light: less flat ambient, a harder key, the rim does the rest.
+	var dragon := Cast3D.model(id).ends_with("sketchfab/ember.glb")
+	_env.ambient_light_energy = 0.38 if dragon else 0.75
+	_env.adjustment_saturation = 0.95 if dragon else 1.12
+	_key.light_energy = 2.6 if dragon else 1.9
 	var body: Node3D
 	if id.begins_with("prop:"):
 		# Props sheet for art review: --only=prop:log,prop:stump
@@ -90,7 +102,7 @@ func _bake(id: String, head: bool) -> void:
 	_stage._hide_catch(body)
 	var face := float(body.get_meta("face", PI))
 	# Nose toward the camera, turned a little for a 3/4 read.
-	body.rotation.y = -face + Cast3D.portrait_turn(id) + _turn_override
+	body.rotation.y = -face + (0.55 if head else Cast3D.portrait_turn(id)) + _turn_override
 	var clips: Dictionary = body.get_meta("clips", {})
 	# Full-body cards use the standing perch pose; the head crop keeps the
 	# idle, where the head sits above the wings.

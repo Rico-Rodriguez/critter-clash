@@ -7,6 +7,8 @@ shader_type canvas_item;
 uniform vec2 px = vec2(200.0, 100.0);
 uniform float margin = 10.0;
 uniform float radius = 14.0;
+// Forged look: cut corners (bevelled at 45 degrees) instead of soft rounds.
+uniform float chamfer = 0.0;
 uniform float frame = 7.0;
 uniform vec4 face_top : source_color = vec4(0.16, 0.12, 0.09, 1.0);
 uniform vec4 face_bot : source_color = vec4(0.08, 0.06, 0.05, 1.0);
@@ -24,9 +26,19 @@ uniform float time_glow = 0.0;      // animated shimmer on the rim
 uniform sampler2D detail : repeat_enable, filter_linear_mipmap;
 uniform sampler2D bump : repeat_enable, filter_linear_mipmap;
 
-float sd_box(vec2 p, vec2 b, float r) {
+float sd_round(vec2 p, vec2 b, float r) {
 	vec2 q = abs(p) - b + vec2(r);
 	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+
+float sd_box(vec2 p, vec2 b, float r) {
+	if (chamfer <= 0.0) {
+		return sd_round(p, b, r);
+	}
+	float c = min(chamfer, min(b.x, b.y));
+	float d_box = sd_round(p, b, min(r, 2.0));
+	float d_cut = (abs(p.x) + abs(p.y) - (b.x + b.y - c)) * 0.70710678;
+	return max(d_box, d_cut);
 }
 
 float hash(vec2 p) {
