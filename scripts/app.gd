@@ -206,6 +206,15 @@ func _capture() -> void:
 			await get_tree().create_timer(0.2).timeout
 			waited += 0.2
 		await _shot("boss")
+		if _wants("xray") and current.sim.boss != null:
+			# Tuck the hero just behind the boss to show the x-ray rim.
+			var hero_actor = current.sim.heroes[0]
+			hero_actor.pos = current.sim.boss.pos + Vector2(10, -40)
+			hero_actor.prev = hero_actor.pos
+			hero_actor.iframes = 5.0
+			for i in 20:
+				await get_tree().process_frame
+			await _shot("xray")
 		SaveGame.debug_rare = true
 		current.sim.debug_slay_boss()
 		await _settle()

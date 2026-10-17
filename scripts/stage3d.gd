@@ -59,6 +59,8 @@ var _frame_n := 0
 var _slow_windows := 0
 var _props: Array = []
 var _contacts: Array[Vector3] = []
+var _xray_mat: ShaderMaterial
+var _xray := 0.0
 var _contact_node: MultiMeshInstance3D
 var _pings: Dictionary = {}
 var _decal_shader: Shader
@@ -229,6 +231,7 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 			boss_up = true
 			boss_at = _to3(actor.pos)
 	_dist = lerpf(_dist, BOSS_DIST if boss_up else DIST, 0.08)
+	_update_xray(boss_up, boss_at, hero_at)
 	var drop: Array = []
 	for id in _bodies.keys():
 		if seen.has(id):
@@ -1095,29 +1098,43 @@ void fragment() {
 		var xs := Shader.new()
 		xs.code = """shader_type spatial;
 render_mode unshaded, blend_mix, depth_test_disabled, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
-uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
-uniform vec3 xray_color = vec3(1.0, 0.72, 0.4);
+uniform vec3 xray_color = vec3(1.0, 0.62, 0.28);
+uniform float amount = 0.0;
 void fragment() {
-	float scene = texture(depth_tex, SCREEN_UV).r;
-	// Reverse-Z: a larger stored depth is nearer the camera.
-	if (scene <= FRAGCOORD.z + 0.00002) {
-		discard;
-	}
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
-	float rim = pow(1.0 - ndv, 2.0);
+	float rim = pow(1.0 - ndv, 1.6);
 	ALBEDO = xray_color;
-	ALPHA = 0.18 + 0.62 * rim;
+	ALPHA = (0.22 + 0.68 * rim) * amount;
 }
 """
-		var xm := ShaderMaterial.new()
-		xm.shader = xs
-		xm.render_priority = 10
-		_glow_mat.next_pass = xm
+		_xray_mat = ShaderMaterial.new()
+		_xray_mat.shader = xs
+		_xray_mat.render_priority = 10
+		_glow_mat.next_pass = _xray_mat
 	for m in body.find_children("*", "MeshInstance3D", true, false):
 		if str(m.name).begins_with("Catch"):
 			continue
 		m.set_meta("overlay", _glow_mat)
 		(m as MeshInstance3D).material_overlay = _glow_mat
+
+
+## X-ray: when the boss stands between the camera and the hero (the hero is
+## further back and overlaps the boss's body on screen), the hero's overlay
+## pass draws a warm rim silhouette through it. Gated on the CPU, so it
+## needs no depth texture and costs nothing when clear.
+func _update_xray(boss_up: bool, boss_at: Vector3, hero_at: Vector3) -> void:
+	if _xray_mat == null or camera == null:
+		return
+	var want := 0.0
+	if boss_up and hero_at.z < boss_at.z:
+		var hs := camera.unproject_position(hero_at + Vector3(0, HERO_METERS * 0.45, 0))
+		var top := camera.unproject_position(boss_at + Vector3(0, BOSS_METERS * 1.05, 0))
+		var foot := camera.unproject_position(boss_at)
+		var half_w := absf(foot.y - top.y) * 0.42
+		if hs.y > top.y and hs.y < foot.y and absf(hs.x - foot.x) < half_w:
+			want = 1.0
+	_xray = move_toward(_xray, want, 0.12)
+	_xray_mat.set_shader_parameter("amount", _xray)
 
 
 ## Threat rings show only where they matter: critters near the hero and
