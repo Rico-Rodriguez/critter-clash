@@ -1,7 +1,7 @@
 extends ScreenBase
 
 ## Renders a RunSim. The thumbstick, cards, and taming live here.
-## Simulation steps at a fixed 60Hz; sprites interpolate between steps.
+## Combat steps at a fixed 60Hz. The stick is sampled every displayed frame.
 
 const STEP := 1.0 / 60.0
 
@@ -42,6 +42,8 @@ var boss_label: Label
 var banner: Label
 var floats: Array = []
 var finger := -1
+var finger_at := Vector2.ZERO
+var _stick_out := Vector2.ZERO
 
 
 func _init() -> void:
@@ -54,6 +56,7 @@ func build() -> void:
 	add_child(world)
 	arena = Sprite2D.new()
 	arena.centered = false
+	arena.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	world.add_child(arena)
 	marks = GroundMarks.new()
 	world.add_child(marks)
@@ -232,6 +235,10 @@ func _build_modal() -> void:
 func _process(delta: float) -> void:
 	if sim == null:
 		return
+	# Touch events are applied before _process. Re-read the latest point
+	# every displayed frame so a 120Hz phone is not waiting on the 60Hz sim.
+	if stick.active:
+		stick.place(finger_at)
 	delta = minf(delta, 0.05)
 	if hitstop > 0.0:
 		hitstop = maxf(0.0, hitstop - delta)
@@ -259,27 +266,30 @@ func _process(delta: float) -> void:
 	_tick_floats(delta)
 	_hud()
 	if not stick.active:
-		stick.hint = maxf(0.0, stick.hint - delta * 0.12)
+		stick.hint_left = maxf(0.0, stick.hint_left - delta)
+		stick.hint = 1.0 if stick.hint_left > 0.35 else stick.hint_left / 0.35
 	stick.queue_redraw()
 
 
 func _move() -> Vector2:
+	var want := Vector2.ZERO
 	if drive.length() > 0.05:
-		return drive.normalized()
-	if stick.active:
-		return stick.vec
-	var key := Vector2.ZERO
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		key.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		key.x += 1.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		key.y -= 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		key.y += 1.0
-	if key.length() > 1.0:
-		return key.normalized()
-	return key
+		want = drive.normalized()
+	elif stick.active:
+		want = stick.vec
+	else:
+		if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+			want.x -= 1.0
+		if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+			want.x += 1.0
+		if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+			want.y -= 1.0
+		if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+			want.y += 1.0
+		if want.length() > 1.0:
+			want = want.normalized()
+	_stick_out = RunSim.ease_stick(_stick_out, want, STEP)
+	return _stick_out
 
 
 func _input(event: InputEvent) -> void:
@@ -314,16 +324,17 @@ func _input(event: InputEvent) -> void:
 func _begin_stick(at: Vector2) -> void:
 	stick.active = true
 	stick.origin = at
+	stick.knob = at
 	stick.vec = Vector2.ZERO
+	finger_at = at
 	stick.hint = 0.0
+	stick.hint_left = 0.0
 	stick.queue_redraw()
 
 
 func _drag_stick(at: Vector2) -> void:
-	var delta := at - stick.origin
-	if delta.length() > 76.0:
-		delta = delta.normalized() * 76.0
-	stick.vec = delta / 76.0
+	finger_at = at
+	stick.place(at)
 	stick.queue_redraw()
 
 
@@ -428,11 +439,19 @@ func _sync(alpha: float) -> void:
 		var bob := sin(sim.time * 7.0 + float(actor.id)) * 2.6 if actor.alive else 0.0
 		sprite.position = pos + Vector2(0.0, -bob)
 		var tex_w := maxf(float(sprite.texture.get_width()), 1.0)
-		var base := actor.radius * 3.4 / tex_w
+		var base := actor.radius * 4.05 / tex_w
 		if actor.kind == "boss" and sim.phase == "tame":
 			base *= lerpf(1.0, 0.4, tame_p)
 		var punch := float(_punch.get(actor.id, 0.0))
-		sprite.scale = Vector2(base * (1.0 + punch), base * (1.0 - punch * 0.5))
+		# Kenney animals face left. Flip them when the sim is looking right.
+		var face := float(sprite.get_meta("face", 1.0))
+		var look := cos(actor.facing)
+		if look > 0.2:
+			face = -1.0
+		elif look < -0.2:
+			face = 1.0
+		sprite.set_meta("face", face)
+		sprite.scale = Vector2(base * (1.0 + punch) * face, base * (1.0 - punch * 0.5))
 		sprite.modulate = Color(1.7, 1.7, 1.7) if actor.flash > 0.0 else Color.WHITE
 		sprite.z_index = int(pos.y)
 		sprite.visible = true
@@ -612,30 +631,27 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 func _offer_card(index: int, id: String) -> Button:
 	var info := Catalog.card(id)
 	var rarity := str(info.get("rarity", "common"))
-	var button := Button.new()
-	button.focus_mode = Control.FOCUS_NONE
+	var button := OfferCard.new()
+	button.rarity = rarity
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.custom_minimum_size = Vector2(200, 340)
-	button.clip_contents = true
-	var frame := UiKit.rarity_box(rarity)
-	for state in ["normal", "hover", "pressed", "focus"]:
-		button.add_theme_stylebox_override(state, frame)
+	button.custom_minimum_size = Vector2(200, 360)
 	button.pressed.connect(_pick.bind(index))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_theme_constant_override("separation", 6)
+	box.add_theme_constant_override("separation", 4)
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
-	box.offset_left = 10
-	box.offset_right = -10
-	box.offset_top = 12
+	box.offset_left = 12
+	box.offset_right = -12
+	box.offset_top = 8
 	box.offset_bottom = -12
 	button.add_child(box)
-	var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 16, UiKit.CREAM, "x", 3)
+	var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 18, Color.WHITE, "x", 4)
 	ribbon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ribbon.custom_minimum_size = Vector2(0, 32)
 	box.add_child(ribbon)
 	var icon := CardIcon.new()
 	icon.op = str(info.get("op", ""))
-	icon.custom_minimum_size = Vector2(0, 72)
+	icon.custom_minimum_size = Vector2(0, 132)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
 	var name := UiKit.label(str(info.get("name", id)), 22, UiKit.CREAM, "x", 4)
@@ -745,31 +761,216 @@ func _pause() -> void:
 	modal_box.add_child(leave)
 
 
+class OfferCard extends Button:
+	var rarity := "common"
+	var _box: StyleBoxFlat
+
+	func _ready() -> void:
+		focus_mode = Control.FOCUS_NONE
+		var empty := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+			add_theme_stylebox_override(state, empty)
+
+	func _colors() -> Dictionary:
+		match rarity:
+			"rare":
+				return {"top": Color("5eb6ff"), "bot": Color("1560b8"), "band": Color("0c4e9c"), "rim": Color("082848")}
+			"epic":
+				return {"top": Color("d07cff"), "bot": Color("6a22a4"), "band": Color("4a1478"), "rim": Color("240838")}
+			"legendary":
+				return {"top": Color("ffe38a"), "bot": Color("e09018"), "band": Color("b86808"), "rim": Color("5a3208")}
+			_:
+				return {"top": Color("f7f3ea"), "bot": Color("b7aea0"), "band": Color("6d655c"), "rim": Color("2a241c")}
+
+	func _draw() -> void:
+		var cols: Dictionary = _colors()
+		var rect := Rect2(6, 6, maxf(20.0, size.x - 12), maxf(40.0, size.y - 12))
+		_round(rect.grow(5), 22, cols["rim"])
+		_gradient(rect, 18, cols["top"], cols["bot"])
+		draw_line(rect.position + Vector2(16, 8), rect.position + Vector2(rect.size.x - 16, 8), Color(1, 1, 1, 0.55), 4.0)
+		draw_line(rect.position + Vector2(18, rect.size.y - 10), rect.position + Vector2(rect.size.x - 18, rect.size.y - 10), Color(0, 0, 0, 0.28), 5.0)
+		var band := Rect2(rect.position.x + 8, rect.position.y + 6, rect.size.x - 16, 36)
+		_round(band, 10, cols["band"])
+		_round(Rect2(band.position.x + 4, band.position.y + 3, band.size.x - 8, 8), 6, Color(1, 1, 1, 0.28))
+
+	func _gradient(rect: Rect2, radius: float, top: Color, bot: Color) -> void:
+		var steps := 18
+		for i in steps:
+			var t0 := float(i) / float(steps)
+			var t1 := float(i + 1) / float(steps)
+			var y0 := rect.position.y + rect.size.y * t0
+			var y1 := rect.position.y + rect.size.y * t1
+			var mid := (y0 + y1) * 0.5
+			var inset := _inset(rect, radius, mid)
+			draw_rect(Rect2(rect.position.x + inset, y0, maxf(2.0, rect.size.x - inset * 2.0), y1 - y0 + 1.0), top.lerp(bot, (t0 + t1) * 0.5), true)
+
+	func _inset(rect: Rect2, radius: float, y: float) -> float:
+		var top_c := rect.position.y + radius
+		var bot_c := rect.position.y + rect.size.y - radius
+		var dy := 0.0
+		if y < top_c:
+			dy = top_c - y
+		elif y > bot_c:
+			dy = y - bot_c
+		if dy <= 0.0 or dy >= radius:
+			return 0.0 if dy <= 0.0 else radius
+		return radius - sqrt(radius * radius - dy * dy)
+
+	func _round(rect: Rect2, radius: int, color: Color) -> void:
+		if _box == null:
+			_box = StyleBoxFlat.new()
+		_box.bg_color = color
+		_box.set_corner_radius_all(radius)
+		_box.draw(get_canvas_item(), rect)
+
+
 class CardIcon extends Control:
 	var op := ""
 
 	func _draw() -> void:
-		var c := Vector2(size.x * 0.5, size.y * 0.5)
-		var col := Color("ffe08a")
+		var c := Vector2(size.x * 0.5, size.y * 0.52)
+		draw_circle(c + Vector2(0, 6), 52, Color(0, 0, 0, 0.28))
+		draw_circle(c, 48, Color("24180f"))
+		draw_arc(c, 46, PI, TAU, 24, Color(1, 1, 1, 0.45), 4.0, true)
 		match op:
-			"hp", "heal":
-				col = Color("ff5a6a")
-				draw_circle(c + Vector2(-10, -4), 12, col)
-				draw_circle(c + Vector2(10, -4), 12, col)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(-20, 2), c + Vector2(0, 22), c + Vector2(20, 2)]), col)
-			"swift", "haste":
-				col = Color("7ec8ff")
-				draw_colored_polygon(PackedVector2Array([c + Vector2(0, -18), c + Vector2(14, 2), c + Vector2(2, 2), c + Vector2(8, 18), c + Vector2(-8, 0), c + Vector2(2, 0)]), col)
-			"regen", "siphon":
-				draw_circle(c, 16, Color("5dce45"))
-				draw_circle(c + Vector2(-5, -6), 5, Color(1, 1, 1, 0.45))
+			"hp":
+				_heart(c, 22, Color("ff5a6a"))
+			"heal":
+				_heart(c + Vector2(0, 2), 18, Color("ff5a6a"))
+				_plus(c + Vector2(16, -16), 8, Color.WHITE)
+			"dmg":
+				_sword(c, Color("f2f4f8"))
+			"haste":
+				_bolt(c, Color("ffe14a"))
+			"swift":
+				_chevrons(c, Color("7ec8ff"))
+			"crit":
+				_spark(c, Color("ffe08a"))
+			"regen":
+				_drop(c, Color("5dce45"))
+			"magnet":
+				_magnet(c)
+			"bounce":
+				_bounce(c, Color("7ec8ff"))
+			"shots":
+				_arrows(c, Color("f4f7ff"))
+			"armor":
+				_shield(c, Color("8fd0ff"))
+			"siphon":
+				_drop(c + Vector2(-8, -6), Color("ff5a6a"))
+				_heart(c + Vector2(14, 12), 12, Color("ff8fa0"))
+			"splash":
+				_splash(c, Color("7ec8ff"))
+			"splash_mul":
+				_flame(c, Color("ff8a3c"))
+			"pierce":
+				_pierce(c, Color("f4f7ff"))
+			"thorns":
+				_thorns(c, Color("7dff5a"))
+			"bash":
+				_shield(c + Vector2(-4, 2), Color("ffe08a"))
+				_spark(c + Vector2(16, -14), Color("fff6ea"))
+			"revive":
+				_heart(c + Vector2(0, 6), 16, Color("ff5a6a"))
+				_chevron_up(c + Vector2(0, -18), Color("ffe08a"))
 			_:
-				draw_circle(c, 18, Color(0, 0, 0, 0.25))
-				draw_colored_polygon(PackedVector2Array([
-					c + Vector2(0, -16), c + Vector2(6, -4), c + Vector2(18, -2), c + Vector2(8, 6),
-					c + Vector2(10, 18), c + Vector2(0, 10), c + Vector2(-10, 18), c + Vector2(-8, 6),
-					c + Vector2(-18, -2), c + Vector2(-6, -4)
-				]), col)
+				_spark(c, Color("ffe08a"))
+
+	func _heart(c: Vector2, s: float, col: Color) -> void:
+		draw_circle(c + Vector2(-s * 0.42, -s * 0.2), s * 0.48, col)
+		draw_circle(c + Vector2(s * 0.42, -s * 0.2), s * 0.48, col)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.86, 0), c + Vector2(0, s), c + Vector2(s * 0.86, 0)]), col)
+
+	func _plus(c: Vector2, s: float, col: Color) -> void:
+		draw_rect(Rect2(c.x - s, c.y - s * 0.28, s * 2.0, s * 0.56), col, true)
+		draw_rect(Rect2(c.x - s * 0.28, c.y - s, s * 0.56, s * 2.0), col, true)
+
+	func _sword(c: Vector2, col: Color) -> void:
+		draw_line(c + Vector2(0, -28), c + Vector2(0, 16), col, 8.0)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -34), c + Vector2(8, -18), c + Vector2(-8, -18)]), col)
+		draw_line(c + Vector2(-14, 8), c + Vector2(14, 8), Color("e0a04a"), 6.0)
+		draw_line(c + Vector2(0, 16), c + Vector2(0, 28), Color("8a5a28"), 6.0)
+
+	func _bolt(c: Vector2, col: Color) -> void:
+		draw_colored_polygon(PackedVector2Array([
+			c + Vector2(2, -30), c + Vector2(16, -2), c + Vector2(4, -2),
+			c + Vector2(10, 28), c + Vector2(-14, 2), c + Vector2(0, 2)
+		]), col)
+
+	func _chevrons(c: Vector2, col: Color) -> void:
+		for dx in [-10.0, 12.0]:
+			draw_colored_polygon(PackedVector2Array([
+				c + Vector2(-16 + dx, -14), c + Vector2(6 + dx, 0), c + Vector2(-16 + dx, 14),
+				c + Vector2(-8 + dx, 0)
+			]), col)
+
+	func _spark(c: Vector2, col: Color) -> void:
+		draw_colored_polygon(PackedVector2Array([
+			c + Vector2(0, -26), c + Vector2(6, -6), c + Vector2(26, 0), c + Vector2(6, 6),
+			c + Vector2(0, 26), c + Vector2(-6, 6), c + Vector2(-26, 0), c + Vector2(-6, -6)
+		]), col)
+
+	func _drop(c: Vector2, col: Color) -> void:
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -26), c + Vector2(16, 6), c + Vector2(0, 22), c + Vector2(-16, 6)]), col)
+		draw_circle(c + Vector2(0, 6), 14, col)
+		draw_circle(c + Vector2(-5, -2), 4, Color(1, 1, 1, 0.55))
+
+	func _magnet(c: Vector2) -> void:
+		draw_arc(c + Vector2(0, 4), 20, PI, TAU, 18, Color("ef4b4b"), 10.0, true)
+		draw_line(c + Vector2(-20, 4), c + Vector2(-20, 22), Color("ef4b4b"), 10.0)
+		draw_line(c + Vector2(20, 4), c + Vector2(20, 22), Color("f0f2f6"), 10.0)
+		draw_rect(Rect2(c.x - 26, c.y + 16, 12, 10), Color("ffe08a"), true)
+		draw_rect(Rect2(c.x + 14, c.y + 16, 12, 10), Color("9aa3b2"), true)
+
+	func _bounce(c: Vector2, col: Color) -> void:
+		draw_arc(c + Vector2(-6, 4), 22, PI * 0.15, PI * 0.95, 16, col, 5.0, true)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(12, -16), c + Vector2(22, -4), c + Vector2(6, -4)]), col)
+		draw_arc(c + Vector2(6, 8), 16, PI * 1.1, TAU * 0.92, 14, Color("ffe08a"), 5.0, true)
+
+	func _arrows(c: Vector2, col: Color) -> void:
+		for i in 3:
+			var y := -16.0 + float(i) * 16.0
+			draw_line(c + Vector2(-18, y), c + Vector2(8, y), col, 4.0)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(6, y - 7), c + Vector2(22, y), c + Vector2(6, y + 7)]), col)
+
+	func _shield(c: Vector2, col: Color) -> void:
+		draw_colored_polygon(PackedVector2Array([
+			c + Vector2(0, -26), c + Vector2(22, -14), c + Vector2(18, 8),
+			c + Vector2(0, 28), c + Vector2(-18, 8), c + Vector2(-22, -14)
+		]), col)
+		draw_colored_polygon(PackedVector2Array([
+			c + Vector2(0, -16), c + Vector2(10, -8), c + Vector2(8, 4),
+			c + Vector2(0, 16), c + Vector2(-8, 4), c + Vector2(-10, -8)
+		]), Color(1, 1, 1, 0.35))
+
+	func _splash(c: Vector2, col: Color) -> void:
+		for i in 3:
+			draw_arc(c, 12.0 + float(i) * 12.0, PI * 1.15, PI * 1.85, 12, col, 4.0, true)
+
+	func _flame(c: Vector2, col: Color) -> void:
+		draw_colored_polygon(PackedVector2Array([
+			c + Vector2(0, -30), c + Vector2(16, -4), c + Vector2(8, 0),
+			c + Vector2(14, 18), c + Vector2(0, 26), c + Vector2(-14, 18),
+			c + Vector2(-8, 0), c + Vector2(-16, -4)
+		]), col)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -6), c + Vector2(6, 10), c + Vector2(0, 16), c + Vector2(-6, 10)]), Color("ffe08a"))
+
+	func _pierce(c: Vector2, col: Color) -> void:
+		draw_line(c + Vector2(-28, 0), c + Vector2(16, 0), col, 5.0)
+		draw_colored_polygon(PackedVector2Array([c + Vector2(10, -10), c + Vector2(30, 0), c + Vector2(10, 10)]), col)
+		draw_line(c + Vector2(-4, -16), c + Vector2(-4, 16), Color("ff5a6a"), 3.0)
+
+	func _thorns(c: Vector2, col: Color) -> void:
+		for ang in [-0.9, -0.2, 0.45, 1.15, 1.9]:
+			var dir := Vector2.from_angle(ang)
+			draw_colored_polygon(PackedVector2Array([
+				c + dir * 8.0 + Vector2(-dir.y, dir.x) * 5.0,
+				c + dir * 30.0,
+				c + dir * 8.0 - Vector2(-dir.y, dir.x) * 5.0
+			]), col)
+
+	func _chevron_up(c: Vector2, col: Color) -> void:
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -12), c + Vector2(14, 6), c + Vector2(-14, 6)]), col)
 
 
 class Meter extends Control:
@@ -808,18 +1009,40 @@ class Meter extends Control:
 
 
 class StickLayer extends Control:
+	# Viewport units on the 720-wide playfield. Full speed is a short push;
+	# past the rim the base slides with the thumb so a reverse is instant.
+	const RADIUS := 46.0
+	const DEAD := 3.0
+	const FULL := 16.0
 	var active := false
 	var origin := Vector2.ZERO
+	var knob := Vector2.ZERO
 	var vec := Vector2.ZERO
 	var hint := 1.0
+	var hint_left := 3.0
+
+	func place(at: Vector2) -> void:
+		var delta := at - origin
+		var dist := delta.length()
+		if dist > RADIUS and dist > 0.001:
+			origin = at - delta * (RADIUS / dist)
+			delta = at - origin
+			dist = RADIUS
+		knob = origin + delta
+		if dist <= DEAD or dist <= 0.001:
+			vec = Vector2.ZERO
+		else:
+			var mag := clampf((dist - DEAD) / (FULL - DEAD), 0.0, 1.0)
+			vec = delta * (mag / dist)
+		queue_redraw()
 
 	func _draw() -> void:
 		if size.y < 10.0:
 			return
 		if active:
-			draw_circle(origin, 76.0, Color(1, 1, 1, 0.16))
-			draw_arc(origin, 76.0, 0, TAU, 36, Color(1, 1, 1, 0.7), 4.0, true)
-			draw_circle(origin + vec * 70.0, 30.0, Color(1, 1, 1, 0.92))
+			draw_circle(origin, RADIUS, Color(1, 1, 1, 0.16))
+			draw_arc(origin, RADIUS, 0, TAU, 36, Color(1, 1, 1, 0.7), 4.0, true)
+			draw_circle(knob, 22.0, Color(1, 1, 1, 0.92))
 		elif hint > 0.04:
 			UiKit.ensure()
 			var text := "Drag to steer"

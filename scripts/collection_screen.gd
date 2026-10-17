@@ -70,20 +70,25 @@ class HeroCard extends PanelContainer:
 		var ribbon := UiKit.label(Catalog.rarity_name(rarity), 16, cols["ink"], "x", 3)
 		ribbon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(ribbon)
-		var face := TextureRect.new()
-		face.custom_minimum_size = Vector2(0, 150)
-		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		face.texture = SpriteBank.critter(id)
-		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if not bool(row["unlocked"]):
-			face.modulate = Color(0.25, 0.28, 0.35, 0.9)
-		box.add_child(face)
+		var unlocked := bool(row["unlocked"])
+		if unlocked:
+			var face := TextureRect.new()
+			face.custom_minimum_size = Vector2(0, 150)
+			face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			face.texture = SpriteBank.critter(id)
+			face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			box.add_child(face)
+		else:
+			var face := Silhouette.new()
+			face.tex = SpriteBank.critter(id)
+			face.custom_minimum_size = Vector2(0, 150)
+			box.add_child(face)
 		var name := UiKit.label(str(info["name"]), 26, UiKit.CREAM, "x", 5)
 		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(name)
-		if not bool(row["unlocked"]):
-			var locked := UiKit.label(str(info.get("unlock", "Locked")), 16, Color("d5e6ff"), "b", 3)
+		if not unlocked:
+			var locked := UiKit.label(Catalog.unlock_line(id), 16, Color("ffe08a"), "x", 3)
 			locked.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			locked.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			box.add_child(locked)
@@ -106,7 +111,8 @@ class HeroCard extends PanelContainer:
 			var have := int(row["cards"])
 			var bar := CardBar.new()
 			bar.ratio = clampf(float(have) / float(maxi(need, 1)), 0.0, 1.0)
-			bar.caption = "%d/%d" % [have, need]
+			bar.caption = "%d/%d" % [mini(have, need), need]
+			bar.surplus = maxi(0, have - need)
 			bar.custom_minimum_size = Vector2(0, 28)
 			box.add_child(bar)
 			box.add_child(UiKit.label("%d coins" % SaveGame.coins_needed(level), 14, Color("d5e6ff"), "b", 3))
@@ -123,9 +129,27 @@ class HeroCard extends PanelContainer:
 		box.add_child(actions)
 
 
+class Silhouette extends Control:
+	var tex: Texture2D
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		if tex == null:
+			return
+		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false, Color(0.06, 0.07, 0.1, 1))
+		var c := Vector2(size.x * 0.5, size.y * 0.58)
+		draw_circle(c, 28, Color(0, 0, 0, 0.4))
+		draw_arc(c + Vector2(0, -8), 13, PI, TAU, 16, Color("ffe7a0"), 4.0, true)
+		draw_rect(Rect2(c.x - 15, c.y - 2, 30, 24), Color("ffe7a0"), true)
+		draw_circle(c + Vector2(0, 8), 4, Color("3a2a12"))
+
+
 class CardBar extends Control:
 	var ratio := 0.0
 	var caption := ""
+	var surplus := 0
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -143,5 +167,17 @@ class CardBar extends Control:
 			fill.bg_color = Color("3ecf4a")
 			fill.set_corner_radius_all(6)
 			fill.draw(get_canvas_item(), inner)
+			var gloss := StyleBoxFlat.new()
+			gloss.bg_color = Color(1, 1, 1, 0.28)
+			gloss.set_corner_radius_all(5)
+			gloss.draw(get_canvas_item(), Rect2(inner.position, Vector2(inner.size.x, maxf(3.0, inner.size.y * 0.38))))
 		UiKit.ensure()
-		draw_string(UiKit.font_x, Vector2(8, size.y * 0.78), caption, HORIZONTAL_ALIGNMENT_CENTER, size.x - 16, 16, Color.WHITE)
+		var reserve := 36.0 if surplus > 0 else 0.0
+		draw_string(UiKit.font_x, Vector2(8, size.y * 0.78), caption, HORIZONTAL_ALIGNMENT_CENTER, size.x - 16.0 - reserve, 16, Color.WHITE)
+		if surplus > 0:
+			var pill := Rect2(size.x - 40, 2, 36, size.y - 4)
+			var gold := StyleBoxFlat.new()
+			gold.bg_color = Color("f0a020")
+			gold.set_corner_radius_all(8)
+			gold.draw(get_canvas_item(), pill)
+			draw_string(UiKit.font_x, Vector2(pill.position.x, size.y * 0.75), "+%d" % surplus, HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 14, Color("3a2208"))

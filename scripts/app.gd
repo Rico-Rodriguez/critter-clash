@@ -15,6 +15,10 @@ var current: Node
 
 
 func _ready() -> void:
+	# 0 means "vsync to the display". On ProMotion iPhones the iOS export
+	# asks for 120Hz via display/window/ios/allow_high_refresh_rate.
+	Engine.max_fps = 0
+	Input.use_accumulated_input = false
 	if OS.get_cmdline_user_args().has("--sim-check"):
 		var code := SimCheck.run()
 		get_tree().quit(code)
@@ -67,9 +71,13 @@ func _capture() -> void:
 	go("run", {"biome": "meadow", "hero": "ember"})
 	await _settle()
 	current.drive = Vector2(0.55, 0.9).normalized()
-	await get_tree().create_timer(1.1).timeout
+	await get_tree().create_timer(3.35).timeout
 	await _shot("hunt")
 	current.sim.debug_offer()
+	var show: Array = ["vitality", "magnet", "mage_radius"]
+	current.sim.offer = show
+	if current.sim.events.size() > 0:
+		current.sim.events[current.sim.events.size() - 1]["offer"] = show.duplicate()
 	await get_tree().create_timer(0.55).timeout
 	await _shot("levelup")
 	current._pick(0)

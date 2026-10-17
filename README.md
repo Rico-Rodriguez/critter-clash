@@ -95,18 +95,20 @@ python3 -m http.server 8941 --directory web
 
 ## Sprite drop-in
 
-Painted art is not in the game yet. `tools/build_sprites.py` writes clean placeholders. Replace a PNG and the next launch uses it. `SpriteBank` falls back to a flat circle if a file is missing, so a new id still runs.
+Critters and arenas ship from Kenney's CC0 packs. `tools/apply_kenney.py` fills the filenames below. Replace a PNG and the next launch uses it. `SpriteBank` falls back to a flat circle if a file is missing, so a new id still runs.
 
-Regenerate the placeholders with Pillow and numpy:
+Rebuild the Kenney set (needs `rsvg-convert`, Pillow, and numpy):
 
 ```
-python3 tools/build_sprites.py
+python3 tools/apply_kenney.py
 ```
+
+`tools/build_sprites.py` paints the effects and the vignette. It also overwrites critters and arenas with procedural stand-ins, so run it only when you want those stand-ins back.
 
 | File | Size | Notes |
 | --- | --- | --- |
-| `assets/sprites/critters/<id>.png` | 512×512 | Transparent. Critter centered, facing the viewer, feet near the lower third. |
-| `assets/sprites/arenas/<biome>.png` | 720×1280 | Opaque portrait backdrop. |
+| `assets/sprites/critters/<id>.png` | 1024×1024 | Transparent. Kenney round animal, feet near the lower third, dark outline. Side view; the hunt flips them to face the way they move. |
+| `assets/sprites/arenas/<biome>.png` | 1440×2560 | Opaque portrait backdrop, 2× the 720×1280 playfield. Kenney trees and bushes around a clear center. |
 | `assets/sprites/fx/gem.png` | 128×128 | XP gem. |
 | `assets/sprites/fx/orb.png` | 128×128 | Mage and enemy projectile. |
 | `assets/sprites/fx/arrow.png` | 128×128 | Archer shot, pointing right. |
@@ -121,10 +123,11 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 ## Project layout
 
 - `scripts/` hunt simulation, screens, save, sprite loader
-- `assets/sprites/` placeholder critters, arenas, and effects
+- `assets/sprites/` Kenney critters and arenas, plus generated effects
 - `assets/audio/` synthesized effects and the music loop
 - `assets/fonts/` Nunito for body copy, Lilita One for titles, numbers, and buttons
-- `tools/build_sprites.py` placeholder painter
+- `tools/apply_kenney.py` CC0 critter and arena composer
+- `tools/build_sprites.py` effects, vignette, and procedural stand-ins
 - `tools/build_audio.py` and `tools/make_icon.py`
 - `.github/workflows/ios-ipa.yml` unsigned IPA
 

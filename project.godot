@@ -29,6 +29,7 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 window/handheld/orientation=1
 window/vsync/vsync_mode=1
+window/ios/allow_high_refresh_rate=true
 
 [input_devices]
 

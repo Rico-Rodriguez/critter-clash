@@ -9,6 +9,7 @@ static func run() -> int:
 	_roles()
 	_modes()
 	_save()
+	_steer()
 	_fights()
 	if failures == 0:
 		print("SIM CHECK PASSED")
@@ -104,6 +105,27 @@ static func _save() -> void:
 			_fail("equip charm")
 	if SaveGame.claim("m80"):
 		_fail("double claim")
+
+
+static func _steer() -> void:
+	var vel := Vector2.ZERO
+	vel = RunSim.ease_stick(vel, Vector2.RIGHT, STEP)
+	if vel.x <= 0.02 or vel.x > 0.55:
+		_fail("start should ease, got %s" % vel)
+	if vel.normalized().dot(Vector2.RIGHT) < 0.99:
+		_fail("heading did not match the stick")
+	for _i in 6:
+		vel = RunSim.ease_stick(vel, Vector2.RIGHT, STEP)
+	if vel.x < 0.95:
+		_fail("did not reach full speed, got %s" % vel)
+	vel = RunSim.ease_stick(vel, Vector2.LEFT, STEP)
+	if vel.x > -0.95:
+		_fail("reverse should snap, got %s" % vel)
+	if vel.normalized().dot(Vector2.LEFT) < 0.99:
+		_fail("reverse heading lagged")
+	vel = RunSim.ease_stick(vel, Vector2.ZERO, STEP)
+	if vel.x >= -0.02 or vel.x < -0.85:
+		_fail("stop should ease, got %s" % vel)
 
 
 static func _fights() -> void:

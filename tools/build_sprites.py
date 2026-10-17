@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Paint placeholder sprites for Critter Clash.
 
-The game loads PNGs by filename. Drop a replacement on the same path and
-the next launch uses it. Sizes are documented in the README.
+The shipped critters and arenas come from Kenney's CC0 packs via
+`tools/apply_kenney.py`. Running this script overwrites those PNGs with
+the procedural stand-ins. Effects and the vignette still come from here.
 
     python3 tools/build_sprites.py
 """
@@ -192,26 +193,37 @@ def paint_creature(kind: str, body, belly, dark, accent, cheek) -> Image.Image:
     else:
         d.arc([(cx - 34) * u, (cy + 16) * u, (cx + 34) * u, (cy + 58) * u], 20, 160, fill=dark, width=int(7 * u))
 
-    e(cx - 46, cy - 70, 40, 24, (255, 255, 255, 60))
-    return _finish(img, 512)
+    e(cx - 46, cy - 70, 40, 24, (255, 255, 255, 90))
+    return _finish(img, 1024)
 
 
 def _finish(img: Image.Image, size: int) -> Image.Image:
     arr = np.array(img)
-    rng = np.random.default_rng(size + int(arr[:, :, 0].sum() % 997))
-    alpha = arr[:, :, 3]
-    mask = (rng.random(alpha.shape) < 0.45) & (alpha > 30)
-    noise = rng.integers(-18, 19, size=alpha.shape, dtype=np.int16)
-    for c in range(3):
-        ch = arr[:, :, c].astype(np.int16)
-        ch[mask] = np.clip(ch[mask] + noise[mask], 0, 255)
-        arr[:, :, c] = ch.astype(np.uint8)
-    painted = Image.fromarray(arr, "RGBA")
-    return painted.resize((size, size), Image.Resampling.LANCZOS)
+    h, w = arr.shape[:2]
+    yy = np.linspace(0.0, 1.0, h)[:, None]
+    rgb = arr[:, :, :3].astype(np.float32)
+    rgb *= np.where(yy < 0.42, 1.08, np.where(yy > 0.74, 0.84, 0.98))
+    arr[:, :, :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    pad = 30
+    canvas = Image.new("RGBA", (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+    ink = Image.new("RGBA", (w, h), (28, 16, 12, 255))
+    ink.putalpha(Image.fromarray(arr[:, :, 3], "L"))
+    for ox, oy in (
+        (26, 0), (24, 12), (18, 20), (12, 24), (0, 26), (-12, 24), (-18, 20), (-24, 12),
+        (-26, 0), (-24, -12), (-18, -20), (-12, -24), (0, -26), (12, -24), (18, -20), (24, -12),
+        (16, 22), (-16, 22), (22, 16), (-22, 16),
+    ):
+        canvas.alpha_composite(ink, (pad + ox, pad + oy))
+    canvas.alpha_composite(Image.fromarray(arr, "RGBA"), (pad, pad))
+    if canvas.size != (size, size):
+        canvas = canvas.resize((size, size), Image.Resampling.LANCZOS)
+    return canvas
 
 
 def arena(name: str) -> Image.Image:
-    w, h = 720, 1280
+    # 2× the 720×1280 playfield so a phone does not upscale a soft plate.
+    s = 2
+    w, h = 720 * s, 1280 * s
     palettes = {
         "meadow": ((168, 206, 96), (78, 140, 58), (246, 214, 96), (255, 250, 236), (92, 64, 36)),
         "mushroom": ((126, 96, 168), (42, 72, 64), (214, 96, 140), (236, 220, 255), (48, 32, 40)),
@@ -225,78 +237,86 @@ def arena(name: str) -> Image.Image:
     dy = (yy - 0.55) / 0.40
     ell = np.clip(dx * dx + dy * dy, 0, 2.4)
     shade = np.clip(1.08 - ell * 0.28, 0.55, 1.12)
-    rng_np = np.random.default_rng(abs(hash(name)) % 10007)
-    noise = rng_np.normal(0, 10, (h, w))
-    blotch = rng_np.normal(0, 1, (h // 8, w // 8))
+    seed = sum((i + 1) * ord(ch) for i, ch in enumerate(name))
+    rng_np = np.random.default_rng(seed)
+    noise = rng_np.normal(0, 5, (h, w))
+    blotch = rng_np.normal(0, 1, (h // 10, w // 10))
     blotch = np.array(Image.fromarray(blotch.astype(np.float32), "F").resize((w, h), Image.Resampling.BILINEAR))
     col = np.zeros((h, w, 3), dtype=np.float32)
     for c in range(3):
         grad = top[c] * (1 - yy) + bot[c] * yy
-        col[:, :, c] = grad * shade + noise * 0.35 + blotch * 14
+        col[:, :, c] = grad * shade + noise * 0.22 + blotch * 8
     col = np.clip(col, 0, 255).astype(np.uint8)
     img = Image.fromarray(col, "RGB").convert("RGBA")
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer, "RGBA")
     rng = random.Random(name)
-    # Soft center light, not a flat oval.
-    d.ellipse([90, 300, w - 90, h - 200], fill=(*light, 28))
-    for _ in range(26):
-        x = rng.randint(30, w - 30)
-        y = rng.randint(160, h - 40)
-        rw = rng.randint(18, 46)
-        d.ellipse([x - rw, y - 8, x + rw, y + 10], fill=(*soil, 50))
-        d.ellipse([x - rw + 4, y - 14, x + rw - 6, y + 2], fill=(*tuple(clamp(c + 18) for c in bot), 90))
-    for _ in range(90):
-        x = rng.randint(16, w - 16)
-        y = rng.randint(140, h - 24)
-        blade = rng.randint(10, 22)
-        stem = (*tuple(clamp(c - 20) for c in bot), 210)
-        d.line([(x, y), (x + rng.randint(-4, 4), y - blade)], fill=stem, width=2)
-        d.line([(x + 4, y), (x + rng.randint(2, 8), y - blade + 4)], fill=(*bot, 180), width=2)
-    for _ in range(40):
-        x = rng.randint(24, w - 24)
-        y = rng.randint(180, h - 40)
+    d.ellipse([90 * s, 300 * s, w - 90 * s, h - 200 * s], fill=(*light, 22))
+    for _ in range(34):
+        x = rng.randint(30 * s, w - 30 * s)
+        y = rng.randint(160 * s, h - 40 * s)
+        rw = rng.randint(16 * s, 40 * s)
+        d.ellipse([x - rw, y - 6 * s, x + rw, y + 8 * s], fill=(*soil, 70))
+        d.ellipse([x - rw + 4 * s, y - 12 * s, x + rw - 6 * s, y + 2 * s], fill=(*tuple(clamp(c + 22) for c in bot), 160))
+    for _ in range(140):
+        x = rng.randint(16 * s, w - 16 * s)
+        y = rng.randint(140 * s, h - 24 * s)
+        blade = rng.randint(14 * s, 28 * s)
+        lean = rng.randint(-6 * s, 6 * s)
+        stem = (*tuple(clamp(c - 28) for c in bot), 230)
+        d.polygon([(x, y), (x + lean, y - blade), (x + 3 * s, y)], fill=stem)
+        d.polygon([(x + 5 * s, y), (x + lean + 6 * s, y - blade + 4 * s), (x + 8 * s, y)], fill=(*bot, 210))
+    for _ in range(56):
+        x = rng.randint(24 * s, w - 24 * s)
+        y = rng.randint(180 * s, h - 40 * s)
         if ell[min(y, h - 1), min(x, w - 1)] < 0.35 and rng.random() < 0.55:
             continue
-        r = rng.randint(4, 8)
+        r = rng.randint(5 * s, 9 * s)
         petal = accent if rng.random() < 0.7 else light
-        d.ellipse([x - r, y - r, x + r, y + r], fill=(*petal, 230))
-        d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=(255, 236, 140, 240))
-        d.line([(x, y + r), (x, y + r + 8)], fill=(*bot, 200), width=2)
-    for _ in range(14):
-        x = rng.randint(20, w - 20)
-        y = rng.randint(200, h - 30)
-        rw = rng.randint(14, 28)
-        d.ellipse([x - rw + 4, y - 2, x + rw + 6, y + 12], fill=(40, 28, 18, 70))
-        d.ellipse([x - rw, y - 10, x + rw, y + 8], fill=(*soil, 230))
-        d.ellipse([x - rw + 6, y - 8, x + 2, y], fill=(255, 255, 255, 40))
-    for i in range(22):
+        for k in range(5):
+            ang = k * 1.256
+            px = x + int(np.cos(ang) * r * 0.8)
+            py = y + int(np.sin(ang) * r * 0.8)
+            d.ellipse([px - r // 2, py - r // 2, px + r // 2, py + r // 2], fill=(*petal, 240))
+        d.ellipse([x - 3 * s, y - 3 * s, x + 3 * s, y + 3 * s], fill=(255, 236, 140, 250))
+        d.line([(x, y + r), (x, y + r + 10 * s)], fill=(*bot, 220), width=2 * s)
+    for _ in range(18):
+        x = rng.randint(20 * s, w - 20 * s)
+        y = rng.randint(200 * s, h - 30 * s)
+        rw = rng.randint(16 * s, 34 * s)
+        d.ellipse([x - rw + 4 * s, y + 2 * s, x + rw + 8 * s, y + 16 * s], fill=(40, 28, 18, 90))
+        d.ellipse([x - rw, y - 12 * s, x + rw, y + 10 * s], fill=(*soil, 245))
+        d.ellipse([x - rw + 8 * s, y - 10 * s, x + 2 * s, y], fill=(255, 255, 255, 50))
+    for i in range(28):
         side = i % 2 == 0
-        x = rng.randint(-30, 110) if side else rng.randint(w - 130, w + 30)
-        y = rng.randint(120, h - 40)
-        d.ellipse([x - 8, y + 10, x + 70, y + 36], fill=(30, 24, 16, 60))
-        d.ellipse([x, y, x + 64, y + 36], fill=(*bot, 230))
-        d.ellipse([x + 8, y - 28, x + 48, y + 16], fill=(*tuple(clamp(c + 16) for c in bot), 230))
-        d.ellipse([x + 18, y - 8, x + 34, y + 6], fill=(*accent, 180))
+        x = rng.randint(-40 * s, 120 * s) if side else rng.randint(w - 150 * s, w + 30 * s)
+        y = rng.randint(120 * s, h - 40 * s)
+        d.ellipse([x, y, x + 78 * s, y + 42 * s], fill=(*bot, 245))
+        d.ellipse([x + 10 * s, y - 34 * s, x + 58 * s, y + 18 * s], fill=(*tuple(clamp(c + 20) for c in bot), 245))
+        d.ellipse([x + 22 * s, y - 10 * s, x + 40 * s, y + 8 * s], fill=(*accent, 200))
     if name == "mushroom":
-        for _ in range(10):
-            x = rng.randint(40, w - 40)
-            y = rng.randint(180, h - 80)
-            d.ellipse([x - 26, y - 16, x + 26, y + 14], fill=(210, 70, 96, 235))
-            d.ellipse([x - 10, y - 12, x + 4, y - 2], fill=(255, 210, 220, 160))
-            d.rectangle([x - 7, y, x + 7, y + 30], fill=(236, 214, 186, 235))
+        for _ in range(12):
+            x = rng.randint(40 * s, w - 40 * s)
+            y = rng.randint(180 * s, h - 80 * s)
+            d.ellipse([x - 30 * s, y - 18 * s, x + 30 * s, y + 16 * s], fill=(210, 70, 96, 245))
+            d.ellipse([x - 12 * s, y - 14 * s, x + 4 * s, y - 2 * s], fill=(255, 210, 220, 180))
+            d.rectangle([x - 8 * s, y, x + 8 * s, y + 36 * s], fill=(236, 214, 186, 245))
     if name == "frost":
-        for _ in range(24):
-            x = rng.randint(16, w - 16)
-            y = rng.randint(140, h - 30)
-            d.ellipse([x - 22, y - 8, x + 22, y + 10], fill=(255, 255, 255, 150))
+        for _ in range(30):
+            x = rng.randint(16 * s, w - 16 * s)
+            y = rng.randint(140 * s, h - 30 * s)
+            d.ellipse([x - 26 * s, y - 8 * s, x + 26 * s, y + 12 * s], fill=(255, 255, 255, 180))
     if name == "volcano":
-        for _ in range(8):
-            x1 = rng.randint(50, w - 50)
-            y1 = rng.randint(280, h - 80)
-            d.line([(x1, y1), (x1 + rng.randint(-70, 70), y1 + rng.randint(30, 120))], fill=(255, 120, 36, 190), width=7)
-    img = Image.alpha_composite(img, layer)
-    return img.filter(ImageFilter.SMOOTH_MORE).convert("RGB")
+        for _ in range(10):
+            x1 = rng.randint(50 * s, w - 50 * s)
+            y1 = rng.randint(280 * s, h - 80 * s)
+            d.line(
+                [(x1, y1), (x1 + rng.randint(-80 * s, 80 * s), y1 + rng.randint(40 * s, 140 * s))],
+                fill=(255, 120, 36, 210),
+                width=8 * s,
+            )
+    img = Image.alpha_composite(img, layer).convert("RGB")
+    return img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=90, threshold=2))
 
 
 def fx_images() -> None:

@@ -63,25 +63,40 @@ class Showcase extends Control:
 		queue_redraw()
 		if face == null:
 			return
-		var y := size.y * 0.46 + sin(t * 2.1) * 8.0
-		face.position = Vector2(size.x * 0.5 - 140.0, y - 200.0)
+		var y := size.y * 0.50 + sin(t * 2.1) * 8.0
+		face.position = Vector2(size.x * 0.5 - 140.0, y - 210.0)
 		if name_label:
 			name_label.position = Vector2(20, minf(size.y - 48.0, y + 96.0))
 			name_label.size = Vector2(maxf(10.0, size.x - 40.0), 40)
 
 	func _draw() -> void:
 		var c := Vector2(size.x * 0.5, size.y * 0.50)
-		draw_circle(c + Vector2(0, -20), 168, Color(1.0, 0.82, 0.35, 0.28))
-		draw_circle(c + Vector2(0, -10), 110, Color(1.0, 0.92, 0.55, 0.22))
+		var origin := c + Vector2(0, -120)
+		for i in 14:
+			var ang := -PI * 0.82 + float(i) / 13.0 * PI * 1.64 + sin(t * 0.35) * 0.02
+			var dir := Vector2.from_angle(ang)
+			var far := origin + dir * 250.0
+			var side := Vector2(-dir.y, dir.x) * 14.0
+			var ray := Color(1.0, 0.93, 0.62, 0.16 if i % 2 == 0 else 0.08)
+			draw_colored_polygon(PackedVector2Array([origin, far + side, far - side]), ray)
+		draw_circle(origin, 150, Color(1.0, 0.86, 0.42, 0.22))
+		draw_circle(origin, 86, Color(1.0, 0.95, 0.7, 0.18))
+		var foot := c + Vector2(0, 36)
 		draw_colored_polygon(PackedVector2Array([
-			c + Vector2(-120, 78), c + Vector2(120, 78), c + Vector2(90, 108), c + Vector2(-90, 108)
-		]), Color("c9842a"))
+			foot + Vector2(-150, 18), foot + Vector2(150, 18), foot + Vector2(118, 78), foot + Vector2(-118, 78)
+		]), Color(0, 0, 0, 0.28))
 		draw_colored_polygon(PackedVector2Array([
-			c + Vector2(-100, 70), c + Vector2(100, 70), c + Vector2(78, 92), c + Vector2(-78, 92)
-		]), Color("f0c36a"))
+			foot + Vector2(-132, 0), foot + Vector2(132, 0), foot + Vector2(104, 52), foot + Vector2(-104, 52)
+		]), Color("7a431c"))
 		draw_colored_polygon(PackedVector2Array([
-			c + Vector2(-70, 62), c + Vector2(70, 62), c + Vector2(50, 78), c + Vector2(-50, 78)
-		]), Color(1, 1, 1, 0.28))
+			foot + Vector2(-132, 0), foot + Vector2(132, 0), foot + Vector2(116, 16), foot + Vector2(-116, 16)
+		]), Color("e8c07a"))
+		draw_colored_polygon(PackedVector2Array([
+			foot + Vector2(-108, -18), foot + Vector2(108, -18), foot + Vector2(132, 0), foot + Vector2(-132, 0)
+		]), Color("f6d48a"))
+		draw_colored_polygon(PackedVector2Array([
+			foot + Vector2(-70, -24), foot + Vector2(40, -24), foot + Vector2(70, -8), foot + Vector2(-40, -8)
+		]), Color(1, 1, 1, 0.35))
 
 
 class ChestSlot extends Control:
@@ -100,18 +115,29 @@ class ChestSlot extends Control:
 		queue_redraw()
 
 	func _draw() -> void:
-		var r := Rect2(6, 8, size.x - 12, size.y - 14)
-		var plate := StyleBoxFlat.new()
-		plate.bg_color = Color("1a3f86") if not filled else Color("8a4b16")
-		plate.set_corner_radius_all(16)
-		plate.set_border_width_all(4)
-		plate.border_color = Color("081428")
-		plate.draw(get_canvas_item(), r)
+		var r := Rect2(4, 6, size.x - 8, size.y - 10)
+		var wood := StyleBoxFlat.new()
+		wood.bg_color = Color("6a3d22")
+		wood.set_corner_radius_all(16)
+		wood.set_border_width_all(5)
+		wood.border_color = Color("e8c07a")
+		wood.draw(get_canvas_item(), r)
+		var inner := r.grow(-8)
+		var well := StyleBoxFlat.new()
+		well.bg_color = Color("3e2414")
+		well.set_corner_radius_all(10)
+		well.draw(get_canvas_item(), inner)
+		UiKit.ensure()
 		if not filled:
-			draw_string(UiKit.font_x, r.position + Vector2(r.size.x * 0.5 - 10, r.size.y * 0.65), "+", HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(1, 1, 1, 0.35))
+			_chest(inner, Color(1, 1, 1, 0.28))
+			if UiKit.font_x:
+				draw_string(UiKit.font_x, inner.position + Vector2(0, inner.size.y - 6), "Empty", HORIZONTAL_ALIGNMENT_CENTER, inner.size.x, 16, Color(1, 0.92, 0.75, 0.8))
 			return
-		var lid := Rect2(r.position.x + 10, r.position.y + 8, r.size.x - 20, 22)
-		draw_rect(Rect2(r.position.x + 14, r.position.y + 28, r.size.x - 28, r.size.y - 40), Color("e0a04a"), true)
-		draw_rect(lid, Color("ffd56a"), true)
-		draw_rect(Rect2(r.position.x + r.size.x * 0.5 - 6, r.position.y + 24, 12, 16), Color("ffe9a0"), true)
-		draw_circle(r.position + Vector2(r.size.x * 0.5, r.size.y * 0.62), 7, Color("fff1c2"))
+		_chest(inner, Color("ffd56a"))
+
+	func _chest(r: Rect2, col: Color) -> void:
+		var body := Rect2(r.position.x + 18, r.position.y + 22, r.size.x - 36, r.size.y - 40)
+		draw_rect(body, col, true)
+		draw_rect(Rect2(body.position.x - 4, body.position.y - 14, body.size.x + 8, 18), col.lightened(0.15), true)
+		draw_rect(Rect2(body.position.x + body.size.x * 0.5 - 5, body.position.y - 6, 10, 16), Color(1, 1, 1, 0.85), true)
+		draw_circle(body.position + Vector2(body.size.x * 0.5, body.size.y * 0.62), 6, Color(1, 0.95, 0.75, 0.9))

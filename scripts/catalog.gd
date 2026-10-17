@@ -60,6 +60,16 @@ static func role_name(role: String) -> String:
 			return "Critter"
 
 
+static func unlock_line(id: String) -> String:
+	for entry in MILESTONES:
+		if str(entry.get("hero", "")) == id:
+			return "Trophy Road %d" % int(entry["trophies"])
+	var text := str(critter(id).get("unlock", "Locked"))
+	if text.begins_with("Tame"):
+		return "Tame the boss"
+	return text
+
+
 static func rarity_name(rarity: String) -> String:
 	match rarity:
 		"rare":

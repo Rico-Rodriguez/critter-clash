@@ -63,16 +63,11 @@ static func paint_menu(c: Control) -> void:
 	for i in steps:
 		var t := float(i) / float(steps)
 		c.draw_rect(Rect2(0, h * t, w, h / float(steps) + 2.0), top.lerp(bot, t), true)
-	var gap := 46.0
-	var y := 10.0
-	var row := 0
-	while y < h:
-		var x := 8.0 if row % 2 == 0 else 30.0
-		while x < w:
-			c.draw_rect(Rect2(x, y, 10, 10), Color(1, 1, 1, 0.05), true)
-			x += gap
-		y += gap * 0.72
-		row += 1
+	var span := w + h
+	var x := -h
+	while x < span:
+		c.draw_line(Vector2(x, 0), Vector2(x + h * 0.72, h), Color(1, 1, 1, 0.07), 16.0)
+		x += 42.0
 	c.draw_rect(Rect2(0, 0, w, 80), Color(0, 0, 0, 0.16), true)
 	c.draw_rect(Rect2(0, h - 110, w, 110), Color(0, 0, 0, 0.26), true)
 	c.draw_rect(Rect2(0, 0, 22, h), Color(0, 0, 0, 0.18), true)

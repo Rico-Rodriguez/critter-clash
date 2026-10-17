@@ -361,6 +361,25 @@ func _recompute(hero: Actor) -> void:
 	hero.hp = minf(hero.hp, hero.max_hp)
 
 
+## Stick shaping for the player. Heading is the thumb vector with no turn
+## smoothing. Speed eases only for a start or a stop, and that ramp is under
+## 60ms. A reverse, or any change once already moving, snaps.
+static func ease_stick(current: Vector2, want: Vector2, dt: float) -> Vector2:
+	if want.length() > 1.0:
+		want = want.normalized()
+	var current_speed := current.length()
+	var rate := 1.0 / 0.045 * dt
+	if want.length() <= 0.02:
+		var speed := move_toward(current_speed, 0.0, rate)
+		if speed <= 0.02 or current_speed <= 0.0:
+			return Vector2.ZERO
+		return current / current_speed * speed
+	if current_speed < 0.2:
+		var speed := move_toward(current_speed, want.length(), rate)
+		return want / want.length() * speed
+	return want
+
+
 func _move_heroes(dt: float, moves: Array) -> void:
 	for i in heroes.size():
 		var hero: Actor = heroes[i]
