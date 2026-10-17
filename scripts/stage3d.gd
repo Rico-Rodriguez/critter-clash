@@ -5,7 +5,7 @@ extends Control
 ## flat playfield. This view follows it with a tilted camera.
 
 const SCALE := 0.02
-const PITCH := 1.012291  # 58 degrees, high enough to read the ground
+const PITCH := 0.907571  # 52 degrees: Diablo-style tilt so faces and silhouettes read
 ## The follow camera sits far back so a wave is on screen well before it
 ## reaches the hero: about 9 m of ground across at the hero, ~1.9x the
 ## previous framing and well past 2.5x the original.
@@ -235,7 +235,7 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 			boss_up = true
 			boss_at = _to3(actor.pos)
 	_dist = lerpf(_dist, BOSS_DIST if boss_up else DIST, 0.08)
-	_update_xray(boss_up, boss_at, hero_at)
+	_update_xray(boss_up, boss_at, hero_at, sim)
 	var drop: Array = []
 	for id in _bodies.keys():
 		if seen.has(id):
@@ -838,7 +838,7 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 		["rock_a", 0.55, 0.95, 5], ["rock_b", 0.45, 0.8, 5], ["rock_c", 0.6, 1.0, 3],
 		["pebble_rock", 0.5, 0.8, 6], ["pebble_rock_b", 0.45, 0.7, 5],
 		["log", 0.9, 1.3, 4], ["stump", 0.45, 0.65, 4],
-		["mushroom", 0.4, 0.6, 7], ["mushroom_shelf", 0.35, 0.5, 3],
+		["mushroom_tall", 1.3, 2.1, 7], ["mushroom_shelf", 0.35, 0.5, 3],
 		["fern", 0.8, 1.1, 6], ["flower_b", 0.7, 0.95, 6], ["flower_a", 0.7, 0.95, 6],
 	]
 	for row in kit:
@@ -855,6 +855,21 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 	if _biome in ["frost", "volcano"]:
 		# No blossoms on snow or ash.
 		kit = kit.filter(func(row: Array) -> bool: return not ("flower" in str(row[0])))
+	# Small dressing goes through one multimesh per surface, so a field
+	# full of ferns, blossoms, mushrooms and stumps costs a handful of draws.
+	var bulk := ["fern", "flower_a", "flower_b", "mushroom_tall", "mushroom_shelf", "stump"]
+	var dense := {"low": 1.2, "medium": 2.6, "high": 3.2}
+	# Fewer, more meaningful landmarks: mushrooms and stumps stay sparse,
+	# ferns and blossoms carry the fill.
+	var landmark := {"mushroom_tall": 0.35, "stump": 0.3, "mushroom_shelf": 0.6}
+	for row in kit:
+		if str(row[0]) in bulk:
+			var n := int(round(int(row[3]) * float(dense.get(_tier(), 2.6)) * float(landmark.get(str(row[0]), 1.0))))
+			# The kit's blossoms, caps and stumps are tiny from the hunt
+			# camera: grow them into readable mid-size dressing.
+			var grow := float({"flower_a": 2.6, "flower_b": 2.6, "mushroom": 1.7, "mushroom_shelf": 1.5, "stump": 2.4}.get(str(row[0]), 1.0))
+			_scatter_kit(rng, str(row[0]), n, float(row[1]) * grow, float(row[2]) * grow)
+	kit = kit.filter(func(row: Array) -> bool: return not (str(row[0]) in bulk))
 	for row in kit:
 		for _n in int(row[3]):
 			var at := _off_path_point(rng, 1.5)
@@ -870,6 +885,45 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 					var off := Vector3(rng.randf_range(-0.9, 0.9), 0, rng.randf_range(-0.7, 0.7)) * sc * 1.6
 					_place_prop(["rock_c", "pebble_rock_b", "rock_flat"][k % 3], at + off, sc * rng.randf_range(0.3, 0.5), false)
 					_shape_rock(_props[-1], rng)
+
+
+## Instances every mesh of a kit model with a MultiMesh (one draw per
+## surface for the whole set), keeping each mesh's offset in the model.
+func _scatter_kit(rng: RandomNumberGenerator, model: String, count: int, lo: float, hi: float) -> void:
+	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
+	if packed == null or count <= 0:
+		return
+	var probe := packed.instantiate()
+	if model == "stump":
+		_bark(probe)
+	if model == "mushroom_tall":
+		_paint_mushroom(probe)
+	var spots: Array[Transform3D] = []
+	for _n in count:
+		var at := _off_path_point(rng, 1.2)
+		var sc := rng.randf_range(lo, hi)
+		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc)
+		spots.append(Transform3D(basis, at))
+		if model == "stump":
+			_contacts.append(Vector3(at.x, at.z, 0.6 * sc))
+	for mi_node in probe.find_children("*", "MeshInstance3D", true, false):
+		var mi := mi_node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var local := _chain(mi, probe)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mi.mesh
+		mm.instance_count = spots.size()
+		for i in spots.size():
+			mm.set_instance_transform(i, spots[i] * local)
+		var inst := MultiMeshInstance3D.new()
+		inst.multimesh = mm
+		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if mi.material_override:
+			inst.material_override = mi.material_override
+		world_root.add_child(inst)
+	probe.free()
 
 
 ## Breaks the kit rocks' rounded look: non-uniform stretch (tall shards,
@@ -1316,10 +1370,24 @@ void fragment() {
 ## further back and overlaps the boss's body on screen), the hero's overlay
 ## pass draws a warm rim silhouette through it. Gated on the CPU, so it
 ## needs no depth texture and costs nothing when clear.
-func _update_xray(boss_up: bool, boss_at: Vector3, hero_at: Vector3) -> void:
+func _update_xray(boss_up: bool, boss_at: Vector3, hero_at: Vector3, sim: RunSim = null) -> void:
 	if _xray_mat == null or camera == null:
 		return
 	var want := 0.0
+	# Mobs standing in front of the hero (nearer the camera) and over its
+	# body on screen also switch the silhouette on.
+	if sim != null:
+		var hs := camera.unproject_position(hero_at + Vector3(0, HERO_METERS * 0.4, 0))
+		var reach := absf(camera.unproject_position(hero_at).y - camera.unproject_position(hero_at + Vector3(0, HERO_METERS, 0)).y) * 0.55
+		for actor in sim.actors:
+			if not actor.alive or actor.team == 0 or actor.kind == "boss":
+				continue
+			var at := _to3(actor.pos)
+			if at.z <= hero_at.z:
+				continue
+			if camera.unproject_position(at + Vector3(0, HERO_METERS * 0.3, 0)).distance_to(hs) < reach:
+				want = 1.0
+				break
 	if boss_up and hero_at.z < boss_at.z:
 		var hs := camera.unproject_position(hero_at + Vector3(0, HERO_METERS * 0.45, 0))
 		var top := camera.unproject_position(boss_at + Vector3(0, BOSS_METERS * 1.05, 0))

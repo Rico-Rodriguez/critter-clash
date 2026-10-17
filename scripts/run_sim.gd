@@ -48,7 +48,7 @@ const MINION_XP := 0.7
 ## What the far follow camera frames on the ground, relative to the hero
 ## (sim px; Stage3D DIST 34, FOV 40, AIM +1.5, pitch 58; tools: viewbox.py). The far edge is
 ## wider than the near one; the box takes the wider. Packs spawn just past it.
-const VIEW_BOX := Rect2(-381.0, -1040.0, 763.0, 1597.0)
+const VIEW_BOX := Rect2(-418.0, -1238.0, 836.0, 1807.0)
 const SPAWN_MARGIN := 24.0
 var _next_id := 1
 var bases: Dictionary = {}
@@ -1049,6 +1049,19 @@ func _separate() -> void:
 	for actor in actors:
 		if actor.alive and actor.team == 1:
 			group.append(actor)
+	# Soft personal space around the hero: mobs crowd in but stay at
+	# contact range instead of piling on top of it.
+	for hero in heroes:
+		if not hero.alive:
+			continue
+		for a in group:
+			if a.kind == "boss":
+				continue
+			var off: Vector2 = a.pos - hero.pos
+			var d := off.length()
+			var room: float = (hero.radius + a.radius) * 0.85
+			if d < room and d > 0.01:
+				a.pos += off / d * (room - d) * 0.35
 	for i in group.size():
 		for j in range(i + 1, group.size()):
 			var a: Actor = group[i]

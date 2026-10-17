@@ -79,8 +79,8 @@ void vertex() {
 
 // Height-weighted blend of three layers: weights in, normalised weights out.
 vec3 height_blend(vec3 wgt, vec3 h) {
-	vec3 sc = wgt + h * 0.55;
-	float top = max(max(sc.x, sc.y), sc.z) - 0.18;
+	vec3 sc = wgt + h * 0.4;
+	float top = max(max(sc.x, sc.y), sc.z) - 0.34;
 	vec3 b = max(sc - top, vec3(0.0)) * step(vec3(0.001), wgt);
 	return b / max(b.x + b.y + b.z, 1e-4);
 }
@@ -114,12 +114,15 @@ void fragment() {
 	float macro = fbm(w * 0.028 + 3.0);
 	g_col *= mix(0.84, 1.1, macro);
 	float meadow_hue = smoothstep(0.45, 0.75, fbm(w * 0.06 + 41.0));
-	g_col = mix(g_col, g_col * vec3(1.1, 1.0, 0.74), meadow_hue * 0.3);
-	float dry = smoothstep(0.58, 0.8, fbm(w * 0.22 + 13.0));
-	g_col = mix(g_col, g_col * vec3(1.12, 1.05, 0.78), dry * 0.25);
+	g_col = mix(g_col, g_col * vec3(1.08, 1.0, 0.8), meadow_hue * 0.14);
+	float dry = smoothstep(0.5, 0.85, fbm(w * 0.45 + 13.0));
+	g_col = mix(g_col, g_col * vec3(1.08, 1.04, 0.84), dry * 0.12);
 
 	// Forest floor graded darker and browner so it reads as shaded humus.
-	f_col *= vec3(0.74, 0.74, 0.62);
+	// Cool brown humus with mossy green creeping through, not olive.
+	f_col *= vec3(0.66, 0.66, 0.56);
+	float moss = smoothstep(0.35, 0.75, fbm(w * 0.7 + 61.0));
+	f_col = mix(f_col, f_col * vec3(0.82, 1.08, 0.78), moss * 0.55);
 	// Splat weights. Forest floor: noise patches, the band along every
 	// trail, and the shaded margin under the tree line.
 	float ex = min(w.x - arena.x, arena.z - w.x);
@@ -128,13 +131,19 @@ void fragment() {
 	float canopy = 1.0 - smoothstep(1.5, 8.0, edge_d);
 	float pd = path_dist(w);
 	float edge = path_width * (0.75 + fbm(w * 1.3) * 0.5);
-	float patch = smoothstep(0.56, 0.74, fbm(w * 0.12 + 4.0));
+	// Multi-octave patch mask: small, broken drifts of litter with soft
+	// borders instead of big blotches.
+	float pn = fbm(w * 0.22 + 4.0) * 0.55 + fbm(w * 0.6 + 19.0) * 0.3 + fbm(w * 1.7 + 2.0) * 0.15;
+	float patch = smoothstep(0.52, 0.72, pn);
 	float trail_band = smoothstep(edge * 1.7, edge * 0.9, pd) * smoothstep(0.35, 0.6, fbm(w * 0.4 + 8.0));
 	float wf = clamp(max(max(patch * 0.85, trail_band * 0.7), canopy * 0.8) * (0.35 + 0.65 * litter), 0.0, 1.0);
 	// Dirt: the trails themselves, scuffs and bare patches out in the field.
-	float wd = 1.0 - smoothstep(edge * 0.4, edge * 0.95, pd);
-	float scuff = smoothstep(0.74, 0.8, fbm(w * 0.55 + 31.0));
-	float bare = smoothstep(0.66, 0.76, fbm(w * 0.11 + 47.0));
+	// Trail edges get a grass-overgrowth fringe: fine tufts eat into the
+	// dirt so the border is ragged and soft rather than a clean line.
+	float tuft = fbm(w * 2.6 + 3.0) * 0.65 + fbm(w * 6.0 + 9.0) * 0.35;
+	float wd = 1.0 - smoothstep(edge * 0.25, edge * 1.05, pd + (tuft - 0.45) * edge * 0.9);
+	float scuff = smoothstep(0.7, 0.82, fbm(w * 0.55 + 31.0));
+	float bare = smoothstep(0.64, 0.8, fbm(w * 0.18 + 47.0));
 	wd = clamp(max(wd, max(scuff * 0.7, bare * 0.8)), 0.0, 1.0);
 	vec3 wgt = vec3(1.0 - max(wf, wd) * 0.85, wf * (1.0 - wd * 0.6), wd);
 	vec3 bw = height_blend(wgt, vec3(g_d.y, f_d.y, d_d.y));
@@ -155,7 +164,7 @@ void fragment() {
 	// soft dappled cloud shadow drifting across the whole clearing.
 	float dapple = smoothstep(0.42, 0.62, fbm(w * 0.32 + vec2(TIME * 0.06, TIME * 0.025)));
 	float drift = smoothstep(0.5, 0.7, fbm(w * 0.05 + vec2(TIME * 0.02, 0.0)));
-	float shade = clamp(canopy * (0.55 + dapple * 0.45) + drift * 0.28 + dapple * 0.12, 0.0, 1.0);
+	float shade = clamp(canopy * (0.55 + dapple * 0.45) + drift * 0.16 + dapple * 0.12, 0.0, 1.0);
 	albedo *= mix(1.0, 0.58, shade);
 	if (snow > 0.0) {
 		float drift = smoothstep(0.35, 0.65, fbm(w * 0.35 + 4.0) + (1.0 - dirt_w) * 0.25);

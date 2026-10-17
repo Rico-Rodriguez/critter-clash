@@ -252,7 +252,7 @@ func _build_modal() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	modal.add_child(center)
 	modal_box = VBoxContainer.new()
-	modal_box.custom_minimum_size = Vector2(640, 0)
+	modal_box.custom_minimum_size = Vector2(690, 0)
 	modal_box.add_theme_constant_override("separation", 12)
 	center.add_child(modal_box)
 
@@ -417,7 +417,8 @@ func _drain() -> void:
 			"hit":
 				var crit := bool(ev.get("crit", false))
 				if float(ev["amount"]) < 99999.0:
-					_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ff8a1e") if crit else Color("fbf2de"), crit)
+					if crit or not _merge_float(int(ev["id"]), float(ev["amount"])):
+						_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ffc93a") if crit else Color("fbf2de"), crit, int(ev["id"]), float(ev["amount"]))
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
 				stage.hurt(int(ev["id"]))
@@ -529,7 +530,27 @@ func _banner(text: String) -> void:
 	tw.tween_property(banner, "modulate:a", 0.0, 0.35)
 
 
-func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
+## Rapid hits on the same target fold into one growing number instead of
+## a pile: true when an existing live number took the amount.
+func _merge_float(id: int, amount: float) -> bool:
+	if id < 0:
+		return false
+	for other in floats:
+		if other.visible and int(other.get_meta("eid", -1)) == id and not bool(other.get_meta("big", false)) and float(other.get_meta("life", 0.0)) > 0.3:
+			var total := float(other.get_meta("total", 0.0)) + amount
+			other.set_meta("total", total)
+			other.text = str(int(round(total)))
+			other.set_meta("life", 0.7)
+			other.reset_size()
+			other.pivot_offset = other.size * 0.5
+			var grow := minf(1.0 + total / 400.0, 1.35)
+			other.scale = Vector2.ONE * grow * 1.25
+			create_tween().tween_property(other, "scale", Vector2.ONE * grow, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			return true
+	return false
+
+
+func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, amount: float = 0.0) -> void:
 	var label: Label = null
 	for entry in floats:
 		if not entry.visible:
@@ -546,7 +567,10 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.modulate = Color(1, 1, 1, 1)
 	label.z_index = 1000
 	label.add_theme_font_override("font", UiKit.font_n)
-	label.add_theme_font_size_override("font_size", 70 if big else 48)
+	label.set_meta("eid", id)
+	label.set_meta("total", amount)
+	label.set_meta("big", big)
+	label.add_theme_font_size_override("font_size", 84 if big else 48)
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color(0.04, 0.015, 0.01))
 	label.add_theme_constant_override("outline_size", 16 if big else 13)
@@ -567,18 +591,29 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 		if other != label and other.visible and float(other.get_meta("life", 0.0)) > 0.5:
 			if (other.position + other.size * 0.5).distance_to(at + Vector2(0, -36)) < 90.0:
 				stack += 1
-	var lift := Vector2(randf_range(-18, 18) + (24.0 if stack % 2 == 1 else -24.0 if stack > 0 else 0.0), -36.0 - 44.0 * mini(stack, 3)) - label.size * 0.5
+	var lift := Vector2(randf_range(-42, 42) + (24.0 if stack % 2 == 1 else -24.0 if stack > 0 else 0.0), -36.0 - 44.0 * mini(stack, 3)) - label.size * 0.5
 	label.set_meta("sim", pos)
 	label.set_meta("lift", lift)
 	label.position = _projected(pos) + lift
-	label.set_meta("life", 0.75 if big else 0.7)
+	label.set_meta("life", 0.85 if big else 0.7)
+	# Stagger: a number born into a crowd waits a beat before showing.
+	label.set_meta("delay", 0.06 * mini(stack, 3))
 	# A slight arc: tossed up and sideways, then easing down.
 	label.set_meta("vel", Vector2(randf_range(-70.0, 70.0), -150.0 if big else -120.0))
 
 
 func _tick_floats(delta: float) -> void:
 	for label in floats:
+		if _modal_up and label.visible:
+			label.visible = false
+			continue
 		if not label.visible:
+			continue
+		var delay := float(label.get_meta("delay", 0.0))
+		if delay > 0.0:
+			label.set_meta("delay", delay - delta)
+			label.modulate.a = 0.0
+			label.position = _projected(label.get_meta("sim")) + label.get_meta("lift")
 			continue
 		var life := float(label.get_meta("life")) - delta
 		label.set_meta("life", life)
@@ -629,17 +664,21 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(sub)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
+	row.add_theme_constant_override("separation", 10)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	modal_box.add_child(row)
 	for i in offer.size():
 		var card := _offer_card(i, str(offer[i]))
 		row.add_child(card)
-		card.pivot_offset = Vector2(95, 160)
-		card.scale = Vector2(0.08, 1.0)
+		# Staggered slam-in: each card flips edge-on to face while dropping
+		# from slightly oversize, one after another.
+		card.pivot_offset = Vector2(111, 215)
+		card.scale = Vector2(0.06, 1.22)
+		card.modulate.a = 0.0
 		var tw := create_tween()
-		tw.tween_interval(0.06 * float(i))
-		tw.tween_property(card, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(0.12 * float(i))
+		tw.tween_property(card, "modulate:a", 1.0, 0.06)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _offer_card(index: int, id: String) -> Button:
@@ -648,7 +687,7 @@ func _offer_card(index: int, id: String) -> Button:
 	var button := OfferCard.new()
 	button.rarity = rarity
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.custom_minimum_size = Vector2(210, 330)
+	button.custom_minimum_size = Vector2(222, 430)
 	button.pressed.connect(_pick.bind(index))
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -667,14 +706,14 @@ func _offer_card(index: int, id: String) -> Button:
 	var icon := CardIcon.new()
 	icon.op = str(info.get("op", ""))
 	icon.rarity = rarity
-	icon.custom_minimum_size = Vector2(0, 168)
+	icon.custom_minimum_size = Vector2(0, 186)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
-	var name := UiKit.label(str(info.get("name", id)), 22, UiKit.GOLD.lightened(0.2), "x", 3)
+	var name := UiKit.label(str(info.get("name", id)), 25, UiKit.GOLD.lightened(0.2), "x", 3)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(name)
-	var desc := UiKit.label(str(info.get("desc", "")), 17, UiKit.MUTED.lightened(0.15), "m", 2)
+	var desc := UiKit.label(str(info.get("desc", "")), 26, UiKit.MUTED.lightened(0.3), "m", 3)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(desc)
@@ -1019,12 +1058,17 @@ class OfferCard extends Button:
 		var cols: Dictionary = UiKit.rarity_colors(rarity)
 		var metal := UiKit.rarity_metal(rarity)
 		frame = UiKit.Frame.new("card", "leather", {
-			"metal_hi": metal[0], "metal_lo": metal[1], "studs": 1.0, "frame": 7.0,
+			"metal_hi": Color(metal[0]).lightened(0.3), "metal_lo": Color(metal[1]).lightened(0.18), "studs": 1.0, "frame": 8.0,
 			"glow_color": Color(cols["glow"], 0.45 if rarity != "common" else 0.15),
 			"face_top": Color(cols["bg"]).lerp(Color("1c1510"), 0.35), "face_bot": Color("0c0907"),
 		})
 		frame.margin = 4.0
 		add_child(frame)
+		if rarity in ["epic", "legendary"]:
+			# Epic glow breathes: a slow brightness pulse on the frame.
+			var pulse := create_tween().set_loops()
+			pulse.tween_property(frame, "modulate", Color(1.3, 1.18, 1.4), 0.7).set_trans(Tween.TRANS_SINE)
+			pulse.tween_property(frame, "modulate", Color(1, 1, 1), 0.7).set_trans(Tween.TRANS_SINE)
 		button_down.connect(func() -> void:
 			pivot_offset = size * 0.5
 			create_tween().tween_property(self, "scale", Vector2(0.95, 0.95), 0.06))
