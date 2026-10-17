@@ -29,7 +29,7 @@ void vertex() {
 void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
 	float luma = max(tex.r, max(tex.g, tex.b));
-	if (luma < 0.12) {
+	if (luma < 0.2 || tex.a < 0.5) {
 		discard;
 	}
 	float blade = fract(sin(dot(floor(world_pos.xz * 0.55), vec2(127.1, 311.7))) * 43758.5453);

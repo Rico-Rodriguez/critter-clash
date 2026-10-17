@@ -9,6 +9,10 @@ const PITCH := 1.012291  # 58 degrees, high enough to read the ground
 const DIST := 11.0
 const FOV := 38.0
 const BOSS_DIST := 14.5
+## On-screen size targets. With the camera at DIST these put the hero near
+## 13% of the screen height; the boss is about 2.6 times the hero.
+const HERO_METERS := 1.9
+const BOSS_METERS := 4.9
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -30,11 +34,10 @@ var _pet_ready := false
 var _dust: GPUParticles3D
 var _sparks: Array = []
 var _mark: Node3D
-var _portrait: SubViewport
-var _portrait_for := ""
 var _grass_mats: Array = []
 var _props: Array = []
-var _hero_rim: OmniLight3D
+var _pings: Dictionary = {}
+var _decal_shader: Shader
 
 
 func _ready() -> void:
@@ -127,9 +130,11 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 			hero_at = body.position
 			_step_dust(body, actor, sim)
 	var boss_up := false
+	var boss_at := Vector3.ZERO
 	for actor in sim.actors:
 		if actor.alive and actor.kind == "boss":
 			boss_up = true
+			boss_at = _to3(actor.pos)
 	_dist = lerpf(_dist, BOSS_DIST if boss_up else DIST, 0.08)
 	var drop: Array = []
 	for id in _bodies.keys():
@@ -154,10 +159,13 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 	for mat in _grass_mats:
 		(mat as ShaderMaterial).set_shader_parameter("hero", hero_at)
 	_open_around(hero_at)
-	if _hero_rim != null:
-		_hero_rim.visible = true
-		_hero_rim.position = hero_at + Vector3(-0.9, 1.7, 0.55)
-	_follow(hero_at, 1.0 / 60.0)
+	var focus := hero_at
+	if boss_up:
+		# Lean the view toward the boss so its telegraphs stay on screen.
+		var lean := (boss_at - hero_at) * 0.45
+		lean.y = 0.0
+		focus = hero_at + lean.limit_length(4.0)
+	_follow(focus, 1.0 / 60.0)
 
 
 func sync_fx(sim: RunSim, alpha: float) -> void:
@@ -171,8 +179,8 @@ func sync_fx(sim: RunSim, alpha: float) -> void:
 		seen[id] = true
 		var node := _fx_node(id, "gem")
 		var pos: Vector2 = gem.prev.lerp(gem.pos, alpha)
-		node.position = _to3(pos) + Vector3(0.0, 0.42 + sin(gem.bob) * 0.08, 0.0)
-		node.rotate_y(0.08)
+		node.position = _to3(pos) + Vector3(0.0, 0.3 + sin(gem.bob) * 0.06, 0.0)
+		node.rotate_y(0.05)
 	for shot in sim.shots:
 		if not shot.alive:
 			continue
@@ -185,6 +193,7 @@ func sync_fx(sim: RunSim, alpha: float) -> void:
 		if shot.kind == "arrow" and vel.length() > 1.0:
 			var dir := Vector3(vel.x, 0.0, vel.y).normalized()
 			node.basis = Basis.looking_at(dir, Vector3.UP) * Basis(Vector3.RIGHT, PI * 0.5)
+	_sync_pings(sim)
 	var gone: Array = []
 	for id in _fx.keys():
 		if not seen.has(id):
@@ -193,6 +202,45 @@ func sync_fx(sim: RunSim, alpha: float) -> void:
 		var node: Node3D = _fx[id]
 		_fx.erase(id)
 		node.queue_free()
+
+
+## Boss telegraphs on the ground: a red disc that charges from the center,
+## or a charge lane, both with a crisp ring so the player can read the edge.
+func _sync_pings(sim: RunSim) -> void:
+	var seen := {}
+	for ping in sim.pings:
+		if not ping.alive or ping.max_life <= 0.0:
+			continue
+		var id := ping.get_instance_id()
+		seen[id] = true
+		var node: MeshInstance3D = _pings.get(id, null)
+		var lane: bool = ping.kind != "circle"
+		if node == null:
+			node = _decal(1.0, {
+				"ring_color": Color(1.0, 0.42, 0.22, 0.95),
+				"ring_radius": 0.46,
+				"ring_width": 0.018 if not lane else 0.012,
+				"ring_glow": 0.4,
+				"fill_color": Color(1.0, 0.18, 0.08, 0.38),
+				"lane": lane,
+			})
+			actor_root.add_child(node)
+			_pings[id] = node
+		var charged := 1.0 - clampf(ping.life / ping.max_life, 0.0, 1.0)
+		(node.material_override as ShaderMaterial).set_shader_parameter("fill_progress", charged)
+		if lane:
+			var mid: Vector2 = ping.pos + ping.dir * ping.length * 0.5
+			node.position = _to3(mid) + Vector3(0, 0.04, 0)
+			node.rotation = Vector3(0, -ping.dir.angle() , 0)
+			node.scale = Vector3(ping.length * SCALE / 0.92, 1.0, ping.width * 2.0 * SCALE / 0.92)
+		else:
+			node.position = _to3(ping.pos) + Vector3(0, 0.04, 0)
+			var d := ping.radius * 2.0 * SCALE / 0.92
+			node.scale = Vector3(d, 1.0, d)
+	for id in _pings.keys():
+		if not seen.has(id):
+			(_pings[id] as Node).queue_free()
+			_pings.erase(id)
 
 
 func sync_pet(sprite: String, sim_pos: Vector2, facing: float, moving: bool) -> void:
@@ -265,7 +313,7 @@ func _lights() -> void:
 	var high := _tier() == "high"
 	sun = DirectionalLight3D.new()
 	sun.light_color = Color("f6c98a")
-	sun.light_energy = 1.05
+	sun.light_energy = 1.35
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if high else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_blend_splits = true
@@ -276,13 +324,6 @@ func _lights() -> void:
 	var rim := DirectionalLight3D.new()
 	rim.light_color = Color("c5dcff")
 	rim.light_energy = 1.7
-	_hero_rim = OmniLight3D.new()
-	_hero_rim.light_color = Color("fff4dd")
-	_hero_rim.light_energy = 8.0
-	_hero_rim.omni_range = 2.8
-	_hero_rim.shadow_enabled = false
-	_hero_rim.visible = false
-	world_root.add_child(_hero_rim)
 	rim.shadow_enabled = false
 	rim.rotation_degrees = Vector3(-18, -150, 0)
 	world_root.add_child(rim)
@@ -307,14 +348,14 @@ func _environment(fog: Color, high: bool) -> Environment:
 	env.sky = sky
 	env.background_energy_multiplier = 0.32
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.42
+	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.8
+	env.tonemap_exposure = 0.95
 	env.tonemap_white = 6.5
 	env.adjustment_enabled = true
-	env.adjustment_brightness = 0.96
-	env.adjustment_contrast = 1.28
-	env.adjustment_saturation = 1.42
+	env.adjustment_brightness = 1.0
+	env.adjustment_contrast = 1.1
+	env.adjustment_saturation = 1.15
 	env.glow_enabled = true
 	env.glow_intensity = 0.12 if high else 0.08
 	env.glow_strength = 0.45
@@ -355,14 +396,14 @@ func _ground(biome_id: String) -> void:
 	mat.set_shader_parameter("grass_color", load("res://assets/textures/grass_color.jpg"))
 	mat.set_shader_parameter("grass_normal", load("res://assets/textures/grass_normal.jpg"))
 	mat.set_shader_parameter("grass_rough", load("res://assets/textures/grass_rough.jpg"))
-	mat.set_shader_parameter("dirt_color", load("res://assets/textures/dirt_color.jpg"))
-	mat.set_shader_parameter("dirt_normal", load("res://assets/textures/dirt_normal.jpg"))
-	mat.set_shader_parameter("dirt_rough", load("res://assets/textures/dirt_rough.jpg"))
-	mat.set_shader_parameter("rock_color", load("res://assets/textures/rock_color.jpg"))
-	mat.set_shader_parameter("rock_normal", load("res://assets/textures/rock_normal.jpg"))
-	mat.set_shader_parameter("rock_rough", load("res://assets/textures/rock_rough.jpg"))
+	mat.set_shader_parameter("lush_color", load("res://assets/textures/lush_color.jpg"))
+	mat.set_shader_parameter("lush_normal", load("res://assets/textures/lush_normal.jpg"))
+	mat.set_shader_parameter("dirt_color", load("res://assets/textures/path_color.jpg"))
+	mat.set_shader_parameter("dirt_normal", load("res://assets/textures/path_normal.jpg"))
+	mat.set_shader_parameter("dirt_rough", load("res://assets/textures/path_rough.jpg"))
 	mat.set_shader_parameter("world_span", span)
 	mat.set_shader_parameter("tint", _biome_tint(biome_id))
+	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = plane
 	mesh.material_override = mat
@@ -371,23 +412,28 @@ func _ground(biome_id: String) -> void:
 	world_root.add_child(mesh)
 
 
+## Distance in meters to the dirt trails the terrain shader paints, without
+## the shader's wobble. Grass and props keep off the trails with it.
+static func path_dist(w: Vector2) -> float:
+	var a := absf(w.x - (7.2 + sin(w.y * 0.23 + 0.6) * 2.6))
+	var b := absf(w.y - (13.0 + sin(w.x * 0.31 + 1.8) * 2.2))
+	var c := absf(w.x - (3.4 + w.y * 0.18)) + maxf(w.y - 11.0, 0.0) * 4.0
+	return minf(minf(a, b), c)
+
+
 func _foliage(biome_id: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(biome_id) + 17
 	_grass_mats.clear()
 	_props.clear()
-	var count := 480 if _tier() == "low" else (1500 if _tier() == "medium" else 2200)
-	_scatter(rng, "grass_tall", int(count * 0.5), 0.5, 0.75, true)
-	_scatter(rng, "grass_short", int(count * 0.34), 0.42, 0.62, true)
-	_scatter(rng, "grass_wispy", int(count * 0.2), 0.4, 0.58, true)
-	_scatter(rng, "flower_a", 28, 0.45, 0.68, false)
-	_scatter(rng, "flower_b", 22, 0.45, 0.68, false)
-	_scatter(rng, "clover", 36, 0.4, 0.58, false)
-	if biome_id != "meadow":
-		_scatter(rng, "fern", 18, 0.55, 0.8, false)
-	# Meadow stays oaks and bushes. Round canopies and clay rocks ship
-	# without textures and read as white boulders. Palms are not in this set.
-	var trees: Array = ["tree_a", "tree_b", "bush", "bush_flower"]
+	var count := 360 if _tier() == "low" else (900 if _tier() == "medium" else 1300)
+	_scatter(rng, "grass_short", int(count * 0.55), 0.4, 0.6, true)
+	_scatter(rng, "grass_wispy", int(count * 0.25), 0.38, 0.55, true)
+	_scatter(rng, "flower_a", 34, 0.5, 0.75, false)
+	_scatter(rng, "flower_b", 30, 0.5, 0.75, false)
+	_scatter(rng, "clover", 40, 0.45, 0.62, false)
+	_scatter(rng, "fern", 22 if biome_id == "meadow" else 34, 0.6, 0.9, false)
+	var trees: Array = ["tree_a", "tree_b", "bush_flower", "tree_a"]
 	match biome_id:
 		"mushroom":
 			trees = ["mushroom_tall", "mushroom", "tree_twist", "bush"]
@@ -395,8 +441,6 @@ func _foliage(biome_id: String) -> void:
 			trees = ["tree_pine", "tree_pine_b", "bush"]
 		"volcano":
 			trees = ["tree_dead", "tree_twist", "rock_lava"]
-	# The meadow rim uses the Sketchfab vegetation pack when it is present.
-	# Other biomes keep the CC0 kit.
 	var pack := biome_id == "meadow" and ResourceLoader.exists("res://assets/models/sketchfab/nature/grove.glb")
 	if not pack:
 		for i in (8 if _tier() == "low" else 14):
@@ -404,15 +448,35 @@ func _foliage(biome_id: String) -> void:
 			var at := _rim_point(rng)
 			_place_prop(name, at, rng.randf_range(1.15, 1.55), true)
 	_sketchfab_nature(rng)
-	for i in 8:
-		var light := OmniLight3D.new()
-		light.light_color = Color("ffe0a8") if i % 2 == 0 else Color("c9d8ff")
-		light.light_energy = 0.85
-		light.omni_range = 7.0
-		light.shadow_enabled = false
-		var at := _field_point(rng) if i < 5 else _rim_point(rng)
-		light.position = at + Vector3(0.0, 2.8, 0.0)
-		world_root.add_child(light)
+	_field_props(rng)
+
+
+## Mid-field set dressing a Diablo floor needs: mossy rocks, fallen logs,
+## stumps, mushroom clusters, and flower beds, kept off the trails.
+func _field_props(rng: RandomNumberGenerator) -> void:
+	var kit := [
+		["rock_a", 0.55, 0.95, 5], ["rock_b", 0.45, 0.8, 5], ["rock_c", 0.6, 1.0, 3],
+		["pebble_rock", 0.5, 0.8, 6], ["pebble_rock_b", 0.45, 0.7, 5],
+		["log", 0.9, 1.3, 4], ["stump", 0.45, 0.65, 4],
+		["mushroom", 0.4, 0.6, 7], ["mushroom_shelf", 0.35, 0.5, 3],
+		["bush_flower", 0.7, 1.0, 6], ["flower_b", 0.7, 0.95, 6], ["flower_a", 0.7, 0.95, 6],
+	]
+	if _tier() == "low":
+		for row in kit:
+			row[3] = maxi(1, int(row[3]) / 2)
+	for row in kit:
+		for _n in int(row[3]):
+			var at := _off_path_point(rng, 1.5)
+			_place_prop(str(row[0]), at, rng.randf_range(float(row[1]), float(row[2])), str(row[0]).begins_with("rock") or str(row[0]) in ["log", "stump"])
+
+
+func _off_path_point(rng: RandomNumberGenerator, keep: float) -> Vector3:
+	var at := _field_point(rng)
+	for _try in 12:
+		if path_dist(Vector2(at.x, at.z)) > keep:
+			return at
+		at = _field_point(rng)
+	return at
 
 
 func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, hi: float, sway: bool) -> void:
@@ -431,7 +495,7 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 	multi.instance_count = count
 	var posed := _chain(source, probe)
 	for i in count:
-		var at := _field_point(rng)
+		var at := _off_path_point(rng, 1.0)
 		var s := rng.randf_range(lo, hi)
 		var spin := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s))
 		multi.set_instance_transform(i, Transform3D(spin, at) * posed)
@@ -452,6 +516,8 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 		return
 	var node := packed.instantiate()
 	node.position = at
+	if model in ["log", "stump"]:
+		_bark(node)
 	if node is Node3D:
 		var prop := node as Node3D
 		prop.scale *= scale
@@ -529,14 +595,18 @@ func _rim_point(rng: RandomNumberGenerator) -> Vector3:
 func _body_for(actor: RunSim.Actor) -> Node3D:
 	if _bodies.has(actor.id):
 		return _bodies[actor.id]
-	var meters := 1.05
+	var meters := HERO_METERS
 	if actor.kind == "boss":
-		meters = 2.7
+		meters = BOSS_METERS
 	elif actor.kind != "hero":
-		meters = clampf(actor.radius / 40.0, 0.62, 0.92)
+		meters = clampf(actor.radius / 40.0, 0.62, 0.92) * 1.45
 	var body := _spawn_model(actor.sprite, meters)
 	if actor.kind == "hero" and actor.team == 0:
 		_outline(body)
+	elif actor.kind != "hero":
+		var blob := _decal(meters * 1.1, {"ring_color": Color(0, 0, 0, 0), "shadow_alpha": 0.42, "shadow_radius": 0.42})
+		blob.position.y = 0.03
+		body.add_child(blob)
 	body.rotation.y = _yaw(actor.facing, body)
 	actor_root.add_child(body)
 	_bodies[actor.id] = body
@@ -567,7 +637,9 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 			face = hinted
 	root.set_meta("face", face)
 	var box := _measure(model)
-	var h := maxf(box.size.y, 0.05)
+	# Wide critters (the dragon's wingspan) read by footprint from the
+	# high camera, so size by whichever is larger.
+	var h := maxf(maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7), 0.05)
 	var factor := meters / h
 	model.scale *= factor
 	# Feet on the ground, and the body centered. Sketchfab rigs often sit
@@ -577,8 +649,46 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	model.position.x -= center.x * factor
 	model.position.z -= center.z * factor
 	_hide_catch(model)
+	_fix_pbr(model, sprite)
 	_tint(model, Cast3D.tint(sprite))
 	return root
+
+
+## Sketchfab exports pack AO, roughness, and metal into one map. Godot reads
+## the blue channel as metal, so the dragon came in as polished chrome that
+## only reflected the sky. Critters are painted fur, scale, and cloth: no
+## metal, a soft sheen, and the normal map only where it carries detail.
+func _fix_pbr(node: Node, sprite: String) -> void:
+	var opts := Cast3D.pbr(sprite)
+	if opts.is_empty():
+		return
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh:
+		var mesh := node as MeshInstance3D
+		for i in mesh.mesh.get_surface_count():
+			var base := mesh.get_active_material(i)
+			if not base is StandardMaterial3D:
+				continue
+			var mat := (base as StandardMaterial3D).duplicate() as StandardMaterial3D
+			mat.metallic = 0.0
+			mat.metallic_texture = null
+			mat.metallic_specular = float(opts.get("specular", 0.45))
+			mat.roughness_texture = null
+			mat.roughness = float(opts.get("roughness", 0.62))
+			if bool(opts.get("drop_normal", false)):
+				mat.normal_enabled = false
+				mat.normal_texture = null
+			if bool(opts.get("drop_ao", false)):
+				mat.ao_enabled = false
+				mat.ao_texture = null
+			var lift: Color = opts.get("albedo", Color.WHITE)
+			mat.albedo_color = mat.albedo_color * lift
+			if opts.has("rim"):
+				mat.rim_enabled = true
+				mat.rim = float(opts["rim"])
+				mat.rim_tint = 0.35
+			mesh.set_surface_override_material(i, mat)
+	for child in node.get_children():
+		_fix_pbr(child, sprite)
 
 
 func _anim(body: Node3D, actor: RunSim.Actor) -> void:
@@ -664,119 +774,39 @@ func _frame_on(body: Node3D) -> void:
 	camera.look_at(focus, Vector3.UP)
 
 
+func _decal(size: float, params: Dictionary) -> MeshInstance3D:
+	if _decal_shader == null:
+		_decal_shader = load("res://shaders/ground_decal.gdshader")
+	var node := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.orientation = PlaneMesh.FACE_Y
+	quad.size = Vector2(size, size)
+	node.mesh = quad
+	var mat := ShaderMaterial.new()
+	mat.shader = _decal_shader
+	for key in params:
+		mat.set_shader_parameter(key, params[key])
+	node.material_override = mat
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return node
+
+
+## The hero's selection ring: a soft contact shadow under a smooth gold ring.
 func _place_mark(at: Vector3) -> void:
 	if _mark == null:
-		_mark = Node3D.new()
-		var blob := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.orientation = QuadMesh.FACE_Y
-		quad.size = Vector2(1.45, 0.95)
-		blob.mesh = quad
-		var shade := StandardMaterial3D.new()
-		shade.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		shade.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		shade.albedo_color = Color(0, 0, 0, 0.55)
-		shade.cull_mode = BaseMaterial3D.CULL_DISABLED
-		blob.material_override = shade
-		blob.position.y = 0.025
-		blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_mark.add_child(blob)
-		var ring := MeshInstance3D.new()
-		var torus := TorusMesh.new()
-		torus.inner_radius = 0.52
-		torus.outer_radius = 0.68
-		torus.rings = 8
-		torus.ring_segments = 28
-		ring.mesh = torus
-		var gold := StandardMaterial3D.new()
-		gold.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		gold.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		gold.albedo_color = Color(1.0, 0.8, 0.32, 0.92)
-		gold.emission_enabled = true
-		gold.emission = Color("ffd27a")
-		gold.emission_energy_multiplier = 0.45
-		ring.material_override = gold
-		ring.position.y = 0.04
-		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_mark.add_child(ring)
+		_mark = _decal(HERO_METERS * 0.82, {
+			"ring_color": Color(1.0, 0.86, 0.42, 0.95),
+			"ring_radius": 0.4,
+			"ring_width": 0.04,
+			"ring_glow": 0.45,
+			"shadow_alpha": 0.5,
+			"shadow_radius": 0.34,
+			"pulse": 1.0,
+		})
+		_mark.position.y = 0.035
 		actor_root.add_child(_mark)
 	_mark.visible = true
-	_mark.position = at
-
-
-func portrait_of(hero_id: String) -> Texture2D:
-	if _portrait != null and _portrait_for == hero_id:
-		return _portrait.get_texture()
-	_portrait_for = hero_id
-	var host := Node.new()
-	host.name = "PortraitHost"
-	add_child(host)
-	var vp := SubViewport.new()
-	vp.size = Vector2i(256, 256)
-	vp.transparent_bg = false
-	vp.own_world_3d = true
-	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	vp.msaa_3d = Viewport.MSAA_2X
-	host.add_child(vp)
-	var root := Node3D.new()
-	vp.add_child(root)
-	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("1b2c4a")
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("8eabcf")
-	env.ambient_light_energy = 0.6
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.95
-	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.12
-	env.adjustment_saturation = 1.25
-	var holder := WorldEnvironment.new()
-	holder.environment = env
-	root.add_child(holder)
-	var key := DirectionalLight3D.new()
-	key.light_color = Color("ffe2b8")
-	key.light_energy = 1.45
-	key.rotation_degrees = Vector3(-32, 36, 0)
-	key.shadow_enabled = true
-	root.add_child(key)
-	var rim := DirectionalLight3D.new()
-	rim.light_color = Color("b7d0ff")
-	rim.light_energy = 0.9
-	rim.rotation_degrees = Vector3(-12, -150, 0)
-	root.add_child(rim)
-	var cam := Camera3D.new()
-	cam.current = true
-	root.add_child(cam)
-	var body := _spawn_model(hero_id, 1.2)
-	root.add_child(body)
-	_hide_catch(body)
-	_play(body, "idle")
-	var box := _measure_local(body)
-	var center := box.position + box.size * 0.5
-	var forward := Vector3(0.0, 0.0, 1.0)
-	var marker := _find_named(body, "Forward")
-	if marker != null:
-		var aimed := _local_point(marker, body)
-		aimed.y = 0.0
-		if aimed.length() > 0.05:
-			forward = aimed.normalized()
-	var head := center + forward * maxf(box.size.z, box.size.x) * 0.28 + Vector3(0.0, box.size.y * 0.18, 0.0)
-	var aim := _head_point(body)
-	if aim.length() > 0.001 or _has_head(body):
-		var flat := Vector3(aim.x - center.x, 0.0, aim.z - center.z)
-		if flat.length() > 0.02:
-			forward = flat.normalized()
-		head = aim
-	# The head bone sits up in the horns. Look a little below it and stay
-	# far enough back that the snout and jaw stay inside the medallion.
-	var reach := maxf(box.size.y, 0.6)
-	var look := head + Vector3(0.0, -reach * 0.1, 0.0)
-	cam.fov = 24.0
-	cam.position = look + forward * reach * 2.55 + Vector3(0.0, reach * 0.22, 0.0)
-	cam.look_at(look, Vector3.UP)
-	_portrait = vp
-	return vp.get_texture()
+	_mark.position = Vector3(at.x, 0.035, at.z)
 
 
 func _step_dust(body: Node3D, actor: RunSim.Actor, sim: RunSim) -> void:
@@ -915,38 +945,48 @@ func _fx_node(id: int, kind: String) -> MeshInstance3D:
 	var mesh_node := MeshInstance3D.new()
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	mat.emission_enabled = true
-	mat.roughness = 0.28
+	mat.roughness = 0.25
+	mat.metallic_specular = 0.8
 	if kind == "gem":
-		var sphere := SphereMesh.new()
-		sphere.radius = 0.16
-		sphere.height = 0.32
-		mesh_node.mesh = sphere
-		mat.albedo_color = Color("7dff5a")
-		mat.emission = Color("b6f27a")
-		mat.emission_energy_multiplier = 1.6
+		# A small cut emerald: six facets top and bottom, a soft inner glow.
+		var gem := SphereMesh.new()
+		gem.radial_segments = 6
+		gem.rings = 2
+		gem.radius = 0.1
+		gem.height = 0.26
+		mesh_node.mesh = gem
+		mat.albedo_color = Color("2ee87a")
+		mat.emission_enabled = true
+		mat.emission = Color("1fd468")
+		mat.emission_energy_multiplier = 0.55
+		mat.rim_enabled = true
+		mat.rim = 0.6
 	elif kind == "arrow":
 		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.045
-		cyl.bottom_radius = 0.045
-		cyl.height = 0.55
+		cyl.top_radius = 0.0
+		cyl.bottom_radius = 0.04
+		cyl.height = 0.5
 		mesh_node.mesh = cyl
 		mat.albedo_color = Color("f4e2b0")
-		mat.emission = Color("ffe08a")
-		mat.emission_energy_multiplier = 0.35
+		mat.emission_enabled = true
+		mat.emission = Color("ffd27a")
+		mat.emission_energy_multiplier = 0.5
 	else:
 		var sphere := SphereMesh.new()
-		sphere.radius = 0.2 if kind == "bash" else 0.16
+		sphere.radius = 0.14 if kind == "bash" else 0.11
 		sphere.height = sphere.radius * 2.0
+		sphere.radial_segments = 16
+		sphere.rings = 8
 		mesh_node.mesh = sphere
-		var col := Color("ff9a3c")
+		var col := Color("ff7a1a")
 		if kind == "enemy":
-			col = Color("ff5a3c")
+			col = Color("c040ff")
 		elif kind == "bash":
-			col = Color("ffe08a")
+			col = Color("ffd34a")
 		mat.albedo_color = col
+		mat.emission_enabled = true
 		mat.emission = col
-		mat.emission_energy_multiplier = 2.1
+		mat.emission_energy_multiplier = 1.15
 	mesh_node.material_override = mat
 	mesh_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	actor_root.add_child(mesh_node)
@@ -1127,6 +1167,22 @@ func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 	lib.visible = false
 
 
+## The CC0 log and stump ship without a texture and render white. Wrap them
+## in the kit's own bark, projected so seams do not matter.
+func _bark(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = load("res://assets/models/tree_a_Bark_NormalTree.png")
+		mat.albedo_color = Color("c9a98a")
+		mat.uv1_triplanar = true
+		mat.uv1_world_triplanar = false
+		mat.uv1_scale = Vector3(1.6, 1.6, 1.6)
+		mat.roughness = 0.9
+		(node as MeshInstance3D).material_override = mat
+	for child in node.get_children():
+		_bark(child)
+
+
 func _paint_rock(node: Node) -> void:
 	if node is MeshInstance3D:
 		var mat := StandardMaterial3D.new()
@@ -1230,6 +1286,16 @@ func _biome_tint(biome_id: String) -> Vector3:
 			return Vector3(1.08, 0.78, 0.62)
 		_:
 			return Vector3(0.95, 1.02, 0.9)
+
+
+func _dirt_tint(biome_id: String) -> Vector3:
+	match biome_id:
+		"frost":
+			return Vector3(0.95, 0.98, 1.05)
+		"volcano":
+			return Vector3(0.7, 0.55, 0.5)
+		_:
+			return Vector3(1.0, 0.94, 0.86)
 
 
 func _tier() -> String:
