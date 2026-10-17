@@ -105,11 +105,12 @@ static func clips(id: String) -> Dictionary:
 static func pbr(id: String) -> Dictionary:
 	var path := model(id)
 	if path.ends_with("sketchfab/ember.glb"):
-		# Source albedo as shipped. The packed ORM's metal channel is bogus
-		# (full metal), so roughness (G) and AO (R) are bound and metal is
-		# forced off. tools/bake_ember_normal.py adds hex scales to the
-		# source normal map so the body reads as scaled hide.
-		return {"roughness": 0.66, "specular": 0.35, "backlight": Color(0.55, 0.12, 0.04), "rough_tex": "res://assets/models/sketchfab/ember_1.png", "ao_tex": "res://assets/models/sketchfab/ember_1.png", "normal_tex": "res://assets/models/sketchfab/ember_normal_scales.png", "normal_scale": 1.6, "rim": 0.3}
+		# The source albedo is one flat red. tools/paint_ember.py paints a
+		# multi-tone hide from it by body region (back, belly, wings, horns).
+		# The packed ORM's metal channel is bogus (full metal), so roughness
+		# (G) and AO (R) are bound and metal is forced off.
+		# tools/bake_ember_normal.py adds hex scales to the source normal map.
+		return {"roughness": 0.66, "specular": 0.35, "backlight": Color(0.55, 0.12, 0.04), "albedo_tex": "res://assets/models/sketchfab/ember_paint.png", "rough_tex": "res://assets/models/sketchfab/ember_1.png", "ao_tex": "res://assets/models/sketchfab/ember_1.png", "normal_tex": "res://assets/models/sketchfab/ember_normal_scales.png", "normal_scale": 1.6, "rim": 0.3}
 	if path.ends_with("sketchfab/thistle.glb"):
 		return {"roughness": 0.68, "specular": 0.4, "rim": 0.25}
 	if path.ends_with("sketchfab/juniper.glb"):
