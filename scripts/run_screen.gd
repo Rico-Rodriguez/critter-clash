@@ -818,29 +818,20 @@ func _end_panel(win: bool) -> VBoxContainer:
 	return col
 
 
-## Three forged stat tiles: time, foes slain, level reached.
-func _end_stats() -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
+## One big hero stat line: the hero's name over its run in a single
+## bold read (foes slain, time, level), rather than three small tiles.
+func _end_stats() -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 0)
 	var t := int(sim.time) if sim else 0
-	var cells := [["TIME", "%d:%02d" % [t / 60, t % 60]], ["SLAIN", str(sim.slain if sim else 0)], ["LEVEL", str(sim.level if sim else 1)]]
-	for cell in cells:
-		var tile := UiKit.Plate.new()
-		tile.kind = "plaque"
-		tile.pad = 10
-		tile.custom_minimum_size = Vector2(196, 0)
-		var v := VBoxContainer.new()
-		v.add_theme_constant_override("separation", 0)
-		tile.add_child(v)
-		var k := UiKit.label(str(cell[0]), 17, UiKit.MUTED, "x", 2)
-		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(k)
-		var val := UiKit.label(str(cell[1]), 32, UiKit.CREAM, "x", 3)
-		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		v.add_child(val)
-		row.add_child(tile)
-	return row
+	var who := UiKit.label(str(Catalog.critter(hero_id).get("name", "Hero")).to_upper(), 20, UiKit.MUTED.lightened(0.1), "x", 3)
+	who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(who)
+	var big := UiKit.label("%d SLAIN  ·  %d:%02d  ·  LV %d" % [sim.slain if sim else 0, t / 60, t % 60, sim.level if sim else 1], 44, UiKit.CREAM, "x", 4)
+	big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(big)
+	return v
 
 
 ## The chest that comes home: its baked icon and unlock time.
@@ -889,8 +880,10 @@ func _show_victory(boss_name: String) -> void:
 			var tag := UiKit.Plate.new()
 			tag.kind = "card"
 			tag.pad = 10
-			tag.glow = Color(1.0, 0.75, 0.35, 0.3)
-			tag.custom_minimum_size = Vector2(170, 0)
+			# Rarity frame: the tag glows in the drop's rarity colour.
+			var rar := str(drop.get("rarity", "rare"))
+			tag.glow = Color(UiKit.rarity_colors(rar)["glow"], 0.75)
+			tag.custom_minimum_size = Vector2(200, 0)
 			var dv := VBoxContainer.new()
 			dv.add_theme_constant_override("separation", 2)
 			tag.add_child(dv)
@@ -900,7 +893,7 @@ func _show_victory(boss_name: String) -> void:
 				ico.texture = SpriteBank.head(str(drop["sprite"]))
 			else:
 				ico.texture = SpriteBank._load("res://assets/sprites/items/%s.png" % did, did)
-			ico.custom_minimum_size = Vector2(84, 84)
+			ico.custom_minimum_size = Vector2(124, 124)
 			ico.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			ico.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			dv.add_child(ico)
@@ -924,8 +917,8 @@ func _show_victory(boss_name: String) -> void:
 	prize.add_child(trophies)
 	col.add_child(prize)
 	col.add_child(_end_chest(true))
-	var button := UiKit.button("OPEN THE CHEST", 480, 96, "gold")
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var button := UiKit.button("OPEN THE CHEST", 660, 104, "gold")
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(func() -> void: go("chest"))
 	col.add_child(button)
 
@@ -947,8 +940,8 @@ func _show_defeat(reason: String) -> void:
 	col.add_child(_end_stats())
 	col.add_child(_end_chest(false))
 	col.add_child(hint)
-	var button := UiKit.button("OPEN THE POUCH", 480, 96, "steel")
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var button := UiKit.button("OPEN THE POUCH", 660, 104, "steel")
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(func() -> void: go("chest"))
 	col.add_child(button)
 	var again := UiKit.secondary("TRY AGAIN", 300, 64)

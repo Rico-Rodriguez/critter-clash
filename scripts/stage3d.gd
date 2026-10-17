@@ -225,6 +225,8 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		body.position = _to3(pos)
 		body.rotation.y = lerp_angle(body.rotation.y, _yaw(actor.facing, body), 0.4)
 		_anim(body, actor)
+		if actor.kind == "boss":
+			_boss_fx(body, actor)
 		if actor.kind == "hero" and actor.team == 0:
 			hero_at = body.position
 			_step_dust(body, actor, sim)
@@ -1315,7 +1317,41 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		_center_posed(body, 0.45)
 	if actor.kind == "boss":
 		_boss_landing(body)
+		_boss_glow(body)
 	return body
+
+
+## Boss wind-up glow: an additive hot rim over the whole body, driven by
+## the sim's wind-up state so the attack telegraphs on the boss itself.
+func _boss_glow(body: Node3D) -> void:
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
+uniform float amount = 0.0;
+void fragment() {
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.2);
+	ALBEDO = vec3(1.0, 0.36, 0.1) * (0.25 + rim * 1.6) * amount;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	for m in body.find_children("*", "MeshInstance3D", true, false):
+		if (m as MeshInstance3D).material_overlay == null and not str(m.name).begins_with("Catch"):
+			(m as MeshInstance3D).material_overlay = mat
+	body.set_meta("windup_mat", mat)
+
+
+## Idle sway (a slow, heavy rock side to side) and the wind-up glow pulse.
+func _boss_fx(body: Node3D, actor: RunSim.Actor) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var winding := actor.boss_state == "windup"
+	body.rotation.z = sin(now * 1.4) * 0.035 + (sin(now * 22.0) * 0.02 if winding else 0.0)
+	body.rotation.x = sin(now * 0.9 + 1.0) * 0.02 - (0.06 if winding else 0.0)
+	var mat: ShaderMaterial = body.get_meta("windup_mat", null)
+	if mat != null:
+		var cur := float(mat.get_shader_parameter("amount"))
+		var want := (0.55 + 0.45 * sin(now * 14.0)) if winding else 0.0
+		mat.set_shader_parameter("amount", move_toward(cur, want, 0.12))
 
 
 ## Hunt hero only: a cool fresnel rim plus a faint warm lift, added over

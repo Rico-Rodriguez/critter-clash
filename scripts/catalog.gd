@@ -273,7 +273,7 @@ const CRITTERS: Dictionary = {
 		"name": "Ember", "role": "mage", "kind": "hero", "color": "ff7a3c",
 		"blurb": "Dragon mage. Fire orbs splash.",
 		"unlock": "A starter hero.",
-		"hp": 168, "dmg": 19, "interval": 0.46, "range": 320, "speed": 268,
+		"hp": 168, "dmg": 21, "interval": 0.46, "range": 320, "speed": 268,
 		"splash": 92, "splash_mul": 0.66, "proj_speed": 520, "armor": 0,
 	},
 	"juniper": {
