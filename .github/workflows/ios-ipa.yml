@@ -45,11 +45,24 @@ jobs:
           # (Compatibility) cannot bake Mobile core shaders.
           "$GODOT" --headless --path . --import --quit || true
           mkdir -p build/ios
+          # Godot 4.7.2 can abort (exit 134) while quitting the Metal shader
+          # baker, after the Xcode project and pack are already written.
+          # Keep the project when those files exist. A real export failure
+          # still stops the job.
+          set +e
           "$GODOT" --path . \
             --rendering-method mobile \
             --rendering-driver metal \
             --export-release "iOS" build/ios/CritterClash.xcodeproj
+          code=$?
+          set -e
           test -d build/ios/CritterClash.xcodeproj
+          test -f build/ios/CritterClash.xcodeproj/project.pbxproj
+          pck="$(find build/ios -name '*.pck' -size +100k -print -quit)"
+          test -n "$pck"
+          if [ "$code" -ne 0 ]; then
+            echo "Godot export exited ${code} after writing ${pck}. Continuing."
+          fi
 
       - name: Archive without signing and zip the IPA
         run: |
