@@ -212,7 +212,7 @@ static func pbr(id: String) -> Dictionary:
 		# cold rim. Enemies get burning eyes via the motion layer's glow.
 		var d := {"roughness": 0.86, "specular": 0.28, "rim": 0.22, "rim_tint": 0.8, "grade": 0.72}
 		if id == "sprout":
-			d["albedo"] = Color(0.62, 0.6, 0.52)
+			d["albedo"] = Color(0.42, 0.43, 0.33)
 		elif id == "boarlet":
 			d["albedo"] = Color(0.5, 0.46, 0.44)
 		else:
