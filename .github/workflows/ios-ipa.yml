@@ -8,7 +8,10 @@ on:
 
 jobs:
   ipa:
-    runs-on: macos-15
+    # Godot 4.7.2's iOS Metal template references CADynamicRange* and
+    # MTLTensorDomain, which are only in the iOS 26 SDK. macos-15 ships
+    # Xcode 16.4 (iOS 18.5) and the link fails. macos-26 has Xcode 26.
+    runs-on: macos-26
     permissions:
       contents: write
     steps:

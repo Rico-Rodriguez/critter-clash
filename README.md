@@ -83,7 +83,7 @@ godot --headless --path . --export-release "Web" web/index.html
 
 Bundle id `com.rico.critterclash`, display name Critter Clash, minimum iOS 15. The export preset writes an Xcode project only (`application/export_project_only`). Team id `ABCDE12345` is a placeholder so Godot will export; SideInstaller replaces the signature with your Apple ID.
 
-`.github/workflows/ios-ipa.yml` runs on `macos-15` for pushes to `main` and for workflow dispatch. It installs Godot 4.7.2 and the export templates, exports the Xcode project with the Mobile renderer and Metal so the shader baker can run, archives with `CODE_SIGNING_ALLOWED=NO`, zips `Payload/*.app` into `CritterClash.ipa`, and publishes a prerelease tagged `ios-v1`.
+`.github/workflows/ios-ipa.yml` runs on `macos-26` for pushes to `main` and for workflow dispatch. The Godot 4.7.2 iOS template links Metal symbols from the iOS 26 SDK, so Xcode 16 on `macos-15` cannot archive it. It installs Godot 4.7.2 and the export templates, exports the Xcode project with the Mobile renderer and Metal so the shader baker can run, archives with `CODE_SIGNING_ALLOWED=NO`, zips `Payload/*.app` into `CritterClash.ipa`, and publishes a prerelease tagged `ios-v1`.
 
 ### Art and audio rebuild
 
