@@ -3338,6 +3338,10 @@ func _apply_low() -> void:
 
 var world_map: HuntMap = null
 var _fog_decal: Decal
+## Unexplored ground stays a murky blue-black silhouette (never a black
+## void); explored but out of sight dims by about a third.
+const FOG_DARK := 0.8
+const FOG_SEEN := 0.38
 var _fog_dirty_t := 0.0
 var _fog_pending := false
 var _fog_img: Image
@@ -3366,6 +3370,9 @@ func bind_world(map: HuntMap, biome_id: String) -> void:
 	_world_forest(map, biome_id, rng)
 	_world_cover(map, biome_id, rng)
 	_world_landmarks(map, biome_id)
+	if _hp_probe:
+		_hp_probe.free()
+		_hp_probe = null
 	_world_chests(map)
 	_world_lair(map)
 	_world_fog(map)
@@ -3481,6 +3488,73 @@ func _kit_chunks(model: String, spots: Array, shadows: bool) -> void:
 	probe.free()
 
 
+const HANDPAINTED := "res://assets/models/sketchfab/nature/handpainted.glb"
+var _hp_probe: Node3D
+var _hp_mats := {}
+
+
+## One piece of the hand-painted tree pack (rudolfs, CC-BY 4.0) chunked into
+## MultiMeshes like _kit_chunks. Each tree is a single mesh and material.
+## The material is graded toward a darker, cooler, damp forest.
+func _pack_chunks(piece_name: String, spots: Array, shadows: bool, grade: Color) -> void:
+	if spots.is_empty() or not ResourceLoader.exists(HANDPAINTED):
+		return
+	if _hp_probe == null:
+		_hp_probe = (load(HANDPAINTED) as PackedScene).instantiate() as Node3D
+	var piece := _hp_probe.find_child(piece_name, true, false) as Node3D
+	if piece == null:
+		return
+	var base := _chain(piece, _hp_probe).origin
+	var buckets := {}
+	var rc := RCHUNK * SCALE
+	for xf in spots:
+		var at: Vector3 = (xf as Transform3D).origin
+		var key := Vector2i(int(floor(at.x / rc.x)), int(floor(at.z / rc.y)))
+		if not buckets.has(key):
+			buckets[key] = []
+		buckets[key].append(xf)
+	for mi_node in piece.find_children("*", "MeshInstance3D", true, false):
+		var mi := mi_node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var local := _chain(mi, _hp_probe)
+		local.origin -= Vector3(base.x, 0.0, base.z)
+		var mesh: Mesh = mi.mesh
+		var key_m := str(mesh.get_instance_id()) + str(grade)
+		if not _hp_mats.has(key_m):
+			var dup := mesh.duplicate() as ArrayMesh
+			for si in dup.get_surface_count():
+				var src := dup.surface_get_material(si) as StandardMaterial3D
+				if src == null:
+					continue
+				var mat := src.duplicate() as StandardMaterial3D
+				mat.albedo_color = src.albedo_color * grade
+				mat.roughness = 0.88
+				mat.metallic_specular = 0.25
+				if mat.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+					mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+					mat.alpha_scissor_threshold = 0.45
+					mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+				mat.rim_enabled = true
+				mat.rim = 0.25
+				mat.rim_tint = 0.7
+				dup.surface_set_material(si, mat)
+			_hp_mats[key_m] = dup
+		mesh = _hp_mats[key_m]
+		for key in buckets:
+			var list: Array = buckets[key]
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.mesh = mesh
+			mm.instance_count = list.size()
+			for i in list.size():
+				mm.set_instance_transform(i, (list[i] as Transform3D) * local)
+			var inst := MultiMeshInstance3D.new()
+			inst.multimesh = mm
+			inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			world_root.add_child(inst)
+
+
 func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -> void:
 	var kinds: Array = ["tree_a", "tree_b", "tree_pine"]
 	var edge: Array = ["bush", "bush_flower"]
@@ -3494,6 +3568,25 @@ func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -
 		"volcano":
 			kinds = ["tree_dead", "tree_dead", "rock_lava"]
 			edge = ["rock_b"]
+	# Hand-painted pack: pines and spruces make the wall, oaks break it up,
+	# dead snags and stumps scatter through. Graded per biome.
+	var pack: Array = []
+	var grade := Color(0.74, 0.8, 0.72)
+	if ResourceLoader.exists(HANDPAINTED):
+		match biome_id:
+			"meadow":
+				pack = ["pine_1", "pine_2", "pine_3", "spruce_2", "spruce_3", "oak_green_1", "oak_green_2", "pine_2", "pine_3"]
+			"mushroom":
+				pack = ["spruce_2", "spruce_3", "oak_green_1", "oak_dead_3"]
+				grade = Color(0.62, 0.66, 0.8)
+			"frost":
+				pack = ["pine_1", "pine_2", "pine_3", "spruce_2", "spruce_3", "pine_dead_2"]
+				grade = Color(0.78, 0.88, 0.98)
+			"volcano":
+				pack = ["oak_dead_1", "oak_dead_3", "pine_dead_2", "birch_dead", "spruce_dead"]
+				grade = Color(0.5, 0.42, 0.4)
+	if not pack.is_empty():
+		kinds = pack
 	var tier := _tier()
 	# Dense walls: trees every ~2.4 m along the edge, thinning deeper in.
 	var step := 115.0 if tier == "high" else (125.0 if tier == "medium" else 150.0)
@@ -3515,13 +3608,22 @@ func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -
 				continue
 			var kind: String = kinds[rng.randi() % kinds.size()]
 			var s := rng.randf_range(2.2, 3.2) * (1.15 if d < -300.0 else 1.0)
+			if not pack.is_empty():
+				# Pack trees are true scale (7-10 m pines): vary them gently,
+				# and drop a dead snag or stump in now and then.
+				s = rng.randf_range(0.95, 1.35) * (1.1 if d < -300.0 else 1.0)
+				if rng.randf() < 0.07:
+					kind = ["pine_dead_2", "oak_dead_1", "oak_stump", "birch_dead"][rng.randi() % 4]
 			var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * rng.randf_range(0.9, 1.1), s * rng.randf_range(0.9, 1.25), s * rng.randf_range(0.9, 1.1)))
 			if not by_kind.has(kind):
 				by_kind[kind] = []
 			by_kind[kind].append(Transform3D(basis, _to3(p)))
 		y += step
 	for kind in by_kind:
-		_kit_chunks(kind, by_kind[kind], tier == "high")
+		if not pack.is_empty():
+			_pack_chunks(kind, by_kind[kind], tier == "high", grade)
+		else:
+			_kit_chunks(kind, by_kind[kind], tier == "high")
 	# Undergrowth along the edge softens the forest line.
 	var bushes := {}
 	for sg in map.segs:
@@ -3544,7 +3646,10 @@ func _world_forest(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -
 					bushes[kind] = []
 				bushes[kind].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), _to3(p)))
 	for kind in bushes:
-		_kit_chunks(kind, bushes[kind], false)
+		if not pack.is_empty() and biome_id in ["meadow", "mushroom"] and kind == "bush":
+			_pack_chunks("bush", bushes[kind], false, grade * Color(0.9, 0.95, 0.85))
+		else:
+			_kit_chunks(kind, bushes[kind], false)
 
 
 func _world_cover(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -> void:
@@ -3619,6 +3724,13 @@ func _world_landmarks(map: HuntMap, biome_id: String) -> void:
 		var at := _to3(l["pos"])
 		var yaw: float = l["yaw"]
 		match str(l["kind"]):
+			"great_tree" when ResourceLoader.exists(HANDPAINTED):
+				# A towering hand-painted elder, graded like the forest, with a
+				# root stone at its foot as the landmark's anchor.
+				var elder := {"meadow": "oak_green_2", "mushroom": "oak_dead_3", "frost": "pine_3"}.get(biome_id, "oak_dead_1") as String
+				var g := {"mushroom": Color(0.62, 0.66, 0.8), "frost": Color(0.78, 0.88, 0.98), "volcano": Color(0.5, 0.42, 0.4)}.get(biome_id, Color(0.74, 0.8, 0.72)) as Color
+				_pack_chunks(elder, [Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * 1.7), at)], true, g)
+				_place_prop("rock_a", at + Vector3(1.4, 0, 0.6), 1.3, true)
 			"great_tree":
 				_place_prop("tree_a" if biome_id in ["meadow", "mushroom"] else ("tree_pine" if biome_id == "frost" else "tree_dead"), at, 4.6, true)
 			"standing_stones":
@@ -3697,9 +3809,9 @@ func _world_fog(map: HuntMap) -> void:
 	var w := map.grid_w + FOG_PAD * 2
 	var h := map.grid_h + FOG_PAD * 2
 	_fog_img = Image.create(w, h, false, Image.FORMAT_RGBA8)
-	_fog_img.fill(Color(0.012, 0.014, 0.02, 0.95))
+	_fog_img.fill(Color(0.03, 0.05, 0.07, FOG_DARK))
 	_fog_alpha.resize(map.grid_w * map.grid_h)
-	_fog_alpha.fill(0.95)
+	_fog_alpha.fill(FOG_DARK)
 	_fog_tex = ImageTexture.create_from_image(_fog_img)
 	var cell := HuntMap.GRID * SCALE
 	_fog_decal = Decal.new()
@@ -3729,7 +3841,7 @@ func sync_fog(sim: RunSim, delta: float) -> void:
 	var k := clampf(delta * 6.0, 0.0, 1.0)
 	var changed := false
 	for i in _fog_alpha.size():
-		var want := 0.0 if sim.fog_now[i] == 1 else (0.5 if sim.fog_seen[i] == 1 else 0.95)
+		var want := 0.0 if sim.fog_now[i] == 1 else (FOG_SEEN if sim.fog_seen[i] == 1 else FOG_DARK)
 		var a := _fog_alpha[i]
 		if absf(a - want) < 0.004:
 			continue

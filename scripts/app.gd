@@ -200,7 +200,14 @@ func _capture() -> void:
 		t0 = sim.time
 		while sim.time < t0 + 2.6:
 			await get_tree().process_frame
+		# Show the forged stick mid-push, as a thumb would hold it.
+		var vsz := get_viewport().get_visible_rect().size
+		run._begin_stick(vsz * Vector2(0.5, 0.8))
+		run._drag_stick(vsz * Vector2(0.5, 0.8) + Vector2(30, -24))
+		run.drive = Vector2.ZERO
+		await get_tree().process_frame
 		await _shot("explore")
+		run._end_stick()
 		run.minimap.toggle()
 		await get_tree().create_timer(0.4).timeout
 		await _shot("minimap")

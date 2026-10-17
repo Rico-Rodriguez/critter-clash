@@ -1622,14 +1622,54 @@ class StickLayer extends Control:
 		if size.y < 10.0:
 			return
 		if active:
-			draw_circle(origin, RADIUS, Color(1, 1, 1, 0.16))
-			draw_arc(origin, RADIUS, 0, TAU, 36, Color(1, 1, 1, 0.7), 4.0, true)
-			draw_circle(knob, 22.0, Color(1, 1, 1, 0.92))
+			_draw_base()
+			_draw_knob()
 		elif hint > 0.04:
 			UiKit.ensure()
 			var text := "Drag to steer"
 			var width := 220.0
 			draw_string(UiKit.font_x, Vector2(size.x * 0.5 - width * 0.5, size.y * 0.78), text, HORIZONTAL_ALIGNMENT_LEFT, width, 28, Color(1, 1, 1, 0.85 * hint))
+
+
+	## Forged base: a smoked-enamel well in a cast-bronze ring lit from the
+	## top left, eight engraved ticks, and an ember glow on the rim toward
+	## the push.
+	func _draw_base() -> void:
+		var c := origin
+		var r := RADIUS
+		draw_circle(c + Vector2(0, 3), r + 9.0, Color(0, 0, 0, 0.35))
+		for k in 6:
+			var t := float(k) / 5.0
+			draw_circle(c, r * (1.0 - t * 0.55), Color(0.05, 0.07, 0.09, 0.5).lerp(Color(0.12, 0.17, 0.2, 0.62), t))
+		for k in 40:
+			var a0 := TAU * k / 40.0
+			var lit := 0.5 + 0.5 * cos(a0 + 2.36)
+			var col := Color(0.38, 0.24, 0.1).lerp(Color(0.9, 0.66, 0.34), lit)
+			draw_arc(c, r + 3.0, a0, a0 + TAU / 40.0 + 0.01, 3, col, 6.0, true)
+		draw_arc(c, r + 6.5, 0.0, TAU, 48, Color(0.16, 0.09, 0.04, 0.9), 1.5, true)
+		draw_arc(c, r - 0.5, 0.0, TAU, 48, Color(1.0, 0.88, 0.6, 0.55), 1.0, true)
+		for k in 8:
+			var d := Vector2.RIGHT.rotated(TAU * k / 8.0)
+			draw_line(c + d * (r - 9.0), c + d * (r - 3.0), Color(0.85, 0.7, 0.45, 0.55), 1.5, true)
+		if vec.length() > 0.05:
+			var ang := vec.angle()
+			var glow := clampf(vec.length(), 0.0, 1.0)
+			for k in 3:
+				draw_arc(c, r + 3.0, ang - 0.55 + k * 0.1, ang + 0.55 - k * 0.1, 16, Color(1.0, 0.62, 0.22, 0.22 * glow * (k + 1)), 8.0 - k * 2.0, true)
+
+	## Knob: a bronze dome with an enamel inset and a hard specular glint.
+	func _draw_knob() -> void:
+		var k := knob
+		var r := 21.0
+		draw_circle(k + Vector2(1.5, 4.0), r + 1.0, Color(0, 0, 0, 0.4))
+		draw_circle(k, r + 1.5, Color(0.2, 0.11, 0.04))
+		for i in 7:
+			var t := float(i) / 6.0
+			draw_circle(k - Vector2(3, 4) * t, r * (1.0 - t * 0.7), Color(0.5, 0.31, 0.13).lerp(Color(0.98, 0.78, 0.46), t))
+		draw_circle(k, r * 0.5, Color(0.25, 0.08, 0.06))
+		draw_circle(k, r * 0.42, Color(0.6, 0.12, 0.08))
+		draw_circle(k - Vector2(2, 2.5), r * 0.22, Color(0.95, 0.4, 0.25))
+		draw_circle(k - Vector2(7, 8), 3.0, Color(1, 0.97, 0.88, 0.9))
 
 
 class GoldBeam extends Control:
@@ -2005,13 +2045,68 @@ class MiniMap extends Control:
 		var n := c + Vector2(0, -(r + band * 0.5 + 1.0))
 		ci.draw_colored_polygon(PackedVector2Array([n + Vector2(0, -5), n + Vector2(4, 3), n + Vector2(-4, 3)]), Color(0.16, 0.08, 0.03))
 
+	## Forged bronze border for the full map: a dark outer lip, a hammered
+	## band with a warm top-left highlight, an engraved gold bevel, riveted
+	## corner bosses and a title cartouche.
 	func _bronze_frame(ci: CanvasItem, r: Rect2) -> void:
-		ci.draw_rect(r.grow(8.0), Color(0.62, 0.42, 0.2), false, 7.0)
-		ci.draw_rect(r.grow(11.0), Color(0.24, 0.14, 0.06), false, 1.5)
-		ci.draw_rect(r.grow(4.5), Color(1.0, 0.86, 0.55, 0.85), false, 1.5)
+		var band := 16.0
+		ci.draw_rect(r.grow(band + 4.0), Color(0.07, 0.04, 0.02, 0.9), false, 4.0)
+		for k in 6:
+			var t := float(k) / 5.0
+			var col := Color(0.36, 0.22, 0.1).lerp(Color(0.72, 0.5, 0.24), sin(t * PI))
+			ci.draw_rect(r.grow(band - k * 2.6), col, false, 3.0)
+		# Top and left catch the light, bottom and right fall into shadow.
+		ci.draw_line(r.position + Vector2(-band, -band), Vector2(r.end.x + band, r.position.y - band), Color(1, 0.86, 0.55, 0.55), 2.0)
+		ci.draw_line(r.position + Vector2(-band, -band), Vector2(r.position.x - band, r.end.y + band), Color(1, 0.86, 0.55, 0.4), 2.0)
+		ci.draw_line(Vector2(r.position.x - band, r.end.y + band), r.end + Vector2(band, band), Color(0.1, 0.05, 0.02, 0.8), 2.0)
+		ci.draw_line(Vector2(r.end.x + band, r.position.y - band), r.end + Vector2(band, band), Color(0.1, 0.05, 0.02, 0.8), 2.0)
+		# Engraved inner bevel and a shadow onto the paper.
+		ci.draw_rect(r.grow(2.0), Color(1.0, 0.85, 0.5, 0.9), false, 1.5)
+		ci.draw_rect(r.grow(-2.0), Color(0, 0, 0, 0.35), false, 4.0)
+		# Rivets along the band.
+		var mid := band * 0.5
+		var step := 64.0
+		var x := r.position.x + step
+		while x < r.end.x - step * 0.5:
+			for y in [r.position.y - mid, r.end.y + mid]:
+				_rivet(ci, Vector2(x, y), 3.2)
+			x += step
+		var y2 := r.position.y + step
+		while y2 < r.end.y - step * 0.5:
+			for x2 in [r.position.x - mid, r.end.x + mid]:
+				_rivet(ci, Vector2(x2, y2), 3.2)
+			y2 += step
+		# Corner bosses: an enamel stud in a bronze rosette.
 		for corner in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
-			ci.draw_circle(corner, 7.0, Color(0.2, 0.11, 0.04))
-			ci.draw_circle(corner, 5.0, Color(0.93, 0.74, 0.42))
+			var cc: Vector2 = corner + (r.get_center() - corner).sign() * -mid * 0.2
+			ci.draw_circle(cc, 17.0, Color(0.08, 0.04, 0.02))
+			for k in 8:
+				var a := k * TAU / 8.0
+				ci.draw_circle(cc + Vector2.RIGHT.rotated(a) * 11.0, 5.0, Color(0.6, 0.4, 0.18))
+			ci.draw_circle(cc, 12.0, Color(0.78, 0.56, 0.26))
+			ci.draw_circle(cc, 8.0, Color(0.12, 0.3, 0.32))
+			ci.draw_circle(cc + Vector2(-2.5, -2.5), 3.0, Color(0.55, 0.85, 0.85, 0.7))
+		# Title cartouche, centred on the top band.
+		var font: Font = UiKit.font_b
+		var title := str(sim.biome.get("name", "Map")).to_upper()
+		var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+		var plate := Rect2(Vector2(r.get_center().x - tw * 0.5 - 34.0, r.position.y - band - 26.0), Vector2(tw + 68.0, 52.0))
+		var pts := PackedVector2Array([plate.position + Vector2(16, 0), Vector2(plate.end.x - 16, plate.position.y), Vector2(plate.end.x, plate.get_center().y), Vector2(plate.end.x - 16, plate.end.y), Vector2(plate.position.x + 16, plate.end.y), Vector2(plate.position.x, plate.get_center().y)])
+		var outer := PackedVector2Array()
+		for q in pts:
+			outer.append(plate.get_center() + (q - plate.get_center()) * Vector2(1.04, 1.16))
+		ci.draw_colored_polygon(outer, Color(0.08, 0.04, 0.02))
+		ci.draw_colored_polygon(pts, Color(0.5, 0.33, 0.15))
+		var inner := PackedVector2Array()
+		for q in pts:
+			inner.append(plate.get_center() + (q - plate.get_center()) * Vector2(0.95, 0.78))
+		ci.draw_colored_polygon(inner, Color(0.16, 0.09, 0.05))
+		ci.draw_string(font, Vector2(plate.get_center().x - tw * 0.5, plate.get_center().y + 11.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color("f2d9a0"))
+
+	func _rivet(ci: CanvasItem, at: Vector2, rad: float) -> void:
+		ci.draw_circle(at + Vector2(0.8, 0.8), rad + 0.8, Color(0.08, 0.04, 0.02, 0.8))
+		ci.draw_circle(at, rad, Color(0.86, 0.66, 0.36))
+		ci.draw_circle(at + Vector2(-rad * 0.3, -rad * 0.3), rad * 0.4, Color(1, 0.95, 0.8))
 
 	func _skull(ci: CanvasItem, p: Vector2, s: float, found: bool) -> void:
 		var bone := Color(0.95, 0.9, 0.78) if found else Color(0.8, 0.76, 0.66, 0.75)
@@ -2040,6 +2135,32 @@ class MiniMap extends Control:
 		else:
 			_bronze_ring(ci, c, DIAM * 0.5)
 		var dot := 3.0 if not big else 5.0
+		# Landmarks once seen: small engraved glyphs (tree, stones, ruin, crystal).
+		for lm in sim.map.landmarks:
+			var lpos: Vector2 = lm["pos"]
+			var known := sim.seen_at(lpos)
+			# The full map is a hunter's chart: landmarks not yet seen are
+			# sketched in faintly; the corner disc shows only what you found.
+			if not known and not big:
+				continue
+			var q := _to_ui(lpos)
+			if not _inside(q, 5.0):
+				continue
+			var g := dot * 1.4
+			var ink := Color(0.1, 0.07, 0.04, 0.9 if known else 0.35)
+			match str(lm.get("kind", "")):
+				"great_tree":
+					ci.draw_circle(q + Vector2(0, -g * 0.4), g, ink)
+					ci.draw_circle(q + Vector2(0, -g * 0.4), g * 0.7, Color(0.3, 0.5, 0.25))
+					ci.draw_line(q, q + Vector2(0, g * 0.9), ink, 2.0)
+				"crystal":
+					ci.draw_colored_polygon(PackedVector2Array([q + Vector2(0, -g * 1.2), q + Vector2(g * 0.6, 0), q + Vector2(0, g * 0.9), q + Vector2(-g * 0.6, 0)]), Color(0.55, 0.85, 1.0))
+					ci.draw_polyline(PackedVector2Array([q + Vector2(0, -g * 1.2), q + Vector2(g * 0.6, 0), q + Vector2(0, g * 0.9), q + Vector2(-g * 0.6, 0), q + Vector2(0, -g * 1.2)]), ink, 1.0)
+				_:
+					for k in 3:
+						var x := (k - 1) * g * 0.7
+						ci.draw_rect(Rect2(q + Vector2(x - g * 0.22, -g * (0.9 if k == 1 else 0.6)), Vector2(g * 0.44, g * (1.5 if k == 1 else 1.2))), Color(0.62, 0.6, 0.55), true)
+						ci.draw_rect(Rect2(q + Vector2(x - g * 0.22, -g * (0.9 if k == 1 else 0.6)), Vector2(g * 0.44, g * (1.5 if k == 1 else 1.2))), ink, false, 1.0)
 		# Chests once seen.
 		for ch in sim.chests:
 			if bool(ch["open"]) or not sim.seen_at(ch["pos"]):
@@ -2068,6 +2189,17 @@ class MiniMap extends Control:
 			ci.draw_circle(p, s, col)
 			ci.draw_line(p + Vector2(-s, -s) * 0.55, p + Vector2(s, s) * 0.55, Color(0.15, 0.04, 0.02), 1.5)
 			ci.draw_line(p + Vector2(s, -s) * 0.55, p + Vector2(-s, s) * 0.55, Color(0.15, 0.04, 0.02), 1.5)
+		# Rumoured camps on the full map: faint dashed rings where packs den.
+		if big:
+			for camp in sim.map.camps:
+				var cp: Vector2 = camp["pos"]
+				if sim.seen_at(cp):
+					continue
+				var q := _to_ui(cp)
+				var rr := dot * 1.6
+				for k in 8:
+					var a := k * TAU / 8.0
+					ci.draw_arc(q, rr, a, a + TAU / 16.0, 3, Color(0.95, 0.55, 0.4, 0.45), 1.5)
 		# The lair: a skull, always marked; on the corner disc it pins to the
 		# rim in its direction when it is out of view.
 		var lp := _to_ui(sim.map.lair)
@@ -2088,8 +2220,9 @@ class MiniMap extends Control:
 		if big:
 			var font: Font = UiKit.font_b
 			var pct := int(round(sim.explored() * 100.0))
-			ci.draw_string(font, Vector2(0, -20), "%s   explored %d%%" % [str(sim.biome.get("name", "Map")).to_upper(), pct], HORIZONTAL_ALIGNMENT_LEFT, -1, 28, Color("f2e4c4"))
-			ci.draw_string(font, Vector2(0, r.size.y + 44), "Tap to close", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.9, 0.85, 0.75, 0.7))
+			var line := "Explored %d%%   ·   Tap to close" % pct
+			var lw := font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
+			ci.draw_string(font, Vector2((r.size.x - lw) * 0.5, r.size.y + 56), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(0.95, 0.88, 0.72, 0.85))
 
 
 ## Draws the minimap's frame and markers above its paper.
