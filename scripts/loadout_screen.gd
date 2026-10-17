@@ -68,8 +68,8 @@ func build() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 10)
 	scroll.add_child(list)
-	var back := UiKit.secondary("Back", 260, 72)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# Full-width like every other screen's Back, so the footer lines up.
+	var back := UiKit.secondary("Back", 220, 64)
 	back.pressed.connect(func() -> void: go(return_to, {"biome": biome_id}))
 	box.add_child(back)
 
