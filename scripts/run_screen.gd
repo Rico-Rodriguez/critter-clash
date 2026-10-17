@@ -415,7 +415,7 @@ func _drain() -> void:
 			"hit":
 				var crit := bool(ev.get("crit", false))
 				if float(ev["amount"]) < 99999.0:
-					_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ffb52e") if crit else Color("f6ead2"), crit)
+					_float(ev["pos"], str(int(round(float(ev["amount"])))) + ("!" if crit else ""), Color("ff8a1e") if crit else Color("fbf2de"), crit)
 				_burst(ev["pos"], Color("ffe08a") if crit else Color("fff6ea"), 8 if crit else 5, 150.0)
 				_punch[int(ev["id"])] = 0.16
 				stage.hurt(int(ev["id"]))
@@ -546,8 +546,8 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.add_theme_font_override("font", UiKit.font_n)
 	label.add_theme_font_size_override("font_size", 70 if big else 48)
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Color("1a0a06") if not big else Color("3a1204"))
-	label.add_theme_constant_override("outline_size", 15 if big else 12)
+	label.add_theme_color_override("font_outline_color", Color(0.04, 0.015, 0.01))
+	label.add_theme_constant_override("outline_size", 16 if big else 13)
 	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
 	label.add_theme_constant_override("shadow_offset_y", 5)
 	label.add_theme_constant_override("shadow_offset_x", 0)
@@ -569,7 +569,9 @@ func _float(pos: Vector2, text: String, color: Color, big: bool) -> void:
 	label.set_meta("sim", pos)
 	label.set_meta("lift", lift)
 	label.position = _projected(pos) + lift
-	label.set_meta("life", 0.7)
+	label.set_meta("life", 0.75 if big else 0.7)
+	# A slight arc: tossed up and sideways, then easing down.
+	label.set_meta("vel", Vector2(randf_range(-70.0, 70.0), -150.0 if big else -120.0))
 
 
 func _tick_floats(delta: float) -> void:
@@ -579,7 +581,11 @@ func _tick_floats(delta: float) -> void:
 		var life := float(label.get_meta("life")) - delta
 		label.set_meta("life", life)
 		var lift: Vector2 = label.get_meta("lift")
-		lift.y -= 48.0 * delta
+		var vel: Vector2 = label.get_meta("vel", Vector2(0, -48))
+		vel.y += 300.0 * delta
+		vel.x *= 1.0 - 2.5 * delta
+		lift += vel * delta
+		label.set_meta("vel", vel)
 		label.set_meta("lift", lift)
 		label.position = _projected(label.get_meta("sim")) + lift
 		label.modulate.a = clampf(life / 0.28, 0.0, 1.0)
@@ -1450,8 +1456,13 @@ class ThreatLayer extends Control:
 				# The boss is named by the top bar alone; no floating tag.
 			else:
 				offscreen.append([foot, boss])
+		_drawn.clear()
+		# Boss first so a crowd of minions never hides its marker.
+		offscreen.sort_custom(func(a: Array, b: Array) -> bool: return bool(a[1]) and not bool(b[1]))
 		for item in offscreen:
 			_arrow(center, item[0], band, item[1])
+
+	var _drawn: Array[Vector2] = []
 
 	func _bar(at: Vector2, ratio: float) -> void:
 		var w := 30.0
@@ -1477,6 +1488,23 @@ class ThreatLayer extends Control:
 		elif dir.y < -0.001:
 			ty = (band.position.y - from.y) / dir.y
 		var at := from + dir * minf(tx, ty)
+		if not boss:
+			# Minions: one small, quiet chevron per cluster on the edge.
+			for p in _drawn:
+				if p.distance_to(at) < 48.0:
+					return
+			_drawn.append(at)
+			var m := 11.0
+			var sd := dir.orthogonal()
+			var tp := at + dir * m
+			var pts := PackedVector2Array([tp, at - dir * m * 0.5 + sd * m * 0.8, at - dir * m * 0.1, at - dir * m * 0.5 - sd * m * 0.8])
+			draw_colored_polygon(pts, Color(0.05, 0.03, 0.02, 0.45))
+			var inner := PackedVector2Array()
+			for q in pts:
+				inner.append(at + (q - at) * 0.72)
+			draw_colored_polygon(inner, Color(0.95, 0.85, 0.65, 0.5))
+			return
+		_drawn.append(at)
 		# A forged chevron: iron body with a lit and a shadowed facet, a gilt
 		# edge, and a gem in the throat (ember red for the boss).
 		var s := 30.0 if boss else 19.0

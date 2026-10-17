@@ -46,10 +46,12 @@ const MINION_HP := 0.5
 const MINION_XP := 0.5
 ## Ellipse just outside the hunt camera's view, in playfield pixels.
 ## What the far follow camera frames on the ground, relative to the hero
-## (sim px; Stage3D DIST 26, FOV 40, AIM +1, pitch 58). The far edge is
+## (sim px; Stage3D DIST 29.5, FOV 40, AIM +1.5, pitch 58). The far edge is
 ## wider than the near one; the box takes the wider. Packs spawn just past it.
-const VIEW_BOX := Rect2(-290.0, -785.0, 580.0, 1215.0)
-const SPAWN_MARGIN := 50.0
+const VIEW_BOX := Rect2(-333.0, -916.0, 666.0, 1395.0)
+const SPAWN_MARGIN := 24.0
+## How far outside the arena a pack may appear to stay just off screen.
+const ENTRY_REACH := 300.0
 var _next_id := 1
 var bases: Dictionary = {}
 
@@ -85,6 +87,9 @@ class Actor extends RefCounted:
 	var stats: Dictionary = {}
 	var boss_state := ""
 	var boss_timer := 0.0
+	## Spawned outside the arena (the camera frames all of it): walks in
+	## unclamped until it is inside.
+	var entering := false
 	var boss_dir := Vector2.RIGHT
 	var attack := ""
 	var bias_charge := 0.33
@@ -183,6 +188,12 @@ func step(dt: float, moves: Array) -> void:
 	_separate()
 	for actor in actors:
 		if actor.alive:
+			if actor.entering:
+				if play.grow(-actor.radius).has_point(actor.pos):
+					actor.entering = false
+				else:
+					actor.pos = actor.pos.clamp(play.position - Vector2(ENTRY_REACH, ENTRY_REACH), play.end + Vector2(ENTRY_REACH, ENTRY_REACH))
+					continue
 			_clamp_actor(actor)
 	_step_spawns(dt)
 	_enrage_and_timeout()
@@ -531,6 +542,11 @@ func _step_minions(dt: float) -> void:
 		var dist := delta.length()
 		var dir := delta / dist if dist > 0.001 else Vector2.RIGHT
 		actor.facing = dir.angle()
+		if actor.entering:
+			# Hurry in from off screen so the wider view costs no pace.
+			actor.vel = dir * actor.speed * 1.7
+			actor.pos += actor.vel * dt
+			continue
 		if actor.archetype == "shooter":
 			if dist > actor.range:
 				actor.vel = dir * actor.speed
@@ -829,8 +845,11 @@ func _spawn_pack(skin_index: int, count: int, pool: Array = []) -> void:
 		# inside the camera's view.
 		var hero_at := heroes[0].pos if not heroes.is_empty() else play.get_center()
 		var out := (center - hero_at).normalized()
-		var offset := out * rng.randf_range(0.0, 70.0) + out.orthogonal() * rng.randf_range(-80.0, 80.0)
-		_spawn_minion(skin, _clamp_point(center + offset, 24.0))
+		var offset := out * rng.randf_range(0.0, 40.0) + out.orthogonal() * rng.randf_range(-80.0, 80.0)
+		var spot := center + offset
+		if play.grow(-24.0).has_point(center):
+			spot = _clamp_point(spot, 24.0)
+		_spawn_minion(skin, spot)
 
 
 func _spawn_minion(skin_index: int, at: Vector2 = Vector2.INF) -> void:
@@ -857,6 +876,7 @@ func _spawn_minion(skin_index: int, at: Vector2 = Vector2.INF) -> void:
 	actor.range = float(info.get("shot_range", 280))
 	actor.cd = rng.randf_range(0.15, 0.8)
 	actor.touch_cd = rng.randf_range(0.0, 0.3)
+	actor.entering = not play.grow(-actor.radius).has_point(actor.pos)
 	actors.append(actor)
 
 
@@ -1136,9 +1156,18 @@ func _spawn_point() -> Vector2:
 	var zone: Rect2 = map.zone_near(at)["rect"]
 	var ring := Rect2(at + VIEW_BOX.position, VIEW_BOX.size).grow(SPAWN_MARGIN)
 	var perimeter := (ring.size.x + ring.size.y) * 2.0
-	for _try in 12:
+	for _try in 64:
 		var p := _on_rect(ring, rng.randf() * perimeter)
-		if zone.grow(-30.0).has_point(p):
+		# The playfield clamp is narrower than the wide view: a side spawn
+		# would be clamped back on screen, so only accept points that fit.
+		if zone.grow(-30.0).has_point(p) and play.grow(-30.0).has_point(p):
+			return p
+	# The wide camera frames the whole arena: spawn on the view ring just
+	# outside it and let the pack walk in.
+	var reach := play.grow(ENTRY_REACH - 40.0)
+	for _try in 64:
+		var p := _on_rect(ring, rng.randf() * perimeter)
+		if reach.has_point(p):
 			return p
 	return HuntMap.rim_point(zone, rng)
 

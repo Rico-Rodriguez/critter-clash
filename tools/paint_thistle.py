@@ -42,7 +42,16 @@ skin = np.array([0.30, 0.25, 0.19])
 skin_hi = np.array([0.50, 0.43, 0.32])
 mott = np.clip(0.5 + grain, 0, 1)[..., None]
 col = (skin * (1 - mott) + skin_hi * mott) * shade
-plum = np.array([0.30, 0.075, 0.09]) * shade
+# Domed warts: dark bruised edges rising to a lighter, freckled crown, so
+# each spot reads as a raised lump instead of a flat blotch.
+dist = ndimage.distance_transform_edt(spot > 0.5)
+dome = np.clip(dist / 9.0, 0, 1) ** 0.7
+fleck = (np.random.default_rng(3).random(spot.shape) > 0.985).astype(float)
+fleck = ndimage.gaussian_filter(fleck, 0.8) * 3.0
+plum_lo = np.array([0.16, 0.03, 0.045])
+plum_hi = np.array([0.46, 0.12, 0.11])
+plum = (plum_lo * (1 - dome[..., None]) + plum_hi * dome[..., None]) * shade
+plum = plum + np.clip(fleck, 0, 1)[..., None] * np.array([0.35, 0.25, 0.2]) * dome[..., None]
 # A pale ring round each spot, like real cap warts.
 edge = np.clip(ndimage.gaussian_filter(spot, 3.0) - spot, 0, 1)[..., None] * 1.6
 col = col * (1 - edge) + np.array([0.20, 0.13, 0.10]) * shade * edge
@@ -53,7 +62,7 @@ col = np.where(dark[..., None], a, col)
 col = np.clip(col * (1 + grain[..., None] * 0.5), 0, 1)
 Image.fromarray((col * 255).astype(np.uint8)).save(OUT)
 
-rough = np.clip(0.82 - spot * 0.22 - tongue * 0.3 + grain * 0.3, 0.35, 0.95)
+rough = np.clip(0.82 - spot * dome * 0.35 - spot * 0.1 - tongue * 0.3 + grain * 0.3, 0.35, 0.95)
 rimg = np.stack([rough, rough, rough], -1)
 Image.fromarray((rimg * 255).astype(np.uint8)).save(ROUGH)
 print("wrote", OUT, ROUGH)

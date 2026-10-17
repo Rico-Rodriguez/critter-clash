@@ -184,12 +184,12 @@ static func _maps() -> void:
 			continue
 		minions += 1
 		# Packs land just outside the camera's view, inside the zone.
-		if not play.has_point(actor.pos):
+		if not play.grow(RunSim.ENTRY_REACH).has_point(actor.pos):
 			_fail("spawn left the zone")
 			return
 		var rel: Vector2 = actor.pos - hero_at
 		var view := RunSim.VIEW_BOX
-		var outer := view.grow(RunSim.SPAWN_MARGIN + 40.0)
+		var outer := view.grow(RunSim.SPAWN_MARGIN + 80.0)
 		if view.has_point(rel) or not outer.has_point(rel):
 			_fail("opening pack spawned at %s, not just outside the view" % str(rel))
 			return

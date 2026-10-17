@@ -183,8 +183,8 @@ class ChestSlot extends Control:
 			draw_texture_rect(tex, art, false, tint)
 		var font := UiKit.font_x
 		var caption := "EMPTY"
-		var ink := Color(0.5, 0.45, 0.38)
-		var fsize := 17
+		var ink := Color("cbbb9c")
+		var fsize := 19
 		if ready:
 			caption = "OPEN"
 			ink = UiKit.GOLD.lightened(0.2)

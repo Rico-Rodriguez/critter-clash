@@ -9,12 +9,12 @@ const PITCH := 1.012291  # 58 degrees, high enough to read the ground
 ## The follow camera sits far back so a wave is on screen well before it
 ## reaches the hero: about 9 m of ground across at the hero, ~1.9x the
 ## previous framing and well past 2.5x the original.
-const DIST := 26.0
+const DIST := 29.5
 const FOV := 40.0
-const BOSS_DIST := 36.0
+const BOSS_DIST := 40.0
 ## Aim a metre above the ground so the hero sits just below screen centre,
 ## leaving room to see what comes from above.
-const AIM := 1.0
+const AIM := 1.5
 ## On-screen size targets. With the camera at DIST these put the hero near
 ## 10% of the screen height; the boss stands about 3x the hero's footprint.
 const HERO_METERS := 2.5
@@ -58,6 +58,8 @@ var _frame_acc := 0.0
 var _frame_n := 0
 var _slow_windows := 0
 var _props: Array = []
+var _contacts: Array[Vector3] = []
+var _contact_node: MultiMeshInstance3D
 var _pings: Dictionary = {}
 var _decal_shader: Shader
 var _view: TextureRect
@@ -134,6 +136,7 @@ func bind_hunt(biome_id: String) -> void:
 	viewport.transparent_bg = false
 	_ground(biome_id)
 	_foliage(biome_id)
+	_build_contacts()
 	_biome_mood(biome_id)
 	_apply_render_scale()
 	_look = _to3(Vector2(360, 700))
@@ -193,6 +196,10 @@ func bind_pedestal(hero_id: String) -> void:
 		if player != null and player.has_animation(str(clips["perch"])):
 			player.get_animation(str(clips["perch"])).loop_mode = Animation.LOOP_PINGPONG
 	_play(body, "perch" if clips.has("perch") else "idle")
+	# Breathing wing fold over the clip so the wings never sit stiff.
+	for sk in body.find_children("*", "Skeleton3D", true, false):
+		var sway := WingSway.new()
+		sk.add_child(sway)
 	_frame_on(body)
 	_reframe_posed(body)
 	_split_hero(body)
@@ -604,6 +611,7 @@ func _foliage(biome_id: String) -> void:
 	_grass_mats.clear()
 	_grass_nodes.clear()
 	_props.clear()
+	_contacts.clear()
 	# Budget: the pulled-back camera sees nearly the whole field, so every
 	# blade is drawn. grass_short is ~155 tris, wispy ~620, flowers ~1700,
 	# so the cheap blade carries the density and the costly ones accent.
@@ -642,7 +650,9 @@ func _foliage(biome_id: String) -> void:
 		var edge_trees := ["tree_a", "tree_b", "tree_pine"] if biome_id == "meadow" else ["mushroom_tall", "tree_pine_b"]
 		for i in (4 if tier == "low" else 8):
 			var side := -1.0 if i % 2 == 0 else 1.0
-			var x := 360.0 + side * rng.randf_range(400.0, 470.0)
+			# Right at the frame edge: the canopy crops off-screen while the
+			# trunk and its shadow read inside the clearing.
+			var x := 360.0 + side * rng.randf_range(330.0, 380.0)
 			var y := lerpf(250.0, 1150.0, float(i / 2) / 3.0) + rng.randf_range(-60.0, 60.0)
 			_place_prop(edge_trees[i % edge_trees.size()], _to3(Vector2(x, y)), rng.randf_range(2.2, 2.9), true)
 	_field_props(rng)
@@ -656,7 +666,7 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 		["pebble_rock", 0.5, 0.8, 6], ["pebble_rock_b", 0.45, 0.7, 5],
 		["log", 0.9, 1.3, 4], ["stump", 0.45, 0.65, 4],
 		["mushroom", 0.4, 0.6, 7], ["mushroom_shelf", 0.35, 0.5, 3],
-		["bush_flower", 0.7, 1.0, 6], ["flower_b", 0.7, 0.95, 6], ["flower_a", 0.7, 0.95, 6],
+		["fern", 0.8, 1.1, 6], ["flower_b", 0.7, 0.95, 6], ["flower_a", 0.7, 0.95, 6],
 	]
 	if _tier() == "low":
 		for row in kit:
@@ -748,6 +758,13 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 		_paint_rock(node)
 	if model == "mushroom_tall":
 		_paint_mushroom(node)
+	if model.begins_with("tree") or model.begins_with("bush"):
+		_crisp_leaves(node)
+	var contact := {"rock": 0.75, "pebble": 0.55, "log": 1.0, "stump": 0.6, "tree": 1.1, "mushroom_tall": 0.5, "bush": 0.8}
+	for key in contact.keys():
+		if model.begins_with(key):
+			_contacts.append(Vector3(at.x, at.z, float(contact[key]) * scale))
+			break
 	if node is Node3D:
 		var prop := node as Node3D
 		prop.scale *= scale
@@ -767,6 +784,78 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 ## glowing gills and rim light; lilac fibrous stems.
 static var _cap_mat: ShaderMaterial
 static var _stem_mat: ShaderMaterial
+
+
+## Alpha-blended leaf cards smear into soft blobs from above: cut them with
+## alpha scissor (with alpha-to-coverage) and deepen the green so canopies
+## read as crisp clusters of leaves.
+func _crisp_leaves(node: Node) -> void:
+	for mi in node.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		for i in m.mesh.get_surface_count():
+			var src := m.mesh.surface_get_material(i) as StandardMaterial3D
+			if src == null or not str(src.resource_name).to_lower().contains("lea"):
+				continue
+			var key := "crisp_" + str(src.get_instance_id())
+			var mat: StandardMaterial3D
+			if _leaf_cache.has(key):
+				mat = _leaf_cache[key]
+			else:
+				mat = src.duplicate() as StandardMaterial3D
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				mat.alpha_scissor_threshold = 0.45
+				mat.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+				mat.albedo_color = src.albedo_color * Color(0.72, 0.82, 0.66)
+				mat.roughness = 0.75
+				mat.rim_enabled = true
+				mat.rim = 0.35
+				mat.rim_tint = 0.6
+				_leaf_cache[key] = mat
+			m.set_surface_override_material(i, mat)
+
+
+static var _leaf_cache := {}
+
+
+## One multimesh of soft dark discs under every prop: cheap contact shadow
+## and ambient occlusion where the Mobile renderer has no SSAO.
+func _build_contacts() -> void:
+	if _contact_node:
+		_contact_node.queue_free()
+		_contact_node = null
+	if _contacts.is_empty():
+		return
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(2, 2)
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0, 0, 0, 0.55))
+	grad.add_point(0.55, Color(0, 0, 0, 0.3))
+	grad.set_color(grad.get_point_count() - 1, Color(0, 0, 0, 0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_texture = tex
+	mat.render_priority = -1
+	pm.material = mat
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = pm
+	mm.instance_count = _contacts.size()
+	for i in _contacts.size():
+		var c := _contacts[i]
+		var y := 0.03
+		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(c.z, 1, c.z)), Vector3(c.x, y, c.y)))
+	_contact_node = MultiMeshInstance3D.new()
+	_contact_node.multimesh = mm
+	_contact_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world_root.add_child(_contact_node)
 
 
 func _paint_mushroom(node: Node) -> void:
@@ -937,7 +1026,9 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		_outline(body, Color("1a0806"), 0.008)
 		_hero_glow(body)
 	elif actor.kind == "boss":
-		_outline(body, Color("2a0806"), 0.007)
+		# No ink line on bosses: their size carries the silhouette and the
+		# outline read as a thick toon stroke round the PBR cap.
+		pass
 	elif actor.kind != "hero":
 		_outline(body, Color("3a0a08"), 0.013)
 		if _tier() != "high":
@@ -991,6 +1082,30 @@ void fragment() {
 """
 		_glow_mat = ShaderMaterial.new()
 		_glow_mat.shader = sh
+		# X-ray: drawn with depth test off, but only where the scene depth
+		# says something (a boss cap, a tree) sits in front of the hero, so
+		# Ember shows through as a warm rim silhouette when occluded.
+		var xs := Shader.new()
+		xs.code = """shader_type spatial;
+render_mode unshaded, blend_mix, depth_test_disabled, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+uniform vec3 xray_color = vec3(1.0, 0.72, 0.4);
+void fragment() {
+	float scene = texture(depth_tex, SCREEN_UV).r;
+	// Reverse-Z: a larger stored depth is nearer the camera.
+	if (scene <= FRAGCOORD.z + 0.00002) {
+		discard;
+	}
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float rim = pow(1.0 - ndv, 2.0);
+	ALBEDO = xray_color;
+	ALPHA = 0.18 + 0.62 * rim;
+}
+"""
+		var xm := ShaderMaterial.new()
+		xm.shader = xs
+		xm.render_priority = 10
+		_glow_mat.next_pass = xm
 	for m in body.find_children("*", "MeshInstance3D", true, false):
 		if str(m.name).begins_with("Catch"):
 			continue
@@ -1129,6 +1244,48 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 ## the blue channel as metal, so the dragon came in as polished chrome that
 ## only reflected the sky. Critters are painted fur, scale, and cloth: no
 ## metal, a soft sheen, and the normal map only where it carries detail.
+static var _grain_tex: NoiseTexture2D
+static var _grain_nrm: NoiseTexture2D
+
+
+## Painterly grain for flat-atlas critters: a soft mottled multiply and a
+## fine bumpy normal, both triplanar in object space (the kit meshes have no
+## spare UVs), so the hide reads as fur and skin rather than plastic.
+func _paint_grain(mat: StandardMaterial3D) -> void:
+	if _grain_tex == null:
+		var noise := FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		noise.frequency = 0.02
+		noise.fractal_octaves = 4
+		var ramp := Gradient.new()
+		ramp.set_color(0, Color(0.72, 0.68, 0.66))
+		ramp.set_color(1, Color(1.0, 1.0, 1.0))
+		_grain_tex = NoiseTexture2D.new()
+		_grain_tex.width = 256
+		_grain_tex.height = 256
+		_grain_tex.seamless = true
+		_grain_tex.noise = noise
+		_grain_tex.color_ramp = ramp
+		var fine := FastNoiseLite.new()
+		fine.noise_type = FastNoiseLite.TYPE_CELLULAR
+		fine.frequency = 0.06
+		_grain_nrm = NoiseTexture2D.new()
+		_grain_nrm.width = 256
+		_grain_nrm.height = 256
+		_grain_nrm.seamless = true
+		_grain_nrm.as_normal_map = true
+		_grain_nrm.bump_strength = 6.0
+		_grain_nrm.noise = fine
+	mat.detail_enabled = true
+	mat.detail_uv_layout = BaseMaterial3D.DETAIL_UV_2
+	mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	mat.detail_albedo = _grain_tex
+	mat.detail_normal = _grain_nrm
+	mat.uv2_triplanar = true
+	mat.uv2_scale = Vector3(5, 5, 5)
+	mat.albedo_color = mat.albedo_color * Color(1.12, 1.1, 1.08)
+
+
 func _fix_pbr(node: Node, sprite: String) -> void:
 	var opts := Cast3D.pbr(sprite)
 	if opts.is_empty():
@@ -1181,6 +1338,12 @@ func _fix_pbr(node: Node, sprite: String) -> void:
 				mat.rim_enabled = true
 				mat.rim = float(opts["rim"])
 				mat.rim_tint = float(opts.get("rim_tint", 0.35))
+			if bool(opts.get("paint", false)):
+				_paint_grain(mat)
+			if opts.has("clearcoat"):
+				mat.clearcoat_enabled = true
+				mat.clearcoat = float(opts["clearcoat"])
+				mat.clearcoat_roughness = 0.35
 			mesh.set_surface_override_material(i, mat)
 	for child in node.get_children():
 		_fix_pbr(child, sprite)
@@ -1876,6 +2039,8 @@ func _sketchfab_nature(rng: RandomNumberGenerator) -> void:
 		# slabs once the wider camera brought the rim into view.
 		if "rock" in low or "stone" in low:
 			_paint_rock(prop)
+		else:
+			_crisp_leaves(prop)
 		var target := rng.randf_range(2.1, 3.3)
 		if "bush" in low:
 			target = rng.randf_range(0.55, 0.95)

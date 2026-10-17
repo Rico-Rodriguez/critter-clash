@@ -65,7 +65,7 @@ class HeroCard extends PanelContainer:
 		box_style.content_margin_top = 14
 		box_style.content_margin_bottom = 14
 		add_theme_stylebox_override("panel", box_style)
-		custom_minimum_size = Vector2(0, 430)
+		custom_minimum_size = Vector2(0, 470)
 		size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var metal := UiKit.rarity_metal(rarity)
 		var frame := UiKit.Frame.new("card", "leather", {
@@ -78,7 +78,7 @@ class HeroCard extends PanelContainer:
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 6)
 		add_child(box)
-		var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 18, Color(cols["lip"]).lightened(0.25), "x", 4)
+		var ribbon := UiKit.label(Catalog.rarity_name(rarity).to_upper(), 21, Color(cols["lip"]).lightened(0.25), "x", 4)
 		ribbon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(ribbon)
 		var art := ArtWindow.new()
@@ -115,7 +115,7 @@ class HeroCard extends PanelContainer:
 			bar.caption = "%d / %d" % [mini(have, need), need]
 			bar.surplus = maxi(0, have - need)
 			bar.ready_up = SaveGame.can_level(id)
-			bar.custom_minimum_size = Vector2(0, 30)
+			bar.custom_minimum_size = Vector2(0, 42)
 			box.add_child(bar)
 		var actions := HBoxContainer.new()
 		actions.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -231,9 +231,9 @@ class CardBar extends Control:
 			var lo := Color("1e5a22") if ready_up else Color("123e66")
 			UiKit.ch_fill(self, inner, inner.size.y * 0.5, hi, lo)
 			UiKit.ch_fill(self, Rect2(inner.position + Vector2(4, 1), Vector2(inner.size.x - 8, inner.size.y * 0.4)), inner.size.y * 0.2, Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.0))
-		var reserve := 40.0 if surplus > 0 else 0.0
-		UiKit.draw_text(self, UiKit.font_b, Vector2(8, size.y * 0.74), caption, 21, UiKit.CREAM, Color(0.04, 0.03, 0.02), 3, size.x - 16.0 - reserve)
+		var reserve := 56.0 if surplus > 0 else 0.0
+		UiKit.draw_text(self, UiKit.font_b, Vector2(8, size.y * 0.72), caption, 24, UiKit.CREAM, Color(0.04, 0.03, 0.02), 3, size.x - 16.0 - reserve)
 		if surplus > 0:
-			var pill := Rect2(size.x - 42, 3, 38, size.y - 6)
+			var pill := Rect2(size.x - 56, 3, 52, size.y - 6)
 			UiKit.ch_fill(self, pill, pill.size.y * 0.5, Color("ffe3a0"), Color("9a6a20"))
-			UiKit.draw_text(self, UiKit.font_b, Vector2(pill.position.x, size.y * 0.72), "+%d" % surplus, 15, Color("2a1806"), Color(1, 0.95, 0.8, 0.0), 0, pill.size.x)
+			UiKit.draw_text(self, UiKit.font_b, Vector2(pill.position.x, size.y * 0.72), "+%d" % surplus, 20, Color("2a1806"), Color(1, 0.95, 0.8, 0.0), 0, pill.size.x)

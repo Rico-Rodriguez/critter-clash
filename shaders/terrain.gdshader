@@ -105,8 +105,11 @@ void fragment() {
 	float edge = path_width * (0.75 + fbm(w * 1.3) * 0.5);
 	float dirt_w = 1.0 - smoothstep(edge * 0.55, edge, pd);
 	dirt_w = clamp(dirt_w + (fbm(w * 0.9 + 2.0) - 0.82) * 1.5, 0.0, 1.0);
-	vec3 dirt = texture(dirt_color, uv_d).rgb * dirt_tint;
-	vec3 dn = texture(dirt_normal, uv_d).rgb;
+	// Dirt gets the same rotated second sample so path repeats never line up.
+	vec2 uv_d2 = tile_uv(wr + 23.0, 0.29);
+	float dswap = smoothstep(0.4, 0.6, fbm(w * 0.15 + 71.0));
+	vec3 dirt = mix(texture(dirt_color, uv_d).rgb, texture(dirt_color, uv_d2).rgb, dswap) * dirt_tint;
+	vec3 dn = mix(texture(dirt_normal, uv_d).rgb, texture(dirt_normal, uv_d2).rgb, dswap);
 	float shoulder = smoothstep(edge * 1.6, edge * 0.8, pd) * (1.0 - dirt_w);
 	grass *= 1.0 - shoulder * 0.16;
 	// Clover: small dark rich clumps scattered through the turf.
@@ -188,11 +191,21 @@ void fragment() {
 		albedo = mix(albedo, vec3(0.03, 0.01, 0.01), halo * ash * 0.7);
 		glow = (vec3(1.0, 0.42, 0.08) * (core + fine * 0.6) * 1.6 + vec3(0.7, 0.1, 0.02) * halo * 0.45) * ash * pulse;
 	}
+	// Detail map: the turf texture again at ~4x frequency, as an albedo
+	// modulation and a second normal layer, so close-up ground stays crisp.
+	vec2 uv_det = mat2(vec2(0.6, -0.8), vec2(0.8, 0.6)) * w * 1.55;
+	float det = dot(texture(grass_color, uv_det).rgb, vec3(0.333)) / 0.33;
+	float ddet = dot(texture(dirt_color, uv_det * 0.8).rgb, vec3(0.333)) / 0.44;
+	albedo *= clamp(mix(det, ddet, dirt_w), 0.65, 1.35) * 0.35 + 0.65;
+	vec3 base_n = mix(gn, dn, dirt_w) * 2.0 - 1.0;
+	vec3 det_n = mix(texture(grass_normal, uv_det).rgb, texture(dirt_normal, uv_det * 0.8).rgb, dirt_w) * 2.0 - 1.0;
+	vec3 nn = normalize(vec3(base_n.xy + det_n.xy * 0.7, base_n.z * det_n.z));
 	ALBEDO = albedo;
 	EMISSION = glow;
-	NORMAL_MAP = mix(gn, dn, dirt_w);
-	NORMAL_MAP_DEPTH = 1.2;
-	ROUGHNESS = mix(0.9, texture(dirt_rough, uv_d).r, dirt_w);
+	NORMAL_MAP = nn * 0.5 + 0.5;
+	NORMAL_MAP_DEPTH = 1.4;
+	float gr = texture(grass_rough, uv_g).r;
+	ROUGHNESS = mix(0.75 + 0.25 * gr, texture(dirt_rough, uv_d).r, dirt_w);
 	SPECULAR = 0.3;
 	METALLIC = 0.0;
 }
