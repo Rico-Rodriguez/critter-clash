@@ -21,6 +21,16 @@ func _ready() -> void:
 	ui = CanvasLayer.new()
 	ui.layer = 10
 	add_child(ui)
+	var veil_layer := CanvasLayer.new()
+	veil_layer.layer = 4
+	add_child(veil_layer)
+	var veil := ColorRect.new()
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var veil_mat := ShaderMaterial.new()
+	veil_mat.shader = load("res://shaders/vignette.gdshader")
+	veil.material = veil_mat
+	veil_layer.add_child(veil)
 	portrait_root = Node.new()
 	portrait_root.name = "Portraits"
 	add_child(portrait_root)

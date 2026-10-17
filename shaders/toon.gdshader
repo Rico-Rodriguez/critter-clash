@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back, specular_disabled, diffuse_lambert;
+render_mode cull_disabled, specular_disabled, diffuse_lambert;
 
 varying float vert_h;
 varying vec3 world_pos;
@@ -7,12 +7,16 @@ varying vec3 world_pos;
 uniform int shade_mode = 0;
 uniform vec4 team_tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform vec4 rim_color : source_color = vec4(1.0, 0.93, 0.82, 1.0);
-uniform float rim_strength = 0.55;
+uniform float rim_strength = 0.32;
 uniform float flash = 0.0;
 uniform vec4 glow_color : source_color = vec4(1.0, 0.62, 0.28, 1.0);
 uniform float glow_energy = 2.4;
 uniform float wind = 0.0;
 uniform float alpha_mul = 1.0;
+uniform bool use_tex = false;
+uniform bool clip_alpha = false;
+uniform vec4 albedo_color : source_color = vec4(1.0);
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -26,7 +30,14 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 col = COLOR.rgb;
+	vec4 tex = vec4(1.0);
+	if (use_tex) {
+		tex = texture(albedo_tex, UV);
+	}
+	vec3 col = albedo_color.rgb * tex.rgb;
+	if (clip_alpha && tex.a < 0.4) {
+		discard;
+	}
 	if (shade_mode == 1) {
 		col = vec3(0.99, 0.97, 0.94);
 	} else if (shade_mode == 2) {
@@ -40,7 +51,7 @@ void fragment() {
 	} else if (shade_mode == 6) {
 		col = glow_color.rgb;
 	} else {
-		col = COLOR.rgb * team_tint.rgb;
+		col *= team_tint.rgb;
 	}
 	col = mix(col, vec3(1.0), clamp(flash, 0.0, 1.0));
 	ALBEDO = col;
@@ -61,8 +72,9 @@ void fragment() {
 
 void light() {
 	float ndotl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
-	float band = floor(ndotl * 3.0) / 2.0;
-	band = mix(0.46, 1.0, band);
+	float band = smoothstep(0.08, 0.22, ndotl);
+	band = mix(band, smoothstep(0.45, 0.62, ndotl), 0.55);
+	band = mix(0.22, 1.0, band);
 	if (shade_mode >= 3 && shade_mode != 6) {
 		DIFFUSE_LIGHT += vec3(0.0);
 	} else {

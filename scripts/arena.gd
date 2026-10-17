@@ -242,49 +242,55 @@ func packed(kind: String) -> PackedScene:
 func _build_world() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("f6c9a4")
+	env.background_color = Color("e7a56a")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("fff1dc")
-	env.ambient_light_energy = 0.34
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 0.92
+	env.ambient_light_color = Color("9eb4d8")
+	env.ambient_light_energy = 0.16
+	env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	env.tonemap_exposure = 1.08
+	env.tonemap_white = 5.5
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_density = 0.011
-	env.fog_light_color = Color("f3c9a4")
-	env.fog_aerial_perspective = 0.28
+	env.fog_density = 0.0035
+	env.fog_light_color = Color("e8b07a")
+	env.fog_aerial_perspective = 0.08
+	env.ssao_enabled = true
+	env.ssao_radius = 0.85
+	env.ssao_intensity = 1.6
+	env.ssao_power = 1.8
+	env.ssao_detail = 0.6
 	env.glow_enabled = true
-	env.glow_intensity = 0.16
-	env.glow_strength = 0.35
-	env.glow_hdr_threshold = 1.25
-	env.glow_bloom = 0.04
+	env.glow_intensity = 0.62
+	env.glow_strength = 0.8
+	env.glow_hdr_threshold = 1.05
+	env.glow_bloom = 0.14
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 
 	camera = Camera3D.new()
-	camera.fov = 42.0
-	cam_base = Vector3(0, 15.6, -12.6)
+	camera.fov = 36.0
+	cam_base = Vector3(0.15, 12.4, -10.6)
 	camera.position = cam_base
 	camera.current = true
 	add_child(camera)
-	camera.look_at(Vector3(0, 0.35, 0.6), Vector3.UP)
+	camera.look_at(Vector3(0, 0.45, 0.15), Vector3.UP)
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, -36, 0)
-	sun.light_color = Color("fff2d4")
-	sun.light_energy = 1.02
+	sun.light_color = Color("ffd7a2")
+	sun.light_energy = 1.65
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.06
 	sun.shadow_normal_bias = 1.2
 	sun.directional_shadow_max_distance = 48.0
 	sun.directional_shadow_blend_splits = true
-	sun.shadow_blur = 0.4
+	sun.shadow_blur = 1.35
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-28, 140, 0)
-	fill.light_color = Color("c9d8ff")
-	fill.light_energy = 0.2
+	fill.light_color = Color("7ea6ee")
+	fill.light_energy = 0.42
 	fill.shadow_enabled = false
 	add_child(fill)
 
@@ -400,7 +406,7 @@ func _tint(x: float, z: float, h: float) -> Color:
 	if hab == "water":
 		col = Color("6d838e").lerp(Color("9aaba8"), n)
 	elif hab == "forest":
-		col = Color("5f9a52").lerp(Color("8fbf6e"), n)
+		col = Color("2f8a3a").lerp(Color("67c45a"), n)
 		if absf(x + 2.55) < 0.48 and absf(z) < 9.2:
 			col = col.lerp(Color("c9a56e"), 0.78)
 		if absf(x) < 0.85 and absf(z) > 6.4:
@@ -408,7 +414,7 @@ func _tint(x: float, z: float, h: float) -> Color:
 	else:
 		var crack := sin(x * 6.2 + z * 1.7) + sin(z * 5.1 - x)
 		heat = clampf((crack - 1.05) * 0.85, 0.0, 1.0)
-		col = Color("6a4e46").lerp(Color("3e322e"), n * 0.45)
+		col = Color("5a342c").lerp(Color("2a1c1a"), n * 0.55)
 		if absf(x - 2.55) < 0.48 and absf(z) > RIVER and absf(z) < 9.2:
 			col = col.lerp(Color("b08968"), 0.62)
 			heat *= 0.2
@@ -441,9 +447,11 @@ func _water_mesh() -> ArrayMesh:
 
 
 func _dress() -> void:
-	# Bridges carry the two lanes across the river.
-	_prop("bridge", -2.55, 0.0, 0.0, 1.0)
-	_prop("bridge", 2.55, 0.0, PI, 1.0)
+	# Stone bridges carry the two lanes across the river.
+	_prop("bridge", -2.55, 0.0, 0.0, 1.15)
+	_prop("bridge", 2.55, 0.0, PI, 1.15)
+	_prop("path_small", -1.15, 0.15, 0.4, 1.0)
+	_prop("path_small", 1.2, -0.2, 1.1, 1.0)
 	# Dens and burrows. Doors face the center of the glade.
 	_structure_prop("den", 0.0, -8.2, PI, "ffb15a")
 	_structure_prop("den", 0.0, 8.2, 0.0, "9eb6f2")
@@ -452,87 +460,56 @@ func _dress() -> void:
 	_structure_prop("burrow", -2.75, 5.85, 0.0, "9eb6f2")
 	_structure_prop("burrow", 2.75, 5.85, 0.0, "9eb6f2")
 
-	# Forest shoulder.
-	_prop("tree_blossom", -6.4, -2.2, 0.4, 1.35)
-	_prop("tree_round", -7.1, 2.4, 1.1, 1.2)
-	_prop("tree_round", -6.2, -6.5, 0.2, 1.05)
-	_prop("tree_pine", -7.4, 6.2, 0.6, 1.25)
-	_prop("tree_pine", -5.8, 8.6, 0.3, 0.9)
-	_prop("tree_round", -6.8, -9.4, 1.4, 1.15)
-	_prop("bush", -4.7, -7.2, 0.2, 1.0)
-	_prop("bush", -4.9, 3.6, 1.0, 0.9)
-	_prop("bush", -5.3, 0.2, 0.5, 1.1)
-	_prop("mushroom", -4.35, -3.2, 0.4, 1.15)
-	_prop("mushroom_tall", -4.6, 1.5, 0.8, 1.2)
-	_prop("mushroom", -4.2, 6.8, 0.2, 0.9)
-	_prop("stump", -4.5, -1.2, 0.6, 1.0)
-	_prop("log", -5.1, 4.8, 0.9, 1.0)
-	_prop("flower_warm", -3.6, -7.6, 0.2, 1.1)
-	_prop("flower_warm", -1.3, -7.4, 1.0, 0.9)
-	_prop("flower_cool", -4.1, -5.2, 0.4, 1.0)
-	_prop("lantern", -4.15, -8.6, 0.3, 1.0)
-	_prop("lantern", -5.4, 7.6, 0.8, 1.05)
-	_prop("grass", -3.4, -4.6, 0.2, 1.2)
-	_prop("grass", -4.0, 2.2, 0.5, 1.0)
-	_prop("hill", -9.5, -4.0, 0.4, 2.1)
-	_prop("hill", -10.2, 3.5, 1.2, 2.4)
-	_prop("hill", -8.4, 10.5, 0.2, 1.8)
+	# Forest shoulder. Models are already sized, so scale stays near 1.
+	_prop("tree_a", -6.6, -2.4, 0.4, 1.15)
+	_prop("tree_b", -7.2, 2.6, 1.2, 1.05)
+	_prop("tree_pine", -6.4, -6.8, 0.3, 1.1)
+	_prop("tree_pine_b", -7.5, 6.4, 0.8, 1.0)
+	_prop("tree_twist", -6.2, 9.2, 0.5, 1.05)
+	_prop("bush", -4.6, -7.0, 0.2, 1.1)
+	_prop("bush_flower", -4.9, 3.4, 1.0, 1.05)
+	_prop("bush", -5.2, 0.15, 0.6, 1.0)
+	_prop("mushroom", -4.3, -3.1, 0.4, 1.2)
+	_prop("mushroom_shelf", -4.55, 1.6, 0.9, 1.15)
+	_prop("fern", -3.7, -4.4, 0.3, 1.2)
+	_prop("fern", -4.15, 5.2, 0.7, 1.1)
+	_prop("clover", -3.2, -6.2, 0.2, 1.3)
+	_prop("flower_a", -3.5, -7.5, 0.4, 1.15)
+	_prop("flower_b", -1.2, -7.3, 1.1, 1.0)
+	_prop("grass_tall", -3.6, -2.2, 0.4, 1.15)
+	_prop("grass_short", -4.2, 2.4, 0.8, 1.2)
+	_prop("grass_wispy", -5.4, -1.15, 0.3, 1.1)
+	_prop("grass_wispy", -4.5, 1.15, 1.0, 1.05)
+	_prop("pebble_rock", -5.1, 0.05, 0.5, 1.2)
+	_prop("rock_a", -5.6, 4.6, 0.4, 1.15)
+	_prop("tree_a", -3.2, -10.8, 0.7, 1.2)
+	_prop("tree_b", -4.4, 11.0, 0.2, 1.1)
 
 	# Lava shoulder.
-	_prop("tree_pine", 6.6, -3.0, 0.5, 1.05)
-	_prop("tree_pine", 7.2, 4.5, 1.0, 1.2)
-	_prop("rock", 4.55, -2.4, 0.4, 1.15)
-	_prop("rock", 4.7, 1.8, 1.2, 0.9)
-	_prop("rock_flat", 4.3, 5.4, 0.3, 1.2)
-	_prop("rock", 6.2, -6.8, 0.7, 1.4)
-	_prop("vent", 5.5, -0.2, 0.2, 1.15)
-	_prop("vent", 6.4, 3.2, 0.8, 0.9)
-	_prop("crystal", 5.8, -4.6, 0.4, 1.2)
-	_prop("crystal", 6.9, 1.2, 0.9, 1.45)
-	_prop("crystal", 5.2, 7.4, 0.3, 1.0)
-	_prop("lantern", 4.2, -8.5, 0.2, 1.0)
-	_prop("lantern", 5.6, 8.2, 1.0, 1.1)
-	_prop("flower_warm", 3.5, -7.5, 0.6, 1.0)
-	_prop("hill", 9.6, -2.0, 0.5, 2.0)
-	_prop("hill", 10.4, 5.5, 0.8, 2.5)
-	_prop("hill", 8.2, -10.0, 0.3, 1.7)
+	_prop("tree_dead", 6.7, -3.2, 0.5, 1.1)
+	_prop("tree_dead", 7.3, 4.8, 1.1, 0.95)
+	_prop("tree_pine", 6.5, 8.6, 0.4, 0.85)
+	_prop("rock_lava", 4.6, -2.5, 0.5, 1.25)
+	_prop("rock_lava", 4.85, 1.9, 1.3, 1.05)
+	_prop("rock_c", 4.4, 5.5, 0.2, 1.15)
+	_prop("rock_b", 6.3, -6.6, 0.8, 1.3)
+	_prop("rock_a", 5.6, 7.2, 0.4, 1.1)
+	_prop("flower_lava", 3.55, -7.4, 0.6, 1.1)
+	_prop("grass_short", 4.4, -4.2, 0.3, 1.0)
+	_prop("pebble_rock_b", 5.3, 0.15, 0.4, 1.3)
+	_prop("path_small", 4.1, 0.35, 0.2, 1.0)
+	_prop("tree_twist", 3.8, -10.6, 0.4, 1.05)
+	_prop("tree_pine_b", 4.2, 10.8, 1.0, 1.0)
 
-	# River dressing, kept off the bridges.
-	_prop("reed", -5.6, -1.15, 0.2, 1.0)
-	_prop("reed", -4.6, 1.2, 0.8, 1.15)
-	_prop("reed", 4.8, -1.05, 0.4, 1.0)
-	_prop("reed", 5.7, 1.15, 1.1, 1.1)
-	_prop("lily", -4.2, 0.35, 0.3, 1.0)
-	_prop("lily", 4.3, -0.45, 0.7, 0.9)
-	_prop("rock_flat", -5.2, 0.1, 0.4, 0.7)
-	_prop("rock", 5.4, 0.2, 0.2, 0.55)
-
-	# Back bowls behind each den.
-	_prop("flower_warm", -0.9, -8.9, 0.4, 1.0)
-	_prop("flower_warm", 1.0, -8.8, 1.1, 0.85)
-	_prop("flower_cool", -1.0, 8.9, 0.5, 1.0)
-	_prop("flower_cool", 1.05, 8.85, 0.2, 0.9)
-	_prop("lantern", -1.55, -8.55, 0.2, 0.85)
-	_prop("lantern", 1.55, -8.55, 0.6, 0.85)
-	_prop("lantern", -1.55, 8.55, 0.4, 0.85)
-	_prop("lantern", 1.55, 8.55, 1.0, 0.85)
-	_prop("tree_round", -3.4, -10.6, 0.8, 1.3)
-	_prop("tree_blossom", 3.6, -10.4, 0.3, 1.2)
-	_prop("tree_pine", -3.8, 10.6, 0.5, 1.25)
-	_prop("tree_round", 4.0, 10.5, 1.2, 1.2)
-	_prop("hill", 0.2, -13.5, 0.2, 2.6)
-	_prop("hill", -0.4, 13.8, 0.7, 2.7)
-
-	for i in 5:
-		var cloud := packed("cloud").instantiate()
-		var ang := float(i) / 5.0 * TAU
-		cloud.position = Vector3(cos(ang) * 8.5, 8.5 + float(i % 3) * 0.6, sin(ang) * 7.5)
-		cloud.scale = Vector3.ONE * (1.4 + float(i % 2) * 0.4)
-		StyleLib.stylize(cloud, 0.0, Color.WHITE, Color.WHITE, false)
-		for mi in cloud.find_children("*", "MeshInstance3D", true, false):
-			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		props.add_child(cloud)
-		_clouds.append(cloud)
+	# Framing hills of trees behind each den, kept off the lanes.
+	_prop("flower_a", -0.85, -9.1, 0.5, 1.05)
+	_prop("flower_b", 0.95, -9.0, 1.2, 0.95)
+	_prop("flower_a", -0.9, 9.05, 0.3, 1.0)
+	_prop("flower_lava", 1.05, 9.0, 0.8, 1.0)
+	_prop("grass_tall", -1.6, -7.6, 0.2, 1.0)
+	_prop("grass_tall", 1.55, 7.5, 0.7, 1.0)
+	_prop("rock_b", -1.7, 8.4, 0.4, 0.9)
+	_prop("rock_lava", 1.65, -8.35, 0.6, 0.85)
 
 
 func _prop(kind: String, x: float, z: float, rot: float, scale: float) -> void:
@@ -541,9 +518,9 @@ func _prop(kind: String, x: float, z: float, rot: float, scale: float) -> void:
 	node.position = Vector3(x, y, z)
 	node.rotation.y = rot
 	node.scale = Vector3.ONE * scale
-	var outline := 0.01 if kind.begins_with("tree") or kind == "lantern" else 0.0
+	var outline := 0.008 if kind.begins_with("tree") else 0.0
 	StyleLib.stylize(node, outline, Color.WHITE, Color.WHITE, false)
-	if kind in ["flower_warm", "flower_cool", "grass", "reed", "lily", "mushroom", "mushroom_tall", "rock", "rock_flat"]:
+	if kind.begins_with("flower") or kind.begins_with("grass") or kind.begins_with("pebble_rock") or kind == "fern" or kind == "clover" or kind.begins_with("mushroom") or kind.begins_with("rock") or kind.begins_with("path"):
 		for mi in node.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	props.add_child(node)

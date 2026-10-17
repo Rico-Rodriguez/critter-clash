@@ -331,10 +331,7 @@ func _evolve(unit: Unit, species: String) -> void:
 	unit.queue_free()
 	var evo := _spawn_critter(team, species, form, at)
 	evo.lane_x = lane
-	var native := Roster.branches(species).has(hab)
 	var title := Roster.form_name(species, form)
-	if not native:
-		title += "  ·  nearest " + Roster.habitat_label(form)
 	arena.burst(at, Roster.habitat_color(form), true)
 	arena.add_shake(0.2)
 	hitstop_until = Time.get_ticks_msec() + 80
@@ -661,17 +658,17 @@ func _move_drag(screen: Vector2) -> void:
 	var native := Roster.branches(drag_species).has(hab)
 	if merge:
 		banner_title.text = Roster.form_name(drag_species, form)
-		banner_sub.text = "Release to merge  ·  " + Roster.habitat_label(hab)
+		banner_sub.text = "Merge · " + Roster.habitat_label(hab)
 		if not native:
-			banner_sub.text = "Nearest branch  ·  " + Roster.habitat_label(form)
+			banner_sub.text = "Nearest · " + Roster.habitat_label(form)
 	else:
 		banner_title.text = Roster.form_name(drag_species, "base")
 		if not ok:
 			banner_sub.text = "Your half only" if sparks + 0.001 >= float(Roster.cost(drag_species)) else "Not enough sparks"
 		elif native:
-			banner_sub.text = "A twin here becomes " + Roster.form_name(drag_species, form)
+			banner_sub.text = Roster.habitat_label(hab) + " → " + Roster.form_name(drag_species, form)
 		else:
-			banner_sub.text = Roster.habitat_label(hab) + " follows " + Roster.habitat_label(form)
+			banner_sub.text = "Nearest · " + Roster.habitat_label(form)
 	if banner_style:
 		banner_style.bg_color = Color(color.r, color.g, color.b, 0.92)
 
@@ -847,7 +844,7 @@ func _build_ui() -> void:
 	leave.pressed.connect(_open_pause)
 	root.add_child(leave)
 
-	timer_label = UiKit.label("3:00", 32, Color("fff6ea"), "x")
+	timer_label = UiKit.label("3:00", 32, Color("fff6ea"), "x", 8)
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	timer_label.position = Vector2(250, _safe.t)
 	timer_label.size = Vector2(220, 48)
@@ -869,7 +866,7 @@ func _build_ui() -> void:
 	spark_text.size = Vector2(60, 36)
 	root.add_child(spark_text)
 
-	hint_label = UiKit.label("Drag a card onto your half of the glade.", 16, Color("fff6ea"), "b")
+	hint_label = UiKit.label("Drag a card onto your half of the glade.", 16, Color("fff6ea"), "b", 6)
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label.position = Vector2(40, 1280 - _safe.b - 214)
 	hint_label.size = Vector2(640, 28)
@@ -1065,7 +1062,7 @@ func _pip(parent: Control, pos: Vector2) -> Label:
 
 func _popup(world: Vector3, text: String, color: Color) -> void:
 	var screen := arena.camera.unproject_position(world + Vector3(0, 0.4, 0))
-	var l := UiKit.label(text, 22, color, "x")
+	var l := UiKit.label(text, 22, color, "x", 8)
 	l.position = screen - Vector2(140, 20)
 	l.size = Vector2(280, 56)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -14,7 +14,7 @@ static func ensure() -> void:
 	font_x = load("res://assets/fonts/Nunito-ExtraBold.ttf")
 
 
-static func label(text: String, size: int, color: Color, weight: String = "m") -> Label:
+static func label(text: String, size: int, color: Color, weight: String = "m", outline: int = -1) -> Label:
 	ensure()
 	var l := Label.new()
 	l.text = text
@@ -26,9 +26,12 @@ static func label(text: String, size: int, color: Color, weight: String = "m") -
 	l.add_theme_font_override("font", font)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
-	if size >= 40:
-		l.add_theme_color_override("font_outline_color", Color(0.22, 0.12, 0.1, 0.95))
-		l.add_theme_constant_override("outline_size", 10)
+	var outline_px := outline
+	if outline_px < 0 and size >= 40:
+		outline_px = 10
+	if outline_px > 0:
+		l.add_theme_color_override("font_outline_color", Color(0.16, 0.07, 0.05, 0.95))
+		l.add_theme_constant_override("outline_size", outline_px)
 	return l
 
 

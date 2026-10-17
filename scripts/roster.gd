@@ -16,8 +16,8 @@ const DATA := {
 		"name": "Ember",
 		"role": "Splash",
 		"cost": 4,
-		"gait": "waddle",
-		"card": Color(0.949, 0.490, 0.227),
+		"gait": "fly",
+		"card": Color(0.22, 0.70, 0.64),
 		"blurb": "A pocket dragon who sneezes sparks and takes it personally.",
 		"branches": ["lava", "water"],
 		"base": {

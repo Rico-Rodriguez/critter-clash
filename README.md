@@ -89,27 +89,25 @@ This environment cannot produce that IPA. It is Linux, so `xcodebuild` is unavai
 
 ### Art and audio rebuild
 
-Models and sound are generated, not downloaded.
+Creature and prop GLBs are prepared from the CC0 packs named in `CREDITS.md`. Sound is synthesized.
 
 ```
-blender --background --python tools/build_models.py
+blender --background --python tools/prepare_cast.py
 python3 tools/build_audio.py
 python3 tools/make_icon.py
 ```
 
-`tools/build_models.py` accepts an optional job name after `--` if you only want one mesh.
+The source packs are not in this repo. `tools/prepare_cast.py` expects them under `/tmp/cc0/` (see the paths at the top of that file).
 
 ## Art pipeline
 
-Every critter and prop is a hand-parameterized mesh built in Blender 4.5 by `tools/build_models.py`. Shapes are constructed with bmesh (spheres, tapered cones, boxes) and then sculpted by vertex transforms: belly squash, cheeks, quills, leaf manes, mist puffs, lily pads. They are not placeholder capsules left in the scene.
+Critters and the glade come from CC0 packs, then `tools/prepare_cast.py` recolors them, scales them to a shared height, and writes self-contained GLBs. Ember is Pixor's baby dragon. Juniper and Pebble are Gamideo's cozy fox and otter. Lumen is Pixor's owl. Pip and Bramble are Quaternius monsters. Trees, rocks, plants, dens, and the bridge are Quaternius Stylized Nature.
 
-Each mesh is painted with vertex colors (top light, belly, blush, spots, tip gradients). Materials are simple clay, foliage, eye, and glow shaders. Eyes, mouth, wings, legs, tails, and quills are separate objects parented to a `Rig`, with a `Forward` marker so the game knows which way the face points. Evolutions add readable upgrades: flame crests, moss, leaf manes, briar plates, storm bolts, mushroom caps.
+Godot imports those GLBs and replaces the materials with one toon shader (`shaders/toon.gdshader`): three cel bands, a rim in the emission, and a soft inverted-hull outline. Foliage sways from the wind uniform. The ground, river, and sky are their own shaders. The map is a height-displaced diorama: forest shoulder, lava shoulder, a sunk river, two bridges, dens, and burrows. Fireflies, embers, and petals are CPU particles.
 
-Godot imports the glTF files and replaces the materials with one toon shader (`shaders/toon.gdshader`): three cel bands, a rim in the emission, and a soft inverted-hull outline. Foliage sways from the wind uniform. The ground, river, and sky are their own shaders. The map is a height-displaced diorama: forest shoulder, lava shoulder, a sunk river, two bridges, dens, and burrows. Fireflies, embers, and petals are CPU particles.
+CritterAnimator plays the clips embedded in each GLB: idle, walk, fly, gesture, and the hit and death clips when the pack has them. A `Forward` marker says which way the face points. Card portraits are snapshots of the same models.
 
-CritterAnimator poses those parts for idle, walk, attack, hit, and death. Gaits are waddle, stomp, hop, fly, and walk. Card portraits are snapshots of the same models.
-
-Audio is original synthesis in `tools/build_audio.py` (WAV effects, one Ogg Vorbis loop). The interface uses Nunito, under the SIL Open Font License. Nothing here is from Kenney, Quaternius, or a generative 3D service. Credits are in `CREDITS.md`.
+Audio is original synthesis in `tools/build_audio.py` (WAV effects, one Ogg Vorbis loop). The interface uses Nunito, under the SIL Open Font License. Licenses are in `CREDITS.md`.
 
 ## Project layout
 
