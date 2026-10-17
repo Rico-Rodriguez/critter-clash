@@ -57,7 +57,7 @@ func build() -> void:
 		"Quaternius — monsters and nature kit",
 		"ambientCG — ground, rock and moss textures",
 		"Poly Haven — sky",
-		"Kenney — interface pictures",
+		"Kenney — interface pictures, treasure chest",
 		"Godot Engine — MIT",
 		"Cinzel, Nunito, Lilita One — SIL Open Font License",
 	]))

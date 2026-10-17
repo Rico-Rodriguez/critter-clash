@@ -61,3 +61,7 @@ The older fonts below remain in the repository but the interface no longer uses 
 
 - Effects and the music loop are synthesized by `tools/build_audio.py`.
 - No sampled libraries and no third-party tracks.
+
+## Chest
+- Chest model: Kenney Pirate Kit 2.1 (`chest.glb`), www.kenney.nl, CC0. Restyled in-engine (shaders/chest.gdshader, scripts/chest3d.gd).
+- Planks012 (wood) and Metal032 (iron normal/roughness): ambientCG, CC0, https://ambientcg.com

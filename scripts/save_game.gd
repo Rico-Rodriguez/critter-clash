@@ -23,6 +23,48 @@ func pending_count() -> int:
 	return data["chests"].size()
 
 
+## Hunt chests unlock on a short timer, Clash style; pouches from a loss are
+## quicker, and reward chests (milestones, the slayer shop) open at once.
+const UNLOCK_SECONDS := {"hunt": 180, "scrap": 60}
+
+
+func _new_chest(kind: String, biome_id: String, timed: bool) -> Dictionary:
+	var chest := {"kind": kind, "biome": biome_id, "seed": randi()}
+	if timed:
+		chest["ready_at"] = int(Time.get_unix_time_from_system()) + int(UNLOCK_SECONDS.get(kind, 0))
+	else:
+		chest["tone"] = "gold"
+	return chest
+
+
+## Seconds until chest i can be opened (0 = ready).
+func chest_wait(i: int) -> int:
+	if i < 0 or i >= data["chests"].size():
+		return 0
+	var at := int(data["chests"][i].get("ready_at", 0))
+	return maxi(0, at - int(Time.get_unix_time_from_system()))
+
+
+func first_ready() -> int:
+	for i in data["chests"].size():
+		if chest_wait(i) <= 0:
+			return i
+	return -1
+
+
+## The look of chest i: pouches are plain wood, hunt chests take their
+## biome's metal, reward chests are gilded.
+func chest_tone(i: int) -> String:
+	if i < 0 or i >= data["chests"].size():
+		return "wood"
+	var chest: Dictionary = data["chests"][i]
+	if chest.has("tone"):
+		return str(chest["tone"])
+	if str(chest.get("kind", "hunt")) == "scrap":
+		return "wood"
+	return {"meadow": "silver", "mushroom": "magic", "frost": "silver", "volcano": "gold"}.get(str(chest.get("biome", "meadow")), "silver")
+
+
 func biome_cleared(id: String) -> bool:
 	return bool(data["cleared"].get(id, false))
 
@@ -216,7 +258,7 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictio
 		elif reveal.is_empty() and Catalog.is_reveal(drop):
 			reveal = drop
 	_note_slayer(biome_id, slain, true)
-	data["chests"].append({"kind": "hunt", "biome": biome_id, "seed": randi()})
+	data["chests"].append(_new_chest("hunt", biome_id, true))
 	_write()
 	return {
 		"trophies": gained,
@@ -230,7 +272,7 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictio
 
 func commit_defeat(biome_id: String, slain: int = 0) -> void:
 	_note_slayer(biome_id, slain, false)
-	data["chests"].append({"kind": "scrap", "biome": biome_id, "seed": randi()})
+	data["chests"].append(_new_chest("scrap", biome_id, true))
 	_write()
 
 
@@ -321,7 +363,7 @@ func buy_slayer(offer_id: String) -> bool:
 		"cosmetic":
 			data["cosmetic"] = str(offer.get("cosmetic", "ribbon"))
 		"chest":
-			data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": randi()})
+			data["chests"].append(_new_chest("hunt", "meadow", false))
 	_write()
 	AudioDirector.play("merge")
 	return true
@@ -395,10 +437,10 @@ func _note_slayer(biome_id: String, slain: int, boss: bool) -> void:
 		task["have"] = mini(int(task["need"]), int(task.get("have", 0)) + 1)
 
 
-func open_next() -> Dictionary:
-	if data["chests"].is_empty():
+func open_next(index: int = 0) -> Dictionary:
+	if index < 0 or index >= data["chests"].size():
 		return {}
-	var chest: Dictionary = data["chests"].pop_front()
+	var chest: Dictionary = data["chests"].pop_at(index)
 	var loot := _roll_loot(chest)
 	_write()
 	AudioDirector.play("win", -8.0)
@@ -418,7 +460,7 @@ func claim(id: String) -> bool:
 		"coins":
 			data["coins"] = int(data["coins"]) + int(entry["amount"])
 		"chest":
-			data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": randi()})
+			data["chests"].append(_new_chest("hunt", "meadow", false))
 		"unlock":
 			var row: Dictionary = data["heroes"][str(entry["hero"])]
 			row["unlocked"] = true

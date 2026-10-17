@@ -45,6 +45,12 @@ func _ready() -> void:
 		await icons.run()
 		get_tree().quit()
 		return
+	if OS.get_cmdline_user_args().has("--bake-chests"):
+		var chests := ChestBaker.new()
+		add_child(chests)
+		await chests.run()
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("--bake-banners"):
 		var banners := BannerBaker.new()
 		add_child(banners)
@@ -98,6 +104,7 @@ func _capture() -> void:
 	SaveGame.data["coins"] = 135
 	SaveGame.data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": 3})
 	SaveGame.data["chests"].append({"kind": "scrap", "biome": "meadow", "seed": 4})
+	SaveGame.data["chests"].append({"kind": "hunt", "biome": "volcano", "seed": 5, "ready_at": int(Time.get_unix_time_from_system()) + 107})
 	if _wants("home"):
 		go("home")
 		await _settle()
@@ -216,7 +223,9 @@ func _capture() -> void:
 		await _settle()
 		await _shot("chest")
 		current._reveal()
-		await _settle()
+		await get_tree().create_timer(0.45).timeout
+		await _shot("burst")
+		await get_tree().create_timer(1.2).timeout
 		await _shot("loot")
 	get_tree().quit()
 

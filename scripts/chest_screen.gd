@@ -6,6 +6,7 @@ var open_button: Button
 var home_button: Button
 var showing_loot := false
 var burst: Burst
+var _index := 0
 
 
 func build() -> void:
@@ -49,16 +50,41 @@ func _arm() -> void:
 		home_button.visible = true
 		loot_box.add_child(body("Win or lose a hunt and one comes home with you."))
 		burst.empty = true
+		burst.locked = false
 		burst.arm()
 		return
-	var chest: Dictionary = SaveGame.data["chests"][0]
+	_index = SaveGame.first_ready()
+	var shown := maxi(_index, 0)
+	var chest: Dictionary = SaveGame.data["chests"][shown]
 	var hunt := str(chest.get("kind", "hunt")) == "hunt"
 	title_label.text = "Hunt chest" if hunt else "Small pouch"
 	open_button.visible = true
 	open_button.text = "Open"
+	burst.tone = SaveGame.chest_tone(shown)
+	burst.locked = _index < 0
+	burst.empty = false
 	burst.arm()
 	var biome := Catalog.biome(str(chest.get("biome", "meadow")))
 	loot_box.add_child(body("From the %s." % str(biome["name"])))
+	_tick_lock()
+
+
+## While every chest is still unlocking, the button counts down.
+func _tick_lock() -> void:
+	if showing_loot or not open_button.visible or _index >= 0:
+		open_button.disabled = false
+		return
+	var wait := SaveGame.chest_wait(0)
+	if wait <= 0:
+		_arm()
+		return
+	open_button.disabled = true
+	open_button.text = "Unlocks in %d:%02d" % [wait / 60, wait % 60]
+
+
+func _process(_delta: float) -> void:
+	if burst and burst.locked:
+		_tick_lock()
 
 
 func _on_open() -> void:
@@ -69,7 +95,9 @@ func _on_open() -> void:
 
 
 func _reveal() -> void:
-	var loot := SaveGame.open_next()
+	if _index < 0:
+		return
+	var loot := SaveGame.open_next(_index)
 	if loot.is_empty():
 		_arm()
 		return
@@ -101,9 +129,11 @@ func _reveal() -> void:
 		r.pivot_offset = Vector2(100, 130)
 		r.scale = Vector2(0.6, 0.6)
 		var tw := create_tween()
-		tw.tween_interval(0.25 + 0.14 * i)
+		# Each reward lands when its flyer from the chest arrives.
+		tw.tween_interval(0.35 + 0.16 * i + 0.5)
 		tw.tween_property(r, "modulate:a", 1.0, 0.18)
 		tw.parallel().tween_property(r, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_launch_flyers(rewards)
 	var gear: Dictionary = loot["gear"]
 	if not gear.is_empty():
 		var plate := UiKit.Plate.new()
@@ -120,6 +150,19 @@ func _reveal() -> void:
 		open_button.visible = true
 		open_button.text = "Next chest"
 		showing_loot = true
+
+
+func _launch_flyers(rewards: Array) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if burst == null:
+		return
+	for i in rewards.size():
+		var r: Control = rewards[i]
+		if not is_instance_valid(r):
+			continue
+		var target := r.global_position + r.size * 0.5 - burst.global_position
+		burst.fly(target, 0.35 + 0.16 * i, "coins" if i == 0 else "card")
 
 
 func _reward_card(id: String, name: String, count: int) -> Control:
@@ -179,64 +222,170 @@ class CoinPile extends Control:
 			UiKit.draw_currency(self, "coins", Rect2(c + p - Vector2(30, 30), Vector2(60, 60)))
 
 
-## The chest stage: a warm pool of light, a big forged chest that rattles
-## while armed, then bursts open with sparks and light rays.
+## The chest stage: a lit stone pedestal under shafts of light, with the
+## rendered 3D chest on top. Armed, it rattles and leaks light at the lid;
+## opened, the lid swings back, light bursts out and the loot flies to the
+## reward cards.
 class Burst extends Control:
 	var empty := false
+	var locked := false
+	var tone := "wood"
 	var opened := 0.0
 	var rays := 0.0
-
-	func arm() -> void:
-		shaking = not empty
-		opened = 0.0
-		rays = 0.0
-		parts.clear()
-		visible = true
-		set_process(true)
-
+	var flash := 0.0
 	var parts: Array[Dictionary] = []
+	var flyers: Array[Dictionary] = []
 	var shaking := true
 	var t := 0.0
+	var stage: SubViewportContainer
+	var vp: SubViewport
+	var cam: Camera3D
+	var chest: Chest3D
+	var fx: Control
+	var key: DirectionalLight3D
 
-	func _process(delta: float) -> void:
-		t += delta
-		if shaking:
-			pivot_offset = size * 0.5
-			rotation = sin(t * 9.0) * 0.025 * maxf(0.0, sin(t * 2.2))
-		var alive := false
-		for part in parts:
-			part["life"] = float(part["life"]) - delta
-			part["p"] = part["p"] + part["v"] * delta
-			part["v"] = part["v"] + Vector2(0, 280.0) * delta
-			if float(part["life"]) > 0.0:
-				alive = true
-		if not shaking:
-			opened = minf(1.0, opened + delta * 3.0)
-			rays = minf(1.0, rays + delta * 1.5)
-		queue_redraw()
+	func _ready() -> void:
+		stage = SubViewportContainer.new()
+		stage.stretch = true
+		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(stage)
+		vp = SubViewport.new()
+		vp.transparent_bg = true
+		vp.own_world_3d = true
+		vp.msaa_3d = Viewport.MSAA_4X
+		stage.add_child(vp)
+		var root := Node3D.new()
+		vp.add_child(root)
+		var env := Chest3D.stage_env(0.3)
+		var we := WorldEnvironment.new()
+		we.environment = env
+		root.add_child(we)
+		# Warm shaft light from above, cool fill from the side, hot rim behind.
+		key = DirectionalLight3D.new()
+		key.light_color = Color("ffdcae")
+		key.light_energy = 2.0
+		key.rotation_degrees = Vector3(-58, 24, 0)
+		key.shadow_enabled = true
+		root.add_child(key)
+		var fill := DirectionalLight3D.new()
+		fill.light_color = Color("7f96d0")
+		fill.light_energy = 0.55
+		fill.rotation_degrees = Vector3(-10, -75, 0)
+		root.add_child(fill)
+		var rim := DirectionalLight3D.new()
+		rim.light_color = Color("ffb070")
+		rim.light_energy = 1.8
+		rim.rotation_degrees = Vector3(-25, 170, 0)
+		root.add_child(rim)
+		chest = Chest3D.new("wood")
+		chest.rotation.y = -0.32
+		root.add_child(chest)
+		cam = Camera3D.new()
+		cam.fov = 30.0
+		cam.position = Vector3(0, 2.0, 3.9)
+		root.add_child(cam)
+		cam.look_at(Vector3(0, 0.6, 0))
+		fx = Control.new()
+		fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(fx)
+		fx.draw.connect(_draw_fx)
+		resized.connect(_layout)
+		_layout()
 
-	func pop() -> void:
-		shaking = false
-		rotation = 0.0
-		var origin := size * 0.5 - Vector2(0, 60)
-		for i in 36:
-			var ang := float(i) / 36.0 * TAU + randf_range(-0.1, 0.1)
-			var speed := randf_range(180.0, 520.0)
-			parts.append({
-				"p": origin,
-				"v": Vector2.from_angle(ang) * speed,
-				"life": randf_range(0.45, 0.85),
-				"max": 0.7,
-				"s": randf_range(6.0, 14.0),
-				"c": Color("ffe08a") if i % 3 != 0 else Color("fff6e0"),
-			})
-
-	func _draw() -> void:
-		# Chest scales to the space: about 72% of the width, centred low.
+	func _geom() -> Dictionary:
 		var cw := minf(size.x * 0.74, size.y * 0.95)
 		var k := cw / 400.0
 		var c := Vector2(size.x * 0.5, size.y * 0.5 + 30.0 * k)
 		var floor_y := c.y + 152.0 * k + 64.0 * k
+		return {"k": k, "c": c, "floor": floor_y}
+
+	func _layout() -> void:
+		if stage == null:
+			return
+		var g := _geom()
+		var k: float = g["k"]
+		var side := 430.0 * k
+		stage.position = Vector2(float(g["c"].x) - side * 0.5, float(g["floor"]) - 70.0 * k - side * 0.8)
+		stage.size = Vector2(side, side)
+		fx.position = Vector2.ZERO
+		fx.size = size
+
+	## Where the chest's mouth sits, in this control's coordinates.
+	func mouth() -> Vector2:
+		if cam == null or stage.size.x <= 0.0:
+			return size * 0.5
+		var p := cam.unproject_position(chest.global_position + Vector3(0, 0.75, 0.1))
+		return stage.position + p * stage.size / Vector2(vp.size)
+
+	func arm() -> void:
+		shaking = not empty and not locked
+		opened = 0.0
+		rays = 0.0
+		flash = 0.0
+		parts.clear()
+		flyers.clear()
+		visible = true
+		if chest:
+			chest.set_tone(tone)
+			chest.set_open(0.0)
+			chest.set_flash(0.0)
+			key.light_energy = 0.8 if empty else 2.0
+		set_process(true)
+
+	func _process(delta: float) -> void:
+		t += delta
+		if chest:
+			if shaking:
+				# Rattle in bursts; the lid hops and light leaks out.
+				var burst_on := maxf(0.0, sin(t * 2.2))
+				chest.rotation.z = sin(t * 19.0) * 0.035 * burst_on
+				chest.rotation.y = -0.32 + sin(t * 13.0) * 0.03 * burst_on
+				chest.set_open(0.05 * burst_on * absf(sin(t * 9.0)))
+			else:
+				chest.rotation.z = lerpf(chest.rotation.z, 0.0, 0.3)
+				# Lid swings back with a little overshoot.
+				var e := 1.0 - pow(1.0 - opened, 3.0)
+				var over := sin(opened * PI) * 0.12
+				chest.set_open(clampf(e + over, 0.0, 1.1))
+				chest.set_flash(flash)
+		for part in parts:
+			part["life"] = float(part["life"]) - delta
+			part["p"] = part["p"] + part["v"] * delta
+			part["v"] = part["v"] + Vector2(0, 280.0) * delta
+		for f in flyers:
+			f["t"] = float(f["t"]) + delta
+		if not shaking:
+			opened = minf(1.0, opened + delta * 2.6)
+			rays = minf(1.0, rays + delta * 1.5)
+			flash = maxf(0.0, flash - delta * 1.6)
+		queue_redraw()
+		fx.queue_redraw()
+
+	func pop() -> void:
+		shaking = false
+		flash = 1.0
+		var origin := mouth()
+		for i in 40:
+			var ang := -PI * 0.5 + randf_range(-1.3, 1.3)
+			var speed := randf_range(220.0, 620.0)
+			parts.append({
+				"p": origin,
+				"v": Vector2.from_angle(ang) * speed,
+				"life": randf_range(0.5, 0.95),
+				"max": 0.8,
+				"s": randf_range(5.0, 12.0),
+				"c": Color("ffe08a") if i % 3 != 0 else Color("fff6e0"),
+			})
+
+	## A coin or card arcs out of the chest to `target` (local coords).
+	func fly(target: Vector2, delay: float, kind: String) -> void:
+		flyers.append({"from": mouth(), "to": target, "t": -delay, "kind": kind})
+
+	func _draw() -> void:
+		var g := _geom()
+		var k: float = g["k"]
+		var c: Vector2 = g["c"]
+		var floor_y: float = g["floor"]
 		# Shafts from above: always faintly there, flaring when it opens.
 		var src := Vector2(c.x + 40.0 * k, -40.0)
 		for i in 7:
@@ -280,24 +429,35 @@ class Burst extends Control:
 			draw_polyline(lip, Color("c9a25a"), 2.5 * k, true)
 		# Contact shadow under the chest.
 		for i in 8:
-			_ellipse(Vector2(c.x, floor_y - 70.0 * k), Vector2((210.0 - i * 9.0) * k, (40.0 - i * 2.5) * k), Color(0, 0, 0, 0.1))
-		var chest := Rect2(c.x - 200.0 * k, floor_y - 70.0 * k - 300.0 * k, 400.0 * k, 312.0 * k)
-		UiKit.draw_chest(self, chest, "wood", not empty)
-		# Warm rim from the shafts on the lid.
-		draw_line(chest.position + Vector2(30.0 * k, 8.0 * k), chest.position + Vector2(chest.size.x - 30.0 * k, 8.0 * k), Color(1.0, 0.9, 0.65, 0.35), 3.0 * k, true)
-		if opened > 0.0:
-			var mouth := chest.position + Vector2(chest.size.x * 0.5, chest.size.y * 0.32)
-			for i in 20:
-				_ellipse(mouth, Vector2(200 - i * 9, 70 - i * 3) * k * opened, Color(1.0, 0.9, 0.6, 0.035))
+			_ellipse(Vector2(c.x, floor_y - 72.0 * k), Vector2((190.0 - i * 9.0) * k, (34.0 - i * 2.5) * k), Color(0, 0, 0, 0.11))
 		# Dust motes drifting in the light.
 		for i in 26:
-			var fx := fmod(float(i) * 97.3 + t * (6.0 + float(i % 5)), size.x * 0.7) + size.x * 0.15
-			var fy := fmod(float(i) * 53.1 - t * (10.0 + float(i % 4) * 3.0), floor_y) 
+			var fx_ := fmod(float(i) * 97.3 + t * (6.0 + float(i % 5)), size.x * 0.7) + size.x * 0.15
+			var fy := fmod(float(i) * 53.1 - t * (10.0 + float(i % 4) * 3.0), floor_y)
 			if fy < 0.0:
 				fy += floor_y
 			var flick := 0.5 + 0.5 * sin(t * 2.0 + i)
-			draw_circle(Vector2(fx, fy), (1.5 + float(i % 3)) * k, Color(1.0, 0.88, 0.6, 0.18 + 0.25 * flick * (0.5 + rays)))
+			draw_circle(Vector2(fx_, fy), (1.5 + float(i % 3)) * k, Color(1.0, 0.88, 0.6, 0.18 + 0.25 * flick * (0.5 + rays)))
 
+	## Drawn over the chest: the light pouring from the mouth, sparks, loot.
+	func _draw_fx() -> void:
+		var k: float = _geom()["k"]
+		var m := mouth()
+		var leak := 0.0
+		if shaking and chest:
+			leak = chest._open * 12.0
+		var glow := clampf(opened * 1.4, 0.0, 1.0) * (0.55 + 0.45 * flash) + leak
+		if glow > 0.0:
+			for i in 18:
+				_ellipse_on(fx, m + Vector2(0, -70.0 * k), Vector2(240 - i * 11, 120 - i * 5.5) * k, Color(1.0, 0.82, 0.5, 0.012 * glow))
+			# A column of light standing out of the open chest.
+			var top := Color(1.0, 0.9, 0.6, 0.0)
+			var bot := Color(1.0, 0.86, 0.55, 0.14 * glow)
+			fx.draw_polygon(PackedVector2Array([m + Vector2(-150, -420) * k, m + Vector2(150, -420) * k, m + Vector2(110, 0) * k, m + Vector2(-110, 0) * k]),
+				PackedColorArray([top, top, bot, bot]))
+		if flash > 0.0:
+			for i in 10:
+				fx.draw_circle(m, (40.0 + i * 26.0) * k * (1.4 - flash * 0.4), Color(1.0, 0.95, 0.8, 0.05 * flash))
 		for part in parts:
 			var life := float(part["life"])
 			if life <= 0.0:
@@ -305,11 +465,33 @@ class Burst extends Control:
 			var al := clampf(life / float(part["max"]), 0.0, 1.0)
 			var col: Color = part["c"]
 			col.a = al
-			draw_circle(part["p"], float(part["s"]) * al, col)
+			fx.draw_circle(part["p"], float(part["s"]) * al, col)
+		for f in flyers:
+			var ft := float(f["t"]) / 0.55
+			if ft <= 0.0 or ft >= 1.0:
+				continue
+			var e := ft * ft * (3.0 - 2.0 * ft)
+			var a: Vector2 = f["from"]
+			var b: Vector2 = f["to"]
+			var ctrl := (a + b) * 0.5 + Vector2(0, -260.0 * k)
+			var p := a.lerp(ctrl, e).lerp(ctrl.lerp(b, e), e)
+			var s := lerpf(0.6, 1.0, e) * 46.0 * k
+			for j in 4:
+				fx.draw_circle(p, s * (1.4 - j * 0.25), Color(1.0, 0.8, 0.45, 0.08))
+			if str(f["kind"]) == "coins":
+				UiKit.draw_currency(fx, "coins", Rect2(p - Vector2(s, s) * 0.6, Vector2(s, s) * 1.2))
+			else:
+				var r := Rect2(p - Vector2(s * 0.5, s * 0.68), Vector2(s, s * 1.36))
+				fx.draw_rect(r, Color("3a2416"))
+				fx.draw_rect(r.grow(-3.0 * k), Color("c9a25a"), false, 2.0 * k)
+				fx.draw_circle(r.get_center(), s * 0.18, Color("ffe08a"))
 
 	func _ellipse(center: Vector2, r: Vector2, col: Color) -> void:
+		_ellipse_on(self, center, r, col)
+
+	func _ellipse_on(ci: CanvasItem, center: Vector2, r: Vector2, col: Color) -> void:
 		var pts := PackedVector2Array()
 		for i in 40:
 			var a := TAU * i / 40.0
 			pts.append(center + Vector2(cos(a) * r.x, sin(a) * r.y))
-		draw_colored_polygon(pts, col)
+		ci.draw_colored_polygon(pts, col)

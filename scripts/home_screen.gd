@@ -78,7 +78,8 @@ func _chests() -> HBoxContainer:
 	for i in 4:
 		var slot := ChestSlot.new()
 		slot.filled = i < pending
-		slot.tone = ["wood", "silver", "gold", "magic"][i % 4] if slot.filled else "wood"
+		slot.index = i
+		slot.tone = SaveGame.chest_tone(i) if slot.filled else "wood"
 		slot.custom_minimum_size = Vector2(156, 168)
 		if slot.filled:
 			slot.gui_input.connect(func(event: InputEvent) -> void:
@@ -142,9 +143,11 @@ class Fade extends Control:
 
 class ChestSlot extends Control:
 	var filled := false
+	var index := 0
 	var tone := "wood"
 	var t := 0.0
 	var frame: UiKit.Frame
+	var _wait := 0
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP if filled else Control.MOUSE_FILTER_IGNORE
@@ -157,24 +160,46 @@ class ChestSlot extends Control:
 	func _process(delta: float) -> void:
 		t += delta
 		if filled:
-			frame.set_param("glow_color", Color(1.0, 0.7, 0.3, 0.22 + 0.16 * sin(t * 2.4)))
+			_wait = SaveGame.chest_wait(index)
+			var pulse := 0.22 + 0.16 * sin(t * 2.4) if _wait <= 0 else 0.08
+			frame.set_param("glow_color", Color(1.0, 0.7, 0.3, pulse))
 			queue_redraw()
 
 	func _draw() -> void:
 		UiKit.ensure()
 		var r := Rect2(Vector2.ZERO, size)
-		if filled:
+		var ready := filled and _wait <= 0
+		if ready:
 			# Warm light spilling from the chest onto the slot floor.
-			var c := Vector2(r.size.x * 0.5, r.size.y * 0.5)
+			var c := Vector2(r.size.x * 0.5, r.size.y * 0.46)
 			for i in 6:
 				draw_circle(c, r.size.x * (0.42 - i * 0.05), Color(1.0, 0.62, 0.25, 0.035))
-		var bob := sin(t * 2.6) * 3.0 if filled else 0.0
-		var art := Rect2(r.position + Vector2(r.size.x * 0.13, 16 + bob), Vector2(r.size.x * 0.74, r.size.x * 0.64))
-		UiKit.draw_chest(self, art, tone, filled)
+		var bob := sin(t * 2.6) * 3.0 if ready else 0.0
+		# The baked 3D chest: same model as the chest screen.
+		var art := Rect2(Vector2(r.size.x * 0.04, 4 + bob), Vector2(r.size.x * 0.92, r.size.x * 0.92))
+		var tex := SpriteBank._load("res://assets/sprites/chests/%s.png" % tone, "chest_" + tone)
+		var tint := Color.WHITE if filled else Color(0.17, 0.14, 0.12, 0.85)
+		if tex:
+			draw_texture_rect(tex, art, false, tint)
 		var font := UiKit.font_x
-		var caption := "OPEN" if filled else "EMPTY"
-		var ink := UiKit.GOLD.lightened(0.2) if filled else Color(0.5, 0.45, 0.38)
-		UiKit.draw_text(self, font, Vector2(r.position.x, r.end.y - 16), caption, 20 if filled else 17, ink, Color(0.05, 0.03, 0.02), 2, r.size.x)
+		var caption := "EMPTY"
+		var ink := Color(0.5, 0.45, 0.38)
+		var fsize := 17
+		if ready:
+			caption = "OPEN"
+			ink = UiKit.GOLD.lightened(0.2)
+			fsize = 20
+		elif filled:
+			caption = "%d:%02d" % [_wait / 60, _wait % 60]
+			ink = UiKit.CREAM
+			fsize = 20
+			# Unlock progress as a thin gilt bar over a dark groove.
+			var total := float(SaveGame.UNLOCK_SECONDS.get(str(SaveGame.data["chests"][index].get("kind", "hunt")), 180))
+			var f := clampf(1.0 - float(_wait) / maxf(total, 1.0), 0.0, 1.0)
+			var bar := Rect2(r.size.x * 0.18, r.end.y - 44, r.size.x * 0.64, 7)
+			draw_rect(bar, Color(0.05, 0.03, 0.02, 0.9))
+			draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), Color("c9a25a"))
+		UiKit.draw_text(self, font, Vector2(r.position.x, r.end.y - 16), caption, fsize, ink, Color(0.05, 0.03, 0.02), 2, r.size.x)
 
 
 ## A dark smoked plate behind the logo with gilt rules either side, so the
