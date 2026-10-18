@@ -239,6 +239,19 @@ const DETOUR_SECONDS := 2.5
 const TURNS := [0.0, 0.3, -0.3, 0.6, -0.6, 0.95, -0.95, 1.3, -1.3, 1.65, -1.65, 2.0, -2.0, 2.4, -2.4, PI]
 
 
+## Flow field toward `goal`, memoised per map cell for the life of one fight.
+## A field is a pure function of the goal's cell, so a cache hit is bit-for-bit
+## the same array the BFS would rebuild; `mem` is per run, so nothing leaks.
+static func _goal_field(sim: RunSim, mem: Dictionary, goal: Vector2) -> PackedInt32Array:
+	if not mem.has("fields"):
+		mem["fields"] = {}
+	var fields: Dictionary = mem["fields"]
+	var cell := sim.map.cell_index(goal)
+	if not fields.has(cell):
+		fields[cell] = sim.map.flow(goal)
+	return fields[cell]
+
+
 ## Explore bot: fights what is close or has aggro, sweeps gems, and
 ## otherwise walks the flow field to the nearest live camp or unopened chest,
 ## then to the boss lair. `mem` keeps its route between calls.
@@ -329,7 +342,7 @@ static func _choose_goal(sim: RunSim, hero: RunSim.Actor, mem: Dictionary) -> vo
 					goal = a.pos
 	if not mem.has("goal") or (mem["goal"] as Vector2).distance_to(goal) > 60.0:
 		mem["goal"] = goal
-		mem["field"] = sim.map.flow(goal)
+		mem["field"] = _goal_field(sim, mem, goal)
 
 
 ## Downhill step along the flow field, but only down a lane the body can really

@@ -2,39 +2,111 @@ class_name SimCheck
 extends RefCounted
 
 static var failures := 0
+## --quick trims the long RunBot fights and the seeded statistical sweeps so a
+## dev loop finishes in under a minute; default (no flags) is unchanged.
+static var quick := false
+## --only=<name,...> runs a subset of CHECKS by their short tag.
+static var only: Array = []
+## --timings prints per-check elapsed ms and the top five at the end.
+static var timings := false
+static var _times: Array = []
+
+## Every check in run order. The name is the --only tag and the --timings label.
+const CHECKS := [
+	"roles", "modes", "save", "gear_save", "slayer_log",
+	"settings", "daily", "steer", "maps", "cards", "pools", "exclusivity",
+	"fights", "kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp",
+	"gear_coverage",
+]
 
 
 static func run() -> int:
 	failures = 0
-	if OS.get_cmdline_user_args().has("--class-report"):
+	_times = []
+	var args := OS.get_cmdline_user_args()
+	if not quick:
+		quick = args.has("--quick")
+	if not timings:
+		timings = args.has("--timings")
+	only = []
+	for arg in args:
+		if arg.begins_with("--only="):
+			only = arg.substr(7).split(",", false)
+	if args.has("--class-report"):
 		class_report(_class_tag())
-	_roles()
-	_modes()
-	_save()
-	_gear_save_check()
-	_slayer_log_check()
-	_settings_check()
-	_daily_check()
-	_steer()
-	_maps()
-	_cards()
-	_pools_check()
-	_exclusivity_check()
-	_fights()
-	if OS.get_cmdline_user_args().has("--seed-sweep"):
-		seed_sweep()
-	_kite()
-	_boss_intro_check()
-	_dodge_check()
-	_events_check()
-	_gear_drop_smoke()
-	_skill_xp_smoke()
-	_gear_coverage_check()
+	for name in CHECKS:
+		if not only.is_empty() and name not in only:
+			continue
+		var t0 := Time.get_ticks_usec()
+		_dispatch(name)
+		var ms := float(Time.get_ticks_usec() - t0) / 1000.0
+		_times.append([name, ms])
+		if timings:
+			print("TIME ", name, " ", int(round(ms)), " ms")
+	if timings:
+		_report_timings()
 	if failures == 0:
 		print("SIM CHECK PASSED")
 		return 0
 	print("SIM CHECK FAILED ", failures)
 	return 1
+
+
+static func _dispatch(name: String) -> void:
+	match name:
+		"roles":
+			_roles()
+		"modes":
+			_modes()
+		"save":
+			_save()
+		"gear_save":
+			_gear_save_check()
+		"slayer_log":
+			_slayer_log_check()
+		"settings":
+			_settings_check()
+		"daily":
+			_daily_check()
+		"steer":
+			_steer()
+		"maps":
+			_maps()
+		"cards":
+			_cards()
+		"pools":
+			_pools_check()
+		"exclusivity":
+			_exclusivity_check()
+		"fights":
+			_fights()
+			if OS.get_cmdline_user_args().has("--seed-sweep"):
+				seed_sweep()
+		"kite":
+			_kite()
+		"boss_intro":
+			_boss_intro_check()
+		"dodge":
+			_dodge_check()
+		"events":
+			_events_check()
+		"gear_drop":
+			_gear_drop_smoke()
+		"skill_xp":
+			_skill_xp_smoke()
+		"gear_coverage":
+			_gear_coverage_check()
+		_:
+			_fail("unknown check " + name)
+
+
+## Top five slowest checks, so a profile is one line away from the run.
+static func _report_timings() -> void:
+	var ranked: Array = _times.duplicate()
+	ranked.sort_custom(func(a: Variant, b: Variant) -> bool: return float(a[1]) > float(b[1]))
+	print("TIMINGS top ", mini(5, ranked.size()), ":")
+	for i in mini(5, ranked.size()):
+		print("  ", i + 1, ". ", ranked[i][0], " ", int(round(float(ranked[i][1]))), " ms")
 
 
 static func _roles() -> void:
@@ -51,7 +123,7 @@ static func _roles() -> void:
 			all_ex.append(id)
 	for role in exclusive.keys():
 		var saw := false
-		for _i in 700:
+		for _i in (200 if quick else 700):
 			var offer: Array = Catalog.roll_offer(role, {}, rng)
 			if offer.size() != 3:
 				_fail("%s offer size %d" % [role, offer.size()])
@@ -296,8 +368,9 @@ static func _folds(geared: Dictionary, bare: Dictionary, want: Dictionary, key: 
 
 ## Slayer and collection-log accounting on a scratch save: kills count once
 ## and only for the task's biome, a finished contract must pay exactly once,
-## the warden never hands the same task back twice in 200 rolls and never sends
-## the player to locked ground, and an old save with missing keys reconciles.
+## the warden never hands the same task back twice (200 rolls, 40 with --quick)
+## and never sends the player to locked ground, and an old save with missing
+## keys reconciles.
 static func _slayer_log_check() -> void:
 	var keep: Dictionary = SaveGame.data.duplicate(true)
 	SaveGame.no_write = true
@@ -337,10 +410,11 @@ static func _slayer_log_check() -> void:
 		_fail("a cleared task paid a second time")
 	if int(SaveGame.data["slayer"]["points"]) != before + 25:
 		_fail("a cleared task changed the points")
-	# 200 rolls: no back-to-back repeat and never a locked biome.
+	# Seeded rolls: no back-to-back repeat and never a locked biome.
 	SaveGame.data = SaveGame._fresh()
 	var previous := ""
-	for i in 200:
+	var rolls := 40 if quick else 200
+	for i in rolls:
 		var picked: Dictionary = SaveGame.assign_task()
 		if picked.is_empty():
 			_fail("assignment %d found no task" % i)
@@ -390,7 +464,9 @@ static func _slayer_log_check() -> void:
 		_fail("old-save assign chose a locked biome")
 	SaveGame.data = keep
 	SaveGame.no_write = false
-	print("SLAYER LOG ok: 200 assignments, single claim, old-save defaults")
+	print("SLAYER LOG ok: %d assignments, single claim, old-save defaults" % rolls)
+
+
 ## Settings + accessibility: an old save's defaults, persistence through
 ## set_setting, survival of a restart (reload from SaveGame.data), and
 ## clamping of corrupt or out-of-range values. Runs on an in-memory copy
@@ -670,7 +746,7 @@ static func _cards() -> void:
 		var me: RunSim.Actor = sim.heroes[0]
 		sim._spawn_minion(0, sim._clamp_point(me.pos + Vector2(120, 0), 24.0))
 		sim._spawn_minion(1, sim._clamp_point(me.pos + Vector2(-110, 44), 24.0))
-		for i in 300:
+		for i in (90 if quick else 300):
 			var mv := Vector2.ZERO if i < 140 else Vector2(1, 0.2).normalized()
 			sim.step(1.0 / 60.0, [mv])
 			sim.drain_events()
@@ -681,9 +757,10 @@ static func _cards() -> void:
 
 
 ## Blessing pools: each card in exactly one pool, class pools hold enough
-## cards, and 2000 seeded offers per role respect class exclusivity, maxes,
-## uniques, duplicates and the one-class-card guarantee. card_text is checked
-## for every rank and must carry the rank total for stackables.
+## cards, and seeded offers per role (2000, 600 with --quick) respect class
+## exclusivity, maxes, uniques, duplicates and the one-class-card guarantee.
+## card_text is checked for every rank and must carry the rank total for
+## stackables.
 static func _pools_check() -> void:
 	var counts := {"general": 0, "tank": 0, "archer": 0, "mage": 0}
 	for entry in Catalog.CARDS:
@@ -704,7 +781,7 @@ static func _pools_check() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99
 	for role in ["tank", "archer", "mage"]:
-		for _i in 2000:
+		for _i in (600 if quick else 2000):
 			var stacks := {}
 			for entry in Catalog.CARDS:
 				stacks[str(entry["id"])] = rng.randi_range(0, int(entry["max"]))
@@ -744,7 +821,7 @@ static func _pools_check() -> void:
 	# than the same card pinned by a hash of the general card it replaced.
 	for role in ["tank", "archer", "mage"]:
 		var cover := {}
-		for _i in 500:
+		for _i in (200 if quick else 500):
 			for id in Catalog.roll_offer(role, {}, rng):
 				if Catalog.pool_of(str(id)) == role:
 					cover[str(id)] = true
@@ -775,10 +852,11 @@ static func _class_available(role: String, stacks: Dictionary) -> bool:
 
 
 ## Blessing exclusivity: for every role on the hero roster (derived from
-## Catalog.CRITTERS, never hard-coded ids) 3000 seeded offers with random
-## stacks must stay inside that role's class pool or the general pool, pass
-## role_can_take (a melee tank never sees a Shot-only card), and only fall back
-## to "snack" when no legal card is left. Each hero must carry a real role.
+## Catalog.CRITTERS, never hard-coded ids) seeded offers with random stacks
+## (3000, 600 with --quick) must stay inside that role's class pool or the
+## general pool, pass role_can_take (a melee tank never sees a Shot-only card),
+## and only fall back to "snack" when no legal card is left. Each hero must
+## carry a real role.
 static func _exclusivity_check() -> void:
 	var roles := {}
 	for id in Catalog.CRITTERS.keys():
@@ -812,7 +890,7 @@ static func _exclusivity_check() -> void:
 		if class_n < 6:
 			_fail("%s only has %d legal class cards" % [role, class_n])
 			return
-		for _i in 3000:
+		for _i in (600 if quick else 3000):
 			var stacks := {}
 			for entry in Catalog.CARDS:
 				stacks[str(entry["id"])] = rng.randi_range(0, int(entry["max"]))
@@ -856,6 +934,12 @@ static func _legal_card_left(role: String, stacks: Dictionary, offer: Array) -> 
 
 
 static func _fights() -> void:
+	# --quick keeps one short pebble hunt so bot planning still gets exercised
+	# without waiting out three full clears.
+	if quick:
+		var short := _play("pebble", "meadow", 11, false, 60.0 * 60.0)
+		print("FIGHT pebble ", short)
+		return
 	# Explore hunts: each hero clears a map and kills the lair boss in a
 	# 2.5-5.5 minute bot run (bots walk the map greedily; players land at 3-5+).
 	for hero in ["ember", "juniper", "pebble"]:
@@ -879,7 +963,7 @@ static func _fights() -> void:
 ## opening has no critters in sight.
 static func _world_maps() -> void:
 	for biome in ["meadow", "mushroom", "frost", "volcano"]:
-		for seed in [3, 11, 42]:
+		for seed in ([11] if quick else [3, 11, 42]):
 			var m := HuntMap.world(biome, seed)
 			var arena := HuntMap.ARENA.x * HuntMap.ARENA.y
 			if m.size.x * m.size.y < arena * 15.0:
@@ -1098,7 +1182,7 @@ static func _kite() -> void:
 	var worst := 0.0
 	var last := Vector2.INF
 	var t := 0.0
-	while t < 40.0 and sim.boss != null and sim.boss.alive:
+	while t < (15.0 if quick else 40.0) and sim.boss != null and sim.boss.alive:
 		if sim.paused:
 			if sim.offer.size() > 0:
 				sim.choose(0)
@@ -1448,7 +1532,7 @@ static func _fight_xp(hero: String, seed: int) -> RunSim:
 	var sim := _sim("meadow", hero, seed)
 	var mem := {}
 	var guard := 0
-	while sim.result == "" and guard < 60 * 120:
+	while sim.result == "" and guard < 60 * (30 if quick else 120):
 		guard += 1
 		if sim.paused and sim.offer.size() > 0:
 			sim.choose(_best(sim))
