@@ -11,7 +11,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = "trophy"
 	var box := column()
-	box.add_child(header())
+	box.add_child(header_with_back("home"))
 	box.add_child(h1("Trophy Road"))
 	box.add_child(body("Win hunts to climb. Claim each reward as you pass it."))
 	var scroll := ScrollContainer.new()
@@ -218,7 +218,7 @@ class Milestone extends Control:
 		if claimed:
 			box.add_child(UiKit.label("CLAIMED", 20, Color("b4f09e"), "x", 4))
 		elif reached:
-			var button := UiKit.confirm("CLAIM", 170, 56)
+			var button := UiKit.confirm("CLAIM", 190, 88)
 			button.pressed.connect(func() -> void: claim.emit(str(entry["id"])))
 			box.add_child(button)
 		else:

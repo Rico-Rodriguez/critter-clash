@@ -87,6 +87,7 @@ func _intro() -> void:
 func leave(toward: int) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_process_input(false)
+	set_process_unhandled_input(false)
 	# Stay opaque underneath while the incoming screen fades in on top; two
 	# half-faded screens over black read as a dark flash between pages.
 	var tw := create_tween()
@@ -181,6 +182,47 @@ func back_button(target: String, args: Dictionary = {}) -> Button:
 	return button
 
 
+## Back navigation, shared by every menu that opts in. Setting back_target
+## (directly or through header_with_back) turns on the top-left back chip and
+## routes Esc / Android back through back(). Screens that leave it empty are
+## unchanged: no chip is shown and the key is left alone.
+var back_target := ""
+var back_args: Dictionary = {}
+
+
+## The currency header with the shared back chip leading it, so back always
+## sits top-left, inside the safe area, with the same size and look.
+func header_with_back(target: String, args: Dictionary = {}) -> HBoxContainer:
+	back_target = target
+	back_args = args
+	var row := header()
+	var chip := BackChip.new()
+	chip.pressed.connect(back)
+	row.add_child(chip)
+	row.move_child(chip, 0)
+	return row
+
+
+## Leave the screen the way a back gesture should. A screen with a dynamic
+## destination (a loadout opened from two places) overrides this.
+func back() -> void:
+	if back_target != "":
+		go(back_target, back_args)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if back_target == "":
+		return
+	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		back()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and back_target != "":
+		back()
+
+
 func portrait(id: String, px: float) -> TextureRect:
 	var rect := TextureRect.new()
 	rect.custom_minimum_size = Vector2(px, px)
@@ -222,3 +264,51 @@ func plate(node: Control) -> PanelContainer:
 	panel.add_theme_stylebox_override("panel", UiKit.panel())
 	panel.add_child(node)
 	return panel
+
+
+## The shared top-left back control: an 88 px forged round chip with a gilt
+## chevron, a real pressed sink and the ui_back sting. Every menu that opts
+## into header_with_back carries the same affordance in the same spot.
+class BackChip extends Button:
+	func _ready() -> void:
+		UiKit.ensure()
+		custom_minimum_size = Vector2(88, 88)
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		focus_mode = Control.FOCUS_NONE
+		tooltip_text = "Back"
+		var empty := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+			add_theme_stylebox_override(state, empty)
+		var skin := UiKit.Frame.new("round", "leather")
+		skin.margin = 12.0
+		add_child(skin)
+		pivot_offset = size * 0.5
+		button_down.connect(_press)
+		button_up.connect(_release)
+		pressed.connect(func() -> void:
+			AudioDirector.sfx("ui_back")
+			AudioDirector.haptic("light"))
+
+	func _press() -> void:
+		pivot_offset = size * 0.5
+		var tw := create_tween()
+		tw.tween_property(self, "scale", Vector2(0.92, 0.92), 0.05)
+		queue_redraw()
+
+	func _release() -> void:
+		pivot_offset = size * 0.5
+		var tw := create_tween()
+		tw.tween_property(self, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		queue_redraw()
+
+	func _draw() -> void:
+		var down := is_pressed()
+		var sink := 2.0 if down else 0.0
+		var cx := size.x * 0.54
+		var cy := size.y * 0.5 + sink
+		var w := size.x * 0.12
+		var h := size.y * 0.16
+		var pts := PackedVector2Array([Vector2(cx + w, cy - h), Vector2(cx - w, cy), Vector2(cx + w, cy + h)])
+		draw_polyline(pts, Color(0, 0, 0, 0.55), 10.0, true)
+		draw_polyline(pts, UiKit.INK, 7.0, true)
+		draw_polyline(pts, Color("c8963a") if down else Color("ffe3a0"), 3.5, true)

@@ -28,7 +28,13 @@ func build() -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_theme_constant_override("separation", 16)
 	margin.add_child(box)
-	box.add_child(header())
+	_header = header()
+	# Home keeps the full-width currency bar, but lifts it to the 88 px tap
+	# minimum so the pills and the settings cog are as easy to hit as any
+	# other control on the screen.
+	_header.custom_minimum_size = Vector2(0, 88)
+	box.add_child(_header)
+	_collect_pills()
 	var plate := LogoPlate.new()
 	var logo := Wordmark.new()
 	logo.text = "CRITTER CLASH"
@@ -54,6 +60,36 @@ func build() -> void:
 
 
 var sheet: Control
+var _header: HBoxContainer
+var _pills: Array = []
+
+
+## Home is rebuilt on every visit, but re-read the purse and the drawer on
+## enter as well, so the counters and chest slots never show a stale number
+## after a hunt, a chest open or a trophy claim.
+func open(_args: Dictionary = {}) -> void:
+	_sync()
+	if bool(SaveGame.last_chest.get("full", false)):
+		SaveGame.last_chest = {}
+		get_tree().create_timer(0.5).timeout.connect(func() -> void: toast("Chest slots full! Open one to make room."))
+
+
+func _collect_pills() -> void:
+	_pills.clear()
+	if _header == null:
+		return
+	for child in _header.get_children():
+		if child.has_method("set_amount"):
+			_pills.append(child)
+
+
+func _sync() -> void:
+	var amounts := [str(int(SaveGame.data["trophies"])), str(int(SaveGame.data["coins"])), "0"]
+	for i in _pills.size():
+		if i < amounts.size():
+			_pills[i].set_amount(amounts[i])
+	for slot in _slots:
+		slot.refresh()
 
 
 func open_map_sheet() -> void:
@@ -89,18 +125,25 @@ func start_daily() -> void:
 func _nameplate(hero_id: String) -> Control:
 	var info := Catalog.critter(hero_id)
 	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var badge := UiKit.Badge.new()
 	badge.level = int(SaveGame.hero(hero_id).get("level", 1))
 	badge.custom_minimum_size = Vector2(76, 84)
 	row.add_child(badge)
+	# The name plate fills the row and wraps, so a long name (or a long
+	# role title) never runs off the screen beside the badge.
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", -6)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(UiKit.label(str(info.get("name", "Hero")).to_upper(), 58, Color("fff1d0"), "x", 12))
-	col.add_child(UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 27, Color("ffcf5a"), "x", 7))
+	var name_label := UiKit.label(str(info.get("name", "Hero")).to_upper(), 58, Color("fff1d0"), "x", 12)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(name_label)
+	var role_label := UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 27, Color("ffcf5a"), "x", 7)
+	role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(role_label)
 	row.add_child(col)
 	return row
 
@@ -134,9 +177,6 @@ func _chests() -> HBoxContainer:
 		if int(f) < _slots.size():
 			_slots[int(f)].arrive(0.45 + 0.22 * k)
 			k += 1
-	if bool(SaveGame.last_chest.get("full", false)):
-		SaveGame.last_chest = {}
-		get_tree().create_timer(0.5).timeout.connect(func() -> void: toast("Chest slots full! Open one to make room."))
 	return row
 
 
@@ -145,8 +185,11 @@ func _chests() -> HBoxContainer:
 func _tap_slot(i: int) -> void:
 	match SaveGame.chest_state(i):
 		"ready":
+			AudioDirector.sfx("ui_tap")
+			AudioDirector.haptic("light")
 			go("chest", {"index": i})
 		"unlocking":
+			AudioDirector.sfx("ui_tap")
 			toast("Unlocks in %s" % SaveGame.clock(SaveGame.chest_wait(i)))
 			_slots[i].nudge()
 		"locked":
@@ -251,6 +294,17 @@ class ChestSlot extends Control:
 
 	func nudge() -> void:
 		_shake = 1.0
+
+	## Re-read the drawer on enter: a slot can fill or empty while another
+	## screen (a hunt, the chest) is in front of Home.
+	func refresh() -> void:
+		var on := index < SaveGame.pending_count()
+		if on == filled:
+			return
+		filled = on
+		tone = SaveGame.chest_tone(index) if filled else "wood"
+		mouse_filter = Control.MOUSE_FILTER_STOP if filled else Control.MOUSE_FILTER_IGNORE
+		queue_redraw()
 
 	func _process(delta: float) -> void:
 		t += delta
@@ -576,6 +630,7 @@ class MapSheet extends Control:
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		b.add_child(holder)
+		_press_feel(b, holder)
 		var h := HBoxContainer.new()
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -603,11 +658,15 @@ class MapSheet extends Control:
 		v.add_child(UiKit.label(str(entry["name"]).to_upper(), 30, UiKit.GOLD.lightened(0.2) if open else Color("8d8478"), "x", 4))
 		var boss := Catalog.critter(str(entry["boss"]))
 		v.add_child(UiKit.label("Guarded by %s" % str(boss["name"]), 18, UiKit.CREAM if open else UiKit.MUTED, "b", 0))
-		var status := "✦ CLEARED" if cleared else ("OPEN" if open else "SEALED · " + SaveGame.biome_lock_text(id))
+		var status := "✦ CLEARED" if cleared else ("OPEN" if open else "SEALED · " + SaveGame.biome_lock_text(id) + " to unlock")
 		var st_label := UiKit.label(status, 16, Color("9fe08a") if cleared else (UiKit.GOLD if open else Color("c89a8a")), "x", 2)
 		st_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(st_label)
 		if not open:
+			# Sealed: the row itself is disabled and its label says why, so
+			# it reads as unavailable instead of a dead tap.
+			b.disabled = true
+			b.tooltip_text = SaveGame.biome_lock_text(id) + " to unlock"
 			var lock := TextureRect.new()
 			lock.texture = UiKit.icon("lock_closed")
 			lock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -615,14 +674,12 @@ class MapSheet extends Control:
 			lock.custom_minimum_size = Vector2(48, 48)
 			lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			h.add_child(lock)
-		b.pressed.connect(func() -> void:
-			if not open:
-				AudioDirector.sfx("ui_error")
-				return
-			chosen = id
-			AudioDirector.sfx("ui_tap")
-			_light()
-		)
+		else:
+			b.pressed.connect(func() -> void:
+				chosen = id
+				AudioDirector.sfx("ui_tap")
+				_light()
+			)
 		_rows[id] = [b, holder]
 		return b
 
@@ -649,6 +706,7 @@ class MapSheet extends Control:
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		b.add_child(holder)
+		_press_feel(b, holder)
 		var frame := UiKit.Frame.new("card", "leather", {
 			"metal_hi": Color("ffe6a8"), "metal_lo": Color("6a4416"), "frame": 5.0,
 			"glow_color": Color(1.0, 0.72, 0.3, 0.38),
@@ -699,6 +757,18 @@ class MapSheet extends Control:
 		var path := "res://assets/sprites/arenas/%s_banner.png" % id
 		return load(path) if ResourceLoader.exists(path) else SpriteBank.arena(id)
 
+	## The flat rows are hand-drawn, so give them the same pressed sink the
+	## shared buttons have: a quick shrink, then a spring back.
+	func _press_feel(button: Button, holder: Control) -> void:
+		button.button_down.connect(func() -> void:
+			holder.pivot_offset = holder.size * 0.5
+			var tw := create_tween()
+			tw.tween_property(holder, "scale", Vector2(0.975, 0.975), 0.05))
+		button.button_up.connect(func() -> void:
+			holder.pivot_offset = holder.size * 0.5
+			var tw := create_tween()
+			tw.tween_property(holder, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
+
 	func _light() -> void:
 		for id in _rows:
 			var holder: Control = _rows[id][1]
@@ -713,4 +783,14 @@ class MapSheet extends Control:
 			})
 			frame.margin = 2.0
 			holder.add_child(frame)
-		_start.disabled = chosen == ""
+		_set_start_enabled(chosen != "")
+
+	## START greys out (frame and label) when there is no hunt to launch, and
+	## says what is missing.
+	func _set_start_enabled(on: bool) -> void:
+		_start.disabled = not on
+		_start.tooltip_text = "" if on else "Pick a biome to begin"
+		var skin = _start.get("skin")
+		if skin != null:
+			skin.tone = "gold" if on else "grey"
+			skin.apply()

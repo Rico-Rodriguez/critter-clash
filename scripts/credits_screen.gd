@@ -206,7 +206,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header())
+	box.add_child(header_with_back("home"))
 	box.add_child(h1("Credits"))
 	box.add_child(body("CC-BY music and models keep the artist's name. CC0 work is listed because we use it."))
 	var scroll := ScrollContainer.new()
@@ -231,7 +231,6 @@ func build() -> void:
 		"Godot Engine — MIT",
 		"Cinzel, Nunito, Lilita One — SIL Open Font License",
 	]))
-	box.add_child(back_button("home"))
 
 
 func _plaque() -> PanelContainer:

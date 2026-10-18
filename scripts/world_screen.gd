@@ -8,7 +8,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = "world"
 	var box := column()
-	box.add_child(header())
+	box.add_child(header_with_back("home"))
 	box.add_child(h1("Biomes"))
 	box.add_child(body("Clear them in order. Each boss guards its own drops."))
 	var scroll := ScrollContainer.new()
@@ -68,12 +68,25 @@ func _banner(entry: Dictionary) -> Control:
 	art.resized.connect(func() -> void: mat.set_shader_parameter("px", art.size))
 	art_box.add_child(art)
 	var boss := Catalog.critter(str(entry["boss"]))
+	# The name and its boss sit in a bounded caption band, so a long biome
+	# or boss name wraps inside the banner instead of running off it.
+	var cap := MarginContainer.new()
+	cap.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	cap.offset_left = 22
+	cap.offset_right = -156
+	cap.offset_top = -104
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_box.add_child(cap)
+	var cap_col := VBoxContainer.new()
+	cap_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cap_col.add_theme_constant_override("separation", 2)
+	cap.add_child(cap_col)
 	var name := UiKit.label(str(entry["name"]).to_upper(), 34, UiKit.GOLD.lightened(0.2), "x", 4)
-	name.position = Vector2(22, 150)
-	art_box.add_child(name)
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cap_col.add_child(name)
 	var sub := UiKit.label("Guarded by %s" % str(boss["name"]), 19, UiKit.CREAM, "b", 0)
-	sub.position = Vector2(24, 196)
-	art_box.add_child(sub)
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cap_col.add_child(sub)
 	var medal := Medallion.new()
 	medal.tex = SpriteBank.head(str(entry["boss"]))
 	medal.locked = not unlocked
@@ -109,13 +122,20 @@ func _banner(entry: Dictionary) -> Control:
 		info.add_child(UiKit.label("Survive the waves to draw it out.", 15, UiKit.MUTED, "b", 0))
 	else:
 		info.add_child(UiKit.label("SEALED", 18, Color("c89a8a"), "x", 3))
-		var why := UiKit.label(SaveGame.biome_lock_text(id), 15, UiKit.MUTED, "b", 0)
+		var why := UiKit.label(SaveGame.biome_lock_text(id) + " to unlock", 15, UiKit.MUTED, "b", 0)
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		info.add_child(why)
 	if unlocked:
-		var button := UiKit.button("HUNT", 210, 70)
+		var button := UiKit.button("HUNT", 220, 88)
 		button.pressed.connect(_open_biome.bind(id))
 		row.add_child(button)
+	else:
+		# A disabled call to action that names its own lock, so the reason
+		# sits on the button the player reaches for.
+		var locked_button := UiKit.button("LOCKED", 220, 88, "grey")
+		locked_button.disabled = true
+		locked_button.tooltip_text = SaveGame.biome_lock_text(id) + " to unlock"
+		row.add_child(locked_button)
 	return card
 
 
