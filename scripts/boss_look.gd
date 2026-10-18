@@ -38,16 +38,23 @@ const BOSSES := {
 		"scene": DIR + "werewolf.tscn",
 		"clips": {"idle": "idle", "run": "run", "walk": "walk", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle"},
 		"glow": Color(0.55, 1.0, 0.22),
-		"grade": Color(0.9, 0.9, 0.9),
+		"grade": Color(1.18, 1.16, 1.2),
 		"mats": {
 			"Body": {"albedo_tex": DIR + "werewolf_paint.png", "veins": DIR + "werewolf_veins.png"},
 			"Wool": {"albedo_tex": DIR + "werewolf_wool_paint.png"},
 		},
 		"core_bone": "Chest_42",
-		"core_size": 0.12,
+		"core_size": 0.14,
 		"eyes": "Head_0",
-		# Hunched, long-armed: sized a little under Gravemaw (~12 m, 2.8x the knight).
-		"size_boost": 1.0,
+		# Dark fur on dark ground: lift the hide, burn the veins hotter, and
+		# edge the silhouette with a cold moonlit fresnel and a thin blight
+		# glow (one extra additive pass per surface) so it reads at range.
+		"vein_energy": 3.0,
+		"eye_scale": 1.7,
+		"rim": {"col": Color(0.62, 0.72, 0.78), "strength": 0.42, "power": 2.8, "glow": 0.45},
+		# Hunched and seen from above, so it needs more scale than Gravemaw
+		# to read as big: ~2.7x the knight's on-screen height in the lair.
+		"size_boost": 1.45,
 	},
 }
 
@@ -87,13 +94,51 @@ static func dress(model: Node3D, id: String) -> void:
 	if str(cfg["eyes"]) == "bones":
 		Armor3D.glow_eyes(model, col)
 	else:
-		_head_eyes(model, sk, str(cfg["eyes"]), col)
+		_head_eyes(model, sk, str(cfg["eyes"]), col, float(cfg.get("eye_scale", 1.0)))
 	if _height(model) < 6.0:
 		# Portraits, banners and medallions: veins and eyes only. The core
 		# light blows out a close-up and its quad would punch the alpha.
 		return
+	if cfg.has("rim"):
+		_rim(model, cfg["rim"], col)
 	_core(model, sk, str(cfg["core_bone"]), float(cfg["core_size"]), col)
 	_embers(model, col)
+
+
+const RIM_SHADER := """shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
+uniform vec4 rim_col : source_color = vec4(0.6, 0.7, 0.8, 1.0);
+uniform vec4 glow_col : source_color = vec4(0.5, 1.0, 0.2, 1.0);
+uniform float strength = 0.5;
+uniform float power = 2.6;
+uniform float glow = 0.5;
+void fragment() {
+	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), power);
+	// A cold moonlit edge plus a tighter blight-green fringe at the very rim.
+	ALBEDO = rim_col.rgb * f * strength + glow_col.rgb * pow(f, 2.2) * glow;
+}
+"""
+
+
+## Silhouette rim for dark bosses: an additive fresnel next pass on every
+## hide material (hunt only; portraits keep their baked look).
+static func _rim(model: Node3D, rim: Dictionary, col: Color) -> void:
+	var sh := Shader.new()
+	sh.code = RIM_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	mat.set_shader_parameter("rim_col", rim.get("col", Color(0.6, 0.7, 0.8)))
+	mat.set_shader_parameter("glow_col", col)
+	mat.set_shader_parameter("strength", float(rim.get("strength", 0.5)))
+	mat.set_shader_parameter("power", float(rim.get("power", 2.6)))
+	mat.set_shader_parameter("glow", float(rim.get("glow", 0.5)))
+	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh == null or str(mi.name).begins_with("BossEye"):
+			continue
+		for i in mi.mesh.get_surface_count():
+			var m := mi.get_surface_override_material(i) as StandardMaterial3D
+			if m != null:
+				m.next_pass = mat
 
 
 ## Low render tier: fewer embers, no core light. Loaded lazily so offline
@@ -254,7 +299,7 @@ static func _chain(model: Node3D, sk: Skeleton3D) -> Transform3D:
 
 ## Rigs without eye bones (the werewolf): two ember beads on the head bone,
 ## placed from the head/jaw/neck rest pose.
-static func _head_eyes(model: Node3D, sk: Skeleton3D, head_name: String, col: Color) -> void:
+static func _head_eyes(model: Node3D, sk: Skeleton3D, head_name: String, col: Color, scale := 1.0) -> void:
 	var hb := sk.find_bone(head_name)
 	if hb < 0:
 		return
@@ -278,10 +323,10 @@ static func _head_eyes(model: Node3D, sk: Skeleton3D, head_name: String, col: Co
 	mat.albedo_color = col
 	mat.emission_enabled = true
 	mat.emission = col
-	mat.emission_energy_multiplier = 4.0
+	mat.emission_energy_multiplier = 4.0 + 2.0 * (scale - 1.0)
 	var bead := SphereMesh.new()
-	bead.radius = span * 0.09
-	bead.height = span * 0.18
+	bead.radius = span * 0.09 * scale
+	bead.height = span * 0.18 * scale
 	bead.radial_segments = 8
 	bead.rings = 4
 	for sgn: float in [-1.0, 1.0]:
