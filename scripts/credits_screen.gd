@@ -39,13 +39,6 @@ const ENTRIES := [
 		"license": "CC-BY 4.0",
 	},
 	{
-		"title": "\"KAI\" — The Little Fox Warrior (Animated)",
-		"used": "Juniper",
-		"author": "Realidad Aumentada Empezando Desde Cero",
-		"url": "https://sketchfab.com/3d-models/kai-the-little-fox-warrior-animated-aa56e447b578470b8d6b1b9587fd29ac",
-		"license": "CC-BY 4.0",
-	},
-	{
 		"title": "Stylized Dragon",
 		"used": "Cinder and Cindling",
 		"author": "Stan",
@@ -75,16 +68,9 @@ const ENTRIES := [
 	},
 	{
 		"title": "Animated Fox 3D Model",
-		"used": "Juniper, the fox ranger (armour built in-engine)",
+		"used": "Spirit wolves (feral fox beasts)",
 		"author": "AnimalMesh 3D",
 		"url": "https://sketchfab.com/3d-models/animated-fox-3d-model-7b7d4f07d47a444ab6c08b62adfd4aff",
-		"license": "CC-BY 4.0",
-	},
-	{
-		"title": "Quiver and Arrows",
-		"used": "Juniper's quiver",
-		"author": "Finley Searle",
-		"url": "https://sketchfab.com/3d-models/quiver-and-arrows-078aa762143e4c399edcf4529e76340e",
 		"license": "CC-BY 4.0",
 	},
 	{

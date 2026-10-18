@@ -16,6 +16,7 @@ func _ready() -> void:
 
 func reset_new() -> void:
 	data = _fresh()
+	_reconcile()
 	_write()
 
 
@@ -175,14 +176,19 @@ func biome_lock_text(id: String) -> String:
 	return " · ".join(parts)
 
 
+## The two knights a new save starts with; Gnash and Mordrek join on the road.
+const STARTERS := ["pebble", "ember"]
+## Animal heroes retired from the playable roster (saves move to Aldric).
+const RETIRED := ["juniper", "pip"]
+
 func hero(id: String) -> Dictionary:
 	return data["heroes"][id]
 
 
 func featured_id() -> String:
-	var id := str(data.get("featured", "ember"))
+	var id := str(data.get("featured", "pebble"))
 	if not data["heroes"].has(id) or not bool(data["heroes"][id]["unlocked"]):
-		return "ember"
+		return "pebble"
 	return id
 
 
@@ -749,7 +755,7 @@ func _gear_name(rng: RandomNumberGenerator, slot: String, rarity: String, biome_
 func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in Catalog.playable_ids():
-		var unlocked: bool = str(id) == "ember" or str(id) == "juniper" or str(id) == "pebble"
+		var unlocked: bool = str(id) in STARTERS
 		heroes[id] = {
 			"unlocked": unlocked,
 			"cards": 1 if unlocked else 0,
@@ -769,7 +775,7 @@ func _fresh() -> Dictionary:
 		"bag": [],
 		"clan_id": "",
 		"duel_rating": 0,
-		"featured": "ember",
+		"featured": "pebble",
 		"heroes": heroes,
 		"kills": {},
 		"log": [],
@@ -799,7 +805,14 @@ func _reconcile() -> void:
 	if not data.has("duel_rating"):
 		data["duel_rating"] = 0
 	if not data.has("featured"):
-		data["featured"] = "ember"
+		data["featured"] = "pebble"
+	# Retired animal heroes: a save that had one equipped moves to Aldric, and
+	# their gear goes back to the bag (unequipped) for the knights.
+	if str(data["featured"]) in RETIRED:
+		data["featured"] = "pebble"
+	for rid in RETIRED:
+		if data["heroes"].has(rid):
+			data["heroes"].erase(rid)
 	for key in ["log"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
 			data[key] = []
@@ -859,6 +872,7 @@ func _reconcile() -> void:
 
 func _load() -> void:
 	data = _fresh()
+	_reconcile()
 	if not FileAccess.file_exists(PATH):
 		_write()
 		return

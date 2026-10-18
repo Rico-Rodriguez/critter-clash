@@ -277,8 +277,10 @@ static func _index_cards() -> void:
 	}
 
 
+## The four knights. Juniper (fox archer) and Pip (frog mage) are retired:
+## their rows stay below only so old duel/daily records still resolve.
 const PLAYABLE: Array = [
-	"ember", "juniper", "pebble", "lumen", "pip", "bramble",
+	"pebble", "ember", "lumen", "bramble",
 ]
 
 ## Boss pet roll. 1 in PET_RATE, separate from the weighted table.
@@ -340,8 +342,8 @@ const MILESTONES: Array = [
 	{"id": "m30", "trophies": 30, "kind": "chest", "label": "Trail chest", "detail": "A hunt chest"},
 	{"id": "m45", "trophies": 45, "kind": "unlock", "hero": "lumen", "cards": 8, "label": "Gnash joins", "detail": "Ghoul berserker unlocked"},
 	{"id": "m80", "trophies": 80, "kind": "gear", "slot": "charm", "rarity": "rare", "label": "Rare charm", "detail": "A charm for any hero"},
-	{"id": "m110", "trophies": 110, "kind": "unlock", "hero": "pip", "cards": 8, "label": "Pip joins", "detail": "Frog mage unlocked"},
-	{"id": "m150", "trophies": 150, "kind": "unlock", "hero": "bramble", "cards": 8, "label": "Mordrek joins", "detail": "Bone Knight unlocked"},
+	{"id": "m110", "trophies": 110, "kind": "unlock", "hero": "bramble", "cards": 8, "label": "Mordrek joins", "detail": "Bone Knight unlocked"},
+	{"id": "m150", "trophies": 150, "kind": "gear", "slot": "armor", "rarity": "rare", "label": "Rare armour", "detail": "Blackened steel for any knight"},
 	{"id": "m190", "trophies": 190, "kind": "coins", "amount": 120, "label": "Heavy purse", "detail": "120 coins"},
 	{"id": "m240", "trophies": 240, "kind": "gear", "slot": "weapon", "rarity": "epic", "label": "Epic weapon", "detail": "A strong weapon"},
 ]
@@ -409,8 +411,8 @@ const CRITTERS: Dictionary = {
 	},
 	"juniper": {
 		"name": "Juniper", "role": "archer", "kind": "hero", "color": "e07a3d",
-		"blurb": "Fox archer. Fast arrows.",
-		"unlock": "A starter hero.",
+		"blurb": "Retired.", "retired": true,
+		"unlock": "Retired.",
 		"hp": 116, "dmg": 14, "interval": 0.33, "range": 400, "speed": 292,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 780, "armor": 0,
 	},
@@ -430,8 +432,8 @@ const CRITTERS: Dictionary = {
 	},
 	"pip": {
 		"name": "Pip", "role": "mage", "kind": "hero", "color": "7dba62",
-		"blurb": "Frog mage. Bubbles splash and bounce.",
-		"unlock": "Trophy road.",
+		"blurb": "Retired.", "retired": true,
+		"unlock": "Retired.",
 		"hp": 138, "dmg": 15, "interval": 0.48, "range": 280, "speed": 270,
 		"splash": 68, "splash_mul": 0.7, "proj_speed": 510, "armor": 0,
 	},
@@ -508,7 +510,7 @@ const DROPS: Array = [
 	{"id": "meadow_fiber", "boss": "thistle", "name": "Meadow fiber", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "67b85a"},
 	{"id": "pollen", "boss": "thistle", "name": "Pollen", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "f2d35a"},
 	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Corvin cards", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "ff7a3c"},
-	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Juniper cards", "kind": "cards", "hero": "juniper", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "e07a3d"},
+	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Mordrek cards", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
 	{"id": "thistle_claw", "boss": "thistle", "name": "Thistle claw", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "c46b8a"},
 	{"id": "thistle_shell", "boss": "thistle", "name": "Flower shell", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8d4e6a"},
 	{"id": "boar_bristle", "boss": "thistle", "name": "Boar bristle", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "a86848"},
@@ -520,7 +522,7 @@ const DROPS: Array = [
 	{"id": "cap_bits", "boss": "caplet", "name": "Cap bits", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d45ad0"},
 	{"id": "spore_dust", "boss": "caplet", "name": "Spore dust", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "c9b6ef"},
 	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Aldric cards", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "common", "weight": 12, "color": "3aa8a0"},
-	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Pip cards", "kind": "cards", "hero": "pip", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "7dce6a"},
+	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Gnash cards", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "c0453a"},
 	{"id": "caplet_wand", "boss": "caplet", "name": "Cap wand", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d45ad0"},
 	{"id": "caplet_wrap", "boss": "caplet", "name": "Toad wrap", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8a3a86"},
 	{"id": "toad_cap", "boss": "caplet", "name": "Toad cap", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e23a4a"},
