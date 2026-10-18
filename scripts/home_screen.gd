@@ -71,6 +71,21 @@ func start_hunt(biome_id: String) -> void:
 	go("run", {"biome": biome_id, "hero": SaveGame.featured_id()})
 
 
+## Today's seeded challenge, run with the equipped hero. The seed, day key and
+## modifiers ride the run args so run_screen pins the exact same hunt.
+func start_daily() -> void:
+	var key := Daily.today_key(int(Time.get_unix_time_from_system()))
+	var biome_id := Daily.biome_for(key)
+	SaveGame.data["last_biome"] = biome_id
+	go("run", {
+		"biome": biome_id,
+		"hero": SaveGame.featured_id(),
+		"seed": Daily.seed_for(key),
+		"daily": key,
+		"modifiers": Daily.modifiers_for(key),
+	})
+
+
 func _nameplate(hero_id: String) -> Control:
 	var info := Catalog.critter(hero_id)
 	var row := HBoxContainer.new()
@@ -511,6 +526,7 @@ class MapSheet extends Control:
 		var title := UiKit.title("Choose a hunt", 46)
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(title)
+		box.add_child(_daily_row())
 		var last := str(SaveGame.data.get("last_biome", ""))
 		for entry in Catalog.BIOMES:
 			var id := str(entry["id"])
@@ -609,6 +625,71 @@ class MapSheet extends Control:
 		)
 		_rows[id] = [b, holder]
 		return b
+
+	## The Daily Challenge row at the top of the sheet: today's seeded biome,
+	## its modifiers and your best local score. Always open; tapping runs it
+	## with the equipped hero (one attempt per run, retries fine).
+	func _daily_row() -> Control:
+		var key := Daily.today_key(int(Time.get_unix_time_from_system()))
+		var biome := Catalog.biome(Daily.biome_for(key))
+		var parts := PackedStringArray()
+		for m in Daily.modifiers_for(key):
+			parts.append(str(m.get("name", "")))
+		var best := SaveGame.daily_best(key)
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.flat = true
+		b.custom_minimum_size = Vector2(0, 132)
+		var none := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+			b.add_theme_stylebox_override(st, none)
+		var holder := Control.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		b.add_child(holder)
+		var frame := UiKit.Frame.new("card", "leather", {
+			"metal_hi": Color("ffe6a8"), "metal_lo": Color("6a4416"), "frame": 5.0,
+			"glow_color": Color(1.0, 0.72, 0.3, 0.38),
+			"face_top": Color("2a2016"), "face_bot": Color("0c0907"),
+		})
+		frame.margin = 2.0
+		holder.add_child(frame)
+		var h := HBoxContainer.new()
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		h.offset_left = 14
+		h.offset_right = -14
+		h.offset_top = 10
+		h.offset_bottom = -10
+		h.add_theme_constant_override("separation", 16)
+		b.add_child(h)
+		var art := TextureRect.new()
+		art.texture = _art(str(biome["id"]))
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.custom_minimum_size = Vector2(196, 0)
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(art)
+		var v := VBoxContainer.new()
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_theme_constant_override("separation", 2)
+		h.add_child(v)
+		v.add_child(UiKit.label("DAILY CHALLENGE", 30, UiKit.GOLD.lightened(0.25), "x", 4))
+		v.add_child(UiKit.label("%s · %s" % [str(biome["name"]).to_upper(), " + ".join(parts)], 18, UiKit.CREAM, "b", 0))
+		v.add_child(UiKit.label("Best today %d" % best if best > 0 else "No run today yet", 16, UiKit.GOLD if best > 0 else UiKit.MUTED, "x", 2))
+		var tag := UiKit.label("TODAY", 16, Color("9fe08a"), "x", 2)
+		tag.custom_minimum_size = Vector2(90, 0)
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		h.add_child(tag)
+		b.pressed.connect(func() -> void:
+			AudioDirector.sfx("card_pick")
+			home.start_daily()
+		)
+		return b
+
 
 	func _art(id: String) -> Texture2D:
 		var path := "res://assets/sprites/arenas/%s_banner.png" % id

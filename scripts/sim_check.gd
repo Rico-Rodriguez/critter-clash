@@ -9,13 +9,16 @@ static func run() -> int:
 	_roles()
 	_modes()
 	_save()
+	_daily_check()
 	_steer()
 	_maps()
 	_cards()
+	_pools_check()
 	_fights()
 	_kite()
 	_boss_intro_check()
 	_dodge_check()
+	_events_check()
 	if failures == 0:
 		print("SIM CHECK PASSED")
 		return 0
@@ -27,9 +30,9 @@ static func _roles() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
 	var exclusive := {
-		"mage": ["mage_radius", "mage_power", "meteor", "arcane_orb"],
-		"archer": ["archer_pierce", "volley", "hunters_mark"],
-		"tank": ["tank_thorns", "tank_bash", "earthquake", "bulwark", "taunt_roar"],
+		"mage": ["mage_radius", "mage_power", "mage_chain", "mage_crit", "meteor", "arcane_orb"],
+		"archer": ["archer_pierce", "multishot", "archer_crit", "archer_haste", "volley", "hunters_mark"],
+		"tank": ["tank_thorns", "tank_bash", "earthquake", "bulwark", "taunt_roar", "tank_armor"],
 	}
 	var all_ex: Array = []
 	for role in exclusive.keys():
@@ -131,6 +134,67 @@ static func _save() -> void:
 			_fail("equip charm")
 	if SaveGame.claim("m80"):
 		_fail("double claim")
+
+
+## Daily Challenge: one deterministic map per UTC day, one or two modifiers,
+## a monotonic score, and the local board's ranking and 10-run cap. The board
+## test runs on a temporary copy of SaveGame.data and restores it (rewriting
+## the save to its original contents) so the real board is never touched.
+static func _daily_check() -> void:
+	var base := 1750000000
+	var key := Daily.today_key(base)
+	var a := Session.daily("ember", base)
+	var b := Session.daily("pebble", base)
+	if a.seed != b.seed or a.biome_id != b.biome_id or a.daily_key != b.daily_key:
+		_fail("daily is not deterministic")
+	if str(a.modifiers) != str(b.modifiers):
+		_fail("daily modifiers are not deterministic")
+	if a.mode != Session.Mode.SOLO:
+		_fail("daily should be solo")
+	if a.seed != Daily.seed_for(key) or a.biome_id != Daily.biome_for(key):
+		_fail("daily does not follow its key")
+	if a.modifiers.size() < 1 or a.modifiers.size() > 2:
+		_fail("daily should pick one or two modifiers, got %d" % a.modifiers.size())
+	var seeds := {}
+	for i in 30:
+		seeds[Daily.seed_for(Daily.today_key(base + i * 86400))] = true
+	if seeds.size() < 20:
+		_fail("30 days gave only %d distinct seeds" % seeds.size())
+	var win := {"win": true, "time": 200.0, "kills": 60, "level": 8, "hp": 50.0, "max_hp": 100.0}
+	var loss := win.duplicate()
+	loss["win"] = false
+	loss["hp"] = 0.0
+	if Daily.score(win) <= Daily.score(loss):
+		_fail("a win must outscore a loss")
+	var slow := win.duplicate()
+	slow["time"] = 280.0
+	if Daily.score(win) <= Daily.score(slow):
+		_fail("a faster win must outscore a slower one")
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	SaveGame.no_write = true
+	SaveGame.data["daily"] = {}
+	SaveGame.data["pending_upload"] = []
+	var tk := "2000-01-01"
+	if SaveGame.record_daily(tk, {"score": 100, "hero": "ember", "time": 100, "result": "loss", "at": 1}) != 1:
+		_fail("first daily run should rank 1")
+	if SaveGame.record_daily(tk, {"score": 500, "hero": "ember", "time": 90, "result": "win", "at": 2}) != 1:
+		_fail("best daily run should rank 1")
+	if SaveGame.record_daily(tk, {"score": 300, "hero": "juniper", "time": 120, "result": "loss", "at": 3}) != 2:
+		_fail("middle daily run should rank 2")
+	if SaveGame.daily_best(tk) != 500:
+		_fail("daily best should be 500")
+	for i in 15:
+		SaveGame.record_daily(tk, {"score": i + 1, "hero": "ember", "time": 60, "result": "loss", "at": 4 + i})
+	var board := SaveGame.daily_board(tk)
+	if board.size() != SaveGame.DAILY_RUNS:
+		_fail("daily board should keep %d runs, got %d" % [SaveGame.DAILY_RUNS, board.size()])
+	for i in range(1, board.size()):
+		if int(board[i - 1]["score"]) < int(board[i]["score"]):
+			_fail("daily board is not sorted by score")
+			break
+	SaveGame.data = keep
+	SaveGame.no_write = false
+	print("DAILY ok: key %s seed %d biome %s" % [key, a.seed, a.biome_id])
 
 
 static func _steer() -> void:
@@ -256,6 +320,89 @@ static func _cards() -> void:
 				sim.choose(0)
 				sim.drain_events()
 	print("CARDS ", Catalog.CARDS.size(), " ok")
+
+
+## Blessing pools: each card in exactly one pool, class pools hold enough
+## cards, and 2000 seeded offers per role respect class exclusivity, maxes,
+## uniques, duplicates and the one-class-card guarantee. card_text is checked
+## for every rank and must carry the rank total for stackables.
+static func _pools_check() -> void:
+	var counts := {"general": 0, "tank": 0, "archer": 0, "mage": 0}
+	for entry in Catalog.CARDS:
+		var id := str(entry.get("id", ""))
+		var pool := Catalog.pool_of(id)
+		if not counts.has(pool):
+			_fail("card %s has unknown pool %s" % [id, pool])
+			return
+		counts[pool] = int(counts[pool]) + 1
+		if bool(entry.get("stack", false)) != (int(entry.get("max", 1)) > 1):
+			_fail("card %s stack flag mismatch" % id)
+			return
+	if int(counts["general"]) < 14:
+		_fail("general pool only %d" % int(counts["general"]))
+	for role in ["tank", "archer", "mage"]:
+		if int(counts[role]) < 6:
+			_fail("%s pool only %d" % [role, int(counts[role])])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	for role in ["tank", "archer", "mage"]:
+		for _i in 2000:
+			var stacks := {}
+			for entry in Catalog.CARDS:
+				stacks[str(entry["id"])] = rng.randi_range(0, int(entry["max"]))
+			var offer: Array = Catalog.roll_offer(role, stacks, rng)
+			if offer.size() != 3:
+				_fail("%s offer size %d" % [role, offer.size()])
+				return
+			var seen := {}
+			var has_class := false
+			for id in offer:
+				var sid := str(id)
+				if seen.has(sid):
+					_fail("%s duplicate %s" % [role, sid])
+					return
+				seen[sid] = true
+				if sid == "snack":
+					continue
+				var entry := Catalog.card(sid)
+				if entry.is_empty():
+					_fail("unknown card " + sid)
+					return
+				var card_pool := Catalog.pool_of(sid)
+				if card_pool != "general" and card_pool != role:
+					_fail("%s offered %s from %s" % [role, sid, card_pool])
+					return
+				if card_pool == role:
+					has_class = true
+				var have := int(stacks.get(sid, 0))
+				if have >= int(entry.get("max", 1)):
+					_fail("%s offered %s at max" % [role, sid])
+					return
+			if _class_available(role, stacks) and not has_class:
+				_fail("%s offer had no class card" % role)
+				return
+	for entry in Catalog.CARDS:
+		var id := str(entry["id"])
+		for have in range(0, int(entry["max"])):
+			var text := Catalog.card_text(id, have)
+			if text.strip_edges() == "":
+				_fail("empty card_text for %s rank %d" % [id, have])
+				return
+			if bool(entry.get("stack", false)) and have > 0:
+				var total := float(entry.get("n", 0)) * float(have + 1)
+				if text.find(Catalog.fmt_amount(total)) < 0:
+					_fail("card_text %s rank %d missing total %s" % [id, have, Catalog.fmt_amount(total)])
+					return
+	print("POOLS ok, general %d tank %d archer %d mage %d" % [int(counts["general"]), int(counts["tank"]), int(counts["archer"]), int(counts["mage"])])
+
+
+static func _class_available(role: String, stacks: Dictionary) -> bool:
+	for entry in Catalog.CARDS:
+		if Catalog.pool_of(str(entry["id"])) != role:
+			continue
+		if int(stacks.get(str(entry["id"]), 0)) < int(entry["max"]):
+			return true
+	return false
 
 
 static func _fights() -> void:
@@ -575,6 +722,127 @@ static func _dodge_check() -> void:
 			sim.drain_events()
 		if sim.map.depth(sim.heroes[0].pos) < sim.heroes[0].radius * 0.8 - 1.0:
 			_fail("dodge ended inside an obstacle")
+
+
+## Map events: deterministic shrines/affixes/goblin, shrine buffs that raise a
+## stat and expire, shielded elites, a fleeing goblin that pays out, and
+## molten death patches.
+static func _events_check() -> void:
+	# (a) The same seed rebuilds identical map events; a different seed varies.
+	var a := HuntMap.world("meadow", 11)
+	var b := HuntMap.world("meadow", 11)
+	var c := HuntMap.world("meadow", 12)
+	if _event_sig(a) != _event_sig(b):
+		_fail("map events are not deterministic")
+	if _event_sig(a) == _event_sig(c):
+		_fail("map events do not vary with the seed")
+	if a.shrines.size() < 2:
+		_fail("world placed only %d shrines" % a.shrines.size())
+	if a.goblin_at == Vector2.INF:
+		_fail("world rolled no goblin haunt")
+	# (b) A shrine raises the stat it names, then lets go after 30 s.
+	var bsim := _sim("meadow", "ember", 11)
+	if bsim.shrines.is_empty():
+		_fail("run has no shrines")
+		return
+	var bhero: RunSim.Actor = bsim.heroes[0]
+	bsim.shrines[0]["kind"] = "fury"
+	bsim.shrines[0]["used"] = false
+	var base_dmg: float = bhero.dmg
+	bhero.pos = bsim.shrines[0]["pos"]
+	bsim._step_shrines(STEP)
+	if not bhero.shrine_buffs.has("fury") or bhero.dmg <= base_dmg:
+		_fail("fury shrine did not raise damage")
+	for _i in 1830:
+		bsim._step_shrines(STEP)
+	if bhero.shrine_buffs.has("fury") or bhero.dmg != base_dmg:
+		_fail("fury shrine did not expire after 30 s")
+	# (c) A shielded elite soaks damage with its shield before its hp.
+	var csim := _sim("meadow", "ember", 11)
+	var chero: RunSim.Actor = csim.heroes[0]
+	var elite := csim._place_minion(0, csim._clamp_point(chero.pos + Vector2(400, 0), 24.0), -1)
+	csim._make_elite(elite)
+	csim._apply_affixes(elite, ["shielded"])
+	if elite.shield <= 0.0:
+		_fail("shielded elite got no shield")
+	var ehp: float = elite.hp
+	csim._hurt(elite, 5.0, elite.pos, false, chero, false)
+	if elite.hp != ehp or elite.shield >= 0.4 * ehp:
+		_fail("shield did not absorb the hit")
+	csim._hurt(elite, elite.shield + 40.0, elite.pos, false, chero, false)
+	if elite.hp >= ehp:
+		_fail("hp did not drop once the shield broke")
+	# (d) The goblin outruns the hero, and killing it pays out a chest.
+	var gsim := _sim("meadow", "ember", 11)
+	var ghero: RunSim.Actor = gsim.heroes[0]
+	var lane := _clear_dir(gsim, ghero)
+	var gob := gsim._spawn_goblin(gsim.map.push_inside(ghero.pos + lane * 340.0, 30.0))
+	var gap: float = gob.pos.distance_to(ghero.pos)
+	for _i in 120:
+		var to: Vector2 = gob.pos - ghero.pos
+		if to.length() > 1.0:
+			ghero.pos += to.normalized() * ghero.speed * 0.5 * STEP
+		gsim._step_goblin(gob, STEP, ghero)
+	var gap2: float = gob.pos.distance_to(ghero.pos)
+	if gap2 <= gap:
+		_fail("goblin did not outrun the hero (%.0f -> %.0f)" % [gap, gap2])
+	gsim.drain_events()
+	gsim._hurt(gob, 1.0e9, gob.pos, false, ghero, false)
+	var looted := false
+	for e in gsim.drain_events():
+		if str(e.get("type", "")) == "loot":
+			looted = true
+	if not looted:
+		_fail("goblin kill dropped no loot")
+	# (e) A molten death leaves a burning patch that hurts the hero.
+	var msim := _sim("meadow", "ember", 11)
+	var mhero: RunSim.Actor = msim.heroes[0]
+	var molten := msim._place_minion(0, msim._clamp_point(mhero.pos + Vector2(-300, 0), 24.0), -1)
+	msim._apply_affixes(molten, ["molten"])
+	msim.drain_events()
+	msim._hurt(molten, 1.0e9, molten.pos, false, mhero, false)
+	var patch: RunSim.Field = null
+	for f in msim.fields:
+		if f.kind == "molten":
+			patch = f
+	if patch == null:
+		_fail("molten death left no patch")
+		return
+	mhero.iframes = 0.0
+	mhero.pos = patch.pos
+	var mhp: float = mhero.hp
+	msim._step_fields(STEP)
+	if mhero.hp >= mhp:
+		_fail("molten patch did not damage the hero")
+	print("EVENTS shrines/affixes/goblin ok")
+
+
+static func _sim(biome: String, hero: String, seed: int) -> RunSim:
+	var session := Session.solo(biome, hero)
+	session.seed = seed
+	var sim := RunSim.new()
+	sim.start(session, {hero: Catalog.base_stats(hero)})
+	return sim
+
+
+static func _event_sig(m: HuntMap) -> String:
+	var s := str(m.shrines) + "|" + str(m.goblin_at)
+	for camp in m.camps:
+		s += "|" + str(camp.get("affixes", []))
+	return s
+
+
+## A heading from the hero with the most open ground ahead (for test staging).
+static func _clear_dir(sim: RunSim, hero: RunSim.Actor) -> Vector2:
+	var best := Vector2.RIGHT
+	var best_depth := -1.0e9
+	for k in 8:
+		var d := Vector2.RIGHT.rotated(TAU * float(k) / 8.0)
+		var depth := sim.map.depth(hero.pos + d * 340.0)
+		if depth > best_depth:
+			best_depth = depth
+			best = d
+	return best
 
 
 ## Chest drawer rules: earned chests arrive locked with a rarity timer,

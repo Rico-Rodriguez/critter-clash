@@ -34,6 +34,42 @@ static func card(id: String) -> Dictionary:
 	return _cards.get(id, {})
 
 
+## Every card sits in exactly one pool: "general" (roles []) or its one class.
+static func pool_of(id: String) -> String:
+	var entry := card(id)
+	var roles: Array = entry.get("roles", [])
+	if roles.is_empty():
+		return "general"
+	return str(roles[0])
+
+
+## The concrete effect of the next pick: format `rank_desc` with the per-rank
+## amount ({n}), the total after this pick ({total}) and the rank ({rank}).
+## Cards without a rank_desc (the uniques) fall back to `desc`.
+static func card_text(id: String, have: int) -> String:
+	var entry := card(id)
+	if entry.is_empty():
+		return ""
+	var fmt := str(entry.get("rank_desc", ""))
+	# A first pick reads the plain description; ranks II+ show the running total.
+	if fmt == "" or have <= 0:
+		return str(entry.get("desc", ""))
+	var amount := float(entry.get("n", 0))
+	var rank := maxi(1, have + 1)
+	var text := fmt.replace("{n}", fmt_amount(amount))
+	text = text.replace("{total}", fmt_amount(amount * float(rank)))
+	return text.replace("{rank}", str(rank))
+
+
+## Short number for card text: fractions under 1 are shown as percents.
+static func fmt_amount(value: float) -> String:
+	if value > 0.0 and value < 1.0:
+		return "%d%%" % int(round(value * 100.0))
+	if absf(value - round(value)) < 0.005:
+		return str(int(round(value)))
+	return "%.1f" % value
+
+
 static func milestone(id: String) -> Dictionary:
 	for entry in MILESTONES:
 		if str(entry["id"]) == id:
@@ -132,11 +168,16 @@ static func base_stats(id: String) -> Dictionary:
 	}
 
 
+## Three cards for a role. The rarity roll fills the offer; if none of the
+## three is from the role's own pool, one general card is swapped for an
+## available class card, so a class almost always sees an exclusive. The swap
+## picks from the offer's own rng-derived contents and draws no extra rng, so
+## the run's random stream is unchanged. Never another class, max or repeat.
 static func roll_offer(role: String, stacks: Dictionary, rng: RandomNumberGenerator) -> Array:
 	_index_cards()
 	var picked: Array = []
 	var guard := 0
-	while picked.size() < 3 and guard < 48:
+	while picked.size() < 3 and guard < 64:
 		guard += 1
 		var rarity := _roll_rarity(rng)
 		var pool := _pool(role, rarity, stacks, picked)
@@ -147,10 +188,26 @@ static func roll_offer(role: String, stacks: Dictionary, rng: RandomNumberGenera
 		if pool.is_empty():
 			pool = _pool(role, "common", stacks, picked)
 		if pool.is_empty():
-			picked.append("snack")
+			if not ("snack" in picked):
+				picked.append("snack")
 			continue
 		picked.append(str(pool[rng.randi() % pool.size()]["id"]))
+	if not _has_class(picked, role):
+		var class_pool := _class_pool(role, stacks, picked)
+		if not class_pool.is_empty():
+			for i in range(picked.size() - 1, -1, -1):
+				if picked[i] != "snack" and pool_of(str(picked[i])) == "general":
+					var slot := absi(hash(str(picked[i]))) % class_pool.size()
+					picked[i] = str(class_pool[slot]["id"])
+					break
 	return picked
+
+
+static func _has_class(picked: Array, role: String) -> bool:
+	for id in picked:
+		if pool_of(str(id)) == role:
+			return true
+	return false
 
 
 static func _roll_rarity(rng: RandomNumberGenerator) -> String:
@@ -181,6 +238,21 @@ static func _pool(role: String, rarity: String, stacks: Dictionary, picked: Arra
 	return out
 
 
+## The role's own class cards still under their max and not already picked.
+static func _class_pool(role: String, stacks: Dictionary, picked: Array) -> Array:
+	var out: Array = []
+	for entry in CARDS:
+		if pool_of(str(entry["id"])) != role:
+			continue
+		if str(entry["id"]) in picked:
+			continue
+		var have := int(stacks.get(str(entry["id"]), 0))
+		if have >= int(entry["max"]):
+			continue
+		out.append(entry)
+	return out
+
+
 static func _index_cards() -> void:
 	if not _cards.is_empty():
 		return
@@ -194,7 +266,9 @@ static func _index_cards() -> void:
 		"n": 22,
 		"max": 99,
 		"roles": [],
+		"stack": true,
 		"desc": "Heal 22 right now.",
+		"rank_desc": "Heal {n} right now.",
 	}
 
 
@@ -267,51 +341,57 @@ const MILESTONES: Array = [
 	{"id": "m240", "trophies": 240, "kind": "gear", "slot": "weapon", "rarity": "epic", "label": "Epic weapon", "detail": "A strong weapon"},
 ]
 
-## op is how a stack changes the run. roles empty means every hero.
-## Exclusive cards are the epic role rows.
+## op is how a stack changes the run. roles empty means every hero; pool_of()
+## reads that as "general". stack is true until a card is unique (max 1).
+## rank_desc is the next pick's effect: {n} per rank, {total} after the pick.
 const CARDS: Array = [
-	{"id": "might", "name": "Might", "rarity": "common", "op": "dmg", "n": 5, "max": 5, "roles": [], "desc": "Damage +5."},
-	{"id": "haste", "name": "Quick Paws", "rarity": "common", "op": "haste", "n": 0.14, "max": 5, "roles": [], "desc": "Attack faster."},
-	{"id": "vitality", "name": "Thick Hide", "rarity": "common", "op": "hp", "n": 24, "max": 5, "roles": [], "desc": "Max health +24."},
-	{"id": "swift", "name": "Light Foot", "rarity": "common", "op": "swift", "n": 0.08, "max": 4, "roles": [], "desc": "Move faster."},
-	{"id": "crit", "name": "Lucky Spark", "rarity": "common", "op": "crit", "n": 0.06, "max": 5, "roles": [], "desc": "Crit chance +6%."},
-	{"id": "regen", "name": "Dew Sip", "rarity": "common", "op": "regen", "n": 1.4, "max": 4, "roles": [], "desc": "Regenerate 1.4 health each second."},
-	{"id": "magnet", "name": "Gem Magnet", "rarity": "common", "op": "magnet", "n": 42, "max": 3, "roles": [], "desc": "Gems fly in from farther away."},
-	{"id": "might_plus", "name": "Heavy Blow", "rarity": "rare", "op": "dmg", "n": 11, "max": 3, "roles": [], "desc": "Damage +11."},
-	{"id": "bounce", "name": "Ricochet", "rarity": "rare", "op": "bounce", "n": 1, "max": 3, "roles": [], "desc": "Attacks bounce to another critter."},
-	{"id": "multishot", "name": "Multishot", "rarity": "rare", "op": "shots", "n": 1, "max": 2, "roles": [], "desc": "Fire an extra shot."},
-	{"id": "armor", "name": "Bark Coat", "rarity": "rare", "op": "armor", "n": 2, "max": 4, "roles": [], "desc": "Armor +2."},
-	{"id": "siphon", "name": "Nibble", "rarity": "rare", "op": "siphon", "n": 0.05, "max": 3, "roles": [], "desc": "Heal a little of the damage you deal."},
-	{"id": "vitality_plus", "name": "Hearty", "rarity": "rare", "op": "hp", "n": 42, "max": 2, "roles": [], "desc": "Max health +42."},
-	{"id": "mage_radius", "name": "Wider Splash", "rarity": "epic", "op": "splash", "n": 32, "max": 3, "roles": ["mage"], "desc": "Mage exclusive. Splash reaches farther."},
-	{"id": "mage_power", "name": "Hotter Splash", "rarity": "epic", "op": "splash_mul", "n": 0.25, "max": 3, "roles": ["mage"], "desc": "Mage exclusive. Splash hits harder."},
-	{"id": "archer_pierce", "name": "Pierce", "rarity": "epic", "op": "pierce", "n": 1, "max": 4, "roles": ["archer"], "desc": "Archer exclusive. Shots fly through another critter."},
-	{"id": "tank_thorns", "name": "Thorns", "rarity": "epic", "op": "thorns", "n": 0.22, "max": 4, "roles": ["tank"], "desc": "Tank exclusive. Attackers take damage back."},
-	{"id": "tank_bash", "name": "Shield Bash", "rarity": "epic", "op": "bash", "n": 1, "max": 3, "roles": ["tank"], "desc": "Tank exclusive. Melee sends a shockwave."},
-	{"id": "second_wind", "name": "Second Wind", "rarity": "legendary", "op": "revive", "n": 1, "max": 1, "roles": [], "desc": "Once, get back up at half health."},
-	{"id": "orbit_blades", "name": "Orbiting Blades", "rarity": "common", "op": "orbit", "n": 1, "max": 3, "roles": [], "desc": "Blades circle you and cut what they touch."},
-	{"id": "chain_lightning", "name": "Chain Lightning", "rarity": "common", "op": "chain", "n": 1, "max": 3, "roles": [], "desc": "Every few attacks, lightning leaps between foes."},
-	{"id": "gem_burst", "name": "Gem Burst", "rarity": "common", "op": "gemburst", "n": 1, "max": 3, "roles": [], "desc": "Gems sometimes burst with damage when collected."},
-	{"id": "fire_trail", "name": "Fire Trail", "rarity": "common", "op": "trail", "n": 1, "max": 3, "roles": [], "desc": "You leave burning ground as you run."},
-	{"id": "frost_nova", "name": "Frost Nova", "rarity": "common", "op": "nova", "n": 1, "max": 3, "roles": [], "desc": "A frost ring damages and slows nearby foes."},
-	{"id": "crit_siphon", "name": "Blood Spark", "rarity": "rare", "op": "crit_siphon", "n": 0.1, "max": 3, "roles": [], "desc": "Critical hits heal you."},
-	{"id": "thorns_aura", "name": "Bramble Aura", "rarity": "rare", "op": "aura", "n": 1, "max": 3, "roles": [], "desc": "A thorn pulse damages nearby foes."},
-	{"id": "ricochet_plus", "name": "Ricochet+", "rarity": "rare", "op": "ricochet", "n": 0.15, "max": 3, "roles": [], "desc": "Hits can bounce to another foe."},
-	{"id": "executioner", "name": "Executioner", "rarity": "rare", "op": "execute", "n": 0.25, "max": 3, "roles": [], "desc": "Deal more damage to foes below 25% health."},
-	{"id": "blink", "name": "Blink", "rarity": "rare", "op": "blink", "n": 1, "max": 3, "roles": [], "desc": "When badly hurt, teleport away with brief safety."},
-	{"id": "spirit_wolf", "name": "Spirit Fox", "rarity": "rare", "op": "wolf", "n": 1, "max": 3, "roles": [], "desc": "A spectral fox fights beside you."},
-	{"id": "static_field", "name": "Static Field", "rarity": "rare", "op": "static", "n": 1, "max": 3, "roles": [], "desc": "Standing still charges a shocking attack."},
-	{"id": "vampiric_kill", "name": "Vampiric Kill", "rarity": "rare", "op": "vampkill", "n": 0.04, "max": 3, "roles": [], "desc": "Heal when you kill a foe."},
-	{"id": "berserk", "name": "Berserk", "rarity": "rare", "op": "berserk", "n": 0.25, "max": 3, "roles": [], "desc": "Attack faster as your health drops."},
-	{"id": "meteor", "name": "Meteor", "rarity": "epic", "op": "meteor", "n": 1, "max": 3, "roles": ["mage"], "desc": "Mage exclusive. Meteors fall on nearby foes."},
-	{"id": "arcane_orb", "name": "Arcane Orb", "rarity": "epic", "op": "split", "n": 1, "max": 2, "roles": ["mage"], "desc": "Mage exclusive. Orbs pierce and split on impact."},
-	{"id": "volley", "name": "Volley", "rarity": "epic", "op": "volley", "n": 1, "max": 3, "roles": ["archer"], "desc": "Archer exclusive. Every few shots fire a fan."},
-	{"id": "hunters_mark", "name": "Hunter's Mark", "rarity": "epic", "op": "mark", "n": 0.1, "max": 3, "roles": ["archer"], "desc": "Archer exclusive. Marked foes take more damage."},
-	{"id": "earthquake", "name": "Earthquake Slam", "rarity": "epic", "op": "quake", "n": 1, "max": 3, "roles": ["tank"], "desc": "Tank exclusive. Melee shocks and stuns nearby foes."},
-	{"id": "bulwark", "name": "Bulwark", "rarity": "epic", "op": "bulwark", "n": 0.1, "max": 3, "roles": ["tank"], "desc": "Tank exclusive. Take less damage while standing still."},
-	{"id": "taunt_roar", "name": "Taunt Roar", "rarity": "epic", "op": "taunt", "n": 1, "max": 3, "roles": ["tank"], "desc": "Tank exclusive. A roar pulls in and weakens foes."},
-	{"id": "phoenix", "name": "Phoenix Rebirth", "rarity": "legendary", "op": "phoenix", "n": 1, "max": 1, "roles": [], "desc": "Once, rise again in a fire nova."},
-	{"id": "storm_crown", "name": "Storm Crown", "rarity": "legendary", "op": "storm", "n": 1, "max": 3, "roles": [], "desc": "Lightning constantly arcs from you."},
+	{"id": "might", "name": "Might", "rarity": "common", "op": "dmg", "n": 5, "max": 5, "roles": [], "stack": true, "desc": "Damage +5.", "rank_desc": "Damage +{n} (total +{total})"},
+	{"id": "haste", "name": "Quick Paws", "rarity": "common", "op": "haste", "n": 0.14, "max": 5, "roles": [], "stack": true, "desc": "Attack faster.", "rank_desc": "Attack speed +{n} (total +{total})"},
+	{"id": "vitality", "name": "Thick Hide", "rarity": "common", "op": "hp", "n": 24, "max": 5, "roles": [], "stack": true, "desc": "Max health +24.", "rank_desc": "Max health +{n} (total +{total})"},
+	{"id": "swift", "name": "Light Foot", "rarity": "common", "op": "swift", "n": 0.08, "max": 4, "roles": [], "stack": true, "desc": "Move faster.", "rank_desc": "Move speed +{n} (total +{total})"},
+	{"id": "crit", "name": "Lucky Spark", "rarity": "common", "op": "crit", "n": 0.06, "max": 5, "roles": [], "stack": true, "desc": "Crit chance +6%.", "rank_desc": "Crit chance +{n} (total +{total})"},
+	{"id": "regen", "name": "Dew Sip", "rarity": "common", "op": "regen", "n": 1.4, "max": 4, "roles": [], "stack": true, "desc": "Regenerate 1.4 health each second.", "rank_desc": "Regen +{n}/s (total +{total})"},
+	{"id": "magnet", "name": "Gem Magnet", "rarity": "common", "op": "magnet", "n": 42, "max": 3, "roles": [], "stack": true, "desc": "Gems fly in from farther away.", "rank_desc": "Magnet +{n} (total +{total})"},
+	{"id": "might_plus", "name": "Heavy Blow", "rarity": "rare", "op": "dmg", "n": 11, "max": 3, "roles": [], "stack": true, "desc": "Damage +11.", "rank_desc": "Damage +{n} (total +{total})"},
+	{"id": "bounce", "name": "Ricochet", "rarity": "rare", "op": "bounce", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "Attacks bounce to another critter.", "rank_desc": "Bounces +{n} (total {total})"},
+	{"id": "armor", "name": "Bark Coat", "rarity": "rare", "op": "armor", "n": 2, "max": 4, "roles": [], "stack": true, "desc": "Armor +2.", "rank_desc": "Armor +{n} (total +{total})"},
+	{"id": "siphon", "name": "Nibble", "rarity": "rare", "op": "siphon", "n": 0.05, "max": 3, "roles": [], "stack": true, "desc": "Heal a little of the damage you deal.", "rank_desc": "Lifesteal +{n} (total +{total})"},
+	{"id": "vitality_plus", "name": "Hearty", "rarity": "rare", "op": "hp", "n": 42, "max": 2, "roles": [], "stack": true, "desc": "Max health +42.", "rank_desc": "Max health +{n} (total +{total})"},
+	{"id": "second_wind", "name": "Second Wind", "rarity": "legendary", "op": "revive", "n": 1, "max": 1, "roles": [], "stack": false, "desc": "Once, get back up at half health."},
+	{"id": "orbit_blades", "name": "Orbiting Blades", "rarity": "common", "op": "orbit", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "Blades circle you and cut what they touch.", "rank_desc": "{total} blades orbit you"},
+	{"id": "chain_lightning", "name": "Chain Lightning", "rarity": "common", "op": "chain", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "Every few attacks, lightning leaps between foes.", "rank_desc": "Chains to {total} foes"},
+	{"id": "gem_burst", "name": "Gem Burst", "rarity": "common", "op": "gemburst", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "Gems sometimes burst with damage when collected.", "rank_desc": "Gem burst +{n} (total {total})"},
+	{"id": "fire_trail", "name": "Fire Trail", "rarity": "common", "op": "trail", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "You leave burning ground as you run.", "rank_desc": "Fire trail +{n} (total {total})"},
+	{"id": "frost_nova", "name": "Frost Nova", "rarity": "common", "op": "nova", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "A frost ring damages and slows nearby foes.", "rank_desc": "Frost nova +{n} (total {total})"},
+	{"id": "crit_siphon", "name": "Blood Spark", "rarity": "rare", "op": "crit_siphon", "n": 0.1, "max": 3, "roles": [], "stack": true, "desc": "Critical hits heal you.", "rank_desc": "Crit heal +{n} (total +{total})"},
+	{"id": "thorns_aura", "name": "Bramble Aura", "rarity": "rare", "op": "aura", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "A thorn pulse damages nearby foes.", "rank_desc": "Thorn aura +{n} (total {total})"},
+	{"id": "ricochet_plus", "name": "Ricochet+", "rarity": "rare", "op": "ricochet", "n": 0.15, "max": 3, "roles": [], "stack": true, "desc": "Hits can bounce to another foe.", "rank_desc": "Ricochet +{n} (total +{total})"},
+	{"id": "executioner", "name": "Executioner", "rarity": "rare", "op": "execute", "n": 0.25, "max": 3, "roles": [], "stack": true, "desc": "Deal more damage to foes below 25% health.", "rank_desc": "Execute +{n} (total +{total})"},
+	{"id": "blink", "name": "Blink", "rarity": "rare", "op": "blink", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "When badly hurt, teleport away with brief safety.", "rank_desc": "Blink +{n} (total {total})"},
+	{"id": "spirit_wolf", "name": "Spirit Fox", "rarity": "rare", "op": "wolf", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "A spectral fox fights beside you.", "rank_desc": "{total} spirit foxes"},
+	{"id": "static_field", "name": "Static Field", "rarity": "rare", "op": "static", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "Standing still charges a shocking attack.", "rank_desc": "Static charge +{n} (total {total})"},
+	{"id": "vampiric_kill", "name": "Vampiric Kill", "rarity": "rare", "op": "vampkill", "n": 0.04, "max": 3, "roles": [], "stack": true, "desc": "Heal when you kill a foe.", "rank_desc": "Kill heal +{n} (total +{total})"},
+	{"id": "berserk", "name": "Berserk", "rarity": "rare", "op": "berserk", "n": 0.25, "max": 3, "roles": [], "stack": true, "desc": "Attack faster as your health drops.", "rank_desc": "Berserk +{n} (total +{total})"},
+	{"id": "phoenix", "name": "Phoenix Rebirth", "rarity": "legendary", "op": "phoenix", "n": 1, "max": 1, "roles": [], "stack": false, "desc": "Once, rise again in a fire nova."},
+	{"id": "storm_crown", "name": "Storm Crown", "rarity": "legendary", "op": "storm", "n": 1, "max": 3, "roles": [], "stack": true, "desc": "Lightning constantly arcs from you.", "rank_desc": "Storm +{n} (total {total})"},
+	{"id": "mage_radius", "name": "Wider Splash", "rarity": "epic", "op": "splash", "n": 32, "max": 3, "roles": ["mage"], "stack": true, "desc": "Mage exclusive. Splash reaches farther.", "rank_desc": "Splash +{n} (total +{total})"},
+	{"id": "mage_power", "name": "Hotter Splash", "rarity": "epic", "op": "splash_mul", "n": 0.25, "max": 3, "roles": ["mage"], "stack": true, "desc": "Mage exclusive. Splash hits harder.", "rank_desc": "Splash damage +{n} (total +{total})"},
+	{"id": "mage_chain", "name": "Arc Lightning", "rarity": "epic", "op": "chain", "n": 1, "max": 3, "roles": ["mage"], "stack": true, "desc": "Mage exclusive. Lightning leaps between foes.", "rank_desc": "Chain +{n} (total {total})"},
+	{"id": "mage_crit", "name": "Focused Mind", "rarity": "rare", "op": "crit", "n": 0.07, "max": 4, "roles": ["mage"], "stack": true, "desc": "Mage exclusive. Crit chance +7%.", "rank_desc": "Crit chance +{n} (total +{total})"},
+	{"id": "meteor", "name": "Meteor", "rarity": "epic", "op": "meteor", "n": 1, "max": 3, "roles": ["mage"], "stack": true, "desc": "Mage exclusive. Meteors fall on nearby foes.", "rank_desc": "Meteors +{n} (total {total})"},
+	{"id": "arcane_orb", "name": "Arcane Orb", "rarity": "epic", "op": "split", "n": 1, "max": 2, "roles": ["mage"], "stack": true, "desc": "Mage exclusive. Orbs pierce and split on impact.", "rank_desc": "Orbs split +{n} (total {total})"},
+	{"id": "archer_pierce", "name": "Pierce", "rarity": "epic", "op": "pierce", "n": 1, "max": 4, "roles": ["archer"], "stack": true, "desc": "Archer exclusive. Shots fly through another critter.", "rank_desc": "Pierce +{n} (total {total})"},
+	{"id": "multishot", "name": "Multishot", "rarity": "rare", "op": "shots", "n": 1, "max": 2, "roles": ["archer"], "stack": true, "desc": "Archer exclusive. Fire an extra shot.", "rank_desc": "Extra shots +{n} (total {total})"},
+	{"id": "archer_crit", "name": "Steady Aim", "rarity": "rare", "op": "crit", "n": 0.07, "max": 4, "roles": ["archer"], "stack": true, "desc": "Archer exclusive. Crit chance +7%.", "rank_desc": "Crit chance +{n} (total +{total})"},
+	{"id": "archer_haste", "name": "Quickdraw", "rarity": "rare", "op": "haste", "n": 0.12, "max": 4, "roles": ["archer"], "stack": true, "desc": "Archer exclusive. Attack faster.", "rank_desc": "Attack speed +{n} (total +{total})"},
+	{"id": "volley", "name": "Volley", "rarity": "epic", "op": "volley", "n": 1, "max": 3, "roles": ["archer"], "stack": true, "desc": "Archer exclusive. Every few shots fire a fan.", "rank_desc": "Volley +{n} (total {total})"},
+	{"id": "hunters_mark", "name": "Hunter's Mark", "rarity": "epic", "op": "mark", "n": 0.1, "max": 3, "roles": ["archer"], "stack": true, "desc": "Archer exclusive. Marked foes take more damage.", "rank_desc": "Mark +{n} (total +{total})"},
+	{"id": "tank_thorns", "name": "Thorns", "rarity": "epic", "op": "thorns", "n": 0.22, "max": 4, "roles": ["tank"], "stack": true, "desc": "Tank exclusive. Attackers take damage back.", "rank_desc": "Thorns +{n} (total +{total})"},
+	{"id": "tank_bash", "name": "Shield Bash", "rarity": "epic", "op": "bash", "n": 1, "max": 3, "roles": ["tank"], "stack": true, "desc": "Tank exclusive. Melee sends a shockwave.", "rank_desc": "Bash +{n} (total {total})"},
+	{"id": "earthquake", "name": "Earthquake Slam", "rarity": "epic", "op": "quake", "n": 1, "max": 3, "roles": ["tank"], "stack": true, "desc": "Tank exclusive. Melee shocks and stuns nearby foes.", "rank_desc": "Quake +{n} (total {total})"},
+	{"id": "bulwark", "name": "Bulwark", "rarity": "epic", "op": "bulwark", "n": 0.1, "max": 3, "roles": ["tank"], "stack": true, "desc": "Tank exclusive. Take less damage while standing still.", "rank_desc": "Bulwark +{n} (total +{total})"},
+	{"id": "taunt_roar", "name": "Taunt Roar", "rarity": "epic", "op": "taunt", "n": 1, "max": 3, "roles": ["tank"], "stack": true, "desc": "Tank exclusive. A roar pulls in and weakens foes.", "rank_desc": "Taunt +{n} (total {total})"},
+	{"id": "tank_armor", "name": "Iron Plating", "rarity": "rare", "op": "armor", "n": 3, "max": 4, "roles": ["tank"], "stack": true, "desc": "Tank exclusive. Armor +3.", "rank_desc": "Armor +{n} (total +{total})"},
 ]
 
 const CRITTERS: Dictionary = {

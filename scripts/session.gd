@@ -14,6 +14,9 @@ var mode: int = Mode.SOLO
 var biome_id: String = "meadow"
 var hero_ids: PackedStringArray = PackedStringArray()
 var seed: int = 0
+## Set only for a Daily Challenge run: the UTC day key and its modifiers.
+var daily_key: String = ""
+var modifiers: Array = []
 
 
 static func solo(biome_id: String, hero_id: String) -> Session:
@@ -22,6 +25,20 @@ static func solo(biome_id: String, hero_id: String) -> Session:
 	session.biome_id = biome_id
 	session.hero_ids = PackedStringArray([hero_id])
 	session.seed = randi()
+	return session
+
+
+## The seeded Daily Challenge for a Unix time: one biome, one seed and one
+## or two run modifiers, all derived from the UTC day key.
+static func daily(hero_id: String, unix: int) -> Session:
+	var key := Daily.today_key(unix)
+	var session := Session.new()
+	session.mode = Mode.SOLO
+	session.biome_id = Daily.biome_for(key)
+	session.hero_ids = PackedStringArray([hero_id])
+	session.seed = Daily.seed_for(key)
+	session.daily_key = key
+	session.modifiers = Daily.modifiers_for(key)
 	return session
 
 

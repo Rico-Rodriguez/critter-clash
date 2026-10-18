@@ -13,6 +13,13 @@ var acc := 0.0
 var hitstop := 0.0
 var trauma := 0.0
 var committed := false
+## Daily Challenge: the pinned day key and modifiers, the run args (so TRY
+## AGAIN repeats the same hunt) and the recorded local entry.
+var daily_key := ""
+var is_daily := false
+var run_args: Dictionary = {}
+var daily_entry: Dictionary = {}
+var daily_recorded := false
 var pet_follow := ""
 var pet_pos := Vector2.ZERO
 var pet_ready := false
@@ -122,14 +129,21 @@ func build() -> void:
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
 	hero_id = str(args.get("hero", "ember"))
+	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)
 	# Real runs keep Session.solo's fresh random seed, so every load lays out
-	# a slightly different map. Captures, movies and a future daily challenge
-	# pin one through args["seed"] (or CC_SEED for the capture scripts).
+	# a slightly different map. Captures, movies and the daily challenge pin
+	# one through args["seed"] (or CC_SEED for the capture scripts).
 	if args.has("seed"):
 		session.seed = int(args["seed"])
 	elif OS.get_environment("CC_SEED").is_valid_int():
 		session.seed = OS.get_environment("CC_SEED").to_int()
+	# A daily rides the same seeded path, plus its day key and modifiers.
+	if args.has("daily"):
+		is_daily = true
+		daily_key = str(args["daily"])
+		session.daily_key = daily_key
+		session.modifiers = args.get("modifiers", [])
 	sim = RunSim.new()
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
@@ -537,6 +551,22 @@ func _drain() -> void:
 				_float(ev["pos"] + Vector2(0, -70), "Chest sent home" if sent == "sent" else "Chest drawer full", Color("f4e3b5") if sent == "sent" else Color("c98b7a"), false)
 				AudioDirector.sfx("chest_open")
 				AudioDirector.haptic("rare" if str(ev.get("tier", "")) == "rare" else "medium")
+			"shrine":
+				var sk := str(ev.get("kind", ""))
+				_banner("Shrine of " + _shrine_word(sk))
+				_burst(ev.get("pos", Vector2.ZERO), _shrine_color(sk), 24, 250.0)
+				AudioDirector.sfx("levelup", -4.0)
+				AudioDirector.haptic("light")
+			"goblin_down":
+				_banner("Treasure goblin slain!")
+				_burst(ev.get("pos", Vector2.ZERO), Color("ffd27a"), 26, 280.0)
+				AudioDirector.sfx("chest_open")
+				AudioDirector.haptic("rare")
+			"goblin_escape":
+				_burst(ev.get("pos", Vector2.ZERO), Color("b7a06a"), 8, 120.0)
+			"shield_break":
+				_burst(ev.get("pos", Vector2.ZERO), Color("8fd0ff"), 12, 190.0)
+				AudioDirector.sfx("hit", -2.0)
 			"dodge":
 				_burst(ev["pos"], Color("c9b79a"), 8, 140.0)
 				AudioDirector.sfx("ui_tap", -6.0)
@@ -693,6 +723,45 @@ func _fx_color(name: String) -> Color:
 			return Color("8fd0ff")
 		"berserk":
 			return Color("ff8a3c")
+		"affix_fast":
+			return Color("ffd15a")
+		"affix_shielded":
+			return Color("8fd0ff")
+		"affix_molten", "molten":
+			return Color("ff7a3c")
+		"affix_vampiric":
+			return Color("ff5a6a")
+		"goblin_spawn":
+			return Color("ffd27a")
+		_:
+			return Color("ffe08a")
+
+
+## Display word for a shrine kind (the banner reads "Shrine of Fury").
+func _shrine_word(kind: String) -> String:
+	match kind:
+		"fury":
+			return "Fury"
+		"haste":
+			return "Haste"
+		"warding":
+			return "Warding"
+		"greed":
+			return "Greed"
+		_:
+			return kind.capitalize()
+
+
+func _shrine_color(kind: String) -> Color:
+	match kind:
+		"fury":
+			return Color("ff7a5a")
+		"haste":
+			return Color("ffe14a")
+		"warding":
+			return Color("8fd0ff")
+		"greed":
+			return Color("b6f27a")
 		_:
 			return Color("ffe08a")
 
@@ -1006,6 +1075,9 @@ func _show_levelup(level_n: int, offer: Array) -> void:
 func _offer_card(index: int, id: String) -> Button:
 	var info := Catalog.card(id)
 	var rarity := str(info.get("rarity", "common"))
+	var have := int(sim.stacks.get(id, 0)) if sim != null else 0
+	var rank := have + 1
+	var stack := bool(info.get("stack", false))
 	var button := OfferCard.new()
 	button.rarity = rarity
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1031,15 +1103,42 @@ func _offer_card(index: int, id: String) -> Button:
 	icon.custom_minimum_size = Vector2(0, 214)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
+	var name_row := HBoxContainer.new()
+	name_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	name_row.add_theme_constant_override("separation", 6)
+	name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(name_row)
 	var name := UiKit.label(str(info.get("name", id)), 28, UiKit.GOLD.lightened(0.2), "x", 3)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(name)
-	var desc := UiKit.label(str(info.get("desc", "")), 26, UiKit.MUTED.lightened(0.3), "m", 3)
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(name)
+	if stack and rank >= 2:
+		# Rank badge: the numeral this pick would reach (I stays bare).
+		var badge := UiKit.label(_roman(rank), 22, UiKit.GOLD, "x", 3)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		badge.custom_minimum_size = Vector2(30, 30)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_row.add_child(badge)
+	var desc := UiKit.label(Catalog.card_text(id, have), 26, UiKit.MUTED.lightened(0.3), "m", 3)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(desc)
 	return button
+
+
+## Roman numeral for a card rank badge, capped at X.
+static func _roman(n: int) -> String:
+	var value := clampi(n, 1, 10)
+	var vals := [10, 9, 5, 4, 1]
+	var syms := ["X", "IX", "V", "IV", "I"]
+	var out := ""
+	for i in vals.size():
+		while value >= int(vals[i]):
+			out += str(syms[i])
+			value -= int(vals[i])
+	return out
 
 
 func _pick(index: int) -> void:
@@ -1199,7 +1298,54 @@ func _end_chest(win: bool) -> Control:
 	return plate
 
 
+## Score and record a finished daily once, then hold the entry for the panel.
+func _daily_result(win: bool) -> void:
+	if not is_daily or daily_recorded:
+		return
+	daily_recorded = true
+	var hp := 0.0
+	var max_hp := 1.0
+	if not sim.heroes.is_empty():
+		hp = sim.heroes[0].hp
+		max_hp = sim.heroes[0].max_hp
+	var entry := {
+		"score": Daily.score({
+			"win": win, "time": sim.time, "kills": sim.slain,
+			"level": sim.level, "hp": hp, "max_hp": max_hp,
+		}),
+		"hero": hero_id,
+		"time": int(sim.time),
+		"result": "win" if win else "loss",
+		"at": int(Time.get_unix_time_from_system()),
+	}
+	entry["rank"] = SaveGame.record_daily(daily_key, entry)
+	SaveGame.daily_submit(daily_key, entry)
+	daily_entry = entry
+
+
+## The daily read on the end panel: today's score and local rank.
+func _daily_line() -> Control:
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 12
+	plate.glow = Color(UiKit.GOLD, 0.45)
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 2)
+	plate.add_child(v)
+	v.add_child(UiKit.label("DAILY CHALLENGE · %s" % daily_key, 18, UiKit.MUTED.lightened(0.2), "x", 2))
+	var score := UiKit.label("Daily score %d" % int(daily_entry.get("score", 0)), 34, UiKit.GOLD.lightened(0.25), "x", 3)
+	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(score)
+	var rank := UiKit.label("Rank #%d today" % int(daily_entry.get("rank", 0)), 22, UiKit.CREAM, "x", 2)
+	rank.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(rank)
+	return plate
+
+
 func _show_victory(boss_name: String) -> void:
+	_daily_result(true)
 	_open_modal()
 	var col := _end_panel(true)
 	var title := UiKit.title("VICTORY", 64)
@@ -1244,6 +1390,8 @@ func _show_victory(boss_name: String) -> void:
 			dv.add_child(line)
 			row.add_child(tag)
 	col.add_child(_end_stats())
+	if is_daily:
+		col.add_child(_daily_line())
 	var prize := HBoxContainer.new()
 	prize.alignment = BoxContainer.ALIGNMENT_CENTER
 	prize.add_theme_constant_override("separation", 10)
@@ -1265,6 +1413,7 @@ func _show_victory(boss_name: String) -> void:
 
 
 func _show_defeat(reason: String) -> void:
+	_daily_result(false)
 	_open_modal()
 	var col := _end_panel(false)
 	var title := UiKit.title("DEFEATED", 60)
@@ -1279,6 +1428,8 @@ func _show_defeat(reason: String) -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_end_stats())
+	if is_daily:
+		col.add_child(_daily_line())
 	col.add_child(_end_chest(false))
 	col.add_child(hint)
 	var button := UiKit.button("CONTINUE", 660, 104, "steel")
@@ -1287,7 +1438,8 @@ func _show_defeat(reason: String) -> void:
 	col.add_child(button)
 	var again := UiKit.secondary("TRY AGAIN", 300, 64)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	again.pressed.connect(func() -> void: go("run", {"biome": biome_id, "hero": hero_id}))
+	# A daily retries the same seeded hunt; a normal run rolls a fresh map.
+	again.pressed.connect(func() -> void: go("run", run_args if is_daily else {"biome": biome_id, "hero": hero_id}))
 	col.add_child(again)
 
 
