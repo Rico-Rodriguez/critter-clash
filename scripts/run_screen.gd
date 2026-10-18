@@ -656,6 +656,11 @@ func _drain() -> void:
 			"gem":
 				_burst(ev["pos"], Color("b6f27a"), 4, 90.0)
 				AudioDirector.gem()
+			"skill_up":
+				var skill_key := str(ev.get("skill", ""))
+				var skill_at := GearDB.SKILL_KEYS.find(skill_key)
+				var skill_name := str(GearDB.SKILL_NAMES[skill_at]) if skill_at >= 0 else skill_key.capitalize()
+				_banner("%s %d" % [skill_name, int(ev.get("level", 1))])
 			"levelup":
 				AudioDirector.sfx("levelup")
 				AudioDirector.duck(-6.0, 0.8)

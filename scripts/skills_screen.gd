@@ -1,8 +1,13 @@
 extends ScreenBase
 
-## Skills are stored as XP only. Gathering is not in the game yet. Each skill
-## is a forged plaque: a medallion glyph, the name, level, and an XP bar,
-## sealed with a chain tag until gathering opens.
+## Skills splits into two tabs. Combat is per hero: GearDB's six combat skills
+## for the hero selected on Heroes. Gathering is the account-wide
+## Catalog.SKILLS list. Each row is a forged plaque with the name, level and an
+## XP bar; combat skills fill from hunts, gathering stays sealed.
+
+
+var _tab_buttons := {}
+var _content: VBoxContainer
 
 
 func build() -> void:
@@ -11,19 +16,68 @@ func build() -> void:
 	var box := column()
 	box.add_child(header())
 	box.add_child(h1("Skills"))
-	box.add_child(body("Levels 1–99 on the long curve. Gathering opens in a later season."))
+	box.add_child(_tab_bar())
+	_content = VBoxContainer.new()
+	_content.add_theme_constant_override("separation", 16)
+	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(_content)
+	box.add_child(back_button("home"))
+	_show_tab("combat")
+
+
+func _tab_bar() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	for entry in [["combat", "Combat"], ["gathering", "Gathering"]]:
+		var key := str(entry[0])
+		var button := UiKit.secondary(str(entry[1]), 280, 76)
+		button.pressed.connect(func() -> void: _show_tab(key))
+		_tab_buttons[key] = button
+		row.add_child(button)
+	return row
+
+
+func _show_tab(tab: String) -> void:
+	for key in _tab_buttons:
+		var button: Button = _tab_buttons[key]
+		button.modulate = Color(1, 1, 1) if key == tab else Color(0.7, 0.7, 0.7)
+	if _content == null:
+		return
+	for child in _content.get_children():
+		_content.remove_child(child)
+		child.queue_free()
+	if tab == "combat":
+		_combat_tab()
+	else:
+		_gathering_tab()
+
+
+func _combat_tab() -> void:
+	var hero := SaveGame.featured_id()
+	var info := Catalog.critter(hero)
+	_content.add_child(body("%s · %s. Levels 1–99; combat XP comes from hunts." % [
+		str(info.get("name", hero)).to_upper(), Catalog.role_name(str(info.get("role", ""))).to_upper()]))
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 16)
-	box.add_child(list)
+	_content.add_child(list)
+	for i in GearDB.SKILL_KEYS.size():
+		list.add_child(CombatRow.new(hero, GearDB.SKILL_KEYS[i], GearDB.SKILL_NAMES[i]))
+
+
+func _gathering_tab() -> void:
+	_content.add_child(body("Levels 1–99 on the long curve. Gathering opens in a later season."))
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 16)
+	_content.add_child(list)
 	for entry in Catalog.SKILLS:
 		list.add_child(SkillRow.new(str(entry["id"]), str(entry["name"])))
 	var hold := CenterContainer.new()
 	hold.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(hold)
+	_content.add_child(hold)
 	var total := TotalPanel.new()
 	total.custom_minimum_size = Vector2(minf(620.0, get_viewport_rect().size.x - 64.0), 0)
 	hold.add_child(total)
-	box.add_child(back_button("home"))
 
 
 ## Total level across every skill, which seals the milestone rewards. This is
@@ -191,6 +245,67 @@ class SkillRow extends PanelContainer:
 		gap2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		foot.add_child(gap2)
 		foot.add_child(UiKit.label("SEALED", 20, Color("c8b8a0"), "x", 4))
+		col.add_child(foot)
+
+
+## A combat skill row for the selected hero: GearDB level and a bar to the
+## next level (the plaque mirrors the gathering rows).
+class CombatRow extends PanelContainer:
+	var hero_id := ""
+	var skill_id := ""
+	var skill_name := ""
+
+	func _init(hero: String, id: String, title: String) -> void:
+		hero_id = hero
+		skill_id = id
+		skill_name = title
+
+	func _ready() -> void:
+		custom_minimum_size = Vector2(0, 150)
+		var empty := StyleBoxEmpty.new()
+		for side in ["left", "right", "top", "bottom"]:
+			empty.set("content_margin_" + side, 22)
+		add_theme_stylebox_override("panel", empty)
+		var metal := UiKit.rarity_metal("common")
+		var fr := UiKit.Frame.new("plaque", "leather", {"metal_hi": metal[0], "metal_lo": metal[1]})
+		fr.margin = 14.0
+		add_child(fr)
+		var maxed := GearDB.level(hero_id, skill_id) >= GearDB.MAX_LEVEL
+		var xp := GearDB.xp(hero_id, skill_id)
+		var level := GearDB.level(hero_id, skill_id)
+		var floor_xp := GearDB.xp_for_level(level)
+		var next_xp := GearDB.xp_for_level(mini(GearDB.MAX_LEVEL, level + 1))
+		var span := maxi(next_xp - floor_xp, 1)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 18)
+		add_child(row)
+		var med := Glyph.new()
+		med.kind = skill_id
+		med.custom_minimum_size = Vector2(104, 104)
+		med.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(med)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", 4)
+		row.add_child(col)
+		var top := HBoxContainer.new()
+		top.add_child(UiKit.label(skill_name.to_upper(), 32, Color("fff1d6"), "x", 6))
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(gap)
+		top.add_child(UiKit.label("LV %d" % level, 28, UiKit.GOLD.lightened(0.15), "x", 6))
+		col.add_child(top)
+		var bar := XpBar.new()
+		bar.ratio = 1.0 if maxed else clampf(float(xp - floor_xp) / float(span), 0.0, 1.0)
+		bar.custom_minimum_size = Vector2(0, 26)
+		col.add_child(bar)
+		var foot := HBoxContainer.new()
+		var into := span if maxed else clampi(xp - floor_xp, 0, span)
+		foot.add_child(UiKit.label("%d / %d XP" % [into, span], 21, Color("e6d8bc"), "b", 4))
+		var gap2 := Control.new()
+		gap2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		foot.add_child(gap2)
+		foot.add_child(UiKit.label("MAX" if maxed else "TO LV %d" % (level + 1), 20, Color("c8b8a0"), "x", 4))
 		col.add_child(foot)
 
 

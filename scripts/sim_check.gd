@@ -26,6 +26,7 @@ static func run() -> int:
 	_dodge_check()
 	_events_check()
 	_gear_drop_smoke()
+	_skill_xp_smoke()
 	if failures == 0:
 		print("SIM CHECK PASSED")
 		return 0
@@ -978,6 +979,7 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 		"hp": hp,
 		"dmg_taken": sim.dmg_taken,
 		"kills": sim.kills,
+		"skill_xp": sim.skill_xp.duplicate(true),
 	}
 
 
@@ -1355,6 +1357,72 @@ static func _gear_drop_smoke() -> void:
 	GearDB.store_override = prev_override
 	SaveGame.no_write = prev_nowrite
 	print("GEAR smoke ok: %d drops banked" % a.gear_found.size())
+
+
+## Combat-skill XP: a melee RunBot fight trains Attack and Strength, a mage
+## fight trains Magic, committing writes the XP exactly once, and the commit
+## queues a skill_up event per level gained. Runs on a scratch armory.
+static func _skill_xp_smoke() -> void:
+	var prev_override: Variant = GearDB.store_override
+	var prev_nowrite: bool = SaveGame.no_write
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+	var melee := _fight_xp("pebble", 11)
+	var melee_row: Dictionary = melee.skill_xp.get("pebble", {})
+	if float(melee_row.get("attack", 0.0)) <= 0.0 or float(melee_row.get("strength", 0.0)) <= 0.0:
+		_fail("melee fight trained no Attack/Strength")
+	var mage := _fight_xp("ember", 11)
+	var mage_row: Dictionary = mage.skill_xp.get("ember", {})
+	if float(mage_row.get("magic", 0.0)) <= 0.0:
+		_fail("mage fight trained no Magic")
+	# Top up so the commit is guaranteed to gain a level and queue the event.
+	melee.skill_xp["pebble"]["attack"] = float(melee_row.get("attack", 0.0)) + 5000.0
+	melee.bank_gear()
+	var total := _skill_total()
+	if total <= 0:
+		_fail("committing a fight granted no skill XP")
+	melee.bank_gear()
+	if _skill_total() != total:
+		_fail("skill XP committed twice")
+	var ups := 0
+	for ev in melee.drain_events():
+		if str(ev.get("type", "")) == "skill_up":
+			ups += 1
+	if ups <= 0:
+		_fail("committing queued no skill_up event")
+	GearDB.store_override = prev_override
+	SaveGame.no_write = prev_nowrite
+	print("SKILL xp smoke ok: %d xp, %d level-ups" % [total, ups])
+
+
+## A short RunBot hunt for the skill-XP smoke: enough fighting to train the
+## hero, without waiting for a full clear.
+static func _fight_xp(hero: String, seed: int) -> RunSim:
+	var sim := _sim("meadow", hero, seed)
+	var mem := {}
+	var guard := 0
+	while sim.result == "" and guard < 60 * 120:
+		guard += 1
+		if sim.paused and sim.offer.size() > 0:
+			sim.choose(_best(sim))
+			sim.drain_events()
+			continue
+		if sim.paused:
+			break
+		var mv := RunBot.explore_steer(sim, 0, mem) if sim.explore else RunBot.steer(sim, 0)
+		sim.step(1.0 / 60.0, [mv])
+		sim.drain_events()
+	return sim
+
+
+## Total XP held in the current GearDB store (a scratch armory in tests).
+static func _skill_total() -> int:
+	var total := 0
+	var xp: Dictionary = GearDB._store()["xp"]
+	for hero in xp:
+		for skill in xp[hero]:
+			total += int(xp[hero][skill])
+	return total
 
 
 ## Total copies held in the current GearDB store (a scratch armory in tests).

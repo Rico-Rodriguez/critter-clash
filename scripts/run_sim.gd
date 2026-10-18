@@ -109,6 +109,10 @@ var slain := 0
 ## and foes (minions and bosses) killed by team 0. Read by the class report.
 var dmg_taken := 0.0
 var kills := 0
+## Combat-skill XP earned this run, by hero id then skill key (floats, rounded
+## when the run commits). No GearDB writes happen during the fight; bank_gear()
+## writes them once at run end. See SKILL_XP_SCALE for the OSRS scale-down.
+var skill_xp := {}
 var boss_mark := 0
 ## True once the boss has opened with its first attack; only that first
 ## telegraph waits until the boss shares the hero's view.
@@ -120,6 +124,15 @@ const PACK_SIZE := 8
 ## crowds the screen without changing how much XP a hunt pays.
 const MINION_HP := 0.5
 const MINION_XP := 0.7
+## Combat-skill XP is OSRS-shaped (4 XP per damage to the trained combat skill,
+## 1.33 to Hitpoints, melee's award split between Attack and Strength) scaled
+## down by this factor, so a full ~4 minute hunt lands the offensive skill
+## around level 10-15 from scratch. Fight XP is only accumulated here; GearDB
+## is written once when the screen commits the run.
+const SKILL_XP_SCALE := 0.075
+const COMBAT_XP_PER_DAMAGE := 4.0 * SKILL_XP_SCALE
+## Hitpoints' share of a combat award (OSRS ~1.33 / 4).
+const HP_XP_SHARE := 0.3325
 ## Ellipse just outside the hunt camera's view, in playfield pixels.
 ## What the far follow camera frames on the ground, relative to the hero
 ## (sim px; Stage3D DIST 34, FOV 40, AIM +1.5, pitch 58; tools: viewbox.py). The far edge is
@@ -1883,6 +1896,7 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 			events.append({"type": "shield_break", "pos": target.pos, "id": target.id})
 	target.hp -= dealt
 	target.flash = 0.1
+	_skill_xp_hurt(attacker, target, dealt)
 	var kick_dir := target.pos - from_pos
 	if kick_dir.length() < 0.01:
 		kick_dir = Vector2.RIGHT
@@ -2053,6 +2067,52 @@ func _kill(actor: Actor) -> void:
 			_gear_roll_drop("elite", actor.pos)
 		if actor.camp >= 0 and actor.camp < map.camps.size() and not _camp_alive(actor.camp):
 			_gear_roll_drop("camp", actor.pos)
+
+
+## Skill XP from one damage event: the attacker trains its weapon skill (melee
+## splits the award between Attack and Strength) plus a Hitpoints share of the
+## damage it deals, while a hero trains Defence for damage it takes. Kept in
+## skill_xp until the run commits; never writes GearDB mid-fight.
+func _skill_xp_hurt(attacker: Actor, target: Actor, dealt: float) -> void:
+	if dealt <= 0.0:
+		return
+	if attacker != null and attacker.kind == "hero" and target.kind != "hero":
+		var combat := dealt * COMBAT_XP_PER_DAMAGE
+		match _weapon_skill(attacker):
+			"magic":
+				_add_skill_xp(attacker, "magic", combat)
+			"ranged":
+				_add_skill_xp(attacker, "ranged", combat)
+			_:
+				_add_skill_xp(attacker, "attack", combat * 0.5)
+				_add_skill_xp(attacker, "strength", combat * 0.5)
+		_add_skill_xp(attacker, "hitpoints", combat * HP_XP_SHARE)
+	elif target.kind == "hero":
+		_add_skill_xp(target, "defence", dealt * COMBAT_XP_PER_DAMAGE)
+
+
+## The combat skill a hero's weapon trains: the GearDB contract table when it
+## lists the hero, else the class default. Never keyed on a hero id in logic.
+func _weapon_skill(hero: Actor) -> String:
+	var skill := str(GearDB.WEAPON_SKILL.get(str(hero.sprite), ""))
+	if skill != "":
+		return skill
+	match str(hero.role):
+		"mage":
+			return "magic"
+		"archer":
+			return "ranged"
+		_:
+			return "attack"
+
+
+func _add_skill_xp(hero: Actor, skill: String, amount: float) -> void:
+	if amount <= 0.0:
+		return
+	var id := str(hero.sprite)
+	if not skill_xp.has(id):
+		skill_xp[id] = {}
+	skill_xp[id][skill] = float(skill_xp[id].get(skill, 0.0)) + amount
 
 
 func _add_xp(amount: int) -> void:
@@ -2839,7 +2899,27 @@ func bank_gear() -> Array[String]:
 		keep = gear_found.size() / 2
 	kept.assign(gear_found.slice(0, keep))
 	SaveGame.bank_gear(kept)
+	_commit_skill_xp()
 	return kept
+
+
+## Writes the run's accumulated combat XP to GearDB, once, and queues a
+## skill_up event for every level gained (the end-of-run toast). A lost run
+## still trains; only the gear is halved. Runs from bank_gear so a second
+## commit is a no-op.
+func _commit_skill_xp() -> void:
+	for hero_id in skill_xp:
+		var row: Dictionary = skill_xp[hero_id]
+		for skill in GearDB.SKILL_KEYS:
+			var amount := int(round(float(row.get(skill, 0.0))))
+			if amount <= 0:
+				continue
+			var gained := GearDB.add_xp(str(hero_id), skill, amount)
+			if gained <= 0:
+				continue
+			var reached := GearDB.level(str(hero_id), skill)
+			for step in gained:
+				events.append({"type": "skill_up", "skill": skill, "level": reached - gained + step + 1})
 
 
 func _reveal(at: Vector2) -> void:
