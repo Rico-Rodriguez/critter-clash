@@ -1535,10 +1535,12 @@ static func _events_check() -> void:
 ## piece exactly once (a win keeps all, a loss keeps half), and every rolled id
 ## is a real item. Runs on a scratch armory so the player's save is untouched.
 static func _gear_drop_smoke() -> void:
+	var keep_data: Dictionary = SaveGame.data.duplicate(true)
 	var prev_override: Variant = GearDB.store_override
 	var prev_nowrite: bool = SaveGame.no_write
 	GearDB.store_override = {}
 	SaveGame.no_write = true
+	SaveGame.data["gear_shards"] = 0
 	var sources := ["camp", "elite", "boss", "goblin", "chest_common", "chest_epic"]
 	var a := _sim("meadow", "ember", 11)
 	var b := _sim("meadow", "ember", 11)
@@ -1553,23 +1555,25 @@ static func _gear_drop_smoke() -> void:
 		if not GearDB.is_item(str(id)):
 			_fail("rolled a non-item gear id " + str(id))
 	a.result = "win"
-	a.bank_gear()
-	if _owned_total() != a.gear_found.size():
-		_fail("a win did not bank every drop")
-	a.bank_gear()
-	if _owned_total() != a.gear_found.size():
+	var banked: Array = a.bank_gear()
+	if _owned_total() != banked.size():
+		_fail("a win did not bank every granted drop")
+	if a.bank_gear().size() != 0 or _owned_total() != banked.size():
 		_fail("gear banked twice")
 	GearDB.store_override = {}
 	var c := _sim("meadow", "ember", 11)
 	for source in sources:
 		c._gear_roll_drop(source, Vector2.ZERO)
 	c.result = "lose"
-	c.bank_gear()
-	if _owned_total() != c.gear_found.size() / 2:
-		_fail("a loss did not keep half the drops")
+	var kept: Array = c.bank_gear()
+	if _owned_total() != kept.size():
+		_fail("a loss did not bank the pieces it kept")
+	if kept.size() > c.gear_found.size() / 2 or c.bank_gear().size() != 0:
+		_fail("a loss did not keep the earliest floor-half once")
 	GearDB.store_override = prev_override
 	SaveGame.no_write = prev_nowrite
-	print("GEAR smoke ok: %d drops banked" % a.gear_found.size())
+	SaveGame.data = keep_data
+	print("GEAR smoke ok: %d dropped, %d banked, %d kept on a loss" % [a.gear_found.size(), banked.size(), kept.size()])
 
 
 ## Combat-skill XP: a melee RunBot fight trains Attack and Strength, a mage
@@ -1652,6 +1656,8 @@ static func _gear_coverage_check() -> void:
 	var keep_store: Variant = GearDB.store_override
 	SaveGame.no_write = true
 	_gear_loot_rates()
+	_gear_gating_check()
+	_gear_duplicates_check()
 	_gear_equip_math()
 	_gear_runs()
 	_gear_bank()
@@ -1660,13 +1666,13 @@ static func _gear_coverage_check() -> void:
 	GearDB.store_override = keep_store
 
 
-## 1-3. 20000 seeded rolls per source on a scratch armory: observed drop
-## chance and tier split stay within tolerance of SOURCES, the boss never
-## rolls empty, a deeper biome never lowers the rune share, the run hero
-## keeps its 75% coin share plus its 1/4 slice of the uniform fallback
-## (about 81% of the pieces, see loot_table.gd _pick) on legal slots (Gnash
-## never gets an offhand), and because the hero owns nearly all of one tier
-## the owned-out rerolls keep duplicates well under the uniform rate.
+## 1-3. 20000 seeded rolls per source at the shallow and deep ends on a scratch
+## armory: observed drop chance and tier split match SOURCES after the biome
+## cap (meadow iron only, so deeper ground never loses rune), the boss never
+## rolls empty, the run hero keeps its 75% coin share plus its 1/4 slice of the
+## uniform fallback (about 81% of the pieces, see loot_table.gd _pick) on legal
+## slots (Gnash never gets an offhand), and because the hero owns nearly all of
+## one tier the owned-out rerolls keep duplicates well under the uniform rate.
 static func _gear_loot_rates() -> void:
 	GearDB.store_override = {}
 	var run_hero := "ember"
@@ -1685,48 +1691,53 @@ static func _gear_loot_rates() -> void:
 	var hero_kept := 0
 	var dup_total := 0
 	var dup_owned := 0
-	for source in LootTable.SOURCES.keys():
-		var data: Dictionary = LootTable.SOURCES[source]
-		var weights: Array = data["weights"]
-		var weight_sum: float = float(weights[0]) + float(weights[1]) + float(weights[2])
-		var drops := 0
-		var tiers := [0, 0, 0]
-		for _i in rolls:
-			var rolled: Array[String] = LootTable.roll(rng, str(source), run_hero, 0)
-			if not rolled.is_empty():
-				drops += 1
-				if str(source) == "boss" and rolled.size() < 1:
-					_fail("boss rolled zero pieces")
-			for id in rolled:
-				var sid := str(id)
-				var parts := sid.split(".")
-				if not GearDB.is_item(sid) or not (str(parts[1]) in GearDB.HERO_SLOTS[str(parts[0])]):
-					_fail("%s is not a real item on a legal slot" % sid)
-					continue
-				if str(parts[1]) == "offhand" and str(parts[0]) == "lumen":
-					_fail("Gnash rolled an offhand piece")
-				if str(parts[0]) == run_hero:
-					hero_kept += 1
-					if int(parts[2]) == 2:
-						dup_total += 1
-						if str(parts[1]) != "helm" and str(parts[1]) != "boots":
-							dup_owned += 1
-				tiers[int(parts[2]) - 1] += 1
-				items += 1
-		var observed: float = float(drops) / float(rolls)
-		if absf(observed - float(data["chance"])) > 0.015:
-			_fail("%s drop chance %.3f off %.3f" % [str(source), observed, float(data["chance"])])
-		var source_items: int = tiers[0] + tiers[1] + tiers[2]
-		for t in 3:
-			var share: float = float(tiers[t]) / float(maxi(source_items, 1))
-			if absf(share - float(weights[t]) / weight_sum) > 0.02:
-				_fail("%s tier %d share %.3f off %.3f" % [str(source), t + 1, share, float(weights[t]) / weight_sum])
-	# A deeper biome must never lower the rune share of any source.
 	var deep: int = Catalog.BIOMES.size() - 1
 	for source in LootTable.SOURCES.keys():
-		var base: Array = LootTable.SOURCES[source]["weights"]
-		if _rune_share(base, deep) < _rune_share(base, 0) - 0.000001:
-			_fail("biome depth lowered the rune share of %s" % str(source))
+		var data: Dictionary = LootTable.SOURCES[source]
+		var base: Array = data["weights"]
+		var prev_rune := -1.0
+		for depth in [0, deep]:
+			var want: Array = LootTable._weights(base, int(depth), str(source))
+			var weight_sum := 0.0
+			for v in want:
+				weight_sum += float(v)
+			var drops := 0
+			var tiers := [0, 0, 0]
+			for _i in rolls:
+				var rolled: Array[String] = LootTable.roll(rng, str(source), run_hero, int(depth))
+				if not rolled.is_empty():
+					drops += 1
+					if str(source) == "boss" and rolled.size() < 1:
+						_fail("boss rolled zero pieces")
+				for id in rolled:
+					var sid := str(id)
+					var parts := sid.split(".")
+					if not GearDB.is_item(sid) or not (str(parts[1]) in GearDB.HERO_SLOTS[str(parts[0])]):
+						_fail("%s is not a real item on a legal slot" % sid)
+						continue
+					if str(parts[1]) == "offhand" and str(parts[0]) == "lumen":
+						_fail("Gnash rolled an offhand piece")
+					if str(parts[0]) == run_hero:
+						hero_kept += 1
+						if int(parts[2]) == 2:
+							dup_total += 1
+							if str(parts[1]) != "helm" and str(parts[1]) != "boots":
+								dup_owned += 1
+					tiers[int(parts[2]) - 1] += 1
+					items += 1
+			var observed: float = float(drops) / float(rolls)
+			if absf(observed - float(data["chance"])) > 0.015:
+				_fail("%s drop chance %.3f off %.3f" % [str(source), observed, float(data["chance"])])
+			var source_items: int = tiers[0] + tiers[1] + tiers[2]
+			for t in 3:
+				var share: float = float(tiers[t]) / float(maxi(source_items, 1))
+				var want_share: float = float(want[t]) / maxf(weight_sum, 0.0001)
+				if absf(share - want_share) > 0.02:
+					_fail("%s depth %d tier %d share %.3f off capped %.3f" % [str(source), int(depth), t + 1, share, want_share])
+			var rune_now := _rune_share(base, int(depth), str(source))
+			if rune_now < prev_rune - 0.000001:
+				_fail("a deeper biome lowered the rune share of %s" % str(source))
+			prev_rune = rune_now
 	var hero_share := float(hero_kept) / float(maxi(items, 1))
 	# Effective keep share: the run hero wins its 75% coin plus its 1/4 of
 	# the uniform fallback (the fallback draws among ALL gear heroes,
@@ -1742,10 +1753,119 @@ static func _gear_loot_rates() -> void:
 	print("GEAR rates ok: %d pieces, run hero %.0f%% (%.0f%% coin, rest uniform), dups %.0f%% (uniform 75%%)" % [items, hero_share * 100.0, LootTable.RUN_HERO_SHARE * 100.0, dup_rate * 100.0])
 
 
-## Exact rune share of a tier-weight triple after LootTable's biome shift.
-static func _rune_share(base: Array, biome_idx: int) -> float:
-	var w: Array = LootTable._weights(base, biome_idx)
-	return float(w[2]) / (float(w[0]) + float(w[1]) + float(w[2]))
+## Exact rune share of a tier-weight triple after LootTable's biome cap.
+static func _rune_share(base: Array, biome_idx: int, source: String) -> float:
+	var w: Array = LootTable._weights(base, biome_idx, source)
+	return float(w[2]) / maxf(float(w[0]) + float(w[1]) + float(w[2]), 0.0001)
+
+
+## 1b. Tier gating by biome depth. On a fresh scratch armory 50 meadow (idx 0)
+## runs' worth of rolls drop iron only from every source, boss included; a
+## mushroom (idx 1) roll never yields rune; frost (idx 2) lets the boss, the
+## goblin and the rare-and-better chests reach rune while camps and common
+## chests stay below; and each source's capped weights keep the same total.
+static func _gear_gating_check() -> void:
+	GearDB.store_override = {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var sources: Array = LootTable.SOURCES.keys()
+	for _run in 50:
+		for source in sources:
+			for id in LootTable.roll(rng, str(source), "ember", 0):
+				if int(str(id).get_slice(".", 2)) != GearDB.Tier.IRON:
+					_fail("meadow rolled %s outside iron" % str(id))
+					return
+	var saw_steel := false
+	for _i in 4000:
+		for source in sources:
+			for id in LootTable.roll(rng, str(source), "ember", 1):
+				var tier := int(str(id).get_slice(".", 2))
+				if tier == GearDB.Tier.RUNE:
+					_fail("mushroom rolled rune %s" % str(id))
+					return
+				if tier == GearDB.Tier.STEEL:
+					saw_steel = true
+	if not saw_steel:
+		_fail("mushroom never rolled steel")
+	# Frost: the boss, the goblin and the rare-and-better chests reach rune;
+	# camps, elites and the common chest do not.
+	if LootTable.max_tier("boss", 2) < GearDB.Tier.RUNE or LootTable.max_tier("goblin", 2) < GearDB.Tier.RUNE:
+		_fail("frost boss/goblin cannot reach rune")
+	if LootTable.max_tier("chest_common", 2) >= GearDB.Tier.RUNE or LootTable.max_tier("camp", 2) >= GearDB.Tier.RUNE:
+		_fail("frost camp/common chest can reach rune")
+	for source in sources:
+		var cap := LootTable.max_tier(str(source), 2)
+		for _i in 4000:
+			for id in LootTable.roll(rng, str(source), "ember", 2):
+				if int(str(id).get_slice(".", 2)) > cap:
+					_fail("frost %s rolled above its cap %d: %s" % [str(source), cap, str(id)])
+					return
+	# A cap only renormalises: every source keeps its base weight total.
+	for source in sources:
+		var base: Array = LootTable.SOURCES[source]["weights"]
+		var want := 0.0
+		for v in base:
+			want += float(v)
+		for depth in Catalog.BIOMES.size():
+			var w: Array = LootTable._weights(base, depth, str(source))
+			var total := 0.0
+			for v in w:
+				total += float(v)
+			if absf(total - want) > 0.001:
+				_fail("%s weights lost mass at depth %d: %.3f vs %.3f" % [str(source), depth, total, want])
+				return
+	print("GEAR gating ok: meadow iron-only, mushroom steel-no-rune, rune from frost boss/rare first")
+
+
+## 1c. Duplicates bank as shards and coins. A second copy of an owned piece
+## pays shards (iron 5, steel 15, rune 40); once the hero owns every item of a
+## tier a duplicate pays coins instead (iron 10, steel 25, rune 60); an old
+## save's missing gear_shards defaults to 0; and banking a run twice pays once.
+static func _gear_duplicates_check() -> void:
+	GearDB.store_override = {}
+	SaveGame.data["gear_shards"] = 0
+	SaveGame.data["coins"] = 0
+	# First copy banks the piece, the second copy of the same piece pays shards.
+	var res: Dictionary = SaveGame.bank_gear(["ember.helm.1", "ember.helm.1"])
+	if str(res["ids"]) != "[\"ember.helm.1\"]" or int(res["shards"]) != 5 or int(res["coins"]) != 0:
+		_fail("iron duplicate banked %s" % str(res))
+	if not GearDB.has("ember", "ember.helm.1") or int(SaveGame.data["gear_shards"]) != 5:
+		_fail("iron duplicate did not pay 5 shards")
+	# Steel is 15, rune is 40.
+	GearDB.grant("ember.chest.2")
+	res = SaveGame.bank_gear(["ember.chest.2"])
+	if int(res["shards"]) != 15 or int(SaveGame.data["gear_shards"]) != 20:
+		_fail("steel duplicate paid %s" % str(res))
+	GearDB.grant("ember.weapon.3")
+	res = SaveGame.bank_gear(["ember.weapon.3"])
+	if int(res["shards"]) != 40 or int(SaveGame.data["gear_shards"]) != 60:
+		_fail("rune duplicate paid %s" % str(res))
+	# Full tier: ember owns every iron item, so an iron duplicate pays coins.
+	for slot in GearDB.HERO_SLOTS["ember"]:
+		GearDB.grant(GearDB.item_id("ember", str(slot), GearDB.Tier.IRON))
+	var coins_before := int(SaveGame.data["coins"])
+	res = SaveGame.bank_gear(["ember.helm.1"])
+	if int(res["coins"]) != 10 or int(res["shards"]) != 0 or int(SaveGame.data["coins"]) != coins_before + 10:
+		_fail("a complete iron tier did not pay 10 coins: %s" % str(res))
+	if int(SaveGame.data["gear_shards"]) != 60:
+		_fail("the coins payout also moved the shard wallet")
+	# Old save: a missing gear_shards key reconciles to 0.
+	SaveGame.data.erase("gear_shards")
+	SaveGame._reconcile()
+	if int(SaveGame.data.get("gear_shards", -1)) != 0:
+		_fail("gear_shards did not default to 0 on an old save")
+	# Banking a run twice pays once.
+	var sim := RunSim.new()
+	sim.result = "win"
+	sim.gear_found.assign(["pebble.helm.1", "pebble.helm.1"])
+	var first: Array = sim.bank_gear()
+	var wallet := int(SaveGame.data["gear_shards"])
+	var coins_now := int(SaveGame.data["coins"])
+	if first.size() != 1 or int(sim.gear_bank["shards"]) != 5:
+		_fail("the run's duplicate did not bank as 5 shards: %s" % str(sim.gear_bank))
+	if sim.bank_gear().size() != 0 or int(SaveGame.data["gear_shards"]) != wallet or int(SaveGame.data["coins"]) != coins_now:
+		_fail("banking a run twice paid again")
+	print("GEAR duplicates ok: iron 5/10, steel 15/25, rune 40/60, paid once")
 
 
 ## 6. Equip math: a full tier-1/2/3 kit for every gear hero folds the exact

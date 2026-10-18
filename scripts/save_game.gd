@@ -790,19 +790,80 @@ func open_next(index: int = 0) -> Dictionary:
 			biome_idx = i
 			break
 	var gear_items: Array = []
+	var gear_shards := 0
+	var gear_coins := 0
 	for id in LootTable.roll(rng, "chest_" + str(RARITY_OF_TONE.get(tone, "rare")), featured_id(), biome_idx):
-		if GearDB.grant(id):
-			gear_items.append({"kind": "gear", "id": id})
+		var res := _bank_gear_piece(str(id))
+		match str(res.get("kind", "")):
+			"gear":
+				gear_items.append({"kind": "gear", "id": str(id)})
+			"shards":
+				gear_shards += int(res["amount"])
+			"coins":
+				gear_coins += int(res["amount"])
+	loot["coins"] = int(loot.get("coins", 0)) + gear_coins
 	loot["gear_items"] = gear_items
+	loot["gear_shards"] = gear_shards
 	_write()
 	return loot
 
 
-## Grant earned gear ids to their heroes, one copy each, once. Unknown ids are
-## skipped. Drop tables and rolling live in LootTable; this only banks the run.
-func bank_gear(ids: Array) -> void:
+## Shard and coin payouts by tier (index = GearDB.Tier) for a duplicate roll.
+## A hero who already owns every item of a tier has nothing left to earn there,
+## so its duplicates pay coins instead of shards.
+const GEAR_SHARDS: Array[int] = [0, 5, 15, 40]
+const GEAR_DUP_COINS: Array[int] = [0, 10, 25, 60]
+
+
+## Grant earned gear ids to their heroes, one copy each, once. A duplicate (the
+## hero already owns the piece, or an earlier id in this same list banked it)
+## melts into gear shards; if the hero already owns every item of that tier the
+## roll pays coins instead. Unknown ids are skipped. Drop tables and rolling
+## live in LootTable; this only banks the run. Returns
+## {"ids": [granted item ids], "shards": total shards, "coins": total coins},
+## the end card reads for the shard/coin spoils.
+func bank_gear(ids: Array) -> Dictionary:
+	var banked: Array[String] = []
+	var shards := 0
+	var coins := 0
 	for id in ids:
-		GearDB.grant(str(id))
+		var res := _bank_gear_piece(str(id))
+		match str(res.get("kind", "")):
+			"gear":
+				banked.append(str(id))
+			"shards":
+				shards += int(res["amount"])
+			"coins":
+				coins += int(res["amount"])
+	_write()
+	return {"ids": banked, "shards": shards, "coins": coins}
+
+
+## Bank one rolled piece. A new piece is granted as gear; a duplicate pays
+## shards, or coins when hero already owns every item of that tier. Returns
+## {"kind": "gear"|"shards"|"coins", "id": id, "amount": n}, or {} if unknown.
+func _bank_gear_piece(id: String) -> Dictionary:
+	var it := GearDB.item(id)
+	if it.is_empty():
+		return {}
+	var hero := str(it["hero"])
+	var tier := int(it["tier"])
+	if not GearDB.has(hero, id):
+		GearDB.grant(id)
+		return {"kind": "gear", "id": id, "amount": 1}
+	if _owns_tier(hero, tier):
+		data["coins"] = int(data.get("coins", 0)) + GEAR_DUP_COINS[tier]
+		return {"kind": "coins", "id": id, "amount": GEAR_DUP_COINS[tier]}
+	data["gear_shards"] = int(data.get("gear_shards", 0)) + GEAR_SHARDS[tier]
+	return {"kind": "shards", "id": id, "amount": GEAR_SHARDS[tier]}
+
+
+## True when hero already owns every GearDB item of a tier.
+func _owns_tier(hero: String, tier: int) -> bool:
+	for slot in GearDB.HERO_SLOTS.get(hero, []):
+		if not GearDB.has(hero, GearDB.item_id(hero, str(slot), tier)):
+			return false
+	return true
 
 
 func claim(id: String) -> bool:
@@ -871,6 +932,7 @@ func _fresh() -> Dictionary:
 	return {
 		"save_version": VERSION,
 		"coins": 30,
+		"gear_shards": 0,
 		"trophies": 0,
 		"claimed": [],
 		"cleared": {},
@@ -912,6 +974,8 @@ func _reconcile() -> void:
 	# levelling read these directly, so they must never be absent.
 	if not data.has("coins"):
 		data["coins"] = 0
+	if not data.has("gear_shards"):
+		data["gear_shards"] = 0
 	if not data.has("trophies"):
 		data["trophies"] = 0
 	if not data.has("clan_id"):

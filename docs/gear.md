@@ -32,6 +32,54 @@ The tier sheet (tools/tier_sheet.gd) is for showcase and debugging only.
 The store is created lazily on first access. `GearDB.store_override = {}`
 points the API at a scratch dict, for tests.
 
+`SaveGame.data["gear_shards"]` is the shard wallet (int, default 0; an old
+save without the key reconciles to 0). Shards come from duplicate rolls, see
+below.
+
+## Tier caps by biome depth
+A source may only drop so high a tier at a given biome, so shallow ground
+cannot faucet rune. The cap is the biome's position in `Catalog.BIOMES`
+(meadow 0, mushroom 1, frost 2, volcano 3):
+
+| source | meadow 0 | mushroom 1 | frost 2 | volcano 3 |
+|---|---|---|---|---|
+| camp, elite, chest_common | iron | iron+steel | iron+steel | +rune |
+| boss, goblin, chest_rare/epic/legendary | iron | iron+steel | +rune | +rune |
+
+`LootTable.MAX_TIER_BY_DEPTH` holds the table, `LootTable.max_tier(source,
+biome_idx)` returns one cap, and `LootTable._weights` renormalises: the depth
+shift runs first, then weight above the cap is spread back over the allowed
+tiers so the total never changes and a roll always lands on an allowed tier.
+The run uses the biome it was launched in; drawer chests use the biome
+recorded on the chest (`open_next`). A meadow source therefore rolls iron
+only, boss included.
+
+## Duplicates convert to shards or coins
+When a rolled piece is already owned by its hero, or an earlier id in the same
+bank already granted it, it is not a second copy: it banks as **gear shards**
+at `data["gear_shards"]`. If the hero already owns every item of that tier,
+the roll pays **coins** instead.
+
+| tier | shards | coins (tier complete) |
+|---|---|---|
+| iron | 5 | 10 |
+| blackened steel | 15 | 25 |
+| cursed rune | 40 | 60 |
+
+`SaveGame.GEAR_SHARDS` and `SaveGame.GEAR_DUP_COINS` hold the tables (index =
+`GearDB.Tier`). The preference for unowned pieces in `LootTable._pick` is
+unchanged, and banking stays deterministic for a seed.
+
+`SaveGame.bank_gear(ids)` grants the list once and returns
+`{"ids": [granted item ids], "shards": total, "coins": total}`; the granted
+ids are backward compatible with the old banked-id list. `RunSim.bank_gear()`
+still returns the granted id array and also stores that result in
+`RunSim.gear_bank` for the end card, so it can show the shard/coin spoils.
+`RunSim.bank_gear` still guards against a second call, so banking a run twice
+pays once. `SaveGame.open_next` (drawer chests) uses the same conversion and
+adds `gear_shards` to its loot dictionary (duplicates no longer appear in
+`gear_items`).
+
 ## API (all static)
 | call | result |
 |---|---|

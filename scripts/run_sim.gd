@@ -66,6 +66,10 @@ var loot_rng := RandomNumberGenerator.new()
 ## once when it commits the run (never the sim itself, so bots and tests
 ## never write the real armory).
 var gear_found: Array[String] = []
+## The last bank result: {"ids", "shards", "coins"} from SaveGame.bank_gear
+## (docs/gear.md). Duplicates bank as shards or coins, not a second copy; the
+## end card can read the shard/coin totals here. Empty until bank_gear runs.
+var gear_bank: Dictionary = {}
 var _banked := false
 ## Pieces lying on the ground: {key, item, pos, t}. The hero takes one by
 ## walking near it, or it flies to them after GEAR_MAGNET seconds, so nothing
@@ -2887,20 +2891,23 @@ func _camp_alive(camp: int) -> bool:
 
 
 ## Grant the run's earned gear to the armory, once. A win keeps everything; a
-## loss keeps half (floor), earliest drops first. Safe to call twice.
-## Returns the ids actually banked (empty on a repeat call).
+## loss keeps half (floor), earliest drops first. A duplicate banks as shards
+## (or coins when the tier is complete) via SaveGame.bank_gear, whose
+## {"ids", "shards", "coins"} result lands in gear_bank for the end card. Safe
+## to call twice; a repeat banks nothing. Returns the granted item ids, so
+## existing callers that expect a banked-id list are unchanged.
 func bank_gear() -> Array[String]:
-	var kept: Array[String] = []
+	var banked: Array[String] = []
 	if _banked:
-		return kept
+		return banked
 	_banked = true
 	var keep := gear_found.size()
 	if result == "lose":
 		keep = gear_found.size() / 2
-	kept.assign(gear_found.slice(0, keep))
-	SaveGame.bank_gear(kept)
+	gear_bank = SaveGame.bank_gear(gear_found.slice(0, keep))
+	banked.assign(gear_bank.get("ids", []))
 	_commit_skill_xp()
-	return kept
+	return banked
 
 
 ## Writes the run's accumulated combat XP to GearDB, once, and queues a

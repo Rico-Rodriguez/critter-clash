@@ -4,11 +4,13 @@ extends RefCounted
 ## Data-driven gear drop tables. Every piece is earned from a source: camps,
 ## elites, the biome boss, chests (by rarity) and the treasure goblin. Each
 ## source carries a drop chance and tier weights {iron, steel, rune}; a deeper
-## biome index nudges the weights a little toward the higher tiers.
+## biome index nudges the weights a little toward the higher tiers and raises
+## the tier cap (MAX_TIER_BY_DEPTH) that limits what that source may drop.
 ##
 ## Rolling picks the hero who receives the piece (usually the one in the run),
 ## a uniform slot on that hero, and prefers a piece the hero does not own yet.
-## Duplicates are allowed once the rerolls run out (the count increments).
+## Duplicates are allowed once the rerolls run out and convert to shards or
+## coins at banking time (see save_game.gd).
 
 ## source -> {chance, count: [min, max], weights: [iron, steel, rune]}
 ## Chests escalate with rarity: commons mostly iron, legendaries mostly rune.
@@ -21,6 +23,23 @@ const SOURCES := {
 	"chest_rare": {"chance": 0.70, "count": [1, 1], "weights": [50, 42, 8]},
 	"chest_epic": {"chance": 1.0, "count": [1, 2], "weights": [22, 55, 23]},
 	"chest_legendary": {"chance": 1.0, "count": [1, 2], "weights": [8, 40, 52]},
+}
+
+## Highest GearDB.Tier a source may drop at each biome depth (index = the
+## biome's position in Catalog.BIOMES). Shallow ground caps hard: meadow (idx 0)
+## is iron only for every source, the boss included; mushroom (idx 1) adds steel
+## but never rune. Rune unlocks at frost (idx 2) for the boss, the goblin and
+## the rare-and-better chests first, then spreads to every source at volcano
+## (idx 3), so it grows with depth. Values are GearDB.Tier (1..3).
+const MAX_TIER_BY_DEPTH := {
+	"camp": [1, 2, 2, 3],
+	"elite": [1, 2, 2, 3],
+	"boss": [1, 2, 3, 3],
+	"goblin": [1, 2, 3, 3],
+	"chest_common": [1, 2, 2, 3],
+	"chest_rare": [1, 2, 3, 3],
+	"chest_epic": [1, 2, 3, 3],
+	"chest_legendary": [1, 2, 3, 3],
 }
 
 ## The hero in the run keeps its own drops this share of the time; the rest of
@@ -43,22 +62,59 @@ static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome
 		return out
 	if rng.randf() >= float(s["chance"]):
 		return out
-	var weights := _weights(s["weights"], biome_idx)
+	var weights := _weights(s["weights"], biome_idx, source)
 	for _i in rng.randi_range(int(s["count"][0]), int(s["count"][1])):
 		out.append(_pick(rng, hero, _tier(rng, weights)))
 	return out
 
 
-## Tier weights nudged by biome depth: a slice of the iron weight slides to
-## steel and rune, capped so a shallow source never becomes a rune faucet.
-static func _weights(base: Array, biome_idx: int) -> Array:
+## Tier weights for a source at a biome depth: the depth shift slides a slice of
+## the iron weight toward steel and rune, then the biome's cap drops any weight
+## above the source's highest allowed tier and spreads it over the tiers that
+## remain. The weight total never changes, so a shallow source is never a rune
+## faucet and a roll always lands on an allowed tier.
+static func _weights(base: Array, biome_idx: int, source := "") -> Array:
 	var w := [float(base[0]), float(base[1]), float(base[2])]
 	var shift := minf(DEPTH_SHIFT_CAP, DEPTH_SHIFT * float(maxi(0, biome_idx)))
 	var move: float = float(w[0]) * shift
 	w[0] = float(w[0]) - move
 	w[1] = float(w[1]) + move * 0.65
 	w[2] = float(w[2]) + move * 0.35
-	return w
+	return _cap(w, biome_idx, source)
+
+
+## The highest tier a source may drop at a biome depth (GearDB.Tier). A source
+## with no cap row (a future source) stays uncapped.
+static func max_tier(source: String, biome_idx: int) -> int:
+	var caps: Array = MAX_TIER_BY_DEPTH.get(source, [])
+	if caps.is_empty():
+		return GearDB.Tier.RUNE
+	return int(caps[clampi(biome_idx, 0, caps.size() - 1)])
+
+
+## Zero the weight above a source's tier cap and renormalise: the removed weight
+## is spread proportionally over the allowed tiers. If the cap allows no base
+## weight at all, it falls back to certain on the cap tier.
+static func _cap(w: Array, biome_idx: int, source: String) -> Array:
+	var cap := max_tier(source, biome_idx)
+	var out := [0.0, 0.0, 0.0]
+	var spill := 0.0
+	for i in 3:
+		if i + 1 <= cap:
+			out[i] = float(w[i])
+		else:
+			spill += float(w[i])
+	if spill <= 0.0:
+		return out
+	var allowed := 0.0
+	for v in out:
+		allowed += float(v)
+	if allowed <= 0.0:
+		out[cap - 1] = 1.0
+		return out
+	for i in 3:
+		out[i] = float(out[i]) * (1.0 + spill / allowed)
+	return out
 
 
 ## One weighted tier pick, returned as a GearDB.Tier (IRON..RUNE).
