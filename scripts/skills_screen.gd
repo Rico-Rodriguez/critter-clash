@@ -2,9 +2,10 @@ class_name SkillsScreen
 extends ScreenBase
 
 ## Skills splits into two tabs. Combat is per hero: GearDB's six combat skills
-## for the hero selected on Heroes. Gathering is the account-wide
-## Catalog.SKILLS list. Each row is a forged plaque with the name, level and an
-## XP bar; combat skills fill from hunts, gathering stays sealed.
+## for the hero shown by the local, view-only switcher (it never changes the
+## save's featured hero). Each row is a forged plaque with the name, level and
+## an XP bar; combat skills fill from hunts. Gathering is a placeholder for the
+## account-wide skills still to come, with no fake progress.
 
 
 ## OSRS combat level for a hero's skill levels, keyed by GearDB.SKILL_KEYS.
@@ -24,6 +25,15 @@ static func combat_level(levels: Dictionary) -> int:
 	var range: float = 0.325 * floorf(1.5 * ranged)
 	var mage: float = 0.325 * floorf(1.5 * magic)
 	return int(floorf(base + maxf(melee, maxf(range, mage))))
+
+
+## Total combat level for a hero: the six GearDB skill levels summed. This is
+## the "Total" half of the header readout ("Total 42 · Combat 7").
+static func total_level(hero: String) -> int:
+	var total := 0
+	for k in GearDB.SKILL_KEYS:
+		total += GearDB.level(hero, k)
+	return total
 
 
 ## The next gear gate for a skill, e.g. "Defence 20: Blackened steel helm,
@@ -76,17 +86,39 @@ static func _fmt_num(value: int) -> String:
 
 var _tab_buttons := {}
 var _content: VBoxContainer
+var _summary: Label
+## The hero the page is showing. Empty follows the featured hero; the switcher
+## only moves this local view and never writes the save (TASK).
+var _view_hero := ""
+
+
+## The hero whose combat skills are on screen.
+func view_id() -> String:
+	if _view_hero != "" and SaveGame.data["heroes"].has(_view_hero):
+		return _view_hero
+	return SaveGame.featured_id()
+
+
+## View-only pick: records which hero the page shows and returns the new id.
+## Unlocked heroes only. Never touches SaveGame.data["featured"].
+func set_view(id: String) -> String:
+	if SaveGame.data["heroes"].has(id) and bool(SaveGame.hero(id)["unlocked"]):
+		_view_hero = id
+	return view_id()
 
 
 func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header())
+	box.add_child(header_with_back("home"))
 	box.add_child(h1("Skills"))
+	_summary = UiKit.label("", 24, Color("e6d8bc"), "x", 4)
+	_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_summary)
 	box.add_child(_tab_bar())
 	# The combat list can run past the screen once the unlock lines are in, so
-	# it scrolls; the tab bar and Back stay put.
+	# it scrolls; the tab bar and back chip stay put.
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -95,7 +127,6 @@ func build() -> void:
 	_content.add_theme_constant_override("separation", 16)
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_content)
-	box.add_child(back_button("home"))
 	_show_tab("combat")
 
 
@@ -118,6 +149,9 @@ func _show_tab(tab: String) -> void:
 		var button: Button = _tab_buttons[key]
 		button.set_pressed_no_signal(key == tab)
 		button.modulate = Color(1.08, 1.02, 0.9) if key == tab else Color(0.6, 0.6, 0.64)
+	if _summary != null:
+		var hero := view_id()
+		_summary.text = "Total %d · Combat %d" % [total_level(hero), combat_level(GearDB.skills(hero))]
 	if _content == null:
 		return
 	for child in _content.get_children():
@@ -130,7 +164,7 @@ func _show_tab(tab: String) -> void:
 
 
 func _combat_tab() -> void:
-	var hero := SaveGame.featured_id()
+	var hero := view_id()
 	var info := Catalog.critter(hero)
 	_content.add_child(_hero_header(hero, info))
 	_content.add_child(body("Levels 1–99; combat XP comes from hunts."))
@@ -142,8 +176,8 @@ func _combat_tab() -> void:
 
 
 ## The per-hero block: combat-level crest beside the hero's name and role,
-## then the switcher. Switching reuses the featured hero (Heroes SELECT), so
-## the Skills tab always reads the same hero as Home and the hunts.
+## then the switcher. The switcher is view-only, so the Skills tab may show any
+## unlocked hero without stealing the featured slot Home and the hunts use.
 func _hero_header(hero: String, info: Dictionary) -> Control:
 	var panel := PanelContainer.new()
 	var empty := StyleBoxEmpty.new()
@@ -180,9 +214,10 @@ func _hero_header(hero: String, info: Dictionary) -> Control:
 	return panel
 
 
-## One chip per unlocked hero, the featured one sunk and lit. Tapping swaps
-## the featured hero and redraws the tab. A FlowContainer wraps the chips on a
-## narrow viewport so nothing runs off the safe area.
+## One chip per unlocked hero: the shown one is the gold primary (sunk and
+## lit), the rest are secondary steel. Tapping is view-only and redraws the
+## tab; the save's featured hero is untouched. A FlowContainer wraps the chips
+## on a narrow viewport so nothing runs off the safe area.
 func _hero_switcher(current: String) -> Control:
 	var row := HFlowContainer.new()
 	row.alignment = FlowContainer.ALIGNMENT_CENTER
@@ -193,95 +228,46 @@ func _hero_switcher(current: String) -> Control:
 			continue
 		var name := str(Catalog.critter(str(id)).get("name", id)).to_upper()
 		var on := str(id) == current
-		var button := UiKit.secondary(name, 150, 82)
+		var button := UiKit.button(name, 150, 82) if on else UiKit.secondary(name, 150, 82)
 		button.toggle_mode = true
 		button.set_pressed_no_signal(on)
-		if not on:
-			button.modulate = Color(0.8, 0.8, 0.8)
 		button.pressed.connect(func() -> void: _pick_hero(str(id)))
 		row.add_child(button)
 	return row
 
 
 func _pick_hero(id: String) -> void:
-	if id == SaveGame.featured_id():
+	if id == view_id():
 		return
-	SaveGame.set_featured(id)
+	set_view(id)
 	AudioDirector.sfx("card_pick")
 	AudioDirector.haptic("medium")
 	_show_tab("combat")
 
 
 func _gathering_tab() -> void:
-	_content.add_child(body("Levels 1–99 on the long curve. Gathering opens in a later season."))
-	var list := VBoxContainer.new()
-	list.add_theme_constant_override("separation", 16)
-	_content.add_child(list)
-	for entry in Catalog.SKILLS:
-		list.add_child(SkillRow.new(str(entry["id"]), str(entry["name"])))
 	var hold := CenterContainer.new()
 	hold.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content.add_child(hold)
-	var total := TotalPanel.new()
-	total.custom_minimum_size = Vector2(minf(620.0, get_viewport_rect().size.x - 64.0), 0)
-	hold.add_child(total)
-
-
-## Total level across every skill, which seals the milestone rewards. This is
-## the long goal on the page: a crest with the total, the next milestone, and
-## a line of lore so the page reads as a ledger, not a stub.
-const MILESTONES: Array = [
-	[10, "Wayfarer's Satchel", "A sturdier pack for the trail."],
-	[50, "Warden's Lantern", "Marks rare finds through the fog."],
-	[150, "Antler Circlet", "A crown cut from the Elder Stag."],
-	[396, "Hearthkeeper's Seal", "Every skill mastered."],
-]
-
-
-class TotalPanel extends PanelContainer:
-	func _ready() -> void:
-		var empty := StyleBoxEmpty.new()
-		for side in ["left", "right"]:
-			empty.set("content_margin_" + side, 30)
-		for side in ["top", "bottom"]:
-			empty.set("content_margin_" + side, 26)
-		add_theme_stylebox_override("panel", empty)
-		var fr := UiKit.Frame.new("plaque", "leather", {"metal_hi": UiKit.GOLD.lightened(0.1), "metal_lo": UiKit.GOLD.darkened(0.45)})
-		fr.margin = 14.0
-		add_child(fr)
-		var total := 0
-		for entry in Catalog.SKILLS:
-			total += Catalog.skill_level(int(SaveGame.data["skills"].get(str(entry["id"]), 0)))
-		var cap := 99 * Catalog.SKILLS.size()
-		var next: Array = MILESTONES[MILESTONES.size() - 1]
-		for m in MILESTONES:
-			if total < int(m[0]):
-				next = m
-				break
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 24)
-		add_child(row)
-		var crest := Crest.new()
-		crest.value = total
-		crest.custom_minimum_size = Vector2(150, 176)
-		crest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(crest)
-		var col := VBoxContainer.new()
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		col.alignment = BoxContainer.ALIGNMENT_CENTER
-		col.add_theme_constant_override("separation", 6)
-		row.add_child(col)
-		col.add_child(UiKit.label("TOTAL LEVEL", 30, Color("fff1d6"), "x", 6))
-		col.add_child(UiKit.label("%d of %d" % [total, cap], 22, Color("e6d8bc"), "b", 4))
-		var rule := ColorRect.new()
-		rule.color = Color(0.79, 0.64, 0.35, 0.45)
-		rule.custom_minimum_size = Vector2(0, 2)
-		col.add_child(rule)
-		col.add_child(UiKit.label("NEXT MILESTONE · TOTAL %d" % int(next[0]), 19, UiKit.GOLD.lightened(0.15), "x", 4))
-		col.add_child(UiKit.label(str(next[1]), 26, Color("fff1d6"), "x", 5))
-		var desc := UiKit.label(str(next[2]), 21, Color("d8c8aa"), "b", 4)
-		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		col.add_child(desc)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(minf(640.0, get_viewport_rect().size.x - 64.0), 0)
+	var empty := StyleBoxEmpty.new()
+	for side in ["left", "right"]:
+		empty.set("content_margin_" + side, 34)
+	for side in ["top", "bottom"]:
+		empty.set("content_margin_" + side, 30)
+	panel.add_theme_stylebox_override("panel", empty)
+	var fr := UiKit.Frame.new("panel", "leather")
+	fr.margin = 14.0
+	panel.add_child(fr)
+	hold.add_child(panel)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	panel.add_child(col)
+	var head := UiKit.label("GATHERING", 30, UiKit.GOLD.lightened(0.15), "x", 6)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(head)
+	col.add_child(body("Gathering skills arrive soon: Mining, Woodcutting, Foraging"))
 
 
 ## A forged shield crest with a level struck into it.
@@ -343,62 +329,8 @@ class Crest extends Control:
 		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5, size.y * 0.72), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color("c9a25a"))
 
 
-class SkillRow extends PanelContainer:
-	var skill_id := ""
-	var skill_name := ""
-
-	func _init(id: String, title: String) -> void:
-		skill_id = id
-		skill_name = title
-
-	func _ready() -> void:
-		custom_minimum_size = Vector2(0, 150)
-		var empty := StyleBoxEmpty.new()
-		for side in ["left", "right", "top", "bottom"]:
-			empty.set("content_margin_" + side, 22)
-		add_theme_stylebox_override("panel", empty)
-		var metal := UiKit.rarity_metal("common")
-		var fr := UiKit.Frame.new("plaque", "leather", {"metal_hi": metal[0], "metal_lo": metal[1]})
-		fr.margin = 14.0
-		add_child(fr)
-		var xp := int(SaveGame.data["skills"].get(skill_id, 0))
-		var level := Catalog.skill_level(xp)
-		var next_xp := Catalog.skill_xp_to_level(mini(99, level + 1))
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 18)
-		add_child(row)
-		var med := Glyph.new()
-		med.kind = skill_id
-		med.custom_minimum_size = Vector2(104, 104)
-		med.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(med)
-		var col := VBoxContainer.new()
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		col.add_theme_constant_override("separation", 4)
-		row.add_child(col)
-		var top := HBoxContainer.new()
-		top.add_child(UiKit.label(skill_name.to_upper(), 32, Color("fff1d6"), "x", 6))
-		var gap := Control.new()
-		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		top.add_child(gap)
-		top.add_child(UiKit.label("LV %d" % level, 28, UiKit.GOLD.lightened(0.15), "x", 6))
-		col.add_child(top)
-		var bar := XpBar.new()
-		bar.ratio = clampf(float(xp) / float(maxi(next_xp, 1)), 0.0, 1.0)
-		bar.custom_minimum_size = Vector2(0, 26)
-		col.add_child(bar)
-		var foot := HBoxContainer.new()
-		foot.add_child(UiKit.label("%d / %d XP" % [xp, next_xp if level < 99 else xp], 21, Color("e6d8bc"), "b", 4))
-		var gap2 := Control.new()
-		gap2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		foot.add_child(gap2)
-		foot.add_child(UiKit.label("SEALED", 20, Color("c8b8a0"), "x", 4))
-		col.add_child(foot)
-
-
-## A combat skill row for the selected hero: GearDB level, a bar to the next
-## level and the next gear gate that level will open (the plaque mirrors the
-## gathering rows).
+## A combat skill row for the shown hero: GearDB level, a bar to the next level
+## and the next gear gate that level will open.
 class CombatRow extends PanelContainer:
 	var hero_id := ""
 	var skill_id := ""
@@ -464,7 +396,9 @@ class CombatRow extends PanelContainer:
 			col.add_child(line)
 
 
-## A forged medallion with a carved glyph for the skill.
+## A forged medallion with a carved glyph for the skill. Every glyph is drawn
+## from simple polylines in the bronze/gold palette (no textures), so each
+## combat skill reads at a glance.
 class Glyph extends Control:
 	var kind := ""
 
@@ -480,27 +414,61 @@ class Glyph extends Control:
 		draw_arc(c, r - 8, 0, TAU, 48, Color(0, 0, 0, 0.6), 2.0, true)
 		draw_circle(c, r - 10, Color("3a2c20"))
 		var ink := Color("e8c070")
+		var dark := Color("2a2119")
 		match kind:
-			"foraging":
-				var pts := PackedVector2Array()
-				for i in 13:
-					var t := float(i) / 12.0
-					pts.append(c + Vector2(sin(t * PI) * 19.0, -28 + t * 52))
-				for i in 13:
-					var t := 1.0 - float(i) / 12.0
-					pts.append(c + Vector2(-sin(t * PI) * 19.0, -28 + t * 52))
-				draw_colored_polygon(pts, ink)
-				draw_line(c + Vector2(0, -24), c + Vector2(0, 32), Color("3a2c20"), 3.0)
-			"fishing":
-				draw_line(c + Vector2(8, -30), c + Vector2(8, 10), ink, 5.0)
-				draw_arc(c + Vector2(-6, 10), 14, 0.0, PI, 16, ink, 5.0, true)
-				draw_colored_polygon(PackedVector2Array([c + Vector2(-20, 10), c + Vector2(-26, 0), c + Vector2(-14, 4)]), ink)
-				draw_circle(c + Vector2(8, -30), 5, ink)
-			"taming":
-				draw_circle(c + Vector2(0, 10), 14, ink)
-				for p in [Vector2(-18, -8), Vector2(-7, -20), Vector2(7, -20), Vector2(18, -8)]:
-					draw_circle(c + p, 7, ink)
+			"attack":
+				# Crossed swords: two blades with a crossguard and pommel.
+				for s in [-1.0, 1.0]:
+					var low := c + Vector2(-s * 22.0, 26.0)
+					var tip := c + Vector2(s * 24.0, -28.0)
+					draw_line(low, tip, dark, 11.0, true)
+					draw_line(low, tip, ink, 6.0, true)
+					var guard := low.lerp(tip, 0.24)
+					var perp := Vector2(tip.y - low.y, low.x - tip.x).normalized() * 11.0
+					draw_line(guard - perp, guard + perp, ink, 5.0, true)
+					draw_circle(low, 5.0, ink)
+			"strength":
+				# Fist-hammer: a heavy head over a straight haft.
+				draw_line(c + Vector2(0, 30), c + Vector2(0, -6), ink, 8.0, true)
+				draw_colored_polygon(PackedVector2Array([
+					c + Vector2(-26, -28), c + Vector2(22, -28),
+					c + Vector2(26, -8), c + Vector2(-22, -8)]), ink)
+				draw_line(c + Vector2(-20, -18), c + Vector2(20, -18), dark, 3.0, true)
+			"defence":
+				# Shield: a heater shape split by a cross.
+				draw_colored_polygon(PackedVector2Array([
+					c + Vector2(0, -30), c + Vector2(24, -18), c + Vector2(22, 8),
+					c + Vector2(0, 30), c + Vector2(-22, 8), c + Vector2(-24, -18)]), ink)
+				draw_line(c + Vector2(0, -24), c + Vector2(0, 24), dark, 3.0, true)
+				draw_line(c + Vector2(-17, -16), c + Vector2(17, -16), dark, 3.0, true)
+			"ranged":
+				# Bow and arrow: a curved limb, string and a fletched shaft.
+				draw_arc(c + Vector2(-10, 0), 26.0, -0.42 * PI, 0.42 * PI, 24, ink, 5.0, true)
+				draw_line(c + Vector2(-2, -26), c + Vector2(-2, 26), ink, 3.0, true)
+				draw_line(c + Vector2(-24, 0), c + Vector2(28, 0), ink, 4.0, true)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(28, 0), c + Vector2(17, -7), c + Vector2(17, 7)]), ink)
+				draw_line(c + Vector2(-24, 0), c + Vector2(-15, -7), ink, 3.0, true)
+				draw_line(c + Vector2(-24, 0), c + Vector2(-15, 7), ink, 3.0, true)
+			"magic":
+				# Rune star: a five-point sigil with a hollow core.
+				var star := PackedVector2Array()
+				for i in 10:
+					var ang := -PI * 0.5 + float(i) * PI / 5.0
+					var rad := 30.0 if i % 2 == 0 else 12.0
+					star.append(c + Vector2(cos(ang), sin(ang)) * rad)
+				draw_colored_polygon(star, ink)
+				draw_circle(c, 6.0, Color("3a2c20"))
+			"hitpoints":
+				# Heart: the classic parametric lobes.
+				var heart := PackedVector2Array()
+				for i in 28:
+					var t := TAU * float(i) / 28.0
+					var hx := 16.0 * pow(sin(t), 3.0)
+					var hy := 13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t)
+					heart.append(c + Vector2(hx, -hy) * 1.35)
+				draw_colored_polygon(heart, ink)
 			_:
+				# Haven't drawn this one yet: a plain forged rune.
 				draw_colored_polygon(PackedVector2Array([c + Vector2(-22, -24), c + Vector2(10, -24), c + Vector2(14, -14), c + Vector2(-22, -12)]), ink)
 				draw_line(c + Vector2(-4, -12), c + Vector2(-4, 30), ink, 7.0)
 
