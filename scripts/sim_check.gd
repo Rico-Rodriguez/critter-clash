@@ -2102,6 +2102,19 @@ static func _forge_check() -> void:
 		_fail("mushroom offered no steel option")
 	if SaveGame.forge_lock_reason(GearDB.Tier.RUNE) != "Reach Frost to forge rune":
 		_fail("the rune lock said '%s'" % SaveGame.forge_lock_reason(GearDB.Tier.RUNE))
+	# Steel is skill-gated like wearing it: untrained, the option names the
+	# skill and the forge refuses without touching the wallet.
+	var gated := ""
+	var gate := ""
+	for o in SaveGame.forge_options(hero):
+		if int(o["tier"]) == GearDB.Tier.STEEL:
+			gated = str(o["id"])
+			gate = str(o["reason"])
+			break
+	if not gate.begins_with("Requires ") or SaveGame.forge(hero, gated) or int(SaveGame.data["gear_shards"]) != 80:
+		_fail("an untrained steel piece was forgeable ('%s')" % gate)
+	for skill in GearDB.SKILL_KEYS:
+		GearDB.add_xp(hero, skill, GearDB.xp_for_level(40))
 	# The shard shortfall is named, not just "no".
 	SaveGame.data["gear_shards"] = 20
 	var short := ""
@@ -2126,6 +2139,8 @@ static func _forge_check() -> void:
 	# The wallet never goes negative: forge down to exactly 20, then a 20-cost
 	# forge with only 20 left succeeds and the next refusal leaves 0, not -20.
 	GearDB.store_override = {}
+	for skill in GearDB.SKILL_KEYS:
+		GearDB.add_xp(hero, skill, GearDB.xp_for_level(40))
 	SaveGame.data["gear_shards"] = 20
 	var first := ""
 	for o in SaveGame.forge_options(hero):
@@ -2147,7 +2162,7 @@ static func _forge_check() -> void:
 	SaveGame.data = keep
 	SaveGame.no_write = keep_no_write
 	GearDB.store_override = keep_store
-	print("FORGE ok: 0 shards none, meadow iron only, forge deducts 20 once, rune gated to frost, wallet >= 0")
+	print("FORGE ok: 0 shards none, meadow iron only, forge deducts 20 once, steel skill-gated, rune gated to frost, wallet >= 0")
 
 
 ## Total XP held in the current GearDB store (a scratch armory in tests).

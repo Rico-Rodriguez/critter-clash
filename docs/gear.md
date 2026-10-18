@@ -109,8 +109,9 @@ the fast road.
 | `SaveGame.forge_depth() -> int` | Index of the deepest open biome in `Catalog.BIOMES`. |
 | `SaveGame.forge_cap() -> int` | Best tier the Forge can make now (boss cap at that depth). |
 | `SaveGame.forge_options(hero) -> Array` | Every **unowned** piece of the hero's kit at or below the cap, best tier first: `{id, slot, tier, cost, ok, reason}`. |
+| `SaveGame.forge_skill_gate(hero, id) -> String` | The first untrained wear requirement (`"Requires Defence 20"`), or `""`. Forging respects the same skill gates as equipping. |
 | `SaveGame.forge_lock_reason(tier) -> String` | Why a tier is still shut, naming the biome to reach (`"Reach Frost to forge rune"`), or `""` when it is open. |
-| `SaveGame.forge(hero, id) -> bool` | Pays the cost, grants the piece and writes once. Refuses an unknown or foreign id, an owned piece, a tier above the cap and an unaffordable price; the wallet never goes negative. |
+| `SaveGame.forge(hero, id) -> bool` | Pays the cost, grants the piece and writes once. Refuses an unknown or foreign id, an owned piece, a tier above the cap, an untrained skill gate and an unaffordable price; the wallet never goes negative and a failed grant costs nothing. |
 
 `reason` on an unaffordable option is `"Need %d more shards"`; `ok` is false.
 

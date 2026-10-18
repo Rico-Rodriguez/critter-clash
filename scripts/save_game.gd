@@ -972,12 +972,25 @@ func forge_options(hero: String) -> Array:
 			if not GearDB.is_item(id) or GearDB.has(hero, id):
 				continue
 			var cost := FORGE_COST[tier]
-			var ok := shards >= cost
+			var reason := forge_skill_gate(hero, id)
+			if reason == "" and shards < cost:
+				reason = "Need %d more shards" % (cost - shards)
 			out.append({
-				"id": id, "slot": str(slot), "tier": tier, "cost": cost, "ok": ok,
-				"reason": "" if ok else "Need %d more shards" % (cost - shards),
+				"id": id, "slot": str(slot), "tier": tier, "cost": cost, "ok": reason == "",
+				"reason": reason,
 			})
 	return out
+
+
+## The forge respects the same skill gates as wearing: a piece whose
+## requirement the hero has not trained ("Requires Defence 20") cannot be
+## forged yet. "" when every requirement is met.
+func forge_skill_gate(hero: String, id: String) -> String:
+	var req := GearDB.requirements(id)
+	for k in GearDB.SKILL_KEYS:
+		if req.has(k) and GearDB.level(hero, k) < int(req[k]):
+			return "Requires %s %d" % [GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(k)], int(req[k])]
+	return ""
 
 
 ## Why a tier cannot be forged yet, or "" when it can. Uses the biome that
@@ -993,21 +1006,23 @@ func forge_lock_reason(tier: int) -> String:
 
 ## Forge one unowned piece for a hero, paying its shard cost. Refuses an
 ## unknown or foreign id, a piece the hero already owns, a tier above the
-## current cap and an unaffordable price. On success it deducts the shards,
-## grants the piece and writes once; the wallet never goes negative.
+## current cap, an untrained skill gate and an unaffordable price. On success
+## it grants the piece, deducts the shards and writes once; the wallet never
+## goes negative and a refused grant never costs shards.
 func forge(hero: String, id: String) -> bool:
 	var it := GearDB.item(id)
 	if it.is_empty() or str(it["hero"]) != hero:
 		return false
 	var tier := int(it["tier"])
-	if tier > forge_cap() or GearDB.has(hero, id):
+	if tier > forge_cap() or GearDB.has(hero, id) or forge_skill_gate(hero, id) != "":
 		return false
 	var cost := FORGE_COST[tier]
 	var shards := int(data.get("gear_shards", 0))
 	if shards < cost:
 		return false
+	if not GearDB.grant(id):
+		return false
 	data["gear_shards"] = shards - cost
-	GearDB.grant(id)
 	_write()
 	return true
 
