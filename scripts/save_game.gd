@@ -5,7 +5,9 @@ extends Node
 ## ladder can persist without a save migration. Nothing reads them yet.
 
 const PATH := "user://critter_clash.json"
-const VERSION := 2
+## 3: the GearDB armory ({v, owned, equipped, xp}; legacy v2 saves migrate on
+## load, see migrate_legacy_armory).
+const VERSION := 3
 
 var data: Dictionary = {}
 
@@ -301,30 +303,102 @@ func build_run_stats(hero_id: String) -> Dictionary:
 	var scale := 1.0 + 0.08 * float(level - 1)
 	stats["hp"] = float(stats["hp"]) * scale
 	stats["dmg"] = float(stats["dmg"]) * scale
-	var row: Dictionary = hero(hero_id)
-	for slot in ["weapon", "armor", "charm"]:
-		var uid := int(row[slot])
-		if uid <= 0:
-			continue
-		var piece := find_gear(uid)
-		if piece.is_empty():
-			continue
-		var bonus: Dictionary = piece["stats"]
-		if bonus.has("dmg_pct"):
-			stats["dmg"] = float(stats["dmg"]) * (1.0 + float(bonus["dmg_pct"]))
-		if bonus.has("haste"):
-			stats["interval"] = float(stats["interval"]) / (1.0 + float(bonus["haste"]))
-		if bonus.has("hp_flat"):
-			stats["hp"] = float(stats["hp"]) + float(bonus["hp_flat"])
-		if bonus.has("armor"):
-			stats["armor"] = float(stats["armor"]) + float(bonus["armor"])
-		if bonus.has("crit"):
-			stats["crit"] = float(stats["crit"]) + float(bonus["crit"])
-		if bonus.has("speed_pct"):
-			stats["speed"] = float(stats["speed"]) * (1.0 + float(bonus["speed_pct"]))
-		if bonus.has("regen"):
-			stats["regen"] = float(stats["regen"]) + float(bonus["regen"])
+	# Armory gear and OSRS skill levels fold in here; the legacy uid pieces
+	# stay in the save for display only and no longer touch stats.
+	var gear := GearDB.stats(hero_id)
+	var bonus: Dictionary = GearDB.level_bonus(hero_id)
+	for k in bonus:
+		gear[k] = float(gear.get(k, 0.0)) + float(bonus[k])
+	if gear.has("dmg_pct"):
+		stats["dmg"] = float(stats["dmg"]) * (1.0 + float(gear["dmg_pct"]))
+	if gear.has("haste"):
+		stats["interval"] = float(stats["interval"]) / (1.0 + float(gear["haste"]))
+	if gear.has("hp_flat"):
+		stats["hp"] = float(stats["hp"]) + float(gear["hp_flat"])
+	if gear.has("armor"):
+		stats["armor"] = float(stats["armor"]) + float(gear["armor"])
+	if gear.has("crit"):
+		stats["crit"] = float(stats["crit"]) + float(gear["crit"])
+	if gear.has("speed_pct"):
+		stats["speed"] = float(stats["speed"]) * (1.0 + float(gear["speed_pct"]))
+	if gear.has("regen"):
+		stats["regen"] = float(stats["regen"]) + float(gear["regen"])
 	return stats
+
+
+## --- Legacy gear migration ---------------------------------------------------
+## v2 saves kept gear as uids on the hero row plus a bag of uid pieces. One
+## load-time pass folds them into the GearDB armory (keys kept, stats now
+## come from GearDB only):
+##   weapon -> weapon, armor -> chest, charm -> charm
+##   common/uncommon -> iron 1, rare/epic -> blackened steel 2,
+##   legendary -> rune 3
+## Equipped pieces go to the hero they were on and re-equip through
+## GearDB.can_equip (a gated piece stays owned but off). Bag pieces convert
+## for the featured hero. A piece with no GearDB counterpart (a hero without
+## kit pieces or an unknown slot/rarity) pays out at 10 coins each. The
+## pass stamps armory.migrated_from = old save version and never runs twice.
+
+## Coins per unmapped legacy piece (about a pouch's quieter drop).
+const LEGACY_COIN_RATE := 10
+
+
+## The GearDB item id one legacy uid piece converts to, or "" when none maps.
+func _legacy_armory_item(hero_id: String, piece: Dictionary) -> String:
+	var gear_slot := str({"weapon": "weapon", "armor": "chest", "charm": "charm"}.get(str(piece.get("slot", "")), ""))
+	if gear_slot == "":
+		return ""
+	var tier := int({
+		"common": GearDB.Tier.IRON, "uncommon": GearDB.Tier.IRON,
+		"rare": GearDB.Tier.STEEL, "epic": GearDB.Tier.STEEL,
+		"legendary": GearDB.Tier.RUNE,
+	}.get(str(piece.get("rarity", "")), 0))
+	if tier == 0:
+		return ""
+	var id := GearDB.item_id(hero_id, gear_slot, tier)
+	return id if GearDB.is_item(id) else ""
+
+
+## One legacy piece: a GearDB grant to hero_id, equipping it when it was
+## equipped and the gates allow; unmappable pieces melt into coins.
+func _convert_legacy_piece(hero_id: String, piece: Dictionary, was_equipped: bool) -> void:
+	var id := _legacy_armory_item(hero_id, piece)
+	if id == "":
+		data["coins"] = int(data["coins"]) + LEGACY_COIN_RATE
+		return
+	GearDB.grant(id)
+	if was_equipped and bool(GearDB.can_equip(hero_id, id)["ok"]):
+		GearDB.equip(hero_id, id)
+
+
+## Fold legacy uid gear into the armory once, for old_version saves. Safe to
+## call again: it returns immediately once armory.migrated_from is stamped.
+func migrate_legacy_armory(old_version: int) -> void:
+	var existing: Variant = data.get(GearDB.SAVE_KEY)
+	if typeof(existing) == TYPE_DICTIONARY and (existing as Dictionary).has("migrated_from"):
+		return
+	var armory: Dictionary = existing if typeof(existing) == TYPE_DICTIONARY else {}
+	data[GearDB.SAVE_KEY] = armory
+	armory["v"] = GearDB.SAVE_V
+	for k in ["owned", "equipped", "xp"]:
+		if not armory.has(k) or typeof(armory[k]) != TYPE_DICTIONARY:
+			armory[k] = {}
+	var worn := {}
+	for id in data["heroes"].keys():
+		var row: Dictionary = data["heroes"][id]
+		for legacy_slot in ["weapon", "armor", "charm"]:
+			var uid := int(row.get(legacy_slot, 0))
+			if uid <= 0:
+				continue
+			# Equipped pieces convert for their owner; the bag copy of the
+			# same uid must not convert again.
+			worn[uid] = true
+			_convert_legacy_piece(id, find_gear(uid), true)
+	for piece in data["bag"]:
+		if worn.has(int(piece.get("uid", 0))):
+			continue
+		_convert_legacy_piece(featured_id(), piece, false)
+	armory["migrated_from"] = int(old_version)
 
 
 ## --- Daily Challenge local board -------------------------------------------
@@ -791,6 +865,10 @@ func _fresh() -> Dictionary:
 
 
 func _reconcile() -> void:
+	# Unknown keys in a loaded save are left alone here, so data added by a
+	# later version survives a downgrade/upgrade round trip. Known structures
+	# get their defaults filled in.
+	data["save_version"] = VERSION
 	if not data.has("heroes"):
 		data["heroes"] = {}
 	for key in ["claimed", "chests", "bag"]:
@@ -883,11 +961,16 @@ func _load() -> void:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		_write()
 		return
-	if int(parsed.get("save_version", 0)) != VERSION:
+	var old_version := int(parsed.get("save_version", 0))
+	# Older versions migrate forward (v2 carries the legacy gear bag, see
+	# migrate_legacy_armory); only future versions or corrupt saves reset.
+	if old_version <= 0 or old_version > VERSION:
 		_write()
 		return
 	data = parsed
 	_reconcile()
+	migrate_legacy_armory(old_version)
+	_write()
 
 
 ## Tests set this so a headless check never touches the player's save file.

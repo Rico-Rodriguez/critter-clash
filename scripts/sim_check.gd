@@ -11,6 +11,7 @@ static func run() -> int:
 	_roles()
 	_modes()
 	_save()
+	_gear_save_check()
 	_daily_check()
 	_steer()
 	_maps()
@@ -136,6 +137,158 @@ static func _save() -> void:
 			_fail("equip charm")
 	if SaveGame.claim("m80"):
 		_fail("double claim")
+
+
+## Gear persistence: kernel saves get packaged as the active kit with old-save
+## migration. (a) A synthetic v2 save converts equipped + bag pieces into the
+## armory exactly once. (b) The bare hero matches base stats and equipped
+## deltas equal the summed GearDB stats_for + level_bonus. (c) A gated rune
+## piece stays owned but never equips. (d) A save/load round trip keeps the
+## armory (and unknown future keys) intact. Runs with no_write and restores
+## the save afterwards; GearDB writes go to scratch override dicts.
+static func _gear_save_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	# (a) Migration of a v2 legacy save: equipped pieces become the owner's
+	# item (weapon->weapon, armor->chest, charm->charm; common->iron 1,
+	# rare->steel 2, legendary->rune 3), gated pieces stay owned but off, bag
+	# pieces convert for the featured hero, junk pays out coins.
+	var legacy := {
+		"save_version": 2,
+		"coins": 30,
+		"featured": "pebble",
+		"bag": [
+			{"uid": 1, "slot": "weapon", "rarity": "common", "name": "Old Claw", "stats": {"dmg_pct": 0.1}},
+			{"uid": 2, "slot": "armor", "rarity": "common", "name": "Old Vest", "stats": {"hp_flat": 20}},
+			{"uid": 4, "slot": "charm", "rarity": "rare", "name": "Old Charm", "stats": {"crit": 0.04}},
+			{"uid": 5, "slot": "weapon", "rarity": "uncommon", "name": "Old Wand", "stats": {"dmg_pct": 0.09}},
+			{"uid": 11, "slot": "weapon", "rarity": "epic", "name": "Grand Mallet", "stats": {"dmg_pct": 0.13}},
+			{"uid": 12, "slot": "armor", "rarity": "rare", "name": "Bright Shell", "stats": {"hp_flat": 30}},
+			{"uid": 13, "slot": "charm", "rarity": "legendary", "name": "Grand Bead", "stats": {"crit": 0.05}},
+			{"uid": 14, "slot": "helmet", "rarity": "epic", "name": "Junk Bit", "stats": {}},
+		],
+		"heroes": {
+			"pebble": {"unlocked": true, "cards": 3, "level": 2, "weapon": 1, "armor": 2, "charm": 4},
+			"ember": {"unlocked": true, "cards": 1, "level": 4, "weapon": 5, "armor": 0, "charm": 0},
+		},
+	}
+	SaveGame.data = legacy
+	SaveGame.migrate_legacy_armory(2)
+	var armory: Dictionary = SaveGame.data["armory"]
+	if int(armory.get("migrated_from", 0)) != 2:
+		_fail("migration did not stamp migrated_from %s" % str(armory))
+	var eq_pebble: Dictionary = GearDB.equipped("pebble")
+	var eq_ember: Dictionary = GearDB.equipped("ember")
+	if eq_pebble["weapon"] != "pebble.weapon.1" or eq_pebble["chest"] != "pebble.chest.1" or eq_pebble["charm"] != "":
+		_fail("pebble migration equipped %s" % str(eq_pebble))
+	if eq_ember["weapon"] != "ember.weapon.1":
+		_fail("ember migration equipped %s" % str(eq_ember))
+	for missing in ["pebble.charm.2", "pebble.weapon.2", "pebble.chest.2", "pebble.charm.3"]:
+		if not GearDB.has("pebble", missing):
+			_fail("migration lost gated piece %s" % missing)
+	if not GearDB.has("ember", "ember.weapon.1") or GearDB.has("ember", "ember.chest.2"):
+		_fail("migration granted the wrong ember pieces")
+	if int(SaveGame.data["coins"]) != 40:
+		_fail("unmapped legacy pieces did not pay 10 coins each, coins %d" % int(SaveGame.data["coins"]))
+	if int(SaveGame.data["heroes"]["pebble"]["weapon"]) != 1 or SaveGame.data["bag"].size() != 8:
+		_fail("migration dropped the legacy keys")
+	var stamp: Dictionary = armory.duplicate(true)
+	SaveGame.migrate_legacy_armory(2)
+	if armory != stamp:
+		_fail("migration ran twice")
+	# (b) Equip math: a bare hero matches base stats; the geared deltas equal
+	# the summed GearDB stats_for + level_bonus of what is on.
+	GearDB.store_override = {}
+	SaveGame.reset_new()
+	var bare := SaveGame.build_run_stats("pebble")
+	var base := Catalog.base_stats("pebble")
+	if bare != base:
+		_fail("bare hero run stats drifted from base: %s vs %s" % [str(bare), str(base)])
+	var worn_ids: Array = ["pebble.helm.1", "pebble.weapon.2", "pebble.gloves.1", "pebble.boots.1"]
+	for id in worn_ids:
+		if not GearDB.grant(id):
+			_fail("grant %s" % id)
+	if GearDB.add_xp("pebble", "attack", GearDB.xp_for_level(20)) != 19:
+		_fail("attack xp did not reach level 20")
+	for id in worn_ids:
+		if not GearDB.equip("pebble", id):
+			_fail("equip %s" % id)
+	var geared := SaveGame.build_run_stats("pebble")
+	var want: Dictionary = GearDB.stats("pebble")
+	var per: Dictionary = {}
+	for id in worn_ids:
+		for k in GearDB.item(id)["stats"]:
+			per[k] = float(per.get(k, 0.0)) + float(GearDB.item(id)["stats"][k])
+	for k in per:
+		if not is_equal_approx(float(per[k]), float(want.get(k, 0.0))):
+			_fail("GearDB.stats is not the sum of stats_for for %s" % k)
+	for k in GearDB.level_bonus("pebble"):
+		want[k] = float(want.get(k, 0.0)) + float(GearDB.level_bonus("pebble")[k])
+	_folds(geared, bare, want, "hp", "add", "hp_flat")
+	_folds(geared, bare, want, "armor", "add", "armor")
+	_folds(geared, bare, want, "crit", "add", "crit")
+	_folds(geared, bare, want, "regen", "add", "regen")
+	_folds(geared, bare, want, "dmg", "mul", "dmg_pct")
+	_folds(geared, bare, want, "interval", "div", "haste")
+	_folds(geared, bare, want, "speed", "mul", "speed_pct")
+	# (c) A rune piece with a level-1 skill stays owned and never equips.
+	GearDB.store_override = {}
+	if not GearDB.grant("pebble.boots.3"):
+		_fail("grant gated rune boots")
+	var gate: Dictionary = GearDB.can_equip("pebble", "pebble.boots.3")
+	if bool(gate["ok"]) or str(gate["reason"]) != "Requires Defence 40":
+		_fail("rune boots gate said %s" % str(gate))
+	if GearDB.equip("pebble", "pebble.boots.3") or str(GearDB.equipped("pebble")["boots"]) != "":
+		_fail("rune boots equipped through the gate")
+	# (d) Save -> load round trip: JSON, reconcile and the (stamped) migration
+	# pass must leave the armory byte-identical, unknown keys included.
+	GearDB.store_override = null
+	SaveGame.data["armory"] = {
+		"v": 1,
+		"owned": {"pebble": {"pebble.helm.1": 2, "pebble.chest.2": 1}},
+		"equipped": {"pebble": {"helm": "pebble.helm.1", "weapon": "pebble.weapon.2"}, "ember": {}},
+		"xp": {"pebble": {"attack": 4156, "hitpoints": 1154}},
+		"migrated_from": 2,
+		"future_unknown_key": {"hint": "survives"},
+	}
+	var want_armory: Dictionary = SaveGame.data["armory"].duplicate(true)
+	var round_trip: Variant = JSON.parse_string(JSON.stringify(SaveGame.data))
+	if typeof(round_trip) != TYPE_DICTIONARY:
+		_fail("save round trip did not parse")
+	else:
+		SaveGame.data = round_trip
+		SaveGame.data["save_version"] = SaveGame.VERSION
+		SaveGame._reconcile()
+		SaveGame.migrate_legacy_armory(2)
+		# JSON.loads returns floats for every number; unify both sides the
+		# same way so the comparison is about content, not float/int casts.
+		# Unknown future keys and the migration stamp ride along untouched.
+		var want_back: Variant = JSON.parse_string(JSON.stringify(want_armory))
+		if SaveGame.data["armory"] != want_back:
+			_fail("round trip lost armory content: %s" % str(SaveGame.data["armory"]))
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+	print("GEAR ok: migration, equip math, gating, round-trip")
+
+
+## One run-stat fold. mode "add": geared == bare + want[stat]. "mul":
+## geared == bare * (1 + want[stat]). For "interval" want[stat] is haste and
+## the bare interval divides through 1 + haste instead of multiplying.
+static func _folds(geared: Dictionary, bare: Dictionary, want: Dictionary, key: String, mode: String, stat: String) -> void:
+	var want_v := float(want.get(stat, 0.0))
+	var expected := float(bare[key])
+	match mode:
+		"add":
+			expected = float(bare[key]) + want_v
+		"mul":
+			expected = float(bare[key]) * (1.0 + want_v)
+		"div":
+			expected = float(bare[key]) / (1.0 + want_v)
+	if not is_equal_approx(float(geared[key]), expected):
+		_fail("%s fold off: gear %s vs expected %s (%s %s)" % [key, str(geared[key]), str(expected), mode, str(want_v)])
 
 
 ## Daily Challenge: one deterministic map per UTC day, one or two modifiers,
