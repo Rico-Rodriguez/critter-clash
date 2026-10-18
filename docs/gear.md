@@ -76,6 +76,16 @@ the roll pays **coins** instead.
 `GearDB.Tier`). The preference for unowned pieces in `LootTable._pick` is
 unchanged, and banking stays deterministic for a seed.
 
+## Boss gear rows
+A boss `gear` drop row rolls through the same caps as every other source:
+`SaveGame._grant_boss_gear` maps its `gear_rarity` to a wanted tier
+(common/uncommon iron, rare/epic steel, legendary rune), clamps that to
+`LootTable.max_tier("boss", biome_idx)`, and grants the run hero an unowned
+piece of the row's slot at that tier or a lower one — never above the cap. When
+every piece of the slot up to the cap is owned it banks through the duplicate
+path (shards, or coins on a complete tier) instead of a second copy. The
+victory card names the piece the armory got, or the shards/coins paid.
+
 `SaveGame.bank_gear(ids)` grants the list once and returns
 `{"ids": [granted item ids], "shards": total, "coins": total}`; the granted
 ids are backward compatible with the old banked-id list. `RunSim.bank_gear()`

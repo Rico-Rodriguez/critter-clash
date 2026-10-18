@@ -17,7 +17,7 @@ const CHECKS := [
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
-	"forge",
+	"forge", "boss_gear",
 ]
 
 
@@ -99,6 +99,8 @@ static func _dispatch(name: String) -> void:
 			_events_check()
 		"gear_drop":
 			_gear_drop_smoke()
+		"boss_gear":
+			_boss_gear_check()
 		"skill_xp":
 			_skill_xp_smoke()
 		"xp_drop":
@@ -1725,6 +1727,105 @@ static func _gear_drop_smoke() -> void:
 	SaveGame.no_write = prev_nowrite
 	SaveGame.data = keep_data
 	print("GEAR smoke ok: %d dropped, %d banked, %d kept on a loss" % [a.gear_found.size(), banked.size(), kept.size()])
+
+
+## The first boss gear row with the given gear_rarity, or {} when there is none.
+static func _boss_gear_row(boss_id: String, rarity: String) -> Dictionary:
+	for entry in Catalog.drop_table(boss_id):
+		if str(entry.get("kind", "")) == "gear" and str(entry.get("gear_rarity", "")) == rarity:
+			return entry
+	return {}
+
+
+## Boss "gear" rows obey the loot tier caps: a rare row on meadow pays iron
+## (the meadow boss cap is iron only), a full slot banks shards instead of a
+## steel copy, and frost rows may reach steel/rune but never above the depth
+## cap. The summary's gear row is a copy carrying "granted" while Catalog.DROPS
+## stays untouched. Runs on a scratch armory and restores everything after.
+static func _boss_gear_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	# (1) A rare gear row on meadow pays an iron piece for the featured hero,
+	# and the meadow boss cap keeps it off steel.
+	SaveGame.data = SaveGame._fresh()
+	GearDB.store_override = {}
+	var hero := SaveGame.featured_id()
+	var rare_row := _boss_gear_row("thistle", "rare")
+	if rare_row.is_empty():
+		_fail("no rare gear row on the meadow boss")
+		return
+	var slot := str({"armor": "chest"}.get(str(rare_row["slot"]), str(rare_row["slot"])))
+	var iron_id := GearDB.item_id(hero, slot, GearDB.Tier.IRON)
+	var meadow: Dictionary = SaveGame._grant_boss_gear(rare_row, "meadow")
+	if str(meadow.get("kind", "")) != "gear" or str(meadow.get("id", "")) != iron_id:
+		_fail("a meadow rare row did not grant iron: %s" % str(meadow))
+	if GearDB.has(hero, GearDB.item_id(hero, slot, GearDB.Tier.STEEL)):
+		_fail("a meadow rare row paid steel above the cap")
+	# (2) With the slot's iron piece owned, the same row banks iron shards and
+	# still grants no steel copy.
+	var shards_before := int(SaveGame.data["gear_shards"])
+	var dup: Dictionary = SaveGame._grant_boss_gear(rare_row, "meadow")
+	if str(dup.get("kind", "")) != "shards" or int(dup.get("amount", 0)) != SaveGame.GEAR_SHARDS[GearDB.Tier.IRON]:
+		_fail("a full meadow slot did not bank iron shards: %s" % str(dup))
+	if int(SaveGame.data["gear_shards"]) != shards_before + SaveGame.GEAR_SHARDS[GearDB.Tier.IRON]:
+		_fail("iron shards did not reach the wallet")
+	if GearDB.has(hero, GearDB.item_id(hero, slot, GearDB.Tier.STEEL)):
+		_fail("a duplicate meadow row granted steel")
+	# (3) Frost (index 2) is the first ground where a boss row may pay steel or
+	# rune, never above LootTable.max_tier("boss", 2).
+	SaveGame.data = SaveGame._fresh()
+	GearDB.store_override = {}
+	hero = SaveGame.featured_id()
+	var frost_cap := LootTable.max_tier("boss", 2)
+	var frost_rare := _boss_gear_row("nimbus", "rare")
+	var steel: Dictionary = SaveGame._grant_boss_gear(frost_rare, "frost")
+	var steel_item := GearDB.item(str(steel.get("id", "")))
+	if str(steel.get("kind", "")) != "gear" or int(steel_item.get("tier", 0)) != GearDB.Tier.STEEL:
+		_fail("a frost rare row did not pay steel: %s" % str(steel))
+	elif int(steel_item["tier"]) > frost_cap:
+		_fail("a frost rare row paid above the cap")
+	var legendary := frost_rare.duplicate(true)
+	legendary["gear_rarity"] = "legendary"
+	var rune: Dictionary = SaveGame._grant_boss_gear(legendary, "frost")
+	var rune_item := GearDB.item(str(rune.get("id", "")))
+	if str(rune.get("kind", "")) != "gear" or int(rune_item.get("tier", 0)) != GearDB.Tier.RUNE:
+		_fail("a frost legendary row did not pay rune: %s" % str(rune))
+	elif int(rune_item["tier"]) > frost_cap:
+		_fail("a frost legendary row paid above the cap")
+	# (4) A meadow legendary row is still clamped to iron; the summary's gear
+	# row is a copy carrying "granted" and Catalog.DROPS never gains the key.
+	SaveGame.data = SaveGame._fresh()
+	GearDB.store_override = {}
+	var clamped: Dictionary = SaveGame._grant_boss_gear(legendary, "meadow")
+	var clamped_item := GearDB.item(str(clamped.get("id", "")))
+	if str(clamped.get("kind", "")) != "gear" or int(clamped_item.get("tier", 0)) != GearDB.Tier.IRON:
+		_fail("a meadow legendary row was not clamped to iron: %s" % str(clamped))
+	SaveGame.data = SaveGame._fresh()
+	GearDB.store_override = {}
+	var saw_grant := false
+	var wins := 0
+	while wins < 400 and not saw_grant:
+		wins += 1
+		for drop in SaveGame.commit_victory("meadow", "thistle", 0).get("drops", []):
+			if str(drop.get("kind", "")) != "gear":
+				continue
+			var granted: Dictionary = drop.get("granted", {})
+			if str(granted.get("kind", "")) not in ["gear", "shards", "coins"]:
+				_fail("a summary gear drop carried no granted result: %s" % str(drop))
+			saw_grant = true
+			break
+	if not saw_grant:
+		_fail("400 meadow wins rolled no gear row")
+	for row in Catalog.DROPS:
+		if row.has("granted"):
+			_fail("Catalog.DROPS was mutated with a granted key")
+			break
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+	print("BOSS GEAR ok: caps clamp, shard banking, granted summary copy")
 
 
 ## Combat-skill XP: a melee RunBot fight trains Attack and Strength, a mage

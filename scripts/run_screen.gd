@@ -1676,7 +1676,22 @@ func _show_victory(boss_name: String) -> void:
 			ico.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			ico.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			dv.add_child(ico)
-			var line := UiKit.label(str(drop.get("name", "Drop")), 18, UiKit.GOLD.lightened(0.2), "x", 2)
+			# A boss gear row names what the armory actually got: its real
+			# piece and tier colour, or the shards/coins a duplicate paid.
+			var granted: Dictionary = drop.get("granted", {})
+			var tag_text := str(drop.get("name", "Drop"))
+			var tag_color := UiKit.GOLD.lightened(0.2)
+			match str(granted.get("kind", "")):
+				"gear":
+					var git := GearDB.item(str(granted.get("id", "")))
+					if not git.is_empty():
+						tag_text = str(git["name"])
+						tag_color = GearDB.TIER_COLORS[int(git["tier"])]
+				"shards":
+					tag_text = "+%d gear shards" % int(granted.get("amount", 0))
+				"coins":
+					tag_text = "+%d coins" % int(granted.get("amount", 0))
+			var line := UiKit.label(tag_text, 18, tag_color, "x", 2)
 			line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			dv.add_child(line)

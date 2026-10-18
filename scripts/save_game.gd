@@ -454,10 +454,15 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictio
 	data["kills"][boss_id] = int(data["kills"].get(boss_id, 0)) + 1
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var drops := _roll_boss(boss_id, rng)
+	var rolled := _roll_boss(boss_id, rng)
+	var drops: Array = []
 	var reveal := {}
-	for drop in drops:
-		_apply_drop(drop, rng)
+	for entry in rolled:
+		# The summary carries its own copy so _apply_drop can stamp the granted
+		# result without ever touching the Catalog.DROPS constants.
+		var drop: Dictionary = (entry as Dictionary).duplicate()
+		_apply_drop(drop, rng, biome_id)
+		drops.append(drop)
 		if str(drop.get("kind", "")) == "pet":
 			reveal = drop
 		elif reveal.is_empty() and Catalog.is_reveal(drop):
@@ -794,8 +799,13 @@ func _weighted(rng: RandomNumberGenerator, rows: Array) -> Dictionary:
 	return {}
 
 
-func _apply_drop(drop: Dictionary, rng: RandomNumberGenerator) -> void:
+func _apply_drop(drop: Dictionary, rng: RandomNumberGenerator, biome_id := "") -> void:
 	var id := str(drop["id"])
+	if biome_id == "":
+		for entry in Catalog.BIOMES:
+			if str(entry["boss"]) == str(drop.get("boss", "")):
+				biome_id = str(entry["id"])
+				break
 	match str(drop["kind"]):
 		"coins":
 			data["coins"] = int(data["coins"]) + int(drop.get("amount", 0))
@@ -807,13 +817,43 @@ func _apply_drop(drop: Dictionary, rng: RandomNumberGenerator) -> void:
 				var row: Dictionary = data["heroes"][hero_id]
 				row["cards"] = int(row["cards"]) + int(drop.get("amount", 1))
 		"gear":
-			grant_reward(featured_id(), str(drop.get("slot", "charm")), str(drop.get("gear_rarity", "common")))
+			drop["granted"] = _grant_boss_gear(drop, biome_id)
 		"pet":
 			data["pets"][id] = true
 			if str(data.get("active_pet", "")) == "":
 				data["active_pet"] = id
 	if id not in data["log"]:
 		data["log"].append(id)
+
+
+## A boss gear row pays inside the loot tier caps: its gear_rarity sets the
+## wanted tier (common/uncommon iron, rare/epic steel, legendary rune), clamped
+## to the boss cap for the biome's depth (meadow is iron only, mushroom adds
+## steel, frost adds rune). The run's hero gets an unowned piece of the row's
+## slot at that tier, else the best lower tier; when every piece up to the cap
+## is owned it banks through the duplicate path (shards, or coins on a complete
+## tier) instead of a second copy. Returns the _bank_gear_piece-style result.
+func _grant_boss_gear(drop: Dictionary, biome_id: String) -> Dictionary:
+	var hero := featured_id()
+	var slot := str(drop.get("slot", "charm"))
+	var gear_slot := str({"armor": "chest"}.get(slot, slot))
+	var biome_idx := 0
+	for i in Catalog.BIOMES.size():
+		if str(Catalog.BIOMES[i]["id"]) == biome_id:
+			biome_idx = i
+			break
+	var wanted := int({
+		"common": GearDB.Tier.IRON, "uncommon": GearDB.Tier.IRON,
+		"rare": GearDB.Tier.STEEL, "epic": GearDB.Tier.STEEL,
+		"legendary": GearDB.Tier.RUNE,
+	}.get(str(drop.get("gear_rarity", "common")), GearDB.Tier.IRON))
+	var cap := mini(wanted, LootTable.max_tier("boss", biome_idx))
+	for t in range(cap, GearDB.Tier.IRON - 1, -1):
+		var id := GearDB.item_id(hero, gear_slot, t)
+		if GearDB.is_item(id) and not GearDB.has(hero, id):
+			GearDB.grant(id)
+			return {"kind": "gear", "id": id, "amount": 1}
+	return _bank_gear_piece(GearDB.item_id(hero, gear_slot, cap))
 
 
 ## Record one run's kills against the task in hand. Called once, at run end,
