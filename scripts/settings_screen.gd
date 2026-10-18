@@ -9,7 +9,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header())
+	box.add_child(header_with_back("home"))
 	box.add_child(h1("Settings"))
 	box.add_child(body("Sound, comfort and text options. Changes save straight away."))
 	var pad := MarginContainer.new()
@@ -27,8 +27,9 @@ func build() -> void:
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(panel)
 	box.add_child(pad)
-	var credits := UiKit.secondary("CREDITS", 300, 72)
+	# Credits stays reachable; the back chip up top now leads home, so no
+	# duplicate bottom Back button.
+	var credits := UiKit.secondary("CREDITS", 300, 88)
 	credits.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	credits.pressed.connect(go.bind("credits", {}))
 	box.add_child(credits)
-	box.add_child(back_button("home"))

@@ -4,6 +4,10 @@ var speech: Label
 var progress: Label
 var points_label: Label
 var streak_label: Label
+var hint: Label
+var take_button: Button
+var done_button: Button
+var skip_button: Button
 
 
 var task_bar: Control
@@ -14,7 +18,7 @@ func build() -> void:
 	nav_tab = ""
 	var box := column()
 	box.add_theme_constant_override("separation", 16)
-	box.add_child(header())
+	box.add_child(header_with_back("home"))
 	box.add_child(h1("Slayer Master"))
 	# The warden speaks from a framed dialogue panel.
 	var talk_plate := UiKit.Plate.new()
@@ -71,15 +75,21 @@ func build() -> void:
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
 	actions.add_theme_constant_override("separation", 12)
 	box.add_child(actions)
-	var take := UiKit.button("NEW TASK", 250, 84, "gold")
-	take.pressed.connect(_take)
-	var done := UiKit.confirm("TURN IN", 220, 84)
-	done.pressed.connect(_turn_in)
-	var skip := UiKit.secondary("CANCEL", 200, 84)
-	skip.pressed.connect(_cancel)
-	actions.add_child(take)
-	actions.add_child(done)
-	actions.add_child(skip)
+	# 88 px tall, in step with the shared tap-target floor.
+	take_button = UiKit.button("NEW TASK", 250, 88, "gold")
+	take_button.pressed.connect(_take)
+	done_button = UiKit.confirm("TURN IN", 220, 88)
+	done_button.pressed.connect(_turn_in)
+	skip_button = UiKit.secondary("CANCEL", 200, 88)
+	skip_button.pressed.connect(_cancel)
+	actions.add_child(take_button)
+	actions.add_child(done_button)
+	actions.add_child(skip_button)
+	# One line under the actions that always says why an off action is off.
+	hint = UiKit.label("", 20, UiKit.MUTED, "b", 2)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(hint)
 	box.add_child(_section("POINTS SHOP"))
 	for offer in Catalog.SLAYER_SHOP:
 		box.add_child(_offer(offer))
@@ -96,7 +106,6 @@ func build() -> void:
 	scroll.add_child(grounds)
 	for biome in Catalog.BIOMES:
 		grounds.add_child(_ground(biome))
-	box.add_child(back_button("home"))
 	_refresh()
 
 
@@ -120,15 +129,17 @@ func _ground(biome: Dictionary) -> Control:
 	col.add_theme_constant_override("separation", 2)
 	row.add_child(col)
 	var ink := Color("fff1d6") if open else Color("9a8e7c")
-	col.add_child(UiKit.label(str(biome["name"]).to_upper(), 24, ink, "x", 4))
+	var name_label := UiKit.label(str(biome["name"]).to_upper(), 24, ink, "x", 4)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(name_label)
 	for task in Catalog.SLAYER_TASKS:
 		if str(task["biome"]) != id:
 			continue
 		var line := HBoxContainer.new()
+		# Long contract lines wrap instead of clipping, so nothing is hidden.
 		var t := UiKit.label(str(task["text"]), 20, Color("e6d8bc") if open else Color("8a7e6c"), "b", 3)
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		t.clip_text = true
-		t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		line.add_child(t)
 		line.add_child(UiKit.label("%d PTS" % int(task["points"]), 20, UiKit.GOLD.lightened(0.15) if open else Color("8a7e6c"), "x", 3))
 		col.add_child(line)
@@ -151,15 +162,25 @@ func _section(text: String) -> Control:
 func _refresh() -> void:
 	var slate: Dictionary = SaveGame.data.get("slayer", {})
 	var task: Variant = slate.get("task", {})
-	if typeof(task) != TYPE_DICTIONARY or (task as Dictionary).is_empty():
+	var open := typeof(task) == TYPE_DICTIONARY and not (task as Dictionary).is_empty()
+	var ready := false
+	if not open:
 		speech.text = "The wilds still hunger. Take a contract, keep the streak alive, spend what you earn."
 		progress.text = "None"
+		hint.text = "No contract in hand. Take one from the warden to start hunting."
 	else:
 		var t: Dictionary = task
 		speech.text = str(t.get("text", "The trail is cold."))
-		progress.text = "%d / %d" % [int(t.get("have", 0)), int(t.get("need", 0))]
+		var need := maxi(int(t.get("need", 1)), 1)
+		var have := int(t.get("have", 0))
+		progress.text = "%d / %d" % [have, need]
+		ready = have >= need
+		if ready:
+			hint.text = ""
+		else:
+			hint.text = "Finish the contract first: %d to go." % (need - have)
 	points_label.text = "%d points" % int(slate.get("points", 0))
-	if typeof(task) == TYPE_DICTIONARY and not (task as Dictionary).is_empty():
+	if open:
 		var td: Dictionary = task
 		task_bar.ratio = clampf(float(td.get("have", 0)) / maxf(float(td.get("need", 1)), 1.0), 0.0, 1.0)
 	else:
@@ -167,10 +188,24 @@ func _refresh() -> void:
 	task_bar.queue_redraw()
 	var streak := int(slate.get("streak", 0))
 	streak_label.text = "Streak %d  ·  +%d" % [streak, streak * 5]
+	# Dead metal reads as dead metal: the grey skin carries the look, and the
+	# hint line above already carries the why for each locked action.
+	_lock(done_button, not (open and ready))
+	_lock(skip_button, not open)
+
+
+## Disabled actions sink to iron grey, inside and out.
+func _lock(button: Button, locked: bool) -> void:
+	button.disabled = locked
+	var b := button as UiKit.Btn
+	if b != null and b.skin != null:
+		b.skin.tone = "grey" if locked else b.tone
+		b.skin.apply()
 
 
 func _take() -> void:
-	SaveGame.assign_task()
+	if SaveGame.assign_task().is_empty():
+		toast("Every trail is sealed. Win hunts to open new ground.")
 	_refresh()
 
 
@@ -221,10 +256,12 @@ func _offer(offer: Dictionary) -> Button:
 		create_tween().tween_property(button, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 	button.pressed.connect(func() -> void:
 		if SaveGame.buy_slayer(str(offer["id"])):
+			AudioDirector.haptic("light")
 			toast("Bought %s" % str(offer["name"]))
 			_refresh()
 		else:
-			toast("Not enough points.")
+			AudioDirector.haptic("light")
+			toast("Not enough points. Turn in contracts to earn more.")
 	)
 	return button
 

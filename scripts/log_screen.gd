@@ -10,7 +10,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header())
+	box.add_child(header_with_back("home"))
 	box.add_child(h1("Collection Log"))
 	crest = BossCrest.new()
 	crest.custom_minimum_size = Vector2(0, 170)
@@ -29,7 +29,6 @@ func build() -> void:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	scroll.add_child(grid)
-	box.add_child(back_button("home"))
 	_fill()
 
 
@@ -46,7 +45,8 @@ func _fill() -> void:
 	for entry in Catalog.BIOMES:
 		var id := str(entry["boss"])
 		var short := str(entry["name"]).split(" ")[0]
-		var button := UiKit.button(short, 160, 60, "gold") if id == boss_id else UiKit.secondary(short, 160, 60)
+		# Shared tab shape: 88 px tall like every other tap target.
+		var button := UiKit.button(short, 160, 88, "gold") if id == boss_id else UiKit.secondary(short, 160, 88)
 		button.pressed.connect(_tab.bind(id))
 		tabs.add_child(button)
 	# Stable order: biome tab, then rarity, then id (Catalog.log_table), so the
@@ -65,10 +65,16 @@ func _fill() -> void:
 	crest.kills = SaveGame.boss_kills(boss_id)
 	crest.got = got
 	crest.total = table.size()
-	crest.overall = "%d / %d in the whole log" % [SaveGame.log_obtained_count(), Catalog.log_entries().size()]
 	crest.queue_redraw()
 	for child in grid.get_children():
 		child.queue_free()
+	# New saves stare at pure silhouettes: one friendly grimdark line instead
+	# of a bare counter.
+	if SaveGame.log_obtained_count() == 0:
+		crest.overall = "The log lies blank. Slay a beast and its spoils are inked here."
+	else:
+		crest.overall = "%d / %d in the whole log" % [SaveGame.log_obtained_count(), Catalog.log_entries().size()]
+	crest.queue_redraw()
 	for entry in table:
 		var id := str(entry["id"])
 		var cell := LogCell.new()
@@ -79,6 +85,13 @@ func _fill() -> void:
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cell.pressed_pet.connect(_pet)
 		grid.add_child(cell)
+	# A biome's table is never empty in Catalog, but a stray save with an
+	# unknown boss id should show a friendly line, not a blank panel.
+	if table.is_empty():
+		var empty := UiKit.label("Nothing is catalogued under this ground yet.", 24, UiKit.MUTED, "b", 3)
+		empty.custom_minimum_size = Vector2(0, 120)
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		grid.add_child(empty)
 	# Showing the tab counts as reading it; the mark is persisted so a find
 	# stops being "new" across a restart once it has been seen.
 	SaveGame.log_mark_seen(shown)
@@ -127,6 +140,14 @@ class LogCell extends PanelContainer:
 
 	func _on_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed and got and str(drop.get("kind", "")) == "pet":
+			# A real press: sink, haptic and the shared tap sting before the
+			# pet walks to the hero's side.
+			pivot_offset = size * 0.5
+			var tw := create_tween()
+			tw.tween_property(self, "scale", Vector2(0.94, 0.94), 0.05)
+			tw.tween_property(self, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			AudioDirector.sfx("ui_tap")
+			AudioDirector.haptic("light")
 			pressed_pet.emit(str(drop["id"]))
 
 	func paint(ci: Control) -> void:
