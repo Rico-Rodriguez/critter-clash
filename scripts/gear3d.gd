@@ -237,6 +237,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 				if sm and sm.shader == SHADER:
 					sm.set_shader_parameter("rune_color", rc)
 	model.set_meta("gear_tiers", t)
+	_silhouette(model, sk, t, kit)
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
@@ -269,6 +270,114 @@ static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Diction
 			if tier == 3 and label == "GearMain":
 				fm.set_shader_parameter("blade_glow", 3.2)
 			mi.set_surface_override_material(i, fm)
+
+
+## Tier silhouettes so pieces read at phone distance, not only by colour:
+## a horsehair crest on a blackened-steel (T2+) helm and a rune-hemmed cape
+## on cursed rune plate (T3 chest). Plate knights only ("silhouette" in KITS
+## defaults on unless the kit is flesh).
+static func _silhouette(model: Node3D, sk: Skeleton3D, t: Dictionary, kit: Dictionary) -> void:
+	for old in ["GearCrest", "GearCape"]:
+		var n := sk.get_node_or_null(old)
+		if n:
+			n.free()
+	if kit.get("flesh", false) or not kit.get("silhouette", true):
+		return
+	var bones := {}
+	for i in sk.get_bone_count():
+		var nm := sk.get_bone_name(i).to_lower()
+		for key in ["hips", "chest", "head", "l_shoulder", "r_shoulder", "l_arm", "r_arm", "l_knee", "top", "tip"]:
+			if not bones.has(key) and nm.begins_with(key):
+				bones[key] = i
+	if not (bones.has("hips") and bones.has("head") and bones.has("l_shoulder") and bones.has("r_shoulder") and bones.has("chest")):
+		return
+	var P := func(k: String) -> Vector3: return sk.get_bone_global_rest(bones[k]).origin
+	var hips: Vector3 = P.call("hips")
+	var head: Vector3 = P.call("head")
+	var up := (head - hips).normalized()
+	var across: Vector3 = P.call("r_shoulder") - P.call("l_shoulder")
+	var fwd := up.cross(across).normalized()
+	var h := (head - hips).length() * 2.2  # rough standing height
+	var rc: Color = kit.get("rune", RUNE)
+	if int(t.get("helm", 0)) >= 2:
+		var top: Vector3 = P.call("top") if bones.has("top") else (P.call("tip") if bones.has("tip") else head + up * h * 0.1)
+		var crest := MeshInstance3D.new()
+		# A horsehair brush crest: a thin flattened capsule laid front to back.
+		var pm := CapsuleMesh.new()
+		pm.radius = h * 0.04
+		pm.height = h * 0.27
+		pm.radial_segments = 12
+		pm.rings = 6
+		crest.mesh = pm
+		var cm := StandardMaterial3D.new()
+		cm.albedo_color = Color(0.4, 0.04, 0.03) if int(t["helm"]) == 2 else Color(0.1, 0.07, 0.07)
+		cm.roughness = 1.0
+		cm.rim_enabled = true
+		cm.rim = 0.6
+		if int(t["helm"]) == 3:
+			cm.emission_enabled = true
+			cm.emission = rc
+			cm.emission_energy_multiplier = 0.7
+		crest.material_override = cm
+		var side := fwd.cross(up).normalized()
+		var basis := Basis(side * 0.4, fwd, -up)
+		_attach(sk, bones["head"], "GearCrest", crest, Transform3D(basis, top + up * h * 0.03 - fwd * h * 0.03))
+	if int(t.get("chest", 0)) >= 3:
+		var w := across.length() * 2.2
+		if bones.has("l_arm") and bones.has("r_arm"):
+			w = ((P.call("l_arm") as Vector3) - (P.call("r_arm") as Vector3)).length() * 0.95
+		var knee: Vector3 = P.call("l_knee") if bones.has("l_knee") else hips - up * h * 0.25
+		var length: float = ((P.call("chest") as Vector3) - knee).length()
+		var cape := MeshInstance3D.new()
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(w, length)
+		plane.subdivide_width = 6
+		plane.subdivide_depth = 10
+		plane.orientation = PlaneMesh.FACE_Z
+		cape.mesh = plane
+		var sh := Shader.new()
+		sh.code = CAPE_SHADER
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		mat.set_shader_parameter("rune", rc)
+		mat.set_shader_parameter("len", length)
+		cape.material_override = mat
+		cape.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var basis2 := Basis(fwd.cross(up).normalized(), up, fwd)
+		var at: Vector3 = (P.call("chest") as Vector3) + up * h * 0.03 - fwd * h * 0.125 - up * length * 0.5
+		_attach(sk, bones["chest"], "GearCape", cape, Transform3D(basis2, at))
+
+
+const CAPE_SHADER := """shader_type spatial;
+render_mode cull_disabled;
+uniform vec3 rune : source_color = vec3(1.0, 0.3, 0.08);
+uniform float len = 1.0;
+void vertex() {
+	float d = 1.0 - UV.y;            // 0 at the shoulders, 1 at the hem
+	d = UV.y;
+	VERTEX.x *= 1.0 + d * 0.35;      // flare toward the hem
+	VERTEX.z -= d * d * len * 0.28;  // drape back off the plate
+	VERTEX.z += sin(TIME * 2.2 + d * 3.0 + VERTEX.x * 4.0) * d * len * 0.04;
+}
+void fragment() {
+	float d = UV.y;
+	float folds = 0.75 + 0.25 * sin(UV.x * 40.0 + d * 3.0);
+	ALBEDO = vec3(0.07, 0.025, 0.025) * folds;
+	ROUGHNESS = 0.9;
+	float hem = smoothstep(0.9, 0.97, d);
+	float pulse = 0.7 + 0.3 * sin(TIME * 2.4 - d * 6.0);
+	EMISSION = rune * (hem * 2.2 + smoothstep(0.75, 1.0, d) * 0.25) * pulse;
+}
+"""
+
+
+static func _attach(sk: Skeleton3D, bone: int, label: String, mesh: Node3D, skel_xf: Transform3D) -> void:
+	var att := BoneAttachment3D.new()
+	att.name = label
+	att.bone_idx = bone
+	sk.add_child(att)
+	mesh.transform = sk.get_bone_global_rest(bone).affine_inverse() * skel_xf
+	att.add_child(mesh)
 
 
 ## Cool fresnel rim on every gear-shaded surface (hunt readability on dark ground).
