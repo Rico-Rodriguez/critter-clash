@@ -4,7 +4,7 @@ extends Node
 ## Scripted clips for motion review. Run with Godot's movie writer, e.g.
 ##   godot --write-movie out.avi --fixed-fps 30 --resolution 720x1560 -- --movie=hunt
 ## Clips: hunt (joystick pivots, moving, a pack fight, gem pickup), boss (the
-## slam intro), tour (home -> collection -> road -> home -> HUNT press).
+## slam intro), tour (home -> heroes -> road -> home -> HUNT press).
 
 var app: Node
 

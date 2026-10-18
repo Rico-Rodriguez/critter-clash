@@ -2687,11 +2687,11 @@ func _showcase_lights(box: AABB) -> void:
 		# colour, energy, offset (in hero heights), range, specular
 		# Key (warm, high front-left), rims either side, front fill, and a
 		# top light so blackened plate keeps its form on the dark stage.
-		[Color("ffdcb0"), 9.0, Vector3(-0.9, 0.9, 1.3), 3.4, 1.6],
+		[Color("ffeedd"), 6.0, Vector3(-0.9, 0.9, 1.3), 3.4, 2.2],
 		[Color("9cc4ff"), 10.0, Vector3(1.0, 0.8, -1.1), 3.0, 1.8],
 		[Color("dfe6ff"), 3.0, Vector3(0.9, 0.1, 1.4), 3.6, 0.6],
 		[Color("a8c8ff"), 6.0, Vector3(-1.0, 0.6, -1.0), 2.8, 1.6],
-		[Color("fff1dc"), 4.0, Vector3(0.1, 1.5, 0.4), 2.6, 1.2],
+		[Color("f4f6ff"), 4.0, Vector3(0.1, 1.5, 0.4), 2.6, 2.4],
 	]
 	for sp in specs:
 		var l := OmniLight3D.new()
@@ -2710,30 +2710,31 @@ func _showcase_lights(box: AABB) -> void:
 
 ## A lit stone plinth under the showcase hero: dark worn stone, a gilt rune
 ## ring glowing at its lip and a warm pool of light from above on it.
-func _plinth(box: AABB) -> void:
-	var h := maxf(box.size.y, 0.5)
-	var base := Vector3(box.get_center().x, box.position.y, box.get_center().z)
+func _plinth(_box: AABB) -> void:
+	# Sits on the glade's grassy pedestal cap (hero stands at the origin):
+	# a dark worn stone dais, a gilt rune ring at its lip and a neutral pool
+	# of light from above so the dais reads as a lit stage.
 	var root := Node3D.new()
 	root.add_to_group("showcase_light")
-	root.position = base
+	root.position = Vector3(0, PEDESTAL_TOP + 0.04, 0)
 	world_root.add_child(root)
 	var stone := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = h * 0.42
-	cyl.bottom_radius = h * 0.46
-	cyl.height = h * 0.07
-	cyl.radial_segments = 32
+	cyl.top_radius = 0.92
+	cyl.bottom_radius = 0.98
+	cyl.height = 0.08
+	cyl.radial_segments = 40
 	stone.mesh = cyl
 	var sm := StandardMaterial3D.new()
-	sm.albedo_color = Color("3a332c")
-	sm.roughness = 0.85
+	sm.albedo_color = Color("6b6258")
+	sm.roughness = 0.8
 	stone.material_override = sm
-	stone.position.y = -h * 0.03
+	stone.position.y = -0.02
 	root.add_child(stone)
 	var ring := MeshInstance3D.new()
 	var tor := TorusMesh.new()
-	tor.inner_radius = h * 0.4
-	tor.outer_radius = h * 0.425
+	tor.inner_radius = 0.9
+	tor.outer_radius = 0.95
 	tor.rings = 48
 	tor.ring_segments = 6
 	ring.mesh = tor
@@ -2741,17 +2742,17 @@ func _plinth(box: AABB) -> void:
 	rm.albedo_color = Color("c99a4a")
 	rm.emission_enabled = true
 	rm.emission = Color("ffb85a")
-	rm.emission_energy_multiplier = 1.6
+	rm.emission_energy_multiplier = 2.6
 	ring.material_override = rm
-	ring.position.y = h * 0.006
+	ring.position.y = 0.025
 	root.add_child(ring)
 	var pool := SpotLight3D.new()
-	pool.light_color = Color("ffe2b8")
-	pool.light_energy = 6.0
-	pool.spot_range = h * 3.0
-	pool.spot_angle = 24.0
+	pool.light_color = Color("fff4e6")
+	pool.light_energy = 5.0
+	pool.spot_range = 7.0
+	pool.spot_angle = 18.0
 	pool.shadow_enabled = false
-	pool.position = Vector3(0, h * 2.2, 0)
+	pool.position = Vector3(0, 5.0, 0)
 	pool.rotation_degrees = Vector3(-90, 0, 0)
 	root.add_child(pool)
 
