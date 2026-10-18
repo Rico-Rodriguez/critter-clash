@@ -150,6 +150,32 @@ func _capture() -> void:
 			current.open_slot("chest")
 		await _settle()
 		await _shot("equip")
+	if _wants("progress"):
+		# Progression proof from a fresh armory: bare, then a scripted grant
+		# sequence standing in for drops (camp), a chest and a boss, each
+		# equipped through GearDB so the requirement gates still apply.
+		var ph := SaveGame.featured_id()
+		SaveGame.data.erase("armory")
+		var steps := [
+			["progress_0_bare", []],
+			["progress_1_camp_iron", ["helm.1", "boots.1", "weapon.1"]],
+			["progress_2_chest_iron", ["chest.1", "gloves.1", "pauldrons.1", "offhand.1"]],
+			["progress_3_boss_steel", ["helm.2", "chest.2", "pauldrons.2", "gloves.2", "boots.2", "weapon.2", "offhand.2"]],
+			["progress_4_rune", ["helm.3", "chest.3", "pauldrons.3", "gloves.3", "boots.3", "weapon.3", "offhand.3"]],
+		]
+		for st in steps:
+			if str(st[0]).ends_with("steel") or str(st[0]).ends_with("rune"):
+				var lv := 20 if str(st[0]).ends_with("steel") else 40
+				for sk in ["attack", "strength", "defence", "magic", "hitpoints"]:
+					GearDB.add_xp(ph, sk, maxi(0, GearDB.xp_for_level(lv) - GearDB.xp(ph, sk)))
+			for piece in st[1]:
+				var pid := "%s.%s" % [ph, piece]
+				if GearDB.is_item(pid):
+					GearDB.grant(pid)
+					GearDB.equip(ph, pid)
+			go("heroes", {"biome": "meadow"})
+			await _settle()
+			await _shot(str(st[0]))
 	SaveGame.data["heroes"]["ember"]["cards"] = 8
 	if _wants("collection"):
 		go("collection")
