@@ -353,9 +353,15 @@ static func _embers(model: Node3D, col: Color) -> void:
 	var meters := float(root.get_meta("meters"))
 	if meters < 6.0:
 		return  # banners and portraits stay clean
+	if _low():
+		return  # low tier: no ember particles (the core and veins carry the glow)
 	var p := GPUParticles3D.new()
 	p.name = "BossEmbers"
-	p.amount = 14 if _low() else 28
+	p.amount = 28
+	# Distance cull: the embers only matter near the boss; past ~3.5 boss
+	# heights (the explore camera far away) the system is not drawn at all.
+	p.visibility_range_end = meters * 3.5
+	p.visibility_range_end_margin = meters * 0.5
 	p.lifetime = 2.6
 	p.preprocess = 2.0
 	p.local_coords = false

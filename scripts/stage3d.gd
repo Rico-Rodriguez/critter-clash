@@ -1561,9 +1561,14 @@ void fragment() {
 	mat.shader = sh
 	mat.set_shader_parameter("amount", 0.0)
 	body.set_meta("windup_amt", 0.0)
+	# The overlay is an extra pass (a draw per surface), so it is attached
+	# only while the glow shows (see _boss_fx), not for the whole fight.
+	var meshes: Array = []
 	for m in body.find_children("*", "MeshInstance3D", true, false):
 		if (m as MeshInstance3D).material_overlay == null and not str(m.name).begins_with("Catch"):
-			(m as MeshInstance3D).material_overlay = mat
+			meshes.append(m)
+	body.set_meta("windup_meshes", meshes)
+	body.set_meta("windup_on", false)
 	body.set_meta("windup_mat", mat)
 
 
@@ -1580,6 +1585,12 @@ func _boss_fx(body: Node3D, actor: RunSim.Actor) -> void:
 		cur = move_toward(cur, want, 0.12)
 		body.set_meta("windup_amt", cur)
 		mat.set_shader_parameter("amount", cur)
+		var on := cur > 0.002
+		if on != bool(body.get_meta("windup_on", false)):
+			body.set_meta("windup_on", on)
+			for m in body.get_meta("windup_meshes", []):
+				if is_instance_valid(m):
+					(m as MeshInstance3D).material_overlay = mat if on else null
 
 
 ## Mobs: a warm fresnel rim baked into their own materials (no extra

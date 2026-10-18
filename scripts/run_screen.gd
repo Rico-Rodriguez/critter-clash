@@ -2310,41 +2310,43 @@ class XpBar extends Meter:
 		queue_redraw()
 
 	func _draw() -> void:
+		var b := _batch.begin(self)
 		var r := Rect2(Vector2.ZERO, size)
 		var rad := size.y * 0.5
 		# Forged frame: a dark iron plate with a bevelled bronze band and a
 		# rivet at each end, so the bar reads as a bar even when empty.
-		UiKit.ch_fill(self, r.grow(7), rad + 7, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
-		UiKit.ch_fill(self, r.grow(5), rad + 5, Color("5a5048"), Color("1e1a16"))
-		UiKit.ch_fill(self, r, rad, Color("f0d18e"), Color("5a3814"))
+		b.ch_fill(r.grow(7), rad + 7, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
+		b.ch_fill(r.grow(5), rad + 5, Color("5a5048"), Color("1e1a16"))
+		b.ch_fill(r, rad, Color("f0d18e"), Color("5a3814"))
 		for end in [rad, size.x - rad]:
-			draw_circle(Vector2(end, rad), 5.0, Color("2a1c10"))
-			draw_circle(Vector2(end - 0.8, rad - 0.8), 3.6, Color("e7c27a"))
+			b.draw_circle(Vector2(end, rad), 5.0, Color("2a1c10"))
+			b.draw_circle(Vector2(end - 0.8, rad - 0.8), 3.6, Color("e7c27a"))
 		var groove := r.grow(-3)
-		UiKit.ch_fill(self, groove, rad - 3, Color("030202"), Color("1a130d"))
+		b.ch_fill(groove, rad - 3, Color("030202"), Color("1a130d"))
 		# The empty track keeps a faint enamel tint and notches every tenth.
-		UiKit.ch_fill(self, groove.grow(-2), rad - 5, Color(fill, 0.16), Color(fill.darkened(0.5), 0.12))
-		UiKit.ch_fill(self, Rect2(groove.position, Vector2(groove.size.x, groove.size.y * 0.42)), rad - 3, Color(0, 0, 0, 0.7), Color(0, 0, 0, 0.0))
+		b.ch_fill(groove.grow(-2), rad - 5, Color(fill, 0.16), Color(fill.darkened(0.5), 0.12))
+		b.ch_fill(Rect2(groove.position, Vector2(groove.size.x, groove.size.y * 0.42)), rad - 3, Color(0, 0, 0, 0.7), Color(0, 0, 0, 0.0))
 		for i in range(1, 10):
 			var x := groove.position.x + groove.size.x * i / 10.0
-			draw_line(Vector2(x, groove.position.y + 3), Vector2(x, groove.end.y - 3), Color(0.9, 0.75, 0.45, 0.28), 2.0)
+			b.draw_line(Vector2(x, groove.position.y + 3), Vector2(x, groove.end.y - 3), Color(0.9, 0.75, 0.45, 0.28), 2.0)
 		var bar := groove.grow(-3)
 		var w := bar.size.x * clampf(ratio, 0.0, 1.0)
 		if w > bar.size.y * 0.6:
 			var fr := Rect2(bar.position, Vector2(w, bar.size.y))
 			var glow := 0.18 + 0.1 * sin(_t * 3.0)
 			for i in 3:
-				UiKit.ch_fill(self, fr.grow(2.0 + i * 2.0), bar.size.y * 0.5 + 2.0 + i * 2.0, Color(fill, glow / (i + 1)), Color(fill, glow / (i + 1)))
-			UiKit.ch_fill(self, fr, bar.size.y * 0.5, fill.lightened(0.3), fill.darkened(0.4))
-			UiKit.ch_fill(self, Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.36)), fr.size.y * 0.2, Color(1, 1, 1, 0.38), Color(1, 1, 1, 0.0))
+				b.ch_fill(fr.grow(2.0 + i * 2.0), bar.size.y * 0.5 + 2.0 + i * 2.0, Color(fill, glow / (i + 1)), Color(fill, glow / (i + 1)))
+			b.ch_fill(fr, bar.size.y * 0.5, fill.lightened(0.3), fill.darkened(0.4))
+			b.ch_fill(Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.36)), fr.size.y * 0.2, Color(1, 1, 1, 0.38), Color(1, 1, 1, 0.0))
 			# A soft sweep of light running along the fill.
 			var sx := fmod(_t * 0.45, 1.6) - 0.3
 			var cx := fr.position.x + fr.size.x * sx
 			if cx > fr.position.x and cx < fr.end.x:
 				var hw := minf(28.0, fr.end.x - cx)
-				draw_rect(Rect2(cx, fr.position.y + 2, hw, fr.size.y - 4), Color(1, 1, 1, 0.18))
+				b.draw_rect(Rect2(cx, fr.position.y + 2, hw, fr.size.y - 4), Color(1, 1, 1, 0.18))
 			# Bright leading edge.
-			draw_circle(Vector2(fr.end.x - bar.size.y * 0.5, fr.get_center().y), bar.size.y * 0.42, Color(fill.lightened(0.6), 0.55))
+			b.draw_circle(Vector2(fr.end.x - bar.size.y * 0.5, fr.get_center().y), bar.size.y * 0.42, Color(fill.lightened(0.6), 0.55))
+		b.flush()
 
 
 class Meter extends Control:
@@ -2353,6 +2355,8 @@ class Meter extends Control:
 	var segments := 1
 	var ornate := false
 	var _ghost := 1.0
+	## Batched: the bar's ~15 polygons go out as one draw.
+	var _batch := CanvasBatch.new()
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2366,25 +2370,26 @@ class Meter extends Control:
 		queue_redraw()
 
 	func _draw() -> void:
+		var b := _batch.begin(self)
 		var r := Rect2(Vector2.ZERO, size)
 		var rad := size.y * 0.5
-		UiKit.ch_fill(self, r.grow(2), rad + 2, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
-		UiKit.ch_fill(self, r, rad, Color("e8c886"), Color("4e3012"))
+		b.ch_fill(r.grow(2), rad + 2, Color(0, 0, 0, 0.6), Color(0, 0, 0, 0.6))
+		b.ch_fill(r, rad, Color("e8c886"), Color("4e3012"))
 		var inner := r.grow(-3)
-		UiKit.ch_fill(self, inner, rad - 3, Color("080605"), Color("1c1510"))
+		b.ch_fill(inner, rad - 3, Color("080605"), Color("1c1510"))
 		var bar := inner.grow(-2)
 		var ghost_w := bar.size.x * clampf(_ghost, 0.0, 1.0)
 		if ghost_w > bar.size.y * 0.6:
-			UiKit.ch_fill(self, Rect2(bar.position, Vector2(ghost_w, bar.size.y)), bar.size.y * 0.5, Color(1, 0.92, 0.8, 0.55), Color(1, 0.8, 0.6, 0.4))
+			b.ch_fill(Rect2(bar.position, Vector2(ghost_w, bar.size.y)), bar.size.y * 0.5, Color(1, 0.92, 0.8, 0.55), Color(1, 0.8, 0.6, 0.4))
 		var width := bar.size.x * clampf(ratio, 0.0, 1.0)
 		if width > bar.size.y * 0.6:
 			var fr := Rect2(bar.position, Vector2(width, bar.size.y))
-			UiKit.ch_fill(self, fr, bar.size.y * 0.5, fill.lightened(0.25), fill.darkened(0.45))
-			UiKit.ch_fill(self, Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.38)), fr.size.y * 0.2, Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.0))
+			b.ch_fill(fr, bar.size.y * 0.5, fill.lightened(0.25), fill.darkened(0.45))
+			b.ch_fill(Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.38)), fr.size.y * 0.2, Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.0))
 		if segments > 1:
 			for i in range(1, segments):
 				var x := bar.position.x + bar.size.x * float(i) / float(segments)
-				draw_line(Vector2(x, bar.position.y + 1), Vector2(x, bar.end.y - 1), Color(0, 0, 0, 0.55), 2.0)
+				b.draw_line(Vector2(x, bar.position.y + 1), Vector2(x, bar.end.y - 1), Color(0, 0, 0, 0.55), 2.0)
 		if ornate:
 			# Gilded end caps for the boss bar.
 			for side in [0.0, 1.0]:
@@ -2394,8 +2399,9 @@ class Meter extends Control:
 				var big := PackedVector2Array()
 				for p in pts:
 					big.append(c + (p - c) * 1.2)
-				draw_colored_polygon(big, Color("120a04"))
-				draw_polygon(pts, PackedColorArray([Color("ffe6a8"), Color("c8963a"), Color("6a4416"), Color("c8963a")]))
+				b.draw_colored_polygon(big, Color("120a04"))
+				b.draw_polygon(pts, PackedColorArray([Color("ffe6a8"), Color("c8963a"), Color("6a4416"), Color("c8963a")]))
+		b.flush()
 
 
 class StickLayer extends Control:
@@ -2430,8 +2436,17 @@ class StickLayer extends Control:
 		if size.y < 10.0:
 			return
 		if active:
-			_draw_base()
-			_draw_knob()
+			# Batched: base and knob are cached meshes moved to the thumb, the
+			# push glow one draw (was ~75 separate primitive draws).
+			var b := _batch.begin(self)
+			b.cached("base", _draw_base, origin)
+			if vec.length() > 0.05:
+				var ang := vec.angle()
+				var glow := clampf(vec.length(), 0.0, 1.0)
+				for k in 3:
+					b.draw_arc(origin, RADIUS + 3.0, ang - 0.55 + k * 0.1, ang + 0.55 - k * 0.1, 16, Color(1.0, 0.62, 0.22, 0.22 * glow * (k + 1)), 8.0 - k * 2.0, true)
+				b.flush()
+			b.cached("knob", _draw_knob, knob)
 		elif hint > 0.04:
 			UiKit.ensure()
 			var text := "Drag to steer"
@@ -2439,45 +2454,42 @@ class StickLayer extends Control:
 			draw_string(UiKit.font_x, Vector2(size.x * 0.5 - width * 0.5, size.y * 0.78), text, HORIZONTAL_ALIGNMENT_LEFT, width, 28, Color(1, 1, 1, 0.85 * hint))
 
 
+	var _batch := CanvasBatch.new()
+
 	## Forged base: a smoked-enamel well in a cast-bronze ring lit from the
-	## top left, eight engraved ticks, and an ember glow on the rim toward
-	## the push.
-	func _draw_base() -> void:
-		var c := origin
+	## top left and eight engraved ticks (the ember glow toward the push is
+	## drawn live in _draw). Recorded once around the origin.
+	func _draw_base(b: CanvasBatch) -> void:
+		var c := Vector2.ZERO
 		var r := RADIUS
-		draw_circle(c + Vector2(0, 3), r + 9.0, Color(0, 0, 0, 0.35))
+		b.draw_circle(c + Vector2(0, 3), r + 9.0, Color(0, 0, 0, 0.35))
 		for k in 6:
 			var t := float(k) / 5.0
-			draw_circle(c, r * (1.0 - t * 0.55), Color(0.05, 0.07, 0.09, 0.5).lerp(Color(0.12, 0.17, 0.2, 0.62), t))
+			b.draw_circle(c, r * (1.0 - t * 0.55), Color(0.05, 0.07, 0.09, 0.5).lerp(Color(0.12, 0.17, 0.2, 0.62), t))
 		for k in 40:
 			var a0 := TAU * k / 40.0
 			var lit := 0.5 + 0.5 * cos(a0 + 2.36)
 			var col := Color(0.38, 0.24, 0.1).lerp(Color(0.9, 0.66, 0.34), lit)
-			draw_arc(c, r + 3.0, a0, a0 + TAU / 40.0 + 0.01, 3, col, 6.0, true)
-		draw_arc(c, r + 6.5, 0.0, TAU, 48, Color(0.16, 0.09, 0.04, 0.9), 1.5, true)
-		draw_arc(c, r - 0.5, 0.0, TAU, 48, Color(1.0, 0.88, 0.6, 0.55), 1.0, true)
+			b.draw_arc(c, r + 3.0, a0, a0 + TAU / 40.0 + 0.01, 3, col, 6.0, true)
+		b.draw_arc(c, r + 6.5, 0.0, TAU, 48, Color(0.16, 0.09, 0.04, 0.9), 1.5, true)
+		b.draw_arc(c, r - 0.5, 0.0, TAU, 48, Color(1.0, 0.88, 0.6, 0.55), 1.0, true)
 		for k in 8:
 			var d := Vector2.RIGHT.rotated(TAU * k / 8.0)
-			draw_line(c + d * (r - 9.0), c + d * (r - 3.0), Color(0.85, 0.7, 0.45, 0.55), 1.5, true)
-		if vec.length() > 0.05:
-			var ang := vec.angle()
-			var glow := clampf(vec.length(), 0.0, 1.0)
-			for k in 3:
-				draw_arc(c, r + 3.0, ang - 0.55 + k * 0.1, ang + 0.55 - k * 0.1, 16, Color(1.0, 0.62, 0.22, 0.22 * glow * (k + 1)), 8.0 - k * 2.0, true)
+			b.draw_line(c + d * (r - 9.0), c + d * (r - 3.0), Color(0.85, 0.7, 0.45, 0.55), 1.5, true)
 
 	## Knob: a bronze dome with an enamel inset and a hard specular glint.
-	func _draw_knob() -> void:
-		var k := knob
+	func _draw_knob(b: CanvasBatch) -> void:
+		var k := Vector2.ZERO
 		var r := 21.0
-		draw_circle(k + Vector2(1.5, 4.0), r + 1.0, Color(0, 0, 0, 0.4))
-		draw_circle(k, r + 1.5, Color(0.2, 0.11, 0.04))
+		b.draw_circle(k + Vector2(1.5, 4.0), r + 1.0, Color(0, 0, 0, 0.4))
+		b.draw_circle(k, r + 1.5, Color(0.2, 0.11, 0.04))
 		for i in 7:
 			var t := float(i) / 6.0
-			draw_circle(k - Vector2(3, 4) * t, r * (1.0 - t * 0.7), Color(0.5, 0.31, 0.13).lerp(Color(0.98, 0.78, 0.46), t))
-		draw_circle(k, r * 0.5, Color(0.25, 0.08, 0.06))
-		draw_circle(k, r * 0.42, Color(0.6, 0.12, 0.08))
-		draw_circle(k - Vector2(2, 2.5), r * 0.22, Color(0.95, 0.4, 0.25))
-		draw_circle(k - Vector2(7, 8), 3.0, Color(1, 0.97, 0.88, 0.9))
+			b.draw_circle(k - Vector2(3, 4) * t, r * (1.0 - t * 0.7), Color(0.5, 0.31, 0.13).lerp(Color(0.98, 0.78, 0.46), t))
+		b.draw_circle(k, r * 0.5, Color(0.25, 0.08, 0.06))
+		b.draw_circle(k, r * 0.42, Color(0.6, 0.12, 0.08))
+		b.draw_circle(k - Vector2(2, 2.5), r * 0.22, Color(0.95, 0.4, 0.25))
+		b.draw_circle(k - Vector2(7, 8), 3.0, Color(1, 0.97, 0.88, 0.9))
 
 
 class GoldBeam extends Control:
@@ -2598,6 +2610,7 @@ class ThreatLayer extends Control:
 		band.size -= Vector2(float(pad["l"]) + float(pad["r"]) + 52.0, float(pad["t"]) + float(pad["b"]) + 230.0 + 150.0)
 		var center := band.get_center()
 		var alpha := float(run.get("sync_alpha"))
+		_b = _batch.begin(self)
 		var offscreen: Array = []
 		for actor in sim.actors:
 			if not actor.alive or actor.team == 0:
@@ -2620,16 +2633,20 @@ class ThreatLayer extends Control:
 		offscreen.sort_custom(func(a: Array, b: Array) -> bool: return bool(a[1]) and not bool(b[1]))
 		for item in offscreen:
 			_arrow(center, item[0], band, item[1])
+		_b.flush()
 
 	var _drawn: Array[Vector2] = []
+	## Health bars and edge arrows batch into one draw.
+	var _batch := CanvasBatch.new()
+	var _b: CanvasBatch
 
 	func _bar(at: Vector2, ratio: float) -> void:
 		var w := 30.0
 		var r := Rect2(at.x - w, at.y - 5.0, w * 2.0, 9.0)
-		draw_rect(r.grow(2.0), Color(0.05, 0.03, 0.02, 0.85), true)
-		draw_rect(r, Color(0.22, 0.06, 0.05), true)
-		draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, r.size.y)), Color("d8352a"), true)
-		draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, 3.0)), Color(1, 0.8, 0.7, 0.35), true)
+		_b.draw_rect(r.grow(2.0), Color(0.05, 0.03, 0.02, 0.85), true)
+		_b.draw_rect(r, Color(0.22, 0.06, 0.05), true)
+		_b.draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, r.size.y)), Color("d8352a"), true)
+		_b.draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, 3.0)), Color(1, 0.8, 0.7, 0.35), true)
 
 	func _arrow(from: Vector2, target: Vector2, band: Rect2, boss: bool) -> void:
 		var dir := (target - from).normalized()
@@ -2657,11 +2674,11 @@ class ThreatLayer extends Control:
 			var sd := dir.orthogonal()
 			var tp := at + dir * m
 			var pts := PackedVector2Array([tp, at - dir * m * 0.5 + sd * m * 0.8, at - dir * m * 0.1, at - dir * m * 0.5 - sd * m * 0.8])
-			draw_colored_polygon(pts, Color(0.05, 0.03, 0.02, 0.45))
+			_b.draw_colored_polygon(pts, Color(0.05, 0.03, 0.02, 0.45))
 			var inner := PackedVector2Array()
 			for q in pts:
 				inner.append(at + (q - at) * 0.72)
-			draw_colored_polygon(inner, Color(0.95, 0.85, 0.65, 0.5))
+			_b.draw_colored_polygon(inner, Color(0.95, 0.85, 0.65, 0.5))
 			return
 		_drawn.append(at)
 		# A forged chevron: iron body with a lit and a shadowed facet, a gilt
@@ -2676,22 +2693,22 @@ class ThreatLayer extends Control:
 		var shadow := PackedVector2Array()
 		for p in [tip, wl, notch, wr]:
 			shadow.append(p + Vector2(0, 4))
-		draw_colored_polygon(shadow, Color(0, 0, 0, 0.5))
+		_b.draw_colored_polygon(shadow, Color(0, 0, 0, 0.5))
 		# Light falls from the top-left: pick which facet is lit.
 		var lit_left := side.dot(Vector2(-0.6, -0.8)) > 0.0
 		var lit := Color("8a7a66") if not boss else Color("9a5a44")
 		var dark := Color("2e2620") if not boss else Color("3a1612")
-		draw_colored_polygon(PackedVector2Array([tip, wl, notch]), lit if lit_left else dark)
-		draw_colored_polygon(PackedVector2Array([tip, notch, wr]), dark if lit_left else lit)
+		_b.draw_colored_polygon(PackedVector2Array([tip, wl, notch]), lit if lit_left else dark)
+		_b.draw_colored_polygon(PackedVector2Array([tip, notch, wr]), dark if lit_left else lit)
 		var outline := PackedVector2Array([tip, wl, notch, wr, tip])
-		draw_polyline(outline, Color(0.07, 0.04, 0.02, 0.95), 4.5, true)
-		draw_polyline(outline, Color("c9a25a"), 1.8, true)
-		draw_line(tip, notch, Color(1.0, 0.9, 0.7, 0.35), 1.2, true)
+		_b.draw_polyline(outline, Color(0.07, 0.04, 0.02, 0.95), 4.5, true)
+		_b.draw_polyline(outline, Color("c9a25a"), 1.8, true)
+		_b.draw_line(tip, notch, Color(1.0, 0.9, 0.7, 0.35), 1.2, true)
 		var g := at - dir * s * 0.05
 		var gs := s * (0.2 if boss else 0.17)
 		var gem := PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g - dir * gs, g - side * gs * 0.8])
-		draw_colored_polygon(gem, Color("e8462e") if boss else Color("f0a830"))
-		draw_colored_polygon(PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g]), Color(1, 0.85, 0.7, 0.55))
+		_b.draw_colored_polygon(gem, Color("e8462e") if boss else Color("f0a830"))
+		_b.draw_colored_polygon(PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g]), Color(1, 0.85, 0.7, 0.55))
 
 
 
@@ -2938,7 +2955,7 @@ class MiniMap extends Control:
 	## sharply against the warm parchment. One textured polygon (clipped to
 	## the disc or the frame) sampling the veil image, which the shader keeps
 	## in step with the same view; no extra per-frame bake.
-	func _fog(ci: CanvasItem) -> void:
+	func _fog(ci) -> void:
 		if _veil == null:
 			return
 		var pts := PackedVector2Array()
@@ -2956,7 +2973,7 @@ class MiniMap extends Control:
 				uvs.append(_uv_at(q2))
 		ci.draw_colored_polygon(pts, Color(0.06, 0.09, 0.1, 0.92), uvs, _veil)
 
-	func _bronze_ring(ci: CanvasItem, c: Vector2, r: float) -> void:
+	func _bronze_ring(ci, c: Vector2, r: float) -> void:
 		# Forged bronze: a dark outer lip, a warm cast band lit from the top
 		# left, a thin bright bevel on the inside, and four rivets.
 		ci.draw_arc(c, r + 7.0, 0.0, TAU, 64, Color(0.09, 0.06, 0.03, 0.85), 13.0, true)
@@ -2984,7 +3001,7 @@ class MiniMap extends Control:
 	## Forged bronze border for the full map: a dark outer lip, a hammered
 	## band with a warm top-left highlight, an engraved gold bevel, riveted
 	## corner bosses and a title cartouche.
-	func _bronze_frame(ci: CanvasItem, r: Rect2) -> void:
+	func _bronze_frame(ci, r: Rect2) -> void:
 		var band := 16.0
 		ci.draw_rect(r.grow(band + 4.0), Color(0.07, 0.04, 0.02, 0.9), false, 4.0)
 		for k in 6:
@@ -3039,14 +3056,14 @@ class MiniMap extends Control:
 		ci.draw_colored_polygon(inner, Color(0.16, 0.09, 0.05))
 		ci.draw_string(font, Vector2(plate.get_center().x - tw * 0.5, plate.get_center().y + 11.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color("f2d9a0"))
 
-	func _rivet(ci: CanvasItem, at: Vector2, rad: float) -> void:
+	func _rivet(ci, at: Vector2, rad: float) -> void:
 		ci.draw_circle(at + Vector2(0.8, 0.8), rad + 0.8, Color(0.08, 0.04, 0.02, 0.8))
 		ci.draw_circle(at, rad, Color(0.86, 0.66, 0.36))
 		ci.draw_circle(at + Vector2(-rad * 0.3, -rad * 0.3), rad * 0.4, Color(1, 0.95, 0.8))
 
 	## The lair's skull, blood red once the den is known and a dim ember
 	## before that, always marked as the goal.
-	func _skull(ci: CanvasItem, p: Vector2, s: float, found: bool) -> void:
+	func _skull(ci, p: Vector2, s: float, found: bool) -> void:
 		var bone := Color(0.96, 0.34, 0.22) if found else Color(0.5, 0.14, 0.1, 0.7)
 		var ink := Color(0.08, 0.02, 0.03)
 		ci.draw_circle(p + Vector2(0, -s * 0.15), s * 1.05, ink)
@@ -3063,7 +3080,7 @@ class MiniMap extends Control:
 		if big:
 			draw_rect(Rect2(-position, get_viewport_rect().size), Color(0, 0, 0, 0.6), true)
 
-	func draw_marks(ci: CanvasItem) -> void:
+	func draw_marks(ci) -> void:
 		if sim == null or _base == null:
 			return
 		var r := Rect2(Vector2.ZERO, size)
@@ -3073,6 +3090,9 @@ class MiniMap extends Control:
 		_fog(ci)
 		if big:
 			_bronze_frame(ci, r)
+		elif ci is CanvasBatch:
+			# The ring never changes: one cached mesh draw.
+			(ci as CanvasBatch).cached("ring%d" % int(DIAM), func(b): _bronze_ring(b, c, DIAM * 0.5))
 		else:
 			_bronze_ring(ci, c, DIAM * 0.5)
 		var dot := 3.0 if not big else 5.0
@@ -3165,7 +3185,7 @@ class MiniMap extends Control:
 	## pulsing halo, pointing where the hero moves (a plain dot when its
 	## heading is unknown). Sized in device px at 1179 wide: ~6.5 canvas px
 	## of radius on the corner disc.
-	func _hero_mark(ci: CanvasItem) -> void:
+	func _hero_mark(ci) -> void:
 		if sim.heroes.is_empty():
 			return
 		var h: RunSim.Actor = sim.heroes[0]
@@ -3243,17 +3263,10 @@ class DodgeButton extends Control:
 	func _draw() -> void:
 		var c := Vector2(size.x * 0.5, size.y * 0.5)
 		var r := size.x * 0.5 - 8.0
-		draw_circle(c + Vector2(0, 3), r + 5.0, Color(0, 0, 0, 0.35))
-		for k in 40:
-			var a0 := TAU * k / 40.0
-			var lit := 0.5 + 0.5 * cos(a0 + 2.36)
-			var col := Color(0.3, 0.2, 0.1).lerp(Color(0.82, 0.6, 0.3), lit)
-			draw_arc(c, r + 2.5, a0, a0 + TAU / 40.0 + 0.01, 3, col, 5.0, true)
-		draw_arc(c, r + 5.5, 0.0, TAU, 48, Color(0.16, 0.09, 0.04, 0.9), 1.5, true)
-		draw_arc(c, r - 0.5, 0.0, TAU, 48, Color(1.0, 0.88, 0.6, 0.5), 1.0, true)
-		for k in 6:
-			var t := float(k) / 5.0
-			draw_circle(c, r * (1.0 - t * 0.55), Color(0.06, 0.08, 0.1, 0.62).lerp(Color(0.16, 0.2, 0.24, 0.7), t))
+		# Batched: the static disc is one cached mesh, the veil, glyph and
+		# flash one more draw (it was ~130 separate arc/circle draws).
+		var b := _batch.begin(self)
+		b.cached("disc%d" % int(size.x), _disc.bind(c, r))
 		if frac < 0.999:
 			# Radial veil: covers the still-cooling slice and recedes clockwise.
 			var a0 := -PI * 0.5
@@ -3261,17 +3274,34 @@ class DodgeButton extends Control:
 			var pts := PackedVector2Array([c])
 			for s in 27:
 				pts.append(c + Vector2.RIGHT.rotated(a0 + (a1 - a0) * float(s) / 26.0) * r)
-			draw_colored_polygon(pts, Color(0.05, 0.06, 0.08, 0.66))
+			b.draw_colored_polygon(pts, Color(0.05, 0.06, 0.08, 0.66))
 		var glyph := Color(0.94, 0.87, 0.68, 0.95) if frac >= 0.999 else Color(0.6, 0.52, 0.4, 0.5)
 		for side in 2:
 			var off := Vector2(-8.0 + float(side) * 16.0, 2.0)
-			draw_polyline(PackedVector2Array([
+			b.draw_polyline(PackedVector2Array([
 				c + off + Vector2(-6.5, -11.0),
 				c + off + Vector2(6.5, 0.0),
 				c + off + Vector2(-6.5, 11.0),
 			]), glyph, 5.0, true)
 		if _flash > 0.01:
-			draw_arc(c, r + 2.5, 0.0, TAU, 40, Color(1.0, 0.85, 0.4, 0.7 * _flash), 3.5, true)
+			# Reduce flashing damps the ready ring like the other flashes.
+			b.draw_arc(c, r + 2.5, 0.0, TAU, 40, Color(1.0, 0.85, 0.4, 0.7 * _flash * AudioDirector.flash_scale()), 3.5, true)
+		b.flush()
+
+	var _batch := CanvasBatch.new()
+
+	func _disc(b: CanvasBatch, c: Vector2, r: float) -> void:
+		b.draw_circle(c + Vector2(0, 3), r + 5.0, Color(0, 0, 0, 0.35))
+		for k in 40:
+			var a0 := TAU * k / 40.0
+			var lit := 0.5 + 0.5 * cos(a0 + 2.36)
+			var col := Color(0.3, 0.2, 0.1).lerp(Color(0.82, 0.6, 0.3), lit)
+			b.draw_arc(c, r + 2.5, a0, a0 + TAU / 40.0 + 0.01, 3, col, 5.0, true)
+		b.draw_arc(c, r + 5.5, 0.0, TAU, 48, Color(0.16, 0.09, 0.04, 0.9), 1.5, true)
+		b.draw_arc(c, r - 0.5, 0.0, TAU, 48, Color(1.0, 0.88, 0.6, 0.5), 1.0, true)
+		for k in 6:
+			var t := float(k) / 5.0
+			b.draw_circle(c, r * (1.0 - t * 0.55), Color(0.06, 0.08, 0.1, 0.62).lerp(Color(0.16, 0.2, 0.24, 0.7), t))
 
 
 ## The boss reveal name card: a dark leather panel in a forged bronze frame,
@@ -3341,9 +3371,14 @@ class BossNameCard extends Control:
 ## Draws the minimap's frame and markers above its paper.
 class Marks extends Control:
 	var map: Control
+	var _batch := CanvasBatch.new()
 
+	## Every flat glyph, ring and frame goes through one CanvasBatch: a few
+	## draws a frame instead of ~200 (one per circle, arc and line).
 	func _draw() -> void:
-		map.call("draw_marks", self)
+		var b := _batch.begin(self)
+		map.call("draw_marks", b)
+		b.flush()
 
 
 ## First-hunt guidance: one short contextual hint at a time on a compact dark
