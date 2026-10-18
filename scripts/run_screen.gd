@@ -267,7 +267,13 @@ func _build_hud() -> void:
 	boss_label = UiKit.label("", 28, UiKit.GOLD.lightened(0.2), "x", 4)
 	boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	boss_label.visible = false
-	top.add_child(boss_label)
+	# Boss name + bar stop short of the corner minimap so its right end shows.
+	var label_wrap := MarginContainer.new()
+	label_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label_wrap.add_theme_constant_override("margin_left", 30)
+	label_wrap.add_theme_constant_override("margin_right", int(MiniMap.DIAM) + 40)
+	label_wrap.add_child(boss_label)
+	top.add_child(label_wrap)
 	boss_meter = Meter.new()
 	boss_meter.fill = Color("b8241c")
 	boss_meter.ornate = true
@@ -276,7 +282,7 @@ func _build_hud() -> void:
 	var boss_wrap := MarginContainer.new()
 	boss_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	boss_wrap.add_theme_constant_override("margin_left", 30)
-	boss_wrap.add_theme_constant_override("margin_right", 30)
+	boss_wrap.add_theme_constant_override("margin_right", int(MiniMap.DIAM) + 40)
 	boss_wrap.add_child(boss_meter)
 	top.add_child(boss_wrap)
 	banner = UiKit.label("", 38, UiKit.GOLD.lightened(0.25), "x", 4)
@@ -506,6 +512,7 @@ func _hud() -> void:
 	var show_boss := sim.phase == "boss"
 	boss_meter.visible = show_boss and sim.boss != null
 	boss_label.visible = show_boss and sim.boss != null
+	boss_label.get_parent().visible = boss_label.visible
 	if show_boss and sim.boss != null:
 		boss_meter.ratio = sim.boss.hp / maxf(sim.boss.max_hp, 1.0)
 		boss_label.text = sim.boss.display

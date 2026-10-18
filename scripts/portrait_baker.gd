@@ -45,7 +45,20 @@ var _key: DirectionalLight3D
 
 func _lights() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_CLEAR_COLOR
+	# Transparent black clear (no light fringe on the alpha edge) and a
+	# procedural sky for reflections only, so armour metal has something to
+	# mirror instead of going near-black.
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0, 0, 0, 0)
+	var sky := Sky.new()
+	var sm := ProceduralSkyMaterial.new()
+	sm.sky_top_color = Color("6f86a8")
+	sm.sky_horizon_color = Color("c9b79a")
+	sm.ground_horizon_color = Color("5a4a3a")
+	sm.ground_bottom_color = Color("1e1812")
+	sky.sky_material = sm
+	env.sky = sky
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("b8c8e0")
 	env.ambient_light_energy = 0.75

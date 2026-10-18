@@ -318,15 +318,14 @@ static func _silhouette(model: Node3D, sk: Skeleton3D, t: Dictionary, kit: Dicti
 		pm.radial_segments = 12
 		pm.rings = 6
 		crest.mesh = pm
-		var cm := StandardMaterial3D.new()
-		cm.albedo_color = Color(0.4, 0.04, 0.03) if int(t["helm"]) == 2 else Color(0.1, 0.07, 0.07)
-		cm.roughness = 1.0
-		cm.rim_enabled = true
-		cm.rim = 0.6
-		if int(t["helm"]) == 3:
-			cm.emission_enabled = true
-			cm.emission = rc
-			cm.emission_energy_multiplier = 0.7
+		# Horsehair: dark oxblood strands (hash stripes round the capsule)
+		# with a darker root, so it reads as hair and not a red plastic fin.
+		var cm := ShaderMaterial.new()
+		cm.shader = _crest_shader()
+		var cc: Color = Color(0.3, 0.035, 0.03) if int(t["helm"]) == 2 else Color(0.09, 0.06, 0.06)
+		cm.set_shader_parameter("base", Vector3(cc.r, cc.g, cc.b))
+		var glow: Color = rc if int(t["helm"]) == 3 else Color.BLACK
+		cm.set_shader_parameter("glow", Vector3(glow.r, glow.g, glow.b) * 0.5)
 		crest.material_override = cm
 		var side := fwd.cross(up).normalized()
 		var basis := Basis(side * 0.4, fwd, -up)
@@ -666,3 +665,27 @@ static func _ch(c: int) -> Vector4:
 		BaseMaterial3D.TEXTURE_CHANNEL_ALPHA:
 			return Vector4(0, 0, 0, 1)
 	return Vector4(0.333, 0.333, 0.333, 0)
+
+
+static var _crest_sh: Shader
+
+
+static func _crest_shader() -> Shader:
+	if _crest_sh == null:
+		_crest_sh = Shader.new()
+		_crest_sh.code = """shader_type spatial;
+render_mode cull_disabled;
+uniform vec3 base = vec3(0.3, 0.035, 0.03);
+uniform vec3 glow = vec3(0.0);
+float h1(float x) { return fract(sin(x * 91.7) * 43758.5); }
+void fragment() {
+	float u = UV.x * 70.0;
+	float strand = mix(h1(floor(u)), h1(floor(u) + 1.0), smoothstep(0.0, 1.0, fract(u)));
+	float tip = smoothstep(0.0, 0.5, UV.y) * smoothstep(1.0, 0.5, UV.y);
+	ALBEDO = base * (0.45 + 0.75 * strand) * (0.55 + 0.45 * tip);
+	ROUGHNESS = 0.85;
+	SPECULAR = 0.25;
+	EMISSION = glow * strand * tip;
+}
+"""
+	return _crest_sh
