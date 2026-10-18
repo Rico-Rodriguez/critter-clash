@@ -636,6 +636,8 @@ class MapSheet extends Control:
 		for m in Daily.modifiers_for(key):
 			parts.append(str(m.get("name", "")))
 		var best := SaveGame.daily_best(key)
+		# A sealed biome is still today's daily; flag the daily-only access.
+		var locked := not SaveGame.biome_open(str(biome["id"]))
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
 		b.flat = true
@@ -679,6 +681,8 @@ class MapSheet extends Control:
 		v.add_child(UiKit.label("DAILY CHALLENGE", 30, UiKit.GOLD.lightened(0.25), "x", 4))
 		v.add_child(UiKit.label("%s · %s" % [str(biome["name"]).to_upper(), " + ".join(parts)], 18, UiKit.CREAM, "b", 0))
 		v.add_child(UiKit.label("Best today %d" % best if best > 0 else "No run today yet", 16, UiKit.GOLD if best > 0 else UiKit.MUTED, "x", 2))
+		if locked:
+			v.add_child(UiKit.label("Daily pass", 16, Color("9fe08a"), "b", 2))
 		var tag := UiKit.label("TODAY", 16, Color("9fe08a"), "x", 2)
 		tag.custom_minimum_size = Vector2(90, 0)
 		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

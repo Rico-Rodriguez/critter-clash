@@ -416,6 +416,16 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictio
 	}
 
 
+## A daily won on a biome the player has not unlocked: the boss falls and the
+## run scores, but the clear is daily-only. No cleared flag, trophies, boss
+## kill or slayer progress, so it never unlocks the biome or advances
+## progress. The hunt chest still comes home as the run's loot.
+func commit_daily_pass(biome_id: String, boss_id: String) -> Dictionary:
+	_send_home(_new_chest("hunt", biome_id, true))
+	_write()
+	return {"trophies": 0, "first": false, "boss": boss_id, "drops": [], "reveal": {}, "kills": boss_kills(boss_id)}
+
+
 func _send_home(chest: Dictionary) -> void:
 	var ok := add_chest(chest)
 	if not ok:

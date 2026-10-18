@@ -160,6 +160,22 @@ static func _daily_check() -> void:
 		seeds[Daily.seed_for(Daily.today_key(base + i * 86400))] = true
 	if seeds.size() < 20:
 		_fail("30 days gave only %d distinct seeds" % seeds.size())
+	# The rotation must cover every biome and never land on the same one two
+	# days running. 28 days is short enough to stay quick and long enough that
+	# a skipped biome would show.
+	var counts := {}
+	var prev := ""
+	for i in 28:
+		var bid := Daily.biome_for(Daily.today_key(base + i * 86400))
+		if bid == prev:
+			_fail("daily repeated %s on consecutive days" % bid)
+			break
+		prev = bid
+		counts[bid] = int(counts.get(bid, 0)) + 1
+	for entry in Catalog.BIOMES:
+		var bid := str(entry["id"])
+		if int(counts.get(bid, 0)) < 3:
+			_fail("daily biome %s appeared %d times in 28 days" % [bid, int(counts.get(bid, 0))])
 	var win := {"win": true, "time": 200.0, "kills": 60, "level": 8, "hp": 50.0, "max_hp": 100.0}
 	var loss := win.duplicate()
 	loss["win"] = false
@@ -192,6 +208,32 @@ static func _daily_check() -> void:
 		if int(board[i - 1]["score"]) < int(board[i]["score"]):
 			_fail("daily board is not sorted by score")
 			break
+	# Daily access: a sealed biome is playable through the daily, but the
+	# session and a win leave the clear state alone. Run on the in-memory
+	# copy with no_write set, then restore.
+	SaveGame.data["trophies"] = 0
+	SaveGame.data["cleared"] = {}
+	var locked_unix := 0
+	for i in 8:
+		var u := base + i * 86400
+		if not SaveGame.biome_open(Daily.biome_for(Daily.today_key(u))):
+			locked_unix = u
+			break
+	if locked_unix == 0:
+		_fail("daily rotation never hit a sealed biome")
+	else:
+		var locked_id := Daily.biome_for(Daily.today_key(locked_unix))
+		var before: Dictionary = SaveGame.data["cleared"].duplicate(true)
+		var daily_session := Session.daily("ember", locked_unix)
+		var daily_sim := RunSim.new()
+		daily_sim.start(daily_session, {"ember": Catalog.base_stats("ember")})
+		for _i in 5:
+			daily_sim.step(STEP, [Vector2.ZERO])
+		SaveGame.commit_daily_pass(locked_id, str(Catalog.biome(locked_id)["boss"]))
+		if str(SaveGame.data["cleared"]) != str(before):
+			_fail("a locked daily changed the clear state")
+		if SaveGame.biome_cleared(locked_id):
+			_fail("a locked daily marked %s cleared" % locked_id)
 	SaveGame.data = keep
 	SaveGame.no_write = false
 	print("DAILY ok: key %s seed %d biome %s" % [key, a.seed, a.biome_id])

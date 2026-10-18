@@ -17,6 +17,9 @@ var committed := false
 ## AGAIN repeats the same hunt) and the recorded local entry.
 var daily_key := ""
 var is_daily := false
+## True when the daily plays a biome the player has not unlocked: daily-only
+## access with a mild health assist, and no clear credit on a win.
+var daily_pass := false
 var run_args: Dictionary = {}
 var daily_entry: Dictionary = {}
 var daily_recorded := false
@@ -144,9 +147,14 @@ func open(args: Dictionary = {}) -> void:
 		daily_key = str(args["daily"])
 		session.daily_key = daily_key
 		session.modifiers = args.get("modifiers", [])
+	# A sealed biome is playable through the daily (daily access). Give the
+	# heroes the Daily pass so the taste of a later biome is fair.
+	daily_pass = is_daily and not SaveGame.biome_open(biome_id)
 	sim = RunSim.new()
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
+	if daily_pass:
+		stats[hero_id]["hp"] = float(stats[hero_id]["hp"]) * Daily.PASS_HP_MUL
 	sim.start(session, stats)
 	AudioDirector.music("hunt")
 	cam = HuntCamera.new()
@@ -618,7 +626,10 @@ func _drain() -> void:
 			"boss_down":
 				if not committed:
 					committed = true
-					summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain)
+					if daily_pass:
+						summary = SaveGame.commit_daily_pass(biome_id, str(ev["id"]))
+					else:
+						summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain)
 				AudioDirector.sfx("boss_die")
 				AudioDirector.haptic("heavy")
 				AudioDirector.sting(true)
@@ -1392,19 +1403,25 @@ func _show_victory(boss_name: String) -> void:
 	col.add_child(_end_stats())
 	if is_daily:
 		col.add_child(_daily_line())
-	var prize := HBoxContainer.new()
-	prize.alignment = BoxContainer.ALIGNMENT_CENTER
-	prize.add_theme_constant_override("separation", 10)
-	var cup := TextureRect.new()
-	cup.texture = UiKit.icon("trophy")
-	cup.custom_minimum_size = Vector2(46, 46)
-	cup.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	cup.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	cup.modulate = UiKit.GOLD
-	prize.add_child(cup)
-	var trophies := UiKit.label("+%d" % int(summary.get("trophies", 0)), 40, UiKit.GOLD.lightened(0.25), "x", 3)
-	prize.add_child(trophies)
-	col.add_child(prize)
+	if daily_pass:
+		# The daily is a taste of a sealed biome, not a clear: make that read.
+		var pass_note := UiKit.label("Daily pass · playable today only", 20, UiKit.MUTED.lightened(0.15), "m", 2)
+		pass_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(pass_note)
+	else:
+		var prize := HBoxContainer.new()
+		prize.alignment = BoxContainer.ALIGNMENT_CENTER
+		prize.add_theme_constant_override("separation", 10)
+		var cup := TextureRect.new()
+		cup.texture = UiKit.icon("trophy")
+		cup.custom_minimum_size = Vector2(46, 46)
+		cup.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		cup.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		cup.modulate = UiKit.GOLD
+		prize.add_child(cup)
+		var trophies := UiKit.label("+%d" % int(summary.get("trophies", 0)), 40, UiKit.GOLD.lightened(0.25), "x", 3)
+		prize.add_child(trophies)
+		col.add_child(prize)
 	col.add_child(_end_chest(true))
 	var button := UiKit.button("CONTINUE", 660, 104, "gold")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
