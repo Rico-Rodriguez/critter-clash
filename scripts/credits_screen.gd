@@ -40,7 +40,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "Stylized Dragon",
-		"used": "Cinder and Cindling",
+		"used": "Cinder and Ash Wyrmling",
 		"author": "Stan",
 		"url": "https://sketchfab.com/3d-models/stylized-dragon-97d00c182fa24fa4838493c41ad8e52c",
 		"license": "CC-BY 4.0",
@@ -82,7 +82,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "Animated Fox 3D Model",
-		"used": "Spirit wolves (feral fox beasts)",
+		"used": "Spectral Hound (feral fox beasts)",
 		"author": "AnimalMesh 3D",
 		"url": "https://sketchfab.com/3d-models/animated-fox-3d-model-7b7d4f07d47a444ab6c08b62adfd4aff",
 		"license": "CC-BY 4.0",
@@ -110,21 +110,21 @@ const ENTRIES := [
 	},
 	{
 		"title": "fantasy boar animation",
-		"used": "Snowpup and Magmash",
+		"used": "Rime Stalker and Magma Behemoth",
 		"author": "blam (Blam577895)",
 		"url": "https://sketchfab.com/3d-models/fantasy-boar-animation-a9dd958971ea462fbaab621410c30748",
 		"license": "CC-BY 4.0",
 	},
 	{
 		"title": "giant scorpion animation",
-		"used": "Skink and Shard",
+		"used": "Ashrunner and Ice Wraith",
 		"author": "blam (Blam577895)",
 		"url": "https://sketchfab.com/3d-models/giant-scorpion-animation-651c17e0a3784c0386790e5b7c565f1a",
 		"license": "CC-BY 4.0",
 	},
 	{
 		"title": "Bat Lord",
-		"used": "Moth, Glowmoth, Ashbat and Icewisp",
+		"used": "Grave Moth, Blight Moth, Ashbat and Frostcaller",
 		"author": "Huh (SkibidiSanya)",
 		"url": "https://sketchfab.com/3d-models/bat-lord-8ee898e9c5384493989a5f1cbc38dab3",
 		"license": "CC-BY 4.0",

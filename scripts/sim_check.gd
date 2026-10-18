@@ -17,7 +17,7 @@ const CHECKS := [
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
-	"forge", "boss_gear", "home_pips", "hints",
+	"forge", "boss_gear", "home_pips", "hints", "grim_names",
 ]
 ## run_screen.gd has no class_name; its inner HintLayer is reached through the
 ## preloaded script constant so the pure trigger helper can be tested.
@@ -82,6 +82,8 @@ static func _dispatch(name: String) -> void:
 			_maps()
 		"cards":
 			_cards()
+		"grim_names":
+			_grim_names_check()
 		"pools":
 			_pools_check()
 		"exclusivity":
@@ -1024,6 +1026,71 @@ static func _cards() -> void:
 				sim.choose(0)
 				sim.drain_events()
 	print("CARDS ", Catalog.CARDS.size(), " ok")
+
+
+## Grimdark naming pass guard: minion display names and power-up
+## name/desc texts carry zero cute leftovers, minion names stay unique, and
+## every rank_desc keeps the {n}/{total} placeholders it shipped with.
+## Words are matched whole and case-insensitive; ids and numbers are keys
+## and stay untouched.
+static func _grim_names_check() -> void:
+	var banned := [
+		"paws", "paw", "critter", "bunny", "puppy", "pup", "snack", "cute",
+		"fluffy", "dew", "nibble", "hearty", "puddle",
+	]
+	var names := {}
+	for id in Catalog.CRITTERS:
+		var row: Dictionary = Catalog.CRITTERS[id]
+		if str(row.get("kind", "")) != "minion":
+			continue
+		var name := str(row.get("name", ""))
+		_word_check("minion name " + str(id), name, banned)
+		if name.is_empty():
+			_fail("minion " + str(id) + " has no name")
+		elif names.has(name):
+			_fail("minion name is shared by two rows: " + name)
+		names[name] = true
+	var rows: Array = Catalog.CARDS.duplicate()
+	rows.append(Catalog.card("snack"))
+	for entry in rows:
+		var id := str(entry.get("id", ""))
+		_word_check("card name " + id, str(entry.get("name", "")), banned)
+		_word_check("card desc " + id, str(entry.get("desc", "")), banned)
+	# Placeholders the landing table shipped with: stack rows use {n}/{total},
+	# summon rows count with {total} alone, the heal fallback only {n}, and
+	# the uniques carry no rank_desc at all.
+	var total_only := ["orbit_blades", "chain_lightning", "spirit_wolf"]
+	for entry in Catalog.CARDS:
+		var id := str(entry["id"])
+		var rd := str(entry.get("rank_desc", ""))
+		if id in ["phoenix", "second_wind"]:
+			if rd != "":
+				_fail(id + " is unique but shipped a rank_desc: " + rd)
+			continue
+		if rd.is_empty():
+			_fail(id + " lost its rank_desc")
+			continue
+		if id in total_only:
+			if not rd.contains("{total}") or rd.contains("{n}"):
+				_fail(id + " rank_desc placeholders drifted: " + rd)
+			continue
+		if not rd.contains("{n}") or not rd.contains("{total}"):
+			_fail(id + " rank_desc lost {n}/{total}: " + rd)
+	var snack_rd := str(Catalog.card("snack").get("rank_desc", ""))
+	if not snack_rd.contains("{n}") or snack_rd.contains("{total}"):
+		_fail("snack rank_desc placeholders drifted: " + snack_rd)
+	print("GRIM NAMES ok, %d minions named" % names.size())
+
+
+## Whole-word, case-insensitive banned-word scan over display text.
+static func _word_check(where: String, text: String, banned: Array) -> void:
+	var letters := ""
+	for ch in text.to_lower():
+		letters += ch if (ch >= "a" and ch <= "z") else " "
+	for word in letters.split(" ", false):
+		if word in banned:
+			_fail(where + " keeps the banned word '" + word + "'")
+			return
 
 
 ## Blessing pools: each card in exactly one pool, class pools hold enough
