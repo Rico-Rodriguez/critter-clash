@@ -18,7 +18,7 @@ const CHECKS := [
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
 	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale", "difficulty",
-	"pause_skills",
+	"pause_skills", "forge_stats",
 ]
 ## run_screen.gd has no class_name; its inner HintLayer is reached through the
 ## preloaded script constant so the pure trigger helper can be tested.
@@ -138,6 +138,8 @@ static func _dispatch(name: String) -> void:
 			_home_pips_check()
 		"hints":
 			_hints_check()
+		"forge_stats":
+			_forge_stats_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -2507,6 +2509,33 @@ static func _forge_check() -> void:
 	SaveGame.no_write = keep_no_write
 	GearDB.store_override = keep_store
 	print("FORGE ok: 0 shards none, meadow iron only, forge deducts 20 once, steel skill-gated, rune gated to frost, wallet >= 0")
+
+
+## Forge stat lines: every option row carries a short muted line built from
+## GearDB.item(id)["stats"] and worded like the rest of the game. A piece alone
+## words its own stats ("+10 HP  +1 armour"); against what the hero already
+## wears in that slot it words the gain and names the old piece ("... over
+## Iron Horned Helm"). Pure formatting on a scratch armory; nothing is saved.
+static func _forge_stats_check() -> void:
+	var keep_store: Variant = GearDB.store_override
+	GearDB.store_override = {}
+	var hero := str(GearDB.HERO_SLOTS.keys()[0])
+	var iron := GearDB.item_id(hero, "helm", GearDB.Tier.IRON)
+	var steel := GearDB.item_id(hero, "helm", GearDB.Tier.STEEL)
+	var bare := ForgeScreen.stat_line(iron, "")
+	if bare.strip_edges() == "" or bare.find("+") < 0:
+		_fail("forge stat line for %s vs nothing said '%s'" % [iron, bare])
+	# Against the same-slot iron worn item the steel piece words its gain and
+	# names the worn helm itself, so the comparison is provably that slot's.
+	var gain := ForgeScreen.stat_line(steel, iron)
+	if gain.find("over") < 0 or not gain.ends_with(str(GearDB.item(iron)["name"])):
+		_fail("forge stat line vs a worn same-slot piece said '%s'" % gain)
+	# Equal tier has no gain to word, so the line states its own stats.
+	var same := ForgeScreen.stat_line(iron, iron)
+	if same.strip_edges() == "" or same.find("+") < 0:
+		_fail("forge stat line for %s vs itself said '%s'" % [iron, same])
+	GearDB.store_override = keep_store
+	print("FORGE STATS ok: '%s' · '%s'" % [bare, gain])
 
 
 ## Total XP held in the current GearDB store (a scratch armory in tests).

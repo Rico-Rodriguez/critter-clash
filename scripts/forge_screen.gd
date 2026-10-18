@@ -9,6 +9,11 @@ extends ScreenBase
 
 var _content: VBoxContainer
 var _shards: Label
+## The list's scroll box, held so a forge can keep the player's place.
+var _scroll: ScrollContainer
+## The slot to glow after a forge, so the player sees the row that takes the
+## forged piece's place. Cleared once a refresh has applied it.
+var _highlight_slot := ""
 ## The hero the page is showing. Empty follows the featured hero; the switcher
 ## only moves this local view and never writes the save (TASK).
 var _view_hero := ""
@@ -40,14 +45,14 @@ func build() -> void:
 	box.add_child(_shards)
 	# The list can run long once a hero owns most of a tier, so it scrolls;
 	# the header and the shard line stay put.
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(scroll)
+	_scroll = ScrollContainer.new()
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(_scroll)
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 16)
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_content)
+	_scroll.add_child(_content)
 	_refresh()
 
 
@@ -63,6 +68,7 @@ func _refresh() -> void:
 	if options.is_empty():
 		_content.add_child(_empty_state())
 		_content.add_child(_locked_footnote(hero))
+		_highlight_slot = ""
 		return
 	# One group per forgeable tier, best first, each a header over its rows.
 	for tier in range(SaveGame.forge_cap(), GearDB.Tier.IRON - 1, -1):
@@ -74,8 +80,17 @@ func _refresh() -> void:
 			continue
 		_content.add_child(_tier_header(tier))
 		for o in rows:
-			_content.add_child(_option_row(o))
+			var plate := _option_row(o)
+			# The row that replaces a just-forged piece gets a steady gold
+			# glow, then fades (no flashing).
+			if _highlight_slot != "" and str(o["slot"]) == _highlight_slot:
+				plate.glow = Color(UiKit.GOLD.r, UiKit.GOLD.g, UiKit.GOLD.b, 0.55)
+				_highlight_slot = ""
+			_content.add_child(plate)
+			if plate.glow.a > 0.0:
+				_fade_glow.call_deferred(plate)
 	_content.add_child(_locked_footnote(hero))
+	_highlight_slot = ""
 
 
 ## One chip per unlocked hero: the shown one is the gold primary, the rest are
@@ -113,10 +128,10 @@ func _tier_header(tier: int) -> Control:
 	return l
 
 
-## One forgeable piece: name, slot in plain words and the wear requirement, the
-## shard cost and an 88 px FORGE button that greys out with its reason when the
-## wallet is short.
-func _option_row(opt: Dictionary) -> Control:
+## One forgeable piece: name, slot in plain words and the wear requirement, a
+## short stat line, the shard cost and an 88 px FORGE button that greys out with
+## its reason when the wallet is short.
+func _option_row(opt: Dictionary) -> UiKit.Plate:
 	var plate := UiKit.Plate.new()
 	plate.kind = "plaque"
 	plate.pad = 16
@@ -136,6 +151,10 @@ func _option_row(opt: Dictionary) -> Control:
 	if not req.is_empty() and not str(opt["reason"]).begins_with("Requires"):
 		line.append(_req_text(req))
 	col.add_child(UiKit.label(" · ".join(line), 20, UiKit.MUTED, "b", 3))
+	var worn: String = str(GearDB.equipped(view_id()).get(str(opt["slot"]), ""))
+	var stats := stat_line(str(opt["id"]), worn)
+	if stats != "":
+		col.add_child(UiKit.label(stats, 19, UiKit.MUTED, "m", 3))
 	if not bool(opt["ok"]):
 		col.add_child(UiKit.label(str(opt["reason"]), 20, Color("d8a0a0"), "b", 3))
 	var right := VBoxContainer.new()
@@ -191,12 +210,59 @@ func _empty_state() -> Control:
 	return l
 
 
+## The stat line for one forgeable piece: its own stats worded like the rest of
+## the game, or the gain over the piece the hero already wears in that slot
+## ("+7 HP  +1 armour over Iron Horned Helm"). Wording and order come from
+## EquipUI.stat_text so the Forge never invents a second stat language.
+static func stat_line(id: String, worn_id: String) -> String:
+	var it := GearDB.item(id)
+	if it.is_empty():
+		return ""
+	var stats: Dictionary = it["stats"]
+	# Only an upgrade reads as a gain; a piece at or below the worn tier just
+	# states its own stats (stat_text prints every value with a "+").
+	if worn_id == "" or not GearDB.is_item(worn_id) or int(GearDB.item(worn_id)["tier"]) >= int(it["tier"]):
+		return EquipUI.stat_text(stats)
+	var worn: Dictionary = GearDB.item(worn_id)["stats"]
+	var gain := {}
+	for k in stats:
+		var d: float = float(stats[k]) - float(worn.get(k, 0))
+		if d > 0.0:
+			gain[k] = d
+	if gain.is_empty():
+		return EquipUI.stat_text(stats)
+	return "%s over %s" % [EquipUI.stat_text(gain), str(GearDB.item(worn_id)["name"])]
+
+
+## Fades a just-forged row's steady gold glow out once, so it reads as a
+## moment rather than a blink.
+func _fade_glow(plate: UiKit.Plate) -> void:
+	if not is_instance_valid(plate) or plate.skin == null:
+		return
+	var gold := UiKit.GOLD
+	var tw := plate.create_tween()
+	tw.tween_interval(1.1)
+	tw.tween_method(func(a: float) -> void:
+		if is_instance_valid(plate) and plate.skin != null:
+			plate.skin.set_param("glow_color", Color(gold.r, gold.g, gold.b, a)), 0.55, 0.0, 0.6)
+
+
+## Puts the list back where it was before a refresh rebuilt it.
+func _restore_scroll(to: int) -> void:
+	if _scroll != null:
+		_scroll.scroll_vertical = to
+
+
 func _do_forge(id: String) -> void:
+	var keep := _scroll.scroll_vertical if _scroll != null else 0
 	if SaveGame.forge(view_id(), id):
 		AudioDirector.sfx("card_pick")
 		AudioDirector.haptic("medium")
 		toast("Forged %s" % str(GearDB.item(id).get("name", "")))
+		_highlight_slot = str(GearDB.item(id)["slot"])
 	else:
 		AudioDirector.sfx("ui_error")
 		AudioDirector.haptic("light")
 	_refresh()
+	# The rebuilt list lays out on the next frame, so the scroll lands after it.
+	_restore_scroll.call_deferred(keep)
