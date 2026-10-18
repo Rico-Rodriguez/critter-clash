@@ -86,6 +86,13 @@ func _init() -> void:
 		for k in 4:
 			await process_frame
 		await RenderingServer.frame_post_draw
+		if OS.get_environment("OVG_DEBUG") != "":
+			var f := FileAccess.open(out + ".%d.txt" % col, FileAccess.WRITE)
+			for n in sk0.get_children():
+				for v: VisualInstance3D in (n as Node).find_children("*", "VisualInstance3D", true, false):
+					f.store_line("%s/%s vis=%s aabb=%s" % [n.name, v.name, v.is_visible_in_tree(), str(v.global_transform * v.get_aabb())])
+			f.store_line("cam=%s" % str(cam.global_position))
+			f.close()
 		var img := vp.get_texture().get_image()
 		img.convert(Image.FORMAT_RGBA8)
 		sheet.blit_rect(img, Rect2i(0, 0, W, H), Vector2i(W * col, 0))

@@ -90,7 +90,9 @@ static func _stripped(src: ArrayMesh, t: Dictionary, kit: Dictionary) -> ArrayMe
 			var sl := clampi(int(c.r * 7.0 + 0.5), 0, 7)
 			vslot[v] = sl
 			var k := false
-			if tier[sl] <= (hat_max if sl == 0 else 1):
+			# Bare plate kits keep their pauldron mass under the gambeson
+			# (cutting it there left floating shards).
+			if tier[sl] <= (hat_max if sl == 0 else 1) and not (sl == 2 and tier[sl] == 0 and kit.has("under")):
 				if float(strip[sl]) > 0.0 and c.g * 0.5 > float(strip[sl]) and (sl != 2 or c.b - 0.5 > float(kit.get("pauldron_lift", -9.0))):
 					k = true
 				pass
@@ -98,7 +100,7 @@ static func _stripped(src: ArrayMesh, t: Dictionary, kit: Dictionary) -> ArrayMe
 				k = true
 			if tier[0] <= hat_max and verts[v].y > cut_y and (sl == 0 or cut_bare.is_empty()) and not (hooded and sl == 0):
 				k = true
-			if hooded and sl == 0 and (c.b - 0.5) <= top and verts[v].y <= cut_y:
+			if hooded and sl == 0 and (c.b - 0.5) <= top and verts[v].y <= cut_y and c.g < 0.99:
 				k = false
 			if tier[sl] == 0 and cut_bare.has(sl):
 				k = true
@@ -362,9 +364,9 @@ const KITS := {
 		# Bare head reads as a padded linen hood; bare hands/feet as wraps.
 		"hood": true,
 		"wrap_slots": [3, 4],
-		"under": Color(0.3, 0.25, 0.19),
-		"hood_col": Color(0.36, 0.31, 0.25),
-		"wrap": Color(0.44, 0.39, 0.31),
+		"under": Color(0.22, 0.18, 0.14),
+		"hood_col": Color(0.26, 0.22, 0.18),
+		"wrap": Color(0.4, 0.35, 0.28),
 		"quilt_scale": 0.2,
 		# Pauldron shells sit above the shoulder bone; the upper arm stays.
 		"pauldron_lift": 0.015,
@@ -374,7 +376,8 @@ const KITS := {
 		# Oarimaar blade, tower shield.
 		"helm_cut_max": 2,
 		"rune_pauldron": "pauldron_ancient",
-		"rune_pauldron_xf": [Vector3(0.05, 0.035, 0.0), Vector3(0, 0, -20), 1.0],
+		"rune_pauldron_xf": [Vector3(0.075, 0.06, 0.04), Vector3(0, 0, -20), 1.3],
+		"amulet_out": 0.13,
 		"off": ["", "gear:shield_round", "gear:shield_heater", "gear:shield_tower"],
 		# Off-hand shield pose relative to the hand socket (cm, degrees).
 		"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
@@ -404,6 +407,9 @@ const KITS := {
 		"wrap_slots": [3, 4],
 		"wrap": Color(0.36, 0.33, 0.3),
 		"quilt_scale": 0.2,
+		# Charm hangs at the belt buckle, not floating by the hand.
+		"amulet_y": 0.1,
+		"amulet_out": 0.12,
 		# Spiked pauldrons are the rune silhouette, not an iron one.
 		"spikes_tier": 3,
 		# Cursed blade grows with its tier (same steel, longer reach read).
