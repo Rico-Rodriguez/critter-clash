@@ -33,7 +33,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "Crazy Critter Crate - Swinecone",
-		"used": "Bramble and its pack",
+		"used": "Pinecone boar critters",
 		"author": "Moped (mopedgames)",
 		"url": "https://sketchfab.com/3d-models/crazy-critter-crate-swinecone-bae685e5a9d9442a85e78b1525b08aaf",
 		"license": "CC-BY 4.0",
@@ -134,6 +134,13 @@ const ENTRIES := [
 		"used": "Aldric (hero)",
 		"author": "DJMaesen (bumstrum)",
 		"url": "https://sketchfab.com/3d-models/paladin-4f1c320f2cec49dc9bf38c6aad2d8ea9",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Skeleton Lord",
+		"used": "Mordrek (hero)",
+		"author": "DJMaesen (bumstrum)",
+		"url": "https://sketchfab.com/3d-models/skeleton-lord-a3f7b44275cf4c489ad62c535268ac16",
 		"license": "CC-BY 4.0",
 	},
 	{

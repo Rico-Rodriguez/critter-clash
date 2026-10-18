@@ -32,11 +32,41 @@ func _init() -> void:
 	var dst: Node3D = load(args[1]).instantiate()
 	root.add_child(src)
 	root.add_child(dst)
-	var map: Dictionary = MAPS[args[3]]
+	var map: Dictionary = (MAPS[args[3]] as Dictionary).duplicate()
 	var clips: Dictionary = JSON.parse_string(args[4]) if args.size() > 4 else {}
 	await process_frame
 	var ss := _skel(src)
 	var ts := _skel(dst)
+	# DJMaesen rigs share bone names but number them per model
+	# (L_wrist_017 vs L_wrist_039): match on the name without the suffix.
+	var strip := func(n: String) -> String:
+		var rx := RegEx.create_from_string("_\\d+$")
+		return rx.sub(n, "")
+	for k in map.keys():
+		if ts.find_bone(map[k]) >= 0:
+			continue
+		for b in ts.get_bone_count():
+			if strip.call(ts.get_bone_name(b)) == strip.call(map[k]):
+				map[k] = ts.get_bone_name(b)
+				break
+	print("MAP ", map)
+	# Optional grip donor (env GRIP_DONOR=res://...glb): a rig with the same
+	# bone names whose rest pose holds a closed grip; its finger rotations
+	# replace this rig's open-hand rest.
+	var grip := {}
+	if OS.get_environment("GRIP_DONOR") != "":
+		var donor: Node3D = load(OS.get_environment("GRIP_DONOR")).instantiate()
+		var dsk := _skel(donor)
+		for b in ts.get_bone_count():
+			var bn := ts.get_bone_name(b)
+			if not KEEP_REST.any(func(k: String) -> bool: return k in bn):
+				continue
+			for d in dsk.get_bone_count():
+				if strip.call(dsk.get_bone_name(d)) == strip.call(bn):
+					grip[b] = dsk.get_bone_rest(d).basis.orthonormalized()
+					break
+		print("grip bones ", grip.size())
+		donor.free()
 	var ap: AnimationPlayer = src.find_children("*", "AnimationPlayer", true, false)[0]
 	# Source bind = rest (KayKit exports rest == bind).
 	var s_rest := {}
@@ -137,7 +167,9 @@ func _init() -> void:
 				else:
 					var bn := ts.get_bone_name(b)
 					var local_basis: Basis
-					if KEEP_REST.any(func(s: String) -> bool: return s in bn) or parent < 0:
+					if grip.has(b):
+						local_basis = grip[b]
+					elif KEEP_REST.any(func(s: String) -> bool: return s in bn) or parent < 0:
 						local_basis = rest_local.basis.orthonormalized()
 					else:
 						var pref: Transform3D = ref[parent]

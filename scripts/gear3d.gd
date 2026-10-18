@@ -31,6 +31,17 @@ const KITS := {
 		"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
 		"main_xf": [Vector3(0, 3, 0), Vector3(0, 180, 0)],
 	},
+	# Mordrek, the Bone Knight: a cursed duelist, one long blade, no shield.
+	"bramble": {
+		"anims": "res://assets/models/heroes/boneknight/boneknight_anims.res",
+		"hide": ["sword", "scabbard_2"],
+		"main": ["own:sword", "own:sword", "own:sword", "own:sword"],
+		"off": ["", "", "", ""],
+		"off_xf": [Vector3.ZERO, Vector3.ZERO],
+		"main_xf": [Vector3(0, -8, 0), Vector3(180, 0, 0)],
+		"seam": 0.25,
+		"rune": Color(0.3, 1.0, 0.62),
+	},
 }
 
 ## Finish per tier: plate tint, soft-material (leather/cloth) tint, wear,
@@ -128,13 +139,28 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			if src == null:
 				continue
 			var cloth := src.resource_name.to_lower().contains("cloth")
-			m.set_surface_override_material(i, finish(src, at, cloth))
+			var fm := finish(src, at, cloth)
+			# Busy albedo (ribbed plate) catches more seams: per-kit gain.
+			fm.set_shader_parameter("seam_glow", float(FINISH[at].get("seam", 0.0)) * float(kit.get("seam", 1.0)))
+			m.set_surface_override_material(i, fm)
 	var sockets: Dictionary = {}
 	var lib := load(str(kit["anims"])) as AnimationLibrary
 	if lib:
 		sockets = lib.get_meta("sockets", {})
-	_mount(sk, sockets.get("hand_r", {}), str(kit["main"][wt]), own, wt, kit["main_xf"], "GearMain")
+	var main_xf: Array = kit["main_xf"]
+	if OS.get_environment("CC_MAIN_XF") != "":
+		var v := OS.get_environment("CC_MAIN_XF").split_floats(",")
+		main_xf = [Vector3(v[0], v[1], v[2]), Vector3(v[3], v[4], v[5])]
+	_mount(sk, sockets.get("hand_r", {}), str(kit["main"][wt]), own, wt, main_xf, "GearMain")
 	_mount(sk, sockets.get("hand_l", {}), str(kit["off"][wt]), own, wt, kit["off_xf"], "GearOff")
+	if kit.has("rune"):
+		var rc: Color = kit["rune"]
+		for n in model.find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			for i in mi.get_surface_override_material_count():
+				var sm := mi.get_surface_override_material(i) as ShaderMaterial
+				if sm and sm.shader == SHADER:
+					sm.set_shader_parameter("rune_color", rc)
 	model.set_meta("gear_tiers", {"weapon": wt, "armor": at})
 
 

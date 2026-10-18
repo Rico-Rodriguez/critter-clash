@@ -1407,7 +1407,8 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 			# Runebound plate: the hunt rim burns ember instead of steel blue,
 			# so the top tier reads at the far camera, not only up close.
 			var ember := _glow_mat.duplicate() as ShaderMaterial
-			ember.set_shader_parameter("rim_color", Vector3(1.0, 0.4, 0.1))
+			var rc: Color = Gear3D.KITS[actor.sprite].get("rune", Color(1.0, 0.4, 0.1))
+			ember.set_shader_parameter("rim_color", Vector3(rc.r, rc.g, rc.b))
 			ember.set_shader_parameter("rim_strength", 0.8)
 			ember.set_shader_parameter("rim_power", 2.6)
 			ember.next_pass = _xray_mat

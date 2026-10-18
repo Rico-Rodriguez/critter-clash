@@ -22,7 +22,10 @@ const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
 ## Grimdark Knights (2026-10-18): humanoid heroes on the DJMaesen knight rig
 ## (CC-BY), clips retargeted from KayKit (CC0) by tools/retarget.gd, gear
 ## tiers from Gear3D. The id stays for saves; the name is in Catalog.
-const HEROES := {"pebble": "res://assets/models/heroes/paladin/paladin.tscn"}
+const HEROES := {
+	"pebble": "res://assets/models/heroes/paladin/paladin.tscn",
+	"bramble": "res://assets/models/heroes/boneknight/boneknight.tscn",
+}
 const HERO_CLIPS := {"idle": "idle", "walk": "walk", "run": "run", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle", "cast": "cast", "block": "block", "bash": "bash", "dodge": "dodge"}
 
 

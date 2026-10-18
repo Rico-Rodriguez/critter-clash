@@ -436,8 +436,8 @@ const CRITTERS: Dictionary = {
 		"splash": 68, "splash_mul": 0.7, "proj_speed": 510, "armor": 0,
 	},
 	"bramble": {
-		"name": "Bramble", "role": "tank", "kind": "hero", "color": "8d6244",
-		"blurb": "Pinecone boar. Scales up, tusks forward.",
+		"name": "Mordrek", "role": "tank", "kind": "hero", "color": "6fbf8f",
+		"blurb": "Bone Knight. A cursed duelist with one long blade.",
 		"unlock": "Trophy road.",
 		"hp": 276, "dmg": 20, "interval": 0.52, "range": 110, "speed": 214,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 4,
