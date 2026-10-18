@@ -1543,7 +1543,7 @@ func _show_defeat(reason: String) -> void:
 	var sub := UiKit.label(line, 24, UiKit.MUTED.lightened(0.2), "m", 2)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(sub)
-	var hint := UiKit.label("Level your critters with cards and gear, then return.", 19, UiKit.MUTED, "m", 2)
+	var hint := UiKit.label("Level your heroes with cards and gear, then return.", 19, UiKit.MUTED, "m", 2)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var spoils := EquipUI.loot_reveal(_spoils())

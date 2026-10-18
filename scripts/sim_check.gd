@@ -17,6 +17,7 @@ static func run() -> int:
 	_maps()
 	_cards()
 	_pools_check()
+	_exclusivity_check()
 	_fights()
 	_kite()
 	_boss_intro_check()
@@ -610,6 +611,87 @@ static func _class_available(role: String, stacks: Dictionary) -> bool:
 		if Catalog.pool_of(str(entry["id"])) != role:
 			continue
 		if int(stacks.get(str(entry["id"]), 0)) < int(entry["max"]):
+			return true
+	return false
+
+
+## Blessing exclusivity: for every role on the hero roster (derived from
+## Catalog.CRITTERS, never hard-coded ids) 3000 seeded offers with random
+## stacks must stay inside that role's class pool or the general pool, pass
+## role_can_take (a melee tank never sees a Shot-only card), and only fall back
+## to "snack" when no legal card is left. Each hero must carry a real role.
+static func _exclusivity_check() -> void:
+	var roles := {}
+	for id in Catalog.CRITTERS.keys():
+		var entry: Dictionary = Catalog.CRITTERS[id]
+		if str(entry.get("kind", "")) != "hero":
+			continue
+		var role := str(entry.get("role", ""))
+		if role != "tank" and role != "archer" and role != "mage":
+			_fail("hero %s has unknown role %s" % [id, role])
+			return
+		roles[role] = true
+	if roles.is_empty():
+		_fail("no playable hero roles found")
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260101
+	for role in roles.keys():
+		var general := 0
+		var class_n := 0
+		for entry in Catalog.CARDS:
+			var cid := str(entry["id"])
+			if not Catalog.role_can_take(role, cid):
+				continue
+			if Catalog.pool_of(cid) == "general":
+				general += 1
+			elif Catalog.pool_of(cid) == role:
+				class_n += 1
+		if general < 14:
+			_fail("%s only has %d legal general cards" % [role, general])
+			return
+		if class_n < 6:
+			_fail("%s only has %d legal class cards" % [role, class_n])
+			return
+		for _i in 3000:
+			var stacks := {}
+			for entry in Catalog.CARDS:
+				stacks[str(entry["id"])] = rng.randi_range(0, int(entry["max"]))
+			var offer: Array = Catalog.roll_offer(role, stacks, rng)
+			if offer.size() != 3:
+				_fail("%s offer size %d" % [role, offer.size()])
+				return
+			var left := _legal_card_left(role, stacks, offer)
+			for id in offer:
+				var sid := str(id)
+				if sid == "snack":
+					if left:
+						_fail("%s offered snack while legal cards remain" % role)
+						return
+					continue
+				if not Catalog.role_can_take(role, sid):
+					_fail("%s offered %s its attack style cannot use" % [role, sid])
+					return
+				var pool := Catalog.pool_of(sid)
+				if pool != "general" and pool != role:
+					_fail("%s offered %s from %s" % [role, sid, pool])
+					return
+	print("EXCLUSIVITY ok, roles %s" % str(roles.keys()))
+
+
+## True when a legal card (role pool or general, role_can_take, under max and
+## not already in this offer) is still available.
+static func _legal_card_left(role: String, stacks: Dictionary, offer: Array) -> bool:
+	for entry in Catalog.CARDS:
+		var cid := str(entry["id"])
+		if cid in offer:
+			continue
+		if not Catalog.role_can_take(role, cid):
+			continue
+		var pool := Catalog.pool_of(cid)
+		if pool != "general" and pool != role:
+			continue
+		if int(stacks.get(cid, 0)) < int(entry["max"]):
 			return true
 	return false
 

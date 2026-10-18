@@ -33,7 +33,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "Crazy Critter Crate - Swinecone",
-		"used": "Pinecone boar critters",
+		"used": "Pinecone boar beasts",
 		"author": "Moped (mopedgames)",
 		"url": "https://sketchfab.com/3d-models/crazy-critter-crate-swinecone-bae685e5a9d9442a85e78b1525b08aaf",
 		"license": "CC-BY 4.0",
@@ -206,8 +206,8 @@ func build() -> void:
 	for entry in ENTRIES:
 		list.add_child(_card(entry))
 	list.add_child(_plain("Also used (CC0 / open licences)", [
-		"Pixor — dragon and owl critters",
-		"Gamideo — otter critter",
+		"Pixor — dragon and owl beasts",
+		"Gamideo — otter beast",
 		"Quaternius — monsters and nature kit",
 		"ambientCG — ground, rock and moss textures",
 		"Poly Haven — sky",

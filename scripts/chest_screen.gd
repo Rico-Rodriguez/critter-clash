@@ -14,7 +14,7 @@ func build() -> void:
 	box.add_child(header())
 	title_label = h1("Chest")
 	box.add_child(title_label)
-	box.add_child(body("Cards level your critters. Gear fills weapon, armor, and charm."))
+	box.add_child(body("Cards level your heroes. Gear fills weapon, armor, and charm."))
 	burst = Burst.new()
 	burst.custom_minimum_size = Vector2(0, 560)
 	burst.size_flags_vertical = Control.SIZE_EXPAND_FILL
