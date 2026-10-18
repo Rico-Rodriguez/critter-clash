@@ -1403,6 +1403,18 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		else:
 			_outline(body, Color("1a0806"), 0.011)
 		_hero_glow(body)
+		if Gear3D.has_kit(actor.sprite) and int(Gear3D.tiers(actor.sprite)["armor"]) >= 3:
+			# Runebound plate: the hunt rim burns ember instead of steel blue,
+			# so the top tier reads at the far camera, not only up close.
+			var ember := _glow_mat.duplicate() as ShaderMaterial
+			ember.set_shader_parameter("rim_color", Vector3(1.0, 0.4, 0.1))
+			ember.set_shader_parameter("rim_strength", 0.8)
+			ember.set_shader_parameter("rim_power", 2.6)
+			ember.next_pass = _xray_mat
+			for m in body.find_children("*", "MeshInstance3D", true, false):
+				if (m as MeshInstance3D).material_overlay == _glow_mat:
+					m.set_meta("overlay", ember)
+					(m as MeshInstance3D).material_overlay = ember
 	elif actor.kind == "ally":
 		# Summoned spirit: the hero's cool rim glow, no hostile ring.
 		_hero_glow(body)
@@ -2794,7 +2806,8 @@ func _place_reach(actor: RunSim.Actor, at: Vector3) -> void:
 	(_reach.material_override as ShaderMaterial).set_shader_parameter("ring_color", REACH_COLORS.get(actor.role, REACH_COLORS["mage"]))
 	(_reach.material_override as ShaderMaterial).set_shader_parameter("ring_width", 0.006 * 12.0 / maxf(size, 1.0))
 	_reach.visible = true
-	_reach.position = Vector3(at.x, 0.03, at.z)
+	# Lifted over the grass blades (they cover a ground-level hairline).
+	_reach.position = Vector3(at.x, 0.32, at.z)
 
 
 ## The hero's selection ring: a soft contact shadow under a smooth gold ring.
