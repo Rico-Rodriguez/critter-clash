@@ -22,7 +22,12 @@ const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
 ## Grimdark Knights (2026-10-18): humanoid heroes on the DJMaesen knight rig
 ## (CC-BY), clips retargeted from KayKit (CC0) by tools/retarget.gd, gear
 ## tiers from Gear3D. The id stays for saves; the name is in Catalog.
+## Retired animal heroes (fox archer, frog mage) render as Aldric anywhere an
+## old id still turns up: saves, logs, sim fixtures. No animal hero ships.
+const RETIRED := {"juniper": "pebble", "pip": "pebble"}
 const HEROES := {
+	"juniper": "res://assets/models/heroes/paladin/paladin.tscn",
+	"pip": "res://assets/models/heroes/paladin/paladin.tscn",
 	"pebble": "res://assets/models/heroes/paladin/paladin.tscn",
 	"bramble": "res://assets/models/heroes/boneknight/boneknight.tscn",
 	"lumen": "res://assets/models/heroes/ghoul/ghoul.tscn",
@@ -79,7 +84,7 @@ static func flies(id: String) -> bool:
 ## Dark-fantasy pass (art direction 2026-10-17): realistic, worn creatures.
 ## Heroes keep their animal and wear Armor3D kit; enemies are feral beasts.
 ## Files in assets/models/sketchfab/dark/ (CC-BY 4.0, see CREDITS.md).
-const DARK := {"juniper": "fox", "sprout": "badger", "boarlet": "bear", "spirit_wolf": "fox"}
+const DARK := {"sprout": "badger", "boarlet": "bear", "spirit_wolf": "fox"}
 const DARK_CLIPS := {
 	"fox": {"idle": "A5_StandAngry_Breathing_01", "walk": "Loco_Walk", "run": "Run", "attack": "Attack_StandAngry_02_High", "hit": "Hit_Stand_R01", "death": "Death_Stand_L01", "perch": "A3_Stand_Idle_01"},
 	"badger": {"idle": "Badger|european_badger_aggressive_idle_01", "walk": "Badger|european_badger_trot_fwd_01", "run": "Badger|european_badger_sprint_fwd_01", "attack": "Badger|european_badger_aggressive_attack_fwd_01", "hit": "Badger|european_badger_hit_chest_front_01", "death": "Badger|european_badger_dead_run_01"},
@@ -106,7 +111,7 @@ static func dark(id: String) -> String:
 
 ## Armour kit Armor3D builds onto a hero rig ("" for none).
 static func armor(id: String) -> String:
-	return "fox_ranger" if id == "juniper" else ""
+	return ""
 
 
 static func sketch_mon(id: String) -> String:

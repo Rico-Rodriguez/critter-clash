@@ -83,6 +83,11 @@ func build() -> void:
 	list.add_theme_constant_override("h_separation", 16)
 	list.add_theme_constant_override("v_separation", 12)
 	box.add_child(list)
+	# Head room for the UPGRADE price tag above the button.
+	var tag_gap := Control.new()
+	tag_gap.custom_minimum_size = Vector2(0, 12)
+	tag_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(tag_gap)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 14)

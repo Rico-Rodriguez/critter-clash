@@ -11,6 +11,7 @@ static var _cache: Dictionary = {}
 ## Renders of the critter's actual 3D model (tools: --bake-portraits).
 ## The old 2D pictures stay only as a fallback for an id with no render.
 static func critter(id: String) -> Texture2D:
+	id = str(Cast3D.RETIRED.get(id, id))
 	var baked := "res://assets/sprites/portraits/%s.png" % id
 	if ResourceLoader.exists(baked):
 		return _load(baked, id)
@@ -19,6 +20,7 @@ static func critter(id: String) -> Texture2D:
 
 ## Head close-up of the 3D model, for the hunt medallion.
 static func head(id: String) -> Texture2D:
+	id = str(Cast3D.RETIRED.get(id, id))
 	var baked := "res://assets/sprites/portraits/%s_head.png" % id
 	if ResourceLoader.exists(baked):
 		return _load(baked, id + "_head")

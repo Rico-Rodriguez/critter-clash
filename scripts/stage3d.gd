@@ -2685,10 +2685,13 @@ func _showcase_lights(box: AABB) -> void:
 	var h := maxf(box.size.y, 0.5)
 	var specs := [
 		# colour, energy, offset (in hero heights), range, specular
-		[Color("ffd9a8"), 5.0, Vector3(-0.9, 0.9, 1.3), 3.2, 1.0],
-		[Color("9cc4ff"), 7.0, Vector3(1.0, 0.8, -1.1), 3.0, 1.4],
-		[Color("dfe6ff"), 1.8, Vector3(1.1, -0.1, 1.2), 3.4, 0.3],
-		[Color("a8c8ff"), 4.0, Vector3(-1.0, 0.5, -1.0), 2.6, 1.2],
+		# Key (warm, high front-left), rims either side, front fill, and a
+		# top light so blackened plate keeps its form on the dark stage.
+		[Color("ffdcb0"), 9.0, Vector3(-0.9, 0.9, 1.3), 3.4, 1.6],
+		[Color("9cc4ff"), 10.0, Vector3(1.0, 0.8, -1.1), 3.0, 1.8],
+		[Color("dfe6ff"), 3.0, Vector3(0.9, 0.1, 1.4), 3.6, 0.6],
+		[Color("a8c8ff"), 6.0, Vector3(-1.0, 0.6, -1.0), 2.8, 1.6],
+		[Color("fff1dc"), 4.0, Vector3(0.1, 1.5, 0.4), 2.6, 1.2],
 	]
 	for sp in specs:
 		var l := OmniLight3D.new()
@@ -2702,6 +2705,57 @@ func _showcase_lights(box: AABB) -> void:
 		l.shadow_enabled = false
 		l.position = c + (sp[2] as Vector3) * h
 		world_root.add_child(l)
+	_plinth(box)
+
+
+## A lit stone plinth under the showcase hero: dark worn stone, a gilt rune
+## ring glowing at its lip and a warm pool of light from above on it.
+func _plinth(box: AABB) -> void:
+	var h := maxf(box.size.y, 0.5)
+	var base := Vector3(box.get_center().x, box.position.y, box.get_center().z)
+	var root := Node3D.new()
+	root.add_to_group("showcase_light")
+	root.position = base
+	world_root.add_child(root)
+	var stone := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = h * 0.42
+	cyl.bottom_radius = h * 0.46
+	cyl.height = h * 0.07
+	cyl.radial_segments = 32
+	stone.mesh = cyl
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = Color("3a332c")
+	sm.roughness = 0.85
+	stone.material_override = sm
+	stone.position.y = -h * 0.03
+	root.add_child(stone)
+	var ring := MeshInstance3D.new()
+	var tor := TorusMesh.new()
+	tor.inner_radius = h * 0.4
+	tor.outer_radius = h * 0.425
+	tor.rings = 48
+	tor.ring_segments = 6
+	ring.mesh = tor
+	var rm := StandardMaterial3D.new()
+	rm.albedo_color = Color("c99a4a")
+	rm.emission_enabled = true
+	rm.emission = Color("ffb85a")
+	rm.emission_energy_multiplier = 1.6
+	ring.material_override = rm
+	ring.position.y = h * 0.006
+	root.add_child(ring)
+	var pool := SpotLight3D.new()
+	pool.light_color = Color("ffe2b8")
+	pool.light_energy = 6.0
+	pool.spot_range = h * 3.0
+	pool.spot_angle = 24.0
+	pool.shadow_enabled = false
+	pool.position = Vector3(0, h * 2.2, 0)
+	pool.rotation_degrees = Vector3(-90, 0, 0)
+	root.add_child(pool)
+
+
 func _split_hero(body: Node3D) -> void:
 	for v in body.find_children("*", "VisualInstance3D", true, false):
 		(v as VisualInstance3D).layers = HERO_LAYER
@@ -3541,6 +3595,15 @@ func _paint_rock(node: Node) -> void:
 		(node as MeshInstance3D).material_override = _rock_mat
 	for child in node.get_children():
 		_paint_rock(child)
+
+
+## Boss fights: push the hero's cool rim and key so the knight stays the
+## brightest read against a large dark boss.
+func boss_focus(on: bool) -> void:
+	if is_instance_valid(_hero_rim):
+		_hero_rim.light_energy = 6.0 if on else 3.2
+	if is_instance_valid(_hero_key):
+		_hero_key.light_energy = 3.4 if on else 2.2
 
 
 func _outline(root: Node, color := Color("2b1210"), width := 0.012) -> void:

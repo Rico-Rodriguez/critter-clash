@@ -30,6 +30,7 @@ var summary: Dictionary = {}
 ## Gear item ids picked up this run (from gear_pickup events), shown in the
 ## end-of-run loot reveal alongside any summary["gear"] the save layer adds.
 var run_gear: Array = []
+var _boss_lit := false
 var _modal_up := false
 var minimap: MiniMap
 var dodge_btn: DodgeButton
@@ -510,6 +511,9 @@ func _hud() -> void:
 		level_badge.level = sim.level
 		level_badge.queue_redraw()
 	var show_boss := sim.phase == "boss"
+	if show_boss != _boss_lit:
+		_boss_lit = show_boss
+		stage.boss_focus(show_boss)
 	boss_meter.visible = show_boss and sim.boss != null
 	boss_label.visible = show_boss and sim.boss != null
 	boss_label.get_parent().visible = boss_label.visible
