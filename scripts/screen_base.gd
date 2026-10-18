@@ -204,7 +204,7 @@ func header_with_back(target: String, args: Dictionary = {}) -> HBoxContainer:
 
 
 ## Leave the screen the way a back gesture should. A screen with a dynamic
-## destination (a loadout opened from two places) overrides this.
+## destination (a screen opened from two places) overrides this.
 func back() -> void:
 	if back_target != "":
 		go(back_target, back_args)
