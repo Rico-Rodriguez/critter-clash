@@ -26,6 +26,19 @@ func pending_count() -> int:
 	return data["chests"].size()
 
 
+## First-hunt hint ids this save has already shown (see run_screen's HintLayer).
+func hint_seen(id: String) -> bool:
+	return str(id) in data["hints_seen"]
+
+
+## Record a hint as shown and persist. Idempotent: the id is stored once.
+func mark_hint(id: String) -> void:
+	if str(id) in data["hints_seen"]:
+		return
+	data["hints_seen"].append(str(id))
+	_write()
+
+
 ## Clash-style chest drawer: four slots. Earned chests arrive locked; the
 ## player taps one to start its timer (one unlocks at a time), and the
 ## timer scales with rarity. Reward chests (milestones, the slayer shop)
@@ -1383,6 +1396,8 @@ func _fresh() -> Dictionary:
 		# Player options: AudioDirector merges its own values and clamps what
 		# it loads, so the save layer only guards the container here.
 		"settings": {},
+		# First-hunt guidance hints already shown, by hint id.
+		"hints_seen": [],
 	}
 
 
@@ -1456,6 +1471,10 @@ func _reconcile() -> void:
 	# option falls back to its AudioDirector default.
 	if not data.has("settings") or typeof(data["settings"]) != TYPE_DICTIONARY:
 		data["settings"] = {}
+	# Old saves predate the hint tracking: reconcile to empty, so existing
+	# players still see each first-hunt hint once.
+	if not data.has("hints_seen") or typeof(data["hints_seen"]) != TYPE_ARRAY:
+		data["hints_seen"] = []
 	for key in data["daily"].keys():
 		var board: Variant = data["daily"][key]
 		if typeof(board) != TYPE_DICTIONARY:

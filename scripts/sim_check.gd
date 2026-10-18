@@ -17,8 +17,11 @@ const CHECKS := [
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
-	"forge", "boss_gear", "home_pips",
+	"forge", "boss_gear", "home_pips", "hints",
 ]
+## run_screen.gd has no class_name; its inner HintLayer is reached through the
+## preloaded script constant so the pure trigger helper can be tested.
+const RunScreenScript := preload("res://scripts/run_screen.gd")
 
 
 static func run() -> int:
@@ -119,6 +122,8 @@ static func _dispatch(name: String) -> void:
 			_forge_check()
 		"home_pips":
 			_home_pips_check()
+		"hints":
+			_hints_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -650,6 +655,67 @@ static func _settings_check() -> void:
 	SaveGame.no_write = false
 	AudioDirector._load_settings()
 	print("SETTINGS ok: defaults, round-trip, clamping")
+
+
+## First-hunt hints: the save key starts empty on a fresh save, reconciles to []
+## for an old save, and mark_hint records each id exactly once. The HintLayer
+## trigger helper is pure, so it is driven here with synthetic state.
+static func _hints_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	SaveGame.no_write = true
+	# (1) A fresh save has seen nothing; mark_hint is a one-time record.
+	SaveGame.data = SaveGame._fresh()
+	SaveGame._reconcile()
+	if SaveGame.hint_seen("move"):
+		_fail("a fresh save already saw the move hint")
+	SaveGame.mark_hint("move")
+	if not SaveGame.hint_seen("move"):
+		_fail("mark_hint did not record the hint")
+	SaveGame.mark_hint("move")
+	SaveGame.mark_hint("move")
+	if (SaveGame.data["hints_seen"] as Array).count("move") != 1:
+		_fail("mark_hint recorded an id more than once")
+	if SaveGame.hint_seen("lair"):
+		_fail("mark_hint marked a hint that was never shown")
+	# (2) An old save without the key reconciles to [].
+	SaveGame.data = SaveGame._fresh()
+	SaveGame.data.erase("hints_seen")
+	SaveGame._reconcile()
+	if typeof(SaveGame.data.get("hints_seen")) != TYPE_ARRAY or not (SaveGame.data["hints_seen"] as Array).is_empty():
+		_fail("hints_seen did not reconcile to []")
+	# A wrongly-typed key is repaired by the type sanity pass.
+	SaveGame.data["hints_seen"] = "nope"
+	SaveGame._sanitize()
+	if typeof(SaveGame.data["hints_seen"]) != TYPE_ARRAY:
+		_fail("_sanitize left a bad hints_seen type")
+	# (3) The pure trigger order on synthetic state.
+	var seen: Array = []
+	if RunScreenScript.HintLayer.next_hint({"started": false}, seen) != "":
+		_fail("a hint fired before the run started")
+	if RunScreenScript.HintLayer.next_hint({"started": true}, seen) != "move":
+		_fail("move should be the first hint")
+	seen = ["move"]
+	if RunScreenScript.HintLayer.next_hint({"started": true, "moved": true}, seen) != "":
+		_fail("still/lair/loot fired without a trigger")
+	if RunScreenScript.HintLayer.next_hint({"started": true, "enemy_in_range": true}, seen) != "still":
+		_fail("an enemy in range while moving should hint still")
+	seen = ["move", "still"]
+	if RunScreenScript.HintLayer.next_hint({"started": true, "time": 10.0, "explored": 0.05}, seen) != "":
+		_fail("lair hint fired before 25 s / 15%")
+	if RunScreenScript.HintLayer.next_hint({"started": true, "time": 25.0}, seen) != "lair":
+		_fail("lair hint did not fire at 25 s")
+	if RunScreenScript.HintLayer.next_hint({"started": true, "explored": 0.2}, seen) != "lair":
+		_fail("lair hint did not fire at 15% explored")
+	seen = ["move", "still", "lair"]
+	if RunScreenScript.HintLayer.next_hint({"started": true, "gear_dropped": true}, seen) != "loot":
+		_fail("loot hint did not fire on a ground drop")
+	seen = ["move", "still", "lair", "loot"]
+	if RunScreenScript.HintLayer.next_hint({"started": true, "enemy_in_range": true, "time": 99.0, "gear_dropped": true}, seen) != "":
+		_fail("a hint repeated after it was already seen")
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	print("HINTS ok: key, idempotent mark, reconcile, trigger order")
 
 
 ## Save robustness on a scratch file (SaveGame.save_path), never the real

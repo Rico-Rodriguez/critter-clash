@@ -37,6 +37,7 @@ var run_gear: Array = []
 var _boss_lit := false
 var _modal_up := false
 var minimap: MiniMap
+var hint_layer: HintLayer
 var dodge_btn: DodgeButton
 var _punch: Dictionary = {}
 var _actor_sprites: Dictionary = {}
@@ -122,6 +123,12 @@ func build() -> void:
 	minimap.screen = self
 	minimap.visible = false
 	add_child(minimap)
+	hint_layer = HintLayer.new()
+	hint_layer.z_index = 1500
+	add_child(hint_layer)
+	minimap.tapped.connect(func() -> void:
+		if hint_layer != null:
+			hint_layer.notify_minimap_tapped())
 	dodge_btn = DodgeButton.new()
 	dodge_btn.screen = self
 	add_child(dodge_btn)
@@ -194,6 +201,14 @@ func open(args: Dictionary = {}) -> void:
 		hero_medal.face.texture = hero_medal.tex
 	SaveGame.set_featured(hero_id)
 	_mount_pet()
+	if hint_layer != null:
+		# First-hunt guidance runs on explore hunts only: never in dailies, and
+		# never in captures/movies (clips and store shots carry no coaching).
+		var staged := false
+		for arg in OS.get_cmdline_user_args():
+			if arg == "--capture" or arg.begins_with("--movie="):
+				staged = true
+		hint_layer.arm(not is_daily and sim.explore and not staged)
 
 
 func _build_hud() -> void:
@@ -365,6 +380,8 @@ func _process(delta: float) -> void:
 	if stick.active:
 		stick.place(finger_at)
 	delta = minf(delta, 0.05)
+	if hint_layer != null:
+		hint_layer.tick(delta, sim)
 	if hitstop > 0.0:
 		hitstop = maxf(0.0, hitstop - delta)
 		_hud()
@@ -2768,6 +2785,7 @@ class XpDropLayer extends Control:
 ## the goal). Tap to enlarge it over a dimmed screen (the hunt pauses); tap
 ## again to close.
 class MiniMap extends Control:
+	signal tapped
 	var screen: Node
 	var sim: RunSim
 	var big := false
@@ -2823,6 +2841,7 @@ class MiniMap extends Control:
 		var tap := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
 		if tap:
 			accept_event()
+			tapped.emit()
 			toggle()
 
 	func toggle() -> void:
@@ -3325,3 +3344,168 @@ class Marks extends Control:
 
 	func _draw() -> void:
 		map.call("draw_marks", self)
+
+
+## First-hunt guidance: one short contextual hint at a time on a compact dark
+## plaque near the lower third (below the hero, above the thumbstick), 25 px
+## cream text. The plaque fades in and out (a plain fade, so reduce-flashing
+## needs no special case), auto-dismisses after a few seconds or once its
+## condition is met, and never takes input. Each hint shows at most once per
+## save ("hints_seen"); dailies and headless sims (no screen) never show them.
+class HintLayer extends Control:
+	var sim: RunSim
+	var plaque: UiKit.Plate
+	var text_label: Label
+	var current := ""
+	var _armed := false
+	var _active := false
+	var _moved := false
+	var _life := 0.0
+	var _cooldown := 0.0
+	var _base_atk := 0
+	var _loot_count := 0
+	var _tween: Tween
+
+	const TEXT := {
+		"move": "Drag anywhere to move.",
+		"still": "Stand still to strike.",
+		"lair": "The lair is marked on your map. Tap the map to look.",
+		"loot": "Walk over gear to claim it.",
+	}
+	const LIFE := {"move": 4.0, "still": 4.0, "lair": 5.0, "loot": 4.0}
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		plaque = UiKit.Plate.new()
+		plaque.kind = "plaque"
+		plaque.pad = 18
+		# Centre the plaque on the lower-third line; grow both ways to its text.
+		plaque.anchor_left = 0.5
+		plaque.anchor_right = 0.5
+		plaque.anchor_top = 0.62
+		plaque.anchor_bottom = 0.62
+		plaque.offset_left = 0.0
+		plaque.offset_right = 0.0
+		plaque.offset_top = 0.0
+		plaque.offset_bottom = 0.0
+		plaque.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		plaque.grow_vertical = Control.GROW_DIRECTION_BOTH
+		plaque.modulate.a = 0.0
+		text_label = UiKit.label("", 25, UiKit.CREAM, "b", 3)
+		text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plaque.add_child(text_label)
+		add_child(plaque)
+		# Plate._ready sets PASS; put it back so the hint never eats a touch.
+		plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_layout()
+		get_viewport().size_changed.connect(_layout)
+
+	## One compact width, so the plaque reads the same for every hint.
+	func _layout() -> void:
+		var view := get_viewport_rect().size
+		plaque.custom_minimum_size = Vector2(minf(view.x - 140.0, 820.0), 0)
+
+	## Arm (or disable) the layer for a hunt. Dailies arm it off, so their
+	## fixed hunts never teach or record the first-hunt hints.
+	func arm(enabled: bool) -> void:
+		_armed = enabled
+		_active = false
+		_moved = false
+		_life = 0.0
+		_cooldown = 0.0
+		current = ""
+		if plaque != null:
+			if _tween != null and _tween.is_valid():
+				_tween.kill()
+			plaque.modulate.a = 0.0
+
+	func tick(delta: float, run_sim: RunSim) -> void:
+		if not _armed or run_sim == null or run_sim.heroes.is_empty():
+			return
+		sim = run_sim
+		var hero: RunSim.Actor = sim.heroes[0]
+		_moved = _moved or hero.vel.length() > 8.0
+		if _active:
+			_life += delta
+			if _life >= float(LIFE[current]) or _done(current):
+				_dismiss()
+			return
+		if _cooldown > 0.0:
+			_cooldown = maxf(0.0, _cooldown - delta)
+			return
+		if sim.paused or sim.result != "":
+			return
+		var next := next_hint(_state(hero), SaveGame.data["hints_seen"])
+		if next != "":
+			_show(next)
+
+	## The read-only sim state the triggers read. "still" fires only while the
+	## hero is actually moving; "loot" watches the ground drops the sim owns.
+	func _state(hero: RunSim.Actor) -> Dictionary:
+		return {
+			"started": true,
+			"moved": _moved,
+			"enemy_in_range": hero.vel.length() > 8.0 and sim.nearest_hostile(hero, hero.range) != null,
+			"time": sim.time,
+			"explored": sim.explored(),
+			"gear_dropped": not sim.gear_ground.is_empty(),
+		}
+
+	## The first hint not yet seen whose trigger is met, in teaching order.
+	## Pure: sim_check drives it with synthetic state.
+	static func next_hint(state: Dictionary, seen: Array) -> String:
+		if not bool(state.get("started", false)):
+			return ""
+		if not ("move" in seen):
+			return "move"
+		if not ("still" in seen) and bool(state.get("enemy_in_range", false)):
+			return "still"
+		if not ("lair" in seen) and (float(state.get("time", 0.0)) >= 25.0 or float(state.get("explored", 0.0)) >= 0.15):
+			return "lair"
+		if not ("loot" in seen) and bool(state.get("gear_dropped", false)):
+			return "loot"
+		return ""
+
+	## Whether the current hint's own condition has been satisfied.
+	func _done(id: String) -> bool:
+		match id:
+			"move":
+				return _moved
+			"still":
+				return sim.heroes[0].atk_count > _base_atk
+			"loot":
+				return sim.gear_ground.size() < _loot_count
+		return false
+
+	func _show(id: String) -> void:
+		current = id
+		_active = true
+		_life = 0.0
+		text_label.text = str(TEXT[id])
+		_base_atk = sim.heroes[0].atk_count
+		_loot_count = sim.gear_ground.size()
+		_fade(1.0, 0.25)
+		# Shown once per save: record it the moment the plaque appears.
+		SaveGame.mark_hint(id)
+
+	func _dismiss() -> void:
+		if current == "":
+			return
+		current = ""
+		_active = false
+		_cooldown = 0.35
+		_fade(0.0, 0.3)
+
+	func _fade(to: float, time: float) -> void:
+		if _tween != null and _tween.is_valid():
+			_tween.kill()
+		_tween = create_tween()
+		_tween.tween_property(plaque, "modulate:a", to, time)
+
+	## The map was tapped: a player following the lair hint has understood it.
+	func notify_minimap_tapped() -> void:
+		if _active and current == "lair":
+			_dismiss()
