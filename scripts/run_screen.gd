@@ -538,6 +538,9 @@ func _drain() -> void:
 					AudioDirector.haptic("medium")
 			"hero_hurt":
 				_float(ev["pos"], str(int(round(float(ev["amount"])))), Color("ff6d6d"), true, int(ev["id"]), float(ev["amount"]), "hero")
+				var guard := sim._actor_by_id(int(ev["id"]))
+				if guard != null and str(guard.role) == "tank" and guard.swing_t > 0.0:
+					stage.guard_glint(guard.id)
 				_punch[int(ev["id"])] = 0.14
 				stage.hurt(int(ev["id"]))
 				_hurt_flash()
@@ -552,13 +555,19 @@ func _drain() -> void:
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
 			"charge":
-				_burst(ev["pos"], Color("9fd8d0"), 10, 200.0)
-				_burst(ev.get("to", ev["pos"]), Color("9fd8d0"), 6, 150.0)
+				stage.charge_fx(int(ev.get("id", -1)), ev["pos"], ev.get("to", ev["pos"]))
+				_burst(ev.get("to", ev["pos"]), Color("c9ab7e"), 6, 150.0)
 				AudioDirector.haptic("medium")
 			"charge_land":
-				_burst(ev["pos"], Color("d8e8ea"), 14, 190.0)
+				stage.charge_land_fx(ev["pos"], float(ev.get("radius", 78.0)))
+				_burst(ev["pos"], Color("d8e8ea"), 10, 190.0)
 			"cleave":
-				_burst(ev["pos"], Color("d8e8ea"), 8, 150.0)
+				stage.cleave_fx(ev["pos"], float(ev.get("facing", 0.0)), float(ev.get("range", 120.0)), float(RunSim.ROLE_TUNING["tank"].get("cleave_arc", 160.0)), float(ev.get("stop", 0.04)) > 0.045)
+				var tank := sim._actor_by_id(int(ev.get("id", -1)))
+				if tank != null:
+					var foe := sim.nearest_hostile(tank, float(ev.get("range", 120.0)) + 40.0)
+					if foe != null:
+						stage.lifesteal_fx(tank.id, foe.pos)
 			"hitstop":
 				hitstop = maxf(hitstop, float(ev.get("stop", 0.05)))
 			"loot":

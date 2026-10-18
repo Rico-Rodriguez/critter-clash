@@ -4223,3 +4223,145 @@ func _arena_from_sim(sim: RunSim) -> void:
 		tw.tween_interval(0.03 * i)
 		tw.tween_property(stone, "position", rest, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		i += 1
+
+
+# --- Class-combat visuals (events from run_sim ROLE_TUNING) -----------------
+# Each effect is one short-lived additive quad driven by a tween, so nothing
+# lingers and an idle hunt costs no draw calls.
+
+const FX_SHADER := """shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform int kind = 0;          // 0 cleave arc, 1 shock ring, 2 streak, 3 glint, 4 mote
+uniform float t = 0.0;         // 0..1 life
+uniform float half_arc = 1.4;  // cleave half-angle (radians)
+uniform vec3 color : source_color = vec3(1.0);
+uniform float gain = 1.0;
+void fragment() {
+	vec2 p = (UV - 0.5) * 2.0;
+	float r = length(p);
+	float a = 0.0;
+	if (kind == 0) {
+		// Crescent swept from one edge of the arc to the other, brightest at
+		// the leading edge, on the outer 45% of the reach.
+		float ang = atan(p.x, -p.y);
+		float sweep = mix(-half_arc, half_arc, smoothstep(0.0, 0.55, t));
+		float behind = clamp((sweep - ang) / (half_arc * 1.2), 0.0, 1.0);
+		float inside = step(-half_arc, ang) * step(ang, sweep);
+		float band = smoothstep(0.5, 0.78, r) * (1.0 - smoothstep(0.93, 1.0, r));
+		a = inside * band * (1.0 - behind * 0.85) * (1.0 - smoothstep(0.55, 1.0, t));
+	} else if (kind == 1) {
+		float rad = mix(0.2, 0.95, sqrt(t));
+		a = (1.0 - smoothstep(0.0, 0.07, abs(r - rad))) * (1.0 - t);
+		a += (1.0 - smoothstep(0.0, rad, r)) * 0.25 * (1.0 - t);
+	} else if (kind == 2) {
+		float across = 1.0 - smoothstep(0.0, 0.9, abs(p.x));
+		a = across * smoothstep(-1.0, 0.6, p.y) * (1.0 - smoothstep(0.9, 1.0, p.y)) * (1.0 - t);
+	} else if (kind == 3) {
+		float star = max(1.0 - smoothstep(0.0, 0.08, abs(p.x)) , 1.0 - smoothstep(0.0, 0.08, abs(p.y))) * (1.0 - smoothstep(0.3, 1.0, r));
+		a = (star + (1.0 - smoothstep(0.0, 0.45, r)) * 0.6) * sin(t * 3.14159);
+	} else {
+		a = (1.0 - smoothstep(0.0, 1.0, r)) * sin(t * 3.14159);
+	}
+	ALBEDO = color * a * gain;
+}
+"""
+var _fx_shader: Shader
+
+
+func _fx_quad(size: Vector2, kind: int, color: Color, life: float, flat := true, gain := 1.0) -> MeshInstance3D:
+	if _fx_shader == null:
+		_fx_shader = Shader.new()
+		_fx_shader.code = FX_SHADER
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = size
+	if flat:
+		q.orientation = PlaneMesh.FACE_Y
+	mi.mesh = q
+	var mat := ShaderMaterial.new()
+	mat.shader = _fx_shader
+	mat.set_shader_parameter("kind", kind)
+	mat.set_shader_parameter("color", Vector3(color.r, color.g, color.b))
+	mat.set_shader_parameter("gain", gain)
+	mat.render_priority = 4
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	actor_root.add_child(mi)
+	var tw := mi.create_tween()
+	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("t", v), 0.0, 1.0, life)
+	tw.tween_callback(mi.queue_free)
+	return mi
+
+
+## Tank cleave: a steel crescent across the real arc and reach.
+func cleave_fx(pos: Vector2, facing: float, reach: float, arc_deg: float, crit: bool) -> void:
+	if actor_root == null:
+		return
+	var m := reach * SCALE * 2.0
+	var q := _fx_quad(Vector2(m, m), 0, Color("ffd9a0") if crit else Color("cfe4ff"), 0.26, true, 1.6 if crit else 1.1)
+	q.position = _to3(pos) + Vector3(0, 0.45, 0)
+	# Quad -Y in UV maps to world -Z; the sim's facing is an angle in x/y.
+	q.rotation.y = -facing - PI * 0.5
+	(q.material_override as ShaderMaterial).set_shader_parameter("half_arc", deg_to_rad(arc_deg) * 0.5)
+
+
+## Tank charge: a dust streak along the leap and the lunge clip.
+func charge_fx(actor_id: int, from: Vector2, to: Vector2) -> void:
+	if actor_root == null:
+		return
+	var a := _to3(from)
+	var b := _to3(to)
+	var len := maxf(a.distance_to(b), 0.5)
+	var q := _fx_quad(Vector2(1.1, len), 2, Color("c9ab7e"), 0.45, true, 0.7)
+	q.position = (a + b) * 0.5 + Vector3(0, 0.08, 0)
+	q.rotation.y = atan2(b.x - a.x, b.z - a.z)
+	if _dust != null:
+		_dust.global_position = a + Vector3(0, 0.05, 0)
+		_dust.restart()
+		_dust.emitting = true
+	if _bodies.has(actor_id):
+		var body: Node3D = _bodies[actor_id]
+		body.set_meta("lock", "attack")
+		body.set_meta("lock_until", Time.get_ticks_msec() / 1000.0 + 0.24)
+		body.set_meta("state", "")
+		_play(body, "dodge")
+
+
+## Charge landing: a stagger shockwave at the real AoE radius.
+func charge_land_fx(pos: Vector2, radius: float) -> void:
+	if actor_root == null:
+		return
+	var m := radius * SCALE * 2.0
+	var q := _fx_quad(Vector2(m, m), 1, Color("e6eef7"), 0.32, true, 0.9)
+	q.position = _to3(pos) + Vector3(0, 0.1, 0)
+	if _dust != null:
+		_dust.global_position = _to3(pos) + Vector3(0, 0.05, 0)
+		_dust.restart()
+		_dust.emitting = true
+
+
+## Guard: a white glint on the shield when the swing DR soaks a hit.
+func guard_glint(actor_id: int) -> void:
+	if not _bodies.has(actor_id) or camera == null:
+		return
+	var body: Node3D = _bodies[actor_id]
+	var off := body.find_child("GearOff", true, false) as Node3D
+	var at: Vector3 = off.global_position if off != null else body.global_position + Vector3(0, HERO_METERS * 0.5, 0)
+	var q := _fx_quad(Vector2(1.3, 1.3), 3, Color("e8f4ff"), 0.22, false, 1.4)
+	q.global_position = at + (camera.global_position - at).normalized() * 0.6
+	q.look_at(camera.global_position, Vector3.UP)
+
+
+## Lifesteal: crimson motes rise off the struck and drift into the hero.
+func lifesteal_fx(actor_id: int, from: Vector2) -> void:
+	if not _bodies.has(actor_id):
+		return
+	var body: Node3D = _bodies[actor_id]
+	for i in 3:
+		var q := _fx_quad(Vector2(0.38, 0.38), 4, Color("ff3a3a"), 0.5, false, 1.2)
+		var start := _to3(from) + Vector3(randf_range(-0.6, 0.6), 0.8 + randf() * 0.6, randf_range(-0.6, 0.6))
+		q.position = start
+		if camera != null:
+			q.look_at(camera.global_position, Vector3.UP)
+		var tw := q.create_tween()
+		tw.tween_property(q, "position", body.position + Vector3(0, HERO_METERS * 0.45, 0), 0.5).set_delay(i * 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
