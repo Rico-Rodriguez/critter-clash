@@ -36,13 +36,20 @@ func _init() -> void:
 		vp.add_child(r)
 		Gear3D.hide_own(r, id)
 		Gear3D.dress(r, id, {"weapon": t, "armor": t})
-		# Normalise to ~180 units tall (rigs come in cm or m).
-		var hgt := 0.0
-		for mi: MeshInstance3D in r.find_children("*", "MeshInstance3D", true, false):
-			if mi.skin != null:
-				hgt = maxf(hgt, (mi.global_transform * mi.get_aabb()).size.y)
-		if hgt > 0.0 and (hgt < 150.0 or hgt > 230.0):
+		# Normalise to ~180 units tall from the skeleton joints (skinned mesh
+		# boxes report bind space, which lies on rigs with scaled armatures),
+		# and stand the feet on y = 0.
+		var sk0: Skeleton3D = r.find_children("*", "Skeleton3D", true, false)[0]
+		var lo := 1e9
+		var hi := -1e9
+		for b in sk0.get_bone_count():
+			var y := (sk0.global_transform * sk0.get_bone_global_pose(b).origin).y
+			lo = minf(lo, y)
+			hi = maxf(hi, y)
+		var hgt := (hi - lo) * 1.08
+		if hgt > 0.0:
 			r.scale = Vector3.ONE * (180.0 / hgt)
+			r.position.y = -lo * r.scale.y
 		var ap: AnimationPlayer = r.find_children("*", "AnimationPlayer", true, false)[0]
 		ap.play(shot[0])
 		ap.seek(ap.get_animation(shot[0]).length * float(shot[1]), true)

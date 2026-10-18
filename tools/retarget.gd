@@ -98,6 +98,8 @@ func _init() -> void:
 	var tidx := func(n: String) -> int: return ts.find_bone(map[n])
 	# Swing limbs so the target reference matches the source silhouette.
 	for pair in SWING:
+		if not map.has(pair[0]) or not map.has(pair[1]):
+			continue  # legless rigs skip the leg chains
 		var ta: int = tidx.call(pair[0])
 		var tb: int = tidx.call(pair[1])
 		var dt: Vector3 = (ref[tb].origin - ref[ta].origin).normalized()
