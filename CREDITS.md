@@ -74,6 +74,17 @@ The older fonts below remain in the repository but the interface no longer uses 
 - Sky: Poly Haven `kloofendal_48d_partly_cloudy_puresky` (1k) — https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky — CC0. File `assets/textures/sky.hdr`.
 - `assets/textures/dust.png` is drawn for this game.
 
+## Knight heroes and gear
+
+All CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) unless marked CC0. Gear is re-textured with tier shading in `shaders/gear_tier.gdshader`; the meshes are otherwise unchanged.
+
+- "Paladin" by DJMaesen (bumstrum): https://sketchfab.com/3d-models/paladin-4f1c320f2cec49dc9bf38c6aad2d8ea9 . Used for Aldric, the ashen paladin hero.
+- Animations: KayKit Adventurers and Skeletons character packs by Kay Lousberg (CC0, https://kaylousberg.itch.io/kaykit-adventurers). They are retargeted onto each hero rig by `tools/retarget.gd`.
+- "Reinforced Wooden Shield (game ready asset)" by apariciosilva3D: https://sketchfab.com/3d-models/reinforced-wooden-shield-game-ready-asset-20a4a579371d4b6c86244fad9404a313
+- "Medieval Wood Heater Shield" by iedalton: https://sketchfab.com/3d-models/medieval-wood-heater-shield-2a3aba2c1ef041168fab0c595e2e5882
+- "Paladin Shield [Free Download]" by Efarys: https://sketchfab.com/3d-models/paladin-shield-free-download-0ae0f62030ad48d88364b327b7cd3fc3
+- "Black Blade of Oarimaar" by Pippa (Planetrix23): https://sketchfab.com/3d-models/black-blade-of-oarimaar-d84a41ac0a2a4d9bb39a0a2b7fe1027f
+
 ## Interface pictures
 
 - Critter portraits on cards, the collection log, the slayer panel, and the hunt medallion are renders of each critter's own 3D model (credited above), baked by `scripts/portrait_baker.gd` into `assets/sprites/portraits/`. Kenney's [Animal Pack Redux](https://opengameart.org/content/animal-pack-redux) (CC0) stays in `assets/sprites/critters/` only as a fallback.

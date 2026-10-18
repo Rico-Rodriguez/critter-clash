@@ -19,6 +19,16 @@ extends RefCounted
 
 const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
 
+## Grimdark Knights (2026-10-18): humanoid heroes on the DJMaesen knight rig
+## (CC-BY), clips retargeted from KayKit (CC0) by tools/retarget.gd, gear
+## tiers from Gear3D. The id stays for saves; the name is in Catalog.
+const HEROES := {"pebble": "res://assets/models/heroes/paladin/paladin.tscn"}
+const HERO_CLIPS := {"idle": "idle", "walk": "walk", "run": "run", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle", "cast": "cast", "block": "block", "bash": "bash", "dodge": "dodge"}
+
+
+static func knight(id: String) -> bool:
+	return HEROES.has(id)
+
 
 ## Wild critters and bosses wear their own species (Quaternius Ultimate
 ## Monsters, CC0), never a playable hero's mesh.
@@ -103,6 +113,8 @@ static func monster(id: String) -> String:
 
 
 static func model(id: String) -> String:
+	if HEROES.has(id):
+		return HEROES[id]
 	var dk := dark(id)
 	if dk != "" and ResourceLoader.exists("res://assets/models/sketchfab/dark/%s.glb" % dk):
 		return "res://assets/models/sketchfab/dark/%s.glb" % dk
@@ -174,6 +186,8 @@ static func family(id: String) -> String:
 
 
 static func clips(id: String) -> Dictionary:
+	if HEROES.has(id):
+		return HERO_CLIPS
 	var path := model(id)
 	if "/sketchfab/dark/" in path:
 		return DARK_CLIPS[dark(id)]
@@ -219,6 +233,9 @@ static func clips(id: String) -> Dictionary:
 ## Material fixes for licensed meshes whose PBR maps import badly.
 ## Empty means "leave the file's materials alone".
 static func pbr(id: String) -> Dictionary:
+	if HEROES.has(id):
+		# Gear3D owns the knights' materials (tier finish shader).
+		return {}
 	var path := model(id)
 	if "/sketchfab/dark/" in path:
 		# Real fur and hide maps: matte, desaturated and a shade darker, a
@@ -321,7 +338,7 @@ static func tint(id: String) -> Color:
 	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
 	# catalog color.
 	var path := model(id)
-	if "/sketchfab/dark/" in path:
+	if HEROES.has(id) or "/sketchfab/dark/" in path:
 		return Color.WHITE
 	if "/sketchfab/mon/" in path:
 		return SKETCH_TINT.get(id, Color.WHITE)
@@ -354,6 +371,8 @@ static func nose(id: String) -> float:
 	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
 	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
 	var path := model(id)
+	if HEROES.has(id):
+		return 0.0
 	if dark(id) == "badger":
 		# Measured from the rig (pelvis -> head) at spawn; the badger's rest
 		# pose matches its clips. The AnimalMesh3D fox and bear face +Z.
@@ -411,6 +430,9 @@ static func head_window(id: String) -> Rect2:
 
 ## Share of the body height that is head, for the medallion close-up.
 static func head_share(id: String) -> float:
+	if HEROES.has(id):
+		# Horned great helm: the top fifth reads as the knight's face.
+		return 0.24
 	if model(id) == EMBER_CUTE:
 		return 0.6
 	match family(id):

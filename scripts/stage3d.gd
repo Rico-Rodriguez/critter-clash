@@ -1949,6 +1949,7 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 			face = _rig_nose(model, root, face)
 	root.set_meta("face", face)
 	_fix_far_skins(model)
+	Gear3D.hide_own(model, sprite)
 	var box := _measure(model)
 	# Wide critters (the dragon's wingspan) read by footprint from the
 	# high camera, so size by whichever is larger.
@@ -1964,7 +1965,9 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 	_hide_catch(model)
 	_fix_pbr(model, sprite)
 	_tint(model, Cast3D.tint(sprite))
-	if Cast3D.armor(sprite) != "":
+	if Gear3D.has_kit(sprite):
+		Gear3D.dress(model, sprite)
+	elif Cast3D.armor(sprite) != "":
 		Armor3D.dress(model, Cast3D.armor(sprite))
 	elif Cast3D.dark(sprite) != "":
 		Armor3D.glow_eyes(model, Cast3D.feral_color(sprite))
@@ -2939,6 +2942,8 @@ func _measure(node: Node) -> AABB:
 
 
 func _measure_into(node: Node, parent: Transform3D, acc: Dictionary) -> void:
+	if node is Node3D and not (node as Node3D).visible:
+		return
 	var xf := parent
 	if node is Node3D:
 		xf = parent * (node as Node3D).transform
