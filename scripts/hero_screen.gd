@@ -181,7 +181,7 @@ func _fill_level(stats: Dictionary) -> void:
 	var have := int(row["cards"])
 	card_bar.visible = true
 	card_bar.ratio = clampf(float(have) / float(maxi(need, 1)), 0.0, 1.0)
-	card_bar.caption = "Cards %d / %d" % [mini(have, need), need]
+	card_bar.caption = "Relics %d / %d" % [mini(have, need), need]
 	card_bar.surplus = maxi(0, have - need)
 	card_bar.ready_up = SaveGame.can_level(selected)
 	card_bar.queue_redraw()

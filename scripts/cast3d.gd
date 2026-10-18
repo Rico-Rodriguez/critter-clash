@@ -1,17 +1,13 @@
 class_name Cast3D
 extends RefCounted
 
-## Which licensed model plays each critter, and which clip covers each action.
-## Heroes keep the meshes the owner already liked: dragon, fox, otter, owl,
-## frog, cactus-hog. Minions and bosses reuse that same rigged cast, tinted.
+## Which licensed model plays each actor, and which clip covers each action.
+## Heroes are the four grimdark knights (HEROES below). Minions and bosses use
+## the rigged enemy cast, tinted per biome.
 ##
-## Drop a CC0 or CC-BY Sketchfab GLB on top of a family to replace it:
-##   assets/models/sketchfab/ember_cute.glb  Cute Dragon (Ember only)
-##   assets/models/sketchfab/ember.glb    Stylized Dragon (volcano dragons)
-##   assets/models/sketchfab/juniper.glb  KAI or GIGI fox
-##   assets/models/sketchfab/pebble.glb   otter, when one is licensed
-##   assets/models/sketchfab/lumen.glb    owl
-##   assets/models/sketchfab/pip.glb      frog
+## Enemy family meshes (CC0 or CC-BY; drop a replacement GLB on top):
+##   assets/models/sketchfab/ember.glb    Stylized Dragon (volcano dragons;
+##                                        also Corvin's id, see HEROES)
 ##   assets/models/sketchfab/bramble.glb  Swinecone, pinecone boar (bramble family)
 ##   assets/models/sketchfab/thistle.glb  Mushroom Boss
 ## Rim plants from a vegetation pack go in assets/models/sketchfab/nature/.

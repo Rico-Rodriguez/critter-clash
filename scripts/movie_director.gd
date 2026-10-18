@@ -27,7 +27,7 @@ func run(host: Node, clip: String) -> void:
 			await _profile()
 		"home":
 			await _home()
-		"walk_ember", "walk_juniper", "walk_pebble":
+		"walk_ember", "walk_pebble", "walk_bramble", "walk_lumen":
 			await _walk(clip.trim_prefix("walk_"))
 		_:
 			await _tour()

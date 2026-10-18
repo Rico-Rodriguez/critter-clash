@@ -25,7 +25,12 @@ const KITS := {
 	"pebble": {
 		"anims": "res://assets/models/heroes/paladin/paladin_anims.res",
 		"hide": ["BastardScabbard", "swordscabbard", "shortsword", "bastardsword"],
-		"main": ["own:shortsword", "own:bastardsword", "own:bastardsword", "gear:blade_oarimaar"],
+		# Bare = empty-handed; the first sword is an earned piece.
+		"main": ["", "own:bastardsword", "own:bastardsword", "gear:blade_oarimaar"],
+		# Bare slots strip the baked plate (x hero height from the bone axis):
+		# helm, chest, pauldrons, gloves, boots, weapon, offhand, charm.
+		"strip": [0.07, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+		"strip_top": 0.15,
 		"off": ["gear:shield_round", "gear:shield_tower", "gear:shield_tower", "gear:shield_tower"],
 		# Off-hand shield pose relative to the hand socket (cm, degrees).
 		"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
@@ -38,7 +43,7 @@ const KITS := {
 		# frosted ice; damp the T2 metal tint for this kit only.
 		"metal_mul": [1.0, 1.0, 0.4, 1.0],
 		"hide": ["sword", "scabbard_2"],
-		"main": ["own:sword", "own:sword", "own:sword", "own:sword"],
+		"main": ["", "own:sword", "own:sword", "own:sword"],
 		"off": ["", "", "", ""],
 		"off_xf": [Vector3.ZERO, Vector3.ZERO],
 		"main_xf": [Vector3(0, -8, 0), Vector3(180, 0, 0)],
@@ -86,9 +91,9 @@ const KITS := {
 ## Finish per tier: plate tint, soft-material (leather/cloth) tint, wear,
 ## runes, roughness. Cloth (tabard) takes "cloth".
 const FINISH := [
-	# T0 Bare: the plate shapes read as dark boiled leather over a padded
-	# linen gambeson (stitching from the panel lines), no metal sheen.
-	{"metal": Color(1.0, 1.0, 1.0), "soft": Color(0.5, 0.45, 0.38), "cloth": Color(0.4, 0.36, 0.3), "wear": 0.35, "rune": 0.0, "rough_mul": 0.9, "rough_add": 0.32, "gain": 0.2, "groove": 0.6, "edge_hi": 0.3, "edge_col": Color(0.55, 0.38, 0.22), "metal_cap": 0.06, "leather": 1.0},
+	# T0 Bare: a dark quilted gambeson and hood (stitching from the panel
+	# lines), matte, no metal at all; bare helms also lose their horns.
+	{"metal": Color(0.5, 0.44, 0.38), "soft": Color(0.34, 0.29, 0.25), "cloth": Color(0.3, 0.26, 0.22), "wear": 0.35, "rune": 0.0, "rough_mul": 0.9, "rough_add": 0.4, "gain": 0.1, "groove": 0.85, "edge_hi": 0.08, "edge_col": Color(0.45, 0.33, 0.22), "metal_cap": 0.0, "leather": 1.0},
 	# T1 Dented Iron: warm, light, riveted; dark grooves, dull bevels.
 	{"metal": Color(1.62, 1.42, 1.12), "soft": Color(0.74, 0.6, 0.48), "cloth": Color(0.5, 0.38, 0.27), "wear": 1.0, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.2, "gain": 0.9, "groove": 0.75, "edge_hi": 0.2, "edge_col": Color(0.7, 0.55, 0.38)},
 	# T2 Blackened Steel: cool blue-black, glossy, crisp bright bevels.
@@ -195,6 +200,10 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			for m: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
 				if not own.has(String(n.name)):
 					own[String(n.name)] = m
+	if kit.has("helm_mesh"):
+		# Shown while materials are assigned; hidden below if the slot is bare.
+		for n: Node in model.find_children(str(kit["helm_mesh"]), "MeshInstance3D", true, false):
+			(n as MeshInstance3D).visible = true
 	var slot_t := PackedInt32Array()
 	for sl in SLOTS:
 		slot_t.append(int(t[sl]))
@@ -212,6 +221,17 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			fm.set_shader_parameter("use_slots", 1.0)
 			fm.set_shader_parameter("slot_tier", slot_t)
 			fm.set_shader_parameter("seam_gain", float(kit.get("seam", 1.0)))
+			# Empty slots strip baked plate beyond this axis distance (x h).
+			var strip: Array = kit.get("strip", [])
+			if not strip.is_empty():
+				var sr := PackedFloat32Array(strip)
+				if OS.get_environment("CC_STRIP_R") != "":
+					sr[0] = float(OS.get_environment("CC_STRIP_R"))
+				fm.set_shader_parameter("strip_r", sr)
+				var top := float(kit.get("strip_top", 9.0))
+				if OS.get_environment("CC_STRIP_TOP") != "":
+					top = float(OS.get_environment("CC_STRIP_TOP"))
+				fm.set_shader_parameter("strip_top", top)
 			if kit.get("flesh", false):
 				# Hide tiers: pale -> ash grey -> charcoal -> blood-veined.
 				var hide_tint: Array = kit.get("soft_tints", [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)])
@@ -247,6 +267,9 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 				var sm := mi.get_surface_override_material(i) as ShaderMaterial
 				if sm and sm.shader == SHADER:
 					sm.set_shader_parameter("rune_color", rc)
+	if kit.has("helm_mesh"):
+		for n: Node in model.find_children(str(kit["helm_mesh"]), "MeshInstance3D", true, false):
+			(n as MeshInstance3D).visible = int(t["helm"]) > 0
 	model.set_meta("gear_tiers", t)
 	_silhouette(model, sk, t, kit)
 	_exclusive(sk, t, kit)
@@ -255,11 +278,12 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
-	if socket.is_empty() or src == "":
-		return
 	var old := sk.get_node_or_null(label)
 	if old:
+		old.name = label + "_old"
 		old.queue_free()
+	if socket.is_empty() or src == "":
+		return
 	var att := BoneAttachment3D.new()
 	att.name = label
 	att.bone_name = str(socket["bone"])
@@ -762,12 +786,19 @@ static func _tag_slots(mi: MeshInstance3D, sk: Skeleton3D) -> void:
 		return
 	var skin := mi.skin
 	var bind_slot := PackedInt32Array()
+	var horn_bind: Array[bool] = []
 	for bi in skin.get_bind_count():
 		var bname := String(skin.get_bind_name(bi))
 		if bname == "":
 			var bone := skin.get_bind_bone(bi)
 			bname = sk.get_bone_name(bone) if bone >= 0 and bone < sk.get_bone_count() else ""
 		bind_slot.append(bone_slot(bname))
+		var lb := bname.to_lower()
+		horn_bind.append(lb.begins_with("top") or lb.begins_with("tip") or lb.contains("horn"))
+	# COLOR.g / COLOR.b: each vertex's horizontal / vertical offset from its
+	# dominant bone (mesh space, Y up, in units of the mesh height), so a bare
+	# slot can strip plate that stands proud of the body (helm horns).
+	var hh := maxf(src.get_aabb().size.y, 0.001)
 	var out := ArrayMesh.new()
 	for bi in src.get_blend_shape_count():
 		out.add_blend_shape(src.get_blend_shape_name(bi))
@@ -777,7 +808,8 @@ static func _tag_slots(mi: MeshInstance3D, sk: Skeleton3D) -> void:
 		var fmt := src.surface_get_format(si)
 		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
 		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
-		var nv: int = (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var nv: int = verts.size()
 		var per := 8 if (fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) else 4
 		var cols := PackedColorArray()
 		cols.resize(nv)
@@ -790,7 +822,14 @@ static func _tag_slots(mi: MeshInstance3D, sk: Skeleton3D) -> void:
 					bw = w
 					best = bones[v * per + k]
 			var slot := bind_slot[best] if best < bind_slot.size() else 1
-			cols[v] = Color(slot / 7.0, 0, 0, 1)
+			var p := Vector3.ZERO
+			if best < skin.get_bind_count():
+				p = verts[v] - skin.get_bind_pose(best).affine_inverse().origin
+			var radial := clampf(Vector2(p.x, p.z).length() / hh * 2.0, 0.0, 1.0)
+			if best < horn_bind.size() and horn_bind[best]:
+				radial = 1.0
+			var along := clampf(p.y / hh + 0.5, 0.0, 1.0)
+			cols[v] = Color(slot / 7.0, radial, along, 1)
 		arrays[Mesh.ARRAY_COLOR] = cols
 		# Keep custom-channel formats and the 8-weight flag; drop compression
 		# (the arrays come back decompressed).

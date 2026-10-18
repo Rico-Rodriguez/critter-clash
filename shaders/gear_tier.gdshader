@@ -33,6 +33,12 @@ uniform float seam_gain = 1.0;  // per-kit rune seam gain (busy albedo catches m
 uniform float use_slots = 0.0;
 uniform int fixed_tier = 0;
 uniform int slot_tier[8];
+// Bare-slot strip: an empty slot discards baked plate standing further than
+// strip_r[slot] (x hero height) from its bone axis; 0 = keep. strip_top cuts
+// head-slot geometry above that height along the head bone (horns, crests).
+uniform float strip_r[8];
+uniform float strip_top = 9.0;
+varying float v_strip;
 
 // Per-tier finish (index = tier 0..3). Set by Gear3D.finish().
 uniform vec3 t_metal_tint[4];
@@ -82,12 +88,21 @@ void vertex() {
 	if (use_slots > 0.5) {
 		int s = clamp(int(COLOR.r * 7.0 + 0.5), 0, 7);
 		v_tier = clamp(slot_tier[s], 0, 3);
+		v_strip = -1.0;
+		if (slot_tier[s] == 0) {
+			if (strip_r[s] > 0.0) v_strip = COLOR.g * 0.5 - strip_r[s];
+			if (s == 0) v_strip = max(v_strip, (COLOR.b - 0.5) - strip_top);
+		}
 	} else {
+		v_strip = -1.0;
 		v_tier = clamp(fixed_tier, 0, 3);
 	}
 }
 
 void fragment() {
+	if (v_strip > 0.0) {
+		discard;
+	}
 	int T = v_tier;
 	vec3 base = texture(albedo_tex, UV).rgb * base_color;
 	float metal = clamp(dot(texture(metal_tex, UV), metal_ch) + metal_floor, 0.0, 1.0);
@@ -136,7 +151,7 @@ void fragment() {
 		NORMAL_MAP_DEPTH = normal_scale;
 	}
 	// Rune tier always carries etched burning glyph lines on the plate.
-	float r = max(rune, step(2.5, float(T)) * 0.75) * glyphs(UV) * m;
+	float r = max(rune, step(2.5, float(T)) * 0.5) * glyphs(UV) * m;
 	float pulse = 0.62 + 0.38 * sin(TIME * 2.4) * 0.6 + 0.4 * sin(TIME * 3.1 - UV.y * 6.0) * 0.38;
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	float fres2 = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.6);

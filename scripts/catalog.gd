@@ -299,8 +299,8 @@ static func _index_cards() -> void:
 	}
 
 
-## The four knights. Juniper (fox archer) and Pip (frog mage) are retired:
-## their rows stay below only so old duel/daily records still resolve.
+## The four knights. Two retired ids ("juniper", "pip") keep rows below only
+## so old saves and duel/daily records still resolve; they render as Aldric.
 const PLAYABLE: Array = [
 	"pebble", "ember", "lumen", "bramble",
 ]
@@ -549,8 +549,8 @@ const DROPS: Array = [
 	{"id": "thistle_pouch", "boss": "thistle", "name": "Heavy purse", "kind": "coins", "amount": 90, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "meadow_fiber", "boss": "thistle", "name": "Barrow sinew", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "67b85a"},
 	{"id": "pollen", "boss": "thistle", "name": "Grave ash", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "f2d35a"},
-	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Corvin cards", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "ff7a3c"},
-	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Mordrek cards", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
+	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "ff7a3c"},
+	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Mordrek relics", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
 	{"id": "thistle_claw", "boss": "thistle", "name": "Gravemaw talon", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "c46b8a"},
 	{"id": "thistle_shell", "boss": "thistle", "name": "Barrow-hide mantle", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8d4e6a"},
 	{"id": "boar_bristle", "boss": "thistle", "name": "Troll bristle", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "a86848"},
@@ -561,8 +561,8 @@ const DROPS: Array = [
 	{"id": "caplet_pouch", "boss": "caplet", "name": "Heavy purse", "kind": "coins", "amount": 110, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "cap_bits", "boss": "caplet", "name": "Rot fur", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d45ad0"},
 	{"id": "spore_dust", "boss": "caplet", "name": "Blight dust", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "c9b6ef"},
-	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Aldric cards", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "common", "weight": 12, "color": "3aa8a0"},
-	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Gnash cards", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "c0453a"},
+	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Aldric relics", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "common", "weight": 12, "color": "3aa8a0"},
+	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "c0453a"},
 	{"id": "caplet_wand", "boss": "caplet", "name": "Blightfang wand", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d45ad0"},
 	{"id": "caplet_wrap", "boss": "caplet", "name": "Wolfhide wrap", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8a3a86"},
 	{"id": "toad_cap", "boss": "caplet", "name": "Moonless pelt", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e23a4a"},
@@ -573,8 +573,8 @@ const DROPS: Array = [
 	{"id": "nimbus_pouch", "boss": "nimbus", "name": "Heavy purse", "kind": "coins", "amount": 130, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "frost_wool", "boss": "nimbus", "name": "Frost wool", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d7e7f6"},
 	{"id": "ice_shard", "boss": "nimbus", "name": "Ice shard", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "9fd4ef"},
-	{"id": "nimbus_lumen_cards", "boss": "nimbus", "name": "Gnash cards", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "common", "weight": 12, "color": "c0453a"},
-	{"id": "nimbus_bramble_cards", "boss": "nimbus", "name": "Mordrek cards", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
+	{"id": "nimbus_lumen_cards", "boss": "nimbus", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "common", "weight": 12, "color": "c0453a"},
+	{"id": "nimbus_bramble_cards", "boss": "nimbus", "name": "Mordrek relics", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
 	{"id": "nimbus_sling", "boss": "nimbus", "name": "Wind sling", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d7e7f6"},
 	{"id": "nimbus_coat", "boss": "nimbus", "name": "Rimeguard coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8aa4c0"},
 	{"id": "hare_fluff", "boss": "nimbus", "name": "Wraith wisp", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
@@ -585,8 +585,8 @@ const DROPS: Array = [
 	{"id": "cinder_pouch", "boss": "cinder", "name": "Heavy purse", "kind": "coins", "amount": 150, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "ash_clump", "boss": "cinder", "name": "Ash clump", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "6a534c"},
 	{"id": "ember_ore", "boss": "cinder", "name": "Ember ore", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "ff8a3c"},
-	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Corvin cards", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "common", "weight": 12, "color": "ff7a3c"},
-	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Aldric cards", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "3aa8a0"},
+	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "common", "weight": 12, "color": "ff7a3c"},
+	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Aldric relics", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "3aa8a0"},
 	{"id": "cinder_mallet", "boss": "cinder", "name": "Cinder mallet", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "ff5a32"},
 	{"id": "cinder_plate", "boss": "cinder", "name": "Ash plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "a84830"},
 	{"id": "salamander_scale", "boss": "cinder", "name": "Cinder scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},

@@ -21,7 +21,7 @@ func build() -> void:
 	box.add_child(header())
 	title_label = h1("Chest")
 	box.add_child(title_label)
-	box.add_child(body("Cards upgrade heroes. Gear lands on your hero in Heroes."))
+	box.add_child(body("Relics upgrade heroes. Gear lands on your hero in Heroes."))
 	burst = Burst.new()
 	burst.custom_minimum_size = Vector2(0, 560)
 	burst.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -325,7 +325,7 @@ func _reward_card(id: String, name: String, count: int) -> Control:
 	var n := UiKit.label(name.to_upper(), 20, UiKit.GOLD.lightened(0.2), "x", 3)
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(n)
-	var c := UiKit.label("+%d cards" % count, 20, UiKit.CREAM, "b", 2)
+	var c := UiKit.label("+%d relics" % count, 20, UiKit.CREAM, "b", 2)
 	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(c)
 	return plate
