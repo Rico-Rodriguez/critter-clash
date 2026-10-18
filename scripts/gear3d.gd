@@ -36,10 +36,10 @@ const KITS := {
 ## Finish per tier: plate tint, soft-material (leather/cloth) tint, wear,
 ## runes, roughness. Cloth (tabard) takes "cloth".
 const FINISH := [
-	{"metal": Color(0.78, 0.76, 0.72), "soft": Color(0.82, 0.78, 0.7), "cloth": Color(0.72, 0.68, 0.6), "wear": 0.55, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.08, "gain": 0.85},
-	{"metal": Color(1.35, 1.3, 1.22), "soft": Color(0.74, 0.6, 0.48), "cloth": Color(0.5, 0.38, 0.27), "wear": 1.0, "rune": 0.0, "rough_mul": 1.0, "rough_add": 0.12, "gain": 1.0},
-	{"metal": Color(0.3, 0.29, 0.29), "soft": Color(0.42, 0.34, 0.3), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.18, "rune": 0.0, "rough_mul": 0.72, "rough_add": -0.04, "gain": 1.1},
-	{"metal": Color(0.16, 0.14, 0.15), "soft": Color(0.25, 0.2, 0.19), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.1, "rune": 1.0, "rough_mul": 0.66, "rough_add": -0.05, "gain": 1.15},
+	{"metal": Color(0.78, 0.76, 0.72), "soft": Color(0.82, 0.78, 0.7), "cloth": Color(0.72, 0.68, 0.6), "wear": 0.55, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.08, "gain": 0.85, "groove": 0.3},
+	{"metal": Color(1.6, 1.55, 1.48), "soft": Color(0.74, 0.6, 0.48), "cloth": Color(0.5, 0.38, 0.27), "wear": 1.0, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.18, "gain": 0.9, "groove": 0.75},
+	{"metal": Color(0.15, 0.15, 0.16), "soft": Color(0.3, 0.25, 0.23), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.12, "rune": 0.0, "rough_mul": 0.6, "rough_add": -0.06, "gain": 1.1, "edge_hi": 0.9},
+	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "seam": 1.0},
 ]
 const RUNE := Color(1.0, 0.32, 0.08)
 
@@ -164,7 +164,20 @@ static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Diction
 	for i in mi.mesh.get_surface_count():
 		var mat := mi.mesh.surface_get_material(i) as BaseMaterial3D
 		if mat:
-			mi.set_surface_override_material(i, finish(mat, tier, false, true))
+			var fm := finish(mat, tier, false, true)
+			if tier == 3 and label == "GearMain":
+				fm.set_shader_parameter("blade_glow", 1.8)
+			mi.set_surface_override_material(i, fm)
+
+
+## Cool fresnel rim on every gear-shaded surface (hunt readability on dark ground).
+static func set_rim(model: Node, c: Color) -> void:
+	for n in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		for i in mi.get_surface_override_material_count():
+			var sm := mi.get_surface_override_material(i) as ShaderMaterial
+			if sm and sm.shader == SHADER:
+				sm.set_shader_parameter("cool_rim", Vector3(c.r, c.g, c.b))
 
 
 ## A tier finish built over a source PBR material.
@@ -202,8 +215,9 @@ static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false
 	if prop:
 		# Props have their own UV scale; runes a touch larger on blades and shields.
 		mat.set_shader_parameter("rune_scale", 30.0)
-	if tier == 3:
-		mat.set_shader_parameter("edge_glow", Vector3(0.06, 0.012, 0.004))
+	mat.set_shader_parameter("groove", f.get("groove", 0.0))
+	mat.set_shader_parameter("edge_hi", f.get("edge_hi", 0.0))
+	mat.set_shader_parameter("seam_glow", f.get("seam", 0.0))
 	if src.cull_mode == BaseMaterial3D.CULL_DISABLED or cloth:
 		mat.render_priority = 0
 	return mat
