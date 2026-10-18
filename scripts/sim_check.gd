@@ -6,6 +6,8 @@ static var failures := 0
 
 static func run() -> int:
 	failures = 0
+	if OS.get_cmdline_user_args().has("--class-report"):
+		class_report(_class_tag())
 	_roles()
 	_modes()
 	_save()
@@ -160,6 +162,22 @@ static func _daily_check() -> void:
 		seeds[Daily.seed_for(Daily.today_key(base + i * 86400))] = true
 	if seeds.size() < 20:
 		_fail("30 days gave only %d distinct seeds" % seeds.size())
+	# The rotation must cover every biome and never land on the same one two
+	# days running. 28 days is short enough to stay quick and long enough that
+	# a skipped biome would show.
+	var counts := {}
+	var prev := ""
+	for i in 28:
+		var bid := Daily.biome_for(Daily.today_key(base + i * 86400))
+		if bid == prev:
+			_fail("daily repeated %s on consecutive days" % bid)
+			break
+		prev = bid
+		counts[bid] = int(counts.get(bid, 0)) + 1
+	for entry in Catalog.BIOMES:
+		var bid := str(entry["id"])
+		if int(counts.get(bid, 0)) < 3:
+			_fail("daily biome %s appeared %d times in 28 days" % [bid, int(counts.get(bid, 0))])
 	var win := {"win": true, "time": 200.0, "kills": 60, "level": 8, "hp": 50.0, "max_hp": 100.0}
 	var loss := win.duplicate()
 	loss["win"] = false
@@ -192,6 +210,32 @@ static func _daily_check() -> void:
 		if int(board[i - 1]["score"]) < int(board[i]["score"]):
 			_fail("daily board is not sorted by score")
 			break
+	# Daily access: a sealed biome is playable through the daily, but the
+	# session and a win leave the clear state alone. Run on the in-memory
+	# copy with no_write set, then restore.
+	SaveGame.data["trophies"] = 0
+	SaveGame.data["cleared"] = {}
+	var locked_unix := 0
+	for i in 8:
+		var u := base + i * 86400
+		if not SaveGame.biome_open(Daily.biome_for(Daily.today_key(u))):
+			locked_unix = u
+			break
+	if locked_unix == 0:
+		_fail("daily rotation never hit a sealed biome")
+	else:
+		var locked_id := Daily.biome_for(Daily.today_key(locked_unix))
+		var before: Dictionary = SaveGame.data["cleared"].duplicate(true)
+		var daily_session := Session.daily("ember", locked_unix)
+		var daily_sim := RunSim.new()
+		daily_sim.start(daily_session, {"ember": Catalog.base_stats("ember")})
+		for _i in 5:
+			daily_sim.step(STEP, [Vector2.ZERO])
+		SaveGame.commit_daily_pass(locked_id, str(Catalog.biome(locked_id)["boss"]))
+		if str(SaveGame.data["cleared"]) != str(before):
+			_fail("a locked daily changed the clear state")
+		if SaveGame.biome_cleared(locked_id):
+			_fail("a locked daily marked %s cleared" % locked_id)
 	SaveGame.data = keep
 	SaveGame.no_write = false
 	print("DAILY ok: key %s seed %d biome %s" % [key, a.seed, a.biome_id])
@@ -381,6 +425,17 @@ static func _pools_check() -> void:
 			if _class_available(role, stacks) and not has_class:
 				_fail("%s offer had no class card" % role)
 				return
+	# The class swap draws from the run rng now: over 500 fresh offers a role
+	# must see its exclusives spread across at least four distinct ids rather
+	# than the same card pinned by a hash of the general card it replaced.
+	for role in ["tank", "archer", "mage"]:
+		var cover := {}
+		for _i in 500:
+			for id in Catalog.roll_offer(role, {}, rng):
+				if Catalog.pool_of(str(id)) == role:
+					cover[str(id)] = true
+		if cover.size() < 4:
+			_fail("%s class swap covered only %d ids" % [role, cover.size()])
 	for entry in Catalog.CARDS:
 		var id := str(entry["id"])
 		for have in range(0, int(entry["max"])):
@@ -525,7 +580,60 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 	var hp := 0.0
 	if sim.heroes.size() > 0:
 		hp = sim.heroes[0].hp
-	return {"result": sim.result, "time": sim.time, "level": sim.level, "hp": hp}
+	return {
+		"result": sim.result,
+		"time": sim.time,
+		"level": sim.level,
+		"hp": hp,
+		"dmg_taken": sim.dmg_taken,
+		"kills": sim.kills,
+	}
+
+
+## Optional tag for the class report: --class-tag=AFTER (defaults to REPORT).
+static func _class_tag() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--class-tag="):
+			return arg.substr(12)
+	return "REPORT"
+
+
+## Class balance report: one representative hero per role over five fixed
+## seeds. Prints wins, average clear time, damage the team took (total and
+## per minute), foes killed (total and per minute) and average health left.
+##   godot --headless --path . -- --sim-check --class-report [--class-tag=TAG]
+## Measured on main e54d622 vs this branch, seeds 3/7 time out for every
+## class both before and after (the bot never reaches the lair: a pathing issue
+## outside this change). Winning seeds 11/19/23 average:
+## BEFORE tank 276 s, 28 dmg/min | archer 2/3 wins, 9 dmg/min | mage 215 s, 8 dmg/min
+## AFTER  tank 192 s,  7 dmg/min | archer 207 s, 4 dmg/min    | mage 219 s, 10 dmg/min
+static func class_report(tag: String) -> void:
+	var reps := {"tank": "pebble", "archer": "juniper", "mage": "ember"}
+	var seeds := [3, 7, 11, 19, 23]
+	for role in ["tank", "archer", "mage"]:
+		var hero := str(reps[role])
+		var wins := 0
+		var total_time := 0.0
+		var total_dmg := 0.0
+		var total_kills := 0
+		var total_hp := 0.0
+		for seed in seeds:
+			var r := _play(hero, "meadow", seed, false)
+			if OS.get_environment("CC_CLASS_TRACE") != "":
+				print("  TRACE %s seed %d result=%s time=%.1f hp=%.0f" % [role, seed, r["result"], r["time"], float(r.get("hp", 0.0))])
+			if str(r["result"]) == "win":
+				wins += 1
+			total_time += float(r["time"])
+			total_dmg += float(r.get("dmg_taken", 0.0))
+			total_kills += int(r.get("kills", 0))
+			total_hp += float(r.get("hp", 0.0))
+		var mins := maxf(total_time / 60.0, 0.001)
+		print("CLASS %s %s wins %d/%d avg_time %.1f dmg_taken %d (per minute %d) kills %d (per minute %d) hp_left %d" % [
+			tag, role, wins, seeds.size(), total_time / float(seeds.size()),
+			int(round(total_dmg)), int(round(total_dmg / mins)),
+			total_kills, int(round(float(total_kills) / mins)),
+			int(round(total_hp / float(seeds.size()))),
+		])
 
 
 ## The hero kites the boss around the arena stones and into the corners;

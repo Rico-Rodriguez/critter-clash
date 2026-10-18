@@ -12,6 +12,13 @@ const MODIFIERS: Array = [
 	{"id": "hasty", "name": "Hasty Foes", "desc": "+20% foe speed"},
 ]
 
+## A daily can be played on a biome the player has not unlocked yet ("daily
+## access"): a sealed biome is open just for the day, and never unlocks the
+## biome, grants clear credit or counts toward progress. When the day's biome
+## is above the player's progress we hand out a mild "Daily pass" so the taste
+## of a later biome is fair. The Daily row flags it.
+const PASS_HP_MUL := 1.15
+
 
 ## "YYYY-MM-DD" for the given Unix time, in UTC.
 static func today_key(unix: int) -> String:
@@ -30,15 +37,27 @@ static func seed_for(key: String) -> int:
 	return out if out != 0 else 1
 
 
-## Rotates over the biomes that are open by default (no gate, no prereq).
+## Every biome rides the daily rotation, sealed or not, so all players share
+## one map on a given day. The rotation is a fixed cycle over Catalog.BIOMES
+## keyed by the UTC day number: it visits every biome and never lands on the
+## same one two days in a row (with two or more biomes).
 static func biome_for(key: String) -> String:
-	var open: Array = []
-	for entry in Catalog.BIOMES:
-		if int(entry.get("gate", 0)) == 0 and str(entry.get("need", "")) == "":
-			open.append(str(entry["id"]))
-	if open.is_empty():
-		open.append("meadow")
-	return str(open[seed_for(key) % open.size()])
+	var count := Catalog.BIOMES.size()
+	if count <= 0:
+		return "meadow"
+	return str(Catalog.BIOMES[int(posmod(_day_number(key), count))]["id"])
+
+
+## Days since the Unix epoch for a "YYYY-MM-DD" key. Pure calendar math, so it
+## stays stable across machines and cannot drift with the engine's hash.
+static func _day_number(key: String) -> int:
+	var parts := key.split("-")
+	if parts.size() != 3:
+		return 0
+	var unix := Time.get_unix_time_from_datetime_dict({
+		"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2]),
+	})
+	return int(unix) / 86400
 
 
 ## One or two modifiers, chosen deterministically from the key.

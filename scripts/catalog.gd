@@ -169,13 +169,15 @@ static func base_stats(id: String) -> Dictionary:
 
 
 ## Three cards for a role. The rarity roll fills the offer; if none of the
-## three is from the role's own pool, one general card is swapped for an
-## available class card, so a class almost always sees an exclusive. The swap
-## picks from the offer's own rng-derived contents and draws no extra rng, so
-## the run's random stream is unchanged. Never another class, max or repeat.
+## three is from the role's own pool, one general card is swapped for a
+## random available class card, so a class almost always sees an exclusive.
+## The swap reuses the passed rng value that picked the card it replaces, so
+## it varies run to run, stays deterministic for a seed, and draws no extra
+## rng: the run's random stream is unchanged. Never another class, max or repeat.
 static func roll_offer(role: String, stacks: Dictionary, rng: RandomNumberGenerator) -> Array:
 	_index_cards()
 	var picked: Array = []
+	var rolls: Array = []
 	var guard := 0
 	while picked.size() < 3 and guard < 64:
 		guard += 1
@@ -190,14 +192,17 @@ static func roll_offer(role: String, stacks: Dictionary, rng: RandomNumberGenera
 		if pool.is_empty():
 			if not ("snack" in picked):
 				picked.append("snack")
+				rolls.append(-1)
 			continue
-		picked.append(str(pool[rng.randi() % pool.size()]["id"]))
+		var roll := rng.randi()
+		rolls.append(roll)
+		picked.append(str(pool[roll % pool.size()]["id"]))
 	if not _has_class(picked, role):
 		var class_pool := _class_pool(role, stacks, picked)
 		if not class_pool.is_empty():
 			for i in range(picked.size() - 1, -1, -1):
 				if picked[i] != "snack" and pool_of(str(picked[i])) == "general":
-					var slot := absi(hash(str(picked[i]))) % class_pool.size()
+					var slot := maxi(0, int(rolls[i])) % class_pool.size()
 					picked[i] = str(class_pool[slot]["id"])
 					break
 	return picked
