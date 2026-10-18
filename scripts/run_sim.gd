@@ -67,6 +67,12 @@ var loot_rng := RandomNumberGenerator.new()
 ## never write the real armory).
 var gear_found: Array[String] = []
 var _banked := false
+## Pieces lying on the ground: {key, item, pos, t}. The hero takes one by
+## walking near it, or it flies to them after GEAR_MAGNET seconds, so nothing
+## earned is ever left behind (docs/gear.md: gear_drop then gear_pickup).
+var gear_ground: Array = []
+const GEAR_REACH := 90.0
+const GEAR_MAGNET := 3.0
 var mode := Session.Mode.SOLO
 var biome_id := "meadow"
 var biome: Dictionary = {}
@@ -405,6 +411,7 @@ func step(dt: float, moves: Array) -> void:
 		_step_explore(dt)
 	else:
 		_step_spawns(dt)
+	_step_gear_pickups()
 	_enrage_and_timeout()
 	_compact()
 
@@ -2780,7 +2787,27 @@ func _gear_roll_drop(source: String, pos: Vector2) -> void:
 	var hero := str(heroes[0].sprite) if not heroes.is_empty() else ""
 	for id in LootTable.roll(loot_rng, source, hero, _biome_index()):
 		gear_found.append(id)
-		events.append({"type": "gear_drop", "id": id, "tier": int(id.get_slice(".", 2)), "pos": pos})
+		var key := "gear%d" % gear_found.size()
+		# Several pieces from one source fan out a little so beams don't overlap.
+		var at := pos + Vector2(loot_rng.randf_range(-40.0, 40.0), loot_rng.randf_range(-30.0, 30.0))
+		if explore:
+			at = _clamp_point(at, 24.0)
+		gear_ground.append({"key": key, "item": id, "pos": at, "t": time})
+		events.append({"type": "gear_drop", "item": id, "key": key, "tier": int(id.get_slice(".", 2)), "pos": at})
+
+
+## Ground pieces go to the hero when they walk close or after the magnet delay.
+func _step_gear_pickups() -> void:
+	if gear_ground.is_empty() or heroes.is_empty():
+		return
+	var hero: Actor = heroes[0]
+	var left: Array = []
+	for g in gear_ground:
+		if (hero.alive and hero.pos.distance_to(g["pos"]) <= GEAR_REACH) or time - float(g["t"]) >= GEAR_MAGNET:
+			events.append({"type": "gear_pickup", "item": g["item"], "key": g["key"], "pos": g["pos"]})
+		else:
+			left.append(g)
+	gear_ground = left
 
 
 ## The biome's place in Catalog.BIOMES; deeper biomes roll higher tiers.
@@ -2801,14 +2828,18 @@ func _camp_alive(camp: int) -> bool:
 
 ## Grant the run's earned gear to the armory, once. A win keeps everything; a
 ## loss keeps half (floor), earliest drops first. Safe to call twice.
-func bank_gear() -> void:
+## Returns the ids actually banked (empty on a repeat call).
+func bank_gear() -> Array[String]:
+	var kept: Array[String] = []
 	if _banked:
-		return
+		return kept
 	_banked = true
 	var keep := gear_found.size()
 	if result == "lose":
 		keep = gear_found.size() / 2
-	SaveGame.bank_gear(gear_found.slice(0, keep))
+	kept.assign(gear_found.slice(0, keep))
+	SaveGame.bank_gear(kept)
+	return kept
 
 
 func _reveal(at: Vector2) -> void:

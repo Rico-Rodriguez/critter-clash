@@ -677,7 +677,8 @@ func _drain() -> void:
 						summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain)
 					if not is_daily:
 						# Fixed-seed dailies are replayable, so they never bank gear.
-						sim.bank_gear()
+						# Pieces still on the ground when the boss falls join the spoils.
+						summary["gear"] = sim.bank_gear()
 				AudioDirector.sfx("boss_die")
 				AudioDirector.haptic("heavy")
 				AudioDirector.sting(true)
@@ -691,7 +692,8 @@ func _drain() -> void:
 					committed = true
 					SaveGame.commit_defeat(biome_id, sim.slain)
 					if not is_daily:
-						sim.bank_gear()
+						# A loss keeps half: the spoils show only what was banked.
+						run_gear = sim.bank_gear()
 				AudioDirector.sting(false)
 				AudioDirector.haptic("heavy")
 				# Let the fall read before the card covers it.
