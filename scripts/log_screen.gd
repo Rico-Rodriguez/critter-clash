@@ -1,9 +1,25 @@
+class_name LogScreen
 extends ScreenBase
+
+## The Armory is the Collection Log's fifth tab: a progression goal board for
+## every gear piece per hero, owned or still to find. boss_id is left untouched
+## while it is open, so returning to a biome tab restores exactly that view.
+
+## Sentinel tab id for the Armory page (never a biome boss id).
+const ARMORY := "armory"
 
 var grid: GridContainer
 var crest: BossCrest
-var tabs: HBoxContainer
+var tabs: FlowContainer
 var boss_id := "thistle"
+## True while the Armory tab is open.
+var armory := false
+## The hero the Armory is showing. Empty follows the featured hero; the
+## switcher only moves this local view and never writes the save (TASK).
+var _armory_view := ""
+var armory_head: VBoxContainer
+var armory_switch: HFlowContainer
+var armory_header: Label
 
 
 func build() -> void:
@@ -15,10 +31,27 @@ func build() -> void:
 	crest = BossCrest.new()
 	crest.custom_minimum_size = Vector2(0, 170)
 	box.add_child(crest)
-	tabs = HBoxContainer.new()
-	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
-	tabs.add_theme_constant_override("separation", 8)
+	# Five tabs (four biomes + Armory) fit 1179 px at 160 px wide; a flow row
+	# wraps instead of running off the safe area on anything narrower.
+	tabs = HFlowContainer.new()
+	tabs.alignment = FlowContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("h_separation", 8)
+	tabs.add_theme_constant_override("v_separation", 8)
 	box.add_child(tabs)
+	# Armory head: a view-only hero switcher and the tier count line, shown
+	# only while the Armory tab is open.
+	armory_head = VBoxContainer.new()
+	armory_head.add_theme_constant_override("separation", 10)
+	armory_head.visible = false
+	armory_switch = HFlowContainer.new()
+	armory_switch.alignment = FlowContainer.ALIGNMENT_CENTER
+	armory_switch.add_theme_constant_override("h_separation", 10)
+	armory_switch.add_theme_constant_override("v_separation", 10)
+	armory_head.add_child(armory_switch)
+	armory_header = UiKit.label("", 24, Color("e6d8bc"), "x", 4)
+	armory_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	armory_head.add_child(armory_header)
+	box.add_child(armory_head)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -33,22 +66,44 @@ func build() -> void:
 
 
 func _tab(id: String) -> void:
-	boss_id = id
+	if id == ARMORY:
+		armory = true
+	else:
+		armory = false
+		boss_id = id
 	AudioDirector.play("click")
 	_fill()
 
 
 func _fill() -> void:
-	# Biome tabs: the open one in gold, the rest in iron.
+	_fill_tabs()
+	if armory:
+		_fill_armory()
+	else:
+		_fill_biome()
+
+
+## The tab row: biome tabs then Armory. The open one is gold, the rest iron,
+## all 88 px tall like every other tap target.
+func _fill_tabs() -> void:
 	for child in tabs.get_children():
 		child.queue_free()
 	for entry in Catalog.BIOMES:
 		var id := str(entry["boss"])
 		var short := str(entry["name"]).split(" ")[0]
-		# Shared tab shape: 88 px tall like every other tap target.
-		var button := UiKit.button(short, 160, 88, "gold") if id == boss_id else UiKit.secondary(short, 160, 88)
+		var on := not armory and id == boss_id
+		var button := UiKit.button(short, 160, 88, "gold") if on else UiKit.secondary(short, 160, 88)
 		button.pressed.connect(_tab.bind(id))
 		tabs.add_child(button)
+	var armory_button := UiKit.button("Armory", 160, 88, "gold") if armory else UiKit.secondary("Armory", 160, 88)
+	armory_button.pressed.connect(_tab.bind(ARMORY))
+	tabs.add_child(armory_button)
+
+
+func _fill_biome() -> void:
+	grid.columns = 3
+	crest.visible = true
+	armory_head.visible = false
 	# Stable order: biome tab, then rarity, then id (Catalog.log_table), so the
 	# grid never reshuffles between visits.
 	var table: Array = Catalog.log_table(boss_id)
@@ -95,6 +150,148 @@ func _fill() -> void:
 	# Showing the tab counts as reading it; the mark is persisted so a find
 	# stops being "new" across a restart once it has been seen.
 	SaveGame.log_mark_seen(shown)
+
+
+## The Armory: every gear piece per hero as a progression goal board. The boss
+## crest is hidden and a 4-column grid (slot + Iron / Blackened Steel / Cursed
+## Rune Plate) lists owned pieces and what is still to hunt.
+func _fill_armory() -> void:
+	crest.visible = false
+	armory_head.visible = true
+	var hero := armory_view_id()
+	_build_armory_switch(hero)
+	var counts := armory_counts(hero)
+	armory_header.text = "Iron %d/%d · Steel %d/%d · Rune %d/%d" % [
+		int(counts["iron"]), int(counts["total"]),
+		int(counts["steel"]), int(counts["total"]),
+		int(counts["rune"]), int(counts["total"]),
+	]
+	for child in grid.get_children():
+		child.queue_free()
+	grid.columns = 4
+	grid.add_child(_armory_head_cell("Slot", UiKit.MUTED))
+	for tier in [GearDB.Tier.IRON, GearDB.Tier.STEEL, GearDB.Tier.RUNE]:
+		grid.add_child(_armory_head_cell(GearDB.TIER_NAMES[tier].to_upper(), GearDB.TIER_COLORS[tier]))
+	var slots: Array = GearDB.HERO_SLOTS.get(hero, [])
+	for slot in slots:
+		var name := UiKit.label(GearDB.SLOT_NAMES[GearDB.SLOT_KEYS.find(str(slot))], 22, Color("e6d8bc"), "b", 4)
+		name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(name)
+		for tier in [GearDB.Tier.IRON, GearDB.Tier.STEEL, GearDB.Tier.RUNE]:
+			var id := GearDB.item_id(hero, str(slot), tier)
+			var cell := ArmoryCell.new()
+			cell.owned = GearDB.has(hero, id)
+			cell.title = str(GearDB.item(id).get("name", "?")) if cell.owned else "?"
+			cell.hint = "" if cell.owned else drop_hint(tier)
+			cell.req = _req_text(id)
+			cell.custom_minimum_size = Vector2(0, 116)
+			cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			grid.add_child(cell)
+	if slots.is_empty():
+		var empty := UiKit.label("No gear slots for this hero.", 24, UiKit.MUTED, "b", 3)
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		grid.add_child(empty)
+
+
+func _armory_head_cell(text: String, color: Color) -> Label:
+	var head := UiKit.label(text, 20, color, "b", 4)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	head.custom_minimum_size = Vector2(0, 44)
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return head
+
+
+## One chip per unlocked hero: the shown one is the gold primary, the rest
+## secondary steel. Tapping is view-only and redraws the page; the save's
+## featured hero is untouched.
+func _build_armory_switch(current: String) -> void:
+	for child in armory_switch.get_children():
+		child.queue_free()
+	for id in Catalog.playable_ids():
+		if not bool(SaveGame.hero(str(id))["unlocked"]):
+			continue
+		var name := str(Catalog.critter(str(id)).get("name", id)).to_upper()
+		var on := str(id) == current
+		var button := UiKit.button(name, 150, 82) if on else UiKit.secondary(name, 150, 82)
+		button.toggle_mode = true
+		button.set_pressed_no_signal(on)
+		button.pressed.connect(func() -> void: _pick_armory_hero(str(id)))
+		armory_switch.add_child(button)
+
+
+## The hero whose gear the Armory is showing.
+func armory_view_id() -> String:
+	if _armory_view != "" and SaveGame.data["heroes"].has(_armory_view) and bool(SaveGame.hero(_armory_view)["unlocked"]):
+		return _armory_view
+	return SaveGame.featured_id()
+
+
+## View-only pick: records which hero the page shows and returns the new id.
+## Unlocked heroes only. Never touches SaveGame.data["featured"].
+func set_armory_view(id: String) -> String:
+	if SaveGame.data["heroes"].has(id) and bool(SaveGame.hero(id)["unlocked"]):
+		_armory_view = id
+	return armory_view_id()
+
+
+func _pick_armory_hero(id: String) -> void:
+	if id == armory_view_id() or not bool(SaveGame.hero(id)["unlocked"]):
+		return
+	set_armory_view(id)
+	AudioDirector.sfx("card_pick")
+	AudioDirector.haptic("medium")
+	_fill()
+
+
+## {iron, steel, rune, total}: owned pieces per tier and how many each tier
+## holds (one per slot), for the Armory header. No hero id is baked in; the
+## hero's own slot list drives it.
+static func armory_counts(hero: String) -> Dictionary:
+	var slots: Array = GearDB.HERO_SLOTS.get(hero, [])
+	var counts := {"iron": 0, "steel": 0, "rune": 0, "total": slots.size()}
+	for slot in slots:
+		for tier in [GearDB.Tier.IRON, GearDB.Tier.STEEL, GearDB.Tier.RUNE]:
+			if not GearDB.has(hero, GearDB.item_id(hero, str(slot), tier)):
+				continue
+			match tier:
+				GearDB.Tier.IRON:
+					counts["iron"] = int(counts["iron"]) + 1
+				GearDB.Tier.STEEL:
+					counts["steel"] = int(counts["steel"]) + 1
+				GearDB.Tier.RUNE:
+					counts["rune"] = int(counts["rune"]) + 1
+	return counts
+
+
+## Where a tier first drops, derived from LootTable.MAX_TIER_BY_DEPTH and
+## Catalog.BIOMES: the shallowest biome where any source can roll the tier,
+## plus " bosses" when only the deeper sources reach it (cursed rune plate).
+static func drop_hint(tier: int) -> String:
+	for depth in Catalog.BIOMES.size():
+		var any := false
+		var all := true
+		for source in LootTable.MAX_TIER_BY_DEPTH:
+			if LootTable.max_tier(str(source), depth) >= tier:
+				any = true
+			else:
+				all = false
+		if any:
+			var name := str(Catalog.BIOMES[depth]["name"]).split(" ")[0]
+			return "%s+" % name if all else "%s+ bosses" % name
+	return ""
+
+
+## "Defence 20" for the first level gate on an item, or "" when it has none.
+static func _req_text(id: String) -> String:
+	var req: Dictionary = GearDB.requirements(id)
+	for k in GearDB.SKILL_KEYS:
+		if req.has(k):
+			return "%s %d" % [GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(k)], int(req[k])]
+	return ""
 
 
 func _pet(id: String) -> void:
@@ -302,3 +499,55 @@ class CrestFace extends Control:
 			UiKit.ch_fill(self, Rect2(bar.position + Vector2(3, 3), Vector2((bar.size.x - 6) * ratio, bar.size.y - 6)), 5, Color("ffd77a"), Color("a86a1e"))
 		draw_string_outline(UiKit.font_b, Vector2(x, h * 0.88), crest.overall, HORIZONTAL_ALIGNMENT_LEFT, w, 19, 4, Color(0.03, 0.02, 0.01))
 		draw_string(UiKit.font_b, Vector2(x, h * 0.88), crest.overall, HORIZONTAL_ALIGNMENT_LEFT, w, 19, Color("c8b8a0"))
+
+
+## One Armory cell: a hero's piece for a slot at a tier. Owned pieces sit in a
+## gold frame with their real name; unowned pieces are dimmed with where they
+## can drop and any level gate. No gear rendering.
+class ArmoryCell extends PanelContainer:
+	var owned := false
+	var title := "?"
+	var hint := ""
+	var req := ""
+
+	func _ready() -> void:
+		add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		var fr: UiKit.Frame
+		if owned:
+			var metal := UiKit.rarity_metal("legendary")
+			fr = UiKit.Frame.new("card", "leather", {
+				"metal_hi": metal[0], "metal_lo": metal[1], "frame": 6.0,
+				"glow_color": Color(1.0, 0.72, 0.32, 0.2),
+				"face_top": Color("241b12"), "face_bot": Color("0c0907"),
+			})
+		else:
+			fr = UiKit.Frame.new("slot", "grey", {"face_top": Color("14100d"), "face_bot": Color("0a0806")})
+		fr.margin = 10.0
+		add_child(fr)
+		var face := ArmoryFace.new()
+		face.cell = self
+		add_child(face)
+
+
+class ArmoryFace extends Control:
+	var cell: ArmoryCell
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		UiKit.ensure()
+		var w := size.x
+		var pad := 12.0
+		var ink := Color("fff1d6") if cell.owned else Color("8a7e6c")
+		var fs := 20
+		var tw := UiKit.font_b.get_string_size(cell.title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		while tw > w - pad * 2.0 and fs > 12:
+			fs -= 1
+			tw = UiKit.font_b.get_string_size(cell.title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		draw_string_outline(UiKit.font_b, Vector2(pad, 34), cell.title, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2.0, fs, 4, Color(0.03, 0.02, 0.01))
+		draw_string(UiKit.font_b, Vector2(pad, 34), cell.title, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2.0, fs, ink)
+		if cell.hint != "":
+			draw_string(UiKit.font_b, Vector2(pad, 70), cell.hint, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2.0, 19, Color("b8aa94"))
+		if cell.req != "":
+			draw_string(UiKit.font_b, Vector2(pad, 98), cell.req, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2.0, 18, Color("d8a850"))

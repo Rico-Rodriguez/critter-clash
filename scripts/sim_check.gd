@@ -16,7 +16,7 @@ const CHECKS := [
 	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear", "settings",
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
-	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names",
+	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
 ]
 
 
@@ -110,6 +110,8 @@ static func _dispatch(name: String) -> void:
 			_skills_screen_check()
 		"end_card":
 			_end_card_check()
+		"gear_log":
+			_gear_log_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -1962,6 +1964,75 @@ static func _collect_xp_drops(evs: Array, drops: Dictionary, last_t: Dictionary,
 				_fail("%s skill_level jumped %d -> %d" % [skill, int(seq[-1]), level])
 			seq.append(level)
 			levels[skill] = seq
+## Collection Log Armory tab: the per-hero gear progression counts, the drop
+## hint derived from LootTable.MAX_TIER_BY_DEPTH (never hard-coded), and the
+## view-only hero switcher (it must never write SaveGame.data["featured"]).
+## Runs on a scratch armory (GearDB.store_override = {}) with SaveGame.no_write
+## and restores both afterwards. Keyed by role-free hero params, never by id.
+static func _gear_log_check() -> void:
+	var keep_store: Variant = GearDB.store_override
+	var keep_nowrite: bool = SaveGame.no_write
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+	var hero := SaveGame.featured_id()
+	if not GearDB.grant(GearDB.item_id(hero, "helm", GearDB.Tier.IRON)):
+		_fail("armory scratch could not grant an iron helm")
+	var counts: Dictionary = LogScreen.armory_counts(hero)
+	if int(counts["iron"]) != 1 or int(counts["steel"]) != 0 or int(counts["rune"]) != 0:
+		_fail("armory counts %s, wanted iron 1 steel 0 rune 0" % str(counts))
+	var per_tier := int(GearDB.HERO_SLOTS[hero].size())
+	if int(counts["total"]) != per_tier:
+		_fail("armory per-tier total %d, wanted %d slots" % [int(counts["total"]), per_tier])
+	# The steel hint names the shallowest biome where steel can drop.
+	var first_steel := ""
+	for depth in Catalog.BIOMES.size():
+		var reach := false
+		for source in LootTable.MAX_TIER_BY_DEPTH:
+			if LootTable.max_tier(str(source), depth) >= GearDB.Tier.STEEL:
+				reach = true
+				break
+		if reach:
+			first_steel = str(Catalog.BIOMES[depth]["name"]).split(" ")[0]
+			break
+	var steel_hint := LogScreen.drop_hint(GearDB.Tier.STEEL)
+	if first_steel == "" or steel_hint.find(first_steel) < 0:
+		_fail("steel hint '%s' does not mention its first biome '%s'" % [steel_hint, first_steel])
+	var meadow := str(Catalog.BIOMES[0]["name"]).split(" ")[0]
+	if LogScreen.drop_hint(GearDB.Tier.IRON).find(meadow) < 0:
+		_fail("iron hint '%s' does not mention %s" % [LogScreen.drop_hint(GearDB.Tier.IRON), meadow])
+	# View-only hero switcher (TASK): the page may show any unlocked hero, but
+	# picking one is a local view change and must never write the save's
+	# featured hero, which Home and the hunts own.
+	var relock: Array = []
+	for id in Catalog.playable_ids():
+		var row: Dictionary = SaveGame.hero(str(id))
+		if not bool(row["unlocked"]):
+			relock.append(str(id))
+			row["unlocked"] = true
+	var other := ""
+	for id in Catalog.playable_ids():
+		if str(id) != hero:
+			other = str(id)
+			break
+	var featured_raw := str(SaveGame.data.get("featured", ""))
+	var screen := LogScreen.new()
+	if screen.armory_view_id() != hero:
+		_fail("armory should open on the featured hero %s" % hero)
+	screen.set_armory_view(other)
+	if screen.armory_view_id() != other:
+		_fail("armory view did not move to %s" % other)
+	if str(SaveGame.data.get("featured", "")) != featured_raw:
+		_fail("the armory hero picker wrote SaveGame.data['featured']")
+	# A hero's counts are its own: the other hero holds nothing yet.
+	var other_counts: Dictionary = LogScreen.armory_counts(other)
+	if int(other_counts["iron"]) != 0 or int(other_counts["steel"]) != 0 or int(other_counts["rune"]) != 0:
+		_fail("armory counts bled between heroes: %s" % str(other_counts))
+	screen.free()
+	for id in relock:
+		SaveGame.hero(id)["unlocked"] = false
+	GearDB.store_override = keep_store
+	SaveGame.no_write = keep_nowrite
+	print("GEAR LOG ok: iron 1/%d, steel hint '%s', view-only picker" % [per_tier, steel_hint])
 
 
 ## Total XP held in the current GearDB store (a scratch armory in tests).
