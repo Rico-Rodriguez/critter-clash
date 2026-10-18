@@ -380,7 +380,7 @@ const MILESTONES: Array = [
 const SKILL_TROPHIES: Array = [
 	{"id": "first_blood", "name": "First Blood", "text": "The first kill stains deepest. You will not wash it out.", "req": "skill", "need": 10,
 		"reward": {"kind": "coins", "amount": 40}},
-	{"id": "blooded", "name": "Blooded", "text": "Twenty levels of scar. The swamp has begun to learn your name.", "req": "skill", "need": 20,
+	{"id": "blooded", "name": "Blooded", "text": "Twenty levels of scar. The barrows have begun to learn your name.", "req": "skill", "need": 20,
 		"reward": {"kind": "coins", "amount": 80}},
 	{"id": "veteran", "name": "Veteran", "text": "Forty levels. Your old wounds remember more than the living do.", "req": "skill", "need": 40,
 		"reward": {"kind": "chest"}},
@@ -400,7 +400,7 @@ const SKILL_TROPHIES: Array = [
 		"reward": {"kind": "coins", "amount": 220}},
 	{"id": "total100", "name": "Total 100", "text": "A hundred lessons written in marrow.", "req": "total", "need": 100,
 		"reward": {"kind": "chest"}},
-	{"id": "total250", "name": "Total 250", "text": "Two hundred and fifty. The swamp bows to no one. Close enough.", "req": "total", "need": 250,
+	{"id": "total250", "name": "Total 250", "text": "Two hundred and fifty. The wilds bow to no one. Close enough.", "req": "total", "need": 250,
 		"reward": {"kind": "coins", "amount": 500}},
 ]
 

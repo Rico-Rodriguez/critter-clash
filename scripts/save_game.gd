@@ -1005,16 +1005,9 @@ func _best_skill(need: int) -> Dictionary:
 	return {"skill": best, "level": best_level, "need": need, "ok": best_level >= need}
 
 
-## A hero's OSRS combat level: base is a quarter of Defence plus Hitpoints,
-## ranged and magic count half against the floor, and the attack styles
-## compete; the total floors down.
+## A hero's OSRS combat level, the same formula the Skills screen prints.
 func combat_level(hero: String) -> int:
-	var s := GearDB.skills(hero)
-	var base := 0.25 * (float(s["defence"]) + float(s["hitpoints"]))
-	var melee := 0.325 * (float(s["attack"]) + float(s["strength"]))
-	var ranged := 0.325 * floorf(1.5 * float(s["ranged"]))
-	var mage := 0.325 * floorf(1.5 * float(s["magic"]))
-	return int(floorf(base + maxf(melee, maxf(ranged, mage))))
+	return SkillsScreen.combat_level(GearDB.skills(hero))
 
 
 func _best_combat(need: int) -> Dictionary:
@@ -1113,6 +1106,15 @@ func mastery_requirement(trophy: Dictionary) -> String:
 	return "Unknown trophy"
 
 
+## Id of the deepest biome the player has opened ("meadow" at worst).
+func _deepest_open_biome() -> String:
+	var biome := "meadow"
+	for b in Catalog.BIOMES:
+		if biome_open(str(b["id"])):
+			biome = str(b["id"])
+	return biome
+
+
 ## Ids of already-claimed mastery trophies. Old saves start empty.
 func mastery_claimed() -> Array:
 	var out: Variant = data.get("mastery_claimed", [])
@@ -1139,7 +1141,9 @@ func claim_mastery(id: String) -> bool:
 		"coins":
 			data["coins"] = int(data["coins"]) + int(reward.get("amount", 0))
 		"chest":
-			add_chest(_new_chest("hunt", "meadow", false), true)
+			# A hunt chest from the deepest open ground, so a late trophy's
+			# chest can hold the tiers the player is hunting now.
+			add_chest(_new_chest("hunt", _deepest_open_biome(), false), true)
 	_write()
 	AudioDirector.play("merge")
 	return true

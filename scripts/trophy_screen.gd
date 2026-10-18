@@ -69,6 +69,9 @@ class MasteryRow extends PanelContainer:
 		var detail := UiKit.label(str(entry["text"]), 19, Color("e6d8bc") if not claimed else Color("9aa890"), "b", 4)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(detail)
+		var reward: Dictionary = entry.get("reward", {})
+		var prize := "Hunt chest" if str(reward.get("kind", "")) == "chest" else "%d coins" % int(reward.get("amount", 0))
+		box.add_child(UiKit.label("Reward: " + prize, 19, UiKit.GOLD.lightened(0.1) if not claimed else Color("9aa890"), "b", 3))
 		if claimed:
 			box.add_child(UiKit.label("CLAIMED", 19, Color("b4f09e"), "x", 4))
 		elif can_claim:
