@@ -23,6 +23,14 @@ const MAPS := {
 		"upperleg.l": "b_Leg_Left_Upper_04", "lowerleg.l": "b_Leg_Left_Lower_05", "foot.l": "b_Foot_Left_06",
 		"upperleg.r": "b_Leg_rIGHT_Upper_07", "lowerleg.r": "b_Leg_Right_Lower_08", "foot.r": "b_Foot_Right_09",
 	},
+	# KayKit -> Vasian-Digital3D Troll Cave (boss): Unreal-style mannequin names.
+	"kaykit_troll": {
+		"hips": "Hips_09", "spine": "Spine1_026", "chest": "Spine3_028", "head": "Head_061",
+		"upperarm.l": "LeftArm_032", "lowerarm.l": "LeftForeArm_033", "hand.l": "LeftHand_036",
+		"upperarm.r": "RightArm_089", "lowerarm.r": "RightForeArm_091", "hand.r": "RightHand_092",
+		"upperleg.l": "LeftUpLeg_0118", "lowerleg.l": "LeftLeg_0119", "foot.l": "LeftFoot_0121", "toes.l": "LeftToeBase_0122",
+		"upperleg.r": "RightUpLeg_010", "lowerleg.r": "RightLeg_011", "foot.r": "RightFoot_013", "toes.r": "RightToeBase_014",
+	},
 }
 ## Limb chains whose bind directions are swung to match: [src a, src b] -> target follows map.
 const SWING := [["upperarm.l", "lowerarm.l"], ["lowerarm.l", "hand.l"], ["upperarm.r", "lowerarm.r"], ["lowerarm.r", "hand.r"],
@@ -84,7 +92,10 @@ func _init() -> void:
 	var t_bind := {}
 	for b in ts.get_bone_count():
 		t_bind[b] = ts.get_bone_global_rest(b)
-	for m: MeshInstance3D in dst.find_children("*", "MeshInstance3D", true, false):
+	# USE_REST=1: rigs whose skin binds live in a scaled mesh space (Troll
+	# Cave) retarget against the skeleton rest instead.
+	var binds: Array = [] if OS.get_environment("USE_REST") == "1" else dst.find_children("*", "MeshInstance3D", true, false)
+	for m: MeshInstance3D in binds:
 		if m.skin == null:
 			continue
 		for i in m.skin.get_bind_count():
@@ -119,6 +130,18 @@ func _init() -> void:
 	var hip_t := ts.find_bone(map["hips"])
 	var hip_s := ss.find_bone("hips")
 	var k_pos: float = ref[hip_t].origin.y / maxf(s_rest[hip_s].origin.y, 0.001)
+	# Rigs whose skeleton space is turned against the source's (Unreal-style
+	# Z-up exports under a rotated root): deltas are carried into the
+	# target's skeleton space, and hip travel scales by leg length.
+	var axes: Basis = ts.global_transform.basis.orthonormalized().inverse() * ss.global_transform.basis.orthonormalized()
+	var turned := not axes.is_equal_approx(Basis.IDENTITY)
+	# K_LEGS=1: rigs whose origin is not at the feet (the werewolf's hips sit
+	# at y = 0) scale hip travel by hip-to-foot length instead of hip height.
+	if (turned or OS.get_environment("K_LEGS") == "1") and map.has("foot.l"):
+		var tl: float = (ref[hip_t].origin - ref[ts.find_bone(map["foot.l"])].origin).length()
+		var sl: float = (s_rest[hip_s].origin - s_rest[ss.find_bone("foot.l")].origin).length()
+		k_pos = tl / maxf(sl, 0.0001)
+	print("axes turned ", turned, " k_pos ", k_pos)
 	var skel_path := String(dst.get_path_to(ts))
 	var lib := AnimationLibrary.new()
 	# Hand sockets: the source's weapon slot carried over in world orientation,
@@ -169,10 +192,12 @@ func _init() -> void:
 					var sb: int = t_of[b]
 					var sp := ss.get_bone_global_pose(sb)
 					var d: Basis = sp.basis.orthonormalized() * (s_rest[sb] as Transform3D).basis.orthonormalized().inverse()
+					if turned:
+						d = axes * d * axes.inverse()
 					var basis: Basis = d * ref[b].basis.orthonormalized()
 					var origin := pg * rest_local.origin
 					if b == hip_t:
-						origin = ref[b].origin + (sp.origin - s_rest[sb].origin) * k_pos
+						origin = ref[b].origin + (axes * (sp.origin - s_rest[sb].origin) if turned else (sp.origin - s_rest[sb].origin)) * k_pos
 					g = Transform3D(basis, origin)
 				else:
 					var bn := ts.get_bone_name(b)
