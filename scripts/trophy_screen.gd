@@ -18,16 +18,67 @@ func build() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
+	# One scrollable page: the road, then the mastery ledger beneath it.
+	var page := VBoxContainer.new()
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 18)
+	scroll.add_child(page)
 	road = Road.new()
 	road.claim.connect(_claim)
 	road.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(road)
+	page.add_child(road)
 	road.rebuild()
+	page.add_child(UiKit.title("Mastery", 44))
+	page.add_child(body("Levels walked and steel worn. Claim each mastery once."))
+	for entry in Catalog.SKILL_TROPHIES:
+		var row := MasteryRow.new()
+		row.setup(entry)
+		row.claim.connect(_claim_mastery)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		page.add_child(row)
 
 
 func _claim(id: String) -> void:
 	if SaveGame.claim(id):
 		go("trophy")
+
+
+func _claim_mastery(id: String) -> void:
+	if SaveGame.claim_mastery(id):
+		go("trophy")
+
+
+## One Mastery ledger row: name, grim text, live requirement and a claim
+## button when the trophy can be taken.
+class MasteryRow extends PanelContainer:
+	signal claim(id: String)
+
+	func setup(entry: Dictionary) -> void:
+		var id := str(entry["id"])
+		var can_claim := bool(SaveGame.mastery_state(entry).get("ok", false))
+		var claimed := SaveGame.mastery_is_claimed(id)
+		var metal := UiKit.rarity_metal("epic" if can_claim else "common")
+		var glow := Color(0.45, 0.85, 0.45, 0.3) if can_claim and not claimed else Color(0, 0, 0, 0)
+		var fr := UiKit.Frame.new("mastery", "leather", {"metal_hi": metal[0], "metal_lo": metal[1], "glow_color": glow})
+		fr.margin = 14.0
+		add_child(fr)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 2)
+		add_child(box)
+		box.add_child(UiKit.label(str(entry["name"]).to_upper(), 23, UiKit.GOLD.lightened(0.2) if can_claim else Color("fff1d6"), "x", 5))
+		var detail := UiKit.label(str(entry["text"]), 19, Color("e6d8bc") if not claimed else Color("9aa890"), "b", 4)
+		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(detail)
+		if claimed:
+			box.add_child(UiKit.label("CLAIMED", 19, Color("b4f09e"), "x", 4))
+		elif can_claim:
+			box.add_child(UiKit.label(SaveGame.mastery_progress(entry), 19, Color("f6e3b8"), "b", 4))
+			var button := UiKit.confirm("CLAIM", 190, 88)
+			button.pressed.connect(func() -> void: claim.emit(id))
+			box.add_child(button)
+		else:
+			box.add_child(UiKit.label("LOCKED · " + SaveGame.mastery_requirement(entry), 19, Color("b8a884"), "b", 3))
+			box.add_child(UiKit.label(SaveGame.mastery_progress(entry), 19, Color("8f8574"), "b", 3))
 
 
 class Road extends Control:

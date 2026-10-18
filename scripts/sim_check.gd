@@ -13,10 +13,10 @@ static var _times: Array = []
 
 ## Every check in run order. The name is the --only tag and the --timings label.
 const CHECKS := [
-	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear",
-	"settings", "save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity",
-	"fights", "kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp",
-	"gear_coverage", "skills_screen", "xp_drop",
+	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear", "settings",
+	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
+	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
+	"skills_screen", "xp_drop", "skill_trophies",
 ]
 
 
@@ -100,6 +100,8 @@ static func _dispatch(name: String) -> void:
 			_skill_xp_smoke()
 		"xp_drop":
 			_xp_drop_check()
+		"skill_trophies":
+			_skill_trophy_check()
 		"gear_coverage":
 			_gear_coverage_check()
 		"skills_screen":
@@ -1933,6 +1935,115 @@ static func _skill_total() -> int:
 		for skill in xp[hero]:
 			total += int(xp[hero][skill])
 	return total
+
+
+## Grant (or equip) a full kit at a tier, in HERO_SLOTS order.
+static func _kit(hero: String, tier: int, to_equip: bool) -> bool:
+	for slot in GearDB.HERO_SLOTS[hero]:
+		var id := GearDB.item_id(hero, str(slot), tier)
+		if not (GearDB.equip(hero, id) if to_equip else GearDB.grant(id)):
+			return false
+	return true
+
+
+## Mastery trophies (catalog SKILL_TROPHIES). On a scratch armory and save:
+## (a) a fresh save cannot claim any of the twelve, (b) trained XP surfaces
+## them once each — first_blood, blooded pay coins once, combat75 pays coins
+## once — and the Hitpoints starting-10 never satisfies a blood trophy,
+## (c) a full iron kit owned opens iron_clad and its coins pay exactly once,
+## (d) blackened steel worn opens blackened with a chest exactly once,
+## cursed_plate stays shut until one rune piece is owned and pays coins
+## once. Everything restores.
+static func _skill_trophy_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	GearDB.store_override = {}
+	SaveGame.reset_new()
+	# (a) Fresh save: every trophy locked, and claiming refuses outright.
+	for entry in Catalog.SKILL_TROPHIES:
+		if bool(SaveGame.mastery_state(entry).get("ok", false)):
+			_fail("fresh save can claim %s" % str(entry["id"]))
+		if SaveGame.claim_mastery(str(entry["id"])):
+			_fail("fresh save claimed %s" % str(entry["id"]))
+	if not SaveGame.mastery_claimed().is_empty():
+		_fail("fresh save recorded a mastery claim")
+	# (b) XP trophies: any trained combat skill counts, tracked per row.
+	var hero := str(GearDB.HERO_SLOTS.keys()[0])
+	GearDB.add_xp(hero, "defence", GearDB.xp_for_level(20) - GearDB.xp(hero, "defence"))
+	var coins := int(SaveGame.data["coins"])
+	if not SaveGame.claim_mastery("first_blood"):
+		_fail("first_blood refused at Defence 20")
+	elif int(SaveGame.data["coins"]) != coins + 40:
+		_fail("first_blood paid wrong coins")
+	if SaveGame.claim_mastery("first_blood"):
+		_fail("first_blood claimed twice")
+	coins = int(SaveGame.data["coins"])
+	if not SaveGame.claim_mastery("blooded"):
+		_fail("blooded refused at Defence 20")
+	elif int(SaveGame.data["coins"]) != coins + 80:
+		_fail("blooded paid wrong coins")
+	if SaveGame.claim_mastery("blooded"):
+		_fail("blooded claimed twice")
+	if bool(SaveGame.mastery_state(Catalog.skill_trophy("veteran")).get("ok", false)):
+		_fail("veteran ready below level 40")
+	if SaveGame.claim_mastery("no_such_trophy"):
+		_fail("unknown mastery claimed")
+	# All six skills to 99 past the combat gate; combat75 must pay its coins once.
+	for skill in GearDB.SKILL_KEYS:
+		GearDB.add_xp(hero, str(skill), GearDB.xp_for_level(99) - GearDB.xp(hero, str(skill)))
+	if int(SaveGame.combat_level(hero)) < 75:
+		_fail("combat level math at 99s: %d" % int(SaveGame.combat_level(hero)))
+	var purse := int(SaveGame.data["coins"])
+	if not SaveGame.claim_mastery("combat75"):
+		_fail("combat75 refused at all-99 skills")
+	elif int(SaveGame.data["coins"]) != purse + 300:
+		_fail("combat75 paid wrong coins")
+	if SaveGame.claim_mastery("combat75"):
+		_fail("combat75 claimed twice")
+	# (c) A full iron kit owned opens iron_clad; coins pay exactly once and
+	# the drawer never moves for a coin reward.
+	var chests := SaveGame.pending_count()
+	coins = int(SaveGame.data["coins"])
+	if not _kit(hero, GearDB.Tier.IRON, false):
+		_fail("iron kit grant")
+	if not bool(SaveGame.mastery_state(Catalog.skill_trophy("iron_clad")).get("ok", false)):
+		_fail("iron_clad shut with a full iron kit")
+	if not SaveGame.claim_mastery("iron_clad"):
+		_fail("iron_clad claim refused")
+	elif int(SaveGame.data["coins"]) != coins + 100:
+		_fail("iron_clad paid wrong coins")
+	if SaveGame.pending_count() != chests or SaveGame.claim_mastery("iron_clad"):
+		_fail("iron_clad paid twice")
+	# (d) Blackened steel worn; chest lands exactly once. Cursed plate waits
+	# for the first rune piece, then pays coins once.
+	chests = int(SaveGame.data["chests"].size())
+	if not _kit(hero, GearDB.Tier.STEEL, false) or not _kit(hero, GearDB.Tier.STEEL, true):
+		_fail("steel kit grant or equip")
+	if not bool(SaveGame.mastery_state(Catalog.skill_trophy("blackened")).get("ok", false)):
+		_fail("blackened shut in full blackened steel")
+	if not SaveGame.claim_mastery("blackened"):
+		_fail("blackened claim refused")
+	elif SaveGame.pending_count() != chests + 1:
+		_fail("blackened chest did not land exactly once")
+	if SaveGame.claim_mastery("blackened"):
+		_fail("blackened claimed twice")
+	coins = int(SaveGame.data["coins"])
+	if bool(SaveGame.mastery_state(Catalog.skill_trophy("cursed_plate")).get("ok", false)):
+		_fail("cursed_plate open before a rune piece")
+	if not _kit(hero, GearDB.Tier.RUNE, false):
+		_fail("rune piece grant")
+	if not SaveGame.claim_mastery("cursed_plate"):
+		_fail("cursed_plate refused after a rune piece")
+	elif int(SaveGame.data["coins"]) != coins + 220:
+		_fail("cursed_plate paid wrong coins")
+	if SaveGame.claim_mastery("cursed_plate"):
+		_fail("cursed_plate claimed twice")
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+	print("MASTERY ok: fresh none, coins/chest pay once")
 
 
 ## Gear coverage sweep (docs/gear.md contract). Everything runs on a scratch

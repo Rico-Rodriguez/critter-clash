@@ -370,6 +370,40 @@ const MILESTONES: Array = [
 	{"id": "m240", "trophies": 240, "kind": "gear", "slot": "weapon", "rarity": "epic", "label": "Epic weapon", "detail": "A strong weapon"},
 ]
 
+## Mastery trophies for the trophy screen's second section. Progress is
+## derived from GearDB and the wallet each time, never counted here. req is
+## the check SaveGame evaluates: "skill" any combat skill at `need`,
+## "combat" the OSRS-style per-hero combat level, "iron_kit" a full iron
+## kit one hero owns, "steel_kit" a full blackened steel kit one hero wears,
+## "rune" the first cursed piece owned, "total" the crew's summed combat
+## skill levels. reward is coins or a chest, never a gear piece (gems are not a live currency).
+const SKILL_TROPHIES: Array = [
+	{"id": "first_blood", "name": "First Blood", "text": "The first kill stains deepest. You will not wash it out.", "req": "skill", "need": 10,
+		"reward": {"kind": "coins", "amount": 40}},
+	{"id": "blooded", "name": "Blooded", "text": "Twenty levels of scar. The swamp has begun to learn your name.", "req": "skill", "need": 20,
+		"reward": {"kind": "coins", "amount": 80}},
+	{"id": "veteran", "name": "Veteran", "text": "Forty levels. Your old wounds remember more than the living do.", "req": "skill", "need": 40,
+		"reward": {"kind": "chest"}},
+	{"id": "relentless", "name": "Relentless", "text": "Sixty. The barrow lights keep burning, just to watch you work.", "req": "skill", "need": 60,
+		"reward": {"kind": "coins", "amount": 180}},
+	{"id": "combat30", "name": "Combat 30", "text": "Counted in warden's marks. The dead keep their own tally.", "req": "combat", "need": 30,
+		"reward": {"kind": "coins", "amount": 120}},
+	{"id": "combat50", "name": "Combat 50", "text": "Halfway up the grave trade. Halfway into the grave.", "req": "combat", "need": 50,
+		"reward": {"kind": "chest"}},
+	{"id": "combat75", "name": "Combat 75", "text": "Near mastery. The dead step aside, calling it courtesy.", "req": "combat", "need": 75,
+		"reward": {"kind": "coins", "amount": 300}},
+	{"id": "iron_clad", "name": "Iron Clad", "text": "Cold iron over warm skin. It itches. Good.", "req": "iron_kit",
+		"reward": {"kind": "coins", "amount": 100}},
+	{"id": "blackened", "name": "Blackened", "text": "Steel blacked in beast blood. It never shines again.", "req": "steel_kit",
+		"reward": {"kind": "chest"}},
+	{"id": "cursed_plate", "name": "Cursed Plate", "text": "One plate bound in old runes. At night it whispers whose.", "req": "rune",
+		"reward": {"kind": "coins", "amount": 220}},
+	{"id": "total100", "name": "Total 100", "text": "A hundred lessons written in marrow.", "req": "total", "need": 100,
+		"reward": {"kind": "chest"}},
+	{"id": "total250", "name": "Total 250", "text": "Two hundred and fifty. The swamp bows to no one. Close enough.", "req": "total", "need": 250,
+		"reward": {"kind": "coins", "amount": 500}},
+]
+
 ## op is how a stack changes the run. roles empty means every hero; pool_of()
 ## reads that as "general". stack is true until a card is unique (max 1).
 ## rank_desc is the next pick's effect: {n} per rank, {total} after the pick.
@@ -618,6 +652,13 @@ const SLAYER_SHOP: Array = [
 	{"id": "trail_ribbon", "name": "Trail ribbon", "kind": "cosmetic", "cosmetic": "ribbon", "cost": 30, "detail": "A gold ribbon on your home pedestal."},
 	{"id": "slayer_chest", "name": "Hunt chest", "kind": "chest", "cost": 20, "detail": "A hunt chest for the shelf."},
 ]
+
+
+static func skill_trophy(id: String) -> Dictionary:
+	for entry in SKILL_TROPHIES:
+		if str(entry["id"]) == id:
+			return entry
+	return {}
 
 
 static func drop_table(boss_id: String) -> Array:

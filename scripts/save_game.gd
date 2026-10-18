@@ -957,6 +957,194 @@ func claim(id: String) -> bool:
 	return true
 
 
+## --- Mastery trophies --------------------------------------------------------
+## Progress for the SKILL_TROPHIES table is derived from GearDB each time it
+## is asked for (no new counters). Claims live in data["mastery_claimed"],
+## an array that reconciles in for old saves.
+
+## Slots a hero has at a tier: owned (iron) or worn (blackened steel).
+func _kit_count(hero: String, tier: int, equipped: bool) -> int:
+	var count := 0
+	for slot in GearDB.HERO_SLOTS.get(hero, []):
+		var id := GearDB.item_id(hero, str(slot), tier)
+		var met := GearDB.slot_tier(hero, str(slot)) == tier if equipped else GearDB.has(hero, id)
+		if met:
+			count += 1
+	return count
+
+
+## The fullest kit any one hero has. {count, slots, ok} for one hero being
+## fully kitted, exactly as the trophy asks.
+func _best_kit(tier: int, equipped: bool) -> Dictionary:
+	var best := {"count": 0, "slots": 0}
+	for hero in GearDB.HERO_SLOTS.keys():
+		var count := _kit_count(str(hero), tier, equipped)
+		if count > int(best["count"]):
+			best = {"count": count, "slots": int((GearDB.HERO_SLOTS[str(hero)] as Array).size())}
+	best["ok"] = int(best["count"]) > 0 and int(best["count"]) >= int(best["slots"])
+	return best
+
+
+## The top combat skill any hero has actually trained (an XP row in the
+## armory), so the Hitpoints starting-10 never satisfies a blood trophy.
+func _best_skill(need: int) -> Dictionary:
+	var xp: Dictionary = GearDB._store()["xp"]
+	var best := ""
+	var best_level := 0
+	for hero in GearDB.HERO_SLOTS.keys():
+		var row: Dictionary = xp.get(hero, {})
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		for key in GearDB.SKILL_KEYS:
+			if not row.has(key):
+				continue
+			var level := GearDB.level(str(hero), key)
+			if level > best_level:
+				best_level = level
+				best = key
+	return {"skill": best, "level": best_level, "need": need, "ok": best_level >= need}
+
+
+## A hero's OSRS combat level: base is a quarter of Defence plus Hitpoints,
+## ranged and magic count half against the floor, and the attack styles
+## compete; the total floors down.
+func combat_level(hero: String) -> int:
+	var s := GearDB.skills(hero)
+	var base := 0.25 * (float(s["defence"]) + float(s["hitpoints"]))
+	var melee := 0.325 * (float(s["attack"]) + float(s["strength"]))
+	var ranged := 0.325 * floorf(1.5 * float(s["ranged"]))
+	var mage := 0.325 * floorf(1.5 * float(s["magic"]))
+	return int(floorf(base + maxf(melee, maxf(ranged, mage))))
+
+
+func _best_combat(need: int) -> Dictionary:
+	var best := 2
+	for hero in GearDB.HERO_SLOTS.keys():
+		best = maxi(best, combat_level(str(hero)))
+	return {"level": best, "need": need, "ok": best >= need}
+
+
+## The crew's summed combat-skill levels, every armory hero read raw.
+func _best_total(need: int) -> Dictionary:
+	var total := 0
+	for hero in GearDB.HERO_SLOTS.keys():
+		for key in GearDB.SKILL_KEYS:
+			total += GearDB.level(str(hero), key)
+	return {"total": total, "need": need, "ok": total >= need}
+
+
+func _rune_owned() -> bool:
+	for hero in GearDB.HERO_SLOTS.keys():
+		for id in GearDB.owned(str(hero)):
+			if int(id.get_slice(".", 2)) == GearDB.Tier.RUNE:
+				return true
+	return false
+
+
+## Readiness plus the numbers a row prints ("Defence 14 / 20"). whence "claim"
+## also requires the trophy to be unclaimed, so it pays exactly once.
+func mastery_state(trophy: Dictionary, whence := "") -> Dictionary:
+	var req := str(trophy.get("req", ""))
+	var need := int(trophy.get("need", 1))
+	var out := {}
+	match req:
+		"skill":
+			out = _best_skill(need)
+		"combat":
+			out = _best_combat(need)
+		"iron_kit":
+			out = _best_kit(GearDB.Tier.IRON, false)
+		"steel_kit":
+			out = _best_kit(GearDB.Tier.STEEL, true)
+		"rune":
+			out = {"count": 1 if _rune_owned() else 0, "ok": _rune_owned()}
+		"total":
+			out = _best_total(need)
+		_:
+			out = {"ok": false}
+	out["id"] = str(trophy.get("id", ""))
+	out["req"] = req
+	out["need"] = need
+	if whence == "claim":
+		out["ok"] = bool(out.get("ok", false)) and str(out["id"]) not in mastery_claimed()
+	return out
+
+
+## "Defence 14 / 20", "Combat 21 / 30", "Iron 5 / 8" — the live requirement
+## a mastery row prints, or "" for an unknown id.
+func mastery_progress(trophy: Dictionary) -> String:
+	var state := mastery_state(trophy)
+	match str(state["req"]):
+		"skill":
+			var skill_name := str(state["skill"])
+			if skill_name == "":
+				return "0 / %d" % int(state["need"])
+			return "%s %d / %d" % [GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(skill_name)], int(state["level"]), int(state["need"])]
+		"combat":
+			return "Combat %d / %d" % [int(state["level"]), int(state["need"])]
+		"iron_kit":
+			return "Iron %d / %d" % [int(state["count"]), maxi(int(state["slots"]), int(state["need"]))]
+		"steel_kit":
+			return "Steel %d / %d" % [int(state["count"]), maxi(int(state["slots"]), int(state["need"]))]
+		"rune":
+			return "Rune %d / 1" % int(state["count"])
+		"total":
+			return "Total %d / %d" % [int(state["total"]), int(state["need"])]
+	return ""
+
+
+## The plain requirement a locked mastery row shows, greyed, before it is
+## ready: what has to happen for the trophy to turn.
+func mastery_requirement(trophy: Dictionary) -> String:
+	var need := int(trophy.get("need", 0))
+	match str(trophy.get("req", "")):
+		"skill":
+			return "Any combat skill %d" % need
+		"combat":
+			return "Combat level %d" % need
+		"iron_kit":
+			return "One hero owns a full iron kit"
+		"steel_kit":
+			return "One hero wears full blackened steel"
+		"rune":
+			return "Own one cursed rune piece"
+		"total":
+			return "Crew total level %d" % need
+	return "Unknown trophy"
+
+
+## Ids of already-claimed mastery trophies. Old saves start empty.
+func mastery_claimed() -> Array:
+	var out: Variant = data.get("mastery_claimed", [])
+	return out if typeof(out) == TYPE_ARRAY else []
+
+
+func mastery_is_claimed(id: String) -> bool:
+	return str(id) in mastery_claimed()
+
+
+## Claim a mastery trophy once: pays coins or a chest, never gear.
+## False when the trophy is unknown, unearned or already claimed.
+func claim_mastery(id: String) -> bool:
+	var trophy := Catalog.skill_trophy(id)
+	if trophy.is_empty():
+		return false
+	if not bool(mastery_state(trophy, "claim")["ok"]):
+		return false
+	var claimed := mastery_claimed()
+	claimed.append(str(id))
+	data["mastery_claimed"] = claimed
+	var reward: Dictionary = trophy.get("reward", {})
+	match str(reward.get("kind", "coins")):
+		"coins":
+			data["coins"] = int(data["coins"]) + int(reward.get("amount", 0))
+		"chest":
+			add_chest(_new_chest("hunt", "meadow", false), true)
+	_write()
+	AudioDirector.play("merge")
+	return true
+
+
 func _roll_loot(chest: Dictionary) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(chest["seed"])
@@ -1014,6 +1202,7 @@ func _fresh() -> Dictionary:
 		"active_pet": "",
 		"materials": {},
 		"cosmetic": "",
+		"mastery_claimed": [],
 		"slayer": {"points": 0, "streak": 0, "task": {}},
 		"skills": {"foraging": 0, "fishing": 0, "taming": 0, "crafting": 0},
 		"daily": {},
@@ -1087,6 +1276,9 @@ func _reconcile() -> void:
 		data["daily"] = {}
 	if not data.has("pending_upload") or typeof(data["pending_upload"]) != TYPE_ARRAY:
 		data["pending_upload"] = []
+	# Mastery trophies claim into their own array; an old save starts empty.
+	if not data.has("mastery_claimed") or typeof(data["mastery_claimed"]) != TYPE_ARRAY:
+		data["mastery_claimed"] = []
 	# Old saves predate the settings block: it returns empty and every
 	# option falls back to its AudioDirector default.
 	if not data.has("settings") or typeof(data["settings"]) != TYPE_DICTIONARY:
