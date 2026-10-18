@@ -8,6 +8,13 @@ var showing_loot := false
 var burst: Burst
 var _index := 0
 
+## The loot band's rest height; reveals may grow it into free space above
+## the buttons, and _arm() puts it back.
+const LOOT_BAND := 300.0
+## Reward plates are 200x260; rows wrap and scale as one uniform group.
+const TILE := Vector2(200, 260)
+const GRID_GAP := 16.0
+
 
 func build() -> void:
 	var box := column()
@@ -25,7 +32,7 @@ func build() -> void:
 	loot_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	# Fixed-height loot and button bands, so the chest and its plinth hold
 	# the same spot (centred) whether it is closed, bursting or showing loot.
-	loot_box.custom_minimum_size = Vector2(0, 300)
+	loot_box.custom_minimum_size = Vector2(0, LOOT_BAND)
 	box.add_child(loot_box)
 	var foot := VBoxContainer.new()
 	foot.custom_minimum_size = Vector2(0, 176)
@@ -56,6 +63,7 @@ func open(args: Dictionary = {}) -> void:
 func _arm() -> void:
 	for child in loot_box.get_children():
 		child.queue_free()
+	loot_box.custom_minimum_size = Vector2(0, LOOT_BAND)
 	home_button.visible = false
 	showing_loot = false
 	_index = _want if SaveGame.chest_state(_want) == "ready" else SaveGame.first_ready()
@@ -93,9 +101,15 @@ func _on_open() -> void:
 
 
 func _reveal() -> void:
-	if _index < 0:
+	var test := _chest_test_count()
+	if _index < 0 and test <= 0:
 		return
-	var loot := SaveGame.open_next(_index)
+	var loot: Dictionary
+	if test > 0:
+		loot = _test_loot(test)
+		_index = maxi(_index, 0)
+	else:
+		loot = SaveGame.open_next(_index)
 	if loot.is_empty():
 		_arm()
 		return
@@ -114,10 +128,6 @@ func _reveal() -> void:
 			AudioDirector.haptic("rare")
 		else:
 			AudioDirector.haptic("medium")
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 18)
-	loot_box.add_child(row)
 	var rewards: Array = [_reward_coin(int(loot["coins"]))]
 	var totals := {}
 	for drop in loot["cards"]:
@@ -126,18 +136,20 @@ func _reveal() -> void:
 	for id in totals.keys():
 		var info := Catalog.critter(str(id))
 		rewards.append(_reward_card(str(id), str(info.get("name", id)), int(totals[id])))
-	for i in rewards.size():
-		var r: Control = rewards[i]
-		row.add_child(r)
-		r.modulate.a = 0.0
-		r.pivot_offset = Vector2(100, 130)
-		r.scale = Vector2(0.6, 0.6)
+	var reserve := 104.0 if not (loot["gear"] as Dictionary).is_empty() else 0.0
+	var laid: Dictionary = _make_grid(loot_box, rewards, reserve)
+	var s: float = laid["scale"]
+	for i in laid["tiles"].size():
+		var tile: Control = laid["tiles"][i]
+		tile.modulate.a = 0.0
+		tile.pivot_offset = TILE * 0.5
+		tile.scale = Vector2(0.6, 0.6)
 		var tw := create_tween()
 		# Each reward lands when its flyer from the chest arrives.
-		tw.tween_interval(0.35 + 0.16 * i + 0.5)
-		tw.tween_property(r, "modulate:a", 1.0, 0.18)
-		tw.parallel().tween_property(r, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_launch_flyers(rewards)
+		tw.tween_interval(0.85 + 0.16 * i)
+		tw.tween_property(tile, "modulate:a", 1.0, 0.18)
+		tw.parallel().tween_property(tile, "scale", Vector2(s, s), 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_launch_flyers(laid["slots"])
 	var gear: Dictionary = loot["gear"]
 	if not gear.is_empty():
 		var plate := UiKit.Plate.new()
@@ -156,16 +168,132 @@ func _reveal() -> void:
 		showing_loot = true
 
 
-func _launch_flyers(rewards: Array) -> void:
+## --chest-test=N, given in user args, fakes a loot result of N rewards
+## (coins plus N-1 cards from existing hero ids) without touching the save,
+## so captures can stage 1..12 worst cases.
+func _chest_test_count() -> int:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--chest-test="):
+			return clampi(int(arg.get_slice("=", 1)), 1, 12)
+	return -1
+
+
+## A made-up loot dict: fixed coins, one card per hero id. No save calls.
+func _test_loot(count: int) -> Dictionary:
+	var loot := {"coins": 128, "cards": [], "gear": {}}
+	var ids: Array = Catalog.CRITTERS.keys()
+	for i in count - 1:
+		loot["cards"].append({"id": str(ids[i % ids.size()]), "count": 1 + (i % 3)})
+	return loot
+
+
+## Width one reward row may use: the loot band's laid-out width, or the
+## screen minus safe insets when asked before a layout pass.
+func _grid_width() -> float:
+	if loot_box != null and loot_box.size.x > 0.0:
+		return loot_box.size.x
+	var pad := insets()
+	return maxf(320.0, get_viewport_rect().size.x - float(int(pad["l"])) - float(int(pad["r"])))
+
+
+## Height the loot grid may use: the 300 band plus free space above the
+## button band, less room kept for the gear plaque. Capped by the column's
+## real height so grew rows never reach the safe area.
+func _grid_height(reserve: float) -> float:
+	if loot_box == null:
+		return LOOT_BAND
+	var col := loot_box.get_parent() as Container
+	if col == null or col.size.y < 1.0:
+		return LOOT_BAND
+	var others := reserve
+	for child in col.get_children():
+		if child == loot_box or not (child is Control):
+			continue
+		others += (child as Control).get_combined_minimum_size().y
+	var sep := float(int(col.get_theme_constant("separation")))
+	return clampf(col.size.y - others - sep * float(col.get_child_count() - 1), LOOT_BAND, INF)
+
+
+## Wrapping plan for `n` tiles in a `w` x `h` band: one centred row of all
+## n tiles when that fits (4 or fewer), otherwise rows of at most 3, or 4
+## when that allows bigger tiles. Tiles shrink as one uniform group, floor
+## 0.7. Returns {"per_row", "rows", "scale"}.
+func _fit_rows(n: int, w: float, h: float) -> Dictionary:
+	if n <= 0:
+		return {"per_row": 1, "rows": 1, "scale": 1.0}
+	var cands: Array = [mini(n, 3), 4] if n > 3 else [n]
+	var best: Dictionary = {}
+	var best_s := -1.0
+	for c in cands:
+		var per_row := int(c)
+		var count := int(ceil(float(n) / float(per_row)))
+		var s_w := 1.0
+		if per_row * TILE.x + float(per_row - 1) * GRID_GAP > w:
+			s_w = (w - float(per_row - 1) * GRID_GAP) / (per_row * TILE.x)
+		var s_h := 1.0
+		if count * TILE.y + float(count - 1) * GRID_GAP > h:
+			s_h = (h - float(count - 1) * GRID_GAP) / (count * TILE.y)
+		var s := minf(s_w, s_h)
+		if s > best_s:
+			best_s = s
+			best = {"per_row": per_row, "rows": count, "scale": clampf(s, 0.7, 1.0)}
+	return best
+
+
+## Wraps the reward tiles into the loot band: fully centred rows held
+## on a grid; slots carry the scaled size so spacing stays the grid gap.
+## Returns {"tiles": the tile controls, "slots": the loop targets, "scale"}.
+func _make_grid(box: VBoxContainer, tiles: Array, reserve: float) -> Dictionary:
+	var n := tiles.size()
+	if n <= 0:
+		return {"tiles": tiles, "slots": [], "scale": 1.0}
+	var fit := _fit_rows(n, _grid_width(), _grid_height(reserve))
+	var s: float = fit["scale"]
+	var per_row: int = fit["per_row"]
+	var row_count: int = fit["rows"]
+	var needed := float(row_count) * TILE.y * s + float(row_count - 1) * GRID_GAP
+	# The band only grows into free space above the buttons, never past it.
+	box.custom_minimum_size = Vector2(0, maxf(LOOT_BAND, minf(needed, _grid_height(reserve))))
+	var grid := VBoxContainer.new()
+	grid.alignment = BoxContainer.ALIGNMENT_CENTER
+	grid.add_theme_constant_override("separation", int(GRID_GAP))
+	var slots: Array = []
+	var idx := 0
+	for _r in row_count:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", int(GRID_GAP))
+		for _c in mini(per_row, n - idx):
+			var slot := Control.new()
+			slot.custom_minimum_size = TILE * s
+			row.add_child(slot)
+			var tile: Control = tiles[idx]
+			idx += 1
+			slot.add_child(tile)
+			tile.size = TILE
+			# Plate at full size inside a scaled slot: scaling about the
+			# pivot keeps the tile covering just the slot, so gaps hold.
+			tile.position = -TILE * (1.0 - s) * 0.5
+			tile.pivot_offset = TILE * 0.5
+			slots.append(slot)
+		grid.add_child(row)
+	box.add_child(grid)
+	return {"tiles": tiles, "slots": slots, "scale": s}
+
+
+func _launch_flyers(slots: Array) -> void:
+	if slots.size() == 0:
+		return
 	await get_tree().process_frame
 	await get_tree().process_frame
 	if burst == null:
 		return
-	for i in rewards.size():
-		var r: Control = rewards[i]
-		if not is_instance_valid(r):
+	for i in slots.size():
+		var slot: Control = slots[i]
+		if not is_instance_valid(slot):
 			continue
-		var target := r.global_position + r.size * 0.5 - burst.global_position
+		# Slots hold tile centre even for scaled plates.
+		var target := slot.global_position + slot.size * 0.5 - burst.global_position
 		burst.fly(target, 0.35 + 0.16 * i, "coins" if i == 0 else "card")
 
 
