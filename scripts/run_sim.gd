@@ -159,10 +159,21 @@ const COMBAT_XP_PER_DAMAGE := 4.0 * SKILL_XP_SCALE
 const HP_XP_SHARE := 0.3325
 ## OSRS-style split of the weapon award: controlled melee gives Attack, Strength
 ## and Defence a third each; longrange shots and spells give their skill 75%
-## and Defence 25%. Each row still sums to 1.0, so the XP per damage is the same.
+## and Defence 25%. Each melee row still sums to 1.0, so melee XP per damage is
+## the same across the three skills; the longrange rows are then scaled by
+## LONGRANGE_PACE.
 const MELEE_SHARE := 1.0 / 3.0
 const RANGED_MAIN_SHARE := 0.75
 const RANGED_DEF_SHARE := 0.25
+## Ranged/magic's main skill gets 75% of the award where a controlled melee
+## skill gets only a third each, so without this the archer/mage race the
+## steel/rune gates the report tracks. Scaling the whole longrange award (the
+## main skill and its 25% Defence share) paces them like melee while keeping the
+## split; melee is untouched. Tuned so fresh runs reach main 20 around runs
+## 8-16 and main 40 around runs 35-60 (XP to 20 is ~4470, to 40 ~37200): the
+## archer earns ~588 ranged XP/run, so ~0.53 is the least that still reaches
+## 37224 within 60 runs; 0.54 keeps it at run ~59 while holding mage back.
+const LONGRANGE_PACE := 0.54
 ## Ellipse just outside the hunt camera's view, in playfield pixels.
 ## What the far follow camera frames on the ground, relative to the hero
 ## (sim px; Stage3D DIST 34, FOV 40, AIM +1.5, pitch 58; tools: viewbox.py). The far edge is
@@ -2212,9 +2223,10 @@ func _kill(actor: Actor) -> void:
 ## OSRS-style: controlled melee trains Attack/Strength/Defence a third each,
 ## while a longrange shot or spell gives its skill 75% and Defence 25%, so the
 ## defensive gate trains alongside the weapon instead of only from damage taken.
-## A Hitpoints share of the damage dealt rides on top, and a hero still trains
-## Defence for the damage it takes or blocks. Kept in skill_xp until the run
-## commits; never writes GearDB mid-fight.
+## The whole longrange award is scaled by LONGRANGE_PACE so ranged/magic pace
+## like melee; a Hitpoints share of the damage dealt rides on top unscaled, and
+## a hero still trains Defence for the damage it takes or blocks. Kept in
+## skill_xp until the run commits; never writes GearDB mid-fight.
 func _skill_xp_hurt(attacker: Actor, target: Actor, dealt: float) -> void:
 	if dealt <= 0.0:
 		return
@@ -2222,11 +2234,11 @@ func _skill_xp_hurt(attacker: Actor, target: Actor, dealt: float) -> void:
 		var combat := dealt * COMBAT_XP_PER_DAMAGE * float(_diff()["xp"]) * xp_falloff()
 		match _weapon_skill(attacker):
 			"magic":
-				_add_skill_xp(attacker, "magic", combat * RANGED_MAIN_SHARE)
-				_add_skill_xp(attacker, "defence", combat * RANGED_DEF_SHARE)
+				_add_skill_xp(attacker, "magic", combat * RANGED_MAIN_SHARE * LONGRANGE_PACE)
+				_add_skill_xp(attacker, "defence", combat * RANGED_DEF_SHARE * LONGRANGE_PACE)
 			"ranged":
-				_add_skill_xp(attacker, "ranged", combat * RANGED_MAIN_SHARE)
-				_add_skill_xp(attacker, "defence", combat * RANGED_DEF_SHARE)
+				_add_skill_xp(attacker, "ranged", combat * RANGED_MAIN_SHARE * LONGRANGE_PACE)
+				_add_skill_xp(attacker, "defence", combat * RANGED_DEF_SHARE * LONGRANGE_PACE)
 			_:
 				_add_skill_xp(attacker, "attack", combat * MELEE_SHARE)
 				_add_skill_xp(attacker, "strength", combat * MELEE_SHARE)

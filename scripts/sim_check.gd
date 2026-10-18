@@ -3386,9 +3386,9 @@ const PACING_ROLES: Array[String] = ["tank", "archer", "mage"]
 ## hero ids; the loot model just needs a stable stream).
 const PACING_RUN_RNG := {"tank": 1201, "archer": 2202, "mage": 3303}
 ## Recorded per-run main-skill XP of one fresh ~4 min ranged run before
-## SKILL_XP_SCALE (the longrange split gives Ranged 75% of the award). The
-## default check asserts the current scale turns this run into a level between
-## 5 and 20 from scratch.
+## SKILL_XP_SCALE and LONGRANGE_PACE (the longrange split gives Ranged 75% of
+## the award). The default check asserts the current scale turns this run into a
+## level between 5 and 20 from scratch.
 const PACING_RUN_RAW := 21742.0
 
 
@@ -3418,11 +3418,11 @@ static func pacing(tag: String) -> void:
 ## a run cannot drift far outside the intended pacing.
 static func _pacing_scale_check() -> void:
 	var scale: float = RunSim.SKILL_XP_SCALE
-	var xp := int(round(PACING_RUN_RAW * scale))
+	var xp := int(round(PACING_RUN_RAW * scale * RunSim.LONGRANGE_PACE))
 	var lvl := GearDB.level_for_xp(xp)
 	if lvl < 5 or lvl > 20:
-		_fail("recorded run main skill lands level %d at scale %.4f (want 5-20)" % [lvl, scale])
-	print("PACING scale ok: scale %.4f -> recorded run lvl%d" % [scale, lvl])
+		_fail("recorded run main skill lands level %d at scale %.4f pace %.3f (want 5-20)" % [lvl, scale, RunSim.LONGRANGE_PACE])
+	print("PACING scale ok: scale %.4f pace %.3f -> recorded run lvl%d" % [scale, RunSim.LONGRANGE_PACE, lvl])
 
 
 ## The first hero Catalog lists for each role, preferring one with a GearDB kit
