@@ -35,6 +35,9 @@ uniform float blade_glow = 0.0; // emissive weapon edge (T3 main hand)
 uniform float desat = 0.0;      // restyle bright storybook textures toward grim
 uniform float flesh = 0.0;      // hide/skin heroes: seams follow sinew, not metal
 uniform vec3 cool_rim : source_color = vec3(0.0); // hunt readability rim
+uniform float metal_cap = 1.0;  // T2: let some diffuse through so dark steel isn't a black mirror
+uniform vec3 edge_col : source_color = vec3(0.55, 0.57, 0.62); // T1 warm / T2 cool bevel colour
+uniform float edge_emit = 0.0;  // self-lit bevel catchlight that survives phone distance
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vnoise(vec2 p) {
@@ -95,9 +98,10 @@ void fragment() {
 	col = mix(col, vec3(dot(col, vec3(0.3, 0.55, 0.15))), desat);
 	float mm = max(m, flesh);
 	col *= 1.0 - groove * max(seam, fine * 0.6) * mm;
-	col += edge_hi * (seam * 0.8 + fine * 0.25 + vfres * 0.35) * m * vec3(0.55, 0.57, 0.62);
+	float edge_mask = (seam * 0.8 + fine * 0.25 + vfres * 0.35) * m;
+	col += edge_hi * edge_mask * edge_col;
 	ALBEDO = col;
-	METALLIC = clamp(metal * metal_gain, 0.0, 1.0);
+	METALLIC = min(clamp(metal * metal_gain, 0.0, 1.0), metal_cap);
 	ROUGHNESS = clamp(rough * rough_mul + rough_add + wear * 0.12 * dent, 0.05, 1.0);
 	if (has_normal > 0.5) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
@@ -110,6 +114,7 @@ void fragment() {
 	float fres2 = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.6);
 	EMISSION = rune_color * (r * 2.4 + seam_glow * seam * mm * 7.0) * pulse + edge_glow * fres
 		+ rune_color * blade_glow * fres2 * (0.8 + 0.2 * sin(TIME * 4.0)) + mix(cool_rim, rune_color * 0.22 * pulse, step(0.01, seam_glow)) * fres;
+	EMISSION += edge_col * edge_emit * (seam * 0.7 + vfres * 0.6) * m;
 	RIM = rim_amount;
 	RIM_TINT = 0.35;
 }

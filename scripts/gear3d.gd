@@ -26,7 +26,7 @@ const KITS := {
 		"anims": "res://assets/models/heroes/paladin/paladin_anims.res",
 		"hide": ["BastardScabbard", "swordscabbard", "shortsword", "bastardsword"],
 		"main": ["own:shortsword", "own:bastardsword", "own:bastardsword", "gear:blade_oarimaar"],
-		"off": ["gear:shield_round", "gear:shield_heater", "gear:shield_tower", "gear:shield_tower"],
+		"off": ["gear:shield_round", "gear:shield_tower", "gear:shield_tower", "gear:shield_tower"],
 		# Off-hand shield pose relative to the hand socket (cm, degrees).
 		"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
 		"main_xf": [Vector3(0, 3, 0), Vector3(0, 180, 0)],
@@ -80,9 +80,12 @@ const KITS := {
 ## runes, roughness. Cloth (tabard) takes "cloth".
 const FINISH := [
 	{"metal": Color(0.78, 0.76, 0.72), "soft": Color(0.82, 0.78, 0.7), "cloth": Color(0.72, 0.68, 0.6), "wear": 0.55, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.08, "gain": 0.85, "groove": 0.3},
-	{"metal": Color(1.6, 1.55, 1.48), "soft": Color(0.74, 0.6, 0.48), "cloth": Color(0.5, 0.38, 0.27), "wear": 1.0, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.18, "gain": 0.9, "groove": 0.75},
-	{"metal": Color(0.15, 0.15, 0.16), "soft": Color(0.3, 0.25, 0.23), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.12, "rune": 0.0, "rough_mul": 0.6, "rough_add": -0.06, "gain": 1.1, "edge_hi": 0.9},
-	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "seam": 1.0},
+	# T1 Dented Iron: warm, light, riveted; dark grooves, dull bevels.
+	{"metal": Color(1.62, 1.42, 1.12), "soft": Color(0.74, 0.6, 0.48), "cloth": Color(0.5, 0.38, 0.27), "wear": 1.0, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.2, "gain": 0.9, "groove": 0.75, "edge_hi": 0.2, "edge_col": Color(0.7, 0.55, 0.38)},
+	# T2 Blackened Steel: cool blue-black, glossy, crisp bright bevels.
+	{"metal": Color(0.26, 0.29, 0.36), "soft": Color(0.3, 0.25, 0.23), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.12, "rune": 0.0, "rough_mul": 0.55, "rough_add": -0.08, "gain": 1.1, "edge_hi": 1.5, "edge_col": Color(0.62, 0.74, 0.95), "edge_emit": 0.22, "metal_cap": 0.8},
+	# T3 Runebound: black plate, burning rune seams, emissive blade.
+	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "seam": 1.7, "metal_cap": 0.85},
 ]
 const RUNE := Color(1.0, 0.32, 0.08)
 
@@ -232,7 +235,7 @@ static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Diction
 		if mat:
 			var fm := finish(mat, tier, false, true)
 			if tier == 3 and label == "GearMain":
-				fm.set_shader_parameter("blade_glow", 1.8)
+				fm.set_shader_parameter("blade_glow", 3.2)
 			mi.set_surface_override_material(i, fm)
 
 
@@ -284,6 +287,10 @@ static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false
 	mat.set_shader_parameter("groove", f.get("groove", 0.0))
 	mat.set_shader_parameter("edge_hi", f.get("edge_hi", 0.0))
 	mat.set_shader_parameter("seam_glow", f.get("seam", 0.0))
+	var ec: Color = f.get("edge_col", Color(0.55, 0.57, 0.62))
+	mat.set_shader_parameter("edge_col", Vector3(ec.r, ec.g, ec.b))
+	mat.set_shader_parameter("edge_emit", f.get("edge_emit", 0.0))
+	mat.set_shader_parameter("metal_cap", f.get("metal_cap", 1.0))
 	if src.cull_mode == BaseMaterial3D.CULL_DISABLED or cloth:
 		mat.render_priority = 0
 	return mat
