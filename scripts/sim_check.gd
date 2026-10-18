@@ -29,6 +29,7 @@ static func run() -> int:
 	_events_check()
 	_gear_drop_smoke()
 	_skill_xp_smoke()
+	_gear_coverage_check()
 	if failures == 0:
 		print("SIM CHECK PASSED")
 		return 0
@@ -1469,6 +1470,319 @@ static func _skill_total() -> int:
 		for skill in xp[hero]:
 			total += int(xp[hero][skill])
 	return total
+
+
+## Gear coverage sweep (docs/gear.md contract). Everything runs on a scratch
+## armory (GearDB.store_override = {}) with SaveGame.no_write; both restore
+## after so the player's save never moves. Sub-checks:
+## 1-3  drop rates over 20000 seeded rolls per source, hero targeting and the
+##      owned-out reroll preference,
+## 4-5  seed determinism of gear and combat, pickup pacing of the run events,
+## 6    equip stat math for full tier-1/2/3 kits and the exact gate text,
+## 7    banking: a win keeps all, a loss keeps the earliest floor-half once.
+static func _gear_coverage_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	_gear_loot_rates()
+	_gear_equip_math()
+	_gear_runs()
+	_gear_bank()
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+
+
+## 1-3. 20000 seeded rolls per source on a scratch armory: observed drop
+## chance and tier split stay within tolerance of SOURCES, the boss never
+## rolls empty, a deeper biome never lowers the rune share, the run hero
+## keeps its 75% coin share plus its 1/4 slice of the uniform fallback
+## (about 81% of the pieces, see loot_table.gd _pick) on legal slots (Gnash
+## never gets an offhand), and because the hero owns nearly all of one tier
+## the owned-out rerolls keep duplicates well under the uniform rate.
+static func _gear_loot_rates() -> void:
+	GearDB.store_override = {}
+	var run_hero := "ember"
+	## The hero owns everything except two tier-2 slots: a tier-2 pick should
+	## end owned only if all four uniform slot attempts miss the two holes
+	## (about 1 - (6/8)^4 of such picks), versus 6/8 without preference.
+	var unowned := ["ember.helm.2", "ember.boots.2"]
+	for id in GearDB.all_items():
+		if str(id) in unowned:
+			continue
+		GearDB.grant(str(id))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 701
+	var rolls := 20000
+	var items := 0
+	var hero_kept := 0
+	var dup_total := 0
+	var dup_owned := 0
+	for source in LootTable.SOURCES.keys():
+		var data: Dictionary = LootTable.SOURCES[source]
+		var weights: Array = data["weights"]
+		var weight_sum: float = float(weights[0]) + float(weights[1]) + float(weights[2])
+		var drops := 0
+		var tiers := [0, 0, 0]
+		for _i in rolls:
+			var rolled: Array[String] = LootTable.roll(rng, str(source), run_hero, 0)
+			if not rolled.is_empty():
+				drops += 1
+				if str(source) == "boss" and rolled.size() < 1:
+					_fail("boss rolled zero pieces")
+			for id in rolled:
+				var sid := str(id)
+				var parts := sid.split(".")
+				if not GearDB.is_item(sid) or not (str(parts[1]) in GearDB.HERO_SLOTS[str(parts[0])]):
+					_fail("%s is not a real item on a legal slot" % sid)
+					continue
+				if str(parts[1]) == "offhand" and str(parts[0]) == "lumen":
+					_fail("Gnash rolled an offhand piece")
+				if str(parts[0]) == run_hero:
+					hero_kept += 1
+					if int(parts[2]) == 2:
+						dup_total += 1
+						if str(parts[1]) != "helm" and str(parts[1]) != "boots":
+							dup_owned += 1
+				tiers[int(parts[2]) - 1] += 1
+				items += 1
+		var observed: float = float(drops) / float(rolls)
+		if absf(observed - float(data["chance"])) > 0.015:
+			_fail("%s drop chance %.3f off %.3f" % [str(source), observed, float(data["chance"])])
+		var source_items: int = tiers[0] + tiers[1] + tiers[2]
+		for t in 3:
+			var share: float = float(tiers[t]) / float(maxi(source_items, 1))
+			if absf(share - float(weights[t]) / weight_sum) > 0.02:
+				_fail("%s tier %d share %.3f off %.3f" % [str(source), t + 1, share, float(weights[t]) / weight_sum])
+	# A deeper biome must never lower the rune share of any source.
+	var deep: int = Catalog.BIOMES.size() - 1
+	for source in LootTable.SOURCES.keys():
+		var base: Array = LootTable.SOURCES[source]["weights"]
+		if _rune_share(base, deep) < _rune_share(base, 0) - 0.000001:
+			_fail("biome depth lowered the rune share of %s" % str(source))
+	var hero_share := float(hero_kept) / float(maxi(items, 1))
+	# Effective keep share: the run hero wins its 75% coin plus its 1/4 of
+	# the uniform fallback (the fallback draws among ALL gear heroes,
+	# including itself, exactly as docs/gear.md describes).
+	var expect_share: float = LootTable.RUN_HERO_SHARE + (1.0 - LootTable.RUN_HERO_SHARE) / float(GearDB.HERO_SLOTS.size())
+	if absf(hero_share - expect_share) > 0.03:
+		_fail("the run hero kept %.3f of the gear" % hero_share)
+	var dup_rate := float(dup_owned) / float(maxi(dup_total, 1))
+	if dup_rate < 0.15 or dup_rate > 0.45:
+		_fail("duplicate rate %.3f is not well under the uniform rate" % dup_rate)
+	if items <= 0:
+		_fail("nothing rolled at all")
+	print("GEAR rates ok: %d pieces, run hero %.0f%% (%.0f%% coin, rest uniform), dups %.0f%% (uniform 75%%)" % [items, hero_share * 100.0, LootTable.RUN_HERO_SHARE * 100.0, dup_rate * 100.0])
+
+
+## Exact rune share of a tier-weight triple after LootTable's biome shift.
+static func _rune_share(base: Array, biome_idx: int) -> float:
+	var w: Array = LootTable._weights(base, biome_idx)
+	return float(w[2]) / (float(w[0]) + float(w[1]) + float(w[2]))
+
+
+## 6. Equip math: a full tier-1/2/3 kit for every gear hero folds the exact
+## stats_for sums plus the level hook into build_run_stats, and a gated
+## piece below the level refuses with its exact lock text.
+static func _gear_equip_math() -> void:
+	for hero in GearDB.HERO_SLOTS.keys():
+		for tier in [GearDB.Tier.IRON, GearDB.Tier.STEEL, GearDB.Tier.RUNE]:
+			_gear_full_kit(str(hero), int(tier))
+	print("GEAR equip ok: full tier-1/2/3 kits fold stats_for + level_bonus")
+
+
+## One full kit on a fresh scratch store: gate text at starting skills, then
+## skills raised via add_xp to the tier's requirement, and the equipped
+## run-stat deltas matched field by field through _folds.
+static func _gear_full_kit(hero: String, tier: int) -> void:
+	GearDB.store_override = {}
+	var bare := SaveGame.build_run_stats(hero)
+	if tier >= GearDB.Tier.STEEL:
+		for slot in GearDB.HERO_SLOTS[hero]:
+			var gid: String = GearDB.item_id(hero, str(slot), tier)
+			var req: Dictionary = GearDB.requirements(gid)
+			if req.is_empty():
+				continue
+			# The gate check needs the piece owned so "Not owned" can't mask
+			# the requirement reason; a duplicate grant is harmless here.
+			GearDB.grant(gid)
+			var gate: Dictionary = GearDB.can_equip(hero, gid)
+			if bool(gate["ok"]) or str(gate["reason"]) != _gear_req_text(req):
+				_fail("%s gate said %s, wanted %s" % [gid, str(gate), str(_gear_req_text(req))])
+			if GearDB.equip(hero, gid) or str(GearDB.equipped(hero)[str(slot)]) != "":
+				_fail("%s equipped below its level gate" % gid)
+	var lvl: int = GearDB.REQ_BY_TIER[tier]
+	for k in GearDB.SKILL_KEYS:
+		if GearDB.level(hero, k) < lvl:
+			GearDB.add_xp(hero, k, GearDB.xp_for_level(lvl) - GearDB.xp(hero, k))
+		if GearDB.level(hero, k) < lvl:
+			_fail("%s %s did not reach level %d" % [hero, k, lvl])
+	var want := {}
+	for slot in GearDB.HERO_SLOTS[hero]:
+		var gid: String = GearDB.item_id(hero, str(slot), tier)
+		if not GearDB.grant(gid) or not bool(GearDB.can_equip(hero, gid)["ok"]) or not GearDB.equip(hero, gid):
+			_fail("the %s kit refused %s" % [hero, gid])
+			continue
+		if str(GearDB.equipped(hero)[str(slot)]) != gid or GearDB.slot_tier(hero, str(slot)) != tier:
+			_fail("%s did not seat in %s" % [gid, str(slot)])
+		var s: Dictionary = GearDB.stats_for(str(slot), tier)
+		for k in s:
+			want[k] = float(want.get(k, 0.0)) + float(s[k])
+	for k in GearDB.level_bonus(hero):
+		want[k] = float(want.get(k, 0.0)) + float(GearDB.level_bonus(hero)[k])
+	var geared := SaveGame.build_run_stats(hero)
+	_folds(geared, bare, want, "hp", "add", "hp_flat")
+	_folds(geared, bare, want, "armor", "add", "armor")
+	_folds(geared, bare, want, "crit", "add", "crit")
+	_folds(geared, bare, want, "regen", "add", "regen")
+	_folds(geared, bare, want, "dmg", "mul", "dmg_pct")
+	_folds(geared, bare, want, "interval", "div", "haste")
+	_folds(geared, bare, want, "speed", "mul", "speed_pct")
+
+
+## "Requires <Skill> <level>" for the first gate in can_equip's order — the
+## exact text the equip UI shows on owned, locked pieces.
+static func _gear_req_text(req: Dictionary) -> String:
+	for k in GearDB.SKILL_KEYS:
+		if req.has(k):
+			return "Requires %s %d" % [GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(k)], int(req[k])]
+	return ""
+
+
+## 4-5. Runs. The same seed replays identical gear_found and combat, another
+## seed diverges (checked on two 60 s windows), and a full bot run to the
+## result picks every drop up exactly once unless it still lies in
+## gear_ground. Every source is seeded once 10 s in so the loot hooks run
+## even on a short window.
+static func _gear_runs() -> void:
+	GearDB.store_override = {}
+	var quick := int(60.0 * 60.0)
+	var full := int(60.0 * 400.0)
+	var a := _gear_run(11, quick)
+	if str(a["gear"]) == "":
+		_fail("the seeded run rolled no gear")
+	if _gear_run_key(a) != _gear_run_key(_gear_run(11, quick)):
+		_fail("the same seed did not replay the same run")
+	if _gear_run_key(_gear_run(12, quick)) == _gear_run_key(a):
+		_fail("a different seed replayed the same run")
+	var win := _gear_run(11, full)
+	var win2 := _gear_run(11, full)
+	if str(win["result"]) != "win":
+		_fail("the full seeded bot run ended %s" % str(win["result"]))
+	if _gear_run_key(win) != _gear_run_key(win2):
+		_fail("the same seed did not replay the same combat outcome")
+	_gear_pickup_flow(win)
+	print("GEAR run ok: seeds replay identical, win %s at %.0fs with %s picked" % [str(win["result"]), float(win["time"]), str(win["gear"])])
+
+
+## One bot-driven sample run: explore steering with greedy level-ups, and
+## one seeded roll from every loot source 10 s in. Returns the combat
+## counters, the gear list, and the drop/pickup/leftover key tallies.
+static func _gear_run(seed: int, cap: int) -> Dictionary:
+	var session := Session.solo("meadow", "ember")
+	session.seed = seed
+	var sim := RunSim.new()
+	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	var drops := {}
+	var pickups := {}
+	var mem := {}
+	var seeded := false
+	var guard := 0
+	while sim.result == "" and guard < cap:
+		guard += 1
+		if sim.paused:
+			if sim.offer.size() > 0:
+				sim.choose(_best(sim))
+				sim.drain_events()
+			else:
+				return {"gear": str(sim.gear_found), "kills": sim.kills, "hp": float(sim.heroes[0].hp),
+					"result": "stuck", "time": sim.time, "drops": drops, "pickups": pickups, "left": ""}
+			continue
+		if guard == int(10.0 / STEP) and not seeded:
+			seeded = true
+			for source in LootTable.SOURCES:
+				sim._gear_roll_drop(str(source), sim.heroes[0].pos)
+		var mv := RunBot.explore_steer(sim, 0, mem) if sim.explore else RunBot.steer(sim, 0)
+		sim.step(STEP, [mv])
+		for e in sim.drain_events():
+			match str(e.get("type", "")):
+				"gear_drop":
+					var drop_key := str(e.get("key", ""))
+					drops[drop_key] = int(drops.get(drop_key, 0)) + 1
+				"gear_pickup":
+					var pick_key := str(e.get("key", ""))
+					pickups[pick_key] = int(pickups.get(pick_key, 0)) + 1
+	var hp := 0.0
+	if sim.heroes.size() > 0:
+		hp = float(sim.heroes[0].hp)
+	var left := ""
+	for g in sim.gear_ground:
+		left += "\"%s\"" % str(g["key"])
+	return {"gear": str(sim.gear_found), "kills": sim.kills, "hp": hp, "result": sim.result,
+		"time": sim.time, "drops": drops, "pickups": pickups, "left": left}
+
+
+## A run signature: gear list plus the combat outcome (time, kills, hp).
+static func _gear_run_key(r: Dictionary) -> String:
+	return "%s|%s|%s|%s|%s" % [str(r["gear"]), str(r["kills"]), str(r["hp"]), str(r["result"]), str(r["time"])]
+
+
+## Every gear_drop event resolves to exactly one gear_pickup event with the
+## same key, unless the piece is still lying in gear_ground at run end.
+static func _gear_pickup_flow(r: Dictionary) -> void:
+	var drops: Dictionary = r["drops"]
+	var picks: Dictionary = r["pickups"]
+	var left: String = str(r["left"])
+	for key in drops.keys():
+		if int(drops[key]) != 1:
+			_fail("drop key %s repeated" % str(key))
+			return
+	for key in picks.keys():
+		if not drops.has(key):
+			_fail("a gear_pickup had no matching gear_drop")
+			return
+		if int(picks[key]) != 1:
+			_fail("pickup key %s repeated" % str(key))
+			return
+	for key in drops.keys():
+		if not picks.has(key) and not left.contains("\"%s\"" % str(key)):
+			_fail("drop %s was never picked up" % str(key))
+			return
+
+
+## 7. Banking: a win keeps every drop, a loss keeps the earliest floor-half
+## and nothing more, a repeat call banks nothing, and the real save never
+## sees a write (the scratch armory is still the store override after).
+static func _gear_bank() -> void:
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+	var snapshot: Dictionary = SaveGame.data.duplicate(true)
+	var ids: Array[String] = ["pebble.helm.1", "pebble.chest.1", "pebble.weapon.2", "pebble.boots.1", "ember.charm.1"]
+	var win := RunSim.new()
+	win.result = "win"
+	for id in ids:
+		win.gear_found.append(id)
+	if str(win.bank_gear()) != str(ids) or _owned_total() != ids.size():
+		_fail("a win did not bank every drop")
+	if win.bank_gear().size() != 0 or _owned_total() != ids.size():
+		_fail("a repeat bank call changed the armory")
+	GearDB.store_override = {}
+	var lose := RunSim.new()
+	lose.result = "lose"
+	for id in ids:
+		lose.gear_found.append(id)
+	var kept: Array[String] = lose.bank_gear()
+	if str(kept) != str(ids.slice(0, ids.size() / 2)) or _owned_total() != ids.size() / 2:
+		_fail("a loss did not keep the earliest floor-half: %s" % str(kept))
+	if lose.bank_gear().size() != 0 or _owned_total() != ids.size() / 2:
+		_fail("a repeat loss bank call changed the armory")
+	for late in ["pebble.weapon.2", "pebble.boots.1", "ember.charm.1"]:
+		if GearDB.has("pebble", late) or GearDB.has("ember", late):
+			_fail("a banked loss kept the tail piece %s" % late)
+	if SaveGame.data != snapshot or GearDB.store_override == null:
+		_fail("banking wrote the real save")
+	print("GEAR bank ok: win %d, loss %d earliest-first, second call banks nothing" % [ids.size(), ids.size() / 2])
 
 
 ## Total copies held in the current GearDB store (a scratch armory in tests).
