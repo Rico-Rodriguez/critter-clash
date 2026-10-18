@@ -235,6 +235,14 @@ const BOSS_INTRO := 1.6
 ## The boss only starts an attack within this range of the hero, so its first
 ## telegraph ring can never open off-screen; it closes the gap first.
 const BOSS_ENGAGE := 900.0
+## Phase 2: the boss enrages once below half health. A 0.8 s roar telegraph
+## (the HUD boss bar shows ENRAGED) is followed by +20% attack speed and one
+## archetype extra pattern. Every phase-2 telegraph stays at
+## BOSS_PHASE_TELEGRAPH so the new pattern is always dodgeable (>= 0.7 s).
+const BOSS_PHASE_HP := 0.5
+const BOSS_ROAR := 0.8
+const BOSS_PHASE_TELEGRAPH := 1.0
+const BOSS_PHASE_SPEED := 1.2
 const BOSS_TITLES := {
 	"meadow": "Warden of the Moss",
 	"mushroom": "Sovereign of Spores",
@@ -286,6 +294,12 @@ class Actor extends RefCounted:
 	var boss_state := ""
 	var boss_timer := 0.0
 	var boss_dir := Vector2.RIGHT
+	## Phase 2: once below half health the boss roars, then strikes faster and
+	## unlocks one archetype extra pattern. phase2_pending opens that pattern
+	## on the first attack after the roar.
+	var phase2 := false
+	var phase2_pending := false
+	var atk_speed := 1.0
 	var attack := ""
 	var bias_charge := 0.33
 	var bias_aoe := 0.33
@@ -1524,6 +1538,7 @@ func _step_boss(dt: float) -> void:
 	boss.boss_timer -= dt
 	boss.touch_cd = maxf(0.0, boss.touch_cd - dt)
 	boss.charge_cd = maxf(0.0, boss.charge_cd - dt)
+	_check_phase2()
 	if boss.stun > 0.0:
 		boss.vel = Vector2.ZERO
 		_clamp_actor(boss)
@@ -1534,6 +1549,16 @@ func _step_boss(dt: float) -> void:
 		if boss.boss_timer <= 0.0:
 			boss.boss_state = "idle"
 			boss.boss_timer = 0.9
+		_clamp_actor(boss)
+		return
+	if boss.boss_state == "roar":
+		# The enrage roar: planted, silent and untouchable for its window,
+		# then the phase-2 pattern opens on the first attack back.
+		boss.vel = Vector2.ZERO
+		if boss.boss_timer <= 0.0:
+			boss.boss_state = "idle"
+			boss.boss_timer = 0.2
+			boss.phase2_pending = true
 		_clamp_actor(boss)
 		return
 	var bspd := boss.speed * _slow_mul(boss)
@@ -1612,11 +1637,12 @@ func _step_boss(dt: float) -> void:
 						return
 		if boss.boss_timer <= 0.0:
 			boss.boss_state = "recover"
-			boss.boss_timer = 0.42 if enraged else 0.55
+			# Phase 2 strikes 20% faster: the between-attack beats shorten.
+			boss.boss_timer = (0.42 if enraged else 0.55) / boss.atk_speed
 	elif boss.boss_state == "recover":
 		if boss.boss_timer <= 0.0:
 			boss.boss_state = "idle"
-			boss.boss_timer = 0.18 if enraged else 0.42
+			boss.boss_timer = (0.18 if enraged else 0.42) / boss.atk_speed
 	if boss.boss_state != "act" or boss.attack != "charge":
 		for hero in heroes:
 			if hero.alive and boss.pos.distance_to(hero.pos) < boss.radius * 0.78 + hero.radius and boss.touch_cd <= 0.0:
@@ -1630,7 +1656,12 @@ func _step_boss(dt: float) -> void:
 
 func _begin_attack() -> void:
 	boss_opened = true
-	boss.attack = _pick_attack()
+	if boss.phase2_pending:
+		# Phase 2 opens with its archetype pattern, then folds into the mix.
+		boss.phase2_pending = false
+		boss.attack = _phase2_attack()
+	else:
+		boss.attack = _pick_attack()
 	boss.boss_state = "windup"
 	events.append({"type": "windup", "id": boss.id, "time": 0.6})
 	var focus := _focus_hero()
@@ -1658,6 +1689,26 @@ func _begin_attack() -> void:
 		ping.life = 0.5
 		ping.max_life = 0.5
 		pings.append(ping)
+	elif boss.attack == "slam":
+		# Melee phase 2: a ground-slam ring, telegraphed long enough to roll out.
+		boss.boss_timer = BOSS_PHASE_TELEGRAPH
+		var at := focus.pos + focus.vel * 0.18
+		_circle(at, 130.0, BOSS_PHASE_TELEGRAPH, boss.aoe_dmg * 0.7 * _rage())
+	elif boss.attack == "fan2":
+		# Ranged phase 2: the five-shot fan, with the same long telegraph.
+		boss.boss_timer = BOSS_PHASE_TELEGRAPH
+		var base2 := (focus.pos - boss.pos).angle()
+		boss.boss_dir = Vector2.RIGHT.rotated(base2)
+		for i in 5:
+			var ping2 := Ping.new()
+			ping2.kind = "lane"
+			ping2.dir = Vector2.RIGHT.rotated(base2 + lerpf(-0.58, 0.58, float(i) / 4.0))
+			ping2.pos = boss.pos + ping2.dir * boss.radius * 0.7
+			ping2.length = 340.0
+			ping2.width = 22.0
+			ping2.life = BOSS_PHASE_TELEGRAPH
+			ping2.max_life = BOSS_PHASE_TELEGRAPH
+			pings.append(ping2)
 	else:
 		# Fan: five thin lanes show where the volley will fly.
 		boss.boss_timer = 0.55
@@ -1682,7 +1733,7 @@ func _release_attack() -> void:
 		boss.boss_timer = 0.38
 		boss.charge_cd = 0.0
 		return
-	if boss.attack == "fan":
+	if boss.attack == "fan" or boss.attack == "fan2":
 		boss.boss_timer = 0.42
 		# Fire along the lanes that were telegraphed.
 		var base := boss.boss_dir.angle()
@@ -1695,7 +1746,7 @@ func _release_attack() -> void:
 			shot.pos = boss.pos + dir * (boss.radius * 0.7)
 			shot.prev = shot.pos
 			shot.vel = dir * (320.0 if enraged else 255.0)
-			shot.dmg = boss.shot_dmg * _rage()
+			shot.dmg = boss.shot_dmg * _rage() * (0.8 if boss.attack == "fan2" else 1.0)
 			shot.radius = 11.0
 			shot.ttl = 2.5
 			shot.kind = "enemy"
@@ -1705,6 +1756,10 @@ func _release_attack() -> void:
 
 
 func _pick_attack() -> String:
+	# Once enraged the archetype pattern stays in the mix on top of the base
+	# three, so phase 2 reads as a new move rather than a one-off.
+	if boss.phase2 and rng.randf() < 0.2:
+		return _phase2_attack()
 	var roll := rng.randf()
 	if roll < boss.bias_charge:
 		return "charge"
@@ -2011,8 +2066,9 @@ func _boss_title() -> String:
 func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker: Actor, allow_thorns: bool) -> void:
 	if target == null or not target.alive:
 		return
-	# The intro beat is untouchable: no chip damage can skip the reveal.
-	if target.kind == "boss" and target.boss_state == "intro":
+	# The intro and the phase-2 roar are untouchable: no chip damage can skip
+	# either telegraph.
+	if target.kind == "boss" and (target.boss_state == "intro" or target.boss_state == "roar"):
 		return
 	if explore and target.kind == "minion" and not target.aggro:
 		_set_camp_aggro(target, true)
@@ -2505,6 +2561,35 @@ func _actor_by_id(id: int) -> Actor:
 
 func _rage() -> float:
 	return 1.32 if enraged else 1.0
+
+
+## One-shot phase 2 trigger: the first time the boss drops to half health it
+## roars (an invulnerable 0.8 s telegraph), then attacks 20% faster with an
+## extra archetype pattern. The intro is exempt, so the reveal is never cut.
+func _check_phase2() -> void:
+	if boss == null or not boss.alive or boss.phase2 or boss.boss_state == "intro":
+		return
+	if boss.max_hp <= 0.0 or boss.hp / boss.max_hp > BOSS_PHASE_HP:
+		return
+	boss.phase2 = true
+	boss.atk_speed = BOSS_PHASE_SPEED
+	boss.boss_state = "roar"
+	boss.boss_timer = BOSS_ROAR
+	boss.vel = Vector2.ZERO
+	events.append({
+		"type": "boss_enrage",
+		"id": boss.id,
+		"name": boss.display,
+		"time": BOSS_ROAR,
+		"shake": 0.55,
+		"stop": 0.06,
+	})
+
+
+## The phase-2 extra pattern, chosen by archetype role: a melee boss slams a
+## ring into the ground, a ranged/caster boss fires a five-projectile fan.
+func _phase2_attack() -> String:
+	return "fan2" if Catalog.is_ranged(str(boss.role)) else "slam"
 
 
 func _halt() -> bool:

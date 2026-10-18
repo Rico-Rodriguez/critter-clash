@@ -554,7 +554,10 @@ func _hud() -> void:
 	boss_label.get_parent().visible = boss_label.visible
 	if show_boss and sim.boss != null:
 		boss_meter.ratio = sim.boss.hp / maxf(sim.boss.max_hp, 1.0)
-		boss_label.text = sim.boss.display
+		# Phase 2 tints the boss bar and names the state.
+		var boss_enraged := sim.boss.phase2
+		boss_label.text = sim.boss.display + ("   ENRAGED" if boss_enraged else "")
+		boss_label.modulate = Color("ff9a4a") if boss_enraged else Color.WHITE
 
 
 func _drain() -> void:
@@ -732,6 +735,9 @@ func _drain() -> void:
 					hitstop = maxf(hitstop, 0.05)
 					AudioDirector.sfx("boss_slam", 2.0)
 					AudioDirector.haptic("heavy"))
+			"boss_enrage":
+				# Phase 2 at half health: the roar plays, the boss bar tints.
+				AudioDirector.sfx("boss_roar")
 			"boss_down":
 				if not committed:
 					committed = true

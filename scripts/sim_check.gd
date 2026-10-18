@@ -15,7 +15,7 @@ static var _times: Array = []
 const CHECKS := [
 	"roles", "modes", "save", "gear_save", "train", "slayer_log", "slayer_gear", "settings",
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
-	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
+	"kite", "boss_intro", "boss_phase", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
 	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale", "difficulty",
 	"pause_skills", "forge_stats", "dock_pip",
@@ -104,6 +104,8 @@ static func _dispatch(name: String) -> void:
 			_kite()
 		"boss_intro":
 			_boss_intro_check()
+		"boss_phase":
+			_boss_phase_check()
 		"dodge":
 			_dodge_check()
 		"events":
@@ -1718,6 +1720,109 @@ static func _step_one(sim: RunSim) -> void:
 	if sim.paused:
 		sim.paused = false
 	sim.step(STEP, [Vector2.ZERO])
+
+
+## Boss phase 2: driving a boss to 49% must fire the one-shot enrage - a 0.8 s
+## invulnerable roar - then +20% attack speed and the archetype extra pattern
+## (a telegraphed ground-slam ring for a melee boss, a five-projectile fan for
+## a ranged caster). Both patterns telegraph >= 0.7 s and spawn hazards or
+## projectiles. Keyed by role/archetype, never by hero id.
+static func _boss_phase_check() -> void:
+	_boss_phase_run("thistle", "meadow", "ember", false)
+	_boss_phase_run("nimbus", "frost", "ember", true)
+
+
+static func _boss_phase_run(boss_id: String, biome: String, hero_id: String, ranged: bool) -> void:
+	var session := Session.solo(biome, hero_id)
+	session.seed = 11
+	var sim := RunSim.new()
+	sim.start(session, {hero_id: Catalog.base_stats(hero_id)})
+	var hero: RunSim.Actor = sim.heroes[0]
+	hero.hp = 1e9
+	hero.max_hp = 1e9
+	sim.begin_boss()
+	var boss: RunSim.Actor = sim.boss
+	if boss == null or boss.sprite != boss_id:
+		_fail("phase 2: %s boss missing" % boss_id)
+		return
+	# Wait out the reveal, then drive the boss down to 49% in one blow.
+	var guard := 0
+	while boss.boss_state == "intro" and guard < 600:
+		guard += 1
+		_step_one(sim)
+	hero.pos = boss.pos + Vector2(120, 0)
+	sim._hurt(boss, boss.max_hp * (1.0 - RunSim.BOSS_PHASE_HP + 0.01), hero.pos, false, hero, false)
+	if boss.phase2:
+		_fail("%s entered phase 2 before the 50%% crossing" % boss_id)
+		return
+	# The next step roars: flag, state, event, window and speed bump.
+	_step_one(sim)
+	if not boss.phase2:
+		_fail("%s never entered phase 2 at 49%%" % boss_id)
+		return
+	if boss.boss_state != "roar":
+		_fail("%s phase 2 did not roar (state %s)" % [boss_id, boss.boss_state])
+		return
+	if not is_equal_approx(boss.atk_speed, RunSim.BOSS_PHASE_SPEED) or boss.atk_speed <= 1.0:
+		_fail("%s phase-2 attack speed %s" % [boss_id, str(boss.atk_speed)])
+	if boss.boss_timer < 0.7 or boss.boss_timer > 0.82:
+		_fail("%s roar window %.2fs is not the 0.8 s telegraph" % [boss_id, boss.boss_timer])
+	var saw_enrage := false
+	for e in sim.drain_events():
+		if str(e.get("type", "")) == "boss_enrage":
+			saw_enrage = true
+	if not saw_enrage:
+		_fail("%s phase 2 fired no boss_enrage event" % boss_id)
+	# The roar is untouchable, exactly like the intro.
+	var roar_hp := boss.hp
+	sim._hurt(boss, 500.0, hero.pos, false, hero, false)
+	if boss.hp < roar_hp:
+		_fail("%s took damage during its phase-2 roar" % boss_id)
+	# Wait out the roar, then run to the guaranteed phase-2 pattern windup.
+	guard = 0
+	while boss.boss_state == "roar" and guard < 120:
+		guard += 1
+		_step_one(sim)
+	guard = 0
+	while guard < 300 and boss.alive and boss.boss_state != "windup":
+		guard += 1
+		_step_one(sim)
+	if not boss.alive:
+		_fail("%s died before its phase-2 pattern" % boss_id)
+		return
+	if boss.boss_state != "windup":
+		_fail("%s never telegraphed a phase-2 pattern" % boss_id)
+		return
+	var want := "fan2" if ranged else "slam"
+	if boss.attack != want:
+		_fail("%s phase-2 pattern %s, wanted %s" % [boss_id, boss.attack, want])
+	if boss.boss_timer < 0.7:
+		_fail("%s phase-2 telegraph %.2fs is under the 0.7 s dodge window" % [boss_id, boss.boss_timer])
+	if ranged:
+		var lanes := 0
+		for p in sim.pings:
+			if p.alive and p.kind == "lane" and p.life >= 0.7:
+				lanes += 1
+		if lanes < 5:
+			_fail("%s phase-2 fan telegraphed %d lanes, wanted 5" % [boss_id, lanes])
+		guard = 0
+		while boss.boss_state == "windup" and guard < 120:
+			guard += 1
+			_step_one(sim)
+		var fired := 0
+		for s in sim.shots:
+			if s.alive and int(s.owner_id) == boss.id:
+				fired += 1
+		if fired < 5:
+			_fail("%s phase-2 fan fired %d projectiles, wanted 5" % [boss_id, fired])
+	else:
+		var rings := 0
+		for p in sim.pings:
+			if p.alive and p.kind == "circle" and p.life >= 0.7:
+				rings += 1
+		if rings < 1:
+			_fail("%s phase-2 slam telegraphed no ground ring" % boss_id)
+	print("BOSS PHASE ok: roar + %.0f%% speed, slam/fan2 patterns" % [(RunSim.BOSS_PHASE_SPEED - 1.0) * 100.0])
 
 
 ## Dodge roll: covers ground in the open, grants i-frames while dashing,
