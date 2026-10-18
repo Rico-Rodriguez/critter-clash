@@ -24,6 +24,9 @@ var daily_pass := false
 var run_args: Dictionary = {}
 var daily_entry: Dictionary = {}
 var daily_recorded := false
+## "skill:level" pairs already bannered mid-run, so the end-of-run skill_up
+## commit does not announce the same level twice.
+var _levels_shown := {}
 var pet_follow := ""
 var pet_pos := Vector2.ZERO
 var pet_ready := false
@@ -669,11 +672,13 @@ func _drain() -> void:
 				var skill_key := str(ev.get("skill", ""))
 				var skill_at := GearDB.SKILL_KEYS.find(skill_key)
 				var skill_name := str(GearDB.SKILL_NAMES[skill_at]) if skill_at >= 0 else skill_key.capitalize()
-				_banner("%s %d" % [skill_name, int(ev.get("level", 1))])
+				if not _levels_shown.has("%s:%d" % [skill_key, int(ev.get("level", 1))]):
+					_banner("%s %d" % [skill_name, int(ev.get("level", 1))])
 			"skill_level":
 				# A level crossed mid-run; the end-of-run commit still toasts
 				# its skill_up line, this is the in-fight announcement.
 				var mid_skill := str(ev.get("skill", ""))
+				_levels_shown["%s:%d" % [mid_skill, int(ev.get("level", 1))]] = true
 				var mid_at := GearDB.SKILL_KEYS.find(mid_skill)
 				var mid_name := str(GearDB.SKILL_NAMES[mid_at]) if mid_at >= 0 else mid_skill.capitalize()
 				_banner("%s %d" % [mid_name, int(ev.get("level", 1))])
@@ -715,6 +720,9 @@ func _drain() -> void:
 						# Fixed-seed dailies are replayable, so they never bank gear.
 						# Pieces still on the ground when the boss falls join the spoils.
 						summary["gear"] = sim.bank_gear()
+					else:
+						# The hero still trained: the XP drops shown in the hunt land.
+						sim.commit_xp()
 				AudioDirector.sfx("boss_die")
 				AudioDirector.haptic("heavy")
 				AudioDirector.sting(true)
@@ -730,6 +738,8 @@ func _drain() -> void:
 					if not is_daily:
 						# A loss keeps half: the spoils show only what was banked.
 						run_gear = sim.bank_gear()
+					else:
+						sim.commit_xp()
 				AudioDirector.sting(false)
 				AudioDirector.haptic("heavy")
 				# Let the fall read before the card covers it.

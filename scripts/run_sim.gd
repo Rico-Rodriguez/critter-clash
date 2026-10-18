@@ -71,6 +71,8 @@ var gear_found: Array[String] = []
 ## end card can read the shard/coin totals here. Empty until bank_gear runs.
 var gear_bank: Dictionary = {}
 var _banked := false
+## True once the run's combat XP has been written (bank_gear or commit_xp).
+var _xp_committed := false
 ## Pieces lying on the ground: {key, item, pos, t}. The hero takes one by
 ## walking near it, or it flies to them after GEAR_MAGNET seconds, so nothing
 ## earned is ever left behind (docs/gear.md: gear_drop then gear_pickup).
@@ -2998,8 +3000,18 @@ func bank_gear() -> Array[String]:
 		keep = gear_found.size() / 2
 	gear_bank = SaveGame.bank_gear(gear_found.slice(0, keep))
 	banked.assign(gear_bank.get("ids", []))
-	_commit_skill_xp()
+	commit_xp()
 	return banked
+
+
+## Writes the run's combat XP without banking gear: fixed-seed dailies never
+## bank gear, but the hero still trained, and the XP drops the HUD showed must
+## land. Safe to call twice and after bank_gear; the XP is written once.
+func commit_xp() -> void:
+	if _xp_committed:
+		return
+	_xp_committed = true
+	_commit_skill_xp()
 
 
 ## Writes the run's accumulated combat XP to GearDB, once, and queues a

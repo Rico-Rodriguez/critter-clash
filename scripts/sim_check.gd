@@ -1869,8 +1869,11 @@ static func _xp_drop_check() -> void:
 			_fail("%s drops sum %d, committed %d" % [skill, int(drops.get(skill, 0)), committed])
 	if not any:
 		_fail("the seeded fight trained no skill XP")
-	# Committing writes exactly those amounts and reaches those levels.
-	sim._commit_skill_xp()
+	# Committing writes exactly those amounts and reaches those levels; the
+	# daily path (commit_xp without banking gear) writes once even if repeated
+	# or followed by bank_gear.
+	sim.commit_xp()
+	sim.commit_xp()
 	for skill in GearDB.SKILL_KEYS:
 		var committed := int(round(float(raw.get(skill, 0.0))))
 		var base_lvl := GearDB.level_for_xp(int(base[skill]))
@@ -1888,6 +1891,10 @@ static func _xp_drop_check() -> void:
 				_fail("%s last announced level %d, committed %d" % [skill, int(seq[-1]), reached])
 	if levels.is_empty():
 		_fail("no skill_level crossed during the seeded fight")
+	var after_commit := _skill_total()
+	sim.bank_gear()
+	if _skill_total() != after_commit:
+		_fail("bank_gear after commit_xp wrote the run XP twice")
 	GearDB.store_override = prev_override
 	SaveGame.no_write = prev_nowrite
 	print("XP drops ok: %d xp over %d skills" % [total, drops.size()])
