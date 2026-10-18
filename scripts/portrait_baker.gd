@@ -99,9 +99,12 @@ func _bake(id: String, head: bool) -> void:
 	# The dragon's source albedo is one flat red, so its form has to come
 	# from light: less flat ambient, a harder key, the rim does the rest.
 	var dragon := Cast3D.model(id).ends_with("sketchfab/ember.glb")
-	_env.ambient_light_energy = 0.38 if dragon else 0.75
+	# Plate knights: more ambient and a hotter key so blackened steel keeps
+	# its form at card size instead of going near-black.
+	var plate := Gear3D.has_kit(id)
+	_env.ambient_light_energy = 0.38 if dragon else (1.25 if plate else 0.75)
 	_env.adjustment_saturation = 0.95 if dragon else 1.12
-	_key.light_energy = 2.6 if dragon else 1.9
+	_key.light_energy = 2.6 if dragon else (2.6 if plate else 1.9)
 	# A cooler key keeps the dragon's reds in wine rather than orange.
 	_key.light_color = Color("f4ecf4") if dragon else Color("fff0d8")
 	var body: Node3D

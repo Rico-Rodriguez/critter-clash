@@ -34,6 +34,9 @@ const KITS := {
 	# Mordrek, the Bone Knight: a cursed duelist, one long blade, no shield.
 	"bramble": {
 		"anims": "res://assets/models/heroes/boneknight/boneknight_anims.res",
+		# The bone-plate albedo is pale, so blackened steel would read as
+		# frosted ice; damp the T2 metal tint for this kit only.
+		"metal_mul": [1.0, 1.0, 0.4, 1.0],
 		"hide": ["sword", "scabbard_2"],
 		"main": ["own:sword", "own:sword", "own:sword", "own:sword"],
 		"off": ["", "", "", ""],
@@ -89,7 +92,7 @@ const FINISH := [
 	# T1 Dented Iron: warm, light, riveted; dark grooves, dull bevels.
 	{"metal": Color(1.62, 1.42, 1.12), "soft": Color(0.74, 0.6, 0.48), "cloth": Color(0.5, 0.38, 0.27), "wear": 1.0, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.2, "gain": 0.9, "groove": 0.75, "edge_hi": 0.2, "edge_col": Color(0.7, 0.55, 0.38)},
 	# T2 Blackened Steel: cool blue-black, glossy, crisp bright bevels.
-	{"metal": Color(0.26, 0.29, 0.36), "soft": Color(0.3, 0.25, 0.23), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.12, "rune": 0.0, "rough_mul": 0.55, "rough_add": -0.08, "gain": 1.1, "edge_hi": 1.5, "edge_col": Color(0.62, 0.74, 0.95), "edge_emit": 0.22, "metal_cap": 0.8},
+	{"metal": Color(0.4, 0.44, 0.52), "soft": Color(0.3, 0.25, 0.23), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.12, "rune": 0.0, "rough_mul": 0.7, "rough_add": -0.02, "gain": 1.1, "edge_hi": 1.05, "edge_col": Color(0.62, 0.74, 0.95), "edge_emit": 0.22, "metal_cap": 0.8},
 	# T3 Runebound: black plate, burning rune seams, emissive blade.
 	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "seam": 1.7, "metal_cap": 0.85},
 ]
@@ -205,7 +208,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			if src == null:
 				continue
 			var cloth := src.resource_name.to_lower().contains("cloth")
-			var fm := finish(src, at, cloth)
+			var fm := finish(src, at, cloth, false, kit.get("metal_mul", []))
 			fm.set_shader_parameter("use_slots", 1.0)
 			fm.set_shader_parameter("slot_tier", slot_t)
 			fm.set_shader_parameter("seam_gain", float(kit.get("seam", 1.0)))
@@ -322,7 +325,7 @@ static func _silhouette(model: Node3D, sk: Skeleton3D, t: Dictionary, kit: Dicti
 		# with a darker root, so it reads as hair and not a red plastic fin.
 		var cm := ShaderMaterial.new()
 		cm.shader = _crest_shader()
-		var cc: Color = Color(0.3, 0.035, 0.03) if int(t["helm"]) == 2 else Color(0.09, 0.06, 0.06)
+		var cc: Color = Color(0.17, 0.018, 0.016) if int(t["helm"]) == 2 else Color(0.09, 0.06, 0.06)
 		cm.set_shader_parameter("base", Vector3(cc.r, cc.g, cc.b))
 		var glow: Color = rc if int(t["helm"]) == 3 else Color.BLACK
 		cm.set_shader_parameter("glow", Vector3(glow.r, glow.g, glow.b) * 0.5)
@@ -518,7 +521,7 @@ static func set_rim(model: Node, c: Color) -> void:
 
 
 ## A tier finish built over a source PBR material.
-static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false) -> ShaderMaterial:
+static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false, metal_mul: Array = []) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = SHADER
 	mat.set_shader_parameter("albedo_tex", src.albedo_texture)
@@ -541,8 +544,11 @@ static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false
 		arrs[k] = PackedVector3Array()
 	for k in ["t_wear", "t_rough_mul", "t_rough_add", "t_gain", "t_groove", "t_edge_hi", "t_edge_emit", "t_metal_cap", "t_seam", "t_leather"]:
 		arrs[k] = PackedFloat32Array()
-	for f: Dictionary in FINISH:
+	for fi in FINISH.size():
+		var f: Dictionary = FINISH[fi]
 		var metal: Color = f["metal"]
+		if fi < metal_mul.size():
+			metal = metal * float(metal_mul[fi])
 		var soft: Color = f["cloth"] if cloth else f["soft"]
 		var ec: Color = f.get("edge_col", Color(0.55, 0.57, 0.62))
 		arrs["t_metal_tint"].append(Vector3(metal.r, metal.g, metal.b))
@@ -550,11 +556,12 @@ static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false
 		arrs["t_edge_col"].append(Vector3(ec.r, ec.g, ec.b))
 		arrs["t_wear"].append(f["wear"])
 		arrs["t_rough_mul"].append(f["rough_mul"])
-		arrs["t_rough_add"].append(float(f["rough_add"]) if src.roughness_texture else src.roughness + maxf(float(f["rough_add"]), 0.0))
+		var damp := 1.0 - (float(metal_mul[fi]) if fi < metal_mul.size() else 1.0)
+		arrs["t_rough_add"].append((float(f["rough_add"]) if src.roughness_texture else src.roughness + maxf(float(f["rough_add"]), 0.0)) + damp * 0.35)
 		arrs["t_gain"].append(f["gain"])
 		arrs["t_groove"].append(f.get("groove", 0.0))
-		arrs["t_edge_hi"].append(f.get("edge_hi", 0.0))
-		arrs["t_edge_emit"].append(f.get("edge_emit", 0.0))
+		arrs["t_edge_hi"].append(float(f.get("edge_hi", 0.0)) * (float(metal_mul[fi]) if fi < metal_mul.size() else 1.0))
+		arrs["t_edge_emit"].append(float(f.get("edge_emit", 0.0)) * (float(metal_mul[fi]) if fi < metal_mul.size() else 1.0))
 		arrs["t_metal_cap"].append(f.get("metal_cap", 1.0))
 		arrs["t_seam"].append(f.get("seam", 0.0))
 		# Props (blades, shields) never go leather: bare weapons stay steel.
