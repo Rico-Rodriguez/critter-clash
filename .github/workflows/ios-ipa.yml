@@ -6,11 +6,11 @@ on:
     branches:
       - main
 
-# One build at a time on main: a newer push cancels the queued/running one,
-# so a burst of checkpoint commits never stacks five macOS runs.
+# One build at a time on main. The running build is never cancelled; while it
+# runs GitHub keeps only the newest pending push queued (older pending runs are
+# superseded), so a burst of merge-queue pushes ends with a build of the latest main.
 concurrency:
   group: ios-ipa-${{ github.ref }}
-  # Keep the running build; GitHub queues only the newest pending push.
   cancel-in-progress: false
 
 jobs:
