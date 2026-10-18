@@ -16,7 +16,7 @@ const CHECKS := [
 	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear", "settings",
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
-	"skills_screen", "xp_drop", "skill_trophies", "end_card",
+	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names",
 ]
 
 
@@ -82,6 +82,8 @@ static func _dispatch(name: String) -> void:
 			_pools_check()
 		"exclusivity":
 			_exclusivity_check()
+		"drops_names":
+			_drops_names_check()
 		"fights":
 			_fights()
 			if OS.get_cmdline_user_args().has("--seed-sweep"):
@@ -1124,6 +1126,39 @@ static func _legal_card_left(role: String, stacks: Dictionary, offer: Array) -> 
 		if int(stacks.get(cid, 0)) < int(entry["max"]):
 			return true
 	return false
+
+
+## Catalog DROPS: card rows carry their hero's display name and roster colour
+## (ids stay the log save keys), no retired cute-roster word survives in any
+## drop name, ids are unique, and names stay short for the victory/log plates.
+static func _drops_names_check() -> void:
+	var bans := ["wool", "fluff", "hare", "bunny", "cute", "bell", "puff", "kit", "pup", "let", "mallet"]
+	var seen := {}
+	for entry in Catalog.DROPS:
+		var drop: Dictionary = entry
+		var id := str(drop["id"])
+		if seen.has(id):
+			_fail("duplicate drop id " + id)
+			continue
+		seen[id] = true
+		var label := str(drop.get("name", ""))
+		if label.length() > 20:
+			_fail("drop %s name is %d characters: %s" % [id, label.length(), label])
+		if str(drop.get("kind", "")) == "cards":
+			var hero := str(drop.get("hero", ""))
+			var row: Dictionary = Catalog.critter(hero)
+			if row.is_empty():
+				_fail("card drop %s names unknown hero %s" % [id, hero])
+			else:
+				if label != str(row["name"]) + " cards":
+					_fail("card drop %s says '%s', hero %s is '%s'" % [id, label, hero, str(row["name"])])
+				if str(drop.get("color", "")) != str(row["color"]):
+					_fail("card drop %s does not carry the %s roster colour" % [id, hero])
+		for word in label.to_lower().split(" ", false):
+			for ban in bans:
+				if word == ban or word.ends_with(ban):
+					_fail("drop %s keeps the cute word '%s' in '%s'" % [id, ban, label])
+	print("DROPS names ok: %d rows, ids unique, card labels tied to the roster, no cute words" % Catalog.DROPS.size())
 
 
 static func _fights() -> void:
