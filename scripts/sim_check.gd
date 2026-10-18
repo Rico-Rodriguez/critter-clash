@@ -21,6 +21,8 @@ static func run() -> int:
 	_pools_check()
 	_exclusivity_check()
 	_fights()
+	if OS.get_cmdline_user_args().has("--seed-sweep"):
+		seed_sweep()
 	_kite()
 	_boss_intro_check()
 	_dodge_check()
@@ -968,7 +970,7 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 				if a.alive and a.kind == "minion" and a.pos.distance_to(h.pos) < 700.0:
 					near.append([a.sprite, a.pos.round(), a.aggro, int(a.pos.distance_to(h.pos)), a.range])
 			print("TRACE near=", near)
-			print("TRACE t=%d hp=%d pos=%s mv=%s phase=%s boss=%s goal=%s" % [int(sim.time), int(h.hp), str(h.pos.round()), str(mv.snapped(Vector2(0.01, 0.01))), sim.phase, str(bosses), str(mem.get("goal", ""))])
+			print("TRACE %s/%d t=%d hp=%d pos=%s mv=%s phase=%s boss=%s goal=%s" % [hero, session.seed, int(sim.time), int(h.hp), str(h.pos.round()), str(mv.snapped(Vector2(0.01, 0.01))), sim.phase, str(bosses), str(mem.get("goal", ""))])
 	var hp := 0.0
 	if sim.heroes.size() > 0:
 		hp = sim.heroes[0].hp
@@ -1027,6 +1029,50 @@ static func class_report(tag: String) -> void:
 			total_kills, int(round(float(total_kills) / mins)),
 			int(round(total_hp / float(seeds.size()))),
 		])
+
+
+## 20-seed explore sweep, one representative hero per role, on "meadow":
+## reports wins/timeouts/losses and the average winning time. Zero timeouts
+## means the bot always found a route to the lair. Losses are balance, not
+## pathing, and are only reported.
+##   godot --path . -- --sim-check --seed-sweep
+static func seed_sweep() -> void:
+	var reps := {"tank": "pebble", "archer": "juniper", "mage": "ember"}
+	for role in ["tank", "archer", "mage"]:
+		var hero: String = reps[role]
+		var wins := 0
+		var timeouts := 0
+		var losses := 0
+		var win_times: Array = []
+		var hp_left: Array = []
+		for seed in range(1, 21):
+			var report := _play(hero, "meadow", seed, false)
+			var result := str(report["result"])
+			var taken := float(report["time"])
+			if result == "win":
+				wins += 1
+				win_times.append(taken)
+				hp_left.append(float(report["hp"]))
+			else:
+				if result == "":
+					timeouts += 1
+				else:
+					losses += 1
+				print("SWEEP-FAIL %s seed %d result %s time %.1f" % [role, seed, result, taken])
+		var avg_t := 0.0
+		var min_t := 0.0
+		var max_t := 0.0
+		var avg_hp := 0.0
+		if not win_times.is_empty():
+			for v in win_times:
+				avg_t += float(v)
+			avg_t /= win_times.size()
+			min_t = win_times.min()
+			max_t = win_times.max()
+			for v in hp_left:
+				avg_hp += float(v)
+			avg_hp /= hp_left.size()
+		print("SWEEP %s wins %d/20 timeouts %d losses %d avg_win_time %.1f min %.1f max %.1f avg_hp_left %.1f" % [role, wins, timeouts, losses, avg_t, min_t, max_t, avg_hp])
 
 
 ## The hero kites the boss around the arena stones and into the corners;

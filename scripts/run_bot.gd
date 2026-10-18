@@ -226,6 +226,19 @@ static func _in_lane(pos: Vector2, origin: Vector2, dir: Vector2, length: float,
 	return side < width + 20.0
 
 
+## The bot clears camps and chests only for this long before it heads for the
+## lair, so a sprawling map never turns into an endless loot detour.
+const CLEAR_CAP := 240.0
+## A body that barely moves over this window (px) is stalled, not walking.
+const PROBE_SECONDS := 1.5
+const PROBE_TRAVEL := 45.0
+## How long a stalled bot ignores gems so the flow walk can carry it clear.
+const DETOUR_SECONDS := 2.5
+## Turns sampled when following the flow field: the straight grid step can cut
+## through a forest pinch the body cannot cross, so nearby headings are tried.
+const TURNS := [0.0, 0.3, -0.3, 0.6, -0.6, 0.95, -0.95, 1.3, -1.3, 1.65, -1.65, 2.0, -2.0, 2.4, -2.4, PI]
+
+
 ## Explore bot: fights what is close or has aggro, sweeps gems, and
 ## otherwise walks the flow field to the nearest live camp or unopened chest,
 ## then to the boss lair. `mem` keeps its route between calls.
@@ -249,15 +262,58 @@ static func explore_steer(sim: RunSim, index: int, mem: Dictionary) -> Vector2:
 				var back := sim.map.push_inside(ahead, hero.radius * 2.0) - hero.pos
 				mv = (mv + back.normalized() * 1.2).normalized()
 		return mv
+	# A stall (a forest pinch, or a gem-versus-goal tug-of-war) is measured from
+	# how far the body actually travelled. While detouring, gems are ignored so
+	# the flow walk can carry the bot clear.
+	var detour := _stuck(hero, mem)
 	var gem := _gem(sim, hero)
-	if gem != Vector2.ZERO:
+	if not detour and gem != Vector2.ZERO and _lane_open(sim, hero, gem):
 		return gem
 	mem["t"] = float(mem.get("t", 0.0)) - 1.0 / 60.0
-	if float(mem["t"]) <= 0.0 or not mem.has("field"):
+	if float(mem["t"]) <= 0.0 or not mem.has("goal"):
 		mem["t"] = 1.0
-		var from_hero := sim.map.flow(hero.pos)
-		var goal := sim.map.lair
-		var best := 1 << 30
+		_choose_goal(sim, hero, mem)
+	var goal_at: Vector2 = mem["goal"]
+	if hero.pos.distance_to(goal_at) < 120.0:
+		return (goal_at - hero.pos).normalized() if hero.pos.distance_to(goal_at) > 30.0 else Vector2.ZERO
+	var step := _flow_step(sim, hero, mem["field"])
+	if step == Vector2.ZERO:
+		return (goal_at - hero.pos).normalized()
+	return step
+
+
+## Watch how far the body really travels. A grid pinch or a gem-versus-goal
+## tug-of-war can freeze it in place; a stall opens a short gem-free detour so
+## the flow walk breaks the loop instead.
+static func _stuck(hero: RunSim.Actor, mem: Dictionary) -> bool:
+	if float(mem.get("detour", 0.0)) > 0.0:
+		mem["detour"] = float(mem["detour"]) - 1.0 / 60.0
+		return true
+	if not mem.has("probe_pos"):
+		mem["probe_pos"] = hero.pos
+		mem["probe_t"] = 0.0
+		return false
+	var t := float(mem.get("probe_t", 0.0)) + 1.0 / 60.0
+	mem["probe_t"] = t
+	if t < PROBE_SECONDS:
+		return false
+	var moved := hero.pos.distance_to(mem["probe_pos"] as Vector2)
+	mem["probe_pos"] = hero.pos
+	mem["probe_t"] = 0.0
+	if moved >= PROBE_TRAVEL:
+		return false
+	mem["detour"] = DETOUR_SECONDS
+	return true
+
+
+## Pick the next objective: the nearest unopened chest or waiting camp while
+## there is still time to level, otherwise the boss lair. Goals the flow field
+## marks unreachable, or that recently stalled the bot, are skipped.
+static func _choose_goal(sim: RunSim, hero: RunSim.Actor, mem: Dictionary) -> void:
+	var from_hero := sim.map.flow(hero.pos)
+	var goal := sim.map.lair
+	var best := 1 << 30
+	if sim.time < CLEAR_CAP:
 		for c in sim.chests:
 			if bool(c["open"]):
 				continue
@@ -271,13 +327,44 @@ static func explore_steer(sim: RunSim, index: int, mem: Dictionary) -> Vector2:
 				if d >= 0 and d < best:
 					best = d
 					goal = a.pos
-		if not mem.has("goal") or (mem["goal"] as Vector2).distance_to(goal) > 60.0:
-			mem["goal"] = goal
-			mem["field"] = sim.map.flow(goal)
-	var goal_at: Vector2 = mem["goal"]
-	if hero.pos.distance_to(goal_at) < 120.0:
-		return (goal_at - hero.pos).normalized() if hero.pos.distance_to(goal_at) > 30.0 else Vector2.ZERO
-	var way := sim.map.downhill(mem["field"], hero.pos)
+	if not mem.has("goal") or (mem["goal"] as Vector2).distance_to(goal) > 60.0:
+		mem["goal"] = goal
+		mem["field"] = sim.map.flow(goal)
+
+
+## Downhill step along the flow field, but only down a lane the body can really
+## cross: sample small turns and take the open heading closest to the flow.
+static func _flow_step(sim: RunSim, hero: RunSim.Actor, field: PackedInt32Array) -> Vector2:
+	var way := sim.map.downhill(field, hero.pos)
 	if way == Vector2.INF:
-		return (goal_at - hero.pos).normalized()
-	return (way - hero.pos).normalized()
+		return Vector2.ZERO
+	var base := (way - hero.pos).normalized()
+	var reach := maxf(hero.radius * 2.0, 40.0)
+	var best := Vector2.ZERO
+	var best_score := 1.0e9
+	for turn in TURNS:
+		var dir := base.rotated(float(turn))
+		if not _lane_open(sim, hero, dir):
+			continue
+		var f := field[sim.map.cell_index(hero.pos + dir * reach)]
+		if f < 0:
+			continue
+		var score := float(f) + absf(float(turn)) * 1.5
+		if score < best_score:
+			best_score = score
+			best = dir
+	return best if best != Vector2.ZERO else base
+
+
+## True when the next couple of body-lengths along `dir` stay on open ground.
+## A body already hugging a pinch gets near-field samples too: a shallow lip
+## right in front of it would pin it against push_inside even though the ground
+## opens up further along the ray. Bodies in open ground keep the cheap test,
+## so normal travel is not slowed down by detours around passable lips.
+static func _lane_open(sim: RunSim, hero: RunSim.Actor, dir: Vector2) -> bool:
+	var r := hero.radius * 0.8
+	var ks := [0.5, 1.0, 1.5, 2.0] if sim.map.depth(hero.pos) > r + 4.0 else [0.15, 0.3, 0.5, 0.8, 1.2, 1.6, 2.0]
+	for k in ks:
+		if sim.map.depth(hero.pos + dir * (r * float(k))) < r:
+			return false
+	return true
