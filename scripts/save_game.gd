@@ -237,64 +237,23 @@ func try_level(id: String) -> bool:
 	return true
 
 
-func find_gear(uid: int) -> Dictionary:
-	for entry in data["bag"]:
-		if int(entry["uid"]) == uid:
-			return entry
-	return {}
-
-
-func equip(hero_id: String, uid: int) -> void:
-	var piece := find_gear(uid)
-	if piece.is_empty():
-		return
-	var slot := str(piece["slot"])
-	for id in data["heroes"].keys():
-		if int(data["heroes"][id][slot]) == uid:
-			data["heroes"][id][slot] = 0
-	data["heroes"][hero_id][slot] = uid
-	_write()
-	AudioDirector.play("click")
-
-
-func unequip(hero_id: String, slot: String) -> void:
-	data["heroes"][hero_id][slot] = 0
-	_write()
-
-
-func gear_text(piece: Dictionary) -> String:
-	if piece.is_empty():
-		return ""
-	var stats: Dictionary = piece["stats"]
-	var parts: PackedStringArray = PackedStringArray()
-	if stats.has("dmg_pct"):
-		parts.append("+%d%% damage" % int(round(float(stats["dmg_pct"]) * 100.0)))
-	if stats.has("haste"):
-		parts.append("+%d%% attack speed" % int(round(float(stats["haste"]) * 100.0)))
-	if stats.has("hp_flat"):
-		parts.append("+%d health" % int(stats["hp_flat"]))
-	if stats.has("armor"):
-		parts.append("+%d armor" % int(stats["armor"]))
-	if stats.has("crit"):
-		parts.append("+%d%% crit" % int(round(float(stats["crit"]) * 100.0)))
-	if stats.has("speed_pct"):
-		parts.append("+%d%% move" % int(round(float(stats["speed_pct"]) * 100.0)))
-	if stats.has("regen"):
-		parts.append("+%.1f regen" % float(stats["regen"]))
-	return str(piece["name"]) + " · " + " · ".join(parts)
-
-
-func equipped_line(hero_id: String) -> String:
-	var row: Dictionary = hero(hero_id)
-	var bits: PackedStringArray = PackedStringArray()
-	for slot in ["weapon", "armor", "charm"]:
-		var uid := int(row[slot])
-		if uid <= 0:
-			bits.append("no " + slot)
-			continue
-		var piece := find_gear(uid)
-		bits.append(str(piece.get("name", slot)) if not piece.is_empty() else slot)
-	return " · ".join(bits)
+## Grant hero_id the next piece for a legacy-style reward slot ("weapon",
+## "armor" -> chest, "charm", or any GearDB slot) at the reward's rarity
+## (common -> iron, rare/epic -> blackened steel, legendary -> rune). An
+## owned tier steps up so a reward is never a dead duplicate. Returns the id.
+func grant_reward(hero_id: String, slot: String, rarity: String) -> String:
+	var gear_slot := str({"armor": "chest"}.get(slot, slot))
+	var tier := int({"common": 1, "uncommon": 1, "rare": 2, "epic": 2, "legendary": 3}.get(rarity, 1))
+	for t in range(tier, 4):
+		var id := GearDB.item_id(hero_id, gear_slot, t)
+		if GearDB.is_item(id) and not GearDB.has(hero_id, id):
+			GearDB.grant(id)
+			return id
+	var fallback := GearDB.item_id(hero_id, gear_slot, tier)
+	if GearDB.is_item(fallback):
+		GearDB.grant(fallback)
+		return fallback
+	return ""
 
 
 func build_run_stats(hero_id: String) -> Dictionary:
@@ -303,8 +262,7 @@ func build_run_stats(hero_id: String) -> Dictionary:
 	var scale := 1.0 + 0.08 * float(level - 1)
 	stats["hp"] = float(stats["hp"]) * scale
 	stats["dmg"] = float(stats["dmg"]) * scale
-	# Armory gear and OSRS skill levels fold in here; the legacy uid pieces
-	# stay in the save for display only and no longer touch stats.
+	# Armory gear and OSRS skill levels fold in here.
 	var gear := GearDB.stats(hero_id)
 	var bonus: Dictionary = GearDB.level_bonus(hero_id)
 	for k in bonus:
@@ -376,6 +334,7 @@ func _convert_legacy_piece(hero_id: String, piece: Dictionary, was_equipped: boo
 func migrate_legacy_armory(old_version: int) -> void:
 	var existing: Variant = data.get(GearDB.SAVE_KEY)
 	if typeof(existing) == TYPE_DICTIONARY and (existing as Dictionary).has("migrated_from"):
+		_drop_legacy_gear()
 		return
 	var armory: Dictionary = existing if typeof(existing) == TYPE_DICTIONARY else {}
 	data[GearDB.SAVE_KEY] = armory
@@ -393,12 +352,32 @@ func migrate_legacy_armory(old_version: int) -> void:
 			# Equipped pieces convert for their owner; the bag copy of the
 			# same uid must not convert again.
 			worn[uid] = true
-			_convert_legacy_piece(id, find_gear(uid), true)
-	for piece in data["bag"]:
+			_convert_legacy_piece(id, _legacy_piece(uid), true)
+	for piece in data.get("bag", []):
 		if worn.has(int(piece.get("uid", 0))):
 			continue
 		_convert_legacy_piece(featured_id(), piece, false)
 	armory["migrated_from"] = int(old_version)
+	_drop_legacy_gear()
+
+
+func _legacy_piece(uid: int) -> Dictionary:
+	for entry in data.get("bag", []):
+		if typeof(entry) == TYPE_DICTIONARY and int(entry.get("uid", 0)) == uid:
+			return entry
+	return {}
+
+
+## The legacy Loadout is gone: once its pieces live in the armory, the bag,
+## the uid counter and the per-hero weapon/armor/charm uids leave the save.
+func _drop_legacy_gear() -> void:
+	data.erase("bag")
+	data.erase("gear_uid")
+	for id in data.get("heroes", {}).keys():
+		var row: Variant = data["heroes"][id]
+		if typeof(row) == TYPE_DICTIONARY:
+			for legacy_slot in ["weapon", "armor", "charm"]:
+				(row as Dictionary).erase(legacy_slot)
 
 
 ## --- Daily Challenge local board -------------------------------------------
@@ -705,7 +684,7 @@ func buy_slayer(offer_id: String) -> bool:
 	rng.randomize()
 	match str(offer["kind"]):
 		"charm":
-			data["bag"].append(_roll_gear(rng, "charm", "rare", "meadow"))
+			grant_reward(featured_id(), "charm", "rare")
 		"cosmetic":
 			data["cosmetic"] = str(offer.get("cosmetic", "ribbon"))
 		"chest":
@@ -762,9 +741,7 @@ func _apply_drop(drop: Dictionary, rng: RandomNumberGenerator) -> void:
 				var row: Dictionary = data["heroes"][hero_id]
 				row["cards"] = int(row["cards"]) + int(drop.get("amount", 1))
 		"gear":
-			var piece := _roll_gear(rng, str(drop.get("slot", "charm")), str(drop.get("gear_rarity", "common")), "meadow")
-			piece["name"] = str(drop.get("name", piece["name"]))
-			data["bag"].append(piece)
+			grant_reward(featured_id(), str(drop.get("slot", "charm")), str(drop.get("gear_rarity", "common")))
 		"pet":
 			data["pets"][id] = true
 			if str(data.get("active_pet", "")) == "":
@@ -847,9 +824,7 @@ func claim(id: String) -> bool:
 			row["unlocked"] = true
 			row["cards"] = int(row["cards"]) + int(entry["cards"])
 		"gear":
-			var rng := RandomNumberGenerator.new()
-			rng.randomize()
-			data["bag"].append(_roll_gear(rng, str(entry["slot"]), str(entry["rarity"]), "meadow"))
+			grant_reward(featured_id(), str(entry["slot"]), str(entry["rarity"]))
 	_write()
 	AudioDirector.play("merge")
 	return true
@@ -872,81 +847,16 @@ func _roll_loot(chest: Dictionary) -> Dictionary:
 		var id: String = str(pool[rng.randi() % pool.size()])
 		var cards := rng.randi_range(1, 3) if hunt else 1
 		drops.append({"id": id, "count": cards})
-	var gear := {}
-	var chance := 0.65 if hunt else 0.22
-	if rng.randf() < chance:
-		var slots := ["weapon", "armor", "charm"]
-		var slot: String = slots[rng.randi() % slots.size()]
-		var roll := rng.randf()
-		var rarity := "common"
-		if hunt and roll > 0.9:
-			rarity = "epic"
-		elif roll > 0.58:
-			rarity = "rare"
-		gear = _roll_gear(rng, slot, rarity, str(chest.get("biome", "meadow")))
 	data["coins"] = int(data["coins"]) + coins
 	for drop in drops:
 		var row: Dictionary = data["heroes"][str(drop["id"])]
 		row["cards"] = int(row["cards"]) + int(drop["count"])
-	if not gear.is_empty():
-		data["bag"].append(gear)
 	return {
 		"coins": coins,
 		"cards": drops,
-		"gear": gear,
 		"biome": str(chest.get("biome", "meadow")),
 		"kind": str(chest.get("kind", "hunt")),
 	}
-
-
-func _roll_gear(rng: RandomNumberGenerator, slot: String, rarity: String, biome_id: String) -> Dictionary:
-	var mul := 1.0
-	if rarity == "rare":
-		mul = 1.35
-	elif rarity == "epic":
-		mul = 1.75
-	var stats := {}
-	if slot == "weapon":
-		stats["dmg_pct"] = rng.randf_range(0.08, 0.13) * mul
-		if rarity != "common":
-			stats["haste"] = rng.randf_range(0.03, 0.055) * mul
-	elif slot == "armor":
-		stats["hp_flat"] = int(round(rng.randi_range(18, 30) * mul))
-		stats["armor"] = 1 if rarity == "common" else int(round(rng.randi_range(2, 3) * mul))
-	else:
-		var pick := rng.randi() % 3
-		if pick == 0:
-			stats["crit"] = rng.randf_range(0.03, 0.05) * mul
-		elif pick == 1:
-			stats["speed_pct"] = rng.randf_range(0.06, 0.1) * mul
-		else:
-			stats["regen"] = rng.randf_range(0.5, 0.9) * mul
-	var uid := int(data["gear_uid"])
-	data["gear_uid"] = uid + 1
-	return {
-		"uid": uid,
-		"slot": slot,
-		"rarity": rarity,
-		"name": _gear_name(rng, slot, rarity, biome_id),
-		"biome": biome_id,
-		"stats": stats,
-	}
-
-
-func _gear_name(rng: RandomNumberGenerator, slot: String, rarity: String, biome_id: String) -> String:
-	var nouns := {
-		"weapon": ["Claw", "Sling", "Wand", "Mallet"],
-		"armor": ["Vest", "Shell", "Coat", "Wrap"],
-		"charm": ["Charm", "Bell", "Bead", "Leaf"],
-	}
-	var place := str(Catalog.biome(biome_id)["name"]).split(" ")[0]
-	var noun: String = nouns[slot][rng.randi() % nouns[slot].size()]
-	var prefix := ""
-	if rarity == "rare":
-		prefix = "Bright "
-	elif rarity == "epic":
-		prefix = "Grand "
-	return "%s%s %s" % [prefix, place, noun]
 
 
 func _fresh() -> Dictionary:
@@ -957,9 +867,6 @@ func _fresh() -> Dictionary:
 			"unlocked": unlocked,
 			"cards": 1 if unlocked else 0,
 			"level": 1,
-			"weapon": 0,
-			"armor": 0,
-			"charm": 0,
 		}
 	return {
 		"save_version": VERSION,
@@ -968,8 +875,6 @@ func _fresh() -> Dictionary:
 		"claimed": [],
 		"cleared": {},
 		"chests": [],
-		"gear_uid": 1,
-		"bag": [],
 		"clan_id": "",
 		"duel_rating": 0,
 		"featured": "pebble",
@@ -995,7 +900,7 @@ func _reconcile() -> void:
 	data["save_version"] = VERSION
 	if not data.has("heroes"):
 		data["heroes"] = {}
-	for key in ["claimed", "chests", "bag"]:
+	for key in ["claimed", "chests"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
 			data[key] = []
 	if not data.has("cleared") or typeof(data["cleared"]) != TYPE_DICTIONARY:
@@ -1006,16 +911,13 @@ func _reconcile() -> void:
 		data["coins"] = 0
 	if not data.has("trophies"):
 		data["trophies"] = 0
-	if not data.has("gear_uid"):
-		data["gear_uid"] = 1
 	if not data.has("clan_id"):
 		data["clan_id"] = ""
 	if not data.has("duel_rating"):
 		data["duel_rating"] = 0
 	if not data.has("featured"):
 		data["featured"] = "pebble"
-	# Retired animal heroes: a save that had one equipped moves to Aldric, and
-	# their gear goes back to the bag (unequipped) for the knights.
+	# Retired animal heroes: a save that had one equipped moves to Aldric.
 	if str(data["featured"]) in RETIRED:
 		data["featured"] = "pebble"
 	for rid in RETIRED:
@@ -1071,15 +973,7 @@ func _reconcile() -> void:
 				"unlocked": false,
 				"cards": 0,
 				"level": 1,
-				"weapon": 0,
-				"armor": 0,
-				"charm": 0,
 			}
-		else:
-			var row: Dictionary = data["heroes"][id]
-			for slot in ["weapon", "armor", "charm"]:
-				if not row.has(slot):
-					row[slot] = 0
 
 
 func _load() -> void:

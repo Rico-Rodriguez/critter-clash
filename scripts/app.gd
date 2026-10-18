@@ -4,8 +4,6 @@ const SCREENS := {
 	"home": preload("res://scripts/home_screen.gd"),
 	"world": preload("res://scripts/world_screen.gd"),
 	"heroes": preload("res://scripts/hero_screen.gd"),
-	"loadout": preload("res://scripts/loadout_screen.gd"),
-	"collection": preload("res://scripts/collection_screen.gd"),
 	"trophy": preload("res://scripts/trophy_screen.gd"),
 	"chest": preload("res://scripts/chest_screen.gd"),
 	"log": preload("res://scripts/log_screen.gd"),
@@ -129,6 +127,9 @@ func _capture() -> void:
 			GearDB.grant("%s.%s" % [fh, piece])
 		for piece in ["helm.1", "gloves.1", "weapon.1"]:
 			GearDB.equip(fh, "%s.%s" % [fh, piece])
+		# Enough cards and coins that the Heroes UPGRADE reads as ready.
+		SaveGame.hero(fh)["cards"] = maxi(int(SaveGame.hero(fh)["cards"]), SaveGame.cards_needed(int(SaveGame.hero(fh)["level"])) + 1)
+		SaveGame.data["coins"] = maxi(int(SaveGame.data["coins"]), 240)
 	if _wants("home"):
 		go("home")
 		await _settle()
@@ -177,10 +178,6 @@ func _capture() -> void:
 			await _settle()
 			await _shot(str(st[0]))
 	SaveGame.data["heroes"]["ember"]["cards"] = 8
-	if _wants("collection"):
-		go("collection")
-		await _settle()
-		await _shot("collection")
 	if _wants("credits"):
 		go("credits")
 		await _settle()
@@ -208,10 +205,6 @@ func _capture() -> void:
 		# Let the gilded fill finish climbing to the trophy count.
 		await get_tree().create_timer(1.3).timeout
 		await _shot("trophy")
-	if _wants("loadout"):
-		go("loadout", {"hero": "ember", "biome": "meadow"})
-		await _settle()
-		await _shot("loadout")
 	if _wants("explore") or _wants("fog") or _wants("minimap") or _wants("lair"):
 		var cap_biome := OS.get_environment("CC_BIOME")
 		go("run", {"biome": cap_biome if cap_biome != "" else "meadow", "hero": SaveGame.featured_id(), "seed": 11})

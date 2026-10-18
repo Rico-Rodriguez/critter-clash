@@ -126,18 +126,14 @@ static func _save() -> void:
 	if float(SaveGame.build_run_stats("ember")["hp"]) <= base_hp:
 		_fail("level did not scale hp")
 	SaveGame.data["trophies"] = 80
-	if not SaveGame.claim("m80") or SaveGame.data["bag"].is_empty():
+	# Road gear goes straight into the armory for the featured hero.
+	var charm_had := GearDB.owned(SaveGame.featured_id()).size()
+	if not SaveGame.claim("m80"):
 		_fail("trophy charm")
-	var charm_uid := 0
-	for piece in SaveGame.data["bag"]:
-		if str(piece["slot"]) == "charm":
-			charm_uid = int(piece["uid"])
-	if charm_uid == 0:
-		_fail("trophy charm missing")
-	else:
-		SaveGame.equip("ember", charm_uid)
-		if int(SaveGame.hero("ember")["charm"]) != charm_uid:
-			_fail("equip charm")
+	elif GearDB.owned(SaveGame.featured_id()).size() <= charm_had:
+		_fail("trophy charm missing from the armory")
+	if SaveGame.data.has("bag"):
+		_fail("legacy bag came back")
 	if SaveGame.claim("m80"):
 		_fail("double claim")
 
@@ -195,8 +191,8 @@ static func _gear_save_check() -> void:
 		_fail("migration granted the wrong ember pieces")
 	if int(SaveGame.data["coins"]) != 40:
 		_fail("unmapped legacy pieces did not pay 10 coins each, coins %d" % int(SaveGame.data["coins"]))
-	if int(SaveGame.data["heroes"]["pebble"]["weapon"]) != 1 or SaveGame.data["bag"].size() != 8:
-		_fail("migration dropped the legacy keys")
+	if SaveGame.data.has("bag") or SaveGame.data.has("gear_uid") or SaveGame.data["heroes"]["pebble"].has("weapon"):
+		_fail("migration left the legacy Loadout keys behind")
 	var stamp: Dictionary = armory.duplicate(true)
 	SaveGame.migrate_legacy_armory(2)
 	if armory != stamp:

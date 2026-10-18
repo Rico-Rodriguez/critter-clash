@@ -136,7 +136,8 @@ func _reveal() -> void:
 	for id in totals.keys():
 		var info := Catalog.critter(str(id))
 		rewards.append(_reward_card(str(id), str(info.get("name", id)), int(totals[id])))
-	var reserve := 104.0 if not (loot["gear"] as Dictionary).is_empty() else 0.0
+	var gear_items: Array = loot.get("gear_items", [])
+	var reserve := 104.0 if not gear_items.is_empty() else 0.0
 	var laid: Dictionary = _make_grid(loot_box, rewards, reserve)
 	var s: float = laid["scale"]
 	for i in laid["tiles"].size():
@@ -150,17 +151,25 @@ func _reveal() -> void:
 		tw.tween_property(tile, "modulate:a", 1.0, 0.18)
 		tw.parallel().tween_property(tile, "scale", Vector2(s, s), 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_launch_flyers(laid["slots"])
-	var gear: Dictionary = loot["gear"]
-	if not gear.is_empty():
+	if not gear_items.is_empty():
+		# Armory pieces from this chest, each in its tier colour.
 		var plate := UiKit.Plate.new()
 		plate.kind = "plaque"
 		plate.pad = 14
 		plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		var gear_label := UiKit.label(SaveGame.gear_text(gear), 22, UiKit.GOLD.lightened(0.2), "x", 3)
-		gear_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		gear_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		gear_label.custom_minimum_size = Vector2(560, 0)
-		plate.add_child(gear_label)
+		var gv := VBoxContainer.new()
+		gv.add_theme_constant_override("separation", 2)
+		plate.add_child(gv)
+		for g in gear_items:
+			var it := GearDB.item(str(g.get("id", "")))
+			if it.is_empty():
+				continue
+			var tc: Color = GearDB.TIER_COLORS[int(it["tier"])]
+			var gear_label := UiKit.label("%s  ·  %s" % [str(it["name"]), str(Catalog.critter(str(it["hero"]))["name"])], 22, tc.lightened(0.3), "x", 3)
+			gear_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			gear_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			gear_label.custom_minimum_size = Vector2(560, 0)
+			gv.add_child(gear_label)
 		loot_box.add_child(plate)
 	if SaveGame.first_ready() >= 0:
 		open_button.visible = true
@@ -180,7 +189,7 @@ func _chest_test_count() -> int:
 
 ## A made-up loot dict: fixed coins, one card per hero id. No save calls.
 func _test_loot(count: int) -> Dictionary:
-	var loot := {"coins": 128, "cards": [], "gear": {}}
+	var loot := {"coins": 128, "cards": [], "gear_items": []}
 	var ids: Array = Catalog.CRITTERS.keys()
 	for i in count - 1:
 		loot["cards"].append({"id": str(ids[i % ids.size()]), "count": 1 + (i % 3)})

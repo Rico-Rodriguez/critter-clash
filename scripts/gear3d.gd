@@ -250,6 +250,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 	model.set_meta("gear_tiers", t)
 	_silhouette(model, sk, t, kit)
 	_exclusive(sk, t, kit)
+	_charm(sk, t)
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
@@ -499,6 +500,84 @@ void fragment() {
 	EMISSION = rune * (hem * 2.2 + smoothstep(0.75, 1.0, d) * 0.25) * pulse;
 }
 """
+
+
+## Spins its children around the hero (the charm wisp).
+class Orbit extends Node3D:
+	var speed := 1.6
+
+	func _process(delta: float) -> void:
+		rotate_object_local(Vector3.UP, delta * speed)
+
+
+## The charm slot shows on every hero: an equipped charm becomes a glowing
+## wisp in its tier colour circling at chest height (two at rune tier), so a
+## trinket the size of a coin still reads in the hunt.
+static func _charm(sk: Skeleton3D, t: Dictionary) -> void:
+	var old := sk.get_node_or_null("GearCharm")
+	if old:
+		old.free()
+	var tier := int(t.get("charm", 0))
+	if tier <= 0:
+		return
+	var hips := -1
+	var head := -1
+	for i in sk.get_bone_count():
+		var nm := sk.get_bone_name(i).to_lower()
+		if hips < 0 and nm.begins_with("hips"):
+			hips = i
+		if head < 0 and nm.begins_with("head"):
+			head = i
+	if hips < 0 or head < 0:
+		return
+	var hp := sk.get_bone_global_rest(hips).origin
+	var hd := sk.get_bone_global_rest(head).origin
+	var up := (hd - hp).normalized()
+	var h := (hd - hp).length() * 2.2
+	var c: Color = GearDB.TIER_COLORS[clampi(tier, 1, 3)]
+	var orbit := Orbit.new()
+	orbit.speed = 1.4 + 0.4 * tier
+	var core := StandardMaterial3D.new()
+	core.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	core.albedo_color = c.lightened(0.45)
+	var halo_tex := GradientTexture2D.new()
+	halo_tex.fill = GradientTexture2D.FILL_RADIAL
+	halo_tex.fill_from = Vector2(0.5, 0.5)
+	halo_tex.fill_to = Vector2(0.5, 0.0)
+	var g := Gradient.new()
+	g.set_color(0, Color(c.r, c.g, c.b, 0.9))
+	g.set_color(1, Color(c.r, c.g, c.b, 0.0))
+	halo_tex.gradient = g
+	var halo := StandardMaterial3D.new()
+	halo.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	halo.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	halo.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	halo.albedo_texture = halo_tex
+	halo.no_depth_test = false
+	for k in (2 if tier >= 3 else 1):
+		var ang := PI * k
+		var at := Vector3(cos(ang), 0.0, sin(ang)) * h * 0.3
+		var gem := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = h * (0.022 + 0.004 * tier)
+		sm.height = sm.radius * 2.0
+		sm.radial_segments = 8
+		sm.rings = 4
+		gem.mesh = sm
+		gem.material_override = core
+		gem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gem.position = at
+		orbit.add_child(gem)
+		var glow := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2.ONE * h * (0.14 + 0.03 * tier)
+		glow.mesh = q
+		glow.material_override = halo
+		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		glow.position = at
+		orbit.add_child(glow)
+	_attach(sk, hips, "GearCharm", orbit, Transform3D(Basis(), hp + up * h * 0.16))
 
 
 static func _attach(sk: Skeleton3D, bone: int, label: String, mesh: Node3D, skel_xf: Transform3D) -> void:

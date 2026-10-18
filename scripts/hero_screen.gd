@@ -1,9 +1,10 @@
 extends ScreenBase
 
-## Heroes tab: the critter you are looking at on the lit 3D plinth, framed
-## hero tiles to browse, a stats plaque, then SELECT (or EQUIPPED when it is
-## already the active hero) and Loadout. Home and every hunt use the
-## equipped hero.
+## Heroes tab, the one place for heroes and gear: the knight on the lit 3D
+## plinth framed by the eight GearDB sockets, a plaque with the card level
+## (shards bar, stat preview current -> next) and UPGRADE with its coin cost,
+## framed hero tiles to browse, then SELECT (or EQUIPPED). Home and every hunt
+## use the equipped hero.
 
 const Home := preload("res://scripts/home_screen.gd")
 
@@ -17,6 +18,9 @@ var hunt: Button
 var stage_slot: Control
 var showcase: Control
 var sockets: Array = []
+var card_bar: CardBar
+var preview_line: Label
+var upgrade: Button
 
 
 func build() -> void:
@@ -59,6 +63,13 @@ func build() -> void:
 	stat_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stat_line.custom_minimum_size = Vector2(620, 0)
 	pv.add_child(stat_line)
+	preview_line = UiKit.label("", 22, UiKit.CREAM, "b", 2)
+	preview_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pv.add_child(preview_line)
+	card_bar = CardBar.new()
+	card_bar.custom_minimum_size = Vector2(560, 40)
+	card_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pv.add_child(card_bar)
 	gear_line = UiKit.label("", 18, UiKit.MUTED, "m", 2)
 	gear_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pv.add_child(gear_line)
@@ -74,9 +85,9 @@ func build() -> void:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 14)
-	var loadout := UiKit.secondary("Loadout", 250, 96)
-	loadout.pressed.connect(func() -> void: go("loadout", {"hero": selected, "biome": biome_id}))
-	hunt = UiKit.button("SELECT", 440, 110, "gold")
+	upgrade = UiKit.confirm("UPGRADE", 330, 110)
+	upgrade.pressed.connect(_upgrade)
+	hunt = UiKit.button("SELECT", 330, 110, "gold")
 	hunt.pressed.connect(func() -> void:
 		if selected == SaveGame.featured_id():
 			return
@@ -86,7 +97,7 @@ func build() -> void:
 		toast("%s is now your hero" % str(Catalog.critter(selected)["name"]))
 		_fill()
 	)
-	row.add_child(loadout)
+	row.add_child(upgrade)
 	row.add_child(hunt)
 	box.add_child(row)
 
@@ -127,11 +138,49 @@ func _fill() -> void:
 	hunt.disabled = equipped
 	hunt.modulate = Color(0.85, 0.95, 0.8) if equipped else Color.WHITE
 	stat_line.text = "%s  ·  %s" % [str(info["name"]).to_upper(), Catalog.role_name(str(info["role"])).to_upper()]
-	gear_line.text = "Health %d   ·   Damage %d\n%s" % [
-		int(round(float(stats["hp"]))),
-		int(round(float(stats["dmg"]))),
-		EquipUI.summary(selected),
-	]
+	_fill_level(stats)
+	gear_line.text = EquipUI.summary(selected)
+
+
+## Card level block: "Level 3", the shard bar, Health/Damage now -> next and
+## the UPGRADE button with its coin cost (existing card + coin rules).
+func _fill_level(stats: Dictionary) -> void:
+	var row := SaveGame.hero(selected)
+	var level := int(row["level"])
+	var hp_now := int(round(float(stats["hp"])))
+	var dmg_now := int(round(float(stats["dmg"])))
+	if level >= Catalog.MAX_CARD_LEVEL:
+		preview_line.text = "Level %d (max)   ·   Health %d   ·   Damage %d" % [level, hp_now, dmg_now]
+		card_bar.visible = false
+		upgrade.text = "MAX LEVEL"
+		upgrade.disabled = true
+		upgrade.modulate = Color(0.7, 0.7, 0.7)
+		return
+	row["level"] = level + 1
+	var next := SaveGame.build_run_stats(selected)
+	row["level"] = level
+	preview_line.text = "Level %d → %d   ·   Health %d → %d   ·   Damage %d → %d" % [
+		level, level + 1, hp_now, int(round(float(next["hp"]))), dmg_now, int(round(float(next["dmg"])))]
+	var need := SaveGame.cards_needed(level)
+	var have := int(row["cards"])
+	card_bar.visible = true
+	card_bar.ratio = clampf(float(have) / float(maxi(need, 1)), 0.0, 1.0)
+	card_bar.caption = "Cards %d / %d" % [mini(have, need), need]
+	card_bar.surplus = maxi(0, have - need)
+	card_bar.ready_up = SaveGame.can_level(selected)
+	card_bar.queue_redraw()
+	var cost := SaveGame.coins_needed(level)
+	upgrade.text = "UPGRADE · %d" % cost
+	var ok := SaveGame.can_level(selected)
+	upgrade.disabled = not ok
+	upgrade.modulate = Color.WHITE if ok else Color(0.62, 0.6, 0.58)
+
+
+func _upgrade() -> void:
+	if SaveGame.try_level(selected):
+		AudioDirector.haptic("medium")
+		toast("%s reached level %d" % [str(Catalog.critter(selected)["name"]), int(SaveGame.hero(selected)["level"])])
+		_fill()
 
 
 func open_slot(slot: String) -> void:
@@ -192,3 +241,33 @@ func _select(id: String) -> void:
 	selected = id
 	AudioDirector.play("click")
 	_fill()
+
+
+## Card shards toward the next level: green and glowing when the upgrade is
+## affordable, with a "+N" pill for surplus cards.
+class CardBar extends Control:
+	var ratio := 0.0
+	var caption := ""
+	var surplus := 0
+	var ready_up := false
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		UiKit.ensure()
+		var r := Rect2(Vector2.ZERO, size)
+		UiKit.ch_fill(self, r.grow(1), size.y * 0.5, Color("8a6a3a"), Color("3a2410"))
+		UiKit.ch_fill(self, r.grow(-2), size.y * 0.5 - 2, Color("070504"), Color("1a140f"))
+		var inner := Rect2(4, 4, maxf(0.0, (size.x - 8.0) * ratio), maxf(0.0, size.y - 8.0))
+		if inner.size.x > inner.size.y:
+			var hi := Color("7ad06a") if ready_up else Color("4aa3d8")
+			var lo := Color("1e5a22") if ready_up else Color("123e66")
+			UiKit.ch_fill(self, inner, inner.size.y * 0.5, hi, lo)
+			UiKit.ch_fill(self, Rect2(inner.position + Vector2(4, 1), Vector2(inner.size.x - 8, inner.size.y * 0.4)), inner.size.y * 0.2, Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.0))
+		var reserve := 56.0 if surplus > 0 else 0.0
+		UiKit.draw_text(self, UiKit.font_b, Vector2(14, size.y * 0.72), caption, 22, UiKit.CREAM, Color(0.04, 0.03, 0.02), 3, size.x - 28.0 - reserve)
+		if surplus > 0:
+			var pill := Rect2(size.x - 56, 3, 52, size.y - 6)
+			UiKit.ch_fill(self, pill, pill.size.y * 0.5, Color("ffe3a0"), Color("9a6a20"))
+			UiKit.draw_text(self, UiKit.font_b, Vector2(pill.position.x, size.y * 0.72), "+%d" % surplus, 20, Color("2a1806"), Color(1, 0.95, 0.8, 0.0), 0, pill.size.x)
