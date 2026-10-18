@@ -22,7 +22,10 @@ func build() -> void:
 	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pad.add_child(sc)
-	sc.add_child(SettingsPanel.new())
+	var panel := SettingsPanel.new()
+	# Fill the scroll width so the rows span the screen like every other menu.
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(panel)
 	box.add_child(pad)
 	var credits := UiKit.secondary("CREDITS", 300, 72)
 	credits.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

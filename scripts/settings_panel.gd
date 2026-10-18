@@ -21,7 +21,7 @@ func _build() -> void:
 	_section("SOUND")
 	_row("MUSIC", "music_on", "music_vol")
 	_row("SOUND EFFECTS", "sfx_on", "sfx_vol")
-	_section("TOUCH & DRIVING")
+	_section("TOUCH & CONTROLS")
 	_row("HAPTICS", "haptics_on", "")
 	_row("SCREEN SHAKE", "", "screen_shake")
 	_row("LEFT-HANDED HUD", "left_handed", "")
@@ -70,10 +70,6 @@ func _row(title: String, on_key: String, vol_key: String) -> void:
 		top.add_child(sw)
 	if vol_key == "":
 		return
-	# A tag beside the switch names the slider's unit, so the slider is
-	# labelled even when the row scrolls with its title off the top.
-	var unit := UiKit.label("%", 20, UiKit.MUTED, "b")
-	top.add_child(unit)
 	var slider := VolumeSlider.new()
 	slider.value = float(AudioDirector.settings[vol_key])
 	slider.custom_minimum_size = Vector2(0, 64)
