@@ -381,6 +381,17 @@ static func _pools_check() -> void:
 			if _class_available(role, stacks) and not has_class:
 				_fail("%s offer had no class card" % role)
 				return
+	# The class swap draws from the run rng now: over 500 fresh offers a role
+	# must see its exclusives spread across at least four distinct ids rather
+	# than the same card pinned by a hash of the general card it replaced.
+	for role in ["tank", "archer", "mage"]:
+		var cover := {}
+		for _i in 500:
+			for id in Catalog.roll_offer(role, {}, rng):
+				if Catalog.pool_of(str(id)) == role:
+					cover[str(id)] = true
+		if cover.size() < 4:
+			_fail("%s class swap covered only %d ids" % [role, cover.size()])
 	for entry in Catalog.CARDS:
 		var id := str(entry["id"])
 		for have in range(0, int(entry["max"])):

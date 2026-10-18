@@ -1103,29 +1103,63 @@ func _offer_card(index: int, id: String) -> Button:
 	icon.custom_minimum_size = Vector2(0, 214)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(icon)
-	var name_row := HBoxContainer.new()
-	name_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	name_row.add_theme_constant_override("separation", 6)
-	name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(name_row)
 	var name := UiKit.label(str(info.get("name", id)), 28, UiKit.GOLD.lightened(0.2), "x", 3)
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name.autowrap_mode = TextServer.AUTOWRAP_OFF
+	name.clip_text = true
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_row.add_child(name)
-	if stack and rank >= 2:
-		# Rank badge: the numeral this pick would reach (I stays bare).
-		var badge := UiKit.label(_roman(rank), 22, UiKit.GOLD, "x", 3)
-		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		badge.custom_minimum_size = Vector2(30, 30)
-		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		name_row.add_child(badge)
+	box.add_child(name)
 	var desc := UiKit.label(Catalog.card_text(id, have), 26, UiKit.MUTED.lightened(0.3), "m", 3)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.max_lines_visible = 3
 	box.add_child(desc)
+	if stack and rank >= 2:
+		# Rank badge: this pick's numeral on a forged medallion pinned to the
+		# card's top-right corner, clear of the rarity ribbon (rank I bare).
+		var badge := RankMedallion.new()
+		badge.numeral = _roman(rank)
+		badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		badge.offset_left = -66.0
+		badge.offset_right = -10.0
+		badge.offset_top = 10.0
+		badge.offset_bottom = 66.0
+		button.add_child(badge)
+	button.resized.connect(_fit_card.bind(button, name, desc))
+	_fit_card(button, name, desc)
 	return button
+
+
+## Names stay on one line: the display face steps down until the line fits,
+## never wrapping. Descriptions cap at three lines, the body face easing
+## down a little when a longer line would spill over.
+func _fit_card(button: Button, name: Label, desc: Label) -> void:
+	var width := button.size.x
+	if width <= 1.0:
+		width = button.custom_minimum_size.x
+	width = maxf(90.0, width - 34.0)
+	var base := int(name.get_meta("base_size", 28))
+	name.set_meta("base_size", base)
+	var nf: Font = name.get_theme_font("font")
+	if nf != null:
+		var px := base
+		while px > int(round(float(base) * 0.7)) and nf.get_string_size(name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x > width:
+			px -= 1
+		name.add_theme_font_size_override("font_size", px)
+	var dbase := int(desc.get_meta("base_size", 26))
+	desc.set_meta("base_size", dbase)
+	var df: Font = desc.get_theme_font("font")
+	if df == null:
+		return
+	var px2 := dbase
+	var floor_px := int(round(float(dbase) * 0.82))
+	while px2 > floor_px:
+		var tall := df.get_multiline_string_size(desc.text, HORIZONTAL_ALIGNMENT_CENTER, width, px2, -1, TextServer.BREAK_WORD_BOUND | TextServer.BREAK_MANDATORY).y
+		var lines := int(round(tall / maxf(df.get_height(px2), 1.0)))
+		if lines <= 3:
+			break
+		px2 -= 1
+	desc.add_theme_font_size_override("font_size", px2)
 
 
 ## Roman numeral for a card rank badge, capped at X.
@@ -1533,6 +1567,43 @@ class EndCrest extends Control:
 		var ico := UiKit.icon("crown_a" if win else "skull")
 		if ico != null:
 			UiKit.draw_icon(self, ico, Rect2(c - Vector2(34, 40), Vector2(68, 68)), Color("f0d08a") if win else Color("d8c8b8"), Color("120a04"), 3.0)
+
+
+## A small forged rank medallion: a bronze-rimmed disc with the pick's
+## numeral stamped in gold, pinned to the card's top-right corner.
+class RankMedallion extends Control:
+	var numeral := "II"
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		UiKit.ensure()
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5 - 3.0
+		var hi := Color("f0d18e")
+		var lo := Color("5a3814")
+		# Cast shadow, dark bezel, then a cast-bronze band lit from the top left.
+		draw_circle(c + Vector2(0, 3), r + 1.0, Color(0, 0, 0, 0.5))
+		draw_circle(c, r + 1.0, Color("120a04"))
+		for k in 24:
+			var a0 := TAU * float(k) / 24.0
+			var lit := 0.5 + 0.5 * cos(a0 + 2.36)
+			draw_arc(c, r - 3.0, a0, a0 + TAU / 24.0 + 0.01, 3, lo.lerp(hi, lit), 6.0, true)
+		# Engraved inner bevel over a dark seat, then a domed enamel face.
+		draw_arc(c, r - 6.5, 0.0, TAU, 32, Color(1.0, 0.88, 0.6, 0.5), 1.2, true)
+		draw_circle(c, r - 7.0, Color("0a0605"))
+		for k in 6:
+			draw_circle(c + Vector2(-float(k) * 0.4, -float(k) * 0.6), r - 7.0 - float(k) * 1.2, Color("2a1c12").lightened(float(k) * 0.05))
+		# The rank numeral, stamped in gold.
+		var font: Font = UiKit.font_x
+		var px := int(r * 0.95)
+		var ascent := font.get_ascent(px)
+		var descent := font.get_descent(px)
+		var w := font.get_string_size(numeral, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
+		var at := Vector2(c.x - w * 0.5, c.y + (ascent - descent) * 0.5)
+		UiKit.draw_text(self, font, at, numeral, px, Color("ffe6a8"), Color("120a04"), 3)
 
 
 class OfferCard extends Button:
