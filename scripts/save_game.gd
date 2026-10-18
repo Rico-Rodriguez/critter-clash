@@ -890,6 +890,9 @@ func _fresh() -> Dictionary:
 		"skills": {"foraging": 0, "fishing": 0, "taming": 0, "crafting": 0},
 		"daily": {},
 		"pending_upload": [],
+		# Player options: AudioDirector merges its own values and clamps what
+		# it loads, so the save layer only guards the container here.
+		"settings": {},
 	}
 
 
@@ -954,6 +957,10 @@ func _reconcile() -> void:
 		data["daily"] = {}
 	if not data.has("pending_upload") or typeof(data["pending_upload"]) != TYPE_ARRAY:
 		data["pending_upload"] = []
+	# Old saves predate the settings block: it returns empty and every
+	# option falls back to its AudioDirector default.
+	if not data.has("settings") or typeof(data["settings"]) != TYPE_DICTIONARY:
+		data["settings"] = {}
 	for key in data["daily"].keys():
 		var board: Variant = data["daily"][key]
 		if typeof(board) != TYPE_DICTIONARY:

@@ -45,6 +45,13 @@ static func ensure() -> void:
 	Frame.preload_assets()
 
 
+## Text-scale helper for the accessibility "Text size" setting (100/115/130 %),
+## read live from the settings dict. Applied in label() so every menu text in
+## the game scales from one place; buttons fit by auto-shrinking.
+static func text_px(px: int) -> int:
+	return int(round(float(px) * AudioDirector.text_scale()))
+
+
 static func label(text: String, size: int, color: Color, weight: String = "m", outline: int = -1) -> Label:
 	ensure()
 	var l := Label.new()
@@ -55,7 +62,7 @@ static func label(text: String, size: int, color: Color, weight: String = "m", o
 	elif weight == "x":
 		font = font_x
 	l.add_theme_font_override("font", font)
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", text_px(size))
 	l.add_theme_color_override("font_color", color)
 	# Engraved look: a thin dark keyline and a soft drop shadow, never the
 	# fat cartoon outline.

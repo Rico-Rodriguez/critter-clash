@@ -1,15 +1,45 @@
 class_name SettingsPanel
 extends VBoxContainer
 
-## Music, sound and haptics: an on/off switch per channel and volume
-## sliders for music and effects. Changes apply at once and persist.
+## Every player option on one panel: music, SFX and haptics, camera shake,
+## flashing and damage-number comfort toggles, the text scale and the
+## left-handed HUD swap. Changes apply at once and persist straight away.
+## Each control is at least 88 device px tall on a 1179-wide phone and
+## carries its own visible label or value readout.
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 18)
+	add_theme_constant_override("separation", 14)
+	_build()
+
+
+## Rebuild in place, so changing the text size (or a future theme option)
+## rescales the labels this panel displays right away.
+func _build() -> void:
+	for child in get_children():
+		child.queue_free()
+	_section("SOUND")
 	_row("MUSIC", "music_on", "music_vol")
 	_row("SOUND EFFECTS", "sfx_on", "sfx_vol")
+	_section("TOUCH & DRIVING")
 	_row("HAPTICS", "haptics_on", "")
+	_row("SCREEN SHAKE", "", "screen_shake")
+	_row("LEFT-HANDED HUD", "left_handed", "")
+	_section("COMFORT")
+	_row("REDUCE FLASHING", "reduce_flashing", "")
+	_row("DAMAGE NUMBERS", "damage_numbers", "")
+	_section("TEXT SIZE")
+	_row_options()
+
+
+func _section(title: String) -> void:
+	var l := UiKit.label(title, 22, UiKit.MUTED, "b")
+	var first := get_child_count() > 0
+	if first:
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2(0, 8)
+		add_child(gap)
+	add_child(l)
 
 
 func _row(title: String, on_key: String, vol_key: String) -> void:
@@ -27,28 +57,80 @@ func _row(title: String, on_key: String, vol_key: String) -> void:
 	var name := UiKit.label(title, 28, UiKit.GOLD.lightened(0.2), "x", 4)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(name)
-	var sw := Switch.new()
-	sw.on = bool(AudioDirector.settings.get(on_key, true))
-	sw.custom_minimum_size = Vector2(132, 60)
-	sw.changed.connect(func(v: bool) -> void:
-		AudioDirector.set_setting(on_key, v)
-		AudioDirector.sfx("ui_toggle")
-		if on_key == "haptics_on" and v:
-			AudioDirector.haptic("medium")
-	)
-	top.add_child(sw)
+	if on_key != "":
+		var sw := Switch.new()
+		sw.on = bool(AudioDirector.settings[on_key])
+		sw.custom_minimum_size = Vector2(132, 64)
+		sw.changed.connect(func(v: bool) -> void:
+			AudioDirector.set_setting(on_key, v)
+			AudioDirector.sfx("ui_toggle")
+			if on_key == "haptics_on" and v:
+				AudioDirector.haptic("medium")
+		)
+		top.add_child(sw)
 	if vol_key == "":
 		return
+	# A tag beside the switch names the slider's unit, so the slider is
+	# labelled even when the row scrolls with its title off the top.
+	var unit := UiKit.label("%", 20, UiKit.MUTED, "b")
+	top.add_child(unit)
 	var slider := VolumeSlider.new()
-	slider.value = float(AudioDirector.settings.get(vol_key, 0.8))
-	slider.custom_minimum_size = Vector2(0, 56)
+	slider.value = float(AudioDirector.settings[vol_key])
+	slider.custom_minimum_size = Vector2(0, 64)
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.moved.connect(func(v: float) -> void: AudioDirector.set_setting(vol_key, v))
-	slider.released.connect(func() -> void:
-		if vol_key == "sfx_vol":
-			AudioDirector.sfx("gem", 0.0, 1.5)
+	slider.moved.connect(func(v: float) -> void:
+		AudioDirector.set_setting(vol_key, v)
+		_preview_tick(vol_key)
 	)
+	slider.released.connect(_release_preview.bind(vol_key))
 	col.add_child(slider)
+
+
+## One cycle-of-three row: Text size 100 / 115 / 130 %.
+func _row_options() -> void:
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 18
+	plate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(plate)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	plate.add_child(col)
+	var name := UiKit.label("TEXT SIZE 100 / 115 / 130%", 28, UiKit.GOLD.lightened(0.2), "x", 4)
+	col.add_child(name)
+	var seg := Seg.new()
+	seg.custom_minimum_size = Vector2(0, 64)
+	seg.value = int(AudioDirector.settings["text_size"])
+	seg.changed.connect(func(v: int) -> void:
+		AudioDirector.set_setting("text_size", v)
+		# Labels are scaled at creation: rebuild the rows so the panel
+		# shows the new size right away.
+		_build.call_deferred()
+	)
+	col.add_child(seg)
+
+
+## Live preview of the channel being dragged: a soft tick as the SFX volume
+## moves (the music bus previews itself live since the theme is playing).
+var _preview_ms := 0
+
+
+func _preview_tick(vol_key: String) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _preview_ms < 160:
+		return
+	_preview_ms = now
+	if vol_key == "sfx_vol":
+		AudioDirector.sfx("ui_tap", -6.0)
+
+
+func _release_preview(vol_key: String) -> void:
+	if vol_key == "sfx_vol":
+		AudioDirector.sfx("gem", 0.0, 1.5)
+	elif vol_key == "music_vol":
+		# A short sting on the Music bus: previews the music volume (and
+		# stays silent if music is switched off).
+		AudioDirector.sfx("sting_victory", -10.0)
 
 
 ## A forged toggle: a recessed groove with a gilt knob that slides across;
@@ -101,7 +183,8 @@ class Switch extends Control:
 
 
 ## Volume: a recessed track, a gilt fill with a soft glow, and a knob that
-## follows the finger.
+## follows the finger. The current 0-100 % value is engraved in the middle
+## of the track: the control labels itself, so it needs no extra HUD text.
 class VolumeSlider extends Control:
 	signal moved(value: float)
 	signal released
@@ -160,3 +243,54 @@ class VolumeSlider extends Control:
 		draw_circle(c, rad - 4.0, Color("b8863a"))
 		draw_circle(c, rad - 7.0, Color("e6c27a"))
 		draw_circle(c + Vector2(-rad * 0.18, -rad * 0.2), rad * 0.28, Color(1, 0.96, 0.8, 0.55))
+		# Self-label: the live 0-100 % readout engraved over the track.
+		var font := UiKit.font_b
+		var px := UiKit.text_px(24)
+		var txt := "%d%%" % int(round(value * 100.0))
+		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
+		UiKit.draw_text(self, font, Vector2(size.x * 0.5 - w * 0.5, h * 0.5 + px * 0.34), txt, px, Color("f9efdd"), Color(0.06, 0.04, 0.02), 2)
+
+
+## A captioned pill per choice (Text size 100 / 115 / 130 %): the selected
+## cap is gilded, the others engraved, each cap at least 88 device px tall.
+class Seg extends Control:
+	signal changed(value: int)
+	var options: Array = [[100, "100%"], [115, "115%"], [130, "130%"]]
+	var value := 100
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _index(x: float) -> int:
+		return clampi(int(x / maxf(size.x / options.size(), 1.0)), 0, options.size() - 1)
+
+	func _gui_input(event: InputEvent) -> void:
+		var tap := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+		if tap:
+			var pick := _index(event.position.x)
+			if int(options[pick][0]) != value:
+				value = int(options[pick][0])
+				changed.emit(value)
+				AudioDirector.sfx("ui_toggle")
+			accept_event()
+
+	func _draw() -> void:
+		var face := Rect2(Vector2(4, 4), size - Vector2(8, 8))
+		UiKit.rr_shadow(self, face, 10.0, 6.0, 0.3)
+		UiKit.rr_fill(self, face, 10.0, Color("120c08"), Color("241a10"))
+		UiKit.rr_line(self, face, 10.0, Color(0.55, 0.4, 0.2), 3.0)
+		var cap := face.size.x / options.size()
+		for i in options.size():
+			var on := int(options[i][0]) == value
+			var cell := Rect2(face.position + Vector2(cap * i, 0), Vector2(cap, face.size.y))
+			var r := cell.grow(-3.0)
+			if on:
+				UiKit.rr_fill(self, r, 7.0, Color("8a6420"), Color("3a2608"))
+				UiKit.rr_line(self, r, 7.0, Color("e8c886"), 2.5)
+			var font := UiKit.font_x
+			var fpx := UiKit.text_px(26)
+			var ink := Color("1a1206") if on else Color(0.76, 0.68, 0.55)
+			var txt := str(options[i][1])
+			var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fpx).x
+			var tp := Vector2(cell.get_center().x - tw * 0.5, cell.get_center().y + fpx * 0.36)
+			UiKit.draw_text(self, font, tp, txt, fpx, ink, Color(0.06, 0.04, 0.02) if not on else Color(0.28, 0.2, 0.06), 2)

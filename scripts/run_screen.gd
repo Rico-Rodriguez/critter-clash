@@ -360,7 +360,7 @@ func _process(delta: float) -> void:
 		_tick_floats(0.0)
 		return
 	trauma = maxf(0.0, trauma - delta * 2.3)
-	var mag := trauma * trauma * 11.0
+	var mag := trauma * trauma * 11.0 * AudioDirector.shake_scale()
 	var shake := Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * mag
 	_place_camera(delta, shake)
 	_decay_punch(delta)
@@ -841,7 +841,7 @@ func _shrine_color(kind: String) -> Color:
 
 
 func _hurt_flash() -> void:
-	flash_rect.color = Color(0.85, 0.08, 0.04, 0.5)
+	flash_rect.color = Color(0.85, 0.08, 0.04, 0.5 * AudioDirector.flash_scale())
 	var tw := create_tween()
 	tw.tween_property(flash_rect, "color:a", 0.0, 0.28).set_ease(Tween.EASE_OUT)
 
@@ -901,6 +901,9 @@ func _merge_float(id: int, amount: float) -> bool:
 ## One floating label for a hit, a crit, hero damage, or a loot line (kind
 ## ""). Damage kinds run smaller and are spaced with jitter and rows.
 func _float(pos: Vector2, text: String, color: Color, big: bool, id: int = -1, amount: float = 0.0, kind: String = "") -> void:
+	# The damage-numbers setting hides hit and hurt digits; loot lines stay.
+	if (kind == "hit" or kind == "hero") and not bool(AudioDirector.settings.get("damage_numbers", true)):
+		return
 	# Numbers anchor to their target: a hit landing off screen (a long
 	# archer shot) shows nothing rather than being clamped into a corner
 	# far from the fight.
@@ -3009,7 +3012,11 @@ class DodgeButton extends Control:
 		var view := get_viewport_rect().size
 		var pad := UiKit.safe_insets()
 		size = Vector2(DIAM, DIAM)
-		position = Vector2(view.x - float(pad["r"]) - DIAM - 30.0, view.y - float(pad["b"]) - DIAM - 34.0)
+		# Left-handed: the dash flips to the left edge (the stick zone is the
+		# whole bottom band, so it still plants under either thumb).
+		var left := bool(AudioDirector.settings.get("left_handed", false))
+		var x := float(pad["l"]) + 30.0 if left else view.x - float(pad["r"]) - DIAM - 30.0
+		position = Vector2(x, view.y - float(pad["b"]) - DIAM - 34.0)
 		queue_redraw()
 
 	func _process(delta: float) -> void:

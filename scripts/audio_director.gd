@@ -9,7 +9,12 @@ extends Node
 ## clipping. Haptics go through Input.vibrate_handheld, which on iOS 13+
 ## drives Core Haptics with the amplitude as intensity.
 
-const DEFAULTS := {"music_on": true, "sfx_on": true, "haptics_on": true, "music_vol": 0.8, "sfx_vol": 0.9}
+## Volume (0-1) and toggle options. The comfort keys are read at the place
+## each effect is applied: screen_shake in run_screen's camera offset,
+## reduce_flashing in stage3d's hit flash and run_screen's hurt flash,
+## damage_numbers in run_screen's floating numbers, text_size in UiKit's
+## label factory, left_handed in the DodgeButton layout.
+const DEFAULTS := {"music_on": true, "sfx_on": true, "haptics_on": true, "music_vol": 0.8, "sfx_vol": 0.9, "screen_shake": 1.0, "reduce_flashing": false, "damage_numbers": true, "text_size": 100, "left_handed": false}
 
 ## Per-event mix: base gain (dB), max voices at once, minimum gap (s),
 ## pitch jitter (+/- ratio), bus.
@@ -121,11 +126,34 @@ func _load_settings() -> void:
 	if saved is Dictionary:
 		for k in saved:
 			settings[k] = saved[k]
+	_normalize()
 	_apply()
+
+
+## Type and range guards: a save written by an older build (or a hand-edited
+## file) must not be able to push a slider value out of 0-1 or a switch off
+## its on/off type. Unknown keys pass through untouched.
+func _normalize() -> void:
+	for k in DEFAULTS:
+		var v: Variant = settings.get(k, DEFAULTS[k])
+		match k:
+			"music_vol", "sfx_vol", "screen_shake":
+				v = clampf(float(v), 0.0, 1.0)
+			"text_size":
+				var px := float(v)
+				v = 100 if px < 107.5 else (115 if px < 122.5 else 130)
+			"music_on", "sfx_on", "haptics_on", "reduce_flashing", "damage_numbers", "left_handed":
+				match typeof(v):
+					TYPE_BOOL, TYPE_INT, TYPE_FLOAT:
+						v = bool(v)
+					_:
+						v = DEFAULTS[k]
+		settings[k] = v
 
 
 func set_setting(key: String, value) -> void:
 	settings[key] = value
+	_normalize()
 	SaveGame.data["settings"] = settings.duplicate()
 	SaveGame._write()
 	_apply()
@@ -143,6 +171,21 @@ func _apply() -> void:
 
 static func _lin_db(v: float) -> float:
 	return linear_to_db(maxf(v, 0.001))
+
+
+## Camera shake amount (0 = off, 1 = full) for run_screen's trauma offset.
+func shake_scale() -> float:
+	return clampf(float(settings.get("screen_shake", 1.0)), 0.0, 1.0)
+
+
+## Flash intensity multiplier: 1 normally, damped when reduce flashing is on.
+func flash_scale() -> float:
+	return 0.35 if bool(settings.get("reduce_flashing", false)) else 1.0
+
+
+## Damage-digit scale from the text size setting (100, 115 or 130 %).
+func text_scale() -> float:
+	return float(settings.get("text_size", 100)) / 100.0
 
 
 # --- Effects -----------------------------------------------------------------

@@ -512,7 +512,7 @@ func _flash(body: Node3D) -> void:
 		body.set_meta("flash_stamp", stamp_m)
 		var gis := body.find_children("*", "MeshInstance3D", true, false)
 		for gi in gis:
-			(gi as GeometryInstance3D).set_instance_shader_parameter("flash", 0.3)
+			(gi as GeometryInstance3D).set_instance_shader_parameter("flash", 0.3 * AudioDirector.flash_scale())
 		get_tree().create_timer(0.07).timeout.connect(func() -> void:
 			if not is_instance_valid(body) or int(body.get_meta("flash_stamp", 0)) != stamp_m:
 				return
@@ -523,7 +523,7 @@ func _flash(body: Node3D) -> void:
 	if not body.has_meta("big"):
 		body.set_meta("big", _measure(body).size.y * body.scale.y > HERO_METERS * 2.0)
 	# Low energy: a warm glint over the painted surface, not a flat fill.
-	var energy := 0.1 if bool(body.get_meta("big")) else 0.3
+	var energy := (0.1 if bool(body.get_meta("big")) else 0.3) * AudioDirector.flash_scale()
 	var mats: Array = body.get_meta("flash_mats", [])
 	if mats.is_empty():
 		for m in body.find_children("*", "MeshInstance3D", true, false):

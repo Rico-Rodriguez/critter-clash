@@ -13,6 +13,7 @@ static func run() -> int:
 	_save()
 	_gear_save_check()
 	_slayer_log_check()
+	_settings_check()
 	_daily_check()
 	_steer()
 	_maps()
@@ -386,6 +387,65 @@ static func _slayer_log_check() -> void:
 	SaveGame.data = keep
 	SaveGame.no_write = false
 	print("SLAYER LOG ok: 200 assignments, single claim, old-save defaults")
+## Settings + accessibility: an old save's defaults, persistence through
+## set_setting, survival of a restart (reload from SaveGame.data), and
+## clamping of corrupt or out-of-range values. Runs on an in-memory copy
+## with SaveGame.no_write set, then restores both the data and the volume mix.
+static func _settings_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	SaveGame.no_write = true
+	# (1) Defaults on an old save: no settings block in the save at all.
+	SaveGame.data["settings"] = {}
+	AudioDirector._load_settings()
+	for key in AudioDirector.DEFAULTS:
+		if not AudioDirector.settings.has(key):
+			_fail("settings default missing " + str(key))
+	if float(AudioDirector.settings["music_vol"]) != 0.8 or float(AudioDirector.settings["sfx_vol"]) != 0.9:
+		_fail("volume defaults moved")
+	if not bool(AudioDirector.settings["music_on"]) or not bool(AudioDirector.settings["sfx_on"]) or not bool(AudioDirector.settings["haptics_on"]):
+		_fail("toggle defaults should be on")
+	if float(AudioDirector.settings["screen_shake"]) != 1.0:
+		_fail("screen shake default should be full")
+	if bool(AudioDirector.settings["reduce_flashing"]) or bool(AudioDirector.settings["left_handed"]):
+		_fail("reduce flashing / left-handed default should be off")
+	if not bool(AudioDirector.settings["damage_numbers"]):
+		_fail("damage numbers default should be on")
+	if int(AudioDirector.settings["text_size"]) != 100:
+		_fail("text size default should be 100%")
+	# (2) Round-trip: set_setting persists into SaveGame.data and a fresh
+	# _load_settings (the restart path) reads the same values back.
+	AudioDirector.set_setting("music_vol", 0.25)
+	AudioDirector.set_setting("damage_numbers", false)
+	AudioDirector.set_setting("text_size", 130)
+	AudioDirector.set_setting("screen_shake", 0.4)
+	if float(SaveGame.data["settings"]["music_vol"]) != 0.25 or bool(SaveGame.data["settings"]["damage_numbers"]):
+		_fail("set_setting did not persist into the save block")
+	AudioDirector._load_settings()
+	if float(AudioDirector.settings["music_vol"]) != 0.25:
+		_fail("music volume did not survive reload")
+	if bool(AudioDirector.settings["damage_numbers"]):
+		_fail("damage numbers did not survive reload")
+	if int(AudioDirector.settings["text_size"]) != 130:
+		_fail("text size did not survive reload")
+	if float(AudioDirector.settings["screen_shake"]) <= 0.39 or float(AudioDirector.settings["screen_shake"]) >= 0.41:
+		_fail("screen shake readback lost precision")
+	# (3) Clamping: garbage values from a hand-edited save land in range and
+	# keep their type, so _apply()'s arithmetic can never see a string.
+	SaveGame.data["settings"] = {"music_vol": 9.0, "sfx_vol": -3.0, "text_size": 4, "screen_shake": 7.0, "music_on": 1, "haptics_on": "water"}
+	AudioDirector._load_settings()
+	if float(AudioDirector.settings["music_vol"]) != 1.0 or float(AudioDirector.settings["sfx_vol"]) != 0.0:
+		_fail("volume clamping")
+	if float(AudioDirector.settings["screen_shake"]) != 1.0:
+		_fail("screen shake clamping")
+	if int(AudioDirector.settings["text_size"]) != 100:
+		_fail("text size clamping")
+	if not bool(AudioDirector.settings["music_on"]) or not bool(AudioDirector.settings["haptics_on"]):
+		_fail("switch clamping")
+	# Restore: the save data and the live mix return to their pre-check state.
+	SaveGame.data = keep
+	SaveGame.no_write = false
+	AudioDirector._load_settings()
+	print("SETTINGS ok: defaults, round-trip, clamping")
 
 
 ## Daily Challenge: one deterministic map per UTC day, one or two modifiers,
