@@ -24,6 +24,7 @@ const TIER_MUL: Array[float] = [0.0, 1.0, 1.7, 2.6]
 ##     "v": 1,
 ##     "owned":    {hero_id: {item_id: count, ...}, ...},
 ##     "equipped": {hero_id: {slot_key: item_id, ...}, ...},   # missing/"" = empty
+##     "xp":       {hero_id: {skill_key: xp_int, ...}, ...},     # missing = start level
 ##   }
 const SAVE_KEY := "armory"
 const SAVE_V := 1
@@ -63,6 +64,28 @@ const SLOT_STATS := {
 }
 const INT_STATS := ["hp_flat", "armor"]
 
+# --- Combat skills (OSRS-style, persistent, per hero) ------------------------
+## XP from matching actions (wired by helpers): melee hits -> Attack and
+## Strength, damage taken or blocked -> Defence, ranged hits -> Ranged,
+## spells -> Magic, all damage dealt -> Hitpoints. Levels 1-99, OSRS curve.
+enum Skill { ATTACK, STRENGTH, DEFENCE, RANGED, MAGIC, HITPOINTS }
+const SKILL_KEYS: Array[String] = ["attack", "strength", "defence", "ranged", "magic", "hitpoints"]
+const SKILL_NAMES: Array[String] = ["Attack", "Strength", "Defence", "Ranged", "Magic", "Hitpoints"]
+const MAX_LEVEL := 99
+## Hitpoints starts at 10 like OSRS; everything else at 1.
+const START_LEVEL := {"hitpoints": 10}
+
+## Requirement level per tier (index = Tier) and the skill each slot gates on.
+## Weapons gate on the hero's class skill (WEAPON_SKILL).
+const REQ_BY_TIER: Array[int] = [0, 1, 20, 40]
+const SLOT_SKILL := {
+	"helm": "defence", "chest": "defence", "boots": "defence", "offhand": "defence",
+	"pauldrons": "strength", "gloves": "strength", "weapon": "", "charm": "hitpoints",
+}
+const WEAPON_SKILL := {"pebble": "attack", "bramble": "attack", "lumen": "attack", "ember": "magic"}
+## Per-item overrides: item_id -> {skill: level}. Merged over the default.
+const REQ_OVERRIDES := {}
+
 ## Tests and tools may point the API at a scratch dict instead of the save.
 static var store_override: Variant = null
 
@@ -91,7 +114,24 @@ static func item(id: String) -> Dictionary:
 	var slot := p[1]
 	var tier := int(p[2])
 	return {"id": id, "hero": hero, "slot": slot, "tier": tier,
-		"name": "%s %s" % [TIER_PREFIX[tier], NAMES[hero][slot]], "stats": stats_for(slot, tier)}
+		"name": "%s %s" % [TIER_PREFIX[tier], NAMES[hero][slot]], "stats": stats_for(slot, tier),
+		"requires": requirements(id)}
+
+
+## {skill_key: level} needed to equip (empty = no requirement).
+static func requirements(id: String) -> Dictionary:
+	if not is_item(id):
+		return {}
+	var p := id.split(".")
+	var tier := int(p[2])
+	var skill: String = SLOT_SKILL.get(p[1], "")
+	if p[1] == "weapon":
+		skill = WEAPON_SKILL.get(p[0], "attack")
+	var out := {}
+	if skill != "" and REQ_BY_TIER[tier] > 1:
+		out[skill] = REQ_BY_TIER[tier]
+	out.merge(REQ_OVERRIDES.get(id, {}), true)
+	return out
 
 
 static func stats_for(slot: String, tier: int) -> Dictionary:
@@ -130,9 +170,9 @@ static func _store() -> Dictionary:
 		else:
 			data = save.data
 	if not data.has(SAVE_KEY) or typeof(data[SAVE_KEY]) != TYPE_DICTIONARY:
-		data[SAVE_KEY] = {"v": SAVE_V, "owned": {}, "equipped": {}}
+		data[SAVE_KEY] = {"v": SAVE_V, "owned": {}, "equipped": {}, "xp": {}}
 	var a: Dictionary = data[SAVE_KEY]
-	for k in ["owned", "equipped"]:
+	for k in ["owned", "equipped", "xp"]:
 		if not a.has(k) or typeof(a[k]) != TYPE_DICTIONARY:
 			a[k] = {}
 	return a
@@ -163,10 +203,28 @@ static func grant(id: String) -> bool:
 	return true
 
 
-## Equips an owned item into its slot (replacing what was there).
+## {ok: bool, reason: String}. Reasons: "Unknown item", "Not for this hero",
+## "Not owned", "Requires Defence 20" (first unmet requirement).
+static func can_equip(hero: String, id: String) -> Dictionary:
+	var it := item(id)
+	if it.is_empty():
+		return {"ok": false, "reason": "Unknown item"}
+	if it["hero"] != hero:
+		return {"ok": false, "reason": "Not for this hero"}
+	if not has(hero, id):
+		return {"ok": false, "reason": "Not owned"}
+	var req: Dictionary = it["requires"]
+	for k in SKILL_KEYS:
+		if req.has(k) and level(hero, k) < int(req[k]):
+			return {"ok": false, "reason": "Requires %s %d" % [SKILL_NAMES[SKILL_KEYS.find(k)], int(req[k])]}
+	return {"ok": true, "reason": ""}
+
+
+## Equips an owned item into its slot (replacing what was there). Refuses
+## unmet requirements; call can_equip() for the reason to show.
 static func equip(hero: String, id: String) -> bool:
 	var it := item(id)
-	if it.is_empty() or it["hero"] != hero or not has(hero, id):
+	if not bool(can_equip(hero, id)["ok"]):
 		return false
 	var eq: Dictionary = _store()["equipped"]
 	if not eq.has(hero):
@@ -242,3 +300,70 @@ static func random_item(rng: RandomNumberGenerator, tier: int, hero := "") -> St
 	var h: String = heroes[rng.randi() % heroes.size()]
 	var slots: Array = HERO_SLOTS[h]
 	return item_id(h, str(slots[rng.randi() % slots.size()]), clampi(tier, Tier.IRON, Tier.RUNE))
+
+
+# --- Skills API --------------------------------------------------------------
+
+## Total XP to reach a level (OSRS): sum over l < L of floor(l + 300 * 2^(l/7)) / 4.
+static func xp_for_level(lvl: int) -> int:
+	var pts := 0
+	for l in range(1, clampi(lvl, 1, MAX_LEVEL)):
+		pts += int(floor(l + 300.0 * pow(2.0, l / 7.0)))
+	return int(floor(pts / 4.0))
+
+
+static func level_for_xp(xp_total: int) -> int:
+	var lvl := 1
+	while lvl < MAX_LEVEL and xp_total >= xp_for_level(lvl + 1):
+		lvl += 1
+	return lvl
+
+
+static func xp(hero: String, skill: String) -> int:
+	var row: Dictionary = _store()["xp"].get(hero, {})
+	if row.has(skill):
+		return int(row[skill])
+	return xp_for_level(int(START_LEVEL.get(skill, 1)))
+
+
+static func level(hero: String, skill: String) -> int:
+	return level_for_xp(xp(hero, skill))
+
+
+## {skill_key: level} for a hero.
+static func skills(hero: String) -> Dictionary:
+	var out := {}
+	for k in SKILL_KEYS:
+		out[k] = level(hero, k)
+	return out
+
+
+## Adds XP; returns the number of levels gained (for level-up toasts).
+static func add_xp(hero: String, skill: String, amount: int) -> int:
+	if not (skill in SKILL_KEYS) or amount <= 0:
+		return 0
+	var before := level(hero, skill)
+	var all: Dictionary = _store()["xp"]
+	if not all.has(hero):
+		all[hero] = {}
+	all[hero][skill] = mini(xp(hero, skill) + amount, xp_for_level(MAX_LEVEL) * 2)
+	_persist()
+	return level(hero, skill) - before
+
+
+## Small per-level stat hook, folded into run stats next to stats(hero):
+## Attack +0.05% crit, Strength +0.3% damage, Defence +1 armour per 10,
+## Hitpoints +2 HP per level over 10, Ranged/Magic +0.3% damage for heroes
+## whose weapon uses that skill.
+static func level_bonus(hero: String) -> Dictionary:
+	var s := skills(hero)
+	var out := {
+		"crit": (s["attack"] - 1) * 0.0005,
+		"dmg_pct": (s["strength"] - 1) * 0.003,
+		"armor": int(s["defence"] / 10),
+		"hp_flat": (s["hitpoints"] - 10) * 2,
+	}
+	var ws: String = WEAPON_SKILL.get(hero, "attack")
+	if ws == "ranged" or ws == "magic":
+		out["dmg_pct"] += (s[ws] - 1) * 0.003
+	return out
