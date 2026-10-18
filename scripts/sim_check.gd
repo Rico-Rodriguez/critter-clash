@@ -17,7 +17,7 @@ const CHECKS := [
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
-	"forge", "boss_gear", "home_pips", "hints", "grim_names",
+	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale",
 ]
 ## run_screen.gd has no class_name; its inner HintLayer is reached through the
 ## preloaded script constant so the pure trigger helper can be tested.
@@ -38,6 +38,9 @@ static func run() -> int:
 			only = arg.substr(7).split(",", false)
 	if args.has("--class-report"):
 		class_report(_class_tag())
+	if args.has("--pacing"):
+		pacing(_class_tag())
+		return 0
 	for name in CHECKS:
 		if not only.is_empty() and name not in only:
 			continue
@@ -112,6 +115,8 @@ static func _dispatch(name: String) -> void:
 			_xp_drop_check()
 		"skill_trophies":
 			_skill_trophy_check()
+		"pacing_scale":
+			_pacing_scale_check()
 		"gear_coverage":
 			_gear_coverage_check()
 		"skills_screen":
@@ -1966,6 +1971,10 @@ static func _boss_gear_check() -> void:
 ## Combat-skill XP: a melee RunBot fight trains Attack and Strength, a mage
 ## fight trains Magic, committing writes the XP exactly once, and the commit
 ## queues a skill_up event per level gained. Runs on a scratch armory.
+## Combat-skill XP: a melee RunBot fight trains Attack, Strength and Defence
+## (controlled), a mage fight trains Magic and Defence (longrange), committing
+## writes the XP exactly once, and the commit queues a skill_up event per level
+## gained. Runs on a scratch armory.
 static func _skill_xp_smoke() -> void:
 	var prev_override: Variant = GearDB.store_override
 	var prev_nowrite: bool = SaveGame.no_write
@@ -1975,10 +1984,14 @@ static func _skill_xp_smoke() -> void:
 	var melee_row: Dictionary = melee.skill_xp.get("pebble", {})
 	if float(melee_row.get("attack", 0.0)) <= 0.0 or float(melee_row.get("strength", 0.0)) <= 0.0:
 		_fail("melee fight trained no Attack/Strength")
+	if float(melee_row.get("defence", 0.0)) <= 0.0:
+		_fail("controlled melee trained no Defence")
 	var mage := _fight_xp("ember", 11)
 	var mage_row: Dictionary = mage.skill_xp.get("ember", {})
 	if float(mage_row.get("magic", 0.0)) <= 0.0:
 		_fail("mage fight trained no Magic")
+	if float(mage_row.get("defence", 0.0)) <= 0.0:
+		_fail("longrange spell trained no Defence")
 	# Top up so the commit is guaranteed to gain a level and queue the event.
 	melee.skill_xp["pebble"]["attack"] = float(melee_row.get("attack", 0.0)) + 5000.0
 	melee.bank_gear()
@@ -3141,6 +3154,278 @@ static func _home_pips_check() -> void:
 	SaveGame.no_write = keep_no_write
 	GearDB.store_override = keep_store
 	print("HOME PIPS ok: fresh none, shards forge, mastery claim clears, contract turn-in")
+## --- Progression pacing report (--pacing) ------------------------------------
+## Target OSRS-feel pacing for a ~4 minute run: first iron piece in run 1-2, a
+## full iron kit by ~3-8 runs, the steel gate (main/Defence 20) around runs 6-18,
+## the rune gate (40) around runs 30-60, and short steel defence-locked windows.
+## RunBot fights are slow, so each role is sampled with six fresh full fights and
+## the 60-run campaign is extrapolated from their measured per-run XP and loot
+## means: every skill grows with the earned gear + skill damage bonus, and the
+## longrange/controlled split trains Defence alongside the main skill instead of
+## only from damage taken.
+##   godot --headless --path . -- --sim-check --pacing [--class-tag=AFTER]
+const PACING_RUNS := 60
+const PACING_SEEDS: Array[int] = [11, 19, 23, 31, 42, 57]
+const PACING_ROLES: Array[String] = ["tank", "archer", "mage"]
+## Fixed projection RNG per role, so the report is reproducible (roles are not
+## hero ids; the loot model just needs a stable stream).
+const PACING_RUN_RNG := {"tank": 1201, "archer": 2202, "mage": 3303}
+## Recorded per-run main-skill XP of one fresh ~4 min ranged run before
+## SKILL_XP_SCALE (the longrange split gives Ranged 75% of the award). The
+## default check asserts the current scale turns this run into a level between
+## 5 and 20 from scratch.
+const PACING_RUN_RAW := 21742.0
+
+
+## Report the 60-run projected campaign for one hero per role. Runs on a scratch
+## armory with SaveGame.no_write and restores both afterwards.
+static func pacing(tag: String) -> void:
+	var keep_store: Variant = GearDB.store_override
+	var keep_nowrite: bool = SaveGame.no_write
+	var keep_data: Dictionary = SaveGame.data.duplicate(true)
+	SaveGame.no_write = true
+	var reps := _pacing_reps()
+	print("PACING %s scale=%.4f runs=%d samples=%d" % [tag, RunSim.SKILL_XP_SCALE, PACING_RUNS, PACING_SEEDS.size()])
+	print("PACING method: %d fresh full RunBot fights per role (seeds %s); per-run XP and loot are the measured means, projected XP scales with earned gear + skill bonus (Defence rides the longrange/controlled split)." % [PACING_SEEDS.size(), str(PACING_SEEDS)])
+	for role in PACING_ROLES:
+		if not reps.has(role):
+			_fail("pacing has no hero for role " + role)
+			continue
+		_pacing_role(role, str(reps[role]))
+	print("PACING done")
+	SaveGame.data = keep_data
+	SaveGame.no_write = keep_nowrite
+	GearDB.store_override = keep_store
+
+
+## Cheap (< 5 s, no fights) default-check guard: one recorded ~4 min run's
+## main-skill XP at the current SKILL_XP_SCALE lands between level 5 and 20, so
+## a run cannot drift far outside the intended pacing.
+static func _pacing_scale_check() -> void:
+	var scale: float = RunSim.SKILL_XP_SCALE
+	var xp := int(round(PACING_RUN_RAW * scale))
+	var lvl := GearDB.level_for_xp(xp)
+	if lvl < 5 or lvl > 20:
+		_fail("recorded run main skill lands level %d at scale %.4f (want 5-20)" % [lvl, scale])
+	print("PACING scale ok: scale %.4f -> recorded run lvl%d" % [scale, lvl])
+
+
+## The first hero Catalog lists for each role, preferring one with a GearDB kit
+## so the gear side of the report can be modelled. Never hard-codes a hero id
+## (run_sim keys on role); an archer without a gear set reports gear as n/a.
+static func _pacing_reps() -> Dictionary:
+	var out := {}
+	var geared := {}
+	for id in Catalog.CRITTERS:
+		var entry: Dictionary = Catalog.CRITTERS[id]
+		if str(entry.get("kind", "")) != "hero":
+			continue
+		var role := str(entry.get("role", ""))
+		if not (role in PACING_ROLES):
+			continue
+		if not out.has(role):
+			out[role] = str(id)
+		if GearDB.HERO_SLOTS.has(str(id)) and not geared.has(role):
+			geared[role] = str(id)
+	for role in geared:
+		out[role] = geared[role]
+	return out
+
+
+## The skill a role's weapon trains (the "main skill" for the report).
+static func _pacing_skill(role: String) -> String:
+	match role:
+		"archer":
+			return "ranged"
+		"mage":
+			return "magic"
+		_:
+			return "attack"
+
+
+## Six fresh full bot fights: measured mean XP per skill key and mean gear
+## pieces per tier, per run. Every fight starts from base stats on an empty
+## scratch armory, so the means describe a from-scratch run.
+static func _pacing_sample(hero: String) -> Dictionary:
+	GearDB.store_override = {}
+	var per_skill := {}
+	var per_tier := [0.0, 0.0, 0.0]
+	for seed in PACING_SEEDS:
+		var session := Session.solo("meadow", hero)
+		session.seed = seed
+		var sim := RunSim.new()
+		sim.start(session, {hero: Catalog.base_stats(hero)})
+		_pacing_fight(sim)
+		var row: Dictionary = sim.skill_xp.get(hero, {})
+		for k in row:
+			per_skill[str(k)] = float(per_skill.get(str(k), 0.0)) + float(row[k])
+		for gid in sim.gear_found:
+			per_tier[int(str(gid).get_slice(".", 2)) - 1] += 1.0
+	var n := float(PACING_SEEDS.size())
+	for k in per_skill:
+		per_skill[k] = float(per_skill[k]) / n
+	for t in 3:
+		per_tier[t] = float(per_tier[t]) / n
+	return {"skill": per_skill, "tier": per_tier}
+
+
+## One bot-driven fight to its result (or a safety cap), with greedy level-ups.
+static func _pacing_fight(sim: RunSim) -> void:
+	var mem := {}
+	var guard := 0
+	while sim.result == "" and guard < int(60.0 * 400.0):
+		guard += 1
+		if sim.paused:
+			if sim.offer.size() > 0:
+				sim.choose(_best(sim))
+				sim.drain_events()
+			else:
+				break
+			continue
+		var mv := RunBot.explore_steer(sim, 0, mem) if sim.explore else RunBot.steer(sim, 0)
+		sim.step(STEP, [mv])
+		sim.drain_events()
+
+
+## Project the 60-run campaign for one role from the measured means: add the
+## run's XP, bank the mean gear (equipping the best that fits the current
+## levels), then read off the milestone runs.
+static func _pacing_role(role: String, hero: String) -> void:
+	var main := _pacing_skill(role)
+	var sample := _pacing_sample(hero)
+	var base_skill: Dictionary = sample["skill"]
+	var base_tier: Array = sample["tier"]
+	GearDB.store_override = {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(PACING_RUN_RNG[role])
+	var levels := {}
+	for sk in GearDB.SKILL_KEYS:
+		levels[sk] = {10: -1, 20: -1, 40: -1}
+	var first := {GearDB.Tier.IRON: -1, GearDB.Tier.STEEL: -1, GearDB.Tier.RUNE: -1}
+	var full_iron := -1
+	var full_steel := -1
+	var lock_first := -1
+	var lock_last := -1
+	var loot_acc := [0.0, 0.0, 0.0]
+	var geared := GearDB.HERO_SLOTS.has(hero)
+	for run in range(1, PACING_RUNS + 1):
+		var mult := _pacing_dmg_mult(hero)
+		for sk in base_skill:
+			# With the longrange/controlled split almost all Defence XP is earned
+			# by dealing damage, so every skill rides the same gear/skill bonus.
+			var amount := float(base_skill[sk]) * mult
+			GearDB.add_xp(hero, str(sk), int(round(amount)))
+		if geared:
+			for t in 3:
+				loot_acc[t] += float(base_tier[t])
+				while loot_acc[t] >= 1.0:
+					loot_acc[t] -= 1.0
+					_pacing_grant(hero, t + 1, rng)
+					if int(first[t + 1]) < 0:
+						first[t + 1] = run
+			_pacing_equip_best(hero)
+		for sk in GearDB.SKILL_KEYS:
+			for target in [10, 20, 40]:
+				if int(levels[sk][target]) < 0 and GearDB.level(hero, str(sk)) >= target:
+					levels[sk][target] = run
+		if geared and full_iron < 0 and _pacing_full_kit(hero, GearDB.Tier.IRON):
+			full_iron = run
+		if geared and full_steel < 0 and _pacing_full_kit(hero, GearDB.Tier.STEEL):
+			full_steel = run
+		if geared and _pacing_locked(hero):
+			lock_first = run if lock_first < 0 else lock_first
+			lock_last = run
+	_pacing_print(role, hero, main, sample, levels, first, full_iron, full_steel, lock_first, lock_last, geared)
+
+
+## Current offensive bonus from worn gear and the skill level hook, as a
+## multiplier on a fresh run's earned combat XP.
+static func _pacing_dmg_mult(hero: String) -> float:
+	var gear := GearDB.stats(hero)
+	var bonus: Dictionary = GearDB.level_bonus(hero)
+	return 1.0 + float(gear.get("dmg_pct", 0.0)) + float(bonus.get("dmg_pct", 0.0))
+
+
+## Grant one projected piece at a tier, preferring a slot the hero does not own
+## at that tier yet (mirrors LootTable._pick's owned-out rerolls).
+static func _pacing_grant(hero: String, tier: int, rng: RandomNumberGenerator) -> void:
+	var slots: Array = GearDB.HERO_SLOTS[hero]
+	var free: Array = []
+	for s in slots:
+		if not GearDB.has(hero, GearDB.item_id(hero, str(s), tier)):
+			free.append(str(s))
+	var slot := str(free[rng.randi() % free.size()]) if not free.is_empty() else str(slots[rng.randi() % slots.size()])
+	GearDB.grant(GearDB.item_id(hero, slot, tier))
+
+
+## Wear the best owned, equippable piece in every slot (gated pieces come on as
+## the skills cross their requirement during the projected campaign).
+static func _pacing_equip_best(hero: String) -> void:
+	for s in GearDB.HERO_SLOTS[hero]:
+		var best := ""
+		for t in range(GearDB.Tier.IRON, GearDB.Tier.RUNE + 1):
+			var id := GearDB.item_id(hero, str(s), t)
+			if GearDB.has(hero, id) and bool(GearDB.can_equip(hero, id)["ok"]):
+				best = id
+		if best != "":
+			GearDB.equip(hero, best)
+
+
+## True when every slot the hero has holds an owned, equippable piece of at
+## least this tier (a better piece also counts for a lower tier's kit).
+static func _pacing_full_kit(hero: String, tier: int) -> bool:
+	for s in GearDB.HERO_SLOTS[hero]:
+		var ok := false
+		for t in range(tier, GearDB.Tier.RUNE + 1):
+			var id := GearDB.item_id(hero, str(s), t)
+			if GearDB.has(hero, id) and bool(GearDB.can_equip(hero, id)["ok"]):
+				ok = true
+				break
+		if not ok:
+			return false
+	return true
+
+
+## True while a dropped Defence-gated steel piece is still level-locked: the
+## "locked loot" window the report traces. Only the slots the Defence gate
+## covers (helm/chest/boots/off-hand) are counted, since the weapon/strength/
+## hitpoints slots train through other skills and stay locked far longer; rune
+## pieces are excluded too (they wait for the rune gate much later).
+static func _pacing_locked(hero: String) -> bool:
+	for s in GearDB.HERO_SLOTS[hero]:
+		if str(GearDB.SLOT_SKILL.get(str(s), "")) != "defence":
+			continue
+		var id := GearDB.item_id(hero, str(s), GearDB.Tier.STEEL)
+		if GearDB.has(hero, id) and not bool(GearDB.can_equip(hero, id)["ok"]):
+			return true
+	return false
+
+
+static func _pacing_print(role: String, hero: String, main: String, sample: Dictionary, levels: Dictionary, first: Dictionary, full_iron: int, full_steel: int, lock_first: int, lock_last: int, geared: bool) -> void:
+	var row: Dictionary = sample["skill"]
+	var tiers: Array = sample["tier"]
+	print("PACING %s %s: fresh main(%s)/run %.0f def/run %.0f loot/run iron %.1f steel %.1f rune %.1f" % [
+		role, hero, main, float(row.get(main, 0.0)), float(row.get("defence", 0.0)),
+		float(tiers[0]), float(tiers[1]), float(tiers[2])])
+	print("PACING %s main 10@%s 20@%s 40@%s | def 20@%s 40@%s" % [
+		role, _pacing_run(int(levels[main][10])), _pacing_run(int(levels[main][20])), _pacing_run(int(levels[main][40])),
+		_pacing_run(int(levels["defence"][20])), _pacing_run(int(levels["defence"][40]))])
+	if not geared:
+		print("PACING %s gear: n/a (no %s gear set in GearDB.HERO_SLOTS)" % [role, hero])
+		return
+	print("PACING %s first iron@%s steel@%s rune@%s | full iron kit@%s full steel kit@%s" % [
+		role, _pacing_run(int(first[GearDB.Tier.IRON])), _pacing_run(int(first[GearDB.Tier.STEEL])), _pacing_run(int(first[GearDB.Tier.RUNE])),
+		_pacing_run(full_iron), _pacing_run(full_steel)])
+	if lock_first < 0:
+		print("PACING %s steel defence-locked loot: none" % role)
+	else:
+		var tail := " (still locked at run %d)" % lock_last if lock_last >= PACING_RUNS else ""
+		print("PACING %s steel defence-locked loot: runs %d-%d (%d runs)%s" % [role, lock_first, lock_last, lock_last - lock_first + 1, tail])
+
+
+## "-" for a milestone the 60-run projection never reaches.
+static func _pacing_run(run: int) -> String:
+	return "-" if run < 0 else str(run)
 
 
 static func _fail(message: String) -> void:

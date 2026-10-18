@@ -146,14 +146,21 @@ const PACK_SIZE := 8
 const MINION_HP := 0.5
 const MINION_XP := 0.7
 ## Combat-skill XP is OSRS-shaped (4 XP per damage to the trained combat skill,
-## 1.33 to Hitpoints, melee's award split between Attack and Strength) scaled
-## down by this factor, so a full ~4 minute hunt lands the offensive skill
-## around level 10-15 from scratch. Fight XP is only accumulated here; GearDB
-## is written once when the screen commits the run.
-const SKILL_XP_SCALE := 0.075
+## 1.33 to Hitpoints, the weapon award split between the class skills) scaled
+## down by this factor, so a full ~4 minute hunt lands the main skill and the
+## Defence gate together around the levels the steel/rune tiers ask for. Fight
+## XP is only accumulated here; GearDB is written once when the screen commits
+## the run.
+const SKILL_XP_SCALE := 0.060
 const COMBAT_XP_PER_DAMAGE := 4.0 * SKILL_XP_SCALE
 ## Hitpoints' share of a combat award (OSRS ~1.33 / 4).
 const HP_XP_SHARE := 0.3325
+## OSRS-style split of the weapon award: controlled melee gives Attack, Strength
+## and Defence a third each; longrange shots and spells give their skill 75%
+## and Defence 25%. Each row still sums to 1.0, so the XP per damage is the same.
+const MELEE_SHARE := 1.0 / 3.0
+const RANGED_MAIN_SHARE := 0.75
+const RANGED_DEF_SHARE := 0.25
 ## Ellipse just outside the hunt camera's view, in playfield pixels.
 ## What the far follow camera frames on the ground, relative to the hero
 ## (sim px; Stage3D DIST 34, FOV 40, AIM +1.5, pitch 58; tools: viewbox.py). The far edge is
@@ -2165,10 +2172,13 @@ func _kill(actor: Actor) -> void:
 			_gear_roll_drop("camp", actor.pos)
 
 
-## Skill XP from one damage event: the attacker trains its weapon skill (melee
-## splits the award between Attack and Strength) plus a Hitpoints share of the
-## damage it deals, while a hero trains Defence for damage it takes. Kept in
-## skill_xp until the run commits; never writes GearDB mid-fight.
+## Skill XP from one damage event. The attacker's weapon award is split
+## OSRS-style: controlled melee trains Attack/Strength/Defence a third each,
+## while a longrange shot or spell gives its skill 75% and Defence 25%, so the
+## defensive gate trains alongside the weapon instead of only from damage taken.
+## A Hitpoints share of the damage dealt rides on top, and a hero still trains
+## Defence for the damage it takes or blocks. Kept in skill_xp until the run
+## commits; never writes GearDB mid-fight.
 func _skill_xp_hurt(attacker: Actor, target: Actor, dealt: float) -> void:
 	if dealt <= 0.0:
 		return
@@ -2176,12 +2186,15 @@ func _skill_xp_hurt(attacker: Actor, target: Actor, dealt: float) -> void:
 		var combat := dealt * COMBAT_XP_PER_DAMAGE
 		match _weapon_skill(attacker):
 			"magic":
-				_add_skill_xp(attacker, "magic", combat)
+				_add_skill_xp(attacker, "magic", combat * RANGED_MAIN_SHARE)
+				_add_skill_xp(attacker, "defence", combat * RANGED_DEF_SHARE)
 			"ranged":
-				_add_skill_xp(attacker, "ranged", combat)
+				_add_skill_xp(attacker, "ranged", combat * RANGED_MAIN_SHARE)
+				_add_skill_xp(attacker, "defence", combat * RANGED_DEF_SHARE)
 			_:
-				_add_skill_xp(attacker, "attack", combat * 0.5)
-				_add_skill_xp(attacker, "strength", combat * 0.5)
+				_add_skill_xp(attacker, "attack", combat * MELEE_SHARE)
+				_add_skill_xp(attacker, "strength", combat * MELEE_SHARE)
+				_add_skill_xp(attacker, "defence", combat * MELEE_SHARE)
 		_add_skill_xp(attacker, "hitpoints", combat * HP_XP_SHARE)
 	elif target.kind == "hero":
 		_add_skill_xp(target, "defence", dealt * COMBAT_XP_PER_DAMAGE)
