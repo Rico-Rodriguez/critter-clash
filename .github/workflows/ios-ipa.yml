@@ -6,6 +6,12 @@ on:
     branches:
       - main
 
+# One build at a time on main: a newer push cancels the queued/running one,
+# so a burst of checkpoint commits never stacks five macOS runs.
+concurrency:
+  group: ios-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ipa:
     # Godot 4.7.2's iOS Metal template references CADynamicRange* and
@@ -46,7 +52,7 @@ jobs:
           test -d .godot/imported
 
       - name: Export the Xcode project
-        timeout-minutes: 20
+        timeout-minutes: 21
         run: |
           set -euo pipefail
           mkdir -p build/ios
@@ -54,13 +60,30 @@ jobs:
           # material on a fresh checkout hung this step (run 39009952296).
           # Shaders compile on device. Godot 4.7.2 can still abort (exit 134)
           # while quitting after the Xcode project and pack are written.
-          set +e
-          "$GODOT" --path . \
-            --rendering-method mobile \
-            --rendering-driver metal \
-            --export-release "iOS" build/ios/CritterClash.xcodeproj
-          code=$?
-          set -e
+          # Run 39083046616 (00:31) hung for 20 minutes while packing a hero
+          # scene with no output; the same tree exported in 3 s on the next
+          # run. Each attempt gets a 6-minute watchdog and up to 3 tries.
+          code=1
+          for attempt in 1 2 3; do
+            rm -rf build/ios && mkdir -p build/ios
+            set +e
+            "$GODOT" --path . \
+              --rendering-method mobile \
+              --rendering-driver metal \
+              --export-release "iOS" build/ios/CritterClash.xcodeproj &
+            pid=$!
+            ( sleep 360; kill -9 $pid ) >/dev/null 2>&1 &
+            dog=$!
+            wait $pid
+            code=$?
+            pkill -P $dog 2>/dev/null; kill $dog 2>/dev/null
+            [ "$code" -eq 137 ] && echo "Export attempt ${attempt} hung; killed after 6 min." 
+            set -e
+            if [ -f build/ios/CritterClash.xcodeproj/project.pbxproj ] && [ -n "$(find build/ios -name '*.pck' -size +100k -print -quit)" ]; then
+              break
+            fi
+            echo "Export attempt ${attempt} failed (exit ${code}); retrying."
+          done
           test -d build/ios/CritterClash.xcodeproj
           test -f build/ios/CritterClash.xcodeproj/project.pbxproj
           pck="$(find build/ios -name '*.pck' -size +100k -print -quit)"
@@ -135,8 +158,11 @@ jobs:
           name: Critter Clash ios-v1
           prerelease: true
           files: build/ios/CritterClash.ipa
+          # Same tag every build: the IPA asset is replaced in place.
+          overwrite_files: true
           body: |
             Unsigned Critter Clash build for sideloading.
+            Built from ${{ github.sha }} (run ${{ github.run_id }}).
             Bundle id `com.rico.critterclash`, display name Critter Clash.
             Re-sign with SideInstaller using your Apple ID. The export team id ABCDE12345 is a placeholder and is replaced when you re-sign.
             Godot 4.7.2, Mobile renderer, minimum iOS 15.
