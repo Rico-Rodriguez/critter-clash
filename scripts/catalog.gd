@@ -401,8 +401,8 @@ const CARDS: Array = [
 
 const CRITTERS: Dictionary = {
 	"ember": {
-		"name": "Ember", "role": "mage", "kind": "hero", "color": "ff7a3c",
-		"blurb": "Dragon mage. Fire orbs splash.",
+		"name": "Corvin", "role": "mage", "kind": "hero", "color": "8fd14f",
+		"blurb": "Plague doctor. Miasma bolts burst and linger.",
 		"unlock": "A starter hero.",
 		"hp": 168, "dmg": 21, "interval": 0.46, "range": 320, "speed": 268,
 		"splash": 92, "splash_mul": 0.66, "proj_speed": 520, "armor": 0,
@@ -507,7 +507,7 @@ const DROPS: Array = [
 	{"id": "thistle_pouch", "boss": "thistle", "name": "Heavy purse", "kind": "coins", "amount": 90, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "meadow_fiber", "boss": "thistle", "name": "Meadow fiber", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "67b85a"},
 	{"id": "pollen", "boss": "thistle", "name": "Pollen", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "f2d35a"},
-	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Ember cards", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "ff7a3c"},
+	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Corvin cards", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "ff7a3c"},
 	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Juniper cards", "kind": "cards", "hero": "juniper", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "e07a3d"},
 	{"id": "thistle_claw", "boss": "thistle", "name": "Thistle claw", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "c46b8a"},
 	{"id": "thistle_shell", "boss": "thistle", "name": "Flower shell", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8d4e6a"},
@@ -543,7 +543,7 @@ const DROPS: Array = [
 	{"id": "cinder_pouch", "boss": "cinder", "name": "Heavy purse", "kind": "coins", "amount": 150, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "ash_clump", "boss": "cinder", "name": "Ash clump", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "6a534c"},
 	{"id": "ember_ore", "boss": "cinder", "name": "Ember ore", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "ff8a3c"},
-	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Ember cards", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "common", "weight": 12, "color": "ff7a3c"},
+	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Corvin cards", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "common", "weight": 12, "color": "ff7a3c"},
 	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Aldric cards", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "3aa8a0"},
 	{"id": "cinder_mallet", "boss": "cinder", "name": "Cinder mallet", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "ff5a32"},
 	{"id": "cinder_plate", "boss": "cinder", "name": "Ash plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "a84830"},

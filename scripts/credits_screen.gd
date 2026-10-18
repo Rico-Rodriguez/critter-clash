@@ -26,7 +26,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "Cute Dragon",
-		"used": "Ember",
+		"used": "Retired dragon hero (fallback only)",
 		"author": "shakiller",
 		"url": "https://sketchfab.com/3d-models/cute-dragon-df14ec74767c4598920132758dab8a49",
 		"license": "CC-BY 4.0",
@@ -148,6 +148,13 @@ const ENTRIES := [
 		"used": "Gnash (hero)",
 		"author": "DJMaesen (bumstrum)",
 		"url": "https://sketchfab.com/3d-models/ghoul-f37f43b23fd541df8a2926571acfce70",
+		"license": "CC-BY 4.0",
+	},
+	{
+		"title": "Plague Doctor",
+		"used": "Corvin (hero)",
+		"author": "BeardenInc",
+		"url": "https://sketchfab.com/3d-models/plague-doctor-41f7a1dfd6984135b876f334908e3ca4",
 		"license": "CC-BY 4.0",
 	},
 	{

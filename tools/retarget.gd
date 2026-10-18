@@ -15,6 +15,14 @@ const MAPS := {
 		"upperleg.l": "L_leg_07", "lowerleg.l": "L_knee_08", "foot.l": "L_ankle_09", "toes.l": "L_foot_010",
 		"upperleg.r": "R_leg_02", "lowerleg.r": "R_knee_03", "foot.r": "R_ankle_04", "toes.r": "R_foot_05",
 	},
+	# KayKit -> BeardenInc Plague Doctor (no toes or fingers; staff on its own bone).
+	"kaykit_plague": {
+		"hips": "b_Pelvis_03", "spine": "b_Belly_010", "chest": "b_Chest_011", "head": "b_Face_013",
+		"upperarm.l": "b_Arm_Upper_Left_015", "lowerarm.l": "b_Arm_Lower_Left_016", "hand.l": "b_Hand_Left_00",
+		"upperarm.r": "b_Arm_Upper_Right_023", "lowerarm.r": "b_Arm_Lower_Right_024", "hand.r": "b_Hand_Right_025",
+		"upperleg.l": "b_Leg_Left_Upper_04", "lowerleg.l": "b_Leg_Left_Lower_05", "foot.l": "b_Foot_Left_06",
+		"upperleg.r": "b_Leg_rIGHT_Upper_07", "lowerleg.r": "b_Leg_Right_Lower_08", "foot.r": "b_Foot_Right_09",
+	},
 }
 ## Limb chains whose bind directions are swung to match: [src a, src b] -> target follows map.
 const SWING := [["upperarm.l", "lowerarm.l"], ["lowerarm.l", "hand.l"], ["upperarm.r", "lowerarm.r"], ["lowerarm.r", "hand.r"],

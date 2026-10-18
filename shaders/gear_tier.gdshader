@@ -32,6 +32,7 @@ uniform float groove = 0.0;     // darken seams (T1: rivets and panel lines pop)
 uniform float edge_hi = 0.0;    // brighten seam bevels (T2: sharp edge highlights)
 uniform float seam_glow = 0.0;  // emissive rune seams (T3)
 uniform float blade_glow = 0.0; // emissive weapon edge (T3 main hand)
+uniform float desat = 0.0;      // restyle bright storybook textures toward grim
 uniform float flesh = 0.0;      // hide/skin heroes: seams follow sinew, not metal
 uniform vec3 cool_rim : source_color = vec3(0.0); // hunt readability rim
 
@@ -91,6 +92,7 @@ void fragment() {
 	float seam = max(smoothstep(0.24, 0.48, dev) * (has_normal > 0.5 ? broad : 0.0), bevel * broad_or(has_normal, broad));
 	float fine = has_normal > 0.5 ? smoothstep(0.25, 0.5, length(nf.xy)) : 0.0;
 	float vfres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	col = mix(col, vec3(dot(col, vec3(0.3, 0.55, 0.15))), desat);
 	float mm = max(m, flesh);
 	col *= 1.0 - groove * max(seam, fine * 0.6) * mm;
 	col += edge_hi * (seam * 0.8 + fine * 0.25 + vfres * 0.35) * m * vec3(0.55, 0.57, 0.62);

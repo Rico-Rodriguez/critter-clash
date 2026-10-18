@@ -62,6 +62,7 @@ var _props: Array = []
 var _contacts: Array[Vector3] = []
 var _xray_mat: ShaderMaterial
 var _hero_key: OmniLight3D
+var _bolt := Color(0, 0, 0, 0)
 var _occl_hit := false
 var _xray := 0.0
 var _contact_node: MultiMeshInstance3D
@@ -1381,6 +1382,7 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	# Outlines keep silhouettes readable from the far camera: a dark hairline
 	# on the hero (its ring marks it), deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
+		_bolt = Gear3D.KITS.get(actor.sprite, {}).get("bolt", Color(0, 0, 0, 0))
 		if Gear3D.has_kit(actor.sprite):
 			# Dark plate on dark ground: a steel-blue hairline, a cool
 			# fresnel rim in the armour shader and a soft key light that
@@ -3134,10 +3136,17 @@ func _fx_node(id: int, kind: String) -> MeshInstance3D:
 			col = Color("c040ff")
 		elif kind == "bash":
 			col = Color("ffd34a")
+		elif kind == "orb" and _bolt != Color(0, 0, 0, 0):
+			# Caster's own bolt (Gear3D kit "bolt"): a hot core in a soft
+			# halo trailing smoke, so it never reads as a generic fire orb.
+			col = _bolt
+			sphere.radius = 0.13
+			sphere.height = 0.26
+			_bolt_dress(mesh_node, col)
 		mat.albedo_color = col
 		mat.emission_enabled = true
 		mat.emission = col
-		mat.emission_energy_multiplier = 1.15
+		mat.emission_energy_multiplier = 1.15 if kind != "orb" else 2.2
 	mesh_node.material_override = mat
 	mesh_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	actor_root.add_child(mesh_node)
@@ -4366,3 +4375,51 @@ func lifesteal_fx(actor_id: int, from: Vector2) -> void:
 			q.look_at(camera.global_position, Vector3.UP)
 		var tw := q.create_tween()
 		tw.tween_property(q, "position", body.position + Vector3(0, HERO_METERS * 0.45, 0), 0.5).set_delay(i * 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+
+## Caster bolt dressing: additive halo plus a smoke trail in the bolt colour.
+func _bolt_dress(node: MeshInstance3D, col: Color) -> void:
+	var halo := MeshInstance3D.new()
+	var hq := QuadMesh.new()
+	hq.size = Vector2(0.9, 0.9)
+	var hm := StandardMaterial3D.new()
+	hm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	hm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	hm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	hm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	hm.albedo_color = Color(col.r, col.g, col.b, 0.7)
+	hm.albedo_texture = _soft_dot()
+	hm.disable_fog = true
+	hq.material = hm
+	halo.mesh = hq
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(halo)
+	var trail := GPUParticles3D.new()
+	trail.name = "Trail"
+	trail.amount = 22
+	trail.lifetime = 0.42
+	trail.local_coords = false
+	var tp := ParticleProcessMaterial.new()
+	tp.gravity = Vector3(0, 0.6, 0)
+	tp.scale_min = 0.7
+	tp.scale_max = 1.4
+	tp.spread = 180.0
+	tp.initial_velocity_min = 0.05
+	tp.initial_velocity_max = 0.3
+	var tf := Gradient.new()
+	tf.set_color(0, Color(1, 1, 1, 0.8))
+	tf.set_color(1, Color(0.4, 0.4, 0.4, 0))
+	var tr := GradientTexture1D.new()
+	tr.gradient = tf
+	tp.color_ramp = tr
+	trail.process_material = tp
+	var tq := QuadMesh.new()
+	tq.size = Vector2(0.3, 0.3)
+	var tm := hm.duplicate() as StandardMaterial3D
+	tm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	tm.vertex_color_use_as_albedo = true
+	tm.albedo_color = Color(col.r * 0.7, col.g * 0.7, col.b * 0.7, 0.55)
+	tq.material = tm
+	trail.draw_pass_1 = tq
+	node.add_child(trail)

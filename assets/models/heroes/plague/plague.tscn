@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/heroes/plague/plague.glb" id="1"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/heroes/plague/plague_anims.res" id="2"]
+
+[node name="PlagueDoctor" instance=ExtResource("1")]
+
+[node name="AnimationPlayer" parent="."]
+libraries = {
+&"": ExtResource("2")
+}

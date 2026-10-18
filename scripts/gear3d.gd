@@ -55,6 +55,25 @@ const KITS := {
 		"flesh": true,
 		"rune": Color(1.0, 0.12, 0.1),
 	},
+	# Corvin, the Plague Doctor: a miasma caster. The staff, crow and bell
+	# are skinned to the model's own bones; tiers ride the coat and mask.
+	"ember": {
+		"anims": "res://assets/models/heroes/plague/plague_anims.res",
+		"hide": ["Object_8"],
+		"main": ["", "", "", ""],
+		"off": ["", "", "", ""],
+		"off_xf": [Vector3.ZERO, Vector3.ZERO],
+		"main_xf": [Vector3.ZERO, Vector3.ZERO],
+		"seam": 0.5,
+		"flesh": true,
+		"rune": Color(0.55, 1.0, 0.2),
+		# Restyled grim: the bright storybook coat goes soot and oilcloth.
+		"soft_tints": [Color(0.52, 0.5, 0.46), Color(0.6, 0.6, 0.62), Color(0.3, 0.29, 0.31), Color(0.22, 0.2, 0.22)],
+		"desat": 0.5,
+		# Miasma bolt: sickly green glob trailing plague smoke.
+		"bolt": Color(0.5, 1.0, 0.25),
+		# Object_8 is the display plinth (grass disc): hidden.
+	},
 }
 
 ## Finish per tier: plate tint, soft-material (leather/cloth) tint, wear,
@@ -157,10 +176,11 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			fm.set_shader_parameter("seam_glow", float(FINISH[at].get("seam", 0.0)) * float(kit.get("seam", 1.0)))
 			if kit.get("flesh", false):
 				# Hide tiers: pale -> ash grey -> charcoal -> blood-veined.
-				var hide_tint: Array = [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)]
+				var hide_tint: Array = kit.get("soft_tints", [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)])
 				var ht: Color = hide_tint[at]
 				fm.set_shader_parameter("soft_tint", Vector3(ht.r, ht.g, ht.b))
 				fm.set_shader_parameter("flesh", 1.0)
+				fm.set_shader_parameter("desat", float(kit.get("desat", 0.0)))
 				fm.set_shader_parameter("groove", [0.2, 0.6, 0.45, 0.3][at])
 			m.set_surface_override_material(i, fm)
 	var sockets: Dictionary = {}

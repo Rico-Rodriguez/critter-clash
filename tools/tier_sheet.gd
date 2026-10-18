@@ -41,7 +41,7 @@ func _init() -> void:
 		for mi: MeshInstance3D in r.find_children("*", "MeshInstance3D", true, false):
 			if mi.skin != null:
 				hgt = maxf(hgt, (mi.global_transform * mi.get_aabb()).size.y)
-		if hgt > 0.0 and (hgt < 60.0 or hgt > 400.0):
+		if hgt > 0.0 and (hgt < 150.0 or hgt > 230.0):
 			r.scale = Vector3.ONE * (180.0 / hgt)
 		var ap: AnimationPlayer = r.find_children("*", "AnimationPlayer", true, false)[0]
 		ap.play(shot[0])

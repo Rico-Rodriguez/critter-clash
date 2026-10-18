@@ -26,6 +26,7 @@ const HEROES := {
 	"pebble": "res://assets/models/heroes/paladin/paladin.tscn",
 	"bramble": "res://assets/models/heroes/boneknight/boneknight.tscn",
 	"lumen": "res://assets/models/heroes/ghoul/ghoul.tscn",
+	"ember": "res://assets/models/heroes/plague/plague.tscn",
 }
 const HERO_CLIPS := {"idle": "idle", "walk": "walk", "run": "run", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle", "cast": "cast", "block": "block", "bash": "bash", "dodge": "dodge"}
 
