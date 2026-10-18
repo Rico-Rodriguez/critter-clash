@@ -33,8 +33,11 @@ const ROLE_TUNING := {
 		"swing_dr": 0.30,
 		"swing_dr_time": 0.35,
 		"lifesteal": 0.04,
-		"knockback": 72.0,
-		"boss_knock_resist": 0.75,
+		## Melee impact: a normal foe is shoved this many px over melee_kb_time
+		## seconds; a boss or elite barely budges.
+		"melee_kb": 28.0,
+		"melee_kb_elite": 5.0,
+		"melee_kb_time": 0.12,
 		"charge_range": 300.0,
 		"charge_time": 0.16,
 		"charge_cd": 3.5,
@@ -57,6 +60,14 @@ const ROLE_TUNING := {
 		"slow_k": 0.35,
 	},
 }
+
+## Melee hit-stop: a short freeze on a crit or kill that the run screen plays by
+## skipping sim steps (never Engine.time_scale, which would stall device-wide
+## timers). One per HITSTOP_CD of sim time, so a run of crits reads as impact
+## instead of stutter.
+const HITSTOP_FREEZE := 0.055
+const HITSTOP_CD := 0.25
+var _hitstop_at := -1.0e9
 
 var rng := RandomNumberGenerator.new()
 ## Loot uses its own stream, seeded from the run seed (xor constant) in
@@ -285,6 +296,11 @@ class Actor extends RefCounted:
 	var charge_speed := 0.0
 	## Tank swing damage reduction: time left of the post-attack guard.
 	var swing_t := 0.0
+	## Melee knockback: distance left to travel, its pace and heading. A shove
+	## owns the body until kb_left runs out, then normal AI resumes.
+	var kb_left := 0.0
+	var kb_rate := 0.0
+	var kb_dir := Vector2.RIGHT
 	var shot_speed := 240.0
 	var xp := 1
 	var alive := true
@@ -464,6 +480,9 @@ func step(dt: float, moves: Array) -> void:
 	if _halt():
 		return
 	_step_boss(dt)
+	if _halt():
+		return
+	_step_knockback(dt)
 	if _halt():
 		return
 	_step_shots(dt)
@@ -1041,6 +1060,48 @@ func _melee(hero: Actor, primary: Actor) -> void:
 		})
 
 
+## Queue a tank's melee shove: a normal foe is pushed melee_kb px away over
+## melee_kb_time seconds, while a boss or elite only jolts a few px. The shove
+## itself is resolved by _step_knockback, which keeps the body out of stones and
+## inside the map, so nothing is knocked through a wall or off the nav area.
+func _melee_knockback(target: Actor, dir: Vector2) -> void:
+	var tune: Dictionary = _role_tune("tank")
+	var dist := float(tune.get("melee_kb", 28.0))
+	if target.kind == "boss" or target.elite:
+		dist = float(tune.get("melee_kb_elite", 5.0))
+	var beat := maxf(0.01, float(tune.get("melee_kb_time", 0.12)))
+	target.kb_dir = dir
+	target.kb_left = dist
+	target.kb_rate = dist / beat
+
+
+## Advance every live melee shove. The push slides out of any stone it meets and
+## stays on the walkable map, so a shoved foe can never be forced into geometry.
+func _step_knockback(dt: float) -> void:
+	for actor in actors:
+		if not actor.alive or actor.kb_left <= 0.0:
+			continue
+		var move := minf(actor.kb_left, actor.kb_rate * dt)
+		actor.kb_left = maxf(0.0, actor.kb_left - move)
+		actor.pos += actor.kb_dir * move
+		_push_out(actor)
+		if explore:
+			actor.pos = map.push_inside(actor.pos, actor.radius * 0.8)
+		actor.pos = _clamp_point(actor.pos, actor.radius)
+		if actor.kb_left <= 0.0:
+			actor.kb_rate = 0.0
+
+
+## A melee crit or kill asks the run screen for one short freeze. Rate-limited
+## to HITSTOP_CD of sim time so a flurry of crits reads as impact, not stutter;
+## the screen skips sim steps for the beat instead of scaling Engine.time_scale.
+func _melee_hitstop() -> void:
+	if time - _hitstop_at < HITSTOP_CD:
+		return
+	_hitstop_at = time
+	events.append({"type": "hitstop", "stop": HITSTOP_FREEZE, "shake": 0.3})
+
+
 ## Tank gap-closer: dash onto a foe just out of reach. The leap owns movement
 ## for `charge_time`, then staggers everything under the landing.
 func _start_charge(hero: Actor, foe: Actor) -> void:
@@ -1463,6 +1524,10 @@ func _step_minions(dt: float) -> void:
 	for actor in actors:
 		if not actor.alive or actor.kind != "minion":
 			continue
+		if actor.kb_left > 0.0:
+			# A melee shove owns the body for its beat; the AI resumes after.
+			actor.vel = Vector2.ZERO
+			continue
 		if actor.goblin:
 			_step_goblin(actor, dt, target)
 			continue
@@ -1540,6 +1605,11 @@ func _step_boss(dt: float) -> void:
 	boss.charge_cd = maxf(0.0, boss.charge_cd - dt)
 	_check_phase2()
 	if boss.stun > 0.0:
+		boss.vel = Vector2.ZERO
+		_clamp_actor(boss)
+		return
+	if boss.kb_left > 0.0:
+		# A shove moves the boss for a beat; its action timers keep ticking.
 		boss.vel = Vector2.ZERO
 		_clamp_actor(boss)
 		return
@@ -2108,18 +2178,19 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		kick_dir = Vector2.RIGHT
 	else:
 		kick_dir = kick_dir.normalized()
-	var kick := 2.0 if target.kind == "boss" else (10.0 if target.kind == "hero" else 16.0)
-	var heavy_kb := attacker != null and attacker.kind == "hero" and str(attacker.role) == "tank" and target.kind != "hero"
-	if heavy_kb:
-		var tune: Dictionary = _role_tune("tank")
-		kick = float(tune.get("knockback", 72.0))
-		if target.kind == "boss":
-			kick *= 1.0 - float(tune.get("boss_knock_resist", 0.75))
-	target.pos += kick_dir * kick
-	if heavy_kb:
-		_push_out(target)
-		if explore:
-			target.pos = map.push_inside(target.pos, target.radius * 0.8)
+	# A tank's melee shoves its foe away over a beat; any other hit only nudges.
+	# Bosses and elites barely budge, so a fight is never a shuffle.
+	var tank_melee := attacker != null and attacker.kind == "hero" and str(attacker.role) == "tank" and target.kind != "hero"
+	if tank_melee:
+		_melee_knockback(target, kick_dir)
+	else:
+		var kick := 2.0 if target.kind == "boss" else (10.0 if target.kind == "hero" else 16.0)
+		target.pos += kick_dir * kick
+	# A melee crit staggers: the wind-up is dropped and the attack cycle
+	# restarts. Bosses are too big to interrupt.
+	if tank_melee and crit and target.kind != "boss":
+		target.windup = 0.0
+		target.cd = maxf(target.cd, target.interval)
 	# Vampiric affix: the attacker drinks a share of the damage it lands.
 	if attacker != null and attacker != target and dealt > 0.0 and "vampiric" in attacker.affixes:
 		attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * 0.3)
@@ -2168,6 +2239,10 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 			_hurt(attacker, dealt * thorns, target.pos, false, null, false)
 	if target.kind == "hero" and target.hp > 0.0:
 		_try_blink(target, from_pos)
+	var killed := target.hp <= 0.0 and target.alive
+	# A melee crit or kill asks the screen for one short freeze (rate-limited).
+	if tank_melee and (crit or killed):
+		_melee_hitstop()
 	if target.hp <= 0.0 and target.alive:
 		if attacker != null and attacker.kind == "hero" and attacker.alive and target.kind != "hero":
 			if attacker.team == 0:

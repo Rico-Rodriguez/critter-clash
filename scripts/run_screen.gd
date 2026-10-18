@@ -628,7 +628,9 @@ func _drain() -> void:
 					if foe != null:
 						stage.lifesteal_fx(tank.id, foe.pos)
 			"hitstop":
-				hitstop = maxf(hitstop, float(ev.get("stop", 0.05)))
+				# Sim-driven melee impact freeze: the step is skipped for a
+				# beat, never longer than the cap (the sim rate-limits it).
+				hitstop = minf(0.12, maxf(hitstop, float(ev.get("stop", 0.05))))
 			# Gear loot (contract in docs/gear.md): run_sim emits gear_drop when
 			# a piece hits the ground and gear_pickup when the hero takes it.
 			"gear_drop":

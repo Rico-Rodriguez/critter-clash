@@ -15,10 +15,10 @@ static var _times: Array = []
 const CHECKS := [
 	"roles", "modes", "save", "gear_save", "train", "slayer_log", "slayer_gear", "settings",
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
-	"kite", "boss_intro", "boss_phase", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
-	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
-	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale", "difficulty",
-	"pause_skills", "forge_stats", "dock_pip",
+	"kite", "boss_intro", "boss_phase", "dodge", "events", "gear_drop", "skill_xp",
+	"gear_coverage", "melee_impact", "skills_screen", "xp_drop", "skill_trophies",
+	"end_card", "drops_names", "gear_log", "forge", "boss_gear", "home_pips", "hints",
+	"grim_names", "pacing_scale", "difficulty", "pause_skills", "forge_stats", "dock_pip",
 ]
 ## run_screen.gd has no class_name; its inner HintLayer is reached through the
 ## preloaded script constant so the pure trigger helper can be tested.
@@ -108,6 +108,8 @@ static func _dispatch(name: String) -> void:
 			_boss_phase_check()
 		"dodge":
 			_dodge_check()
+		"melee_impact":
+			_melee_impact_check()
 		"events":
 			_events_check()
 		"gear_drop":
@@ -1891,6 +1893,85 @@ static func _dodge_check() -> void:
 			sim.drain_events()
 		if sim.map.depth(sim.heroes[0].pos) < sim.heroes[0].radius * 0.8 - 1.0:
 			_fail("dodge ended inside an obstacle")
+
+
+## Melee impact: a tank's swing shoves a normal foe a real distance and off
+## nothing solid, barely moves a boss, a crit cancels a pending wind-up, and the
+## hit-stop events it asks for are rate-limited.
+static func _melee_impact_check() -> void:
+	var sim := _sim("meadow", "pebble", 11)
+	var hero: RunSim.Actor = sim.heroes[0]
+	if str(hero.role) != "tank":
+		_fail("melee impact check needs a tank hero")
+		return
+	var dir := _clear_dir(sim, hero)
+	# (a) A normal foe is shoved 18-30 px and stays on open ground.
+	var foe := sim._place_minion(0, sim._clamp_point(hero.pos + dir * 60.0, 24.0), -1)
+	var start: Vector2 = foe.pos
+	sim._hurt(foe, 1.0, hero.pos, false, hero, false)
+	if foe.kb_left <= 0.0:
+		_fail("a tank melee hit queued no knockback")
+	for _i in 12:
+		sim._step_knockback(STEP)
+	var moved: float = foe.pos.distance_to(start)
+	if moved < 18.0 or moved > 30.0:
+		_fail("melee knockback moved the foe %.1f px" % moved)
+	if sim.map.depth(foe.pos) < foe.radius * 0.8 - 1.0:
+		_fail("melee knockback pushed the foe into the forest")
+	# (b) A boss is only jolted a few px.
+	sim.begin_boss()
+	if sim.boss == null:
+		_fail("melee impact check found no boss to test")
+		return
+	var boss: RunSim.Actor = sim.boss
+	boss.boss_state = "idle"
+	sim.obstacles.clear()
+	boss.pos = sim._clamp_point(hero.pos + dir * 200.0, boss.radius)
+	boss.pos = sim.map.push_inside(boss.pos, boss.radius * 0.6)
+	boss.prev = boss.pos
+	var bstart: Vector2 = boss.pos
+	sim._hurt(boss, 1.0, hero.pos, false, hero, false)
+	for _i in 12:
+		sim._step_knockback(STEP)
+	var bmoved: float = boss.pos.distance_to(bstart)
+	if bmoved > 6.0:
+		_fail("melee moved the boss %.1f px" % bmoved)
+	# (c) A melee crit cancels a pending wind-up.
+	var winder := sim._place_minion(0, sim._clamp_point(hero.pos + dir * 90.0, 24.0), -1)
+	winder.windup = RunSim.SHOOT_WINDUP
+	sim.drain_events()
+	sim._hurt(winder, 1.0, hero.pos, true, hero, false)
+	if winder.windup != 0.0:
+		_fail("a melee crit did not cancel the wind-up")
+	# (d) Hit-stop fires on a crit but only once per HITSTOP_CD of sim time.
+	var dummy := sim._place_minion(0, sim._clamp_point(hero.pos + dir * 120.0, 24.0), -1)
+	dummy.max_hp = 1.0e9
+	dummy.hp = 1.0e9
+	sim._hitstop_at = -1.0e9
+	sim.drain_events()
+	sim._hurt(dummy, 1.0, hero.pos, true, hero, false)
+	var first := 0
+	for e in sim.drain_events():
+		if str(e.get("type", "")) == "hitstop":
+			first += 1
+	if first != 1:
+		_fail("a melee crit emitted %d hit-stop events" % first)
+	sim._hurt(dummy, 1.0, hero.pos, true, hero, false)
+	var second := 0
+	for e in sim.drain_events():
+		if str(e.get("type", "")) == "hitstop":
+			second += 1
+	if second != 0:
+		_fail("hit-stop fired twice inside %.2f s" % RunSim.HITSTOP_CD)
+	sim.time += RunSim.HITSTOP_CD
+	sim._hurt(dummy, 1.0, hero.pos, true, hero, false)
+	var third := 0
+	for e in sim.drain_events():
+		if str(e.get("type", "")) == "hitstop":
+			third += 1
+	if third != 1:
+		_fail("hit-stop did not recover after %.2f s" % RunSim.HITSTOP_CD)
+	print("MELEE IMPACT ok: knockback %.0f px, boss %.0f px, stagger, hit-stop capped" % [moved, bmoved])
 
 
 ## Map events: deterministic shrines/affixes/goblin, shrine buffs that raise a
