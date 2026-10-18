@@ -32,6 +32,7 @@ uniform float groove = 0.0;     // darken seams (T1: rivets and panel lines pop)
 uniform float edge_hi = 0.0;    // brighten seam bevels (T2: sharp edge highlights)
 uniform float seam_glow = 0.0;  // emissive rune seams (T3)
 uniform float blade_glow = 0.0; // emissive weapon edge (T3 main hand)
+uniform float flesh = 0.0;      // hide/skin heroes: seams follow sinew, not metal
 uniform vec3 cool_rim : source_color = vec3(0.0); // hunt readability rim
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -90,7 +91,8 @@ void fragment() {
 	float seam = max(smoothstep(0.24, 0.48, dev) * (has_normal > 0.5 ? broad : 0.0), bevel * broad_or(has_normal, broad));
 	float fine = has_normal > 0.5 ? smoothstep(0.25, 0.5, length(nf.xy)) : 0.0;
 	float vfres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
-	col *= 1.0 - groove * max(seam, fine * 0.6) * m;
+	float mm = max(m, flesh);
+	col *= 1.0 - groove * max(seam, fine * 0.6) * mm;
 	col += edge_hi * (seam * 0.8 + fine * 0.25 + vfres * 0.35) * m * vec3(0.55, 0.57, 0.62);
 	ALBEDO = col;
 	METALLIC = clamp(metal * metal_gain, 0.0, 1.0);
@@ -104,7 +106,7 @@ void fragment() {
 	float pulse = 0.62 + 0.38 * sin(TIME * 2.4) * 0.6 + 0.4 * sin(TIME * 3.1 - UV.y * 6.0) * 0.38;
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	float fres2 = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.6);
-	EMISSION = rune_color * (r * 2.4 + seam_glow * seam * m * 7.0) * pulse + edge_glow * fres
+	EMISSION = rune_color * (r * 2.4 + seam_glow * seam * mm * 7.0) * pulse + edge_glow * fres
 		+ rune_color * blade_glow * fres2 * (0.8 + 0.2 * sin(TIME * 4.0)) + mix(cool_rim, rune_color * 0.22 * pulse, step(0.01, seam_glow)) * fres;
 	RIM = rim_amount;
 	RIM_TINT = 0.35;

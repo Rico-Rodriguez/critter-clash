@@ -36,6 +36,13 @@ func _init() -> void:
 		vp.add_child(r)
 		Gear3D.hide_own(r, id)
 		Gear3D.dress(r, id, {"weapon": t, "armor": t})
+		# Normalise to ~180 units tall (rigs come in cm or m).
+		var hgt := 0.0
+		for mi: MeshInstance3D in r.find_children("*", "MeshInstance3D", true, false):
+			if mi.skin != null:
+				hgt = maxf(hgt, (mi.global_transform * mi.get_aabb()).size.y)
+		if hgt > 0.0 and (hgt < 60.0 or hgt > 400.0):
+			r.scale = Vector3.ONE * (180.0 / hgt)
 		var ap: AnimationPlayer = r.find_children("*", "AnimationPlayer", true, false)[0]
 		ap.play(shot[0])
 		ap.seek(ap.get_animation(shot[0]).length * float(shot[1]), true)

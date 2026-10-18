@@ -144,6 +144,13 @@ const ENTRIES := [
 		"license": "CC-BY 4.0",
 	},
 	{
+		"title": "Ghoul",
+		"used": "Gnash (hero)",
+		"author": "DJMaesen (bumstrum)",
+		"url": "https://sketchfab.com/3d-models/ghoul-f37f43b23fd541df8a2926571acfce70",
+		"license": "CC-BY 4.0",
+	},
+	{
 		"title": "KayKit Adventurers / Skeletons animations",
 		"used": "Knight hero animations (retargeted)",
 		"author": "Kay Lousberg (kaylousberg.com)",

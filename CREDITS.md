@@ -80,6 +80,7 @@ All CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) unless marked CC0. 
 
 - "Paladin" by DJMaesen (bumstrum): https://sketchfab.com/3d-models/paladin-4f1c320f2cec49dc9bf38c6aad2d8ea9 . Used for Aldric, the ashen paladin hero.
 - "Skeleton Lord" by DJMaesen (bumstrum): https://sketchfab.com/3d-models/skeleton-lord-a3f7b44275cf4c489ad62c535268ac16 . Used for Mordrek, the Bone Knight hero (finger grip borrowed from the Paladin rig's rest pose).
+- "Ghoul" by DJMaesen (bumstrum): https://sketchfab.com/3d-models/ghoul-f37f43b23fd541df8a2926571acfce70 . Used for Gnash, the ghoul berserker hero.
 - Animations: KayKit Adventurers and Skeletons character packs by Kay Lousberg (CC0, https://kaylousberg.itch.io/kaykit-adventurers). They are retargeted onto each hero rig by `tools/retarget.gd`.
 - "Reinforced Wooden Shield (game ready asset)" by apariciosilva3D: https://sketchfab.com/3d-models/reinforced-wooden-shield-game-ready-asset-20a4a579371d4b6c86244fad9404a313
 - "Medieval Wood Heater Shield" by iedalton: https://sketchfab.com/3d-models/medieval-wood-heater-shield-2a3aba2c1ef041168fab0c595e2e5882

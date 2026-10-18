@@ -42,6 +42,19 @@ const KITS := {
 		"seam": 0.25,
 		"rune": Color(0.3, 1.0, 0.62),
 	},
+	# Gnash, the Ghoul: a feral berserker. Claws, no held gear; the tiers
+	# show on the hide (pale -> ash-grey -> black-veined -> blood runes).
+	"lumen": {
+		"anims": "res://assets/models/heroes/ghoul/ghoul_anims.res",
+		"hide": [],
+		"main": ["", "", "", ""],
+		"off": ["", "", "", ""],
+		"off_xf": [Vector3.ZERO, Vector3.ZERO],
+		"main_xf": [Vector3.ZERO, Vector3.ZERO],
+		"seam": 0.4,
+		"flesh": true,
+		"rune": Color(1.0, 0.12, 0.1),
+	},
 }
 
 ## Finish per tier: plate tint, soft-material (leather/cloth) tint, wear,
@@ -142,6 +155,13 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			var fm := finish(src, at, cloth)
 			# Busy albedo (ribbed plate) catches more seams: per-kit gain.
 			fm.set_shader_parameter("seam_glow", float(FINISH[at].get("seam", 0.0)) * float(kit.get("seam", 1.0)))
+			if kit.get("flesh", false):
+				# Hide tiers: pale -> ash grey -> charcoal -> blood-veined.
+				var hide_tint: Array = [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)]
+				var ht: Color = hide_tint[at]
+				fm.set_shader_parameter("soft_tint", Vector3(ht.r, ht.g, ht.b))
+				fm.set_shader_parameter("flesh", 1.0)
+				fm.set_shader_parameter("groove", [0.2, 0.6, 0.45, 0.3][at])
 			m.set_surface_override_material(i, fm)
 	var sockets: Dictionary = {}
 	var lib := load(str(kit["anims"])) as AnimationLibrary
