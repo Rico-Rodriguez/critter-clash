@@ -39,6 +39,7 @@ var _punch: Dictionary = {}
 var _actor_sprites: Dictionary = {}
 var _gem_sprites: Dictionary = {}
 var _shot_sprites: Dictionary = {}
+var xp_drops: XpDropLayer
 
 var stage: Stage3D
 var world: Node2D
@@ -110,6 +111,10 @@ func build() -> void:
 	threats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(threats)
 	_build_hud()
+	# OSRS-style XP drops sit above the HUD but below the boss card and modal.
+	xp_drops = XpDropLayer.new()
+	xp_drops.z_index = 1500
+	add_child(xp_drops)
 	minimap = MiniMap.new()
 	minimap.screen = self
 	minimap.visible = false
@@ -665,6 +670,17 @@ func _drain() -> void:
 				var skill_at := GearDB.SKILL_KEYS.find(skill_key)
 				var skill_name := str(GearDB.SKILL_NAMES[skill_at]) if skill_at >= 0 else skill_key.capitalize()
 				_banner("%s %d" % [skill_name, int(ev.get("level", 1))])
+			"skill_level":
+				# A level crossed mid-run; the end-of-run commit still toasts
+				# its skill_up line, this is the in-fight announcement.
+				var mid_skill := str(ev.get("skill", ""))
+				var mid_at := GearDB.SKILL_KEYS.find(mid_skill)
+				var mid_name := str(GearDB.SKILL_NAMES[mid_at]) if mid_at >= 0 else mid_skill.capitalize()
+				_banner("%s %d" % [mid_name, int(ev.get("level", 1))])
+			"xp_drop":
+				# Hidden with damage numbers off (the same readability switch).
+				if bool(AudioDirector.settings.get("damage_numbers", true)):
+					xp_drops.push(str(ev.get("skill", "")), int(ev.get("amount", 0)))
 			"levelup":
 				AudioDirector.sfx("levelup")
 				AudioDirector.duck(-6.0, 0.8)
@@ -2609,6 +2625,91 @@ class ThreatLayer extends Control:
 		draw_colored_polygon(gem, Color("e8462e") if boss else Color("f0a830"))
 		draw_colored_polygon(PackedVector2Array([g + dir * gs, g + side * gs * 0.8, g]), Color(1, 0.85, 0.7, 0.55))
 
+
+
+## OSRS-style XP drops: a short stack pinned to the right edge, below the
+## corner minimap and clear of the boss bar. run_sim owns the numbers and the
+## one-per-second pace; this only draws "+12 Attack" (amount in the skill's
+## accent colour, name in cream), newest on top, rising ~60 px over 1.2 s
+## before it fades. At most four lines are ever on screen. No art. The fade is
+## steady, so it is already gentle with reduce-flashing on; damage numbers off
+## hides the stack entirely (see _drain).
+class XpDropLayer extends Control:
+	const MAX_VISIBLE := 4
+	const RISE := 60.0
+	const LIFE := 1.2
+	const SLOT_H := 34.0
+	## Safe-top offset that clears the minimap (placed at safe top + 196 with a
+	## DIAM of 150), so drops never sit under it or the boss bar.
+	const TOP_CLEAR := 196.0 + 150.0 + 16.0
+	const SKILL_COLORS := {
+		"attack": Color("ef4b4b"),
+		"strength": Color("5dce45"),
+		"defence": Color("3aa0f5"),
+		"ranged": Color("2f7d32"),
+		"magic": Color("a86bff"),
+		"hitpoints": Color("ff7ab0"),
+	}
+	var _drops: Array = []
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		_layout()
+		get_viewport().size_changed.connect(_layout)
+
+	func _layout() -> void:
+		size = get_viewport_rect().size
+		queue_redraw()
+
+	## Adds one drop to the top of the stack, pushing older lines down.
+	func push(skill: String, amount: int) -> void:
+		if amount < 1:
+			return
+		var row := _row(skill, amount)
+		add_child(row)
+		_drops.push_front({"node": row, "age": 0.0})
+		while _drops.size() > MAX_VISIBLE:
+			var old: Dictionary = _drops.pop_back()
+			(old["node"] as Control).queue_free()
+
+	## "+12 Attack": the amount wears the skill's colour, the name stays cream.
+	func _row(skill: String, amount: int) -> Control:
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 6)
+		var col: Color = SKILL_COLORS.get(skill, UiKit.CREAM)
+		var name := skill.capitalize()
+		var at := GearDB.SKILL_KEYS.find(skill)
+		if at >= 0:
+			name = str(GearDB.SKILL_NAMES[at])
+		row.add_child(UiKit.label("+%d" % amount, 24, col, "b", 4))
+		row.add_child(UiKit.label(name, 24, UiKit.CREAM, "b", 4))
+		return row
+
+	func _process(delta: float) -> void:
+		if _drops.is_empty():
+			return
+		var pad := UiKit.safe_insets()
+		var right := size.x - float(pad["r"]) - 22.0
+		var top := float(pad["t"]) + TOP_CLEAR
+		var keep: Array = []
+		var slot := 0
+		for entry in _drops:
+			entry["age"] = float(entry["age"]) + delta
+			var row: Control = entry["node"]
+			var age := float(entry["age"])
+			if not is_instance_valid(row) or age >= LIFE:
+				if is_instance_valid(row):
+					row.queue_free()
+				continue
+			row.reset_size()
+			var y := top + SLOT_H * float(slot) - RISE * (age / LIFE)
+			row.position = Vector2(right - row.size.x, y)
+			row.modulate.a = clampf(1.0 - age / LIFE, 0.0, 1.0)
+			slot += 1
+			keep.append(entry)
+		_drops = keep
 
 
 ## Corner minimap for explore hunts. Fills in as the fog lifts: open ground,

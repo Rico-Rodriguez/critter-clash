@@ -16,7 +16,7 @@ const CHECKS := [
 	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear",
 	"settings", "save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity",
 	"fights", "kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp",
-	"gear_coverage", "skills_screen",
+	"gear_coverage", "skills_screen", "xp_drop",
 ]
 
 
@@ -98,6 +98,8 @@ static func _dispatch(name: String) -> void:
 			_gear_drop_smoke()
 		"skill_xp":
 			_skill_xp_smoke()
+		"xp_drop":
+			_xp_drop_check()
 		"gear_coverage":
 			_gear_coverage_check()
 		"skills_screen":
@@ -1810,6 +1812,110 @@ static func _skills_screen_check() -> void:
 	GearDB.store_override = keep_store
 	SaveGame.no_write = keep_nowrite
 	print("SKILLS ok: combat vectors 1/126/113, view-only picker, level-20 unlock, all open at 40")
+
+
+## XP drops: a seeded RunBot fight announces each skill's XP as it is earned.
+## The drop amounts must sum to exactly what the commit writes (same rounding),
+## a skill never drops twice inside one second, and the mid-run skill_level
+## events are monotonic and reach exactly the committed levels. Runs on a
+## scratch armory (store_override = {}) so the player's save never moves.
+static func _xp_drop_check() -> void:
+	var prev_override: Variant = GearDB.store_override
+	var prev_nowrite: bool = SaveGame.no_write
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+	var hero := "pebble"
+	# Park the hero a sliver below a few level-ups so the run crosses real
+	# levels mid-fight; the crossings, not the numbers, are under test.
+	GearDB.add_xp(hero, "attack", GearDB.xp_for_level(2) - 1)
+	GearDB.add_xp(hero, "strength", GearDB.xp_for_level(2) - 1)
+	GearDB.add_xp(hero, "hitpoints", GearDB.xp_for_level(11) - 1)
+	var base := {}
+	for skill in GearDB.SKILL_KEYS:
+		base[skill] = GearDB.xp(hero, skill)
+	var sim := _sim("meadow", hero, 11)
+	var mem := {}
+	var drops := {}
+	var last_t := {}
+	var levels := {}
+	var guard := 0
+	while sim.result == "" and sim.kills < 8 and guard < 60 * 60:
+		guard += 1
+		if sim.paused and sim.offer.size() > 0:
+			sim.choose(_best(sim))
+		if sim.paused and sim.offer.is_empty():
+			break
+		var mv := RunBot.explore_steer(sim, 0, mem) if sim.explore else RunBot.steer(sim, 0)
+		sim.step(1.0 / 60.0, [mv])
+		_collect_xp_drops(sim.drain_events(), drops, last_t, levels)
+	# Flush whatever sat between the last drop and the end, then drain it too.
+	sim._flush_xp_drops(true)
+	_collect_xp_drops(sim.drain_events(), drops, last_t, levels)
+	# The fight itself must not have written GearDB: only the scratch seed is there.
+	for skill in GearDB.SKILL_KEYS:
+		if GearDB.xp(hero, skill) != int(base[skill]):
+			_fail("run_sim wrote GearDB xp for " + skill)
+	# Sum of drops == committed amounts, per skill, exactly.
+	var raw: Dictionary = sim.skill_xp.get(hero, {})
+	var total := 0
+	var any := false
+	for skill in GearDB.SKILL_KEYS:
+		var committed := int(round(float(raw.get(skill, 0.0))))
+		if committed <= 0:
+			continue
+		any = true
+		total += committed
+		if int(drops.get(skill, 0)) != committed:
+			_fail("%s drops sum %d, committed %d" % [skill, int(drops.get(skill, 0)), committed])
+	if not any:
+		_fail("the seeded fight trained no skill XP")
+	# Committing writes exactly those amounts and reaches those levels.
+	sim._commit_skill_xp()
+	for skill in GearDB.SKILL_KEYS:
+		var committed := int(round(float(raw.get(skill, 0.0))))
+		var base_lvl := GearDB.level_for_xp(int(base[skill]))
+		if GearDB.xp(hero, skill) != int(base[skill]) + committed:
+			_fail("commit wrote %s xp %d, expected %d" % [skill, GearDB.xp(hero, skill), int(base[skill]) + committed])
+		var reached := GearDB.level(hero, skill)
+		var expect_level := GearDB.level_for_xp(int(base[skill]) + committed)
+		if reached != expect_level:
+			_fail("%s committed level %d, expected %d" % [skill, reached, expect_level])
+		var seq: Array = levels.get(skill, [])
+		if not seq.is_empty():
+			if int(seq[0]) != base_lvl + 1:
+				_fail("%s first announced level %d, expected %d" % [skill, int(seq[0]), base_lvl + 1])
+			if int(seq[-1]) != reached:
+				_fail("%s last announced level %d, committed %d" % [skill, int(seq[-1]), reached])
+	if levels.is_empty():
+		_fail("no skill_level crossed during the seeded fight")
+	GearDB.store_override = prev_override
+	SaveGame.no_write = prev_nowrite
+	print("XP drops ok: %d xp over %d skills" % [total, drops.size()])
+
+
+## Folds one event drain into the drop and level tallies, failing on a drop
+## tighter than one second or a skill_level that repeats or skips.
+static func _collect_xp_drops(evs: Array, drops: Dictionary, last_t: Dictionary, levels: Dictionary) -> void:
+	for ev in evs:
+		var kind := str(ev.get("type", ""))
+		if kind == "xp_drop":
+			var skill := str(ev.get("skill", ""))
+			var amount := int(ev.get("amount", 0))
+			if amount < 1:
+				_fail("xp_drop with amount " + str(amount))
+			var t := float(ev.get("t", 0.0))
+			if last_t.has(skill) and t - float(last_t[skill]) < 1.0 - 0.0001:
+				_fail("%s had two drops %.3fs apart" % [skill, t - float(last_t[skill])])
+			last_t[skill] = t
+			drops[skill] = int(drops.get(skill, 0)) + amount
+		elif kind == "skill_level":
+			var skill := str(ev.get("skill", ""))
+			var level := int(ev.get("level", 0))
+			var seq: Array = levels.get(skill, [])
+			if not seq.is_empty() and level != int(seq[-1]) + 1:
+				_fail("%s skill_level jumped %d -> %d" % [skill, int(seq[-1]), level])
+			seq.append(level)
+			levels[skill] = seq
 
 
 ## Total XP held in the current GearDB store (a scratch armory in tests).

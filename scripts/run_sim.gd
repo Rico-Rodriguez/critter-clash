@@ -117,6 +117,21 @@ var kills := 0
 ## when the run commits). No GearDB writes happen during the fight; bank_gear()
 ## writes them once at run end. See SKILL_XP_SCALE for the OSRS scale-down.
 var skill_xp := {}
+## OSRS-style XP drops: the run's committed combat XP is announced to the HUD a
+## skill at a time, at most once per XP_DROP_INTERVAL of sim time, using the
+## same rounded totals _commit_skill_xp will write (so the drops always sum to
+## what is committed). Keyed by skill, never by hero id. _xp_drop_time holds the
+## sim time the drop's window closed, for the one-per-second spacing.
+const XP_DROP_INTERVAL := 1.0
+var _xp_drop_total := {}
+var _xp_drop_time := {}
+## Skill levels already announced this run, seeded from GearDB at start() so
+## only levels crossed mid-run fire a skill_level event. _skill_base_xp is the
+## run hero's GearDB XP before the fight; _skill_run_seen caches the last round
+## of its run tally so level_for_xp is not recomputed every step.
+var _skill_level := {}
+var _skill_base_xp := {}
+var _skill_run_seen := {}
 var boss_mark := 0
 ## True once the boss has opened with its first attack; only that first
 ## telegraph waits until the boss shares the hero's view.
@@ -378,6 +393,7 @@ func start(session: Session, stats_for: Dictionary) -> void:
 		var id := str(session.hero_ids[i])
 		var stats: Dictionary = stats_for.get(id, Catalog.base_stats(id))
 		_spawn_hero(id, stats, i)
+	_begin_skill_tracking()
 
 
 func step(dt: float, moves: Array) -> void:
@@ -430,6 +446,7 @@ func step(dt: float, moves: Array) -> void:
 		_step_spawns(dt)
 	_step_gear_pickups()
 	_enrage_and_timeout()
+	_flush_xp_drops(result != "")
 	_compact()
 
 
@@ -437,6 +454,79 @@ func drain_events() -> Array:
 	var out := events
 	events = []
 	return out
+
+
+## Reads the run hero's GearDB XP once, so mid-run level crosses can be
+## announced from GearDB's totals plus the run's own tally. Read-only: no
+## GearDB write ever happens here (the commit still owns the one write).
+func _begin_skill_tracking() -> void:
+	_skill_base_xp = {}
+	_skill_level = {}
+	_skill_run_seen = {}
+	_xp_drop_total = {}
+	_xp_drop_time = {}
+	if heroes.is_empty():
+		return
+	var id := str(heroes[0].sprite)
+	for skill in GearDB.SKILL_KEYS:
+		var held := GearDB.xp(id, skill)
+		_skill_base_xp[skill] = held
+		_skill_level[skill] = GearDB.level_for_xp(held)
+
+
+## Emits xp_drop events for the XP a skill has earned since its last drop. A
+## periodic call only fires once XP_DROP_INTERVAL has passed; the final call
+## (run end or commit) flushes the remainder, so the drops always total the
+## committed XP exactly. The event carries "t", the sim time the drop's window
+## closed (the final flush is dated at its interval boundary so spacing holds).
+func _flush_xp_drops(final: bool) -> void:
+	if heroes.is_empty():
+		return
+	for skill in GearDB.SKILL_KEYS:
+		var target := _skill_run_target(skill)
+		var emitted := int(_xp_drop_total.get(skill, 0))
+		var delta := target - emitted
+		if delta < 1:
+			continue
+		var last := float(_xp_drop_time.get(skill, -XP_DROP_INTERVAL))
+		if not final and time - last < XP_DROP_INTERVAL:
+			continue
+		var at := time
+		if final:
+			at = maxf(time, last + XP_DROP_INTERVAL)
+		_xp_drop_total[skill] = target
+		_xp_drop_time[skill] = at
+		events.append({"type": "xp_drop", "skill": skill, "amount": delta, "t": at})
+	_flush_skill_levels()
+
+
+## The XP a skill will have committed, summed across every hero that trained it
+## and rounded exactly as _commit_skill_xp does.
+func _skill_run_target(skill: String) -> int:
+	var total := 0
+	for id in skill_xp:
+		total += int(round(float(skill_xp[id].get(skill, 0.0))))
+	return total
+
+
+## Announces each level the run hero crosses mid-fight (GearDB's XP plus the
+## run tally so far), once per level. Levels are computed, never written.
+func _flush_skill_levels() -> void:
+	if heroes.is_empty():
+		return
+	var id := str(heroes[0].sprite)
+	var row: Dictionary = skill_xp.get(id, {})
+	for skill in GearDB.SKILL_KEYS:
+		var amount := int(round(float(row.get(skill, 0.0))))
+		if amount == int(_skill_run_seen.get(skill, -1)):
+			continue
+		_skill_run_seen[skill] = amount
+		var reached := GearDB.level_for_xp(int(_skill_base_xp.get(skill, 0)) + amount)
+		var seen := int(_skill_level.get(skill, reached))
+		while reached > seen:
+			seen += 1
+			_skill_level[skill] = seen
+			events.append({"type": "skill_level", "skill": skill, "level": seen})
 
 
 ## Daily modifier lookup; a modifier may be a name string or a {id, name} dict.
@@ -2357,6 +2447,8 @@ func _rage() -> float:
 func _halt() -> bool:
 	if paused or result != "":
 		_compact()
+		if result != "":
+			_flush_xp_drops(true)
 		return true
 	return false
 
@@ -2915,6 +3007,7 @@ func bank_gear() -> Array[String]:
 ## still trains; only the gear is halved. Runs from bank_gear so a second
 ## commit is a no-op.
 func _commit_skill_xp() -> void:
+	_flush_xp_drops(true)
 	for hero_id in skill_xp:
 		var row: Dictionary = skill_xp[hero_id]
 		for skill in GearDB.SKILL_KEYS:
