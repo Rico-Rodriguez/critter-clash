@@ -319,7 +319,7 @@ const BIOMES: Array = [
 		"dmg_mul": 1.0,
 		"boss_mul": 1.0,
 		"skins": ["sprout", "beetle", "moth", "boarlet"],
-		"blurb": "Sun on the grass. Thistle keeps the flowers.",
+		"blurb": "Grey grass over old barrows. Gravemaw feeds below.",
 	},
 	{
 		"id": "mushroom",
@@ -485,8 +485,8 @@ const CRITTERS: Dictionary = {
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 4,
 	},
 	"thistle": {
-		"name": "Thistle", "role": "tank", "kind": "boss", "color": "c46b8a",
-		"blurb": "Meadow boss. A flower-crowned boar.",
+		"name": "Gravemaw", "role": "tank", "kind": "boss", "color": "c46b8a",
+		"blurb": "Meadow boss. A barrow troll gorged on the dead, an ember burning in its chest.",
 		"unlock": "Meadow boss.",
 		"hp": 252, "dmg": 23, "interval": 0.48, "range": 118, "speed": 232,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 3,
@@ -604,7 +604,7 @@ const SKILLS: Array = [
 
 const SLAYER_TASKS: Array = [
 	{"id": "meadow_critters", "text": "Defeat 40 Meadow beasts", "biome": "meadow", "kind": "minion", "need": 40, "points": 25},
-	{"id": "thistle_task", "text": "Defeat Thistle", "biome": "meadow", "kind": "boss", "need": 1, "points": 40},
+	{"id": "thistle_task", "text": "Defeat Gravemaw", "biome": "meadow", "kind": "boss", "need": 1, "points": 40},
 	{"id": "mushroom_critters", "text": "Defeat 50 Mushroom beasts", "biome": "mushroom", "kind": "minion", "need": 50, "points": 30},
 	{"id": "caplet_task", "text": "Defeat Caplet", "biome": "mushroom", "kind": "boss", "need": 1, "points": 50},
 	{"id": "frost_critters", "text": "Defeat 50 Frost beasts", "biome": "frost", "kind": "minion", "need": 50, "points": 35},

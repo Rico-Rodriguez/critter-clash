@@ -2044,6 +2044,8 @@ func _spawn_model(sprite: String, meters: float) -> Node3D:
 		Armor3D.glow_eyes(model, Cast3D.feral_color(sprite))
 	root.set_meta("model_base", model.position)
 	root.set_meta("meters", meters)
+	if BossLook.has(sprite):
+		BossLook.dress(model, sprite)
 	# No real run clip (or none at all): the procedural gait hops it along.
 	var has_run := false
 	if player != null:

@@ -46,8 +46,15 @@ const ENTRIES := [
 		"license": "CC-BY 4.0",
 	},
 	{
+		"title": "Troll Cave",
+		"used": "Gravemaw, the meadow lair boss",
+		"author": "Vasian-Digital3D",
+		"url": "https://sketchfab.com/3d-models/troll-cave-16eabe8c1e244bc99d87c181a907c58f",
+		"license": "CC-BY 4.0",
+	},
+	{
 		"title": "Mushroom Boss — game ready with animations",
-		"used": "Thistle",
+		"used": "Former meadow boss (fallback only)",
 		"author": "iamjohnhult",
 		"url": "https://sketchfab.com/3d-models/mushroom-boss-game-ready-with-animations-ee611e4925e94a98baa4cfd3d89d3449",
 		"license": "CC-BY 4.0",
@@ -145,7 +152,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "KayKit Adventurers / Skeletons animations",
-		"used": "Knight hero animations (retargeted)",
+		"used": "Knight hero animations; Gravemaw death clip (retargeted)",
 		"author": "Kay Lousberg (kaylousberg.com)",
 		"url": "https://kaylousberg.itch.io/kaykit-adventurers",
 		"license": "CC0",

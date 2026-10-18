@@ -120,6 +120,9 @@ static func monster(id: String) -> String:
 static func model(id: String) -> String:
 	if HEROES.has(id):
 		return HEROES[id]
+	if BossLook.has(id):
+		# Grimdark lair bosses (scripts/boss_look.gd).
+		return BossLook.scene(id)
 	var dk := dark(id)
 	if dk != "" and ResourceLoader.exists("res://assets/models/sketchfab/dark/%s.glb" % dk):
 		return "res://assets/models/sketchfab/dark/%s.glb" % dk
@@ -193,6 +196,8 @@ static func family(id: String) -> String:
 static func clips(id: String) -> Dictionary:
 	if HEROES.has(id):
 		return HERO_CLIPS
+	if BossLook.has(id):
+		return BossLook.clips(id)
 	var path := model(id)
 	if "/sketchfab/dark/" in path:
 		return DARK_CLIPS[dark(id)]
@@ -240,6 +245,9 @@ static func clips(id: String) -> Dictionary:
 static func pbr(id: String) -> Dictionary:
 	if HEROES.has(id):
 		# Gear3D owns the knights' materials (tier finish shader).
+		return {}
+	if BossLook.has(id):
+		# BossLook.dress() owns the lair bosses' materials.
 		return {}
 	var path := model(id)
 	if "/sketchfab/dark/" in path:
@@ -324,6 +332,8 @@ static func pbr(id: String) -> Dictionary:
 ## rest pose spreads its wings flat, but it flies with them raised, so it
 ## came out about half the height of the ring under it.
 static func size_boost(id: String) -> float:
+	if BossLook.has(id):
+		return BossLook.size_boost(id)
 	if model(id).ends_with("sketchfab/ember.glb"):
 		return 1.6
 	# Dark quadrupeds are sized by height, so long low bodies need a nudge:
@@ -343,7 +353,7 @@ static func tint(id: String) -> Color:
 	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
 	# catalog color.
 	var path := model(id)
-	if HEROES.has(id) or "/sketchfab/dark/" in path:
+	if HEROES.has(id) or "/sketchfab/dark/" in path or BossLook.has(id):
 		return Color.WHITE
 	if "/sketchfab/mon/" in path:
 		return SKETCH_TINT.get(id, Color.WHITE)
@@ -376,7 +386,7 @@ static func nose(id: String) -> float:
 	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
 	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
 	var path := model(id)
-	if HEROES.has(id):
+	if HEROES.has(id) or BossLook.has(id):
 		return 0.0
 	if dark(id) == "badger":
 		# Measured from the rig (pelvis -> head) at spawn; the badger's rest
@@ -438,6 +448,9 @@ static func head_share(id: String) -> float:
 	if HEROES.has(id):
 		# Horned great helm: the top fifth reads as the knight's face.
 		return 0.24
+	if BossLook.has(id):
+		# Hunched brutes: the head sits in the top third, forward of the chest.
+		return 0.34
 	if model(id) == EMBER_CUTE:
 		return 0.6
 	match family(id):

@@ -34,7 +34,7 @@ The collection log lists every drop and pet, 48 in all. Unobtained pictures are 
 
 ## Slayer
 
-The slayer master offers tasks such as "Defeat 40 Meadow critters" or "Defeat Thistle". Progress counts the critters you defeat in that biome, and a boss task counts that boss. Turning a task in pays slayer points plus 5 points for each task already in the streak. Cancelling a task resets the streak. The points shop sells a rare charm, a trail ribbon for the home pedestal, and a hunt chest.
+The slayer master offers tasks such as "Defeat 40 Meadow critters" or "Defeat Gravemaw". Progress counts the critters you defeat in that biome, and a boss task counts that boss. Turning a task in pays slayer points plus 5 points for each task already in the streak. Cancelling a task resets the streak. The points shop sells a rare charm, a trail ribbon for the home pedestal, and a hunt chest.
 
 ## Skills
 
@@ -51,7 +51,7 @@ Foraging, Fishing, Taming, and Crafting are saved as XP. Levels run from 1 to 99
 | Pip, frog | Mage | Trophy road |
 | Bramble, hedgehog | Tank | Trophy road |
 
-Thistle, Caplet, Nimbus, and Cinder are bosses. They stay in the world.
+Gravemaw (a corrupted barrow troll, id `thistle`), Caplet, Nimbus, and Cinder are bosses. They stay in the world.
 
 ## World and the road
 

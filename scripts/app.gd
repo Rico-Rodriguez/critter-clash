@@ -369,7 +369,7 @@ func _capture() -> void:
 		await _settle()
 		await _shot("rare")
 		if _wants("victory"):
-			current._show_victory("Thistle")
+			current._show_victory(str(Catalog.critter("thistle")["name"]))
 			await get_tree().create_timer(2.6 if not current._spoils().is_empty() else 0.8).timeout
 			await _shot("victory")
 		if _wants("drawer"):
@@ -466,3 +466,9 @@ func _shot(shot_name: String) -> void:
 	if image == null:
 		return
 	image.save_png("%s/%s.png" % [_shot_dir, shot_name])
+	# Frame budget for the shot (all viewports): compare with the 150 draw /
+	# 300k triangle target.
+	print("PERF %s draws=%d prims=%d objects=%d" % [shot_name,
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
+		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
