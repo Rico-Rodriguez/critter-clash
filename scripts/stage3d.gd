@@ -62,6 +62,7 @@ var _props: Array = []
 var _contacts: Array[Vector3] = []
 var _xray_mat: ShaderMaterial
 var _hero_key: OmniLight3D
+var _hero_rim: OmniLight3D
 var _bolt := Color(0, 0, 0, 0)
 var _occl_hit := false
 var _xray := 0.0
@@ -250,6 +251,8 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 			_step_dust(body, actor, sim)
 			if is_instance_valid(_hero_key):
 				_hero_key.global_position = hero_at + Vector3(1.6, 4.2, 3.4)
+			if is_instance_valid(_hero_rim):
+				_hero_rim.global_position = hero_at + Vector3(-2.2, 3.6, -2.8)
 	var boss_up := false
 	var boss_at := Vector3.ZERO
 	for actor in sim.actors:
@@ -1387,8 +1390,22 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 			# Dark plate on dark ground: a steel-blue hairline, a cool
 			# fresnel rim in the armour shader and a soft key light that
 			# follows the hero (no shadows, short range).
-			_outline(body, Color("34445a"), 0.011)
-			Gear3D.set_rim(body, Color(0.12, 0.2, 0.3))
+			# Crisp light-steel keyline + stronger cool fresnel: the knight
+			# never melts into brown paths, bare leather included.
+			_outline(body, Color("7f9cc4"), 0.013)
+			Gear3D.set_rim(body, Color(0.22, 0.34, 0.5))
+			if not is_instance_valid(_hero_rim):
+				# Cool back light (hero layer only): steel speculars on the
+				# shoulders and helm edge, the way a moonlit rim reads.
+				_hero_rim = OmniLight3D.new()
+				_hero_rim.light_color = Color("9cc4ff")
+				_hero_rim.light_energy = 3.2
+				_hero_rim.omni_range = 7.0
+				_hero_rim.omni_attenuation = 1.1
+				_hero_rim.light_specular = 1.6
+				_hero_rim.shadow_enabled = false
+				_hero_rim.light_cull_mask = 1 << 19
+				world_root.add_child(_hero_rim)
 			if not is_instance_valid(_hero_key):
 				_hero_key = OmniLight3D.new()
 				_hero_key.light_color = Color("fff1dc")
@@ -3383,7 +3400,7 @@ func _open_around(hero: Vector3) -> void:
 			if hs != Vector2.INF and prop.position.z > hero.z - 1.0:
 				var crown := camera.unproject_position(prop.position + Vector3(0, 2.2 * prop.scale.y, 0))
 				var d := crown.distance_to(hs)
-				want = clampf(1.0 - (d - reach * 0.5) / reach, 0.0, 1.0) * 0.85
+				want = clampf(1.0 - (d - reach * 0.5) / reach, 0.0, 1.0)
 			var cur := float(prop.get_meta("fade", 0.0))
 			if absf(cur - want) > 0.005:
 				cur = move_toward(cur, want, 0.06)
@@ -3911,8 +3928,8 @@ func _fade_occluders(hero: Vector3) -> void:
 	var reach: float = (viewport.size.x if viewport != null else 1179.0) * 0.24
 	var want := {}
 	var c := Vector2i(int(floor(hero.x / OCCL_CELL)), int(floor(hero.z / OCCL_CELL)))
-	for dx in range(-3, 4):
-		for dz in range(-1, 6):
+	for dx in range(-4, 5):
+		for dz in range(-1, 9):
 			for e in _occl.get(c + Vector2i(dx, dz), []):
 				var at: Vector3 = e[0]
 				if at.z < hero.z - 0.5:
@@ -3923,7 +3940,11 @@ func _fade_occluders(hero: Vector3) -> void:
 				var b := camera.unproject_position(at + Vector3(0, h, 0))
 				var ab := b - a
 				var t := clampf((hs - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
-				if (a + ab * t).distance_to(hs) < reach:
+				# Crowns are wide: a tree whose trunk is off to the side can
+				# still spread its canopy over the hero. Widen by the crown's
+				# on-screen radius (about a third of the tree's height).
+				var crown_px := absf(b.y - camera.unproject_position(at + Vector3(0, h * 0.62, 0)).y)
+				if (a + ab * t).distance_to(hs) < reach + crown_px * 0.9:
 					want[e] = true
 	_occl_hit = not want.is_empty()
 	for e in want:
@@ -3934,7 +3955,7 @@ func _fade_occluders(hero: Vector3) -> void:
 		# Fully clear over the hero: a hashed 10-30% ghost reads as noise
 		# over dark plate at phone size.
 		var to := 0.0 if want.has(e) else 1.0
-		var nxt := move_toward(cur, to, 0.08)
+		var nxt := move_toward(cur, to, 0.14)
 		mm.set_instance_color(e[3], Color(1, 1, 1, nxt))
 		if nxt >= 1.0 and not want.has(e):
 			_occl_faded.erase(e)
