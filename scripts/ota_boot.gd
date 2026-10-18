@@ -278,6 +278,8 @@ static func _read_text(path: String) -> String:
 
 
 static func _read_json(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
 	var v: Variant = JSON.parse_string(_read_text(path))
 	return v if v is Dictionary else {}
 
