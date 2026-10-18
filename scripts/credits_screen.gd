@@ -193,6 +193,13 @@ const ENTRIES := [
 		"license": "CC-BY 4.0",
 	},
 	{
+		"title": "Ancient Pauldron",
+		"used": "Runebound-tier shoulder plates",
+		"author": "Ciarán Wilson",
+		"url": "https://sketchfab.com/3d-models/ancient-pauldron-8c5cd28345ce487d93c46cb94101fce3",
+		"license": "CC-BY 4.0",
+	},
+	{
 		"title": "Ultimate Monsters",
 		"used": "Every wild enemy and lair boss",
 		"author": "Quaternius",

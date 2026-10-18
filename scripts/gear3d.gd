@@ -53,6 +53,22 @@ static func _stripped(src: ArrayMesh, t: Dictionary, kit: Dictionary) -> ArrayMe
 	var cut_y := ab.position.y + ab.size.y * cut if cut > 0.0 else 1e9
 	var hat_max := int(kit.get("helm_cut_max", 1))
 	var cut_bare: Array = kit.get("cut_bare", [])
+	# Bone-level cuts: {slot index: [[max tier, bone substrings...], ...]}:
+	# vertices led by a matching bone vanish while that slot is at or below
+	# max tier (Corvin's robe, shoulder plates, hat brim...).
+	var bone_cut := PackedByteArray()
+	var bcuts: Dictionary = kit.get("bone_cuts", {})
+	var bnames: PackedStringArray = src.get_meta("bind_names", PackedStringArray())
+	bone_cut.resize(bnames.size() + 1)
+	for bi in bnames.size():
+		for sl_i in bcuts:
+			for rule: Array in bcuts[sl_i]:
+				if tier[int(sl_i)] <= int(rule[0]):
+					for sub in rule.slice(1):
+						if str(sub) in bnames[bi]:
+							bone_cut[bi + 1] = 1
+	# Bare hooded head: keep the whole helm stub (it becomes the hood).
+	var hooded: bool = kit.get("hood", false) and tier[0] == 0
 	var out := ArrayMesh.new()
 	for si in src.get_surface_count():
 		var arrays := src.surface_get_arrays(si)
@@ -74,37 +90,58 @@ static func _stripped(src: ArrayMesh, t: Dictionary, kit: Dictionary) -> ArrayMe
 			var sl := clampi(int(c.r * 7.0 + 0.5), 0, 7)
 			vslot[v] = sl
 			var k := false
-			if tier[sl] <= 1:
+			if tier[sl] <= (hat_max if sl == 0 else 1):
 				if float(strip[sl]) > 0.0 and c.g * 0.5 > float(strip[sl]) and (sl != 2 or c.b - 0.5 > float(kit.get("pauldron_lift", -9.0))):
 					k = true
-				if sl == 0 and (c.b - 0.5) > top:
-					k = true
-			if tier[0] <= hat_max and verts[v].y > cut_y and (sl == 0 or cut_bare.is_empty()):
+				pass
+			if sl == 0 and tier[0] <= hat_max and (c.b - 0.5) > top:
 				k = true
+			if tier[0] <= hat_max and verts[v].y > cut_y and (sl == 0 or cut_bare.is_empty()) and not (hooded and sl == 0):
+				k = true
+			if hooded and sl == 0 and (c.b - 0.5) <= top and verts[v].y <= cut_y:
+				k = false
 			if tier[sl] == 0 and cut_bare.has(sl):
+				k = true
+			var bidx := int(round(c.a * 1024.0))
+			if bidx > 0 and bidx < bone_cut.size() and bone_cut[bidx] == 1:
 				k = true
 			if SOLO >= 0 and sl != SOLO:
 				k = true
 			kill[v] = 1 if k else 0
-		var groups := [PackedInt32Array(), PackedInt32Array(), PackedInt32Array()]
+		var hood: bool = kit.get("hood", false)
+		var wraps: Array = kit.get("wrap_slots", [])
+		var groups := [PackedInt32Array(), PackedInt32Array(), PackedInt32Array(), PackedInt32Array(), PackedInt32Array()]
 		for tri in range(0, idx.size(), 3):
 			var i0 := idx[tri]
 			var i1 := idx[tri + 1]
 			var i2 := idx[tri + 2]
 			if kill[i0] == 1 or kill[i1] == 1 or kill[i2] == 1:
 				continue
-			var tt := tier[vslot[i0]]
+			var sl0 := vslot[i0]
+			var tt := tier[sl0]
 			var g := 0 if tt == 0 else (2 if tt == 3 else 1)
+			if g == 0 and hood and sl0 == 0:
+				g = 3
+			elif g == 0 and wraps.has(sl0):
+				g = 4
 			groups[g].append_array([i0, i1, i2])
-		for g in 3:
+		for g in 5:
 			if (groups[g] as PackedInt32Array).is_empty():
 				continue
-			arrays[Mesh.ARRAY_INDEX] = groups[g]
-			out.add_surface_from_arrays(src.surface_get_primitive_type(si), arrays, [], {}, fmt)
+			var arr2 := arrays.duplicate()
+			arr2[Mesh.ARRAY_INDEX] = groups[g]
+			if g == 3:
+				_hood_morph(arr2, groups[g], kit)
+			out.add_surface_from_arrays(src.surface_get_primitive_type(si), arr2, [], {}, fmt)
 			var m2: Material = _opaque(mat)
-			if g == 0 and kit.has("under"):
-				m2 = _gambeson(mat as BaseMaterial3D, kit)
-			elif g == 2:
+			if kit.has("under"):
+				if g == 0:
+					m2 = _cloth_mat("quilt", kit)
+				elif g == 3:
+					m2 = _cloth_mat("hood", kit)
+				elif g == 4:
+					m2 = _cloth_mat("wrap", kit)
+			if g == 2:
 				m2 = _rune_lit(mat, kit)
 			out.surface_set_material(out.get_surface_count() - 1, m2)
 	_strip_cache[key] = out
@@ -128,6 +165,131 @@ static func _opaque(mat: Material) -> Material:
 		o.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
 		_opaque_cache[k] = o
 	return _opaque_cache[k]
+
+
+## Bare head: the boxy helm stub is pulled onto an ellipsoid round the head
+## (a padded linen hood) with a recessed, shadowed face opening. Works on
+## this surface's own vertex copy, blended in above the neck.
+static func _hood_morph(arr: Array, idx: PackedInt32Array, kit: Dictionary) -> void:
+	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var nrm: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var used := {}
+	for i in idx:
+		used[i] = true
+	if used.is_empty():
+		return
+	var box := AABB()
+	var first := true
+	for i in used:
+		if first:
+			box = AABB(verts[i], Vector3.ZERO)
+			first = false
+		else:
+			box = box.expand(verts[i])
+	var c := box.get_center()
+	var rad := box.size * 0.5 * Vector3(0.8, 0.9, 0.84)
+	rad = rad.max(Vector3.ONE * 0.0001)
+	var fwd: Vector3 = kit.get("fwd", Vector3(0, 0, 1))
+	var neck := box.position.y + box.size.y * 0.12
+	var cols := PackedColorArray()
+	cols.resize(verts.size())
+	cols.fill(Color(1, 1, 1))
+	for i in used:
+		var p := verts[i]
+		var d := (p - c) / rad
+		if d.length() < 0.0001:
+			continue
+		var dn := d.normalized()
+		var w := smoothstep(neck, neck + box.size.y * 0.3, p.y)
+		var face := dn.dot(fwd) > 0.5 and dn.y < 0.45 and dn.y > -0.6
+		var target := c + dn * rad * (0.72 if face else 1.0)
+		verts[i] = p.lerp(target, w)
+		var n2 := (dn / rad).normalized()
+		if nrm.size() > i:
+			nrm[i] = nrm[i].lerp(n2, w).normalized()
+		if face and w > 0.5:
+			cols[i] = Color(0.06, 0.05, 0.05)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_NORMAL] = nrm
+	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_TANGENT] = null
+
+
+static var _cloth_cache := {}
+static var _cloth_tex := {}
+
+## Quilted gambeson / linen hood / cloth wraps for bare slots: a small
+## generated textile (diamond quilting, or diagonal wrap bands) mapped
+## triplanar, so the baked plate engraving no longer shows through.
+static func _cloth_mat(kind: String, kit: Dictionary) -> Material:
+	var key := kind + str(kit.get("under"))
+	if _cloth_cache.has(key):
+		return _cloth_cache[key]
+	var m := StandardMaterial3D.new()
+	var tint: Color = kit.get("under", Color(0.44, 0.37, 0.29))
+	if kind == "wrap":
+		tint = kit.get("wrap", Color(0.66, 0.6, 0.5))
+	elif kind == "hood":
+		tint = kit.get("hood_col", tint.lightened(0.08))
+	var pat := "wrap" if kind == "wrap" else "quilt"
+	m.albedo_color = tint
+	m.albedo_texture = _textile(pat, false)
+	m.normal_enabled = true
+	m.normal_texture = _textile(pat, true)
+	m.normal_scale = 1.0
+	m.roughness = 0.93
+	m.metallic = 0.0
+	m.uv1_triplanar = true
+	m.uv1_scale = Vector3.ONE * float(kit.get("quilt_scale", 0.09 if pat == "quilt" else 0.16))
+	m.uv1_triplanar_sharpness = 4.0
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	if kind == "hood":
+		m.vertex_color_use_as_albedo = true
+	_cloth_cache[key] = m
+	return m
+
+
+static func _textile(pat: String, normal: bool) -> Texture2D:
+	var key := pat + str(normal)
+	if _cloth_tex.has(key):
+		return _cloth_tex[key]
+	const N := 128
+	var hgt := PackedFloat32Array()
+	hgt.resize(N * N)
+	for y in N:
+		for x in N:
+			var u := float(x) / N
+			var v := float(y) / N
+			var h := 0.0
+			if pat == "quilt":
+				# Diamond quilting: puffed cells, sunk stitch lines.
+				var a := absf(fposmod(u + v, 0.5) - 0.25) / 0.25
+				var b := absf(fposmod(u - v, 0.5) - 0.25) / 0.25
+				h = smoothstep(0.0, 0.35, minf(a, b) * 0.0 + minf(1.0 - a, 1.0 - b))
+				h = sqrt(clampf(h, 0.0, 1.0))
+			else:
+				# Linen wraps: diagonal bands with a weave ripple.
+				var w := fposmod(v * 4.0 + u * 1.0, 1.0)
+				h = smoothstep(0.0, 0.12, w) * smoothstep(1.0, 0.82, w)
+				h *= 0.85 + 0.15 * sin(u * TAU * 24.0)
+			hgt[y * N + x] = h
+	var img := Image.create(N, N, false, Image.FORMAT_RGBA8)
+	for y in N:
+		for x in N:
+			var h := hgt[y * N + x]
+			if normal:
+				var dx := hgt[y * N + (x + 1) % N] - hgt[y * N + (x - 1 + N) % N]
+				var dy := hgt[((y + 1) % N) * N + x] - hgt[((y - 1 + N) % N) * N + x]
+				var n := Vector3(-dx * 2.2, -dy * 2.2, 1.0).normalized()
+				img.set_pixel(x, y, Color(n.x * 0.5 + 0.5, n.y * 0.5 + 0.5, n.z * 0.5 + 0.5))
+			else:
+				var g := 0.62 + 0.38 * h
+				var fleck := 0.97 + 0.03 * sin(float(x * 7 + y * 13))
+				img.set_pixel(x, y, Color(g * fleck, g * fleck, g * fleck))
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	_cloth_tex[key] = tex
+	return tex
 
 
 static var _gambeson_cache := {}
@@ -189,7 +351,7 @@ const KITS := {
 		"anims": "res://assets/models/heroes/paladin/paladin_anims.res",
 		"hide": ["BastardScabbard", "swordscabbard", "shortsword", "bastardsword"],
 		# Bare = empty-handed; the first sword is an earned piece.
-		"main": ["", "own:bastardsword", "own:bastardsword", "gear:blade_oarimaar"],
+		"main": ["", "own:shortsword", "own:bastardsword", "gear:blade_oarimaar"],
 		# Bare slots strip the baked plate (x hero height from the bone axis):
 		# helm, chest, pauldrons, gloves, boots, weapon, offhand, charm.
 		"strip": [0.07, 0.0, 0.07, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -197,10 +359,23 @@ const KITS := {
 		"helm_cut": 0.95,
 		# The tabard/cape (artist cloth mesh) is earned with steel chest.
 		"cloth_node": "cloth_1",
+		# Bare head reads as a padded linen hood; bare hands/feet as wraps.
+		"hood": true,
+		"wrap_slots": [3, 4],
+		"under": Color(0.3, 0.25, 0.19),
+		"hood_col": Color(0.36, 0.31, 0.25),
+		"wrap": Color(0.44, 0.39, 0.31),
+		"quilt_scale": 0.2,
 		# Pauldron shells sit above the shoulder bone; the upper arm stays.
 		"pauldron_lift": 0.015,
-		"under": Color(0.44, 0.37, 0.29),
-		"off": ["gear:shield_round", "gear:shield_tower", "gear:shield_tower", "gear:shield_tower"],
+		# Tier silhouettes: iron = hornless, crownless helm, no pauldron
+		# shells, short sword, round wooden shield; steel = full plate
+		# (still hornless), bastard sword, heater; rune = horned helm,
+		# Oarimaar blade, tower shield.
+		"helm_cut_max": 2,
+		"rune_pauldron": "pauldron_ancient",
+		"rune_pauldron_xf": [Vector3(0.05, 0.035, 0.0), Vector3(0, 0, -20), 1.0],
+		"off": ["", "gear:shield_round", "gear:shield_heater", "gear:shield_tower"],
 		# Off-hand shield pose relative to the hand socket (cm, degrees).
 		"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
 		"main_xf": [Vector3(0, 3, 0), Vector3(0, 180, 0)],
@@ -223,7 +398,14 @@ const KITS := {
 		"helm_mesh": "helm",
 		"strip": [0.0, 0.0, 0.07, 0.0, 0.0, 0.0, 0.0, 0.0],
 		"cloth_node": "body",
-		"under": Color(0.3, 0.27, 0.25),
+		"under": Color(0.24, 0.22, 0.21),
+		"hood": true,
+		"hood_col": Color(0.2, 0.19, 0.19),
+		"wrap_slots": [3, 4],
+		"wrap": Color(0.36, 0.33, 0.3),
+		"quilt_scale": 0.2,
+		# Spiked pauldrons are the rune silhouette, not an iron one.
+		"spikes_tier": 3,
 		# Cursed blade grows with its tier (same steel, longer reach read).
 		"blade_scale": [1.0, 1.0, 1.15, 1.28],
 	},
@@ -258,6 +440,12 @@ const KITS := {
 		"cut_bare": [5, 6, 7],
 		"helm_cut": 0.86,
 		"helm_cut_max": 0,
+		# Robe steps (chest): bare = no cape or skirt panels, iron adds the
+		# skirt, steel the full cape. Pauldrons: his steel shoulder plates
+		# only from steel; below that they are cut back.
+		"bone_cuts": {1: [[0, "skirt", "lowercloth"], [1, "cape"]]},
+		"strip": [0.0, 0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0],
+		"pauldron_lift": 0.0,
 		# Restyled grim: the bright storybook coat goes soot and oilcloth.
 		"soft_tints": [Color(0.52, 0.5, 0.46), Color(0.6, 0.6, 0.62), Color(0.3, 0.29, 0.31), Color(0.22, 0.2, 0.22)],
 		"desat": 0.5,
@@ -400,6 +588,9 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 				m.set_surface_override_material(i, null)
 			_tag_slots(m, sk)
 			m.mesh = _stripped(m.mesh as ArrayMesh, t, kit)
+			if m.is_inside_tree() and sk.is_inside_tree() and not sk.has_meta("mesh_basis"):
+				# Mesh space -> skeleton space (Sketchfab rigs are often Z-up).
+				sk.set_meta("mesh_basis", (sk.global_transform.affine_inverse().basis * m.global_transform.basis).orthonormalized())
 	else:
 		# Per-slot finish on the body: vertices carry their slot (COLOR.r).
 		for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
@@ -484,7 +675,11 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 		_silhouette(model, sk, t, kit)
 		_rune_embers(sk, t)
 	_exclusive(sk, t, kit)
-	_charm(sk, t)
+	if CLEAN:
+		_amulet(sk, t, kit)
+		_rune_pauldrons(sk, t, kit)
+	else:
+		_charm(sk, t)
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
@@ -508,10 +703,27 @@ static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Diction
 		if m == null:
 			return
 		mi.mesh = m.mesh
+		# True scale: the artist's sword node carries its own scale in the
+		# GLB hierarchy (it read as a toy blade without it).
+		mi.set_meta("own_len", (m.global_transform.basis * m.mesh.get_aabb().size).length() if m.is_inside_tree() else 0.0)
 	else:
 		mi.mesh = load(GEAR + src.substr(5) + ".res")
 	holder.add_child(mi)
+	if mi.has_meta("own_len") and float(mi.get_meta("own_len")) > 0.0 and mi.is_inside_tree():
+		# True scale: match the artist's sword length in the world (the
+		# socket chain shrank it to a toy blade).
+		var now := (mi.global_transform.basis * mi.mesh.get_aabb().size).length()
+		if now > 0.0001:
+			mi.scale *= float(mi.get_meta("own_len")) / now
 	if CLEAN:
+		# Crisp, not smeared: emissive blade runes stay under the bloom
+		# threshold and keep their edges.
+		for i in mi.mesh.get_surface_count():
+			var bm := mi.mesh.surface_get_material(i) as BaseMaterial3D
+			if bm and bm.emission_enabled:
+				var cm := bm.duplicate() as BaseMaterial3D
+				cm.emission_energy_multiplier = minf(cm.emission_energy_multiplier, 0.6)
+				mi.set_surface_override_material(i, cm)
 		return
 	for i in mi.mesh.get_surface_count():
 		var mat := mi.mesh.surface_get_material(i) as BaseMaterial3D
@@ -654,7 +866,7 @@ static func _exclusive(sk: Skeleton3D, t: Dictionary, kit: Dictionary) -> void:
 			var b := Basis(x, y, z).rotated(x, -0.25)
 			_attach(sk, i, "GearX%d" % n, cone, Transform3D(b, tip + dir * length * 0.4))
 			n += 1
-	if kit.get("spikes", false) and int(t.get("pauldrons", 0)) > 0:
+	if kit.get("spikes", false) and int(t.get("pauldrons", 0)) >= int(kit.get("spikes_tier", 1)):
 		var tier := int(t["pauldrons"])
 		var mat := _x_mat(tier, rc, true)
 		var n := 0
@@ -819,6 +1031,156 @@ static func _charm(sk: Skeleton3D, t: Dictionary) -> void:
 		glow.position = at
 		orbit.add_child(glow)
 	_attach(sk, hips, "GearCharm", orbit, Transform3D(Basis(), hp + up * h * 0.16))
+
+
+## Rune-tier pauldrons: the Ancient Pauldron prop (CC-BY) layered over each
+## shoulder, mirrored, so rune plate changes the silhouette at hunt range.
+static func _rune_pauldrons(sk: Skeleton3D, t: Dictionary, kit: Dictionary) -> void:
+	for nm in ["GearPauldronL", "GearPauldronR"]:
+		var old := sk.get_node_or_null(nm)
+		if old:
+			old.name = nm + "_old"
+			old.queue_free()
+	var src := str(kit.get("rune_pauldron", ""))
+	if src == "" or int(t.get("pauldrons", 0)) < int(kit.get("rune_pauldron_tier", 3)):
+		return
+	var path := GEAR + src + ".res"
+	if not ResourceLoader.exists(path):
+		return
+	var mesh: Mesh = load(path)
+	var hips := -1
+	var head := -1
+	for i in sk.get_bone_count():
+		var b := sk.get_bone_name(i).to_lower()
+		if hips < 0 and b.begins_with("hips"):
+			hips = i
+		if head < 0 and b.begins_with("head"):
+			head = i
+	if hips < 0 or head < 0:
+		return
+	var h := (sk.get_bone_global_rest(head).origin - sk.get_bone_global_rest(hips).origin).length() * 2.2
+	var xf: Array = kit.get("rune_pauldron_xf", [Vector3(0.0, 0.02, 0.0), Vector3.ZERO, 1.0])
+	for side in ["l", "r"]:
+		var bi := -1
+		for i in sk.get_bone_count():
+			var b := sk.get_bone_name(i).to_lower()
+			if ("shoulder" in b or "clavicle" in b) and (b.begins_with(side + "_") or b.ends_with("_" + side) or b.ends_with("." + side) or ("left" if side == "l" else "right") in b):
+				bi = i
+				break
+		if bi < 0:
+			continue
+		var at := sk.get_bone_global_rest(bi).origin
+		var sx := 1.0 if side == "r" else -1.0
+		var off: Vector3 = xf[0]
+		var mb: Basis = sk.get_meta("mesh_basis", Basis())
+		# Model's right is -X when it faces +Z.
+		var right := (mb * Vector3(-1, 0, 0)).normalized()
+		var up := (mb * Vector3.UP).normalized()
+		var fw := (mb * Vector3(0, 0, 1)).normalized()
+		var pos := at + (right * off.x * sx + up * off.y + fw * off.z) * h
+		var eul: Vector3 = xf[1]
+		var b3 := mb * Basis.from_euler(Vector3(eul.x, eul.y * sx, eul.z * sx) * PI / 180.0)
+		# Prop is baked in centimetres; the rig may be in metres.
+		var k := float(xf[2]) * h / 180.0
+		b3 = b3 * Basis.from_scale(Vector3(k * sx, k, k))
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		var holder := Node3D.new()
+		holder.add_child(mi)
+		_attach(sk, bi, "GearPauldron" + side.to_upper(), holder, Transform3D(b3, pos))
+
+
+## Charm, showcase style: a real pendant on the chest (gilt medallion with
+## a cut gem, chain bail), sized up per tier; T3's gem is lit from within.
+static func _amulet(sk: Skeleton3D, t: Dictionary, kit: Dictionary) -> void:
+	for nm in ["GearCharm"]:
+		var old := sk.get_node_or_null(nm)
+		if old:
+			old.name = nm + "_old"
+			old.queue_free()
+	var tier := int(t.get("charm", 0))
+	if tier <= 0:
+		return
+	var chest := -1
+	var hips := -1
+	var head := -1
+	for i in sk.get_bone_count():
+		var nm := sk.get_bone_name(i).to_lower()
+		if hips < 0 and nm.begins_with("hips"):
+			hips = i
+		if head < 0 and nm.begins_with("head"):
+			head = i
+		if nm.begins_with("chest") or nm.begins_with("upperchest") or nm.begins_with("spine2"):
+			chest = i
+	if hips < 0 or head < 0:
+		return
+	if chest < 0:
+		chest = sk.get_bone_parent(sk.get_bone_parent(head)) if sk.get_bone_parent(head) >= 0 else hips
+	var hp := sk.get_bone_global_rest(hips).origin
+	var hd := sk.get_bone_global_rest(head).origin
+	var h := (hd - hp).length() * 2.2
+	var mb: Basis = sk.get_meta("mesh_basis", Basis())
+	var fwd: Vector3 = (mb * (kit.get("fwd", Vector3(0, 0, 1)) as Vector3)).normalized()
+	var upv: Vector3 = (mb * Vector3.UP).normalized()
+	var at := hp.lerp(hd, float(kit.get("amulet_y", 0.62))) + fwd * h * float(kit.get("amulet_out", 0.085))
+	var r := h * (0.026 + 0.006 * tier)
+	var gilt := StandardMaterial3D.new()
+	gilt.albedo_color = [Color(0.55, 0.5, 0.45), Color(0.62, 0.62, 0.66), Color(0.78, 0.6, 0.3), Color(0.8, 0.62, 0.32)][tier]
+	gilt.metallic = 1.0
+	gilt.roughness = 0.32
+	var gem := StandardMaterial3D.new()
+	gem.albedo_color = (GearDB.TIER_COLORS[clampi(tier, 1, 3)] as Color).darkened(0.2)
+	gem.metallic = 0.0
+	gem.roughness = 0.08
+	gem.metallic_specular = 0.9
+	if tier >= 3:
+		gem.emission_enabled = true
+		gem.emission = gem.albedo_color
+		gem.emission_energy_multiplier = 0.8
+	var root := Node3D.new()
+	var disc := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = r * 0.22
+	cm.radial_segments = 32
+	disc.mesh = cm
+	disc.material_override = gilt
+	disc.rotation = Vector3(PI * 0.5, 0, 0)
+	root.add_child(disc)
+	var rim := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = r * 0.86
+	tm.outer_radius = r * 1.08
+	tm.rings = 32
+	tm.ring_segments = 10
+	rim.mesh = tm
+	rim.material_override = gilt
+	rim.rotation = Vector3(PI * 0.5, 0, 0)
+	root.add_child(rim)
+	var stone := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = r * 0.5
+	sm.height = r * 0.5
+	sm.radial_segments = 6 if tier < 3 else 8
+	sm.rings = 3
+	stone.mesh = sm
+	stone.material_override = gem
+	stone.position = Vector3(0, 0, r * 0.12)
+	root.add_child(stone)
+	var bail := MeshInstance3D.new()
+	var bm := TorusMesh.new()
+	bm.inner_radius = r * 0.16
+	bm.outer_radius = r * 0.28
+	bail.mesh = bm
+	bail.material_override = gilt
+	bail.position = Vector3(0, r * 1.2, 0)
+	bail.rotation = Vector3(0, PI * 0.5, PI * 0.5)
+	root.add_child(bail)
+	for m: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var basis := Basis.looking_at(-fwd, upv)
+	_attach(sk, chest, "GearCharm", root, Transform3D(basis, at))
 
 
 ## Rune chest (T3): a small wisp of embers rising off the plate (the edges
@@ -1047,7 +1409,8 @@ static func _tag_slots(mi: MeshInstance3D, sk: Skeleton3D) -> void:
 			if best < horn_bind.size() and horn_bind[best]:
 				radial = 1.0
 			var along := clampf(p.y / hh + 0.5, 0.0, 1.0)
-			cols[v] = Color(slot / 7.0, radial, along, 1)
+			# COLOR.a: dominant bind + 1 (/ 1024) for bone-level bare cuts.
+			cols[v] = Color(slot / 7.0, radial, along, float(best + 1) / 1024.0)
 		arrays[Mesh.ARRAY_COLOR] = cols
 		# Keep custom-channel formats and the 8-weight flag; drop compression
 		# (the arrays come back decompressed).
@@ -1057,6 +1420,14 @@ static func _tag_slots(mi: MeshInstance3D, sk: Skeleton3D) -> void:
 		out.surface_set_material(si, src.surface_get_material(si))
 		out.surface_set_name(si, src.surface_get_name(si))
 	out.set_meta("slot_tagged", true)
+	var bnames := PackedStringArray()
+	for bi in skin.get_bind_count():
+		var bn := String(skin.get_bind_name(bi))
+		if bn == "":
+			var bone := skin.get_bind_bone(bi)
+			bn = sk.get_bone_name(bone) if bone >= 0 and bone < sk.get_bone_count() else ""
+		bnames.append(bn.to_lower())
+	out.set_meta("bind_names", bnames)
 	_tagged[key] = out
 	mi.mesh = out
 

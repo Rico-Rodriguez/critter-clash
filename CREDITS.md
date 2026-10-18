@@ -89,6 +89,7 @@ All CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) unless marked CC0. 
 - "Medieval Wood Heater Shield" by iedalton: https://sketchfab.com/3d-models/medieval-wood-heater-shield-2a3aba2c1ef041168fab0c595e2e5882
 - "Paladin Shield [Free Download]" by Efarys: https://sketchfab.com/3d-models/paladin-shield-free-download-0ae0f62030ad48d88364b327b7cd3fc3
 - "Black Blade of Oarimaar" by Pippa (Planetrix23): https://sketchfab.com/3d-models/black-blade-of-oarimaar-d84a41ac0a2a4d9bb39a0a2b7fe1027f
+- "Ancient Pauldron" by Ciarán Wilson: https://sketchfab.com/3d-models/ancient-pauldron-8c5cd28345ce487d93c46cb94101fce3 (CC-BY 4.0; rune-tier shoulder plates)
 
 ## Interface pictures
 

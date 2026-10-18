@@ -9,7 +9,7 @@ func _init() -> void:
 	# Third arg "slots": bare, then each of the 8 slots alone at steel (T2).
 	var slots_mode := args.size() > 2 and args[2] == "slots"
 	var ncol := 9 if slots_mode else 6
-	var W := 400 if not slots_mode else 300
+	var W := 400 if not slots_mode else 340
 	var H := 720
 	var sheet := Image.create(W * ncol, H, false, Image.FORMAT_RGBA8)
 	for col in ncol:
@@ -61,7 +61,8 @@ func _init() -> void:
 			for nm in ap.get_animation_list():
 				if "idle" in nm.to_lower():
 					ap.play(nm)
-					ap.seek(0.3, true)
+					ap.seek(ap.get_animation(nm).length * 0.3, true)
+					ap.pause()
 					break
 		var sk0: Skeleton3D = r.find_children("*", "Skeleton3D", true, false)[0]
 		var lo := 1e9
@@ -76,7 +77,10 @@ func _init() -> void:
 		var cam := Camera3D.new()
 		vp.add_child(cam)
 		cam.fov = 30
-		cam.position = Vector3(sin(0.35) * 420, 140, cos(0.35) * 420)
+		# Heroes-screen angle (hero turned ~0.45 rad to camera) so the shield
+		# and blade read face-on rather than edge-on.
+		var ang := float(OS.get_environment("OVG_ANG")) if OS.get_environment("OVG_ANG") != "" else -0.45
+		cam.position = Vector3(sin(ang) * 420, 140, cos(ang) * 420)
 		await process_frame
 		cam.look_at(Vector3(0, 95, 0))
 		for k in 4:

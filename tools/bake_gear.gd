@@ -12,13 +12,18 @@ const ITEMS := {
 	"shield_heater": ["res://_src/gear_2a3aba.glb", Vector3(0, 0, 0), 84.0, "center"],
 	"shield_tower": ["res://_src/gear_0ae0f6.glb", Vector3(0, 0, 0), 104.0, "center"],
 	"blade_oarimaar": ["res://_src/gear_d84a41.glb", Vector3(0, 0, -90), 124.0, "grip:0.08"],
+	# Ancient Pauldron (Ciarán Wilson, CC-BY): rune-tier shoulder plate.
+	"pauldron_ancient": ["res://_src/gear_8c5cd2.glb", Vector3(0, 0, 0), 34.0, "center"],
 }
 
 
 func _init() -> void:
 	var mode := OS.get_cmdline_user_args()[0]
 	DirAccess.make_dir_recursive_absolute(OUT + "tex")
+	var only := OS.get_cmdline_user_args()[1] if OS.get_cmdline_user_args().size() > 1 else ""
 	for id in ITEMS.keys():
+		if only != "" and id != only:
+			continue
 		if mode == "export":
 			_export(id)
 		else:
