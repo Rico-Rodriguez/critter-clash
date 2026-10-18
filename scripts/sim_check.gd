@@ -1157,7 +1157,7 @@ static func _drops_names_check() -> void:
 			if row.is_empty():
 				_fail("card drop %s names unknown hero %s" % [id, hero])
 			else:
-				if label != str(row["name"]) + " cards":
+				if label != str(row["name"]) + " relics":
 					_fail("card drop %s says '%s', hero %s is '%s'" % [id, label, hero, str(row["name"])])
 				if str(drop.get("color", "")) != str(row["color"]):
 					_fail("card drop %s does not carry the %s roster colour" % [id, hero])
