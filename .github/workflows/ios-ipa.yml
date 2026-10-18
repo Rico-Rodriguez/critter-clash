@@ -25,6 +25,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Stamp the OTA build number
+        run: |
+          set -euo pipefail
+          # Monotonic build id for OTA content packs and the AltStore source.
+          # The IPA bakes it as ProjectSettings ota/build (read by
+          # scripts/ota_boot.gd before any pack mounts) and as its bundle version.
+          BUILD="${{ github.run_number }}"
+          python3 - "$BUILD" "${{ github.sha }}" << 'PY'
+          import re, sys
+          build, sha = sys.argv[1], sys.argv[2]
+          text = open("project.godot").read()
+          text, n = re.subn(r'(\[ota\]\s*\nbuild=)\d+(\nsha=)"[^"]*"', r'\g<1>%s\g<2>"%s"' % (build, sha), text)
+          assert n == 1, "project.godot [ota] section not found"
+          open("project.godot", "w").write(text)
+          text = open("export_presets.cfg").read()
+          base = re.search(r'^application/short_version="(\d+\.\d+)', text, re.M).group(1)
+          for key in ["short_version", "version"]:
+              text, n = re.subn(r'^(application/%s=)"[^"]*"' % key, r'\g<1>"%s.%s"' % (base, build), text, flags=re.M)
+              assert n == 1, key
+          open("export_presets.cfg", "w").write(text)
+          print("OTA build", build, "app version", "%s.%s" % (base, build))
+          PY
+          NATIVE="$(sed -n 's/^const NATIVE_VERSION := \([0-9][0-9]*\).*/\1/p' scripts/ota_boot.gd)"
+          test -n "$NATIVE"
+          echo "OTA_BUILD=$BUILD" >> "$GITHUB_ENV"
+          echo "OTA_NATIVE=$NATIVE" >> "$GITHUB_ENV"
+          grep -A3 '^\[ota\]' project.godot
+
       - name: Install Godot 4.7.2 and export templates
         run: |
           set -euo pipefail
@@ -115,6 +143,36 @@ jobs:
             echo "Godot export exited ${code} after writing ${pck}. Continuing."
           fi
 
+      - name: Stage the OTA content pack
+        run: |
+          set -euo pipefail
+          # The iOS export's main pack holds every script, scene and imported
+          # asset (iOS texture formats). Shipped as-is, it is the OTA patch:
+          # scripts/ota_boot.gd mounts it over the baked content on launch.
+          pck="$(find build/ios -name '*.pck' -size +100k -print -quit)"
+          mkdir -p dist
+          cp "$pck" dist/critter_clash.pck
+          SHA256="$(shasum -a 256 dist/critter_clash.pck | cut -d' ' -f1)"
+          SIZE="$(stat -f%z dist/critter_clash.pck)"
+          python3 - "$SHA256" "$SIZE" << 'PY'
+          import datetime, json, os, sys
+          sha256, size = sys.argv[1], int(sys.argv[2])
+          info = {
+              "build": int(os.environ["OTA_BUILD"]),
+              "sha": os.environ["GITHUB_SHA"],
+              "pck_url": "https://github.com/%s/releases/download/ota/critter_clash.pck" % os.environ["GITHUB_REPOSITORY"],
+              "sha256": sha256,
+              "size": size,
+              "min_engine": int(os.environ["OTA_NATIVE"]),
+              "godot": "4.7.2",
+              "platform": "ios",
+              "date": datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+          }
+          json.dump(info, open("dist/version.json", "w"), indent=2)
+          print(json.dumps(info, indent=2))
+          PY
+          ls -lh dist
+
       - name: Archive without signing and zip the IPA
         run: |
           set -euo pipefail
@@ -191,3 +249,34 @@ jobs:
             Godot 4.7.2, Mobile renderer, minimum iOS 15.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish OTA pack, version.json and AltStore source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          APP="$(find build/ios/Payload -maxdepth 1 -name '*.app' | head -n 1)"
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")"
+          BUILD_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")"
+          python3 tools/altstore_source.py --ipa build/ios/CritterClash.ipa \
+            --version "$VERSION" --build-version "$BUILD_VERSION" \
+            --sha "$GITHUB_SHA" --run "$OTA_BUILD" --out dist/altstore.json
+          python3 tools/altstore_source.py --validate dist/altstore.json
+          python3 -c 'import json; json.load(open("dist/version.json"))'
+          NOTES="Over-the-air content for Critter Clash. Build ${OTA_BUILD} from ${GITHUB_SHA} (run ${{ github.run_id }}).
+          version.json + critter_clash.pck: the game checks these on launch and applies newer content on the next launch.
+          altstore.json: AltStore/SideStore source for the ios-v1 IPA (add https://github.com/${REPO}/releases/download/ota/altstore.json)."
+          if ! gh release view ota --repo "$REPO" > /dev/null 2>&1; then
+            gh release create ota --repo "$REPO" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "Critter Clash OTA" --notes "$NOTES"
+          else
+            gh release edit ota --repo "$REPO" --notes "$NOTES"
+          fi
+          # The pack first, then version.json, so a client never reads a
+          # version.json that points at a pack still uploading. A client
+          # that races the swap just fails its sha check and retries later.
+          gh release upload ota --repo "$REPO" --clobber dist/critter_clash.pck
+          gh release upload ota --repo "$REPO" --clobber dist/version.json
+          gh release upload ota --repo "$REPO" --clobber dist/altstore.json
+          gh release view ota --repo "$REPO" --json assets --jq '.assets[] | "\(.name) \(.size)"'

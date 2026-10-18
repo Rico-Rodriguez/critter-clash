@@ -16,8 +16,14 @@ config/icon="res://icon.png"
 
 [autoload]
 
+Ota="*res://scripts/ota_boot.gd"
 AudioDirector="*res://scripts/audio_director.gd"
 SaveGame="*res://scripts/save_game.gd"
+
+[ota]
+
+build=0
+sha=""
 
 [display]
 

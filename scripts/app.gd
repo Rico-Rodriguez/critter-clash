@@ -70,7 +70,97 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--capture"):
 		_capture()
 		return
+	if OS.get_cmdline_user_args().has("--ota-probe"):
+		_ota_probe()
+		return
 	go("home")
+	_ota_hook()
+
+
+## OTA content patches (scripts/ota_boot.gd): announce a newly applied pack
+## once, and note a staged one. Read through get_node_or_null so this file
+## never depends on the bootstrap's script.
+func _ota_hook() -> void:
+	var ota := get_node_or_null("/root/Ota")
+	if ota == null:
+		return
+	if bool(ota.get("just_updated")):
+		get_tree().create_timer(0.9).timeout.connect(func() -> void:
+			ota_toast("UPDATED TO BUILD %d" % int(ota.get("build")), "New content is live"))
+	if ota.has_signal("update_ready"):
+		ota.update_ready.connect(func(b: int) -> void:
+			if current and current.get_script() != SCREENS["run"]:
+				ota_toast("BUILD %d READY" % b, "Applies next time you open the game"))
+
+
+## Desktop OTA test: boot normally, shoot Settings (build line) and the
+## home toast, wait for the background check to settle, print the state.
+func _ota_probe() -> void:
+	var t0 := Time.get_ticks_msec()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--out="):
+			_shot_dir = arg.substr(6)
+	DirAccess.make_dir_recursive_absolute(_shot_dir)
+	go("home")
+	_ota_hook()
+	await get_tree().process_frame
+	print("OTA_PROBE home_ms=%d" % (Time.get_ticks_msec() - t0))
+	await get_tree().create_timer(1.3).timeout
+	await _shot("ota_home")
+	go("settings")
+	await _settle()
+	await _shot("ota_settings")
+	var ota := get_node_or_null("/root/Ota")
+	while str(ota.status) == "checking" or str(ota.status).begins_with("downloading") or str(ota.status) == "verifying":
+		await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(4.5).timeout
+	print("OTA_PROBE state=%s" % JSON.stringify({"baked": ota.baked_build, "ota": ota.ota_build, "build": ota.build,
+		"just_updated": ota.just_updated, "rolled_back": ota.rolled_back, "pending": ota.pending_build,
+		"status": ota.status, "flag": FileAccess.file_exists("user://ota/booting.flag"),
+		"elapsed_ms": Time.get_ticks_msec() - t0, "line": SCREENS["settings"].build_line(ota)}))
+	get_tree().quit()
+
+
+## A forged plaque that drops in under the safe area, holds, then lifts away.
+func ota_toast(title: String, sub: String) -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 90
+	add_child(layer)
+	var holder := Control.new()
+	holder.set_anchors_preset(Control.PRESET_FULL_RECT)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(holder)
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 22
+	plate.glow = Color(UiKit.GOLD, 0.35)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(col)
+	var head := UiKit.label(title, 30, UiKit.GOLD.lightened(0.2), "x", 5)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(head)
+	var line := UiKit.label(sub, 22, UiKit.CREAM, "b", 4)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(line)
+	holder.add_child(plate)
+	var top := float(UiKit.safe_insets()["t"]) + 96.0
+	plate.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	plate.custom_minimum_size = Vector2(500, 0)
+	plate.offset_left = -250
+	plate.offset_right = 250
+	plate.offset_top = top - 40
+	plate.modulate.a = 0.0
+	AudioDirector.sfx("ui_toggle")
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(plate, "modulate:a", 1.0, 0.18)
+	tw.tween_property(plate, "offset_top", top, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_interval(2.6)
+	tw.chain().tween_property(plate, "modulate:a", 0.0, 0.35)
+	tw.chain().tween_callback(layer.queue_free)
 
 
 func go(screen: String, args: Dictionary = {}) -> void:
