@@ -41,6 +41,9 @@ const KITS := {
 		"main_xf": [Vector3(0, -8, 0), Vector3(180, 0, 0)],
 		"seam": 0.25,
 		"rune": Color(0.3, 1.0, 0.62),
+		"spikes": true,
+		# Cursed blade grows with its tier (same steel, longer reach read).
+		"blade_scale": [1.0, 1.0, 1.15, 1.28],
 	},
 	# Gnash, the Ghoul: a feral berserker. Claws, no held gear; the tiers
 	# show on the hide (pale -> ash-grey -> black-veined -> blood runes).
@@ -54,6 +57,7 @@ const KITS := {
 		"seam": 0.4,
 		"flesh": true,
 		"rune": Color(1.0, 0.12, 0.1),
+		"claws": true,
 	},
 	# Corvin, the Plague Doctor: a miasma caster. The staff, crow and bell
 	# are skinned to the model's own bones; tiers ride the coat and mask.
@@ -225,6 +229,10 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 		var v := OS.get_environment("CC_MAIN_XF").split_floats(",")
 		main_xf = [Vector3(v[0], v[1], v[2]), Vector3(v[3], v[4], v[5])]
 	_mount(sk, sockets.get("hand_r", {}), str(kit["main"][wt]), own, wt, main_xf, "GearMain")
+	if kit.has("blade_scale"):
+		var gm := sk.get_node_or_null("GearMain")
+		if gm and gm.get_child_count() > 0:
+			(gm.get_child(0) as Node3D).scale *= float(kit["blade_scale"][wt])
 	# Off-hand: nothing until one is earned (bare = no shield).
 	var off_src := str(kit["off"][ot]) if ot > 0 else ""
 	_mount(sk, sockets.get("hand_l", {}), off_src, own, ot, kit["off_xf"], "GearOff")
@@ -238,6 +246,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 					sm.set_shader_parameter("rune_color", rc)
 	model.set_meta("gear_tiers", t)
 	_silhouette(model, sk, t, kit)
+	_exclusive(sk, t, kit)
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
@@ -346,6 +355,125 @@ static func _silhouette(model: Node3D, sk: Skeleton3D, t: Dictionary, kit: Dicti
 		var basis2 := Basis(fwd.cross(up).normalized(), up, fwd)
 		var at: Vector3 = (P.call("chest") as Vector3) + up * h * 0.03 - fwd * h * 0.125 - up * length * 0.5
 		_attach(sk, bones["chest"], "GearCape", cape, Transform3D(basis2, at))
+
+
+## Hero-exclusive tier pieces built on the rig:
+##   Gnash (claws: "claws" kit key): iron -> blackened -> rune-lit talons on
+##   every fingertip, driven by the weapon slot.
+##   Mordrek ("spikes" kit key): bone spaulder spikes from the pauldrons slot
+##   (bone -> charred -> soulfire), and a longer cursed blade at T2+.
+static func _exclusive(sk: Skeleton3D, t: Dictionary, kit: Dictionary) -> void:
+	for n in sk.get_children():
+		if str(n.name).begins_with("GearX"):
+			n.free()
+	var rc: Color = kit.get("rune", RUNE)
+	var hips := -1
+	var head := -1
+	for i in sk.get_bone_count():
+		var nm := sk.get_bone_name(i).to_lower()
+		if hips < 0 and nm.begins_with("hips"):
+			hips = i
+		if head < 0 and nm.begins_with("head"):
+			head = i
+	if hips < 0 or head < 0:
+		return
+	var h := (sk.get_bone_global_rest(head).origin - sk.get_bone_global_rest(hips).origin).length() * 2.2
+	if kit.get("claws", false) and int(t.get("weapon", 0)) > 0:
+		var tier := int(t["weapon"])
+		var mat := _x_mat(tier, rc, false)
+		var n := 0
+		for i in sk.get_bone_count():
+			var nm := sk.get_bone_name(i).to_lower().rstrip("0123456789").trim_suffix("_")
+			# Fingertip bones: L_point_033, R_ring4_049 ... (last joint of each finger).
+			var parent := sk.get_bone_parent(i)
+			if parent < 0 or sk.get_bone_children(i).size() > 0:
+				continue
+			var ok := false
+			for f in ["point", "middle", "ring", "pink"]:
+				if f in nm:
+					ok = true
+			if not ok:
+				continue
+			var tip := sk.get_bone_global_rest(i).origin
+			var base := sk.get_bone_global_rest(parent).origin
+			var dir := (tip - base).normalized()
+			var cone := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			var length := h * (0.075 + 0.015 * tier)
+			cm.top_radius = 0.0
+			cm.bottom_radius = h * 0.013
+			cm.height = length
+			cm.radial_segments = 6
+			cm.rings = 1
+			cone.mesh = cm
+			cone.material_override = mat
+			var y := dir
+			var x := y.cross(Vector3.UP if absf(y.y) < 0.9 else Vector3.RIGHT).normalized()
+			var z := x.cross(y)
+			# Curve the talon slightly downward like a hooked claw.
+			var b := Basis(x, y, z).rotated(x, -0.25)
+			_attach(sk, i, "GearX%d" % n, cone, Transform3D(b, tip + dir * length * 0.4))
+			n += 1
+	if kit.get("spikes", false) and int(t.get("pauldrons", 0)) > 0:
+		var tier := int(t["pauldrons"])
+		var mat := _x_mat(tier, rc, true)
+		var n := 0
+		var chest := -1
+		for i in sk.get_bone_count():
+			if sk.get_bone_name(i).to_lower().begins_with("chest"):
+				chest = i
+		for side in ["l_arm", "r_arm"]:
+			var bi := -1
+			for i in sk.get_bone_count():
+				if sk.get_bone_name(i).to_lower().begins_with(side):
+					bi = i
+					break
+			if bi < 0 or chest < 0:
+				continue
+			var at := sk.get_bone_global_rest(bi).origin
+			var up := (sk.get_bone_global_rest(head).origin - sk.get_bone_global_rest(hips).origin).normalized()
+			var out := (at - sk.get_bone_global_rest(chest).origin)
+			out = (out - up * out.dot(up)).normalized()
+			for k in 2 + mini(tier, 2):
+				var cone := MeshInstance3D.new()
+				var cm := CylinderMesh.new()
+				cm.top_radius = 0.0
+				cm.bottom_radius = h * 0.014
+				cm.height = h * (0.07 + 0.015 * tier) * (1.0 - 0.18 * k)
+				cm.radial_segments = 7
+				cm.rings = 1
+				cone.mesh = cm
+				cone.material_override = mat
+				var y := (up * (0.9 - 0.25 * k) + out * (0.45 + 0.3 * k)).normalized()
+				var fwd := up.cross(out).normalized()
+				var x := y.cross(fwd).normalized()
+				var z := x.cross(y)
+				var base_at := at + up * h * 0.035 + out * h * (0.01 + 0.025 * k) + fwd * h * (0.02 * (k - 1))
+				_attach(sk, bi, "GearX%s%d" % [side, n], cone, Transform3D(Basis(x, y, z), base_at + y * cm.height * 0.45))
+				n += 1
+
+
+static func _x_mat(tier: int, rc: Color, bone: bool) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	match tier:
+		1:
+			m.albedo_color = Color(0.82, 0.77, 0.66) if bone else Color(0.62, 0.57, 0.5)
+			m.metallic = 0.0 if bone else 0.8
+			m.roughness = 0.7 if bone else 0.45
+		2:
+			m.albedo_color = Color(0.22, 0.2, 0.19) if bone else Color(0.2, 0.23, 0.29)
+			m.metallic = 0.0 if bone else 0.9
+			m.roughness = 0.6 if bone else 0.3
+			m.rim_enabled = true
+			m.rim = 0.5
+		_:
+			m.albedo_color = Color(0.06, 0.05, 0.05)
+			m.metallic = 0.6
+			m.roughness = 0.35
+			m.emission_enabled = true
+			m.emission = rc
+			m.emission_energy_multiplier = 1.6
+	return m
 
 
 const CAPE_SHADER := """shader_type spatial;
