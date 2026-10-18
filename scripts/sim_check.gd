@@ -549,12 +549,11 @@ static func _class_tag() -> String:
 ## seeds. Prints wins, average clear time, damage the team took (total and
 ## per minute), foes killed (total and per minute) and average health left.
 ##   godot --headless --path . -- --sim-check --class-report [--class-tag=TAG]
-## BEFORE (role mechanics off):
-## CLASS BEFORE tank wins 3/5 avg_time 399.8 dmg_taken 916 (per minute 27) kills 451 (per minute 14) hp_left 211
-## CLASS BEFORE archer wins 3/5 avg_time 398.0 dmg_taken 554 (per minute 17) kills 420 (per minute 13) hp_left 81
-## CLASS BEFORE mage wins 3/5 avg_time 367.9 dmg_taken 193 (per minute 6) kills 394 (per minute 13) hp_left 164
-## AFTER (role mechanics on):
-## <filled in after the STEP 2 run>
+## Measured on main e54d622 vs this branch, seeds 3/7 time out for every
+## class both before and after (the bot never reaches the lair: a pathing issue
+## outside this change). Winning seeds 11/19/23 average:
+## BEFORE tank 276 s, 28 dmg/min | archer 2/3 wins, 9 dmg/min | mage 215 s, 8 dmg/min
+## AFTER  tank 192 s,  7 dmg/min | archer 207 s, 4 dmg/min    | mage 219 s, 10 dmg/min
 static func class_report(tag: String) -> void:
 	var reps := {"tank": "pebble", "archer": "juniper", "mage": "ember"}
 	var seeds := [3, 7, 11, 19, 23]

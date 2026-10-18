@@ -28,8 +28,8 @@ const ROLE_TUNING := {
 	"tank": {
 		"reach_mul": 1.18,
 		"hp_mul": 1.0,
-		"cleave_arc": 110.0,
-		"cleave_mul": 0.65,
+		"cleave_arc": 160.0,
+		"cleave_mul": 0.85,
 		"swing_dr": 0.30,
 		"swing_dr_time": 0.35,
 		"lifesteal": 0.04,
@@ -817,7 +817,8 @@ func _melee(hero: Actor, primary: Actor) -> void:
 	var cleave := 1.0
 	if hero.role == "tank":
 		var tune: Dictionary = _role_tune("tank")
-		half = deg_to_rad(float(tune.get("cleave_arc", 110.0))) * 0.5
+		# Never narrower than the shared melee arc: the cleave only widens it.
+		half = maxf(half, deg_to_rad(float(tune.get("cleave_arc", 160.0))) * 0.5)
 		cleave = float(tune.get("cleave_mul", 0.65))
 	var hits := 0
 	for actor in actors:
