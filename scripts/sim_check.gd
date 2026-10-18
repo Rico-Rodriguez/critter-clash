@@ -16,7 +16,7 @@ const CHECKS := [
 	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear", "settings",
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
-	"skills_screen", "xp_drop", "skill_trophies",
+	"skills_screen", "xp_drop", "skill_trophies", "end_card",
 ]
 
 
@@ -106,6 +106,8 @@ static func _dispatch(name: String) -> void:
 			_gear_coverage_check()
 		"skills_screen":
 			_skills_screen_check()
+		"end_card":
+			_end_card_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -2563,6 +2565,57 @@ static func _best(sim: RunSim) -> int:
 			best_s = score
 			best_i = i
 	return best_i
+
+
+## Every Label's text under a node, joined with newlines (end-card rows read
+## their copy back through this).
+static func _text_of(node: Node) -> String:
+	var out := ""
+	if node is Label:
+		out += (node as Label).text + "\n"
+	for child in node.get_children():
+		out += _text_of(child)
+	return out
+
+
+## 8. The end card's two new rows, run through the real RunScreen helpers with
+## no scene: banked duplicates read as a gold shards/coins plaque (and vanish
+## when nothing melted), and the run hero's non-zero combat XP prints in
+## GearDB order, rounded like the commit (and vanishes with no XP). Never
+## keyed by hero id; the run hero comes from the Catalog roster order.
+static func _end_card_check() -> void:
+	var screen = load("res://scripts/run_screen.gd").new()
+	var hero := str(Catalog.playable_ids()[0])
+	screen.set("hero_id", hero)
+	var sim := RunSim.new()
+	sim.gear_bank = {"ids": [], "shards": 15, "coins": 25}
+	sim.skill_xp = {hero: {"attack": 12.4, "defence": 3.6}}
+	screen.set("sim", sim)
+	var melt: Control = screen._melt_line()
+	if melt == null:
+		_fail("melt line missing for 15 shards / 25 coins")
+	else:
+		var melt_text := _text_of(melt)
+		if melt_text.find("+15 gear shards") < 0 or melt_text.find("+25 coins") < 0:
+			_fail("melt line said: %s" % melt_text.strip_edges())
+		melt.free()
+	var run_xp: Control = screen._end_xp()
+	if run_xp == null:
+		_fail("xp row missing for the run hero")
+	else:
+		var xp_text := _text_of(run_xp)
+		if xp_text.find("+12 Attack") < 0 or xp_text.find("+4 Defence") < 0 or xp_text.find("Strength") >= 0:
+			_fail("xp row said: %s" % xp_text.strip_edges())
+		run_xp.free()
+	# Nothing melted -> no plaque; no combat XP -> no line (a daily reads both).
+	sim.gear_bank = {"ids": [], "shards": 0, "coins": 0}
+	if screen._melt_line() != null:
+		_fail("melt line showed with nothing melted")
+	sim.skill_xp = {}
+	if screen._end_xp() != null:
+		_fail("xp row showed with no XP")
+	screen.free()
+	print("END CARD ok: melted-duplicate line and run skill XP line")
 
 
 static func _fail(message: String) -> void:

@@ -1541,6 +1541,26 @@ func _end_chest(win: bool) -> Control:
 	return plate
 
 
+## The run hero's combat-skill XP as one wrapped line, in GearDB order and
+## rounded exactly like the commit. Only the run hero (hero_id) is shown, and
+## only its non-zero skills; no combat XP at all means no line.
+func _end_xp() -> Control:
+	var row: Dictionary = sim.skill_xp.get(hero_id, {}) if sim != null else {}
+	var parts: Array = []
+	for i in GearDB.SKILL_KEYS.size():
+		var amount := int(round(float(row.get(GearDB.SKILL_KEYS[i], 0.0))))
+		if amount <= 0:
+			continue
+		parts.append("+%d %s" % [amount, GearDB.SKILL_NAMES[i]])
+	if parts.is_empty():
+		return null
+	var line := UiKit.label("  ·  ".join(parts), 20, UiKit.CREAM, "m", 3)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.custom_minimum_size = Vector2(660, 0)
+	return line
+
+
 ## Score and record a finished daily once, then hold the entry for the panel.
 func _daily_result(win: bool) -> void:
 	if not is_daily or daily_recorded:
@@ -1667,6 +1687,9 @@ func _show_victory(boss_name: String) -> void:
 	var melt := _melt_line()
 	if melt != null:
 		col.add_child(melt)
+	var run_xp := _end_xp()
+	if run_xp != null:
+		col.add_child(run_xp)
 	col.add_child(_end_stats())
 	if is_daily:
 		col.add_child(_daily_line())
@@ -1717,6 +1740,9 @@ func _show_defeat(reason: String) -> void:
 	var melt := _melt_line()
 	if melt != null:
 		col.add_child(melt)
+	var run_xp := _end_xp()
+	if run_xp != null:
+		col.add_child(run_xp)
 	col.add_child(_end_stats())
 	if is_daily:
 		col.add_child(_daily_line())
