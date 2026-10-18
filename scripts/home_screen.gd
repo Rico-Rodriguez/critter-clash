@@ -220,6 +220,7 @@ func _tiles() -> HBoxContainer:
 
 class Showcase extends Control:
 	var hero_id := "ember"
+	var fill := 0.46
 	var stage: Stage3D
 
 	func _ready() -> void:
@@ -228,6 +229,7 @@ class Showcase extends Control:
 		stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(stage)
+		stage.pedestal_fill = fill
 		stage.bind_pedestal(hero_id)
 		# Soft fade into the menu below, and a dark band under the pills.
 		var fade := Fade.new()

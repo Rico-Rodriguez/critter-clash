@@ -148,7 +148,7 @@ func column() -> VBoxContainer:
 	return box
 
 
-func header() -> HBoxContainer:
+func header(compact := false) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	var trophies := UiKit.Pill.new("trophy", func() -> void: go("trophy"))
@@ -162,7 +162,12 @@ func header() -> HBoxContainer:
 	gems.set_amount("0")
 	row.add_child(trophies)
 	row.add_child(coins)
-	row.add_child(gems)
+	# With the back chip leading the row there is no room for three pills at
+	# 1179 px; the always-zero gem pill is the one that goes.
+	if compact:
+		gems.queue_free()
+	else:
+		row.add_child(gems)
 	# Settings cog at the end of the currency bar.
 	var cog := UiKit.tile_button("", "gear", 64, "steel")
 	cog.custom_minimum_size = Vector2(64, 64)
@@ -195,7 +200,7 @@ var back_args: Dictionary = {}
 func header_with_back(target: String, args: Dictionary = {}) -> HBoxContainer:
 	back_target = target
 	back_args = args
-	var row := header()
+	var row := header(true)
 	var chip := BackChip.new()
 	chip.pressed.connect(back)
 	row.add_child(chip)

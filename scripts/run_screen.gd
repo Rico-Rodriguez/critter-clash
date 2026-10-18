@@ -6,6 +6,7 @@ extends ScreenBase
 const STEP := 1.0 / 60.0
 
 var biome_id := "meadow"
+var shade: TextureRect
 var hero_id := "ember"
 var sim: RunSim
 var drive := Vector2.ZERO
@@ -94,12 +95,13 @@ func build() -> void:
 	sparks = SparkLayer.new()
 	sparks.visible = false
 	world.add_child(sparks)
-	var shade := TextureRect.new()
+	shade = TextureRect.new()
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shade.texture = SpriteBank.vignette()
 	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	# Night biome keeps its mood with a deeper vignette instead of fog.
 	shade.modulate = Color(1, 1, 1, 0.72)
 	add_child(shade)
 	threats = ThreatLayer.new()
@@ -135,6 +137,8 @@ func build() -> void:
 
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
+	if shade != null:
+		shade.modulate.a = 0.95 if biome_id == "mushroom" else 0.72
 	hero_id = str(args.get("hero", "ember"))
 	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)
@@ -1559,6 +1563,22 @@ func _daily_line() -> Control:
 
 ## Gear earned this run: pickups seen in hunt plus anything the save layer
 ## reports in summary["gear"] (deduped by occurrence, not by id).
+## Duplicates the bank melted: "+15 gear shards · +25 coins" under SPOILS.
+func _melt_line() -> Control:
+	var bank: Dictionary = sim.gear_bank if sim != null else {}
+	var parts: Array[String] = []
+	if int(bank.get("shards", 0)) > 0:
+		parts.append("+%d gear shards" % int(bank["shards"]))
+	if int(bank.get("coins", 0)) > 0:
+		parts.append("+%d coins" % int(bank["coins"]))
+	if parts.is_empty():
+		return null
+	var line := UiKit.label("Duplicates melted: " + "  ·  ".join(parts), 20, Color("cfd8e6"), "b", 2)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return line
+
+
 func _spoils() -> Array:
 	var out: Array = run_gear.duplicate()
 	for id in summary.get("gear", []):
@@ -1618,6 +1638,9 @@ func _show_victory(boss_name: String) -> void:
 	var spoils := EquipUI.loot_reveal(_spoils())
 	if spoils != null:
 		col.add_child(spoils)
+	var melt := _melt_line()
+	if melt != null:
+		col.add_child(melt)
 	col.add_child(_end_stats())
 	if is_daily:
 		col.add_child(_daily_line())
@@ -1665,6 +1688,9 @@ func _show_defeat(reason: String) -> void:
 	var spoils := EquipUI.loot_reveal(_spoils())
 	if spoils != null:
 		col.add_child(spoils)
+	var melt := _melt_line()
+	if melt != null:
+		col.add_child(melt)
 	col.add_child(_end_stats())
 	if is_daily:
 		col.add_child(_daily_line())

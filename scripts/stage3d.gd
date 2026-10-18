@@ -63,6 +63,9 @@ var _contacts: Array[Vector3] = []
 var _xray_mat: ShaderMaterial
 var _hero_key: OmniLight3D
 var _hero_rim: OmniLight3D
+## Pedestal framing: share of the view height the hero fills. Home keeps the
+## default; Heroes tightens so the model fills the space between the sockets.
+var pedestal_fill := 0.46
 var _bolt := Color(0, 0, 0, 0)
 var _occl_hit := false
 var _xray := 0.0
@@ -1725,6 +1728,10 @@ func _mob_mat(src: StandardMaterial3D, vcol: bool, sprite := "") -> ShaderMateri
 	mat.set_shader_parameter("sss", src.subsurf_scatter_strength if src.subsurf_scatter_enabled and _tier() == "high" else 0.0)
 	mat.set_shader_parameter("clearcoat", src.clearcoat if src.clearcoat_enabled else 0.0)
 	mat.set_shader_parameter("ink_color", Color("3a0a08"))
+	if _biome == "mushroom":
+		# Night biome: a cool fill rim so small foes never read as black blobs.
+		mat.set_shader_parameter("rim", 0.85)
+		mat.set_shader_parameter("rim_glow", Color(0.72, 0.8, 1.0, 0.55))
 	if Cast3D.dark(sprite) != "":
 		# Dark-furred feral beasts went to black blobs at the far camera: lift
 		# the fur, thin the ink, and wrap them in a corruption-coloured
@@ -2654,7 +2661,7 @@ func _reframe_posed(body: Node3D) -> void:
 	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.7)
 	# The hero takes half the stage height and sits low, so horns and wing
 	# tips clear the title plate and the feet stay above the name badge.
-	var view_h := h / 0.46
+	var view_h := h / pedestal_fill
 	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
 	var focus := box.get_center() + Vector3(0, view_h * 0.215, 0)
 	var dir := Vector3(0.0, 0.3, 1.0).normalized()
@@ -3698,12 +3705,16 @@ func _biome_mood(biome_id: String) -> void:
 	var grass := Vector3.ONE
 	match biome_id:
 		"mushroom":
-			env.fog_light_color = Color(0.42, 0.32, 0.52)
-			env.fog_density = 0.006
-			env.ambient_light_color = Color("a890c8")
-			sun.light_color = Color("e0b8ff")
-			sun.light_energy = 1.1
-			grass = Vector3(0.78, 0.84, 1.0)
+			# Mood from the vignette and the plum props, not a purple wash:
+			# thin neutral-violet fog and a near-white moon so ground, hero
+			# and foes separate.
+			env.fog_light_color = Color(0.3, 0.27, 0.34)
+			env.fog_density = 0.0022
+			env.ambient_light_color = Color("c2bcd2")
+			env.ambient_light_energy = maxf(env.ambient_light_energy, 0.62)
+			sun.light_color = Color("eee6ff")
+			sun.light_energy = 1.35
+			grass = Vector3(0.86, 0.9, 1.0)
 		"frost":
 			env.fog_light_color = Color(0.72, 0.8, 0.94)
 			env.fog_density = 0.005

@@ -94,7 +94,7 @@ const FINISH := [
 	# T2 Blackened Steel: cool blue-black, glossy, crisp bright bevels.
 	{"metal": Color(0.4, 0.44, 0.52), "soft": Color(0.3, 0.25, 0.23), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.12, "rune": 0.0, "rough_mul": 0.7, "rough_add": -0.02, "gain": 1.1, "edge_hi": 1.05, "edge_col": Color(0.62, 0.74, 0.95), "edge_emit": 0.22, "metal_cap": 0.8},
 	# T3 Runebound: black plate, burning rune seams, emissive blade.
-	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "seam": 1.7, "metal_cap": 0.85},
+	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "edge_col": Color(1.0, 0.36, 0.12), "edge_emit": 0.35, "seam": 2.3, "metal_cap": 0.85},
 ]
 const RUNE := Color(1.0, 0.32, 0.08)
 
@@ -251,6 +251,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 	_silhouette(model, sk, t, kit)
 	_exclusive(sk, t, kit)
 	_charm(sk, t)
+	_rune_embers(sk, t)
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
@@ -582,6 +583,67 @@ static func _charm(sk: Skeleton3D, t: Dictionary) -> void:
 	_attach(sk, hips, "GearCharm", orbit, Transform3D(Basis(), hp + up * h * 0.16))
 
 
+## Rune chest (T3): a faint drift of embers rising off the plate, so cursed
+## rune armour reads at a glance even in a small hunt view. One draw call.
+static func _rune_embers(sk: Skeleton3D, t: Dictionary) -> void:
+	var old := sk.get_node_or_null("GearEmbers")
+	if old:
+		old.free()
+	if int(t.get("chest", 0)) < 3:
+		return
+	var hips := -1
+	var head := -1
+	for i in sk.get_bone_count():
+		var nm := sk.get_bone_name(i).to_lower()
+		if hips < 0 and nm.begins_with("hips"):
+			hips = i
+		if head < 0 and nm.begins_with("head"):
+			head = i
+	if hips < 0 or head < 0:
+		return
+	var hp := sk.get_bone_global_rest(hips).origin
+	var hd := sk.get_bone_global_rest(head).origin
+	var up := (hd - hp).normalized()
+	var h := (hd - hp).length() * 2.2
+	var p := CPUParticles3D.new()
+	p.amount = 22
+	p.lifetime = 1.8
+	p.preprocess = 1.8
+	p.local_coords = true
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(h * 0.2, h * 0.28, h * 0.12)
+	p.direction = up
+	p.spread = 25.0
+	p.gravity = up * h * 0.12
+	p.initial_velocity_min = h * 0.06
+	p.initial_velocity_max = h * 0.16
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.2
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 0.0))
+	curve.add_point(Vector2(0.2, 1.0))
+	curve.add_point(Vector2(1.0, 0.0))
+	p.scale_amount_curve = curve
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * h * 0.022
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.billboard_keep_scale = true
+	m.vertex_color_use_as_albedo = true
+	m.albedo_color = Color(1.0, 0.42, 0.16)
+	q.material = m
+	p.mesh = q
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1.0, 0.75, 0.4, 1.0))
+	grad.set_color(1, Color(1.0, 0.2, 0.06, 0.0))
+	p.color_ramp = grad
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_attach(sk, hips, "GearEmbers", p, Transform3D(Basis(), hp + up * h * 0.12))
+
+
 static func _attach(sk: Skeleton3D, bone: int, label: String, mesh: Node3D, skel_xf: Transform3D) -> void:
 	var att := BoneAttachment3D.new()
 	att.name = label
@@ -770,9 +832,11 @@ void fragment() {
 	float u = UV.x * 70.0;
 	float strand = mix(h1(floor(u)), h1(floor(u) + 1.0), smoothstep(0.0, 1.0, fract(u)));
 	float tip = smoothstep(0.0, 0.5, UV.y) * smoothstep(1.0, 0.5, UV.y);
-	ALBEDO = base * (0.45 + 0.75 * strand) * (0.55 + 0.45 * tip);
-	ROUGHNESS = 0.85;
-	SPECULAR = 0.25;
+	// Horsehair is matte: a low sheen so strong showcase lights keep it
+	// oxblood instead of washing it to salmon.
+	ALBEDO = base * (0.35 + 0.55 * strand) * (0.5 + 0.4 * tip);
+	ROUGHNESS = 0.95;
+	SPECULAR = 0.06;
 	EMISSION = glow * strand * tip;
 }
 """

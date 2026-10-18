@@ -576,11 +576,11 @@ const DROPS: Array = [
 	{"id": "nimbus_lumen_cards", "boss": "nimbus", "name": "Gnash cards", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "common", "weight": 12, "color": "c0453a"},
 	{"id": "nimbus_bramble_cards", "boss": "nimbus", "name": "Mordrek cards", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
 	{"id": "nimbus_sling", "boss": "nimbus", "name": "Wind sling", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d7e7f6"},
-	{"id": "nimbus_coat", "boss": "nimbus", "name": "Hare coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8aa4c0"},
-	{"id": "hare_fluff", "boss": "nimbus", "name": "Hare fluff", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
+	{"id": "nimbus_coat", "boss": "nimbus", "name": "Rimeguard coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8aa4c0"},
+	{"id": "hare_fluff", "boss": "nimbus", "name": "Wraith wisp", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
 	{"id": "storm_bell", "boss": "nimbus", "name": "Storm bell", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffe08a"},
 	{"id": "aurora_shard", "boss": "nimbus", "name": "Aurora shard", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "b7f0ff"},
-	{"id": "nimbus_pet", "boss": "nimbus", "name": "Nimlet", "kind": "pet", "sprite": "nimbus", "rarity": "very_rare", "weight": 0, "color": "d7e7f6"},
+	{"id": "nimbus_pet", "boss": "nimbus", "name": "Rimeling", "kind": "pet", "sprite": "nimbus", "rarity": "very_rare", "weight": 0, "color": "d7e7f6"},
 	{"id": "cinder_purse", "boss": "cinder", "name": "Coin purse", "kind": "coins", "amount": 64, "rarity": "common", "weight": 22, "color": "f0b429"},
 	{"id": "cinder_pouch", "boss": "cinder", "name": "Heavy purse", "kind": "coins", "amount": 150, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "ash_clump", "boss": "cinder", "name": "Ash clump", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "6a534c"},
@@ -589,10 +589,10 @@ const DROPS: Array = [
 	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Aldric cards", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "3aa8a0"},
 	{"id": "cinder_mallet", "boss": "cinder", "name": "Cinder mallet", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "ff5a32"},
 	{"id": "cinder_plate", "boss": "cinder", "name": "Ash plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "a84830"},
-	{"id": "salamander_scale", "boss": "cinder", "name": "Salamander scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
+	{"id": "salamander_scale", "boss": "cinder", "name": "Cinder scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
 	{"id": "magma_charm", "boss": "cinder", "name": "Magma charm", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffd15a"},
 	{"id": "heart_of_ash", "boss": "cinder", "name": "Heart of ash", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
-	{"id": "cinder_pet", "boss": "cinder", "name": "Ashkit", "kind": "pet", "sprite": "cinder", "rarity": "very_rare", "weight": 0, "color": "ff5a32"},
+	{"id": "cinder_pet", "boss": "cinder", "name": "Ashling", "kind": "pet", "sprite": "cinder", "rarity": "very_rare", "weight": 0, "color": "ff5a32"},
 ]
 
 const SKILLS: Array = [

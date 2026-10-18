@@ -136,6 +136,7 @@ func _fill() -> void:
 		showcase.queue_free()
 	showcase = Home.Showcase.new()
 	showcase.hero_id = selected
+	showcase.fill = 0.6
 	showcase.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage_slot.add_child(showcase)
 	for sock in sockets:
@@ -147,7 +148,10 @@ func _fill() -> void:
 	var equipped := selected == SaveGame.featured_id()
 	hunt.text = "✓ EQUIPPED" if equipped else "SELECT"
 	hunt.disabled = equipped
-	hunt.modulate = Color(0.85, 0.95, 0.8) if equipped else Color.WHITE
+	# Settled state reads as done (muted stone/gilt), never as a red alarm.
+	if hunt.has_method("set_tone"):
+		hunt.call("set_tone", "stone" if equipped else "gold")
+	hunt.modulate = Color(0.92, 0.9, 0.86) if equipped else Color.WHITE
 	stat_line.text = "%s  ·  %s" % [str(info["name"]).to_upper(), Catalog.role_name(str(info["role"])).to_upper()]
 	_fill_level(stats)
 	gear_line.text = EquipUI.summary(selected)

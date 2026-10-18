@@ -211,6 +211,9 @@ static func tone_colors(tone: String) -> Dictionary:
 			return {"hi": Color("9a2a26"), "lo": Color("3e0c0c"), "rim_hi": Color("e8c886"), "rim_lo": Color("4e3012"), "edge": Color("160606"), "lip": Color("5a1414"), "ink": Color("f6ecd0")}
 		"purple":
 			return {"hi": Color("6a3a9a"), "lo": Color("26103e"), "rim_hi": Color("e8d0f0"), "rim_lo": Color("4a2e5a"), "edge": Color("12081c"), "lip": Color("3a1a5a"), "ink": Color("f4ecf8")}
+		"stone":
+			# Settled / already-done state: worn stone in a dulled gilt frame.
+			return {"hi": Color("5a5348"), "lo": Color("2a2620"), "rim_hi": Color("c8ae78"), "rim_lo": Color("4e3e24"), "edge": Color("100e0c"), "lip": Color("34302a"), "ink": Color("e4d8b8")}
 		"grey":
 			return {"hi": Color("4a4540"), "lo": Color("26221e"), "rim_hi": Color("8a8278"), "rim_lo": Color("3a3530"), "edge": Color("100e0c"), "lip": Color("2e2a26"), "ink": Color("b0a898")}
 		"leather":
@@ -633,6 +636,23 @@ class Btn extends Button:
 		add_child(skin)
 		button_down.connect(_sink)
 		button_up.connect(_rise)
+
+	## Re-skin in place (e.g. SELECT -> settled EQUIPPED) without rebuilding.
+	func set_tone(t: String) -> void:
+		if t == tone and skin != null:
+			return
+		tone = t
+		if skin == null:
+			return
+		var at := skin.get_index()
+		var behind := skin.show_behind_parent
+		skin.queue_free()
+		skin = Frame.new("button", "grey" if disabled and t != "stone" else t)
+		skin.margin = 14.0
+		skin.show_behind_parent = behind
+		add_child(skin)
+		move_child(skin, at)
+		queue_redraw()
 
 	func _sink() -> void:
 		_down = true

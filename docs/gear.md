@@ -54,6 +54,12 @@ The run uses the biome it was launched in; drawer chests use the biome
 recorded on the chest (`open_next`). A meadow source therefore rolls iron
 only, boss included.
 
+## Which hero a drop is for
+A run drop rolls the run's hero on a 75% coin flip; the other 25% goes to a
+uniformly chosen hero, which can also be the run hero. The effective share is
+75% + 25% x 1/4 = **81.25%** for the run hero (sim_check measures ~81%). That is
+intended: off-hero pieces are a small pull toward the rest of the roster.
+
 ## Duplicates convert to shards or coins
 When a rolled piece is already owned by its hero, or an earlier id in the same
 bank already granted it, it is not a second copy: it banks as **gear shards**
