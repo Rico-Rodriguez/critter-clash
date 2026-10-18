@@ -675,6 +675,9 @@ func _drain() -> void:
 						summary = SaveGame.commit_daily_pass(biome_id, str(ev["id"]))
 					else:
 						summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain)
+					if not is_daily:
+						# Fixed-seed dailies are replayable, so they never bank gear.
+						sim.bank_gear()
 				AudioDirector.sfx("boss_die")
 				AudioDirector.haptic("heavy")
 				AudioDirector.sting(true)
@@ -687,6 +690,8 @@ func _drain() -> void:
 				if not committed:
 					committed = true
 					SaveGame.commit_defeat(biome_id, sim.slain)
+					if not is_daily:
+						sim.bank_gear()
 				AudioDirector.sting(false)
 				AudioDirector.haptic("heavy")
 				# Let the fall read before the card covers it.

@@ -59,6 +59,14 @@ const ROLE_TUNING := {
 }
 
 var rng := RandomNumberGenerator.new()
+## Loot uses its own stream, seeded from the run seed (xor constant) in
+## start(), so drops are deterministic for the seed and never perturb combat.
+var loot_rng := RandomNumberGenerator.new()
+## Item ids earned this run; drop hooks append. The screen calls bank_gear()
+## once when it commits the run (never the sim itself, so bots and tests
+## never write the real armory).
+var gear_found: Array[String] = []
+var _banked := false
 var mode := Session.Mode.SOLO
 var biome_id := "meadow"
 var biome: Dictionary = {}
@@ -326,7 +334,9 @@ class Ping extends RefCounted:
 
 
 func start(session: Session, stats_for: Dictionary) -> void:
-	rng.seed = session.seed if session.seed != 0 else randi()
+	var run_seed := session.seed if session.seed != 0 else randi()
+	rng.seed = run_seed
+	loot_rng.seed = run_seed ^ 0x6EA2
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
@@ -2016,6 +2026,7 @@ func _kill(actor: Actor) -> void:
 			events.append({"type": "duel_win"})
 		return
 	if actor.kind == "boss":
+		_gear_roll_drop("boss", actor.pos)
 		phase = "over"
 		result = "win"
 		paused = true
@@ -2031,6 +2042,10 @@ func _kill(actor: Actor) -> void:
 	if actor.team == 1:
 		slain += 1
 		_drop_gem(actor.pos, actor.xp)
+		if actor.elite:
+			_gear_roll_drop("elite", actor.pos)
+		if actor.camp >= 0 and actor.camp < map.camps.size() and not _camp_alive(actor.camp):
+			_gear_roll_drop("camp", actor.pos)
 
 
 func _add_xp(amount: int) -> void:
@@ -2629,6 +2644,7 @@ func _claim_chest(c: Dictionary, hero: Actor) -> void:
 		_drop_gem(c["pos"] + Vector2.RIGHT.rotated(TAU * k / 6.0) * rng.randf_range(40.0, 90.0), maxi(1, value / (9 if rare else 6)))
 	hero.hp = minf(hero.max_hp, hero.hp + hero.max_hp * 0.2)
 	events.append({"type": "loot", "pos": c["pos"], "tier": c["tier"], "coins": coins, "shake": 0.25})
+	_gear_roll_drop("chest_" + str(c["tier"]), c["pos"])
 
 
 ## Shrine pass: claim any shrine a hero has walked within reach of, tick the
@@ -2747,6 +2763,7 @@ func _step_goblin(actor: Actor, dt: float, target: Actor) -> void:
 
 func _goblin_loot(actor: Actor) -> void:
 	goblin = null
+	_gear_roll_drop("goblin", actor.pos)
 	var chest := {"pos": actor.pos, "tier": "rare", "open": false}
 	chests.append(chest)
 	var hero := _nearest_living_hero(actor.pos)
@@ -2754,6 +2771,44 @@ func _goblin_loot(actor: Actor) -> void:
 		_claim_chest(chest, hero)
 	for k in 10:
 		_drop_gem(actor.pos + Vector2.RIGHT.rotated(TAU * float(k) / 10.0) * rng.randf_range(36.0, 96.0), 2)
+
+
+## Roll one source into the run's loot list and emit a gear_drop event for the
+## reveal UI. Uses the dedicated loot stream, so combat RNG is untouched.
+## The hero is the sim's own critter id; LootTable never keys on it directly.
+func _gear_roll_drop(source: String, pos: Vector2) -> void:
+	var hero := str(heroes[0].sprite) if not heroes.is_empty() else ""
+	for id in LootTable.roll(loot_rng, source, hero, _biome_index()):
+		gear_found.append(id)
+		events.append({"type": "gear_drop", "id": id, "tier": int(id.get_slice(".", 2)), "pos": pos})
+
+
+## The biome's place in Catalog.BIOMES; deeper biomes roll higher tiers.
+func _biome_index() -> int:
+	for i in Catalog.BIOMES.size():
+		if str(Catalog.BIOMES[i]["id"]) == biome_id:
+			return i
+	return 0
+
+
+## Whether any living critter still belongs to camp id (patrols excluded).
+func _camp_alive(camp: int) -> bool:
+	for a in actors:
+		if a.alive and a.kind == "minion" and a.camp == camp:
+			return true
+	return false
+
+
+## Grant the run's earned gear to the armory, once. A win keeps everything; a
+## loss keeps half (floor), earliest drops first. Safe to call twice.
+func bank_gear() -> void:
+	if _banked:
+		return
+	_banked = true
+	var keep := gear_found.size()
+	if result == "lose":
+		keep = gear_found.size() / 2
+	SaveGame.bank_gear(gear_found.slice(0, keep))
 
 
 func _reveal(at: Vector2) -> void:

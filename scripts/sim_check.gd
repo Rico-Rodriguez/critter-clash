@@ -22,6 +22,7 @@ static func run() -> int:
 	_boss_intro_check()
 	_dodge_check()
 	_events_check()
+	_gear_drop_smoke()
 	if failures == 0:
 		print("SIM CHECK PASSED")
 		return 0
@@ -1076,6 +1077,57 @@ static func _events_check() -> void:
 	if mhero.hp >= mhp:
 		_fail("molten patch did not damage the hero")
 	print("EVENTS shrines/affixes/goblin ok")
+
+
+## Gear drops: a seeded run rolls identical loot, banking grants each earned
+## piece exactly once (a win keeps all, a loss keeps half), and every rolled id
+## is a real item. Runs on a scratch armory so the player's save is untouched.
+static func _gear_drop_smoke() -> void:
+	var prev_override: Variant = GearDB.store_override
+	var prev_nowrite: bool = SaveGame.no_write
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+	var sources := ["camp", "elite", "boss", "goblin", "chest_common", "chest_epic"]
+	var a := _sim("meadow", "ember", 11)
+	var b := _sim("meadow", "ember", 11)
+	for sim in [a, b]:
+		for source in sources:
+			sim._gear_roll_drop(source, Vector2.ZERO)
+	if a.gear_found.is_empty():
+		_fail("a seeded run rolled no gear")
+	if str(a.gear_found) != str(b.gear_found):
+		_fail("gear drops are not deterministic for a seed")
+	for id in a.gear_found:
+		if not GearDB.is_item(str(id)):
+			_fail("rolled a non-item gear id " + str(id))
+	a.result = "win"
+	a.bank_gear()
+	if _owned_total() != a.gear_found.size():
+		_fail("a win did not bank every drop")
+	a.bank_gear()
+	if _owned_total() != a.gear_found.size():
+		_fail("gear banked twice")
+	GearDB.store_override = {}
+	var c := _sim("meadow", "ember", 11)
+	for source in sources:
+		c._gear_roll_drop(source, Vector2.ZERO)
+	c.result = "lose"
+	c.bank_gear()
+	if _owned_total() != c.gear_found.size() / 2:
+		_fail("a loss did not keep half the drops")
+	GearDB.store_override = prev_override
+	SaveGame.no_write = prev_nowrite
+	print("GEAR smoke ok: %d drops banked" % a.gear_found.size())
+
+
+## Total copies held in the current GearDB store (a scratch armory in tests).
+static func _owned_total() -> int:
+	var total := 0
+	var owned: Dictionary = GearDB._store()["owned"]
+	for hero in owned:
+		for id in owned[hero]:
+			total += int(owned[hero][id])
+	return total
 
 
 static func _sim(biome: String, hero: String, seed: int) -> RunSim:

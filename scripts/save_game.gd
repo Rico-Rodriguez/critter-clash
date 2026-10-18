@@ -701,8 +701,34 @@ func open_next(index: int = 0) -> Dictionary:
 		return {}
 	var chest: Dictionary = data["chests"].pop_at(index)
 	var loot := _roll_loot(chest)
+	# Drawer chests also roll earned gear, by rarity, from the chest's own seed
+	# so the drop is fixed the moment the chest was earned. The gear hero is
+	# whoever is currently selected. Existing rewards above stay unchanged.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(chest.get("seed", 0))
+	var tone := str(chest.get("tone", ""))
+	if tone == "":
+		tone = "wood" if str(chest.get("kind", "hunt")) == "scrap" else {"meadow": "silver", "mushroom": "magic", "frost": "silver", "volcano": "gold"}.get(str(chest.get("biome", "meadow")), "silver")
+	var biome_id := str(chest.get("biome", "meadow"))
+	var biome_idx := 0
+	for i in Catalog.BIOMES.size():
+		if str(Catalog.BIOMES[i]["id"]) == biome_id:
+			biome_idx = i
+			break
+	var gear_items: Array = []
+	for id in LootTable.roll(rng, "chest_" + str(RARITY_OF_TONE.get(tone, "rare")), featured_id(), biome_idx):
+		if GearDB.grant(id):
+			gear_items.append({"kind": "gear", "id": id})
+	loot["gear_items"] = gear_items
 	_write()
 	return loot
+
+
+## Grant earned gear ids to their heroes, one copy each, once. Unknown ids are
+## skipped. Drop tables and rolling live in LootTable; this only banks the run.
+func bank_gear(ids: Array) -> void:
+	for id in ids:
+		GearDB.grant(str(id))
 
 
 func claim(id: String) -> bool:
