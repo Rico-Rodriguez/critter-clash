@@ -51,7 +51,7 @@ Foraging, Fishing, Taming, and Crafting are saved as XP. Levels run from 1 to 99
 | Pip, frog | Mage | Trophy road |
 | Bramble, hedgehog | Tank | Trophy road |
 
-Gravemaw (a corrupted barrow troll, id `thistle`), Caplet, Nimbus, and Cinder are bosses. They stay in the world.
+Gravemaw (a corrupted barrow troll, id `thistle`), Nightmaw (a blighted rot-wolf, id `caplet`), Nimbus, and Cinder are bosses. They stay in the world.
 
 ## World and the road
 

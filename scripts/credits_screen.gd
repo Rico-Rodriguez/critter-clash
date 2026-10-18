@@ -53,8 +53,15 @@ const ENTRIES := [
 		"license": "CC-BY 4.0",
 	},
 	{
+		"title": "Stylized Nightmarish Werewolf",
+		"used": "Nightmaw, the mushroom-forest lair boss",
+		"author": "Stylized Builder",
+		"url": "https://sketchfab.com/3d-models/stylized-nightmarish-werewolf-53e21af08b8c495cb67a9fbd95750071",
+		"license": "CC-BY 4.0",
+	},
+	{
 		"title": "Mushroom Boss — game ready with animations",
-		"used": "Former meadow boss (fallback only)",
+		"used": "Former meadow and mushroom bosses (fallback only)",
 		"author": "iamjohnhult",
 		"url": "https://sketchfab.com/3d-models/mushroom-boss-game-ready-with-animations-ee611e4925e94a98baa4cfd3d89d3449",
 		"license": "CC-BY 4.0",
@@ -152,7 +159,7 @@ const ENTRIES := [
 	},
 	{
 		"title": "KayKit Adventurers / Skeletons animations",
-		"used": "Knight hero animations; Gravemaw death clip (retargeted)",
+		"used": "Knight hero animations; Gravemaw and Nightmaw death/hit clips (retargeted)",
 		"author": "Kay Lousberg (kaylousberg.com)",
 		"url": "https://kaylousberg.itch.io/kaykit-adventurers",
 		"license": "CC0",

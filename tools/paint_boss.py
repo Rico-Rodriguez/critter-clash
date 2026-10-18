@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Grimdark boss repaints (Gravemaw, the barrow troll).
+"""Grimdark boss repaints (Gravemaw troll, Nightmaw werewolf).
 
 Writes, next to each boss model in assets/models/sketchfab/boss/:
   troll_veins_*.png  emission masks: a corruption crack network in UV space,
                denser in blotches (upper body, lower body, head UV sets).
+  werewolf_veins.png  the same, plus the werewolf's own red wounds/claws.
+  werewolf_paint.png / werewolf_wool_paint.png  desaturated ashen hide that
+               keeps the red accents.
 Derived from the models' own CC-BY textures (same credit as the models).
 Run from the repo root: python3 tools/paint_boss.py
 """
@@ -63,3 +66,19 @@ def save(img, name):
 save(vein_mask(512, 11, 0.42), "troll_veins_upper.png")
 save(vein_mask(512, 21, 0.32), "troll_veins_lower.png")
 save(vein_mask(512, 31, 0.3), "troll_veins_head.png")
+
+# Werewolf: ashen hide that keeps blood-red accents; those accents glow.
+body = np.asarray(Image.open(D + "werewolf_0.png").convert("RGB"), np.float32) / 255.0
+hsv = np.asarray(Image.open(D + "werewolf_0.png").convert("HSV"), np.float32) / 255.0
+h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+red = ((h < 0.04) | (h > 0.93)) & (s > 0.45) & (v > 0.25)
+grey = body.mean(axis=2, keepdims=True)
+ash = grey * np.array([0.92, 0.9, 0.88]) * 0.8
+keep = red[..., None].astype(np.float32)
+paint = ash * (1 - keep) + body * np.array([0.85, 0.35, 0.3]) * keep
+save(Image.fromarray((np.clip(paint, 0, 1) * 255).astype(np.uint8)), "werewolf_paint.png")
+redm = Image.fromarray((red * 255).astype(np.uint8)).resize((512, 512), Image.BILINEAR)
+save(vein_mask(512, 41, 0.36, np.asarray(redm, np.float32) / 255.0 * 0.85), "werewolf_veins.png")
+wool = np.asarray(Image.open(D + "werewolf_4.png").convert("RGB"), np.float32) / 255.0
+wg = wool.mean(axis=2, keepdims=True) * np.array([0.8, 0.8, 0.82]) * 0.75
+save(Image.fromarray((np.clip(wg, 0, 1) * 255).astype(np.uint8)), "werewolf_wool_paint.png")

@@ -31,6 +31,15 @@ const MAPS := {
 		"upperleg.l": "LeftUpLeg_0118", "lowerleg.l": "LeftLeg_0119", "foot.l": "LeftFoot_0121", "toes.l": "LeftToeBase_0122",
 		"upperleg.r": "RightUpLeg_010", "lowerleg.r": "RightLeg_011", "foot.r": "RightFoot_013", "toes.r": "RightToeBase_014",
 	},
+	# KayKit -> Stylized Builder werewolf (boss). Digitigrade legs: the ankle
+	# bone takes the foot's role and the paw the toes'.
+	"kaykit_werewolf": {
+		"hips": "Hip_55", "spine": "Spine_43", "chest": "Chest_42", "head": "Head_0",
+		"upperarm.l": "Upper Arm L_21", "lowerarm.l": "Lower arm L_20", "hand.l": "Palm L_19",
+		"upperarm.r": "Upper Arm R_40", "lowerarm.r": "Lower arm R_39", "hand.r": "Palm R_38",
+		"upperleg.l": "Upper Leg L_47", "lowerleg.l": "Lower Leg L_46", "foot.l": "Ankle L_45", "toes.l": "Foot L_44",
+		"upperleg.r": "Upper Leg R_54", "lowerleg.r": "Lower Leg R_53", "foot.r": "Ankle R_52", "toes.r": "Foot R_51",
+	},
 }
 ## Limb chains whose bind directions are swung to match: [src a, src b] -> target follows map.
 const SWING := [["upperarm.l", "lowerarm.l"], ["lowerarm.l", "hand.l"], ["upperarm.r", "lowerarm.r"], ["lowerarm.r", "hand.r"],

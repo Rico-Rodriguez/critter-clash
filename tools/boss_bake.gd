@@ -9,6 +9,10 @@ extends SceneTree
 ##   USE_REST=1 retarget.gd -- res://_src/kaykit/Barbarian.glb <troll.glb> /tmp/troll_kk.res kaykit_troll '{"death":"Death_A","hit":"Hit_A"}'
 ##   boss_bake.gd -- <troll.glb> /tmp/troll_kk.res res://assets/models/sketchfab/boss/troll_anims.res
 ##     '{"idle":"Frames_003","run":"Frames_002","walk":"Frames000","attack":"Frames_006","swipe":"Frames_004","roar":"Frames_008","stagger":"Frames_009"}'
+## Nightmaw (werewolf.glb keeps its clips):
+##   USE_REST=1 K_LEGS=1 retarget.gd -- res://_src/kaykit/Barbarian.glb res://assets/models/sketchfab/boss/werewolf.glb /tmp/werewolf_kk.res kaykit_werewolf '{"death":"Death_A","hit":"Hit_A"}'
+##   boss_bake.gd -- res://assets/models/sketchfab/boss/werewolf.glb /tmp/werewolf_kk.res res://assets/models/sketchfab/boss/werewolf_anims.res
+##     '{"idle":"Fighting pose","run":"Run","walk":"Walk","attack":"Attak","swipe":"Attak 2"}'
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var model: Node = (load(args[0]) as PackedScene).instantiate()

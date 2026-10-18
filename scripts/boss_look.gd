@@ -1,7 +1,7 @@
 class_name BossLook
 extends RefCounted
 
-## Grimdark lair bosses (art pass 2026-10-18; Gravemaw first, more to follow): corrupted beasts that stand
+## Grimdark lair bosses (art pass 2026-10-18: Gravemaw, Nightmaw): corrupted beasts that stand
 ## well over twice the hero's height, with burning eyes, a glowing core and
 ## emissive corruption veins. Enemy-side only; Cast3D asks here first for
 ## these ids, and Stage3D calls dress() after a boss model is sized.
@@ -32,6 +32,22 @@ const BOSSES := {
 		# space), so Stage3D's bounds-based sizing needs a boost: about 12 m
 		# visible, ~2.8x the hero.
 		"size_boost": 2.3,
+	},
+	# Nightmaw, the Rot-Wolf (Mushroom Forest). Sick green corruption.
+	"caplet": {
+		"scene": DIR + "werewolf.tscn",
+		"clips": {"idle": "idle", "run": "run", "walk": "walk", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle"},
+		"glow": Color(0.55, 1.0, 0.22),
+		"grade": Color(0.9, 0.9, 0.9),
+		"mats": {
+			"Body": {"albedo_tex": DIR + "werewolf_paint.png", "veins": DIR + "werewolf_veins.png"},
+			"Wool": {"albedo_tex": DIR + "werewolf_wool_paint.png"},
+		},
+		"core_bone": "Chest_42",
+		"core_size": 0.12,
+		"eyes": "Head_0",
+		# Hunched, long-armed: sized a little under Gravemaw (~12 m, 2.8x the knight).
+		"size_boost": 1.0,
 	},
 }
 
@@ -328,6 +344,17 @@ static func _embers(model: Node3D, col: Color) -> void:
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.vertex_color_use_as_albedo = true
+	var dot := GradientTexture2D.new()  # soft round spark instead of a hard square
+	dot.width = 32
+	dot.height = 32
+	dot.fill = GradientTexture2D.FILL_RADIAL
+	dot.fill_from = Vector2(0.5, 0.5)
+	dot.fill_to = Vector2(0.5, 0.0)
+	var fall := Gradient.new()
+	fall.set_color(0, Color(1, 1, 1, 1))
+	fall.set_color(1, Color(1, 1, 1, 0))
+	dot.gradient = fall
+	m.albedo_texture = dot
 	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	m.disable_receive_shadows = true
 	quad.material = m
