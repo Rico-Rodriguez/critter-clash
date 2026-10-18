@@ -18,6 +18,7 @@ const CHECKS := [
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
 	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale",
+	"difficulty",
 ]
 ## run_screen.gd has no class_name; its inner HintLayer is reached through the
 ## preloaded script constant so the pure trigger helper can be tested.
@@ -119,6 +120,8 @@ static func _dispatch(name: String) -> void:
 			_skill_trophy_check()
 		"pacing_scale":
 			_pacing_scale_check()
+		"difficulty":
+			_difficulty_check()
 		"gear_coverage":
 			_gear_coverage_check()
 		"skills_screen":
@@ -3536,6 +3539,178 @@ static func _pacing_print(role: String, hero: String, main: String, sample: Dict
 ## "-" for a milestone the 60-run projection never reaches.
 static func _pacing_run(run: int) -> String:
 	return "-" if run < 0 else str(run)
+
+
+## Per-map difficulty tiers: tiers scale the fight, unlocks persist in the
+## save, Normal farming falls off in XP once the hero outgrows the map, and the
+## loot cap still stops Nightmare Meadow from rolling rune.
+static func _difficulty_check() -> void:
+	var keep_store: Variant = GearDB.store_override
+	var keep_nowrite: bool = SaveGame.no_write
+	var keep_data: Dictionary = SaveGame.data.duplicate(true)
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+
+	# 1) Tiers scale enemy hp, damage, density and elite chance (same seed).
+	var normal := _difficulty_sim("meadow", 0)
+	var veteran := _difficulty_sim("meadow", 1)
+	var nightmare := _difficulty_sim("meadow", 2)
+	var ns := _difficulty_foes(normal)
+	var vs := _difficulty_foes(veteran)
+	var xs := _difficulty_foes(nightmare)
+	if not (float(vs["hp"]) > float(ns["hp"]) and float(xs["hp"]) > float(vs["hp"])):
+		_fail("enemy hp did not rise with tier: %s -> %s -> %s" % [ns["hp"], vs["hp"], xs["hp"]])
+	if not (float(vs["dmg"]) > float(ns["dmg"]) and float(xs["dmg"]) > float(vs["dmg"])):
+		_fail("enemy damage did not rise with tier: %s -> %s -> %s" % [ns["dmg"], vs["dmg"], xs["dmg"]])
+	if not int(ns["count"]) < int(xs["count"]):
+		_fail("enemy density did not rise with tier: %s -> %s" % [ns["count"], xs["count"]])
+	if not int(ns["elite"]) < int(xs["elite"]):
+		_fail("elite count did not rise with tier: %s -> %s" % [ns["elite"], xs["elite"]])
+	normal.begin_boss()
+	veteran.begin_boss()
+	nightmare.begin_boss()
+	if normal.boss == null or veteran.boss == null or nightmare.boss == null:
+		_fail("a boss failed to spawn for the tier scaling check")
+	elif not (float(veteran.boss.max_hp) > float(normal.boss.max_hp) and float(nightmare.boss.max_hp) > float(veteran.boss.max_hp)):
+		_fail("boss hp did not rise with tier")
+
+	# 2) The loot cap holds: Nightmare Meadow still cannot roll rune.
+	if LootTable.max_tier("boss", 0) != GearDB.Tier.IRON:
+		_fail("meadow boss tier cap changed")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 987654
+	var rune := 0
+	for _i in 600:
+		for id in LootTable.roll(rng, "boss", "pebble", 0, 2):
+			if int(str(id).get_slice(".", 2)) == GearDB.Tier.RUNE:
+				rune += 1
+	if rune > 0:
+		_fail("Nightmare meadow rolled rune gear %d times" % rune)
+
+	# 3) XP falloff: only Normal, only past the grace band, and monotone.
+	if Catalog.xp_falloff(3, 3, 0) != 1.0:
+		_fail("a hero at the map's level should not fall off")
+	if Catalog.xp_falloff(80, 3, 0) >= 1.0:
+		_fail("a far over-leveled hero should fall off on Normal")
+	if Catalog.xp_falloff(80, 3, 2) != 1.0:
+		_fail("Nightmare must never fall off")
+	if Catalog.xp_falloff(90, 3, 0) > Catalog.xp_falloff(30, 3, 0):
+		_fail("falloff should not rise with combat level")
+	# Wired end to end: the same hit trains less once the hero is over-leveled.
+	var fp := _difficulty_fresh_sim("pebble", 0)
+	var xp_fresh := _difficulty_hit_xp(fp)
+	for skill in ["attack", "strength", "defence", "hitpoints"]:
+		GearDB.add_xp("pebble", skill, GearDB.xp_for_level(70))
+	var boosted := _difficulty_fresh_sim("pebble", 0)
+	var xp_boosted := _difficulty_hit_xp(boosted)
+	if boosted.xp_falloff() >= 1.0:
+		_fail("an over-leveled Normal run reported no falloff")
+	if xp_boosted >= xp_fresh:
+		_fail("over-leveled hit trained %f xp, fresh hit %f" % [xp_boosted, xp_fresh])
+
+	# 4) Unlocks persist across a save round trip.
+	_difficulty_unlock_check()
+
+	SaveGame.data = keep_data
+	GearDB.store_override = keep_store
+	SaveGame.no_write = keep_nowrite
+	print("DIFFICULTY ok: tiers scale, nightmare meadow stays iron, falloff works, unlocks persist")
+
+
+## A fresh exploration run at `tier` for the tier/falloff checks.
+static func _difficulty_sim(biome: String, tier: int, seed := 11) -> RunSim:
+	var session := Session.solo(biome, "pebble")
+	session.seed = seed
+	var sim := RunSim.new()
+	sim.start(session, {"pebble": Catalog.base_stats("pebble")}, tier)
+	return sim
+
+
+static func _difficulty_fresh_sim(hero: String, tier: int) -> RunSim:
+	var session := Session.solo("meadow", hero)
+	session.seed = 11
+	var sim := RunSim.new()
+	sim.start(session, {hero: Catalog.base_stats(hero)}, tier)
+	return sim
+
+
+## Mean hp/damage and the counts a fight spawned, for comparing tiers.
+static func _difficulty_foes(sim: RunSim) -> Dictionary:
+	var count := 0
+	var elite := 0
+	var hp := 0.0
+	var dmg := 0.0
+	for a in sim.actors:
+		if a.kind != "minion" or not a.alive:
+			continue
+		count += 1
+		if a.elite:
+			elite += 1
+		hp += a.max_hp
+		dmg += a.dmg
+	var n := float(maxi(count, 1))
+	return {"count": count, "elite": elite, "hp": hp / n, "dmg": dmg / n}
+
+
+## The run's skill XP from one fixed hit on a dummy foe.
+static func _difficulty_hit_xp(sim: RunSim) -> float:
+	var hero: RunSim.Actor = sim.heroes[0]
+	var foe := RunSim.Actor.new()
+	foe.kind = "minion"
+	foe.team = 1
+	foe.max_hp = 1000.0
+	foe.hp = 1000.0
+	sim._skill_xp_hurt(hero, foe, 100.0)
+	var total := 0.0
+	var row: Dictionary = sim.skill_xp.get(str(hero.sprite), {})
+	for k in row:
+		total += float(row[k])
+	return total
+
+
+## Clearing a tier opens the next, it persists across a reload, and one biome's
+## unlock never leaks to another. Writes to a scratch save file and restores it.
+static func _difficulty_unlock_check() -> void:
+	var keep_path: String = SaveGame.save_path
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_backup: int = SaveGame._last_backup_ms
+	var path := "user://sim_check_difficulty.json"
+	var wipe := func() -> void:
+		for p in [path, path + ".bak", path + ".tmp"]:
+			if FileAccess.file_exists(p):
+				DirAccess.remove_absolute(p)
+	wipe.call()
+	SaveGame.save_path = path
+	SaveGame.no_write = false
+	SaveGame.data = SaveGame._fresh()
+	SaveGame._reconcile()
+	if SaveGame.difficulty_unlocked("meadow") != 0 or SaveGame.difficulty_open("meadow", 1):
+		_fail("a fresh save should only have Normal open")
+	SaveGame._last_backup_ms = -SaveGame.BACKUP_EVERY_MS
+	SaveGame._write()
+	if not SaveGame.note_difficulty_clear("meadow", 0) or SaveGame.difficulty_unlocked("meadow") != 1:
+		_fail("clearing Normal should open Veteran")
+	if not SaveGame.difficulty_open("meadow", 1) or SaveGame.difficulty_open("meadow", 2):
+		_fail("Veteran should be open and Nightmare still sealed")
+	SaveGame.note_difficulty_clear("meadow", 1)
+	SaveGame._write()
+	if not SaveGame.difficulty_open("meadow", 2):
+		_fail("clearing Veteran should open Nightmare")
+	if SaveGame.difficulty_open("mushroom", 1):
+		_fail("unlocking meadow must not open another biome")
+	SaveGame._load()
+	if SaveGame.difficulty_unlocked("meadow") != 2 or SaveGame.difficulty_open("mushroom", 1):
+		_fail("difficulty unlocks did not persist across a reload")
+	# commit_victory records the run's tier as a clear, opening the next.
+	SaveGame.data = SaveGame._fresh()
+	SaveGame._reconcile()
+	var summary := SaveGame.commit_victory("meadow", "thistle", 0, 0)
+	if int(summary.get("unlocked_tier", -1)) != 1:
+		_fail("commit_victory did not open the next tier")
+	wipe.call()
+	SaveGame.save_path = keep_path
+	SaveGame._last_backup_ms = keep_backup
+	SaveGame.no_write = keep_no_write
 
 
 static func _fail(message: String) -> void:

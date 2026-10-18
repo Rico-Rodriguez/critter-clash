@@ -82,6 +82,8 @@ const GEAR_MAGNET := 3.0
 var mode := Session.Mode.SOLO
 var biome_id := "meadow"
 var biome: Dictionary = {}
+## The map's difficulty tier (Catalog.Tier): 0 Normal, 1 Veteran, 2 Nightmare.
+var difficulty := 0
 ## Daily run modifiers (Session.modifiers). Empty for normal hunts.
 var modifiers: Array = []
 var map: HuntMap
@@ -380,13 +382,14 @@ class Ping extends RefCounted:
 	var alive := true
 
 
-func start(session: Session, stats_for: Dictionary) -> void:
+func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	var run_seed := session.seed if session.seed != 0 else randi()
 	rng.seed = run_seed
 	loot_rng.seed = run_seed ^ 0x6EA2
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
+	difficulty = clampi(tier, 0, Catalog.TIER_COUNT - 1)
 	modifiers = session.modifiers
 	explore = mode != Session.Mode.DUEL
 	map = HuntMap.world(biome_id, rng.seed) if explore else HuntMap.for_biome(biome_id)
@@ -552,6 +555,36 @@ func has_modifier(id: String) -> bool:
 ## "Hasty Foes" runs every wild critter 20% faster.
 func _foe_speed_mul() -> float:
 	return 1.2 if has_modifier("hasty") else 1.0
+
+
+## The active tier's scaling table (Catalog.TIER_MUL); Normal is all ones, so
+## every scaling below leaves a Normal run exactly as it was.
+func _diff() -> Dictionary:
+	return Catalog.tier_mul(difficulty)
+
+
+## The map's recommended combat level, for the XP falloff.
+func recommended_level() -> int:
+	return int(biome.get("recommended_level", Catalog.recommended_level(biome_id)))
+
+
+## The run hero's OSRS combat level from its committed GearDB skills.
+func hero_combat_level() -> int:
+	if heroes.is_empty():
+		return 1
+	return SkillsScreen.combat_level(GearDB.skills(str(heroes[0].sprite)))
+
+
+## Skill-XP falloff: 1.0 on Veteran/Nightmare and for a hero near the map's
+## level; on Normal a hero far above it trains slower. Cached once per run
+## (skills do not change mid-fight).
+func xp_falloff() -> float:
+	if _falloff < 0.0:
+		_falloff = Catalog.xp_falloff(hero_combat_level(), recommended_level(), difficulty)
+	return _falloff
+
+
+var _falloff := -1.0
 
 
 func choose(index: int) -> Array:
@@ -1865,6 +1898,7 @@ func _step_spawns(dt: float) -> void:
 	# instead of one at a time. The pack interval keeps the old pace per critter.
 	var pool: Array = wave["pool"]
 	var size := mini(PACK_SIZE + int(time / 30.0), MAX_MINIONS - _minion_count())
+	size = maxi(1, int(round(float(size) * float(_diff()["density"]))))
 	_spawn_pack(int(pool[rng.randi() % pool.size()]), size, pool)
 	spawn_cd = float(wave["every"]) * float(maxi(size, 2)) * 0.36
 
@@ -1899,10 +1933,10 @@ func _spawn_minion(skin_index: int, at: Vector2 = Vector2.INF) -> void:
 	actor.pos = at if at != Vector2.INF else _spawn_point()
 	actor.prev = actor.pos
 	actor.radius = float(info.get("radius", 24))
-	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP
+	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * float(_diff()["hp"])
 	actor.hp = actor.max_hp
 	actor.speed = float(info.get("speed", 100)) * _foe_speed_mul()
-	actor.dmg = float(info.get("dmg", 8)) * float(biome["dmg_mul"])
+	actor.dmg = float(info.get("dmg", 8)) * float(biome["dmg_mul"]) * float(_diff()["dmg"])
 	actor.xp = maxi(1, int(round(float(info.get("xp", 2)) * MINION_XP)))
 	actor.interval = float(info.get("interval", 1.35))
 	actor.shot_speed = float(info.get("shot_speed", 240))
@@ -1916,6 +1950,8 @@ func _spawn_boss() -> void:
 	var id := str(biome["boss"])
 	var info := Catalog.critter(id)
 	var mul := float(biome["boss_mul"])
+	var dhp := float(_diff()["hp"])
+	var ddmg := float(_diff()["dmg"])
 	var actor := Actor.new()
 	actor.id = _nid()
 	actor.team = 1
@@ -1924,10 +1960,10 @@ func _spawn_boss() -> void:
 	actor.role = str(info.get("role", "tank"))
 	actor.display = str(info.get("name", "Boss"))
 	actor.radius = float(info.get("boss_radius", 76))
-	actor.max_hp = float(info.get("boss_hp", 1400)) * mul
+	actor.max_hp = float(info.get("boss_hp", 1400)) * mul * dhp
 	actor.hp = actor.max_hp
 	actor.speed = float(info.get("boss_speed", 70)) * _foe_speed_mul()
-	actor.dmg = float(info.get("boss_touch", 16)) * mul
+	actor.dmg = float(info.get("boss_touch", 16)) * mul * ddmg
 	actor.pos = map.lair if explore else map.boss_spawn(actor.radius)
 	actor.prev = actor.pos
 	# Rise and hold: the intro beat keeps the boss planted and untouchable
@@ -1936,9 +1972,9 @@ func _spawn_boss() -> void:
 	actor.boss_timer = BOSS_INTRO
 	actor.bias_charge = float(info.get("bias_charge", 0.33))
 	actor.bias_aoe = float(info.get("bias_aoe", 0.33))
-	actor.aoe_dmg = float(info.get("aoe", 22)) * mul
-	actor.charge_dmg = float(info.get("charge", 28)) * mul
-	actor.shot_dmg = float(info.get("shot", 11)) * mul
+	actor.aoe_dmg = float(info.get("aoe", 22)) * mul * ddmg
+	actor.charge_dmg = float(info.get("charge", 28)) * mul * ddmg
+	actor.shot_dmg = float(info.get("shot", 11)) * mul * ddmg
 	actors.append(actor)
 	boss = actor
 	boss_mark = 0
@@ -2183,7 +2219,7 @@ func _skill_xp_hurt(attacker: Actor, target: Actor, dealt: float) -> void:
 	if dealt <= 0.0:
 		return
 	if attacker != null and attacker.kind == "hero" and target.kind != "hero":
-		var combat := dealt * COMBAT_XP_PER_DAMAGE
+		var combat := dealt * COMBAT_XP_PER_DAMAGE * float(_diff()["xp"]) * xp_falloff()
 		match _weapon_skill(attacker):
 			"magic":
 				_add_skill_xp(attacker, "magic", combat * RANGED_MAIN_SHARE)
@@ -2634,13 +2670,17 @@ func _open_side(actor: Actor, dir: Vector2) -> Vector2:
 ## (closer to the lair) are tougher and pay more.
 func _spawn_world() -> void:
 	var skins: Array = biome["skins"]
+	var density := float(_diff()["density"])
+	var elite_chance := float(_diff()["elite"])
 	for ci in map.camps.size():
 		var camp: Dictionary = map.camps[ci]
 		var at: Vector2 = camp["pos"]
 		var count: int = camp["count"]
-		# "Swarming" thickens every camp by 30%.
+		# "Swarming" thickens every camp by 30%; a raised tier adds density on
+		# top. Normal's density is 1.0, so both leave the camp count untouched.
 		if has_modifier("swarming"):
 			count = int(ceil(float(count) * 1.3))
+		count = maxi(1, int(round(float(count) * density)))
 		var base := ci % skins.size()
 		var affixes: Array = camp.get("affixes", [])
 		for k in count:
@@ -2648,6 +2688,10 @@ func _spawn_world() -> void:
 			var p := map.push_inside(at + Vector2.RIGHT.rotated(ang) * rng.randf_range(70.0, 150.0), 30.0)
 			var skin := base if k % 2 == 0 else rng.randi() % skins.size()
 			var m := _place_minion(skin, p, ci)
+			# A raised tier promotes some camp members to elites. Normal rolls
+			# nothing (chance 0), so its RNG stream is bit-for-bit unchanged.
+			if elite_chance > 0.0 and rng.randf() < elite_chance:
+				_make_elite(m)
 			_apply_affixes(m, affixes)
 		if bool(camp["elite"]):
 			var e := _place_minion(rng.randi() % skins.size(), at, ci)
@@ -2660,8 +2704,10 @@ func _spawn_world() -> void:
 		var a: Vector2 = pat["a"]
 		var b: Vector2 = pat["b"]
 		var tag := 1000 + pi
-		for k in int(pat["count"]):
+		for k in maxi(1, int(round(float(pat["count"]) * density))):
 			var m := _place_minion(rng.randi() % skins.size(), a + Vector2(rng.randf_range(-50, 50), rng.randf_range(-50, 50)), tag)
+			if elite_chance > 0.0 and rng.randf() < elite_chance:
+				_make_elite(m)
 			m.patrol_a = a
 			m.patrol_b = b
 	for c in map.loot:
@@ -2699,7 +2745,7 @@ func _place_minion(skin: int, at: Vector2, camp: int) -> Actor:
 	m.max_hp *= EXPLORE_HP * (1.0 + depth * 0.9)
 	m.hp = m.max_hp
 	m.dmg *= 1.0 + depth * 0.5
-	m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * (1.0 + depth * 0.6))))
+	m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * (1.0 + depth * 0.6) * float(_diff()["xp"]))))
 	return m
 
 
@@ -2884,7 +2930,7 @@ func _spawn_goblin(at: Vector2) -> Actor:
 	actor.pos = map.push_inside(at, 30.0)
 	actor.prev = actor.pos
 	actor.radius = 26.0
-	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * 5.0
+	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * 5.0 * float(_diff()["hp"])
 	actor.hp = actor.max_hp
 	var base_speed := 150.0
 	if not heroes.is_empty() and bases.has(heroes[0].id):
@@ -2956,7 +3002,7 @@ func _goblin_loot(actor: Actor) -> void:
 ## The hero is the sim's own critter id; LootTable never keys on it directly.
 func _gear_roll_drop(source: String, pos: Vector2) -> void:
 	var hero := str(heroes[0].sprite) if not heroes.is_empty() else ""
-	for id in LootTable.roll(loot_rng, source, hero, _biome_index()):
+	for id in LootTable.roll(loot_rng, source, hero, _biome_index(), difficulty):
 		gear_found.append(id)
 		var key := "gear%d" % gear_found.size()
 		# Several pieces from one source fan out a little so beams don't overlap.

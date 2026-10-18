@@ -50,19 +50,24 @@ const OWNED_REROLLS := 3
 ## How far one biome of depth shifts weight from iron toward steel and rune.
 const DEPTH_SHIFT := 0.04
 const DEPTH_SHIFT_CAP := 0.15
+## How far one difficulty tier shifts weight the same way, on top of depth.
+## The biome cap still applies, so a raised tier cannot beat MAX_TIER_BY_DEPTH.
+const TIER_SHIFT := 0.07
+const SHIFT_CAP := 0.30
 
 
 ## Roll a source into earned item ids. Empty when the source's chance misses.
 ## hero is the run's critter id (any hero is fine); biome_idx is the biome's
-## position in Catalog.BIOMES (deeper = a little more steel/rune).
-static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome_idx := 0) -> Array[String]:
+## position in Catalog.BIOMES (deeper = a little more steel/rune). difficulty is
+## the run's tier (Catalog.Tier), shifting weights further before the cap.
+static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome_idx := 0, difficulty := 0) -> Array[String]:
 	var out: Array[String] = []
 	var s: Dictionary = SOURCES.get(source, {})
 	if s.is_empty():
 		return out
 	if rng.randf() >= float(s["chance"]):
 		return out
-	var weights := _weights(s["weights"], biome_idx, source)
+	var weights := _weights(s["weights"], biome_idx, source, difficulty)
 	for _i in rng.randi_range(int(s["count"][0]), int(s["count"][1])):
 		out.append(_pick(rng, hero, _tier(rng, weights)))
 	return out
@@ -72,10 +77,12 @@ static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome
 ## the iron weight toward steel and rune, then the biome's cap drops any weight
 ## above the source's highest allowed tier and spreads it over the tiers that
 ## remain. The weight total never changes, so a shallow source is never a rune
-## faucet and a roll always lands on an allowed tier.
-static func _weights(base: Array, biome_idx: int, source := "") -> Array:
+## faucet and a roll always lands on an allowed tier. A difficulty tier adds a
+## further shift (still cap-bound), so Normal is unchanged.
+static func _weights(base: Array, biome_idx: int, source := "", difficulty := 0) -> Array:
 	var w := [float(base[0]), float(base[1]), float(base[2])]
 	var shift := minf(DEPTH_SHIFT_CAP, DEPTH_SHIFT * float(maxi(0, biome_idx)))
+	shift = minf(SHIFT_CAP, shift + TIER_SHIFT * float(maxi(0, difficulty)))
 	var move: float = float(w[0]) * shift
 	w[0] = float(w[0]) - move
 	w[1] = float(w[1]) + move * 0.65

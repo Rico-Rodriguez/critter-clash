@@ -315,6 +315,7 @@ const BIOMES: Array = [
 		"boss": "thistle",
 		"gate": 0,
 		"need": "",
+		"recommended_level": 3,
 		"hp_mul": 1.0,
 		"dmg_mul": 1.0,
 		"boss_mul": 1.0,
@@ -327,6 +328,7 @@ const BIOMES: Array = [
 		"boss": "caplet",
 		"gate": 30,
 		"need": "meadow",
+		"recommended_level": 20,
 		"hp_mul": 1.14,
 		"dmg_mul": 1.08,
 		"boss_mul": 1.2,
@@ -339,6 +341,7 @@ const BIOMES: Array = [
 		"boss": "nimbus",
 		"gate": 80,
 		"need": "mushroom",
+		"recommended_level": 40,
 		"hp_mul": 1.28,
 		"dmg_mul": 1.16,
 		"boss_mul": 1.38,
@@ -351,6 +354,7 @@ const BIOMES: Array = [
 		"boss": "cinder",
 		"gate": 150,
 		"need": "frost",
+		"recommended_level": 55,
 		"hp_mul": 1.42,
 		"dmg_mul": 1.24,
 		"boss_mul": 1.58,
@@ -358,6 +362,52 @@ const BIOMES: Array = [
 		"blurb": "Warm stone and slow lava. Cinder naps in it.",
 	},
 ]
+
+## Per-map difficulty tiers, unlocked in order by clearing the boss on the tier
+## below. Normal (index 0) is always open. Each tier scales enemy hp, damage,
+## spawn density and elite chance, and lifts loot-tier weights and skill XP.
+## `loot` is the shift the loot table adds before its biome cap applies, so a
+## Nightmare Meadow still cannot roll rune (see LootTable.MAX_TIER_BY_DEPTH).
+const TIER_COUNT := 3
+const TIER_NAMES: Array[String] = ["Normal", "Veteran", "Nightmare"]
+const TIER_KEYS: Array[String] = ["normal", "veteran", "nightmare"]
+const TIER_MUL: Array = [
+	{"hp": 1.0, "dmg": 1.0, "density": 1.0, "elite": 0.0, "loot": 0, "xp": 1.0},
+	{"hp": 1.35, "dmg": 1.2, "density": 1.18, "elite": 0.1, "loot": 1, "xp": 1.5},
+	{"hp": 1.8, "dmg": 1.45, "density": 1.35, "elite": 0.22, "loot": 2, "xp": 2.25},
+]
+
+
+static func tier_mul(tier: int) -> Dictionary:
+	return TIER_MUL[clampi(tier, 0, TIER_COUNT - 1)]
+
+
+static func tier_name(tier: int) -> String:
+	return TIER_NAMES[clampi(tier, 0, TIER_COUNT - 1)]
+
+
+## The combat level a map is tuned for; the map picker reads this and Normal
+## hunts fall off in XP once the hero leaves it far behind.
+static func recommended_level(id: String) -> int:
+	return int(biome(id).get("recommended_level", 1))
+
+
+## XP falloff for over-leveled Normal farming: 1.0 while the hero is within
+## `FALLOFF_GRACE` combat levels of the map, sliding toward `FALLOFF_FLOOR`
+## beyond that. Veteran and Nightmare are the deliberate challenge, so they
+## never fall off.
+const FALLOFF_GRACE := 8
+const FALLOFF_RATE := 0.04
+const FALLOFF_FLOOR := 0.25
+
+
+static func xp_falloff(combat: int, recommended: int, tier: int) -> float:
+	if tier != 0:
+		return 1.0
+	var over := combat - recommended
+	if over <= FALLOFF_GRACE:
+		return 1.0
+	return maxf(FALLOFF_FLOOR, 1.0 - float(over - FALLOFF_GRACE) * FALLOFF_RATE)
 
 const MILESTONES: Array = [
 	{"id": "m10", "trophies": 10, "kind": "coins", "amount": 40, "label": "Coin purse", "detail": "40 coins"},

@@ -3,6 +3,9 @@ extends ScreenBase
 ## The map: one framed banner per biome, rendered from the biome's own hunt
 ## scene (scripts/banner_baker.gd), with the boss's 3D head in a medallion.
 
+## Per-biome tier the player has picked in this visit (biome id -> tier index).
+var _pick: Dictionary = {}
+
 
 func build() -> void:
 	show_nav = true
@@ -119,12 +122,14 @@ func _banner(entry: Dictionary) -> Control:
 		info.add_child(UiKit.label("Boss drops still roll on every win.", 15, UiKit.MUTED, "b", 0))
 	elif unlocked:
 		info.add_child(UiKit.label("BOSS AWAITS", 18, UiKit.GOLD, "x", 3))
-		info.add_child(UiKit.label("Survive the waves to draw it out.", 15, UiKit.MUTED, "b", 0))
+		info.add_child(UiKit.label("Recommended combat %d. Survive the waves to draw it out." % Catalog.recommended_level(id), 15, UiKit.MUTED, "b", 0))
 	else:
 		info.add_child(UiKit.label("SEALED", 18, Color("c89a8a"), "x", 3))
 		var why := UiKit.label(SaveGame.biome_lock_text(id) + " to unlock", 15, UiKit.MUTED, "b", 0)
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		info.add_child(why)
+	if unlocked:
+		info.add_child(_tier_row(id))
 	if unlocked:
 		var button := UiKit.button("HUNT", 220, 88)
 		button.pressed.connect(_open_biome.bind(id))
@@ -153,11 +158,36 @@ func _banner_texture(id: String) -> Texture2D:
 	return crop
 
 
+## A compact segmented control for the biome's unlocked difficulty tiers. A
+## locked tier is disabled and names the clear that opens it. Picking a tier
+## only re-skins the row; the HUNT button reads the same `_pick` map.
+func _tier_row(id: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var chosen := int(_pick.get(id, 0))
+	var entries: Array = []
+	for t in Catalog.TIER_COUNT:
+		var open_tier := SaveGame.difficulty_open(id, t)
+		var b := UiKit.button(Catalog.tier_name(t), 0, 58, "gold" if t == chosen else "grey")
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.disabled = not open_tier
+		if not open_tier and t > 0:
+			b.tooltip_text = "Clear the boss on %s to open %s" % [Catalog.tier_name(t - 1), Catalog.tier_name(t)]
+		entries.append({"btn": b, "tier": t})
+		b.pressed.connect(func() -> void:
+			_pick[id] = t
+			for entry in entries:
+				var eb = entry["btn"]
+				eb.set_tone("gold" if int(entry["tier"]) == t else "grey"))
+		row.add_child(b)
+	return row
+
+
 ## Straight into the hunt with the featured hero: the hero is picked on
 ## the Heroes tab (and shown on Home), not re-chosen before every run.
 func _open_biome(id: String) -> void:
 	SaveGame.data["last_biome"] = id
-	go("run", {"biome": id, "hero": SaveGame.featured_id()})
+	go("run", {"biome": id, "hero": SaveGame.featured_id(), "tier": clampi(int(_pick.get(id, 0)), 0, Catalog.TIER_COUNT - 1)})
 
 
 ## The boss's head in a gilded ring.

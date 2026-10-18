@@ -8,6 +8,8 @@ const STEP := 1.0 / 60.0
 var biome_id := "meadow"
 var shade: TextureRect
 var hero_id := "ember"
+## The map's difficulty tier chosen in the picker (0 Normal).
+var difficulty := 0
 var sim: RunSim
 var drive := Vector2.ZERO
 var acc := 0.0
@@ -174,12 +176,15 @@ func open(args: Dictionary = {}) -> void:
 	# A sealed biome is playable through the daily (daily access). Give the
 	# heroes the Daily pass so the taste of a later biome is fair.
 	daily_pass = is_daily and not SaveGame.biome_open(biome_id)
+	# Difficulty tier chosen in the map picker (0 Normal when absent). A sealed
+	# biome reached through the daily always plays Normal.
+	difficulty = 0 if is_daily else clampi(int(args.get("tier", 0)), 0, Catalog.TIER_COUNT - 1)
 	sim = RunSim.new()
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
 	if daily_pass:
 		stats[hero_id]["hp"] = float(stats[hero_id]["hp"]) * Daily.PASS_HP_MUL
-	sim.start(session, stats)
+	sim.start(session, stats, difficulty)
 	AudioDirector.music("hunt")
 	cam = HuntCamera.new()
 	var hero_at := sim.play.get_center()
@@ -733,7 +738,7 @@ func _drain() -> void:
 					if daily_pass:
 						summary = SaveGame.commit_daily_pass(biome_id, str(ev["id"]))
 					else:
-						summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain)
+						summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain, sim.difficulty)
 					if not is_daily:
 						# Fixed-seed dailies are replayable, so they never bank gear.
 						# Pieces still on the ground when the boss falls join the spoils.
@@ -1788,7 +1793,7 @@ func _show_defeat(reason: String) -> void:
 	var again := UiKit.secondary("TRY AGAIN", 300, 64)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# A daily retries the same seeded hunt; a normal run rolls a fresh map.
-	again.pressed.connect(func() -> void: go("run", run_args if is_daily else {"biome": biome_id, "hero": hero_id}))
+	again.pressed.connect(func() -> void: go("run", run_args if is_daily else {"biome": biome_id, "hero": hero_id, "tier": difficulty}))
 	col.add_child(again)
 
 

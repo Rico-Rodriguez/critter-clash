@@ -170,6 +170,39 @@ func biome_cleared(id: String) -> bool:
 	return bool(data["cleared"].get(id, false))
 
 
+## Highest difficulty tier cleared on a biome (-1 = none). A Normal win records
+## tier 0, which opens Veteran; clearing Veteran opens Nightmare.
+func difficulty_cleared(biome_id: String) -> int:
+	return int(_difficulty_map().get(biome_id, -1))
+
+
+## Highest difficulty tier open on a biome (Catalog.Tier index). Normal (0) is
+## always open; each cleared tier opens the one above.
+func difficulty_unlocked(biome_id: String) -> int:
+	return clampi(difficulty_cleared(biome_id) + 1, 0, Catalog.TIER_COUNT - 1)
+
+
+func difficulty_open(biome_id: String, tier: int) -> bool:
+	return tier >= 0 and tier < Catalog.TIER_COUNT and tier <= difficulty_unlocked(biome_id)
+
+
+## Record a cleared tier for a biome (never downgrades). Returns true when this
+## clear opened a new tier. Persisting is the caller's job (commit_victory).
+func note_difficulty_clear(biome_id: String, tier: int) -> bool:
+	var before := difficulty_unlocked(biome_id)
+	var map := _difficulty_map()
+	var clamped := clampi(tier, 0, Catalog.TIER_COUNT - 1)
+	if clamped > int(map.get(biome_id, -1)):
+		map[biome_id] = clamped
+	return difficulty_unlocked(biome_id) > before
+
+
+func _difficulty_map() -> Dictionary:
+	if not data.has("difficulty_cleared") or typeof(data["difficulty_cleared"]) != TYPE_DICTIONARY:
+		data["difficulty_cleared"] = {}
+	return data["difficulty_cleared"]
+
+
 func biome_open(id: String) -> bool:
 	var entry := Catalog.biome(id)
 	if int(data["trophies"]) < int(entry["gate"]):
@@ -517,9 +550,12 @@ func _daily_desc(a: Dictionary, b: Dictionary) -> bool:
 var debug_rare := false
 
 
-func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictionary:
+func commit_victory(biome_id: String, boss_id: String, slain: int = 0, tier: int = 0) -> Dictionary:
 	var first := not biome_cleared(biome_id)
 	data["cleared"][biome_id] = true
+	# Clearing a tier opens the next one; a higher tier cleared at once (a
+	# staged win) records up to that tier rather than only one step.
+	var tier_opened := note_difficulty_clear(biome_id, tier)
 	var gained := 30 if first else 16
 	data["trophies"] = int(data["trophies"]) + gained
 	data["kills"][boss_id] = int(data["kills"].get(boss_id, 0)) + 1
@@ -548,6 +584,9 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0) -> Dictio
 		"drops": drops,
 		"reveal": reveal,
 		"kills": int(data["kills"][boss_id]),
+		"tier": clampi(tier, 0, Catalog.TIER_COUNT - 1),
+		"tier_opened": tier_opened,
+		"unlocked_tier": difficulty_unlocked(biome_id),
 	}
 
 
@@ -1436,6 +1475,7 @@ func _fresh() -> Dictionary:
 		"trophies": 0,
 		"claimed": [],
 		"cleared": {},
+		"difficulty_cleared": {},
 		"chests": [],
 		"clan_id": "",
 		"duel_rating": 0,
@@ -1476,6 +1516,9 @@ func _reconcile() -> void:
 			data[key] = []
 	if not data.has("cleared") or typeof(data["cleared"]) != TYPE_DICTIONARY:
 		data["cleared"] = {}
+	# Per-biome highest cleared difficulty tier. Old saves start at none.
+	if not data.has("difficulty_cleared") or typeof(data["difficulty_cleared"]) != TYPE_DICTIONARY:
+		data["difficulty_cleared"] = {}
 	# An old or trimmed save can be missing the wallet; biome gating and card
 	# levelling read these directly, so they must never be absent.
 	if not data.has("coins"):
