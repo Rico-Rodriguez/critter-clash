@@ -1803,6 +1803,9 @@ func _pause() -> void:
 	_open_modal()
 	var title := UiKit.title("PAUSED", 52)
 	modal_box.add_child(title)
+	var hunt := _pause_skills_block()
+	if hunt != null:
+		modal_box.add_child(hunt)
 	var resume := UiKit.confirm("RESUME", 420, 84)
 	resume.pressed.connect(_close_modal)
 	modal_box.add_child(resume)
@@ -1812,6 +1815,104 @@ func _pause() -> void:
 	var panel := SettingsPanel.new()
 	panel.custom_minimum_size = Vector2(640, 0)
 	modal_box.add_child(panel)
+
+
+## The pause panel's "THIS HUNT" block: one compact row per skill the run
+## hero trained, in GearDB order, with XP earned so far and a thin bar up to
+## the next level (GearDB XP plus the run's own tally), so a paused player
+## can see how close a gear gate is. Hidden entirely when nothing was
+## trained yet (the first seconds; modes without skill tracking), and capped
+## at four rows so the buttons stay on screen. Null when nothing to show.
+func _pause_skills_block() -> Control:
+	if sim == null or sim.skill_xp.is_empty():
+		return null
+	var rows: Array = hunt_skill_rows(hero_id, sim.skill_xp.get(hero_id, {}))
+	if rows.is_empty():
+		return null
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 12
+	plate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 5)
+	plate.add_child(col)
+	var head := UiKit.label("THIS HUNT", 22, UiKit.GOLD.lightened(0.15), "x", 3)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(head)
+	for i in mini(rows.size(), 4):
+		col.add_child(_pause_skill_row(rows[i]))
+	if rows.size() > 4:
+		col.add_child(UiKit.label("%d more skills training" % (rows.size() - 4), 16, UiKit.MUTED, "b", 2))
+	return plate
+
+
+## One pause-panel row: "Defence 19" and "+240 xp" over a thin progress bar
+## to the next level, with the gold gear note inline when that level would
+## open gated gear ("Next: Blackened steel").
+func _pause_skill_row(row: Dictionary) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	var index: int = GearDB.SKILL_KEYS.find(str(row["skill"]))
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	top.add_child(UiKit.label("%s %d" % [GearDB.SKILL_NAMES[index], int(row["level"])], 22, UiKit.CREAM, "x", 2))
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(gap)
+	var note := str(row["note"])
+	if note != "":
+		top.add_child(UiKit.label(note, 17, UiKit.GOLD.lightened(0.2), "b", 2))
+	top.add_child(UiKit.label("+%d xp" % int(row["gained"]), 18, UiKit.MUTED.lightened(0.15), "b", 2))
+	col.add_child(top)
+	var bar := SkillsScreen.XpBar.new()
+	bar.ratio = float(row["ratio"])
+	bar.custom_minimum_size = Vector2(0, 8)
+	col.add_child(bar)
+	return col
+
+
+## The pause-panel row data for one hero, testable without a scene: {skill,
+## level, gained, ratio, note} per skill with XP this run, in GearDB order.
+## Level and bar read the hero's GearDB XP plus the run tally rounded like
+## the commit; `note` names the gear tier whose requirement the next level
+## would meet (empty while nothing gates there).
+static func hunt_skill_rows(hero: String, run_xp: Dictionary) -> Array:
+	var out: Array = []
+	for i in GearDB.SKILL_KEYS.size():
+		var skill: String = GearDB.SKILL_KEYS[i]
+		var gained := int(round(float(run_xp.get(skill, 0.0))))
+		if gained <= 0:
+			continue
+		var xp := GearDB.xp(hero, skill) + gained
+		var level := GearDB.level_for_xp(xp)
+		var ratio := 1.0
+		if level < GearDB.MAX_LEVEL:
+			var span := maxi(GearDB.xp_for_level(level + 1) - GearDB.xp_for_level(level), 1)
+			ratio = clampf(float(xp - GearDB.xp_for_level(level)) / float(span), 0.0, 1.0)
+		out.append({"skill": skill, "level": level, "gained": gained, "ratio": ratio,
+			"note": _hunt_unlock_note(hero, skill, level)})
+	return out
+
+
+## "Next: Blackened steel" when some piece of this hero's gear requires
+## exactly the next level (the gate the run's next level-up would cross);
+## empty otherwise, and at the level cap where no gate is left to cross.
+static func _hunt_unlock_note(hero: String, skill: String, level: int) -> String:
+	if level >= GearDB.MAX_LEVEL:
+		return ""
+	var best_tier := -1
+	for id in GearDB.all_items(hero):
+		var req: Dictionary = GearDB.requirements(id)
+		if int(req.get(skill, 0)) != level + 1:
+			continue
+		var tier := int(GearDB.item(id)["tier"])
+		if best_tier < 0 or tier < best_tier:
+			best_tier = tier
+	if best_tier < 0:
+		return ""
+	var tier_name := str(GearDB.TIER_NAMES[best_tier]).to_lower()
+	tier_name = tier_name.substr(0, 1).to_upper() + tier_name.substr(1)
+	return "Next: " + tier_name
 
 
 ## A level-up blessing: a forged card in its rarity's metal over dark leather,

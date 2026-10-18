@@ -17,8 +17,8 @@ const CHECKS := [
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
-	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale",
-	"difficulty",
+	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale", "difficulty",
+	"pause_skills",
 ]
 ## run_screen.gd has no class_name; its inner HintLayer is reached through the
 ## preloaded script constant so the pure trigger helper can be tested.
@@ -128,6 +128,8 @@ static func _dispatch(name: String) -> void:
 			_skills_screen_check()
 		"end_card":
 			_end_card_check()
+		"pause_skills":
+			_pause_skills_check()
 		"gear_log":
 			_gear_log_check()
 		"forge":
@@ -2127,6 +2129,77 @@ static func _skills_screen_check() -> void:
 	GearDB.store_override = keep_store
 	SaveGame.no_write = keep_nowrite
 	print("SKILLS ok: combat vectors 1/126/113, view-only picker, level-20 unlock, all open at 40")
+
+
+## Pause panel "THIS HUNT": the row builder reads the run hero's GearDB XP
+## plus the run tally with the commit's rounding (Attack 0.2 rounds away),
+## the level matches level_for_xp and the bar ratio sits in [0, 1), the note
+## names the Blackened steel gate one level below 20, and the block hides
+## itself with no XP. Runs on a scratch armory and restores state.
+static func _pause_skills_check() -> void:
+	var keep_store: Variant = GearDB.store_override
+	var keep_nowrite: bool = SaveGame.no_write
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+	var hero := str(Catalog.playable_ids()[0])
+	if not hunt_rows(hero, {}).is_empty():
+		_fail("rows with no run XP")
+	var run_xp := {"defence": 300.4, "attack": 0.2}
+	var first: Array = hunt_rows(hero, run_xp)
+	if first.size() != 1:
+		_fail("mixed rounding gave %d rows" % first.size())
+	else:
+		var row: Dictionary = first[0]
+		if str(row["skill"]) != "defence":
+			_fail("row skill %s" % str(row["skill"]))
+		if int(row["gained"]) != 300:
+			_fail("gained %d" % int(row["gained"]))
+		if int(row["level"]) != GearDB.level_for_xp(300):
+			_fail("level %d" % int(row["level"]))
+		var ratio := float(row["ratio"])
+		if ratio < 0.0 or ratio >= 1.0:
+			_fail("ratio %f out of [0, 1)" % ratio)
+		if str(row["note"]) != "":
+			_fail("note with no gate: '%s'" % str(row["note"]))
+	# Park Defence one below the level-20 steel gate: the row must flag it.
+	GearDB.add_xp(hero, "defence", GearDB.xp_for_level(20) - 1 - 300 - GearDB.xp(hero, "defence"))
+	var gated: Array = hunt_rows(hero, run_xp)
+	if gated.size() != 1:
+		_fail("preset rows gave %d" % gated.size())
+	else:
+		var note := str(gated[0]["note"])
+		if note == "" or note.find("Blackened") < 0:
+			_fail("gate note said '%s'" % note)
+	# The panel block itself: rows with the rounded XP, and nothing at all
+	# when the run has no skill XP (never keyed by hero id).
+	var screen = load("res://scripts/run_screen.gd").new()
+	var sim := RunSim.new()
+	sim.skill_xp = {hero: run_xp}
+	screen.set("hero_id", hero)
+	screen.set("sim", sim)
+	var block: Control = screen._pause_skills_block()
+	if block == null:
+		_fail("pause block missing with trained XP")
+	else:
+		var text := _text_of(block)
+		if text.find("THIS HUNT") < 0 or text.find("Defence") < 0 or text.find("+300 xp") < 0:
+			_fail("pause block said: %s" % text.strip_edges())
+		if text.find("Attack") >= 0:
+			_fail("attack row survived 0.2 rounding: %s" % text.strip_edges())
+		block.free()
+	sim.skill_xp = {}
+	if screen._pause_skills_block() != null:
+		_fail("pause block showed with no XP")
+	screen.free()
+	GearDB.store_override = keep_store
+	SaveGame.no_write = keep_nowrite
+	print("PAUSE skills ok: rounding rows, [0, 1) bar, steel gate note, hides when empty")
+
+
+## The pause-row builder through the loaded run_screen script (its statics
+## stay scene-free).
+static func hunt_rows(hero: String, run_xp: Dictionary) -> Array:
+	return load("res://scripts/run_screen.gd").hunt_skill_rows(hero, run_xp)
 
 
 ## XP drops: a seeded RunBot fight announces each skill's XP as it is earned.
