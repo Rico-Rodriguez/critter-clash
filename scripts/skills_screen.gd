@@ -1,9 +1,77 @@
+class_name SkillsScreen
 extends ScreenBase
 
 ## Skills splits into two tabs. Combat is per hero: GearDB's six combat skills
 ## for the hero selected on Heroes. Gathering is the account-wide
 ## Catalog.SKILLS list. Each row is a forged plaque with the name, level and an
 ## XP bar; combat skills fill from hunts, gathering stays sealed.
+
+
+## OSRS combat level for a hero's skill levels, keyed by GearDB.SKILL_KEYS.
+## This game has no Prayer skill, so callers pass none (the term is zero); the
+## optional "prayer" key feeds the canonical base term so the helper lines up
+## with the OSRS 1/113/126 vectors.
+static func combat_level(levels: Dictionary) -> int:
+	var defence := float(levels.get("defence", 1))
+	var hitpoints := float(levels.get("hitpoints", 1))
+	var attack := float(levels.get("attack", 1))
+	var strength := float(levels.get("strength", 1))
+	var ranged := float(levels.get("ranged", 1))
+	var magic := float(levels.get("magic", 1))
+	var prayer := float(levels.get("prayer", 1))
+	var base: float = 0.25 * (defence + hitpoints + floorf(prayer / 2.0))
+	var melee: float = 0.325 * (attack + strength)
+	var range: float = 0.325 * floorf(1.5 * ranged)
+	var mage: float = 0.325 * floorf(1.5 * magic)
+	return int(floorf(base + maxf(melee, maxf(range, mage))))
+
+
+## The next gear gate for a skill, e.g. "Defence 20: Blackened steel helm,
+## chest, boots", or "All gear unlocked" when nothing is gated above the
+## current level. Empty when no gear gates on the skill at all, so the row
+## can omit the line.
+static func next_unlock(hero: String, skill: String) -> String:
+	var level := GearDB.level(hero, skill)
+	var best := 0
+	var slots := {}
+	var tier := -1
+	var gated := false
+	for id in GearDB.all_items(hero):
+		var req: Dictionary = GearDB.requirements(id)
+		if not req.has(skill):
+			continue
+		gated = true
+		var need := int(req[skill])
+		if need <= level:
+			continue
+		if best == 0 or need < best:
+			best = need
+			tier = int(GearDB.item(id)["tier"])
+			slots = {str(GearDB.item(id)["slot"]): true}
+		elif need == best:
+			slots[str(GearDB.item(id)["slot"])] = true
+	if best == 0:
+		return "All gear unlocked" if gated else ""
+	var words := PackedStringArray()
+	for key in GearDB.SLOT_KEYS:
+		if slots.has(key):
+			words.append(GearDB.SLOT_NAMES[GearDB.SLOT_KEYS.find(key)].to_lower())
+	var tier_name := GearDB.TIER_NAMES[tier].to_lower()
+	tier_name = tier_name.substr(0, 1).to_upper() + tier_name.substr(1)
+	return "%s %d: %s %s" % [GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(skill)], best, tier_name, ", ".join(words)]
+
+
+## Thousands separators for XP readouts ("13,034,431").
+static func _fmt_num(value: int) -> String:
+	var digits := str(absi(value))
+	var out := ""
+	var count := 0
+	for i in range(digits.length() - 1, -1, -1):
+		out = digits[i] + out
+		count += 1
+		if count % 3 == 0 and i > 0:
+			out = "," + out
+	return ("-" if value < 0 else "") + out
 
 
 var _tab_buttons := {}
@@ -17,10 +85,16 @@ func build() -> void:
 	box.add_child(header())
 	box.add_child(h1("Skills"))
 	box.add_child(_tab_bar())
+	# The combat list can run past the screen once the unlock lines are in, so
+	# it scrolls; the tab bar and Back stay put.
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 16)
-	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(_content)
+	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_content)
 	box.add_child(back_button("home"))
 	_show_tab("combat")
 
@@ -32,6 +106,7 @@ func _tab_bar() -> HBoxContainer:
 	for entry in [["combat", "Combat"], ["gathering", "Gathering"]]:
 		var key := str(entry[0])
 		var button := UiKit.secondary(str(entry[1]), 280, 76)
+		button.toggle_mode = true
 		button.pressed.connect(func() -> void: _show_tab(key))
 		_tab_buttons[key] = button
 		row.add_child(button)
@@ -41,7 +116,8 @@ func _tab_bar() -> HBoxContainer:
 func _show_tab(tab: String) -> void:
 	for key in _tab_buttons:
 		var button: Button = _tab_buttons[key]
-		button.modulate = Color(1, 1, 1) if key == tab else Color(0.7, 0.7, 0.7)
+		button.set_pressed_no_signal(key == tab)
+		button.modulate = Color(1.08, 1.02, 0.9) if key == tab else Color(0.6, 0.6, 0.64)
 	if _content == null:
 		return
 	for child in _content.get_children():
@@ -56,13 +132,84 @@ func _show_tab(tab: String) -> void:
 func _combat_tab() -> void:
 	var hero := SaveGame.featured_id()
 	var info := Catalog.critter(hero)
-	_content.add_child(body("%s · %s. Levels 1–99; combat XP comes from hunts." % [
-		str(info.get("name", hero)).to_upper(), Catalog.role_name(str(info.get("role", ""))).to_upper()]))
+	_content.add_child(_hero_header(hero, info))
+	_content.add_child(body("Levels 1–99; combat XP comes from hunts."))
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 16)
 	_content.add_child(list)
 	for i in GearDB.SKILL_KEYS.size():
 		list.add_child(CombatRow.new(hero, GearDB.SKILL_KEYS[i], GearDB.SKILL_NAMES[i]))
+
+
+## The per-hero block: combat-level crest beside the hero's name and role,
+## then the switcher. Switching reuses the featured hero (Heroes SELECT), so
+## the Skills tab always reads the same hero as Home and the hunts.
+func _hero_header(hero: String, info: Dictionary) -> Control:
+	var panel := PanelContainer.new()
+	var empty := StyleBoxEmpty.new()
+	for side in ["left", "right", "top", "bottom"]:
+		empty.set("content_margin_" + side, 18)
+	panel.add_theme_stylebox_override("panel", empty)
+	var metal := UiKit.rarity_metal(UiKit.hero_rarity(hero))
+	var fr := UiKit.Frame.new("panel", "leather", {"metal_hi": metal[0], "metal_lo": metal[1]})
+	fr.margin = 14.0
+	panel.add_child(fr)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 14)
+	panel.add_child(col)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	col.add_child(row)
+	var crest := Crest.new()
+	crest.value = combat_level(GearDB.skills(hero))
+	crest.caption = "COMBAT"
+	crest.custom_minimum_size = Vector2(140, 164)
+	crest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(crest)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 6)
+	row.add_child(v)
+	v.add_child(UiKit.label(str(info.get("name", hero)).to_upper(), 34, Color("fff1d6"), "x", 6))
+	v.add_child(UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 22, UiKit.GOLD.lightened(0.15), "x", 4))
+	var line := UiKit.label("COMBAT LEVEL %d" % crest.value, 24, Color("e6d8bc"), "b", 4)
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(line)
+	col.add_child(_hero_switcher(hero))
+	return panel
+
+
+## One chip per unlocked hero, the featured one sunk and lit. Tapping swaps
+## the featured hero and redraws the tab. A FlowContainer wraps the chips on a
+## narrow viewport so nothing runs off the safe area.
+func _hero_switcher(current: String) -> Control:
+	var row := HFlowContainer.new()
+	row.alignment = FlowContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("h_separation", 10)
+	row.add_theme_constant_override("v_separation", 10)
+	for id in Catalog.playable_ids():
+		if not bool(SaveGame.hero(str(id))["unlocked"]):
+			continue
+		var name := str(Catalog.critter(str(id)).get("name", id)).to_upper()
+		var on := str(id) == current
+		var button := UiKit.secondary(name, 150, 82)
+		button.toggle_mode = true
+		button.set_pressed_no_signal(on)
+		if not on:
+			button.modulate = Color(0.8, 0.8, 0.8)
+		button.pressed.connect(func() -> void: _pick_hero(str(id)))
+		row.add_child(button)
+	return row
+
+
+func _pick_hero(id: String) -> void:
+	if id == SaveGame.featured_id():
+		return
+	SaveGame.set_featured(id)
+	AudioDirector.sfx("card_pick")
+	AudioDirector.haptic("medium")
+	_show_tab("combat")
 
 
 func _gathering_tab() -> void:
@@ -137,9 +284,10 @@ class TotalPanel extends PanelContainer:
 		col.add_child(desc)
 
 
-## A forged shield crest with the total level struck into it.
+## A forged shield crest with a level struck into it.
 class Crest extends Control:
 	var value := 0
+	var caption := "TOTAL"
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -190,7 +338,7 @@ class Crest extends Control:
 		var base := c + Vector2(-tw * 0.5, fs * 0.36)
 		draw_string_outline(font, base + Vector2(0, 3), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 8, Color(0, 0, 0, 0.7))
 		draw_string(font, base, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("f6dc9a"))
-		var sub := "TOTAL"
+		var sub := caption
 		var sw := font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
 		draw_string(font, Vector2(size.x * 0.5 - sw * 0.5, size.y * 0.72), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color("c9a25a"))
 
@@ -248,8 +396,9 @@ class SkillRow extends PanelContainer:
 		col.add_child(foot)
 
 
-## A combat skill row for the selected hero: GearDB level and a bar to the
-## next level (the plaque mirrors the gathering rows).
+## A combat skill row for the selected hero: GearDB level, a bar to the next
+## level and the next gear gate that level will open (the plaque mirrors the
+## gathering rows).
 class CombatRow extends PanelContainer:
 	var hero_id := ""
 	var skill_id := ""
@@ -301,12 +450,18 @@ class CombatRow extends PanelContainer:
 		col.add_child(bar)
 		var foot := HBoxContainer.new()
 		var into := span if maxed else clampi(xp - floor_xp, 0, span)
-		foot.add_child(UiKit.label("%d / %d XP" % [into, span], 21, Color("e6d8bc"), "b", 4))
+		foot.add_child(UiKit.label("%s / %s XP" % [SkillsScreen._fmt_num(into), SkillsScreen._fmt_num(span)], 21, Color("e6d8bc"), "b", 4))
 		var gap2 := Control.new()
 		gap2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		foot.add_child(gap2)
 		foot.add_child(UiKit.label("MAX" if maxed else "TO LV %d" % (level + 1), 20, Color("c8b8a0"), "x", 4))
 		col.add_child(foot)
+		var unlock := SkillsScreen.next_unlock(hero_id, skill_id)
+		if unlock != "":
+			var all_open := unlock == "All gear unlocked"
+			var line := UiKit.label("NEXT UNLOCK · " + unlock, 20, Color("9fe08a") if all_open else Color("d8c8aa"), "b", 4)
+			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			col.add_child(line)
 
 
 ## A forged medallion with a carved glyph for the skill.

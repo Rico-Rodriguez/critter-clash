@@ -16,7 +16,7 @@ const CHECKS := [
 	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear",
 	"settings", "save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity",
 	"fights", "kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp",
-	"gear_coverage",
+	"gear_coverage", "skills_screen",
 ]
 
 
@@ -100,6 +100,8 @@ static func _dispatch(name: String) -> void:
 			_skill_xp_smoke()
 		"gear_coverage":
 			_gear_coverage_check()
+		"skills_screen":
+			_skills_screen_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -1733,6 +1735,50 @@ static func _fight_xp(hero: String, seed: int) -> RunSim:
 		sim.step(1.0 / 60.0, [mv])
 		sim.drain_events()
 	return sim
+
+
+## Skills screen: the OSRS combat-level helper behind the per-hero header on
+## three known vectors, the next-unlock guidance over GearDB.all_items, and
+## the "all unlocked" state once Defence passes its last gate. Runs on a
+## scratch armory (GearDB.store_override = {}) and restores it afterwards.
+## This game has no Prayer skill, so the header passes only the six keys; the
+## canonical OSRS 126 vector feeds the helper's optional "prayer" entry.
+static func _skills_screen_check() -> void:
+	var keep_store: Variant = GearDB.store_override
+	var keep_nowrite: bool = SaveGame.no_write
+	GearDB.store_override = {}
+	SaveGame.no_write = true
+	var one := {"attack": 1, "strength": 1, "defence": 1, "ranged": 1, "magic": 1, "hitpoints": 1}
+	if SkillsScreen.combat_level(one) != 1:
+		_fail("combat level all-1 gave %d" % SkillsScreen.combat_level(one))
+	var maxed := {"attack": 99, "strength": 99, "defence": 99, "ranged": 99, "magic": 99, "hitpoints": 99, "prayer": 99}
+	if SkillsScreen.combat_level(maxed) != 126:
+		_fail("combat level all-99 gave %d" % SkillsScreen.combat_level(maxed))
+	var melee := {"attack": 99, "strength": 99, "defence": 99, "ranged": 1, "magic": 1, "hitpoints": 99}
+	if SkillsScreen.combat_level(melee) != 113:
+		_fail("combat level melee-max gave %d" % SkillsScreen.combat_level(melee))
+	# Hitpoints starts at 10, so a fresh hero's header reads 3, not 1.
+	var start_hp := int(GearDB.START_LEVEL.get("hitpoints", 1))
+	if start_hp != 10:
+		_fail("Hitpoints start moved to %d; adjust the fresh-hero vector" % start_hp)
+	var hero := SaveGame.featured_id()
+	var fresh := {"attack": 1, "strength": 1, "defence": 1, "ranged": 1, "magic": 1, "hitpoints": start_hp}
+	if SkillsScreen.combat_level(GearDB.skills(hero)) != SkillsScreen.combat_level(fresh):
+		_fail("fresh hero combat level %d, expected %d" % [SkillsScreen.combat_level(GearDB.skills(hero)), SkillsScreen.combat_level(fresh)])
+	# The fresh hero's Defence row names the first steel gate (level 20).
+	var text := SkillsScreen.next_unlock(hero, "defence")
+	if text.find("Defence 20") < 0:
+		_fail("fresh Defence unlock said '%s'" % text)
+	# Reaching 40 opens every Defence-gated piece.
+	GearDB.add_xp(hero, "defence", GearDB.xp_for_level(40) - GearDB.xp(hero, "defence"))
+	if GearDB.level(hero, "defence") != 40:
+		_fail("Defence did not reach 40")
+	var opened := SkillsScreen.next_unlock(hero, "defence")
+	if opened != "All gear unlocked":
+		_fail("Defence still gated after 40: '%s'" % opened)
+	GearDB.store_override = keep_store
+	SaveGame.no_write = keep_nowrite
+	print("SKILLS ok: combat vectors 1/126/113, level-20 unlock, all open at 40")
 
 
 ## Total XP held in the current GearDB store (a scratch armory in tests).
