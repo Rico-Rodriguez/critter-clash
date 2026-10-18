@@ -201,6 +201,18 @@ func _capture() -> void:
 	SaveGame.data["chests"].append({"kind": "hunt", "biome": "meadow", "seed": 3, "ready_at": now - 1})
 	SaveGame.data["chests"].append({"kind": "scrap", "biome": "meadow", "seed": 4})
 	SaveGame.data["chests"].append({"kind": "hunt", "biome": "volcano", "seed": 5, "ready_at": now + 2537})
+	# CC_LEFT=1 / CC_REDUCE_FLASH=1: capture with those accessibility settings
+	# on (in memory only; the save is not written).
+	# Written into the in-memory save too: AudioDirector reloads settings
+	# from it (deferred) after start-up.
+	for pair in [["CC_LEFT", "left_handed"], ["CC_REDUCE_FLASH", "reduce_flashing"]]:
+		if OS.get_environment(pair[0]) == "1":
+			var st = SaveGame.data.get("settings", {})
+			if not st is Dictionary:
+				st = {}
+			st[pair[1]] = true
+			SaveGame.data["settings"] = st
+			AudioDirector.settings[pair[1]] = true
 	# CC_HERO equips another hero for the whole capture (home, heroes, hunts).
 	var cap_hero := OS.get_environment("CC_HERO")
 	if cap_hero != "":
@@ -556,3 +568,96 @@ func _shot(shot_name: String) -> void:
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 		RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)])
+	var vps: Array = [get_viewport()]
+	vps.append_array(get_tree().root.find_children("*", "SubViewport", true, false))
+	for v in vps:
+		var vpt := v as Viewport
+		var parts := []
+		for t in [["vis", Viewport.RENDER_INFO_TYPE_VISIBLE], ["shadow", Viewport.RENDER_INFO_TYPE_SHADOW], ["canvas", Viewport.RENDER_INFO_TYPE_CANVAS]]:
+			var d := vpt.get_render_info(t[1], Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME)
+			if d > 0:
+				parts.append("%s=%d/%dk" % [t[0], d, vpt.get_render_info(t[1], Viewport.RENDER_INFO_PRIMITIVES_IN_FRAME) / 1000])
+		if not parts.is_empty():
+			print("PERF %s   vp %s %s" % [shot_name, vpt.name, " ".join(parts)])
+		if vpt is SubViewport and vpt.get_camera_3d() != null and OS.get_environment("CC_PERF_DUMP") != "":
+			_perf_dump(shot_name, vpt as SubViewport)
+	if OS.get_environment("CC_PERF_DUMP") != "" and shot_name in ["lair", "explore"]:
+		await _canvas_attrib(shot_name, current, 0)
+
+
+## Dev aid: canvas draws each HUD branch costs, by hiding it for a frame.
+func _canvas_draws() -> int:
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	return get_viewport().get_render_info(Viewport.RENDER_INFO_TYPE_CANVAS, Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME)
+
+
+func _canvas_attrib(shot_name: String, node: Node, depth: int) -> void:
+	var base: int = await _canvas_draws()
+	for child in node.get_children():
+		var ci := child as CanvasItem
+		if ci == null or not ci.visible or child is SubViewportContainer and false:
+			continue
+		ci.visible = false
+		var without: int = await _canvas_draws()
+		ci.visible = true
+		var delta := base - without
+		if delta >= 4:
+			var extra := ""
+			if ci.material != null:
+				extra += " mat"
+			if ci.get_script() != null:
+				extra += " " + str(ci.get_script().resource_path.get_file())
+			print("CDUMP %s %s%s [%s] %d%s kids=%d" % [shot_name, "  ".repeat(depth), child.name, child.get_class(), delta, extra, child.get_child_count()])
+			if delta >= 12 and depth < 5:
+				await _canvas_attrib(shot_name, child, depth + 1)
+
+
+## Dev aid (CC_PERF_DUMP=1): which nodes in the camera frustum cost draws.
+func _perf_dump(shot_name: String, sv: SubViewport) -> void:
+	var cam := sv.get_camera_3d()
+	var planes := cam.get_frustum()
+	var groups := {}
+	for n in sv.find_children("*", "GeometryInstance3D", true, false):
+		var g := n as GeometryInstance3D
+		if not g.is_visible_in_tree():
+			continue
+		var box := g.global_transform * g.get_aabb()
+		var inside := true
+		for pl in planes:
+			var c := box.get_center()
+			var e := box.size * 0.5
+			var r := absf(pl.normal.x) * e.x + absf(pl.normal.y) * e.y + absf(pl.normal.z) * e.z
+			if pl.distance_to(c) > r:
+				inside = false
+				break
+		if not inside:
+			continue
+		var surf := 1
+		var tris := 0
+		var mesh: Mesh = null
+		var inst := 1
+		if g is MeshInstance3D:
+			mesh = (g as MeshInstance3D).mesh
+		elif g is MultiMeshInstance3D and (g as MultiMeshInstance3D).multimesh != null:
+			mesh = (g as MultiMeshInstance3D).multimesh.mesh
+			var mm := (g as MultiMeshInstance3D).multimesh
+			inst = mm.visible_instance_count if mm.visible_instance_count >= 0 else mm.instance_count
+		if mesh != null:
+			surf = mesh.get_surface_count()
+			if mesh is ArrayMesh:
+				for si in surf:
+					var idx := (mesh as ArrayMesh).surface_get_array_index_len(si)
+					tris += (idx if idx > 0 else (mesh as ArrayMesh).surface_get_array_len(si)) / 3
+		var par := g.get_parent()
+		var key := "%s %s<%s> sh=%d" % [g.get_class(), String(g.name).rstrip("0123456789@"), String(par.name).rstrip("0123456789@") if par else "", g.cast_shadow]
+		if not groups.has(key):
+			groups[key] = [0, 0, 0]
+		groups[key][0] += 1
+		groups[key][1] += surf
+		groups[key][2] += tris * inst
+	var keys := groups.keys()
+	keys.sort_custom(func(a, b): return groups[a][1] > groups[b][1])
+	for k in keys:
+		print("PDUMP %s nodes=%d surfaces=%d tris=%d  %s" % [shot_name, groups[k][0], groups[k][1], groups[k][2], k])
+
