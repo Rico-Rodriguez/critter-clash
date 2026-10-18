@@ -19,6 +19,8 @@ func run(host: Node, clip: String) -> void:
 	match clip:
 		"hunt":
 			await _hunt()
+		"loot":
+			await _loot()
 		"boss":
 			await _boss()
 		"profile":
@@ -263,6 +265,40 @@ func _hunt() -> void:
 	_release_t.append(_gt)
 	await _wait(5.0)
 	_feel_report()
+
+
+## ~15 s hunt for the gear proof: a fight, then pieces drop as tier beams
+## (iron, blackened steel, rune pillar) ahead of the hero, who walks through
+## them and picks them up (collapse + streak + name), then fights on. The
+## drops are staged through the sim's own ground-loot list so the real
+## pickup rule (reach or magnet delay) fires.
+func _loot() -> void:
+	var run := await _run_screen()
+	await _wait(0.6)
+	_touch(run, STICK_HOME, true)
+	await _hold(run, Vector2(0.3, -1), 2.2)
+	_touch(run, _finger_at, false)
+	await _wait(2.0)
+	var sim = run.sim
+	var hero = sim.heroes[0]
+	var hid := str(hero.sprite)
+	var ahead := [[Vector2(-70, -150), "%s.boots.1" % hid], [Vector2(60, -230), "%s.helm.2" % hid], [Vector2(0, -330), "%s.weapon.3" % hid]]
+	for i in ahead.size():
+		var at: Vector2 = sim._clamp_point(hero.pos + ahead[i][0], 24.0)
+		var key := "movie%d" % i
+		sim.gear_found.append(ahead[i][1])
+		# Long magnet delay so the beams stand until the hero walks in.
+		sim.gear_ground.append({"key": key, "item": ahead[i][1], "pos": at, "t": sim.time + 30.0})
+		sim.events.append({"type": "gear_drop", "item": ahead[i][1], "key": key, "tier": int(str(ahead[i][1]).get_slice(".", 2)), "pos": at})
+	await _wait(1.8)
+	_touch(run, STICK_HOME, true)
+	await _hold(run, Vector2(0, -1), 2.6)
+	_touch(run, _finger_at, false)
+	await _wait(1.2)
+	_touch(run, STICK_HOME, true)
+	await _hold(run, Vector2(1, -0.4), 1.6)
+	_touch(run, _finger_at, false)
+	await _wait(2.4)
 
 
 ## 22 s of unbroken walking on the explore map: the thumb follows the
