@@ -1418,6 +1418,18 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 				if (m as MeshInstance3D).material_overlay == _glow_mat:
 					m.set_meta("overlay", ember)
 					(m as MeshInstance3D).material_overlay = ember
+			_rune_aura(body, rc)
+		if Gear3D.has_kit(actor.sprite) and int(Gear3D.tiers(actor.sprite)["weapon"]) >= 3:
+			var rc2: Color = Gear3D.KITS[actor.sprite].get("rune", Color(1.0, 0.4, 0.1))
+			var gm := body.find_child("GearMain", true, false) as Node3D
+			if gm == null:
+				# Own-mesh blades (Mordrek) mount as GearMain too; claws and
+				# staffs have no trail.
+				pass
+			else:
+				var trail := BladeTrail.new()
+				body.add_child(trail)
+				trail.bind.call_deferred(gm, rc2)
 	elif actor.kind == "ally":
 		# Summoned spirit: the hero's cool rim glow, no hostile ring.
 		_hero_glow(body)
@@ -2633,12 +2645,44 @@ func _reframe_posed(body: Node3D) -> void:
 	_ped_dir = dir
 	_ped_dist = dist
 	_pedestal_atmos(box)
+	_showcase_lights(box)
 	# No depth of field: on this renderer it smeared the hero along with the
 	# glade. Warm fog does the separation instead.
 	camera.attributes = null
 
 
 const HERO_LAYER := 1 << 1
+
+
+## Three-point light on the showcase hero only (cull mask = hero layer), so
+## dark plate and bone read as metal instead of a silhouette against the
+## glade: a warm key high camera-left, a cool rim behind camera-right that
+## traces the edges, and a soft neutral fill low camera-right.
+func _showcase_lights(box: AABB) -> void:
+	for old in get_tree().get_nodes_in_group("showcase_light"):
+		if old.is_inside_tree() and world_root.is_ancestor_of(old):
+			old.queue_free()
+	var c := box.get_center()
+	var h := maxf(box.size.y, 0.5)
+	var specs := [
+		# colour, energy, offset (in hero heights), range, specular
+		[Color("ffd9a8"), 5.0, Vector3(-0.9, 0.9, 1.3), 3.2, 1.0],
+		[Color("9cc4ff"), 7.0, Vector3(1.0, 0.8, -1.1), 3.0, 1.4],
+		[Color("dfe6ff"), 1.8, Vector3(1.1, -0.1, 1.2), 3.4, 0.3],
+		[Color("a8c8ff"), 4.0, Vector3(-1.0, 0.5, -1.0), 2.6, 1.2],
+	]
+	for sp in specs:
+		var l := OmniLight3D.new()
+		l.add_to_group("showcase_light")
+		l.light_color = sp[0]
+		l.light_energy = float(sp[1])
+		l.omni_range = h * float(sp[3])
+		l.omni_attenuation = 1.2
+		l.light_specular = float(sp[4])
+		l.light_cull_mask = HERO_LAYER
+		l.shadow_enabled = false
+		l.position = c + (sp[2] as Vector3) * h
+		world_root.add_child(l)
 func _split_hero(body: Node3D) -> void:
 	for v in body.find_children("*", "VisualInstance3D", true, false):
 		(v as VisualInstance3D).layers = HERO_LAYER
@@ -2864,6 +2908,72 @@ void fragment() {
 		_mark.add_child(key)
 	_mark.visible = true
 	_mark.position = Vector3(at.x, 0.035, at.z)
+
+
+## Runebound aura: a breathing rune-coloured halo on the ground and a slow
+## drift of embers rising off the plate. Two draws, reads at phone distance.
+func _rune_aura(body: Node3D, c: Color) -> void:
+	var halo := MeshInstance3D.new()
+	var quad := PlaneMesh.new()
+	quad.size = Vector2.ONE * HERO_METERS * HERO_BOOST * 1.5
+	halo.mesh = quad
+	var hs := Shader.new()
+	hs.code = """shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, shadows_disabled, fog_disabled, cull_disabled;
+uniform vec4 tint : source_color;
+void fragment() {
+	float d = length(UV - 0.5) * 2.0;
+	float ring = smoothstep(0.55, 0.78, d) * smoothstep(1.0, 0.8, d);
+	float core = pow(clamp(1.0 - d, 0.0, 1.0), 2.0) * 0.35;
+	float breath = 0.7 + 0.3 * sin(TIME * 2.4);
+	ALBEDO = tint.rgb * (ring * 0.9 + core) * breath;
+}
+"""
+	var hm := ShaderMaterial.new()
+	hm.shader = hs
+	hm.set_shader_parameter("tint", c)
+	halo.material_override = hm
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	halo.position.y = 0.04
+	halo.top_level = false
+	body.add_child(halo)
+	var p := GPUParticles3D.new()
+	p.amount = 18
+	p.lifetime = 1.3
+	p.local_coords = false
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+	pm.emission_ring_axis = Vector3.UP
+	pm.emission_ring_radius = HERO_METERS * 0.35
+	pm.emission_ring_inner_radius = HERO_METERS * 0.15
+	pm.emission_ring_height = HERO_METERS * 0.6
+	pm.direction = Vector3.UP
+	pm.spread = 12.0
+	pm.gravity = Vector3(0, HERO_METERS * 0.1, 0)
+	pm.initial_velocity_min = HERO_METERS * 0.18
+	pm.initial_velocity_max = HERO_METERS * 0.3
+	pm.scale_min = 0.6
+	pm.scale_max = 1.0
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0.2))
+	curve.add_point(Vector2(0.3, 1.0))
+	curve.add_point(Vector2(1, 0))
+	var ct := CurveTexture.new()
+	ct.curve = curve
+	pm.scale_curve = ct
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * HERO_METERS * 0.035
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	qm.albedo_color = Color(c.r * 2.0, c.g * 2.0, c.b * 2.0)
+	q.material = qm
+	p.draw_pass_1 = q
+	p.position.y = HERO_METERS * 0.4
+	body.add_child(p)
 
 
 func _step_dust(body: Node3D, actor: RunSim.Actor, sim: RunSim) -> void:
