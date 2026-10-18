@@ -13,7 +13,7 @@ static var _times: Array = []
 
 ## Every check in run order. The name is the --only tag and the --timings label.
 const CHECKS := [
-	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear", "settings",
+	"roles", "modes", "save", "gear_save", "train", "slayer_log", "slayer_gear", "settings",
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
@@ -69,6 +69,8 @@ static func _dispatch(name: String) -> void:
 			_save()
 		"gear_save":
 			_gear_save_check()
+		"train":
+			_train_check()
 		"slayer_log":
 			_slayer_log_check()
 		"slayer_gear":
@@ -227,16 +229,24 @@ static func _save() -> void:
 	if not SaveGame.biome_open("mushroom") or SaveGame.biome_open("frost"):
 		_fail("meadow clear should open mushroom only")
 	_drawer()
+	var wallet_before := int(SaveGame.data["coins"])
 	var loot := SaveGame.open_next()
-	if int(loot.get("coins", 0)) <= 0 or loot.get("cards", []).is_empty():
-		_fail("chest loot empty")
-	SaveGame.data["heroes"]["ember"]["cards"] = 8
-	SaveGame.data["coins"] = 80
-	if not SaveGame.try_level("ember") or int(SaveGame.hero("ember")["level"]) != 2:
-		_fail("card level")
+	if int(loot.get("coins", 0)) <= 0 or not loot.get("cards", []).is_empty():
+		_fail("chest loot should pay coins, not relics")
+	if int(SaveGame.data["coins"]) - wallet_before != int(loot["coins"]):
+		_fail("relic drops did not bank as coins")
+	# Relics no longer buy levels: power comes from trained skills. A fresh
+	# hero matches base stats, and banked Strength/Hitpoints xp raise hp/damage.
 	var base_hp := float(Catalog.base_stats("ember")["hp"])
-	if float(SaveGame.build_run_stats("ember")["hp"]) <= base_hp:
-		_fail("level did not scale hp")
+	var base_dmg := float(Catalog.base_stats("ember")["dmg"])
+	var bare := SaveGame.build_run_stats("ember")
+	if float(bare["hp"]) != base_hp or float(bare["dmg"]) != base_dmg:
+		_fail("fresh hero did not match base stats")
+	GearDB.add_xp("ember", "strength", GearDB.xp_for_level(20))
+	GearDB.add_xp("ember", "hitpoints", GearDB.xp_for_level(20))
+	var trained := SaveGame.build_run_stats("ember")
+	if float(trained["hp"]) <= base_hp or float(trained["dmg"]) <= base_dmg:
+		_fail("training did not scale hp and damage")
 	SaveGame.data["trophies"] = 80
 	# Road gear goes straight into the armory for the featured hero.
 	var charm_had := GearDB.owned(SaveGame.featured_id()).size()
@@ -337,7 +347,7 @@ static func _gear_save_check() -> void:
 			_fail("GearDB.stats is not the sum of stats_for for %s" % k)
 	for k in GearDB.level_bonus("pebble"):
 		want[k] = float(want.get(k, 0.0)) + float(GearDB.level_bonus("pebble")[k])
-	_folds(geared, bare, want, "hp", "add", "hp_flat")
+	_folds_pct_add(geared, bare, want, "hp", "hp_pct", "hp_flat")
 	_folds(geared, bare, want, "armor", "add", "armor")
 	_folds(geared, bare, want, "crit", "add", "crit")
 	_folds(geared, bare, want, "regen", "add", "regen")
@@ -400,6 +410,15 @@ static func _folds(geared: Dictionary, bare: Dictionary, want: Dictionary, key: 
 			expected = float(bare[key]) / (1.0 + want_v)
 	if not is_equal_approx(float(geared[key]), expected):
 		_fail("%s fold off: gear %s vs expected %s (%s %s)" % [key, str(geared[key]), str(expected), mode, str(want_v)])
+
+
+## Combined hp fold, matching build_run_stats' order: the percentage applies to
+## the bare value first, the flat lands after. geared == bare * (1 + pct) + flat.
+static func _folds_pct_add(geared: Dictionary, bare: Dictionary, want: Dictionary, key: String, pct: String, flat: String) -> void:
+	var expected := float(bare[key]) * (1.0 + float(want.get(pct, 0.0))) + float(want.get(flat, 0.0))
+	if not is_equal_approx(float(geared[key]), expected):
+		_fail("%s fold off: gear %s vs expected %s (%s + %s)" % [key, str(geared[key]), str(expected), pct, flat])
+
 
 ## Slayer and collection-log accounting on a scratch save: kills count once
 ## and only for the task's biome, a finished contract must pay exactly once,
@@ -2809,7 +2828,7 @@ static func _gear_full_kit(hero: String, tier: int) -> void:
 	for k in GearDB.level_bonus(hero):
 		want[k] = float(want.get(k, 0.0)) + float(GearDB.level_bonus(hero)[k])
 	var geared := SaveGame.build_run_stats(hero)
-	_folds(geared, bare, want, "hp", "add", "hp_flat")
+	_folds_pct_add(geared, bare, want, "hp", "hp_pct", "hp_flat")
 	_folds(geared, bare, want, "armor", "add", "armor")
 	_folds(geared, bare, want, "crit", "add", "crit")
 	_folds(geared, bare, want, "regen", "add", "regen")
@@ -2825,6 +2844,97 @@ static func _gear_req_text(req: Dictionary) -> String:
 		if req.has(k):
 			return "Requires %s %d" % [GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(k)], int(req[k])]
 	return ""
+
+
+## Training replaces the coin/card Upgrade as the power source:
+## (a) a fresh hero's run stats equal Catalog.base_stats exactly;
+## (b) banked skill XP raises exactly the matching stat and no other;
+## (c) an old save's card level banks once as skill XP, losing no power and
+##     never applying twice;
+## (d) reinforce charges coins, raises the piece and caps at REINFORCE_MAX.
+static func _train_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	GearDB.store_override = {}
+	SaveGame.reset_new()
+	# (a) A fresh hero is exactly the catalog base, stat for stat.
+	for hero in Catalog.playable_ids():
+		var bare := SaveGame.build_run_stats(str(hero))
+		var base := Catalog.base_stats(str(hero))
+		for k in base:
+			if not is_equal_approx(float(bare.get(k, -999999.0)), float(base[k])):
+				_fail("fresh %s drifts from base at %s: %s vs %s" % [str(hero), k, str(bare.get(k)), str(base[k])])
+	# (b) Each skill drives its own stat.
+	var start := SaveGame.build_run_stats("pebble")
+	GearDB.add_xp("pebble", "strength", GearDB.xp_for_level(20))
+	GearDB.add_xp("pebble", "hitpoints", GearDB.xp_for_level(20))
+	var grown := SaveGame.build_run_stats("pebble")
+	if float(grown["dmg"]) <= float(start["dmg"]):
+		_fail("strength training did not raise damage")
+	if float(grown["hp"]) <= float(start["hp"]):
+		_fail("hitpoints training did not raise hp")
+	if float(grown["armor"]) != float(start["armor"]) or float(grown["crit"]) != float(start["crit"]):
+		_fail("strength/hitpoints training leaked into armor/crit")
+	GearDB.add_xp("pebble", "attack", GearDB.xp_for_level(20) - GearDB.xp("pebble", "attack"))
+	GearDB.add_xp("pebble", "defence", GearDB.xp_for_level(20))
+	var split := SaveGame.build_run_stats("pebble")
+	if float(split["crit"]) <= float(grown["crit"]):
+		_fail("attack training did not raise crit")
+	if float(split["armor"]) <= float(grown["armor"]):
+		_fail("defence training did not raise armor")
+	# (c) Legacy card level -> banked skill XP, exactly once, no power loss.
+	GearDB.store_override = null
+	SaveGame.data = SaveGame._fresh()
+	SaveGame.data["training_migrated"] = false
+	SaveGame.data["heroes"]["ember"]["unlocked"] = true
+	SaveGame.data["heroes"]["ember"]["level"] = 4
+	SaveGame.migrate_training()
+	var str_lvl := GearDB.level("ember", "strength")
+	var hp_lvl := GearDB.level("ember", "hitpoints")
+	if str_lvl < 1 + SaveGame.TRAIN_LEVELS_PER_CARD * 3 or hp_lvl < 10 + SaveGame.TRAIN_LEVELS_PER_CARD * 3:
+		_fail("migration banked too little: strength %d hp %d" % [str_lvl, hp_lvl])
+	if GearDB.level("ember", "magic") < str_lvl:
+		_fail("mage migration skipped the weapon skill")
+	if float(SaveGame.build_run_stats("ember")["hp"]) < float(Catalog.base_stats("ember")["hp"]) * (1.0 + 0.08 * 3.0):
+		_fail("migration lost hp power")
+	var stamp := GearDB.xp("ember", "strength")
+	SaveGame.data["training_migrated"] = false
+	SaveGame.migrate_training()
+	if GearDB.xp("ember", "strength") != stamp:
+		_fail("migration applied twice")
+	# (d) Reinforce: coins out, stats up, hard cap.
+	GearDB.store_override = {}
+	SaveGame.data = SaveGame._fresh()
+	SaveGame.data["coins"] = 100000
+	if not GearDB.grant("pebble.weapon.1") or not GearDB.equip("pebble", "pebble.weapon.1"):
+		_fail("reinforce setup")
+	var before := GearDB.stats("pebble")
+	var cost := GearDB.reinforce_cost("pebble", "pebble.weapon.1")
+	if cost <= 0 or not GearDB.reinforce("pebble", "pebble.weapon.1"):
+		_fail("reinforce refused a legal owned piece")
+	if GearDB.reinforce_level("pebble", "pebble.weapon.1") != 1:
+		_fail("reinforce level did not reach 1")
+	if int(SaveGame.data["coins"]) != 100000 - cost:
+		_fail("reinforce charged the wrong price")
+	var after := GearDB.stats("pebble")
+	var raised := false
+	for k in after:
+		if float(after[k]) > float(before.get(k, 0.0)):
+			raised = true
+	if not raised:
+		_fail("reinforce did not raise the piece stats")
+	for _i in GearDB.REINFORCE_MAX + 3:
+		GearDB.reinforce("pebble", "pebble.weapon.1")
+	if GearDB.reinforce_level("pebble", "pebble.weapon.1") != GearDB.REINFORCE_MAX:
+		_fail("reinforce did not cap at %d" % GearDB.REINFORCE_MAX)
+	if GearDB.reinforce("pebble", "pebble.weapon.1") or GearDB.reinforce("pebble", "pebble.weapon.2"):
+		_fail("reinforce accepted a maxed or unowned piece")
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+	print("TRAIN ok: base stats, skill power, migration, reinforce")
 
 
 ## 4-5. Runs. The same seed replays identical gear_found and combat, another

@@ -21,13 +21,14 @@ const TIER_MUL: Array[float] = [0.0, 1.0, 1.7, 2.6]
 
 ## Save key on SaveGame.data. Shape:
 ##   data["armory"] = {
-##     "v": 1,
+##     "v": 2,
 ##     "owned":    {hero_id: {item_id: count, ...}, ...},
 ##     "equipped": {hero_id: {slot_key: item_id, ...}, ...},   # missing/"" = empty
 ##     "xp":       {hero_id: {skill_key: xp_int, ...}, ...},     # missing = start level
+##     "reinforce": {hero_id: {item_id: 0..REINFORCE_MAX}, ...},  # coins poured in
 ##   }
 const SAVE_KEY := "armory"
-const SAVE_V := 1
+const SAVE_V := 2
 
 ## Heroes and the slots each can fill (Gnash fights bare-handed: no off-hand).
 const HERO_SLOTS := {
@@ -63,6 +64,15 @@ const SLOT_STATS := {
 	"charm": {"crit": 0.03, "regen": 0.3},
 }
 const INT_STATS := ["hp_flat", "armor"]
+
+## Reinforce: coins pour into an owned piece for a small stat bump, +0 to +5.
+## Each level scales the piece's own stats; the coin price grows with the tier
+## and the next level, so a rune +5 is a long sink.
+const REINFORCE_MAX := 5
+const REINFORCE_STEP := 0.04
+## Base coin price per level at Tier.IRON/STEEL/RUNE (index = Tier); the cost
+## of the next level is the base times (level + 1).
+const REINFORCE_COST: Array[int] = [0, 50, 120, 260]
 
 # --- Combat skills (OSRS-style, persistent, per hero) ------------------------
 ## XP from matching actions (wired by helpers): melee hits -> Attack and
@@ -170,9 +180,9 @@ static func _store() -> Dictionary:
 		else:
 			data = save.data
 	if not data.has(SAVE_KEY) or typeof(data[SAVE_KEY]) != TYPE_DICTIONARY:
-		data[SAVE_KEY] = {"v": SAVE_V, "owned": {}, "equipped": {}, "xp": {}}
+		data[SAVE_KEY] = {"v": SAVE_V, "owned": {}, "equipped": {}, "xp": {}, "reinforce": {}}
 	var a: Dictionary = data[SAVE_KEY]
-	for k in ["owned", "equipped", "xp"]:
+	for k in ["owned", "equipped", "xp", "reinforce"]:
 		if not a.has(k) or typeof(a[k]) != TYPE_DICTIONARY:
 			a[k] = {}
 	return a
@@ -280,7 +290,8 @@ static func tiers(hero: String) -> Dictionary:
 	return out
 
 
-## Summed stat deltas from everything the hero has on.
+## Summed stat deltas from everything the hero has on, with each piece's
+## reinforce levels folded in (the next level adds REINFORCE_STEP of its stats).
 static func stats(hero: String) -> Dictionary:
 	var out := {}
 	for slot in HERO_SLOTS.get(hero, []):
@@ -288,9 +299,62 @@ static func stats(hero: String) -> Dictionary:
 		if id == "":
 			continue
 		var s: Dictionary = item(id)["stats"]
+		var mul := 1.0 + REINFORCE_STEP * float(reinforce_level(hero, id))
 		for k in s:
-			out[k] = out.get(k, 0) + s[k]
+			var v := float(s[k]) * mul
+			out[k] = out.get(k, 0) + (int(round(v)) if k in INT_STATS else v)
 	return out
+
+
+# --- Reinforce ---------------------------------------------------------------
+
+## Reinforce levels on a hero's owned piece (0 when unknown/unowned).
+static func reinforce_level(hero: String, id: String) -> int:
+	var row: Dictionary = _store()["reinforce"].get(hero, {})
+	return clampi(int(row.get(id, 0)), 0, REINFORCE_MAX)
+
+
+## Coin price to take an owned piece to its next reinforce level; 0 when the
+## piece is unknown, not this hero's, or already at REINFORCE_MAX.
+static func reinforce_cost(hero: String, id: String) -> int:
+	var it := item(id)
+	if it.is_empty() or str(it["hero"]) != hero or not has(hero, id):
+		return 0
+	var lvl := reinforce_level(hero, id)
+	if lvl >= REINFORCE_MAX:
+		return 0
+	return REINFORCE_COST[int(it["tier"])] * (lvl + 1)
+
+
+## Pour coins into one owned piece: +1 reinforce (stats rise, see stats()), up
+## to REINFORCE_MAX. Refuses unknown/foreign/unowned pieces, a maxed piece and
+## an unaffordable price; the wallet never goes negative.
+static func reinforce(hero: String, id: String) -> bool:
+	var it := item(id)
+	if it.is_empty() or str(it["hero"]) != hero or not has(hero, id):
+		return false
+	var lvl := reinforce_level(hero, id)
+	if lvl >= REINFORCE_MAX:
+		return false
+	var cost := REINFORCE_COST[int(it["tier"])] * (lvl + 1)
+	var save := _save_node()
+	if save == null:
+		return false
+	var wallet := int((save as Node).data.get("coins", 0))
+	if wallet < cost:
+		return false
+	var all: Dictionary = _store()["reinforce"]
+	if not all.has(hero):
+		all[hero] = {}
+	all[hero][id] = lvl + 1
+	(save as Node).data["coins"] = wallet - cost
+	_persist()
+	return true
+
+
+static func _save_node() -> Node:
+	var tree := Engine.get_main_loop() as SceneTree
+	return tree.root.get_node_or_null("/root/SaveGame") if tree else null
 
 
 ## Stub for loot owners: a random item at a tier (any hero if hero == "").
@@ -351,19 +415,30 @@ static func add_xp(hero: String, skill: String, amount: int) -> int:
 	return level(hero, skill) - before
 
 
-## Small per-level stat hook, folded into run stats next to stats(hero):
-## Attack +0.05% crit, Strength +0.3% damage, Defence +1 armour per 10,
-## Hitpoints +2 HP per level over 10, Ranged/Magic +0.3% damage for heroes
-## whose weapon uses that skill.
+## Trained power: skill levels are the hero's base-stat growth now that the
+## coin/card Upgrade is gone. A fresh hero sits at the start levels, so every
+## delta is zero and bare run stats match Catalog.base_stats exactly. The
+## coefficients are tuned so a level-20 main damage skill lands near the old
+## mid-card-upgrade power (card 5 scaled hp and dmg by 1 + 0.08 * 4 = 1.32).
+const DAMAGE_PER_LEVEL := 0.016
+const HP_PER_LEVEL := 0.016
+const CRIT_PER_ATTACK := 0.001
+const ARMOR_PER_DEFENCE := 0.1
+
+
+## Per-level stat hook, folded into run stats next to stats(hero): the single
+## place skill levels become hero power. Attack +0.1% crit per level, Strength
+## +1.6% damage, Defence +0.1 armour, Hitpoints +1.6% max HP per level over 10,
+## and Ranged/Magic +1.6% damage for heroes whose weapon uses that skill.
 static func level_bonus(hero: String) -> Dictionary:
 	var s := skills(hero)
 	var out := {
-		"crit": (s["attack"] - 1) * 0.0005,
-		"dmg_pct": (s["strength"] - 1) * 0.003,
-		"armor": int(s["defence"] / 10),
-		"hp_flat": (s["hitpoints"] - 10) * 2,
+		"crit": (s["attack"] - 1) * CRIT_PER_ATTACK,
+		"dmg_pct": (s["strength"] - 1) * DAMAGE_PER_LEVEL,
+		"armor": (s["defence"] - 1) * ARMOR_PER_DEFENCE,
+		"hp_pct": maxf(0.0, float(s["hitpoints"] - 10)) * HP_PER_LEVEL,
 	}
 	var ws: String = WEAPON_SKILL.get(hero, "attack")
 	if ws == "ranged" or ws == "magic":
-		out["dmg_pct"] += (s[ws] - 1) * 0.003
+		out["dmg_pct"] += (s[ws] - 1) * DAMAGE_PER_LEVEL
 	return out

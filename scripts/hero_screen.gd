@@ -157,43 +157,17 @@ func _fill() -> void:
 	gear_line.text = EquipUI.summary(selected)
 
 
-## Card level block: "Level 3", the shard bar, Health/Damage now -> next and
-## the UPGRADE button with its coin cost (existing card + coin rules).
+## Heroes train for power now (skill XP from hunts), so the old card/relic
+## UPGRADE button, its coin price and the relic bar are hidden. The level
+## label stays as a flavour readout of the banked card levels.
 func _fill_level(stats: Dictionary) -> void:
-	var row := SaveGame.hero(selected)
-	var level := int(row["level"])
+	var level := int(SaveGame.hero(selected)["level"])
 	var hp_now := int(round(float(stats["hp"])))
 	var dmg_now := int(round(float(stats["dmg"])))
-	if level >= Catalog.MAX_CARD_LEVEL:
-		preview_line.text = "Level %d (max)   ·   Health %d   ·   Damage %d" % [level, hp_now, dmg_now]
-		card_bar.visible = false
-		upgrade.text = "MAX LEVEL"
-		price.visible = false
-		upgrade.disabled = true
-		upgrade.modulate = Color(0.7, 0.7, 0.7)
-		return
-	row["level"] = level + 1
-	var next := SaveGame.build_run_stats(selected)
-	row["level"] = level
-	preview_line.text = "Level %d → %d   ·   Health %d → %d   ·   Damage %d → %d" % [
-		level, level + 1, hp_now, int(round(float(next["hp"]))), dmg_now, int(round(float(next["dmg"])))]
-	var need := SaveGame.cards_needed(level)
-	var have := int(row["cards"])
-	card_bar.visible = true
-	card_bar.ratio = clampf(float(have) / float(maxi(need, 1)), 0.0, 1.0)
-	card_bar.caption = "Relics %d / %d" % [mini(have, need), need]
-	card_bar.surplus = maxi(0, have - need)
-	card_bar.ready_up = SaveGame.can_level(selected)
-	card_bar.queue_redraw()
-	var cost := SaveGame.coins_needed(level)
-	upgrade.text = "UPGRADE"
-	price.visible = true
-	price.amount = cost
-	price.short = int(SaveGame.data["coins"]) < cost
-	price.queue_redraw()
-	var ok := SaveGame.can_level(selected)
-	upgrade.disabled = not ok
-	upgrade.modulate = Color.WHITE if ok else Color(0.62, 0.6, 0.58)
+	preview_line.text = "Level %d   ·   Health %d   ·   Damage %d" % [level, hp_now, dmg_now]
+	card_bar.visible = false
+	upgrade.visible = false
+	price.visible = false
 
 
 func _upgrade() -> void:

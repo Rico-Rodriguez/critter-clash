@@ -5,9 +5,11 @@ extends Node
 ## ladder can persist without a save migration. Nothing reads them yet.
 
 const PATH := "user://critter_clash.json"
+## 4: heroes train for power, they no longer buy it (see migrate_training); the
+## GearDB armory gains a "reinforce" map ({owned, equipped, xp, reinforce}).
 ## 3: the GearDB armory ({v, owned, equipped, xp}; legacy v2 saves migrate on
 ## load, see migrate_legacy_armory).
-const VERSION := 3
+const VERSION := 4
 
 var data: Dictionary = {}
 
@@ -269,13 +271,13 @@ func grant_reward(hero_id: String, slot: String, rarity: String) -> String:
 	return ""
 
 
+## The hero's run stats: Catalog base plus trained power (GearDB.level_bonus)
+## plus worn, reinforced gear (GearDB.stats). Skill levels replaced the old
+## coin/card Upgrade as the base-stat source, so a fresh hero (no skill bonus,
+## no gear) comes out exactly Catalog.base_stats. The whole formula lives in
+## GearDB; this only folds its two halves in.
 func build_run_stats(hero_id: String) -> Dictionary:
 	var stats := Catalog.base_stats(hero_id)
-	var level := int(hero(hero_id)["level"])
-	var scale := 1.0 + 0.08 * float(level - 1)
-	stats["hp"] = float(stats["hp"]) * scale
-	stats["dmg"] = float(stats["dmg"]) * scale
-	# Armory gear and OSRS skill levels fold in here.
 	var gear := GearDB.stats(hero_id)
 	var bonus: Dictionary = GearDB.level_bonus(hero_id)
 	for k in bonus:
@@ -284,6 +286,8 @@ func build_run_stats(hero_id: String) -> Dictionary:
 		stats["dmg"] = float(stats["dmg"]) * (1.0 + float(gear["dmg_pct"]))
 	if gear.has("haste"):
 		stats["interval"] = float(stats["interval"]) / (1.0 + float(gear["haste"]))
+	if gear.has("hp_pct"):
+		stats["hp"] = float(stats["hp"]) * (1.0 + float(gear["hp_pct"]))
 	if gear.has("hp_flat"):
 		stats["hp"] = float(stats["hp"]) + float(gear["hp_flat"])
 	if gear.has("armor"):
@@ -312,6 +316,10 @@ func build_run_stats(hero_id: String) -> Dictionary:
 
 ## Coins per unmapped legacy piece (about a pouch's quieter drop).
 const LEGACY_COIN_RATE := 10
+
+## Coins a relic/card drop pays at bank time. Relics no longer buy hero levels
+## (skill XP does), so a card roll converts to coins instead of dead stock.
+const RELIC_COINS := 15
 
 
 ## The GearDB item id one legacy uid piece converts to, or "" when none maps.
@@ -352,7 +360,7 @@ func migrate_legacy_armory(old_version: int) -> void:
 	var armory: Dictionary = existing if typeof(existing) == TYPE_DICTIONARY else {}
 	data[GearDB.SAVE_KEY] = armory
 	armory["v"] = GearDB.SAVE_V
-	for k in ["owned", "equipped", "xp"]:
+	for k in ["owned", "equipped", "xp", "reinforce"]:
 		if not armory.has(k) or typeof(armory[k]) != TYPE_DICTIONARY:
 			armory[k] = {}
 	var worn := {}
@@ -391,6 +399,56 @@ func _drop_legacy_gear() -> void:
 		if typeof(row) == TYPE_DICTIONARY:
 			for legacy_slot in ["weapon", "armor", "charm"]:
 				(row as Dictionary).erase(legacy_slot)
+
+
+## --- Training migration ------------------------------------------------------
+## The old coin/card Upgrade scaled a hero's base hp and damage by
+## 1 + 0.08 * (level - 1). Skill levels replace it as the power source, and
+## build_run_stats no longer reads the card level at all. So an existing save
+## does not lose power: once, each old upgrade level banks the equivalent skill
+## XP (five levels of the damage skill and five Hitpoints levels per card
+## level), which reproduces the old multiplier and keeps the level display.
+## Heroes already at level 1 need nothing. The stamp (data["training_migrated"])
+## makes the pass run exactly once; the migration never zeroes a wallet.
+
+## Skill levels granted per old card level. The old card scale was 1 + 0.08
+## per level; DAMAGE_PER_LEVEL/HP_PER_LEVEL are 0.016, so five skill levels per
+## card level match it (and a magic hero, who trains both Strength and Magic,
+## comes out ahead, never behind).
+const TRAIN_LEVELS_PER_CARD := 5
+
+
+func migrate_training() -> void:
+	if bool(data.get("training_migrated", false)):
+		return
+	for id in data.get("heroes", {}).keys():
+		var hero_id := str(id)
+		var row: Variant = data["heroes"][id]
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var level := int((row as Dictionary).get("level", 1))
+		if level <= 1:
+			continue
+		# Damage: Strength for everyone; a magic/ranged weapon skill rides on
+		# top for the heroes whose weapon uses it.
+		var damage := mini(GearDB.MAX_LEVEL, 1 + TRAIN_LEVELS_PER_CARD * (level - 1))
+		_grant_skill_xp(hero_id, "strength", damage)
+		var hp := mini(GearDB.MAX_LEVEL, 10 + TRAIN_LEVELS_PER_CARD * (level - 1))
+		_grant_skill_xp(hero_id, "hitpoints", hp)
+		var ws: String = GearDB.WEAPON_SKILL.get(hero_id, "attack")
+		if ws == "ranged" or ws == "magic":
+			_grant_skill_xp(hero_id, ws, damage)
+	# Stamp last: the grants above trigger writes, so a crash mid-pass leaves
+	# the flag clear and the next load tops up (grants only ever add).
+	data["training_migrated"] = true
+
+
+## Banks the XP a skill needs to reach `target` (a no-op when it is already
+## there or higher), so the migration only ever tops up.
+func _grant_skill_xp(hero_id: String, skill: String, target: int) -> void:
+	var shortfall := GearDB.xp_for_level(target) - GearDB.xp(hero_id, skill)
+	if shortfall > 0:
+		GearDB.add_xp(hero_id, skill, shortfall)
 
 
 ## --- Daily Challenge local board -------------------------------------------
@@ -825,10 +883,9 @@ func _apply_drop(drop: Dictionary, rng: RandomNumberGenerator, biome_id := "") -
 		"material":
 			data["materials"][id] = int(data["materials"].get(id, 0)) + int(drop.get("amount", 1))
 		"cards":
-			var hero_id := str(drop.get("hero", ""))
-			if data["heroes"].has(hero_id):
-				var row: Dictionary = data["heroes"][hero_id]
-				row["cards"] = int(row["cards"]) + int(drop.get("amount", 1))
+			# Relics no longer buy hero levels (skill XP does), so a card drop
+			# banks as coins at its coin value instead of dead stock.
+			data["coins"] = int(data["coins"]) + int(drop.get("amount", 1)) * RELIC_COINS
 		"gear":
 			drop["granted"] = _grant_boss_gear(drop, biome_id)
 		"pet":
@@ -1129,9 +1186,9 @@ func claim(id: String) -> bool:
 		"chest":
 			add_chest(_new_chest("hunt", "meadow", false), true)
 		"unlock":
-			var row: Dictionary = data["heroes"][str(entry["hero"])]
-			row["unlocked"] = true
-			row["cards"] = int(row["cards"]) + int(entry["cards"])
+			# Relics no longer buy hero levels, so the joining bonus pays coins.
+			data["heroes"][str(entry["hero"])]["unlocked"] = true
+			data["coins"] = int(data["coins"]) + int(entry["cards"]) * RELIC_COINS
 		"gear":
 			grant_reward(featured_id(), str(entry["slot"]), str(entry["rarity"]))
 	_write()
@@ -1342,19 +1399,22 @@ func _roll_loot(chest: Dictionary) -> Dictionary:
 			pool.append(id)
 	if pool.is_empty():
 		pool = ["ember"]
+	# The old drawer also rolled relic/card stacks per hero. Relics no longer
+	# buy hero levels, so those rolls bank as coins; the rng is still drawn the
+	# same way (id then amount) so a given chest seed still pays the same total.
 	var drops: Array = []
 	var count := rng.randi_range(3, 5) if hunt else rng.randi_range(1, 2)
 	for _i in count:
 		var id: String = str(pool[rng.randi() % pool.size()])
 		var cards := rng.randi_range(1, 3) if hunt else 1
 		drops.append({"id": id, "count": cards})
-	data["coins"] = int(data["coins"]) + coins
+	var relic_coins := 0
 	for drop in drops:
-		var row: Dictionary = data["heroes"][str(drop["id"])]
-		row["cards"] = int(row["cards"]) + int(drop["count"])
+		relic_coins += int(drop["count"]) * RELIC_COINS
+	data["coins"] = int(data["coins"]) + coins + relic_coins
 	return {
-		"coins": coins,
-		"cards": drops,
+		"coins": coins + relic_coins,
+		"cards": [],
 		"biome": str(chest.get("biome", "meadow")),
 		"kind": str(chest.get("kind", "hunt")),
 	}
@@ -1398,6 +1458,9 @@ func _fresh() -> Dictionary:
 		"settings": {},
 		# First-hunt guidance hints already shown, by hint id.
 		"hints_seen": [],
+		# True once the old card-level power has been banked as skill XP; a
+		# fresh save has nothing to migrate (see migrate_training).
+		"training_migrated": true,
 	}
 
 
@@ -1475,6 +1538,11 @@ func _reconcile() -> void:
 	# players still see each first-hunt hint once.
 	if not data.has("hints_seen") or typeof(data["hints_seen"]) != TYPE_ARRAY:
 		data["hints_seen"] = []
+	# Old saves predate the training migration: an absent flag means the old
+	# card levels have not been banked as skill XP yet, so the pass runs on
+	# load (migrate_training).
+	if not data.has("training_migrated"):
+		data["training_migrated"] = false
 	for key in data["daily"].keys():
 		var board: Variant = data["daily"][key]
 		if typeof(board) != TYPE_DICTIONARY:
@@ -1522,6 +1590,7 @@ func _load() -> void:
 	_sanitize()
 	_reconcile()
 	migrate_legacy_armory(old_version)
+	migrate_training()
 	_write()
 
 

@@ -24,10 +24,11 @@ The tier sheet (tools/tier_sheet.gd) is for showcase and debugging only.
 ## Save
 `SaveGame.data["armory"]`:
 ```
-{ "v": 1,
-  "owned":    { hero_id: { item_id: count } },
-  "equipped": { hero_id: { slot_key: item_id } },   # missing or "" = empty slot
-  "xp":       { hero_id: { skill_key: xp } } }     # missing = start level
+{ "v": 2,
+  "owned":     { hero_id: { item_id: count } },
+  "equipped":  { hero_id: { slot_key: item_id } },   # missing or "" = empty slot
+  "xp":        { hero_id: { skill_key: xp } },        # missing = start level
+  "reinforce": { hero_id: { item_id: 0..5 } } }       # missing = not reinforced
 ```
 The store is created lazily on first access. `GearDB.store_override = {}`
 points the API at a scratch dict, for tests.
@@ -142,7 +143,7 @@ shard deduction, rune gating and wallet-floor rules.
 | `owned(hero) -> Array[String]` | Owned ids, best tier first. |
 | `has(hero, id) -> bool` | Whether the hero owns the item. |
 | `slot_tier(hero, slot) -> int` / `tiers(hero) -> {slot: tier}` | What the renderer draws. |
-| `stats(hero) -> Dictionary` | Summed deltas of everything equipped. |
+| `stats(hero) -> Dictionary` | Summed deltas of everything equipped, each piece scaled by its reinforce level. |
 | `random_item(rng, tier, hero := "")` | Stub for loot owners. Uniform hero and slot. |
 
 ## Combat skills (OSRS-style, persistent, per hero)
@@ -161,13 +162,55 @@ shard deduction, rune gating and wallet-floor rules.
   - Damage dealt: Hitpoints (OSRS-style share).
 - API: `xp(hero, skill)`, `level(hero, skill)`, `skills(hero)`.
   `add_xp(hero, skill, amount)` returns the levels gained, for toasts.
-- Per-level stat hook `level_bonus(hero)`:
-  - Attack: +0.05% crit per level.
-  - Strength: +0.3% damage per level.
-  - Defence: +1 armour per 10 levels.
-  - Hitpoints: +2 HP per level over 10.
-  - Ranged/Magic: +0.3% damage per level, only for the hero whose weapon uses that skill (Corvin: Magic).
-  - `build_run_stats` should fold in both `stats(hero)` and `level_bonus(hero)`.
+- Per-level stat hook `level_bonus(hero)` — the **single** place skill levels
+  become hero power. A fresh hero sits at the start levels, so every delta is
+  zero and bare run stats match `Catalog.base_stats` exactly.
+  - Attack: +0.1% crit per level (`CRIT_PER_ATTACK`).
+  - Strength: +1.6% damage per level (`DAMAGE_PER_LEVEL`).
+  - Defence: +0.1 armour per level (`ARMOR_PER_DEFENCE`).
+  - Hitpoints: +1.6% max HP per level over 10 (`HP_PER_LEVEL`, as `hp_pct`).
+  - Ranged/Magic: +1.6% damage per level, only for the hero whose weapon uses
+    that skill (Corvin: Magic), stacked on top of Strength.
+  - Coefficients are tuned so a level-20 main damage skill lands near the old
+    mid-card-upgrade power (card 5 scaled hp and dmg by `1 + 0.08 * 4 = 1.32`).
+  - `build_run_stats` folds in both `stats(hero)` and `level_bonus(hero)`, in
+    hp order: percentage first, then flat.
+
+### Training replaces the coin Upgrade
+Heroes no longer buy power with coins and relics. The old
+`1 + 0.08 * (level - 1)` card scale is gone from `build_run_stats`; trained
+skill levels are the base-stat source. The Heroes screen's UPGRADE button,
+coin price and relic bar are hidden (the level label stays as a flavour
+readout).
+
+`SaveGame.migrate_training()` runs once on load (stamped by
+`data["training_migrated"]`) so an existing save loses no power: each old card
+level banks `TRAIN_LEVELS_PER_CARD = 5` skill levels of Strength and of
+Hitpoints (reproducing the old multiplier, since the per-level coefficients are
+0.016 = 0.08 / 5), plus the weapon skill for magic/ranged heroes. Grants only
+ever top up (`_grant_skill_xp`), so a lost stamp can never double-apply.
+
+### Reinforce
+Coins pour into an **owned** piece for a small stat bump, +0 to +5. `stats(hero)`
+scales each worn piece by `1 + REINFORCE_STEP * level` (`REINFORCE_STEP = 0.04`),
+so the piece's own stats rise; this is the post-training coin sink.
+
+| call | result |
+|---|---|
+| `GearDB.reinforce_level(hero, id) -> int` | Current level 0–`REINFORCE_MAX` (5); 0 when unknown. |
+| `GearDB.reinforce_cost(hero, id) -> int` | Coins for the next level; 0 when unknown, foreign, unowned or maxed. |
+| `GearDB.reinforce(hero, id) -> bool` | Charges `REINFORCE_COST[tier] * (level + 1)` from `SaveGame.data["coins"]`, raises the level, writes. Refuses unknown/foreign/unowned/maxed pieces and an unaffordable price; the wallet never goes negative. |
+
+`REINFORCE_COST` (index = `GearDB.Tier`) is `[0, 50, 120, 260]` for iron /
+blackened steel / cursed rune, so a rune +5 is a long sink.
+
+### Relics convert to coins
+Relic/card drops (`kind == "cards"`) no longer buy hero levels. At bank time
+they pay `SaveGame.RELIC_COINS = 15` coins each in `_apply_drop`, and drawer
+chests (`_roll_loot`) convert their relic stacks to coins too (the rng draw is
+unchanged, so a seed still pays the same total). Milestone hero unlocks pay
+their joining relic bonus as coins. The old `try_level` / `cards_needed` paths
+remain for compatibility but no longer affect stats.
 
 ### Equip gating
 - `item(id)["requires"]` and `requirements(id)` return `{skill: level}`.
