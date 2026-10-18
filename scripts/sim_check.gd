@@ -14,7 +14,7 @@ static var _times: Array = []
 ## Every check in run order. The name is the --only tag and the --timings label.
 const CHECKS := [
 	"roles", "modes", "save", "gear_save", "slayer_log",
-	"settings", "daily", "steer", "maps", "cards", "pools", "exclusivity",
+	"settings", "save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity",
 	"fights", "kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp",
 	"gear_coverage",
 ]
@@ -66,6 +66,8 @@ static func _dispatch(name: String) -> void:
 			_slayer_log_check()
 		"settings":
 			_settings_check()
+		"save_safety":
+			_save_safety_check()
 		"daily":
 			_daily_check()
 		"steer":
@@ -526,6 +528,86 @@ static func _settings_check() -> void:
 	SaveGame.no_write = false
 	AudioDirector._load_settings()
 	print("SETTINGS ok: defaults, round-trip, clamping")
+
+
+## Save robustness on a scratch file (SaveGame.save_path), never the real
+## save: atomic write + backup rotation, a corrupt or truncated main file
+## falls back to the backup, both broken starts fresh, a wrong-typed wallet
+## resets alone while the armory survives, and unknown keys round-trip.
+static func _save_safety_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_path: String = SaveGame.save_path
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_backup: int = SaveGame._last_backup_ms
+	var path := "user://sim_check_save_safety.json"
+	SaveGame.save_path = path
+	SaveGame.no_write = false
+	var put := func(p: String, text: String) -> void:
+		var f := FileAccess.open(p, FileAccess.WRITE)
+		f.store_string(text)
+		f.close()
+	var wipe := func() -> void:
+		for p in [path, path + ".bak", path + ".tmp"]:
+			if FileAccess.file_exists(p):
+				DirAccess.remove_absolute(p)
+	wipe.call()
+	# Two writes: the first good file becomes the backup on the second.
+	SaveGame.data = SaveGame._fresh()
+	SaveGame._reconcile()
+	SaveGame.data["coins"] = 123
+	SaveGame.data["future_key"] = {"x": 1}
+	SaveGame._last_backup_ms = -SaveGame.BACKUP_EVERY_MS
+	SaveGame._write()
+	SaveGame.data["coins"] = 124
+	SaveGame._last_backup_ms = -SaveGame.BACKUP_EVERY_MS
+	SaveGame._write()
+	if FileAccess.file_exists(path + ".tmp"):
+		_fail("save left its temp file behind")
+	if int(SaveGame._read_save(path).get("coins", -1)) != 124 or int(SaveGame._read_save(path + ".bak").get("coins", -1)) != 123:
+		_fail("atomic write / backup rotation")
+	# A second write inside the window keeps the backup where it is.
+	SaveGame.data["coins"] = 125
+	SaveGame._write()
+	if int(SaveGame._read_save(path + ".bak").get("coins", -1)) != 123:
+		_fail("backup rotated inside the throttle window")
+	# Truncated main -> backup, unknown key survives.
+	put.call(path, "{\"coins\": 12, \"save_ver")
+	SaveGame._load()
+	if int(SaveGame.data["coins"]) != 123:
+		_fail("truncated save did not fall back to the backup (coins %s)" % str(SaveGame.data["coins"]))
+	if not SaveGame.data.has("future_key"):
+		_fail("unknown save key lost on load")
+	# Empty main and corrupt backup -> fresh, no crash.
+	put.call(path, "")
+	put.call(path + ".bak", "not json")
+	SaveGame._load()
+	if int(SaveGame.data["coins"]) != int(SaveGame._fresh()["coins"]):
+		_fail("both saves broken should start fresh")
+	# Wrong-typed fields reset alone; the armory and float coins survive.
+	SaveGame.data = SaveGame._fresh()
+	SaveGame._reconcile()
+	SaveGame.data["coins"] = "abc"
+	SaveGame.data["trophies"] = -5
+	SaveGame.data["heroes"] = "broken"
+	SaveGame.data["armory"] = {"v": 1, "owned": {"pebble": ["pebble.helm.1"]}, "equipped": {}, "xp": {}}
+	put.call(path, JSON.stringify(SaveGame.data))
+	SaveGame._load()
+	if int(SaveGame.data["coins"]) != 0 or int(SaveGame.data["trophies"]) != 0:
+		_fail("wrong-typed or negative wallet not reset")
+	if typeof(SaveGame.data["heroes"]) != TYPE_DICTIONARY or SaveGame.data["heroes"].is_empty():
+		_fail("broken heroes field not restored")
+	if str(SaveGame.data.get("armory", {}).get("owned", {})).find("pebble.helm.1") < 0:
+		_fail("type sanity dropped the armory")
+	put.call(path, JSON.stringify({"save_version": 3, "coins": 77.0}))
+	SaveGame._load()
+	if typeof(SaveGame.data["coins"]) != TYPE_INT or int(SaveGame.data["coins"]) != 77:
+		_fail("JSON float coins must load as 77")
+	wipe.call()
+	SaveGame.save_path = keep_path
+	SaveGame._last_backup_ms = keep_backup
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	print("SAVE SAFETY ok: atomic write, backup fallback, fresh on double corruption, type sanity")
 
 
 ## Daily Challenge: one deterministic map per UTC day, one or two modifiers,

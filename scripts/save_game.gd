@@ -986,14 +986,16 @@ func _reconcile() -> void:
 func _load() -> void:
 	data = _fresh()
 	_reconcile()
-	if not FileAccess.file_exists(PATH):
-		_write()
-		return
-	var file := FileAccess.open(PATH, FileAccess.READ)
-	if file == null:
-		return
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
-	if typeof(parsed) != TYPE_DICTIONARY:
+	var parsed := _read_save(save_path)
+	if parsed.is_empty() and FileAccess.file_exists(save_path):
+		push_warning("SaveGame: %s is unreadable, trying the backup" % save_path)
+	if parsed.is_empty():
+		parsed = _read_save(_bak_path())
+		if not parsed.is_empty():
+			push_warning("SaveGame: restored progress from %s" % _bak_path())
+		elif FileAccess.file_exists(_bak_path()):
+			push_warning("SaveGame: backup unreadable too, starting a fresh save")
+	if parsed.is_empty():
 		_write()
 		return
 	var old_version := int(parsed.get("save_version", 0))
@@ -1003,6 +1005,7 @@ func _load() -> void:
 		_write()
 		return
 	data = parsed
+	_sanitize()
 	_reconcile()
 	migrate_legacy_armory(old_version)
 	_write()
@@ -1010,12 +1013,96 @@ func _load() -> void:
 
 ## Tests set this so a headless check never touches the player's save file.
 var no_write := false
+## Where the save lives. Only sim_check points this at a scratch file.
+var save_path := PATH
+## The backup rotates at most once per BACKUP_EVERY_MS so frequent saves do
+## not thrash; the first write of a session always rotates.
+const BACKUP_EVERY_MS := 60000
+var _last_backup_ms := -BACKUP_EVERY_MS
 
 
+func _bak_path() -> String:
+	return save_path + ".bak"
+
+
+func _tmp_path() -> String:
+	return save_path + ".tmp"
+
+
+## The save dictionary stored at `path`, or {} when the file is missing,
+## empty, truncated or not a JSON object.
+func _read_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var text := file.get_as_text()
+	file.close()
+	if text.strip_edges().is_empty():
+		return {}
+	var json := JSON.new()
+	if json.parse(text) != OK or typeof(json.data) != TYPE_DICTIONARY:
+		return {}
+	return json.data
+
+
+## Type sanity for a loaded save: a field of the wrong type falls back to its
+## fresh default and negative wallets clamp to 0; every other field (and any
+## unknown future key) is kept as it is. JSON numbers load as floats, so any
+## number is accepted for the int fields.
+func _sanitize() -> void:
+	var fresh := _fresh()
+	var parsed_wallet := {}
+	for key in ["coins", "trophies"]:
+		if data.has(key):
+			parsed_wallet[key] = data[key]
+	for key in fresh:
+		if not data.has(key):
+			continue
+		var want := typeof(fresh[key])
+		var have := typeof(data[key])
+		if want == TYPE_INT:
+			if have == TYPE_INT or have == TYPE_FLOAT:
+				data[key] = int(data[key])
+			else:
+				data[key] = fresh[key]
+		elif have != want:
+			data[key] = fresh[key]
+	# Wallets never refill to the starter purse from a broken value: an
+	# unreadable amount reads 0, a negative one clamps to 0.
+	for key in ["coins", "trophies"]:
+		if not data.has(key):
+			continue
+		var raw: Variant = parsed_wallet.get(key, 0)
+		data[key] = maxi(0, int(raw)) if typeof(raw) == TYPE_INT or typeof(raw) == TYPE_FLOAT else 0
+
+
+## Atomic write: the save goes to a temp file, is read back and parsed, and
+## only then replaces the real file. The previous good file is kept as the
+## backup (rotated at most once per BACKUP_EVERY_MS).
 func _write() -> void:
 	if no_write:
 		return
-	var file := FileAccess.open(PATH, FileAccess.WRITE)
+	var tmp := _tmp_path()
+	var file := FileAccess.open(tmp, FileAccess.WRITE)
 	if file == null:
 		return
 	file.store_string(JSON.stringify(data, "\t"))
+	file.close()
+	if _read_save(tmp).is_empty():
+		DirAccess.remove_absolute(tmp)
+		return
+	var now := Time.get_ticks_msec()
+	if now - _last_backup_ms >= BACKUP_EVERY_MS and not _read_save(save_path).is_empty():
+		_replace(save_path, _bak_path())
+		_last_backup_ms = now
+	_replace(tmp, save_path)
+
+
+## Move `from` over `to` (removing `to` first where rename cannot overwrite).
+func _replace(from: String, to: String) -> void:
+	if DirAccess.rename_absolute(from, to) == OK:
+		return
+	DirAccess.remove_absolute(to)
+	DirAccess.rename_absolute(from, to)
