@@ -543,6 +543,16 @@ func _drain() -> void:
 				AudioDirector.sfx("enemy_die")
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
+			"charge":
+				_burst(ev["pos"], Color("9fd8d0"), 10, 200.0)
+				_burst(ev.get("to", ev["pos"]), Color("9fd8d0"), 6, 150.0)
+				AudioDirector.haptic("medium")
+			"charge_land":
+				_burst(ev["pos"], Color("d8e8ea"), 14, 190.0)
+			"cleave":
+				_burst(ev["pos"], Color("d8e8ea"), 8, 150.0)
+			"hitstop":
+				hitstop = maxf(hitstop, float(ev.get("stop", 0.05)))
 			"loot":
 				stage.loot_open(ev["pos"])
 				_burst(ev["pos"], Color("ffd27a"), 18, 220.0)

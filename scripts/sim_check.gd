@@ -6,6 +6,8 @@ static var failures := 0
 
 static func run() -> int:
 	failures = 0
+	if OS.get_cmdline_user_args().has("--class-report"):
+		class_report(_class_tag())
 	_roles()
 	_modes()
 	_save()
@@ -525,7 +527,61 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 	var hp := 0.0
 	if sim.heroes.size() > 0:
 		hp = sim.heroes[0].hp
-	return {"result": sim.result, "time": sim.time, "level": sim.level, "hp": hp}
+	return {
+		"result": sim.result,
+		"time": sim.time,
+		"level": sim.level,
+		"hp": hp,
+		"dmg_taken": sim.dmg_taken,
+		"kills": sim.kills,
+	}
+
+
+## Optional tag for the class report: --class-tag=AFTER (defaults to REPORT).
+static func _class_tag() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--class-tag="):
+			return arg.substr(12)
+	return "REPORT"
+
+
+## Class balance report: one representative hero per role over five fixed
+## seeds. Prints wins, average clear time, damage the team took (total and
+## per minute), foes killed (total and per minute) and average health left.
+##   godot --headless --path . -- --sim-check --class-report [--class-tag=TAG]
+## BEFORE (role mechanics off):
+## CLASS BEFORE tank wins 3/5 avg_time 399.8 dmg_taken 916 (per minute 27) kills 451 (per minute 14) hp_left 211
+## CLASS BEFORE archer wins 3/5 avg_time 398.0 dmg_taken 554 (per minute 17) kills 420 (per minute 13) hp_left 81
+## CLASS BEFORE mage wins 3/5 avg_time 367.9 dmg_taken 193 (per minute 6) kills 394 (per minute 13) hp_left 164
+## AFTER (role mechanics on):
+## <filled in after the STEP 2 run>
+static func class_report(tag: String) -> void:
+	var reps := {"tank": "pebble", "archer": "juniper", "mage": "ember"}
+	var seeds := [3, 7, 11, 19, 23]
+	for role in ["tank", "archer", "mage"]:
+		var hero := str(reps[role])
+		var wins := 0
+		var total_time := 0.0
+		var total_dmg := 0.0
+		var total_kills := 0
+		var total_hp := 0.0
+		for seed in seeds:
+			var r := _play(hero, "meadow", seed, false)
+			if OS.get_environment("CC_CLASS_TRACE") != "":
+				print("  TRACE %s seed %d result=%s time=%.1f hp=%.0f" % [role, seed, r["result"], r["time"], float(r.get("hp", 0.0))])
+			if str(r["result"]) == "win":
+				wins += 1
+			total_time += float(r["time"])
+			total_dmg += float(r.get("dmg_taken", 0.0))
+			total_kills += int(r.get("kills", 0))
+			total_hp += float(r.get("hp", 0.0))
+		var mins := maxf(total_time / 60.0, 0.001)
+		print("CLASS %s %s wins %d/%d avg_time %.1f dmg_taken %d (per minute %d) kills %d (per minute %d) hp_left %d" % [
+			tag, role, wins, seeds.size(), total_time / float(seeds.size()),
+			int(round(total_dmg)), int(round(total_dmg / mins)),
+			total_kills, int(round(float(total_kills) / mins)),
+			int(round(total_hp / float(seeds.size()))),
+		])
 
 
 ## The hero kites the boss around the arena stones and into the corners;

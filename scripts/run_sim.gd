@@ -15,6 +15,49 @@ extends RefCounted
 
 const STEP_HINT := 1.0 / 60.0
 
+## Per-class feel tuning, keyed by role (never by hero id) so every hero of a
+## class inherits it; run_sim only ever reads these through the role.
+##   tank   - longer reach, a wall-safe gap-closing charge, a front cleave,
+##            damage reduction while swinging, on-hit lifesteal and heavy
+##            knockback.
+##   archer - quicker plant-to-shot, long-range bonus damage, bonus pierce
+##            at range and ricochet that grows with level.
+##   mage   - orb splash leaves a slow field, every 4th cast is a larger burst,
+##            and the glassiest body (-10% max hp).
+const ROLE_TUNING := {
+	"tank": {
+		"reach_mul": 1.18,
+		"hp_mul": 1.0,
+		"cleave_arc": 110.0,
+		"cleave_mul": 0.65,
+		"swing_dr": 0.30,
+		"swing_dr_time": 0.35,
+		"lifesteal": 0.04,
+		"knockback": 72.0,
+		"boss_knock_resist": 0.75,
+		"charge_range": 300.0,
+		"charge_time": 0.16,
+		"charge_cd": 3.5,
+		"charge_aoe": 78.0,
+		"charge_stun": 0.35,
+	},
+	"archer": {
+		"hp_mul": 1.0,
+		"windup_mul": 0.6,
+		"long_frac": 0.6,
+		"long_bonus": 0.25,
+		"ricochet_level": 0.015,
+		"ricochet_cap": 0.30,
+	},
+	"mage": {
+		"hp_mul": 0.9,
+		"burst_every": 4,
+		"burst_mul": 1.6,
+		"slow_life": 1.1,
+		"slow_k": 0.35,
+	},
+}
+
 var rng := RandomNumberGenerator.new()
 var mode := Session.Mode.SOLO
 var biome_id := "meadow"
@@ -48,6 +91,10 @@ var pings: Array[Ping] = []
 var fields: Array[Field] = []
 var boss: Actor = null
 var slain := 0
+## Report counters: damage the team-0 heroes took after armor and bulwark,
+## and foes (minions and bosses) killed by team 0. Read by the class report.
+var dmg_taken := 0.0
+var kills := 0
 var boss_mark := 0
 ## True once the boss has opened with its first attack; only that first
 ## telegraph waits until the boss shares the hero's view.
@@ -156,6 +203,12 @@ class Actor extends RefCounted:
 	var cd := 0.0
 	var touch_cd := 0.0
 	var charge_cd := 0.0
+	## Tank gap-closer: time left in the leap, its heading and speed.
+	var charge_t := 0.0
+	var charge_dir := Vector2.RIGHT
+	var charge_speed := 0.0
+	## Tank swing damage reduction: time left of the post-attack guard.
+	var swing_t := 0.0
 	var shot_speed := 240.0
 	var xp := 1
 	var alive := true
@@ -499,13 +552,24 @@ func _spawn_hero(id: String, stats: Dictionary, index: int) -> void:
 
 func _copy_combat(hero: Actor) -> void:
 	var stats: Dictionary = hero.stats
-	hero.max_hp = float(stats["hp"])
+	var tune: Dictionary = _role_tune(str(hero.role))
+	hero.max_hp = float(stats["hp"]) * float(tune.get("hp_mul", 1.0))
 	hero.hp = minf(hero.hp if hero.hp > 0.0 else hero.max_hp, hero.max_hp)
 	hero.speed = float(stats["speed"])
 	hero.dmg = float(stats["dmg"])
 	hero.interval = float(stats["interval"])
-	hero.range = float(stats["range"])
+	hero.range = float(stats["range"]) * float(tune.get("reach_mul", 1.0))
 	hero.armor = float(stats["armor"])
+
+
+## Role tuning for a class, or an empty table for minions and bosses.
+func _role_tune(role: String) -> Dictionary:
+	return ROLE_TUNING.get(role, {})
+
+
+## Plant-to-first-shot delay: archers wind up faster than the baseline.
+func _plant_time(hero: Actor) -> float:
+	return PLANT * float(_role_tune(str(hero.role)).get("windup_mul", 1.0))
 
 
 func _recompute(hero: Actor) -> void:
@@ -641,10 +705,15 @@ func _move_heroes(dt: float, moves: Array) -> void:
 		if mv.length() > 1.0:
 			mv = mv.normalized()
 		var dashing := hero.dodge_t > 0.0
+		var charging := hero.charge_t > 0.0
 		if dashing:
 			# The roll owns this frame: fixed heading and speed, stick ignored.
 			hero.dodge_t = maxf(0.0, hero.dodge_t - dt)
 			hero.vel = _slide(hero, hero.dodge_dir * (DODGE_DIST / DODGE_TIME))
+		elif charging:
+			# The gap-closing leap owns this frame too: fixed heading and speed.
+			hero.charge_t = maxf(0.0, hero.charge_t - dt)
+			hero.vel = _slide(hero, hero.charge_dir * hero.charge_speed)
 		else:
 			hero.vel = _slide(hero, mv * hero.speed)
 		var was := hero.pos
@@ -657,6 +726,9 @@ func _move_heroes(dt: float, moves: Array) -> void:
 		if dashing:
 			hero.facing = hero.dodge_dir.angle()
 			hero.still = 0.0
+		elif charging:
+			hero.facing = hero.charge_dir.angle()
+			hero.still = 0.0
 		elif mv.length() > 0.08:
 			hero.facing = mv.angle()
 			hero.still = 0.0
@@ -666,19 +738,29 @@ func _move_heroes(dt: float, moves: Array) -> void:
 		hero.flash = maxf(0.0, hero.flash - dt)
 		hero.cd = maxf(0.0, hero.cd - dt)
 		hero.dodge_cd = maxf(0.0, hero.dodge_cd - dt)
+		hero.charge_cd = maxf(0.0, hero.charge_cd - dt)
+		hero.swing_t = maxf(0.0, hero.swing_t - dt)
 		var regen := float(hero.stats.get("regen", 0.0))
 		if regen > 0.0 and hero.hp < hero.max_hp:
 			hero.hp = minf(hero.max_hp, hero.hp + regen * dt)
 		_clamp_actor(hero)
+		if charging and hero.charge_t <= 0.0:
+			_charge_land(hero)
 
 
 func _hero_attacks() -> void:
 	for hero in heroes:
 		# Run or fight, never both: no shots and no aim-turning on the move.
-		if not hero.alive or hero.cd > 0.0 or hero.still < PLANT or hero.dodge_t > 0.0:
+		if not hero.alive or hero.cd > 0.0 or hero.still < _plant_time(hero) or hero.dodge_t > 0.0 or hero.charge_t > 0.0:
 			continue
 		var target := nearest_hostile(hero, hero.range)
 		if target == null:
+			# Tank: a planted melee hero leaps at a foe just out of reach.
+			if hero.role == "tank" and hero.charge_cd <= 0.0:
+				var tune: Dictionary = _role_tune("tank")
+				var far := nearest_hostile(hero, float(tune.get("charge_range", 300.0)))
+				if far != null:
+					_start_charge(hero, far)
 			continue
 		hero.aim = (target.pos - hero.pos).angle()
 		hero.facing = hero.aim
@@ -695,6 +777,7 @@ func _hero_attacks() -> void:
 			"range": hero.range,
 		})
 		if hero.role == "tank":
+			hero.swing_t = maxf(hero.swing_t, float(_role_tune("tank").get("swing_dr_time", 0.35)))
 			_melee(hero, target)
 			if int(hero.stats.get("bash", 0)) > 0:
 				_bash(hero)
@@ -731,6 +814,12 @@ func _melee(hero: Actor, primary: Actor) -> void:
 	var ang := (primary.pos - hero.pos).angle()
 	var reach := hero.range + 10.0
 	var half := 1.2 + float(int(hero.stats.get("shots", 0))) * 0.2
+	var cleave := 1.0
+	if hero.role == "tank":
+		var tune: Dictionary = _role_tune("tank")
+		half = deg_to_rad(float(tune.get("cleave_arc", 110.0))) * 0.5
+		cleave = float(tune.get("cleave_mul", 0.65))
+	var hits := 0
 	for actor in actors:
 		if not actor.alive or actor.team == hero.team:
 			continue
@@ -741,10 +830,55 @@ func _melee(hero: Actor, primary: Actor) -> void:
 		var point_blank := dist < hero.radius + actor.radius + 20.0
 		if not point_blank and dist > 0.01 and absf(wrapf(delta.angle() - ang, -PI, PI)) > half:
 			continue
-		_hurt(actor, amount, hero.pos, crit, hero, false)
+		# Cleave: the chosen target takes it all, the rest of the arc less.
+		var dmg := amount if actor == primary else amount * cleave
+		_hurt(actor, dmg, hero.pos, crit, hero, false)
+		hits += 1
 		if result != "":
 			return
 	events.append({"type": "swing", "pos": hero.pos, "facing": ang, "range": reach})
+	if hero.role == "tank" and hits > 0:
+		events.append({
+			"type": "cleave",
+			"id": hero.id,
+			"pos": hero.pos,
+			"facing": ang,
+			"range": reach,
+			"stop": 0.055 if crit else 0.04,
+			"shake": 0.3 if crit else 0.16,
+		})
+
+
+## Tank gap-closer: dash onto a foe just out of reach. The leap owns movement
+## for `charge_time`, then staggers everything under the landing.
+func _start_charge(hero: Actor, foe: Actor) -> void:
+	var tune: Dictionary = _role_tune("tank")
+	var dist := hero.pos.distance_to(foe.pos)
+	if dist < 1.0:
+		return
+	var time := float(tune.get("charge_time", 0.16))
+	hero.charge_dir = (foe.pos - hero.pos).normalized()
+	hero.charge_t = time
+	hero.charge_speed = dist / maxf(time, 0.001)
+	hero.charge_cd = float(tune.get("charge_cd", 3.5))
+	hero.facing = hero.charge_dir.angle()
+	hero.still = 0.0
+	events.append({"type": "charge", "id": hero.id, "pos": hero.pos, "to": foe.pos, "shake": 0.18})
+
+
+func _charge_land(hero: Actor) -> void:
+	var tune: Dictionary = _role_tune("tank")
+	var radius := float(tune.get("charge_aoe", 78.0))
+	var stun := float(tune.get("charge_stun", 0.35))
+	for actor in actors:
+		if not actor.alive or actor.team == hero.team:
+			continue
+		if actor.pos.distance_to(hero.pos) > radius + actor.radius:
+			continue
+		actor.stun = maxf(actor.stun, stun)
+		actor.slow = maxf(actor.slow, stun)
+		actor.slow_k = maxf(actor.slow_k, 0.25)
+	events.append({"type": "charge_land", "pos": hero.pos, "radius": radius, "shake": 0.22, "stop": 0.04})
 
 
 func _fan(hero: Actor, target: Actor) -> void:
@@ -755,12 +889,26 @@ func _fan(hero: Actor, target: Actor) -> void:
 		var travel := clampf(hero.pos.distance_to(target.pos) / flight, 0.0, 0.42)
 		aim = target.pos + target.vel * travel
 	var base := (aim - hero.pos).angle()
+	# Archer: shots past 60% of range hit harder and punch through one more.
+	var range_mul := 1.0
+	var extra_pierce := 0
+	if hero.role == "archer":
+		var atune: Dictionary = _role_tune("archer")
+		if hero.pos.distance_to(target.pos) > hero.range * float(atune.get("long_frac", 0.6)):
+			range_mul = 1.0 + float(atune.get("long_bonus", 0.25))
+			extra_pierce = 1
+	# Mage: every 4th cast is a bigger, wider burst.
+	var burst := false
+	if hero.role == "mage":
+		var mtune: Dictionary = _role_tune("mage")
+		var every := int(mtune.get("burst_every", 4))
+		burst = every > 0 and hero.atk_count % every == 0
 	for i in count:
 		var ang := base
 		if count > 1:
 			ang += lerpf(-0.22, 0.22, float(i) / float(count - 1))
 		var crit := rng.randf() < float(hero.stats["crit"])
-		var amount := float(hero.stats["dmg"]) * (float(hero.stats["crit_mult"]) if crit else 1.0)
+		var amount := float(hero.stats["dmg"]) * range_mul * (float(hero.stats["crit_mult"]) if crit else 1.0)
 		var dir := Vector2.RIGHT.rotated(ang)
 		var shot := Shot.new()
 		shot.team = hero.team
@@ -772,12 +920,22 @@ func _fan(hero: Actor, target: Actor) -> void:
 		shot.crit = crit
 		shot.radius = 14.0 if hero.role == "mage" else 8.0
 		shot.ttl = 1.45
-		shot.splash = float(hero.stats["splash"]) if hero.role == "mage" else 0.0
-		shot.splash_mul = float(hero.stats["splash_mul"])
-		shot.pierce = int(hero.stats["pierce"])
+		shot.pierce = int(hero.stats["pierce"]) + extra_pierce
 		shot.bounce = int(hero.stats["bounce"])
 		shot.kind = "orb" if hero.role == "mage" else "arrow"
 		shot.split = int(hero.stats.get("split", 0)) if hero.role == "mage" else 0
+		if hero.role == "mage":
+			var mtune: Dictionary = _role_tune("mage")
+			var splash := float(hero.stats["splash"])
+			var splash_mul := float(hero.stats["splash_mul"])
+			if burst:
+				splash *= float(mtune.get("burst_mul", 1.6))
+				splash_mul *= float(mtune.get("burst_mul", 1.6))
+			shot.splash = splash
+			shot.splash_mul = splash_mul
+		else:
+			shot.splash = 0.0
+			shot.splash_mul = float(hero.stats["splash_mul"])
 		shots.append(shot)
 
 
@@ -1021,7 +1179,11 @@ func _step_fields(dt: float) -> void:
 					continue
 				if actor.pos.distance_to(f.pos) > f.radius + actor.radius * 0.4:
 					continue
-				_hurt(actor, f.dmg, f.pos, false, owner, false)
+				if f.kind == "orb_slow":
+					actor.slow = maxf(actor.slow, 0.6)
+					actor.slow_k = maxf(actor.slow_k, 0.35)
+				if f.dmg > 0.0:
+					_hurt(actor, f.dmg, f.pos, false, owner, false)
 				if result != "":
 					return
 			events.append({"type": "fx", "fx": f.kind, "pos": f.pos, "radius": f.radius})
@@ -1416,6 +1578,10 @@ func _step_shots(dt: float) -> void:
 						_hurt(other, shot.dmg * shot.splash_mul, shot.pos, shot.crit, owner, false)
 						shot.hit_ids.append(other.id)
 				events.append({"type": "boom", "pos": shot.pos, "radius": shot.splash, "shake": 0.28, "stop": 0.02})
+				# Mage splash chills the ground it lands on.
+				if owner != null and owner.kind == "hero" and str(owner.role) == "mage":
+					var mtune: Dictionary = _role_tune("mage")
+					_drop_field(owner, shot.pos, shot.splash * 0.9, 0.0, float(mtune.get("slow_life", 1.1)), 0.3, "orb_slow")
 			if result != "":
 				return
 			if shot.split > 0 and not shot.did_split:
@@ -1436,6 +1602,10 @@ func _step_shots(dt: float) -> void:
 			var ricochet := 0.0
 			if owner != null and owner.kind == "hero":
 				ricochet = float(owner.stats.get("ricochet", 0.0))
+				# Archer ricochet grows a little with the run's level.
+				if str(owner.role) == "archer":
+					var atune: Dictionary = _role_tune("archer")
+					ricochet += minf(float(atune.get("ricochet_cap", 0.30)), float(atune.get("ricochet_level", 0.015)) * float(level))
 			if ricochet > 0.0 and rng.randf() < ricochet:
 				var hop := _bounce_target(shot)
 				if hop != null:
@@ -1681,6 +1851,11 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		var bulwark := float(target.stats.get("bulwark", 0.0))
 		if bulwark > 0.0 and target.still > 0.25:
 			dealt = maxf(1.0, dealt * (1.0 - minf(0.5, bulwark)))
+		# Tank guard: while swinging (and a beat after) melee takes less.
+		if str(target.role) == "tank" and target.swing_t > 0.0:
+			dealt = maxf(1.0, dealt * (1.0 - float(_role_tune("tank").get("swing_dr", 0.30))))
+		if target.team == 0:
+			dmg_taken += dealt
 	# A shielded elite soaks damage with its shield first, then its hp.
 	if target.shield > 0.0:
 		var soaked := minf(target.shield, dealt)
@@ -1696,7 +1871,17 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 	else:
 		kick_dir = kick_dir.normalized()
 	var kick := 2.0 if target.kind == "boss" else (10.0 if target.kind == "hero" else 16.0)
+	var heavy_kb := attacker != null and attacker.kind == "hero" and str(attacker.role) == "tank" and target.kind != "hero"
+	if heavy_kb:
+		var tune: Dictionary = _role_tune("tank")
+		kick = float(tune.get("knockback", 72.0))
+		if target.kind == "boss":
+			kick *= 1.0 - float(tune.get("boss_knock_resist", 0.75))
 	target.pos += kick_dir * kick
+	if heavy_kb:
+		_push_out(target)
+		if explore:
+			target.pos = map.push_inside(target.pos, target.radius * 0.8)
 	# Vampiric affix: the attacker drinks a share of the damage it lands.
 	if attacker != null and attacker != target and dealt > 0.0 and "vampiric" in attacker.affixes:
 		attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * 0.3)
@@ -1704,6 +1889,10 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		var siphon := float(attacker.stats.get("siphon", 0.0))
 		if siphon > 0.0 and attacker.alive:
 			attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * siphon)
+		# Tank sustain: melee heals a little of what it deals.
+		if str(attacker.role) == "tank" and attacker.alive:
+			var lifesteal := float(_role_tune("tank").get("lifesteal", 0.04))
+			attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * lifesteal)
 		var crit_siphon := float(attacker.stats.get("crit_siphon", 0.0))
 		if crit and crit_siphon > 0.0 and attacker.alive:
 			attacker.hp = minf(attacker.max_hp, attacker.hp + dealt * crit_siphon)
@@ -1743,6 +1932,8 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		_try_blink(target, from_pos)
 	if target.hp <= 0.0 and target.alive:
 		if attacker != null and attacker.kind == "hero" and attacker.alive and target.kind != "hero":
+			if attacker.team == 0:
+				kills += 1
 			var vamp := float(attacker.stats.get("vampkill", 0.0))
 			if vamp > 0.0:
 				attacker.hp = minf(attacker.max_hp, attacker.hp + attacker.max_hp * vamp)
