@@ -19,7 +19,14 @@ void fragment() {
 	vec2 p = UV - 0.5;
 	vec2 uv = center_uv + p * span_uv;
 	vec4 base = texture(base_tex, uv);
-	float veil = texture(veil_tex, uv).a;
+	// Soft, ragged fog edge: a small blur of the veil plus drifting noise
+	// so the frontier reads as mist rolling back, not grid squares.
+	vec2 px = vec2(0.9) / vec2(textureSize(veil_tex, 0));
+	float veil = texture(veil_tex, uv).a * 0.4;
+	veil += (texture(veil_tex, uv + vec2(px.x, 0.0)).a + texture(veil_tex, uv - vec2(px.x, 0.0)).a
+		+ texture(veil_tex, uv + vec2(0.0, px.y)).a + texture(veil_tex, uv - vec2(0.0, px.y)).a) * 0.15;
+	float drift = noise(uv * vec2(60.0, 120.0) + vec2(TIME * 0.15, TIME * 0.05));
+	veil = smoothstep(0.3, 0.7, veil + (drift - 0.5) * 0.45);
 	if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
 		veil = 1.0;
 	}
@@ -28,7 +35,13 @@ void fragment() {
 	float mott = noise(q * 0.35) * 0.6 + noise(q * 1.3) * 0.3 + noise(q * 4.0) * 0.1;
 	vec3 parch = mix(vec3(0.075, 0.15, 0.155), vec3(0.15, 0.24, 0.22), mott);
 	parch *= 0.9 + 0.2 * (1.0 - length(p) * 1.4);
-	vec3 col = mix(base.rgb, parch, veil);
+	// Fog: cool mist with moving cloud bands over the parchment.
+	float cloud = noise(uv * vec2(14.0, 28.0) + vec2(TIME * 0.04, 0.0)) * 0.6 + noise(uv * vec2(40.0, 80.0) - vec2(0.0, TIME * 0.06)) * 0.4;
+	vec3 fog = mix(parch, vec3(0.32, 0.4, 0.42), cloud * 0.45);
+	vec3 col = mix(base.rgb, fog, veil);
+	// Bright frontier where the fog is lifting.
+	float edge = smoothstep(0.08, 0.4, veil) * smoothstep(0.85, 0.45, veil);
+	col += vec3(0.55, 0.72, 0.78) * edge * 0.35;
 	float a = 1.0;
 	if (round_mask) {
 		float d = length(p) * px_size.x;

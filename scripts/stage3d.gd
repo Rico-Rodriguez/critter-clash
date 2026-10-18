@@ -3924,28 +3924,45 @@ func _occl_add(at: Vector3, height: float, mm: MultiMesh, idx: int) -> void:
 func _fade_occluders(hero: Vector3) -> void:
 	if camera == null or _occl.is_empty():
 		return
-	var hs := camera.unproject_position(hero + Vector3(0, HERO_METERS * 0.4, 0))
-	var reach: float = (viewport.size.x if viewport != null else 1179.0) * 0.24
+	var vw: float = viewport.size.x if viewport != null else 1179.0
+	# Screen points to keep clear: the hero (wide), plus foes that are
+	# hunting it or close by (narrow), so nothing attacks out of a canopy.
+	var keep := [[camera.unproject_position(hero + Vector3(0, HERO_METERS * 0.4, 0)), vw * 0.24]]
+	if _sim_ref != null:
+		var foes := []
+		for actor in _sim_ref.actors:
+			if not actor.alive or actor.team == 0 or actor.kind == "boss":
+				continue
+			var at3 := _to3(actor.pos)
+			var d := Vector2(at3.x - hero.x, at3.z - hero.z).length()
+			if (actor.aggro and d < 14.0) or d < 7.0:
+				foes.append([d, at3])
+		foes.sort_custom(func(a, b): return a[0] < b[0])
+		for i in mini(foes.size(), 8):
+			keep.append([camera.unproject_position(foes[i][1] + Vector3(0, HERO_METERS * 0.3, 0)), vw * 0.08])
 	var want := {}
 	var c := Vector2i(int(floor(hero.x / OCCL_CELL)), int(floor(hero.z / OCCL_CELL)))
 	for dx in range(-4, 5):
 		for dz in range(-1, 9):
 			for e in _occl.get(c + Vector2i(dx, dz), []):
 				var at: Vector3 = e[0]
-				if at.z < hero.z - 0.5:
+				if at.z < hero.z - 3.0:
 					continue
 				var h: float = e[1]
-				# Distance from the hero to the trunk-to-crown segment on screen.
+				# Distance from each kept point to the trunk-to-crown segment on screen.
 				var a := camera.unproject_position(at + Vector3(0, h * 0.2, 0))
 				var b := camera.unproject_position(at + Vector3(0, h, 0))
 				var ab := b - a
-				var t := clampf((hs - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
 				# Crowns are wide: a tree whose trunk is off to the side can
 				# still spread its canopy over the hero. Widen by the crown's
 				# on-screen radius (about a third of the tree's height).
 				var crown_px := absf(b.y - camera.unproject_position(at + Vector3(0, h * 0.62, 0)).y)
-				if (a + ab * t).distance_to(hs) < reach + crown_px * 0.9:
-					want[e] = true
+				for k in keep:
+					var hs: Vector2 = k[0]
+					var t := clampf((hs - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
+					if (a + ab * t).distance_to(hs) < float(k[1]) + crown_px * 0.9:
+						want[e] = true
+						break
 	_occl_hit = not want.is_empty()
 	for e in want:
 		_occl_faded[e] = true

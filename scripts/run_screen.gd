@@ -2738,15 +2738,20 @@ class MiniMap extends Control:
 		if not _inside(lp, ls + 2.0):
 			lp = c + (lp - c).normalized() * (DIAM * 0.5 - ls - 3.0)
 		_skull(ci, lp, ls, found)
-		# The hero: a gold arrowhead pointing where it faces.
+		# The hero: a bright arrowhead with a dark keyline, a cool sonar ring
+		# pulsing out from it and a soft halo, so it never hides on a path.
 		if not sim.heroes.is_empty():
 			var h: RunSim.Actor = sim.heroes[0]
 			var hp := _to_ui(h.pos)
 			var f := Vector2.RIGHT.rotated(h.facing)
-			var s := dot * 2.6
+			var s := dot * (3.4 if big else 3.2)
+			var tp := fmod(Time.get_ticks_msec() * 0.001, 1.4) / 1.4
+			ci.draw_circle(hp, s * 1.5, Color(0.05, 0.08, 0.12, 0.55))
+			ci.draw_arc(hp, s * (1.2 + tp * 1.6), 0, TAU, 32, Color(0.62, 0.86, 1.0, 0.85 * (1.0 - tp)), 2.0, true)
 			var pts := PackedVector2Array([hp + f * s, hp + f.rotated(2.5) * s * 0.85, hp - f * s * 0.35, hp + f.rotated(-2.5) * s * 0.85])
-			ci.draw_colored_polygon(pts, Color("fff0b0"))
-			ci.draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color(0.2, 0.1, 0.02), 1.5, true)
+			ci.draw_colored_polygon(pts, Color("eaf6ff"))
+			ci.draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color(0.03, 0.06, 0.12), 2.2, true)
+			ci.draw_circle(hp, s * 0.22, Color("5fb4ff"))
 		if big:
 			var font: Font = UiKit.font_b
 			var pct := int(round(sim.explored() * 100.0))
