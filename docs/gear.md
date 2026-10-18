@@ -113,3 +113,23 @@ points the API at a scratch dict, for tests.
   unchanged until the helpers migrate it.
 
 Self-test: `godot --headless --path . -s res://tools/gear_db_test.gd` prints `GEARDB PASS`.
+
+## Loot visuals contract (rendering side, owned by integration)
+
+The hunt renders gear loot from two sim events. Helpers' drop/roll code only
+has to emit them; the visuals and the reveal are already wired.
+
+| event `type`   | fields                                   | effect |
+|----------------|------------------------------------------|--------|
+| `gear_drop`    | `item` (GearDB id), `pos` (Vector2), `key` (optional, unique per drop; defaults to `item`) | Tier light beam on the ground: iron short/warm, steel taller/cool, rune plate a tall pulsing pillar with a rune ring and a rare haptic. |
+| `gear_pickup`  | `item`, `pos`, `key` (same as the drop)  | Beam collapses into a tier ring + spark, a streak to the hero, a floating item name. The id is appended to `run_screen.run_gear`. |
+
+End-of-run card ("SPOILS"): `EquipUI.loot_reveal(ids)` shows one face-down
+card per piece, flipping in tier order (best last). Ids come from
+`run_gear` plus `summary["gear"]` if the save layer's `commit_victory` /
+defeat summary returns one. Granting into the armory (`GearDB.grant`) stays
+with the loot/persistence helpers; the reveal never grants.
+
+Capture/demo env: `CC_DEMO_LOOT=1` stages one drop per tier in the hunt shot
+and adds a `pickup` shot; `CC_DEMO_SPOILS=id,id,...` fills the reveal when a
+run earned nothing.

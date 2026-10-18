@@ -27,6 +27,9 @@ var pet_follow := ""
 var pet_pos := Vector2.ZERO
 var pet_ready := false
 var summary: Dictionary = {}
+## Gear item ids picked up this run (from gear_pickup events), shown in the
+## end-of-run loot reveal alongside any summary["gear"] the save layer adds.
+var run_gear: Array = []
 var _modal_up := false
 var minimap: MiniMap
 var dodge_btn: DodgeButton
@@ -570,6 +573,22 @@ func _drain() -> void:
 						stage.lifesteal_fx(tank.id, foe.pos)
 			"hitstop":
 				hitstop = maxf(hitstop, float(ev.get("stop", 0.05)))
+			# Gear loot (contract in docs/gear.md): run_sim emits gear_drop when
+			# a piece hits the ground and gear_pickup when the hero takes it.
+			"gear_drop":
+				var it := GearDB.item(str(ev.get("item", "")))
+				if not it.is_empty():
+					stage.loot_beam(str(ev.get("key", ev["item"])), ev["pos"], int(it["tier"]))
+					if int(it["tier"]) >= 3:
+						AudioDirector.haptic("rare")
+			"gear_pickup":
+				var it2 := GearDB.item(str(ev.get("item", "")))
+				if not it2.is_empty():
+					var hp: Vector2 = sim.heroes[0].pos if not sim.heroes.is_empty() else ev["pos"]
+					stage.loot_pickup(str(ev.get("key", ev["item"])), ev["pos"], int(it2["tier"]), hp)
+					_float(ev["pos"] + Vector2(0, -40), str(it2["name"]), GearDB.TIER_COLORS[int(it2["tier"])].lightened(0.2), false)
+					run_gear.append(str(ev["item"]))
+					AudioDirector.sfx("chest_open")
 			"loot":
 				stage.loot_open(ev["pos"])
 				_burst(ev["pos"], Color("ffd27a"), 18, 220.0)
@@ -1408,6 +1427,19 @@ func _daily_line() -> Control:
 	return plate
 
 
+## Gear earned this run: pickups seen in hunt plus anything the save layer
+## reports in summary["gear"] (deduped by occurrence, not by id).
+func _spoils() -> Array:
+	var out: Array = run_gear.duplicate()
+	for id in summary.get("gear", []):
+		if not (str(id) in run_gear):
+			out.append(str(id))
+	for id in OS.get_environment("CC_DEMO_SPOILS").split(",", false):
+		if not (id in out):
+			out.append(id)
+	return out
+
+
 func _show_victory(boss_name: String) -> void:
 	_daily_result(true)
 	_open_modal()
@@ -1453,6 +1485,9 @@ func _show_victory(boss_name: String) -> void:
 			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			dv.add_child(line)
 			row.add_child(tag)
+	var spoils := EquipUI.loot_reveal(_spoils())
+	if spoils != null:
+		col.add_child(spoils)
 	col.add_child(_end_stats())
 	if is_daily:
 		col.add_child(_daily_line())
@@ -1497,6 +1532,9 @@ func _show_defeat(reason: String) -> void:
 	var hint := UiKit.label("Level your critters with cards and gear, then return.", 19, UiKit.MUTED, "m", 2)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var spoils := EquipUI.loot_reveal(_spoils())
+	if spoils != null:
+		col.add_child(spoils)
 	col.add_child(_end_stats())
 	if is_daily:
 		col.add_child(_daily_line())

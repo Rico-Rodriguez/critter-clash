@@ -4405,8 +4405,13 @@ void fragment() {
 		float sweep = mix(-half_arc, half_arc, smoothstep(0.0, 0.55, t));
 		float behind = clamp((sweep - ang) / (half_arc * 1.2), 0.0, 1.0);
 		float inside = step(-half_arc, ang) * step(ang, sweep);
-		float band = smoothstep(0.5, 0.78, r) * (1.0 - smoothstep(0.93, 1.0, r));
-		a = inside * band * (1.0 - behind * 0.85) * (1.0 - smoothstep(0.55, 1.0, t));
+		float band = smoothstep(0.55, 0.8, r) * (1.0 - smoothstep(0.93, 1.0, r));
+		// A hard bright blade line along the reach plus a hot leading edge,
+		// so the swing reads as a slash at phone size, not a soft haze.
+		float line = 1.0 - smoothstep(0.0, 0.035, abs(r - 0.88));
+		float lead = 1.0 - smoothstep(0.0, 0.16, sweep - ang);
+		a = inside * (band * 0.55 * (1.0 - behind * 0.85) + line * (1.0 - behind * 0.6) * 1.6 + lead * band * 1.4);
+		a *= 1.0 - smoothstep(0.6, 1.0, t);
 	} else if (kind == 1) {
 		float rad = mix(0.2, 0.95, sqrt(t));
 		a = (1.0 - smoothstep(0.0, 0.07, abs(r - rad))) * (1.0 - t);
@@ -4451,12 +4456,112 @@ func _fx_quad(size: Vector2, kind: int, color: Color, life: float, flat := true,
 	return mi
 
 
+## Gear on the ground: a tier-coloured light beam with a ground ring and a
+## spinning glint (iron short and soft, steel taller and cool, rune plate a
+## tall pulsing pillar). Keyed so the pickup can retire it.
+const LOOT_SHADER := """shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform vec3 color : source_color = vec3(1.0);
+uniform float gain = 1.0;
+uniform float pulse = 0.0;
+void fragment() {
+	float across = 1.0 - abs(UV.x - 0.5) * 2.0;
+	float core = pow(clamp(across, 0.0, 1.0), 3.0);
+	float fade = smoothstep(0.0, 0.85, UV.y);
+	float p = 1.0 + pulse * 0.35 * sin(TIME * 5.0 - UV.y * 8.0);
+	ALBEDO = color * (core * 1.6 + across * 0.35) * fade * gain * p;
+}
+"""
+var _loot_shader: Shader
+var _beams := {}
+
+
+func loot_beam(key: String, pos: Vector2, tier: int) -> void:
+	if actor_root == null:
+		return
+	loot_clear(key)
+	if _loot_shader == null:
+		_loot_shader = Shader.new()
+		_loot_shader.code = LOOT_SHADER
+	var c: Color = GearDB.TIER_COLORS[clampi(tier, 1, 3)]
+	var root := Node3D.new()
+	root.position = _to3(pos)
+	actor_root.add_child(root)
+	var tall: float = [0.0, 3.4, 5.4, 9.0][clampi(tier, 1, 3)]
+	for k in 2:
+		var mi := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2([0.0, 0.8, 1.0, 1.5][clampi(tier, 1, 3)], tall)
+		mi.mesh = q
+		var m := ShaderMaterial.new()
+		m.shader = _loot_shader
+		m.set_shader_parameter("color", Vector3(c.r, c.g, c.b))
+		m.set_shader_parameter("gain", [0.0, 1.1, 1.3, 1.8][clampi(tier, 1, 3)])
+		m.set_shader_parameter("pulse", 1.0 if tier == 3 else 0.0)
+		m.render_priority = 3
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position.y = tall * 0.5
+		mi.rotation.y = PI * 0.5 * k
+		root.add_child(mi)
+	var ring := _decal(1.6 if tier < 3 else 2.2, {"ring_color": Color(c.r, c.g, c.b, 0.9), "ring_radius": 0.38, "ring_width": 0.03, "ring_glow": 0.9, "shadow_alpha": 0.0, "shadow_radius": 0.3, "rune": tier == 3, "pulse": 1.0})
+	ring.position.y = 0.04
+	root.add_child(ring)
+	if _fx_shader == null:
+		_fx_shader = Shader.new()
+		_fx_shader.code = FX_SHADER
+	var glint := MeshInstance3D.new()
+	var gq := QuadMesh.new()
+	gq.size = Vector2(0.9, 0.9)
+	glint.mesh = gq
+	var gm := ShaderMaterial.new()
+	gm.shader = _fx_shader
+	gm.set_shader_parameter("kind", 3)
+	gm.set_shader_parameter("color", Vector3(c.r, c.g, c.b) * 1.3)
+	gm.set_shader_parameter("gain", 1.4)
+	gm.set_shader_parameter("t", 0.5)
+	gm.render_priority = 5
+	glint.material_override = gm
+	glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	glint.position = Vector3(0, 0.7, 0)
+	root.add_child(glint)
+	root.create_tween().set_loops().tween_property(glint, "rotation:y", TAU, 2.4).from(0.0)
+	var bob := root.create_tween().set_loops()
+	bob.tween_property(glint, "position:y", 0.95, 0.6).set_trans(Tween.TRANS_SINE)
+	bob.tween_property(glint, "position:y", 0.7, 0.6).set_trans(Tween.TRANS_SINE)
+	_beams[key] = root
+
+
+func loot_clear(key: String) -> void:
+	if _beams.has(key):
+		var n: Node = _beams[key]
+		if is_instance_valid(n):
+			n.queue_free()
+		_beams.erase(key)
+
+
+## Pickup: the beam collapses into a tier burst and a streak to the hero.
+func loot_pickup(key: String, pos: Vector2, tier: int, hero_at: Vector2) -> void:
+	loot_clear(key)
+	if actor_root == null:
+		return
+	var c: Color = GearDB.TIER_COLORS[clampi(tier, 1, 3)]
+	var ring := _fx_quad(Vector2(2.4, 2.4) * (1.0 + 0.3 * tier), 1, c, 0.45, true, 1.6)
+	ring.position = _to3(pos) + Vector3(0, 0.1, 0)
+	_spark(_to3(pos), c)
+	var a := _to3(pos)
+	var b := _to3(hero_at)
+	var streak := _fx_quad(Vector2(0.5, maxf(a.distance_to(b), 0.4)), 2, c, 0.3, true, 1.4)
+	streak.position = (a + b) * 0.5 + Vector3(0, 0.6, 0)
+	streak.rotation.y = atan2(b.x - a.x, b.z - a.z) + PI
+
+
 ## Tank cleave: a steel crescent across the real arc and reach.
 func cleave_fx(pos: Vector2, facing: float, reach: float, arc_deg: float, crit: bool) -> void:
 	if actor_root == null:
 		return
 	var m := reach * SCALE * 2.0
-	var q := _fx_quad(Vector2(m, m), 0, Color("ffd9a0") if crit else Color("cfe4ff"), 0.26, true, 1.6 if crit else 1.1)
+	var q := _fx_quad(Vector2(m, m), 0, Color("ffd38a") if crit else Color("d8ecff"), 0.28, true, 2.6 if crit else 2.1)
 	q.position = _to3(pos) + Vector3(0, 0.45, 0)
 	# Quad -Y in UV maps to world -Z; the sim's facing is an angle in x/y.
 	q.rotation.y = -facing - PI * 0.5

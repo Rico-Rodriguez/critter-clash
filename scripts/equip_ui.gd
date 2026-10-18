@@ -279,3 +279,93 @@ static func _badge(text: String, c: Color) -> Control:
 	l.custom_minimum_size = Vector2(150, 64)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	return l
+
+
+## Post-run loot reveal card: starts face down (a dark rune back), flips in
+## turn, then shows the tier-rimmed slot glyph. Rune plate keeps a pulse.
+class RevealCard extends Socket:
+	var face := false
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		if face:
+			super._draw()
+			var tier := int(item.get_slice(".", 2))
+			if tier == 3:
+				var tc: Color = GearDB.TIER_COLORS[3]
+				var a := 0.25 + 0.2 * sin(_t * 4.0)
+				UiKit.rr_line(self, Rect2(Vector2.ZERO, size).grow(4), 16.0, Color(tc.r, tc.g, tc.b, a), 4.0)
+			return
+		var r := Rect2(Vector2.ZERO, size)
+		UiKit.rr_shadow(self, r, 14.0, 5.0, 0.45)
+		UiKit.rr_fill(self, r, 14.0, Color("221a14"), Color("0b0806"))
+		UiKit.rr_line(self, r.grow(-2), 12.0, Color(0.72, 0.58, 0.34, 0.7), 3.0)
+		var c := size * 0.5
+		var a2 := 0.5 + 0.3 * sin(_t * 3.0)
+		draw_arc(c, size.x * 0.26, 0, TAU, 24, Color(0.9, 0.72, 0.4, a2), 2.5)
+		draw_line(c + Vector2(0, -size.y * 0.2), c + Vector2(0, size.y * 0.2), Color(0.9, 0.72, 0.4, a2), 2.5)
+		draw_line(c + Vector2(-size.x * 0.13, -size.y * 0.06), c + Vector2(size.x * 0.13, size.y * 0.06), Color(0.9, 0.72, 0.4, a2), 2.5)
+
+
+## "SPOILS" panel for the end-of-run card: one face-down card per gear piece
+## earned this run, flipping in order (best tier last for the payoff).
+static func loot_reveal(ids: Array) -> Control:
+	var items: Array = []
+	for id in ids:
+		var it := GearDB.item(str(id))
+		if not it.is_empty():
+			items.append(it)
+	if items.is_empty():
+		return null
+	items.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["tier"]) < int(b["tier"]))
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 6)
+	var head := UiKit.label("SPOILS", 20, UiKit.MUTED.lightened(0.25), "x", 2)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(head)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	box.add_child(row)
+	var shown := mini(items.size(), 5)
+	for i in shown:
+		var it: Dictionary = items[items.size() - shown + i]
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 2)
+		v.custom_minimum_size = Vector2(118, 0)
+		var card := RevealCard.new()
+		card.hero = str(it["hero"])
+		card.slot = str(it["slot"])
+		card.item = str(it["id"])
+		card.custom_minimum_size = Vector2(104, 104)
+		card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		card.pivot_offset = Vector2(52, 52)
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(card)
+		var tc: Color = GearDB.TIER_COLORS[int(it["tier"])]
+		var name := UiKit.label(str(it["name"]), 15, tc.lightened(0.35), "x", 2)
+		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name.custom_minimum_size = Vector2(118, 0)
+		name.modulate.a = 0.0
+		v.add_child(name)
+		row.add_child(v)
+		var delay := 0.45 + 0.4 * i
+		var tw := card.create_tween()
+		tw.tween_interval(delay)
+		tw.tween_property(card, "scale:x", 0.0, 0.12)
+		tw.tween_callback(func() -> void: card.face = true)
+		tw.tween_property(card, "scale", Vector2(1.12, 1.12), 0.12).set_trans(Tween.TRANS_BACK)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.12)
+		tw.parallel().tween_property(name, "modulate:a", 1.0, 0.2)
+		if int(it["tier"]) >= 3:
+			tw.tween_callback(func() -> void: AudioDirector.haptic("rare"))
+	if items.size() > shown:
+		var more := UiKit.label("+%d more in the Armory" % (items.size() - shown), 16, UiKit.MUTED.lightened(0.15), "m", 2)
+		more.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(more)
+	return box

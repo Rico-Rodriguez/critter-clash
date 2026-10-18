@@ -284,6 +284,12 @@ func _capture() -> void:
 					current.sim._spawn_minion(mix[k], current.sim._clamp_point(hero_at + offs[k], 24.0))
 				for off in [Vector2(-330, 120), Vector2(310, -540)]:
 					current.sim._spawn_minion(1, current.sim._clamp_point(hero_at + off, 24.0))
+				if OS.get_environment("CC_DEMO_LOOT") != "":
+					# Showcase: one ground drop per tier near the hero.
+					var hid := SaveGame.featured_id()
+					var drops := [[Vector2(-120, 60), "%s.boots.1" % hid], [Vector2(110, 90), "%s.helm.2" % hid], [Vector2(10, 170), "%s.weapon.3" % hid]]
+					for d in drops:
+						current.sim.events.append({"type": "gear_drop", "key": d[1], "item": d[1], "pos": current.sim._clamp_point(hero_at + d[0], 24.0)})
 			var seen := _framing(current)
 			if seen[0] >= 3 and seen[1] >= 1 and seen[2] >= 1:
 				break
@@ -296,6 +302,12 @@ func _capture() -> void:
 					print("WAVE rel=", actor.pos - hero, " scr=", current.stage.project(actor.pos), " body=", body != null and body.visible, " sprite=", actor.sprite, " gpos=", body.global_position if body else null)
 			print("WAVE cam=", current.stage.camera.global_position, " hero3=", current.stage._to3(hero))
 		await _shot("hunt")
+		if OS.get_environment("CC_DEMO_LOOT") != "":
+			# Pick up the rune drop to show the collapse and streak.
+			var hid2 := SaveGame.featured_id()
+			current.sim.events.append({"type": "gear_pickup", "key": "%s.weapon.3" % hid2, "item": "%s.weapon.3" % hid2, "pos": current.sim.heroes[0].pos + Vector2(10, 170)})
+			await get_tree().create_timer(0.12).timeout
+			await _shot("pickup")
 		current.sim.debug_offer()
 		var show: Array = ["vitality", "magnet", "mage_radius"]
 		current.sim.offer = show
@@ -332,7 +344,7 @@ func _capture() -> void:
 		await _shot("rare")
 		if _wants("victory"):
 			current._show_victory("Thistle")
-			await get_tree().create_timer(0.8).timeout
+			await get_tree().create_timer(2.6 if not current._spoils().is_empty() else 0.8).timeout
 			await _shot("victory")
 		if _wants("drawer"):
 			# Back home: the chest just won drops into the last slot.
