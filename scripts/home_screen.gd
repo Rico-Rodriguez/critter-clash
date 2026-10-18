@@ -90,6 +90,65 @@ func _sync() -> void:
 			_pills[i].set_amount(amounts[i])
 	for slot in _slots:
 		slot.refresh()
+	_refresh_pips()
+
+
+var _forge_pip: Control
+var _slayer_pip: Control
+var _trophy_pip: Control
+
+
+## Re-read the three attention pips on enter, beside the counters: Forge when a
+## piece is affordable, Slayer when a contract is finished, Road when a mastery
+## trophy waits to be claimed. A static dot, so it is safe with reduce flashing.
+func _refresh_pips() -> void:
+	if _forge_pip != null:
+		_forge_pip.visible = SaveGame.forge_ready(SaveGame.featured_id())
+	if _slayer_pip != null:
+		_slayer_pip.visible = SaveGame.slayer_ready()
+	if _trophy_pip == null:
+		_add_road_pip()
+	if _trophy_pip != null:
+		_trophy_pip.visible = SaveGame.mastery_ready()
+		_place_road_pip()
+
+
+## A small attention dot at a tile's top-right, drawn only (no new art).
+func _add_tile_pip(tile: Control) -> Control:
+	var pip := Pip.new()
+	pip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	pip.offset_left = -28.0
+	pip.offset_top = -6.0
+	pip.offset_right = -6.0
+	pip.offset_bottom = 16.0
+	pip.visible = false
+	tile.add_child(pip)
+	return pip
+
+
+## The Road tab (the Home control that opens the Trophy screen) carries the
+## mastery pip. It rides over the shared dock, so Home positions it against the
+## dock's own layout and keeps it there on resize.
+func _add_road_pip() -> void:
+	if _dock == null:
+		return
+	_trophy_pip = Pip.new()
+	_dock.add_child(_trophy_pip)
+	_dock.resized.connect(_place_road_pip)
+	_place_road_pip()
+
+
+## Park the mastery pip at the top-right of the dock's Road tab icon, matching
+## UiKit.Dock's layout: three equal slots, icon 60 px when the tab is idle (Home
+## is always the active tab here, so the Road tab is idle).
+func _place_road_pip() -> void:
+	if _trophy_pip == null or _dock == null:
+		return
+	var slot := _dock.size.x / 3.0
+	var px := 60.0
+	var icon_x := slot * 2.0 + (slot - px) * 0.5
+	_trophy_pip.size = Vector2(22, 22)
+	_trophy_pip.position = Vector2(icon_x + px - 20.0, 4.0)
 
 
 func open_map_sheet() -> void:
@@ -216,8 +275,33 @@ func _tiles() -> HBoxContainer:
 		# 88 px tap floor and keeps every caption readable.
 		tile.custom_minimum_size = Vector2(128, 128)
 		tile.pressed.connect(go.bind(str(tab[0]), {}))
+		# A ready Forge piece or a finishable contract gets a small dot; the
+		# mastery dot rides the Road tab instead (see _add_road_pip).
+		match str(tab[0]):
+			"forge":
+				_forge_pip = _add_tile_pip(tile)
+			"slayer":
+				_slayer_pip = _add_tile_pip(tile)
 		row.add_child(tile)
 	return row
+
+
+## A small drawn attention dot for a ready tile or nav entry: an ember core in
+## a gilt ring with a dark keyline. No new art, and static (never pulses), so it
+## is safe with reduce flashing on.
+class Pip extends Control:
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5 - 2.0
+		draw_circle(c + Vector2(0, 1.5), r + 1.0, Color(0, 0, 0, 0.5))
+		draw_circle(c, r + 1.0, Color("160a05"))
+		draw_circle(c, r, Color("e2bb6a"))
+		draw_circle(c - Vector2(0, r * 0.12), r * 0.68, Color("c0341f"))
+		draw_circle(c - Vector2(0, r * 0.28), r * 0.34, Color("ff8a4a"))
+		draw_arc(c, r * 0.9, PI * 1.05, PI * 1.95, 16, Color(1, 0.95, 0.78, 0.75), 1.5, true)
 
 
 class Showcase extends Control:

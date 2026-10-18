@@ -1067,6 +1067,40 @@ func forge(hero: String, id: String) -> bool:
 	return true
 
 
+## --- Home attention pips -----------------------------------------------------
+## Read-only queries behind the small "something to do" dots on Home. Each one
+## reads existing state only, so a pip can never drift from the screen it points
+## at. Keyed by state, never by hero id.
+
+## True while the given hero has a Forge option they can afford right now.
+func forge_ready(hero: String) -> bool:
+	for option in forge_options(hero):
+		if bool(option.get("ok", false)):
+			return true
+	return false
+
+
+## True while any mastery trophy is earned and still unclaimed.
+func mastery_ready() -> bool:
+	for trophy in Catalog.SKILL_TROPHIES:
+		if bool(mastery_state(trophy, "claim").get("ok", false)):
+			return true
+	return false
+
+
+## True while the contract in hand has reached its need and waits to be turned
+## in: the same test slayer_screen enables TURN IN with. No task, or one still
+## short, reads false.
+func slayer_ready() -> bool:
+	if not data.has("slayer") or typeof(data["slayer"]) != TYPE_DICTIONARY:
+		return false
+	var task: Variant = data["slayer"].get("task", {})
+	if typeof(task) != TYPE_DICTIONARY or (task as Dictionary).is_empty():
+		return false
+	var t: Dictionary = task
+	return int(t.get("have", 0)) >= int(t.get("need", 1))
+
+
 func claim(id: String) -> bool:
 	if id in data["claimed"]:
 		return false

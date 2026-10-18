@@ -17,7 +17,7 @@ const CHECKS := [
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
-	"forge", "boss_gear",
+	"forge", "boss_gear", "home_pips",
 ]
 
 
@@ -117,6 +117,8 @@ static func _dispatch(name: String) -> void:
 			_gear_log_check()
 		"forge":
 			_forge_check()
+		"home_pips":
+			_home_pips_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -2953,6 +2955,59 @@ static func _end_card_check() -> void:
 		_fail("xp row showed with no XP")
 	screen.free()
 	print("END CARD ok: melted-duplicate line and run skill XP line")
+
+
+## Home attention pips (SaveGame.forge_ready / mastery_ready / slayer_ready).
+## On a scratch save and armory, the read-only queries drive the Home dots:
+## a fresh save lights none; 20 shards light the Forge; a trained combat skill
+## lights mastery and claiming clears it; a finished contract lights Slayer and
+## an unfinished one does not. Everything restores.
+static func _home_pips_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	GearDB.store_override = {}
+	SaveGame.data = SaveGame._fresh()
+	var hero := SaveGame.featured_id()
+	# Fresh: no shards, no XP, no contract, so no pip.
+	if SaveGame.forge_ready(hero):
+		_fail("a fresh home lit the Forge pip")
+	if SaveGame.mastery_ready():
+		_fail("a fresh home lit the mastery pip")
+	if SaveGame.slayer_ready():
+		_fail("a fresh home lit the Slayer pip")
+	# 20 shards cover one iron piece on a meadow-only save.
+	SaveGame.data["gear_shards"] = 20
+	if not SaveGame.forge_ready(hero):
+		_fail("20 shards did not light the Forge pip")
+	if SaveGame.mastery_ready():
+		_fail("shards alone lit the mastery pip")
+	# Train a combat skill to 10: First Blood turns; claiming it clears the pip.
+	GearDB.add_xp(hero, "attack", GearDB.xp_for_level(10))
+	if not SaveGame.mastery_ready():
+		_fail("a trained skill did not light the mastery pip")
+	if not SaveGame.claim_mastery("first_blood"):
+		_fail("a lit mastery trophy could not be claimed")
+	if SaveGame.mastery_ready():
+		_fail("mastery stayed lit after its only claim")
+	# A finished contract reads ready; one short, or none, does not.
+	var task := Catalog.slayer_task("meadow_critters").duplicate()
+	task["have"] = int(task["need"])
+	SaveGame.data["slayer"]["task"] = task
+	if not SaveGame.slayer_ready():
+		_fail("a finished contract did not light the Slayer pip")
+	task["have"] = int(task["need"]) - 1
+	SaveGame.data["slayer"]["task"] = task
+	if SaveGame.slayer_ready():
+		_fail("an unfinished contract lit the Slayer pip")
+	SaveGame.data["slayer"]["task"] = {}
+	if SaveGame.slayer_ready():
+		_fail("no contract lit the Slayer pip")
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+	print("HOME PIPS ok: fresh none, shards forge, mastery claim clears, contract turn-in")
 
 
 static func _fail(message: String) -> void:
