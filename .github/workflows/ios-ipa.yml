@@ -10,7 +10,8 @@ on:
 # so a burst of checkpoint commits never stacks five macOS runs.
 concurrency:
   group: ios-ipa-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep the running build; GitHub queues only the newest pending push.
+  cancel-in-progress: false
 
 jobs:
   ipa:

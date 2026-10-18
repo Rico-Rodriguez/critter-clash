@@ -11,3 +11,7 @@ build/
 captures/
 override.cfg
 _src/
+
+# local debug scratch
+dbg_*.gd
+dbg_*.gd.uid
