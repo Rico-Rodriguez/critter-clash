@@ -38,6 +38,9 @@ uniform int slot_tier[8];
 // head-slot geometry above that height along the head bone (horns, crests).
 uniform float strip_r[8];
 uniform float strip_top = 9.0;
+// Bare helm: anything above this mesh-space height goes too (horn tips that
+// ride non-head bones).
+uniform float helm_cut_y = 1e9;
 varying float v_strip;
 
 // Per-tier finish (index = tier 0..3). Set by Gear3D.finish().
@@ -93,6 +96,7 @@ void vertex() {
 			if (strip_r[s] > 0.0) v_strip = COLOR.g * 0.5 - strip_r[s];
 			if (s == 0) v_strip = max(v_strip, (COLOR.b - 0.5) - strip_top);
 		}
+		if (slot_tier[0] == 0 && VERTEX.y > helm_cut_y) v_strip = 1.0;
 	} else {
 		v_strip = -1.0;
 		v_tier = clamp(fixed_tier, 0, 3);

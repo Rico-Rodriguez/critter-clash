@@ -29,8 +29,9 @@ const KITS := {
 		"main": ["", "own:bastardsword", "own:bastardsword", "gear:blade_oarimaar"],
 		# Bare slots strip the baked plate (x hero height from the bone axis):
 		# helm, chest, pauldrons, gloves, boots, weapon, offhand, charm.
-		"strip": [0.07, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+		"strip": [0.07, 0.0, 0.07, 0.0, 0.0, 0.0, 0.0, 0.0],
 		"strip_top": 0.15,
+		"helm_cut": 0.95,
 		"off": ["gear:shield_round", "gear:shield_tower", "gear:shield_tower", "gear:shield_tower"],
 		# Off-hand shield pose relative to the hand socket (cm, degrees).
 		"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
@@ -236,6 +237,12 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 				if OS.get_environment("CC_STRIP_TOP") != "":
 					top = float(OS.get_environment("CC_STRIP_TOP"))
 				fm.set_shader_parameter("strip_top", top)
+				var cut := float(kit.get("helm_cut", 0.0))
+				if OS.get_environment("CC_HELM_CUT") != "":
+					cut = float(OS.get_environment("CC_HELM_CUT"))
+				if cut > 0.0:
+					var ab := m.mesh.get_aabb()
+					fm.set_shader_parameter("helm_cut_y", ab.position.y + ab.size.y * cut)
 			if kit.get("flesh", false):
 				# Hide tiers: pale -> ash grey -> charcoal -> blood-veined.
 				var hide_tint: Array = kit.get("soft_tints", [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)])
@@ -830,6 +837,10 @@ static func _tag_slots(mi: MeshInstance3D, sk: Skeleton3D) -> void:
 			if best < skin.get_bind_count():
 				p = verts[v] - skin.get_bind_pose(best).affine_inverse().origin
 			var radial := clampf(Vector2(p.x, p.z).length() / hh * 2.0, 0.0, 1.0)
+			if slot == 0:
+				# Head: only the side-to-side spread counts, so the visor and
+				# crown stay while horns (which sweep out sideways) go.
+				radial = clampf(absf(p.x) / hh * 2.0, 0.0, 1.0)
 			if best < horn_bind.size() and horn_bind[best]:
 				radial = 1.0
 			var along := clampf(p.y / hh + 0.5, 0.0, 1.0)

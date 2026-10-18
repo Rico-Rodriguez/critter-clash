@@ -13,6 +13,19 @@ const ROMAN := ["", "I", "II", "III"]
 
 
 ## A single gear socket (custom drawn).
+static var _icons := {}
+
+
+## Rendered icon for a gear item id (assets/sprites/gear/<id>.png), or null.
+static func piece_icon(id: String) -> Texture2D:
+	if _icons.has(id):
+		return _icons[id]
+	var path := "res://assets/sprites/gear/%s.png" % id
+	var tex: Texture2D = load(path) if ResourceLoader.exists(path) else null
+	_icons[id] = tex
+	return tex
+
+
 class Socket extends Control:
 	var hero := ""
 	var slot := ""
@@ -47,7 +60,13 @@ class Socket extends Control:
 			UiKit.rr_line(self, r.grow(-2), 12.0, tc, 4.0)
 			if tier == 3:
 				UiKit.rr_line(self, r.grow(-7), 9.0, Color(tc.r, tc.g, tc.b, 0.35 + 0.2 * sin(Time.get_ticks_msec() * 0.004)), 3.0)
-			_glyph(r.grow(-20), tc.lightened(0.45), 1.0)
+			# The rendered piece itself when baked (tools/slot_icons.gd),
+			# else the slot glyph.
+			var tex := EquipUI.piece_icon(item)
+			if tex != null:
+				draw_texture_rect(tex, r.grow(-8), false)
+			else:
+				_glyph(r.grow(-20), tc.lightened(0.45), 1.0)
 			var font := get_theme_default_font()
 			UiKit.draw_text(self, font, Vector2(size.x - 26, 24), ROMAN[tier], 18, tc.lightened(0.3), UiKit.INK, 3)
 		else:
