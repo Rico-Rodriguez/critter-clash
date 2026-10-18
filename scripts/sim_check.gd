@@ -18,7 +18,7 @@ const CHECKS := [
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
 	"forge", "boss_gear", "home_pips", "hints", "grim_names", "pacing_scale", "difficulty",
-	"pause_skills", "forge_stats",
+	"pause_skills", "forge_stats", "dock_pip",
 ]
 ## run_screen.gd has no class_name; its inner HintLayer is reached through the
 ## preloaded script constant so the pure trigger helper can be tested.
@@ -140,6 +140,8 @@ static func _dispatch(name: String) -> void:
 			_hints_check()
 		"forge_stats":
 			_forge_stats_check()
+		"dock_pip":
+			_dock_pip_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -3813,6 +3815,29 @@ static func _difficulty_unlock_check() -> void:
 	SaveGame.save_path = keep_path
 	SaveGame._last_backup_ms = keep_backup
 	SaveGame.no_write = keep_no_write
+
+
+## Dock tab geometry: tab_icon_rect finds a tab by id (never by index) and
+## returns the same icon rect _draw uses, so the Home mastery pip can ride the
+## Road icon through any tab order, count or icon size. On a Dock sized to the
+## portrait width, Road sits in the right third, Heroes in the left third, and
+## an unknown id yields an empty rect.
+static func _dock_pip_check() -> void:
+	var dock := UiKit.Dock.new("home", Callable())
+	dock.size = Vector2(1179, 130)
+	var road := dock.tab_icon_rect("trophy")
+	var heroes := dock.tab_icon_rect("heroes")
+	var third := dock.size.x / 3.0
+	if road == Rect2() or heroes == Rect2():
+		_fail("a real tab id returned no icon rect (road %s heroes %s)" % [str(road), str(heroes)])
+	elif road.position.x < third * 2.0 - 0.01 or road.end.x > dock.size.x + 0.01:
+		_fail("the Road icon is not in the right third: %s" % str(road))
+	elif heroes.position.x < -0.01 or heroes.end.x > third + 0.01:
+		_fail("the Heroes icon is not in the left third: %s" % str(heroes))
+	if dock.tab_icon_rect("nope") != Rect2():
+		_fail("an unknown tab id returned an icon rect")
+	dock.free()
+	print("DOCK PIP ok: Road right third, Heroes left third, unknown id empty")
 
 
 static func _fail(message: String) -> void:

@@ -884,6 +884,27 @@ class Dock extends Control:
 		resized.connect(_layout)
 		_layout()
 
+	## Index of a tab by id, or -1 when it is not in TABS. Tabs are always
+	## looked up by id, never by a hard-coded position.
+	func _tab_index(id: String) -> int:
+		for i in TABS.size():
+			if str(TABS[i][0]) == id:
+				return i
+		return -1
+
+	## The icon rect for a tab, in Dock-local coordinates: the same math _draw
+	## uses, so a pip can ride the right icon whatever the tab order, count or
+	## icon size. An unknown id returns an empty rect.
+	func tab_icon_rect(id: String) -> Rect2:
+		var i := _tab_index(id)
+		if i < 0:
+			return Rect2()
+		var slot := size.x / TABS.size()
+		var on := id == current
+		var px := 76.0 if on else 60.0
+		var top := -20.0 if on else 0.0
+		return Rect2(slot * i + (slot - px) * 0.5, top + (10.0 if on else 12.0), px, px)
+
 	func _layout() -> void:
 		# The bar's frame runs off the sides and bottom so only its top trim shows.
 		_bar.box = Rect2(-12, 0, size.x + 24, size.y + 30)
@@ -925,8 +946,8 @@ class Dock extends Control:
 				draw_rect(Rect2(x, 22, 1, bar_h - 44), Color(1, 0.9, 0.7, 0.08), true)
 			var top := -20.0 if on else 0.0
 			var tex := UiKit.icon(str(TABS[i][2]))
-			var px := 76.0 if on else 60.0
-			var icon_r := Rect2(x + (slot - px) * 0.5, top + (10.0 if on else 12.0), px, px)
+			var icon_r := tab_icon_rect(id)
+			var px := icon_r.size.x
 			if on:
 				# Warm halo behind the active icon.
 				for k in 10:

@@ -138,17 +138,20 @@ func _add_road_pip() -> void:
 	_place_road_pip()
 
 
-## Park the mastery pip at the top-right of the dock's Road tab icon, matching
-## UiKit.Dock's layout: three equal slots, icon 60 px when the tab is idle (Home
-## is always the active tab here, so the Road tab is idle).
+## Park the mastery pip at the top-right of the dock's Road tab icon. The dock
+## resolves the tab by id ("trophy") and hands back its real icon rect, so the
+## dot follows any tab order, count or icon-size change; if the tab is absent,
+## the dock returns an empty rect and the dot hides.
 func _place_road_pip() -> void:
-	if _trophy_pip == null or _dock == null:
+	var dock := _dock as UiKit.Dock
+	if _trophy_pip == null or dock == null:
 		return
-	var slot := _dock.size.x / 3.0
-	var px := 60.0
-	var icon_x := slot * 2.0 + (slot - px) * 0.5
+	var icon := dock.tab_icon_rect("trophy")
+	if icon.size == Vector2.ZERO:
+		_trophy_pip.visible = false
+		return
 	_trophy_pip.size = Vector2(22, 22)
-	_trophy_pip.position = Vector2(icon_x + px - 20.0, 4.0)
+	_trophy_pip.position = Vector2(icon.position.x + icon.size.x - 20.0, icon.position.y - 8.0)
 
 
 func open_map_sheet() -> void:
