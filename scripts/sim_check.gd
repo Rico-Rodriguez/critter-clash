@@ -17,6 +17,7 @@ const CHECKS := [
 	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp", "gear_coverage",
 	"skills_screen", "xp_drop", "skill_trophies", "end_card", "drops_names", "gear_log",
+	"forge",
 ]
 
 
@@ -112,6 +113,8 @@ static func _dispatch(name: String) -> void:
 			_end_card_check()
 		"gear_log":
 			_gear_log_check()
+		"forge":
+			_forge_check()
 		_:
 			_fail("unknown check " + name)
 
@@ -2033,6 +2036,118 @@ static func _gear_log_check() -> void:
 	GearDB.store_override = keep_store
 	SaveGame.no_write = keep_nowrite
 	print("GEAR LOG ok: iron 1/%d, steel hint '%s', view-only picker" % [per_tier, steel_hint])
+## The Forge (docs/gear.md): shards craft unowned pieces at tiers the player
+## can already drop. A fresh 0-shard save offers nothing affordable; 100 shards
+## on meadow-only ground offers iron alone and forging one deducts exactly 20
+## and grants exactly that id once; owned ids are never listed; rune waits for
+## a depth-2 biome and steel shows its "Need 40 more shards" shortfall; the
+## wallet never goes negative; locked tiers name their biome. Everything runs
+## on a scratch armory with SaveGame.no_write and restores both afterwards.
+static func _forge_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	GearDB.store_override = {}
+	SaveGame.data = SaveGame._fresh()
+	var hero := SaveGame.featured_id()
+	# A fresh save has no shards: every option is listed but none is affordable,
+	# and every option is iron (meadow is the only biome open).
+	var opts: Array = SaveGame.forge_options(hero)
+	if opts.is_empty():
+		_fail("a fresh save offered no forge options")
+	for o in opts:
+		if bool(o["ok"]) or int(o["tier"]) != GearDB.Tier.IRON:
+			_fail("a fresh save offered %s" % str(o))
+	# An over-cap tier is refused before the wallet is even read.
+	if SaveGame.forge(hero, GearDB.item_id(hero, "helm", GearDB.Tier.STEEL)) or int(SaveGame.data["gear_shards"]) != 0:
+		_fail("meadow forged above its cap or moved the wallet")
+	# 100 shards on meadow: iron only, all affordable.
+	SaveGame.data["gear_shards"] = 100
+	opts = SaveGame.forge_options(hero)
+	var seen_iron := 0
+	for o in opts:
+		if int(o["tier"]) != GearDB.Tier.IRON:
+			_fail("meadow offered a non-iron option %s" % str(o))
+		elif bool(o["ok"]):
+			seen_iron += 1
+	if seen_iron <= 0:
+		_fail("meadow offered no affordable iron option")
+	# Forge one: exactly 20 shards leave and exactly that id arrives, once.
+	var target := str(opts[0]["id"])
+	if not SaveGame.forge(hero, target):
+		_fail("forging %s refused with 100 shards" % target)
+	if int(SaveGame.data["gear_shards"]) != 80:
+		_fail("forge did not deduct 20 shards, %d left" % int(SaveGame.data["gear_shards"]))
+	if not GearDB.has(hero, target):
+		_fail("forge did not grant %s" % target)
+	if SaveGame.forge(hero, target) or int(SaveGame.data["gear_shards"]) != 80:
+		_fail("the forge granted an owned piece or moved the wallet")
+	for o in SaveGame.forge_options(hero):
+		if str(o["id"]) == target:
+			_fail("an owned id stayed in the forge options")
+	# Unknown, foreign and not-a-hero-slot ids are all refused without a claim.
+	if SaveGame.forge(hero, "nonsense.id.1") or SaveGame.forge(hero, "ember.helm.1"):
+		_fail("the forge accepted an unknown or foreign id")
+	# Mushroom (depth 1) unlocks steel but never rune.
+	SaveGame.data["trophies"] = 30
+	SaveGame.data["cleared"]["meadow"] = true
+	var steel := false
+	for o in SaveGame.forge_options(hero):
+		if int(o["tier"]) == GearDB.Tier.RUNE:
+			_fail("mushroom offered a rune option")
+		elif int(o["tier"]) == GearDB.Tier.STEEL:
+			steel = true
+	if not steel:
+		_fail("mushroom offered no steel option")
+	if SaveGame.forge_lock_reason(GearDB.Tier.RUNE) != "Reach Frost to forge rune":
+		_fail("the rune lock said '%s'" % SaveGame.forge_lock_reason(GearDB.Tier.RUNE))
+	# The shard shortfall is named, not just "no".
+	SaveGame.data["gear_shards"] = 20
+	var short := ""
+	for o in SaveGame.forge_options(hero):
+		if int(o["tier"]) == GearDB.Tier.STEEL:
+			short = str(o["reason"])
+			break
+	if short != "Need 40 more shards":
+		_fail("a 20-shard steel option said '%s'" % short)
+	# Frost (depth 2) opens rune; volcano needs frost cleared, so the cap stops
+	# there.
+	SaveGame.data["trophies"] = 150
+	SaveGame.data["cleared"]["mushroom"] = true
+	var rune := false
+	for o in SaveGame.forge_options(hero):
+		if int(o["tier"]) == GearDB.Tier.RUNE:
+			rune = true
+	if not rune:
+		_fail("frost offered no rune option")
+	if SaveGame.forge_lock_reason(GearDB.Tier.RUNE) != "":
+		_fail("frost still locked rune: '%s'" % SaveGame.forge_lock_reason(GearDB.Tier.RUNE))
+	# The wallet never goes negative: forge down to exactly 20, then a 20-cost
+	# forge with only 20 left succeeds and the next refusal leaves 0, not -20.
+	GearDB.store_override = {}
+	SaveGame.data["gear_shards"] = 20
+	var first := ""
+	for o in SaveGame.forge_options(hero):
+		if bool(o["ok"]):
+			first = str(o["id"])
+			break
+	if first == "" or not SaveGame.forge(hero, first):
+		_fail("a 20-shard iron forge refused at exactly the price")
+	if int(SaveGame.data["gear_shards"]) != 0:
+		_fail("an exact-price forge left %d shards" % int(SaveGame.data["gear_shards"]))
+	var second := ""
+	for o in SaveGame.forge_options(hero):
+		second = str(o["id"])
+		break
+	if second != "" and (SaveGame.forge(hero, second) or int(SaveGame.data["gear_shards"]) != 0):
+		_fail("a 0-shard wallet forged or went negative")
+	if int(SaveGame.data.get("gear_shards", 0)) < 0:
+		_fail("the shard wallet went negative")
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+	print("FORGE ok: 0 shards none, meadow iron only, forge deducts 20 once, rune gated to frost, wallet >= 0")
 
 
 ## Total XP held in the current GearDB store (a scratch armory in tests).

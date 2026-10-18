@@ -209,10 +209,12 @@ func _tap_slot(i: int) -> void:
 func _tiles() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	for tab in [["log", "Log", "book_open"], ["slayer", "Slayer", "skull"], ["skills", "Skills", "flask_full"], ["credits", "Credits", "notepad"]]:
+	row.add_theme_constant_override("separation", 12)
+	for tab in [["log", "Log", "book_open"], ["slayer", "Slayer", "skull"], ["skills", "Skills", "flask_full"], ["forge", "Forge", "gear"], ["credits", "Credits", "notepad"]]:
 		var tile := UiKit.tile_button(str(tab[1]), str(tab[2]), 150, "forged")
-		tile.custom_minimum_size = Vector2(150, 128)
+		# Five tiles share the narrow portrait row; 128 wide still leaves the
+		# 88 px tap floor and keeps every caption readable.
+		tile.custom_minimum_size = Vector2(128, 128)
 		tile.pressed.connect(go.bind(str(tab[0]), {}))
 		row.add_child(tile)
 	return row

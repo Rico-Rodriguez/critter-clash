@@ -932,6 +932,86 @@ func _owns_tier(hero: String, tier: int) -> bool:
 	return true
 
 
+## --- The Forge ---------------------------------------------------------------
+## Shards from duplicate rolls buy the pieces a hunt has not handed over yet.
+## A tier opens once the player has opened ground deep enough to drop it (the
+## boss cap, LootTable.max_tier), so a meadow-only player can forge iron but
+## must reach Mushroom for blackened steel and Frost for cursed rune.
+
+## Shard price per tier (index = GearDB.Tier), about four times the duplicate
+## refund, so forging stays a deliberate sink rather than the fast road.
+const FORGE_COST: Array[int] = [0, 20, 60, 160]
+
+
+## The deepest biome the player has opened, as an index into Catalog.BIOMES.
+func forge_depth() -> int:
+	var deepest := 0
+	for i in Catalog.BIOMES.size():
+		if biome_open(str(Catalog.BIOMES[i]["id"])):
+			deepest = i
+	return deepest
+
+
+## The best tier the Forge can make right now: the boss cap at the deepest
+## opened biome.
+func forge_cap() -> int:
+	return LootTable.max_tier("boss", forge_depth())
+
+
+## Every UNOWNED piece of a hero's kit at or below forge_cap(), best tier
+## first, as {id, slot, tier, cost, ok, reason}. A piece the wallet cannot
+## afford carries its shortfall, "Need 40 more shards", and ok stays false.
+func forge_options(hero: String) -> Array:
+	var out: Array = []
+	if not GearDB.HERO_SLOTS.has(hero):
+		return out
+	var shards := int(data.get("gear_shards", 0))
+	for tier in range(forge_cap(), GearDB.Tier.IRON - 1, -1):
+		for slot in GearDB.HERO_SLOTS[hero]:
+			var id := GearDB.item_id(hero, str(slot), tier)
+			if not GearDB.is_item(id) or GearDB.has(hero, id):
+				continue
+			var cost := FORGE_COST[tier]
+			var ok := shards >= cost
+			out.append({
+				"id": id, "slot": str(slot), "tier": tier, "cost": cost, "ok": ok,
+				"reason": "" if ok else "Need %d more shards" % (cost - shards),
+			})
+	return out
+
+
+## Why a tier cannot be forged yet, or "" when it can. Uses the biome that
+## first drops the tier ("Reach Frost to forge rune").
+func forge_lock_reason(tier: int) -> String:
+	if tier < GearDB.Tier.IRON or tier > GearDB.Tier.RUNE or tier <= forge_cap():
+		return ""
+	for i in Catalog.BIOMES.size():
+		if LootTable.max_tier("boss", i) >= tier:
+			return "Reach %s to forge %s" % [str(Catalog.BIOMES[i]["name"]).split(" ")[0], GearDB.TIER_KEYS[tier]]
+	return ""
+
+
+## Forge one unowned piece for a hero, paying its shard cost. Refuses an
+## unknown or foreign id, a piece the hero already owns, a tier above the
+## current cap and an unaffordable price. On success it deducts the shards,
+## grants the piece and writes once; the wallet never goes negative.
+func forge(hero: String, id: String) -> bool:
+	var it := GearDB.item(id)
+	if it.is_empty() or str(it["hero"]) != hero:
+		return false
+	var tier := int(it["tier"])
+	if tier > forge_cap() or GearDB.has(hero, id):
+		return false
+	var cost := FORGE_COST[tier]
+	var shards := int(data.get("gear_shards", 0))
+	if shards < cost:
+		return false
+	data["gear_shards"] = shards - cost
+	GearDB.grant(id)
+	_write()
+	return true
+
+
 func claim(id: String) -> bool:
 	if id in data["claimed"]:
 		return false

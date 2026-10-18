@@ -86,6 +86,41 @@ pays once. `SaveGame.open_next` (drawer chests) uses the same conversion and
 adds `gear_shards` to its loot dictionary (duplicates no longer appear in
 `gear_items`).
 
+## The Forge
+Shards from duplicate rolls (above) buy the pieces a hunt has not handed over
+yet. A tier opens once the player has opened ground deep enough to drop it, so
+the Forge cannot shortcut progression: the cap is the boss tier cap at the
+deepest open biome (`LootTable.max_tier("boss", depth)`, see the tier table).
+A meadow-only player forges iron; blackened steel waits for Mushroom Forest,
+cursed rune for Frost Peaks.
+
+| tier | cost (shards) |
+|---|---|
+| iron | 20 |
+| blackened steel | 60 |
+| cursed rune | 160 |
+
+`SaveGame.FORGE_COST` holds the table (index = `GearDB.Tier`). Prices sit about
+four times the duplicate refund, so forging stays a deliberate sink rather than
+the fast road.
+
+| call | result |
+|---|---|
+| `SaveGame.forge_depth() -> int` | Index of the deepest open biome in `Catalog.BIOMES`. |
+| `SaveGame.forge_cap() -> int` | Best tier the Forge can make now (boss cap at that depth). |
+| `SaveGame.forge_options(hero) -> Array` | Every **unowned** piece of the hero's kit at or below the cap, best tier first: `{id, slot, tier, cost, ok, reason}`. |
+| `SaveGame.forge_lock_reason(tier) -> String` | Why a tier is still shut, naming the biome to reach (`"Reach Frost to forge rune"`), or `""` when it is open. |
+| `SaveGame.forge(hero, id) -> bool` | Pays the cost, grants the piece and writes once. Refuses an unknown or foreign id, an owned piece, a tier above the cap and an unaffordable price; the wallet never goes negative. |
+
+`reason` on an unaffordable option is `"Need %d more shards"`; `ok` is false.
+
+The screen (`scripts/forge_screen.gd`, route `"forge"`, reached from the Home
+tile row) groups the options by tier with a shard readout, greys a FORGE button
+to its shortfall, and footnotes the closed tiers with their biome lock. Its
+hero switcher is view-only, like Skills: it never writes `data["featured"]`.
+`sim_check`'s `forge` case covers the 0-shard, meadow-only iron, single grant,
+shard deduction, rune gating and wallet-floor rules.
+
 ## API (all static)
 | call | result |
 |---|---|
