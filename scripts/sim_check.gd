@@ -9,6 +9,7 @@ static func run() -> int:
 	_roles()
 	_modes()
 	_save()
+	_daily_check()
 	_steer()
 	_maps()
 	_cards()
@@ -130,6 +131,67 @@ static func _save() -> void:
 			_fail("equip charm")
 	if SaveGame.claim("m80"):
 		_fail("double claim")
+
+
+## Daily Challenge: one deterministic map per UTC day, one or two modifiers,
+## a monotonic score, and the local board's ranking and 10-run cap. The board
+## test runs on a temporary copy of SaveGame.data and restores it (rewriting
+## the save to its original contents) so the real board is never touched.
+static func _daily_check() -> void:
+	var base := 1750000000
+	var key := Daily.today_key(base)
+	var a := Session.daily("ember", base)
+	var b := Session.daily("pebble", base)
+	if a.seed != b.seed or a.biome_id != b.biome_id or a.daily_key != b.daily_key:
+		_fail("daily is not deterministic")
+	if str(a.modifiers) != str(b.modifiers):
+		_fail("daily modifiers are not deterministic")
+	if a.mode != Session.Mode.SOLO:
+		_fail("daily should be solo")
+	if a.seed != Daily.seed_for(key) or a.biome_id != Daily.biome_for(key):
+		_fail("daily does not follow its key")
+	if a.modifiers.size() < 1 or a.modifiers.size() > 2:
+		_fail("daily should pick one or two modifiers, got %d" % a.modifiers.size())
+	var seeds := {}
+	for i in 30:
+		seeds[Daily.seed_for(Daily.today_key(base + i * 86400))] = true
+	if seeds.size() < 20:
+		_fail("30 days gave only %d distinct seeds" % seeds.size())
+	var win := {"win": true, "time": 200.0, "kills": 60, "level": 8, "hp": 50.0, "max_hp": 100.0}
+	var loss := win.duplicate()
+	loss["win"] = false
+	loss["hp"] = 0.0
+	if Daily.score(win) <= Daily.score(loss):
+		_fail("a win must outscore a loss")
+	var slow := win.duplicate()
+	slow["time"] = 280.0
+	if Daily.score(win) <= Daily.score(slow):
+		_fail("a faster win must outscore a slower one")
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	SaveGame.no_write = true
+	SaveGame.data["daily"] = {}
+	SaveGame.data["pending_upload"] = []
+	var tk := "2000-01-01"
+	if SaveGame.record_daily(tk, {"score": 100, "hero": "ember", "time": 100, "result": "loss", "at": 1}) != 1:
+		_fail("first daily run should rank 1")
+	if SaveGame.record_daily(tk, {"score": 500, "hero": "ember", "time": 90, "result": "win", "at": 2}) != 1:
+		_fail("best daily run should rank 1")
+	if SaveGame.record_daily(tk, {"score": 300, "hero": "juniper", "time": 120, "result": "loss", "at": 3}) != 2:
+		_fail("middle daily run should rank 2")
+	if SaveGame.daily_best(tk) != 500:
+		_fail("daily best should be 500")
+	for i in 15:
+		SaveGame.record_daily(tk, {"score": i + 1, "hero": "ember", "time": 60, "result": "loss", "at": 4 + i})
+	var board := SaveGame.daily_board(tk)
+	if board.size() != SaveGame.DAILY_RUNS:
+		_fail("daily board should keep %d runs, got %d" % [SaveGame.DAILY_RUNS, board.size()])
+	for i in range(1, board.size()):
+		if int(board[i - 1]["score"]) < int(board[i]["score"]):
+			_fail("daily board is not sorted by score")
+			break
+	SaveGame.data = keep
+	SaveGame.no_write = false
+	print("DAILY ok: key %s seed %d biome %s" % [key, a.seed, a.biome_id])
 
 
 static func _steer() -> void:

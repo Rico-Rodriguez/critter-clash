@@ -13,6 +13,13 @@ var acc := 0.0
 var hitstop := 0.0
 var trauma := 0.0
 var committed := false
+## Daily Challenge: the pinned day key and modifiers, the run args (so TRY
+## AGAIN repeats the same hunt) and the recorded local entry.
+var daily_key := ""
+var is_daily := false
+var run_args: Dictionary = {}
+var daily_entry: Dictionary = {}
+var daily_recorded := false
 var pet_follow := ""
 var pet_pos := Vector2.ZERO
 var pet_ready := false
@@ -121,14 +128,21 @@ func build() -> void:
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
 	hero_id = str(args.get("hero", "ember"))
+	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)
 	# Real runs keep Session.solo's fresh random seed, so every load lays out
-	# a slightly different map. Captures, movies and a future daily challenge
-	# pin one through args["seed"] (or CC_SEED for the capture scripts).
+	# a slightly different map. Captures, movies and the daily challenge pin
+	# one through args["seed"] (or CC_SEED for the capture scripts).
 	if args.has("seed"):
 		session.seed = int(args["seed"])
 	elif OS.get_environment("CC_SEED").is_valid_int():
 		session.seed = OS.get_environment("CC_SEED").to_int()
+	# A daily rides the same seeded path, plus its day key and modifiers.
+	if args.has("daily"):
+		is_daily = true
+		daily_key = str(args["daily"])
+		session.daily_key = daily_key
+		session.modifiers = args.get("modifiers", [])
 	sim = RunSim.new()
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
@@ -1180,7 +1194,54 @@ func _end_chest(win: bool) -> Control:
 	return plate
 
 
+## Score and record a finished daily once, then hold the entry for the panel.
+func _daily_result(win: bool) -> void:
+	if not is_daily or daily_recorded:
+		return
+	daily_recorded = true
+	var hp := 0.0
+	var max_hp := 1.0
+	if not sim.heroes.is_empty():
+		hp = sim.heroes[0].hp
+		max_hp = sim.heroes[0].max_hp
+	var entry := {
+		"score": Daily.score({
+			"win": win, "time": sim.time, "kills": sim.slain,
+			"level": sim.level, "hp": hp, "max_hp": max_hp,
+		}),
+		"hero": hero_id,
+		"time": int(sim.time),
+		"result": "win" if win else "loss",
+		"at": int(Time.get_unix_time_from_system()),
+	}
+	entry["rank"] = SaveGame.record_daily(daily_key, entry)
+	SaveGame.daily_submit(daily_key, entry)
+	daily_entry = entry
+
+
+## The daily read on the end panel: today's score and local rank.
+func _daily_line() -> Control:
+	var plate := UiKit.Plate.new()
+	plate.kind = "plaque"
+	plate.pad = 12
+	plate.glow = Color(UiKit.GOLD, 0.45)
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 2)
+	plate.add_child(v)
+	v.add_child(UiKit.label("DAILY CHALLENGE · %s" % daily_key, 18, UiKit.MUTED.lightened(0.2), "x", 2))
+	var score := UiKit.label("Daily score %d" % int(daily_entry.get("score", 0)), 34, UiKit.GOLD.lightened(0.25), "x", 3)
+	score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(score)
+	var rank := UiKit.label("Rank #%d today" % int(daily_entry.get("rank", 0)), 22, UiKit.CREAM, "x", 2)
+	rank.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(rank)
+	return plate
+
+
 func _show_victory(boss_name: String) -> void:
+	_daily_result(true)
 	_open_modal()
 	var col := _end_panel(true)
 	var title := UiKit.title("VICTORY", 64)
@@ -1225,6 +1286,8 @@ func _show_victory(boss_name: String) -> void:
 			dv.add_child(line)
 			row.add_child(tag)
 	col.add_child(_end_stats())
+	if is_daily:
+		col.add_child(_daily_line())
 	var prize := HBoxContainer.new()
 	prize.alignment = BoxContainer.ALIGNMENT_CENTER
 	prize.add_theme_constant_override("separation", 10)
@@ -1246,6 +1309,7 @@ func _show_victory(boss_name: String) -> void:
 
 
 func _show_defeat(reason: String) -> void:
+	_daily_result(false)
 	_open_modal()
 	var col := _end_panel(false)
 	var title := UiKit.title("DEFEATED", 60)
@@ -1260,6 +1324,8 @@ func _show_defeat(reason: String) -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_end_stats())
+	if is_daily:
+		col.add_child(_daily_line())
 	col.add_child(_end_chest(false))
 	col.add_child(hint)
 	var button := UiKit.button("CONTINUE", 660, 104, "steel")
@@ -1268,7 +1334,8 @@ func _show_defeat(reason: String) -> void:
 	col.add_child(button)
 	var again := UiKit.secondary("TRY AGAIN", 300, 64)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	again.pressed.connect(func() -> void: go("run", {"biome": biome_id, "hero": hero_id}))
+	# A daily retries the same seeded hunt; a normal run rolls a fresh map.
+	again.pressed.connect(func() -> void: go("run", run_args if is_daily else {"biome": biome_id, "hero": hero_id}))
 	col.add_child(again)
 
 

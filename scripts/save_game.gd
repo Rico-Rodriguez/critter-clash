@@ -321,6 +321,69 @@ func build_run_stats(hero_id: String) -> Dictionary:
 	return stats
 
 
+## --- Daily Challenge local board -------------------------------------------
+## data["daily"][key] = {"best": int, "runs": [{score, hero, time, result, at}]}
+## kept sorted by score (top 10). This is the local leaderboard stub.
+
+const DAILY_RUNS := 10
+
+
+func _daily_board(key: String) -> Dictionary:
+	if not data.has("daily") or typeof(data["daily"]) != TYPE_DICTIONARY:
+		data["daily"] = {}
+	if not data["daily"].has(key) or typeof(data["daily"][key]) != TYPE_DICTIONARY:
+		data["daily"][key] = {"best": 0, "runs": []}
+	var board: Dictionary = data["daily"][key]
+	if not board.has("runs") or typeof(board["runs"]) != TYPE_ARRAY:
+		board["runs"] = []
+	if not board.has("best"):
+		board["best"] = 0
+	return board
+
+
+## Record a finished daily run and return its 1-based rank on the board.
+## The run list is trimmed to the best DAILY_RUNS scores.
+func record_daily(key: String, entry: Dictionary) -> int:
+	var board := _daily_board(key)
+	var runs: Array = board["runs"]
+	var score := int(entry.get("score", 0))
+	var rank := 1
+	for r in runs:
+		if int(r.get("score", 0)) > score:
+			rank += 1
+	runs.append(entry.duplicate(true))
+	runs.sort_custom(_daily_desc)
+	while runs.size() > DAILY_RUNS:
+		runs.pop_back()
+	board["best"] = int(runs[0]["score"]) if not runs.is_empty() else 0
+	_write()
+	return rank
+
+
+## The board for a day, best first (a copy, safe for the UI to iterate).
+func daily_board(key: String) -> Array:
+	var runs: Array = _daily_board(key)["runs"].duplicate()
+	runs.sort_custom(_daily_desc)
+	return runs
+
+
+func daily_best(key: String) -> int:
+	return int(_daily_board(key).get("best", 0))
+
+
+## Local subnet of a future server. The run is queued; a server endpoint
+## plugs in here later and drains the list.
+func daily_submit(key: String, entry: Dictionary) -> void:
+	if not data.has("pending_upload") or typeof(data["pending_upload"]) != TYPE_ARRAY:
+		data["pending_upload"] = []
+	data["pending_upload"].append({"key": key, "entry": entry.duplicate(true)})
+	_write()
+
+
+func _daily_desc(a: Dictionary, b: Dictionary) -> bool:
+	return int(a.get("score", 0)) > int(b.get("score", 0))
+
+
 var debug_rare := false
 
 
@@ -706,6 +769,8 @@ func _fresh() -> Dictionary:
 		"cosmetic": "",
 		"slayer": {"points": 0, "streak": 0, "task": {}},
 		"skills": {"foraging": 0, "fishing": 0, "taming": 0, "crafting": 0},
+		"daily": {},
+		"pending_upload": [],
 	}
 
 
@@ -746,6 +811,21 @@ func _reconcile() -> void:
 			data["slayer"]["task"] = {}
 	if not data.has("skills") or typeof(data["skills"]) != TYPE_DICTIONARY:
 		data["skills"] = {}
+	# Daily boards: one entry per UTC day key, each with a best score and a
+	# short local run list. Old saves simply start empty.
+	if not data.has("daily") or typeof(data["daily"]) != TYPE_DICTIONARY:
+		data["daily"] = {}
+	if not data.has("pending_upload") or typeof(data["pending_upload"]) != TYPE_ARRAY:
+		data["pending_upload"] = []
+	for key in data["daily"].keys():
+		var board: Variant = data["daily"][key]
+		if typeof(board) != TYPE_DICTIONARY:
+			data["daily"][key] = {"best": 0, "runs": []}
+			continue
+		if not board.has("runs") or typeof(board["runs"]) != TYPE_ARRAY:
+			board["runs"] = []
+		if not board.has("best"):
+			board["best"] = 0
 	for entry in Catalog.SKILLS:
 		var sid := str(entry["id"])
 		if not data["skills"].has(sid):
@@ -786,7 +866,13 @@ func _load() -> void:
 	_reconcile()
 
 
+## Tests set this so a headless check never touches the player's save file.
+var no_write := false
+
+
 func _write() -> void:
+	if no_write:
+		return
 	var file := FileAccess.open(PATH, FileAccess.WRITE)
 	if file == null:
 		return

@@ -19,6 +19,8 @@ var rng := RandomNumberGenerator.new()
 var mode := Session.Mode.SOLO
 var biome_id := "meadow"
 var biome: Dictionary = {}
+## Daily run modifiers (Session.modifiers). Empty for normal hunts.
+var modifiers: Array = []
 var map: HuntMap
 var play := Rect2(40, 168, 640, 980)
 var time := 0.0
@@ -230,6 +232,7 @@ func start(session: Session, stats_for: Dictionary) -> void:
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
+	modifiers = session.modifiers
 	explore = mode != Session.Mode.DUEL
 	map = HuntMap.world(biome_id, rng.seed) if explore else HuntMap.for_biome(biome_id)
 	play = map.play
@@ -301,6 +304,22 @@ func drain_events() -> Array:
 	var out := events
 	events = []
 	return out
+
+
+## Daily modifier lookup; a modifier may be a name string or a {id, name} dict.
+func has_modifier(id: String) -> bool:
+	for m in modifiers:
+		if typeof(m) == TYPE_DICTIONARY:
+			if str(m.get("id", "")) == id:
+				return true
+		elif str(m) == id:
+			return true
+	return false
+
+
+## "Hasty Foes" runs every wild critter 20% faster.
+func _foe_speed_mul() -> float:
+	return 1.2 if has_modifier("hasty") else 1.0
 
 
 func choose(index: int) -> Array:
@@ -413,6 +432,12 @@ func _spawn_hero(id: String, stats: Dictionary, index: int) -> void:
 	hero.alive = true
 	bases[hero.id] = stats.duplicate(true)
 	hero.stats = stats.duplicate(true)
+	# "Glass": an all-in daily. Bake it into the base stats so card level-ups
+	# keep the trade instead of overwriting it on the first _recompute.
+	if hero.team == 0 and has_modifier("glass"):
+		hero.stats["dmg"] = float(hero.stats["dmg"]) * 1.25
+		hero.stats["hp"] = float(hero.stats["hp"]) * 0.75
+		bases[hero.id] = hero.stats.duplicate(true)
 	_copy_combat(hero)
 	hero.hp = hero.max_hp
 	actors.append(hero)
@@ -1484,7 +1509,7 @@ func _spawn_minion(skin_index: int, at: Vector2 = Vector2.INF) -> void:
 	actor.radius = float(info.get("radius", 24))
 	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP
 	actor.hp = actor.max_hp
-	actor.speed = float(info.get("speed", 100))
+	actor.speed = float(info.get("speed", 100)) * _foe_speed_mul()
 	actor.dmg = float(info.get("dmg", 8)) * float(biome["dmg_mul"])
 	actor.xp = maxi(1, int(round(float(info.get("xp", 2)) * MINION_XP)))
 	actor.interval = float(info.get("interval", 1.35))
@@ -1509,7 +1534,7 @@ func _spawn_boss() -> void:
 	actor.radius = float(info.get("boss_radius", 76))
 	actor.max_hp = float(info.get("boss_hp", 1400)) * mul
 	actor.hp = actor.max_hp
-	actor.speed = float(info.get("boss_speed", 70))
+	actor.speed = float(info.get("boss_speed", 70)) * _foe_speed_mul()
 	actor.dmg = float(info.get("boss_touch", 16)) * mul
 	actor.pos = map.lair if explore else map.boss_spawn(actor.radius)
 	actor.prev = actor.pos
@@ -2091,6 +2116,9 @@ func _spawn_world() -> void:
 		var camp: Dictionary = map.camps[ci]
 		var at: Vector2 = camp["pos"]
 		var count: int = camp["count"]
+		# "Swarming" thickens every camp by 30%.
+		if has_modifier("swarming"):
+			count = int(ceil(float(count) * 1.3))
 		var base := ci % skins.size()
 		for k in count:
 			var ang := TAU * float(k) / float(count) + rng.randf_range(-0.3, 0.3)
