@@ -127,7 +127,7 @@ void fragment() {
 	col *= 1.0 - wear * 0.28 * dent;
 	col = mix(col, col + vec3(0.18) * m * (1.0 - lth), wear * scratch);
 	col = mix(col, col * vec3(0.72, 0.5, 0.36), wear * 0.45 * smoothstep(0.55, 0.9, grime));
-	vec3 nm = textureLod(normal_tex, UV, 1.6).rgb * 2.0 - 1.0;
+	vec3 nm = texture(normal_tex, UV).rgb * 2.0 - 1.0;
 	vec3 nf = texture(normal_tex, UV).rgb * 2.0 - 1.0;
 	float dev = has_normal > 0.5 ? length(nm.xy) : 0.0;
 	vec3 nc = textureLod(normal_tex, UV, 4.0).rgb * 2.0 - 1.0;

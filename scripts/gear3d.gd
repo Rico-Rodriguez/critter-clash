@@ -18,6 +18,169 @@ const SHADER := preload("res://shaders/gear_tier.gdshader")
 
 ## Capture/bake override, e.g. CC_GEAR=weapon:3,armor:2 or CC_GEAR=3.
 static var override := {}
+## Art-direction lock (2026-10-18): heroes keep the artist's PBR materials.
+## The old per-tier recolour shader path stays behind this switch.
+static var CLEAN: bool = OS.get_environment("CC_GEAR_LEGACY") == ""
+static var _strip_cache := {}
+## Icon baking (tools/slot_icons.gd): keep only this slot's body triangles.
+static var SOLO := -1
+
+
+## The tagged body mesh partitioned by slot tier (geometry, not tint):
+##  T0 bare  - plate standing proud of the bone axis is cut away (pauldron
+##             shells, horns, helm crown) and what remains wears the padded
+##             underlayer (gambeson: the artist's normals, matte linen).
+##  T1 iron  - the artist's plate, but still cut back (no pauldron shells,
+##             no horns): a plain soldier's kit.
+##  T2 steel - the artist's full plate, untouched (showcase look).
+##  T3 rune  - full plate plus a faint rune-light fresnel pass.
+## Cached per source mesh + tier signature.
+static func _stripped(src: ArrayMesh, t: Dictionary, kit: Dictionary) -> ArrayMesh:
+	if src == null:
+		return src
+	var strip: Array = kit.get("strip", [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+	var tier := PackedInt32Array()
+	var sig := ""
+	for i in SLOTS.size():
+		tier.append(clampi(int(t.get(SLOTS[i], 0)), 0, 3))
+		sig += str(tier[i])
+	var key := "%d:%s:%d" % [src.get_instance_id(), sig, SOLO]
+	if _strip_cache.has(key):
+		return _strip_cache[key]
+	var top := float(kit.get("strip_top", 9.0))
+	var cut := float(kit.get("helm_cut", 0.0))
+	var ab := src.get_aabb()
+	var cut_y := ab.position.y + ab.size.y * cut if cut > 0.0 else 1e9
+	var hat_max := int(kit.get("helm_cut_max", 1))
+	var cut_bare: Array = kit.get("cut_bare", [])
+	var out := ArrayMesh.new()
+	for si in src.get_surface_count():
+		var arrays := src.surface_get_arrays(si)
+		var fmt := src.surface_get_format(si) & ~Mesh.ARRAY_FLAG_COMPRESS_ATTRIBUTES
+		var mat := src.surface_get_material(si)
+		var cols: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if cols.is_empty() or idx.is_empty():
+			out.add_surface_from_arrays(src.surface_get_primitive_type(si), arrays, [], {}, fmt)
+			out.surface_set_material(out.get_surface_count() - 1, _opaque(mat))
+			continue
+		var vslot := PackedByteArray()
+		var kill := PackedByteArray()
+		vslot.resize(verts.size())
+		kill.resize(verts.size())
+		for v in verts.size():
+			var c := cols[v]
+			var sl := clampi(int(c.r * 7.0 + 0.5), 0, 7)
+			vslot[v] = sl
+			var k := false
+			if tier[sl] <= 1:
+				if float(strip[sl]) > 0.0 and c.g * 0.5 > float(strip[sl]) and (sl != 2 or c.b - 0.5 > float(kit.get("pauldron_lift", -9.0))):
+					k = true
+				if sl == 0 and (c.b - 0.5) > top:
+					k = true
+			if tier[0] <= hat_max and verts[v].y > cut_y and (sl == 0 or cut_bare.is_empty()):
+				k = true
+			if tier[sl] == 0 and cut_bare.has(sl):
+				k = true
+			if SOLO >= 0 and sl != SOLO:
+				k = true
+			kill[v] = 1 if k else 0
+		var groups := [PackedInt32Array(), PackedInt32Array(), PackedInt32Array()]
+		for tri in range(0, idx.size(), 3):
+			var i0 := idx[tri]
+			var i1 := idx[tri + 1]
+			var i2 := idx[tri + 2]
+			if kill[i0] == 1 or kill[i1] == 1 or kill[i2] == 1:
+				continue
+			var tt := tier[vslot[i0]]
+			var g := 0 if tt == 0 else (2 if tt == 3 else 1)
+			groups[g].append_array([i0, i1, i2])
+		for g in 3:
+			if (groups[g] as PackedInt32Array).is_empty():
+				continue
+			arrays[Mesh.ARRAY_INDEX] = groups[g]
+			out.add_surface_from_arrays(src.surface_get_primitive_type(si), arrays, [], {}, fmt)
+			var m2: Material = _opaque(mat)
+			if g == 0 and kit.has("under"):
+				m2 = _gambeson(mat as BaseMaterial3D, kit)
+			elif g == 2:
+				m2 = _rune_lit(mat, kit)
+			out.surface_set_material(out.get_surface_count() - 1, m2)
+	_strip_cache[key] = out
+	return out
+
+
+static var _opaque_cache := {}
+
+## Alpha-blended artist cloth (Corvin's coat) composites as a pale ghost
+## over the Heroes backdrop and sorts badly in the hunt: cut it out
+## instead (crisp edges, same texture).
+static func _opaque(mat: Material) -> Material:
+	var bm := mat as BaseMaterial3D
+	if bm == null or bm.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA:
+		return mat
+	var k := bm.get_instance_id()
+	if not _opaque_cache.has(k):
+		var o := bm.duplicate() as BaseMaterial3D
+		o.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		o.alpha_scissor_threshold = 0.5
+		o.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+		_opaque_cache[k] = o
+	return _opaque_cache[k]
+
+
+static var _gambeson_cache := {}
+
+## Padded underlayer for bare slots: the artist's normal map (so quilting
+## and seams stay crisp) on a matte, desaturated linen/leather albedo.
+static func _gambeson(src: BaseMaterial3D, kit: Dictionary) -> Material:
+	if src == null:
+		return src
+	var k := src.get_instance_id()
+	if _gambeson_cache.has(k):
+		return _gambeson_cache[k]
+	var m := StandardMaterial3D.new()
+	var tint: Color = kit.get("under", Color(0.42, 0.36, 0.29))
+	m.albedo_color = tint
+	var tex := src.albedo_texture
+	if tex:
+		var img := tex.get_image()
+		if img:
+			img = img.duplicate()
+			if img.is_compressed():
+				img.decompress()
+			img.convert(Image.FORMAT_L8)
+			img.convert(Image.FORMAT_RGBA8)
+			img.adjust_bcs(1.35, 1.5, 1.0)
+			img.generate_mipmaps()
+			m.albedo_texture = ImageTexture.create_from_image(img)
+	m.metallic = 0.0
+	m.roughness = 0.88
+	m.normal_enabled = src.normal_enabled
+	m.normal_texture = src.normal_texture
+	m.normal_scale = src.normal_scale
+	m.texture_filter = src.texture_filter
+	_gambeson_cache[k] = m
+	return m
+
+
+static var _rune_cache := {}
+
+## T3: the artist's material untouched plus a faint fresnel rune-light pass.
+static func _rune_lit(src: Material, kit: Dictionary) -> Material:
+	if src == null:
+		return src
+	var k := src.get_instance_id()
+	if _rune_cache.has(k):
+		return _rune_cache[k]
+	var m := src.duplicate() as Material
+	var rim := ShaderMaterial.new()
+	rim.shader = preload("res://shaders/rune_rim.gdshader")
+	rim.set_shader_parameter("rune_color", kit.get("rune", RUNE))
+	m.next_pass = rim
+	_rune_cache[k] = m
+	return m
 
 const TIER_NAMES := ["Squire's Kit", "Dented Iron", "Blackened Steel", "Runebound"]
 
@@ -32,6 +195,11 @@ const KITS := {
 		"strip": [0.07, 0.0, 0.07, 0.0, 0.0, 0.0, 0.0, 0.0],
 		"strip_top": 0.15,
 		"helm_cut": 0.95,
+		# The tabard/cape (artist cloth mesh) is earned with steel chest.
+		"cloth_node": "cloth_1",
+		# Pauldron shells sit above the shoulder bone; the upper arm stays.
+		"pauldron_lift": 0.015,
+		"under": Color(0.44, 0.37, 0.29),
 		"off": ["gear:shield_round", "gear:shield_tower", "gear:shield_tower", "gear:shield_tower"],
 		# Off-hand shield pose relative to the hand socket (cm, degrees).
 		"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
@@ -51,6 +219,11 @@ const KITS := {
 		"seam": 0.25,
 		"rune": Color(0.3, 1.0, 0.62),
 		"spikes": true,
+		# Bare: the skull shows; the horned helm is the earned head piece.
+		"helm_mesh": "helm",
+		"strip": [0.0, 0.0, 0.07, 0.0, 0.0, 0.0, 0.0, 0.0],
+		"cloth_node": "body",
+		"under": Color(0.3, 0.27, 0.25),
 		# Cursed blade grows with its tier (same steel, longer reach read).
 		"blade_scale": [1.0, 1.0, 1.15, 1.28],
 	},
@@ -80,6 +253,11 @@ const KITS := {
 		"seam": 0.5,
 		"flesh": true,
 		"rune": Color(0.55, 1.0, 0.2),
+		# Caster kit from his own geometry, no plate: bare = no hat, empty
+		# hands (staff, bell and crow are earned: weapon, offhand, charm).
+		"cut_bare": [5, 6, 7],
+		"helm_cut": 0.86,
+		"helm_cut_max": 0,
 		# Restyled grim: the bright storybook coat goes soot and oilcloth.
 		"soft_tints": [Color(0.52, 0.5, 0.46), Color(0.6, 0.6, 0.62), Color(0.3, 0.29, 0.31), Color(0.22, 0.2, 0.22)],
 		"desat": 0.5,
@@ -208,52 +386,67 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 	var slot_t := PackedInt32Array()
 	for sl in SLOTS:
 		slot_t.append(int(t[sl]))
-	# Per-slot finish on the body: vertices carry their slot (COLOR.r).
-	for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
-		if m.skin == null or not m.visible or m.get_parent().name in kit["hide"]:
-			continue
-		_tag_slots(m, sk)
-		for i in m.mesh.get_surface_count():
-			var src := m.mesh.surface_get_material(i) as BaseMaterial3D
-			if src == null:
+	# Showcase look (art-direction lock): the artist's PBR materials render
+	# untouched. Tiers read from geometry: bare slots strip the baked plate
+	# (CPU triangle cut, cached per mesh + bare mask), earned pieces mount.
+	if CLEAN:
+		for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			if m.skin == null or m.get_parent().name in kit["hide"]:
 				continue
-			var cloth := src.resource_name.to_lower().contains("cloth")
-			var fm := finish(src, at, cloth, false, kit.get("metal_mul", []))
-			fm.set_shader_parameter("use_slots", 1.0)
-			fm.set_shader_parameter("slot_tier", slot_t)
-			fm.set_shader_parameter("seam_gain", float(kit.get("seam", 1.0)))
-			# Empty slots strip baked plate beyond this axis distance (x h).
-			var strip: Array = kit.get("strip", [])
-			if strip.is_empty() and OS.get_environment("CC_STRIP") != "":
-				strip = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-			if not strip.is_empty():
-				var sr := PackedFloat32Array(strip)
-				if OS.get_environment("CC_STRIP") != "":
-					var ov := OS.get_environment("CC_STRIP").split_floats(",")
-					for k in mini(ov.size(), sr.size()):
-						sr[k] = ov[k]
-				fm.set_shader_parameter("strip_r", sr)
-				var top := float(kit.get("strip_top", 9.0))
-				if OS.get_environment("CC_STRIP_TOP") != "":
-					top = float(OS.get_environment("CC_STRIP_TOP"))
-				fm.set_shader_parameter("strip_top", top)
-				var cut := float(kit.get("helm_cut", 0.0))
-				if OS.get_environment("CC_HELM_CUT") != "":
-					cut = float(OS.get_environment("CC_HELM_CUT"))
-				if cut > 0.0:
-					var ab := m.mesh.get_aabb()
-					fm.set_shader_parameter("helm_cut_y", ab.position.y + ab.size.y * cut)
-			if kit.get("flesh", false):
-				# Hide tiers: pale -> ash grey -> charcoal -> blood-veined.
-				var hide_tint: Array = kit.get("soft_tints", [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)])
-				var tints := PackedVector3Array()
-				for c: Color in hide_tint:
-					tints.append(Vector3(c.r, c.g, c.b))
-				fm.set_shader_parameter("t_soft_tint", tints)
-				fm.set_shader_parameter("flesh", 1.0)
-				fm.set_shader_parameter("desat", float(kit.get("desat", 0.0)))
-				fm.set_shader_parameter("t_groove", PackedFloat32Array([0.2, 0.6, 0.45, 0.3]))
-			m.set_surface_override_material(i, fm)
+			if not m.has_meta("src_mesh"):
+				m.set_meta("src_mesh", m.mesh)
+			m.mesh = m.get_meta("src_mesh")
+			for i in m.get_surface_override_material_count():
+				m.set_surface_override_material(i, null)
+			_tag_slots(m, sk)
+			m.mesh = _stripped(m.mesh as ArrayMesh, t, kit)
+	else:
+		# Per-slot finish on the body: vertices carry their slot (COLOR.r).
+		for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			if m.skin == null or not m.visible or m.get_parent().name in kit["hide"]:
+				continue
+			_tag_slots(m, sk)
+			for i in m.mesh.get_surface_count():
+				var src := m.mesh.surface_get_material(i) as BaseMaterial3D
+				if src == null:
+					continue
+				var cloth := src.resource_name.to_lower().contains("cloth")
+				var fm := finish(src, at, cloth, false, kit.get("metal_mul", []))
+				fm.set_shader_parameter("use_slots", 1.0)
+				fm.set_shader_parameter("slot_tier", slot_t)
+				fm.set_shader_parameter("seam_gain", float(kit.get("seam", 1.0)))
+				# Empty slots strip baked plate beyond this axis distance (x h).
+				var strip: Array = kit.get("strip", [])
+				if strip.is_empty() and OS.get_environment("CC_STRIP") != "":
+					strip = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+				if not strip.is_empty():
+					var sr := PackedFloat32Array(strip)
+					if OS.get_environment("CC_STRIP") != "":
+						var ov := OS.get_environment("CC_STRIP").split_floats(",")
+						for k in mini(ov.size(), sr.size()):
+							sr[k] = ov[k]
+					fm.set_shader_parameter("strip_r", sr)
+					var top := float(kit.get("strip_top", 9.0))
+					if OS.get_environment("CC_STRIP_TOP") != "":
+						top = float(OS.get_environment("CC_STRIP_TOP"))
+					fm.set_shader_parameter("strip_top", top)
+					var cut := float(kit.get("helm_cut", 0.0))
+					if OS.get_environment("CC_HELM_CUT") != "":
+						cut = float(OS.get_environment("CC_HELM_CUT"))
+					if cut > 0.0:
+						var ab := m.mesh.get_aabb()
+						fm.set_shader_parameter("helm_cut_y", ab.position.y + ab.size.y * cut)
+				if kit.get("flesh", false):
+					# Hide tiers: pale -> ash grey -> charcoal -> blood-veined.
+					var hide_tint: Array = kit.get("soft_tints", [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)])
+					var tints := PackedVector3Array()
+					for c: Color in hide_tint:
+						tints.append(Vector3(c.r, c.g, c.b))
+					fm.set_shader_parameter("t_soft_tint", tints)
+					fm.set_shader_parameter("flesh", 1.0)
+					fm.set_shader_parameter("desat", float(kit.get("desat", 0.0)))
+					fm.set_shader_parameter("t_groove", PackedFloat32Array([0.2, 0.6, 0.45, 0.3]))
+				m.set_surface_override_material(i, fm)
 	var sockets: Dictionary = {}
 	var lib := load(str(kit["anims"])) as AnimationLibrary
 	if lib:
@@ -281,11 +474,17 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 	if kit.has("helm_mesh"):
 		for n: Node in model.find_children(str(kit["helm_mesh"]), "MeshInstance3D", true, false):
 			(n as MeshInstance3D).visible = int(t["helm"]) > 0
+	if CLEAN and kit.has("cloth_node"):
+		for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
+			var cm := m.get_meta("src_mesh", m.mesh) as Mesh
+			if cm and cm.get_surface_count() > 0 and cm.surface_get_material(0) and cm.surface_get_material(0).resource_name.to_lower().contains("cloth"):
+				m.visible = int(t["chest"]) >= 2 and (SOLO < 0 or SOLO == 1)
 	model.set_meta("gear_tiers", t)
-	_silhouette(model, sk, t, kit)
+	if not CLEAN:
+		_silhouette(model, sk, t, kit)
+		_rune_embers(sk, t)
 	_exclusive(sk, t, kit)
 	_charm(sk, t)
-	_rune_embers(sk, t)
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
@@ -312,6 +511,8 @@ static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Diction
 	else:
 		mi.mesh = load(GEAR + src.substr(5) + ".res")
 	holder.add_child(mi)
+	if CLEAN:
+		return
 	for i in mi.mesh.get_surface_count():
 		var mat := mi.mesh.surface_get_material(i) as BaseMaterial3D
 		if mat:
@@ -598,18 +799,20 @@ static func _charm(sk: Skeleton3D, t: Dictionary) -> void:
 		var at := Vector3(cos(ang), 0.0, sin(ang)) * h * 0.52
 		var gem := MeshInstance3D.new()
 		var sm := SphereMesh.new()
-		sm.radius = h * (0.03 + 0.006 * tier)
+		sm.radius = h * ((0.014 + 0.003 * tier) if CLEAN else (0.03 + 0.006 * tier))
 		sm.height = sm.radius * 2.0
-		sm.radial_segments = 8
-		sm.rings = 4
+		sm.radial_segments = 16 if CLEAN else 8
+		sm.rings = 8 if CLEAN else 4
 		gem.mesh = sm
 		gem.material_override = core
 		gem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		gem.position = at
 		orbit.add_child(gem)
+		if CLEAN:
+			continue
 		var glow := MeshInstance3D.new()
 		var q := QuadMesh.new()
-		q.size = Vector2.ONE * h * (0.2 + 0.04 * tier)
+		q.size = Vector2.ONE * h * (0.07 + 0.012 * tier)
 		glow.mesh = q
 		glow.material_override = halo
 		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

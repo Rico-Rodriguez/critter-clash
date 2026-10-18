@@ -170,38 +170,38 @@ func bind_pedestal(hero_id: String) -> void:
 	env.ambient_light_energy = 0.42
 	env.ambient_light_color = Color("b4aab0")
 	env.tonemap_exposure = 1.0
+	# Art-direction lock: clean, crisp, clear. A light neutral haze only for
+	# depth; no bloom, no grade on top of the artist's materials.
 	env.fog_enabled = true
-	env.fog_density = 0.06
-	env.fog_light_color = Color(0.5, 0.36, 0.26)
-	env.fog_sky_affect = 0.6
-	env.glow_enabled = true
-	env.glow_intensity = 0.28
-	env.glow_bloom = 0.06
-	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.12
-	env.adjustment_saturation = 1.08
+	env.fog_density = 0.012
+	env.fog_light_color = Color(0.4, 0.38, 0.36)
+	env.fog_sky_affect = 0.3
+	env.glow_enabled = false
+	env.adjustment_enabled = false
 	_apply_env(env)
 	# Warm but not orange: the glade stays golden, the hero keeps its reds.
-	sun.light_color = Color("ffd2a8")
+	sun.light_color = Color("fff1e2")
 	sun.light_energy = 2.1
 	sun.shadow_enabled = true
 	sun.directional_shadow_max_distance = 14.0
 	sun.rotation_degrees = Vector3(-24, 38, 0)
-	_lamp(Color("fff0e4"), 2.2, Vector3(-1.8, 2.6, -1.8), false)
-	_lamp(Color("8fb0ff"), 1.0, Vector3(-2.2, 1.8, 1.6), false)
+	# Glade lamps light the set only (layer 1); the hero takes the showcase
+	# rig (_showcase_lights) plus the sun, so it is never over-lit.
+	_lamp(Color("fff0e4"), 2.2, Vector3(-1.8, 2.6, -1.8), false, 8.0, 1)
+	_lamp(Color("8fb0ff"), 1.0, Vector3(-2.2, 1.8, 1.6), false, 8.0, 1)
 	# Rim: a hot back light behind the hero carves its silhouette from the forest.
-	_lamp(Color("ffd8b0"), 3.2, Vector3(1.2, 2.8, -2.0), false, 3.6)
-	_lamp(Color("ffe2b8"), 1.6, Vector3(-1.4, 2.4, -1.6), false, 3.2)
+	_lamp(Color("eef2ff"), 3.2, Vector3(1.2, 2.8, -2.0), false, 3.6, 1)
+	_lamp(Color("fff6ec"), 1.6, Vector3(-1.4, 2.4, -1.6), false, 3.2, 1)
 	# Low back rim at chest height: traces the flanks and wing roots so the
 	# front view reads as a rounded body, not a flat cream bib.
-	_lamp(Color("ffb48a"), 2.4, Vector3(0.2, 1.3, -1.25), false, 2.2)
+	_lamp(Color("dfe8ff"), 2.4, Vector3(0.2, 1.3, -1.25), false, 2.2, 1)
 	_pedestal_set()
 	var body := _spawn_model(hero_id, 1.5)
 	body.position = Vector3(0, PEDESTAL_TOP, 0)
 	body.rotation.y = -float(body.get_meta("face", PI)) + 0.45
 	world_root.add_child(body)
 	_pedestal_hero = body
-	_outline(body)
+	_outline(body, Color("101418"), 0.005)
 	_hide_catch(body)
 	var clips: Dictionary = body.get_meta("clips")
 	if clips.has("perch"):
@@ -635,15 +635,14 @@ func _environment(fog: Color, high: bool) -> Environment:
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.14
 	env.tonemap_white = 6.5
-	env.adjustment_enabled = true
-	env.adjustment_brightness = 1.0
-	env.adjustment_contrast = 1.18
-	env.adjustment_saturation = 1.1
+	# Art-direction lock: no colour grade and no bloom over the materials;
+	# only emissive VFX above HDR 2.0 may bloom, faintly.
+	env.adjustment_enabled = false
 	env.glow_enabled = true
-	env.glow_intensity = 0.12 if high else 0.08
-	env.glow_strength = 0.45
-	env.glow_bloom = 0.04
-	env.glow_hdr_threshold = 1.4
+	env.glow_intensity = 0.06
+	env.glow_strength = 0.4
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 2.0
 	env.ssao_enabled = high
 	env.ssao_radius = 1.3
 	env.ssao_intensity = 2.0
@@ -1395,7 +1394,10 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 			# follows the hero (no shadows, short range).
 			# Crisp light-steel keyline + stronger cool fresnel: the knight
 			# never melts into brown paths, bare leather included.
-			_outline(body, Color("7f9cc4"), 0.013)
+			# Showcase lock: crisp dark hairline (a fat pale-blue shell
+			# smeared Corvin's thin cloth into a glowing blob); the rim
+			# light below carries the separation.
+			_outline(body, Color("101418"), 0.007)
 			Gear3D.set_rim(body, Color(0.22, 0.34, 0.5))
 			if not is_instance_valid(_hero_rim):
 				# Cool back light (hero layer only): steel speculars on the
@@ -1842,7 +1844,7 @@ func _hero_glow(body: Node3D) -> void:
 render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
 uniform vec3 rim_color = vec3(0.62, 0.86, 1.0);
 uniform float rim_power = 3.2;
-uniform float rim_strength = 0.62;
+uniform float rim_strength = 0.3;
 uniform vec3 lift = vec3(0.022, 0.008, 0.006);
 void fragment() {
 	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
@@ -2705,11 +2707,14 @@ func _showcase_lights(box: AABB) -> void:
 		# colour, energy, offset (in hero heights), range, specular
 		# Key (warm, high front-left), rims either side, front fill, and a
 		# top light so blackened plate keeps its form on the dark stage.
-		[Color("ffeedd"), 6.0, Vector3(-0.9, 0.9, 1.3), 3.4, 2.2],
-		[Color("9cc4ff"), 10.0, Vector3(1.0, 0.8, -1.1), 3.0, 1.8],
-		[Color("dfe6ff"), 3.0, Vector3(0.9, 0.1, 1.4), 3.6, 0.6],
-		[Color("a8c8ff"), 6.0, Vector3(-1.0, 0.6, -1.0), 2.8, 1.6],
-		[Color("f4f6ff"), 4.0, Vector3(0.1, 1.5, 0.4), 2.6, 2.4],
+		# Showcase lock: the artist's materials are no longer darkened by a
+		# tint shader, so these sit near the reference render's levels:
+		# one clean key, a cool rim pair for the silhouette, soft fill.
+		[Color("fff4ea"), 2.4, Vector3(-0.9, 0.9, 1.3), 3.4, 1.0],
+		[Color("cfe0ff"), 3.6, Vector3(1.0, 0.8, -1.1), 3.0, 1.0],
+		[Color("eef2ff"), 0.9, Vector3(0.9, 0.1, 1.4), 3.6, 0.3],
+		[Color("cfe0ff"), 2.2, Vector3(-1.0, 0.6, -1.0), 2.8, 0.9],
+		[Color("f4f6ff"), 1.0, Vector3(0.1, 1.5, 0.4), 2.6, 0.8],
 	]
 	for sp in specs:
 		var l := OmniLight3D.new()
@@ -2770,6 +2775,9 @@ func _plinth(_box: AABB) -> void:
 	pool.spot_range = 7.0
 	pool.spot_angle = 18.0
 	pool.shadow_enabled = false
+	# Stone only: a 5.0 spot straight down blew out hoods and shoulders
+	# (Corvin read as a white ghost on the Heroes screen).
+	pool.light_cull_mask = 1
 	pool.position = Vector3(0, 5.0, 0)
 	pool.rotation_degrees = Vector3(-90, 0, 0)
 	root.add_child(pool)
@@ -2816,8 +2824,8 @@ func _pedestal_atmos(box: AABB) -> void:
 	var ray_shader := Shader.new()
 	ray_shader.code = """shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
-uniform vec4 tint : source_color = vec4(1.0, 0.78, 0.48, 1.0);
-uniform float strength = 1.7;
+uniform vec4 tint : source_color = vec4(1.0, 0.94, 0.84, 1.0);
+uniform float strength = 0.45;
 uniform float phase = 0.0;
 void fragment() {
 	float across = smoothstep(0.0, 0.35, UV.x) * smoothstep(1.0, 0.65, UV.x);
@@ -2842,7 +2850,7 @@ void fragment() {
 		# Lean the shafts away from the low sun, facing the camera.
 		plane.rotation = Vector3(0.0, 0.0, deg_to_rad(-24.0))
 	var flies := GPUParticles3D.new()
-	flies.amount = 72
+	flies.amount = 16
 	flies.lifetime = 7.0
 	flies.preprocess = 7.0
 	flies.visibility_aabb = AABB(Vector3(-6, -2, -6), Vector3(12, 8, 12))
@@ -3432,8 +3440,9 @@ func _find_loose(node: Node, needle: String) -> Node3D:
 	return null
 
 
-func _lamp(color: Color, energy: float, pos: Vector3, shadows: bool, reach := 8.0) -> void:
+func _lamp(color: Color, energy: float, pos: Vector3, shadows: bool, reach := 8.0, cull := 0xFFFFF) -> void:
 	var light := OmniLight3D.new()
+	light.light_cull_mask = cull
 	light.light_color = color
 	light.light_energy = energy
 	light.omni_range = reach

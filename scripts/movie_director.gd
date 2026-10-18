@@ -4,7 +4,7 @@ extends Node
 ## Scripted clips for motion review. Run with Godot's movie writer, e.g.
 ##   godot --write-movie out.avi --fixed-fps 30 --resolution 720x1560 -- --movie=hunt
 ## Clips: hunt (joystick pivots, moving, a pack fight, gem pickup), boss (the
-## slam intro), tour (home -> heroes -> road -> home -> HUNT press).
+## slam intro), gear (Heroes slot-by-slot toggle), tour (home -> heroes -> road -> home -> HUNT press).
 
 var app: Node
 
@@ -27,6 +27,8 @@ func run(host: Node, clip: String) -> void:
 			await _profile()
 		"home":
 			await _home()
+		"gear":
+			await _gear()
 		"walk_ember", "walk_pebble", "walk_bramble", "walk_lumen":
 			await _walk(clip.trim_prefix("walk_"))
 		_:
@@ -38,6 +40,34 @@ func run(host: Node, clip: String) -> void:
 func _home() -> void:
 	app.go("home")
 	await _wait(7.0)
+
+
+## Heroes gear toggle: bare, then each slot put on at steel one by one, then
+## the full rune kit. CC_HERO picks the hero (default pebble).
+func _gear() -> void:
+	var hero := OS.get_environment("CC_HERO") if OS.has_environment("CC_HERO") else "pebble"
+	SaveGame.hero(hero)["unlocked"] = true
+	var t := {}
+	for sl in Gear3D.SLOTS:
+		t[sl] = 0
+	Gear3D.override = t.duplicate()
+	app.go("heroes")
+	await _wait(0.6)
+	var scr: Node = app.current
+	scr.selected = hero
+	scr._fill()
+	await _wait(1.6)
+	for sl in Gear3D.SLOTS:
+		t[sl] = 2
+		Gear3D.override = t.duplicate()
+		scr._fill()
+		await _wait(1.0)
+	for sl in Gear3D.SLOTS:
+		t[sl] = 3
+	Gear3D.override = t.duplicate()
+	scr._fill()
+	await _wait(2.0)
+	Gear3D.override = {}
 
 
 func _wait(seconds: float) -> void:

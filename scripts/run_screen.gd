@@ -107,7 +107,7 @@ func build() -> void:
 	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	# Night biome keeps its mood with a deeper vignette instead of fog.
-	shade.modulate = Color(1, 1, 1, 0.72)
+	shade.modulate = Color(1, 1, 1, 0.45)
 	add_child(shade)
 	threats = ThreatLayer.new()
 	threats.screen = self
@@ -153,7 +153,7 @@ func build() -> void:
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
 	if shade != null:
-		shade.modulate.a = 0.95 if biome_id == "mushroom" else 0.72
+		shade.modulate.a = 0.6 if biome_id == "mushroom" else 0.45
 	hero_id = str(args.get("hero", "ember"))
 	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)

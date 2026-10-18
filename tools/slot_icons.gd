@@ -1,6 +1,6 @@
 extends SceneTree
 ## Rendered gear slot icons: each hero's piece alone (the rest of the body is
-## stripped by the bare-slot discard), framed on its bones, transparent.
+## cut away: Gear3D.SOLO keeps only that slot's triangles), framed on its bones, transparent.
 ## xvfb-run -a godot --path . --rendering-driver vulkan -s res://tools/slot_icons.gd [-- hero ...]
 ## Writes assets/sprites/gear/<hero>.<slot>.<tier>.png (160 px).
 const PX := 160
@@ -68,6 +68,7 @@ func _init() -> void:
 				for sl in Gear3D.SLOTS:
 					tiers[sl] = 0
 				tiers[slot] = t
+				Gear3D.SOLO = Gear3D.SLOTS.find(slot)
 				Gear3D.dress(r, id, tiers)
 				var sk: Skeleton3D = r.find_children("*", "Skeleton3D", true, false)[0]
 				var lo := 1e9
