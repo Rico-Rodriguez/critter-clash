@@ -540,7 +540,59 @@ func obtained_count() -> int:
 
 
 func has_log(id: String) -> bool:
-	return id in data["log"]
+	return id in data.get("log", [])
+
+
+## True while an entry has been found but not yet looked at in the log. The
+## mark survives a restart because seen ids are written with the save.
+func log_is_new(id: String) -> bool:
+	var log: Array = data.get("log", [])
+	if not (id in log):
+		return false
+	var seen: Array = data.get("log_seen", [])
+	return not (id in seen)
+
+
+## How many obtained entries the player has not looked at yet.
+func log_new_count() -> int:
+	var log: Array = data.get("log", [])
+	var seen: Array = data.get("log_seen", [])
+	var n := 0
+	for id in log:
+		if not (id in seen):
+			n += 1
+	return n
+
+
+## Obtained entries that still exist in the catalog. A drop removed between
+## builds is skipped rather than counted or drawn.
+func log_obtained_count() -> int:
+	var log: Array = data.get("log", [])
+	var n := 0
+	for id in log:
+		if not Catalog.drop_by_id(str(id)).is_empty():
+			n += 1
+	return n
+
+
+## Clear the unread mark once the log has shown the given ids (all of them
+## when ids is empty). Written at once so it survives reopening the app.
+func log_mark_seen(ids: Array = []) -> void:
+	if typeof(data.get("log", null)) != TYPE_ARRAY:
+		return
+	if typeof(data.get("log_seen", null)) != TYPE_ARRAY:
+		data["log_seen"] = []
+	var seen: Array = data["log_seen"]
+	var changed := false
+	for id in data["log"]:
+		if id in seen:
+			continue
+		if not ids.is_empty() and not (id in ids):
+			continue
+		seen.append(id)
+		changed = true
+	if changed:
+		_write()
 
 
 func boss_kills(id: String) -> int:
@@ -566,20 +618,32 @@ func material_count(id: String) -> int:
 
 
 func assign_task(task_id: String = "") -> Dictionary:
+	if not data.has("slayer") or typeof(data["slayer"]) != TYPE_DICTIONARY:
+		return {}
 	var pick := {}
 	if task_id != "":
 		pick = Catalog.slayer_task(task_id).duplicate()
 	else:
 		var choices: Array = []
-		var current := str(data["slayer"]["task"].get("id", ""))
+		var current := _log_slayer_task_id()
+		var last := str(data["slayer"].get("last", ""))
 		for entry in Catalog.SLAYER_TASKS:
-			if str(entry["id"]) != current:
-				choices.append(entry)
+			var entry_id := str(entry["id"])
+			# A contract never comes straight back, and the warden only sends
+			# hunters into ground the player has actually opened.
+			if entry_id == current or entry_id == last:
+				continue
+			if not biome_open(str(entry["biome"])):
+				continue
+			choices.append(entry)
 		if choices.is_empty():
 			return {}
 		pick = (choices[randi() % choices.size()] as Dictionary).duplicate()
 	if pick.is_empty():
 		return {}
+	var previous := _log_slayer_task_id()
+	if previous != "" and previous != str(pick.get("id", "")):
+		data["slayer"]["last"] = previous
 	pick["have"] = 0
 	data["slayer"]["task"] = pick
 	_write()
@@ -587,21 +651,44 @@ func assign_task(task_id: String = "") -> Dictionary:
 	return pick
 
 
+## The id of the task in hand, or "" when there is none (and never a crash on
+## an old save whose task key is missing or malformed).
+func _log_slayer_task_id() -> String:
+	var task: Variant = data["slayer"].get("task", {})
+	if typeof(task) != TYPE_DICTIONARY:
+		return ""
+	return str((task as Dictionary).get("id", ""))
+
+
 func cancel_task() -> void:
+	if not data.has("slayer") or typeof(data["slayer"]) != TYPE_DICTIONARY:
+		return
+	var previous := _log_slayer_task_id()
+	if previous != "":
+		data["slayer"]["last"] = previous
 	data["slayer"]["task"] = {}
 	data["slayer"]["streak"] = 0
 	_write()
 
 
 func complete_task() -> int:
-	var task: Dictionary = data["slayer"]["task"]
-	if task.is_empty() or int(task.get("have", 0)) < int(task.get("need", 1)):
+	if not data.has("slayer") or typeof(data["slayer"]) != TYPE_DICTIONARY:
+		return 0
+	var task: Variant = data["slayer"].get("task", {})
+	if typeof(task) != TYPE_DICTIONARY or (task as Dictionary).is_empty():
 		AudioDirector.play("error")
 		return 0
-	var streak := int(data["slayer"]["streak"])
-	var gained := int(task["points"]) + streak * 5
-	data["slayer"]["points"] = int(data["slayer"]["points"]) + gained
+	var t: Dictionary = task
+	if int(t.get("have", 0)) < int(t.get("need", 1)):
+		AudioDirector.play("error")
+		return 0
+	# Pay exactly once: the contract is cleared and marked before the save, so
+	# reopening the screen or restarting can never pay the same task again.
+	var streak := int(data["slayer"].get("streak", 0))
+	var gained := int(t.get("points", 0)) + streak * 5
+	data["slayer"]["points"] = int(data["slayer"].get("points", 0)) + gained
 	data["slayer"]["streak"] = streak + 1
+	data["slayer"]["last"] = str(t.get("id", ""))
 	data["slayer"]["task"] = {}
 	_write()
 	AudioDirector.play("merge")
@@ -686,14 +773,24 @@ func _apply_drop(drop: Dictionary, rng: RandomNumberGenerator) -> void:
 		data["log"].append(id)
 
 
+## Record one run's kills against the task in hand. Called once, at run end,
+## from either commit path; the goal is a hard ceiling and kills only count for
+## the task's own biome, so a minion task and its boss can never double-dip.
 func _note_slayer(biome_id: String, slain: int, boss: bool) -> void:
-	var task: Dictionary = data["slayer"]["task"]
-	if task.is_empty() or str(task.get("biome", "")) != biome_id:
+	if not data.has("slayer") or typeof(data["slayer"]) != TYPE_DICTIONARY:
 		return
-	if str(task.get("kind", "")) == "minion":
-		task["have"] = mini(int(task["need"]), int(task.get("have", 0)) + maxi(0, slain))
-	elif str(task.get("kind", "")) == "boss" and boss:
-		task["have"] = mini(int(task["need"]), int(task.get("have", 0)) + 1)
+	var task: Variant = data["slayer"].get("task", {})
+	if typeof(task) != TYPE_DICTIONARY or (task as Dictionary).is_empty():
+		return
+	var t: Dictionary = task
+	if str(t.get("biome", "")) != biome_id:
+		return
+	var need := int(t.get("need", 0))
+	var have := int(t.get("have", 0))
+	if str(t.get("kind", "")) == "minion":
+		t["have"] = mini(need, have + maxi(0, slain))
+	elif str(t.get("kind", "")) == "boss" and boss:
+		t["have"] = mini(need, have + 1)
 
 
 func open_next(index: int = 0) -> Dictionary:
@@ -879,6 +976,7 @@ func _fresh() -> Dictionary:
 		"heroes": heroes,
 		"kills": {},
 		"log": [],
+		"log_seen": [],
 		"pets": {},
 		"active_pet": "",
 		"materials": {},
@@ -902,6 +1000,12 @@ func _reconcile() -> void:
 			data[key] = []
 	if not data.has("cleared") or typeof(data["cleared"]) != TYPE_DICTIONARY:
 		data["cleared"] = {}
+	# An old or trimmed save can be missing the wallet; biome gating and card
+	# levelling read these directly, so they must never be absent.
+	if not data.has("coins"):
+		data["coins"] = 0
+	if not data.has("trophies"):
+		data["trophies"] = 0
 	if not data.has("gear_uid"):
 		data["gear_uid"] = 1
 	if not data.has("clan_id"):
@@ -920,6 +1024,10 @@ func _reconcile() -> void:
 	for key in ["log"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
 			data[key] = []
+	# Unread log markers. An old save has no record of which finds were already
+	# looked at, so what it owns counts as read and only new finds get marked.
+	if not data.has("log_seen") or typeof(data["log_seen"]) != TYPE_ARRAY:
+		data["log_seen"] = (data["log"] as Array).duplicate()
 	for key in ["kills", "pets", "materials"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_DICTIONARY:
 			data[key] = {}

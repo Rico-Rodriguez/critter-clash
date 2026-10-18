@@ -44,7 +44,7 @@ func _gear(id: String) -> void:
 	go("loadout", {"hero": id, "biome": "meadow", "from": "collection"})
 
 
-## A collectible card: rarity-forged frame with a soft aura, the critter's
+## A collectible card: rarity-forged frame with a soft aura, the hero's
 ## 3D render backlit in an inset window, a level shield, and a name plaque.
 class HeroCard extends PanelContainer:
 	signal upgrade(id: String)
@@ -133,7 +133,7 @@ class HeroCard extends PanelContainer:
 
 
 ## Inset art window: dark recess, rarity-coloured backlight, the render,
-## and a floor shadow. Locked critters show as a dark silhouette with a lock.
+## and a floor shadow. Locked heroes show as a dark silhouette with a lock.
 class ArtWindow extends Control:
 	var tex: Texture2D
 	var glow := Color.WHITE

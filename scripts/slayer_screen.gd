@@ -149,18 +149,23 @@ func _section(text: String) -> Control:
 
 
 func _refresh() -> void:
-	var task: Dictionary = SaveGame.data["slayer"]["task"]
-	if task.is_empty():
-		speech.text = "I have work. Take a task, keep a streak, spend the points."
+	var slate: Dictionary = SaveGame.data.get("slayer", {})
+	var task: Variant = slate.get("task", {})
+	if typeof(task) != TYPE_DICTIONARY or (task as Dictionary).is_empty():
+		speech.text = "The wilds still hunger. Take a contract, keep the streak alive, spend what you earn."
 		progress.text = "None"
 	else:
-		speech.text = str(task["text"])
-		progress.text = "%d / %d" % [int(task.get("have", 0)), int(task["need"])]
-	points_label.text = "%d points" % int(SaveGame.data["slayer"]["points"])
-	var t: Dictionary = SaveGame.data["slayer"]["task"]
-	task_bar.ratio = 0.0 if t.is_empty() else clampf(float(t.get("have", 0)) / maxf(float(t["need"]), 1.0), 0.0, 1.0)
+		var t: Dictionary = task
+		speech.text = str(t.get("text", "The trail is cold."))
+		progress.text = "%d / %d" % [int(t.get("have", 0)), int(t.get("need", 0))]
+	points_label.text = "%d points" % int(slate.get("points", 0))
+	if typeof(task) == TYPE_DICTIONARY and not (task as Dictionary).is_empty():
+		var td: Dictionary = task
+		task_bar.ratio = clampf(float(td.get("have", 0)) / maxf(float(td.get("need", 1)), 1.0), 0.0, 1.0)
+	else:
+		task_bar.ratio = 0.0
 	task_bar.queue_redraw()
-	var streak := int(SaveGame.data["slayer"]["streak"])
+	var streak := int(slate.get("streak", 0))
 	streak_label.text = "Streak %d  ·  +%d" % [streak, streak * 5]
 
 
@@ -173,12 +178,14 @@ func _turn_in() -> void:
 	var gained := SaveGame.complete_task()
 	if gained > 0:
 		toast("+%d slayer points" % gained)
+	else:
+		toast("The contract is not yet done.")
 	_refresh()
 
 
 func _cancel() -> void:
 	SaveGame.cancel_task()
-	toast("Streak reset.")
+	toast("Contract abandoned. The streak is forfeit.")
 	_refresh()
 
 

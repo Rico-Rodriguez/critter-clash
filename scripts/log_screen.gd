@@ -49,10 +49,15 @@ func _fill() -> void:
 		var button := UiKit.button(short, 160, 60, "gold") if id == boss_id else UiKit.secondary(short, 160, 60)
 		button.pressed.connect(_tab.bind(id))
 		tabs.add_child(button)
-	var table: Array = Catalog.drop_table(boss_id)
+	# Stable order: biome tab, then rarity, then id (Catalog.log_table), so the
+	# grid never reshuffles between visits.
+	var table: Array = Catalog.log_table(boss_id)
 	var got := 0
+	var shown: Array = []
 	for entry in table:
-		if SaveGame.has_log(str(entry["id"])):
+		var id := str(entry["id"])
+		shown.append(id)
+		if SaveGame.has_log(id):
 			got += 1
 	var boss := Catalog.critter(boss_id)
 	crest.boss_id = boss_id
@@ -60,18 +65,23 @@ func _fill() -> void:
 	crest.kills = SaveGame.boss_kills(boss_id)
 	crest.got = got
 	crest.total = table.size()
-	crest.overall = "%d / %d in the whole log" % [SaveGame.obtained_count(), Catalog.all_drops().size()]
+	crest.overall = "%d / %d in the whole log" % [SaveGame.log_obtained_count(), Catalog.log_entries().size()]
 	crest.queue_redraw()
 	for child in grid.get_children():
 		child.queue_free()
 	for entry in table:
+		var id := str(entry["id"])
 		var cell := LogCell.new()
 		cell.drop = entry
-		cell.got = SaveGame.has_log(str(entry["id"]))
+		cell.got = SaveGame.has_log(id)
+		cell.is_new = SaveGame.log_is_new(id)
 		cell.custom_minimum_size = Vector2(0, 196)
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cell.pressed_pet.connect(_pet)
 		grid.add_child(cell)
+	# Showing the tab counts as reading it; the mark is persisted so a find
+	# stops being "new" across a restart once it has been seen.
+	SaveGame.log_mark_seen(shown)
 
 
 func _pet(id: String) -> void:
@@ -85,6 +95,7 @@ class LogCell extends PanelContainer:
 
 	var drop: Dictionary = {}
 	var got := false
+	var is_new := false
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
@@ -155,6 +166,11 @@ class LogCell extends PanelContainer:
 			if lk:
 				UiKit.draw_icon(ci, lk, Rect2(center + Vector2(14, 10), Vector2(28, 28)), Color("c9a25a"), Color(0.05, 0.03, 0.02), 2.0)
 		UiKit.ensure()
+		# A freshly found entry carries a gold NEW tag until its tab is opened.
+		if got and is_new:
+			var tag := Rect2(w - 70, 16, 58, 26)
+			UiKit.ch_fill(ci, tag, 7, Color("ffd77a"), Color("a86a1e"))
+			ci.draw_string(UiKit.font_b, Vector2(tag.position.x, tag.position.y + 19), "NEW", HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 17, Color("2a1806"))
 		var rarity := Catalog.rarity_label(str(drop.get("rarity", "common")))
 		var ink := Color("fff1d6") if got else Color("b8aa94")
 		var name := str(drop.get("name", "")) if got else "???"

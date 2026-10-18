@@ -12,6 +12,7 @@ static func run() -> int:
 	_modes()
 	_save()
 	_gear_save_check()
+	_slayer_log_check()
 	_daily_check()
 	_steer()
 	_maps()
@@ -291,6 +292,104 @@ static func _folds(geared: Dictionary, bare: Dictionary, want: Dictionary, key: 
 			expected = float(bare[key]) / (1.0 + want_v)
 	if not is_equal_approx(float(geared[key]), expected):
 		_fail("%s fold off: gear %s vs expected %s (%s %s)" % [key, str(geared[key]), str(expected), mode, str(want_v)])
+
+## Slayer and collection-log accounting on a scratch save: kills count once
+## and only for the task's biome, a finished contract must pay exactly once,
+## the warden never hands the same task back twice in 200 rolls and never sends
+## the player to locked ground, and an old save with missing keys reconciles.
+static func _slayer_log_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	SaveGame.no_write = true
+	# Kill accounting: a minion task counts its own biome's kills and clamps.
+	SaveGame.data = SaveGame._fresh()
+	SaveGame.assign_task("meadow_critters")
+	SaveGame.commit_defeat("frost", 10)
+	if int(SaveGame.data["slayer"]["task"].get("have", -1)) != 0:
+		_fail("kills in the wrong biome advanced a task")
+	SaveGame.commit_defeat("meadow", 30)
+	if int(SaveGame.data["slayer"]["task"].get("have", -1)) != 30:
+		_fail("kills did not advance the minion task")
+	SaveGame.commit_defeat("meadow", 30)
+	if int(SaveGame.data["slayer"]["task"].get("have", -1)) != 40:
+		_fail("minion progress did not clamp at the goal")
+	# A boss task only counts the boss, never the run's minion kills.
+	SaveGame.assign_task("thistle_task")
+	SaveGame.commit_defeat("meadow", 20)
+	if int(SaveGame.data["slayer"]["task"].get("have", -1)) != 0:
+		_fail("a defeat advanced a boss task")
+	SaveGame.commit_victory("meadow", "thistle", 20)
+	if int(SaveGame.data["slayer"]["task"].get("have", -1)) != 1:
+		_fail("a boss kill did not advance the boss task")
+	SaveGame.commit_victory("meadow", "thistle", 20)
+	if int(SaveGame.data["slayer"]["task"].get("have", -1)) != 1:
+		_fail("boss progress did not clamp at the goal")
+	# A finished contract pays once; a second turn-in changes nothing.
+	SaveGame.assign_task("meadow_critters")
+	SaveGame.data["slayer"]["task"]["have"] = 40
+	var before := int(SaveGame.data["slayer"]["points"])
+	var paid := SaveGame.complete_task()
+	if paid != 25:
+		_fail("task payout %d, expected 25" % paid)
+	if int(SaveGame.data["slayer"]["points"]) != before + 25:
+		_fail("points were not paid exactly once")
+	if SaveGame.complete_task() != 0:
+		_fail("a cleared task paid a second time")
+	if int(SaveGame.data["slayer"]["points"]) != before + 25:
+		_fail("a cleared task changed the points")
+	# 200 rolls: no back-to-back repeat and never a locked biome.
+	SaveGame.data = SaveGame._fresh()
+	var previous := ""
+	for i in 200:
+		var picked: Dictionary = SaveGame.assign_task()
+		if picked.is_empty():
+			_fail("assignment %d found no task" % i)
+			break
+		var id := str(picked["id"])
+		if id == previous:
+			_fail("assignment repeated %s back to back" % id)
+			break
+		if not SaveGame.biome_open(str(picked["biome"])):
+			_fail("assignment %d chose locked biome %s" % [i, picked["biome"]])
+			break
+		previous = id
+		SaveGame.data["slayer"]["task"]["have"] = int(picked.get("need", 1))
+		SaveGame.complete_task()
+	# Collection log: a first find is new until seen, and dead ids are skipped.
+	SaveGame.data = SaveGame._fresh()
+	SaveGame.data["log"] = ["thistle_purse", "ghost_of_a_dead_drop"]
+	SaveGame.data["log_seen"] = []
+	if not SaveGame.log_is_new("thistle_purse"):
+		_fail("a fresh find should be marked new")
+	if SaveGame.log_new_count() != 2:
+		_fail("new log count %d, expected 2" % SaveGame.log_new_count())
+	if SaveGame.log_obtained_count() != 1:
+		_fail("a drop removed from the catalog should not be counted")
+	SaveGame.log_mark_seen(["thistle_purse"])
+	if SaveGame.log_is_new("thistle_purse"):
+		_fail("a seen find should not stay new")
+	# The log order is biome then rarity and stable between calls.
+	var order: Array = Catalog.log_entries()
+	if order.size() != Catalog.all_drops().size():
+		_fail("log order lost entries: %d" % order.size())
+	if str(order) != str(Catalog.log_entries()):
+		_fail("log order is not stable between calls")
+	# Old save: missing keys reconcile to defaults without a crash.
+	SaveGame.data = {"log": ["thistle_purse"], "slayer": {"points": 7, "streak": 3}}
+	SaveGame._reconcile()
+	if not SaveGame.data["slayer"].has("task"):
+		_fail("an old save did not gain an empty task")
+	if int(SaveGame.data["slayer"]["points"]) != 7 or int(SaveGame.data["slayer"]["streak"]) != 3:
+		_fail("an old save's slayer values were not kept")
+	if not SaveGame.data.has("log_seen") or not ("thistle_purse" in SaveGame.data["log_seen"]):
+		_fail("an old save's finds should start read")
+	var empty: Dictionary = SaveGame.assign_task()
+	if empty.is_empty():
+		_fail("assign after an old-save reconcile failed")
+	elif not SaveGame.biome_open(str(empty["biome"])):
+		_fail("old-save assign chose a locked biome")
+	SaveGame.data = keep
+	SaveGame.no_write = false
+	print("SLAYER LOG ok: 200 assignments, single claim, old-save defaults")
 
 
 ## Daily Challenge: one deterministic map per UTC day, one or two modifiers,

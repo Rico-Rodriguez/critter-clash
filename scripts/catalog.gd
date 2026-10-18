@@ -632,6 +632,47 @@ static func all_drops() -> Array:
 	return DROPS
 
 
+## Collection-log order: walk the world's biomes in unlock order, then the
+## rarest last inside each, then id, so the grid never reshuffles between
+## visits and the "x / y" counts line up with what the player sees.
+static func log_entries() -> Array:
+	var rows: Array = []
+	for biome in BIOMES:
+		var boss := str(biome["boss"])
+		var group: Array = []
+		for entry in DROPS:
+			if str(entry["boss"]) == boss:
+				group.append(entry)
+		group.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var ra := _log_rarity_rank(str(a.get("rarity", "common")))
+			var rb := _log_rarity_rank(str(b.get("rarity", "common")))
+			if ra != rb:
+				return ra < rb
+			return str(a.get("id", "")) < str(b.get("id", "")))
+		rows.append_array(group)
+	return rows
+
+
+static func log_table(boss_id: String) -> Array:
+	var rows: Array = []
+	for entry in log_entries():
+		if str(entry["boss"]) == boss_id:
+			rows.append(entry)
+	return rows
+
+
+static func _log_rarity_rank(rarity: String) -> int:
+	match rarity:
+		"uncommon":
+			return 1
+		"rare":
+			return 2
+		"very_rare":
+			return 3
+		_:
+			return 0
+
+
 static func drop_by_id(id: String) -> Dictionary:
 	for entry in DROPS:
 		if str(entry["id"]) == id:
