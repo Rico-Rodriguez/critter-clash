@@ -61,6 +61,8 @@ var _slow_windows := 0
 var _props: Array = []
 var _contacts: Array[Vector3] = []
 var _xray_mat: ShaderMaterial
+var _hero_key: OmniLight3D
+var _occl_hit := false
 var _xray := 0.0
 var _contact_node: MultiMeshInstance3D
 var _pings: Dictionary = {}
@@ -245,6 +247,8 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		if actor.kind == "hero" and actor.team == 0:
 			hero_at = body.position
 			_step_dust(body, actor, sim)
+			if is_instance_valid(_hero_key):
+				_hero_key.global_position = hero_at + Vector3(1.6, 4.2, 3.4)
 	var boss_up := false
 	var boss_at := Vector3.ZERO
 	for actor in sim.actors:
@@ -271,9 +275,12 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		body.queue_free()
 	if _mark != null:
 		_mark.visible = false
+	if _reach != null:
+		_reach.visible = false
 	for actor in sim.actors:
 		if actor.kind == "hero" and actor.team == 0 and actor.alive:
 			_place_mark(_to3(actor.prev.lerp(actor.pos, alpha)))
+			_place_reach(actor, _to3(actor.prev.lerp(actor.pos, alpha)))
 			break
 	for mat in _grass_mats:
 		(mat as ShaderMaterial).set_shader_parameter("hero", hero_at)
@@ -1374,7 +1381,27 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	# Outlines keep silhouettes readable from the far camera: a dark hairline
 	# on the hero (its ring marks it), deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
-		_outline(body, Color("1a0806"), 0.011)
+		if Gear3D.has_kit(actor.sprite):
+			# Dark plate on dark ground: a steel-blue hairline, a cool
+			# fresnel rim in the armour shader and a soft key light that
+			# follows the hero (no shadows, short range).
+			_outline(body, Color("34445a"), 0.011)
+			Gear3D.set_rim(body, Color(0.12, 0.2, 0.3))
+			if not is_instance_valid(_hero_key):
+				_hero_key = OmniLight3D.new()
+				_hero_key.light_color = Color("fff1dc")
+				_hero_key.light_energy = 2.2
+				_hero_key.omni_range = 7.5
+				_hero_key.omni_attenuation = 1.2
+				_hero_key.light_specular = 0.9
+				_hero_key.shadow_enabled = false
+				# Lights the hero only (layer 20): no bright pool on the ground.
+				_hero_key.light_cull_mask = 1 << 19
+				world_root.add_child(_hero_key)
+			for gi in body.find_children("*", "GeometryInstance3D", true, false):
+				(gi as GeometryInstance3D).layers |= 1 << 19
+		else:
+			_outline(body, Color("1a0806"), 0.011)
 		_hero_glow(body)
 	elif actor.kind == "ally":
 		# Summoned spirit: the hero's cool rim glow, no hostile ring.
@@ -2738,6 +2765,38 @@ func _decal(size: float, params: Dictionary) -> MeshInstance3D:
 	return node
 
 
+## Reach ring: a faint hairline at the hero's real attack reach, per class.
+## Melee (tank) swings land out to range + 10 plus the target's body
+## (run_sim._melee), so the ring sits at range + 10 + a typical critter
+## radius; shooters pick targets within range. Colour keys the class.
+var _reach: MeshInstance3D
+const REACH_COLORS := {
+	"tank": Color(1.0, 0.78, 0.45, 0.32),
+	"archer": Color(0.62, 0.9, 1.0, 0.3),
+	"mage": Color(0.72, 1.0, 0.55, 0.3),
+}
+func _place_reach(actor: RunSim.Actor, at: Vector3) -> void:
+	var px := actor.range + (10.0 + 16.0 if actor.role == "tank" else 0.0)
+	var meters := px * SCALE
+	if _reach == null:
+		_reach = _decal(1.0, {
+			"ring_color": REACH_COLORS.get(actor.role, REACH_COLORS["mage"]),
+			"ring_radius": 0.48,
+			"ring_width": 0.006,
+			"ring_glow": 0.25,
+			"shadow_alpha": 0.0,
+			"pulse": 0.0,
+		})
+		_reach.position.y = 0.03
+		actor_root.add_child(_reach)
+	var size := meters / 0.48
+	_reach.scale = Vector3(size, 1.0, size)
+	(_reach.material_override as ShaderMaterial).set_shader_parameter("ring_color", REACH_COLORS.get(actor.role, REACH_COLORS["mage"]))
+	(_reach.material_override as ShaderMaterial).set_shader_parameter("ring_width", 0.006 * 12.0 / maxf(size, 1.0))
+	_reach.visible = true
+	_reach.position = Vector3(at.x, 0.03, at.z)
+
+
 ## The hero's selection ring: a soft contact shadow under a smooth gold ring.
 func _place_mark(at: Vector3) -> void:
 	if _mark == null:
@@ -3191,7 +3250,7 @@ func _open_around(hero: Vector3) -> void:
 			if hs != Vector2.INF and prop.position.z > hero.z - 1.0:
 				var crown := camera.unproject_position(prop.position + Vector3(0, 2.2 * prop.scale.y, 0))
 				var d := crown.distance_to(hs)
-				want = clampf(1.0 - (d - reach * 0.5) / reach, 0.0, 1.0) * 0.72
+				want = clampf(1.0 - (d - reach * 0.5) / reach, 0.0, 1.0) * 0.85
 			var cur := float(prop.get_meta("fade", 0.0))
 			if absf(cur - want) > 0.005:
 				cur = move_toward(cur, want, 0.06)
@@ -3716,7 +3775,7 @@ func _fade_occluders(hero: Vector3) -> void:
 	if camera == null or _occl.is_empty():
 		return
 	var hs := camera.unproject_position(hero + Vector3(0, HERO_METERS * 0.4, 0))
-	var reach: float = (viewport.size.x if viewport != null else 1179.0) * 0.16
+	var reach: float = (viewport.size.x if viewport != null else 1179.0) * 0.24
 	var want := {}
 	var c := Vector2i(int(floor(hero.x / OCCL_CELL)), int(floor(hero.z / OCCL_CELL)))
 	for dx in range(-3, 4):
@@ -3727,18 +3786,21 @@ func _fade_occluders(hero: Vector3) -> void:
 					continue
 				var h: float = e[1]
 				# Distance from the hero to the trunk-to-crown segment on screen.
-				var a := camera.unproject_position(at + Vector3(0, h * 0.35, 0))
+				var a := camera.unproject_position(at + Vector3(0, h * 0.2, 0))
 				var b := camera.unproject_position(at + Vector3(0, h, 0))
 				var ab := b - a
 				var t := clampf((hs - a).dot(ab) / maxf(ab.length_squared(), 1.0), 0.0, 1.0)
 				if (a + ab * t).distance_to(hs) < reach:
 					want[e] = true
+	_occl_hit = not want.is_empty()
 	for e in want:
 		_occl_faded[e] = true
 	for e in _occl_faded.keys():
 		var mm: MultiMesh = e[2]
 		var cur := mm.get_instance_color(e[3]).a
-		var to := 0.3 if want.has(e) else 1.0
+		# Fully clear over the hero: a hashed 10-30% ghost reads as noise
+		# over dark plate at phone size.
+		var to := 0.0 if want.has(e) else 1.0
 		var nxt := move_toward(cur, to, 0.08)
 		mm.set_instance_color(e[3], Color(1, 1, 1, nxt))
 		if nxt >= 1.0 and not want.has(e):
