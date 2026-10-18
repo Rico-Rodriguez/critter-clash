@@ -669,9 +669,69 @@ func complete_task() -> int:
 	data["slayer"]["streak"] = streak + 1
 	data["slayer"]["last"] = str(t.get("id", ""))
 	data["slayer"]["task"] = {}
+	# Every 5th consecutive turn-in also pays one earned gear piece, the same
+	# roll the Warden's cache uses; the slayer screen reads the result for its
+	# toast.
+	last_streak_reward = {}
+	if (streak + 1) % 5 == 0:
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		var piece := _cache_piece(featured_id(), rng)
+		if piece != "":
+			GearDB.grant(piece)
+			last_streak_reward = {"item": piece}
+		else:
+			data["coins"] = int(data["coins"]) + CACHE_COINS
+			last_streak_reward = {"coins": CACHE_COINS}
 	_write()
 	AudioDirector.play("merge")
 	return gained
+
+
+## Coin consolation when a cache or streak reward finds a full kit: the warden
+## still pays, in coins.
+const CACHE_COINS := 25
+
+
+## What the last turn-in's streak reward granted, for the slayer screen toast:
+## {"item": id} or {"coins": 25}, {} when this turn-in granted nothing.
+var last_streak_reward: Dictionary = {}
+
+
+## The cache tier: one roll on the deepest opened biome's boss weights — the
+## richest hunt the player can currently take — with rune pressed back down
+## to steel, so a slayer reward can never pay the top tier.
+func _cache_tier(rng: RandomNumberGenerator) -> int:
+	var deepest := 0
+	for i in Catalog.BIOMES.size():
+		if biome_open(str(Catalog.BIOMES[i]["id"])):
+			deepest = i
+	var weights: Array = LootTable._weights(LootTable.SOURCES["boss"]["weights"], deepest, "boss")
+	return mini(LootTable._tier(rng, weights), GearDB.Tier.STEEL)
+
+
+## One Warden's-cache piece for hero_id, or "" when the hero already owns
+## every eligible piece (iron and blackened steel only; rune is never in the
+## cache). The slot prefers an unowned slot, then the rolled tier, then the
+## best tier still missing, then kit order.
+func _cache_piece(hero_id: String, rng: RandomNumberGenerator) -> String:
+	var tier := _cache_tier(rng)
+	var best := ""
+	var best_rank := -1
+	for slot in GearDB.HERO_SLOTS.get(hero_id, []):
+		var slot_key := str(slot)
+		var bare := true
+		for t in range(GearDB.Tier.IRON, GearDB.Tier.STEEL + 1):
+			var id := GearDB.item_id(hero_id, slot_key, t)
+			if GearDB.has(hero_id, id):
+				bare = false
+				continue
+			# Gift order: bare slot, on-roll tier, richer tier, kit order.
+			var rank := (8 if bare else 0) + (4 if t == tier else 0) + t
+			if rank > best_rank:
+				best_rank = rank
+				best = id
+	return best
 
 
 func buy_slayer(offer_id: String) -> bool:
@@ -683,8 +743,14 @@ func buy_slayer(offer_id: String) -> bool:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	match str(offer["kind"]):
-		"charm":
-			grant_reward(featured_id(), "charm", "rare")
+		# The Warden's cache grants one earned piece for the featured hero; a
+		# full kit pays the coin consolation instead.
+		"gear":
+			var piece := _cache_piece(featured_id(), rng)
+			if piece == "":
+				data["coins"] = int(data["coins"]) + CACHE_COINS
+			else:
+				GearDB.grant(piece)
 		"cosmetic":
 			data["cosmetic"] = str(offer.get("cosmetic", "ribbon"))
 		"chest":

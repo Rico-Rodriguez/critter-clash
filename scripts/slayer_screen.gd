@@ -215,6 +215,18 @@ func _turn_in() -> void:
 		toast("+%d slayer points" % gained)
 	else:
 		toast("The contract is not yet done.")
+	# Every 5th consecutive turn-in also pays an earned gear piece; that reward
+	# gets its own toast once the points line has faded.
+	var reward: Dictionary = SaveGame.last_streak_reward
+	if not reward.is_empty():
+		var text := "Streak reward: "
+		if reward.has("item"):
+			text += str(GearDB.item(str(reward["item"])).get("name", ""))
+		else:
+			text += "%d coins" % int(reward.get("coins", 0))
+		var tw := create_tween()
+		tw.tween_interval(1.05)
+		tw.tween_callback(func() -> void: toast(text))
 	_refresh()
 
 
@@ -240,11 +252,22 @@ func _offer(offer: Dictionary) -> Button:
 	h.offset_left = 28
 	h.offset_right = -20
 	button.add_child(h)
-	var name := UiKit.label(str(offer["name"]).to_upper(), 24, UiKit.CREAM, "x", 2)
-	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(name)
+	var text_col := VBoxContainer.new()
+	text_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	text_col.add_theme_constant_override("separation", 0)
+	h.add_child(text_col)
+	var name_label := UiKit.label(str(offer["name"]).to_upper(), 24, UiKit.CREAM, "x", 2)
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_col.add_child(name_label)
+	# The offer text under the name: what a purchase actually fetches.
+	var detail := UiKit.label(str(offer.get("detail", "")), 16, UiKit.MUTED, "b", 2)
+	detail.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	detail.visible = str(offer.get("detail", "")) != ""
+	text_col.add_child(detail)
 	var price := UiKit.label("%d PTS" % int(offer["cost"]), 24, UiKit.GOLD.lightened(0.2), "x", 2)
 	price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	price.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -13,7 +13,7 @@ static var _times: Array = []
 
 ## Every check in run order. The name is the --only tag and the --timings label.
 const CHECKS := [
-	"roles", "modes", "save", "gear_save", "slayer_log",
+	"roles", "modes", "save", "gear_save", "slayer_log", "slayer_gear",
 	"settings", "save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity",
 	"fights", "kite", "boss_intro", "dodge", "events", "gear_drop", "skill_xp",
 	"gear_coverage",
@@ -64,6 +64,8 @@ static func _dispatch(name: String) -> void:
 			_gear_save_check()
 		"slayer_log":
 			_slayer_log_check()
+		"slayer_gear":
+			_slayer_gear_check()
 		"settings":
 			_settings_check()
 		"save_safety":
@@ -467,6 +469,107 @@ static func _slayer_log_check() -> void:
 	SaveGame.data = keep
 	SaveGame.no_write = false
 	print("SLAYER LOG ok: %d assignments, single claim, old-save defaults" % rolls)
+
+
+## Slayer rewards stay on the GearDB armory: the Warden's cache sells the
+## featured hero exactly one legal iron/steel piece and deducts its cost, the
+## 5th consecutive turn-in grants one piece the same way (the 6th grants
+## nothing), rune tier is never granted, and a hero who owns every eligible
+## piece is paid coins instead. Runs on a scratch armory and restores
+## everything afterwards.
+static func _slayer_gear_check() -> void:
+	var keep: Dictionary = SaveGame.data.duplicate(true)
+	var keep_no_write: bool = SaveGame.no_write
+	var keep_store: Variant = GearDB.store_override
+	SaveGame.no_write = true
+	var offer := Catalog.slayer_offer("wardens_cache")
+	if offer.is_empty() or str(offer["kind"]) != "gear" or int(offer["cost"]) <= 0:
+		_fail("the Warden's cache offer disappeared")
+		return
+	# (1) Buying the cache: exactly one valid piece for the featured hero,
+	# always iron or steel, at the listed cost.
+	SaveGame.data = SaveGame._fresh()
+	GearDB.store_override = {}
+	var hero := SaveGame.featured_id()
+	SaveGame.data["slayer"]["points"] = int(offer["cost"])
+	if not SaveGame.buy_slayer("wardens_cache"):
+		_fail("buying the cache refused with points in hand")
+	elif _owned_total() != 1:
+		_fail("the cache granted %d pieces, wanted 1" % _owned_total())
+	var granted_ids: Array = GearDB.owned(hero)
+	if granted_ids.size() != 1:
+		_fail("the cache did not land on the featured hero: %s" % str(granted_ids))
+	else:
+		if not _legal_slayer_piece(str(granted_ids[0]), hero, "the cache"):
+			_fail("the cache paid an illegal piece %s" % str(granted_ids[0]))
+	if int(SaveGame.data["slayer"]["points"]) != 0:
+		_fail("the cache did not deduct its cost: %d points left" % int(SaveGame.data["slayer"]["points"]))
+	# (2) The 5th consecutive turn-in grants one legal piece; the sixth grants
+	# nothing again.
+	SaveGame.data = SaveGame._fresh()
+	GearDB.store_override = {}
+	hero = SaveGame.featured_id()
+	for i in 6:
+		SaveGame.assign_task("meadow_critters")
+		SaveGame.data["slayer"]["task"]["have"] = int(SaveGame.data["slayer"]["task"]["need"])
+		SaveGame.complete_task()
+		var owned := _owned_total()
+		if i < 4 and owned != 0:
+			_fail("turn-in %d granted a piece early" % (i + 1))
+			break
+		elif i == 4:
+			var item: String = str(SaveGame.last_streak_reward.get("item", ""))
+			if owned != 1 or not SaveGame.last_streak_reward.has("item"):
+				_fail("the 5th turn-in granted nothing: %d pieces, %s" % [owned, str(SaveGame.last_streak_reward)])
+			elif not _legal_slayer_piece(item, hero, "the 5th turn-in"):
+				_fail("the 5th turn-in streak piece was illegal: " + item)
+		elif i == 5 and (owned != 1 or not SaveGame.last_streak_reward.is_empty()):
+			_fail("the 6th turn-in granted again: %d pieces, %s" % [owned, str(SaveGame.last_streak_reward)])
+	# (3) A full kit: the cache grants nothing and pays coins instead, and the
+	# 5th streak turn-in does the same.
+	SaveGame.data = SaveGame._fresh()
+	GearDB.store_override = {}
+	hero = SaveGame.featured_id()
+	for slot in GearDB.HERO_SLOTS[hero]:
+		for t in range(GearDB.Tier.IRON, GearDB.Tier.STEEL + 1):
+			GearDB.grant(GearDB.item_id(hero, str(slot), t))
+	var full := _owned_total()
+	SaveGame.data["slayer"]["points"] = int(offer["cost"])
+	var coins_before := int(SaveGame.data["coins"])
+	if not SaveGame.buy_slayer("wardens_cache"):
+		_fail("a full-kit cache purchase should still succeed")
+	if _owned_total() != full:
+		_fail("a full kit bought a duplicate piece")
+	if int(SaveGame.data["coins"]) != coins_before + SaveGame.CACHE_COINS:
+		_fail("a full-kit cache did not pay coins")
+	SaveGame.assign_task("meadow_critters")
+	SaveGame.data["slayer"]["task"]["have"] = int(SaveGame.data["slayer"]["task"]["need"])
+	SaveGame.data["slayer"]["streak"] = 4
+	coins_before = int(SaveGame.data["coins"])
+	SaveGame.complete_task()
+	if SaveGame.last_streak_reward.get("coins", 0) != SaveGame.CACHE_COINS or not SaveGame.last_streak_reward.has("coins"):
+		_fail("a full-kit 5-streak did not pay coins: %s" % str(SaveGame.last_streak_reward))
+	if _owned_total() != full:
+		_fail("a full-kit 5-streak granted gear")
+	if int(SaveGame.data["coins"]) != coins_before + SaveGame.CACHE_COINS:
+		_fail("a full-kit 5-streak paid the wrong coins")
+	SaveGame.data = keep
+	SaveGame.no_write = keep_no_write
+	GearDB.store_override = keep_store
+	print("SLAYER GEAR ok: cache grant, 5-streak once, full kit pays coins")
+
+
+## A slayer reward is legal when it is a real GearDB piece for the hero's
+## slot at iron or blackened steel — never rune, never another hero.
+static func _legal_slayer_piece(id: String, hero: String, source: String) -> bool:
+	var it := GearDB.item(id)
+	if not GearDB.is_item(id) or str(it["hero"]) != hero or not (str(it["slot"]) in GearDB.HERO_SLOTS[hero]):
+		print("SLAYER %s paid a piece outside the hero's kit: %s" % [source, id])
+		return false
+	if int(it["tier"]) > GearDB.Tier.STEEL:
+		print("SLAYER %s paid above steel: %s" % [source, id])
+		return false
+	return true
 
 
 ## Settings + accessibility: an old save's defaults, persistence through

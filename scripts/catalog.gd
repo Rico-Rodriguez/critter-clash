@@ -614,7 +614,7 @@ const SLAYER_TASKS: Array = [
 ]
 
 const SLAYER_SHOP: Array = [
-	{"id": "rare_charm", "name": "Rare charm", "kind": "charm", "cost": 50, "detail": "A rare charm for any hero."},
+	{"id": "wardens_cache", "name": "Warden's cache", "kind": "gear", "cost": 50, "detail": "A piece of gear for your current hero."},
 	{"id": "trail_ribbon", "name": "Trail ribbon", "kind": "cosmetic", "cosmetic": "ribbon", "cost": 30, "detail": "A gold ribbon on your home pedestal."},
 	{"id": "slayer_chest", "name": "Hunt chest", "kind": "chest", "cost": 20, "detail": "A hunt chest for the shelf."},
 ]
