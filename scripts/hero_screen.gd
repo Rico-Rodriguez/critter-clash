@@ -136,7 +136,7 @@ func _fill() -> void:
 		showcase.queue_free()
 	showcase = Home.Showcase.new()
 	showcase.hero_id = selected
-	showcase.fill = 0.6
+	showcase.fill = 0.645
 	showcase.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage_slot.add_child(showcase)
 	for sock in sockets:

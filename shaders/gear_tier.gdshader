@@ -150,8 +150,8 @@ void fragment() {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
 		NORMAL_MAP_DEPTH = normal_scale;
 	}
-	// Rune tier always carries etched burning glyph lines on the plate.
-	float r = max(rune, step(2.5, float(T)) * 0.5) * glyphs(UV) * m;
+	// Rune tier: faint etched glyphs; the read comes from the burning edges.
+	float r = max(rune, step(2.5, float(T)) * 0.12) * glyphs(UV) * m;
 	float pulse = 0.62 + 0.38 * sin(TIME * 2.4) * 0.6 + 0.4 * sin(TIME * 3.1 - UV.y * 6.0) * 0.38;
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	float fres2 = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.6);

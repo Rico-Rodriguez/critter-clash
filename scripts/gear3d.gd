@@ -99,7 +99,7 @@ const FINISH := [
 	# T2 Blackened Steel: cool blue-black, glossy, crisp bright bevels.
 	{"metal": Color(0.4, 0.44, 0.52), "soft": Color(0.3, 0.25, 0.23), "cloth": Color(0.42, 0.06, 0.05), "wear": 0.12, "rune": 0.0, "rough_mul": 0.7, "rough_add": -0.02, "gain": 1.1, "edge_hi": 1.05, "edge_col": Color(0.62, 0.74, 0.95), "edge_emit": 0.22, "metal_cap": 0.8},
 	# T3 Runebound: black plate, burning rune seams, emissive blade.
-	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "edge_col": Color(1.0, 0.36, 0.12), "edge_emit": 0.35, "seam": 2.3, "metal_cap": 0.85},
+	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "edge_col": Color(1.0, 0.36, 0.12), "edge_emit": 0.6, "seam": 1.9, "metal_cap": 0.85},
 ]
 const RUNE := Color(1.0, 0.32, 0.08)
 
@@ -223,10 +223,14 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			fm.set_shader_parameter("seam_gain", float(kit.get("seam", 1.0)))
 			# Empty slots strip baked plate beyond this axis distance (x h).
 			var strip: Array = kit.get("strip", [])
+			if strip.is_empty() and OS.get_environment("CC_STRIP") != "":
+				strip = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 			if not strip.is_empty():
 				var sr := PackedFloat32Array(strip)
-				if OS.get_environment("CC_STRIP_R") != "":
-					sr[0] = float(OS.get_environment("CC_STRIP_R"))
+				if OS.get_environment("CC_STRIP") != "":
+					var ov := OS.get_environment("CC_STRIP").split_floats(",")
+					for k in mini(ov.size(), sr.size()):
+						sr[k] = ov[k]
 				fm.set_shader_parameter("strip_r", sr)
 				var top := float(kit.get("strip_top", 9.0))
 				if OS.get_environment("CC_STRIP_TOP") != "":
@@ -607,8 +611,8 @@ static func _charm(sk: Skeleton3D, t: Dictionary) -> void:
 	_attach(sk, hips, "GearCharm", orbit, Transform3D(Basis(), hp + up * h * 0.16))
 
 
-## Rune chest (T3): a faint drift of embers rising off the plate, so cursed
-## rune armour reads at a glance even in a small hunt view. One draw call.
+## Rune chest (T3): a small wisp of embers rising off the plate (the edges
+## carry the main read). One draw call.
 static func _rune_embers(sk: Skeleton3D, t: Dictionary) -> void:
 	var old := sk.get_node_or_null("GearEmbers")
 	if old:
@@ -630,12 +634,12 @@ static func _rune_embers(sk: Skeleton3D, t: Dictionary) -> void:
 	var up := (hd - hp).normalized()
 	var h := (hd - hp).length() * 2.2
 	var p := CPUParticles3D.new()
-	p.amount = 22
-	p.lifetime = 1.8
-	p.preprocess = 1.8
+	p.amount = 7
+	p.lifetime = 2.2
+	p.preprocess = 2.2
 	p.local_coords = true
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	p.emission_box_extents = Vector3(h * 0.2, h * 0.28, h * 0.12)
+	p.emission_box_extents = Vector3(h * 0.12, h * 0.2, h * 0.08)
 	p.direction = up
 	p.spread = 25.0
 	p.gravity = up * h * 0.12
