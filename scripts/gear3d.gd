@@ -326,7 +326,7 @@ static func _silhouette(model: Node3D, sk: Skeleton3D, t: Dictionary, kit: Dicti
 		# with a darker root, so it reads as hair and not a red plastic fin.
 		var cm := ShaderMaterial.new()
 		cm.shader = _crest_shader()
-		var cc: Color = Color(0.17, 0.018, 0.016) if int(t["helm"]) == 2 else Color(0.09, 0.06, 0.06)
+		var cc: Color = Color(0.26, 0.035, 0.03) if int(t["helm"]) == 2 else Color(0.09, 0.06, 0.06)
 		cm.set_shader_parameter("base", Vector3(cc.r, cc.g, cc.b))
 		var glow: Color = rc if int(t["helm"]) == 3 else Color.BLACK
 		cm.set_shader_parameter("glow", Vector3(glow.r, glow.g, glow.b) * 0.5)
@@ -553,14 +553,16 @@ static func _charm(sk: Skeleton3D, t: Dictionary) -> void:
 	halo.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	halo.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	halo.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# Keep the skeleton's scale (rigs in cm would make the halo huge).
+	halo.billboard_keep_scale = true
 	halo.albedo_texture = halo_tex
 	halo.no_depth_test = false
 	for k in (2 if tier >= 3 else 1):
 		var ang := PI * k
-		var at := Vector3(cos(ang), 0.0, sin(ang)) * h * 0.3
+		var at := Vector3(cos(ang), 0.0, sin(ang)) * h * 0.52
 		var gem := MeshInstance3D.new()
 		var sm := SphereMesh.new()
-		sm.radius = h * (0.022 + 0.004 * tier)
+		sm.radius = h * (0.03 + 0.006 * tier)
 		sm.height = sm.radius * 2.0
 		sm.radial_segments = 8
 		sm.rings = 4
@@ -571,7 +573,7 @@ static func _charm(sk: Skeleton3D, t: Dictionary) -> void:
 		orbit.add_child(gem)
 		var glow := MeshInstance3D.new()
 		var q := QuadMesh.new()
-		q.size = Vector2.ONE * h * (0.14 + 0.03 * tier)
+		q.size = Vector2.ONE * h * (0.2 + 0.04 * tier)
 		glow.mesh = q
 		glow.material_override = halo
 		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -761,8 +763,8 @@ static func _crest_shader() -> Shader:
 		_crest_sh = Shader.new()
 		_crest_sh.code = """shader_type spatial;
 render_mode cull_disabled;
-uniform vec3 base = vec3(0.3, 0.035, 0.03);
-uniform vec3 glow = vec3(0.0);
+uniform vec3 base : source_color = vec3(0.3, 0.035, 0.03);
+uniform vec3 glow : source_color = vec3(0.0);
 float h1(float x) { return fract(sin(x * 91.7) * 43758.5); }
 void fragment() {
 	float u = UV.x * 70.0;

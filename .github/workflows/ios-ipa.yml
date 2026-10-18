@@ -53,7 +53,7 @@ jobs:
           test -d .godot/imported
 
       - name: Export the Xcode project
-        timeout-minutes: 21
+        timeout-minutes: 30
         run: |
           set -euo pipefail
           mkdir -p build/ios
@@ -63,22 +63,44 @@ jobs:
           # while quitting after the Xcode project and pack are written.
           # Run 39083046616 (00:31) hung for 20 minutes while packing a hero
           # scene with no output; the same tree exported in 3 s on the next
-          # run. Each attempt gets a 6-minute watchdog and up to 3 tries.
+          # run. Hangs stall early while packing an imported .scn (runs
+          # 39090835125: two 6-minute kills, then a 16 s success), so each
+          # attempt is killed after 75 s with no new export output, with a
+          # 6-minute cap, and up to 6 tries (headless first).
           code=1
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5 6; do
             rm -rf build/ios && mkdir -p build/ios
             set +e
-            "$GODOT" --path . \
-              --rendering-method mobile \
-              --rendering-driver metal \
-              --export-release "iOS" build/ios/CritterClash.xcodeproj &
+            log="$RUNNER_TEMP/export_${attempt}.log"
+            : > "$log"
+            # Headless first: every stall so far sat inside savepack with the
+            # Metal device up (run 39091793811 hung 3 x 6 min at 8%). Metal is
+            # the fallback for the last attempts.
+            if [ $attempt -le 4 ]; then
+              mode=(--headless)
+            else
+              mode=(--rendering-method mobile --rendering-driver metal)
+            fi
+            echo "Export attempt ${attempt}: ${mode[*]}"
+            "$GODOT" --path . "${mode[@]}" \
+              --export-release "iOS" build/ios/CritterClash.xcodeproj > "$log" 2>&1 &
             pid=$!
-            ( sleep 360; kill -9 $pid ) >/dev/null 2>&1 &
-            dog=$!
+            tail -f "$log" &
+            tailer=$!
+            last=-1; idle=0; total=0
+            while kill -0 $pid 2>/dev/null; do
+              sleep 5; total=$((total + 5))
+              size=$(wc -c < "$log")
+              if [ "$size" -eq "$last" ]; then idle=$((idle + 5)); else idle=0; last=$size; fi
+              if [ $idle -ge 75 ] || [ $total -ge 360 ]; then
+                echo "Export attempt ${attempt} stalled (idle ${idle}s, total ${total}s); killing."
+                kill -9 $pid 2>/dev/null
+                break
+              fi
+            done
             wait $pid
             code=$?
-            pkill -P $dog 2>/dev/null; kill $dog 2>/dev/null
-            [ "$code" -eq 137 ] && echo "Export attempt ${attempt} hung; killed after 6 min." 
+            kill $tailer 2>/dev/null
             set -e
             if [ -f build/ios/CritterClash.xcodeproj/project.pbxproj ] && [ -n "$(find build/ios -name '*.pck' -size +100k -print -quit)" ]; then
               break

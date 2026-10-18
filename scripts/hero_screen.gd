@@ -21,6 +21,7 @@ var sockets: Array = []
 var card_bar: CardBar
 var preview_line: Label
 var upgrade: Button
+var price: PriceTag
 
 
 func build() -> void:
@@ -87,6 +88,11 @@ func build() -> void:
 	row.add_theme_constant_override("separation", 14)
 	upgrade = UiKit.confirm("UPGRADE", 330, 110)
 	upgrade.pressed.connect(_upgrade)
+	# Coin cost as a price tag on the button's top edge.
+	price = PriceTag.new()
+	price.size = Vector2(150, 50)
+	price.position = Vector2(330 - 162, -26)
+	upgrade.add_child(price)
 	hunt = UiKit.button("SELECT", 330, 110, "gold")
 	hunt.pressed.connect(func() -> void:
 		if selected == SaveGame.featured_id():
@@ -153,6 +159,7 @@ func _fill_level(stats: Dictionary) -> void:
 		preview_line.text = "Level %d (max)   ·   Health %d   ·   Damage %d" % [level, hp_now, dmg_now]
 		card_bar.visible = false
 		upgrade.text = "MAX LEVEL"
+		price.visible = false
 		upgrade.disabled = true
 		upgrade.modulate = Color(0.7, 0.7, 0.7)
 		return
@@ -170,7 +177,11 @@ func _fill_level(stats: Dictionary) -> void:
 	card_bar.ready_up = SaveGame.can_level(selected)
 	card_bar.queue_redraw()
 	var cost := SaveGame.coins_needed(level)
-	upgrade.text = "UPGRADE · %d" % cost
+	upgrade.text = "UPGRADE"
+	price.visible = true
+	price.amount = cost
+	price.short = int(SaveGame.data["coins"]) < cost
+	price.queue_redraw()
 	var ok := SaveGame.can_level(selected)
 	upgrade.disabled = not ok
 	upgrade.modulate = Color.WHITE if ok else Color(0.62, 0.6, 0.58)
@@ -271,3 +282,20 @@ class CardBar extends Control:
 			var pill := Rect2(size.x - 56, 3, 52, size.y - 6)
 			UiKit.ch_fill(self, pill, pill.size.y * 0.5, Color("ffe3a0"), Color("9a6a20"))
 			UiKit.draw_text(self, UiKit.font_b, Vector2(pill.position.x, size.y * 0.72), "+%d" % surplus, 20, Color("2a1806"), Color(1, 0.95, 0.8, 0.0), 0, pill.size.x)
+
+
+## Dark pill with a stamped coin and the upgrade cost (red when short).
+class PriceTag extends Control:
+	var amount := 0
+	var short := false
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		UiKit.ensure()
+		var r := Rect2(Vector2.ZERO, size)
+		UiKit.ch_fill(self, r.grow(2), size.y * 0.5, Color("c9a35c"), Color("5a3a14"))
+		UiKit.ch_fill(self, r, size.y * 0.5, Color("231a12"), Color("0c0907"))
+		UiKit.draw_currency(self, "coin", Rect2(4, 4, size.y - 8, size.y - 8))
+		UiKit.draw_text(self, UiKit.font_b, Vector2(size.y, size.y * 0.72), str(amount), 28, Color("ff8a7a") if short else UiKit.CREAM, Color(0.04, 0.03, 0.02), 3, size.x - size.y - 8.0)

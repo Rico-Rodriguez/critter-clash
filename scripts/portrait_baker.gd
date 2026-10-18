@@ -102,7 +102,9 @@ func _bake(id: String, head: bool) -> void:
 	# Plate knights: more ambient and a hotter key so blackened steel keeps
 	# its form at card size instead of going near-black.
 	var plate := Gear3D.has_kit(id)
-	_env.ambient_light_energy = 0.38 if dragon else (1.25 if plate else 0.75)
+	_plate = plate
+	_env.tonemap_exposure = 1.4 if plate else 1.05
+	_env.ambient_light_energy = 0.38 if dragon else (0.9 if plate else 0.75)
 	_env.adjustment_saturation = 0.95 if dragon else 1.12
 	_key.light_energy = 2.6 if dragon else (2.6 if plate else 1.9)
 	# A cooler key keeps the dragon's reds in wine rather than orange.
@@ -178,7 +180,31 @@ func _aim(look: Vector3, window: float, dir: Vector3) -> void:
 	_cam.look_at(look, Vector3.UP)
 
 
+var _plate := false
+
+
+## Plate needs a real sky to mirror, and Godot only feeds sky reflections
+## when the sky is the background: render once over the sky for colour and
+## once over transparent black for the alpha, then combine.
 func _grab() -> Image:
+	if _plate:
+		_env.background_mode = Environment.BG_SKY
+		var lit := await _grab_once()
+		_env.background_mode = Environment.BG_COLOR
+		var mask := await _grab_once()
+		for y in lit.get_height():
+			for x in lit.get_width():
+				var m := mask.get_pixel(x, y)
+				var c := lit.get_pixel(x, y)
+				if m.a < 0.98:
+					# Edge: un-premultiply the black-backed pass (no sky fringe).
+					c = Color(m.r / maxf(m.a, 0.01), m.g / maxf(m.a, 0.01), m.b / maxf(m.a, 0.01))
+				lit.set_pixel(x, y, Color(c.r, c.g, c.b, m.a))
+		return lit
+	return await _grab_once()
+
+
+func _grab_once() -> Image:
 	for _i in 3:
 		await RenderingServer.frame_post_draw
 	var img := _vp.get_texture().get_image()

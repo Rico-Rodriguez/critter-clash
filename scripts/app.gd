@@ -160,9 +160,9 @@ func _capture() -> void:
 		var steps := [
 			["progress_0_bare", []],
 			["progress_1_camp_iron", ["helm.1", "boots.1", "weapon.1"]],
-			["progress_2_chest_iron", ["chest.1", "gloves.1", "pauldrons.1", "offhand.1"]],
-			["progress_3_boss_steel", ["helm.2", "chest.2", "pauldrons.2", "gloves.2", "boots.2", "weapon.2", "offhand.2"]],
-			["progress_4_rune", ["helm.3", "chest.3", "pauldrons.3", "gloves.3", "boots.3", "weapon.3", "offhand.3"]],
+			["progress_2_chest_iron", ["chest.1", "gloves.1", "pauldrons.1", "offhand.1", "charm.1"]],
+			["progress_3_boss_steel", ["helm.2", "chest.2", "pauldrons.2", "gloves.2", "boots.2", "weapon.2", "offhand.2", "charm.2"]],
+			["progress_4_rune", ["helm.3", "chest.3", "pauldrons.3", "gloves.3", "boots.3", "weapon.3", "offhand.3", "charm.3"]],
 		]
 		for st in steps:
 			if str(st[0]).ends_with("steel") or str(st[0]).ends_with("rune"):
