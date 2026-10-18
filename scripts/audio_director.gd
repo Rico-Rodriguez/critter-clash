@@ -91,6 +91,21 @@ func _ready() -> void:
 	call_deferred("_load_settings")
 
 
+## Exit hygiene: a voice still playing at quit keeps its AudioStreamPlayback
+## and OggPacketSequencePlayback (plus the stream) alive until the mixer next
+## runs — and the dummy driver in a headless run never mixes — so leak
+## "ObjectDB instances leaked" / "resources still in use" lines. Stop every
+## voice before the tree goes; the real mixer finishes what is playing.
+func _exit_tree() -> void:
+	print("DBG_EXIT stopping voices")
+	for p in _pool:
+		p.stop()
+		p.stream = null
+	for d in _decks:
+		d.stop()
+		d.stream = null
+
+
 ## Music, SFX and UI buses into Master. Effects get a gentle compressor so
 ## a swarm of hits stays punchy without stacking into distortion, and the
 ## master has a hard limiter as the last guard.
@@ -235,6 +250,7 @@ func sfx(event: String, db := 0.0, pitch := 1.0) -> void:
 	var jitter := float(spec[3])
 	player.pitch_scale = pitch * (1.0 + randf_range(-jitter, jitter))
 	player.volume_db = float(spec[0]) + db + randf_range(-1.2, 1.2)
+	print("DBG_SFX ", event, " ", path, " t=", Time.get_ticks_msec())
 	player.play()
 
 
