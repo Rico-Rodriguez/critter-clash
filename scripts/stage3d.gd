@@ -3725,16 +3725,16 @@ func _biome_mood(biome_id: String) -> void:
 	var grass := Vector3.ONE
 	match biome_id:
 		"mushroom":
-			# Mood from the vignette and the plum props, not a purple wash:
-			# thin neutral-violet fog and a near-white moon so ground, hero
-			# and foes separate.
-			env.fog_light_color = Color(0.3, 0.27, 0.34)
-			env.fog_density = 0.0022
-			env.ambient_light_color = Color("c2bcd2")
-			env.ambient_light_energy = maxf(env.ambient_light_energy, 0.62)
-			sun.light_color = Color("eee6ff")
-			sun.light_energy = 1.35
-			grass = Vector3(0.86, 0.9, 1.0)
+			# Night biome, crisp pass: a bright near-white moon key, a neutral
+			# fill and only a breath of neutral fog, so the models read like
+			# the showcase renders; the mood lives in the props and the boss.
+			env.fog_light_color = Color(0.36, 0.37, 0.41)
+			env.fog_density = 0.0007
+			env.ambient_light_color = Color("c4c7d3")
+			env.ambient_light_energy = 0.8
+			sun.light_color = Color("f4f2ff")
+			sun.light_energy = 1.75
+			grass = Vector3(0.92, 0.95, 1.0)
 		"frost":
 			env.fog_light_color = Color(0.72, 0.8, 0.94)
 			env.fog_density = 0.005
@@ -3749,14 +3749,36 @@ func _biome_mood(biome_id: String) -> void:
 			sun.light_color = Color("ff9a5a")
 			sun.light_energy = 1.25
 			grass = Vector3(0.45, 0.36, 0.3)
+	if biome_id in ["meadow", "mushroom"]:
+		_crisp_hunt(env, biome_id)
 	for mat in _grass_mats:
 		(mat as ShaderMaterial).set_shader_parameter("biome_tint", grass)
+
+
+## Hunt-only crisp grade for the meadow and the night biome (both lairs
+## included): this edits the hunt stage's own Environment, never the shared
+## one the Heroes/Home pedestal builds. No bloom at all (the shared env
+## already has no grade), light neutral fog, a brighter exposure and fill,
+## and a stronger cool rim light.
+func _crisp_hunt(env: Environment, biome_id: String) -> void:
+	env.glow_enabled = false
+	env.tonemap_exposure = 1.22
+	env.fog_aerial_perspective = 0.04
+	if biome_id == "meadow":
+		env.fog_density = 0.0005
+		env.fog_light_color = Color(0.5, 0.56, 0.62)
+		env.ambient_light_energy = 0.68
+		sun.light_energy = 2.0
+	for child in world_root.get_children():
+		if child is DirectionalLight3D and child != sun:
+			# The cool rim from _lights: lift it so silhouettes separate.
+			(child as DirectionalLight3D).light_energy = 1.75
 
 
 func _biome_tint(biome_id: String) -> Vector3:
 	match biome_id:
 		"mushroom":
-			return Vector3(0.78, 0.88, 1.05)
+			return Vector3(0.86, 0.92, 1.0)
 		"frost":
 			return Vector3(0.84, 0.92, 1.08)
 		"volcano":

@@ -153,7 +153,8 @@ func build() -> void:
 func open(args: Dictionary = {}) -> void:
 	biome_id = str(args.get("biome", "meadow"))
 	if shade != null:
-		shade.modulate.a = 0.6 if biome_id == "mushroom" else 0.45
+		# Crisp pass: a light vignette, so the edges of the field stay readable.
+		shade.modulate.a = 0.55 if biome_id == "mushroom" else 0.45
 	hero_id = str(args.get("hero", "ember"))
 	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)

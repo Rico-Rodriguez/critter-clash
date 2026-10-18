@@ -3,7 +3,10 @@ extends RefCounted
 
 ## Grimdark lair bosses (art pass 2026-10-18: Gravemaw, Nightmaw): corrupted beasts that stand
 ## well over twice the hero's height, with burning eyes, a glowing core and
-## emissive corruption veins. Enemy-side only; Cast3D asks here first for
+## emissive corruption veins. Crisp pass: the artists' own PBR materials
+## (albedo, normal, roughness, metal at full resolution) with no grade,
+## repaint or rim shader over them; only the vein emission is added, and the
+## eyes and core are small and sharp. Enemy-side only; Cast3D asks here first for
 ## these ids, and Stage3D calls dress() after a boss model is sized.
 ## Models (CC-BY 4.0, see CREDITS.md) live in assets/models/sketchfab/boss/;
 ## their death/hit clips are KayKit (CC0) retargeted by tools/retarget.gd and
@@ -19,14 +22,14 @@ const BOSSES := {
 		"scene": DIR + "troll.tscn",
 		"clips": {"idle": "idle", "run": "run", "walk": "walk", "attack": "attack", "hit": "stagger", "death": "death", "perch": "idle"},
 		"glow": Color(1.0, 0.3, 0.06),
-		"grade": Color(0.6, 0.58, 0.56),
+		"vein_energy": 1.3,
 		"mats": {
 			"MI_Troll_Body_Mountain01_Upper": {"veins": DIR + "troll_veins_upper.png"},
 			"MI_Troll_Body_Mountain01_Lower": {"veins": DIR + "troll_veins_lower.png"},
 			"MI_Troll_Heads_Cave": {"veins": DIR + "troll_veins_head.png"},
 		},
 		"core_bone": "Spine2_027",
-		"core_size": 0.13,
+		"core_size": 0.07,
 		"eyes": "bones",
 		# Skinned AABB of this rig is ~2.8x its posed body (scaled bind
 		# space), so Stage3D's bounds-based sizing needs a boost: about 12 m
@@ -38,20 +41,13 @@ const BOSSES := {
 		"scene": DIR + "werewolf.tscn",
 		"clips": {"idle": "idle", "run": "run", "walk": "walk", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle"},
 		"glow": Color(0.55, 1.0, 0.22),
-		"grade": Color(1.18, 1.16, 1.2),
 		"mats": {
-			"Body": {"albedo_tex": DIR + "werewolf_paint.png", "veins": DIR + "werewolf_veins.png"},
-			"Wool": {"albedo_tex": DIR + "werewolf_wool_paint.png"},
+			"Body": {"veins": DIR + "werewolf_veins.png"},
 		},
 		"core_bone": "Chest_42",
-		"core_size": 0.14,
+		"core_size": 0.07,
 		"eyes": "Head_0",
-		# Dark fur on dark ground: lift the hide, burn the veins hotter, and
-		# edge the silhouette with a cold moonlit fresnel and a thin blight
-		# glow (one extra additive pass per surface) so it reads at range.
-		"vein_energy": 3.0,
-		"eye_scale": 1.7,
-		"rim": {"col": Color(0.62, 0.72, 0.78), "strength": 0.42, "power": 2.8, "glow": 0.45},
+		"vein_energy": 1.5,
 		# Hunched and seen from above, so it needs more scale than Gravemaw
 		# to read as big: ~2.7x the knight's on-screen height in the lair.
 		"size_boost": 1.45,
@@ -79,7 +75,7 @@ static func glow(id: String) -> Color:
 	return BOSSES[id]["glow"]
 
 
-## Restyle a sized boss model in place: matte graded hide with emissive veins,
+## Dress a sized boss model in place: emissive veins on the artist materials,
 ## burning eyes, a pulsing core on the chest bone, and (in the hunt) a slow
 ## drift of corruption embers. Costs: 1 core quad, 1 particle draw, eyes.
 static func dress(model: Node3D, id: String) -> void:
@@ -99,46 +95,8 @@ static func dress(model: Node3D, id: String) -> void:
 		# Portraits, banners and medallions: veins and eyes only. The core
 		# light blows out a close-up and its quad would punch the alpha.
 		return
-	if cfg.has("rim"):
-		_rim(model, cfg["rim"], col)
 	_core(model, sk, str(cfg["core_bone"]), float(cfg["core_size"]), col)
 	_embers(model, col)
-
-
-const RIM_SHADER := """shader_type spatial;
-render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
-uniform vec4 rim_col : source_color = vec4(0.6, 0.7, 0.8, 1.0);
-uniform vec4 glow_col : source_color = vec4(0.5, 1.0, 0.2, 1.0);
-uniform float strength = 0.5;
-uniform float power = 2.6;
-uniform float glow = 0.5;
-void fragment() {
-	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), power);
-	// A cold moonlit edge plus a tighter blight-green fringe at the very rim.
-	ALBEDO = rim_col.rgb * f * strength + glow_col.rgb * pow(f, 2.2) * glow;
-}
-"""
-
-
-## Silhouette rim for dark bosses: an additive fresnel next pass on every
-## hide material (hunt only; portraits keep their baked look).
-static func _rim(model: Node3D, rim: Dictionary, col: Color) -> void:
-	var sh := Shader.new()
-	sh.code = RIM_SHADER
-	var mat := ShaderMaterial.new()
-	mat.shader = sh
-	mat.set_shader_parameter("rim_col", rim.get("col", Color(0.6, 0.7, 0.8)))
-	mat.set_shader_parameter("glow_col", col)
-	mat.set_shader_parameter("strength", float(rim.get("strength", 0.5)))
-	mat.set_shader_parameter("power", float(rim.get("power", 2.6)))
-	mat.set_shader_parameter("glow", float(rim.get("glow", 0.5)))
-	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
-		if mi.mesh == null or str(mi.name).begins_with("BossEye"):
-			continue
-		for i in mi.mesh.get_surface_count():
-			var m := mi.get_surface_override_material(i) as StandardMaterial3D
-			if m != null:
-				m.next_pass = mat
 
 
 ## Low render tier: fewer embers, no core light. Loaded lazily so offline
@@ -157,36 +115,28 @@ static func _skeleton(model: Node) -> Skeleton3D:
 
 static func _materials(node: Node, cfg: Dictionary) -> void:
 	var mats: Dictionary = cfg["mats"]
-	var grade: Color = cfg["grade"]
 	var col: Color = cfg["glow"]
 	for mi: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 		if mi.mesh == null:
 			continue
+		# Full-detail mesh in the hunt: the far camera would otherwise pick a
+		# decimated LOD and soften the silhouette.
+		mi.lod_bias = 4.0
 		for i in mi.mesh.get_surface_count():
 			var base := mi.get_active_material(i)
 			if not base is StandardMaterial3D:
 				continue
-			var mat := (base as StandardMaterial3D).duplicate() as StandardMaterial3D
 			var o: Dictionary = mats.get(base.resource_name, {})
-			# Matte, damp hide: no metal, low spec, a cold thin rim.
-			mat.metallic = 0.0
-			mat.metallic_texture = null
-			mat.metallic_specular = 0.3
-			mat.roughness_texture = null
-			mat.roughness = 0.84
-			mat.clearcoat_enabled = false
-			mat.rim_enabled = true
-			mat.rim = 0.18
-			mat.rim_tint = 0.85
-			if o.has("albedo_tex"):
-				mat.albedo_texture = load(str(o["albedo_tex"]))
-			mat.albedo_color = mat.albedo_color * grade
-			if o.has("veins"):
-				mat.emission_enabled = true
-				mat.emission = col
-				mat.emission_energy_multiplier = float(cfg.get("vein_energy", 1.6))
-				mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
-				mat.emission_texture = load(str(o["veins"]))
+			if not o.has("veins"):
+				continue  # the artist's material, untouched
+			# Same material plus the corruption veins as a multiplied emission
+			# mask; albedo, normal, roughness and metal stay as authored.
+			var mat := (base as StandardMaterial3D).duplicate() as StandardMaterial3D
+			mat.emission_enabled = true
+			mat.emission = col
+			mat.emission_energy_multiplier = float(cfg.get("vein_energy", 1.4))
+			mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+			mat.emission_texture = load(str(o["veins"]))
 			mi.set_surface_override_material(i, mat)
 
 
@@ -227,7 +177,8 @@ void vertex() {
 void fragment() {
 	float d = length(uv - 0.5) * 2.0;
 	float pulse = 0.78 + 0.22 * sin(TIME * 3.1) + 0.08 * sin(TIME * 7.7);
-	float core = (exp(-d * d * 18.0) * 1.6 + exp(-d * d * 4.0) * 0.45) * (1.0 - smoothstep(0.55, 1.0, d));
+	// A small hot point with a tight halo: sharp, not a smeared bloom.
+	float core = (exp(-d * d * 34.0) * 1.7 + exp(-d * d * 9.0) * 0.18) * (1.0 - smoothstep(0.6, 1.0, d));
 	ALBEDO = col.rgb * core * energy * pulse;
 }
 """
@@ -263,7 +214,7 @@ static func _core(model: Node3D, sk: Skeleton3D, bone_name: String, frac: float,
 	var light := OmniLight3D.new()
 	light.name = "BossCoreLight"
 	light.light_color = col
-	light.light_energy = 2.4
+	light.light_energy = 1.2
 	light.shadow_enabled = false
 	light.light_specular = 0.2
 	var s := _bone_scale(model, sk, b)
@@ -357,7 +308,7 @@ static func _embers(model: Node3D, col: Color) -> void:
 		return  # low tier: no ember particles (the core and veins carry the glow)
 	var p := GPUParticles3D.new()
 	p.name = "BossEmbers"
-	p.amount = 28
+	p.amount = 10
 	# Distance cull: the embers only matter near the boss; past ~3.5 boss
 	# heights (the explore camera far away) the system is not drawn at all.
 	p.visibility_range_end = meters * 3.5
@@ -388,7 +339,7 @@ static func _embers(model: Node3D, col: Color) -> void:
 	pm.color_ramp = gt
 	p.process_material = pm
 	var quad := QuadMesh.new()
-	quad.size = Vector2.ONE * meters * 0.022
+	quad.size = Vector2.ONE * meters * 0.012
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
