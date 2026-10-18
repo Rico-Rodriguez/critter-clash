@@ -79,7 +79,9 @@ const KITS := {
 ## Finish per tier: plate tint, soft-material (leather/cloth) tint, wear,
 ## runes, roughness. Cloth (tabard) takes "cloth".
 const FINISH := [
-	{"metal": Color(0.78, 0.76, 0.72), "soft": Color(0.82, 0.78, 0.7), "cloth": Color(0.72, 0.68, 0.6), "wear": 0.55, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.08, "gain": 0.85, "groove": 0.3},
+	# T0 Bare: the plate shapes read as dark boiled leather over a padded
+	# linen gambeson (stitching from the panel lines), no metal sheen.
+	{"metal": Color(1.0, 1.0, 1.0), "soft": Color(0.5, 0.45, 0.38), "cloth": Color(0.4, 0.36, 0.3), "wear": 0.35, "rune": 0.0, "rough_mul": 0.9, "rough_add": 0.32, "gain": 0.2, "groove": 0.6, "edge_hi": 0.3, "edge_col": Color(0.55, 0.38, 0.22), "metal_cap": 0.06, "leather": 1.0},
 	# T1 Dented Iron: warm, light, riveted; dark grooves, dull bevels.
 	{"metal": Color(1.62, 1.42, 1.12), "soft": Color(0.74, 0.6, 0.48), "cloth": Color(0.5, 0.38, 0.27), "wear": 1.0, "rune": 0.0, "rough_mul": 1.05, "rough_add": 0.2, "gain": 0.9, "groove": 0.75, "edge_hi": 0.2, "edge_col": Color(0.7, 0.55, 0.38)},
 	# T2 Blackened Steel: cool blue-black, glossy, crisp bright bevels.
@@ -98,31 +100,52 @@ static func anims(id: String) -> String:
 	return str(KITS.get(id, {}).get("anims", ""))
 
 
-## Gear tiers for a hero from the save: rarity of the equipped weapon/armour.
+const SLOTS := ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"]
+const ARMOR_SLOTS := ["helm", "chest", "pauldrons", "gloves", "boots"]
+
+
+## Per-slot tiers for a hero: {slot: tier} for all eight SLOTS, plus legacy
+## "weapon"/"armor" keys ("armor" = the chest tier). Source order: the
+## capture override, CC_GEAR (e.g. CC_GEAR=3, CC_GEAR=weapon:3,armor:2 or
+## CC_GEAR=helm:2,chest:1), then GearDB (what the player has equipped).
 static func tiers(id: String) -> Dictionary:
-	var out := {"weapon": 0, "armor": 0}
+	var out := {}
+	for sl in SLOTS:
+		out[sl] = 0
+	var src := {}
 	if not override.is_empty():
-		out.merge(override, true)
-		return out
-	var env := OS.get_environment("CC_GEAR")
-	if env != "":
-		for part in env.split(","):
+		src = override
+	elif OS.get_environment("CC_GEAR") != "":
+		for part in OS.get_environment("CC_GEAR").split(","):
 			var kv := part.split(":")
 			if kv.size() == 2:
-				out[kv[0]] = int(kv[1])
+				src[kv[0]] = int(kv[1])
 			else:
-				out["weapon"] = int(part)
-				out["armor"] = int(part)
-		return out
-	var save: Variant = Engine.get_main_loop().root.get_node_or_null("/root/SaveGame") if Engine.get_main_loop() is SceneTree else null
-	if save == null or not save.data.has("heroes") or not save.data["heroes"].has(id):
-		return out
-	for slot in ["weapon", "armor"]:
-		var uid := int(save.data["heroes"][id].get(slot, 0))
-		if uid <= 0:
-			continue
-		var piece: Dictionary = save.find_gear(uid)
-		out[slot] = rarity_tier(str(piece.get("rarity", "")))
+				src["weapon"] = int(part)
+				src["armor"] = int(part)
+	else:
+		src = GearDB.tiers(id)
+	return expand(src)
+
+
+## Legacy {"weapon", "armor"} expands to every slot; explicit slots win.
+static func expand(t: Dictionary) -> Dictionary:
+	var out := {}
+	for sl in SLOTS:
+		out[sl] = 0
+	if t.has("armor"):
+		for sl in ARMOR_SLOTS:
+			out[sl] = int(t["armor"])
+		out["charm"] = int(t["armor"])
+	if t.has("weapon"):
+		out["weapon"] = int(t["weapon"])
+		if t.has("armor"):
+			out["offhand"] = int(t["weapon"])
+	for sl in SLOTS:
+		if t.has(sl):
+			out[sl] = clampi(int(t[sl]), 0, 3)
+	out["armor"] = out["chest"]
+	out["weapon"] = out["weapon"]
 	return out
 
 
@@ -151,11 +174,11 @@ static func hide_own(model: Node3D, id: String) -> void:
 static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 	if not KITS.has(id):
 		return
-	if t.is_empty():
-		t = tiers(id)
+	t = tiers(id) if t.is_empty() else expand(t)
 	var kit: Dictionary = KITS[id]
-	var wt := clampi(int(t.get("weapon", 0)), 0, 3)
-	var at := clampi(int(t.get("armor", 0)), 0, 3)
+	var wt := clampi(int(t["weapon"]), 0, 3)
+	var ot := clampi(int(t["offhand"]), 0, 3)
+	var at := clampi(int(t["chest"]), 0, 3)
 	var sk: Skeleton3D = model.find_children("*", "Skeleton3D", true, false)[0]
 	# The model's own swords double as tier meshes; take them before hiding.
 	var own := {}
@@ -165,26 +188,33 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 			for m: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
 				if not own.has(String(n.name)):
 					own[String(n.name)] = m
-	# Plate finish on the body and tabard.
+	var slot_t := PackedInt32Array()
+	for sl in SLOTS:
+		slot_t.append(int(t[sl]))
+	# Per-slot finish on the body: vertices carry their slot (COLOR.r).
 	for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
-		if m.skin == null:
+		if m.skin == null or not m.visible or m.get_parent().name in kit["hide"]:
 			continue
+		_tag_slots(m, sk)
 		for i in m.mesh.get_surface_count():
 			var src := m.mesh.surface_get_material(i) as BaseMaterial3D
 			if src == null:
 				continue
 			var cloth := src.resource_name.to_lower().contains("cloth")
 			var fm := finish(src, at, cloth)
-			# Busy albedo (ribbed plate) catches more seams: per-kit gain.
-			fm.set_shader_parameter("seam_glow", float(FINISH[at].get("seam", 0.0)) * float(kit.get("seam", 1.0)))
+			fm.set_shader_parameter("use_slots", 1.0)
+			fm.set_shader_parameter("slot_tier", slot_t)
+			fm.set_shader_parameter("seam_gain", float(kit.get("seam", 1.0)))
 			if kit.get("flesh", false):
 				# Hide tiers: pale -> ash grey -> charcoal -> blood-veined.
 				var hide_tint: Array = kit.get("soft_tints", [Color(0.95, 0.92, 0.85), Color(0.72, 0.74, 0.74), Color(0.36, 0.33, 0.33), Color(0.26, 0.2, 0.2)])
-				var ht: Color = hide_tint[at]
-				fm.set_shader_parameter("soft_tint", Vector3(ht.r, ht.g, ht.b))
+				var tints := PackedVector3Array()
+				for c: Color in hide_tint:
+					tints.append(Vector3(c.r, c.g, c.b))
+				fm.set_shader_parameter("t_soft_tint", tints)
 				fm.set_shader_parameter("flesh", 1.0)
 				fm.set_shader_parameter("desat", float(kit.get("desat", 0.0)))
-				fm.set_shader_parameter("groove", [0.2, 0.6, 0.45, 0.3][at])
+				fm.set_shader_parameter("t_groove", PackedFloat32Array([0.2, 0.6, 0.45, 0.3]))
 			m.set_surface_override_material(i, fm)
 	var sockets: Dictionary = {}
 	var lib := load(str(kit["anims"])) as AnimationLibrary
@@ -195,7 +225,9 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 		var v := OS.get_environment("CC_MAIN_XF").split_floats(",")
 		main_xf = [Vector3(v[0], v[1], v[2]), Vector3(v[3], v[4], v[5])]
 	_mount(sk, sockets.get("hand_r", {}), str(kit["main"][wt]), own, wt, main_xf, "GearMain")
-	_mount(sk, sockets.get("hand_l", {}), str(kit["off"][wt]), own, wt, kit["off_xf"], "GearOff")
+	# Off-hand: nothing until one is earned (bare = no shield).
+	var off_src := str(kit["off"][ot]) if ot > 0 else ""
+	_mount(sk, sockets.get("hand_l", {}), off_src, own, ot, kit["off_xf"], "GearOff")
 	if kit.has("rune"):
 		var rc: Color = kit["rune"]
 		for n in model.find_children("*", "MeshInstance3D", true, false):
@@ -204,7 +236,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 				var sm := mi.get_surface_override_material(i) as ShaderMaterial
 				if sm and sm.shader == SHADER:
 					sm.set_shader_parameter("rune_color", rc)
-	model.set_meta("gear_tiers", {"weapon": wt, "armor": at})
+	model.set_meta("gear_tiers", t)
 
 
 static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Dictionary, tier: int, adj: Array, label: String) -> void:
@@ -251,7 +283,6 @@ static func set_rim(model: Node, c: Color) -> void:
 
 ## A tier finish built over a source PBR material.
 static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false) -> ShaderMaterial:
-	var f: Dictionary = FINISH[clampi(tier, 0, 3)]
 	var mat := ShaderMaterial.new()
 	mat.shader = SHADER
 	mat.set_shader_parameter("albedo_tex", src.albedo_texture)
@@ -266,34 +297,125 @@ static func finish(src: BaseMaterial3D, tier: int, cloth := false, prop := false
 		mat.set_shader_parameter("rough_ch", _ch(src.roughness_texture_channel))
 	else:
 		mat.set_shader_parameter("rough_ch", Vector4.ZERO)
-		mat.set_shader_parameter("rough_add", src.roughness)
 	mat.set_shader_parameter("has_normal", 1.0 if src.normal_enabled and src.normal_texture else 0.0)
 	if src.normal_texture:
 		mat.set_shader_parameter("normal_tex", src.normal_texture)
-	var metal: Color = f["metal"]
-	var soft: Color = f["cloth"] if cloth else f["soft"]
-	mat.set_shader_parameter("metal_tint", Vector3(metal.r, metal.g, metal.b))
-	mat.set_shader_parameter("soft_tint", Vector3(soft.r, soft.g, soft.b))
-	mat.set_shader_parameter("wear", f["wear"])
-	mat.set_shader_parameter("rune", f["rune"])
+	var arrs := {}
+	for k in ["t_metal_tint", "t_soft_tint", "t_edge_col"]:
+		arrs[k] = PackedVector3Array()
+	for k in ["t_wear", "t_rough_mul", "t_rough_add", "t_gain", "t_groove", "t_edge_hi", "t_edge_emit", "t_metal_cap", "t_seam", "t_leather"]:
+		arrs[k] = PackedFloat32Array()
+	for f: Dictionary in FINISH:
+		var metal: Color = f["metal"]
+		var soft: Color = f["cloth"] if cloth else f["soft"]
+		var ec: Color = f.get("edge_col", Color(0.55, 0.57, 0.62))
+		arrs["t_metal_tint"].append(Vector3(metal.r, metal.g, metal.b))
+		arrs["t_soft_tint"].append(Vector3(soft.r, soft.g, soft.b))
+		arrs["t_edge_col"].append(Vector3(ec.r, ec.g, ec.b))
+		arrs["t_wear"].append(f["wear"])
+		arrs["t_rough_mul"].append(f["rough_mul"])
+		arrs["t_rough_add"].append(float(f["rough_add"]) if src.roughness_texture else src.roughness + maxf(float(f["rough_add"]), 0.0))
+		arrs["t_gain"].append(f["gain"])
+		arrs["t_groove"].append(f.get("groove", 0.0))
+		arrs["t_edge_hi"].append(f.get("edge_hi", 0.0))
+		arrs["t_edge_emit"].append(f.get("edge_emit", 0.0))
+		arrs["t_metal_cap"].append(f.get("metal_cap", 1.0))
+		arrs["t_seam"].append(f.get("seam", 0.0))
+		# Props (blades, shields) never go leather: bare weapons stay steel.
+		arrs["t_leather"].append(0.0 if prop else f.get("leather", 0.0))
+	for k in arrs:
+		mat.set_shader_parameter(k, arrs[k])
 	mat.set_shader_parameter("rune_color", RUNE)
-	mat.set_shader_parameter("rough_mul", f["rough_mul"])
-	if src.roughness_texture:
-		mat.set_shader_parameter("rough_add", f["rough_add"])
-	mat.set_shader_parameter("metal_gain", f["gain"])
+	mat.set_shader_parameter("fixed_tier", clampi(tier, 0, 3))
+	mat.set_shader_parameter("use_slots", 0.0)
 	if prop:
-		# Props have their own UV scale; runes a touch larger on blades and shields.
 		mat.set_shader_parameter("rune_scale", 30.0)
-	mat.set_shader_parameter("groove", f.get("groove", 0.0))
-	mat.set_shader_parameter("edge_hi", f.get("edge_hi", 0.0))
-	mat.set_shader_parameter("seam_glow", f.get("seam", 0.0))
-	var ec: Color = f.get("edge_col", Color(0.55, 0.57, 0.62))
-	mat.set_shader_parameter("edge_col", Vector3(ec.r, ec.g, ec.b))
-	mat.set_shader_parameter("edge_emit", f.get("edge_emit", 0.0))
-	mat.set_shader_parameter("metal_cap", f.get("metal_cap", 1.0))
 	if src.cull_mode == BaseMaterial3D.CULL_DISABLED or cloth:
 		mat.render_priority = 0
 	return mat
+
+
+## Slot of a skeleton bone by name (index into SLOTS).
+static func bone_slot(bone: String) -> int:
+	var b := bone.to_lower()
+	for k in ["staff", "whisp", "smoke"]:
+		if k in b:
+			return 5
+	if "bell" in b:
+		return 6
+	if "crow" in b or "accesoire" in b:
+		return 7
+	for k in ["head", "neck", "top", "tip", "jaw", "lip", "eye", "face"]:
+		if k in b:
+			return 0
+	for k in ["elbow", "wrist", "hand", "thumb", "point", "middle", "ring", "pink", "joint_3", "arm_lower"]:
+		if k in b:
+			return 3
+	for k in ["shoulder", "_arm", "arm_upper"]:
+		if k in b:
+			return 2
+	for k in ["knee", "ankle", "foot", "toes", "leg_left_lower", "leg_right_lower"]:
+		if k in b:
+			return 4
+	return 1
+
+
+## Tagged copies of skinned meshes, shared across spawns (keyed by mesh).
+static var _tagged := {}
+
+
+## Writes each vertex's gear slot (by its dominant bone) into COLOR.r so the
+## shader can pick that slot's tier. Done once per mesh resource.
+static func _tag_slots(mi: MeshInstance3D, sk: Skeleton3D) -> void:
+	var src := mi.mesh as ArrayMesh
+	if src == null or src.has_meta("slot_tagged"):
+		return
+	var key := src.get_instance_id()
+	if _tagged.has(key):
+		mi.mesh = _tagged[key]
+		return
+	var skin := mi.skin
+	var bind_slot := PackedInt32Array()
+	for bi in skin.get_bind_count():
+		var bname := String(skin.get_bind_name(bi))
+		if bname == "":
+			var bone := skin.get_bind_bone(bi)
+			bname = sk.get_bone_name(bone) if bone >= 0 and bone < sk.get_bone_count() else ""
+		bind_slot.append(bone_slot(bname))
+	var out := ArrayMesh.new()
+	for bi in src.get_blend_shape_count():
+		out.add_blend_shape(src.get_blend_shape_name(bi))
+	out.blend_shape_mode = src.blend_shape_mode
+	for si in src.get_surface_count():
+		var arrays := src.surface_get_arrays(si)
+		var fmt := src.surface_get_format(si)
+		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+		var nv: int = (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+		var per := 8 if (fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) else 4
+		var cols := PackedColorArray()
+		cols.resize(nv)
+		for v in nv:
+			var best := 0
+			var bw := -1.0
+			for k in per:
+				var w := weights[v * per + k]
+				if w > bw:
+					bw = w
+					best = bones[v * per + k]
+			var slot := bind_slot[best] if best < bind_slot.size() else 1
+			cols[v] = Color(slot / 7.0, 0, 0, 1)
+		arrays[Mesh.ARRAY_COLOR] = cols
+		# Keep custom-channel formats and the 8-weight flag; drop compression
+		# (the arrays come back decompressed).
+		var flags := fmt & ~Mesh.ARRAY_FLAG_COMPRESS_ATTRIBUTES
+		var bs := src.surface_get_blend_shape_arrays(si)
+		out.add_surface_from_arrays(src.surface_get_primitive_type(si), arrays, bs, {}, flags)
+		out.surface_set_material(si, src.surface_get_material(si))
+		out.surface_set_name(si, src.surface_get_name(si))
+	out.set_meta("slot_tagged", true)
+	_tagged[key] = out
+	mi.mesh = out
 
 
 static func _ch(c: int) -> Vector4:
