@@ -117,6 +117,18 @@ func _capture() -> void:
 	if cap_hero != "":
 		SaveGame.hero(cap_hero)["unlocked"] = true
 		SaveGame.set_featured(cap_hero)
+	# Captures show the whole four-knight roster.
+	for hid in Catalog.playable_ids():
+		SaveGame.hero(hid)["unlocked"] = true
+	# CC_DEMO_GEAR: a few earned pieces on the featured hero (iron helm,
+	# gloves and weapon on; a blackened chest owned but locked behind
+	# Defence 20) so the equip layout shows filled, empty and locked states.
+	if OS.get_environment("CC_DEMO_GEAR") != "":
+		var fh := SaveGame.featured_id()
+		for piece in ["helm.1", "gloves.1", "weapon.1", "chest.2", "boots.1"]:
+			GearDB.grant("%s.%s" % [fh, piece])
+		for piece in ["helm.1", "gloves.1", "weapon.1"]:
+			GearDB.equip(fh, "%s.%s" % [fh, piece])
 	if _wants("home"):
 		go("home")
 		await _settle()
@@ -131,6 +143,13 @@ func _capture() -> void:
 		go("heroes", {"biome": "meadow"})
 		await _settle()
 		await _shot("heroes")
+	if _wants("equip"):
+		go("heroes", {"biome": "meadow"})
+		await _settle()
+		if current != null and current.has_method("open_slot"):
+			current.open_slot("chest")
+		await _settle()
+		await _shot("equip")
 	SaveGame.data["heroes"]["ember"]["cards"] = 8
 	if _wants("collection"):
 		go("collection")

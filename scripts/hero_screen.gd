@@ -16,6 +16,7 @@ var stat_line: Label
 var hunt: Button
 var stage_slot: Control
 var showcase: Control
+var sockets: Array = []
 
 
 func build() -> void:
@@ -65,7 +66,7 @@ func build() -> void:
 	# Three tiles a row: six unlocked heroes wrap to two rows instead of
 	# running off the screen.
 	list = GridContainer.new()
-	list.columns = 3
+	list.columns = 4
 	list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	list.add_theme_constant_override("h_separation", 16)
 	list.add_theme_constant_override("v_separation", 12)
@@ -115,6 +116,10 @@ func _fill() -> void:
 	showcase.hero_id = selected
 	showcase.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage_slot.add_child(showcase)
+	for sock in sockets:
+		if is_instance_valid(sock) and is_instance_valid(sock.get_parent()):
+			sock.get_parent().queue_free()
+	sockets = EquipUI.sockets(stage_slot, selected, float(insets()["t"]) + 200.0, open_slot)
 	var info := Catalog.critter(selected)
 	var stats := SaveGame.build_run_stats(selected)
 	var equipped := selected == SaveGame.featured_id()
@@ -125,8 +130,13 @@ func _fill() -> void:
 	gear_line.text = "Health %d   ·   Damage %d\n%s" % [
 		int(round(float(stats["hp"]))),
 		int(round(float(stats["dmg"]))),
-		SaveGame.equipped_line(selected),
+		EquipUI.summary(selected),
 	]
+
+
+func open_slot(slot: String) -> void:
+	AudioDirector.play("click")
+	EquipUI.sheet(self, selected, slot, _fill)
 
 
 func _tile(id: String) -> Control:
@@ -137,7 +147,7 @@ func _tile(id: String) -> Control:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.flat = true
-	b.custom_minimum_size = Vector2(196, 230)
+	b.custom_minimum_size = Vector2(158, 206)
 	var empty := StyleBoxEmpty.new()
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(st, empty)
@@ -157,7 +167,7 @@ func _tile(id: String) -> Control:
 	b.add_child(v)
 	var medal := UiKit.Medal.new()
 	medal.tex = SpriteBank.head(id)
-	medal.custom_minimum_size = Vector2(112, 112)
+	medal.custom_minimum_size = Vector2(100, 100)
 	medal.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(medal)
 	var n := UiKit.label(str(info["name"]).to_upper(), 20, UiKit.GOLD.lightened(0.2) if on else UiKit.CREAM, "x", 3)
