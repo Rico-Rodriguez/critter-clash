@@ -287,7 +287,7 @@ func _hunt() -> void:
 	var hero = run.sim.heroes[0]
 	var lair: Vector2 = run.sim.map.lair
 	hero.pos = run.sim.map.push_inside(lair + (hero.pos - lair).normalized() * run.sim.map.lair_r * 1.15, hero.radius)
-	hero.iframes = 3.0
+	hero.dodge_iframes = 3.0
 	await _wait(1.0)
 	_touch(run, STICK_HOME, true)
 	await _hold(run, lair - hero.pos, 1.6)
@@ -341,7 +341,7 @@ func _walk(hero_id: String) -> void:
 	await _wait(0.6)
 	var run: Node = app.current
 	var sim = run.sim
-	sim.heroes[0].iframes = 999.0
+	sim.heroes[0].dodge_iframes = 999.0
 	var st: Stage3D = run.stage
 	var mem := {}
 	_touch(run, STICK_HOME, true)
@@ -466,7 +466,7 @@ func _profile() -> void:
 		if (c["pos"] as Vector2).distance_to(hero.pos) < best.distance_to(hero.pos) and (c["pos"] as Vector2).distance_to(sim.map.start) > 600.0:
 			best = c["pos"]
 	hero.pos = sim.map.push_inside(best + Vector2(0, 420), hero.radius)
-	hero.iframes = 30.0
+	hero.dodge_iframes = 30.0
 	await _wait(0.5)
 	_touch(run, STICK_HOME, true)
 	var a := await _sample(run, 4.0, Vector2(0.2, -1))

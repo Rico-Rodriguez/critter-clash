@@ -350,7 +350,7 @@ func _capture() -> void:
 		var near: Vector2 = sim.map.push_inside((best["pos"] as Vector2) + Vector2(0, 520), 40.0)
 		hero.pos = near
 		hero.prev = near
-		hero.iframes = 30.0
+		hero.dodge_iframes = 30.0
 		t0 = sim.time
 		while sim.time < t0 + 2.6:
 			await get_tree().process_frame
@@ -459,7 +459,7 @@ func _capture() -> void:
 		if _wants("xray") and current.sim.boss != null:
 			# Tuck the hero just behind the boss to show the x-ray rim.
 			var hero_actor = current.sim.heroes[0]
-			hero_actor.iframes = 5.0
+			hero_actor.dodge_iframes = 5.0
 			# Freeze the sim so knockback can't shove the hero back out.
 			current.sim.paused = true
 			for i in 24:
