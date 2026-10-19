@@ -5,11 +5,14 @@ extends Node
 ## ladder can persist without a save migration. Nothing reads them yet.
 
 const PATH := "user://critter_clash.json"
+## 5: the gathering skills are Woodcutting, Fishing and Mining (Catalog.SKILLS);
+## the old placeholder ids (foraging, taming, crafting) are dropped on load,
+## see migrate_gathering_skills.
 ## 4: heroes train for power, they no longer buy it (see migrate_training); the
 ## GearDB armory gains a "reinforce" map ({owned, equipped, xp, reinforce}).
 ## 3: the GearDB armory ({v, owned, equipped, xp}; legacy v2 saves migrate on
 ## load, see migrate_legacy_armory).
-const VERSION := 4
+const VERSION := 5
 
 var data: Dictionary = {}
 
@@ -484,6 +487,16 @@ func _grant_skill_xp(hero_id: String, skill: String, target: int) -> void:
 		GearDB.add_xp(hero_id, skill, shortfall)
 
 
+## Drops the gathering ids that are no longer skills. The gathering skills
+## are Woodcutting, Fishing and Mining (Catalog.SKILLS); foraging, taming and
+## crafting were placeholders that never had an XP source, so nothing is lost
+## by dropping them. Fishing keeps its XP: the id did not change.
+func migrate_gathering_skills() -> void:
+	for sid in data["skills"].keys():
+		if not GatheringDB.is_skill(str(sid)):
+			data["skills"].erase(sid)
+
+
 ## --- Daily Challenge local board -------------------------------------------
 ## data["daily"][key] = {"best": int, "runs": [{score, hero, time, result, at}]}
 ## kept sorted by score (top 10). This is the local leaderboard stub.
@@ -709,6 +722,62 @@ func set_active_pet(id: String) -> void:
 
 func material_count(id: String) -> int:
 	return int(data["materials"].get(id, 0))
+
+
+## Puts gathered materials in the bag and returns the new count. Materials are
+## one pool for boss drops and gathered resources alike (see docs/gathering.md).
+func add_material(id: String, amount: int) -> int:
+	if id == "" or amount <= 0:
+		return material_count(id)
+	data["materials"][id] = material_count(id) + amount
+	_write()
+	return int(data["materials"][id])
+
+
+# --- Gathering skills --------------------------------------------------------
+
+## Gathering is account-wide, not per hero (docs/gathering.md): the XP for
+## the three gathering skills lives in data["skills"], keyed by skill id, and
+## the level comes from the OSRS curve in Catalog.skill_level.
+
+## XP banked in a gathering skill. Unknown skills read 0.
+func gathering_xp(skill: String) -> int:
+	if not GatheringDB.is_skill(skill):
+		return 0
+	return int(data["skills"].get(skill, 0))
+
+
+## Level of a gathering skill (1-99 on the OSRS curve).
+func gathering_level(skill: String) -> int:
+	return Catalog.skill_level(gathering_xp(skill))
+
+
+## {skill_id: level} for every gathering skill.
+func gathering_skills() -> Dictionary:
+	var out := {}
+	for entry in Catalog.SKILLS:
+		var id := str(entry["id"])
+		out[id] = gathering_level(id)
+	return out
+
+
+## True when the account has reached `level` in a gathering skill.
+func gathering_reached(skill: String, level: int) -> bool:
+	return gathering_level(skill) >= level
+
+
+## Adds gathering XP and returns the levels gained (0 for an unknown skill or
+## a bad amount, and for a skill already at the top of the curve). Writes the
+## save.
+func add_gathering_xp(skill: String, amount: int) -> int:
+	if not GatheringDB.is_skill(skill) or amount <= 0:
+		return 0
+	var before := gathering_level(skill)
+	# The curve ends at 99, so XP past it is never banked.
+	var cap := Catalog.skill_xp_to_level(Catalog.MAX_SKILL_LEVEL)
+	data["skills"][skill] = mini(gathering_xp(skill) + amount, cap)
+	_write()
+	return gathering_level(skill) - before
 
 
 func assign_task(task_id: String = "") -> Dictionary:
@@ -1468,6 +1537,10 @@ func _fresh() -> Dictionary:
 			"cards": 1 if unlocked else 0,
 			"level": 1,
 		}
+	# Gathering XP, one entry per gathering skill (Catalog.SKILLS).
+	var skills := {}
+	for entry in Catalog.SKILLS:
+		skills[str(entry["id"])] = 0
 	return {
 		"save_version": VERSION,
 		"coins": 30,
@@ -1490,7 +1563,7 @@ func _fresh() -> Dictionary:
 		"cosmetic": "",
 		"mastery_claimed": [],
 		"slayer": {"points": 0, "streak": 0, "task": {}},
-		"skills": {"foraging": 0, "fishing": 0, "taming": 0, "crafting": 0},
+		"skills": skills,
 		"daily": {},
 		"pending_upload": [],
 		# Player options: AudioDirector merges its own values and clamps what
@@ -1634,6 +1707,7 @@ func _load() -> void:
 	_reconcile()
 	migrate_legacy_armory(old_version)
 	migrate_training()
+	migrate_gathering_skills()
 	_write()
 
 
