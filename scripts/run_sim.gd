@@ -271,6 +271,12 @@ const GOBLIN_CHANCE := 0.6
 const GOBLIN_SIGHT := 700.0
 const GOBLIN_LEASH := 1600.0
 const GOBLIN_LIFE := 12.0
+## The goblin's flight speed, as a share of the hero's own base speed: it
+## starts a shade under the hero, so a chasing hero can close the gap.
+const GOBLIN_SPEED := 0.92
+## How far the goblin tires over its flight: by the end of its window it
+## runs at this share of its start speed, so the chase can be won.
+const GOBLIN_TIRE := 0.45
 ## Loot chests on the map: {pos, tier, open}
 var chests: Array = []
 ## Shrines on the map: {pos, kind, used}. Claimed once by walking within
@@ -3264,7 +3270,7 @@ func _spawn_goblin(at: Vector2) -> Actor:
 	var base_speed := 150.0
 	if not heroes.is_empty() and bases.has(heroes[0].id):
 		base_speed = float(bases[heroes[0].id]["speed"])
-	actor.speed = base_speed * 1.15
+	actor.speed = base_speed * GOBLIN_SPEED
 	actor.dmg = 0.0
 	actor.interval = 999.0
 	actor.range = 0.0
@@ -3307,7 +3313,11 @@ func _step_goblin(actor: Actor, dt: float, target: Actor) -> void:
 			best_score = score
 			best_dir = d
 	actor.facing = best_dir.angle()
-	actor.vel = _slide(actor, best_dir * actor.speed * _slow_mul(actor))
+	# The goblin tires as it runs: the longer the flight lasts, the slower it
+	# flees, so a hero that keeps the chase can close and catch it before the
+	# window closes.
+	var tired := 1.0 - (1.0 - GOBLIN_TIRE) * clampf((GOBLIN_LIFE - actor.goblin_t) / GOBLIN_LIFE, 0.0, 1.0)
+	actor.vel = _slide(actor, best_dir * actor.speed * tired * _slow_mul(actor))
 	var was := actor.pos
 	actor.pos += actor.vel * dt
 	actor.pos = map.push_inside(actor.pos, actor.radius * 0.8)
