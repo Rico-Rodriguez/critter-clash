@@ -319,17 +319,9 @@ class Showcase extends Control:
 		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(stage)
 		stage.pedestal_fill = fill
-		if hero_id == "pebble":
-			# Aldric showcase look (hero-visual increment 1): dress the
-			# pedestal hero in T2 steel, the artist's full textured plate.
-			# Without this, dress() uses his equipped tiers, and a bare
-			# (T0) Aldric is stripped to the generated gambeson, which
-			# renders as untextured grey clay under the showcase rig.
-			# NOTE: bramble's kit shares this ("under" key); left for the
-			# next hero-visual increment per scope.
-			Gear3D.override = {"armor": 2, "weapon": 2}
+		# The pedestal dresses the hero from what is actually equipped
+		# (GearDB tiers); no showcase override, so a bare hero reads bare.
 		stage.bind_pedestal(hero_id)
-		Gear3D.override = {}
 		# Soft fade into the menu below, and a dark band under the pills.
 		var fade := Fade.new()
 		fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
