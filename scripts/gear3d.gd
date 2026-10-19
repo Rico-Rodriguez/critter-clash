@@ -494,6 +494,7 @@ const FINISH := [
 	{"metal": Color(0.09, 0.08, 0.09), "soft": Color(0.22, 0.18, 0.17), "cloth": Color(0.1, 0.08, 0.08), "wear": 0.08, "rune": 0.0, "rough_mul": 0.62, "rough_add": -0.05, "gain": 1.15, "edge_hi": 0.25, "edge_col": Color(1.0, 0.36, 0.12), "edge_emit": 0.6, "seam": 1.9, "metal_cap": 0.85},
 ]
 const RUNE := Color(1.0, 0.32, 0.08)
+const GOLD_TRIM := Color(0.85, 0.66, 0.24)
 
 
 static func has_kit(id: String) -> bool:
@@ -707,6 +708,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 		_rune_pauldrons(sk, t, kit)
 		if kit.get("plate", false):
 			Plate3D.dress(sk, id, t)
+			_gold_trim(sk, id, t)
 	else:
 		_charm(sk, t)
 
@@ -1120,6 +1122,36 @@ static func _rune_pauldrons(sk: Skeleton3D, t: Dictionary, kit: Dictionary) -> v
 		var holder := Node3D.new()
 		holder.add_child(mi)
 		_attach(sk, bi, "GearPauldron" + side.to_upper(), holder, Transform3D(b3, pos))
+
+
+## Premium accent: a thin gold rim ring on Aldric's procedural breastplate.
+## Mounted beside Plate3D.dress (which also frees earlier "Plate*"
+## children, this one included) so the two stay in sync on re-dress.
+static func _gold_trim(sk: Skeleton3D, id: String, t: Dictionary) -> void:
+	if id != "pebble" or int(t.get("chest", 0)) < 1:
+		return
+	var B: Dictionary = (Plate3D.BONES["pebble"] as Dictionary)
+	var bi := sk.find_bone(str(B["chest"]))
+	var hi := sk.find_bone(str(B["hips"]))
+	if bi < 0 or hi < 0:
+		return
+	var tier := clampi(int(t["chest"]), 1, 3)
+	var r: float = [0.0, 20.0, 22.0, 23.0][tier]
+	var cy := (sk.get_bone_global_rest(bi).origin.y + sk.get_bone_global_rest(hi).origin.y) * 0.5 + 8.0
+	var top: float = [0.0, 25.0, 27.0, 28.0][tier]
+	var tm := TorusMesh.new()
+	tm.inner_radius = r - 0.8
+	tm.outer_radius = r + 1.2
+	tm.rings = 24
+	tm.ring_segments = 6
+	var m := StandardMaterial3D.new()
+	m.albedo_color = GOLD_TRIM
+	m.metallic = 1.0
+	m.roughness = 0.3
+	var mi := MeshInstance3D.new()
+	mi.mesh = tm
+	mi.material_override = m
+	_attach(sk, bi, "PlateTrim", mi, Transform3D(Basis.from_scale(Vector3(1.3, 1.0, 0.95)), Vector3(0, cy + top - 0.9, 2.0)))
 
 
 ## Charm, showcase style: a real pendant on the chest (gilt medallion with
