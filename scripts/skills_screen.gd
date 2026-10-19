@@ -4,8 +4,9 @@ extends ScreenBase
 ## Skills splits into two tabs. Combat is per hero: GearDB's six combat skills
 ## for the hero shown by the local, view-only switcher (it never changes the
 ## save's featured hero). Each row is a forged plaque with the name, level and
-## an XP bar; combat skills fill from hunts. Gathering is a placeholder for the
-## account-wide skills still to come, with no fake progress.
+## an XP bar; combat skills fill from hunts. Gathering is account-wide: the
+## three skills in Catalog.SKILLS, with the levels the save already banks in
+## data["skills"].
 
 
 ## OSRS combat level for a hero's skill levels, keyed by GearDB.SKILL_KEYS.
@@ -33,6 +34,15 @@ static func total_level(hero: String) -> int:
 	var total := 0
 	for k in GearDB.SKILL_KEYS:
 		total += GearDB.level(hero, k)
+	return total
+
+
+## The account's total gathering level: the three gathering skills summed.
+## Gathering is account-wide, so this total is the same for every hero.
+static func gathering_total() -> int:
+	var total := 0
+	for entry in Catalog.SKILLS:
+		total += SaveGame.gathering_level(str(entry["id"]))
 	return total
 
 
@@ -150,8 +160,11 @@ func _show_tab(tab: String) -> void:
 		button.set_pressed_no_signal(key == tab)
 		button.modulate = Color(1.08, 1.02, 0.9) if key == tab else Color(0.6, 0.6, 0.64)
 	if _summary != null:
-		var hero := view_id()
-		_summary.text = "Total %d · Combat %d" % [total_level(hero), combat_level(GearDB.skills(hero))]
+		if tab == "gathering":
+			_summary.text = "Gathering total %d" % gathering_total()
+		else:
+			var hero := view_id()
+			_summary.text = "Total %d · Combat %d" % [total_level(hero), combat_level(GearDB.skills(hero))]
 	if _content == null:
 		return
 	for child in _content.get_children():
@@ -245,29 +258,56 @@ func _pick_hero(id: String) -> void:
 	_show_tab("combat")
 
 
+## The gathering tab: the account's three gathering skills, with the level the
+## save already holds and the XP toward the next one. Nothing here writes: the
+## XP is banked by the sim (RunSim) and read back from the save.
 func _gathering_tab() -> void:
-	var hold := CenterContainer.new()
-	hold.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_content.add_child(hold)
+	_content.add_child(_gathering_header())
+	_content.add_child(body("Levels 1–99; gathering XP comes from working nodes."))
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 16)
+	_content.add_child(list)
+	for id in GatheringDB.skill_ids():
+		list.add_child(GatheringRow.new(id, GatheringDB.skill_name(id)))
+
+
+## The account-wide block: the total gathering level on a crest beside the
+## three skill names. Gathering belongs to the account, not to a hero, so
+## there is no hero switcher here.
+func _gathering_header() -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(minf(640.0, get_viewport_rect().size.x - 64.0), 0)
 	var empty := StyleBoxEmpty.new()
-	for side in ["left", "right"]:
-		empty.set("content_margin_" + side, 34)
-	for side in ["top", "bottom"]:
-		empty.set("content_margin_" + side, 30)
+	for side in ["left", "right", "top", "bottom"]:
+		empty.set("content_margin_" + side, 18)
 	panel.add_theme_stylebox_override("panel", empty)
 	var fr := UiKit.Frame.new("panel", "leather")
 	fr.margin = 14.0
 	panel.add_child(fr)
-	hold.add_child(panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	panel.add_child(col)
-	var head := UiKit.label("GATHERING", 30, UiKit.GOLD.lightened(0.15), "x", 6)
-	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(head)
-	col.add_child(body("Gathering skills arrive soon: Woodcutting, Fishing, Mining"))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	col.add_child(row)
+	var crest := Crest.new()
+	crest.value = gathering_total()
+	crest.caption = "GATHERING"
+	crest.custom_minimum_size = Vector2(140, 164)
+	crest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(crest)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 6)
+	row.add_child(v)
+	v.add_child(UiKit.label("ACCOUNT-WIDE", 34, Color("fff1d6"), "x", 6))
+	var line := UiKit.label("Woodcutting, Fishing and Mining are shared by every hero.", 22, UiKit.GOLD.lightened(0.15), "x", 4)
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(line)
+	var total := UiKit.label("GATHERING LEVEL %d" % crest.value, 24, Color("e6d8bc"), "b", 4)
+	total.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(total)
+	return panel
 
 
 ## A forged shield crest with a level struck into it.
@@ -396,9 +436,77 @@ class CombatRow extends PanelContainer:
 			col.add_child(line)
 
 
+## A gathering skill row for the account: the level the save banks in
+## data["skills"], a bar to the next level and the XP banked so far. The
+## levels come off the Old School curve in Catalog, the same one the combat
+## rows use, so a gathering level is worth the same as a combat one.
+class GatheringRow extends PanelContainer:
+	var skill_id := ""
+	var skill_name := ""
+
+	func _init(id: String, title: String) -> void:
+		skill_id = id
+		skill_name = title
+
+	func _ready() -> void:
+		custom_minimum_size = Vector2(0, 150)
+		var empty := StyleBoxEmpty.new()
+		for side in ["left", "right", "top", "bottom"]:
+			empty.set("content_margin_" + side, 22)
+		add_theme_stylebox_override("panel", empty)
+		var metal := UiKit.rarity_metal("common")
+		var fr := UiKit.Frame.new("plaque", "leather", {"metal_hi": metal[0], "metal_lo": metal[1]})
+		fr.margin = 14.0
+		add_child(fr)
+		var xp := SaveGame.gathering_xp(skill_id)
+		var level := Catalog.skill_level(xp)
+		var maxed := level >= Catalog.MAX_SKILL_LEVEL
+		var floor_xp := Catalog.skill_xp_to_level(level)
+		var next_xp := Catalog.skill_xp_to_level(mini(Catalog.MAX_SKILL_LEVEL, level + 1))
+		var span := maxi(next_xp - floor_xp, 1)
+		if maxed:
+			# The curve ends here, so the whole of it is the span: the row
+			# reads "13,034,431 / 13,034,431 XP" and MAX, not a 1 XP step.
+			floor_xp = 0
+			span = maxi(Catalog.skill_xp_to_level(Catalog.MAX_SKILL_LEVEL), 1)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 18)
+		add_child(row)
+		var med := Glyph.new()
+		med.kind = skill_id
+		med.custom_minimum_size = Vector2(104, 104)
+		med.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(med)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", 4)
+		row.add_child(col)
+		var top := HBoxContainer.new()
+		top.add_child(UiKit.label(skill_name.to_upper(), 32, Color("fff1d6"), "x", 6))
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		top.add_child(gap)
+		top.add_child(UiKit.label("LV %d" % level, 28, UiKit.GOLD.lightened(0.15), "x", 6))
+		col.add_child(top)
+		var bar := XpBar.new()
+		bar.ratio = 1.0 if maxed else clampf(float(xp - floor_xp) / float(span), 0.0, 1.0)
+		bar.custom_minimum_size = Vector2(0, 26)
+		col.add_child(bar)
+		var foot := HBoxContainer.new()
+		var into := span if maxed else clampi(xp - floor_xp, 0, span)
+		foot.add_child(UiKit.label("%s / %s XP" % [SkillsScreen._fmt_num(into), SkillsScreen._fmt_num(span)], 21, Color("e6d8bc"), "b", 4))
+		var gap2 := Control.new()
+		gap2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		foot.add_child(gap2)
+		foot.add_child(UiKit.label("MAX" if maxed else "TO LV %d" % (level + 1), 20, Color("c8b8a0"), "x", 4))
+		col.add_child(foot)
+		var banked := UiKit.label("%s XP BANKED" % SkillsScreen._fmt_num(xp), 20, Color("d8c8aa"), "b", 4)
+		col.add_child(banked)
+
+
 ## A forged medallion with a carved glyph for the skill. Every glyph is drawn
 ## from simple polylines in the bronze/gold palette (no textures), so each
-## combat skill reads at a glance.
+## combat or gathering skill reads at a glance.
 class Glyph extends Control:
 	var kind := ""
 
@@ -467,6 +575,25 @@ class Glyph extends Control:
 					var hy := 13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t)
 					heart.append(c + Vector2(hx, -hy) * 1.35)
 				draw_colored_polygon(heart, ink)
+			"woodcutting":
+				# Axe: a long haft with a broad blade at the head.
+				draw_line(c + Vector2(-8, 30), c + Vector2(4, -8), ink, 6.0, true)
+				draw_colored_polygon(PackedVector2Array([
+					c + Vector2(2, -16), c + Vector2(28, -22), c + Vector2(24, -4), c + Vector2(2, 2)]), ink)
+				draw_line(c + Vector2(5, -11), c + Vector2(26, -18), dark, 3.0, true)
+			"fishing":
+				# Fish: a body with a forked tail and an eye.
+				draw_colored_polygon(PackedVector2Array([
+					c + Vector2(-22, 0), c + Vector2(-34, -13), c + Vector2(-34, 13)]), ink)
+				draw_colored_polygon(PackedVector2Array([
+					c + Vector2(-22, 0), c + Vector2(-6, -13), c + Vector2(14, -8),
+					c + Vector2(23, 0), c + Vector2(14, 8), c + Vector2(-6, 13)]), ink)
+				draw_line(c + Vector2(0, -9), c + Vector2(-6, -19), ink, 4.0, true)
+				draw_circle(c + Vector2(13, -2), 2.5, dark)
+			"mining":
+				# Pickaxe: a haft under a curved double pick.
+				draw_line(c + Vector2(-6, 30), c + Vector2(4, -4), ink, 6.0, true)
+				draw_arc(c + Vector2(4, -4), 22.0, PI, TAU, 20, ink, 5.0, true)
 			_:
 				# Haven't drawn this one yet: a plain forged rune.
 				draw_colored_polygon(PackedVector2Array([c + Vector2(-22, -24), c + Vector2(10, -24), c + Vector2(14, -14), c + Vector2(-22, -12)]), ink)
