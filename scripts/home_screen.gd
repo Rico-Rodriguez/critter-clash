@@ -693,7 +693,7 @@ class MapSheet extends Control:
 		var foot := HBoxContainer.new()
 		foot.alignment = BoxContainer.ALIGNMENT_CENTER
 		foot.add_theme_constant_override("separation", 16)
-		var back := UiKit.secondary("Close", 200, 92)
+		var back := UiKit.secondary("Close", 200, 88)
 		back.pressed.connect(close)
 		foot.add_child(back)
 		_start = UiKit.button("START", 400, 104, "gold")

@@ -237,13 +237,13 @@ static func sheet(host: Control, hero: String, slot: String, changed: Callable) 
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar.add_theme_constant_override("separation", 14)
 	if eq != "":
-		var off := UiKit.secondary("Unequip", 220, 78)
+		var off := UiKit.secondary("Unequip", 220, 84)
 		off.pressed.connect(func() -> void:
 			GearDB.unequip(hero, slot)
 			dim.queue_free()
 			changed.call())
 		bar.add_child(off)
-	var close := UiKit.button("Close", 220, 78, "gold")
+	var close := UiKit.button("Close", 220, 84, "gold")
 	close.pressed.connect(func() -> void: dim.queue_free())
 	bar.add_child(close)
 	v.add_child(bar)
@@ -259,14 +259,17 @@ static func _row(hero: String, id: String, eq: String, changed: Callable, dim: C
 	row.modulate = Color(1, 1, 1, 0.55) if preview else Color.WHITE
 	var sw := ColorRect.new()
 	sw.color = tc
-	sw.custom_minimum_size = Vector2(10, 64)
+	sw.custom_minimum_size = Vector2(10, 72)
 	row.add_child(sw)
 	var tv := VBoxContainer.new()
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.add_theme_constant_override("separation", 0)
 	tv.add_child(UiKit.label(str(it["name"]), 23, tc.lightened(0.25), "b", 3))
-	var sub := "%s   %s" % [GearDB.TIER_NAMES[tier], stat_text(it["stats"])]
-	tv.add_child(UiKit.label(sub, 17, UiKit.MUTED, "m", 2))
+	# A full stat line can outrun the 640 px sheet; wrap so it never forces
+	# the panel wider than the screen.
+	var sub_line := UiKit.label("%s   %s" % [GearDB.TIER_NAMES[tier], stat_text(it["stats"])], 17, UiKit.MUTED, "m", 2)
+	sub_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tv.add_child(sub_line)
 	row.add_child(tv)
 	if preview:
 		var req: Dictionary = it["requires"]
@@ -283,7 +286,7 @@ static func _row(hero: String, id: String, eq: String, changed: Callable, dim: C
 		# Locked requirement badge, e.g. "Requires Defence 20".
 		row.add_child(_badge(str(ok["reason"]), Color("e07a5a")))
 		return row
-	var b := UiKit.confirm("Equip", 150, 64)
+	var b := UiKit.confirm("Equip", 150, 72)
 	b.pressed.connect(func() -> void:
 		GearDB.equip(hero, id)
 		dim.queue_free()
@@ -295,7 +298,7 @@ static func _row(hero: String, id: String, eq: String, changed: Callable, dim: C
 static func _badge(text: String, c: Color) -> Control:
 	var l := UiKit.label(text, 17, c, "x", 3)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.custom_minimum_size = Vector2(150, 64)
+	l.custom_minimum_size = Vector2(150, 72)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	return l
 

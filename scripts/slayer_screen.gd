@@ -263,7 +263,7 @@ func _offer(offer: Dictionary) -> Button:
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_col.add_child(name_label)
 	# The offer text under the name: what a purchase actually fetches.
-	var detail := UiKit.label(str(offer.get("detail", "")), 16, UiKit.MUTED, "b", 2)
+	var detail := UiKit.label(str(offer.get("detail", "")), 18, UiKit.MUTED, "b", 2)
 	detail.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	detail.visible = str(offer.get("detail", "")) != ""

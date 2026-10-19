@@ -2,7 +2,7 @@ extends ScreenBase
 
 ## Settings: sound, haptics and the comfort/accessibility options. Every
 ## change applies and saves immediately; the panel scrolls so each new
-## control can stay at least 88 device px tall on a 1179-wide phone.
+## control can stay at least 88 device px tall on a 720-wide phone.
 
 
 func build() -> void:

@@ -262,6 +262,9 @@ func _card(entry: Dictionary) -> PanelContainer:
 	var title := UiKit.label(str(entry["title"]), 25, Color("fff1d6"), "x", 5)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var used := UiKit.label("Used for %s" % entry["used"], 21, Color("efe4cc"), "b", 4)
+	# Some "used" lines run long; wrap so they never push the plaque wider
+	# than the screen and clip its frame.
+	used.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var meta := UiKit.label("by %s  ·  %s" % [entry["author"], entry["license"]], 21, UiKit.GOLD.lightened(0.15), "b", 4)
 	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var url := UiKit.label(str(entry["url"]).replace("https://", ""), 17, Color("bcd0ea"), "m", 3)

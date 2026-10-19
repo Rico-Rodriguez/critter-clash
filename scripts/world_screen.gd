@@ -169,7 +169,9 @@ func _tier_row(id: String) -> Control:
 	var entries: Array = []
 	for t in Catalog.TIER_COUNT:
 		var open_tier := SaveGame.difficulty_open(id, t)
-		var b := UiKit.button(Catalog.tier_name(t), 0, 58, "gold" if t == chosen else "grey")
+		# 72 keeps the tier chips a full tap target next to the 88 px HUNT
+		# call, where 58 read as cramped beside it.
+		var b := UiKit.button(Catalog.tier_name(t), 0, 72, "gold" if t == chosen else "grey")
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.disabled = not open_tier
 		if not open_tier and t > 0:
