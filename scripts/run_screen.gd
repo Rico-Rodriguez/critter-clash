@@ -608,8 +608,8 @@ func _drain() -> void:
 					AudioDirector.haptic("medium")
 			"hero_hurt":
 				var hdmg := float(ev["amount"])
-				var blocked := round(hdmg) <= 0.0
-				if blocked:
+				var hdmg_blocked := round(hdmg) <= 0.0
+				if hdmg_blocked:
 					_float(ev["pos"], "Blocked", Color("9a9a9a"), true, int(ev["id"]), hdmg, "hero")
 				else:
 					_float(ev["pos"], str(int(round(hdmg))), Color("ff6d6d"), true, int(ev["id"]), hdmg, "hero")
@@ -622,7 +622,7 @@ func _drain() -> void:
 				_punch[int(ev["id"])] = 0.14
 				stage.hurt(int(ev["id"]))
 				_hurt_flash()
-				if blocked or guarded:
+				if hdmg_blocked or guarded:
 					# A knock on the guard, not the hero's grunt.
 					AudioDirector.sfx("block")
 					AudioDirector.sfx("impact", -10.0)
@@ -773,6 +773,12 @@ func _drain() -> void:
 				if bool(AudioDirector.settings.get("damage_numbers", true)):
 					xp_drops.push(str(ev.get("skill", "")), int(ev.get("amount", 0)))
 					AudioDirector.sfx("xp_gain")
+			"gather":
+				# A node was worked. Gathering has no UI in phase 1
+				# (docs/gathering.md): the node pays through the xp_drop
+				# event above, which is the moment the screen speaks, so
+				# this event is carried and stays silent.
+				pass
 			"levelup":
 				AudioDirector.sfx("levelup")
 				AudioDirector.duck(-6.0, 0.8)
@@ -855,12 +861,14 @@ func _drain() -> void:
 			"fx":
 				var at: Vector2 = ev.get("pos", Vector2.ZERO)
 				var fx := str(ev.get("fx", ""))
-				var col := _fx_color(fx)
-				_burst(at, col, 8, 160.0)
-				stage.fx_burst(at, float(ev.get("radius", 60.0)), col)
+				# Its own name: the "die" branch above already takes `col`
+				# in this match, and the two must not share one.
+				var fx_col := _fx_color(fx)
+				_burst(at, fx_col, 8, 160.0)
+				stage.fx_burst(at, float(ev.get("radius", 60.0)), fx_col)
 				if ev.has("to"):
 					var to: Vector2 = ev.get("to", at)
-					_burst(at.lerp(to, 0.5), col, 5, 130.0)
+					_burst(at.lerp(to, 0.5), fx_col, 5, 130.0)
 				# The loud abilities get their own voice; the rest share
 				# the generic chime. Every kind worth a voice of its
 				# own is listed, so a big ability never lands on the
