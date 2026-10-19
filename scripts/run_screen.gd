@@ -774,11 +774,22 @@ func _drain() -> void:
 					xp_drops.push(str(ev.get("skill", "")), int(ev.get("amount", 0)))
 					AudioDirector.sfx("xp_gain")
 			"gather":
-				# A node was worked. Gathering has no UI in phase 1
-				# (docs/gathering.md): the node pays through the xp_drop
-				# event above, which is the moment the screen speaks, so
-				# this event is carried and stays silent.
+				# A node was worked. The node itself has no picture
+				# (docs/gathering.md): it pays through the xp_drop event
+				# above, which is the moment the screen speaks, so this
+				# event is carried and stays silent.
 				pass
+			"gather_locked":
+				# A node the account's level cannot work. The sim says
+				# what it needs ("Needs Woodcutting 15") and the note
+				# floats over the hero who walked up to it; the sim
+				# rate limits it, so it is said once per attempt.
+				var locked_reason := str(ev.get("reason", ""))
+				if locked_reason != "":
+					var locked_at: Vector2 = sim.heroes[0].pos if not sim.heroes.is_empty() else ev.get("pos", Vector2.ZERO)
+					_float(locked_at + Vector2(0.0, -80.0), locked_reason, Color("c98b7a"), false)
+				AudioDirector.sfx("ui_error", -8.0)
+				AudioDirector.haptic("light")
 			"levelup":
 				AudioDirector.sfx("levelup")
 				AudioDirector.duck(-6.0, 0.8)
