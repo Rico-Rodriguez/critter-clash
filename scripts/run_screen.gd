@@ -59,6 +59,10 @@ var sparks: SparkLayer
 var stick: StickLayer
 var modal: Control
 var modal_box: VBoxContainer
+## The pause panel's settings scroll and the rows inside it, held so a
+## window resize can re-fit the scroll to the screen.
+var _pause_scroll: ScrollContainer
+var _pause_panel: SettingsPanel
 var flash_rect: ColorRect
 var hp_meter: Meter
 var xp_meter: Meter
@@ -349,6 +353,8 @@ func _build_modal() -> void:
 	# Above the damage numbers (z 1000 in the world layer), so no float crosses a modal.
 	modal.z_index = 2000
 	add_child(modal)
+	# A resized window (desktop) re-fits the pause panel's settings scroll.
+	modal.resized.connect(_fit_pause_settings)
 	var dim := ColorRect.new()
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.color = Color(1, 1, 1, 1)
@@ -1986,9 +1992,48 @@ func _pause() -> void:
 	var leave := UiKit.danger("LEAVE HUNT", 420, 72)
 	leave.pressed.connect(func() -> void: go("home"))
 	modal_box.add_child(leave)
+	# The settings are the tall part of the panel, so they get a scroll box
+	# of their own, like the settings screen: the rows keep their size and
+	# their look, and a short screen can still reach every one of them.
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.custom_minimum_size = Vector2(640, 0)
 	var panel := SettingsPanel.new()
 	panel.custom_minimum_size = Vector2(640, 0)
-	modal_box.add_child(panel)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(panel)
+	modal_box.add_child(sc)
+	_pause_scroll = sc
+	_pause_panel = panel
+	# The same touch pass-through as the settings screen: the list follows
+	# the finger, and a row the panel rebuilds (a text-size change) keeps it.
+	pass_through(sc)
+	panel.child_entered_tree.connect(func(_n: Node) -> void: pass_through.call_deferred(sc))
+	_fit_pause_settings()
+
+
+## Give the pause panel's settings scroll the room that is left on screen.
+## The title, the hunt rows and the buttons keep their own height and the
+## settings take what is left (or their own height when the screen is tall),
+## so the panel fits on the screen and every row is reachable by scrolling.
+func _fit_pause_settings() -> void:
+	if not is_instance_valid(_pause_scroll) or not is_instance_valid(_pause_panel):
+		return
+	var fixed := 0.0
+	for child in modal_box.get_children():
+		var kid := child as Control
+		if kid != null and kid != _pause_scroll:
+			fixed += kid.get_combined_minimum_size().y
+	var gaps := float(modal_box.get_theme_constant("separation")) * float(maxi(modal_box.get_child_count() - 1, 0))
+	var ins := UiKit.safe_insets()
+	var room := maxf(modal.size.y - fixed - gaps - float(int(ins["t"]) + int(ins["b"])) - 12.0, 0.0)
+	var content := _pause_panel.get_combined_minimum_size().y
+	# The scroll box takes the room that is left, and never more than the
+	# rows need; a couple of rows is the least that stays usable.
+	var height := maxf(minf(room, content), minf(200.0, room))
+	_pause_scroll.custom_minimum_size = Vector2(640, height)
 
 
 ## The pause panel's "THIS HUNT" block: one compact row per skill the run
