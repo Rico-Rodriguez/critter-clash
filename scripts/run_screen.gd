@@ -186,6 +186,7 @@ func open(args: Dictionary = {}) -> void:
 		stats[hero_id]["hp"] = float(stats[hero_id]["hp"]) * Daily.PASS_HP_MUL
 	sim.start(session, stats, difficulty)
 	AudioDirector.music("hunt")
+	AudioDirector.sfx("hunt_start")
 	cam = HuntCamera.new()
 	var hero_at := sim.play.get_center()
 	if not sim.heroes.is_empty():
@@ -506,7 +507,9 @@ func _try_dodge() -> void:
 	var want := stick.vec if stick.active else Vector2.ZERO
 	if drive.length() > 0.05:
 		want = drive.normalized()
-	sim.dodge(0, want)
+	if not sim.dodge(0, want):
+		# Still on cooldown: the tap is heard, not swallowed.
+		AudioDirector.sfx("ui_error", -8.0)
 
 
 func _begin_stick(at: Vector2) -> void:
@@ -613,13 +616,16 @@ func _drain() -> void:
 				AudioDirector.sfx("enemy_die")
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
+				AudioDirector.sfx("boom")
 			"charge":
 				stage.charge_fx(int(ev.get("id", -1)), ev["pos"], ev.get("to", ev["pos"]))
 				_burst(ev.get("to", ev["pos"]), Color("c9ab7e"), 6, 150.0)
+				AudioDirector.sfx("charge")
 				AudioDirector.haptic("medium")
 			"charge_land":
 				stage.charge_land_fx(ev["pos"], float(ev.get("radius", 78.0)))
 				_burst(ev["pos"], Color("d8e8ea"), 10, 190.0)
+				AudioDirector.sfx("charge_land")
 			"cleave":
 				stage.cleave_fx(ev["pos"], float(ev.get("facing", 0.0)), float(ev.get("range", 120.0)), float(RunSim.ROLE_TUNING["tank"].get("cleave_arc", 160.0)), float(ev.get("stop", 0.04)) > 0.045)
 				var tank := sim._actor_by_id(int(ev.get("id", -1)))
@@ -627,6 +633,11 @@ func _drain() -> void:
 					var foe := sim.nearest_hostile(tank, float(ev.get("range", 120.0)) + 40.0)
 					if foe != null:
 						stage.lifesteal_fx(tank.id, foe.pos)
+				AudioDirector.sfx("cleave")
+			"swing":
+				# The melee arc itself: the sim reports it after the blow
+				# lands, so it is the follow-through, not the strike.
+				AudioDirector.sfx("swing")
 			"hitstop":
 				# Sim-driven melee impact freeze: the step is skipped for a
 				# beat, never longer than the cap (the sim rate-limits it).
@@ -637,7 +648,9 @@ func _drain() -> void:
 				var it := GearDB.item(str(ev.get("item", "")))
 				if not it.is_empty():
 					stage.loot_beam(str(ev.get("key", ev["item"])), ev["pos"], int(it["tier"]))
+					AudioDirector.sfx("gear_drop")
 					if int(it["tier"]) >= 3:
+						AudioDirector.sfx("rare_chime", -4.0)
 						AudioDirector.haptic("rare")
 			"gear_pickup":
 				var it2 := GearDB.item(str(ev.get("item", "")))
@@ -661,6 +674,9 @@ func _drain() -> void:
 				_burst(ev.get("pos", Vector2.ZERO), _shrine_color(sk), 24, 250.0)
 				AudioDirector.sfx("levelup", -4.0)
 				AudioDirector.haptic("light")
+			"shrine_end":
+				# The buff ran out: a soft note letting go, no banner.
+				AudioDirector.sfx("buff_end")
 			"goblin_down":
 				_banner("Treasure goblin slain!")
 				_burst(ev.get("pos", Vector2.ZERO), Color("ffd27a"), 26, 280.0)
@@ -668,12 +684,13 @@ func _drain() -> void:
 				AudioDirector.haptic("rare")
 			"goblin_escape":
 				_burst(ev.get("pos", Vector2.ZERO), Color("b7a06a"), 8, 120.0)
+				AudioDirector.sfx("goblin_escape")
 			"shield_break":
 				_burst(ev.get("pos", Vector2.ZERO), Color("8fd0ff"), 12, 190.0)
 				AudioDirector.sfx("hit", -2.0)
 			"dodge":
 				_burst(ev["pos"], Color("c9b79a"), 8, 140.0)
-				AudioDirector.sfx("ui_tap", -6.0)
+				AudioDirector.sfx("dodge")
 				AudioDirector.haptic("light")
 			"aggro":
 				AudioDirector.sfx("ui_tap", -8.0)
@@ -693,6 +710,9 @@ func _drain() -> void:
 				var winder := sim._actor_by_id(int(ev["id"]))
 				if winder != null and winder.kind == "boss":
 					AudioDirector.sfx("boss_windup")
+				else:
+					# The tell before a foe's shot: a quiet rising note.
+					AudioDirector.sfx("enemy_windup")
 			"gem":
 				_burst(ev["pos"], Color("b6f27a"), 4, 90.0)
 				AudioDirector.gem()
@@ -702,6 +722,7 @@ func _drain() -> void:
 				var skill_name := str(GearDB.SKILL_NAMES[skill_at]) if skill_at >= 0 else skill_key.capitalize()
 				if not _levels_shown.has("%s:%d" % [skill_key, int(ev.get("level", 1))]):
 					_banner("%s %d" % [skill_name, int(ev.get("level", 1))])
+					AudioDirector.sfx("skill_level")
 			"skill_level":
 				# A level crossed mid-run; the end-of-run commit still toasts
 				# its skill_up line, this is the in-fight announcement.
@@ -710,10 +731,12 @@ func _drain() -> void:
 				var mid_at := GearDB.SKILL_KEYS.find(mid_skill)
 				var mid_name := str(GearDB.SKILL_NAMES[mid_at]) if mid_at >= 0 else mid_skill.capitalize()
 				_banner("%s %d" % [mid_name, int(ev.get("level", 1))])
+				AudioDirector.sfx("skill_level")
 			"xp_drop":
 				# Hidden with damage numbers off (the same readability switch).
 				if bool(AudioDirector.settings.get("damage_numbers", true)):
 					xp_drops.push(str(ev.get("skill", "")), int(ev.get("amount", 0)))
+					AudioDirector.sfx("xp_gain")
 			"levelup":
 				AudioDirector.sfx("levelup")
 				AudioDirector.duck(-6.0, 0.8)
@@ -784,6 +807,7 @@ func _drain() -> void:
 				AudioDirector.haptic("levelup")
 			"banner":
 				_banner(str(ev["text"]))
+				AudioDirector.sfx("banner")
 			"fx":
 				var at: Vector2 = ev.get("pos", Vector2.ZERO)
 				var col := _fx_color(str(ev.get("fx", "")))
@@ -791,6 +815,7 @@ func _drain() -> void:
 				if ev.has("to"):
 					var to: Vector2 = ev.get("to", at)
 					_burst(at.lerp(to, 0.5), col, 5, 130.0)
+				AudioDirector.sfx("skill_fx")
 
 
 func _sync(alpha: float) -> void:

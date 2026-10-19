@@ -148,6 +148,8 @@ func _reveal() -> void:
 		var tw := create_tween()
 		# Each reward lands when its flyer from the chest arrives.
 		tw.tween_interval(0.85 + 0.16 * i)
+		tw.tween_callback(func() -> void:
+			AudioDirector.sfx("coin" if i == 0 else "card_flip", 2.0))
 		tw.tween_property(tile, "modulate:a", 1.0, 0.18)
 		tw.parallel().tween_property(tile, "scale", Vector2(s, s), 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_launch_flyers(laid["slots"])
@@ -378,6 +380,7 @@ class Burst extends Control:
 	var flyers: Array[Dictionary] = []
 	var shaking := true
 	var t := 0.0
+	var rattle_t := 0.0
 	var stage: SubViewportContainer
 	var vp: SubViewport
 	var cam: Camera3D
@@ -487,7 +490,14 @@ class Burst extends Control:
 				chest.rotation.z = sin(t * 19.0) * 0.035 * burst_on
 				chest.rotation.y = -0.16 + sin(t * 13.0) * 0.03 * burst_on
 				chest.set_open(0.05 * burst_on * absf(sin(t * 9.0)))
+				# The chest is working on its lock: a loose latch every
+				# half second, louder while the lid is actually hopping.
+				rattle_t -= delta
+				if rattle_t <= 0.0:
+					rattle_t = randf_range(0.3, 0.55)
+					AudioDirector.sfx("chest_rattle", 3.0 if burst_on > 0.4 else 0.0)
 			else:
+				rattle_t = 0.0
 				chest.rotation.z = lerpf(chest.rotation.z, 0.0, 0.3)
 				# Lid swings back with a little overshoot.
 				var e := 1.0 - pow(1.0 - opened, 3.0)
