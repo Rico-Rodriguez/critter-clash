@@ -136,7 +136,7 @@ func _tab_bar() -> HBoxContainer:
 	row.add_theme_constant_override("separation", 12)
 	for entry in [["combat", "Combat"], ["gathering", "Gathering"]]:
 		var key := str(entry[0])
-		var button := UiKit.secondary(str(entry[1]), 280, 76)
+		var button := UiKit.secondary(str(entry[1]), 280, 88)
 		button.toggle_mode = true
 		button.pressed.connect(func() -> void: _show_tab(key))
 		_tab_buttons[key] = button

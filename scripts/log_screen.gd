@@ -31,7 +31,7 @@ func build() -> void:
 	crest = BossCrest.new()
 	crest.custom_minimum_size = Vector2(0, 170)
 	box.add_child(crest)
-	# Five tabs (four biomes + Armory) fit 1179 px at 160 px wide; a flow row
+	# Five tabs (four biomes + Armory) fit 720 px at 160 px wide; a flow row
 	# wraps instead of running off the safe area on anything narrower.
 	tabs = HFlowContainer.new()
 	tabs.alignment = FlowContainer.ALIGNMENT_CENTER

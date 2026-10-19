@@ -39,11 +39,11 @@ func build() -> void:
 	foot.alignment = BoxContainer.ALIGNMENT_BEGIN
 	foot.add_theme_constant_override("separation", 12)
 	box.add_child(foot)
-	open_button = UiKit.button("Open", 420, 90)
+	open_button = UiKit.button("Open", 420, 88)
 	open_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	open_button.pressed.connect(_on_open)
 	foot.add_child(open_button)
-	home_button = UiKit.secondary("Home", 220, 64)
+	home_button = UiKit.secondary("Home", 220, 88)
 	home_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	home_button.visible = false
 	home_button.pressed.connect(func() -> void: go("home"))

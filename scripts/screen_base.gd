@@ -153,24 +153,30 @@ func header(compact := false) -> HBoxContainer:
 	row.add_theme_constant_override("separation", 14)
 	var trophies := UiKit.Pill.new("trophy", func() -> void: go("trophy"))
 	trophies.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Pills fill the row's height (the 88 px back-chip / cog row), so the
+	# plus tap zone is as tall as the bar instead of the pill's 62 px.
+	trophies.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	trophies.set_amount(str(int(SaveGame.data["trophies"])))
 	var coins := UiKit.Pill.new("coin", func() -> void: toast("Win hunts to earn coins."))
 	coins.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	coins.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	coins.set_amount(str(int(SaveGame.data["coins"])))
 	var gems := UiKit.Pill.new("gem", func() -> void: toast("Free game. No shop."))
 	gems.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gems.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	gems.set_amount("0")
 	row.add_child(trophies)
 	row.add_child(coins)
 	# With the back chip leading the row there is no room for three pills at
-	# 1179 px; the always-zero gem pill is the one that goes.
+	# 720 px; the always-zero gem pill is the one that goes.
 	if compact:
 		gems.queue_free()
 	else:
 		row.add_child(gems)
-	# Settings cog at the end of the currency bar.
-	var cog := UiKit.tile_button("", "gear", 64, "steel")
-	cog.custom_minimum_size = Vector2(64, 64)
+	# Settings cog at the end of the currency bar: the same 88 px square as
+	# the back chip, so the two round controls in the row match.
+	var cog := UiKit.tile_button("", "gear", 88, "steel")
+	cog.custom_minimum_size = Vector2(88, 88)
 	cog.tooltip_text = "Settings"
 	cog.pressed.connect(func() -> void: go("settings"))
 	row.add_child(cog)
@@ -182,7 +188,7 @@ func h1(text: String) -> Label:
 
 
 func back_button(target: String, args: Dictionary = {}) -> Button:
-	var button := UiKit.secondary("Back", 220, 64)
+	var button := UiKit.secondary("Back", 220, 88)
 	button.pressed.connect(func() -> void: go(target, args))
 	return button
 

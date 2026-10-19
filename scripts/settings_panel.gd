@@ -4,7 +4,7 @@ extends VBoxContainer
 ## Every player option on one panel: music, SFX and haptics, camera shake,
 ## flashing and damage-number comfort toggles, the text scale and the
 ## left-handed HUD swap. Changes apply at once and persist straight away.
-## Each control is at least 88 device px tall on a 1179-wide phone and
+## Each control is at least 88 device px tall on a 720-wide phone and
 ## carries its own visible label or value readout.
 
 

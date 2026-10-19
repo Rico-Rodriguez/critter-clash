@@ -1499,14 +1499,16 @@ func _end_panel(win: bool) -> VBoxContainer:
 	plate.kind = "panel"
 	plate.pad = 30
 	plate.glow = Color(1.0, 0.72, 0.3, 0.4) if win else Color(0.8, 0.12, 0.08, 0.35)
-	plate.custom_minimum_size = Vector2(720, 0)
+	# 672 leaves the forged frame (18 px margin each side) clear of the
+	# screen edges; 720 sat the frame exactly at the edge and clipped it.
+	plate.custom_minimum_size = Vector2(672, 0)
 	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	modal_box.add_child(plate)
 	var col := VBoxContainer.new()
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 16)
 	plate.add_child(col)
-	plate.pivot_offset = Vector2(360, 200)
+	plate.pivot_offset = Vector2(336, 200)
 	plate.scale = Vector2(0.85, 0.85)
 	plate.modulate.a = 0.0
 	var tw := create_tween()
@@ -1588,7 +1590,9 @@ func _end_xp() -> Control:
 	var line := UiKit.label("  ·  ".join(parts), 20, UiKit.CREAM, "m", 3)
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	line.custom_minimum_size = Vector2(660, 0)
+	# 600 stays inside the 672 end panel (pad 30 each side); 660 forced
+	# the plate wider again and re-clipped its frame.
+	line.custom_minimum_size = Vector2(600, 0)
 	return line
 
 
@@ -1759,7 +1763,7 @@ func _show_victory(boss_name: String) -> void:
 		prize.add_child(trophies)
 		col.add_child(prize)
 	col.add_child(_end_chest(true))
-	var button := UiKit.button("CONTINUE", 660, 104, "gold")
+	var button := UiKit.button("CONTINUE", 600, 104, "gold")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(func() -> void: go("home"))
 	col.add_child(button)

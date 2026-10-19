@@ -62,7 +62,9 @@ func build() -> void:
 	plaque.add_child(pv)
 	stat_line = UiKit.label("", 24, UiKit.GOLD.lightened(0.2), "x", 3)
 	stat_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stat_line.custom_minimum_size = Vector2(620, 0)
+	# 600 keeps the plaque's forged frame (18 px each side past the pad)
+	# clear of the 720 px screen edges; 620 pushed it against the glass.
+	stat_line.custom_minimum_size = Vector2(600, 0)
 	pv.add_child(stat_line)
 	preview_line = UiKit.label("", 22, UiKit.CREAM, "b", 2)
 	preview_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -73,10 +75,13 @@ func build() -> void:
 	pv.add_child(card_bar)
 	gear_line = UiKit.label("", 18, UiKit.MUTED, "m", 2)
 	gear_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# A full gear summary can outrun the plaque; wrap so it never forces
+	# the frame wider than the frame-safe 600.
+	gear_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pv.add_child(gear_line)
 	box.add_child(plaque)
-	# Three tiles a row: six unlocked heroes wrap to two rows instead of
-	# running off the screen.
+	# Four framed tiles in one row: 4 x 158 px + 3 x 16 px separation
+	# fits the 692 px content column with room to spare.
 	list = GridContainer.new()
 	list.columns = 4
 	list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
