@@ -3010,6 +3010,9 @@ func _spawn_world() -> void:
 		count = maxi(1, int(round(float(count) * density)))
 		var base := ci % skins.size()
 		var affixes: Array = camp.get("affixes", [])
+		# A camp's affix is the camp's identity, so it rides on one member --
+		# its leader -- and the rest of the pack stays plain.
+		var leader: Actor = null
 		for k in count:
 			var ang := TAU * float(k) / float(count) + rng.randf_range(-0.3, 0.3)
 			var p := map.push_inside(at + Vector2.RIGHT.rotated(ang) * rng.randf_range(70.0, 150.0), 30.0)
@@ -3019,11 +3022,15 @@ func _spawn_world() -> void:
 			# nothing (chance 0), so its RNG stream is bit-for-bit unchanged.
 			if elite_chance > 0.0 and rng.randf() < elite_chance:
 				_make_elite(m)
-			_apply_affixes(m, affixes)
+			if leader == null:
+				leader = m
+			elif m.elite and not leader.elite:
+				leader = m
 		if bool(camp["elite"]):
 			var e := _place_minion(rng.randi() % skins.size(), at, ci)
 			_make_elite(e)
-			_apply_affixes(e, affixes)
+			leader = e
+		_apply_affixes(leader, affixes)
 		for affix in affixes:
 			events.append({"type": "fx", "fx": "affix_" + str(affix), "pos": at})
 	for pi in map.patrols.size():
@@ -3049,10 +3056,11 @@ func _spawn_world() -> void:
 	goblin_roll = false
 
 
-## Stamps an elite camp's affixes onto one spawned critter. Shielded reads
-## max_hp, so it must run after _make_elite() has sized the leader.
+## Stamps a camp's affixes onto its leader alone: the affix is the camp's
+## identity, not a per-member multiplier. Shielded reads max_hp, so it must
+## run after _make_elite() has sized the leader.
 func _apply_affixes(m: Actor, affixes: Array) -> void:
-	if affixes.is_empty():
+	if m == null or affixes.is_empty():
 		return
 	m.affixes = affixes.duplicate()
 	for affix in affixes:
