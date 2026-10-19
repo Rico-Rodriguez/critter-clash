@@ -1475,3 +1475,229 @@ void fragment() {
 }
 """
 	return _crest_sh
+
+
+## ---- Procedural caster gear (Corvin, the plague doctor) ------------------
+## Simple primitive-built pieces for the caster hero: robes, mask, hat,
+## gloves and staff. Tiers are strings: "apprentice" (dull), "adept"
+## (richer colours), "master" (glowing accents). apply_caster_visual swaps
+## the worn set on a spawned hero model.
+
+const CASTER_SLOTS := ["robes", "mask", "hat", "gloves", "staff"]
+const CASTER_TIERS := ["apprentice", "adept", "master"]
+const CASTER_GLOW := Color(0.55, 1.0, 0.2)
+
+
+## Normalize a tier value: a string tier name or a 1..3 int.
+static func _caster_tier(t: Variant) -> String:
+	if typeof(t) == TYPE_INT:
+		return CASTER_TIERS[clampi(int(t), 1, 3) - 1]
+	var s := str(t).to_lower()
+	return s if CASTER_TIERS.has(s) else ""
+
+
+## Tier-driven material: apprentice is dull and rough, adept is a richer
+## dye with a slight sheen, master keeps the dark base but lights up.
+static func _caster_mat(base: Color, tier: String, accent := Color(0.0, 0.0, 0.0)) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	if tier == "adept":
+		m.albedo_color = base.lightened(0.1)
+		m.roughness = 0.55
+	elif tier == "master":
+		m.albedo_color = base
+		m.roughness = 0.7
+	else:
+		m.albedo_color = base.darkened(0.15)
+		m.roughness = 0.95
+	if tier == "master" and accent.get_luminance() > 0.0:
+		m.emission_enabled = true
+		m.emission = accent
+		m.emission_energy_multiplier = 1.4
+	return m
+
+
+## Dark cloth for robes and hats.
+static func _caster_cloth(tier: String, col: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	var base: Color = col
+	if tier == "adept":
+		m.roughness = 0.85
+	elif tier == "master":
+		base = col.lightened(0.06)
+	else:
+		base = col.darkened(0.35)
+	m.albedo_color = base
+	m.roughness = 0.93
+	m.metallic = 0.0
+	return m
+
+
+## A primitive-built caster piece for Corvin. Sized in metres for a 1.8 m
+## hero; apply_caster_visual scales it to the rig.
+static func build_caster_piece(hero_id: String, slot: String, tier: String) -> Node3D:
+	var root := Node3D.new()
+	root.name = "GearCaster_%s" % slot
+	var t := _caster_tier(tier)
+	if hero_id != "ember" or t == "":
+		return root
+	var glow := CASTER_GLOW if t == "master" else Color(0.0, 0.0, 0.0)
+	match slot:
+		"robes":
+			# A tapered skirt of dark cloth: narrow at the chest, flared hem.
+			var cyl := CylinderMesh.new()
+			cyl.top_radius = 0.22
+			cyl.bottom_radius = 0.42
+			cyl.height = 1.05
+			cyl.radial_segments = 14
+			cyl.rings = 4
+			var mi := MeshInstance3D.new()
+			mi.mesh = cyl
+			mi.material_override = _caster_cloth(t, Color(0.16, 0.14, 0.15))
+			mi.position.y = 0.72
+			root.add_child(mi)
+			if t == "master":
+				# Glowing rune hem round the flare.
+				var hem := MeshInstance3D.new()
+				var tm := TorusMesh.new()
+				tm.inner_radius = 0.41
+				tm.outer_radius = 0.44
+				tm.rings = 24
+				tm.ring_segments = 6
+				hem.mesh = tm
+				hem.material_override = _caster_mat(Color(0.1, 0.1, 0.1), t, CASTER_GLOW)
+				hem.position.y = 0.22
+				root.add_child(hem)
+		"mask":
+			# Bone-white beak mask: a flattened sphere over the face.
+			var sph := SphereMesh.new()
+			sph.radius = 0.105
+			sph.height = 0.21
+			sph.radial_segments = 16
+			sph.rings = 8
+			var mi := MeshInstance3D.new()
+			mi.mesh = sph
+			mi.scale = Vector3(1.0, 1.15, 0.62)
+			mi.material_override = _caster_mat(Color(0.78, 0.74, 0.63), t, glow)
+			root.add_child(mi)
+		"hat":
+			# Wide-brim plague hat: a flat brim disc under a low cone.
+			var brim := CylinderMesh.new()
+			brim.top_radius = 0.21
+			brim.bottom_radius = 0.21
+			brim.height = 0.025
+			brim.radial_segments = 18
+			var brim_mi := MeshInstance3D.new()
+			brim_mi.mesh = brim
+			brim_mi.material_override = _caster_cloth(t, Color(0.12, 0.11, 0.1))
+			brim_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(brim_mi)
+			var cone := CylinderMesh.new()
+			cone.top_radius = 0.0
+			cone.bottom_radius = 0.135
+			cone.height = 0.16
+			cone.radial_segments = 12
+			cone.rings = 2
+			var cone_mi := MeshInstance3D.new()
+			cone_mi.mesh = cone
+			cone_mi.material_override = _caster_cloth(t, Color(0.12, 0.11, 0.1))
+			cone_mi.position.y = 0.09
+			root.add_child(cone_mi)
+			if t == "master":
+				var band := MeshInstance3D.new()
+				var tm := TorusMesh.new()
+				tm.inner_radius = 0.135
+				tm.outer_radius = 0.15
+				tm.rings = 20
+				tm.ring_segments = 5
+				band.mesh = tm
+				band.material_override = _caster_mat(Color(0.1, 0.1, 0.1), t, CASTER_GLOW)
+				band.position.y = 0.01
+				root.add_child(band)
+		"gloves":
+			# Dark leather gloves: a small box (mount on each hand to pair).
+			var box := BoxMesh.new()
+			box.size = Vector3(0.11, 0.14, 0.06)
+			var mi := MeshInstance3D.new()
+			mi.mesh = box
+			mi.material_override = _caster_mat(Color(0.17, 0.13, 0.1), t, glow)
+			root.add_child(mi)
+		"staff":
+			# Ebon wood shaft topped by a crystal orb on the glowing tiers.
+			var shaft := CylinderMesh.new()
+			shaft.top_radius = 0.02
+			shaft.bottom_radius = 0.028
+			shaft.height = 1.55
+			shaft.radial_segments = 8
+			shaft.rings = 2
+			var s := MeshInstance3D.new()
+			s.mesh = shaft
+			s.material_override = _caster_mat(Color(0.24, 0.17, 0.12), t)
+			s.position.y = 0.78
+			root.add_child(s)
+			var orb := SphereMesh.new()
+			orb.radius = 0.075
+			orb.height = 0.15
+			orb.radial_segments = 14
+			orb.rings = 7
+			var o := MeshInstance3D.new()
+			o.mesh = orb
+			var crystal: Color = [Color(0.35, 0.42, 0.3), Color(0.3, 0.55, 0.25), CASTER_GLOW][int(clampi(CASTER_TIERS.find(t), 0, 2))]
+			o.material_override = _caster_mat(crystal, "apprentice" if t == "apprentice" else t, glow)
+			o.position.y = 1.66
+			root.add_child(o)
+	return root
+
+
+## Swap Corvin's caster pieces from an equipped dict: {slot: tier} where a
+## slot is one of CASTER_SLOTS and the value is "apprentice"/"adept"/"master"
+## (missing or empty = not worn). Pieces mount on the rig's bones sized from
+## the hero's height; previous GearCaster* nodes are replaced first.
+static func apply_caster_visual(hero_node: Node3D, equipped: Dictionary) -> void:
+	for old in hero_node.find_children("GearCaster*", "Node3D", true, false):
+		(old as Node3D).queue_free()
+	var sk: Skeleton3D = null
+	for n in hero_node.find_children("*", "Skeleton3D", true, false):
+		sk = n
+		break
+	if sk == null:
+		return
+	var hips := -1
+	var head := -1
+	var chest := -1
+	var hand := -1
+	for i in sk.get_bone_count():
+		var nm := sk.get_bone_name(i).to_lower()
+		if hips < 0 and nm.begins_with("hips"):
+			hips = i
+		if head < 0 and nm.begins_with("head"):
+			head = i
+		if chest < 0 and (nm.begins_with("chest") or nm.begins_with("spine")):
+			chest = i
+		if hand < 0 and "hands" in nm:
+			hand = i
+	if hips < 0 or head < 0:
+		return
+	var hp := sk.get_bone_global_rest(hips).origin
+	var hd := sk.get_bone_global_rest(head).origin
+	var up := (hd - hp).normalized()
+	var h := (hd - hp).length() * 2.2
+	var k := h / 1.8
+	for sl in CASTER_SLOTS:
+		var t := _caster_tier(equipped.get(sl, ""))
+		if t == "":
+			continue
+		var piece := build_caster_piece("ember", sl, t)
+		var bone := head
+		var at := Vector3.ZERO
+		match sl:
+			"robes":
+				bone = chest if chest >= 0 else hips
+			"mask":
+				at = up * 0.05 * k
+			"hat":
+				at = up * 0.14 * k
+			"gloves", "staff":
+				bone = hand if hand >= 0 else hips
+		var side := up.cross(Vector3(1, 0, 0) if absf(up.dot(Vector3.RIGHT)) < 0.9 else Vector3(0, 0, 1)).normalized()
+		var basis := (Basis(side, up, side.cross(up)) as Basis) * Basis.from_scale(Vector3.ONE * k)
+		_attach(sk, bone, "GearCaster_%s" % sl, piece, Transform3D(basis, sk.get_bone_global_rest(bone).origin + at))
