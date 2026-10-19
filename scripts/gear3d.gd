@@ -90,15 +90,21 @@ static func _stripped(src: ArrayMesh, t: Dictionary, kit: Dictionary) -> ArrayMe
 			var sl := clampi(int(c.r * 7.0 + 0.5), 0, 7)
 			vslot[v] = sl
 			var k := false
+			# Plate kits: an equipped armor slot trims its outermost plate
+			# shell (the real Plate3D piece replaces it); the body stays.
+			var plate: bool = kit.get("plate", false)
+			var geared: bool = plate and sl <= 4 and tier[sl] >= 1
+			var pstrip: Array = kit.get("plate_strip", [])
+			var strip_v := float(pstrip[sl]) if geared and pstrip.size() > sl else float(strip[sl])
 			# Bare plate kits keep their pauldron mass under the gambeson
 			# (cutting it there left floating shards).
-			if tier[sl] <= (hat_max if sl == 0 else 1) and not (sl == 2 and tier[sl] == 0 and kit.has("under")):
-				if float(strip[sl]) > 0.0 and c.g * 0.5 > float(strip[sl]) and (sl != 2 or c.b - 0.5 > float(kit.get("pauldron_lift", -9.0))):
+			if (tier[sl] <= (hat_max if sl == 0 else 1) or geared) and not (sl == 2 and tier[sl] == 0 and kit.has("under")):
+				if strip_v > 0.0 and c.g * 0.5 > strip_v and (sl != 2 or c.b - 0.5 > float(kit.get("pauldron_lift", -9.0))):
 					k = true
 				pass
-			if sl == 0 and tier[0] <= hat_max and (c.b - 0.5) > top:
+			if sl == 0 and (tier[0] <= hat_max or geared) and (c.b - 0.5) > top:
 				k = true
-			if tier[0] <= hat_max and verts[v].y > cut_y and (sl == 0 or cut_bare.is_empty()) and not (hooded and sl == 0):
+			if (tier[0] <= hat_max or geared) and verts[v].y > cut_y and (sl == 0 or cut_bare.is_empty()) and not (hooded and sl == 0):
 				k = true
 			if hooded and sl == 0 and (c.b - 0.5) <= top and verts[v].y <= cut_y and c.g < 0.99:
 				k = false
@@ -122,6 +128,9 @@ static func _stripped(src: ArrayMesh, t: Dictionary, kit: Dictionary) -> ArrayMe
 			var sl0 := vslot[i0]
 			var tt := tier[sl0]
 			var g := 0 if tt == 0 else (2 if tt == 3 else 1)
+			# Plate kits: the padded underlayer shows under the real pieces.
+			if kit.get("plate_gambeson", false) and sl0 >= 1 and sl0 <= 4 and tt >= 1:
+				g = 0
 			if g == 0 and hood and sl0 == 0:
 				g = 3
 			elif g == 0 and wraps.has(sl0):
@@ -352,6 +361,17 @@ const KITS := {
 	"pebble": {
 		"anims": "res://assets/models/heroes/paladin/paladin_anims.res",
 		"hide": ["BastardScabbard", "swordscabbard", "shortsword", "bastardsword"],
+		# Real swappable plate (scripts/plate3d.gd): the baked plate for the
+		# five armor slots is padding underneath; each equipped piece is a
+		# real mesh with a per-tier silhouette.
+		"plate": true,
+		# Plate strip thresholds for equipped slots: cut only the outermost
+		# plate shell (the real Plate3D piece replaces it). Conservative —
+		# the body must stay.
+		"plate_strip": [0.07, 0.10, 0.10, 0.08, 0.08, 0.0, 0.0, 0.0],
+		# Equipped chest/pauldrons/gloves/boots re-material as gambeson
+		# padding under the real pieces (the helm keeps its steel face).
+		"plate_gambeson": true,
 		# Bare = empty-handed; the first sword is an earned piece.
 		"main": ["", "own:shortsword", "own:bastardsword", "gear:blade_oarimaar"],
 		# Bare slots strip the baked plate (x hero height from the bone axis):
@@ -375,8 +395,6 @@ const KITS := {
 		# (still hornless), bastard sword, heater; rune = horned helm,
 		# Oarimaar blade, tower shield.
 		"helm_cut_max": 2,
-		"rune_pauldron": "pauldron_ancient",
-		"rune_pauldron_xf": [Vector3(0.075, 0.06, 0.04), Vector3(0, 0, -20), 1.3],
 		"amulet_out": 0.13,
 		"off": ["", "gear:shield_round", "gear:shield_heater", "gear:shield_tower"],
 		# Off-hand shield pose relative to the hand socket (cm, degrees).
@@ -386,17 +404,20 @@ const KITS := {
 	# Mordrek, the Bone Knight: a cursed duelist, one long blade, no shield.
 	"bramble": {
 		"anims": "res://assets/models/heroes/boneknight/boneknight_anims.res",
+		# Real swappable bone plate (scripts/plate3d.gd), incl. the offhand
+		# parrying dirk the kit was missing a mesh for.
+		"plate": true,
+		"plate_strip": [0.07, 0.10, 0.10, 0.08, 0.08, 0.0, 0.0, 0.0],
 		# The bone-plate albedo is pale, so blackened steel would read as
 		# frosted ice; damp the T2 metal tint for this kit only.
 		"metal_mul": [1.0, 1.0, 0.4, 1.0],
 		"hide": ["sword", "scabbard_2"],
 		"main": ["", "own:sword", "own:sword", "own:sword"],
-		"off": ["", "", "", ""],
+		"off": ["", "plate:dirk_1", "plate:dirk_2", "plate:dirk_3"],
 		"off_xf": [Vector3.ZERO, Vector3.ZERO],
 		"main_xf": [Vector3(0, -8, 0), Vector3(180, 0, 0)],
 		"seam": 0.25,
 		"rune": Color(0.3, 1.0, 0.62),
-		"spikes": true,
 		# Bare: the skull shows; the horned helm is the earned head piece.
 		"helm_mesh": "helm",
 		"strip": [0.0, 0.0, 0.07, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -410,9 +431,7 @@ const KITS := {
 		# Charm hangs at the belt buckle, not floating by the hand.
 		"amulet_y": 0.1,
 		"amulet_out": 0.12,
-		# Spiked pauldrons are the rune silhouette, not an iron one.
-		"spikes_tier": 3,
-		# Cursed blade grows with its tier (same steel, longer reach read).
+		# Bone-spaulder silhouette now comes from the real T3 plate piece.
 		"blade_scale": [1.0, 1.0, 1.15, 1.28],
 	},
 	# Gnash, the Ghoul: a feral berserker. Claws, no held gear; the tiers
@@ -669,8 +688,10 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 				if sm and sm.shader == SHADER:
 					sm.set_shader_parameter("rune_color", rc)
 	if kit.has("helm_mesh"):
+		# Plate kits mount a real helm piece; the baked helm stays hidden.
+		var show_helm: bool = int(t["helm"]) > 0 and not kit.get("plate", false)
 		for n: Node in model.find_children(str(kit["helm_mesh"]), "MeshInstance3D", true, false):
-			(n as MeshInstance3D).visible = int(t["helm"]) > 0
+			(n as MeshInstance3D).visible = show_helm
 	if CLEAN and kit.has("cloth_node"):
 		for m: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
 			var cm := m.get_meta("src_mesh", m.mesh) as Mesh
@@ -684,6 +705,8 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 	if CLEAN:
 		_amulet(sk, t, kit)
 		_rune_pauldrons(sk, t, kit)
+		if kit.get("plate", false):
+			Plate3D.dress(sk, id, t)
 	else:
 		_charm(sk, t)
 
@@ -712,6 +735,9 @@ static func _mount(sk: Skeleton3D, socket: Dictionary, src: String, own: Diction
 		# True scale: the artist's sword node carries its own scale in the
 		# GLB hierarchy (it read as a toy blade without it).
 		mi.set_meta("own_len", (m.global_transform.basis * m.mesh.get_aabb().size).length() if m.is_inside_tree() else 0.0)
+	elif src.begins_with("plate:"):
+		# Procedural Plate3D prop (e.g. Mordrek's parrying dirk).
+		mi.mesh = Plate3D.prop_mesh(src.substr(6))
 	else:
 		mi.mesh = load(GEAR + src.substr(5) + ".res")
 	holder.add_child(mi)
