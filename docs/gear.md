@@ -180,7 +180,7 @@ shard deduction, rune gating and wallet-floor rules.
 Heroes no longer buy power with coins and relics. The old
 `1 + 0.08 * (level - 1)` card scale is gone from `build_run_stats`; trained
 skill levels are the base-stat source. The Heroes screen's UPGRADE button,
-coin price and relic bar are hidden (the level label stays as a flavour
+coin price and relic bar are gone (the level label stays as a flavour
 readout).
 
 `SaveGame.migrate_training()` runs once on load (stamped by
