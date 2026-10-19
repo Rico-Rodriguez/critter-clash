@@ -3193,8 +3193,14 @@ func _claim_chest(c: Dictionary, hero: Actor) -> void:
 	var value := (40 if rare else 18) + level * 2
 	var coins := 40 if rare else 15
 	loot_coins += coins
-	for k in (9 if rare else 6):
-		_drop_gem(c["pos"] + Vector2.RIGHT.rotated(TAU * k / 6.0) * rng.randf_range(40.0, 90.0), maxi(1, value / (9 if rare else 6)))
+	var count := 9 if rare else 6
+	# The chest pays its whole value: the gems split it evenly and the first
+	# ones take the remainder, so integer division never eats XP.
+	var share := value / count
+	var extra := value % count
+	for k in count:
+		var worth := share + (1 if k < extra else 0)
+		_drop_gem(c["pos"] + Vector2.RIGHT.rotated(TAU * float(k) / float(count)) * rng.randf_range(40.0, 90.0), maxi(1, worth))
 	hero.hp = minf(hero.max_hp, hero.hp + hero.max_hp * 0.2)
 	events.append({"type": "loot", "pos": c["pos"], "tier": c["tier"], "coins": coins, "shake": 0.25})
 	_gear_roll_drop("chest_" + str(c["tier"]), c["pos"])
