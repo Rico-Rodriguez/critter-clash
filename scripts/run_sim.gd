@@ -281,6 +281,9 @@ const BOSS_PHASE_HP := 0.5
 const BOSS_ROAR := 0.8
 const BOSS_PHASE_TELEGRAPH := 1.0
 const BOSS_PHASE_SPEED := 1.2
+## The boss calls in adds while its fight runs, two at a time, and never
+## keeps more than this many of its own adds alive at once.
+const BOSS_MAX_ADDS := 6
 const BOSS_TITLES := {
 	"meadow": "Warden of the Moss",
 	"mushroom": "Sovereign of Spores",
@@ -365,6 +368,9 @@ class Actor extends RefCounted:
 	var camp := -1
 	var home := Vector2.ZERO
 	var aggro := true
+	## True for a critter the boss called in during its fight. Only these
+	## count towards the boss's add wave.
+	var boss_add := false
 	var patrol_a := Vector2.INF
 	var patrol_b := Vector2.ZERO
 	var to_b := true
@@ -2620,6 +2626,17 @@ func _minion_count() -> int:
 	return n
 
 
+## The critters the boss itself called in. The ambient explore population
+## does not count: the add wave is capped by the boss's own adds, so the
+## fight can actually call in reinforcements.
+func _boss_add_count() -> int:
+	var n := 0
+	for actor in actors:
+		if actor.alive and actor.kind == "minion" and actor.boss_add:
+			n += 1
+	return n
+
+
 func _wave() -> Dictionary:
 	for wave in Catalog.WAVES:
 		if time < float(wave["until"]):
@@ -3039,16 +3056,21 @@ func _step_explore(dt: float) -> void:
 	if phase == "boss":
 		boss_time += dt
 		_add_t -= dt
-		if _add_t <= 0.0 and boss != null and boss.alive and _minion_count() < 6:
-			# The boss calls adds from the lair's edge.
-			_add_t = 9.0
-			var skins: Array = biome["skins"]
-			for k in 2:
-				var ang := rng.randf() * TAU
-				var at := map.push_inside(map.lair + Vector2.RIGHT.rotated(ang) * (map.lair_r - 80.0), 30.0)
-				var m := _place_minion(rng.randi() % skins.size(), at, -1)
-				m.aggro = true
-			events.append({"type": "banner", "text": "Adds incoming"})
+		if _add_t <= 0.0 and boss != null and boss.alive:
+			# The boss calls adds from the lair's edge. The cap counts the
+			# adds the boss called in itself, not the ambient explore
+			# population, so the wave really happens during the fight.
+			var room := BOSS_MAX_ADDS - _boss_add_count()
+			if room > 0:
+				_add_t = 9.0
+				var skins: Array = biome["skins"]
+				for k in mini(2, room):
+					var ang := rng.randf() * TAU
+					var at := map.push_inside(map.lair + Vector2.RIGHT.rotated(ang) * (map.lair_r - 80.0), 30.0)
+					var m := _place_minion(rng.randi() % skins.size(), at, -1)
+					m.aggro = true
+					m.boss_add = true
+				events.append({"type": "banner", "text": "Adds incoming"})
 	# Shared flow field from the hero, rebuilt when the hero changes cell.
 	_flow_t -= dt
 	var cell := map.cell_index(hero.pos)
