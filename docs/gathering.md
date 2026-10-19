@@ -4,8 +4,10 @@ Gathering is the second skill family: **Woodcutting, Fishing and Mining**. It
 is **account-wide**, unlike the six combat skills, which belong to a hero and
 live in `GearDB`. One account's Woodcutting level is the same for every hero.
 
-Phase 1 is data, catalog and sim hooks only. There is no gathering UI yet: the
-skills screen keeps its "arrive soon" placeholder.
+Phase 1 is data, catalog and sim hooks only. There is no gathering skills UI
+yet: the skills screen keeps its "arrive soon" placeholder. The bag, though,
+is already a screen of its own: the Materials tab lists what the world has
+given and sells it (see "The bag" below).
 
 ## Skills
 - `Catalog.SKILLS` is the catalog: `{"id", "name"}` per skill, in display
@@ -42,6 +44,19 @@ Lookups: `node(id)`, `has_node(id)`, `nodes()` (by level, then id),
 `GatheringDB.RESOURCES` maps a material id to `{"name", "skill"}`. The
 materials are the same ids the boss drops use, so one bag holds everything
 the world gives (`SaveGame.data["materials"]`).
+
+## Prices
+`MaterialDB.PRICES` is the one table for the whole bag: material id -> coins
+for one of it. It prices the boss materials (the `Catalog.DROPS` rows with
+kind `material`) and the gathered resources alike, because they share the
+bag. The prices are deliberately small: a boss material is worth less than
+the coin purse the same boss can drop (40 coins), so selling never competes
+with the real loot.
+
+`MaterialDB` also answers what a material is called (`name_of`), where it
+came from (`kind_of`: `boss` or `gathered`), which skill trains it
+(`skill_of`) and whether it has a picture (`icon_path`; the boss drops were
+baked as props, the gathered resources have no art yet).
 
 ## Drop tables
 `LootTable.RESOURCE_TABLES` is keyed by node id. A row is
@@ -102,14 +117,34 @@ others, and how many a gather takes.
 - `SaveGame.add_gathering_xp(skill, amount)` adds XP and returns the levels
   gained. The curve ends at 99, so XP past it is never banked.
 - `SaveGame.add_material(id, amount)` and `add_materials(drops)` put gathered
-  resources in the bag.
+  resources in the bag. The run banks them at the end
+  (`RunSim._commit_gathering_xp` -> `SaveGame.add_materials`), so a gather
+  lands in the count the bag reads.
+- `SaveGame.material_count(id)`, `bag_count()` and `bag_value()` read the bag.
+- `SaveGame.sell_material(id, amount)` sells a stack (a negative amount sells
+  the lot of that material) and `sell_all_materials()` empties the bag. Both
+  pay coins into the wallet, take the counts down and write the save. A
+  material with no price is never sold, so it stays in the bag.
 - Save version 5: the gathering skills are Woodcutting, Fishing and Mining.
   The old placeholder ids (foraging, taming, crafting) never had an XP
   source, so `migrate_gathering_skills()` drops them on load.
 
-## Not in phase 1
-- No gathering UI: the skills screen keeps its placeholder, and nothing
-  shows the gathering levels, the materials or the nodes.
-- No tools, no crafting, no selling: the materials are a bag, nothing reads
-  them yet.
+## The bag
+The Skills screen carries a third tab, **Materials**: every material the
+account holds, split into the boss spoils and the gathered resources, each
+row showing its icon, its name, how many there are and what the stack is
+worth. A row sells its whole stack for coins; the action under the tab bar
+sells the whole bag, and asks once before it does, because a sale cannot be
+undone.
+
+A material the save holds but nobody has priced yet still shows (under
+"OTHER"), with its count and no sell button: the bag never hides a stack.
+
+The Home screen puts a dot on the Skills tile while the bag still holds
+something worth selling.
+
+## Still to come
+- No gathering skills UI: the skills screen keeps its placeholder, and
+  nothing shows the gathering levels or the nodes.
+- No tools, no crafting: the materials are a bag and a price, nothing more.
 - No node art: the nodes are data in the world, not drawn.

@@ -749,6 +749,69 @@ func add_materials(drops: Array) -> void:
 		_write()
 
 
+## What one material is worth, in coins, and what a whole stack of it is
+## worth. The prices live in MaterialDB, the one table for the whole bag.
+func material_value(id: String, amount: int) -> int:
+	return MaterialDB.value(id, amount)
+
+
+## Sells materials out of the bag: the coins go into the wallet and the
+## counts come down. `amount` is how many to sell; a negative amount sells
+## the whole stack. Returns the coins paid, and 0 when nothing was sold (an
+## unknown material, or an empty stack).
+func sell_material(id: String, amount: int = -1) -> int:
+	var have := material_count(id)
+	var unit := MaterialDB.price(id)
+	if have <= 0 or unit <= 0:
+		return 0
+	var sold := have if amount < 0 else mini(amount, have)
+	if sold <= 0:
+		return 0
+	var coins := unit * sold
+	if sold >= have:
+		data["materials"].erase(id)
+	else:
+		data["materials"][id] = have - sold
+	data["coins"] = int(data["coins"]) + coins
+	_write()
+	return coins
+
+
+## Sells everything the bag holds in one write and returns the coins paid.
+## A material with no price is left alone rather than thrown away.
+func sell_all_materials() -> int:
+	var total := 0
+	for key in data["materials"].keys():
+		var id := str(key)
+		var count := material_count(id)
+		var unit := MaterialDB.price(id)
+		if count <= 0 or unit <= 0:
+			continue
+		total += unit * count
+		data["materials"].erase(id)
+	if total > 0:
+		data["coins"] = int(data["coins"]) + total
+		_write()
+	return total
+
+
+## How many items the bag holds, every kind together.
+func bag_count() -> int:
+	var total := 0
+	for key in data["materials"].keys():
+		total += material_count(str(key))
+	return total
+
+
+## What the whole bag is worth, in coins.
+func bag_value() -> int:
+	var total := 0
+	for key in data["materials"].keys():
+		var id := str(key)
+		total += material_value(id, material_count(id))
+	return total
+
+
 # --- Gathering skills --------------------------------------------------------
 
 ## Gathering is account-wide, not per hero (docs/gathering.md): the XP for

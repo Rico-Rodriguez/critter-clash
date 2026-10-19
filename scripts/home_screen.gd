@@ -96,6 +96,9 @@ func _sync() -> void:
 var _forge_pip: Control
 var _slayer_pip: Control
 var _trophy_pip: Control
+## The Skills tile carries the bag: it gets a dot while the bag holds
+## something worth selling.
+var _skills_pip: Control
 
 
 ## Re-read the three attention pips on enter, beside the counters: Forge when a
@@ -106,6 +109,8 @@ func _refresh_pips() -> void:
 		_forge_pip.visible = SaveGame.forge_ready(SaveGame.featured_id())
 	if _slayer_pip != null:
 		_slayer_pip.visible = SaveGame.slayer_ready()
+	if _skills_pip != null:
+		_skills_pip.visible = SaveGame.bag_value() > 0
 	if _trophy_pip == null:
 		_add_road_pip()
 	if _trophy_pip != null:
@@ -285,6 +290,8 @@ func _tiles() -> HBoxContainer:
 				_forge_pip = _add_tile_pip(tile)
 			"slayer":
 				_slayer_pip = _add_tile_pip(tile)
+			"skills":
+				_skills_pip = _add_tile_pip(tile)
 		row.add_child(tile)
 	return row
 

@@ -1,11 +1,13 @@
 class_name SkillsScreen
 extends ScreenBase
 
-## Skills splits into two tabs. Combat is per hero: GearDB's six combat skills
+## Skills splits into three tabs. Combat is per hero: GearDB's six combat skills
 ## for the hero shown by the local, view-only switcher (it never changes the
 ## save's featured hero). Each row is a forged plaque with the name, level and
 ## an XP bar; combat skills fill from hunts. Gathering is a placeholder for the
-## account-wide skills still to come, with no fake progress.
+## account-wide skills still to come, with no fake progress. Materials is the
+## bag: every gathered resource and boss material the account holds, with its
+## count and its price, sold for coins.
 
 
 ## OSRS combat level for a hero's skill levels, keyed by GearDB.SKILL_KEYS.
@@ -87,6 +89,12 @@ static func _fmt_num(value: int) -> String:
 var _tab_buttons := {}
 var _content: VBoxContainer
 var _summary: Label
+## The currency bar, held so a sale can re-read the coin pill.
+var _header: HBoxContainer
+## The row of bulk actions under the tab bar. Only the Materials tab uses it.
+var _actions: HBoxContainer
+## The list the tabs fill, so a rebuilt tab can let touches through again.
+var _scroll: ScrollContainer
 ## The hero the page is showing. Empty follows the featured hero; the switcher
 ## only moves this local view and never writes the save (TASK).
 var _view_hero := ""
@@ -111,18 +119,26 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header_with_back("home"))
+	_header = header_with_back("home")
+	box.add_child(_header)
 	box.add_child(h1("Skills"))
 	_summary = UiKit.label("", 24, Color("e6d8bc"), "x", 4)
 	_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_summary)
 	box.add_child(_tab_bar())
+	# The bulk action of the current tab sits under the tab bar and stays
+	# there while the list below it scrolls.
+	_actions = HBoxContainer.new()
+	_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	_actions.add_theme_constant_override("separation", 14)
+	box.add_child(_actions)
 	# The combat list can run past the screen once the unlock lines are in, so
 	# it scrolls; the tab bar and back chip stay put.
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
+	_scroll = scroll
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 16)
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -133,10 +149,12 @@ func build() -> void:
 func _tab_bar() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	for entry in [["combat", "Combat"], ["gathering", "Gathering"]]:
+	row.add_theme_constant_override("separation", 10)
+	# Three tabs share the portrait width, so each caption shrinks to fit
+	# (UiKit.Btn) instead of running off the safe area.
+	for entry in [["combat", "Combat"], ["gathering", "Gathering"], ["materials", "Materials"]]:
 		var key := str(entry[0])
-		var button := UiKit.secondary(str(entry[1]), 280, 88)
+		var button := UiKit.secondary(str(entry[1]), 210, 88)
 		button.toggle_mode = true
 		button.pressed.connect(func() -> void: _show_tab(key))
 		_tab_buttons[key] = button
@@ -151,16 +169,34 @@ func _show_tab(tab: String) -> void:
 		button.modulate = Color(1.08, 1.02, 0.9) if key == tab else Color(0.6, 0.6, 0.64)
 	if _summary != null:
 		var hero := view_id()
-		_summary.text = "Total %d · Combat %d" % [total_level(hero), combat_level(GearDB.skills(hero))]
+		if tab == "materials":
+			_summary.text = "Bag · %d items · %d coins" % [SaveGame.bag_count(), SaveGame.bag_value()]
+		else:
+			_summary.text = "Total %d · Combat %d" % [total_level(hero), combat_level(GearDB.skills(hero))]
 	if _content == null:
 		return
 	for child in _content.get_children():
 		_content.remove_child(child)
 		child.queue_free()
-	if tab == "combat":
-		_combat_tab()
-	else:
-		_gathering_tab()
+	for child in _actions.get_children():
+		_actions.remove_child(child)
+		child.queue_free()
+	match tab:
+		"combat":
+			_combat_tab()
+		"materials":
+			_materials_tab()
+		_:
+			_gathering_tab()
+	# The rows were built after the screen was ready, so they still swallow
+	# touches: let them pass, or the list cannot be dragged.
+	pass_through(_scroll)
+
+
+## Show a tab by id ("combat", "gathering", "materials"). The capture tool
+## uses it to shoot the Materials page.
+func show_tab(tab: String) -> void:
+	_show_tab(tab)
 
 
 func _combat_tab() -> void:
@@ -268,6 +304,140 @@ func _gathering_tab() -> void:
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(head)
 	col.add_child(body("Gathering skills arrive soon: Woodcutting, Fishing, Mining"))
+
+
+# --- Materials ---------------------------------------------------------------
+
+## The bag: every material the world has given the account, boss drops and
+## gathered resources alike, with the count of each and what it sells for. A
+## row sells its whole stack; the action under the tab bar sells the lot.
+func _materials_tab() -> void:
+	_sell_all_action()
+	var boss: Array = []
+	var gathered: Array = []
+	var other: Array = []
+	for id in _bag_ids():
+		if SaveGame.material_count(id) <= 0:
+			continue
+		match MaterialDB.kind_of(id):
+			"boss":
+				boss.append(id)
+			"gathered":
+				gathered.append(id)
+			_:
+				other.append(id)
+	if boss.is_empty() and gathered.is_empty() and other.is_empty():
+		_content.add_child(_empty_bag())
+		return
+	_content.add_child(body("Everything the wilds have given you. Sell a stack for coins, or empty the bag in one go."))
+	if not boss.is_empty():
+		_content.add_child(_group_label("FROM THE HUNT"))
+		for id in boss:
+			_content.add_child(_material_row(str(id)))
+	if not gathered.is_empty():
+		_content.add_child(_group_label("GATHERED"))
+		for id in gathered:
+			_content.add_child(_material_row(str(id)))
+	if not other.is_empty():
+		_content.add_child(_group_label("OTHER"))
+		for id in other:
+			_content.add_child(_material_row(str(id)))
+
+
+## Every material the account holds, in a stable order: the known ones (the
+## boss spoils, then the gathered resources) and after them anything else the
+## save happens to hold, so a material nobody has priced yet is still shown
+## rather than sitting in the bag unseen.
+func _bag_ids() -> Array:
+	var out: Array = []
+	var known := {}
+	for id in MaterialDB.all_ids():
+		known[id] = true
+		out.append(id)
+	for key in SaveGame.data["materials"].keys():
+		var id := str(key)
+		if not known.has(id):
+			out.append(id)
+	return out
+
+
+## A group head inside the bag list.
+func _group_label(text: String) -> Control:
+	var l := UiKit.label(text, 22, UiKit.GOLD, "x", 3)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
+
+
+## One material of the bag: its icon, its name, how many there are and what
+## the stack is worth. The button sells the stack.
+func _material_row(id: String) -> Control:
+	var row := MaterialRow.new()
+	row.setup(id, SaveGame.material_count(id), MaterialDB.price(id))
+	row.sell.connect(_sell_one)
+	return row
+
+
+## An empty bag: the wilds have given nothing yet.
+func _empty_bag() -> Control:
+	var l := body("The bag is empty. Work a node in a biome, or bring a boss down, and its spoils land here.")
+	l.add_theme_color_override("font_color", UiKit.MUTED)
+	return l
+
+
+## Sells one stack of a material and rebuilds the list around the new count.
+func _sell_one(id: String) -> void:
+	var coins := SaveGame.sell_material(id)
+	if coins <= 0:
+		AudioDirector.sfx("ui_error")
+		return
+	AudioDirector.sfx("coin")
+	AudioDirector.haptic("light")
+	toast("Sold %s for %d coins" % [MaterialDB.name_of(id), coins])
+	_sync_purse()
+	_show_tab("materials")
+
+
+## The bulk action under the tab bar: the whole bag, for coins. It asks once,
+## because a sale cannot be undone.
+func _sell_all_action() -> void:
+	var value := SaveGame.bag_value()
+	var button := UiKit.button("SELL ALL", 300, 88)
+	# Set before the button enters the tree so its forged skin builds in the
+	# grey tone and the caption dims with it (UiKit.Btn reads disabled in _ready).
+	button.disabled = value <= 0
+	button.pressed.connect(_confirm_sell_all)
+	_actions.add_child(button)
+	_actions.add_child(UiKit.label("The bag is worth %d coins" % value, 20, UiKit.MUTED, "b", 3))
+
+
+## Asks before the bulk sale: the sheet names what goes and what it pays.
+func _confirm_sell_all() -> void:
+	var value := SaveGame.bag_value()
+	if value <= 0:
+		return
+	var sheet := ConfirmSheet.new()
+	sheet.total = value
+	sheet.items = SaveGame.bag_count()
+	sheet.confirmed.connect(func() -> void:
+		sheet.queue_free()
+		var coins := SaveGame.sell_all_materials()
+		AudioDirector.sfx("coin")
+		AudioDirector.haptic("medium")
+		toast("Sold the bag for %d coins" % coins)
+		_sync_purse()
+		_show_tab("materials"))
+	sheet.cancelled.connect(func() -> void: sheet.queue_free())
+	add_child(sheet)
+
+
+## The coin pill in the currency bar counts up on its own, but a sale changes
+## the wallet, so it is re-read here.
+func _sync_purse() -> void:
+	if _header == null:
+		return
+	for child in _header.get_children():
+		if child is UiKit.Pill and (child as UiKit.Pill).kind == "coin":
+			(child as UiKit.Pill).set_amount(str(int(SaveGame.data["coins"])))
 
 
 ## A forged shield crest with a level struck into it.
@@ -394,6 +564,169 @@ class CombatRow extends PanelContainer:
 			var line := UiKit.label("NEXT UNLOCK · " + unlock, 20, Color("9fe08a") if all_open else Color("d8c8aa"), "b", 4)
 			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			col.add_child(line)
+
+
+## One material of the bag: its icon, its name, how many of it there are and
+## what the stack is worth. The button sells the whole stack.
+class MaterialRow extends PanelContainer:
+	signal sell(id: String)
+	var id := ""
+	var count := 0
+	var price := 0
+
+	func setup(material_id: String, have: int, unit: int) -> void:
+		id = material_id
+		count = have
+		price = unit
+
+	func _ready() -> void:
+		custom_minimum_size = Vector2(0, 132)
+		var empty := StyleBoxEmpty.new()
+		for side in ["left", "right", "top", "bottom"]:
+			empty.set("content_margin_" + side, 16)
+		add_theme_stylebox_override("panel", empty)
+		var fr := UiKit.Frame.new("plaque", "leather")
+		fr.margin = 14.0
+		add_child(fr)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 16)
+		add_child(row)
+		var icon := MaterialIcon.new()
+		icon.id = id
+		icon.custom_minimum_size = Vector2(92, 92)
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(icon)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_theme_constant_override("separation", 4)
+		row.add_child(col)
+		col.add_child(UiKit.label(MaterialDB.name_of(id).to_upper(), 26, Color("fff1d6"), "x", 5))
+		if price > 0:
+			col.add_child(UiKit.label("×%d · %d coins each" % [count, price], 20, UiKit.MUTED, "b", 3))
+		else:
+			col.add_child(UiKit.label("×%d · no price yet" % count, 20, UiKit.MUTED, "b", 3))
+		var right := VBoxContainer.new()
+		right.alignment = BoxContainer.ALIGNMENT_CENTER
+		right.add_theme_constant_override("separation", 6)
+		row.add_child(right)
+		if price > 0:
+			right.add_child(UiKit.label("%d COINS" % (count * price), 21, UiKit.GOLD.lightened(0.15), "x", 3))
+			var button := UiKit.button("SELL", 180, 88)
+			button.pressed.connect(func() -> void: sell.emit(id))
+			right.add_child(button)
+
+
+## A material's picture: the baked prop when the drop has one, and a carved
+## mark of its skill when it does not (the gathered resources have no art
+## yet).
+class MaterialIcon extends Control:
+	var id := ""
+	var tex: Texture2D
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var path := MaterialDB.icon_path(id)
+		if path != "":
+			# Cached: canvas draw commands keep only the RID, so a local
+			# texture would be freed after the draw and show as white.
+			tex = SpriteBank._load(path, id)
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := maxf(minf(size.x, size.y) * 0.5 - 4.0, 0.0)
+		if r <= 0.0:
+			return
+		if tex != null:
+			draw_texture_rect(tex, Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false)
+			return
+		# No art yet: a small medallion with the skill's mark cut into it.
+		draw_circle(c + Vector2(0, 3), r, Color(0, 0, 0, 0.5))
+		draw_circle(c, r, Color("241a12"))
+		draw_arc(c, r - 3, 0, TAU, 40, Color("c9a25a"), 3.0, true)
+		_mark(c, r * 0.6)
+
+	func _mark(c: Vector2, r: float) -> void:
+		var ink := Color("e8c070")
+		match MaterialDB.skill_of(id):
+			"woodcutting":
+				# A log: a bark bar with a cut ring at each end.
+				var bar := Rect2(c.x - r, c.y - r * 0.32, r * 2.0, r * 0.64)
+				draw_rect(bar, Color("8a5a2a"))
+				draw_rect(bar, Color("4a2c12"), false, 2.0)
+				draw_circle(Vector2(c.x - r * 0.56, c.y), r * 0.24, Color("d8b070"))
+				draw_circle(Vector2(c.x + r * 0.56, c.y), r * 0.24, Color("d8b070"))
+			"fishing":
+				# A fish: a body and a tail.
+				var body := PackedVector2Array([
+					c + Vector2(-r * 0.75, 0), c + Vector2(-r * 0.15, -r * 0.46),
+					c + Vector2(r * 0.5, -r * 0.2), c + Vector2(r * 0.5, r * 0.2),
+					c + Vector2(-r * 0.15, r * 0.46)])
+				draw_colored_polygon(body, Color("7fb6d6"))
+				var outline := body.duplicate()
+				outline.append(body[0])
+				draw_polyline(outline, ink, 2.0, true)
+				draw_colored_polygon(PackedVector2Array([
+					c + Vector2(-r * 0.7, 0), c + Vector2(-r * 1.15, -r * 0.42),
+					c + Vector2(-r * 1.15, r * 0.42)]), Color("7fb6d6"))
+			_:
+				# An ore chunk: a faceted lump.
+				var chunk := PackedVector2Array([
+					c + Vector2(-r * 0.72, r * 0.28), c + Vector2(-r * 0.34, -r * 0.62),
+					c + Vector2(r * 0.46, -r * 0.5), c + Vector2(r * 0.78, r * 0.32),
+					c + Vector2(0, r * 0.72)])
+				draw_colored_polygon(chunk, Color("b08a5e"))
+				var edge := chunk.duplicate()
+				edge.append(chunk[0])
+				draw_polyline(edge, ink, 2.0, true)
+
+
+## A dimmed sheet over the page that asks once before a bulk sale: what goes,
+## what it pays, and the two ways out.
+class ConfirmSheet extends Control:
+	signal confirmed
+	signal cancelled
+	var total := 0
+	var items := 0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.62)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		dim.gui_input.connect(func(e: InputEvent) -> void:
+			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+				cancelled.emit())
+		add_child(dim)
+		var center := CenterContainer.new()
+		center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(center)
+		var plate := UiKit.Plate.new()
+		plate.kind = "panel"
+		plate.pad = 24
+		center.add_child(plate)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 14)
+		plate.add_child(box)
+		var title := UiKit.title("Sell the bag?", 40)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(title)
+		var line := UiKit.label("%d materials for %d coins." % [items, total], 22, UiKit.CREAM, "b", 4)
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(line)
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 14)
+		box.add_child(row)
+		var keep := UiKit.secondary("KEEP", 240, 88)
+		keep.pressed.connect(func() -> void: cancelled.emit())
+		row.add_child(keep)
+		var sell := UiKit.confirm("SELL", 240, 88)
+		sell.pressed.connect(func() -> void: confirmed.emit())
+		row.add_child(sell)
 
 
 ## A forged medallion with a carved glyph for the skill. Every glyph is drawn

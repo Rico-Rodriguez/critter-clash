@@ -59,6 +59,16 @@ func _pass_all(node: Node) -> void:
 		_pass_all(child)
 
 
+## The same pass-through for a scroll list whose content was filled in after
+## the screen was ready (a tab switch, say): the fresh rows would otherwise
+## swallow the drag and the list could not be scrolled by touch.
+func pass_through(scroll: ScrollContainer) -> void:
+	if scroll == null:
+		return
+	scroll.scroll_deadzone = 14
+	_pass_all(scroll)
+
+
 ## Direction the next screen slides in from: -1 left, 1 right, 0 zoom.
 static var slide_from := 0
 var _dock: Control

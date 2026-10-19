@@ -38,7 +38,7 @@ The slayer master offers tasks such as "Defeat 40 Meadow critters" or "Defeat Gr
 
 ## Skills
 
-Woodcutting, Fishing and Mining are saved as XP for the account. Levels run from 1 to 99 on the same curve as Old School RuneScape (83 XP to reach level 2, 13,034,431 XP to reach level 99). Gathering is still being built: the worlds now carry resource nodes, walking up to one works it for XP and materials, and the skills screen keeps its "arrive soon" placeholder. The contract is in `docs/gathering.md`.
+Woodcutting, Fishing and Mining are saved as XP for the account. Levels run from 1 to 99 on the same curve as Old School RuneScape (83 XP to reach level 2, 13,034,431 XP to reach level 99). Gathering is still being built: the worlds now carry resource nodes, walking up to one works it for XP and materials, and the skills screen keeps its "arrive soon" placeholder. The materials it pays, and the boss materials, share one bag: the Skills screen has a Materials tab that lists them and sells them for a few coins each. The contract is in `docs/gathering.md`.
 
 ## Heroes
 
