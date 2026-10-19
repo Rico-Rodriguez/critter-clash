@@ -63,6 +63,8 @@ The trophy road spends those trophies on coins, a chest, Lumen, Pip, Bramble, an
 
 A win brings home a hunt chest. A loss brings a smaller pouch. Chests pay coins, critter cards for heroes you already own, and sometimes a piece of gear.
 
+The chest drawer holds four chests. A chest that arrives when every slot is taken, whether it came home from a hunt or was a prize from the trophy road or the slayer shop, is never lost: it pays out straight into your purse instead, and the run card, the toast and the line under the drawer on Home all say what it paid.
+
 Card level works like a collection card game. Duplicates and coins raise a critter from level 1 to 10. Level 2 costs 2 cards and 15 coins, and each level asks for more. Health and damage grow by 8% per level.
 
 Each critter has a weapon slot, an armor slot, and a charm slot. A piece can only be worn by one critter. Weapons roll damage and attack speed, armor rolls health and armor, charms roll crit, move speed, or regen.

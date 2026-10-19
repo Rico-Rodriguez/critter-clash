@@ -38,6 +38,14 @@ func build() -> void:
 		page.add_child(row)
 
 
+## A claim whose chest found no room in the drawer paid out instead of being
+## lost, so the prize is said out loud rather than vanishing into the purse.
+func open(_args: Dictionary = {}) -> void:
+	var paid := SaveGame.take_payout()
+	if not paid.is_empty():
+		toast("Chest paid out: %s" % SaveGame.payout_text(paid))
+
+
 func _claim(id: String) -> void:
 	if SaveGame.claim(id):
 		go("trophy")
