@@ -230,8 +230,7 @@ func _capture() -> void:
 			GearDB.grant("%s.%s" % [fh, piece])
 		for piece in ["helm.1", "gloves.1", "weapon.1"]:
 			GearDB.equip(fh, "%s.%s" % [fh, piece])
-		# Enough cards and coins that the Heroes UPGRADE reads as ready.
-		SaveGame.hero(fh)["cards"] = maxi(int(SaveGame.hero(fh)["cards"]), SaveGame.cards_needed(int(SaveGame.hero(fh)["level"])) + 1)
+		# Enough coins to show gear reinforcing as affordable.
 		SaveGame.data["coins"] = maxi(int(SaveGame.data["coins"]), 240)
 	if _wants("home"):
 		go("home")
