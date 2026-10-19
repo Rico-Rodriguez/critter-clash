@@ -240,6 +240,7 @@ static func sheet(host: Control, hero: String, slot: String, changed: Callable) 
 		var off := UiKit.secondary("Unequip", 220, 84)
 		off.pressed.connect(func() -> void:
 			GearDB.unequip(hero, slot)
+			AudioDirector.sfx("gear_unequip")
 			dim.queue_free()
 			changed.call())
 		bar.add_child(off)
@@ -289,6 +290,7 @@ static func _row(hero: String, id: String, eq: String, changed: Callable, dim: C
 	var b := UiKit.confirm("Equip", 150, 72)
 	b.pressed.connect(func() -> void:
 		GearDB.equip(hero, id)
+		AudioDirector.sfx("gear_equip")
 		dim.queue_free()
 		changed.call())
 	row.add_child(b)
@@ -380,7 +382,9 @@ static func loot_reveal(ids: Array) -> Control:
 		var tw := card.create_tween()
 		tw.tween_interval(delay)
 		tw.tween_property(card, "scale:x", 0.0, 0.12)
-		tw.tween_callback(func() -> void: card.face = true)
+		tw.tween_callback(func() -> void:
+			card.face = true
+			AudioDirector.sfx("card_flip", 0.0, 1.0 + 0.04 * i))
 		tw.tween_property(card, "scale", Vector2(1.12, 1.12), 0.12).set_trans(Tween.TRANS_BACK)
 		tw.tween_property(card, "scale", Vector2.ONE, 0.12)
 		tw.parallel().tween_property(name, "modulate:a", 1.0, 0.2)

@@ -358,6 +358,8 @@ class ChestSlot extends Control:
 	var frame: UiKit.Frame
 	var _wait := 0
 	var _state := ""
+	## Last chest state read, so a change (the unlock finishing) can be heard.
+	var _seen := ""
 	## 1 while the chest is still in the air on its fly-in, 0 once seated.
 	var drop := 0.0
 	var _flash := 0.0
@@ -406,6 +408,14 @@ class ChestSlot extends Control:
 		if filled:
 			_wait = SaveGame.chest_wait(index)
 			_state = SaveGame.chest_state(index)
+			# The unlock finishing is the one change the slot announces:
+			# the chest is ready to be opened.
+			if _seen == "":
+				_seen = _state
+			elif _seen != _state:
+				_seen = _state
+				if _state == "ready":
+					AudioDirector.sfx("chest_ready")
 			var pulse := 0.22 + 0.16 * sin(t * 2.4) if _state == "ready" else (0.1 if _state == "unlocking" else 0.04)
 			frame.set_param("glow_color", Color(1.0, 0.7, 0.3, pulse))
 		queue_redraw()

@@ -284,7 +284,7 @@ func try_level(id: String) -> bool:
 	row["level"] = level + 1
 	data["coins"] = int(data["coins"]) - coins_needed(level)
 	_write()
-	AudioDirector.play("merge")
+	AudioDirector.sfx("levelup", -3.0)
 	return true
 
 
@@ -847,6 +847,9 @@ func cancel_task() -> void:
 	data["slayer"]["task"] = {}
 	data["slayer"]["streak"] = 0
 	_write()
+	# The contract is dropped and the streak with it: a wrong note, not a
+	# quiet one.
+	AudioDirector.sfx("ui_error")
 
 
 func complete_task() -> int:
@@ -883,7 +886,8 @@ func complete_task() -> int:
 			data["coins"] = int(data["coins"]) + CACHE_COINS
 			last_streak_reward = {"coins": CACHE_COINS}
 	_write()
-	AudioDirector.play("merge")
+	# Slayer points are a payout: the coin sound says "paid".
+	AudioDirector.sfx("coin")
 	return gained
 
 
@@ -955,7 +959,15 @@ func buy_slayer(offer_id: String) -> bool:
 		"chest":
 			add_chest(_new_chest("hunt", "meadow", false), true)
 	_write()
-	AudioDirector.play("merge")
+	# The warden takes the points and hands something over: coins jingle,
+	# a chest opens, a piece clanks into the armory.
+	match str(offer["kind"]):
+		"chest":
+			AudioDirector.sfx("chest_open")
+		"gear":
+			AudioDirector.sfx("gear_equip")
+		_:
+			AudioDirector.sfx("coin")
 	return true
 
 
@@ -1315,7 +1327,15 @@ func claim(id: String) -> bool:
 		"gear":
 			grant_reward(featured_id(), str(entry["slot"]), str(entry["rarity"]))
 	_write()
-	AudioDirector.play("merge")
+	# The sound follows the prize: coins jingle, a chest opens, a relic
+	# joins the roster.
+	match str(entry["kind"]):
+		"coins":
+			AudioDirector.sfx("coin")
+		"chest":
+			AudioDirector.sfx("chest_open")
+		_:
+			AudioDirector.sfx("card_pick")
 	return true
 
 
@@ -1507,7 +1527,14 @@ func claim_mastery(id: String) -> bool:
 			# chest can hold the tiers the player is hunting now.
 			add_chest(_new_chest("hunt", _deepest_open_biome(), false), true)
 	_write()
-	AudioDirector.play("merge")
+	# The sound follows the prize: coins jingle, a chest opens.
+	match str(reward.get("kind", "coins")):
+		"coins":
+			AudioDirector.sfx("coin")
+		"chest":
+			AudioDirector.sfx("chest_open")
+		_:
+			AudioDirector.sfx("card_pick")
 	return true
 
 

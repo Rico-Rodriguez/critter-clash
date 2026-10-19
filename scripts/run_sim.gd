@@ -1521,7 +1521,7 @@ func _step_wolves(hero: Actor, n: int) -> void:
 	a.owner_hero = hero.id
 	actors.append(a)
 	hero.summon_ids.append(a.id)
-	events.append({"type": "fx", "fx": "spirit_wolf", "pos": a.pos})
+	events.append({"type": "fx", "fx": "wolf_spawn", "pos": a.pos})
 
 
 func _step_allies(dt: float) -> void:

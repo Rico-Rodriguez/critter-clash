@@ -186,6 +186,7 @@ func open(args: Dictionary = {}) -> void:
 		stats[hero_id]["hp"] = float(stats[hero_id]["hp"]) * Daily.PASS_HP_MUL
 	sim.start(session, stats, difficulty)
 	AudioDirector.music("hunt")
+	AudioDirector.sfx("hunt_start")
 	cam = HuntCamera.new()
 	var hero_at := sim.play.get_center()
 	if not sim.heroes.is_empty():
@@ -506,7 +507,9 @@ func _try_dodge() -> void:
 	var want := stick.vec if stick.active else Vector2.ZERO
 	if drive.length() > 0.05:
 		want = drive.normalized()
-	sim.dodge(0, want)
+	if not sim.dodge(0, want):
+		# Still on cooldown: the tap is heard, not swallowed.
+		AudioDirector.sfx("ui_error", -8.0)
 
 
 func _begin_stick(at: Vector2) -> void:
@@ -572,8 +575,9 @@ func _drain() -> void:
 			"hit":
 				var amt := float(ev["amount"])
 				var crit := bool(ev.get("crit", false))
+				var blocked: bool = round(amt) <= 0.0
 				if amt < 99999.0:
-					if round(amt) <= 0.0:
+					if blocked:
 						_float(ev["pos"], "Blocked", Color("9a9a9a"), false, int(ev["id"]), amt, "hit")
 					elif crit or not _merge_float(int(ev["id"]), amt):
 						_float(ev["pos"], str(int(round(amt))) + ("!" if crit else ""), Color("ff8a2a") if crit else Color("fbf2de"), crit, int(ev["id"]), amt, "hit")
@@ -581,30 +585,54 @@ func _drain() -> void:
 				_punch[int(ev["id"])] = 0.16
 				var struck := sim._actor_by_id(int(ev["id"]))
 				var on_boss := struck != null and struck.kind == "boss"
-				stage.hurt(int(ev["id"]), on_boss, crit or float(ev["amount"]) >= 40.0)
-				if crit:
+				var heavy := crit or float(ev["amount"]) >= 40.0
+				stage.hurt(int(ev["id"]), on_boss, heavy)
+				if blocked:
+					# The guard took it: a dull knock, not a wound.
+					AudioDirector.sfx("block")
+					AudioDirector.haptic("light")
+				elif crit:
 					AudioDirector.sfx("crit")
+					# The heavy impact burst (scripts/cast_fx3d.gd) gets
+					# its own layer of weight under the crit.
+					AudioDirector.sfx("impact", -2.0)
 					AudioDirector.haptic("heavy")
 				elif on_boss:
 					AudioDirector.sfx("boss_hit")
+					AudioDirector.sfx("impact", -4.0)
 					AudioDirector.haptic("heavy")
 				else:
 					AudioDirector.sfx("hit")
+					if heavy:
+						AudioDirector.sfx("impact", -6.0)
 					AudioDirector.haptic("medium")
 			"hero_hurt":
 				var hdmg := float(ev["amount"])
-				if round(hdmg) <= 0.0:
+				var hdmg_blocked: bool = round(hdmg) <= 0.0
+				if hdmg_blocked:
 					_float(ev["pos"], "Blocked", Color("9a9a9a"), true, int(ev["id"]), hdmg, "hero")
 				else:
 					_float(ev["pos"], str(int(round(hdmg))), Color("ff6d6d"), true, int(ev["id"]), hdmg, "hero")
 				var guard := sim._actor_by_id(int(ev["id"]))
-				if guard != null and str(guard.role) == "tank" and guard.swing_t > 0.0:
+				# The tank's swing drinks part of every melee blow: the
+				# guard glints and the hit lands dull, not as a wound.
+				var guarded := guard != null and str(guard.role) == "tank" and guard.swing_t > 0.0
+				if guarded:
 					stage.guard_glint(guard.id)
 				_punch[int(ev["id"])] = 0.14
 				stage.hurt(int(ev["id"]))
 				_hurt_flash()
-				AudioDirector.sfx("hero_hurt")
-				AudioDirector.haptic("heavy")
+				if hdmg_blocked or guarded:
+					# A knock on the guard, not the hero's grunt.
+					AudioDirector.sfx("block")
+					AudioDirector.sfx("impact", -10.0)
+					AudioDirector.haptic("light")
+				else:
+					AudioDirector.sfx("hero_hurt")
+					# The red impact burst on the hero is the weight of the
+					# blow: a body under the grunt.
+					AudioDirector.sfx("impact", -8.0)
+					AudioDirector.haptic("heavy")
 			"die":
 				var info := Catalog.critter(str(ev.get("sprite", "")))
 				var col := Color(str(info.get("color", "ffb070"))) if not info.is_empty() else Color("ffb070")
@@ -614,13 +642,16 @@ func _drain() -> void:
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
 				stage.boom_fx(ev["pos"], float(ev.get("radius", 60.0)))
+				AudioDirector.sfx("boom")
 			"charge":
 				stage.charge_fx(int(ev.get("id", -1)), ev["pos"], ev.get("to", ev["pos"]))
 				_burst(ev.get("to", ev["pos"]), Color("c9ab7e"), 6, 150.0)
+				AudioDirector.sfx("charge")
 				AudioDirector.haptic("medium")
 			"charge_land":
 				stage.charge_land_fx(ev["pos"], float(ev.get("radius", 78.0)))
 				_burst(ev["pos"], Color("d8e8ea"), 10, 190.0)
+				AudioDirector.sfx("charge_land")
 			"cleave":
 				stage.cleave_fx(ev["pos"], float(ev.get("facing", 0.0)), float(ev.get("range", 120.0)), float(RunSim.ROLE_TUNING["tank"].get("cleave_arc", 160.0)), float(ev.get("stop", 0.04)) > 0.045)
 				var tank := sim._actor_by_id(int(ev.get("id", -1)))
@@ -628,6 +659,13 @@ func _drain() -> void:
 					var foe := sim.nearest_hostile(tank, float(ev.get("range", 120.0)) + 40.0)
 					if foe != null:
 						stage.lifesteal_fx(tank.id, foe.pos)
+						# Life pulled out of the foe: the drain is heard.
+						AudioDirector.sfx("lifesteal")
+				AudioDirector.sfx("cleave")
+			"swing":
+				# The melee arc itself: the sim reports it after the blow
+				# lands, so it is the follow-through, not the strike.
+				AudioDirector.sfx("swing")
 			"hitstop":
 				# Sim-driven melee impact freeze: the step is skipped for a
 				# beat, never longer than the cap (the sim rate-limits it).
@@ -638,7 +676,9 @@ func _drain() -> void:
 				var it := GearDB.item(str(ev.get("item", "")))
 				if not it.is_empty():
 					stage.loot_beam(str(ev.get("key", ev["item"])), ev["pos"], int(it["tier"]))
+					AudioDirector.sfx("gear_drop")
 					if int(it["tier"]) >= 3:
+						AudioDirector.sfx("rare_chime", -4.0)
 						AudioDirector.haptic("rare")
 			"gear_pickup":
 				var it2 := GearDB.item(str(ev.get("item", "")))
@@ -647,7 +687,9 @@ func _drain() -> void:
 					stage.loot_pickup(str(ev.get("key", ev["item"])), ev["pos"], int(it2["tier"]), hp)
 					_float(ev["pos"] + Vector2(0, -40), str(it2["name"]), GearDB.TIER_COLORS[int(it2["tier"])].lightened(0.2), false)
 					run_gear.append(str(ev["item"]))
-					AudioDirector.sfx("chest_open")
+					# The piece lifts off the ground: its own clink, not
+					# the chest noise (that is the chest's).
+					AudioDirector.sfx("gear_pickup")
 			"loot":
 				stage.loot_open(ev["pos"])
 				_burst(ev["pos"], Color("ffd27a"), 18, 220.0)
@@ -662,6 +704,9 @@ func _drain() -> void:
 				_burst(ev.get("pos", Vector2.ZERO), _shrine_color(sk), 24, 250.0)
 				AudioDirector.sfx("levelup", -4.0)
 				AudioDirector.haptic("light")
+			"shrine_end":
+				# The buff ran out: a soft note letting go, no banner.
+				AudioDirector.sfx("buff_end")
 			"goblin_down":
 				_banner("Treasure goblin slain!")
 				_burst(ev.get("pos", Vector2.ZERO), Color("ffd27a"), 26, 280.0)
@@ -669,21 +714,28 @@ func _drain() -> void:
 				AudioDirector.haptic("rare")
 			"goblin_escape":
 				_burst(ev.get("pos", Vector2.ZERO), Color("b7a06a"), 8, 120.0)
+				AudioDirector.sfx("goblin_escape")
 			"shield_break":
 				_burst(ev.get("pos", Vector2.ZERO), Color("8fd0ff"), 12, 190.0)
-				AudioDirector.sfx("hit", -2.0)
+				# The ward going: a shatter, not a flesh hit.
+				AudioDirector.sfx("shield_break")
 			"dodge":
 				_burst(ev["pos"], Color("c9b79a"), 8, 140.0)
-				AudioDirector.sfx("ui_tap", -6.0)
+				AudioDirector.sfx("dodge")
 				AudioDirector.haptic("light")
 			"aggro":
-				AudioDirector.sfx("ui_tap", -8.0)
+				# Something noticed the hero: a growl, not a tap.
+				AudioDirector.sfx("aggro")
 			"attack":
 				_punch[int(ev["id"])] = 0.2
 				stage.attack(int(ev["id"]))
 				var who := sim._actor_by_id(int(ev["id"]))
 				if who != null and who.kind == "hero":
 					AudioDirector.sfx({"mage": "atk_mage", "archer": "atk_archer", "tank": "atk_tank"}.get(str(ev.get("role", who.role)), "atk_archer"))
+					# The cast telegraph (scripts/cast_fx3d.gd) is the new
+					# tell for a hero's spell: a quiet charge under the
+					# attack, pitched so each hero reads differently.
+					AudioDirector.sfx("cast", -2.0, _cast_pitch(str(ev.get("role", who.role))))
 				elif who != null and who.kind == "boss":
 					AudioDirector.sfx("boss_slam")
 					AudioDirector.haptic("medium")
@@ -694,6 +746,9 @@ func _drain() -> void:
 				var winder := sim._actor_by_id(int(ev["id"]))
 				if winder != null and winder.kind == "boss":
 					AudioDirector.sfx("boss_windup")
+				else:
+					# The tell before a foe's shot: a quiet rising note.
+					AudioDirector.sfx("enemy_windup")
 			"gem":
 				_burst(ev["pos"], Color("b6f27a"), 4, 90.0)
 				AudioDirector.gem()
@@ -703,6 +758,7 @@ func _drain() -> void:
 				var skill_name := str(GearDB.SKILL_NAMES[skill_at]) if skill_at >= 0 else skill_key.capitalize()
 				if not _levels_shown.has("%s:%d" % [skill_key, int(ev.get("level", 1))]):
 					_banner("%s %d" % [skill_name, int(ev.get("level", 1))])
+					AudioDirector.sfx("skill_level")
 			"skill_level":
 				# A level crossed mid-run; the end-of-run commit still toasts
 				# its skill_up line, this is the in-fight announcement.
@@ -711,10 +767,18 @@ func _drain() -> void:
 				var mid_at := GearDB.SKILL_KEYS.find(mid_skill)
 				var mid_name := str(GearDB.SKILL_NAMES[mid_at]) if mid_at >= 0 else mid_skill.capitalize()
 				_banner("%s %d" % [mid_name, int(ev.get("level", 1))])
+				AudioDirector.sfx("skill_level")
 			"xp_drop":
 				# Hidden with damage numbers off (the same readability switch).
 				if bool(AudioDirector.settings.get("damage_numbers", true)):
 					xp_drops.push(str(ev.get("skill", "")), int(ev.get("amount", 0)))
+					AudioDirector.sfx("xp_gain")
+			"gather":
+				# A node was worked. Gathering has no UI in phase 1
+				# (docs/gathering.md): the node pays through the xp_drop
+				# event above, which is the moment the screen speaks, so
+				# this event is carried and stays silent.
+				pass
 			"levelup":
 				AudioDirector.sfx("levelup")
 				AudioDirector.duck(-6.0, 0.8)
@@ -763,6 +827,14 @@ func _drain() -> void:
 					_show_victory(str(ev["name"]))
 				else:
 					_show_rare(reveal, str(ev["name"]))
+			"duel_win":
+				# A duel won: the rival team is down and the run is over.
+				# There is no duel end card yet, so the win is announced
+				# in the run itself.
+				_banner("VICTORY")
+				AudioDirector.sfx("duel_win")
+				AudioDirector.duck(-6.0, 0.8)
+				AudioDirector.haptic("levelup")
 			"hero_down":
 				if not committed:
 					committed = true
@@ -785,14 +857,71 @@ func _drain() -> void:
 				AudioDirector.haptic("levelup")
 			"banner":
 				_banner(str(ev["text"]))
+				AudioDirector.sfx("banner")
 			"fx":
 				var at: Vector2 = ev.get("pos", Vector2.ZERO)
-				var col := _fx_color(str(ev.get("fx", "")))
-				_burst(at, col, 8, 160.0)
-				stage.fx_burst(at, float(ev.get("radius", 60.0)), col)
+				var fx := str(ev.get("fx", ""))
+				# Its own name: the "die" branch above already takes `col`
+				# in this match, and the two must not share one.
+				var fx_col := _fx_color(fx)
+				_burst(at, fx_col, 8, 160.0)
+				stage.fx_burst(at, float(ev.get("radius", 60.0)), fx_col)
 				if ev.has("to"):
 					var to: Vector2 = ev.get("to", at)
-					_burst(at.lerp(to, 0.5), col, 5, 130.0)
+					_burst(at.lerp(to, 0.5), fx_col, 5, 130.0)
+				# The loud abilities get their own voice; the rest share
+				# the generic chime. Every kind worth a voice of its
+				# own is listed, so a big ability never lands on the
+				# wrong sound by falling through.
+				match fx:
+					"chain_lightning":
+						AudioDirector.sfx("chain")
+					"frost_nova":
+						AudioDirector.sfx("frost")
+					"earthquake":
+						AudioDirector.sfx("quake")
+					"volley":
+						AudioDirector.sfx("volley")
+					"blink":
+						AudioDirector.sfx("blink")
+					"storm_crown":
+						AudioDirector.sfx("thunder")
+					"taunt_roar":
+						AudioDirector.sfx("roar")
+					"berserk":
+						AudioDirector.sfx("roar", -3.0)
+					"phoenix":
+						AudioDirector.sfx("phoenix")
+					"orbiting_blades":
+						AudioDirector.sfx("blades")
+					"thorns_aura":
+						AudioDirector.sfx("thorns")
+					"static_field":
+						AudioDirector.sfx("static")
+					"spirit_wolf":
+						AudioDirector.sfx("wolf_bite")
+					"wolf_spawn":
+						AudioDirector.sfx("howl")
+					"hunter_mark":
+						AudioDirector.sfx("mark")
+					"crit_siphon", "vampiric_kill":
+						AudioDirector.sfx("siphon")
+					"arcane_split":
+						AudioDirector.sfx("split")
+					"ricochet":
+						AudioDirector.sfx("ricochet")
+					"meteor", "molten":
+						AudioDirector.sfx("meteor")
+					"fire_trail":
+						# The trail burns under the hero every few
+						# frames: a quiet bed, not a hit.
+						AudioDirector.sfx("fire_trail")
+					"gem_burst":
+						AudioDirector.sfx("sparkle")
+					"goblin_spawn":
+						AudioDirector.sfx("aggro", -3.0)
+					_:
+						AudioDirector.sfx("skill_fx")
 
 
 func _sync(alpha: float) -> void:
@@ -843,7 +972,7 @@ func _fx_color(name: String) -> Color:
 			return Color("7dff5a")
 		"blink", "arcane_split":
 			return Color("c9a8ff")
-		"spirit_wolf":
+		"spirit_wolf", "wolf_spawn":
 			return Color("bfe9ff")
 		"static_field":
 			return Color("ffe14a")
@@ -906,6 +1035,19 @@ func _shrine_color(kind: String) -> Color:
 			return Color("b6f27a")
 		_:
 			return Color("ffe08a")
+
+
+## The pitch of a hero's cast charge, so each hero's cast telegraph
+## (scripts/cast_fx3d.gd) has its own voice: the tank's is low and heavy,
+## the archer's sits in the middle, the mage's rings high.
+func _cast_pitch(role: String) -> float:
+	match role:
+		"tank":
+			return 0.82
+		"mage":
+			return 1.22
+		_:
+			return 1.0
 
 
 func _hurt_flash() -> void:

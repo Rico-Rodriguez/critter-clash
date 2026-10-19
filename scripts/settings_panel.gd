@@ -124,9 +124,10 @@ func _release_preview(vol_key: String) -> void:
 	if vol_key == "sfx_vol":
 		AudioDirector.sfx("gem", 0.0, 1.5)
 	elif vol_key == "music_vol":
-		# A short sting on the Music bus: previews the music volume (and
-		# stays silent if music is switched off).
-		AudioDirector.sfx("sting_victory", -10.0)
+		# A short chord on the Music bus: previews the music volume (and
+		# stays silent if music is switched off). The victory sting is an
+		# eight second cue and has no business in a slider preview.
+		AudioDirector.sfx("music_stab")
 
 
 ## A forged toggle: a recessed groove with a gilt knob that slides across;
