@@ -1741,9 +1741,37 @@ func _load() -> void:
 	var old_version := int(parsed.get("save_version", 0))
 	# Older versions migrate forward (v2 carries the legacy gear bag, see
 	# migrate_legacy_armory); only future versions or corrupt saves reset.
-	if old_version <= 0 or old_version > VERSION:
+	if old_version > VERSION:
+		# A save from a newer build cannot be read here, so it resets. The
+		# warning is loud on purpose: the player is about to lose progress.
+		push_warning("SaveGame: save version %d is newer than this build, starting fresh" % old_version)
 		_write()
 		return
+	if old_version <= 0:
+		# No version stamp: a pre-versioning or hand-edited file. It still
+		# holds the player's progress, so it migrates forward like any other
+		# old save instead of being replaced by a new account.
+		if not _has_account_shape(parsed):
+			# Nothing to migrate. The backup is tried before anything is
+			# reset, so a good backup still rescues the progress.
+			push_warning("SaveGame: the save has no version stamp and no account in it, trying the backup")
+			var backup := _read_save(_bak_path())
+			var backup_version := int(backup.get("save_version", 0))
+			if _has_account_shape(backup) and backup_version <= VERSION:
+				push_warning("SaveGame: restored progress from %s" % _bak_path())
+				parsed = backup
+				old_version = backup_version
+				# The backup is good and about to be used: keep it. The
+				# write at the end of this load would otherwise rotate the
+				# broken save over it.
+				_last_backup_ms = Time.get_ticks_msec()
+			else:
+				push_warning("SaveGame: the backup holds no account either, starting a fresh save")
+				_write()
+				return
+		if old_version <= 0:
+			push_warning("SaveGame: the save has no version stamp, migrating it forward as version 1")
+			old_version = 1
 	data = parsed
 	_sanitize()
 	_reconcile()
@@ -1751,6 +1779,20 @@ func _load() -> void:
 	migrate_training()
 	migrate_gathering_skills()
 	_write()
+
+
+## True when a save file still carries an account: a hero roster, skill rows
+## or the wallet. A file with none of them holds no progress to keep, so it
+## is a reset rather than a migration.
+func _has_account_shape(parsed: Dictionary) -> bool:
+	for key in ["heroes", "skills", "kills", "materials"]:
+		var value: Variant = parsed.get(key, null)
+		if typeof(value) == TYPE_DICTIONARY and not (value as Dictionary).is_empty():
+			return true
+	for key in ["coins", "trophies", "gear_shards"]:
+		if parsed.has(key):
+			return true
+	return false
 
 
 ## Tests set this so a headless check never touches the player's save file.
