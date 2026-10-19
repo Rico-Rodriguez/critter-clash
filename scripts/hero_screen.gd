@@ -7,6 +7,7 @@ extends ScreenBase
 ## from hunts); coins go to gear reinforcing, not hero levels.
 
 const Home := preload("res://scripts/home_screen.gd")
+const StatsPanel := preload("res://scripts/stats_panel.gd")
 
 var biome_id := "meadow"
 var selected := "ember"
@@ -19,6 +20,7 @@ var stage_slot: Control
 var showcase: Control
 var sockets: Array = []
 var preview_line: Label
+var stats_panel: StatsPanel
 
 
 func build() -> void:
@@ -68,6 +70,11 @@ func build() -> void:
 	gear_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pv.add_child(gear_line)
 	box.add_child(plaque)
+	# Collapsed Stats and Training header under the plaque, in normal page
+	# flow below the 3D stage (the spacer above pushed everything down).
+	stats_panel = StatsPanel.new()
+	stats_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(stats_panel)
 	# Three tiles a row: six unlocked heroes wrap to two rows instead of
 	# running off the screen.
 	list = GridContainer.new()
@@ -133,6 +140,7 @@ func _fill() -> void:
 	hunt.modulate = Color(0.92, 0.9, 0.86) if equipped else Color.WHITE
 	stat_line.text = "%s  ·  %s" % [str(info["name"]).to_upper(), Catalog.role_name(str(info["role"])).to_upper()]
 	_fill_level(stats)
+	stats_panel.set_hero(selected)
 	gear_line.text = EquipUI.summary(selected)
 
 
