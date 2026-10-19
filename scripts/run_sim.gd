@@ -147,6 +147,33 @@ var _xp_drop_time := {}
 var _skill_level := {}
 var _skill_base_xp := {}
 var _skill_run_seen := {}
+## Gathering (docs/gathering.md): the resource nodes in this world and what
+## they have paid this run. Gathering is account-wide, so its XP is not per
+## hero: it is banked once when the run commits, like the combat XP.
+##   gather_nodes  {node: node_id, pos: Vector2}
+##   gather_xp     skill id -> XP earned this run
+##   gather_drops  {id: material_id, amount: int} banked with the XP
+var gather_nodes: Array = []
+var gather_xp := {}
+var gather_drops: Array = []
+## Gathering rolls use their own stream, seeded from the run seed (xor
+## constant) in start(), so working a node never perturbs the loot rolls.
+var gather_rng := RandomNumberGenerator.new()
+## Node id -> the sim time it can be worked again (its respawn).
+var _gather_ready_at := {}
+## The account's gathering XP and levels when the run started, so a level
+## crossed mid-run can be announced before the XP is written.
+var _gather_base_xp := {}
+var _gather_level := {}
+## The account's gathering levels when the run started: the gate that says
+## which nodes a run may work (it never moves during a run).
+var _gather_level_at_start := {}
+## Gathering XP drops, kept apart from the combat drops so each stream sums
+## to exactly what it commits.
+var _gather_drop_total := {}
+var _gather_drop_time := {}
+## How close the hero must be to work a node, in sim px.
+const GATHER_REACH := 70.0
 var boss_mark := 0
 ## True once the boss has opened with its first attack; only that first
 ## telegraph waits until the boss shares the hero's view.
@@ -427,6 +454,7 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	var run_seed := session.seed if session.seed != 0 else randi()
 	rng.seed = run_seed
 	loot_rng.seed = run_seed ^ 0x6EA2
+	gather_rng.seed = run_seed ^ 0x6EA3
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
@@ -447,6 +475,7 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 		var stats: Dictionary = stats_for.get(id, Catalog.base_stats(id))
 		_spawn_hero(id, stats, i)
 	_begin_skill_tracking()
+	_begin_gathering_tracking()
 
 
 func step(dt: float, moves: Array) -> void:
@@ -498,11 +527,13 @@ func step(dt: float, moves: Array) -> void:
 	if explore:
 		_step_shrines(dt)
 		_step_explore(dt)
+		_step_gathering(dt)
 	else:
 		_step_spawns(dt)
 	_step_gear_pickups()
 	_enrage_and_timeout()
 	_flush_xp_drops(result != "")
+	_flush_gather_drops(result != "")
 	_compact()
 
 
@@ -528,6 +559,23 @@ func _begin_skill_tracking() -> void:
 		var held := GearDB.xp(id, skill)
 		_skill_base_xp[skill] = held
 		_skill_level[skill] = GearDB.level_for_xp(held)
+
+
+## Reads the account's gathering XP once, the same way _begin_skill_tracking
+## reads the combat XP: so a level crossed mid-run can be announced from the
+## account's total plus the run's tally, before anything is written.
+func _begin_gathering_tracking() -> void:
+	_gather_base_xp = {}
+	_gather_level = {}
+	_gather_level_at_start = {}
+	_gather_drop_total = {}
+	_gather_drop_time = {}
+	for entry in Catalog.SKILLS:
+		var id := str(entry["id"])
+		var held := SaveGame.gathering_xp(id)
+		_gather_base_xp[id] = held
+		_gather_level[id] = Catalog.skill_level(held)
+		_gather_level_at_start[id] = Catalog.skill_level(held)
 
 
 ## Emits xp_drop events for the XP a skill has earned since its last drop. A
@@ -2887,6 +2935,9 @@ func _spawn_world() -> void:
 	shrines.clear()
 	for s in map.shrines:
 		shrines.append({"pos": s["pos"], "kind": s["kind"], "used": false})
+	gather_nodes.clear()
+	for g in map.gathering:
+		gather_nodes.append({"node": str(g["node"]), "pos": g["pos"]})
 	goblin = null
 	goblin_roll = false
 
@@ -3243,6 +3294,7 @@ func commit_xp() -> void:
 		return
 	_xp_committed = true
 	_commit_skill_xp()
+	_commit_gathering_xp()
 
 
 ## Writes the run's accumulated combat XP to GearDB, once, and queues a
@@ -3263,6 +3315,123 @@ func _commit_skill_xp() -> void:
 			var reached := GearDB.level(str(hero_id), skill)
 			for step in gained:
 				events.append({"type": "skill_up", "skill": skill, "level": reached - gained + step + 1})
+
+
+# --- Gathering ---------------------------------------------------------------
+# Gathering is account-wide (docs/gathering.md): the XP and the materials it
+# pays are the account's, not a hero's, so they are banked once when the run
+# commits, exactly like the combat XP. The nodes themselves live in
+# GatheringDB.NODES; the world places them (HuntMap.gathering).
+
+## Resolves one gathering action at a resource node: the account's level in
+## the node's skill must meet the node's requirement, then the node pays its
+## XP and rolls its loot table. The XP and the materials are banked with the
+## rest of the run when it commits.
+## Returns {ok, reason, node, skill, xp, drops}.
+func gather(node_id: String) -> Dictionary:
+	var node := GatheringDB.node(node_id)
+	if node.is_empty():
+		return {"ok": false, "reason": "Unknown node", "node": node_id, "skill": "", "xp": 0, "drops": []}
+	var skill := str(node["skill"])
+	var need := int(node["level"])
+	var out := {"ok": false, "reason": "", "node": node_id, "skill": skill, "xp": 0, "drops": []}
+	# The account's level is read once, when the run starts, so the nodes a
+	# run can work never change under it (the XP it earns is banked at the
+	# end of the run, like the combat XP).
+	if _gather_start_level(skill) < need:
+		out["reason"] = "Needs %s %d" % [GatheringDB.skill_name(skill), need]
+		return out
+	# A node needs its respawn time before it can be worked again.
+	if time < float(_gather_ready_at.get(node_id, 0.0)):
+		out["reason"] = "Not ready"
+		return out
+	var xp := int(node["xp"])
+	gather_xp[skill] = int(gather_xp.get(skill, 0)) + xp
+	_gather_ready_at[node_id] = time + float(node["respawn"])
+	var drops := LootTable.roll_resource(gather_rng, node_id)
+	for drop in drops:
+		gather_drops.append(drop)
+	out["ok"] = true
+	out["xp"] = xp
+	out["drops"] = drops
+	events.append({"type": "gather", "node": node_id, "skill": skill, "xp": xp, "drops": drops})
+	return out
+
+
+## The account's level in a gathering skill when the run started (1 for a
+## skill the account has never trained).
+func _gather_start_level(skill: String) -> int:
+	return int(_gather_level_at_start.get(skill, 1))
+
+
+## Works the nodes the hero has reached: a node in reach, ready and within
+## the account's skill level is gathered, and then it needs its respawn time
+## before it can be worked again. Claimed on contact, like the shrines.
+func _step_gathering(_dt: float) -> void:
+	if gather_nodes.is_empty():
+		return
+	for entry in gather_nodes:
+		var node_id := str(entry["node"])
+		for hero in heroes:
+			if not hero.alive:
+				continue
+			if hero.pos.distance_to(entry["pos"]) > GATHER_REACH + hero.radius:
+				continue
+			gather(node_id)
+			break
+
+
+## Emits xp_drop events for the gathering XP earned since the last drop, on
+## the same one-per-second rhythm as the combat drops, and announces the
+## levels the account crosses mid-run. The drops total exactly the XP the
+## commit will write.
+func _flush_gather_drops(final: bool) -> void:
+	for skill in gather_xp:
+		var target := int(gather_xp[skill])
+		var emitted := int(_gather_drop_total.get(skill, 0))
+		var delta := target - emitted
+		if delta < 1:
+			continue
+		var last := float(_gather_drop_time.get(skill, -XP_DROP_INTERVAL))
+		if not final and time - last < XP_DROP_INTERVAL:
+			continue
+		var at := time
+		if final:
+			at = maxf(time, last + XP_DROP_INTERVAL)
+		_gather_drop_total[skill] = target
+		_gather_drop_time[skill] = at
+		events.append({"type": "xp_drop", "skill": skill, "amount": delta, "t": at})
+	_flush_gather_levels()
+
+
+## Announces each level a gathering skill crosses mid-run (the account's XP
+## plus the run tally so far), once per level. Computed, never written.
+func _flush_gather_levels() -> void:
+	for skill in gather_xp:
+		var amount := int(gather_xp[skill])
+		var reached := Catalog.skill_level(int(_gather_base_xp.get(skill, 0)) + amount)
+		var seen := int(_gather_level.get(skill, reached))
+		while reached > seen:
+			seen += 1
+			_gather_level[skill] = seen
+			events.append({"type": "skill_level", "skill": skill, "level": seen})
+
+
+## Writes the run's gathering XP and materials to the account, once, and
+## queues a skill_up event for every level gained (the end-of-run toast).
+func _commit_gathering_xp() -> void:
+	_flush_gather_drops(true)
+	for skill in gather_xp:
+		var amount := int(gather_xp[skill])
+		if amount <= 0:
+			continue
+		var gained := SaveGame.add_gathering_xp(str(skill), amount)
+		if gained <= 0:
+			continue
+		var reached := SaveGame.gathering_level(str(skill))
+		for step in gained:
+			events.append({"type": "skill_up", "skill": skill, "level": reached - gained + step + 1})
+	SaveGame.add_materials(gather_drops)
 
 
 func _reveal(at: Vector2) -> void:

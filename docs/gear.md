@@ -236,7 +236,7 @@ remain for compatibility but no longer affect stats.
 ### Skills screen
 - **Decision:** the Skills screen splits into two tabs.
   - **Combat** is per hero: the six skills for the hero selected on Heroes, with an XP bar to the next level.
-  - **Gathering** is account-wide: Foraging, Fishing, Taming and Crafting from `Catalog.SKILLS` and `SaveGame.data["skills"]`, unchanged.
+  - **Gathering** is account-wide: Woodcutting, Fishing and Mining from `Catalog.SKILLS` and `SaveGame.data["skills"]` (see `docs/gathering.md`).
 - **Why split:** combat levels belong to a hero and gate that hero's gear, while gathering is shared progress.
 - **Owners:** the panel, XP gain and level-up toasts are the helpers' to build.
 

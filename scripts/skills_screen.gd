@@ -267,7 +267,7 @@ func _gathering_tab() -> void:
 	var head := UiKit.label("GATHERING", 30, UiKit.GOLD.lightened(0.15), "x", 6)
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(head)
-	col.add_child(body("Gathering skills arrive soon: Mining, Woodcutting, Foraging"))
+	col.add_child(body("Gathering skills arrive soon: Woodcutting, Fishing, Mining"))
 
 
 ## A forged shield crest with a level struck into it.

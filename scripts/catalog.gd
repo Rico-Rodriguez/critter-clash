@@ -685,11 +685,14 @@ const DROPS: Array = [
 	{"id": "cinder_pet", "boss": "cinder", "name": "Ashling", "kind": "pet", "sprite": "cinder", "rarity": "very_rare", "weight": 0, "color": "ff5a32"},
 ]
 
+## Gathering skills. They are account-wide, not per hero (see docs/gathering.md):
+## the XP for each id lives in SaveGame.data["skills"] and the level comes
+## from the OSRS curve below. The resource nodes they work are in
+## GatheringDB.NODES.
 const SKILLS: Array = [
-	{"id": "foraging", "name": "Foraging"},
+	{"id": "woodcutting", "name": "Woodcutting"},
 	{"id": "fishing", "name": "Fishing"},
-	{"id": "taming", "name": "Taming"},
-	{"id": "crafting", "name": "Crafting"},
+	{"id": "mining", "name": "Mining"},
 ]
 
 const SLAYER_TASKS: Array = [
@@ -814,7 +817,13 @@ static func slayer_offer(id: String) -> Dictionary:
 	return {}
 
 
-## Total XP required to reach `level`, matching the Old School curve (1–99).
+## The top of the Old School XP curve: no skill goes past level 99.
+const MAX_SKILL_LEVEL := 99
+
+
+## Total XP required to reach `level`, matching the Old School curve (1-99).
+## The same curve the combat skills use in GearDB.xp_for_level, so a gathering
+## level and a combat level are worth the same.
 static func skill_xp_to_level(level: int) -> int:
 	var points := 0
 	var lvl := 1
@@ -826,6 +835,6 @@ static func skill_xp_to_level(level: int) -> int:
 
 static func skill_level(xp: int) -> int:
 	var level := 1
-	while level < 99 and skill_xp_to_level(level + 1) <= xp:
+	while level < MAX_SKILL_LEVEL and skill_xp_to_level(level + 1) <= xp:
 		level += 1
 	return level

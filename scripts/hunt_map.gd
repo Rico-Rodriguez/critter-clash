@@ -170,6 +170,9 @@ var loot: Array = []
 var landmarks: Array = []
 ## Shrines: {pos, kind: "fury"|"haste"|"warding"|"greed"}. Claimed on contact.
 var shrines: Array = []
+## Resource nodes: {node: node_id, pos: Vector2}. The node data (skill, level,
+## XP, respawn) lives in GatheringDB.NODES; the world places the biome's ones.
+var gathering: Array = []
 ## Where the treasure goblin hides, if the map rolled one. INF when none.
 var goblin_at := Vector2.INF
 var start := Vector2.ZERO
@@ -387,6 +390,7 @@ func _populate(rng: RandomNumberGenerator) -> void:
 	_shrines(rng)
 	_affix_camps(rng)
 	_goblin_haunt(rng)
+	_lay_gathering(rng)
 
 
 ## Shrines: two or three, standing in clearings or pockets well away from the
@@ -447,6 +451,52 @@ func _goblin_haunt(rng: RandomNumberGenerator) -> void:
 	if places.is_empty():
 		return
 	goblin_at = nodes[places[rng.randi() % places.size()]]["pos"]
+
+
+## Resource nodes for this biome, one per open area, easiest first: the area
+## nearest the start takes the lowest-level node, so a fresh account finds
+## something to gather right away and the harder nodes sit further up the
+## trail. The node data itself is in GatheringDB.
+func _lay_gathering(rng: RandomNumberGenerator) -> void:
+	var areas: Array = []
+	for i in nodes.size():
+		if str(nodes[i]["kind"]) == "lair":
+			continue
+		var p: Vector2 = nodes[i]["pos"]
+		areas.append({"i": i, "d": p.distance_squared_to(start)})
+	areas.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
+	for entry in GatheringDB.nodes_for_biome(id):
+		if areas.is_empty():
+			break
+		var area: Dictionary = areas.pop_front()
+		gathering.append({"node": str(entry["id"]), "pos": _gathering_spot(nodes[int(area["i"])], rng)})
+
+
+## A free spot inside an open area for a resource node: away from the camps,
+## chests and landmarks already standing there.
+func _gathering_spot(area: Dictionary, rng: RandomNumberGenerator) -> Vector2:
+	var centre: Vector2 = area["pos"]
+	var r: float = area["r"]
+	var at := centre
+	for k in 8:
+		at = centre + Vector2.RIGHT.rotated(rng.randf() * TAU) * r * rng.randf_range(0.35, 0.75)
+		if not _crowded(at):
+			break
+	return at
+
+
+## True when a spot is too close to a camp, a chest or a landmark.
+func _crowded(at: Vector2) -> bool:
+	for c in camps:
+		if at.distance_to(c["pos"]) < 150.0:
+			return true
+	for c in loot:
+		if at.distance_to(c["pos"]) < 150.0:
+			return true
+	for l in landmarks:
+		if at.distance_to(l["pos"]) < 150.0:
+			return true
+	return false
 
 
 ## Fisher-Yates on the map's seeded rng; Array.shuffle() would use the global one.

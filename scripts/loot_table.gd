@@ -11,6 +11,9 @@ extends RefCounted
 ## a uniform slot on that hero, and prefers a piece the hero does not own yet.
 ## Duplicates are allowed once the rerolls run out and convert to shards or
 ## coins at banking time (see save_game.gd).
+##
+## The same file also holds the gathering drop tables (RESOURCE_TABLES): what
+## a resource node pays out when it is worked (see docs/gathering.md).
 
 ## source -> {chance, count: [min, max], weights: [iron, steel, rune]}
 ## Chests escalate with rarity: commons mostly iron, legendaries mostly rune.
@@ -54,6 +57,42 @@ const DEPTH_SHIFT_CAP := 0.15
 ## The biome cap still applies, so a raised tier cannot beat MAX_TIER_BY_DEPTH.
 const TIER_SHIFT := 0.07
 const SHIFT_CAP := 0.30
+
+## Gathering drops, keyed by resource node id (GatheringDB.NODES). Each row is
+## {id, weight, amount: [min, max]}: the material, how likely it is over the
+## others and how many of it a gather takes. A node's table always has a row,
+## so a gather always yields something; the lower-weight row is the rarer
+## leftover of the tier below, so a better node also pays a little of the
+## worse one.
+const RESOURCE_TABLES := {
+	# --- Woodcutting ---
+	"willow": [{"id": "willow_logs", "weight": 100, "amount": [1, 2]}],
+	"oak": [{"id": "oak_logs", "weight": 88, "amount": [1, 2]}, {"id": "willow_logs", "weight": 12, "amount": [1, 2]}],
+	"sporewood": [{"id": "sporewood_logs", "weight": 88, "amount": [1, 2]}, {"id": "oak_logs", "weight": 12, "amount": [1, 2]}],
+	"barrowwood": [{"id": "barrowwood_logs", "weight": 86, "amount": [1, 3]}, {"id": "sporewood_logs", "weight": 14, "amount": [1, 2]}],
+	"frostpine": [{"id": "frostpine_logs", "weight": 86, "amount": [1, 3]}, {"id": "barrowwood_logs", "weight": 14, "amount": [1, 2]}],
+	"glacierheart": [{"id": "glacierheart_logs", "weight": 84, "amount": [1, 3]}, {"id": "frostpine_logs", "weight": 16, "amount": [1, 2]}],
+	"cinderwood": [{"id": "cinderwood_logs", "weight": 84, "amount": [1, 3]}, {"id": "glacierheart_logs", "weight": 16, "amount": [1, 2]}],
+	"emberbark": [{"id": "emberbark_logs", "weight": 82, "amount": [1, 3]}, {"id": "cinderwood_logs", "weight": 18, "amount": [1, 2]}],
+	# --- Fishing ---
+	"brook": [{"id": "brook_fish", "weight": 100, "amount": [1, 1]}],
+	"shallow_pool": [{"id": "pool_fish", "weight": 90, "amount": [1, 2]}, {"id": "brook_fish", "weight": 10, "amount": [1, 1]}],
+	"spore_stream": [{"id": "spore_carp", "weight": 90, "amount": [1, 2]}, {"id": "pool_fish", "weight": 10, "amount": [1, 1]}],
+	"underroot_pool": [{"id": "underroot_eel", "weight": 88, "amount": [1, 2]}, {"id": "spore_carp", "weight": 12, "amount": [1, 1]}],
+	"glacier_lake": [{"id": "glacier_fish", "weight": 88, "amount": [1, 2]}, {"id": "underroot_eel", "weight": 12, "amount": [1, 1]}],
+	"frostspring": [{"id": "frostspring_crab", "weight": 86, "amount": [1, 2]}, {"id": "glacier_fish", "weight": 14, "amount": [1, 1]}],
+	"magma_vent": [{"id": "magma_fish", "weight": 86, "amount": [1, 2]}, {"id": "frostspring_crab", "weight": 14, "amount": [1, 1]}],
+	"emberdeep": [{"id": "emberdeep_fish", "weight": 84, "amount": [1, 3]}, {"id": "magma_fish", "weight": 16, "amount": [1, 2]}],
+	# --- Mining ---
+	"copper_vein": [{"id": "copper_ore", "weight": 100, "amount": [1, 2]}],
+	"tin_vein": [{"id": "tin_ore", "weight": 88, "amount": [1, 2]}, {"id": "copper_ore", "weight": 12, "amount": [1, 2]}],
+	"iron_vein": [{"id": "iron_ore", "weight": 88, "amount": [1, 2]}, {"id": "tin_ore", "weight": 12, "amount": [1, 2]}],
+	"coal_vein": [{"id": "coal", "weight": 86, "amount": [1, 3]}, {"id": "iron_ore", "weight": 14, "amount": [1, 2]}],
+	"silver_vein": [{"id": "silver_ore", "weight": 86, "amount": [1, 2]}, {"id": "coal", "weight": 14, "amount": [1, 2]}],
+	"gold_vein": [{"id": "gold_ore", "weight": 86, "amount": [1, 2]}, {"id": "silver_ore", "weight": 14, "amount": [1, 2]}],
+	"cinderore": [{"id": "cinderore", "weight": 84, "amount": [1, 2]}, {"id": "gold_ore", "weight": 16, "amount": [1, 2]}],
+	"runebound_seam": [{"id": "runebound_shard", "weight": 84, "amount": [1, 2]}, {"id": "cinderore", "weight": 16, "amount": [1, 2]}],
+}
 
 
 ## Roll a source into earned item ids. Empty when the source's chance misses.
@@ -154,3 +193,35 @@ static func _pick(rng: RandomNumberGenerator, hero: String, tier: int) -> String
 			return id
 		slot = str(slots[rng.randi() % slots.size()])
 	return GearDB.item_id(h, slot, tier)
+
+
+# --- Gathering resources -----------------------------------------------------
+
+## The drop table of a resource node, or [] for a node without one.
+static func resource_table(node_id: String) -> Array:
+	return RESOURCE_TABLES.get(node_id, [])
+
+
+## Rolls a resource node's table into the materials it pays: [{id, amount}].
+## One row wins by weight and its amount is rolled inside the row's span, so
+## a gather always yields one material. An unknown node pays nothing.
+static func roll_resource(rng: RandomNumberGenerator, node_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var rows: Array = resource_table(node_id)
+	if rows.is_empty():
+		return out
+	var total := 0.0
+	for row in rows:
+		total += float(row["weight"])
+	if total <= 0.0:
+		return out
+	var r := rng.randf() * total
+	var picked: Dictionary = rows[rows.size() - 1]
+	for row in rows:
+		r -= float(row["weight"])
+		if r <= 0.0:
+			picked = row
+			break
+	var span: Array = picked["amount"]
+	out.append({"id": str(picked["id"]), "amount": rng.randi_range(int(span[0]), int(span[1]))})
+	return out
