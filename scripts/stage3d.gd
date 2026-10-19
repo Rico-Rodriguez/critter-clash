@@ -67,6 +67,8 @@ var _hero_rim: OmniLight3D
 ## default; Heroes tightens so the model fills the space between the sockets.
 var pedestal_fill := 0.46
 var _bolt := Color(0, 0, 0, 0)
+## Hero cast telegraphs and hit impacts (scripts/cast_fx3d.gd).
+var _cast_fx: CastFx3D
 var _occl_hit := false
 var _xray := 0.0
 var _contact_node: MultiMeshInstance3D
@@ -113,6 +115,10 @@ func _ready() -> void:
 	actor_root = Node3D.new()
 	world_root.add_child(actor_root)
 	_dust_pool()
+	# Hero cast telegraphs and hit impacts live in their own node so the
+	# stage stays a view of the fight, not a bag of effects.
+	_cast_fx = CastFx3D.new()
+	actor_root.add_child(_cast_fx)
 
 
 func _process(delta: float) -> void:
@@ -454,6 +460,16 @@ func attack(actor_id: int) -> void:
 	var fwd := body.global_transform.basis * Vector3(sin(face), 0.0, cos(face))
 	var m := float(body.get_meta("meters", 1.0))
 	_spark(body.position + fwd.normalized() * m * 0.45 + Vector3(0, m * 0.45, 0), Color("ffd28a"))
+	# A hero's cast gets a telegraph: a ring at its feet and a lane along
+	# the aim, both in the hero's own colour.
+	if _cast_fx != null and str(body.get_meta("kind", "")) == "hero":
+		var aim_dir := Vector3(fwd.x, 0.0, fwd.z)
+		if aim_dir.length() > 0.001:
+			# The ground plane is x/z; the sim's facing is an angle in x/y.
+			var aim := atan2(aim_dir.z, aim_dir.x)
+			var reach := float(body.get_meta("reach", 0.0)) * SCALE
+			var melee := str(body.get_meta("role", "")) == "tank"
+			_cast_fx.cast_telegraph(str(body.get_meta("sprite", "")), body.position, aim, reach, melee)
 
 
 ## Wind-up before a release: crouch, lean back and shiver (motion layer).
@@ -482,6 +498,8 @@ func hurt(actor_id: int, boss := false, heavy := false) -> void:
 	var body: Node3D = _bodies[actor_id]
 	if str(body.get_meta("lock", "")) == "death":
 		return
+	# The hit landed: motes, a light flash and a ring at the struck body.
+	_impact_at(body, heavy)
 	if boss:
 		# A boss shrugs off chip damage: a flash, a spark and a small recoil
 		# every hit; the full stagger clip only on a heavy hit, at most every
@@ -507,6 +525,23 @@ func hurt(actor_id: int, boss := false, heavy := false) -> void:
 	_play(body, "hit")
 	_spark(body.position, Color("ffb15a"))
 	_flash(body)
+
+
+## The burst where a hit landed, sized to the body that took it. A hero
+## flares red; anything else wears the colour of the hero that cast at it.
+func _impact_at(body: Node3D, heavy: bool) -> void:
+	if _cast_fx == null:
+		return
+	var meters := float(body.get_meta("meters", 1.0))
+	var col := CastFx3D.HURT_COLOR
+	if str(body.get_meta("kind", "")) != "hero":
+		col = _cast_fx.impact_color()
+	_cast_fx.impact_burst(
+		body.position + Vector3(0, meters * 0.45, 0),
+		col,
+		meters * 0.42,
+		heavy,
+		int(body.get_meta("actor_id", 0)))
 
 
 ## A brief additive white pulse over the whole body: the classic hit flash.
@@ -1388,6 +1423,13 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		# A touch bigger than before so mobs read at the pulled-back camera.
 		meters = clampf(actor.radius / 40.0, 0.5, 0.66) * HERO_METERS * 1.12
 	var body := _spawn_model(actor.sprite, meters)
+	# Who this body is: the hero colour keys the cast telegraph, the reach
+	# sets the aim lane, and the id keys the impact cooldown.
+	body.set_meta("sprite", actor.sprite)
+	body.set_meta("kind", actor.kind)
+	body.set_meta("role", actor.role)
+	body.set_meta("reach", actor.range)
+	body.set_meta("actor_id", actor.id)
 	# Outlines keep silhouettes readable from the far camera: a dark hairline
 	# on the hero (its ring marks it), deep red for anything hostile.
 	if actor.kind == "hero" and actor.team == 0:
@@ -2901,13 +2943,9 @@ void fragment() {
 
 
 func _soft_dot() -> Texture2D:
-	var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
-	for y in 32:
-		for x in 32:
-			var d := Vector2(x - 15.5, y - 15.5).length() / 16.0
-			var a := clampf(1.0 - d, 0.0, 1.0)
-			img.set_pixel(x, y, Color(1, 1, 1, a * a))
-	return ImageTexture.create_from_image(img)
+	# One dot for the whole game: the builder lives with the cast effects
+	# (scripts/cast_fx3d.gd), which tint the same dot per hero.
+	return CastFx3D.soft_dot()
 
 
 func _decal(size: float, params: Dictionary) -> MeshInstance3D:
@@ -4724,6 +4762,29 @@ func charge_land_fx(pos: Vector2, radius: float) -> void:
 		_dust.global_position = _to3(pos) + Vector3(0, 0.05, 0)
 		_dust.restart()
 		_dust.emitting = true
+
+
+## A splash blooming: the orb's burst scatters over the ground it scorched.
+func boom_fx(pos: Vector2, radius: float) -> void:
+	if _cast_fx == null or actor_root == null:
+		return
+	_cast_fx.impact_burst(
+		_to3(pos) + Vector3(0, 0.35, 0),
+		_cast_fx.impact_color(),
+		maxf(radius, 40.0) * SCALE,
+		true)
+
+
+## A card ability resolving: the effect blooms where it lands, in the
+## ability's own colour.
+func fx_burst(pos: Vector2, radius: float, col: Color) -> void:
+	if _cast_fx == null or actor_root == null:
+		return
+	_cast_fx.impact_burst(
+		_to3(pos) + Vector3(0, 0.4, 0),
+		col,
+		maxf(radius, 50.0) * SCALE,
+		true)
 
 
 ## Guard: a white glint on the shield when the swing DR soaks a hit.
