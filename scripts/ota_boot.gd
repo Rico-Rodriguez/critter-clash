@@ -3,9 +3,12 @@ extends Node
 ## Over-the-air content bootstrap. This is the FIRST autoload, so its _init
 ## runs before any other game script or scene is loaded. It mounts the last
 ## good content pack (a full .pck exported by CI) over the baked IPA content,
-## then checks GitHub for a newer pack in the background and stages it for
-## the next launch. Nothing here ever blocks play: offline, a slow network or
-## a bad download just leaves the current content in place.
+## then checks GitHub for a newer pack. When one exists it is downloaded and
+## mounted on this launch behind a blocking Updating screen: the tree stays
+## paused until the pack is verified and applied, so the game is not usable
+## before that. Only if the check, download or verification fails does boot
+## continue on the current content while a background retry stages a pack for
+## the next launch.
 ##
 ## Rules for this file (it is compiled from the baked IPA before any pack is
 ## mounted, and a pack can never replace the running copy):
@@ -16,7 +19,7 @@ extends Node
 
 signal update_ready(build: int)
 
-const BOOT_VERSION := 1
+const BOOT_VERSION := 2
 ## Native shell version baked into the IPA. Bump it whenever a change needs a
 ## new IPA (engine version, export preset, plugins, project settings such as
 ## autoloads or input map). CI stamps it into version.json as min_engine, so
@@ -42,8 +45,10 @@ var build := 0
 var just_updated := false
 ## A pack that crashed during its last boot and was discarded this launch.
 var rolled_back := 0
-## Downloaded and verified this session; applies on the next launch.
+## A pack staged this session by the background fallback; applies next launch.
 var pending_build := 0
+## True while the boot-blocking Updating screen is up (the tree is paused).
+var blocking := false
 var status := "off"
 
 var _m := {}
@@ -51,6 +56,10 @@ var _url := DEFAULT_URL
 var _remote := {}
 var _http: HTTPRequest
 var _hasher: Thread
+var _ui: CanvasLayer
+var _bar: ProgressBar
+var _step: Label
+var _downloading := false
 
 
 func _init() -> void:
@@ -122,16 +131,14 @@ func _mount() -> void:
 func _ready() -> void:
 	if not enabled:
 		return
-	if ota_build > 0:
-		get_tree().create_timer(SETTLE).timeout.connect(_settled)
+	# The Updating screen and the downloads must run while the tree is paused.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_http = HTTPRequest.new()
-	_http.timeout = CHECK_TIMEOUT
 	_http.use_threads = true
 	add_child(_http)
-	_http.request_completed.connect(_on_version)
-	status = "checking"
-	if _http.request(_url) != OK:
-		status = "offline"
+	await _boot_update()
+	if ota_build > 0:
+		get_tree().create_timer(SETTLE).timeout.connect(_settled)
 
 
 func _notification(what: int) -> void:
@@ -146,26 +153,57 @@ func _settled() -> void:
 		DirAccess.remove_absolute(FLAG)
 
 
-func _on_version(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-		status = "offline"
+func _process(_delta: float) -> void:
+	if _step:
+		_step.text = status
+	if _downloading and _bar:
+		_bar.value = minf(float(_http.get_downloaded_bytes()), _bar.max_value)
+
+
+## Checks GitHub and applies a newer pack before the game becomes usable.
+func _boot_update() -> void:
+	if not enabled or _http == null:
 		return
-	var v: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if not await _check():
+		return
+	# A newer pack exists: block boot until it is applied.
+	var target := int(_remote["build"])
+	_open_ui(target)
+	get_tree().paused = true
+	status = "applying %d" % target
+	var failure: String = await _fetch_pack()
+	get_tree().paused = false
+	_close_ui()
+	if failure != "":
+		status = failure
+		_restage()
+		return
+	_mount()
+	_save_manifest()
+
+
+## Requests version.json and accepts it; false when there is nothing to apply.
+func _check() -> bool:
+	_http.timeout = CHECK_TIMEOUT
+	_http.download_file = ""
+	status = "checking"
+	if _http.request(_url) != OK:
+		status = "offline"
+		return false
+	var res: Array = await _http.request_completed
+	if int(res[0]) != HTTPRequest.RESULT_SUCCESS or int(res[1]) != 200:
+		status = "offline"
+		return false
+	var v: Variant = JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8())
 	if not (v is Dictionary):
 		status = "bad version.json"
-		return
+		return false
 	_remote = v
 	var why := accepts(_remote)
 	if why != "":
 		status = why
-		return
-	status = "downloading %d" % int(_remote["build"])
-	_http.request_completed.disconnect(_on_version)
-	_http.request_completed.connect(_on_pack)
-	_http.timeout = DOWNLOAD_TIMEOUT
-	_http.download_file = DIR + "/download.tmp"
-	if _http.request(str(_remote["pck_url"])) != OK:
-		status = "download failed"
+		return false
+	return true
 
 
 ## "" when the remote pack should be downloaded, else the reason it is skipped.
@@ -187,12 +225,25 @@ func accepts(r: Dictionary) -> String:
 	return ""
 
 
-func _on_pack(result: int, code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+## Downloads, verifies and installs _remote's pack into the manifest.
+## "" when usable, else a short failure reason.
+func _fetch_pack() -> String:
 	var tmp := DIR + "/download.tmp"
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or _file_size(tmp) != int(_remote["size"]):
+	_http.timeout = DOWNLOAD_TIMEOUT
+	_http.download_file = tmp
+	_downloading = true
+	if _http.request(str(_remote["pck_url"])) != OK:
+		_downloading = false
+		_http.download_file = ""
+		status = "download failed"
+		return status
+	var res: Array = await _http.request_completed
+	_downloading = false
+	_http.download_file = ""
+	if int(res[0]) != HTTPRequest.RESULT_SUCCESS or int(res[1]) != 200 or _file_size(tmp) != int(_remote["size"]):
 		DirAccess.remove_absolute(tmp)
 		status = "download failed"
-		return
+		return status
 	status = "verifying"
 	# Hash off the main thread: a full pack is hundreds of MB.
 	_hasher = Thread.new()
@@ -200,16 +251,16 @@ func _on_pack(result: int, code: int, _headers: PackedStringArray, _body: Packed
 	while _hasher.is_alive():
 		await get_tree().process_frame
 	var digest: String = _hasher.wait_to_finish()
-	if digest != str(_remote["sha256"]).to_lower():
+	if digest == "" or digest != str(_remote["sha256"]).to_lower():
 		DirAccess.remove_absolute(tmp)
 		status = "sha256 mismatch"
-		return
+		return status
 	var b := int(_remote["build"])
 	var file := "content_%d.pck" % b
 	if DirAccess.rename_absolute(tmp, DIR + "/" + file) != OK:
 		DirAccess.remove_absolute(tmp)
 		status = "rename failed"
-		return
+		return status
 	# Keep the running pack as the fallback; drop the older one.
 	var running: Dictionary = _m["current"]
 	if not _m["previous"].is_empty() and str(_m["previous"].get("file")) != str(running.get("file")):
@@ -219,9 +270,61 @@ func _on_pack(result: int, code: int, _headers: PackedStringArray, _body: Packed
 		"min_engine": int(_remote["min_engine"]), "godot": str(_remote.get("godot", _engine())),
 		"sha": str(_remote.get("sha", ""))}
 	_save_manifest()
-	pending_build = b
-	status = "ready %d" % b
-	update_ready.emit(b)
+	return ""
+
+
+## The blocking attempt failed: keep the current pack usable and retry in the
+## background, staging the pack for the next launch (the old flow).
+func _restage() -> void:
+	if not await _check():
+		return
+	if await _fetch_pack() != "":
+		return
+	pending_build = int(_remote["build"])
+	status = "ready %d" % pending_build
+	update_ready.emit(pending_build)
+
+
+## A full-screen Updating card built from raw nodes; the pause stops the game.
+func _open_ui(target: int) -> void:
+	blocking = true
+	_ui = CanvasLayer.new()
+	_ui.layer = 100
+	add_child(_ui)
+	var shade := ColorRect.new()
+	shade.color = Color(0.03, 0.03, 0.04, 1.0)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	_ui.add_child(shade)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 14)
+	shade.add_child(box)
+	var head := Label.new()
+	head.text = "Updating"
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(head)
+	var info := Label.new()
+	info.text = "Build %d to %d" % [build, target]
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(info)
+	_bar = ProgressBar.new()
+	_bar.max_value = maxf(float(int(_remote.get("size", 1))), 1.0)
+	box.add_child(_bar)
+	_step = Label.new()
+	_step.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_step)
+
+
+func _close_ui() -> void:
+	_downloading = false
+	if _ui:
+		_ui.queue_free()
+		_ui = null
+	_bar = null
+	_step = null
+	blocking = false
 
 
 static func _sha256(path: String) -> String:
