@@ -119,15 +119,16 @@ func _banner(entry: Dictionary) -> Control:
 	row.add_child(info)
 	if cleared:
 		info.add_child(UiKit.label("✦ CLEARED", 18, Color("9fe08a"), "x", 3))
-		info.add_child(UiKit.label("Boss drops still roll on every win.", 15, UiKit.MUTED, "b", 0))
+		info.add_child(UiKit.label(Catalog.recommended_text(id) + ". Boss drops still roll on every win.", 15, UiKit.MUTED, "b", 0))
 	elif unlocked:
 		info.add_child(UiKit.label("BOSS AWAITS", 18, UiKit.GOLD, "x", 3))
-		info.add_child(UiKit.label("Recommended combat %d. Survive the waves to draw it out." % Catalog.recommended_level(id), 15, UiKit.MUTED, "b", 0))
+		info.add_child(UiKit.label(Catalog.recommended_text(id) + ". Survive the waves to draw it out.", 15, UiKit.MUTED, "b", 0))
 	else:
 		info.add_child(UiKit.label("SEALED", 18, Color("c89a8a"), "x", 3))
 		var why := UiKit.label(SaveGame.biome_lock_text(id) + " to unlock", 15, UiKit.MUTED, "b", 0)
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		info.add_child(why)
+		info.add_child(UiKit.label(Catalog.recommended_text(id), 15, UiKit.MUTED, "b", 0))
 	if unlocked:
 		info.add_child(_tier_row(id))
 	if unlocked:

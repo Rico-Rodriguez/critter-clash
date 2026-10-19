@@ -392,6 +392,12 @@ static func recommended_level(id: String) -> int:
 	return int(biome(id).get("recommended_level", 1))
 
 
+## The map surfaces' shared caption for the level a biome is tuned for, so the
+## world banners and the home map sheet all read the same.
+static func recommended_text(id: String) -> String:
+	return "Recommended combat %d" % recommended_level(id)
+
+
 ## XP falloff for over-leveled Normal farming: 1.0 while the hero is within
 ## `FALLOFF_GRACE` combat levels of the map, sliding toward `FALLOFF_FLOOR`
 ## beyond that. Veteran and Nightmare are the deliberate challenge, so they

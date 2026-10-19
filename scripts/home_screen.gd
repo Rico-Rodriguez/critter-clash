@@ -753,6 +753,7 @@ class MapSheet extends Control:
 		var st_label := UiKit.label(status, 16, Color("9fe08a") if cleared else (UiKit.GOLD if open else Color("c89a8a")), "x", 2)
 		st_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(st_label)
+		v.add_child(UiKit.label(Catalog.recommended_text(id), 16, UiKit.MUTED, "b", 0))
 		if not open:
 			# Sealed: the row itself is disabled and its label says why, so
 			# it reads as unavailable instead of a dead tap.
@@ -830,6 +831,7 @@ class MapSheet extends Control:
 		v.add_child(UiKit.label("DAILY CHALLENGE", 30, UiKit.GOLD.lightened(0.25), "x", 4))
 		v.add_child(UiKit.label("%s · %s" % [str(biome["name"]).to_upper(), " + ".join(parts)], 18, UiKit.CREAM, "b", 0))
 		v.add_child(UiKit.label("Best today %d" % best if best > 0 else "No run today yet", 16, UiKit.GOLD if best > 0 else UiKit.MUTED, "x", 2))
+		v.add_child(UiKit.label(Catalog.recommended_text(str(biome["id"])), 16, UiKit.MUTED, "b", 0))
 		if locked:
 			v.add_child(UiKit.label("Daily pass", 16, Color("9fe08a"), "b", 2))
 		var tag := UiKit.label("TODAY", 16, Color("9fe08a"), "x", 2)
