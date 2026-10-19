@@ -68,7 +68,7 @@ func _refresh() -> void:
 		return
 	var skills := GearDB.skills(hero_id)
 	var xp: Dictionary = {}
-	var all := GearDB._store()["xp"].get(hero_id, {})
+	var all: Dictionary = GearDB._store()["xp"].get(hero_id, {})
 	if typeof(all) == TYPE_DICTIONARY:
 		xp = all
 	var total := 0
