@@ -58,6 +58,7 @@ var actors_root: Node2D
 var sparks: SparkLayer
 var stick: StickLayer
 var modal: Control
+var modal_safe: MarginContainer
 var modal_box: VBoxContainer
 var flash_rect: ColorRect
 var hp_meter: Meter
@@ -369,14 +370,36 @@ void fragment() {
 	dim.material = vm
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	modal.add_child(dim)
+	# The modal box lives inside the safe area, the same way the HUD does:
+	# a title never hides under the notch and the buttons stay clear of the
+	# home indicator. The dim still washes the whole screen.
+	modal_safe = MarginContainer.new()
+	modal_safe.set_anchors_preset(Control.PRESET_FULL_RECT)
+	modal_safe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modal.add_child(modal_safe)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	modal.add_child(center)
+	modal_safe.add_child(center)
 	modal_box = VBoxContainer.new()
 	modal_box.custom_minimum_size = Vector2(690, 0)
 	modal_box.add_theme_constant_override("separation", 12)
 	center.add_child(modal_box)
+	_layout_modal()
+	get_viewport().size_changed.connect(_layout_modal)
+
+
+## Holds the modal box inside the safe area: the notch, the home indicator
+## and the side cutouts are left to the backdrop. Re-read on a viewport
+## resize, so a changed inset (a rotation, a different device) is picked up
+## instead of being baked in at build time.
+func _layout_modal() -> void:
+	if modal_safe == null:
+		return
+	var pad := UiKit.safe_insets()
+	modal_safe.add_theme_constant_override("margin_left", int(pad["l"]))
+	modal_safe.add_theme_constant_override("margin_right", int(pad["r"]))
+	modal_safe.add_theme_constant_override("margin_top", int(pad["t"]))
+	modal_safe.add_theme_constant_override("margin_bottom", int(pad["b"]))
 
 
 func _process(delta: float) -> void:
@@ -1429,6 +1452,9 @@ func _open_modal() -> void:
 	_modal_up = true
 	_end_stick()
 	_clear_modal()
+	# The insets can have moved since the screen was built (a rotation, a
+	# notch appearing), so read them again as the modal opens.
+	_layout_modal()
 	modal.visible = true
 	# Ease the dim in rather than snapping the whole frame dark.
 	modal.modulate.a = 0.0
