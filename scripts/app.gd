@@ -79,11 +79,14 @@ func _ready() -> void:
 
 ## OTA content patches (scripts/ota_boot.gd): announce a newly applied pack
 ## once, and note a staged one. Read through get_node_or_null so this file
-## never depends on the bootstrap's script.
+## never depends on the bootstrap's script. Update kicks can block boot with
+## the tree paused; wait that out before reading the result.
 func _ota_hook() -> void:
 	var ota := get_node_or_null("/root/Ota")
 	if ota == null:
 		return
+	while bool(ota.get("blocking")):
+		await get_tree().process_frame
 	if bool(ota.get("just_updated")):
 		get_tree().create_timer(0.9).timeout.connect(func() -> void:
 			ota_toast("UPDATED TO BUILD %d" % int(ota.get("build")), "New content is live"))

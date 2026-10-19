@@ -25,11 +25,15 @@ assets alike:
    `ProjectSettings.load_resource_pack(path, true)`, writing the booting flag first.
    The flag is cleared after 4 s of play, or when the app is backgrounded/closed.
    Packs not newer than the baked build, or built for another shell/Godot, are dropped.
-4. In `_ready`, fetches `version.json` (3 s timeout, background thread). A newer
-   build that passes the `min_engine`, Godot and platform checks downloads to
+4. In `_ready`, fetches `version.json` (3 s timeout). A newer build that passes
+   the `min_engine`, Godot and platform checks is applied before the game
+   becomes usable: a full-screen Updating panel (build numbers, download
+   progress bar) pauses the tree while the pack downloads to
    `user://ota/download.tmp`, is size- and SHA-256-checked on a worker thread,
-   renamed to `content_<build>.pck`, and becomes current on the next launch. The
-   running pack is kept as the fallback; older packs are deleted.
+   renamed to `content_<build>.pck`, and mounted immediately; then the game
+   unpauses. If the check, download or verification fails, boot continues on
+   the current content while one background retry stages the pack for the next
+   launch. The running pack is kept as the fallback; older packs are deleted.
 
 Nothing outside `user://ota/` is touched; saves stay in `user://critter_clash.json`.
 Settings shows `v1.1.0 · Build <baked> · Content <ota>`, and the first launch on a
