@@ -259,6 +259,17 @@ func chest_tone(i: int) -> String:
 	return chest_tone_of(data["chests"][i])
 
 
+## The depth a chest's gear rolls at: the biome the chest was earned on, or
+## the depth the chest carries itself (a daily's chest rolls at the player's
+## own ground). It never rolls deeper than the biome the player has opened,
+## so a chest earned on a sealed biome stays inside their progress.
+func chest_depth(chest: Dictionary) -> int:
+	var depth := _biome_index(str(chest.get("biome", "meadow")))
+	if chest.has("depth"):
+		depth = int(chest["depth"])
+	return mini(depth, forge_depth())
+
+
 func biome_cleared(id: String) -> bool:
 	return bool(data["cleared"].get(id, false))
 
@@ -317,6 +328,15 @@ func biome_lock_text(id: String) -> String:
 	if parts.is_empty():
 		return "Locked"
 	return " · ".join(parts)
+
+
+## A biome's place in Catalog.BIOMES (0 = the first biome). An unknown biome
+## reads as the first one, the shallowest ground there is.
+func _biome_index(biome_id: String) -> int:
+	for i in Catalog.BIOMES.size():
+		if str(Catalog.BIOMES[i]["id"]) == biome_id:
+			return i
+	return 0
 
 
 ## The two knights a new save starts with; Gnash and Mordrek join on the road.
@@ -696,9 +716,14 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0, tier: int
 ## A daily won on a biome the player has not unlocked: the boss falls and the
 ## run scores, but the clear is daily-only. No cleared flag, trophies, boss
 ## kill or slayer progress, so it never unlocks the biome or advances
-## progress. The hunt chest still comes home as the run's loot.
+## progress. The hunt chest still comes home as the run's loot. It keeps the
+## daily's biome for its look, but its gear rolls at the depth the player has
+## opened: a sealed biome must never hand out a tier the player has not
+## earned.
 func commit_daily_pass(biome_id: String, boss_id: String) -> Dictionary:
-	_send_home(_new_chest("hunt", biome_id, true))
+	var chest := _new_chest("hunt", biome_id, true)
+	chest["depth"] = forge_depth()
+	_send_home(chest)
 	_write()
 	return {"trophies": 0, "first": false, "boss": boss_id, "drops": [], "reveal": {}, "kills": boss_kills(boss_id)}
 
@@ -1190,7 +1215,8 @@ func open_next(index: int = 0) -> Dictionary:
 ## What a chest pays when it opens: coins (with the relic stacks banked as
 ## coins), gear shards and any gear piece it rolled. The chest's own seed
 ## fixes the roll, so a chest that pays out because the drawer was full pays
-## exactly what it would have paid there.
+## exactly what it would have paid there. The gear tier follows the chest's
+## depth and never runs ahead of the ground the player has opened.
 func _chest_loot(chest: Dictionary) -> Dictionary:
 	var loot := _roll_loot(chest)
 	# Drawer chests also roll earned gear, by rarity, from the chest's own seed
@@ -1199,12 +1225,11 @@ func _chest_loot(chest: Dictionary) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(chest.get("seed", 0))
 	var tone := chest_tone_of(chest)
-	var biome_id := str(chest.get("biome", "meadow"))
-	var biome_idx := 0
-	for i in Catalog.BIOMES.size():
-		if str(Catalog.BIOMES[i]["id"]) == biome_id:
-			biome_idx = i
-			break
+	# The chest's gear rolls at the depth recorded on it: the biome it was
+	# earned on, or the player's own depth when the chest carries one (a
+	# daily's chest). It never rolls deeper than the ground the player has
+	# opened, so a chest earned on a sealed biome stays inside their progress.
+	var biome_idx := chest_depth(chest)
 	var gear_items: Array = []
 	var gear_shards := 0
 	var gear_coins := 0
