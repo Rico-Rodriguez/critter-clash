@@ -161,6 +161,8 @@ var gather_drops: Array = []
 var gather_rng := RandomNumberGenerator.new()
 ## Node id -> the sim time it can be worked again (its respawn).
 var _gather_ready_at := {}
+## Node id -> the sim time it last said what it needs (a locked node).
+var _gather_notice_at := {}
 ## The account's gathering XP and levels when the run started, so a level
 ## crossed mid-run can be announced before the XP is written.
 var _gather_base_xp := {}
@@ -174,6 +176,10 @@ var _gather_drop_total := {}
 var _gather_drop_time := {}
 ## How close the hero must be to work a node, in sim px.
 const GATHER_REACH := 70.0
+## How long a locked node stays quiet after it has said what it needs, in
+## sim seconds. The hero can stand on a locked node, so the refusal is rate
+## limited: it is said when the player walks up, not once a frame.
+const GATHER_NOTICE_COOLDOWN := 10.0
 var boss_mark := 0
 ## True once the boss has opened with its first attack; only that first
 ## telegraph waits until the boss shares the hero's view.
@@ -612,6 +618,7 @@ func _begin_gathering_tracking() -> void:
 	_gather_level_at_start = {}
 	_gather_drop_total = {}
 	_gather_drop_time = {}
+	_gather_notice_at = {}
 	for entry in Catalog.SKILLS:
 		var id := str(entry["id"])
 		var held := SaveGame.gathering_xp(id)
@@ -3437,7 +3444,7 @@ func gather(node_id: String) -> Dictionary:
 	# The account's level is read once, when the run starts, so the nodes a
 	# run can work never change under it (the XP it earns is banked at the
 	# end of the run, like the combat XP).
-	if _gather_start_level(skill) < need:
+	if gather_locked(node_id):
 		out["reason"] = "Needs %s %d" % [GatheringDB.skill_name(skill), need]
 		return out
 	# A node needs its respawn time before it can be worked again.
@@ -3463,9 +3470,21 @@ func _gather_start_level(skill: String) -> int:
 	return int(_gather_level_at_start.get(skill, 1))
 
 
+## Whether a node is locked for this run: the account's level in the node's
+## skill is below what the node asks for. The gate is the one gather()
+## applies, read on its own so a refusal can say what it needs.
+func gather_locked(node_id: String) -> bool:
+	var node := GatheringDB.node(node_id)
+	if node.is_empty():
+		return false
+	return _gather_start_level(str(node["skill"])) < int(node["level"])
+
+
 ## Works the nodes the hero has reached: a node in reach, ready and within
 ## the account's skill level is gathered, and then it needs its respawn time
 ## before it can be worked again. Claimed on contact, like the shrines.
+## A node the account's level cannot work is refused, and the refusal is
+## reported instead of thrown away: the reason is what the screen shows.
 func _step_gathering(_dt: float) -> void:
 	if gather_nodes.is_empty():
 		return
@@ -3476,8 +3495,22 @@ func _step_gathering(_dt: float) -> void:
 				continue
 			if hero.pos.distance_to(entry["pos"]) > GATHER_REACH + hero.radius:
 				continue
-			gather(node_id)
+			var out := gather(node_id)
+			if not bool(out.get("ok", true)) and gather_locked(node_id):
+				_notice_locked(node_id, str(out.get("reason", "")), entry["pos"])
 			break
+
+
+## Says what a locked node needs, at most once per cooldown: the hero can
+## stand on the node, so the notice must not repeat every frame.
+func _notice_locked(node_id: String, reason: String, pos: Vector2) -> void:
+	if reason == "":
+		return
+	var last := float(_gather_notice_at.get(node_id, -GATHER_NOTICE_COOLDOWN))
+	if time - last < GATHER_NOTICE_COOLDOWN:
+		return
+	_gather_notice_at[node_id] = time
+	events.append({"type": "gather_locked", "node": node_id, "skill": GatheringDB.skill_of(node_id), "reason": reason, "pos": pos})
 
 
 ## Emits xp_drop events for the gathering XP earned since the last drop, on

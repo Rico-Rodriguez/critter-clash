@@ -93,8 +93,19 @@ others, and how many a gather takes.
   node's skill must meet the node's `level`, the node must be off its
   respawn, then it pays its XP and rolls its table. It returns
   `{ok, reason, node, skill, xp, drops}`.
+- `RunSim.gather_locked(node_id)` says whether the node is locked for this
+  run: the account's level in the node's skill is below what the node asks
+  for. It is the gate `gather()` applies, read on its own.
 - `RunSim._step_gathering()` works the nodes a hero has reached, claimed on
   contact like the shrines.
+- A locked node is refused, and the refusal is reported instead of thrown
+  away: a `gather_locked` event carries the reason ("Needs Woodcutting 15"),
+  the node, its skill and its place. The hero can stand on a locked node,
+  so the notice is rate limited to once per `GATHER_NOTICE_COOLDOWN` seconds
+  per node: it is said when the player walks up, not once a frame.
+- The run screen floats the reason over the hero who walked up to the node,
+  in the loot-line style the other notes use, with the soft refusal sound
+  the screen plays for a rejected action.
 - The level that gates a node is read once, when the run starts, so the
   nodes a run can work never change under it. The XP it earns is banked with
   the rest of the run when it commits (`RunSim.commit_xp`), like the combat
