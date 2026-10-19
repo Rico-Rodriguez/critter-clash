@@ -304,6 +304,12 @@ func _capture() -> void:
 		go("skills")
 		await _settle()
 		await _shot("skills")
+	if _wants("materials"):
+		go("skills")
+		await _settle()
+		current.show_tab("materials")
+		await _settle()
+		await _shot("materials")
 	if _wants("trophy"):
 		go("trophy")
 		await _settle()
@@ -546,6 +552,12 @@ func _seed_log() -> void:
 	SaveGame.data["skills"]["woodcutting"] = 200
 	SaveGame.data["slayer"]["points"] = 55
 	SaveGame.data["slayer"]["streak"] = 2
+	# A bag with a few materials in it: two boss spoils and three gathered
+	# resources, so the Materials tab has rows to show.
+	SaveGame.data["materials"] = {
+		"meadow_fiber": 4, "flower_crown": 1, "willow_logs": 12,
+		"brook_fish": 5, "copper_ore": 3,
+	}
 	var task := Catalog.slayer_task("meadow_critters").duplicate()
 	task["have"] = 18
 	SaveGame.data["slayer"]["task"] = task
