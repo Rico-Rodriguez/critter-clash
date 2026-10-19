@@ -140,9 +140,9 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 - `assets/textures/` baked ground maps, the sky HDRI, and the dust puff
 - `shaders/terrain.gdshader` ground blend
 - `assets/sprites/` Kenney portraits and generated interface effects
-- `assets/audio/` synthesized effects and the music loop
+- `assets/audio/` the licensed effects, the synthesized effects and the music loops
 - `assets/fonts/` Nunito for body copy, Lilita One for titles, numbers, and buttons
-- `tools/build_audio.py` and `tools/make_icon.py`
+- `tools/build_sfx.py`, `tools/build_sfx_synth.py`, `tools/check_sfx.py` and `tools/make_icon.py`
 - `.github/workflows/ios-ipa.yml` unsigned IPA
 
 ## Art and audio rebuild
@@ -150,8 +150,15 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 Sound and the icon are generated:
 
 ```
-python3 tools/build_audio.py
+python3 tools/build_sfx.py        # the licensed packs, trimmed and layered
+python3 tools/build_sfx_synth.py  # the moments the packs do not cover
+python3 tools/check_sfx.py        # every clip exists, is played, and is not silent
 python3 tools/make_icon.py
 ```
+
+`tools/build_sfx.py` needs the source packs downloaded (see `CREDITS.md`);
+`tools/build_sfx_synth.py` draws its clips from oscillators and noise, and
+leaves any clip already on disk alone so a rebuild does not churn the
+resource uids.
 
 Licenses are in `CREDITS.md`.

@@ -12,7 +12,11 @@ Every clip here is generated from scratch by this file (no sampled source
 material), so it carries no third-party licence. The clips are mono OGG
 (q3) to match the rest of the folder and to keep the iOS package small.
 
-usage: python3 tools/build_sfx_synth.py [--out DIR]
+Clips already on disk are kept: re-running the script only fills in what
+is missing, so the resource uids do not churn (Godot re-imports every
+clip whose uid moved). Pass --force to re-render everything.
+
+usage: python3 tools/build_sfx_synth.py [--out DIR] [--force]
 """
 import glob
 import hashlib
@@ -423,6 +427,346 @@ def clip_music_stab(v):
     return chord * 0.5, dur
 
 
+def clip_cast(v):
+    """A hero's cast telegraph: a charge rising under the spell."""
+    dur = 0.42
+    base = 300.0 * (1.0 + 0.04 * v)
+    tone = saw(sweep(base, base * 2.6, dur, 0.6), dur, 8)
+    tone *= env_ad(dur, 0.10, 0.14, 0.06)
+    shimmer = moving_band(noise(dur, 131 + v), 1800, 4200, 0.7) * 0.15
+    shimmer *= env_ad(dur, 0.12, 0.12, 0.04)
+    return mix(tone * 0.55, shimmer), dur
+
+
+def clip_impact(v):
+    """Where a hit lands: a short whump with a bright edge on it."""
+    dur = 0.22
+    body = sine(sweep(190 - 10 * v, 70, dur, 0.5), dur)
+    body *= env_ad(dur, 0.002, 0.07)
+    edge = high(noise(dur, 137 + v), 3200) * 0.5
+    edge *= env_ad(dur, 0.001, 0.02)
+    return mix(body * 0.8, edge), dur
+
+
+def clip_block(v):
+    """A guarded hit: a dull knock on wood and steel, no bite."""
+    dur = 0.26
+    body = sine(sweep(150 - 8 * v, 96, dur, 0.6), dur)
+    body *= env_ad(dur, 0.002, 0.10)
+    knock = band(noise(dur, 139 + v), 300, 1600) * 0.55
+    knock *= env_ad(dur, 0.001, 0.05)
+    return mix(body * 0.9, knock), dur
+
+
+def clip_shield_break(v):
+    """A ward shattering: a crack and a spray of bright shards."""
+    dur = 0.55
+    crack = high(noise(dur, 149 + v), 2400) * 0.9
+    crack *= env_ad(dur, 0.001, 0.05)
+    ring = sine(sweep(1500 + 60 * v, 620, dur, 0.7), dur) * 0.45
+    ring *= env_ad(dur, 0.002, 0.16)
+    shards = high(noise(dur, 151 + v), 4200) * 0.25
+    shards *= env_ad(dur, 0.02, 0.20)
+    return mix(crack, ring, shards), dur
+
+
+def clip_gear_pickup(v):
+    """A piece lifted off the ground: a light clink that rises."""
+    dur = 0.30
+    parts = []
+    for k, f in enumerate([1560.0, 2340.0, 3120.0]):
+        tone = sine(f * (1.0 + 0.01 * v), dur)
+        tone *= env_ad(dur, 0.001, 0.09 - 0.02 * k)
+        parts.append(tone * (0.4 / (1.0 + k)))
+    ring = mix(*parts)
+    lift = sine(sweep(700, 1400, dur, 0.7), dur) * 0.25
+    lift *= env_ad(dur, 0.01, 0.09)
+    return mix(ring, lift), dur
+
+
+def clip_aggro(v):
+    """A foe noticing the hero: a low growl with a wobble in it."""
+    dur = 0.55
+    wob = 1.0 + 0.05 * np.sin(2.0 * np.pi * 15.0 * t_of(dur))
+    tone = saw(sweep(120 + 8 * v, 95, dur, 0.8) * wob, dur, 7)
+    tone *= env_ad(dur, 0.06, 0.20, 0.08)
+    rasp = band(noise(dur, 157 + v), 200, 900) * 0.35
+    rasp *= env_ad(dur, 0.05, 0.22, 0.08)
+    return mix(low(tone, 900) * 0.8, rasp), dur
+
+
+def clip_lifesteal(v):
+    """Life drained off a foe: a short sip going up."""
+    dur = 0.42
+    body = sine(sweep(280 + 20 * v, 760, dur, 0.7), dur)
+    body *= env_ad(dur, 0.03, 0.14, 0.04)
+    suck = moving_band(noise(dur, 163 + v), 700, 2600, 0.75) * 0.4
+    suck *= env_ad(dur, 0.03, 0.15, 0.05)
+    return mix(body * 0.6, suck), dur
+
+
+def clip_blink(v):
+    """A blink: the air tears away, then a pop where the hero lands."""
+    dur = 0.36
+    tear = moving_band(noise(dur, 167 + v), 2200, 500, 0.7) * 0.55
+    tear *= env_ad(dur, 0.005, 0.10)
+    pop = sine(sweep(900 + 40 * v, 260, dur, 0.5), dur) * 0.45
+    pop *= env_ad(dur, 0.12, 0.06)
+    return mix(tear, pop), dur
+
+
+def clip_chain(v):
+    """Chain lightning: a zap and a run of crackles after it."""
+    dur = 0.45
+    zap = high(noise(dur, 173 + v), 2600) * 0.8
+    zap *= env_ad(dur, 0.001, 0.04)
+    crackle = np.zeros(int(round(dur * SR)))
+    for i in range(7):
+        at = int((0.05 + 0.055 * i) * SR)
+        tick = high(noise(0.05, 191 + v * 13 + i), 3400)
+        tick *= env_ad(0.05, 0.001, 0.02)
+        end = min(len(crackle), at + len(tick))
+        crackle[at:end] += tick[:end - at] * 0.5
+    tone = sine(sweep(1400 + 60 * v, 420, dur, 0.6), dur) * 0.35
+    tone *= env_ad(dur, 0.002, 0.12)
+    return mix(zap, crackle, tone), dur
+
+
+def clip_frost(v):
+    """Frost nova: glassy bells spreading out and then cooling."""
+    dur = 0.60
+    parts = []
+    for k, f in enumerate([1760.0, 2637.0, 3520.0]):
+        tone = sine(f * (1.0 + 0.01 * v), dur)
+        tone *= env_ad(dur, 0.005, 0.22 - 0.05 * k, 0.05)
+        parts.append(tone * (0.35 / (1.0 + k)))
+    bells = mix(*parts)
+    hiss = high(noise(dur, 197 + v), 5200) * 0.16
+    hiss *= env_ad(dur, 0.01, 0.30)
+    fall = sine(sweep(2400, 1200, dur, 0.8), dur) * 0.2
+    fall *= env_ad(dur, 0.05, 0.25)
+    return mix(bells, hiss, fall), dur
+
+
+def clip_quake(v):
+    """Earthquake: the ground rolls and then settles."""
+    dur = 0.75
+    rumble = low(noise(dur, 199 + v), 220) * 1.1
+    rumble *= env_ad(dur, 0.03, 0.35, 0.10)
+    crack = band(noise(dur, 211 + v), 120, 900) * 0.5
+    crack *= env_ad(dur, 0.01, 0.25)
+    thud = sine(sweep(90, 45, dur, 0.6), dur) * 0.8
+    thud *= env_ad(dur, 0.005, 0.20)
+    return np.tanh(mix(rumble, crack, thud) * 1.2) / 1.15, dur
+
+
+def clip_volley(v):
+    """A volley: a few arrows arriving in a flurry."""
+    dur = 0.45
+    out = np.zeros(int(round(dur * SR)))
+    for i in range(4):
+        at = int((0.02 + 0.075 * i) * SR)
+        f = 620 + 55 * i + 25 * v
+        thump = sine(sweep(f, f * 0.55, 0.16, 0.5), 0.16)
+        thump *= env_ad(0.16, 0.002, 0.06)
+        flap = high(noise(0.10, 223 + v * 11 + i), 2600) * 0.3
+        flap *= env_ad(0.10, 0.002, 0.04)
+        piece = mix(thump * 0.8, flap)
+        end = min(len(out), at + len(piece))
+        out[at:end] += piece[:end - at]
+    return out, dur
+
+
+def clip_roar(v):
+    """A taunt: a chesty growl that swells and falls away."""
+    dur = 0.80
+    wob = 1.0 + 0.07 * np.sin(2.0 * np.pi * 11.0 * t_of(dur))
+    tone = saw(sweep(105 + 6 * v, 76, dur, 0.7) * wob, dur, 9)
+    tone *= env_ad(dur, 0.10, 0.30, 0.06)
+    rasp = band(noise(dur, 233 + v), 160, 1100) * 0.45
+    rasp *= env_ad(dur, 0.08, 0.30, 0.06)
+    out = mix(low(tone, 1400) * 0.9, rasp)
+    return np.tanh(out * 1.2) / 1.15, dur
+
+
+def clip_thunder(v):
+    """A crown of storm: a crack, then the roll that follows it."""
+    dur = 1.10
+    crack = high(noise(dur, 239 + v), 2600) * 0.85
+    crack *= env_ad(dur, 0.001, 0.05)
+    roll = low(noise(dur, 241 + v), 320)
+    roll *= env_ad(dur, 0.02, 0.55, 0.05)
+    body = sine(sweep(140, 58, dur, 0.6), dur) * 0.55
+    body *= env_ad(dur, 0.004, 0.30)
+    return mix(crack, roll, body), dur
+
+
+def clip_phoenix(v):
+    """A hero coming back from the fire: a rising whoosh into a burst."""
+    dur = 1.00
+    whoosh = moving_band(noise(dur, 251 + v), 300, 3200, 0.8) * 0.7
+    whoosh *= env_ad(dur, 0.25, 0.35, 0.10)
+    body = sine(sweep(180, 720, dur, 0.7), dur) * 0.45
+    body *= env_ad(dur, 0.20, 0.35, 0.08)
+    flare = high(noise(dur, 257 + v), 4200) * 0.3
+    flare *= env_ad(dur, 0.45, 0.25)
+    return mix(whoosh, body, flare), dur
+
+
+def clip_blades(v):
+    """Orbiting blades: a ring of steel cutting the air."""
+    dur = 0.70
+    parts = []
+    for k, f in enumerate([1180.0, 1790.0, 2410.0]):
+        tone = sine(f * (1.0 + 0.012 * v), dur)
+        tone *= env_ad(dur, 0.06, 0.24 - 0.04 * k)
+        parts.append(tone * (0.4 / (1.0 + k)))
+    ring = mix(*parts)
+    swish = moving_band(noise(dur, 263 + v), 2600, 800, 0.8) * 0.45
+    swish *= env_ad(dur, 0.05, 0.22)
+    return mix(ring, swish), dur
+
+
+def clip_thorns(v):
+    """A thorn aura: a bristle of spines coming up."""
+    dur = 0.50
+    body = band(noise(dur, 269 + v), 700, 3400) * 0.6
+    body *= env_ad(dur, 0.02, 0.18)
+    rasp = high(noise(dur, 271 + v), 5200) * 0.25
+    rasp *= env_ad(dur, 0.01, 0.10)
+    tone = sine(sweep(420, 640, dur, 0.7), dur) * 0.25
+    tone *= env_ad(dur, 0.01, 0.14)
+    return mix(body, rasp, tone), dur
+
+
+def clip_static(v):
+    """A static field: an electric buzz that rings and dies."""
+    dur = 0.65
+    buzz = band(noise(dur, 277 + v), 1200, 4200) * 0.6
+    buzz *= env_ad(dur, 0.01, 0.26)
+    ring = sine(sweep(2400 + 80 * v, 1500, dur, 0.7), dur) * 0.3
+    ring *= env_ad(dur, 0.002, 0.18)
+    snap = high(noise(dur, 281 + v), 6000) * 0.3
+    snap *= env_ad(dur, 0.001, 0.03)
+    return mix(buzz, ring, snap), dur
+
+
+def clip_howl(v):
+    """A spirit wolf: a howl that climbs, holds and slides back down."""
+    dur = 1.05
+    top = 560.0 + 20 * v
+    up = sweep(300 + 15 * v, top, 0.40, 0.7)
+    hold = np.full(int(round(0.25 * SR)), top)
+    down = sweep(top, 240, 0.40, 0.9)
+    tone = saw(np.concatenate([up, hold, down]), dur, 12)
+    tone *= env_ad(dur, 0.16, 0.30, 0.12)
+    air = band(noise(dur, 283 + v), 400, 2000) * 0.22
+    air *= env_ad(dur, 0.16, 0.30, 0.10)
+    return mix(low(tone, 2200) * 0.8, air), dur
+
+
+def clip_mark(v):
+    """A hunter's mark: a hard whack and a ring on the target."""
+    dur = 0.40
+    whack = band(noise(dur, 293 + v), 400, 2800) * 0.75
+    whack *= env_ad(dur, 0.001, 0.06)
+    ring = sine(sweep(1800 + 60 * v, 1200, dur, 0.7), dur) * 0.3
+    ring *= env_ad(dur, 0.005, 0.16)
+    return mix(whack, ring), dur
+
+
+def clip_siphon(v):
+    """Life pulled off a foe: a low drain that sucks upward."""
+    dur = 0.55
+    body = sine(sweep(160 + 12 * v, 420, dur, 0.75), dur) * 0.55
+    body *= env_ad(dur, 0.06, 0.22, 0.04)
+    suck = moving_band(noise(dur, 307 + v), 400, 2200, 0.75) * 0.35
+    suck *= env_ad(dur, 0.06, 0.24, 0.05)
+    return mix(body, suck), dur
+
+
+def clip_split(v):
+    """A shot splitting: one bolt becomes two."""
+    dur = 0.45
+    out = np.zeros(int(round(dur * SR)))
+    for k, off in enumerate([0.0, 0.06]):
+        at = int(off * SR)
+        f = 1500 + 120 * k + 40 * v
+        bolt = sine(sweep(f, f * 0.45, 0.22, 0.6), 0.22)
+        bolt *= env_ad(0.22, 0.001, 0.08)
+        crack = high(noise(0.22, 311 + v * 7 + k), 4200) * 0.3
+        crack *= env_ad(0.22, 0.001, 0.03)
+        piece = mix(bolt * 0.7, crack)
+        end = min(len(out), at + len(piece))
+        out[at:end] += piece[:end - at]
+    return out, dur
+
+
+def clip_ricochet(v):
+    """A shot that bounces: a ping skipping off the ground."""
+    dur = 0.55
+    out = np.zeros(int(round(dur * SR)))
+    for k in range(4):
+        at = int((0.02 + 0.10 * k) * SR)
+        f = 2100 - 330 * k + 30 * v
+        ping = sine(f, 0.16)
+        ping *= env_ad(0.16, 0.001, 0.06)
+        end = min(len(out), at + len(ping))
+        out[at:end] += ping[:end - at] * (0.9 / (1.0 + 0.5 * k))
+    return out, dur
+
+
+def clip_meteor(v):
+    """Fire from the sky: a fall of flame and a scorched landing."""
+    dur = 0.85
+    fall = moving_band(noise(dur, 313 + v), 3600, 700, 0.8) * 0.55
+    fall *= env_ad(dur, 0.30, 0.20)
+    boom = sine(sweep(120, 45, dur, 0.55), dur) * 0.8
+    boom *= env_ad(dur, 0.28, 0.24)
+    crackle = band(noise(dur, 317 + v), 800, 4200) * 0.3
+    crackle *= env_ad(dur, 0.30, 0.26)
+    out = mix(fall, boom, crackle)
+    return np.tanh(out * 1.2) / 1.15, dur
+
+
+def clip_fire_trail(v):
+    """A fire trail under the hero: a soft burn ticking over."""
+    dur = 0.30
+    hiss = band(noise(dur, 337 + v), 400, 2600) * 0.55
+    hiss *= env_ad(dur, 0.02, 0.12)
+    body = sine(sweep(90 + 6 * v, 62, dur, 0.7), dur) * 0.35
+    body *= env_ad(dur, 0.01, 0.10)
+    crack = high(noise(dur, 347 + v), 4200) * 0.12
+    crack *= env_ad(dur, 0.005, 0.04)
+    return mix(hiss, body, crack), dur
+
+
+def clip_wolf_bite(v):
+    """A spectral hound biting: a quick snap with a cold edge on it."""
+    dur = 0.22
+    snap = high(noise(dur, 353 + v), 2800) * 0.7
+    snap *= env_ad(dur, 0.001, 0.045)
+    tone = sine(sweep(1300 + 60 * v, 420, dur, 0.6), dur) * 0.3
+    tone *= env_ad(dur, 0.001, 0.08)
+    return mix(snap, tone), dur
+
+
+def clip_duel_win(v):
+    """A won duel: a short rising fanfare."""
+    dur = 1.10
+    out = np.zeros(int(round(dur * SR)))
+    for k, f in enumerate([392.0, 523.25, 784.0]):
+        at = int((0.05 + 0.16 * k) * SR)
+        note = saw(f * (1.0 + 0.005 * v), 0.55, 10)
+        note *= env_ad(0.55, 0.01, 0.22, 0.06)
+        note = low(note, 3200)
+        end = min(len(out), at + len(note))
+        out[at:end] += note[:end - at] * 0.5
+    swell = sine(sweep(196, 392, dur, 0.7), dur) * 0.3
+    swell *= env_ad(dur, 0.05, 0.35, 0.10)
+    return mix(out, swell), dur
+
+
 # event -> (clip function, variant count)
 SYNTH = {
     "swing": (clip_swing, 2),
@@ -444,6 +788,33 @@ SYNTH = {
     "hunt_start": (clip_hunt_start, 1),
     "chest_ready": (clip_chest_ready, 1),
     "music_stab": (clip_music_stab, 1),
+    "cast": (clip_cast, 2),
+    "impact": (clip_impact, 2),
+    "block": (clip_block, 2),
+    "shield_break": (clip_shield_break, 2),
+    "gear_pickup": (clip_gear_pickup, 2),
+    "aggro": (clip_aggro, 2),
+    "lifesteal": (clip_lifesteal, 1),
+    "blink": (clip_blink, 1),
+    "chain": (clip_chain, 1),
+    "frost": (clip_frost, 1),
+    "quake": (clip_quake, 1),
+    "volley": (clip_volley, 1),
+    "roar": (clip_roar, 1),
+    "thunder": (clip_thunder, 1),
+    "phoenix": (clip_phoenix, 1),
+    "blades": (clip_blades, 1),
+    "thorns": (clip_thorns, 1),
+    "static": (clip_static, 1),
+    "howl": (clip_howl, 1),
+    "mark": (clip_mark, 1),
+    "siphon": (clip_siphon, 1),
+    "split": (clip_split, 1),
+    "ricochet": (clip_ricochet, 1),
+    "meteor": (clip_meteor, 1),
+    "fire_trail": (clip_fire_trail, 1),
+    "wolf_bite": (clip_wolf_bite, 1),
+    "duel_win": (clip_duel_win, 1),
 }
 
 SYNTH_COUNTS = {k: v[1] for k, v in SYNTH.items()}
@@ -532,18 +903,40 @@ def write_ogg(path, samples):
     os.remove(tmp)
 
 
-def render_all(out_dir=OUT):
-    """Render every synthesized clip; returns {event: variant count}."""
+def _own_uid(path):
+    """The uid already on disk for this path, if any."""
+    try:
+        with open(path + ".import") as fh:
+            m = re.search(r'uid="uid://([^"]+)"', fh.read())
+        return m.group(1) if m else None
+    except OSError:
+        return None
+
+
+def render_all(out_dir=OUT, force=False):
+    """Render the synthesized clips; returns {event: variant count}.
+
+    Clips that are already on disk are left alone unless force is set: a
+    rebuild must not churn the resource uids, because Godot re-imports
+    every clip whose uid moved.
+    """
     os.makedirs(out_dir, exist_ok=True)
     used = _used_uids()
     counts = {}
     for name in sorted(SYNTH):
         fn, variants = SYNTH[name]
         for k in range(variants):
+            path = os.path.join(out_dir, "%s_%d.ogg" % (name, k + 1))
+            if not force and os.path.exists(path) and os.path.exists(path + ".import"):
+                continue
             samples, dur = fn(k)
             samples = finalise(samples, dur)
-            path = os.path.join(out_dir, "%s_%d.ogg" % (name, k + 1))
             write_ogg(path, samples)
+            # The clip's own uid is free again: keeping it means a rebuild
+            # lands on the same uid instead of drifting to the next one.
+            own = _own_uid(path)
+            if own:
+                used.discard(own)
             write_import(path, used)
         counts[name] = variants
     return counts
@@ -573,7 +966,7 @@ if __name__ == "__main__":
         target = sys.argv[sys.argv.index("--out") + 1]
         if not os.path.isabs(target):
             target = os.path.join(ROOT, target)
-    counts = render_all(target)
+    counts = render_all(target, force="--force" in sys.argv)
     if target == OUT:
         merge_manifest(counts)
     total = sum(counts.values())

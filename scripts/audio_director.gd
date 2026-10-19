@@ -7,10 +7,11 @@ extends Node
 ## build_sfx.py); each play picks a variant and jitters pitch and volume,
 ## and per-event voice caps and gaps keep swarms from piling up and
 ## clipping. The moments the licensed packs could not cover (a melee arc,
-## a dash, a splash, gear hitting the ground) are drawn from scratch by
-## tools/build_sfx_synth.py and live in the same folder under the same
-## event names. Haptics go through Input.vibrate_handheld, which on iOS 13+
-## drives Core Haptics with the amplitude as intensity.
+## a dash, a splash, gear hitting the ground, a hero's cast charge, the
+## loud abilities) are drawn from scratch by tools/build_sfx_synth.py and
+## live in the same folder under the same event names. Haptics go through
+## Input.vibrate_handheld, which on iOS 13+ drives Core Haptics with the
+## amplitude as intensity.
 
 ## Volume (0-1) and toggle options. The comfort keys are read at the place
 ## each effect is applied: screen_shake in run_screen's camera offset,
@@ -36,19 +37,44 @@ const EVENTS := {
 	"atk_archer": [-9.0, 3, 0.06, 0.08, "SFX"],
 	"atk_tank": [-7.0, 3, 0.08, 0.06, "SFX"],
 	"atk_enemy": [-12.0, 3, 0.07, 0.1, "SFX"],
-	"swing": [-10.0, 3, 0.06, 0.08, "SFX"],
+	"cast": [-13.0, 3, 0.08, 0.06, "SFX"],
+	"swing": [-7.0, 3, 0.06, 0.08, "SFX"],
 	"hit": [-10.0, 4, 0.035, 0.09, "SFX"],
+	"impact": [-11.0, 4, 0.04, 0.09, "SFX"],
+	"block": [-8.0, 2, 0.06, 0.08, "SFX"],
 	"crit": [-6.0, 2, 0.06, 0.05, "SFX"],
 	"hero_hurt": [-5.0, 1, 0.25, 0.05, "SFX"],
 	"enemy_die": [-8.0, 3, 0.05, 0.1, "SFX"],
 	"dodge": [-6.0, 2, 0.08, 0.1, "SFX"],
 	"charge": [-13.0, 2, 0.12, 0.08, "SFX"],
 	"charge_land": [-8.0, 2, 0.12, 0.05, "SFX"],
-	"cleave": [-9.0, 2, 0.1, 0.06, "SFX"],
+	"cleave": [-6.0, 2, 0.1, 0.06, "SFX"],
+	"lifesteal": [-12.0, 2, 0.12, 0.08, "SFX"],
 	"boom": [-9.0, 3, 0.1, 0.06, "SFX"],
-	"enemy_windup": [-19.0, 2, 0.25, 0.12, "SFX"],
-	"skill_fx": [-15.0, 4, 0.12, 0.1, "SFX"],
-	"xp_gain": [-18.0, 2, 0.25, 0.02, "SFX"],
+	"enemy_windup": [-12.0, 2, 0.25, 0.12, "SFX"],
+	"aggro": [-14.0, 2, 0.25, 0.1, "SFX"],
+	"shield_break": [-7.0, 2, 0.12, 0.07, "SFX"],
+	"skill_fx": [-11.0, 4, 0.12, 0.1, "SFX"],
+	"chain": [-9.0, 2, 0.1, 0.07, "SFX"],
+	"frost": [-9.0, 2, 0.12, 0.07, "SFX"],
+	"quake": [-8.0, 2, 0.15, 0.06, "SFX"],
+	"volley": [-9.0, 2, 0.08, 0.08, "SFX"],
+	"blink": [-10.0, 2, 0.08, 0.08, "SFX"],
+	"roar": [-9.0, 2, 0.25, 0.08, "SFX"],
+	"thunder": [-6.0, 1, 0.4, 0.05, "SFX"],
+	"phoenix": [-6.0, 1, 0.5, 0.05, "SFX"],
+	"howl": [-8.0, 1, 0.6, 0.05, "SFX"],
+	"meteor": [-8.0, 2, 0.2, 0.07, "SFX"],
+	"fire_trail": [-18.0, 1, 0.28, 0.12, "SFX"],
+	"wolf_bite": [-8.0, 3, 0.06, 0.09, "SFX"],
+	"blades": [-8.0, 2, 0.25, 0.07, "SFX"],
+	"thorns": [-5.0, 2, 0.2, 0.08, "SFX"],
+	"static": [-5.0, 2, 0.2, 0.08, "SFX"],
+	"siphon": [-10.0, 2, 0.12, 0.08, "SFX"],
+	"mark": [-7.0, 3, 0.08, 0.09, "SFX"],
+	"split": [-7.0, 2, 0.08, 0.08, "SFX"],
+	"ricochet": [-8.0, 3, 0.06, 0.09, "SFX"],
+	"xp_gain": [-14.0, 2, 0.25, 0.02, "SFX"],
 	"skill_level": [-9.0, 2, 0.2, 0.04, "SFX"],
 	"banner": [-8.0, 1, 0.4, 0.02, "SFX"],
 	"buff_end": [-15.0, 1, 0.3, 0.03, "SFX"],
@@ -60,6 +86,7 @@ const EVENTS := {
 	"gem": [-11.0, 3, 0.03, 0.0, "SFX"],
 	"coin": [-8.0, 2, 0.06, 0.05, "SFX"],
 	"gear_drop": [-8.0, 2, 0.1, 0.08, "SFX"],
+	"gear_pickup": [-9.0, 2, 0.06, 0.08, "SFX"],
 	"goblin_escape": [-11.0, 1, 0.3, 0.06, "SFX"],
 	"hunt_start": [-6.0, 1, 0.5, 0.02, "SFX"],
 	"levelup": [-3.0, 1, 0.5, 0.0, "SFX"],
@@ -76,6 +103,7 @@ const EVENTS := {
 	"unlock_start": [-5.0, 1, 0.2, 0.02, "UI"],
 	"sting_victory": [-4.0, 1, 1.0, 0.0, "Music"],
 	"sting_defeat": [-3.0, 1, 1.0, 0.0, "Music"],
+	"duel_win": [-4.0, 1, 1.0, 0.0, "Music"],
 	"music_stab": [0.0, 1, 0.5, 0.0, "Music"],
 }
 
