@@ -334,6 +334,9 @@ class Actor extends RefCounted:
 	var radius := 24.0
 	var hp := 1.0
 	var max_hp := 1.0
+	## The critter's health before the explore and depth scaling, so an
+	## elite can be sized from the same base as the pack it leads.
+	var base_hp := 1.0
 	var speed := 100.0
 	var dmg := 1.0
 	var armor := 0.0
@@ -2188,6 +2191,7 @@ func _spawn_minion(skin_index: int, at: Vector2 = Vector2.INF) -> void:
 	actor.prev = actor.pos
 	actor.radius = float(info.get("radius", 24))
 	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * float(_diff()["hp"])
+	actor.base_hp = actor.max_hp
 	actor.hp = actor.max_hp
 	actor.speed = float(info.get("speed", 100)) * _foe_speed_mul()
 	actor.dmg = float(info.get("dmg", 8)) * float(biome["dmg_mul"]) * float(_diff()["dmg"])
@@ -3079,8 +3083,8 @@ func _place_minion(skin: int, at: Vector2, camp: int) -> Actor:
 	m.home = at
 	m.aggro = false
 	m.facing = rng.randf() * TAU
-	var depth := 1.0 - clampf(at.y / maxf(map.size.y, 1.0), 0.0, 1.0)
-	m.max_hp *= EXPLORE_HP * (1.0 + depth * 0.9)
+	var depth := _depth_at(at.y)
+	m.max_hp = m.base_hp * EXPLORE_HP * (1.0 + depth * EXPLORE_DEPTH)
 	m.hp = m.max_hp
 	m.dmg *= 1.0 + depth * 0.5
 	m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * (1.0 + depth * 0.6) * float(_diff()["xp"]))))
@@ -3089,12 +3093,29 @@ func _place_minion(skin: int, at: Vector2, camp: int) -> Actor:
 
 const EXPLORE_HP := 1.6
 const EXPLORE_XP := 1.25
+## The health curve every explore critter rides: 1.0 at the south edge, 1.9
+## up by the lair.
+const EXPLORE_DEPTH := 0.9
+
+## Elite leaders: ONE combined multiplier over a critter's base health. The
+## explore scale, the depth scale and the leader's own bulk are folded into
+## this single number instead of stacking on top of each other, so a leader
+## lands near three times its pack -- a mini-boss, not a nine-times-HP sponge.
+const ELITE_HP := 5.0
+
+
+## How deep in the map a spot lies: 0 at the south edge, 1 up by the lair.
+func _depth_at(y: float) -> float:
+	return 1.0 - clampf(y / maxf(map.size.y, 1.0), 0.0, 1.0)
 
 
 func _make_elite(m: Actor) -> void:
 	m.elite = true
-	# The pack leader is a head taller than its pack: +80% on top of the roll.
-	m.max_hp *= 5.0 * 1.8
+	# The pack leader is a head taller than its pack, but it is sized from the
+	# same base as the pack and by the same depth curve, so its health stays
+	# in step with the biome it leads in.
+	var depth := _depth_at(m.home.y)
+	m.max_hp = m.base_hp * ELITE_HP * (1.0 + depth * EXPLORE_DEPTH)
 	m.hp = m.max_hp
 	m.dmg *= 1.6
 	m.radius *= 1.35
