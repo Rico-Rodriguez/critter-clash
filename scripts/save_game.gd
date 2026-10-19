@@ -75,11 +75,30 @@ func _new_chest(kind: String, biome_id: String, timed: bool) -> Dictionary:
 	return chest
 
 
+## The seed a chest's loot is rolled from. A chest saved without one (or with
+## a broken one) gets a fresh seed and keeps it, so opening it always pays out
+## instead of throwing. The chest is stamped in place, so the seed it pays
+## from is the seed it keeps.
+func _chest_seed(chest: Dictionary) -> int:
+	var value: Variant = chest.get("seed", null)
+	if typeof(value) == TYPE_INT:
+		return int(value)
+	# JSON numbers load as floats, so a saved seed arrives as one.
+	if typeof(value) == TYPE_FLOAT:
+		return int(value)
+	var fresh := randi()
+	chest["seed"] = fresh
+	return fresh
+
+
 ## Put a chest in the drawer. The drawer holds SLOTS chests and no more, and
 ## the cap is never bypassed: a chest that arrives when every slot is taken
 ## cannot be stored, so it pays out into the wallet instead (see pay_out) and
 ## false comes back. No chest is ever lost.
 func add_chest(chest: Dictionary) -> bool:
+	# Every chest carries the seed its loot is rolled from, so one that
+	# arrives without a seed still pays out when it opens.
+	_chest_seed(chest)
 	if data["chests"].size() >= SLOTS:
 		last_payout = pay_out(chest)
 		return false
@@ -1244,8 +1263,15 @@ func _note_slayer(biome_id: String, slain: int, boss: bool) -> void:
 func open_next(index: int = 0) -> Dictionary:
 	if index < 0 or index >= data["chests"].size():
 		return {}
-	var chest: Dictionary = data["chests"].pop_at(index)
+	var entry: Variant = data["chests"][index]
+	if not entry is Dictionary:
+		return {}
+	# The chest pays before it leaves the drawer: the loot is rolled while
+	# the chest is still in the drawer, so a roll that ever fails leaves the
+	# chest standing instead of destroying it with its reward.
+	var chest: Dictionary = entry
 	var loot := _chest_loot(chest)
+	data["chests"].remove_at(index)
 	_write()
 	return loot
 
@@ -1255,12 +1281,15 @@ func open_next(index: int = 0) -> Dictionary:
 ## fixes the roll, so a chest that pays out because the drawer was full pays
 ## exactly what it would have paid there.
 func _chest_loot(chest: Dictionary) -> Dictionary:
+	# One seed for the whole chest: the coins and the gear are rolled from
+	# it, so a chest that has to be given a fresh seed still pays one prize.
+	var seed_value := _chest_seed(chest)
 	var loot := _roll_loot(chest)
 	# Drawer chests also roll earned gear, by rarity, from the chest's own seed
 	# so the drop is fixed the moment the chest is earned. The gear hero is
 	# whoever is currently selected. Existing rewards above stay unchanged.
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(chest.get("seed", 0))
+	rng.seed = seed_value
 	var tone := chest_tone_of(chest)
 	var biome_id := str(chest.get("biome", "meadow"))
 	var biome_idx := 0
@@ -1710,8 +1739,8 @@ func claim_mastery(id: String) -> bool:
 
 func _roll_loot(chest: Dictionary) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(chest["seed"])
-	var hunt := str(chest["kind"]) == "hunt"
+	rng.seed = _chest_seed(chest)
+	var hunt := str(chest.get("kind", "hunt")) == "hunt"
 	var coins := rng.randi_range(32, 54) if hunt else rng.randi_range(10, 18)
 	var pool: Array = []
 	for id in Catalog.playable_ids():
@@ -1801,6 +1830,13 @@ func _reconcile() -> void:
 	for key in ["claimed", "chests"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
 			data[key] = []
+	# Every chest in the drawer carries the seed its loot is rolled from. A
+	# chest saved without one gets a fresh seed here, so opening it pays out
+	# instead of throwing and taking the chest with it.
+	for i in data["chests"].size():
+		var entry: Variant = data["chests"][i]
+		if entry is Dictionary:
+			_chest_seed(entry as Dictionary)
 	# The payout log: what each chest became when the drawer was full. An old
 	# save has never turned a chest away, so it starts empty.
 	if not data.has("payouts") or typeof(data["payouts"]) != TYPE_ARRAY:
