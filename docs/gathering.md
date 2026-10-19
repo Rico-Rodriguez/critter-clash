@@ -4,8 +4,9 @@ Gathering is the second skill family: **Woodcutting, Fishing and Mining**. It
 is **account-wide**, unlike the six combat skills, which belong to a hero and
 live in `GearDB`. One account's Woodcutting level is the same for every hero.
 
-Phase 1 is data, catalog and sim hooks only. There is no gathering UI yet: the
-skills screen keeps its "arrive soon" placeholder.
+Phase 1 is data, catalog and sim hooks. The skills screen now shows the real
+gathering levels (the Gathering tab), but there is no other gathering UI: the
+materials and the nodes are still not drawn anywhere.
 
 ## Skills
 - `Catalog.SKILLS` is the catalog: `{"id", "name"}` per skill, in display
@@ -107,9 +108,21 @@ others, and how many a gather takes.
   The old placeholder ids (foraging, taming, crafting) never had an XP
   source, so `migrate_gathering_skills()` drops them on load.
 
+## The screen
+The Skills screen's **Gathering** tab lists the three skills, one row each, in
+the same forged-plaque style as the combat rows:
+- the level the save banks (`SaveGame.gathering_level`, i.e.
+  `Catalog.skill_level` on the banked XP),
+- an XP bar to the next level, with the XP into the level over the level's
+  span (`Catalog.skill_xp_to_level`),
+- the XP banked in the skill so far.
+- A crest above the rows holds the account's total gathering level (the three
+  levels summed), and the header line reads the same total.
+
+The tab is read-only: it never writes the save. The XP is banked by the sim
+(`RunSim`, through `SaveGame.add_gathering_xp`) and read back from the save.
+
 ## Not in phase 1
-- No gathering UI: the skills screen keeps its placeholder, and nothing
-  shows the gathering levels, the materials or the nodes.
-- No tools, no crafting, no selling: the materials are a bag, nothing reads
-  them yet.
+- No gathering UI beyond the Skills screen's Gathering tab: nothing shows the
+  materials or the nodes, and there are no tools, no crafting and no selling.
 - No node art: the nodes are data in the world, not drawn.

@@ -43,9 +43,9 @@ LEGACY = {
 SILENT_DB = -60.0
 
 # The events that are silent by design: a hitstop is a freeze on the
-# picture, not a moment that needs a sound; a gather is phase 1 plumbing
-# (docs/gathering.md) with no node art and no UI, and it announces itself
-# through its xp_drop.
+# picture, not a moment that needs a sound; a gather is plumbing
+# (docs/gathering.md) with no node art and no moment of its own on screen,
+# and it announces itself through its xp_drop.
 SILENT_EVENTS = {"hitstop", "gather"}
 
 # Every uid in the project and the .import file that owns it, filled in
