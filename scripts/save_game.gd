@@ -47,13 +47,24 @@ func mark_hint(id: String) -> void:
 ## Clash-style chest drawer: four slots. Earned chests arrive locked; the
 ## player taps one to start its timer (one unlocks at a time), and the
 ## timer scales with rarity. Reward chests (milestones, the slayer shop)
-## arrive ready. A chest earned with every slot taken is lost.
+## arrive ready. The drawer never holds more than four: a chest that
+## arrives with every slot taken pays out into the wallet instead of being
+## lost (see pay_out).
 const SLOTS := 4
 const UNLOCK_SECONDS := {"common": 15 * 60, "rare": 60 * 60, "epic": 3 * 60 * 60}
 const RARITY_OF_TONE := {"wood": "common", "silver": "rare", "magic": "epic", "gold": "epic"}
 
-## What the last hunt sent home: {"tone", "rarity", "full", "index"}. Not saved.
+## How many payouts the save keeps: what each chest became when the drawer
+## was full.
+const PAYOUT_LOG_LIMIT := 10
+
+## What the last hunt sent home: {"tone", "rarity", "full", "index",
+## "payout"}. Not saved.
 var last_chest: Dictionary = {}
+
+## The payout waiting to be announced by the screen that earned it. Not
+## saved; the save keeps the log of every payout.
+var last_payout: Dictionary = {}
 
 
 func _new_chest(kind: String, biome_id: String, timed: bool) -> Dictionary:
@@ -64,14 +75,86 @@ func _new_chest(kind: String, biome_id: String, timed: bool) -> Dictionary:
 	return chest
 
 
-## Put a chest in the drawer; false (and the chest is dropped) when full.
-## Reward chests pass force so a claimed prize is never thrown away.
-func add_chest(chest: Dictionary, force := false) -> bool:
-	if data["chests"].size() >= SLOTS and not force:
+## Put a chest in the drawer. The drawer holds SLOTS chests and no more, and
+## the cap is never bypassed: a chest that arrives when every slot is taken
+## cannot be stored, so it pays out into the wallet instead (see pay_out) and
+## false comes back. No chest is ever lost.
+func add_chest(chest: Dictionary) -> bool:
+	if data["chests"].size() >= SLOTS:
+		last_payout = pay_out(chest)
 		return false
 	chest["fresh"] = true
 	data["chests"].append(chest)
 	return true
+
+
+## A chest with nowhere to go pays out instead of being lost: it opens on the
+## spot and its loot is credited to the wallet (coins, with the relic stacks
+## banked as coins, and gear shards) and any gear piece goes to its hero.
+## The payout joins the log, so the player can still see what became what.
+func pay_out(chest: Dictionary) -> Dictionary:
+	var loot := _chest_loot(chest)
+	var gear: Array = []
+	for piece in loot.get("gear_items", []):
+		if piece is Dictionary:
+			gear.append(str(piece.get("id", "")))
+	var paid := {
+		"coins": int(loot.get("coins", 0)),
+		"shards": int(loot.get("gear_shards", 0)),
+		"gear": gear,
+		"at": int(Time.get_unix_time_from_system()),
+	}
+	var log := payout_log()
+	log.append(paid.duplicate(true))
+	while log.size() > PAYOUT_LOG_LIMIT:
+		log.pop_front()
+	data["payouts"] = log
+	return paid
+
+
+## The payouts this save has made, newest last.
+func payout_log() -> Array:
+	var out: Variant = data.get("payouts", [])
+	return out if typeof(out) == TYPE_ARRAY else []
+
+
+## The newest payout on record, or {} when the drawer never turned one away.
+func newest_payout() -> Dictionary:
+	var log := payout_log()
+	if log.is_empty():
+		return {}
+	var entry: Variant = log[log.size() - 1]
+	return entry if typeof(entry) == TYPE_DICTIONARY else {}
+
+
+## The payout waiting to be announced, taken once: the screen that earned it
+## calls this so the same payout is never told twice.
+func take_payout() -> Dictionary:
+	var paid := last_payout
+	last_payout = {}
+	return paid
+
+
+## What a payout paid, in one line: "128 coins", "128 coins + 5 shards",
+## "128 coins + Iron Blade". Empty text for an empty payout.
+func payout_text(payout: Dictionary) -> String:
+	if payout.is_empty():
+		return ""
+	var parts := PackedStringArray()
+	var coins := int(payout.get("coins", 0))
+	if coins > 0:
+		parts.append("%d coins" % coins)
+	var shards := int(payout.get("shards", 0))
+	if shards > 0:
+		parts.append("%d shards" % shards)
+	for piece in payout.get("gear", []):
+		var id := str(piece)
+		if piece is Dictionary:
+			id = str(piece.get("id", ""))
+		parts.append(str(GearDB.item(id).get("name", "gear")))
+	if parts.is_empty():
+		return "coins"
+	return " + ".join(parts)
 
 
 func slots_full() -> bool:
@@ -156,17 +239,24 @@ static func span(seconds: int) -> String:
 	return "%dm" % (seconds / 60)
 
 
+## The look of a chest: reward chests are gilded, pouches are plain wood, a
+## hunt chest takes its biome's metal. Reads a chest that is not in the drawer
+## yet, so a chest that pays out still knows what it looked like.
+func chest_tone_of(chest: Dictionary) -> String:
+	var tone := str(chest.get("tone", ""))
+	if tone != "":
+		return tone
+	if str(chest.get("kind", "hunt")) == "scrap":
+		return "wood"
+	return {"meadow": "silver", "mushroom": "magic", "frost": "silver", "volcano": "gold"}.get(str(chest.get("biome", "meadow")), "silver")
+
+
 ## The look of chest i: pouches are plain wood, hunt chests take their
 ## biome's metal, reward chests are gilded.
 func chest_tone(i: int) -> String:
 	if i < 0 or i >= data["chests"].size():
 		return "wood"
-	var chest: Dictionary = data["chests"][i]
-	if chest.has("tone"):
-		return str(chest["tone"])
-	if str(chest.get("kind", "hunt")) == "scrap":
-		return "wood"
-	return {"meadow": "silver", "mushroom": "magic", "frost": "silver", "volcano": "gold"}.get(str(chest.get("biome", "meadow")), "silver")
+	return chest_tone_of(data["chests"][i])
 
 
 func biome_cleared(id: String) -> bool:
@@ -613,15 +703,20 @@ func commit_daily_pass(biome_id: String, boss_id: String) -> Dictionary:
 	return {"trophies": 0, "first": false, "boss": boss_id, "drops": [], "reveal": {}, "kills": boss_kills(boss_id)}
 
 
+## A chest comes home to the drawer. The drawer holds SLOTS chests: with every
+## slot taken the chest cannot be stored, so it pays out into the wallet
+## instead of being dropped, and last_chest says what it paid.
 func _send_home(chest: Dictionary) -> void:
-	var ok := add_chest(chest)
-	if not ok:
-		# Measure what would have come home, then drop it.
-		data["chests"].append(chest)
+	var tone := chest_tone_of(chest)
+	var rarity := str(RARITY_OF_TONE.get(tone, "rare"))
+	if data["chests"].size() >= SLOTS:
+		# The drawer is full: the chest pays out rather than being lost. The
+		# run card and Home say what it paid, so no menu screen repeats it.
+		last_chest = {"tone": tone, "rarity": rarity, "full": true, "index": -1, "payout": pay_out(chest)}
+		return
+	add_chest(chest)
 	var i: int = data["chests"].size() - 1
-	last_chest = {"tone": chest_tone(i), "rarity": chest_rarity(i), "full": not ok, "index": i if ok else -1}
-	if not ok:
-		data["chests"].pop_back()
+	last_chest = {"tone": chest_tone(i), "rarity": chest_rarity(i), "full": false, "index": i}
 
 
 ## A camp chest opened mid-hunt goes home locked on its timer: commons as
@@ -957,7 +1052,9 @@ func buy_slayer(offer_id: String) -> bool:
 		"cosmetic":
 			data["cosmetic"] = str(offer.get("cosmetic", "ribbon"))
 		"chest":
-			add_chest(_new_chest("hunt", "meadow", false), true)
+			# A bought chest is a promised prize: with the drawer full it
+			# pays out into the wallet rather than being lost.
+			add_chest(_new_chest("hunt", "meadow", false))
 	_write()
 	# The warden takes the points and hands something over: coins jingle,
 	# a chest opens, a piece clanks into the armory.
@@ -1085,15 +1182,23 @@ func open_next(index: int = 0) -> Dictionary:
 	if index < 0 or index >= data["chests"].size():
 		return {}
 	var chest: Dictionary = data["chests"].pop_at(index)
+	var loot := _chest_loot(chest)
+	_write()
+	return loot
+
+
+## What a chest pays when it opens: coins (with the relic stacks banked as
+## coins), gear shards and any gear piece it rolled. The chest's own seed
+## fixes the roll, so a chest that pays out because the drawer was full pays
+## exactly what it would have paid there.
+func _chest_loot(chest: Dictionary) -> Dictionary:
 	var loot := _roll_loot(chest)
 	# Drawer chests also roll earned gear, by rarity, from the chest's own seed
-	# so the drop is fixed the moment the chest was earned. The gear hero is
+	# so the drop is fixed the moment the chest is earned. The gear hero is
 	# whoever is currently selected. Existing rewards above stay unchanged.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(chest.get("seed", 0))
-	var tone := str(chest.get("tone", ""))
-	if tone == "":
-		tone = "wood" if str(chest.get("kind", "hunt")) == "scrap" else {"meadow": "silver", "mushroom": "magic", "frost": "silver", "volcano": "gold"}.get(str(chest.get("biome", "meadow")), "silver")
+	var tone := chest_tone_of(chest)
 	var biome_id := str(chest.get("biome", "meadow"))
 	var biome_idx := 0
 	for i in Catalog.BIOMES.size():
@@ -1115,7 +1220,6 @@ func open_next(index: int = 0) -> Dictionary:
 	loot["coins"] = int(loot.get("coins", 0)) + gear_coins
 	loot["gear_items"] = gear_items
 	loot["gear_shards"] = gear_shards
-	_write()
 	return loot
 
 
@@ -1319,7 +1423,9 @@ func claim(id: String) -> bool:
 		"coins":
 			data["coins"] = int(data["coins"]) + int(entry["amount"])
 		"chest":
-			add_chest(_new_chest("hunt", "meadow", false), true)
+			# A claimed prize is never thrown away: with the drawer full it
+			# pays out into the wallet instead.
+			add_chest(_new_chest("hunt", "meadow", false))
 		"unlock":
 			# Relics no longer buy hero levels, so the joining bonus pays coins.
 			data["heroes"][str(entry["hero"])]["unlocked"] = true
@@ -1524,8 +1630,9 @@ func claim_mastery(id: String) -> bool:
 			data["coins"] = int(data["coins"]) + int(reward.get("amount", 0))
 		"chest":
 			# A hunt chest from the deepest open ground, so a late trophy's
-			# chest can hold the tiers the player is hunting now.
-			add_chest(_new_chest("hunt", _deepest_open_biome(), false), true)
+			# chest can hold the tiers the player is hunting now. With the
+			# drawer full it pays out into the wallet instead.
+			add_chest(_new_chest("hunt", _deepest_open_biome(), false))
 	_write()
 	# The sound follows the prize: coins jingle, a chest opens.
 	match str(reward.get("kind", "coins")):
@@ -1592,6 +1699,8 @@ func _fresh() -> Dictionary:
 		"cleared": {},
 		"difficulty_cleared": {},
 		"chests": [],
+		# What each chest paid out when the drawer was full, newest last.
+		"payouts": [],
 		"clan_id": "",
 		"duel_rating": 0,
 		"featured": "pebble",
@@ -1629,6 +1738,10 @@ func _reconcile() -> void:
 	for key in ["claimed", "chests"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
 			data[key] = []
+	# The payout log: what each chest became when the drawer was full. An old
+	# save has never turned a chest away, so it starts empty.
+	if not data.has("payouts") or typeof(data["payouts"]) != TYPE_ARRAY:
+		data["payouts"] = []
 	if not data.has("cleared") or typeof(data["cleared"]) != TYPE_DICTIONARY:
 		data["cleared"] = {}
 	# Per-biome highest cleared difficulty tier. Old saves start at none.

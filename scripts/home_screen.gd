@@ -70,8 +70,18 @@ var _pills: Array = []
 func open(_args: Dictionary = {}) -> void:
 	_sync()
 	if bool(SaveGame.last_chest.get("full", false)):
+		var paid: Dictionary = SaveGame.last_chest.get("payout", {})
 		SaveGame.last_chest = {}
-		get_tree().create_timer(0.5).timeout.connect(func() -> void: toast("Chest slots full! Open one to make room."))
+		var note := _payout_note(paid)
+		get_tree().create_timer(0.5).timeout.connect(func() -> void: toast(note))
+
+
+## What the last chest that found no room in the drawer became, said once on
+## the way home: the prize the player was promised, in their purse.
+func _payout_note(paid: Dictionary) -> String:
+	if paid.is_empty():
+		return "Chest slots full! Open one to make room."
+	return "Chest paid out: %s" % SaveGame.payout_text(paid)
 
 
 func _collect_pills() -> void:
@@ -213,7 +223,9 @@ func _nameplate(hero_id: String) -> Control:
 var _slots: Array = []
 
 
-func _chests() -> HBoxContainer:
+func _chests() -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
@@ -239,7 +251,15 @@ func _chests() -> HBoxContainer:
 		if int(f) < _slots.size():
 			_slots[int(f)].arrive(0.45 + 0.22 * k)
 			k += 1
-	return row
+	col.add_child(row)
+	# The last chest that found no room in the drawer: what it became. The
+	# prize was paid out, and the line keeps it in front of the player.
+	var newest := SaveGame.newest_payout()
+	if not newest.is_empty():
+		var note := UiKit.label("Last chest paid out: %s" % SaveGame.payout_text(newest), 19, UiKit.MUTED.lightened(0.15), "b", 2)
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(note)
+	return col
 
 
 ## Clash rules: a ready chest opens; a locked one starts its timer if
