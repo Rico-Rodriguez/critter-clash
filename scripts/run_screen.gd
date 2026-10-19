@@ -2871,7 +2871,9 @@ class SparkLayer extends Node2D:
 
 ## Enemy health bars over the 3D bodies, and arrows at the screen edge for
 ## anything hostile outside the view. The edge band respects the safe area
-## and keeps clear of the top HUD and the joystick zone.
+## and keeps clear of the top HUD and the joystick zone. An elite is a
+## mini-boss: it gets a wider gilt bar with its numbers spelled out, shown
+## as soon as it is on screen, wake or no.
 class ThreatLayer extends Control:
 	var screen: Node
 	var t := 0.0
@@ -2893,10 +2895,14 @@ class ThreatLayer extends Control:
 		var alpha := float(run.get("sync_alpha"))
 		_b = _batch.begin(self)
 		var offscreen: Array = []
+		var elite_tags: Array = []
 		for actor in sim.actors:
 			if not actor.alive or actor.team == 0:
 				continue
-			if sim.explore and actor.kind == "minion" and not actor.aggro:
+			# An elite is a mini-boss: its health reads as soon as the hero
+			# can see it, wake or no.
+			var elite: bool = actor.kind == "minion" and actor.elite
+			if sim.explore and actor.kind == "minion" and not actor.aggro and not elite:
 				continue
 			var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
 			var boss: bool = actor.kind == "boss"
@@ -2904,9 +2910,16 @@ class ThreatLayer extends Control:
 			var foot := get_global_transform().affine_inverse() * stage.project(pos, 0.0)
 			var head := get_global_transform().affine_inverse() * stage.project(pos, head_h)
 			if Rect2(Vector2.ZERO, size).grow(-8.0).has_point(foot):
-				if not boss and actor.max_hp > 0.0 and actor.hp < actor.max_hp:
+				if elite:
+					_elite_bar(head + Vector2(0, -14), actor)
+					elite_tags.append([head + Vector2(0, -14), actor.hp, actor.max_hp])
+				elif not boss and actor.max_hp > 0.0 and actor.hp < actor.max_hp:
 					_bar(head + Vector2(0, -10), clampf(actor.hp / actor.max_hp, 0.0, 1.0))
 				# The boss is named by the top bar alone; no floating tag.
+			elif elite and not actor.aggro:
+				# An elite the hero has not met gets no edge arrow: the map
+				# keeps its camps hidden until the hero walks in.
+				continue
 			else:
 				offscreen.append([foot, boss])
 		_drawn.clear()
@@ -2915,6 +2928,13 @@ class ThreatLayer extends Control:
 		for item in offscreen:
 			_arrow(center, item[0], band, item[1])
 		_b.flush()
+		# The elite's numbers ride on top of the batch, so they read over the
+		# bar and over the scene behind it.
+		for tag in elite_tags:
+			var at: Vector2 = tag[0]
+			var life: float = tag[1]
+			var pool: float = tag[2]
+			_elite_tag(at, life, pool)
 
 	var _drawn: Array[Vector2] = []
 	## Health bars and edge arrows batch into one draw.
@@ -2928,6 +2948,22 @@ class ThreatLayer extends Control:
 		_b.draw_rect(r, Color(0.22, 0.06, 0.05), true)
 		_b.draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, r.size.y)), Color("d8352a"), true)
 		_b.draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, 3.0)), Color(1, 0.8, 0.7, 0.35), true)
+
+	## The elite's health, over its head: a wide gilt bar that is always
+	## drawn, so a mini-boss reads as a fight and not as a sponge.
+	func _elite_bar(at: Vector2, actor: RunSim.Actor) -> void:
+		var w := 46.0
+		var r := Rect2(at.x - w, at.y - 6.0, w * 2.0, 12.0)
+		var ratio := clampf(actor.hp / maxf(actor.max_hp, 1.0), 0.0, 1.0)
+		_b.draw_rect(r.grow(2.0), Color(0.05, 0.03, 0.02, 0.9), true)
+		_b.draw_rect(r, Color(0.22, 0.09, 0.03), true)
+		_b.draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, r.size.y)), Color("ff9a2a"), true)
+		_b.draw_rect(Rect2(r.position, Vector2(r.size.x * ratio, 3.0)), Color(1, 0.85, 0.5, 0.4), true)
+
+	## The numbers over that bar: the elite's life against its full pool.
+	func _elite_tag(at: Vector2, hp: float, max_hp: float) -> void:
+		var text := "%d / %d" % [int(ceil(hp)), int(round(max_hp))]
+		UiKit.draw_text(self, UiKit.font_b, Vector2(at.x - 46.0, at.y - 12.0), text, 16, Color("ffe1a8"), Color("2a1406"), 3, 92.0)
 
 	func _arrow(from: Vector2, target: Vector2, band: Rect2, boss: bool) -> void:
 		var dir := (target - from).normalized()
