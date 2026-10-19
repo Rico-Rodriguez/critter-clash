@@ -1422,7 +1422,7 @@ func _clear_modal() -> void:
 	while modal_box.get_child_count() > 0:
 		var child := modal_box.get_child(0)
 		modal_box.remove_child(child)
-		child.free()
+		child.queue_free()
 
 
 func _open_modal() -> void:
