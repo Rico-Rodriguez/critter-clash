@@ -55,6 +55,13 @@ The run uses the biome it was launched in; drawer chests use the biome
 recorded on the chest (`open_next`). A meadow source therefore rolls iron
 only, boss included.
 
+A chest never rolls deeper than the ground the player has opened. The daily
+can be played on a sealed biome ("daily access"), and its chest keeps the
+daily's biome for its look, but its gear rolls at the player's own depth
+(`SaveGame.forge_depth()`), so a meadow-only player never opens a cursed rune
+chest. `SaveGame.chest_depth(chest)` is that depth: the biome the chest was
+earned on, or the depth the chest records itself (`"depth"` on the chest).
+
 ## Which hero a drop is for
 A run drop rolls the run's hero on a 75% coin flip; the other 25% goes to a
 uniformly chosen hero, which can also be the run hero. The effective share is
