@@ -616,6 +616,7 @@ func _drain() -> void:
 				AudioDirector.sfx("enemy_die")
 			"boom":
 				_burst(ev["pos"], Color("ffb15a"), 10, 160.0)
+				stage.boom_fx(ev["pos"], float(ev.get("radius", 60.0)))
 				AudioDirector.sfx("boom")
 			"charge":
 				stage.charge_fx(int(ev.get("id", -1)), ev["pos"], ev.get("to", ev["pos"]))
@@ -812,6 +813,7 @@ func _drain() -> void:
 				var at: Vector2 = ev.get("pos", Vector2.ZERO)
 				var col := _fx_color(str(ev.get("fx", "")))
 				_burst(at, col, 8, 160.0)
+				stage.fx_burst(at, float(ev.get("radius", 60.0)), col)
 				if ev.has("to"):
 					var to: Vector2 = ev.get("to", at)
 					_burst(at.lerp(to, 0.5), col, 5, 130.0)
