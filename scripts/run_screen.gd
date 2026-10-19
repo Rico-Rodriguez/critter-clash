@@ -575,7 +575,7 @@ func _drain() -> void:
 			"hit":
 				var amt := float(ev["amount"])
 				var crit := bool(ev.get("crit", false))
-				var blocked := round(amt) <= 0.0
+				var blocked: bool = round(amt) <= 0.0
 				if amt < 99999.0:
 					if blocked:
 						_float(ev["pos"], "Blocked", Color("9a9a9a"), false, int(ev["id"]), amt, "hit")
@@ -608,7 +608,7 @@ func _drain() -> void:
 					AudioDirector.haptic("medium")
 			"hero_hurt":
 				var hdmg := float(ev["amount"])
-				var hdmg_blocked := round(hdmg) <= 0.0
+				var hdmg_blocked: bool = round(hdmg) <= 0.0
 				if hdmg_blocked:
 					_float(ev["pos"], "Blocked", Color("9a9a9a"), true, int(ev["id"]), hdmg, "hero")
 				else:
