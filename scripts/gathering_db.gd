@@ -100,17 +100,21 @@ static func has_node(id: String) -> bool:
 	return not node(id).is_empty()
 
 
+## Orders two nodes by the level they ask for, then by id.
+static func _by_level(a: Dictionary, b: Dictionary) -> bool:
+	var la := int(a["level"])
+	var lb := int(b["level"])
+	if la != lb:
+		return la < lb
+	return str(a["id"]) < str(b["id"])
+
+
 ## Every node, ordered by the level it asks for (then id, so the order is
 ## stable). Callers that want a flat list use this; NODES itself stays in
 ## biome order for readability.
 static func nodes() -> Array:
 	var out: Array = NODES.duplicate()
-	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var la := int(a["level"])
-		var lb := int(b["level"])
-		if la != lb:
-			return la < lb
-		return str(a["id"]) < str(b["id"]))
+	out.sort_custom(_by_level)
 	return out
 
 

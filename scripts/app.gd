@@ -543,7 +543,7 @@ func _seed_log() -> void:
 	SaveGame.data["pets"]["thistle_pet"] = true
 	SaveGame.data["active_pet"] = "thistle_pet"
 	SaveGame.data["kills"]["thistle"] = 3
-	SaveGame.data["skills"]["foraging"] = 200
+	SaveGame.data["skills"]["woodcutting"] = 200
 	SaveGame.data["slayer"]["points"] = 55
 	SaveGame.data["slayer"]["streak"] = 2
 	var task := Catalog.slayer_task("meadow_critters").duplicate()

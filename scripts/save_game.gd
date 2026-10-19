@@ -734,6 +734,21 @@ func add_material(id: String, amount: int) -> int:
 	return int(data["materials"][id])
 
 
+## Puts a run's worth of gathered materials in the bag, in one write. Each row
+## is {id, amount}, the shape the gathering drops come in.
+func add_materials(drops: Array) -> void:
+	var any := false
+	for drop in drops:
+		var id := str(drop.get("id", ""))
+		var amount := int(drop.get("amount", 0))
+		if id == "" or amount <= 0:
+			continue
+		data["materials"][id] = material_count(id) + amount
+		any = true
+	if any:
+		_write()
+
+
 # --- Gathering skills --------------------------------------------------------
 
 ## Gathering is account-wide, not per hero (docs/gathering.md): the XP for
