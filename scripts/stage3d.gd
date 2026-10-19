@@ -131,15 +131,14 @@ func _process(delta: float) -> void:
 		_flap_wings()
 	if _mode == "hunt":
 		_watch_frames(delta)
-	if _mode == "pedestal" and _pedestal_hero != null:
-		_pedestal_hero.position.y = PEDESTAL_TOP + absf(sin(Time.get_ticks_msec() * 0.0021)) * 0.03
-		_pedestal_hero.rotation.y = -float(_pedestal_hero.get_meta("face", PI)) + 0.45 + sin(Time.get_ticks_msec() * 0.0005) * 0.22
-		if _ped_dist > 0.0:
-			# A slow handheld drift so the glade breathes and parallaxes.
-			var t := Time.get_ticks_msec() * 0.001
-			var drift := Vector3(sin(t * 0.31) * 0.08 * _ped_dist, sin(t * 0.23 + 1.3) * 0.025 * _ped_dist, 0.0)
-			camera.position = _ped_focus + _ped_dir * _ped_dist + drift
-			camera.look_at(_ped_focus + drift * 0.2, Vector3.UP)
+	# The hero's pose is owned by its PedestalIdle node (attached in
+	# bind_pedestal); the stage only drifts the camera slowly so the glade
+	# breathes and parallaxes.
+	if _mode == "pedestal" and _ped_dist > 0.0:
+		var t := Time.get_ticks_msec() * 0.001
+		var drift := Vector3(sin(t * 0.31) * 0.08 * _ped_dist, sin(t * 0.23 + 1.3) * 0.025 * _ped_dist, 0.0)
+		camera.position = _ped_focus + _ped_dir * _ped_dist + drift
+		camera.look_at(_ped_focus + drift * 0.2, Vector3.UP)
 
 
 func bind_hunt(biome_id: String) -> void:
@@ -216,6 +215,11 @@ func bind_pedestal(hero_id: String) -> void:
 	_frame_on(body)
 	_reframe_posed(body)
 	_split_hero(body)
+	# Guaranteed idle life: a dedicated node that bobs, sways and leans the
+	# body even when the model has no idle clip (ember has none) or the clip
+	# is too shallow to read at showcase scale.
+	var idle := PedestalIdle.new()
+	body.add_child(idle)
 
 
 func sync_hunt(sim: RunSim, alpha: float) -> void:
