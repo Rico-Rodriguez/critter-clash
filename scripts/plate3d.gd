@@ -94,15 +94,19 @@ static func _mat(kind: String) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	match kind:
 		"iron":
-			# T1: worn bright iron, warm and scuffed.
+			# T1: worn bright iron, warm and scuffed. A soft rim keeps the
+			# silhouette from going flat when the key light rakes across.
 			m.albedo_texture = load("res://assets/textures/armor_steel_col.jpg")
 			m.normal_enabled = true
 			m.normal_texture = load("res://assets/textures/armor_steel_nrm.jpg")
 			m.uv1_scale = Vector3(2.0, 2.0, 1.0)
 			m.albedo_color = Color(0.66, 0.62, 0.56)
 			m.metallic = 0.85
-			m.roughness = 0.52
+			m.roughness = 0.48
 			m.normal_scale = 1.2
+			m.rim_enabled = true
+			m.rim = 0.35
+			m.rim_tint = 0.4
 		"steel":
 			# T2: blackened, oil-dark steel; edges catch the light.
 			m.albedo_texture = load("res://assets/textures/armor_steel_col.jpg")
@@ -110,9 +114,12 @@ static func _mat(kind: String) -> StandardMaterial3D:
 			m.normal_texture = load("res://assets/textures/armor_steel_nrm.jpg")
 			m.uv1_scale = Vector3(2.0, 2.0, 1.0)
 			m.albedo_color = Color(0.3, 0.32, 0.38)
-			m.metallic = 0.9
-			m.roughness = 0.36
+			m.metallic = 0.92
+			m.roughness = 0.33
 			m.normal_scale = 1.4
+			m.rim_enabled = true
+			m.rim = 0.6
+			m.rim_tint = 0.6
 		"runeplate":
 			# T3: near-black cursed plate.
 			m.albedo_texture = load("res://assets/textures/armor_steel_col.jpg")
@@ -120,9 +127,35 @@ static func _mat(kind: String) -> StandardMaterial3D:
 			m.normal_texture = load("res://assets/textures/armor_steel_nrm.jpg")
 			m.uv1_scale = Vector3(2.0, 2.0, 1.0)
 			m.albedo_color = Color(0.1, 0.095, 0.105)
-			m.metallic = 0.75
-			m.roughness = 0.42
+			m.metallic = 0.8
+			m.roughness = 0.38
 			m.normal_scale = 1.4
+			m.rim_enabled = true
+			m.rim = 0.55
+			m.rim_tint = 0.75
+		"edge":
+			# Polished bevel steel: the rolled rims and raised hems read a
+			# step brighter and glossier than the matte panel behind them.
+			m.albedo_texture = load("res://assets/textures/armor_steel_col.jpg")
+			m.normal_enabled = true
+			m.normal_texture = load("res://assets/textures/armor_steel_nrm.jpg")
+			m.uv1_scale = Vector3(2.0, 2.0, 1.0)
+			m.albedo_color = Color(0.78, 0.8, 0.86)
+			m.metallic = 0.98
+			m.roughness = 0.2
+			m.normal_scale = 1.6
+			m.rim_enabled = true
+			m.rim = 0.7
+			m.rim_tint = 0.6
+		"gold":
+			# Premium trim: the raised beads and lip edges, warm against the
+			# cool steel. Matches the breastplate's gold collar accent.
+			m.albedo_color = Color(0.85, 0.66, 0.24)
+			m.metallic = 1.0
+			m.roughness = 0.24
+			m.rim_enabled = true
+			m.rim = 0.5
+			m.rim_tint = 0.7
 		"bronze":
 			m.albedo_texture = load("res://assets/textures/armor_bronze_col.jpg")
 			m.normal_enabled = true
@@ -462,6 +495,20 @@ static func _pebble_chest(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 		for s in [1.0, -1.0]:
 			_prim(acc, "runeglow", _box(Vector3(0.9, 34.0, 0.9)),
 					_xf(centre + lat * s * 16.5 + up * 2.0))
+	# Bevel response: the cuirass is a plain cut cylinder, so give the top
+	# and bottom edges rolled hems and a raised collar lip. Polished edge
+	# steel catches the key light; the gold beads tie to the collar accent.
+	var r_top: float = [0.0, 20.0, 22.0, 23.0][tier]
+	var r_bot: float = [0.0, 17.0, 18.5, 19.5][tier]
+	var hh: float = [0.0, 25.0, 27.0, 28.0][tier]
+	_prim(acc, "edge", _torus(r_top + 0.4, r_top + 2.0),
+			_xf(centre + up * (hh + 2.0), Vector3(1.3, 1.0, 0.95)))
+	_prim(acc, "gold", _torus(r_top - 0.2, r_top + 0.9),
+			_xf(centre + up * (hh + 0.6), Vector3(1.3, 1.0, 0.95)))
+	_prim(acc, "edge", _torus(r_bot, r_bot + 1.8),
+			_xf(centre - up * (hh - 0.6), Vector3(1.3, 1.0, 0.95)))
+	_prim(acc, "gold", _torus(r_bot - 0.2, r_bot + 0.8),
+			_xf(centre - up * (hh - 2.0), Vector3(1.3, 1.0, 0.95)))
 	_attach(sk, _bone(sk, "pebble", "chest"), "PlateChest", _bake(acc))
 
 
@@ -493,6 +540,15 @@ static func _pebble_pauldrons(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 				var at := c + up * (6.0 - k * 1.5) + lat * s * (k * 2.5) - fwd * 2.0
 				_prim(acc, plate, _cone(1.5, 7.5), Transform3D(_y_to((up * 0.8 + lat * s * 0.45).normalized()), at))
 			_prim(acc, "runeglow", _sphere(1.1), _xf(c + up * 7.5))
+		# Bevel response: a rolled rim round the cop's lower edge gives the
+		# shoulder a real silhouette instead of a smooth cut ball. Polished
+		# edge steel over a fine gold bead on the outer rim.
+		var r: float = [0.0, 14.0, 15.0, 16.0][tier]
+		var sy: float = [0.0, 0.85, 0.9, 0.95][tier]
+		var rr := r * 1.35 * 0.835
+		var ry := r * sy * 0.55
+		_prim(acc, "edge", _torus(rr - 0.9, rr + 0.1), _xf(c - up * ry))
+		_prim(acc, "gold", _torus(rr + 0.2, rr + 1.8), _xf(c - up * ry))
 		_attach(sk, _bone(sk, "pebble", "shoulder." + side),
 				"PlatePauldron" + side.to_upper(), _bake(acc))
 
@@ -531,6 +587,19 @@ static func _pebble_gloves(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 				var at := wrist + fwd * 8.5 - up * 0.5 + Vector3(k - 1.5, 0, 0) * 2.1
 				_prim(acc, plate, _cone(1.0, 4.5), Transform3D(_y_to(fwd), at + fwd * 2.0))
 			_prim(acc, "runeglow", _sphere(0.9), _xf(wrist - dir * 9.5 + up * 3.0))
+		# Bevel response: rolled rims at both cuff openings and a gold bead
+		# along the knuckle plate's leading edge.
+		var cuff_top: float = [0.0, 6.0, 6.5, 7.0][tier]
+		var cuff_bot: float = [0.0, 8.5, 9.0, 9.5][tier]
+		var cuff_h: float = [0.0, 13.0, 14.0, 15.0][tier]
+		var hand_end := wrist + dir * (cuff_h * 0.5 - 4.0)
+		var arm_end := wrist - dir * (cuff_h * 0.5 + 4.0)
+		_prim(acc, "edge", _torus(cuff_top - 0.2, cuff_top + 1.4), Transform3D(basis, hand_end))
+		_prim(acc, "gold", _torus(cuff_top - 0.2, cuff_top + 0.9), Transform3D(basis, hand_end - dir * 0.9))
+		_prim(acc, "edge", _torus(cuff_bot - 0.2, cuff_bot + 1.6), Transform3D(basis, arm_end))
+		_prim(acc, "gold", _torus(cuff_bot - 0.2, cuff_bot + 1.0), Transform3D(basis, arm_end + dir * 0.9))
+		_prim(acc, "gold", _box(Vector3(8.6, 0.8, 0.8)),
+				Transform3D(Basis.from_euler(Vector3(0.35, 0, 0)), wrist + fwd * 8.2 - up * 1.6))
 		_attach(sk, _bone(sk, "pebble", "wrist." + side),
 				"PlateGlove" + side.to_upper(), _bake(acc))
 
