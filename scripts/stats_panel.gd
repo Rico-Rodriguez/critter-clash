@@ -3,9 +3,22 @@ extends PanelContainer
 
 ## The collapsible Stats and Training panel on the hero screen. Collapsed it is
 ## one 88 px header row (title, combat level, skill total); tapping it expands
-## a scroll of the six skills with their XP bars plus the gear unlock levels.
-## It sits below the hero name plaque in normal page flow, never over the 3D
-## stage.
+## an OSRS-style 3-column grid of square skill cells (icon, big level number,
+## small XP line) followed by the total and the gear unlock levels. The grid is
+## data-driven over GearDB.SKILL_KEYS, so future gathering skills slot in
+## automatically. It sits below the hero name plaque in normal page flow,
+## never over the 3D stage.
+
+## Skill abbreviation used as the icon glyph, derived from the display name so
+## future skills (Woodcutting -> WO, Fishing -> FI, Mining -> MI) need no edit.
+static var _icon_colors := {
+	"attack": Color("d9b64a"),
+	"strength": Color("c45536"),
+	"defence": Color("6f8fc4"),
+	"ranged": Color("7ba05a"),
+	"magic": Color("7a6fc4"),
+	"hitpoints": Color("c45a6a"),
+}
 
 var hero_id := ""
 var expanded := false
@@ -67,26 +80,23 @@ func _refresh() -> void:
 	if not expanded:
 		return
 	var skills := GearDB.skills(hero_id)
-	var xp: Dictionary = {}
-	var all: Dictionary = GearDB._store()["xp"].get(hero_id, {})
-	if typeof(all) == TYPE_DICTIONARY:
-		xp = all
 	var total := 0
 	for key in GearDB.SKILL_KEYS:
 		total += int(skills[key])
-	var caption := UiKit.label("SKILLS", 18, UiKit.MUTED, "x", 2)
-	panels.append(caption)
-	rows.add_child(caption)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	panels.append(grid)
+	rows.add_child(grid)
 	for i in GearDB.SKILL_KEYS.size():
 		var key := str(GearDB.SKILL_KEYS[i])
-		var bar := SkillBar.new()
-		bar.skill = key
-		bar.level = int(skills[key])
-		bar.hero = hero_id
-		bar.ratio = _progress(key, int(xp.get(key, 0)), int(skills[key]))
-		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		panels.append(bar)
-		rows.add_child(bar)
+		var cell := SkillCell.new()
+		cell.hero = hero_id
+		cell.skill = key
+		panels.append(cell)
+		grid.add_child(cell)
 	var unlocked := UiKit.label("TOTAL %d  ·  TRAIN BY HUNTING" % total, 18, UiKit.GOLD.lightened(0.2), "x", 2)
 	unlocked.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panels.append(unlocked)
@@ -104,17 +114,6 @@ func _refresh() -> void:
 	scroll.custom_minimum_size = Vector2(620, 820)
 
 
-## Fraction of the way through the current level of a skill (1.0 at max).
-func _progress(skill: String, xp_banked: int, lvl: int) -> float:
-	if lvl >= GearDB.MAX_LEVEL:
-		return 1.0
-	var low := GearDB.xp_for_level(lvl)
-	var high := GearDB.xp_for_level(lvl + 1)
-	if high <= low:
-		return 1.0
-	return clampf(float(xp_banked - low) / float(high - low), 0.0, 0.999)
-
-
 ## "Iron Bascinet — Defence 1", one line per kit piece that gates on a skill.
 func _gear_gates() -> Array[String]:
 	var out: Array[String] = []
@@ -130,6 +129,24 @@ func _gear_gates() -> Array[String]:
 					continue
 				out.append("%s — %s %d" % [piece["name"], GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(k)], int(req[k])])
 	return out
+
+
+## 1234567 -> "1,234,567", for the small XP line in a skill cell.
+static func _comma(n: int) -> String:
+	var s := str(n)
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return s + out
+
+
+## Icon accent color for a skill; unknown (future) keys get a stable hue
+## derived from the skill name so the grid colors itself as skills are added.
+static func _accent(skill: String) -> Color:
+	if _icon_colors.has(skill):
+		return _icon_colors[skill]
+	return Color.from_hsv(float(str(skill).hash() % 360) / 360.0, 0.55, 0.8)
 
 
 ## The collapsed 88 px header row: title, combat level and total, plus a
@@ -176,28 +193,49 @@ class HeadButton extends Button:
 		draw_polyline(pts, Color("ffe3a0"), 3.0, true)
 
 
-## One OSRS-style XP bar: skill name and level on the caption line, the filled
-## trough showing progress inside the current level. Same look as CardBar.
-class SkillBar extends Control:
-	var skill := ""
+## One OSRS-style skill cell: a small square tile with a diamond icon carrying
+## the skill's abbreviation top-left, the current level as a big number
+## centered, and the banked XP as a small line underneath. Level 99 glows gold.
+class SkillCell extends Control:
 	var hero := ""
-	var level := 1
-	var ratio := 0.0
-	var pressed := 0.0
+	var skill := ""
+	const SIDE := 112.0
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		custom_minimum_size = Vector2(0, 56)
+		custom_minimum_size = Vector2(SIDE, SIDE)
 
 	func _draw() -> void:
 		UiKit.ensure()
 		var r := Rect2(Vector2.ZERO, size)
-		UiKit.draw_text(self, UiKit.font_x, Vector2(4, r.size.y * 0.52), GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(skill)].to_upper(), 22, UiKit.GOLD.lightened(0.2), Color(0.04, 0.03, 0.02), 3, r.size.x * 0.5)
-		UiKit.draw_text(self, UiKit.font_b, Vector2(r.size.x * 0.94, r.size.y * 0.5), "Lv %d" % level, 20, UiKit.CREAM, Color(0.04, 0.03, 0.02), 2, r.size.x)
-		var trough := Rect2(0, r.size.y * 0.62, r.size.x, r.size.y * 0.3)
-		UiKit.ch_fill(self, trough.grow(1), trough.size.y * 0.5, Color("8a6a3a"), Color("3a2410"))
-		UiKit.ch_fill(self, trough.grow(-2), trough.size.y * 0.5 - 1, Color("070504"), Color("1a140f"))
-		var inner := Rect2(trough.position + Vector2(2, 2), Vector2(maxf(0.0, (trough.size.x - 4.0) * ratio), maxf(0.0, trough.size.y - 4)))
-		if inner.size.x > inner.size.y:
-			UiKit.ch_fill(self, inner, inner.size.y * 0.5, Color("ffd23e"), Color("7a4a10"))
-			UiKit.ch_fill(self, Rect2(inner.position + Vector2(4, 1), Vector2(inner.size.x - 8, inner.size.y * 0.4)), inner.size.y * 0.2, Color(1, 1, 1, 0.3), Color(1, 1, 1, 0.0))
+		UiKit.ch_fill(self, r, 14, Color("4a3a22"), Color("241a0e"))
+		var accent := StatsPanel._accent(skill)
+		var icon := Vector2(22, 22)
+		var rad := 12.0
+		var pts := PackedVector2Array([
+			icon + Vector2(0, -rad),
+			icon + Vector2(rad, 0),
+			icon + Vector2(0, rad),
+			icon + Vector2(-rad, 0),
+		])
+		draw_colored_polygon(pts, accent)
+		draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.04, 0.03, 0.02, 0.8), 2.0, true)
+		var abbr := GearDB.SKILL_NAMES[GearDB.SKILL_KEYS.find(skill)].left(2).to_upper()
+		var a_size := 10
+		var a_w := UiKit.font_m.get_string_size(abbr, HORIZONTAL_ALIGNMENT_LEFT, -1, a_size).x
+		UiKit.draw_text(self, UiKit.font_m, Vector2(icon.x - a_w * 0.5, icon.y + a_size * 0.35), abbr, a_size, Color("241a0e"), accent, 0)
+		var lvl := 1
+		var banked := 0
+		if hero != "":
+			lvl = GearDB.level(hero, skill)
+			banked = GearDB.xp(hero, skill)
+		var maxed := lvl >= GearDB.MAX_LEVEL
+		var ink := Color("ffe3a0") if maxed else UiKit.CREAM
+		var n := str(lvl)
+		var n_px := 36
+		var n_w := UiKit.font_x.get_string_size(n, HORIZONTAL_ALIGNMENT_LEFT, -1, n_px).x
+		UiKit.draw_text(self, UiKit.font_x, Vector2(size.x * 0.5 - n_w * 0.5, size.y * 0.58), n, n_px, ink, Color(0.04, 0.03, 0.02), 3)
+		var xp_line := "MAX XP" if maxed else "%s XP" % StatsPanel._comma(banked)
+		var s_px := 13
+		var s_w := UiKit.font_m.get_string_size(xp_line, HORIZONTAL_ALIGNMENT_LEFT, -1, s_px).x
+		UiKit.draw_text(self, UiKit.font_m, Vector2(size.x * 0.5 - s_w * 0.5, size.y * 0.84), xp_line, s_px, UiKit.MUTED, Color(0.04, 0.03, 0.02), 1)
