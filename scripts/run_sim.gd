@@ -721,11 +721,16 @@ func debug_offer() -> void:
 	events.append({"type": "levelup", "level": level + 1, "offer": offer.duplicate()})
 
 
+## Raise the boss: the run turns to the boss phase and the boss walks out.
+## The run's clock keeps the time it has: the boss arriving is not a time
+## skip, so ground loot keeps its magnet delay, gathering nodes keep their
+## respawns and the run timer keeps counting from where it was. The clock
+## gate on the boss belongs to the arena spawn (Catalog.BOSS_AT); here the
+## gate is the lair the hero has walked into.
 func begin_boss() -> void:
 	if phase != "hunt":
 		return
 	phase = "boss"
-	time = maxf(time, Catalog.BOSS_AT)
 	_spawn_boss()
 	boss_title = _boss_title()
 	events.append({"type": "boss_in", "name": boss.display if boss else "Boss", "title": boss_title, "pos": boss.pos if boss != null else map.lair, "shake": 0.5, "stop": 0.06})
@@ -2066,6 +2071,9 @@ func _step_gems(dt: float) -> void:
 
 
 func _step_spawns(dt: float) -> void:
+	# The arena's clock gate: the boss walks in once the run's clock reaches
+	# BOSS_AT. The explore map has no wave spawner: its boss rises when the
+	# hero walks into the lair (begin_boss), never by moving the clock.
 	if phase == "hunt" and time >= Catalog.BOSS_AT:
 		phase = "boss"
 		_spawn_boss()
