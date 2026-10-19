@@ -227,7 +227,17 @@ const DODGE_DIST := 230.0
 const DODGE_TIME := 0.18
 const DODGE_CD := 2.2
 const DODGE_GRACE := 0.08
+## Post-hit invulnerability: the short grace a hit grants. It only stops the
+## source that landed the hit (that one attack instance) from hitting the
+## hero again in the same instant, so a second, different attack still lands:
+## the boss's five-shot fan and its two or three ground circles are meant to
+## punish a hero who stands in them. Deliberately far shorter than the
+## dodge's i-frames, because getting hit must never be better defence than
+## dodging.
+const POST_HIT_IFRAMES := 0.1
 var _next_id := 1
+## Id counter for attack instances, kept clear of the actor id range.
+var _next_uid := 1000000
 var bases: Dictionary = {}
 
 ## --- Explore mode (solo and co-op hunts) ---
@@ -335,7 +345,26 @@ class Actor extends RefCounted:
 	var xp := 1
 	var alive := true
 	var flash := 0.0
-	var iframes := 0.0
+	## The hero's own invulnerability window: the dodge roll's i-frames, and
+	## the scripted grants (blink, revive, phoenix, a cutscene). Nothing can
+	## hurt the actor while it is open.
+	var dodge_iframes := 0.0
+	## The brief grace a hit grants. It only shields the actor from the
+	## source that landed the hit, so a different attack in the same instant
+	## still counts.
+	var post_hit_iframes := 0.0
+	## Which source the open post-hit grace belongs to (-1 for a hit with no
+	## source of its own).
+	var post_hit_src := -1
+	## Legacy view of the two windows above: the invulnerability the actor
+	## currently has. Kept so older callers can still read and write one
+	## number.
+	var iframes: float:
+		get:
+			return maxf(dodge_iframes, post_hit_iframes)
+		set(value):
+			dodge_iframes = value
+			post_hit_iframes = value
 	var stats: Dictionary = {}
 	var boss_state := ""
 	var boss_timer := 0.0
@@ -412,6 +441,8 @@ class Field extends RefCounted:
 	var owner_id := -1
 	var kind := "fire"
 	var alive := true
+	## Id of this attack instance (one burning patch is one instance).
+	var uid := 0
 
 
 class Shot extends RefCounted:
@@ -433,6 +464,9 @@ class Shot extends RefCounted:
 	var hit_ids: Array = []
 	var split := 0
 	var did_split := false
+	## Id of this attack instance, so the post-hit grace can tell one shot
+	## from another.
+	var uid := 0
 
 
 class Gem extends RefCounted:
@@ -454,6 +488,8 @@ class Ping extends RefCounted:
 	var width := 70.0
 	var dmg := 20.0
 	var alive := true
+	## Id of this attack instance (one ground circle is one instance).
+	var uid := 0
 
 
 func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
@@ -757,7 +793,7 @@ func dodge(index: int, dir: Vector2) -> bool:
 	hero.dodge_dir = heading.normalized()
 	hero.dodge_t = DODGE_TIME
 	hero.dodge_cd = DODGE_CD
-	hero.iframes = maxf(hero.iframes, DODGE_TIME + DODGE_GRACE)
+	hero.dodge_iframes = maxf(hero.dodge_iframes, DODGE_TIME + DODGE_GRACE)
 	hero.still = 0.0
 	events.append({"type": "dodge", "id": hero.id, "pos": hero.pos, "to": hero.pos + hero.dodge_dir * DODGE_DIST})
 	return true
@@ -1003,7 +1039,8 @@ func _move_heroes(dt: float, moves: Array) -> void:
 			hero.still = 0.0
 		else:
 			hero.still += dt
-		hero.iframes = maxf(0.0, hero.iframes - dt)
+		hero.dodge_iframes = maxf(0.0, hero.dodge_iframes - dt)
+		hero.post_hit_iframes = maxf(0.0, hero.post_hit_iframes - dt)
 		hero.flash = maxf(0.0, hero.flash - dt)
 		hero.cd = maxf(0.0, hero.cd - dt)
 		hero.dodge_cd = maxf(0.0, hero.dodge_cd - dt)
@@ -1477,6 +1514,8 @@ func _step_fields(dt: float) -> void:
 	for f in fields:
 		if not f.alive:
 			continue
+		if f.uid == 0:
+			f.uid = _new_uid()
 		if f.delay > 0.0:
 			f.delay -= dt
 			if f.delay > 0.0:
@@ -1495,7 +1534,7 @@ func _step_fields(dt: float) -> void:
 					actor.slow = maxf(actor.slow, 0.6)
 					actor.slow_k = maxf(actor.slow_k, 0.35)
 				if f.dmg > 0.0:
-					_hurt(actor, f.dmg, f.pos, false, owner, false)
+					_hurt(actor, f.dmg, f.pos, false, owner, false, f.uid)
 				if result != "":
 					return
 			events.append({"type": "fx", "fx": f.kind, "pos": f.pos, "radius": f.radius})
@@ -1913,6 +1952,8 @@ func _step_shots(dt: float) -> void:
 	for shot in shots:
 		if not shot.alive:
 			continue
+		if shot.uid == 0:
+			shot.uid = _new_uid()
 		shot.ttl -= dt
 		shot.pos += shot.vel * dt
 		if shot.ttl <= 0.0 or not play.grow(90.0).has_point(shot.pos):
@@ -1928,7 +1969,7 @@ func _step_shots(dt: float) -> void:
 			if shot.pos.distance_to(actor.pos) > shot.radius + actor.radius:
 				continue
 			var owner := _actor_by_id(shot.owner_id)
-			_hurt(actor, shot.dmg, shot.pos, shot.crit, owner, true)
+			_hurt(actor, shot.dmg, shot.pos, shot.crit, owner, true, shot.uid)
 			shot.hit_ids.append(actor.id)
 			if shot.splash > 0.0:
 				for other in actors:
@@ -1937,7 +1978,7 @@ func _step_shots(dt: float) -> void:
 					if other.id in shot.hit_ids:
 						continue
 					if shot.pos.distance_to(other.pos) <= shot.splash + other.radius * 0.25:
-						_hurt(other, shot.dmg * shot.splash_mul, shot.pos, shot.crit, owner, false)
+						_hurt(other, shot.dmg * shot.splash_mul, shot.pos, shot.crit, owner, false, shot.uid)
 						shot.hit_ids.append(other.id)
 				events.append({"type": "boom", "pos": shot.pos, "radius": shot.splash, "shake": 0.28, "stop": 0.02})
 				# Mage splash chills the ground it lands on.
@@ -2028,6 +2069,8 @@ func _step_pings(dt: float) -> void:
 	for ping in pings:
 		if not ping.alive:
 			continue
+		if ping.uid == 0:
+			ping.uid = _new_uid()
 		ping.life -= dt
 		if ping.life > 0.0:
 			continue
@@ -2036,7 +2079,7 @@ func _step_pings(dt: float) -> void:
 			continue
 		for hero in heroes:
 			if hero.alive and hero.pos.distance_to(ping.pos) <= ping.radius + hero.radius * 0.2:
-				_hurt(hero, ping.dmg, ping.pos, false, boss, true)
+				_hurt(hero, ping.dmg, ping.pos, false, boss, true, ping.uid)
 				if result != "":
 					return
 		events.append({"type": "boom", "pos": ping.pos, "radius": ping.radius, "shake": 0.8, "stop": 0.055})
@@ -2195,7 +2238,7 @@ func _boss_title() -> String:
 	return str(BOSS_TITLES.get(biome_id, "Lord of the Lair"))
 
 
-func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker: Actor, allow_thorns: bool) -> void:
+func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker: Actor, allow_thorns: bool, src_id: int = -1) -> void:
 	if target == null or not target.alive:
 		return
 	# The intro and the phase-2 roar are untouchable: no chip damage can skip
@@ -2204,8 +2247,22 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		return
 	if explore and target.kind == "minion" and not target.aggro:
 		_set_camp_aggro(target, true)
-	if target.kind == "hero" and target.iframes > 0.0:
-		return
+	# Who is hitting: the attack instance (a shot, a ground circle, a burning
+	# patch) when it has one, otherwise the attacker that swung.
+	var src := src_id
+	if src < 0 and attacker != null:
+		src = attacker.id
+	if target.kind == "hero":
+		# The dodge (and the scripted grants) make the hero untouchable: while
+		# that window is open nothing lands at all.
+		if target.dodge_iframes > 0.0:
+			return
+		# The brief post-hit grace: it only shields the hero from the source
+		# that just landed the hit, so a second, different attack in the same
+		# instant still counts. That is what lets the boss's fan and its
+		# ground circles hurt more than once.
+		if target.post_hit_iframes > 0.0 and target.post_hit_src == src:
+			return
 	var scaled := amount
 	if attacker != null and attacker.weaken > 0.0 and attacker.team != target.team:
 		scaled *= 0.72
@@ -2274,7 +2331,10 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 				events.append({"type": "fx", "fx": "hunter_mark", "pos": target.pos})
 			target.mark = maxf(target.mark, 3.0)
 	if target.kind == "hero":
-		target.iframes = 0.3
+		# The hit grants only a brief grace, and only against the source that
+		# landed it: taking a hit is never a shield.
+		target.post_hit_iframes = POST_HIT_IFRAMES
+		target.post_hit_src = src
 		events.append({
 			"type": "hero_hurt",
 			"pos": target.pos,
@@ -2333,7 +2393,7 @@ func _try_blink(target: Actor, from_pos: Vector2) -> void:
 	var from := target.pos
 	target.pos = to
 	target.prev = to
-	target.iframes = 0.55
+	target.dodge_iframes = 0.55
 	target.cds["blink"] = maxf(3.0, 8.0 - 1.5 * float(n))
 	events.append({"type": "fx", "fx": "blink", "pos": from, "to": to})
 
@@ -2357,7 +2417,7 @@ func _kill(actor: Actor) -> void:
 			actor.stats = stats
 			actor.alive = true
 			actor.hp = actor.max_hp * 0.5
-			actor.iframes = 1.15
+			actor.dodge_iframes = 1.15
 			events.append({"type": "revive", "pos": actor.pos, "shake": 0.4, "stop": 0.08})
 			return
 		if int(stats.get("phoenix", 0)) > 0 and not phoenix_spent and actor.team == 0:
@@ -2366,7 +2426,7 @@ func _kill(actor: Actor) -> void:
 			actor.stats = stats
 			actor.alive = true
 			actor.hp = actor.max_hp * 0.6
-			actor.iframes = 1.2
+			actor.dodge_iframes = 1.2
 			var radius := 190.0
 			for other in actors:
 				if not other.alive or other.team == actor.team:
@@ -2788,6 +2848,15 @@ func _nid() -> int:
 	var id := _next_id
 	_next_id += 1
 	return id
+
+
+## A fresh id for a one-off attack instance (a shot, a ground circle, a
+## burning patch). It is what the post-hit grace watches, so one instance
+## cannot double-dip on the hero while a different one still can. The range
+## sits clear of the actor ids.
+func _new_uid() -> int:
+	_next_uid += 1
+	return _next_uid
 
 
 const SHOOT_WINDUP := 0.28
