@@ -1430,7 +1430,7 @@ func _pedestal_set() -> void:
 		var kind := "grass_tall" if i % 3 == 0 else ("grass_wispy" if i % 3 == 1 else "fern")
 		_place_prop(kind, Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.7, 1.15), false)
 	for i in 26:
-		var ang := rng.randf_range(PI * 0.95, TAU * 1.02)
+		var ang := rng.randf() * TAU
 		var r := rng.randf_range(1.7, 3.6)
 		_place_prop(["flower_a", "flower_b", "flower_warm", "pebble_rock_b"][i % 4], Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.4, 0.65), false)
 	# The glade's trees are in place: cache them for the canopy fade.
