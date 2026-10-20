@@ -31,19 +31,22 @@ extends RefCounted
 ##   multi_hit fraction of the caster's damage per hit, hits times
 ##   aura      health a second that each ally in the field heals
 ##   buff      fraction of incoming damage avoided while it lasts
+##   summon    fraction of the caster's damage the servant deals per hit
+##   shape     fraction of damage the caster adds while shifted
 ##
 ## Every ability scales with a trained combat skill (a GearDB.SKILL_KEYS key),
 ## and each class scales with a skill that class really trains: the Barbarian
 ## with Strength and Attack, the Paladin with Strength and Hitpoints, the
-## Sorceress with Magic, the Rogue with Ranged and Defence. A fresh hero sits
-## at the start level of its skill, so a new ability does exactly its base
+## Sorceress with Magic, the Rogue with Ranged and Defence, the Necromancer
+## with Magic and Hitpoints, the Druid with Strength and Defence. A fresh hero
+## sits at the start level of its skill, so a new ability does exactly its base
 ## power and training lifts it from there - the same way GearDB.level_bonus
 ## grows the hero's own stats.
 
 ## The effect verbs an ability can use.
-const KINDS: Array[String] = ["aoe_spin", "leap", "aura", "slam", "nova", "nuke", "multi_hit", "buff"]
+const KINDS: Array[String] = ["aoe_spin", "leap", "aura", "slam", "nova", "nuke", "multi_hit", "buff", "summon", "shape"]
 
-## The four starting classes and the abilities each one owns. The class id is
+## The starting classes and the abilities each one owns. The class id is
 ## the hero id in Catalog.CRITTERS; the role is the one the class fights under
 ## (run_sim's ROLE_TUNING is keyed by role, never by hero id). The roster
 ## itself - stats, model, unlock - belongs to the class phase, not to this
@@ -68,6 +71,16 @@ const CLASSES: Dictionary = {
 		"name": "Rogue", "role": "archer",
 		"blurb": "A Sister of the Sightless Eye. Bows and traps strike unseen from the shadows.",
 		"abilities": ["fan_of_knives", "vanish"],
+	},
+	"necromancer": {
+		"name": "Necromancer", "role": "mage",
+		"blurb": "A binder of bone. The dead rise at her call and hold the line beside her.",
+		"abilities": ["raise_skeleton", "bone_spikes"],
+	},
+	"druid": {
+		"name": "Druid", "role": "tank",
+		"blurb": "A shapeshifter of the wilds. Bear form, thornwood, and the patience of the grove.",
+		"abilities": ["wild_shape", "thorn_lash"],
 	},
 }
 

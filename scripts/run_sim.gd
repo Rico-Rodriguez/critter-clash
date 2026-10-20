@@ -487,6 +487,9 @@ class Actor extends RefCounted:
 	var patrol_b := Vector2.ZERO
 	var to_b := true
 	var elite := false
+	## The elite's visible aura: the ground allows elite spawns at all
+	## (Catalog.elite_has_aura), so the glow can be drawn.
+	var elite_aura := false
 	## Elite affixes carried by this actor (fast/shielded/molten/vampiric).
 	var affixes: Array = []
 	## Damage shield: absorbs damage before hp. Shielded affix only.
@@ -2605,7 +2608,7 @@ func _kill(actor: Actor) -> void:
 			events.append({"type": "duel_win"})
 		return
 	if actor.kind == "boss":
-		_gear_roll_drop("boss", actor.pos)
+		_gear_roll_drop(LootTable.boss_source(actor.sprite), actor.pos)
 		phase = "over"
 		result = "win"
 		paused = true
@@ -2622,7 +2625,7 @@ func _kill(actor: Actor) -> void:
 		slain += 1
 		_drop_gem(actor.pos, actor.xp)
 		if actor.elite:
-			_gear_roll_drop("elite", actor.pos)
+			_gear_roll_drop(LootTable.elite_source(_biome_index()), actor.pos)
 		if actor.camp >= 0 and actor.camp < map.camps.size() and not _camp_alive(actor.camp):
 			_gear_roll_drop("camp", actor.pos)
 
@@ -3145,7 +3148,9 @@ func _open_side(actor: Actor, dir: Vector2) -> Vector2:
 func _spawn_world() -> void:
 	var skins: Array = biome["skins"]
 	var density := float(_diff()["density"])
-	var elite_chance := float(_diff()["elite"])
+	# The biome sets the floor for elites (fringe none, wilds 5%, deep 15%,
+	# abyss 30%) and the difficulty tier adds its own chance on top.
+	var elite_chance := Catalog.elite_chance(biome_id, difficulty)
 	for ci in map.camps.size():
 		var camp: Dictionary = map.camps[ci]
 		var at: Vector2 = camp["pos"]
@@ -3165,8 +3170,9 @@ func _spawn_world() -> void:
 			var p := map.push_inside(at + Vector2.RIGHT.rotated(ang) * rng.randf_range(70.0, 150.0), 30.0)
 			var skin := base if k % 2 == 0 else rng.randi() % skins.size()
 			var m := _place_minion(skin, p, ci)
-			# A raised tier promotes some camp members to elites. Normal rolls
-			# nothing (chance 0), so its RNG stream is bit-for-bit unchanged.
+			# The ground promotes some camp members to elites and a raised
+			# tier promotes more. The Fringe rolls nothing (chance 0), so
+			# its RNG stream is bit-for-bit unchanged.
 			if elite_chance > 0.0 and rng.randf() < elite_chance:
 				_make_elite(m)
 			if leader == null:
@@ -3358,6 +3364,8 @@ func _make_elite(m: Actor) -> void:
 	m.radius *= 1.35
 	m.xp *= 6
 	m.display = "Elite " + m.display
+	# The glow rides on the ground: the shallows never show one.
+	m.elite_aura = Catalog.elite_has_aura(biome_id)
 
 
 func _idle_minion(actor: Actor, dt: float, dist: float) -> void:

@@ -391,10 +391,10 @@ func _gates_unlocked() -> Dictionary:
 	return unlocked
 
 
-## The two knights a new save starts with; Gnash and Mordrek join on the road.
-const STARTERS := ["pebble", "ember"]
-## Animal heroes retired from the playable roster (saves move to Aldric).
-const RETIRED := ["juniper", "pip"]
+## The four heroes a new save starts with.
+const STARTERS := ["barbarian", "paladin", "sorceress", "rogue"]
+## Animal heroes and old knights retired from the playable roster (saves move to closest new class).
+const RETIRED := ["juniper", "pip", "pebble", "ember", "lumen", "bramble"]
 
 func hero(id: String) -> Dictionary:
 	return data["heroes"][id]
@@ -1345,6 +1345,13 @@ func _roll_boss(boss_id: String, rng: RandomNumberGenerator) -> Array:
 			pet = (entry as Dictionary).duplicate()
 		else:
 			weighted.append((entry as Dictionary).duplicate())
+	# A lair boss promises rare or better: its payout is drawn from the
+	# rare-and-better rows of its own table, so a lair kill is a haul and
+	# never a coin purse. A biome boss carries no promise and pays its
+	# weighted roll exactly as before.
+	var guaranteed := Catalog.guaranteed_drops(boss_id)
+	if not guaranteed.is_empty():
+		weighted = guaranteed
 	var got: Array = []
 	var picked := _weighted(rng, weighted)
 	if not picked.is_empty():

@@ -102,6 +102,30 @@ static func playable_ids() -> Array:
 	return ids
 
 
+## True for a hero class on the playable roster.
+static func is_class(id: String) -> bool:
+	return str(id) in PLAYABLE
+
+
+## The class a retired hero id became ("" for a live id or an unknown one).
+static func replacement_for(id: String) -> String:
+	return str(RETIRED_HEROES.get(id, ""))
+
+
+## The skills a class really trains (GearDB skill keys). Empty for anything
+## that is not a hero class.
+static func class_skills(id: String) -> Array:
+	var row := critter(id)
+	if row.is_empty():
+		return []
+	return row.get("skills", [])
+
+
+## The class's headline ability, an AbilityDB id. "" for anything else.
+static func class_ability(id: String) -> String:
+	return str(critter(id).get("ability", ""))
+
+
 static func role_name(role: String) -> String:
 	match role:
 		"mage":
@@ -299,11 +323,21 @@ static func _index_cards() -> void:
 	}
 
 
-## The four knights. Two retired ids ("juniper", "pip") keep rows below only
-## so old saves and duel/daily records still resolve; they render as Aldric.
+## The six Diablo-esque hero classes. Retired ids ("juniper", "pip", "pebble",
+## "ember", "lumen", "bramble") keep rows below only so old saves and
+## duel/daily records still resolve; they render as the closest new class.
 const PLAYABLE: Array = [
-	"pebble", "ember", "lumen", "bramble",
+	"barbarian", "paladin", "sorceress", "rogue", "necromancer", "druid",
 ]
+
+## The old hero ids and the class each one became. A save that owned or
+## featured a retired hero moves to the class that replaced it (see
+## SaveGame.migrate_retired_heroes), and the 3D cast and the portraits render
+## the retired id as that same class.
+const RETIRED_HEROES: Dictionary = {
+	"juniper": "rogue", "pip": "sorceress", "pebble": "paladin",
+	"ember": "sorceress", "lumen": "barbarian", "bramble": "necromancer",
+}
 
 ## Boss pet roll. 1 in PET_RATE, separate from the weighted table.
 const PET_RATE := 50
@@ -313,6 +347,7 @@ const BIOMES: Array = [
 		"id": "meadow",
 		"name": "Meadow",
 		"boss": "thistle",
+		"lairs": [],
 		"gate": 0,
 		"need": "",
 		"recommended_level": 3,
@@ -326,6 +361,7 @@ const BIOMES: Array = [
 		"id": "mushroom",
 		"name": "Mushroom Forest",
 		"boss": "caplet",
+		"lairs": [],
 		"gate": 30,
 		"need": "meadow",
 		"recommended_level": 20,
@@ -339,6 +375,7 @@ const BIOMES: Array = [
 		"id": "frost",
 		"name": "Frost Peaks",
 		"boss": "nimbus",
+		"lairs": ["boreal"],
 		"gate": 80,
 		"need": "mushroom",
 		"recommended_level": 40,
@@ -346,12 +383,13 @@ const BIOMES: Array = [
 		"dmg_mul": 1.16,
 		"boss_mul": 1.38,
 		"skins": ["snowpup", "shard", "icewisp", "yeti"],
-		"blurb": "Quiet snow. Boreal coils the ridgeline.",
+		"blurb": "Quiet snow. Nimbus runs the ridgeline.",
 	},
 	{
 		"id": "volcano",
 		"name": "Ember Volcano",
-		"boss": "inferno",
+		"boss": "cinder",
+		"lairs": ["inferno"],
 		"gate": 150,
 		"need": "frost",
 		"recommended_level": 55,
@@ -359,7 +397,29 @@ const BIOMES: Array = [
 		"dmg_mul": 1.24,
 		"boss_mul": 1.58,
 		"skins": ["cindling", "skink", "ashbat", "magmash"],
-		"blurb": "White-hot stone. Inferno wakes in it.",
+		"blurb": "Warm stone and slow lava. Cinder naps in it.",
+	},
+]
+
+## The boss lairs: a second lair inside a biome, beside the biome boss that
+## holds the ridge. A lair is a boss of its own -- its own critter, its own
+## drop table, its own promise -- and it never replaces the biome boss: both
+## stand in the same ground. A lair also carries the rarity floor of its
+## payout ("guarantee"), so a lair kill always lands rare or better.
+const LAIRS: Array = [
+	{
+		"id": "boreal",
+		"name": "Boreal, the Frost Wyrm",
+		"biome": "frost",
+		"tier": "deep",
+		"guarantee": "rare",
+	},
+	{
+		"id": "inferno",
+		"name": "Inferno, the Magma Colossus",
+		"biome": "volcano",
+		"tier": "abyss",
+		"guarantee": "rare",
 	},
 ]
 
@@ -377,17 +437,34 @@ const TIER_MUL: Array = [
 	{"hp": 1.8, "dmg": 1.45, "density": 1.35, "elite": 0.22, "loot": 2, "xp": 2.25, "aggro": 1.55},
 ]
 
-## Elite spawn chance per biome (Fringe, Wilds, Deep, Abyss).
-## Fringe (meadow): 0% - no elites in the shallows.
-## Wilds (mushroom): 5% - rare elite packs.
-## Deep (frost): 15% - regular elite encounters.
-## Abyss (volcano): 30% - elites are common in the depths.
+## The four depth tiers of the world, shallowest first. Each biome sits in one
+## of them: the Fringe is the meadow rim, the Wilds the mushroom wood, the
+## Deep the frost peaks and the Abyss the volcano.
+const DEPTH_TIERS: Array[String] = ["fringe", "wilds", "deep", "abyss"]
+
+## Elite spawn chance per depth tier. The Fringe keeps the shallows clean
+## (0%), the Wilds throws up the odd elite pack (5%), the Deep makes them
+## regular fare (15%) and the Abyss is crawling with them (30%).
+const ELITE_SPAWN_BY_TIER: Dictionary = {
+	"fringe": 0.0,
+	"wilds": 0.05,
+	"deep": 0.15,
+	"abyss": 0.30,
+}
+
+## The same chances keyed by biome id, so a biome can be asked directly. The
+## table mirrors ELITE_SPAWN_BY_TIER: the Fringe is the meadow, the Wilds the
+## mushroom wood, the Deep the frost peaks, the Abyss the volcano.
 const ELITE_SPAWN_BY_BIOME: Dictionary = {
 	"meadow": 0.0,
 	"mushroom": 0.05,
 	"frost": 0.15,
 	"volcano": 0.30,
 }
+
+## The ceiling on the elite chance: a difficulty tier adds its own chance on
+## top of the biome's, and no ground ever turns into a guaranteed elite.
+const ELITE_CHANCE_CAP := 0.6
 
 
 static func tier_mul(tier: int) -> Dictionary:
@@ -398,14 +475,57 @@ static func tier_name(tier: int) -> String:
 	return TIER_NAMES[clampi(tier, 0, TIER_COUNT - 1)]
 
 
-static func elite_spawn_chance(biome_id: String) -> float:
-	return float(ELITE_SPAWN_BY_BIOME.get(biome_id, 0.0))
+## The elite spawn chance of a ground. The key may be a biome id ("frost"), a
+## depth tier ("deep"), a biome name ("Frost Peaks") or a biome index (2), so
+## every caller can ask the question the way it holds the answer.
+static func elite_spawn_chance(key: Variant) -> float:
+	match typeof(key):
+		TYPE_INT, TYPE_FLOAT:
+			return elite_spawn_chance_tier(int(key))
+		_:
+			var id := _key_id(str(key))
+			if ELITE_SPAWN_BY_BIOME.has(id):
+				return float(ELITE_SPAWN_BY_BIOME[id])
+			if ELITE_SPAWN_BY_TIER.has(id):
+				return float(ELITE_SPAWN_BY_TIER[id])
+			for entry in BIOMES:
+				if _key_id(str(entry["id"])) == id or _key_id(str(entry["name"])) == id:
+					return float(ELITE_SPAWN_BY_TIER.get(depth_tier(str(entry["id"])), 0.0))
+			return 0.0
 
 
-## Visible aura flag for elites: true when the biome allows elite spawns.
-## Used by the presentation layer to show the elite glow.
-static func elite_has_aura(biome_id: String) -> bool:
-	return elite_spawn_chance(biome_id) > 0.0
+## The elite spawn chance of a depth tier by index (0 = fringe).
+static func elite_spawn_chance_tier(tier: int) -> float:
+	var idx := clampi(tier, 0, DEPTH_TIERS.size() - 1)
+	return float(ELITE_SPAWN_BY_TIER.get(DEPTH_TIERS[idx], 0.0))
+
+
+## The depth tier a ground sits in ("fringe", "wilds", "deep", "abyss").
+static func depth_tier(id: String) -> String:
+	var key := _key_id(id)
+	for i in BIOMES.size():
+		var entry: Dictionary = BIOMES[i]
+		if _key_id(str(entry["id"])) == key or _key_id(str(entry["name"])) == key:
+			return DEPTH_TIERS[clampi(i, 0, DEPTH_TIERS.size() - 1)]
+	return DEPTH_TIERS[0]
+
+
+## The visible aura flag: an elite wears its glow where the ground allows
+## elite spawns at all. The Fringe never shows one.
+static func elite_has_aura(key: Variant) -> bool:
+	return elite_spawn_chance(key) > 0.0
+
+
+## The chance a wild critter here is promoted to an elite on a difficulty
+## tier: the biome's own chance plus the tier's, under the cap.
+static func elite_chance(biome_id: String, tier: int) -> float:
+	var base := elite_spawn_chance(biome_id)
+	return clampf(base + float(tier_mul(tier).get("elite", 0.0)), 0.0, ELITE_CHANCE_CAP)
+
+
+## A loose key ("Frost Peaks", "FROST", " frost ") into a plain id.
+static func _key_id(text: String) -> String:
+	return text.strip_edges().to_lower().replace(" ", "_")
 
 
 ## Intra-tier depth scaling (0.0 at biome start, 1.0 at boss lair).
@@ -530,9 +650,9 @@ static func xp_falloff(combat: int, recommended: int, tier: int) -> float:
 const MILESTONES: Array = [
 	{"id": "m10", "trophies": 10, "kind": "coins", "amount": 40, "label": "Coin purse", "detail": "40 coins"},
 	{"id": "m30", "trophies": 30, "kind": "chest", "label": "Trail chest", "detail": "A hunt chest"},
-	{"id": "m45", "trophies": 45, "kind": "unlock", "hero": "lumen", "cards": 8, "label": "Gnash joins", "detail": "Ghoul berserker unlocked"},
+	{"id": "m45", "trophies": 45, "kind": "unlock", "hero": "druid", "cards": 8, "label": "Druid joins", "detail": "Grove shapeshifter unlocked"},
 	{"id": "m80", "trophies": 80, "kind": "gear", "slot": "charm", "rarity": "rare", "label": "Rare charm", "detail": "A charm for any hero"},
-	{"id": "m110", "trophies": 110, "kind": "unlock", "hero": "bramble", "cards": 8, "label": "Mordrek joins", "detail": "Bone Knight unlocked"},
+	{"id": "m110", "trophies": 110, "kind": "unlock", "hero": "necromancer", "cards": 8, "label": "Necromancer joins", "detail": "Bone binder unlocked"},
 	{"id": "m150", "trophies": 150, "kind": "gear", "slot": "armor", "rarity": "rare", "label": "Rare armour", "detail": "Blackened steel for any knight"},
 	{"id": "m190", "trophies": 190, "kind": "coins", "amount": 120, "label": "Heavy purse", "detail": "120 coins"},
 	{"id": "m240", "trophies": 240, "kind": "gear", "slot": "weapon", "rarity": "epic", "label": "Epic weapon", "detail": "A strong weapon"},
@@ -644,12 +764,55 @@ const CARDS: Array = [
 ]
 
 const CRITTERS: Dictionary = {
-	"ember": {
-		"name": "Corvin", "role": "mage", "kind": "hero", "color": "8fd14f",
-		"blurb": "Plague doctor. Miasma bolts burst and linger.",
+	"barbarian": {
+		"name": "Barbarian", "role": "tank", "kind": "hero", "color": "c0392b",
+		"blurb": "A wandering berserker from the Dreadlands. Twin axes carve a red path through the barrows.",
 		"unlock": "A starter hero.",
-		"hp": 168, "dmg": 21, "interval": 0.46, "range": 320, "speed": 268,
-		"splash": 92, "splash_mul": 0.66, "proj_speed": 520, "armor": 0,
+		## The class ability (an AbilityDB id) and the skills the class
+		## really trains. Its abilities scale with those skills.
+		"ability": "whirlwind", "skills": ["attack", "strength"],
+		"hp": 320, "dmg": 28, "interval": 0.45, "range": 120, "speed": 270,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 2,
+	},
+	"paladin": {
+		"name": "Paladin", "role": "tank", "kind": "hero", "color": "f1c40f",
+		"blurb": "A Zakarum zealot clad in blessed steel. Sword and shield hold the line against the dark.",
+		"unlock": "A starter hero.",
+		"ability": "aura_of_light", "skills": ["strength", "hitpoints"],
+		"hp": 300, "dmg": 24, "interval": 0.48, "range": 135, "speed": 250,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 4,
+	},
+	"sorceress": {
+		"name": "Sorceress", "role": "mage", "kind": "hero", "color": "8e44ad",
+		"blurb": "A Vizjerei prodigy. Fire, ice and lightning answer her call from afar.",
+		"unlock": "A starter hero.",
+		"ability": "frost_nova", "skills": ["magic", "hitpoints"],
+		"hp": 180, "dmg": 22, "interval": 0.5, "range": 340, "speed": 260,
+		"splash": 100, "splash_mul": 0.7, "proj_speed": 540, "armor": 0,
+	},
+	"rogue": {
+		"name": "Rogue", "role": "archer", "kind": "hero", "color": "27ae60",
+		"blurb": "A Sister of the Sightless Eye. Bows and traps strike unseen from the shadows.",
+		"unlock": "A starter hero.",
+		"ability": "fan_of_knives", "skills": ["ranged", "defence"],
+		"hp": 200, "dmg": 18, "interval": 0.38, "range": 420, "speed": 290,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 800, "armor": 1,
+	},
+	"necromancer": {
+		"name": "Necromancer", "role": "mage", "kind": "hero", "color": "5f7a6b",
+		"blurb": "A binder of bone. The dead rise at her call and hold the line beside her.",
+		"unlock": "Trophy road.",
+		"ability": "raise_skeleton", "skills": ["magic", "hitpoints"],
+		"hp": 172, "dmg": 19, "interval": 0.54, "range": 300, "speed": 258,
+		"splash": 80, "splash_mul": 0.66, "proj_speed": 490, "armor": 0,
+	},
+	"druid": {
+		"name": "Druid", "role": "tank", "kind": "hero", "color": "3f8f5f",
+		"blurb": "A shapeshifter of the wilds. Bear form, thornwood, and the patience of the grove.",
+		"unlock": "Trophy road.",
+		"ability": "wild_shape", "skills": ["strength", "defence"],
+		"hp": 262, "dmg": 25, "interval": 0.43, "range": 130, "speed": 282,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 2,
 	},
 	"juniper": {
 		"name": "Juniper", "role": "archer", "kind": "hero", "color": "e07a3d",
@@ -661,14 +824,14 @@ const CRITTERS: Dictionary = {
 	"pebble": {
 		"name": "Aldric", "role": "tank", "kind": "hero", "color": "b89a5e",
 		"blurb": "Ashen paladin. Sword and shield; hard to move.",
-		"unlock": "A starter hero.",
+		"unlock": "Retired.",
 		"hp": 280, "dmg": 31, "interval": 0.42, "range": 138, "speed": 256,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 3,
 	},
 	"lumen": {
 		"name": "Gnash", "role": "tank", "kind": "hero", "color": "c0453a",
 		"blurb": "Ghoul berserker. Twin claws, fast and frenzied, thin hide.",
-		"unlock": "Trophy road.",
+		"unlock": "Retired.",
 		"hp": 224, "dmg": 17, "interval": 0.3, "range": 104, "speed": 292,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 1,
 	},
@@ -679,10 +842,17 @@ const CRITTERS: Dictionary = {
 		"hp": 138, "dmg": 15, "interval": 0.48, "range": 280, "speed": 270,
 		"splash": 68, "splash_mul": 0.7, "proj_speed": 510, "armor": 0,
 	},
+	"ember": {
+		"name": "Corvin", "role": "mage", "kind": "hero", "color": "8fd14f",
+		"blurb": "Plague doctor. Miasma bolts burst and linger.",
+		"unlock": "Retired.",
+		"hp": 168, "dmg": 21, "interval": 0.46, "range": 320, "speed": 268,
+		"splash": 92, "splash_mul": 0.66, "proj_speed": 520, "armor": 0,
+	},
 	"bramble": {
 		"name": "Mordrek", "role": "tank", "kind": "hero", "color": "6fbf8f",
 		"blurb": "Bone Knight. A cursed duelist with one long blade.",
-		"unlock": "Trophy road.",
+		"unlock": "Retired.",
 		"hp": 276, "dmg": 20, "interval": 0.52, "range": 110, "speed": 214,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 4,
 	},
@@ -730,6 +900,9 @@ const CRITTERS: Dictionary = {
 		"bias_charge": 0.22, "bias_aoe": 0.50,
 		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
 	},
+	# Boreal, the Frost Wyrm: the lair boss of the Deep (Frost Peaks). He
+	# stands beside Nimbus, never in his place, and his hoard is rare or
+	# better (guarantee).
 	"boreal": {
 		"name": "Boreal", "role": "archer", "kind": "boss", "color": "b7f0ff",
 		"blurb": "Deep lair boss. A frost wyrm that breathes rime, scales pale as glaciers.",
@@ -740,7 +913,11 @@ const CRITTERS: Dictionary = {
 		"aoe": 24, "charge": 30, "shot": 14,
 		"bias_charge": 0.35, "bias_aoe": 0.25,
 		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
+		"guarantee": "rare",
 	},
+	# Inferno, the Magma Colossus: the lair boss of the Abyss (Ember
+	# Volcano). He stands beside Cinder, never in his place, and his hoard
+	# is rare or better (guarantee).
 	"inferno": {
 		"name": "Inferno", "role": "mage", "kind": "boss", "color": "ff6a1a",
 		"blurb": "Abyss lair boss. A magma colossus, core burning white-hot through cracked plate.",
@@ -751,6 +928,7 @@ const CRITTERS: Dictionary = {
 		"aoe": 32, "charge": 28, "shot": 12,
 		"bias_charge": 0.20, "bias_aoe": 0.55,
 		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
+		"guarantee": "rare",
 	},
 	"sprout": {"name": "Rot Badger", "kind": "minion", "archetype": "chaser", "color": "67b85a", "hp": 28, "dmg": 7, "speed": 96, "radius": 24, "xp": 2, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
 	"beetle": {"name": "Barrow Scarab", "kind": "minion", "archetype": "runner", "color": "d2a03a", "hp": 38, "dmg": 8, "speed": 128, "radius": 22, "xp": 3, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
@@ -772,18 +950,17 @@ const CRITTERS: Dictionary = {
 
 
 ## One row per obtainable drop. Pets are rolled at 1/PET_RATE and are not weighted.
-## The row ids stay for saves: the Frost and Volcano rows keep the ids they
-## were given when Nimbus and Cinder held those lairs, so the baked item art,
-## the material prices and the collection log all survive the rename to the
-## lair bosses (Boreal, Inferno). The names are what the player reads, and
-## those follow the boss.
+## The row ids stay for saves, so the baked item art, the material prices and
+## the collection log all survive the boss split: Nimbus and Cinder keep the
+## rows they always had, and the lair bosses Boreal and Inferno add their own
+## hoard beside them.
 const DROPS: Array = [
 	{"id": "thistle_purse", "boss": "thistle", "name": "Coin purse", "kind": "coins", "amount": 40, "rarity": "common", "weight": 22, "color": "f0b429"},
 	{"id": "thistle_pouch", "boss": "thistle", "name": "Heavy purse", "kind": "coins", "amount": 90, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "meadow_fiber", "boss": "thistle", "name": "Barrow sinew", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "67b85a"},
 	{"id": "pollen", "boss": "thistle", "name": "Grave ash", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "f2d35a"},
-	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "8fd14f"},
-	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Mordrek relics", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
+	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Sorceress relics", "kind": "cards", "hero": "sorceress", "amount": 2, "rarity": "common", "weight": 12, "color": "8e44ad"},
+	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Necromancer relics", "kind": "cards", "hero": "necromancer", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "5f7a6b"},
 	{"id": "thistle_claw", "boss": "thistle", "name": "Gravemaw talon", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "c46b8a"},
 	{"id": "thistle_shell", "boss": "thistle", "name": "Barrow-hide mantle", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8d4e6a"},
 	{"id": "boar_bristle", "boss": "thistle", "name": "Troll bristle", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "a86848"},
@@ -794,38 +971,57 @@ const DROPS: Array = [
 	{"id": "caplet_pouch", "boss": "caplet", "name": "Heavy purse", "kind": "coins", "amount": 110, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "cap_bits", "boss": "caplet", "name": "Rot fur", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d45ad0"},
 	{"id": "spore_dust", "boss": "caplet", "name": "Blight dust", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "c9b6ef"},
-	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Aldric relics", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "common", "weight": 12, "color": "b89a5e"},
-	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "c0453a"},
+	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Paladin relics", "kind": "cards", "hero": "paladin", "amount": 2, "rarity": "common", "weight": 12, "color": "f1c40f"},
+	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Barbarian relics", "kind": "cards", "hero": "barbarian", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "c0392b"},
 	{"id": "caplet_wand", "boss": "caplet", "name": "Blightfang wand", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d45ad0"},
 	{"id": "caplet_wrap", "boss": "caplet", "name": "Wolfhide wrap", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8a3a86"},
 	{"id": "toad_cap", "boss": "caplet", "name": "Moonless pelt", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e23a4a"},
 	{"id": "glow_bead", "boss": "caplet", "name": "Blight eye", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "8ef0c8"},
 	{"id": "giant_cap", "boss": "caplet", "name": "Alpha skull", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a6a"},
 	{"id": "caplet_pet", "boss": "caplet", "name": "Rotspawn", "kind": "pet", "sprite": "caplet", "rarity": "very_rare", "weight": 0, "color": "d45ad0"},
-	{"id": "nimbus_purse", "boss": "boreal", "name": "Coin purse", "kind": "coins", "amount": 56, "rarity": "common", "weight": 22, "color": "f0b429"},
-	{"id": "nimbus_pouch", "boss": "boreal", "name": "Heavy purse", "kind": "coins", "amount": 130, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
-	{"id": "frost_wool", "boss": "boreal", "name": "Rimefang pelt", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d7e7f6"},
-	{"id": "ice_shard", "boss": "boreal", "name": "Ice shard", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "9fd4ef"},
-	{"id": "nimbus_lumen_cards", "boss": "boreal", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "common", "weight": 12, "color": "c0453a"},
-	{"id": "nimbus_bramble_cards", "boss": "boreal", "name": "Mordrek relics", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
-	{"id": "nimbus_sling", "boss": "boreal", "name": "Wyrmfang bow", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d7e7f6"},
-	{"id": "nimbus_coat", "boss": "boreal", "name": "Rimeguard coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 6, "color": "8aa4c0"},
-	{"id": "hare_fluff", "boss": "boreal", "name": "Wraith wisp", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
-	{"id": "storm_bell", "boss": "boreal", "name": "Storm sigil", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 4, "color": "ffe08a"},
-	{"id": "aurora_shard", "boss": "boreal", "name": "Aurora shard", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "b7f0ff"},
-	{"id": "nimbus_pet", "boss": "boreal", "name": "Frostling", "kind": "pet", "sprite": "nimbus", "rarity": "very_rare", "weight": 0, "color": "d7e7f6"},
-	{"id": "cinder_purse", "boss": "inferno", "name": "Coin purse", "kind": "coins", "amount": 64, "rarity": "common", "weight": 22, "color": "f0b429"},
-	{"id": "cinder_pouch", "boss": "inferno", "name": "Heavy purse", "kind": "coins", "amount": 150, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
-	{"id": "ash_clump", "boss": "inferno", "name": "Ash clump", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "6a534c"},
-	{"id": "ember_ore", "boss": "inferno", "name": "Ember ore", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "ff8a3c"},
-	{"id": "cinder_ember_cards", "boss": "inferno", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "common", "weight": 12, "color": "8fd14f"},
-	{"id": "cinder_pebble_cards", "boss": "inferno", "name": "Aldric relics", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "b89a5e"},
-	{"id": "cinder_mallet", "boss": "inferno", "name": "Infernofang", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "ff5a32"},
-	{"id": "cinder_plate", "boss": "inferno", "name": "Magma plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 6, "color": "a84830"},
-	{"id": "salamander_scale", "boss": "inferno", "name": "Colossus scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
-	{"id": "magma_charm", "boss": "inferno", "name": "Magma charm", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 4, "color": "ffd15a"},
-	{"id": "heart_of_ash", "boss": "inferno", "name": "Heart of inferno", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
-	{"id": "cinder_pet", "boss": "inferno", "name": "Emberling", "kind": "pet", "sprite": "cinder", "rarity": "very_rare", "weight": 0, "color": "ff5a32"},
+	{"id": "nimbus_purse", "boss": "nimbus", "name": "Coin purse", "kind": "coins", "amount": 56, "rarity": "common", "weight": 22, "color": "f0b429"},
+	{"id": "nimbus_pouch", "boss": "nimbus", "name": "Heavy purse", "kind": "coins", "amount": 130, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
+	{"id": "frost_wool", "boss": "nimbus", "name": "Rimefang pelt", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d7e7f6"},
+	{"id": "ice_shard", "boss": "nimbus", "name": "Ice shard", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "9fd4ef"},
+	{"id": "nimbus_lumen_cards", "boss": "nimbus", "name": "Barbarian relics", "kind": "cards", "hero": "barbarian", "amount": 2, "rarity": "common", "weight": 12, "color": "c0392b"},
+	{"id": "nimbus_bramble_cards", "boss": "nimbus", "name": "Necromancer relics", "kind": "cards", "hero": "necromancer", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "5f7a6b"},
+	{"id": "nimbus_sling", "boss": "nimbus", "name": "Frostfang blade", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d7e7f6"},
+	{"id": "nimbus_coat", "boss": "nimbus", "name": "Rimeguard coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8aa4c0"},
+	{"id": "hare_fluff", "boss": "nimbus", "name": "Wraith wisp", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
+	{"id": "storm_bell", "boss": "nimbus", "name": "Storm sigil", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffe08a"},
+	{"id": "aurora_shard", "boss": "nimbus", "name": "Aurora shard", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "b7f0ff"},
+	{"id": "nimbus_pet", "boss": "nimbus", "name": "Rimeling", "kind": "pet", "sprite": "nimbus", "rarity": "very_rare", "weight": 0, "color": "d7e7f6"},
+	{"id": "cinder_purse", "boss": "cinder", "name": "Coin purse", "kind": "coins", "amount": 64, "rarity": "common", "weight": 22, "color": "f0b429"},
+	{"id": "cinder_pouch", "boss": "cinder", "name": "Heavy purse", "kind": "coins", "amount": 150, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
+	{"id": "ash_clump", "boss": "cinder", "name": "Ash clump", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "6a534c"},
+	{"id": "ember_ore", "boss": "cinder", "name": "Ember ore", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "ff8a3c"},
+	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Sorceress relics", "kind": "cards", "hero": "sorceress", "amount": 3, "rarity": "common", "weight": 12, "color": "8e44ad"},
+	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Paladin relics", "kind": "cards", "hero": "paladin", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "f1c40f"},
+	{"id": "cinder_mallet", "boss": "cinder", "name": "Cinderfang", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "ff5a32"},
+	{"id": "cinder_plate", "boss": "cinder", "name": "Ash plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "a84830"},
+	{"id": "salamander_scale", "boss": "cinder", "name": "Cinder scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
+	{"id": "magma_charm", "boss": "cinder", "name": "Magma charm", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffd15a"},
+	{"id": "heart_of_ash", "boss": "cinder", "name": "Heart of ash", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
+	{"id": "cinder_pet", "boss": "cinder", "name": "Ashling", "kind": "pet", "sprite": "cinder", "rarity": "very_rare", "weight": 0, "color": "ff5a32"},
+	# --- Lair hoards -----------------------------------------------------------
+	# A lair boss keeps no common coin: every row of its table is rare or
+	# better, so the kill is a haul and never a pocket lint (guarantee).
+	{"id": "boreal_coat", "boss": "boreal", "name": "Glacierguard coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 6, "color": "8aa4c0"},
+	{"id": "boreal_sling", "boss": "boreal", "name": "Wyrmfang bow", "kind": "gear", "slot": "weapon", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "b7f0ff"},
+	{"id": "frost_sigil", "boss": "boreal", "name": "Frost sigil", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 4, "color": "ffe08a"},
+	{"id": "wyrm_essence", "boss": "boreal", "name": "Wyrm essence", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
+	{"id": "boreal_heart", "boss": "boreal", "name": "Boreal heart", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "b7f0ff"},
+	{"id": "boreal_hoard", "boss": "boreal", "name": "Wyrm hoard", "kind": "coins", "amount": 180, "rarity": "very_rare", "weight": 3, "color": "f0b429"},
+	{"id": "boreal_lumen_cards", "boss": "boreal", "name": "Barbarian relics", "kind": "cards", "hero": "barbarian", "amount": 2, "rarity": "rare", "weight": 3, "color": "c0392b"},
+	{"id": "boreal_pet", "boss": "boreal", "name": "Frostling", "kind": "pet", "sprite": "boreal", "rarity": "very_rare", "weight": 0, "color": "b7f0ff"},
+	{"id": "inferno_plate", "boss": "inferno", "name": "Magma plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 6, "color": "a84830"},
+	{"id": "inferno_mallet", "boss": "inferno", "name": "Infernofang", "kind": "gear", "slot": "weapon", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "ff6a1a"},
+	{"id": "inferno_charm", "boss": "inferno", "name": "Inferno charm", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 4, "color": "ffd15a"},
+	{"id": "colossus_scale", "boss": "inferno", "name": "Colossus scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
+	{"id": "heart_of_inferno", "boss": "inferno", "name": "Heart of inferno", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
+	{"id": "inferno_hoard", "boss": "inferno", "name": "Colossus hoard", "kind": "coins", "amount": 220, "rarity": "very_rare", "weight": 3, "color": "f0b429"},
+	{"id": "inferno_ember_cards", "boss": "inferno", "name": "Sorceress relics", "kind": "cards", "hero": "sorceress", "amount": 3, "rarity": "rare", "weight": 3, "color": "8e44ad"},
+	{"id": "inferno_pet", "boss": "inferno", "name": "Emberling", "kind": "pet", "sprite": "inferno", "rarity": "very_rare", "weight": 0, "color": "ff6a1a"},
 ]
 
 ## Gathering skills. They are account-wide, not per hero (see docs/gathering.md):
@@ -844,9 +1040,9 @@ const SLAYER_TASKS: Array = [
 	{"id": "mushroom_critters", "text": "Defeat 50 Mushroom beasts", "biome": "mushroom", "kind": "minion", "need": 50, "points": 30},
 	{"id": "caplet_task", "text": "Defeat Nightmaw", "biome": "mushroom", "kind": "boss", "need": 1, "points": 50},
 	{"id": "frost_critters", "text": "Defeat 50 Frost beasts", "biome": "frost", "kind": "minion", "need": 50, "points": 35},
-	{"id": "boreal_task", "text": "Defeat Boreal", "biome": "frost", "kind": "boss", "need": 1, "points": 60},
+	{"id": "nimbus_task", "text": "Defeat Nimbus", "biome": "frost", "kind": "boss", "need": 1, "points": 60},
 	{"id": "volcano_critters", "text": "Defeat 60 Volcano beasts", "biome": "volcano", "kind": "minion", "need": 60, "points": 40},
-	{"id": "inferno_task", "text": "Defeat Inferno", "biome": "volcano", "kind": "boss", "need": 1, "points": 70},
+	{"id": "cinder_task", "text": "Defeat Cinder", "biome": "volcano", "kind": "boss", "need": 1, "points": 70},
 ]
 
 const SLAYER_SHOP: Array = [
@@ -863,16 +1059,21 @@ static func skill_trophy(id: String) -> Dictionary:
 	return {}
 
 
-## The old boss ids and the lair boss that took over their lair. The Frost
-## and Volcano bosses were renamed when their lairs changed (Boreal,
-## Inferno), but the old ids still resolve to the same rows, so an old save
-## or an old lookup finds what it always did.
-const LEGACY_BOSSES: Dictionary = {"nimbus": "boreal", "cinder": "inferno"}
+## The old boss ids and the boss that holds their lair now. Nimbus and Cinder
+## own rows of their own -- they stand beside the lair bosses (Boreal,
+## Inferno), they do not become them -- so no id moves and the map is empty.
+## An old save still resolves: every boss id it names is a live boss.
+const LEGACY_BOSSES: Dictionary = {}
 
 
-## The boss id a lookup should use: a legacy id maps to the boss that holds
-## its lair now, so every id that is referenced anywhere still resolves.
+## The boss id a lookup should use. A legacy id maps to the boss that holds
+## its lair now, but never away from a boss that owns rows of its own: the
+## drops of Nimbus are Nimbus', the drops of Cinder are Cinder's. An id that
+## is unknown here resolves to itself, so an old save never lands on nothing.
 static func resolve_boss(boss_id: String) -> String:
+	for entry in DROPS:
+		if str(entry["boss"]) == boss_id:
+			return boss_id
 	return str(LEGACY_BOSSES.get(boss_id, boss_id))
 
 
@@ -891,14 +1092,21 @@ static func all_drops() -> Array:
 
 ## Collection-log order: walk the world's biomes in unlock order, then the
 ## rarest last inside each, then id, so the grid never reshuffles between
-## visits and the "x / y" counts line up with what the player sees.
+## visits and the "x / y" counts line up with what the player sees. A
+## biome's lairs follow its own boss, so every drop in the catalog is on the
+## board and the log never hides a hoard.
 static func log_entries() -> Array:
 	var rows: Array = []
 	for biome in BIOMES:
-		var boss := resolve_boss(str(biome["boss"]))
+		# The biome's own boss and the lairs that stand in the same ground:
+		# every drop in the catalog is on the board, so the log never hides
+		# a hoard.
+		var owners: Array = [str(biome["boss"])]
+		for lair in lairs_for(str(biome["id"])):
+			owners.append(str(lair["id"]))
 		var group: Array = []
 		for entry in DROPS:
-			if str(entry["boss"]) == boss:
+			if str(entry["boss"]) in owners:
 				group.append(entry)
 		group.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 			var ra := _log_rarity_rank(str(a.get("rarity", "common")))
@@ -943,6 +1151,51 @@ static func bosses() -> Array:
 	for entry in BIOMES:
 		ids.append(str(entry["boss"]))
 	return ids
+
+
+## The lairs of a ground, in catalog order. A biome may hold none.
+static func lairs_for(biome_id: String) -> Array:
+	var out: Array = []
+	for entry in LAIRS:
+		if str(entry["biome"]) == biome_id:
+			out.append(entry)
+	return out
+
+
+## Every lair boss id. The biome bosses are separate: a lair stands beside
+## the biome boss, it never replaces it.
+static func lair_bosses() -> Array:
+	var out: Array = []
+	for entry in LAIRS:
+		out.append(str(entry["id"]))
+	return out
+
+
+## The lair row of a boss id, or {} for a plain biome boss.
+static func lair_for(boss_id: String) -> Dictionary:
+	for entry in LAIRS:
+		if str(entry["id"]) == boss_id:
+			return entry
+	return {}
+
+
+## The rows a boss always pays: the rare-or-better rows of its own table,
+## when it carries a guarantee ("rare" for a lair boss). A biome boss without
+## a guarantee pays its weighted roll alone, so the old bosses never change.
+static func guaranteed_drops(boss_id: String) -> Array:
+	var boss := critter(boss_id)
+	var floor := str(boss.get("guarantee", ""))
+	if floor == "":
+		return []
+	var want := _log_rarity_rank(floor)
+	var rows: Array = []
+	for entry in drop_table(boss_id):
+		if str(entry.get("kind", "")) == "pet":
+			# Pets are rolled on their own (PET_RATE), never as a guarantee.
+			continue
+		if _log_rarity_rank(str(entry.get("rarity", "common"))) >= want:
+			rows.append(entry)
+	return rows
 
 
 static func is_reveal(drop: Dictionary) -> bool:

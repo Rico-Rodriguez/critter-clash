@@ -30,24 +30,31 @@ const TIER_MUL: Array[float] = [0.0, 1.0, 1.7, 2.6]
 const SAVE_KEY := "armory"
 const SAVE_V := 2
 
-## Heroes and the slots each can fill (Gnash fights bare-handed: no off-hand).
+## Heroes and the slots each can fill (Sorceress, Rogue and the two new
+## casters fight bare-handed: no off-hand).
 const HERO_SLOTS := {
-	"pebble": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"],
-	"bramble": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"],
-	"lumen": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
-	"ember": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"],
+	"barbarian": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"],
+	"paladin": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"],
+	"sorceress": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
+	"rogue": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
+	"necromancer": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
+	"druid": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
 }
 
 ## Per-hero, per-slot base name; the tier prefixes it ("Iron Bascinet").
 const NAMES := {
-	"pebble": {"helm": "Horned Helm", "chest": "Cuirass", "pauldrons": "Pauldrons", "gloves": "Gauntlets",
-		"boots": "Sabatons", "weapon": "Longsword", "offhand": "Tower Shield", "charm": "Oath Seal"},
-	"bramble": {"helm": "Grave Crown", "chest": "Ribcage Plate", "pauldrons": "Bone Spaulders", "gloves": "Ossuary Grips",
-		"boots": "Grave Greaves", "weapon": "Duelist Blade", "offhand": "Parrying Dirk", "charm": "Soul Lantern"},
-	"lumen": {"helm": "Jaw Cage", "chest": "Stitched Hide", "pauldrons": "Spiked Mantle", "gloves": "Claw Caps",
-		"boots": "Wraps", "weapon": "Cleaver Claws", "charm": "Fang Totem"},
-	"ember": {"helm": "Beak Mask", "chest": "Oilcloth Coat", "pauldrons": "Crow Mantle", "gloves": "Leech Gloves",
-		"boots": "Mire Boots", "weapon": "Censer Staff", "offhand": "Plague Bell", "charm": "Vial of Rot"},
+	"barbarian": {"helm": "Horned Helm", "chest": "Cuirass", "pauldrons": "Pauldrons", "gloves": "Gauntlets",
+		"boots": "Sabatons", "weapon": "Twin Axes", "offhand": "War Shield", "charm": "Rage Totem"},
+	"paladin": {"helm": "Crusader Helm", "chest": "Blessed Plate", "pauldrons": "Holy Pauldrons", "gloves": "Gauntlets of Light",
+		"boots": "Sabatons of Faith", "weapon": "Holy Sword", "offhand": "Blessed Shield", "charm": "Zakarum Seal"},
+	"sorceress": {"helm": "Circlet", "chest": "Robes", "pauldrons": "Mantle", "gloves": "Gloves",
+		"boots": "Sandals", "weapon": "Staff", "charm": "Amulet"},
+	"rogue": {"helm": "Hood", "chest": "Jerkin", "pauldrons": "Shoulder Guards", "gloves": "Bracers",
+		"boots": "Boots", "weapon": "Bow", "charm": "Quiver"},
+	"necromancer": {"helm": "Bone Circlet", "chest": "Ossuary Robes", "pauldrons": "Ribbed Mantle", "gloves": "Fingerbone Wraps",
+		"boots": "Grave Sandals", "weapon": "Ossuary Wand", "charm": "Soul Lantern"},
+	"druid": {"helm": "Antler Crown", "chest": "Thornwood Hide", "pauldrons": "Bark Pauldrons", "gloves": "Bramble Gloves",
+		"boots": "Rootbound Boots", "weapon": "Thornwood Maul", "charm": "Seed Totem"},
 }
 const TIER_PREFIX: Array[String] = ["", "Iron", "Blackened", "Runebound"]
 
@@ -92,7 +99,8 @@ const SLOT_SKILL := {
 	"helm": "defence", "chest": "defence", "boots": "defence", "offhand": "defence",
 	"pauldrons": "strength", "gloves": "strength", "weapon": "", "charm": "hitpoints",
 }
-const WEAPON_SKILL := {"pebble": "attack", "bramble": "attack", "lumen": "attack", "ember": "magic"}
+const WEAPON_SKILL := {"barbarian": "attack", "paladin": "attack", "sorceress": "magic", "rogue": "ranged",
+	"necromancer": "magic", "druid": "attack"}
 ## Per-item overrides: item_id -> {skill: level}. Merged over the default.
 const REQ_OVERRIDES := {}
 
