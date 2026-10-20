@@ -107,7 +107,7 @@ static func roll_affixes(rng: RandomNumberGenerator, rarity: int) -> Array[Dicti
 			pool.append(affix)
 	var out: Array[Dictionary] = []
 	var available := pool.duplicate()
-	for _ in range(count):
+	for i in range(count):
 		if available.is_empty():
 			break
 		var idx := rng.randi() % available.size()
