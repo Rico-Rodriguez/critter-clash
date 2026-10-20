@@ -3364,7 +3364,11 @@ func _split_hero(body: Node3D) -> void:
 	_hero_vp = SubViewport.new()
 	_hero_vp.transparent_bg = true
 	_hero_vp.world_3d = viewport.find_world_3d()
-	_hero_vp.msaa_3d = viewport.msaa_3d
+	# The pedestal only needs a small silhouette of the hero, so render it at
+	# a fraction of the frame resolution instead of the full viewport size.
+	_hero_vp.scaling_3d_scale = 0.6
+	_hero_vp.scaling_3d_mode = SubViewport.SCALING_3D_MODE_FSR
+	_hero_vp.msaa_3d = Viewport.MSAA_DISABLED
 	_hero_vp.use_debanding = true
 	_hero_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_hero_vp.size = viewport.size
