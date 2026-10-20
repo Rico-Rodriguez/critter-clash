@@ -59,8 +59,8 @@ var _frame_acc := 0.0
 var _frame_n := 0
 var _slow_windows := 0
 var _props: Array = []
-## Contact shadows under the props: the spot they sit on, the height of the
-## ground they stand on, and how wide the shadow is.
+## Contact shadows under the props: the spot they sit on, how wide the
+## shadow is, and the height of the ground they stand on.
 var _contacts: Array[Vector4] = []
 ## The ground the decals lie on: the trail width the terrain shader paints
 ## with, the explore map's corridors, and the sampled heights under them.
@@ -1165,7 +1165,7 @@ func _scatter_kit(rng: RandomNumberGenerator, model: String, count: int, lo: flo
 		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc)
 		spots.append(Transform3D(basis, at))
 		if model == "stump":
-			_contacts.append(Vector3(at.x, at.z, 0.6 * sc))
+			_contacts.append(Vector4(at.x, at.z, 0.6 * sc, _ground_height(Vector2(at.x, at.z))))
 	for mi_node in probe.find_children("*", "MeshInstance3D", true, false):
 		var mi := mi_node as MeshInstance3D
 		if mi.mesh == null:
@@ -1339,7 +1339,7 @@ func _pose_prop(node: Node3D, model: String, at: Vector3, scale: float) -> void:
 	var contact := {"rock": 0.75, "pebble": 0.55, "log": 1.0, "stump": 0.6, "tree": 1.1, "mushroom_tall": 0.5, "bush": 0.8}
 	for key in contact.keys():
 		if model.begins_with(key):
-			_contacts.append(Vector3(at.x, at.z, float(contact[key]) * scale))
+			_contacts.append(Vector4(at.x, at.z, float(contact[key]) * scale, _ground_height(Vector2(at.x, at.z))))
 			break
 	node.scale *= scale
 	node.rotation.y = randf() * TAU
@@ -1385,7 +1385,9 @@ static var _leaf_cache := {}
 
 
 ## One multimesh of soft dark discs under every prop: cheap contact shadow
-## and ambient occlusion where the Mobile renderer has no SSAO.
+## and ambient occlusion where the Mobile renderer has no SSAO. Each disc
+## sits on the terrain under its prop and follows the slope there, so it
+## never floats over a bump or sinks into the next one.
 func _build_contacts() -> void:
 	if _contact_node:
 		_contact_node.queue_free()
@@ -1415,8 +1417,10 @@ func _build_contacts() -> void:
 	mm.instance_count = _contacts.size()
 	for i in _contacts.size():
 		var c := _contacts[i]
-		var y := 0.03
-		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(c.z, 1, c.z)), Vector3(c.x, y, c.y)))
+		var xz := Vector2(c.x, c.y)
+		var y := c.w + 0.03
+		var basis := _ground_basis(xz) * Basis.from_scale(Vector3(c.z, 1, c.z))
+		mm.set_instance_transform(i, Transform3D(basis, Vector3(c.x, y, c.y)))
 	_contact_node = MultiMeshInstance3D.new()
 	_contact_node.multimesh = mm
 	_contact_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -3180,7 +3184,7 @@ static func _hash21(p: Vector2) -> float:
 static func _noise(p: Vector2) -> float:
 	var i := Vector2(floor(p.x), floor(p.y))
 	var f := p - i
-	f = f * f * (3.0 - 2.0 * f)
+	f = f * f * (Vector2(3.0, 3.0) - f * 2.0)
 	var a := _hash21(i)
 	var b := _hash21(i + Vector2(1.0, 0.0))
 	var c := _hash21(i + Vector2(0.0, 1.0))
@@ -3256,33 +3260,6 @@ static func _seg_distance(p: Vector2, seg: Vector4) -> float:
 	var ab := b - a
 	var t := clampf((p - a).dot(ab) / maxf(ab.dot(ab), 1e-4), 0.0, 1.0)
 	return (p - a - ab * t).length()
-
-
-## Marks a decal as ground-hugging: it rides with its body, so it is seated
-## on the terrain under the body every frame.
-func _ground_decal(body: Node3D, node: Node3D, lift: float) -> void:
-	node.position.y = lift
-	var list: Array = body.get_meta("ground_decals", [])
-	list.append({"node": node, "lift": lift})
-	body.set_meta("ground_decals", list)
-
-
-## Seats the ground decals that ride on a body: they follow the terrain
-## under it, so the shadow under a critter never floats or sinks.
-func _seat_body_decals(body: Node3D) -> void:
-	var list: Array = body.get_meta("ground_decals", [])
-	if list.is_empty():
-		return
-	var xz := Vector2(body.position.x, body.position.z)
-	var ground := _ground_at(xz)
-	var tilt := _ground_basis(xz)
-	var yaw := body.rotation.y
-	for entry in list:
-		var node := entry["node"] as Node3D
-		if not is_instance_valid(node):
-			continue
-		node.position.y = float(ground["h"]) + float(entry["lift"]) - body.position.y
-		node.basis = Basis(Vector3.UP, -yaw) * tilt
 
 
 ## Reach ring: a faint hairline at the hero's real attack reach, per class.
