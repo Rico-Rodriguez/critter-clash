@@ -17,9 +17,15 @@ extends RefCounted
 
 ## source -> {chance, count: [min, max], weights: [iron, steel, rune]}
 ## Chests escalate with rarity: commons mostly iron, legendaries mostly rune.
+## Elite sources are biome-specific (Fringe/Wilds/Deep/Abyss) with boosted
+## weights toward higher tiers. The base "elite" source remains as fallback.
 const SOURCES := {
 	"camp": {"chance": 0.06, "count": [1, 1], "weights": [85, 14, 1]},
 	"elite": {"chance": 0.30, "count": [1, 1], "weights": [60, 35, 5]},
+	"elite_fringe": {"chance": 0.30, "count": [1, 1], "weights": [70, 25, 5]},
+	"elite_wilds": {"chance": 0.35, "count": [1, 1], "weights": [50, 40, 10]},
+	"elite_deep": {"chance": 0.40, "count": [1, 2], "weights": [35, 45, 20]},
+	"elite_abyss": {"chance": 0.50, "count": [1, 2], "weights": [20, 45, 35]},
 	"boss": {"chance": 1.0, "count": [1, 2], "weights": [35, 50, 15]},
 	"goblin": {"chance": 1.0, "count": [1, 1], "weights": [20, 55, 25]},
 	"chest_common": {"chance": 0.40, "count": [1, 1], "weights": [80, 18, 2]},
@@ -34,9 +40,14 @@ const SOURCES := {
 ## but never rune. Rune unlocks at frost (idx 2) for the boss, the goblin and
 ## the rare-and-better chests first, then spreads to every source at volcano
 ## (idx 3), so it grows with depth. Values are GearDB.Tier (1..3).
+## Elite biome variants share the same depth caps as the base elite source.
 const MAX_TIER_BY_DEPTH := {
 	"camp": [1, 2, 2, 3],
 	"elite": [1, 2, 2, 3],
+	"elite_fringe": [1, 2, 2, 3],
+	"elite_wilds": [1, 2, 2, 3],
+	"elite_deep": [1, 2, 3, 3],
+	"elite_abyss": [1, 2, 3, 3],
 	"boss": [1, 2, 3, 3],
 	"goblin": [1, 2, 3, 3],
 	"chest_common": [1, 2, 2, 3],
@@ -193,6 +204,23 @@ static func _pick(rng: RandomNumberGenerator, hero: String, tier: int) -> String
 			return id
 		slot = str(slots[rng.randi() % slots.size()])
 	return GearDB.item_id(h, slot, tier)
+
+
+## Returns the biome-specific elite source key for a biome index.
+## Fringe (0) -> elite_fringe, Wilds (1) -> elite_wilds, Deep (2) -> elite_deep, Abyss (3) -> elite_abyss.
+## Falls back to base "elite" for unknown indices.
+static func elite_source(biome_idx: int) -> String:
+	match biome_idx:
+		0:
+			return "elite_fringe"
+		1:
+			return "elite_wilds"
+		2:
+			return "elite_deep"
+		3:
+			return "elite_abyss"
+		_:
+			return "elite"
 
 
 # --- Gathering resources -----------------------------------------------------
