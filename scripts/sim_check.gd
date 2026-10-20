@@ -2161,7 +2161,7 @@ static func _boss_gear_check() -> void:
 	SaveGame.data = SaveGame._fresh()
 	GearDB.store_override = {}
 	hero = SaveGame.featured_id()
-	var frost_cap := LootTable.max_tier("boss", 2)
+	var frost_cap: int = int(LootTable.max_tier("boss", 2))
 	var frost_rare := _boss_gear_row("nimbus", "rare")
 	var steel: Dictionary = SaveGame._grant_boss_gear(frost_rare, "frost")
 	var steel_item := GearDB.item(str(steel.get("id", "")))
@@ -3055,7 +3055,7 @@ static func _gear_gating_check() -> void:
 	if LootTable.max_tier("chest_common", 2) >= GearDB.Tier.RUNE or LootTable.max_tier("camp", 2) >= GearDB.Tier.RUNE:
 		_fail("frost camp/common chest can reach rune")
 	for source in sources:
-		var cap := LootTable.max_tier(str(source), 2)
+		var cap: int = int(LootTable.max_tier(str(source), 2))
 		for _i in deep_rolls:
 			for id in LootTable.roll(rng, str(source), "ember", 2):
 				if int(str(id).get_slice(".", 2)) > cap:

@@ -296,23 +296,6 @@ static func _pick(rng: RandomNumberGenerator, hero: String, tier: int) -> String
 	return GearDB.item_id(h, slot, tier)
 
 
-## Returns the biome-specific elite source key for a biome index.
-## Fringe (0) -> elite_fringe, Wilds (1) -> elite_wilds, Deep (2) -> elite_deep, Abyss (3) -> elite_abyss.
-## Falls back to base "elite" for unknown indices.
-static func elite_source(biome_idx: int) -> String:
-	match biome_idx:
-		0:
-			return "elite_fringe"
-		1:
-			return "elite_wilds"
-		2:
-			return "elite_deep"
-		3:
-			return "elite_abyss"
-		_:
-			return "elite"
-
-
 # --- Gathering resources -----------------------------------------------------
 
 ## The drop table of a resource node, or [] for a node without one.
