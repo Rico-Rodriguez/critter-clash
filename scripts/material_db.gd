@@ -35,6 +35,11 @@ const PRICES: Dictionary = {
 	"ember_ore": 8,
 	"salamander_scale": 10,
 	"heart_of_ash": 16,
+	# --- Lair materials (Catalog.LAIRS): a rare and a very rare one each ---
+	"wyrm_essence": 10,
+	"boreal_heart": 16,
+	"colossus_scale": 10,
+	"heart_of_inferno": 16,
 	# --- Gathered resources (GatheringDB.RESOURCES) ---
 	# Eight per skill, one per node tier: the better node pays a dearer
 	# material, so the deeper biomes are worth the trip.

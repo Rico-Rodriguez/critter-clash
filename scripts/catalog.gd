@@ -313,6 +313,7 @@ const BIOMES: Array = [
 		"id": "meadow",
 		"name": "Meadow",
 		"boss": "thistle",
+		"lairs": [],
 		"gate": 0,
 		"need": "",
 		"recommended_level": 3,
@@ -326,6 +327,7 @@ const BIOMES: Array = [
 		"id": "mushroom",
 		"name": "Mushroom Forest",
 		"boss": "caplet",
+		"lairs": [],
 		"gate": 30,
 		"need": "meadow",
 		"recommended_level": 20,
@@ -339,6 +341,7 @@ const BIOMES: Array = [
 		"id": "frost",
 		"name": "Frost Peaks",
 		"boss": "nimbus",
+		"lairs": ["boreal"],
 		"gate": 80,
 		"need": "mushroom",
 		"recommended_level": 40,
@@ -352,6 +355,7 @@ const BIOMES: Array = [
 		"id": "volcano",
 		"name": "Ember Volcano",
 		"boss": "cinder",
+		"lairs": ["inferno"],
 		"gate": 150,
 		"need": "frost",
 		"recommended_level": 55,
@@ -360,6 +364,28 @@ const BIOMES: Array = [
 		"boss_mul": 1.58,
 		"skins": ["cindling", "skink", "ashbat", "magmash"],
 		"blurb": "Warm stone and slow lava. Cinder naps in it.",
+	},
+]
+
+## The boss lairs: a second lair inside a biome, beside the biome boss that
+## holds the ridge. A lair is a boss of its own -- its own critter, its own
+## drop table, its own promise -- and it never replaces the biome boss: both
+## stand in the same ground. A lair also carries the rarity floor of its
+## payout ("guarantee"), so a lair kill always lands rare or better.
+const LAIRS: Array = [
+	{
+		"id": "boreal",
+		"name": "Boreal, the Frost Wyrm",
+		"biome": "frost",
+		"tier": "deep",
+		"guarantee": "rare",
+	},
+	{
+		"id": "inferno",
+		"name": "Inferno, the Magma Colossus",
+		"biome": "volcano",
+		"tier": "abyss",
+		"guarantee": "rare",
 	},
 ]
 
@@ -377,6 +403,35 @@ const TIER_MUL: Array = [
 	{"hp": 1.8, "dmg": 1.45, "density": 1.35, "elite": 0.22, "loot": 2, "xp": 2.25, "aggro": 1.55},
 ]
 
+## The four depth tiers of the world, shallowest first. Each biome sits in one
+## of them: the Fringe is the meadow rim, the Wilds the mushroom wood, the
+## Deep the frost peaks and the Abyss the volcano.
+const DEPTH_TIERS: Array[String] = ["fringe", "wilds", "deep", "abyss"]
+
+## Elite spawn chance per depth tier. The Fringe keeps the shallows clean
+## (0%), the Wilds throws up the odd elite pack (5%), the Deep makes them
+## regular fare (15%) and the Abyss is crawling with them (30%).
+const ELITE_SPAWN_BY_TIER: Dictionary = {
+	"fringe": 0.0,
+	"wilds": 0.05,
+	"deep": 0.15,
+	"abyss": 0.30,
+}
+
+## The same chances keyed by biome id, so a biome can be asked directly. The
+## table mirrors ELITE_SPAWN_BY_TIER: the Fringe is the meadow, the Wilds the
+## mushroom wood, the Deep the frost peaks, the Abyss the volcano.
+const ELITE_SPAWN_BY_BIOME: Dictionary = {
+	"meadow": 0.0,
+	"mushroom": 0.05,
+	"frost": 0.15,
+	"volcano": 0.30,
+}
+
+## The ceiling on the elite chance: a difficulty tier adds its own chance on
+## top of the biome's, and no ground ever turns into a guaranteed elite.
+const ELITE_CHANCE_CAP := 0.6
+
 
 static func tier_mul(tier: int) -> Dictionary:
 	return TIER_MUL[clampi(tier, 0, TIER_COUNT - 1)]
@@ -384,6 +439,59 @@ static func tier_mul(tier: int) -> Dictionary:
 
 static func tier_name(tier: int) -> String:
 	return TIER_NAMES[clampi(tier, 0, TIER_COUNT - 1)]
+
+
+## The elite spawn chance of a ground. The key may be a biome id ("frost"), a
+## depth tier ("deep"), a biome name ("Frost Peaks") or a biome index (2), so
+## every caller can ask the question the way it holds the answer.
+static func elite_spawn_chance(key: Variant) -> float:
+	match typeof(key):
+		TYPE_INT, TYPE_FLOAT:
+			return elite_spawn_chance_tier(int(key))
+		_:
+			var id := _key_id(str(key))
+			if ELITE_SPAWN_BY_BIOME.has(id):
+				return float(ELITE_SPAWN_BY_BIOME[id])
+			if ELITE_SPAWN_BY_TIER.has(id):
+				return float(ELITE_SPAWN_BY_TIER[id])
+			for entry in BIOMES:
+				if _key_id(str(entry["id"])) == id or _key_id(str(entry["name"])) == id:
+					return float(ELITE_SPAWN_BY_TIER.get(depth_tier(str(entry["id"])), 0.0))
+			return 0.0
+
+
+## The elite spawn chance of a depth tier by index (0 = fringe).
+static func elite_spawn_chance_tier(tier: int) -> float:
+	var idx := clampi(tier, 0, DEPTH_TIERS.size() - 1)
+	return float(ELITE_SPAWN_BY_TIER.get(DEPTH_TIERS[idx], 0.0))
+
+
+## The depth tier a ground sits in ("fringe", "wilds", "deep", "abyss").
+static func depth_tier(id: String) -> String:
+	var key := _key_id(id)
+	for i in BIOMES.size():
+		var entry: Dictionary = BIOMES[i]
+		if _key_id(str(entry["id"])) == key or _key_id(str(entry["name"])) == key:
+			return DEPTH_TIERS[clampi(i, 0, DEPTH_TIERS.size() - 1)]
+	return DEPTH_TIERS[0]
+
+
+## The visible aura flag: an elite wears its glow where the ground allows
+## elite spawns at all. The Fringe never shows one.
+static func elite_has_aura(key: Variant) -> bool:
+	return elite_spawn_chance(key) > 0.0
+
+
+## The chance a wild critter here is promoted to an elite on a difficulty
+## tier: the biome's own chance plus the tier's, under the cap.
+static func elite_chance(biome_id: String, tier: int) -> float:
+	var base := elite_spawn_chance(biome_id)
+	return clampf(base + float(tier_mul(tier).get("elite", 0.0)), 0.0, ELITE_CHANCE_CAP)
+
+
+## A loose key ("Frost Peaks", "FROST", " frost ") into a plain id.
+static func _key_id(text: String) -> String:
+	return text.strip_edges().to_lower().replace(" ", "_")
 
 
 ## Intra-tier depth scaling (0.0 at biome start, 1.0 at boss lair).
@@ -708,6 +816,36 @@ const CRITTERS: Dictionary = {
 		"bias_charge": 0.22, "bias_aoe": 0.50,
 		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
 	},
+	# Boreal, the Frost Wyrm: the lair boss of the Deep (Frost Peaks). He
+	# stands beside Nimbus, never in his place, and his hoard is rare or
+	# better (guarantee).
+	"boreal": {
+		"name": "Boreal", "role": "archer", "kind": "boss", "color": "b7f0ff",
+		"blurb": "Deep lair boss. A frost wyrm that breathes rime, scales pale as glaciers.",
+		"unlock": "Frost Peaks lair boss.",
+		"hp": 136, "dmg": 18, "interval": 0.35, "range": 430, "speed": 280,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 850, "armor": 0,
+		"boss_hp": 1800, "boss_speed": 88, "boss_radius": 85, "boss_touch": 16,
+		"aoe": 24, "charge": 30, "shot": 14,
+		"bias_charge": 0.35, "bias_aoe": 0.25,
+		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
+		"guarantee": "rare",
+	},
+	# Inferno, the Magma Colossus: the lair boss of the Abyss (Ember
+	# Volcano). He stands beside Cinder, never in his place, and his hoard
+	# is rare or better (guarantee).
+	"inferno": {
+		"name": "Inferno", "role": "mage", "kind": "boss", "color": "ff6a1a",
+		"blurb": "Abyss lair boss. A magma colossus, core burning white-hot through cracked plate.",
+		"unlock": "Ember Volcano lair boss.",
+		"hp": 184, "dmg": 22, "interval": 0.55, "range": 310, "speed": 220,
+		"splash": 110, "splash_mul": 0.78, "proj_speed": 420, "armor": 2,
+		"boss_hp": 2100, "boss_speed": 60, "boss_radius": 90, "boss_touch": 20,
+		"aoe": 32, "charge": 28, "shot": 12,
+		"bias_charge": 0.20, "bias_aoe": 0.55,
+		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
+		"guarantee": "rare",
+	},
 	"sprout": {"name": "Rot Badger", "kind": "minion", "archetype": "chaser", "color": "67b85a", "hp": 28, "dmg": 7, "speed": 96, "radius": 24, "xp": 2, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
 	"beetle": {"name": "Barrow Scarab", "kind": "minion", "archetype": "runner", "color": "d2a03a", "hp": 38, "dmg": 8, "speed": 128, "radius": 22, "xp": 3, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
 	"moth": {"name": "Grave Moth", "kind": "minion", "archetype": "shooter", "color": "f0e2b0", "hp": 22, "dmg": 7, "speed": 72, "radius": 22, "xp": 3, "interval": 1.55, "shot_speed": 200, "shot_range": 250, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.2},
@@ -777,6 +915,25 @@ const DROPS: Array = [
 	{"id": "magma_charm", "boss": "cinder", "name": "Magma charm", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 3, "color": "ffd15a"},
 	{"id": "heart_of_ash", "boss": "cinder", "name": "Heart of ash", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
 	{"id": "cinder_pet", "boss": "cinder", "name": "Ashling", "kind": "pet", "sprite": "cinder", "rarity": "very_rare", "weight": 0, "color": "ff5a32"},
+	# --- Lair hoards -----------------------------------------------------------
+	# A lair boss keeps no common coin: every row of its table is rare or
+	# better, so the kill is a haul and never a pocket lint (guarantee).
+	{"id": "boreal_coat", "boss": "boreal", "name": "Glacierguard coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 6, "color": "8aa4c0"},
+	{"id": "boreal_sling", "boss": "boreal", "name": "Wyrmfang bow", "kind": "gear", "slot": "weapon", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "b7f0ff"},
+	{"id": "frost_sigil", "boss": "boreal", "name": "Frost sigil", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 4, "color": "ffe08a"},
+	{"id": "wyrm_essence", "boss": "boreal", "name": "Wyrm essence", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
+	{"id": "boreal_heart", "boss": "boreal", "name": "Boreal heart", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "b7f0ff"},
+	{"id": "boreal_hoard", "boss": "boreal", "name": "Wyrm hoard", "kind": "coins", "amount": 180, "rarity": "very_rare", "weight": 3, "color": "f0b429"},
+	{"id": "boreal_lumen_cards", "boss": "boreal", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "rare", "weight": 3, "color": "c0453a"},
+	{"id": "boreal_pet", "boss": "boreal", "name": "Frostling", "kind": "pet", "sprite": "boreal", "rarity": "very_rare", "weight": 0, "color": "b7f0ff"},
+	{"id": "inferno_plate", "boss": "inferno", "name": "Magma plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 6, "color": "a84830"},
+	{"id": "inferno_mallet", "boss": "inferno", "name": "Infernofang", "kind": "gear", "slot": "weapon", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "ff6a1a"},
+	{"id": "inferno_charm", "boss": "inferno", "name": "Inferno charm", "kind": "gear", "slot": "charm", "gear_rarity": "rare", "rarity": "rare", "weight": 4, "color": "ffd15a"},
+	{"id": "colossus_scale", "boss": "inferno", "name": "Colossus scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
+	{"id": "heart_of_inferno", "boss": "inferno", "name": "Heart of inferno", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
+	{"id": "inferno_hoard", "boss": "inferno", "name": "Colossus hoard", "kind": "coins", "amount": 220, "rarity": "very_rare", "weight": 3, "color": "f0b429"},
+	{"id": "inferno_ember_cards", "boss": "inferno", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "rare", "weight": 3, "color": "8fd14f"},
+	{"id": "inferno_pet", "boss": "inferno", "name": "Emberling", "kind": "pet", "sprite": "inferno", "rarity": "very_rare", "weight": 0, "color": "ff6a1a"},
 ]
 
 ## Gathering skills. They are account-wide, not per hero (see docs/gathering.md):
@@ -828,14 +985,21 @@ static func all_drops() -> Array:
 
 ## Collection-log order: walk the world's biomes in unlock order, then the
 ## rarest last inside each, then id, so the grid never reshuffles between
-## visits and the "x / y" counts line up with what the player sees.
+## visits and the "x / y" counts line up with what the player sees. A
+## biome's lairs follow its own boss, so every drop in the catalog is on the
+## board and the log never hides a hoard.
 static func log_entries() -> Array:
 	var rows: Array = []
 	for biome in BIOMES:
-		var boss := str(biome["boss"])
+		# The biome's own boss and the lairs that stand in the same ground:
+		# every drop in the catalog is on the board, so the log never hides
+		# a hoard.
+		var owners: Array = [str(biome["boss"])]
+		for lair in lairs_for(str(biome["id"])):
+			owners.append(str(lair["id"]))
 		var group: Array = []
 		for entry in DROPS:
-			if str(entry["boss"]) == boss:
+			if str(entry["boss"]) in owners:
 				group.append(entry)
 		group.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 			var ra := _log_rarity_rank(str(a.get("rarity", "common")))
@@ -879,6 +1043,51 @@ static func bosses() -> Array:
 	for entry in BIOMES:
 		ids.append(str(entry["boss"]))
 	return ids
+
+
+## The lairs of a ground, in catalog order. A biome may hold none.
+static func lairs_for(biome_id: String) -> Array:
+	var out: Array = []
+	for entry in LAIRS:
+		if str(entry["biome"]) == biome_id:
+			out.append(entry)
+	return out
+
+
+## Every lair boss id. The biome bosses are separate: a lair stands beside
+## the biome boss, it never replaces it.
+static func lair_bosses() -> Array:
+	var out: Array = []
+	for entry in LAIRS:
+		out.append(str(entry["id"]))
+	return out
+
+
+## The lair row of a boss id, or {} for a plain biome boss.
+static func lair_for(boss_id: String) -> Dictionary:
+	for entry in LAIRS:
+		if str(entry["id"]) == boss_id:
+			return entry
+	return {}
+
+
+## The rows a boss always pays: the rare-or-better rows of its own table,
+## when it carries a guarantee ("rare" for a lair boss). A biome boss without
+## a guarantee pays its weighted roll alone, so the old bosses never change.
+static func guaranteed_drops(boss_id: String) -> Array:
+	var boss := critter(boss_id)
+	var floor := str(boss.get("guarantee", ""))
+	if floor == "":
+		return []
+	var want := _log_rarity_rank(floor)
+	var rows: Array = []
+	for entry in drop_table(boss_id):
+		if str(entry.get("kind", "")) == "pet":
+			# Pets are rolled on their own (PET_RATE), never as a guarantee.
+			continue
+		if _log_rarity_rank(str(entry.get("rarity", "common"))) >= want:
+			rows.append(entry)
+	return rows
 
 
 static func is_reveal(drop: Dictionary) -> bool:

@@ -1201,6 +1201,13 @@ func _roll_boss(boss_id: String, rng: RandomNumberGenerator) -> Array:
 			pet = (entry as Dictionary).duplicate()
 		else:
 			weighted.append((entry as Dictionary).duplicate())
+	# A lair boss promises rare or better: its payout is drawn from the
+	# rare-and-better rows of its own table, so a lair kill is a haul and
+	# never a coin purse. A biome boss carries no promise and pays its
+	# weighted roll exactly as before.
+	var guaranteed := Catalog.guaranteed_drops(boss_id)
+	if not guaranteed.is_empty():
+		weighted = guaranteed
 	var got: Array = []
 	var picked := _weighted(rng, weighted)
 	if not picked.is_empty():

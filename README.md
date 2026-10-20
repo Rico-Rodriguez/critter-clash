@@ -30,7 +30,13 @@ On a win the boss rolls a drop table and you still bring a hunt chest home. The 
 
 Each boss has a weighted table of common, uncommon, rare, and very rare loot: coins, critter cards, gear, and crafting materials. A boss pet is a separate roll at 1/50 (`Catalog.PET_RATE`). Pets are cosmetic. The active pet follows your hero in a hunt and does not fight. A pet or a very rare drop plays a gold beam and a fanfare before the loot list.
 
-The collection log lists every drop and pet, 48 in all. Unobtained pictures are silhouettes. The header shows an obtained count such as 12/48, and each boss tab shows that boss's kill count.
+The collection log lists every drop and pet, 64 in all. Unobtained pictures are silhouettes. The header shows an obtained count such as 12/64, and each boss tab shows that boss's kill count.
+
+## Elites and boss lairs
+
+The ground sets how often a wild critter is promoted to an elite: the Fringe (meadow) never, the Wilds (mushroom) 5% of the time, the Deep (frost) 15% and the Abyss (volcano) 30%, plus the difficulty tier's own chance on top. An elite wears a visible aura where the ground allows them at all (`Catalog.elite_has_aura`), and its gear comes from a boosted drop table of its own (`LootTable.elite_source`: fringe, wilds, deep, abyss).
+
+A boss lair is a second boss inside a biome, standing beside the biome boss rather than in its place: Boreal, the Frost Wyrm in the Frost Peaks and Inferno, the Magma Colossus in the Ember Volcano (`Catalog.LAIRS`). A lair hoard holds no common coin: every row of a lair's drop table is rare or better, so a lair kill is a haul (`Catalog.guaranteed_drops`).
 
 ## Slayer
 

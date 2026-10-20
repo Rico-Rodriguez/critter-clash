@@ -84,7 +84,8 @@ func _fill() -> void:
 
 
 ## The tab row: biome tabs then Armory. The open one is gold, the rest iron,
-## all 88 px tall like every other tap target.
+## all 88 px tall like every other tap target. A biome's lair follows its
+## own tab, so the deep hoard has a board of its own.
 func _fill_tabs() -> void:
 	for child in tabs.get_children():
 		child.queue_free()
@@ -95,6 +96,13 @@ func _fill_tabs() -> void:
 		var button := UiKit.button(short, 160, 88, "gold") if on else UiKit.secondary(short, 160, 88)
 		button.pressed.connect(_tab.bind(id))
 		tabs.add_child(button)
+		for lair in Catalog.lairs_for(str(entry["id"])):
+			var lair_id := str(lair["id"])
+			var lair_name := str(Catalog.critter(lair_id).get("name", lair_id))
+			var lair_on := not armory and lair_id == boss_id
+			var lair_button := UiKit.button(lair_name, 160, 88, "gold") if lair_on else UiKit.secondary(lair_name, 160, 88)
+			lair_button.pressed.connect(_tab.bind(lair_id))
+			tabs.add_child(lair_button)
 	var armory_button := UiKit.button("Armory", 160, 88, "gold") if armory else UiKit.secondary("Armory", 160, 88)
 	armory_button.pressed.connect(_tab.bind(ARMORY))
 	tabs.add_child(armory_button)

@@ -21,15 +21,31 @@ extends RefCounted
 
 ## source -> {chance, count: [min, max], weights: [iron, steel, rune]}
 ## Chests escalate with rarity: commons mostly iron, legendaries mostly rune.
+## The elite sources are per depth tier (fringe/wilds/deep/abyss): the deeper
+## the ground, the more of an elite's gear is steel and rune. The plain
+## "elite" source stays as the fallback.
 const SOURCES := {
 	"camp": {"chance": 0.06, "count": [1, 1], "weights": [85, 14, 1]},
 	"elite": {"chance": 0.30, "count": [1, 1], "weights": [60, 35, 5]},
+	"elite_fringe": {"chance": 0.30, "count": [1, 1], "weights": [65, 30, 5]},
+	"elite_wilds": {"chance": 0.35, "count": [1, 1], "weights": [50, 40, 10]},
+	"elite_deep": {"chance": 0.40, "count": [1, 2], "weights": [35, 45, 20]},
+	"elite_abyss": {"chance": 0.50, "count": [1, 2], "weights": [20, 45, 35]},
 	"boss": {"chance": 1.0, "count": [1, 2], "weights": [35, 50, 15]},
+	"boss_boreal": {"chance": 1.0, "count": [1, 2], "weights": [15, 50, 35], "min_rarity": 2},
+	"boss_inferno": {"chance": 1.0, "count": [1, 2], "weights": [10, 45, 45], "min_rarity": 2},
 	"goblin": {"chance": 1.0, "count": [1, 1], "weights": [20, 55, 25]},
 	"chest_common": {"chance": 0.40, "count": [1, 1], "weights": [80, 18, 2]},
 	"chest_rare": {"chance": 0.70, "count": [1, 1], "weights": [50, 42, 8]},
 	"chest_epic": {"chance": 1.0, "count": [1, 2], "weights": [22, 55, 23]},
 	"chest_legendary": {"chance": 1.0, "count": [1, 2], "weights": [8, 40, 52]},
+}
+
+## The boss a source belongs to: a lair boss (Catalog.LAIRS) pays from its own
+## source, a biome boss from the plain "boss" one.
+const BOSS_SOURCES: Dictionary = {
+	"boreal": "boss_boreal",
+	"inferno": "boss_inferno",
 }
 
 ## Highest GearDB.Tier a source may drop at each biome depth (index = the
@@ -41,7 +57,13 @@ const SOURCES := {
 const MAX_TIER_BY_DEPTH := {
 	"camp": [1, 2, 2, 3],
 	"elite": [1, 2, 2, 3],
+	"elite_fringe": [1, 2, 2, 3],
+	"elite_wilds": [1, 2, 2, 3],
+	"elite_deep": [1, 2, 3, 3],
+	"elite_abyss": [1, 2, 3, 3],
 	"boss": [1, 2, 3, 3],
+	"boss_boreal": [1, 2, 3, 3],
+	"boss_inferno": [1, 2, 3, 3],
 	"goblin": [1, 2, 3, 3],
 	"chest_common": [1, 2, 2, 3],
 	"chest_rare": [1, 2, 3, 3],
@@ -138,7 +160,7 @@ static func roll_detailed(rng: RandomNumberGenerator, source: String, hero: Stri
 	var weights := _weights(s["weights"], biome_idx, source, difficulty)
 	for _i in rng.randi_range(int(s["count"][0]), int(s["count"][1])):
 		var tier: int = _tier(rng, weights)
-		var rarity: int = Rarity.roll(rng, biome_idx, difficulty)
+		var rarity: int = _rarity_floor(Rarity.roll(rng, biome_idx, difficulty), s, biome_idx)
 		var affixes: Array[Dictionary] = Rarity.roll_affixes(rng, rarity)
 		var keys: Array = GearDB.HERO_SLOTS.keys()
 		var h := hero if GearDB.HERO_SLOTS.has(hero) else ""
@@ -179,6 +201,42 @@ static func max_tier(source: String, biome_idx: int) -> int:
 	if caps.is_empty():
 		return GearDB.Tier.RUNE
 	return int(caps[clampi(biome_idx, 0, caps.size() - 1)])
+
+
+## A source may promise a rarity floor ("min_rarity"): a lair boss never
+## hands out common gear, so its floor is rare. The floor is capped by the
+## biome's own rarity cap, so a shallow ground can never be talked into a
+## legendary it has not earned.
+static func _rarity_floor(rarity: int, s: Dictionary, biome_idx: int) -> int:
+	var floor := int(s.get("min_rarity", 0))
+	if floor <= rarity:
+		return rarity
+	var caps: Array = Rarity.MAX_RARITY_BY_DEPTH
+	var cap := int(caps[clampi(biome_idx, 0, caps.size() - 1)])
+	return maxi(rarity, mini(floor, cap))
+
+
+## The elite source of a depth tier (the biome's index in Catalog.BIOMES):
+## fringe, wilds, deep, abyss. Each one leans harder on the better gear than
+## the last. An unknown index falls back to the plain elite source.
+static func elite_source(biome_idx: int) -> String:
+	match biome_idx:
+		0:
+			return "elite_fringe"
+		1:
+			return "elite_wilds"
+		2:
+			return "elite_deep"
+		3:
+			return "elite_abyss"
+		_:
+			return "elite"
+
+
+## The loot source a boss pays from: a lair boss has its own source, a biome
+## boss the plain "boss" one.
+static func boss_source(boss_id: String) -> String:
+	return str(BOSS_SOURCES.get(boss_id, "boss"))
 
 
 ## Zero the weight above a source's tier cap and renormalise: the removed weight
