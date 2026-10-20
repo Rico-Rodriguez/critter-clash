@@ -1912,7 +1912,8 @@ func _arena_prepare_sim(sim: RunSim) -> void:
 	if _arena_cache.has(key):
 		_arena_key = key
 		return
-	_arena_prepare_key(key, _arena_pool_slots(_arena_lair_stones(sim.map) + ARENA_POOL_SPARE))
+	var rng := _arena_rng()
+	_arena_prepare_key(key, _arena_pool_slots(rng, _arena_lair_stones(sim.map) + ARENA_POOL_SPARE), rng)
 
 
 ## The arena hunt's ring: the same broken circle for every boss.
@@ -1921,10 +1922,19 @@ func _arena_prepare_ring() -> void:
 	if _arena_cache.has(key):
 		_arena_key = key
 		return
-	_arena_prepare_key(key, _arena_ring_slots())
+	var rng := _arena_rng()
+	_arena_prepare_key(key, _arena_ring_slots(rng), rng)
 
 
-func _arena_prepare_key(key: String, slots: Array) -> void:
+## The arena's own seeded rng: it lays the slots out and, later, spins the
+## props as they are made, so a seeded world builds the same arena every time.
+func _arena_rng() -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7331
+	return rng
+
+
+func _arena_prepare_key(key: String, slots: Array, rng: RandomNumberGenerator) -> void:
 	_arena_key = key
 	if _arena_cache.has(key):
 		return
@@ -1932,7 +1942,7 @@ func _arena_prepare_key(key: String, slots: Array) -> void:
 	root.name = "BossArena"
 	root.visible = false
 	world_root.add_child(root)
-	_arena_cache[key] = {"root": root, "slots": slots, "made": 0}
+	_arena_cache[key] = {"root": root, "slots": slots, "made": 0, "rng": rng}
 
 
 ## Drop the arenas of the last run: the props belong to the world they
@@ -1959,10 +1969,11 @@ func _arena_build_step() -> void:
 	if arena.is_empty():
 		return
 	var slots: Array = arena["slots"]
+	var rng: RandomNumberGenerator = arena["rng"]
 	var made := int(arena["made"])
 	var budget := ARENA_PROPS_PER_FRAME
 	while made < slots.size() and budget > 0:
-		_arena_make(slots[made], arena["root"])
+		_arena_make(slots[made], arena["root"], rng)
 		made += 1
 		budget -= 1
 	arena["made"] = made
@@ -1975,9 +1986,10 @@ func _arena_build_all() -> void:
 	if arena.is_empty():
 		return
 	var slots: Array = arena["slots"]
+	var rng: RandomNumberGenerator = arena["rng"]
 	var made := int(arena["made"])
 	while made < slots.size():
-		_arena_make(slots[made], arena["root"])
+		_arena_make(slots[made], arena["root"], rng)
 		made += 1
 	arena["made"] = made
 
@@ -1985,9 +1997,9 @@ func _arena_build_all() -> void:
 ## Make one arena prop: the model and its paint, plus the shape and the
 ## stance the layout gives it. It waits at the origin until the fight
 ## stands it up.
-func _arena_make(slot: Dictionary, root: Node3D) -> void:
+func _arena_make(slot: Dictionary, root: Node3D, rng: RandomNumberGenerator) -> void:
 	var count := _props.size()
-	_place_prop(str(slot["model"]), Vector3.ZERO, float(slot["scale"]), bool(slot["shadows"]), root)
+	_place_prop(str(slot["model"]), Vector3.ZERO, float(slot["scale"]), bool(slot["shadows"]), root, rng)
 	if _props.size() == count:
 		return
 	var node: Node3D = _props[-1]
@@ -2007,9 +2019,7 @@ func _arena_make(slot: Dictionary, root: Node3D) -> void:
 ## between them and a fringe of mushrooms and ferns outside. The stones are
 ## laid out around the origin; the fight gives the ring its centre and its
 ## radius.
-func _arena_ring_slots() -> Array:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7331
+func _arena_ring_slots(rng: RandomNumberGenerator) -> Array:
 	var slots: Array = []
 	var count := 15
 	for i in count:
@@ -2059,9 +2069,7 @@ func _arena_ring_slots() -> Array:
 ## down, drawn from a pool made ahead of the fight. The pool is deep
 ## enough for the lair's landmarks and for the ring the sim draws around
 ## the boss, so the fight never has to make a prop.
-func _arena_pool_slots(count: int) -> Array:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7331
+func _arena_pool_slots(rng: RandomNumberGenerator, count: int) -> Array:
 	var slots: Array = []
 	for i in count:
 		slots.append({
