@@ -168,6 +168,11 @@ A material the save holds but nobody has priced yet still shows (under
 The Home screen puts a dot on the Skills tile while the bag still holds
 something worth selling.
 
+The bag is the sell pile. What the player wants to keep has its own place:
+the Hub stash, where a parked stack is out of reach of the sell button
+(see "The bag" above and docs/stash.md). The Materials tab carries a STASH
+button that opens it.
+
 ## Still to come
 - No tools, no crafting: the materials are a bag and a price, nothing more.
 - No node art: the nodes are data in the world, not drawn.

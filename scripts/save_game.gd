@@ -5,6 +5,9 @@ extends Node
 ## ladder can persist without a save migration. Nothing reads them yet.
 
 const PATH := "user://critter_clash.json"
+## 6: the Hub stash (data["stash"]) holds the materials the player has parked
+## in the Hub, out of the bag (see docs/stash.md). An old save starts with an
+## empty stash.
 ## 5: the gathering skills are Woodcutting, Fishing and Mining (Catalog.SKILLS);
 ## the old placeholder ids (foraging, taming, crafting) are dropped on load,
 ## see migrate_gathering_skills.
@@ -12,7 +15,7 @@ const PATH := "user://critter_clash.json"
 ## GearDB armory gains a "reinforce" map ({owned, equipped, xp, reinforce}).
 ## 3: the GearDB armory ({v, owned, equipped, xp}; legacy v2 saves migrate on
 ## load, see migrate_legacy_armory).
-const VERSION := 5
+const VERSION := 6
 
 var data: Dictionary = {}
 
@@ -997,6 +1000,111 @@ func bag_value() -> int:
 	return total
 
 
+# --- The Hub stash ----------------------------------------------------------
+
+## The Hub stash: the materials the player has parked in the Hub (see
+## docs/stash.md). It holds the same material ids as the bag, so a stack
+## moves between the two without renaming, and it is never sold: the bag is
+## the sell pile, the stash is the keep pile.
+##
+## data["stash"] maps a material id to how many of it is parked.
+
+## How many of a material the stash holds.
+func stash_count(id: String) -> int:
+	return int(data["stash"].get(id, 0))
+
+
+## How many items the stash holds, every kind together.
+func stash_total() -> int:
+	var total := 0
+	for key in data["stash"].keys():
+		total += stash_count(str(key))
+	return total
+
+
+## What the whole stash is worth, in coins. The same prices as the bag
+## (MaterialDB), so the player can see what the stash is worth without
+## selling it.
+func stash_value() -> int:
+	var total := 0
+	for key in data["stash"].keys():
+		var id := str(key)
+		total += material_value(id, stash_count(id))
+	return total
+
+
+## Puts materials from the bag into the stash and returns how many moved.
+## `amount` is how many to park; a negative amount parks the whole stack.
+## Nothing moves when the bag does not hold the material.
+func deposit_stash(id: String, amount: int = -1) -> int:
+	var have := material_count(id)
+	if have <= 0:
+		return 0
+	var moved := have if amount < 0 else mini(amount, have)
+	if moved <= 0:
+		return 0
+	if moved >= have:
+		data["materials"].erase(id)
+	else:
+		data["materials"][id] = have - moved
+	data["stash"][id] = stash_count(id) + moved
+	_write()
+	return moved
+
+
+## Takes materials out of the stash and back into the bag, and returns how
+## many moved. `amount` is how many to take; a negative amount takes the
+## whole stack. Nothing moves when the stash does not hold the material.
+func withdraw_stash(id: String, amount: int = -1) -> int:
+	var have := stash_count(id)
+	if have <= 0:
+		return 0
+	var moved := have if amount < 0 else mini(amount, have)
+	if moved <= 0:
+		return 0
+	if moved >= have:
+		data["stash"].erase(id)
+	else:
+		data["stash"][id] = have - moved
+	data["materials"][id] = material_count(id) + moved
+	_write()
+	return moved
+
+
+## Parks the whole bag in the stash, in one write, and returns how many items
+## moved. A material with no count is left alone.
+func deposit_all_stash() -> int:
+	var moved := 0
+	for key in data["materials"].keys():
+		var id := str(key)
+		var count := material_count(id)
+		if count <= 0:
+			continue
+		data["stash"][id] = stash_count(id) + count
+		moved += count
+	if moved > 0:
+		data["materials"] = {}
+		_write()
+	return moved
+
+
+## Takes the whole stash back into the bag, in one write, and returns how
+## many items moved.
+func withdraw_all_stash() -> int:
+	var moved := 0
+	for key in data["stash"].keys():
+		var id := str(key)
+		var count := stash_count(id)
+		if count <= 0:
+			continue
+		data["materials"][id] = material_count(id) + count
+		moved += count
+	if moved > 0:
+		data["stash"] = {}
+		_write()
+	return moved
+
+
 # --- Gathering skills --------------------------------------------------------
 
 ## Gathering is account-wide, not per hero (docs/gathering.md): the XP for
@@ -1926,6 +2034,8 @@ func _fresh() -> Dictionary:
 		"pets": {},
 		"active_pet": "",
 		"materials": {},
+		# The Hub stash: the materials parked in the Hub, out of the bag.
+		"stash": {},
 		"cosmetic": "",
 		"mastery_claimed": [],
 		"slayer": {"points": 0, "streak": 0, "task": {}},
@@ -2000,9 +2110,14 @@ func _reconcile() -> void:
 	# looked at, so what it owns counts as read and only new finds get marked.
 	if not data.has("log_seen") or typeof(data["log_seen"]) != TYPE_ARRAY:
 		data["log_seen"] = (data["log"] as Array).duplicate()
-	for key in ["kills", "pets", "materials"]:
+	for key in ["kills", "pets", "materials", "stash"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_DICTIONARY:
 			data[key] = {}
+	# The Hub stash: a stack that is not a positive count is nothing, so it
+	# is dropped rather than carried around as a row the screen cannot show.
+	for key in data["stash"].keys():
+		if stash_count(str(key)) <= 0:
+			data["stash"].erase(key)
 	if not data.has("active_pet"):
 		data["active_pet"] = ""
 	if not data.has("cosmetic"):
