@@ -103,7 +103,7 @@ static func playable_ids() -> Array:
 
 
 ## True for a hero class on the playable roster.
-static func is_class(id: String) -> bool:
+static func is_playable_class(id: String) -> bool:
 	return str(id) in PLAYABLE
 
 
