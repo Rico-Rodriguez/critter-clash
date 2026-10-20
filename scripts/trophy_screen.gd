@@ -38,12 +38,12 @@ func build() -> void:
 		page.add_child(row)
 
 
-## A claim whose chest found no room in the drawer paid out instead of being
-## lost, so the prize is said out loud rather than vanishing into the purse.
+## A claim whose chest found no room in the drawer joined the queue instead
+## of being lost, so the wait is said out loud rather than passing unseen.
 func open(_args: Dictionary = {}) -> void:
-	var paid := SaveGame.take_payout()
-	if not paid.is_empty():
-		toast("Chest paid out: %s" % SaveGame.payout_text(paid))
+	var queued := SaveGame.take_queued()
+	if not queued.is_empty():
+		toast(SaveGame.queue_text(queued))
 
 
 func _claim(id: String) -> void:
