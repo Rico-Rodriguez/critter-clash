@@ -1550,8 +1550,17 @@ func _step_status(dt: float) -> void:
 		actor.stun = maxf(0.0, actor.stun - dt)
 		actor.mark = maxf(0.0, actor.mark - dt)
 		actor.weaken = maxf(0.0, actor.weaken - dt)
-		for key in actor.cds.keys():
-			actor.cds[key] = maxf(0.0, float(actor.cds[key]) - dt)
+		if not actor.cds.is_empty():
+			_tick_cds(actor, dt)
+
+
+## Ticks an actor's cooldowns down by dt. Most actors hold no cooldowns at
+## all, so the empty check keeps the per-frame keys() array off the heap.
+func _tick_cds(actor: Actor, dt: float) -> void:
+	if actor.cds.is_empty():
+		return
+	for key in actor.cds.keys():
+		actor.cds[key] = maxf(0.0, float(actor.cds[key]) - dt)
 
 
 ## Per-hero skill timers: orbit blades, trail drops, nova/aura pulses, summons,
