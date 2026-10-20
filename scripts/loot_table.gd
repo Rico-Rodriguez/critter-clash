@@ -12,14 +12,24 @@ extends RefCounted
 ## Duplicates are allowed once the rerolls run out and convert to shards or
 ## coins at banking time (see save_game.gd).
 ##
+## Rarity (Common..Legendary) is rolled first via Rarity.roll(), then a gear
+## tier (Iron..Rune) is picked within the source's weights, and affixes are
+## applied for Rare+ gear via Rarity.roll_affixes().
+##
 ## The same file also holds the gathering drop tables (RESOURCE_TABLES): what
 ## a resource node pays out when it is worked (see docs/gathering.md).
 
 ## source -> {chance, count: [min, max], weights: [iron, steel, rune]}
 ## Chests escalate with rarity: commons mostly iron, legendaries mostly rune.
+## Elite sources are biome-specific (Fringe/Wilds/Deep/Abyss) with boosted
+## weights toward higher tiers. The base "elite" source remains as fallback.
 const SOURCES := {
 	"camp": {"chance": 0.06, "count": [1, 1], "weights": [85, 14, 1]},
 	"elite": {"chance": 0.30, "count": [1, 1], "weights": [60, 35, 5]},
+	"elite_fringe": {"chance": 0.30, "count": [1, 1], "weights": [70, 25, 5]},
+	"elite_wilds": {"chance": 0.35, "count": [1, 1], "weights": [50, 40, 10]},
+	"elite_deep": {"chance": 0.40, "count": [1, 2], "weights": [35, 45, 20]},
+	"elite_abyss": {"chance": 0.50, "count": [1, 2], "weights": [20, 45, 35]},
 	"boss": {"chance": 1.0, "count": [1, 2], "weights": [35, 50, 15]},
 	"goblin": {"chance": 1.0, "count": [1, 1], "weights": [20, 55, 25]},
 	"chest_common": {"chance": 0.40, "count": [1, 1], "weights": [80, 18, 2]},
@@ -34,9 +44,14 @@ const SOURCES := {
 ## but never rune. Rune unlocks at frost (idx 2) for the boss, the goblin and
 ## the rare-and-better chests first, then spreads to every source at volcano
 ## (idx 3), so it grows with depth. Values are GearDB.Tier (1..3).
+## Elite biome variants share the same depth caps as the base elite source.
 const MAX_TIER_BY_DEPTH := {
 	"camp": [1, 2, 2, 3],
 	"elite": [1, 2, 2, 3],
+	"elite_fringe": [1, 2, 2, 3],
+	"elite_wilds": [1, 2, 2, 3],
+	"elite_deep": [1, 2, 2, 3],
+	"elite_abyss": [1, 2, 2, 3],
 	"boss": [1, 2, 3, 3],
 	"goblin": [1, 2, 3, 3],
 	"chest_common": [1, 2, 2, 3],
@@ -112,12 +127,20 @@ const RESOURCE_TABLES := {
 }
 
 
-## Roll a source into earned item ids. Empty when the source's chance misses.
-## hero is the run's critter id (any hero is fine); biome_idx is the biome's
-## position in Catalog.BIOMES (deeper = a little more steel/rune). difficulty is
-## the run's tier (Catalog.Tier), shifting weights further before the cap.
+## Roll a source into earned item ids (backward compatible).
+## Returns Array[String] of base item IDs "hero.slot.tier".
 static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome_idx := 0, difficulty := 0) -> Array[String]:
 	var out: Array[String] = []
+	var detailed := roll_detailed(rng, source, hero, biome_idx, difficulty)
+	for entry in detailed:
+		out.append(str(entry["id"]))
+	return out
+
+
+## Roll a source into detailed drop entries with rarity and affixes.
+## Returns Array[Dictionary] with keys: id (String extended), rarity (int Rarity.Tier), affixes (Array[Dictionary]).
+static func roll_detailed(rng: RandomNumberGenerator, source: String, hero: String, biome_idx := 0, difficulty := 0) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	var s: Dictionary = SOURCES.get(source, {})
 	if s.is_empty():
 		return out
@@ -125,7 +148,21 @@ static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome
 		return out
 	var weights := _weights(s["weights"], biome_idx, source, difficulty)
 	for _i in rng.randi_range(int(s["count"][0]), int(s["count"][1])):
-		out.append(_pick(rng, hero, _tier(rng, weights)))
+		var tier: int = _tier(rng, weights)
+		var rarity: int = Rarity.roll(rng, biome_idx, difficulty)
+		var affixes: Array[Dictionary] = Rarity.roll_affixes(rng, rarity)
+		var keys: Array = GearDB.HERO_SLOTS.keys()
+		var h := hero if GearDB.HERO_SLOTS.has(hero) else ""
+		if h == "" or rng.randf() >= RUN_HERO_SHARE:
+			h = str(keys[rng.randi() % keys.size()])
+		var slots: Array = GearDB.HERO_SLOTS[h]
+		var slot := str(slots[rng.randi() % slots.size()])
+		for _j in OWNED_REROLLS:
+			if not GearDB.owns_any_variant(h, slot, tier):
+				break
+			slot = str(slots[rng.randi() % slots.size()])
+		var ext_id := GearDB.item_id_ext(h, slot, tier, rarity, affixes)
+		out.append({"id": ext_id, "rarity": rarity, "affixes": affixes})
 	return out
 
 
@@ -210,6 +247,23 @@ static func _pick(rng: RandomNumberGenerator, hero: String, tier: int) -> String
 			return id
 		slot = str(slots[rng.randi() % slots.size()])
 	return GearDB.item_id(h, slot, tier)
+
+
+## Returns the biome-specific elite source key for a biome index.
+## Fringe (0) -> elite_fringe, Wilds (1) -> elite_wilds, Deep (2) -> elite_deep, Abyss (3) -> elite_abyss.
+## Falls back to base "elite" for unknown indices.
+static func elite_source(biome_idx: int) -> String:
+	match biome_idx:
+		0:
+			return "elite_fringe"
+		1:
+			return "elite_wilds"
+		2:
+			return "elite_deep"
+		3:
+			return "elite_abyss"
+		_:
+			return "elite"
 
 
 # --- Gathering resources -----------------------------------------------------

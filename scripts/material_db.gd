@@ -62,6 +62,18 @@ const PRICES: Dictionary = {
 	"gold_ore": 8,
 	"cinderore": 10,
 	"runebound_shard": 12,
+	# --- Depth tier resources (GatheringDB.DEPTH_TIERS) ---
+	# The tier ladder prices like the one above: the fringe is worth a few
+	# coins, the abyss worth real money. A material with no price is never
+	# sold, so every resource the depths give carries one.
+	"shrimp": 2,
+	"trout": 3,
+	"salmon": 5,
+	"shark": 9,
+	"yew_logs": 5,
+	"magic_logs": 9,
+	"mithril_ore": 6,
+	"runite_ore": 10,
 }
 
 

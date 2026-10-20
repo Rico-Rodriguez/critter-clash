@@ -176,8 +176,22 @@ var gather_drops: Array = []
 ## Gathering rolls use their own stream, seeded from the run seed (xor
 ## constant) in start(), so working a node never perturbs the loot rolls.
 var gather_rng := RandomNumberGenerator.new()
+## The world layout (where the depth nodes stand) has its own stream too, so
+## placing them never shifts the rolls the run already made.
+var _layout_rng := RandomNumberGenerator.new()
 ## Node id -> the sim time it can be worked again (its respawn).
 var _gather_ready_at := {}
+## Node id -> how many gathers it still pays before it is spent. A node that
+## has run out waits out its respawn and comes back whole.
+var _gather_charges := {}
+## Node id -> where it stands in the world.
+var _gather_pos := {}
+## Node id -> the node record itself, so the per-frame gate does not walk
+## the whole database every step.
+var _gather_records := {}
+## Hero id -> the combat standing the hero brings to a node. It never moves
+## during a run: the combat XP is banked at the end of it.
+var _gather_standing := {}
 ## Node id -> the sim time it last said what it needs (a locked node).
 var _gather_notice_at := {}
 ## The account's gathering XP and levels when the run started, so a level
@@ -197,6 +211,9 @@ const GATHER_REACH := 70.0
 ## sim seconds. The hero can stand on a locked node, so the refusal is rate
 ## limited: it is said when the player walks up, not once a frame.
 const GATHER_NOTICE_COOLDOWN := 10.0
+## How long a hero must stand still at a node before the work starts, in sim
+## seconds. A brush past the node is not a gather.
+const GATHER_PLANT := 0.15
 var boss_mark := 0
 ## True once the boss has opened with its first attack; only that first
 ## telegraph waits until the boss shares the hero's view.
@@ -285,17 +302,36 @@ const SHRINE_SECONDS := 30.0
 ## Warding's regen surge: hp/s for the first few seconds of the buff.
 const WARD_REGEN := 20.0
 const WARD_REGEN_TIME := 4.0
-## Treasure goblin: one roll on first approach, then a short flight.
-const GOBLIN_CHANCE := 0.6
-const GOBLIN_SIGHT := 700.0
+## Treasure goblin: one roll per hunt, then a short flight.
+## The chance a hunt holds a goblin at all: about one hunt in three or four.
+const GOBLIN_CHANCE := 0.28
+## How close the hero must come to the haunt for the goblin to show itself.
+## The haunt is a clearing on the main trail, so the hunt walks past it.
+const GOBLIN_SIGHT := 900.0
+## How close the hero is to the haunt when the goblin appears at the haunt
+## itself. Past this the goblin dashes the rest of the way out of the brush,
+## so it always shows itself inside the camera's view.
+const GOBLIN_AT_HAUNT := 520.0
+## How far the goblin shows itself from the hero when it dashes out of the
+## brush: near enough to be on screen, far enough to be a chase.
+const GOBLIN_SHOW_NEAR := 300.0
+const GOBLIN_SHOW_FAR := 520.0
+## A hero who never passes the haunt still meets the goblin: after this many
+## seconds of the hunt it darts out of the brush beside them, so a hunt that
+## rolled a goblin always pays one out.
+const GOBLIN_FALLBACK_AT := 30.0
 const GOBLIN_LEASH := 1600.0
-const GOBLIN_LIFE := 12.0
-## The goblin's flight speed, as a share of the hero's own base speed: it
-## starts a shade under the hero, so a chasing hero can close the gap.
+## The flight window: long enough for a chase to be won.
+const GOBLIN_LIFE := 16.0
+## The goblin's flight speed, as a share of the hero's own speed: it starts
+## a shade under the hero, so a chasing hero can close the gap.
 const GOBLIN_SPEED := 0.92
 ## How far the goblin tires over its flight: by the end of its window it
 ## runs at this share of its start speed, so the chase can be won.
-const GOBLIN_TIRE := 0.45
+const GOBLIN_TIRE := 0.40
+## The goblin's hoard: the coin burst it pays when it is caught, on top of
+## the chest it drops. It is the biggest payout in the hunt.
+const GOBLIN_COINS := 120
 ## Loot chests on the map: {pos, tier, open}
 var chests: Array = []
 ## Shrines on the map: {pos, kind, used}. Claimed once by walking within
@@ -304,6 +340,11 @@ var shrines: Array = []
 ## The run's treasure goblin, if its roll passed, and whether the roll is spent.
 var goblin: Actor = null
 var goblin_roll := false
+## True when this hunt holds a goblin at all: rolled once, when the hunt
+## starts, so a hunt that has one always shows it.
+var goblin_present := false
+## The goblin's own roll stream, so the hunt's other rolls never shift.
+var goblin_rng := RandomNumberGenerator.new()
 var loot_coins := 0
 ## How long the boss fight has run, in sim seconds. The enrage is measured
 ## from the hunt's own clock, not from this one.
@@ -425,6 +466,12 @@ class Actor extends RefCounted:
 	var side_dir := Vector2.ZERO
 	## Seconds since the stick was released (0 while moving).
 	var still := 0.0
+	## Gathering: the node the hero is working, the time into the channel and
+	## how long the whole thing takes. An empty node id means the hero is
+	## working nothing.
+	var gather_node := ""
+	var gather_t := 0.0
+	var gather_need := 0.0
 	# Dodge roll: cooldown left, dash time left, dash heading.
 	var dodge_cd := 0.0
 	var dodge_t := 0.0
@@ -533,6 +580,8 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	rng.seed = run_seed
 	loot_rng.seed = run_seed ^ 0x6EA2
 	gather_rng.seed = run_seed ^ 0x6EA3
+	_layout_rng.seed = run_seed ^ 0x6EA4
+	goblin_rng.seed = run_seed ^ 0x6EA5
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
@@ -698,12 +747,19 @@ func _begin_gathering_tracking() -> void:
 	_gather_drop_total = {}
 	_gather_drop_time = {}
 	_gather_notice_at = {}
+	_gather_standing = {}
 	for entry in Catalog.SKILLS:
 		var id := str(entry["id"])
 		var held := SaveGame.gathering_xp(id)
 		_gather_base_xp[id] = held
 		_gather_level[id] = Catalog.skill_level(held)
 		_gather_level_at_start[id] = Catalog.skill_level(held)
+	# The combat standing of the heroes, read once: the depth tiers are
+	# gated by it and the combat XP is banked at the end of the run, so it
+	# never moves under a run.
+	for hero in heroes:
+		if hero.team == 0:
+			_gather_standing[hero.id] = _combat_level(hero)
 
 
 ## Emits xp_drop events for the XP a skill has earned since its last drop. A
@@ -1714,7 +1770,9 @@ func _step_minions(dt: float) -> void:
 			actor.vel = Vector2.ZERO
 			continue
 		if actor.goblin:
-			_step_goblin(actor, dt, target)
+			# The goblin runs from whoever is closest: it is chased, not aimed at.
+			var runner := _nearest_living_hero(actor.pos)
+			_step_goblin(actor, dt, runner if runner != null else target)
 			continue
 		actor.flash = maxf(0.0, actor.flash - dt)
 		actor.touch_cd = maxf(0.0, actor.touch_cd - dt)
@@ -2424,6 +2482,9 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		# landed it: taking a hit is never a shield.
 		target.post_hit_iframes = POST_HIT_IFRAMES
 		target.post_hit_src = src
+		# A hit breaks the work: the channel is lost, and the node keeps its
+		# charges, so the gather has to be started again.
+		_cancel_gather(target, "hurt")
 		events.append({
 			"type": "hero_hurt",
 			"pos": target.pos,
@@ -2499,6 +2560,8 @@ func _kill(actor: Actor) -> void:
 		"kind": actor.kind,
 	})
 	if actor.kind == "hero":
+		# The work dies with the hero: the node keeps its charges.
+		_cancel_gather(actor, "down")
 		var stats: Dictionary = actor.stats
 		if int(stats.get("revive", 0)) > 0 and not revive_spent and actor.team == 0:
 			revive_spent = true
@@ -3136,8 +3199,102 @@ func _spawn_world() -> void:
 	gather_nodes.clear()
 	for g in map.gathering:
 		gather_nodes.append({"node": str(g["node"]), "pos": g["pos"]})
+	# The depth tiers stand in the depths, not the biomes: each tier's nodes
+	# go into the part of the map that matches its depth.
+	_lay_depth_gathering()
+	_gather_pos.clear()
+	_gather_charges.clear()
+	_gather_records.clear()
+	for entry in gather_nodes:
+		var gid := str(entry["node"])
+		_gather_pos[gid] = entry["pos"]
+		_gather_records[gid] = GatheringDB.record(gid)
+		_gather_charges[gid] = GatheringRules.charges_for(_gather_records[gid])
 	goblin = null
 	goblin_roll = false
+	# One roll for the whole hunt: about one hunt in four holds a goblin.
+	# It is rolled from its own stream, so the map and the loot keep theirs.
+	goblin_present = goblin_rng.randf() < GOBLIN_CHANCE
+
+
+## The depth tiers stand in the depths, not the biomes: each tier's nodes go
+## into the part of the map that matches its depth, so the deeper the tier,
+## the further up the trail its nodes sit. The tier data is in
+## GatheringDB.DEPTH_TIERS; the map lays out the biome's own nodes.
+func _lay_depth_gathering() -> void:
+	if map == null:
+		return
+	var areas: Array = []
+	for i in map.nodes.size():
+		var area: Dictionary = map.nodes[i]
+		var kind := str(area["kind"])
+		# The lair is the boss's ground and the start is the hero's: neither
+		# carries a resource node.
+		if kind == "lair" or kind == "start":
+			continue
+		var at: Vector2 = area["pos"]
+		areas.append({"i": i, "d": _depth_at(at.y), "used": false})
+	if areas.is_empty():
+		return
+	areas.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
+	var tiers: Array = GatheringDB.DEPTH_TIERS
+	var last := maxi(tiers.size() - 1, 1)
+	for t in tiers.size():
+		var tier: Dictionary = tiers[t]
+		# The area whose depth is closest to the tier's own.
+		var want := float(t) / float(last)
+		var best := -1
+		var best_d := 1e9
+		for k in areas.size():
+			var entry: Dictionary = areas[k]
+			if bool(entry["used"]):
+				continue
+			var diff: float = absf(float(entry["d"]) - want)
+			if diff < best_d:
+				best_d = diff
+				best = k
+		if best < 0:
+			break
+		var picked: Dictionary = areas[best]
+		picked["used"] = true
+		var area: Dictionary = map.nodes[int(picked["i"])]
+		for node in tier["nodes"]:
+			gather_nodes.append({"node": str(node["id"]), "pos": _depth_gathering_spot(area)})
+
+
+## A free spot inside an area for a depth node: away from the camps, the
+## chests, the landmarks and the other resource nodes.
+func _depth_gathering_spot(area: Dictionary) -> Vector2:
+	var centre: Vector2 = area["pos"]
+	var r: float = area["r"]
+	var at := centre
+	for k in 10:
+		at = centre + Vector2.RIGHT.rotated(_layout_rng.randf() * TAU) * r * _layout_rng.randf_range(0.3, 0.72)
+		if _spot_free(at):
+			break
+	return at
+
+
+## True when a spot is clear of the camps, the chests, the landmarks and the
+## resource nodes already standing there.
+func _spot_free(at: Vector2) -> bool:
+	for c in map.camps:
+		var cp: Vector2 = c["pos"]
+		if at.distance_to(cp) < 150.0:
+			return false
+	for c in map.loot:
+		var lp: Vector2 = c["pos"]
+		if at.distance_to(lp) < 140.0:
+			return false
+	for l in map.landmarks:
+		var lpos: Vector2 = l["pos"]
+		if at.distance_to(lpos) < 110.0:
+			return false
+	for entry in gather_nodes:
+		var gp: Vector2 = entry["pos"]
+		if at.distance_to(gp) < 120.0:
+			return false
+	return true
 
 
 ## Stamps a camp's affixes onto its leader alone: the affix is the camp's
@@ -3287,13 +3444,32 @@ func _step_explore(dt: float) -> void:
 		if bool(c["open"]) or hero.pos.distance_to(c["pos"]) > hero.radius + 56.0:
 			continue
 		_claim_chest(c, hero)
-	# The treasure goblin: the first time the hero nears its haunt the run
-	# rolls once (seeded). Whatever the roll, it never rolls again.
-	if goblin == null and not goblin_roll and map.goblin_at != Vector2.INF:
-		if hero.pos.distance_to(map.goblin_at) < GOBLIN_SIGHT:
+	# The treasure goblin: this hunt rolled one (about one hunt in three or
+	# four) and it waits in its haunt until the hero comes close. The haunt
+	# is a clearing on the main trail, so the hunt walks past it. A hero who
+	# cuts across the woods still meets one: after a while it darts out of
+	# the brush beside them, so a hunt that rolled a goblin always shows one.
+	if goblin == null and not goblin_roll and goblin_present and phase == "hunt":
+		if map.goblin_at != Vector2.INF and hero.pos.distance_to(map.goblin_at) < GOBLIN_SIGHT:
 			goblin_roll = true
-			if rng.randf() < GOBLIN_CHANCE:
-				_spawn_goblin(map.goblin_at)
+			# It shows itself where the hero can actually see it: standing
+			# in its haunt when the hero is close enough to read the
+			# clearing, otherwise the last dash out of the brush toward
+			# them. A goblin that pops in off-screen is a goblin nobody
+			# ever sees.
+			var gap := hero.pos.distance_to(map.goblin_at)
+			if gap <= GOBLIN_AT_HAUNT:
+				_spawn_goblin(_goblin_spot(map.goblin_at, hero.pos, 150.0, 280.0))
+			else:
+				_spawn_goblin(_goblin_spot(hero.pos, map.goblin_at, GOBLIN_SHOW_NEAR, GOBLIN_SHOW_FAR))
+		elif time >= GOBLIN_FALLBACK_AT:
+			# The hero never came near the haunt: they went another way
+			# entirely, so the goblin finds them instead. This is the
+			# backstop for every hunt that rolled a goblin, so no hunt
+			# that holds one can end without the goblin ever showing.
+			goblin_roll = true
+			var side := hero.pos + Vector2.RIGHT.rotated(rng.randf() * TAU) * 600.0
+			_spawn_goblin(_goblin_spot(hero.pos, side, GOBLIN_SHOW_NEAR, GOBLIN_SHOW_FAR))
 	# The lair: walk in and the boss rises.
 	if phase == "hunt" and hero.pos.distance_to(map.lair) < map.lair_r * 0.72:
 		begin_boss()
@@ -3308,11 +3484,13 @@ func _step_explore(dt: float) -> void:
 
 ## Opens a chest: coins home, a ring of gems, a sip of health and the loot
 ## event run_screen turns into a chest sent home. Goblin loot borrows this too.
-func _claim_chest(c: Dictionary, hero: Actor) -> void:
+## The coin bonus is extra: a map chest pays its own, the goblin's hoard adds
+## a fat burst on top of it.
+func _claim_chest(c: Dictionary, hero: Actor, coin_bonus := 0) -> void:
 	c["open"] = true
 	var rare: bool = str(c["tier"]) == "rare"
 	var value := (40 if rare else 18) + level * 2
-	var coins := 40 if rare else 15
+	var coins := (40 if rare else 15) + coin_bonus
 	loot_coins += coins
 	var count := 9 if rare else 6
 	# The chest pays its whole value: the gems split it evenly and the first
@@ -3386,11 +3564,18 @@ func _spawn_goblin(at: Vector2) -> Actor:
 	actor.pos = map.push_inside(at, 30.0)
 	actor.prev = actor.pos
 	actor.radius = 26.0
-	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * 5.0 * float(_diff()["hp"])
+	# Fragile on purpose: it is a runner, not a fight. One clean hit (or two)
+	# brings it down, so a chase that is won is a chase that pays.
+	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * 1.6 * float(_diff()["hp"])
 	actor.hp = actor.max_hp
-	var base_speed := 150.0
-	if not heroes.is_empty() and bases.has(heroes[0].id):
-		base_speed = float(bases[heroes[0].id]["speed"])
+	# Its flight speed is a shade under the hero's own: the chase is always
+	# winnable, and it wears down as the flight goes on.
+	var base_speed := 240.0
+	if not heroes.is_empty():
+		var hero: Actor = heroes[0]
+		base_speed = hero.speed
+		if base_speed <= 0.0 and bases.has(hero.id):
+			base_speed = float(bases[hero.id].get("speed", 240.0))
 	actor.speed = base_speed * GOBLIN_SPEED
 	actor.dmg = 0.0
 	actor.interval = 999.0
@@ -3402,6 +3587,22 @@ func _spawn_goblin(at: Vector2) -> Actor:
 	goblin = actor
 	events.append({"type": "fx", "fx": "goblin_spawn", "pos": actor.pos})
 	return actor
+
+
+## Where the goblin shows itself: a clear patch of open ground a short way
+## off the spot it was waiting at, on the hero's side of it, so it darts out
+## of the haunt toward the hero instead of away into the woods. Never
+## buried in a camp or half inside the forest.
+func _goblin_spot(near: Vector2, toward: Vector2, near_r: float, far_r: float) -> Vector2:
+	var face := toward - near
+	if face.length() < 1.0:
+		face = Vector2.RIGHT
+	face = face.normalized()
+	for k in 8:
+		var at := near + face.rotated(rng.randf_range(-1.0, 1.0)) * rng.randf_range(near_r, far_r)
+		if play.grow(-60.0).has_point(at) and map.depth(at) > 40.0:
+			return map.push_inside(at, 30.0)
+	return map.push_inside(near + face * near_r, 30.0)
 
 
 func _step_goblin(actor: Actor, dt: float, target: Actor) -> void:
@@ -3445,16 +3646,26 @@ func _step_goblin(actor: Actor, dt: float, target: Actor) -> void:
 	actor.vel = (actor.pos - was) / maxf(dt, 0.0001)
 
 
+## The goblin's hoard: the biggest payout in the hunt. The chest it drops is a
+## silver one (so it still goes home as a camp chest), the coins come in one
+## fat burst on top of it, the gems in a fat ring, and three pieces of gear
+## ride out of the pile.
 func _goblin_loot(actor: Actor) -> void:
 	goblin = null
-	_gear_roll_drop("goblin", actor.pos)
+	for k in 3:
+		var off := Vector2.RIGHT.rotated(TAU * float(k) / 3.0) * 46.0
+		_gear_roll_drop("goblin", actor.pos + off)
 	var chest := {"pos": actor.pos, "tier": "rare", "open": false}
 	chests.append(chest)
 	var hero := _nearest_living_hero(actor.pos)
 	if hero != null:
-		_claim_chest(chest, hero)
-	for k in 10:
-		_drop_gem(actor.pos + Vector2.RIGHT.rotated(TAU * float(k) / 10.0) * rng.randf_range(36.0, 96.0), 2)
+		_claim_chest(chest, hero, GOBLIN_COINS + level * 6)
+	else:
+		events.append({"type": "loot", "pos": actor.pos, "tier": "rare", "coins": GOBLIN_COINS + level * 6, "shake": 0.4})
+	# The gem ring: a fat circle of coins on the ground, plus one big one.
+	for k in 12:
+		_drop_gem(actor.pos + Vector2.RIGHT.rotated(TAU * float(k) / 12.0) * rng.randf_range(40.0, 120.0), 5)
+	_drop_gem(actor.pos, 20)
 
 
 ## Roll one source into the run's loot list and emit a gear_drop event for the
@@ -3558,40 +3769,60 @@ func _commit_skill_xp() -> void:
 # Gathering is account-wide (docs/gathering.md): the XP and the materials it
 # pays are the account's, not a hero's, so they are banked once when the run
 # commits, exactly like the combat XP. The nodes themselves live in
-# GatheringDB.NODES; the world places them (HuntMap.gathering).
+# GatheringDB.NODES (the biome's) and GatheringDB.DEPTH_TIERS (the depths');
+# the world places them (HuntMap.gathering and _lay_depth_gathering).
+#
+# The interaction layer is in scripts/gathering_rules.gd: how long a gather
+# takes, what it is worth and who may work a node at all. The sim applies
+# it: a hero walks to a node, stands at it, and the channel runs until the
+# node pays - unless the hero walks off or takes a hit.
 
 ## Resolves one gathering action at a resource node: the account's level in
 ## the node's skill must meet the node's requirement, then the node pays its
 ## XP and rolls its loot table. The XP and the materials are banked with the
 ## rest of the run when it commits.
+## `pos` is where the work happened (the screen floats the take over it) and
+## `standing` is the hero's combat standing (-1 for none): a depth node is
+## gated by danger, so a hero too weak for the tier is turned away.
 ## Returns {ok, reason, node, skill, xp, drops}.
-func gather(node_id: String) -> Dictionary:
-	var node := GatheringDB.node(node_id)
+func gather(node_id: String, pos := Vector2.ZERO, standing := -1) -> Dictionary:
+	var node := _gather_record(node_id)
 	if node.is_empty():
 		return {"ok": false, "reason": "Unknown node", "node": node_id, "skill": "", "xp": 0, "drops": []}
 	var skill := str(node["skill"])
-	var need := int(node["level"])
 	var out := {"ok": false, "reason": "", "node": node_id, "skill": skill, "xp": 0, "drops": []}
 	# The account's level is read once, when the run starts, so the nodes a
 	# run can work never change under it (the XP it earns is banked at the
 	# end of the run, like the combat XP).
 	if gather_locked(node_id):
-		out["reason"] = "Needs %s %d" % [GatheringDB.skill_name(skill), need]
+		out["reason"] = "Needs %s %d" % [GatheringDB.skill_name(skill), int(node["level"])]
+		return out
+	# The danger gate: a depth node is only for a hero strong enough for
+	# the tier. A biome node asks for a skill level, not for standing.
+	if standing >= 0 and GatheringRules.danger_blocked(node, standing):
+		out["reason"] = GatheringRules.danger_reason(node)
 		return out
 	# A node needs its respawn time before it can be worked again.
-	if time < float(_gather_ready_at.get(node_id, 0.0)):
+	if not _gather_ready(node_id):
 		out["reason"] = "Not ready"
 		return out
 	var xp := int(node["xp"])
 	gather_xp[skill] = int(gather_xp.get(skill, 0)) + xp
-	_gather_ready_at[node_id] = time + float(node["respawn"])
-	var drops := LootTable.roll_resource(gather_rng, node_id)
-	for drop in drops:
-		gather_drops.append(drop)
+	# The take: what the node's table rolled, scaled by the rules (the
+	# tier's yield and the skill's bonus).
+	var level := _gather_start_level(skill)
+	var paid: Array = []
+	for drop in LootTable.roll_resource(gather_rng, node_id):
+		var rolled := {"id": str(drop["id"]), "amount": GatheringRules.yield_amount(int(drop["amount"]), node, level)}
+		paid.append(rolled)
+		gather_drops.append(rolled)
+	# The node is spent: a charge goes, and the last one puts the node on
+	# its respawn.
+	_spend_gather_charge(node_id, node)
 	out["ok"] = true
 	out["xp"] = xp
-	out["drops"] = drops
-	events.append({"type": "gather", "node": node_id, "skill": skill, "xp": xp, "drops": drops})
+	out["drops"] = paid
+	events.append({"type": "gather", "node": node_id, "skill": skill, "xp": xp, "drops": paid, "pos": pos})
 	return out
 
 
@@ -3601,35 +3832,207 @@ func _gather_start_level(skill: String) -> int:
 	return int(_gather_level_at_start.get(skill, 1))
 
 
+## The combat standing of a hero: the OSRS combat level of its own trained
+## skills. This is what a depth tier's gate reads.
+func _combat_level(hero: Actor) -> int:
+	return SkillsScreen.combat_level(GearDB.skills(str(hero.sprite)))
+
+
+## The standing the hero brings to a node, cached when the run started.
+func _standing_of(hero: Actor) -> int:
+	return int(_gather_standing.get(hero.id, 0))
+
+
+## The node record, from the run's own table (the world knows the nodes).
+func _gather_record(node_id: String) -> Dictionary:
+	var rec: Dictionary = _gather_records.get(node_id, {})
+	if rec.is_empty():
+		rec = GatheringDB.record(node_id)
+	return rec
+
+
 ## Whether a node is locked for this run: the account's level in the node's
-## skill is below what the node asks for. The gate is the one gather()
-## applies, read on its own so a refusal can say what it needs.
+## skill is below what the node asks for. A depth node asks for no skill
+## level (it is gated by danger instead), so it is never locked here.
+## The gate is the one gather() applies, read on its own so a refusal can
+## say what it needs.
 func gather_locked(node_id: String) -> bool:
-	var node := GatheringDB.node(node_id)
+	var node := _gather_record(node_id)
 	if node.is_empty():
+		return false
+	if not node.has("level"):
 		return false
 	return _gather_start_level(str(node["skill"])) < int(node["level"])
 
 
-## Works the nodes the hero has reached: a node in reach, ready and within
-## the account's skill level is gathered, and then it needs its respawn time
-## before it can be worked again. Claimed on contact, like the shrines.
-## A node the account's level cannot work is refused, and the refusal is
-## reported instead of thrown away: the reason is what the screen shows.
-func _step_gathering(_dt: float) -> void:
+## Whether a node is out of reach for a hero: the depth tier demands a
+## standing the hero does not have. The gate is the one the channel applies
+## before it starts, read on its own so a refusal can say what it needs.
+func gather_blocked(node_id: String, standing: int) -> bool:
+	var node := _gather_record(node_id)
+	if node.is_empty():
+		return false
+	return GatheringRules.danger_blocked(node, standing)
+
+
+## Why a hero may not work a node, or "" when they may: the skill the node
+## asks for, or the standing its tier demands.
+func _gather_block_reason(node_id: String, hero: Actor) -> String:
+	var node := _gather_record(node_id)
+	if node.is_empty():
+		return ""
+	var standing := _standing_of(hero)
+	if gather_blocked(node_id, standing):
+		return GatheringRules.danger_reason(node)
+	return GatheringRules.blocked_reason(node, _gather_start_level(str(node["skill"])), standing)
+
+
+## True when the node can be worked: its respawn is over and it still has
+## charges to pay. A node that has run out of charges waits out its
+## respawn and comes back whole.
+func _gather_ready(node_id: String) -> bool:
+	if time < float(_gather_ready_at.get(node_id, 0.0)):
+		return false
+	if int(_gather_charges.get(node_id, 0)) <= 0:
+		# The respawn is over: the node comes back whole.
+		_gather_charges[node_id] = GatheringRules.charges_for(_gather_record(node_id))
+	return true
+
+
+## The node pays one gather: a charge goes, and the last one puts the node
+## on its respawn.
+func _spend_gather_charge(node_id: String, node: Dictionary) -> void:
+	var left := int(_gather_charges.get(node_id, 1)) - 1
+	_gather_charges[node_id] = left
+	if left <= 0:
+		_gather_ready_at[node_id] = time + float(node.get("respawn", 6.0))
+
+
+## Works the nodes the heroes have reached. A hero who stands at a node
+## works it: the channel runs while it holds and the node pays when it
+## ends. A hero who walks away or takes a hit loses the work, and the node
+## keeps its charges. A node the hero may not work is refused, and the
+## refusal is reported instead of thrown away: the reason is what the
+## screen shows.
+func _step_gathering(dt: float) -> void:
 	if gather_nodes.is_empty():
 		return
+	for hero in heroes:
+		if not hero.alive:
+			if hero.gather_node != "":
+				_cancel_gather(hero, "down")
+			continue
+		if hero.gather_node != "":
+			_step_gather_channel(hero, dt)
+		else:
+			_try_start_gather(hero)
+
+
+## Starts a channel when a hero stands at a node it may work. The node
+## nearest the hero that is open to them wins.
+func _try_start_gather(hero: Actor) -> void:
+	# The nodes in reach, nearest first.
+	var near: Array = []
 	for entry in gather_nodes:
-		var node_id := str(entry["node"])
-		for hero in heroes:
-			if not hero.alive:
-				continue
-			if hero.pos.distance_to(entry["pos"]) > GATHER_REACH + hero.radius:
-				continue
-			var out := gather(node_id)
-			if not bool(out.get("ok", true)) and gather_locked(node_id):
-				_notice_locked(node_id, str(out.get("reason", "")), entry["pos"])
-			break
+		var at: Vector2 = entry["pos"]
+		var d := hero.pos.distance_to(at)
+		if d > GATHER_REACH + hero.radius:
+			continue
+		near.append({"node": str(entry["node"]), "d": d})
+	if near.is_empty():
+		return
+	near.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
+	# The gates: the skill the node asks for and the standing its tier
+	# demands. A refused node says what it needs, once per cooldown.
+	var refused := ""
+	var refused_node := ""
+	var start_id := ""
+	for item in near:
+		var row: Dictionary = item
+		var node_id := str(row["node"])
+		var reason := _gather_block_reason(node_id, hero)
+		if reason != "":
+			if refused == "":
+				refused = reason
+				refused_node = node_id
+			continue
+		if not _gather_ready(node_id):
+			continue
+		start_id = node_id
+		break
+	if refused != "":
+		_notice_locked(refused_node, refused, hero.pos)
+	# The work starts when the hero plants: a brush past the node is not
+	# a gather.
+	if start_id == "" or hero.still < GATHER_PLANT:
+		return
+	var node := _gather_record(start_id)
+	hero.gather_node = start_id
+	hero.gather_t = 0.0
+	hero.gather_need = GatheringRules.channel_time(node, _gather_start_level(str(node["skill"])))
+
+
+## The channel: the hero works the node while it holds. It ends when the
+## hero walks off the node, when a hit breaks the work, or when the timer
+## runs out and the node pays.
+func _step_gather_channel(hero: Actor, dt: float) -> void:
+	var node_id := hero.gather_node
+	var at: Vector2 = _gather_pos.get(node_id, Vector2.ZERO)
+	# The hero has to stay at the node: a step away and the work is lost.
+	if hero.pos.distance_to(at) > GATHER_REACH + hero.radius or hero.still <= 0.0:
+		_cancel_gather(hero, "left")
+		return
+	hero.gather_t += dt
+	if hero.gather_t < hero.gather_need:
+		return
+	_complete_gather(hero)
+
+
+## The channel ran out: the node pays. The take is what the rules make of
+## the node's table, and the XP is banked with the rest of the run.
+func _complete_gather(hero: Actor) -> void:
+	var node_id := hero.gather_node
+	var node := _gather_record(node_id)
+	hero.gather_node = ""
+	hero.gather_t = 0.0
+	hero.gather_need = 0.0
+	if node.is_empty():
+		return
+	# The gate is read again at the end of the work: a hero that is too
+	# weak for the tier never takes the take.
+	gather(node_id, hero.pos, _standing_of(hero))
+
+
+## The work is lost: the hero is not at the node any more, or a hit landed.
+## The node keeps its charges, so nothing is paid.
+func _cancel_gather(hero: Actor, reason: String) -> void:
+	if hero.gather_node == "":
+		return
+	var node_id := hero.gather_node
+	hero.gather_node = ""
+	hero.gather_t = 0.0
+	hero.gather_need = 0.0
+	events.append({"type": "gather_interrupt", "node": node_id, "reason": reason, "pos": hero.pos})
+
+
+## The channels the heroes are working right now: one entry per hero with a
+## node under the axe, with the progress and where it happens. The run
+## screen reads it to draw the progress bar.
+func gather_channels() -> Array:
+	var out: Array = []
+	for hero in heroes:
+		if hero.gather_node == "" or not hero.alive:
+			continue
+		var node := _gather_record(hero.gather_node)
+		out.append({
+			"id": hero.id,
+			"node": hero.gather_node,
+			"name": str(node.get("name", hero.gather_node)),
+			"skill": str(node.get("skill", "")),
+			"ratio": clampf(hero.gather_t / maxf(hero.gather_need, 0.0001), 0.0, 1.0),
+			"pos": hero.pos,
+		})
+	return out
 
 
 ## Says what a locked node needs, at most once per cooldown: the hero can

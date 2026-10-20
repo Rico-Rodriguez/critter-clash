@@ -63,7 +63,7 @@ const SLOT_STATS := {
 	"offhand": {"armor": 1, "hp_flat": 8},
 	"charm": {"crit": 0.03, "regen": 0.3},
 }
-const INT_STATS := ["hp_flat", "armor"]
+const INT_STATS := ["hp_flat", "armor", "magnet"]
 
 ## Reinforce: coins pour into an owned piece for a small stat bump, +0 to +5.
 ## Each level scales the piece's own stats; the coin price grows with the tier
@@ -107,25 +107,120 @@ static func item_id(hero: String, slot: String, tier: int) -> String:
 	return "%s.%s.%d" % [hero, slot, tier]
 
 
-static func is_item(id: String) -> bool:
+## Extended item id with rarity and affixes: "<hero>.<slot>.<tier>.<rarity>.<affix_data...>"
+## rarity is Rarity.Tier (0..4), affix_data are comma-separated "id:value" pairs from Rarity.roll_affixes().
+## value is the rolled value (with rarity multiplier applied), encoded as float string.
+static func item_id_ext(hero: String, slot: String, tier: int, rarity: int, affixes: Array[Dictionary]) -> String:
+	var affix_str: String = ""
+	if not affixes.is_empty():
+		var parts: Array[String] = []
+		for a in affixes:
+			var id := str(a["id"])
+			var val := str(a["value"])
+			parts.append("%s:%s" % [id, val])
+		affix_str = "." + ",".join(parts)
+	return "%s.%s.%d.%d%s" % [hero, slot, tier, rarity, affix_str]
+
+
+## Parse any item id (base or extended) into {hero, slot, tier, rarity, affixes}.
+## affixes is Array[Dictionary] with {id, value} for each affix.
+## Supports both new format (id:value) and legacy format (id only, value from pool).
+static func _parse_id(id: String) -> Dictionary:
 	var p := id.split(".")
-	if p.size() != 3 or not HERO_SLOTS.has(p[0]) or not (p[1] in HERO_SLOTS[p[0]]):
-		return false
-	var t := int(p[2])
-	return t >= Tier.IRON and t <= Tier.RUNE and str(t) == p[2]
-
-
-## {id, hero, slot, tier, name, stats} or {} for an unknown id.
-static func item(id: String) -> Dictionary:
-	if not is_item(id):
+	var base_ok: bool = p.size() >= 3 and HERO_SLOTS.has(p[0]) and (p[1] in HERO_SLOTS[p[0]])
+	var t: int = int(p[2]) if p.size() >= 3 else -1
+	var tier_ok: bool = t >= Tier.IRON and t <= Tier.RUNE and str(t) == p[2]
+	if not base_ok or not tier_ok:
 		return {}
-	var p := id.split(".")
-	var hero := p[0]
-	var slot := p[1]
-	var tier := int(p[2])
-	return {"id": id, "hero": hero, "slot": slot, "tier": tier,
-		"name": "%s %s" % [TIER_PREFIX[tier], NAMES[hero][slot]], "stats": stats_for(slot, tier),
-		"requires": requirements(id)}
+	var rarity: int = Rarity.Tier.COMMON
+	var affixes: Array[Dictionary] = []
+	if p.size() >= 5:
+		rarity = int(p[3])
+		if p.size() >= 5 and p[4] != "":
+			for part in p[4].split(","):
+				var kv := part.split(":")
+				if kv.size() == 2:
+					affixes.append({"id": kv[0], "value": float(kv[1])})
+				elif kv.size() == 1:
+					# Legacy format: just ID, look up base value from pool
+					for a in Rarity.AFFIX_POOL:
+						if str(a["id"]) == kv[0]:
+							var mul := 1.0
+							if rarity == Rarity.Tier.LEGENDARY:
+								mul = 1.5
+							elif rarity == Rarity.Tier.EPIC:
+								mul = 1.25
+							var val := float(a["base_value"]) * mul
+							if bool(a["is_percent"]):
+								val = float(round(val * 100.0)) / 100.0
+							else:
+								val = float(int(round(val)))
+							affixes.append({"id": kv[0], "value": val})
+							break
+	return {"hero": p[0], "slot": p[1], "tier": t, "rarity": rarity, "affixes": affixes}
+
+
+static func is_item(id: String) -> bool:
+	return not _parse_id(id).is_empty()
+
+
+## Get base item id (without rarity/affixes) from any item id.
+static func base_id(id: String) -> String:
+	var p := _parse_id(id)
+	if p.is_empty():
+		return ""
+	return "%s.%s.%d" % [p["hero"], p["slot"], p["tier"]]
+
+
+## Get rarity tier from any item id.
+static func item_rarity(id: String) -> int:
+	return int(_parse_id(id).get("rarity", Rarity.Tier.COMMON))
+
+
+## Get affix IDs from any item id.
+static func item_affix_ids(id: String) -> Array[String]:
+	var out: Array[String] = []
+	for a in _parse_id(id).get("affixes", []):
+		out.append(str(a["id"]))
+	return out
+
+
+## True if hero owns any variant (any rarity/affixes) of the given slot at the given tier.
+static func owns_any_variant(hero: String, slot: String, tier: int) -> bool:
+	var owned: Dictionary = _store()["owned"].get(hero, {})
+	for oid in owned:
+		if int(owned[oid]) > 0:
+			var p := _parse_id(str(oid))
+			if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+				return true
+	return false
+
+
+## {id, hero, slot, tier, rarity, name, stats, requires} or {} for an unknown id.
+## Stats include base tier stats + affix bonuses.
+static func item(id: String) -> Dictionary:
+	var p := _parse_id(id)
+	if p.is_empty():
+		return {}
+	var hero: String = p["hero"]
+	var slot: String = p["slot"]
+	var tier: int = p["tier"]
+	var rarity: int = p["rarity"]
+	var affixes: Array[Dictionary] = p["affixes"]
+	var base_stats := stats_for(slot, tier)
+	var affix_objects: Array[Dictionary] = []
+	for a in affixes:
+		for pool_affix in Rarity.AFFIX_POOL:
+			if str(pool_affix["id"]) == str(a["id"]):
+				var affix_copy: Dictionary = pool_affix.duplicate()
+				affix_copy["value"] = float(a["value"])
+				affix_objects.append(affix_copy)
+				break
+	var final_stats: Dictionary = Rarity.apply_affixes(base_stats, affix_objects)
+	var base_name := "%s %s" % [TIER_PREFIX[tier], NAMES[hero][slot]]
+	var full_name: String = Rarity.format_name(base_name, rarity, affix_objects)
+	return {"id": id, "hero": hero, "slot": slot, "tier": tier, "rarity": rarity,
+		"name": full_name, "stats": final_stats, "requires": requirements(id)}
 
 
 ## {skill_key: level} needed to equip (empty = no requirement).

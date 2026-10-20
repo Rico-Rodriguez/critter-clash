@@ -5,6 +5,9 @@ extends Node
 ## ladder can persist without a save migration. Nothing reads them yet.
 
 const PATH := "user://critter_clash.json"
+## 6: the Hub stash (data["stash"]) holds the materials the player has parked
+## in the Hub, out of the bag (see docs/stash.md). An old save starts with an
+## empty stash.
 ## 5: the gathering skills are Woodcutting, Fishing and Mining (Catalog.SKILLS);
 ## the old placeholder ids (foraging, taming, crafting) are dropped on load,
 ## see migrate_gathering_skills.
@@ -12,7 +15,7 @@ const PATH := "user://critter_clash.json"
 ## GearDB armory gains a "reinforce" map ({owned, equipped, xp, reinforce}).
 ## 3: the GearDB armory ({v, owned, equipped, xp}; legacy v2 saves migrate on
 ## load, see migrate_legacy_armory).
-const VERSION := 5
+const VERSION := 6
 
 var data: Dictionary = {}
 
@@ -358,6 +361,36 @@ func _biome_index(biome_id: String) -> int:
 	return 0
 
 
+## Whether a hub gate stands open: the gate that is open by default, or one
+## the player has already unlocked. The unlocks live in the save, so an
+## opened gate stays open across restarts.
+func gate_open(gate_id: String) -> bool:
+	var gate := WorldData.gate_by_id(gate_id)
+	if gate.is_empty():
+		return false
+	if bool(gate.get("open_by_default", false)):
+		return true
+	return bool(_gates_unlocked().get(gate_id, false))
+
+
+## Open a hub gate and remember it. Idempotent: a gate opened twice is
+## written once.
+func unlock_gate(gate_id: String) -> void:
+	var unlocked := _gates_unlocked()
+	if bool(unlocked.get(gate_id, false)):
+		return
+	unlocked[gate_id] = true
+	_write()
+
+
+## The map of opened hub gates, created when an old save has none.
+func _gates_unlocked() -> Dictionary:
+	if not data.has("gates_unlocked") or typeof(data["gates_unlocked"]) != TYPE_DICTIONARY:
+		data["gates_unlocked"] = {"barrow_gate": true}
+	var unlocked: Dictionary = data["gates_unlocked"]
+	return unlocked
+
+
 ## The two knights a new save starts with; Gnash and Mordrek join on the road.
 const STARTERS := ["pebble", "ember"]
 ## Animal heroes retired from the playable roster (saves move to Aldric).
@@ -424,9 +457,19 @@ func try_level(id: String) -> bool:
 func grant_reward(hero_id: String, slot: String, rarity: String) -> String:
 	var gear_slot := str({"armor": "chest"}.get(slot, slot))
 	var tier := int({"common": 1, "uncommon": 1, "rare": 2, "epic": 2, "legendary": 3}.get(rarity, 1))
+	var owned: Dictionary = GearDB._store()["owned"].get(hero_id, {})
 	for t in range(tier, 4):
 		var id := GearDB.item_id(hero_id, gear_slot, t)
-		if GearDB.is_item(id) and not GearDB.has(hero_id, id):
+		if not GearDB.is_item(id):
+			continue
+		var owns_any := false
+		for oid in owned:
+			if int(owned[oid]) > 0:
+				var p := GearDB._parse_id(str(oid))
+				if not p.is_empty() and p["slot"] == gear_slot and int(p["tier"]) == t:
+					owns_any = true
+					break
+		if not owns_any:
 			GearDB.grant(id)
 			return id
 	var fallback := GearDB.item_id(hero_id, gear_slot, tier)
@@ -841,8 +884,14 @@ func log_mark_seen(ids: Array = []) -> void:
 		_write()
 
 
+## The kills of a boss. A legacy boss id counts toward the boss that took
+## over its lair, so an old save keeps the kills it already earned.
 func boss_kills(id: String) -> int:
-	return int(data["kills"].get(id, 0))
+	var total := int(data["kills"].get(id, 0))
+	for legacy in Catalog.LEGACY_BOSSES:
+		if str(Catalog.LEGACY_BOSSES[legacy]) == id:
+			total += int(data["kills"].get(legacy, 0))
+	return total
 
 
 func active_pet() -> String:
@@ -949,6 +998,111 @@ func bag_value() -> int:
 		var id := str(key)
 		total += material_value(id, material_count(id))
 	return total
+
+
+# --- The Hub stash ----------------------------------------------------------
+
+## The Hub stash: the materials the player has parked in the Hub (see
+## docs/stash.md). It holds the same material ids as the bag, so a stack
+## moves between the two without renaming, and it is never sold: the bag is
+## the sell pile, the stash is the keep pile.
+##
+## data["stash"] maps a material id to how many of it is parked.
+
+## How many of a material the stash holds.
+func stash_count(id: String) -> int:
+	return int(data["stash"].get(id, 0))
+
+
+## How many items the stash holds, every kind together.
+func stash_total() -> int:
+	var total := 0
+	for key in data["stash"].keys():
+		total += stash_count(str(key))
+	return total
+
+
+## What the whole stash is worth, in coins. The same prices as the bag
+## (MaterialDB), so the player can see what the stash is worth without
+## selling it.
+func stash_value() -> int:
+	var total := 0
+	for key in data["stash"].keys():
+		var id := str(key)
+		total += material_value(id, stash_count(id))
+	return total
+
+
+## Puts materials from the bag into the stash and returns how many moved.
+## `amount` is how many to park; a negative amount parks the whole stack.
+## Nothing moves when the bag does not hold the material.
+func deposit_stash(id: String, amount: int = -1) -> int:
+	var have := material_count(id)
+	if have <= 0:
+		return 0
+	var moved := have if amount < 0 else mini(amount, have)
+	if moved <= 0:
+		return 0
+	if moved >= have:
+		data["materials"].erase(id)
+	else:
+		data["materials"][id] = have - moved
+	data["stash"][id] = stash_count(id) + moved
+	_write()
+	return moved
+
+
+## Takes materials out of the stash and back into the bag, and returns how
+## many moved. `amount` is how many to take; a negative amount takes the
+## whole stack. Nothing moves when the stash does not hold the material.
+func withdraw_stash(id: String, amount: int = -1) -> int:
+	var have := stash_count(id)
+	if have <= 0:
+		return 0
+	var moved := have if amount < 0 else mini(amount, have)
+	if moved <= 0:
+		return 0
+	if moved >= have:
+		data["stash"].erase(id)
+	else:
+		data["stash"][id] = have - moved
+	data["materials"][id] = material_count(id) + moved
+	_write()
+	return moved
+
+
+## Parks the whole bag in the stash, in one write, and returns how many items
+## moved. A material with no count is left alone.
+func deposit_all_stash() -> int:
+	var moved := 0
+	for key in data["materials"].keys():
+		var id := str(key)
+		var count := material_count(id)
+		if count <= 0:
+			continue
+		data["stash"][id] = stash_count(id) + count
+		moved += count
+	if moved > 0:
+		data["materials"] = {}
+		_write()
+	return moved
+
+
+## Takes the whole stash back into the bag, in one write, and returns how
+## many items moved.
+func withdraw_all_stash() -> int:
+	var moved := 0
+	for key in data["stash"].keys():
+		var id := str(key)
+		var count := stash_count(id)
+		if count <= 0:
+			continue
+		data["materials"][id] = material_count(id) + count
+		moved += count
+	if moved > 0:
+		data["stash"] = {}
+		_write()
+	return moved
 
 
 # --- Gathering skills --------------------------------------------------------
@@ -1123,12 +1277,20 @@ func _cache_piece(hero_id: String, rng: RandomNumberGenerator) -> String:
 	var tier := _cache_tier(rng)
 	var best := ""
 	var best_rank := -1
+	var owned: Dictionary = GearDB._store()["owned"].get(hero_id, {})
 	for slot in GearDB.HERO_SLOTS.get(hero_id, []):
 		var slot_key := str(slot)
 		var bare := true
 		for t in range(GearDB.Tier.IRON, GearDB.Tier.STEEL + 1):
 			var id := GearDB.item_id(hero_id, slot_key, t)
-			if GearDB.has(hero_id, id):
+			var owns := false
+			for oid in owned:
+				if int(owned[oid]) > 0:
+					var p := GearDB._parse_id(str(oid))
+					if not p.is_empty() and p["slot"] == slot_key and int(p["tier"]) == t:
+						owns = true
+						break
+			if owns:
 				bare = false
 				continue
 			# Gift order: bare slot, on-roll tier, richer tier, kit order.
@@ -1257,9 +1419,19 @@ func _grant_boss_gear(drop: Dictionary, biome_id: String) -> Dictionary:
 		"legendary": GearDB.Tier.RUNE,
 	}.get(str(drop.get("gear_rarity", "common")), GearDB.Tier.IRON))
 	var cap := mini(wanted, LootTable.max_tier("boss", biome_idx))
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for t in range(cap, GearDB.Tier.IRON - 1, -1):
 		var id := GearDB.item_id(hero, gear_slot, t)
-		if GearDB.is_item(id) and not GearDB.has(hero, id):
+		if not GearDB.is_item(id):
+			continue
+		var owns_any := false
+		for oid in owned:
+			if int(owned[oid]) > 0:
+				var p := GearDB._parse_id(str(oid))
+				if not p.is_empty() and p["slot"] == gear_slot and int(p["tier"]) == t:
+					owns_any = true
+					break
+		if not owns_any:
 			GearDB.grant(id)
 			return {"kind": "gear", "id": id, "amount": 1}
 	return _bank_gear_piece(GearDB.item_id(hero, gear_slot, cap))
@@ -1390,10 +1562,18 @@ func _bank_gear_piece(id: String) -> Dictionary:
 	return {"kind": "shards", "id": id, "amount": GEAR_SHARDS[tier]}
 
 
-## True when hero already owns every GearDB item of a tier.
+## True when hero already owns every GearDB item of a tier (any rarity/affixes).
 func _owns_tier(hero: String, tier: int) -> bool:
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for slot in GearDB.HERO_SLOTS.get(hero, []):
-		if not GearDB.has(hero, GearDB.item_id(hero, str(slot), tier)):
+		var found := false
+		for id in owned:
+			if int(owned[id]) > 0:
+				var p := GearDB._parse_id(str(id))
+				if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+					found = true
+					break
+		if not found:
 			return false
 	return true
 
@@ -1432,10 +1612,20 @@ func forge_options(hero: String) -> Array:
 	if not GearDB.HERO_SLOTS.has(hero):
 		return out
 	var shards := int(data.get("gear_shards", 0))
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for tier in range(forge_cap(), GearDB.Tier.IRON - 1, -1):
 		for slot in GearDB.HERO_SLOTS[hero]:
 			var id := GearDB.item_id(hero, str(slot), tier)
-			if not GearDB.is_item(id) or GearDB.has(hero, id):
+			if not GearDB.is_item(id):
+				continue
+			var owns_any := false
+			for oid in owned:
+				if int(owned[oid]) > 0:
+					var p := GearDB._parse_id(str(oid))
+					if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+						owns_any = true
+						break
+			if owns_any:
 				continue
 			var cost := FORGE_COST[tier]
 			var reason := forge_skill_gate(hero, id)
@@ -1568,11 +1758,25 @@ func claim(id: String) -> bool:
 ## an array that reconciles in for old saves.
 
 ## Slots a hero has at a tier: owned (iron) or worn (blackened steel).
+## Counts any rarity/affix variant of the base tier item.
 func _kit_count(hero: String, tier: int, equipped: bool) -> int:
 	var count := 0
 	for slot in GearDB.HERO_SLOTS.get(hero, []):
-		var id := GearDB.item_id(hero, str(slot), tier)
-		var met := GearDB.slot_tier(hero, str(slot)) == tier if equipped else GearDB.has(hero, id)
+		var met := false
+		if equipped:
+			var eq_id: String = GearDB.equipped(hero).get(slot, "")
+			if eq_id != "":
+				var p := GearDB._parse_id(eq_id)
+				if not p.is_empty() and int(p["tier"]) == tier:
+					met = true
+		else:
+			var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
+			for id in owned:
+				if int(owned[id]) > 0:
+					var p := GearDB._parse_id(str(id))
+					if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+						met = true
+						break
 		if met:
 			count += 1
 	return count
@@ -1815,6 +2019,8 @@ func _fresh() -> Dictionary:
 		"claimed": [],
 		"cleared": {},
 		"difficulty_cleared": {},
+		# Hub gates the player has opened, by gate id (see WorldData.GATES).
+		"gates_unlocked": {"barrow_gate": true},
 		"chests": [],
 		# What each chest paid out when the drawer was full, newest last.
 		"payouts": [],
@@ -1828,6 +2034,8 @@ func _fresh() -> Dictionary:
 		"pets": {},
 		"active_pet": "",
 		"materials": {},
+		# The Hub stash: the materials parked in the Hub, out of the bag.
+		"stash": {},
 		"cosmetic": "",
 		"mastery_claimed": [],
 		"slayer": {"points": 0, "streak": 0, "task": {}},
@@ -1871,6 +2079,10 @@ func _reconcile() -> void:
 	# Per-biome highest cleared difficulty tier. Old saves start at none.
 	if not data.has("difficulty_cleared") or typeof(data["difficulty_cleared"]) != TYPE_DICTIONARY:
 		data["difficulty_cleared"] = {}
+	# Hub gates the player has opened. Old saves predate the hub gates, so
+	# they start with the default-open gate only.
+	if not data.has("gates_unlocked") or typeof(data["gates_unlocked"]) != TYPE_DICTIONARY:
+		data["gates_unlocked"] = {"barrow_gate": true}
 	# An old or trimmed save can be missing the wallet; biome gating and card
 	# levelling read these directly, so they must never be absent.
 	if not data.has("coins"):
@@ -1898,9 +2110,14 @@ func _reconcile() -> void:
 	# looked at, so what it owns counts as read and only new finds get marked.
 	if not data.has("log_seen") or typeof(data["log_seen"]) != TYPE_ARRAY:
 		data["log_seen"] = (data["log"] as Array).duplicate()
-	for key in ["kills", "pets", "materials"]:
+	for key in ["kills", "pets", "materials", "stash"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_DICTIONARY:
 			data[key] = {}
+	# The Hub stash: a stack that is not a positive count is nothing, so it
+	# is dropped rather than carried around as a row the screen cannot show.
+	for key in data["stash"].keys():
+		if stash_count(str(key)) <= 0:
+			data["stash"].erase(key)
 	if not data.has("active_pet"):
 		data["active_pet"] = ""
 	if not data.has("cosmetic"):
