@@ -71,7 +71,15 @@ var _canopy_start: PackedInt32Array = PackedInt32Array()
 var _canopy_count: PackedInt32Array = PackedInt32Array()
 ## The props that are not canopy: they only need their visibility toggled.
 var _plain_props: Array[Node3D] = []
-var _contacts: Array[Vector3] = []
+## Contact shadows under the props: the spot they sit on, how wide the
+## shadow is, and the height of the ground they stand on.
+var _contacts: Array[Vector4] = []
+## The ground the decals lie on: the trail width the terrain shader paints
+## with, the explore map's corridors, and the sampled heights under them.
+var _path_width := 1.25
+var _world_map := false
+var _w_segs := PackedVector4Array()
+var _ground_cache := {}
 var _xray_mat: ShaderMaterial
 var _hero_key: OmniLight3D
 var _hero_rim: OmniLight3D
@@ -168,6 +176,8 @@ func bind_hunt(biome_id: String) -> void:
 	_arena_built = false
 	_arena_reset()
 	_biome = biome_id
+	_world_map = false
+	_ground_cache.clear()
 	viewport.transparent_bg = false
 	_ground(biome_id)
 	_foliage(biome_id)
@@ -183,6 +193,8 @@ func bind_hunt(biome_id: String) -> void:
 func bind_pedestal(hero_id: String) -> void:
 	_mode = "pedestal"
 	_hero_id = hero_id
+	_world_map = false
+	_ground_cache.clear()
 	viewport.transparent_bg = false
 	# Golden hour in a quiet glade: a low warm sun, a dim dusky sky, warm fog
 	# that swallows the distance, and a cool fill so the hero still reads.
@@ -412,13 +424,11 @@ func _sync_pings(sim: RunSim) -> void:
 		(node.material_override as ShaderMaterial).set_shader_parameter("fill_progress", charged)
 		if lane:
 			var mid: Vector2 = ping.pos + ping.dir * ping.length * 0.5
-			node.position = _to3(mid) + Vector3(0, 0.04, 0)
-			node.rotation = Vector3(0, -ping.dir.angle() , 0)
-			node.scale = Vector3(ping.length * SCALE / 0.92, 1.0, ping.width * 2.0 * SCALE / 0.92)
+			_seat_ground(node, _to3(mid), 0.04, -ping.dir.angle(),
+				Vector3(ping.length * SCALE / 0.92, 1.0, ping.width * 2.0 * SCALE / 0.92))
 		else:
-			node.position = _to3(ping.pos) + Vector3(0, 0.04, 0)
 			var d := ping.radius * 2.0 * SCALE / 0.92
-			node.scale = Vector3(d, 1.0, d)
+			_seat_ground(node, _to3(ping.pos), 0.04, 0.0, Vector3(d, 1.0, d))
 	for id in _pings.keys():
 		if not seen.has(id):
 			(_pings[id] as Node).queue_free()
@@ -809,6 +819,9 @@ static func _lattice(t: PackedFloat32Array, c: int, fx: float, fy: float) -> flo
 
 
 func _ground(biome_id: String) -> void:
+	_path_width = 1.25
+	_world_map = false
+	_ground_cache.clear()
 	var plane := PlaneMesh.new()
 	plane.orientation = PlaneMesh.FACE_Y
 	var pad := 28.0
@@ -1259,7 +1272,7 @@ func _scatter_kit(rng: RandomNumberGenerator, model: String, count: int, lo: flo
 		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * sc)
 		spots.append(Transform3D(basis, at))
 		if model == "stump":
-			_contacts.append(Vector3(at.x, at.z, 0.6 * sc))
+			_contacts.append(Vector4(at.x, at.z, 0.6 * sc, _ground_height(Vector2(at.x, at.z))))
 	for mi_node in probe.find_children("*", "MeshInstance3D", true, false):
 		var mi := mi_node as MeshInstance3D
 		if mi.mesh == null:
@@ -1457,7 +1470,7 @@ func _pose_prop(node: Node3D, model: String, at: Vector3, scale: float, rng: Ran
 	var contact := {"rock": 0.75, "pebble": 0.55, "log": 1.0, "stump": 0.6, "tree": 1.1, "mushroom_tall": 0.5, "bush": 0.8}
 	for key in contact.keys():
 		if model.begins_with(key):
-			_contacts.append(Vector3(at.x, at.z, float(contact[key]) * scale))
+			_contacts.append(Vector4(at.x, at.z, float(contact[key]) * scale, _ground_height(Vector2(at.x, at.z))))
 			break
 	node.scale *= scale
 	var yaw := 0.0
@@ -1508,7 +1521,9 @@ static var _leaf_cache := {}
 
 
 ## One multimesh of soft dark discs under every prop: cheap contact shadow
-## and ambient occlusion where the Mobile renderer has no SSAO.
+## and ambient occlusion where the Mobile renderer has no SSAO. Each disc
+## sits on the terrain under its prop and follows the slope there, so it
+## never floats over a bump or sinks into the next one.
 func _build_contacts() -> void:
 	if _contact_node:
 		_contact_node.queue_free()
@@ -1538,8 +1553,10 @@ func _build_contacts() -> void:
 	mm.instance_count = _contacts.size()
 	for i in _contacts.size():
 		var c := _contacts[i]
-		var y := 0.03
-		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(c.z, 1, c.z)), Vector3(c.x, y, c.y)))
+		var xz := Vector2(c.x, c.y)
+		var y := c.w + 0.03
+		var basis := _ground_basis(xz) * Basis.from_scale(Vector3(c.z, 1, c.z))
+		mm.set_instance_transform(i, Transform3D(basis, Vector3(c.x, y, c.y)))
 	_contact_node = MultiMeshInstance3D.new()
 	_contact_node.multimesh = mm
 	_contact_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -3505,6 +3522,114 @@ func _decal(size: float, params: Dictionary) -> MeshInstance3D:
 	return node
 
 
+# --- Ground height ------------------------------------------------------------
+## The ground under the decals is not a flat plate: the terrain shader rolls
+## the surface and dips it on the worn trails, so a decal pinned to a flat y
+## floats over one bump and sinks into the next. These helpers read the same
+## surface the shader draws - the noise roll and the trail dip - so a ground
+## decal can be seated on the terrain and laid along its slope.
+##
+## Heights and normals are cached on a quarter-metre grid: the ground rolls
+## slowly, so a decal that has not moved far keeps the answer it had.
+
+## The width of the cache grid the heights are remembered on.
+const GROUND_CELL := 0.25
+
+
+## The terrain shader's value noise, kept step for step with the shader so a
+## sampled height matches the surface that is drawn.
+static func _fract(v: float) -> float:
+	return v - floor(v)
+
+
+static func _hash21(p: Vector2) -> float:
+	var q := Vector2(_fract(p.x * 123.34), _fract(p.y * 345.45))
+	var d := q.x * (q.x + 34.345) + q.y * (q.y + 34.345)
+	q += Vector2(d, d)
+	return _fract(q.x * q.y)
+
+
+static func _noise(p: Vector2) -> float:
+	var i := Vector2(floor(p.x), floor(p.y))
+	var f := p - i
+	f = f * f * (Vector2(3.0, 3.0) - f * 2.0)
+	var a := _hash21(i)
+	var b := _hash21(i + Vector2(1.0, 0.0))
+	var c := _hash21(i + Vector2(0.0, 1.0))
+	var d := _hash21(i + Vector2(1.0, 1.0))
+	return lerpf(lerpf(a, b, f.x), lerpf(c, d, f.x), f.y)
+
+
+## The height of the ground under a world spot, in metres: the same roll and
+## the same worn-trail dip the terrain shader displaces the ground with.
+func _ground_height(xz: Vector2) -> float:
+	if _mode == "pedestal":
+		return 0.0
+	var roll := _noise(xz * 0.18)
+	var worn := smoothstep(_path_width * 1.4, 0.0, _trail_distance(xz))
+	return (roll - 0.5) * 0.12 - worn * 0.04
+
+
+## The slope of the ground at a world spot: the surface normal, taken from
+## the heights sampled around it.
+func _ground_normal(xz: Vector2) -> Vector3:
+	var d := 0.5
+	var hl := _ground_height(xz - Vector2(d, 0.0))
+	var hr := _ground_height(xz + Vector2(d, 0.0))
+	var hb := _ground_height(xz - Vector2(0.0, d))
+	var hf := _ground_height(xz + Vector2(0.0, d))
+	return Vector3(-(hr - hl) / (2.0 * d), 1.0, -(hf - hb) / (2.0 * d)).normalized()
+
+
+## The ground under a world spot: its height and its normal, cached on a
+## quarter-metre grid so a decal that has not moved far costs nothing.
+func _ground_at(xz: Vector2) -> Dictionary:
+	var key := Vector2i(roundi(xz.x / GROUND_CELL), roundi(xz.y / GROUND_CELL))
+	var hit: Dictionary = _ground_cache.get(key, {})
+	if hit.is_empty():
+		hit = {"h": _ground_height(xz), "n": _ground_normal(xz)}
+		_ground_cache[key] = hit
+	return hit
+
+
+## A basis that lies on the ground at a spot: its up axis follows the slope.
+func _ground_basis(xz: Vector2) -> Basis:
+	var n: Vector3 = _ground_at(xz)["n"]
+	var axis := Vector3.UP.cross(n)
+	if axis.length() < 0.0001:
+		return Basis.IDENTITY
+	return Basis(axis.normalized(), acos(clampf(Vector3.UP.dot(n), -1.0, 1.0)))
+
+
+## Seats a ground decal on the terrain: its centre on the surface under it
+## and its up axis along the slope there, so it lies down on the ground
+## instead of floating over a bump or sinking into the next one.
+func _seat_ground(node: Node3D, at: Vector3, lift: float, yaw := 0.0, size := Vector3.ONE) -> void:
+	var xz := Vector2(at.x, at.z)
+	node.position = Vector3(at.x, float(_ground_at(xz)["h"]) + lift, at.z)
+	node.basis = _ground_basis(xz) * Basis(Vector3.UP, yaw) * Basis.from_scale(size)
+
+
+## How far the ground is from a worn trail, in metres: the arena's own paths,
+## or the explore map's corridors.
+func _trail_distance(xz: Vector2) -> float:
+	if not _world_map:
+		return path_dist(xz)
+	var best := 1e4
+	for seg in _w_segs:
+		best = minf(best, _seg_distance(xz, seg))
+	return best
+
+
+## The distance from a point to a segment (x, y to z, w).
+static func _seg_distance(p: Vector2, seg: Vector4) -> float:
+	var a := Vector2(seg.x, seg.y)
+	var b := Vector2(seg.z, seg.w)
+	var ab := b - a
+	var t := clampf((p - a).dot(ab) / maxf(ab.dot(ab), 1e-4), 0.0, 1.0)
+	return (p - a - ab * t).length()
+
+
 ## Reach ring: a faint hairline at the hero's real attack reach, per class.
 ## Melee (tank) swings land out to range + 10 plus the target's body
 ## (run_sim._melee), so the ring sits at range + 10 + a typical critter
@@ -3530,12 +3655,12 @@ func _place_reach(actor: RunSim.Actor, at: Vector3) -> void:
 		_reach.position.y = 0.03
 		actor_root.add_child(_reach)
 	var size := meters / 0.48
-	_reach.scale = Vector3(size, 1.0, size)
 	(_reach.material_override as ShaderMaterial).set_shader_parameter("ring_color", REACH_COLORS.get(actor.role, REACH_COLORS["mage"]))
 	(_reach.material_override as ShaderMaterial).set_shader_parameter("ring_width", 0.006 * 12.0 / maxf(size, 1.0))
 	_reach.visible = true
-	# Lifted over the grass blades (they cover a ground-level hairline).
-	_reach.position = Vector3(at.x, 0.32, at.z)
+	# Lifted over the grass blades (they cover a ground-level hairline), but
+	# seated on the ground under it and laid along its slope.
+	_seat_ground(_reach, at, 0.32, 0.0, Vector3(size, 1.0, size))
 
 
 ## The hero's selection ring: a soft contact shadow under a smooth gold ring.
@@ -3588,7 +3713,8 @@ void fragment() {
 		key.position = Vector3(-0.6, HERO_METERS * 1.1, 0.9)
 		_mark.add_child(key)
 	_mark.visible = true
-	_mark.position = Vector3(at.x, 0.035, at.z)
+	# The ring lies on the ground under the hero, not over it.
+	_seat_ground(_mark, at, 0.035)
 
 
 ## Runebound aura: a breathing rune-coloured halo on the ground and a slow
@@ -4534,6 +4660,9 @@ func bind_world(map: HuntMap, biome_id: String) -> void:
 
 
 func _world_ground(map: HuntMap, biome_id: String) -> void:
+	_path_width = 1.35
+	_world_map = true
+	_ground_cache.clear()
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/terrain.gdshader")
 	for layer in ["grass", "forest", "dirt"]:
@@ -4566,6 +4695,11 @@ func _world_ground(map: HuntMap, biome_id: String) -> void:
 	mat.set_shader_parameter("w_seg_w", widths)
 	mat.set_shader_parameter("w_nnode", mini(nodes.size(), 20))
 	mat.set_shader_parameter("w_nseg", mini(segs.size(), 40))
+	# The corridors the ground height sampler reads, the same ones the shader
+	# paints the trails with.
+	_w_segs = PackedVector4Array()
+	for i in mini(segs.size(), 40):
+		_w_segs.append(segs[i])
 	# One plane per map cell (plus a forest margin ring) so off-screen ground culls.
 	var margin := 1
 	var cell3 := HuntMap.CELL * SCALE
