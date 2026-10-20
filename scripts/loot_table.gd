@@ -46,8 +46,8 @@ const MAX_TIER_BY_DEPTH := {
 	"elite": [1, 2, 2, 3],
 	"elite_fringe": [1, 2, 2, 3],
 	"elite_wilds": [1, 2, 2, 3],
-	"elite_deep": [1, 2, 3, 3],
-	"elite_abyss": [1, 2, 3, 3],
+	"elite_deep": [1, 2, 2, 3],
+	"elite_abyss": [1, 2, 2, 3],
 	"boss": [1, 2, 3, 3],
 	"goblin": [1, 2, 3, 3],
 	"chest_common": [1, 2, 2, 3],
@@ -103,6 +103,23 @@ const RESOURCE_TABLES := {
 	"gold_vein": [{"id": "gold_ore", "weight": 86, "amount": [1, 2]}, {"id": "silver_ore", "weight": 14, "amount": [1, 2]}],
 	"cinderore": [{"id": "cinderore", "weight": 84, "amount": [1, 2]}, {"id": "gold_ore", "weight": 16, "amount": [1, 2]}],
 	"runebound_seam": [{"id": "runebound_shard", "weight": 84, "amount": [1, 2]}, {"id": "cinderore", "weight": 16, "amount": [1, 2]}],
+
+	# --- Depth Tiers: Fringe ---
+	"fringe_oak": [{"id": "oak_logs", "weight": 88, "amount": [1, 2]}, {"id": "willow_logs", "weight": 12, "amount": [1, 2]}],
+	"fringe_copper": [{"id": "copper_ore", "weight": 88, "amount": [1, 2]}, {"id": "tin_ore", "weight": 12, "amount": [1, 2]}],
+	"fringe_shrimp": [{"id": "shrimp", "weight": 90, "amount": [1, 2]}, {"id": "brook_fish", "weight": 10, "amount": [1, 1]}],
+	# --- Depth Tiers: Wilds ---
+	"wilds_willow": [{"id": "willow_logs", "weight": 88, "amount": [1, 2]}, {"id": "oak_logs", "weight": 12, "amount": [1, 2]}],
+	"wilds_iron": [{"id": "iron_ore", "weight": 88, "amount": [1, 2]}, {"id": "copper_ore", "weight": 12, "amount": [1, 2]}],
+	"wilds_trout": [{"id": "trout", "weight": 90, "amount": [1, 2]}, {"id": "pool_fish", "weight": 10, "amount": [1, 1]}],
+	# --- Depth Tiers: Deep ---
+	"deep_yew": [{"id": "yew_logs", "weight": 86, "amount": [1, 3]}, {"id": "willow_logs", "weight": 14, "amount": [1, 2]}],
+	"deep_mithril": [{"id": "mithril_ore", "weight": 86, "amount": [1, 3]}, {"id": "iron_ore", "weight": 14, "amount": [1, 2]}],
+	"deep_salmon": [{"id": "salmon", "weight": 88, "amount": [1, 2]}, {"id": "trout", "weight": 12, "amount": [1, 1]}],
+	# --- Depth Tiers: Abyss ---
+	"abyss_magic": [{"id": "magic_logs", "weight": 84, "amount": [1, 3]}, {"id": "yew_logs", "weight": 16, "amount": [1, 2]}],
+	"abyss_runite": [{"id": "runite_ore", "weight": 84, "amount": [1, 2]}, {"id": "mithril_ore", "weight": 16, "amount": [1, 2]}],
+	"abyss_shark": [{"id": "shark", "weight": 84, "amount": [1, 3]}, {"id": "salmon", "weight": 16, "amount": [1, 2]}],
 }
 
 
