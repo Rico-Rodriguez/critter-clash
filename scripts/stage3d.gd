@@ -1009,21 +1009,129 @@ func _field_props(rng: RandomNumberGenerator) -> void:
 			var grow := float({"flower_a": 2.6, "flower_b": 2.6, "mushroom": 1.7, "mushroom_shelf": 1.5, "stump": 2.4}.get(str(row[0]), 1.0))
 			_scatter_kit(rng, str(row[0]), n, float(row[1]) * grow, float(row[2]) * grow)
 	kit = kit.filter(func(row: Array) -> bool: return not (str(row[0]) in bulk))
-	for row in kit:
+	# The stones go through one multimesh per kind: a glade full of mossy
+	# rock used to be a hundred GLB scenes, one draw call each.
+	_scatter_rocks(rng, kit)
+
+
+## The field's rock rows: one MultiMesh per kind, so a glade full of mossy
+## stone costs a handful of draws instead of a hundred GLB scenes. Every
+## stone keeps the place, size, spin and bedded-in tilt it had as its own
+## scene: the same prop is still posed here, only the way it is drawn
+## changed.
+func _scatter_rocks(rng: RandomNumberGenerator, rows: Array) -> void:
+	var probes := {}
+	var spots := {}
+	for row in rows:
+		var model := str(row[0])
+		var rocky := model.begins_with("rock") or model.begins_with("pebble_rock")
 		for _n in int(row[3]):
 			var at := _off_path_point(rng, 1.5)
 			var sc := rng.randf_range(float(row[1]), float(row[2]))
-			var model := str(row[0])
 			# Shadow casters cost a draw per split: only the big pieces cast.
-			_place_prop(model, at, sc, (model.begins_with("rock") and sc > 0.75) or model == "log")
-			if model.begins_with("rock") or model.begins_with("pebble_rock"):
-				_shape_rock(_props[-1], rng)
-				# Rocks sit in groups: a couple of chips beside each one.
-				var chips := rng.randi_range(1, 2) if _tier() == "high" else 0
-				for k in chips:
-					var off := Vector3(rng.randf_range(-0.9, 0.9), 0, rng.randf_range(-0.7, 0.7)) * sc * 1.6
-					_place_prop(["rock_c", "pebble_rock_b", "rock_flat"][k % 3], at + off, sc * rng.randf_range(0.3, 0.5), false)
-					_shape_rock(_props[-1], rng)
+			var shadows := (model.begins_with("rock") and sc > 0.75) or model == "log"
+			if not rocky:
+				_place_prop(model, at, sc, shadows)
+				continue
+			_rock_spot(probes, spots, model, at, sc, shadows, rng)
+			# Rocks sit in groups: a couple of chips beside each one.
+			var chips := rng.randi_range(1, 2) if _tier() == "high" else 0
+			for k in chips:
+				var off := Vector3(rng.randf_range(-0.9, 0.9), 0, rng.randf_range(-0.7, 0.7)) * sc * 1.6
+				_rock_spot(probes, spots, ["rock_c", "pebble_rock_b", "rock_flat"][k % 3], at + off, sc * rng.randf_range(0.3, 0.5), false, rng)
+	for model in spots:
+		var probe: Dictionary = probes.get(model, {})
+		if not probe.is_empty():
+			_rock_draw(probe, spots[model])
+	for model in probes:
+		var probe: Dictionary = probes[model]
+		if not probe.is_empty():
+			(probe["node"] as Node).free()
+
+
+## Poses one stone the way the field props were posed and files its shape
+## under its kind. A multimesh casts as one, so the stones big enough to
+## throw a shadow are filed apart from the small ones.
+func _rock_spot(probes: Dictionary, spots: Dictionary, model: String, at: Vector3, scale: float, shadows: bool, rng: RandomNumberGenerator) -> void:
+	if not probes.has(model):
+		probes[model] = _rock_probe(model)
+	var probe: Dictionary = probes[model]
+	if probe.is_empty():
+		return
+	var node: Node3D = probe["node"]
+	_rock_reset(node, probe["home"])
+	_pose_prop(node, model, at, scale)
+	_shape_rock(node, rng)
+	if not spots.has(model):
+		spots[model] = {"shade": [], "plain": []}
+	var group := "shade" if shadows else "plain"
+	var by_group: Dictionary = spots[model]
+	(by_group[group] as Array).append(node.transform)
+
+
+## One stone of a kind, kept as a hidden prop: it is posed over and over to
+## give every stone of that kind its shape, then thrown away.
+func _rock_probe(model: String) -> Dictionary:
+	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
+	if packed == null:
+		return {}
+	var node := packed.instantiate() as Node3D
+	if node == null:
+		return {}
+	_paint_prop(node, model)
+	# The probe is posed in the tree (the tilt needs a parent), but it never
+	# draws: it only carries the kind's shape.
+	node.visible = false
+	world_root.add_child(node)
+	var home := node.transform
+	var meshes: Array = []
+	var locals: Array = []
+	var mats: Array = []
+	for mi_node in node.find_children("*", "MeshInstance3D", true, false):
+		var mi := mi_node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		meshes.append(mi.mesh)
+		# Where the mesh sits inside the model, so an instance can be put
+		# back exactly where the scene had it.
+		locals.append(_chain(mi, node) * home.affine_inverse())
+		mats.append(mi.material_override)
+	return {"node": node, "home": home, "meshes": meshes, "locals": locals, "mats": mats}
+
+
+## Puts the probe back the way the model made it, so the next stone of the
+## kind starts from the model's own shape.
+func _rock_reset(node: Node3D, home: Transform3D) -> void:
+	node.transform = home
+	node.rotation = home.basis.get_euler()
+	node.scale = home.basis.get_scale()
+
+
+## Draws a kind of rock: one multimesh per mesh of the model, and every
+## stone of that kind an instance in it.
+func _rock_draw(probe: Dictionary, groups: Dictionary) -> void:
+	var meshes: Array = probe["meshes"]
+	var locals: Array = probe["locals"]
+	var mats: Array = probe["mats"]
+	for key in groups:
+		var list: Array = groups[key]
+		if list.is_empty():
+			continue
+		var shadows := str(key) == "shade"
+		for i in meshes.size():
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.mesh = meshes[i]
+			mm.instance_count = list.size()
+			for j in list.size():
+				mm.set_instance_transform(j, (list[j] as Transform3D) * (locals[i] as Transform3D))
+			var inst := MultiMeshInstance3D.new()
+			inst.multimesh = mm
+			inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var mat: Material = mats[i]
+			if mat:
+				inst.material_override = mat
+			world_root.add_child(inst)
 
 
 ## Instances every mesh of a kit model with a MultiMesh (one draw per
@@ -1181,24 +1289,9 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 	if packed == null:
 		return
 	var node := packed.instantiate()
-	node.position = at
-	if model in ["log", "stump"]:
-		_bark(node)
-	if (model.begins_with("rock") or model.begins_with("pebble_rock")) and model != "rock_lava":
-		_paint_rock(node)
-	if model == "mushroom_tall":
-		_paint_mushroom(node)
-	if model.begins_with("tree") or model.begins_with("bush"):
-		_crisp_leaves(node)
-	var contact := {"rock": 0.75, "pebble": 0.55, "log": 1.0, "stump": 0.6, "tree": 1.1, "mushroom_tall": 0.5, "bush": 0.8}
-	for key in contact.keys():
-		if model.begins_with(key):
-			_contacts.append(Vector3(at.x, at.z, float(contact[key]) * scale))
-			break
+	_paint_prop(node, model)
 	if node is Node3D:
-		var prop := node as Node3D
-		prop.scale *= scale
-		prop.rotation.y = randf() * TAU
+		_pose_prop(node as Node3D, model, at, scale)
 	if not shadows:
 		# glTF roots are plain Node3D: switch off every mesh under the prop.
 		if node is GeometryInstance3D:
@@ -1211,6 +1304,32 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 			(node as Node3D).set_meta("canopy", true)
 		_props.append(node)
 	world_root.add_child(node)
+
+
+## The materials a prop wears: bark on the logs and stumps, the rock shader
+## on the stones, painted caps on the mushrooms, crisp leaves on the trees.
+func _paint_prop(node: Node, model: String) -> void:
+	if model in ["log", "stump"]:
+		_bark(node)
+	if (model.begins_with("rock") or model.begins_with("pebble_rock")) and model != "rock_lava":
+		_paint_rock(node)
+	if model == "mushroom_tall":
+		_paint_mushroom(node)
+	if model.begins_with("tree") or model.begins_with("bush"):
+		_crisp_leaves(node)
+
+
+## Puts a prop where it belongs: placed, sized, spun, and sitting in its own
+## soft contact shadow.
+func _pose_prop(node: Node3D, model: String, at: Vector3, scale: float) -> void:
+	node.position = at
+	var contact := {"rock": 0.75, "pebble": 0.55, "log": 1.0, "stump": 0.6, "tree": 1.1, "mushroom_tall": 0.5, "bush": 0.8}
+	for key in contact.keys():
+		if model.begins_with(key):
+			_contacts.append(Vector3(at.x, at.z, float(contact[key]) * scale))
+			break
+	node.scale *= scale
+	node.rotation.y = randf() * TAU
 
 
 ## Giant mushrooms: the kit's clay caps repainted with plum tops, freckles,
