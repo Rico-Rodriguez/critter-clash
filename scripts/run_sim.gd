@@ -292,6 +292,15 @@ var explore := false
 var fog_seen := PackedByteArray()
 var fog_now := PackedByteArray()
 var fog_dirty := true
+## Explored ground, kept as counts instead of a scan: _explored_count open
+## cells the hero has seen, _open_count open cells on the whole map. Both
+## are refreshed when the fog is (re)set, so explored() never walks the grid.
+var _explored_count := 0
+var _open_count := 0
+## What the counts were taken from, so a swapped map or a resized fog is
+## noticed and recounted.
+var _explored_map: HuntMap = null
+var _explored_fog := -1
 const REVEAL := 1200.0
 const AGGRO_CAMP := 430.0
 const AGGRO_PATROL := 380.0
@@ -593,6 +602,7 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	if explore:
 		fog_seen.resize(map.grid_w * map.grid_h)
 		fog_now.resize(map.grid_w * map.grid_h)
+	_reset_explored()
 	xp_need = Catalog.xp_for_level(1)
 	var count := session.hero_ids.size()
 	if mode == Session.Mode.SOLO:
@@ -4116,6 +4126,9 @@ func _reveal(at: Vector2) -> void:
 				fog_now[i] = 1
 				if fog_seen[i] == 0:
 					fog_seen[i] = 1
+					# Only open ground counts towards the explored share.
+					if map.open_cells[i] == 1:
+						_explored_count += 1
 	fog_dirty = true
 
 
@@ -4127,18 +4140,35 @@ func visible_at(p: Vector2) -> bool:
 	return not explore or fog_now[map.cell_index(p)] == 1
 
 
-## Share of the map's open ground revealed so far (0..1).
+## Recount the explored ground from the fog arrays. Runs once per run, when
+## the map and its fog are set up, so the counters can be trusted afterwards.
+func _reset_explored() -> void:
+	_explored_count = 0
+	_open_count = 0
+	_explored_map = map
+	_explored_fog = fog_seen.size()
+	if not explore or map == null:
+		return
+	var open := map.open_cells
+	for i in open.size():
+		if open[i] == 1:
+			_open_count += 1
+			if i < fog_seen.size() and fog_seen[i] == 1:
+				_explored_count += 1
+
+
+## Share of the map's open ground revealed so far (0..1). The counts are kept
+## as the fog opens, so this is a lookup and not a walk of the whole grid.
 func explored() -> float:
 	if not explore:
 		return 1.0
-	var open := 0
-	var seen := 0
-	for i in map.open_cells.size():
-		if map.open_cells[i] == 1:
-			open += 1
-			if fog_seen[i] == 1:
-				seen += 1
-	return float(seen) / maxf(float(open), 1.0)
+	if map == null:
+		return 0.0
+	# The fog was swapped or resized since the last count: recount so the
+	# share always matches what the grid holds.
+	if _explored_map != map or _explored_fog != fog_seen.size():
+		_reset_explored()
+	return float(_explored_count) / maxf(float(_open_count), 1.0)
 
 
 ## Landmarks (great trees, standing stones, ruins) are solid.
