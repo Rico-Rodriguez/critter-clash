@@ -7,6 +7,8 @@ var home_button: Button
 var showing_loot := false
 var burst: Burst
 var _index := 0
+## The queued chest this screen opens, or -1 when it opens a drawer chest.
+var _queue_index := -1
 
 ## The loot band's rest height; reveals may grow it into free space above
 ## the buttons, and _arm() puts it back.
@@ -51,46 +53,71 @@ func build() -> void:
 
 
 var _want := -1
+## The queued chest the caller asked for, or -1.
+var _want_queue := -1
 
 
+## The screen opens either a drawer chest ({"index": n}) or a queued chest
+## ({"queue": n}); both go through the same reveal.
 func open(args: Dictionary = {}) -> void:
 	_want = int(args.get("index", -1))
+	_want_queue = int(args.get("queue", -1))
 	_arm()
 
 
-## Only a ready chest reaches this scene (Home starts timers); with none
-## ready it says so and points back to the drawer.
+## Only a ready chest reaches this scene (Home starts timers, the queue
+## counts down on its own); with none ready it says so and points back to
+## the drawer.
 func _arm() -> void:
 	for child in loot_box.get_children():
 		child.queue_free()
 	loot_box.custom_minimum_size = Vector2(0, LOOT_BAND)
 	home_button.visible = false
 	showing_loot = false
-	_index = _want if SaveGame.chest_state(_want) == "ready" else SaveGame.first_ready()
+	_queue_index = -1
+	_index = -1
+	# The chest the caller asked for wins, then any ready drawer chest, then
+	# the first queued chest whose timer is up.
+	if _want_queue >= 0 and SaveGame.queued_state(_want_queue) == "ready":
+		_queue_index = _want_queue
+	elif _want >= 0 and SaveGame.chest_state(_want) == "ready":
+		_index = _want
+	else:
+		_index = SaveGame.first_ready()
+		if _index < 0:
+			_queue_index = SaveGame.first_queued_ready()
 	_want = -1
-	if _index < 0:
+	_want_queue = -1
+	if _index < 0 and _queue_index < 0:
 		title_label.text = "No chest ready"
 		open_button.visible = false
 		home_button.visible = true
 		var line := "Win or lose a hunt and one comes home with you." if SaveGame.pending_count() == 0 else "Your chests are still unlocking. Tap one on Home to start its timer."
+		if SaveGame.queued_count() > 0:
+			line = "Your queued chests are still counting down."
 		loot_box.add_child(body(line))
-		burst.empty = SaveGame.pending_count() == 0
+		burst.empty = SaveGame.pending_count() == 0 and SaveGame.queued_count() == 0
 		burst.locked = not burst.empty
 		burst.tone = SaveGame.chest_tone(0)
 		burst.arm()
 		return
-	var chest: Dictionary = SaveGame.data["chests"][_index]
-	var rarity := SaveGame.chest_rarity(_index)
-	title_label.text = "%s chest" % rarity.capitalize() if str(chest.get("kind", "hunt")) != "scrap" else "Common pouch"
+	var chest: Dictionary = SaveGame.data["chests"][_index] if _index >= 0 else SaveGame.queued_chest(_queue_index)
+	var rarity := SaveGame.chest_rarity(_index) if _index >= 0 else SaveGame.queued_rarity(_queue_index)
+	var title := "%s chest" % rarity.capitalize() if str(chest.get("kind", "hunt")) != "scrap" else "Common pouch"
+	if _queue_index >= 0:
+		title = "%s · queued" % title
+	title_label.text = title
 	open_button.visible = true
 	open_button.disabled = false
 	open_button.text = "Open"
-	burst.tone = SaveGame.chest_tone(_index)
+	burst.tone = SaveGame.chest_tone(_index) if _index >= 0 else SaveGame.queued_tone(_queue_index)
 	burst.locked = false
 	burst.empty = false
 	burst.arm()
 	var biome := Catalog.biome(str(chest.get("biome", "meadow")))
 	loot_box.add_child(body("From the %s." % str(biome["name"])))
+	if _queue_index >= 0:
+		loot_box.add_child(body("It waited its turn in the queue."))
 
 
 func _on_open() -> void:
@@ -102,12 +129,15 @@ func _on_open() -> void:
 
 func _reveal() -> void:
 	var test := _chest_test_count()
-	if _index < 0 and test <= 0:
+	if _index < 0 and _queue_index < 0 and test <= 0:
 		return
 	var loot: Dictionary
 	if test > 0:
 		loot = _test_loot(test)
 		_index = maxi(_index, 0)
+	elif _queue_index >= 0:
+		# A queued chest opens through the same roll a drawer chest pays.
+		loot = SaveGame.open_queued(_queue_index)
 	else:
 		loot = SaveGame.open_next(_index)
 	if loot.is_empty():
@@ -173,7 +203,7 @@ func _reveal() -> void:
 			gear_label.custom_minimum_size = Vector2(560, 0)
 			gv.add_child(gear_label)
 		loot_box.add_child(plate)
-	if SaveGame.first_ready() >= 0:
+	if SaveGame.first_ready() >= 0 or SaveGame.first_queued_ready() >= 0:
 		open_button.visible = true
 		open_button.text = "Next chest"
 		showing_loot = true
