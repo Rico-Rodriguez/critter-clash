@@ -640,19 +640,41 @@ func _hud() -> void:
 	if level_badge.level != sim.level:
 		level_badge.level = sim.level
 		level_badge.queue_redraw()
-	var show_boss := sim.phase == "boss"
-	if show_boss != _boss_lit:
-		_boss_lit = show_boss
-		stage.boss_focus(show_boss)
-	boss_meter.visible = show_boss and sim.boss != null
-	boss_label.visible = show_boss and sim.boss != null
+	# The boss bar names the boss in the hero's face. A lair boss stands
+	# beside the biome boss, so the bar follows whichever one is nearer.
+	var shown := _facing_boss()
+	var boss_phase := sim.phase == "boss"
+	if boss_phase != _boss_lit:
+		_boss_lit = boss_phase
+		stage.boss_focus(boss_phase)
+	var show_boss := shown != null
+	boss_meter.visible = show_boss
+	boss_label.visible = show_boss
 	boss_label.get_parent().visible = boss_label.visible
-	if show_boss and sim.boss != null:
-		boss_meter.ratio = sim.boss.hp / maxf(sim.boss.max_hp, 1.0)
+	if show_boss:
+		boss_meter.ratio = shown.hp / maxf(shown.max_hp, 1.0)
 		# Phase 2 tints the boss bar and names the state.
-		var boss_enraged := sim.boss.phase2
-		boss_label.text = sim.boss.display + ("   ENRAGED" if boss_enraged else "")
+		var boss_enraged := shown.phase2
+		boss_label.text = shown.display + ("   ENRAGED" if boss_enraged else "")
 		boss_label.modulate = Color("ff9a4a") if boss_enraged else Color.WHITE
+
+
+## The boss the hero is facing: the lair boss stands beside the biome boss in
+## the same lair, so the bar follows the nearer of the two. A lair boss that
+## has fallen leaves the biome boss alone again.
+func _facing_boss() -> RunSim.Actor:
+	var lair: RunSim.Actor = sim.lair_boss
+	var main_boss: RunSim.Actor = sim.boss
+	if lair == null or not lair.alive:
+		if main_boss != null and main_boss.alive:
+			return main_boss
+		return null
+	if main_boss == null or not main_boss.alive:
+		return lair
+	if sim.heroes.is_empty():
+		return main_boss
+	var hero_at: Vector2 = sim.heroes[0].pos
+	return lair if lair.pos.distance_to(hero_at) < main_boss.pos.distance_to(hero_at) else main_boss
 
 
 ## The gather bars: one over each hero that is working a node, filled as the
@@ -1006,6 +1028,35 @@ func _drain() -> void:
 			"boss_enrage":
 				# Phase 2 at half health: the roar plays, the boss bar tints.
 				AudioDirector.sfx("boss_roar")
+			"lair_down":
+				# The lair's own boss falls: its hoard is paid at once, in the
+				# hunt. The run is not over -- the biome boss is still to come,
+				# and it holds the clear.
+				var lair_at: Vector2 = ev.get("pos", Vector2.ZERO)
+				# A daily on a locked biome pays nothing, the same as its
+				# biome boss.
+				var lair_summary := {}
+				if not daily_pass:
+					lair_summary = SaveGame.commit_lair(biome_id, str(ev.get("id", "")))
+				var lair_drops: Array = lair_summary.get("drops", [])
+				for entry in lair_drops:
+					var drop: Dictionary = entry
+					var text := str(drop.get("name", ""))
+					var amount := int(drop.get("amount", 0))
+					var kind := str(drop.get("kind", ""))
+					if kind == "coins":
+						text = "+%d coins" % amount
+					elif kind == "material" or kind == "cards":
+						text = "+%d %s" % [amount, text]
+					_float(lair_at + Vector2(0.0, -70.0), text, UiKit.GOLD.lightened(0.2), false)
+				_banner("%s falls!" % str(ev.get("name", "The lair boss")))
+				AudioDirector.sfx("boss_die")
+				AudioDirector.haptic("heavy")
+				if not lair_drops.is_empty():
+					AudioDirector.sfx("sparkle")
+				var lair_reveal: Dictionary = lair_summary.get("reveal", {})
+				if not lair_reveal.is_empty():
+					AudioDirector.sfx("rare_chime", -4.0)
 			"boss_down":
 				if not committed:
 					committed = true

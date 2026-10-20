@@ -40,6 +40,8 @@ The ground sets how often a wild critter is promoted to an elite: the Fringe (me
 
 A boss lair is a second boss inside a biome, standing beside the biome boss rather than in its place: Boreal, the Frost Wyrm in the Frost Peaks and Inferno, the Magma Colossus in the Ember Volcano (`Catalog.LAIRS`). A lair hoard holds no common coin: every row of a lair's drop table is rare or better, so a lair kill is a haul (`Catalog.guaranteed_drops`).
 
+A lair only stands in ground deep enough for it (`Catalog.LAIRS` `depth_min`), so the shallows never hold one. In an explore hunt the lair boss waits in the lair and rises when the hero brings the lair into sight: it is fought in the same ground as the biome boss, which still rises there on its own clock exactly as before. The lair boss keeps its own seat -- it has its own bar, its own fight and its own drop table -- and its hoard is paid the moment it falls. The biome boss is never replaced by it.
+
 ## Slayer
 
 The slayer master offers tasks such as "Defeat 40 Meadow critters" or "Defeat Gravemaw". Progress counts the critters you defeat in that biome, and a boss task counts that boss. Turning a task in pays slayer points plus 5 points for each task already in the streak. Cancelling a task resets the streak. The points shop sells a rare charm, a trail ribbon for the home pedestal, and a hunt chest.

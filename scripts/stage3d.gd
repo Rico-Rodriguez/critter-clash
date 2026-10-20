@@ -301,9 +301,14 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 	var boss_up := false
 	var boss_at := Vector3.ZERO
 	for actor in sim.actors:
-		if actor.alive and actor.kind == "boss":
-			boss_up = true
-			boss_at = _to3(actor.pos)
+		if not actor.alive or actor.kind != "boss":
+			continue
+		# A lair boss stands beside the biome boss: the biome boss holds the
+		# camera lean and the x-ray, so the fight reads exactly as before.
+		if sim.boss != null and sim.boss.alive and actor != sim.boss:
+			continue
+		boss_up = true
+		boss_at = _to3(actor.pos)
 	_dist = lerpf(_dist, BOSS_DIST if boss_up else DIST, 0.08)
 	_update_xray(boss_up, boss_at, hero_at, sim)
 	var drop: Array = []

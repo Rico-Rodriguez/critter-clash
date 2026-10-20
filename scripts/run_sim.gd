@@ -140,6 +140,19 @@ var gems: Array[Gem] = []
 var pings: Array[Ping] = []
 var fields: Array[Field] = []
 var boss: Actor = null
+## The lair boss of this hunt (explore only): the second boss that stands
+## beside the biome boss, in the lair itself. It never takes the biome
+## boss's seat -- the sim tracks one boss, with its bar, its adds and its
+## phase -- so it keeps its own actor and its own count.
+var lair_boss: Actor = null
+## The lair this hunt holds ("" when the ground holds none). Its id is the
+## lair critter's, the same id its own drop table is keyed by.
+var lair_id := ""
+## True once the lair boss has shown itself. A lair holds one boss: it
+## does not stand up again after it falls.
+var lair_spawned := false
+## The lair boss's own gem count: the health gems it leaves as it falls.
+var lair_mark := 0
 var slain := 0
 ## Report counters: damage the team-0 heroes took after armor and bulwark,
 ## and foes (minions and bosses) killed by team 0. Read by the class report.
@@ -366,6 +379,16 @@ const BOSS_INTRO := 1.6
 ## The boss only starts an attack within this range of the hero, so its first
 ## telegraph ring can never open off-screen; it closes the gap first.
 const BOSS_ENGAGE := 900.0
+## The lair boss: how close the hero must come to the lair site before the
+## lair's own boss shows itself. It is the fog's reveal range, so the lair
+## boss is standing there exactly when the lair comes into sight.
+const LAIR_SIGHT := 1200.0
+## How close the hero must come before the lair boss leaves its ground. It
+## guards the lair: it never chases the hero off the lair.
+const LAIR_ENGAGE := 700.0
+## How far the lair boss may stray from the post it rose on. It guards its
+## ground: a lunge may carry it a little way, and it walks back after.
+const LAIR_LEASH := 260.0
 ## Phase 2: the boss enrages once below half health. A 0.8 s roar telegraph
 ## (the HUD boss bar shows ENRAGED) is followed by +20% attack speed and one
 ## archetype extra pattern. Every phase-2 telegraph stays at
@@ -605,6 +628,9 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	if explore:
 		fog_seen.resize(map.grid_w * map.grid_h)
 		fog_now.resize(map.grid_w * map.grid_h)
+		# The lair this ground holds: it waits in the lair for the hero,
+		# beside the biome boss that rises there.
+		lair_id = _hunt_lair_id()
 	_reset_explored()
 	xp_need = Catalog.xp_for_level(1)
 	var count := session.hero_ids.size()
@@ -650,6 +676,9 @@ func step(dt: float, moves: Array) -> void:
 	if _halt():
 		return
 	_step_boss(dt)
+	if _halt():
+		return
+	_step_lair_boss(dt)
 	if _halt():
 		return
 	_step_knockback(dt)
@@ -1989,56 +2018,180 @@ func _step_boss(dt: float) -> void:
 	_boss_gems()
 
 
-func _begin_attack() -> void:
-	boss_opened = true
-	if boss.phase2_pending:
-		# Phase 2 opens with its archetype pattern, then folds into the mix.
-		boss.phase2_pending = false
-		boss.attack = _phase2_attack()
-	else:
-		boss.attack = _pick_attack()
-	boss.boss_state = "windup"
-	events.append({"type": "windup", "id": boss.id, "time": 0.6})
-	var focus := _focus_hero()
-	if focus == null:
-		boss.boss_state = "idle"
-		boss.boss_timer = 0.4
+## The lair boss: its own actor and its own fight. The sim tracks one boss
+## -- the biome boss holds that seat, with its bar, its adds and its phase
+## -- so the lair boss runs a plainer loop of its own. It holds its ground
+## in the lair and strikes with the same patterns the biome boss uses.
+func _step_lair_boss(dt: float) -> void:
+	var b := lair_boss
+	if b == null or not b.alive:
 		return
-	if boss.attack == "aoe":
-		boss.boss_timer = 0.76
+	var post := b.home
+	b.flash = maxf(0.0, b.flash - dt)
+	b.boss_timer -= dt
+	b.touch_cd = maxf(0.0, b.touch_cd - dt)
+	b.charge_cd = maxf(0.0, b.charge_cd - dt)
+	_check_phase2(b)
+	if b.stun > 0.0:
+		b.vel = Vector2.ZERO
+		_clamp_actor(b)
+		return
+	if b.kb_left > 0.0:
+		# A shove moves it for a beat; its action timers keep ticking.
+		b.vel = Vector2.ZERO
+		_clamp_actor(b)
+		return
+	if b.boss_state == "intro":
+		# Planted and silent while the reveal plays; the hero moves freely.
+		b.vel = Vector2.ZERO
+		if b.boss_timer <= 0.0:
+			b.boss_state = "idle"
+			b.boss_timer = 0.9
+		_clamp_actor(b)
+		return
+	if b.boss_state == "roar":
+		# The enrage roar: planted, silent and untouchable for its window,
+		# then the phase-2 pattern opens on the first attack back.
+		b.vel = Vector2.ZERO
+		if b.boss_timer <= 0.0:
+			b.boss_state = "idle"
+			b.boss_timer = 0.2
+			b.phase2_pending = true
+		_clamp_actor(b)
+		return
+	var focus := _focus_hero(b)
+	if focus == null:
+		_clamp_actor(b)
+		return
+	var delta := focus.pos - b.pos
+	var d := delta.length()
+	if b.boss_state == "idle":
+		# It holds its ground: the lair is what it guards, so it waits on
+		# its post and turns to the hero rather than walking the map. A
+		# lunge may carry it a little way; it walks back when the hero is
+		# gone.
+		if b.pos.distance_to(post) > LAIR_LEASH and d > LAIR_ENGAGE:
+			var back := (post - b.pos).normalized() * b.speed
+			b.vel = b.vel.lerp(_steer(b, back), 1.0 - exp(-7.0 * dt))
+			b.pos += b.vel * dt
+			_push_out(b)
+			b.pos = map.push_inside(b.pos, b.radius * 0.6)
+			if b.vel.length() > 8.0:
+				b.facing = lerp_angle(b.facing, b.vel.angle(), 1.0 - exp(-9.0 * dt))
+		else:
+			b.vel = b.vel.lerp(Vector2.ZERO, 1.0 - exp(-10.0 * dt))
+			b.pos += b.vel * dt
+			b.facing = lerp_angle(b.facing, delta.angle(), 1.0 - exp(-9.0 * dt))
+			b.best_d = d
+		# No telegraph until the hero is on the lair's ground: its first
+		# ring must read on screen.
+		if b.boss_timer <= 0.0 and d <= LAIR_ENGAGE:
+			_begin_attack(b)
+	elif b.boss_state == "windup":
+		b.vel = Vector2.ZERO
+		if b.boss_timer <= 0.0:
+			_release_attack(b)
+	elif b.boss_state == "act":
+		if b.attack == "charge":
+			var dash := 680.0 if enraged else 560.0
+			b.vel = b.boss_dir * dash
+			var before := b.pos + b.vel * dt
+			b.pos = before
+			_push_out(b)
+			b.pos = map.push_inside(b.pos, b.radius * 0.6)
+			var clamped := _clamp_point(b.pos, b.radius)
+			if b.pos.distance_to(before) > 2.0 or clamped.distance_to(b.pos) > 2.0:
+				# Slammed into a stone or the arena edge: end the charge.
+				b.boss_timer = 0.0
+			b.facing = b.boss_dir.angle()
+			for hero in heroes:
+				if hero.alive and b.pos.distance_to(hero.pos) < b.radius * 0.82 + hero.radius and b.charge_cd <= 0.0:
+					b.charge_cd = 0.38
+					_hurt(hero, b.charge_dmg * _rage(), b.pos, false, b, true)
+					if result != "":
+						return
+		if b.boss_timer <= 0.0:
+			b.boss_state = "recover"
+			# Phase 2 strikes 20% faster: the between-attack beats shorten.
+			b.boss_timer = (0.42 if enraged else 0.55) / b.atk_speed
+	elif b.boss_state == "recover":
+		if b.boss_timer <= 0.0:
+			b.boss_state = "idle"
+			b.boss_timer = (0.18 if enraged else 0.42) / b.atk_speed
+	if b.boss_state != "act" or b.attack != "charge":
+		for hero in heroes:
+			if hero.alive and b.pos.distance_to(hero.pos) < b.radius * 0.78 + hero.radius and b.touch_cd <= 0.0:
+				b.touch_cd = 0.85
+				_hurt(hero, b.dmg * _rage(), b.pos, false, b, true)
+				if result != "":
+					return
+	# It guards its ground: it never strays further than its leash from the
+	# post it rose on, so the lair boss and the biome boss never stand on
+	# one spot.
+	var off := b.pos - post
+	if off.length() > LAIR_LEASH:
+		b.pos = post + off.normalized() * LAIR_LEASH
+	_clamp_actor(b)
+	_boss_gems(b)
+
+
+## The boss's opening move. The boss actor is passed in, so the lair boss
+## fights with the same patterns as the biome boss: it never takes the
+## biome boss's seat, but it swings the same way.
+func _begin_attack(b: Actor = null) -> void:
+	var t := b if b != null else boss
+	if t == null:
+		return
+	if t == boss:
+		boss_opened = true
+	if t.phase2_pending:
+		# Phase 2 opens with its archetype pattern, then folds into the mix.
+		t.phase2_pending = false
+		t.attack = _phase2_attack(t)
+	else:
+		t.attack = _pick_attack(t)
+	t.boss_state = "windup"
+	events.append({"type": "windup", "id": t.id, "time": 0.6})
+	var focus := _focus_hero(t)
+	if focus == null:
+		t.boss_state = "idle"
+		t.boss_timer = 0.4
+		return
+	if t.attack == "aoe":
+		t.boss_timer = 0.76
 		var lead := focus.vel * 0.32
-		_circle(focus.pos, 88.0, 0.76, boss.aoe_dmg * _rage())
-		_circle(focus.pos + lead + Vector2(rng.randf_range(-36, 36), rng.randf_range(-24, 24)), 76.0, 0.76, boss.aoe_dmg * _rage())
+		_circle(focus.pos, 88.0, 0.76, t.aoe_dmg * _rage())
+		_circle(focus.pos + lead + Vector2(rng.randf_range(-36, 36), rng.randf_range(-24, 24)), 76.0, 0.76, t.aoe_dmg * _rage())
 		if enraged:
-			_circle(focus.pos + Vector2(70, -20), 68.0, 0.76, boss.aoe_dmg * _rage())
-	elif boss.attack == "charge":
-		boss.boss_timer = 0.5
-		var dir := focus.pos - boss.pos
-		boss.boss_dir = dir.normalized() if dir.length() > 1.0 else Vector2.DOWN
+			_circle(focus.pos + Vector2(70, -20), 68.0, 0.76, t.aoe_dmg * _rage())
+	elif t.attack == "charge":
+		t.boss_timer = 0.5
+		var dir := focus.pos - t.pos
+		t.boss_dir = dir.normalized() if dir.length() > 1.0 else Vector2.DOWN
 		var ping := Ping.new()
 		ping.kind = "lane"
-		ping.pos = boss.pos
-		ping.dir = boss.boss_dir
+		ping.pos = t.pos
+		ping.dir = t.boss_dir
 		ping.length = 340.0
-		ping.width = boss.radius * 0.92
+		ping.width = t.radius * 0.92
 		ping.life = 0.5
 		ping.max_life = 0.5
 		pings.append(ping)
-	elif boss.attack == "slam":
+	elif t.attack == "slam":
 		# Melee phase 2: a ground-slam ring, telegraphed long enough to roll out.
-		boss.boss_timer = BOSS_PHASE_TELEGRAPH
+		t.boss_timer = BOSS_PHASE_TELEGRAPH
 		var at := focus.pos + focus.vel * 0.18
-		_circle(at, 130.0, BOSS_PHASE_TELEGRAPH, boss.aoe_dmg * 0.7 * _rage())
-	elif boss.attack == "fan2":
+		_circle(at, 130.0, BOSS_PHASE_TELEGRAPH, t.aoe_dmg * 0.7 * _rage())
+	elif t.attack == "fan2":
 		# Ranged phase 2: the five-shot fan, with the same long telegraph.
-		boss.boss_timer = BOSS_PHASE_TELEGRAPH
-		var base2 := (focus.pos - boss.pos).angle()
-		boss.boss_dir = Vector2.RIGHT.rotated(base2)
+		t.boss_timer = BOSS_PHASE_TELEGRAPH
+		var base2 := (focus.pos - t.pos).angle()
+		t.boss_dir = Vector2.RIGHT.rotated(base2)
 		for i in 5:
 			var ping2 := Ping.new()
 			ping2.kind = "lane"
 			ping2.dir = Vector2.RIGHT.rotated(base2 + lerpf(-0.58, 0.58, float(i) / 4.0))
-			ping2.pos = boss.pos + ping2.dir * boss.radius * 0.7
+			ping2.pos = t.pos + ping2.dir * t.radius * 0.7
 			ping2.length = 340.0
 			ping2.width = 22.0
 			ping2.life = BOSS_PHASE_TELEGRAPH
@@ -2046,14 +2199,14 @@ func _begin_attack() -> void:
 			pings.append(ping2)
 	else:
 		# Fan: five thin lanes show where the volley will fly.
-		boss.boss_timer = 0.55
-		var base := (focus.pos - boss.pos).angle()
-		boss.boss_dir = Vector2.RIGHT.rotated(base)
+		t.boss_timer = 0.55
+		var base := (focus.pos - t.pos).angle()
+		t.boss_dir = Vector2.RIGHT.rotated(base)
 		for i in 5:
 			var ping := Ping.new()
 			ping.kind = "lane"
 			ping.dir = Vector2.RIGHT.rotated(base + lerpf(-0.58, 0.58, float(i) / 4.0))
-			ping.pos = boss.pos + ping.dir * boss.radius * 0.7
+			ping.pos = t.pos + ping.dir * t.radius * 0.7
 			ping.length = 300.0
 			ping.width = 22.0
 			ping.life = 0.55
@@ -2061,44 +2214,50 @@ func _begin_attack() -> void:
 			pings.append(ping)
 
 
-func _release_attack() -> void:
-	events.append({"type": "attack", "id": boss.id})
-	boss.boss_state = "act"
-	if boss.attack == "charge":
-		boss.boss_timer = 0.38
-		boss.charge_cd = 0.0
+func _release_attack(b: Actor = null) -> void:
+	var t := b if b != null else boss
+	if t == null:
 		return
-	if boss.attack == "fan" or boss.attack == "fan2":
-		boss.boss_timer = 0.42
+	events.append({"type": "attack", "id": t.id})
+	t.boss_state = "act"
+	if t.attack == "charge":
+		t.boss_timer = 0.38
+		t.charge_cd = 0.0
+		return
+	if t.attack == "fan" or t.attack == "fan2":
+		t.boss_timer = 0.42
 		# Fire along the lanes that were telegraphed.
-		var base := boss.boss_dir.angle()
+		var base := t.boss_dir.angle()
 		for i in 5:
 			var ang := base + lerpf(-0.58, 0.58, float(i) / 4.0)
 			var dir := Vector2.RIGHT.rotated(ang)
 			var shot := Shot.new()
-			shot.team = boss.team
-			shot.owner_id = boss.id
-			shot.pos = boss.pos + dir * (boss.radius * 0.7)
+			shot.team = t.team
+			shot.owner_id = t.id
+			shot.pos = t.pos + dir * (t.radius * 0.7)
 			shot.prev = shot.pos
 			shot.vel = dir * (320.0 if enraged else 255.0)
-			shot.dmg = boss.shot_dmg * _rage() * (0.8 if boss.attack == "fan2" else 1.0)
+			shot.dmg = t.shot_dmg * _rage() * (0.8 if t.attack == "fan2" else 1.0)
 			shot.radius = 11.0
 			shot.ttl = 2.5
 			shot.kind = "enemy"
 			shots.append(shot)
 		return
-	boss.boss_timer = 0.12
+	t.boss_timer = 0.12
 
 
-func _pick_attack() -> String:
+func _pick_attack(b: Actor = null) -> String:
+	var t := b if b != null else boss
+	if t == null:
+		return "fan"
 	# Once enraged the archetype pattern stays in the mix on top of the base
 	# three, so phase 2 reads as a new move rather than a one-off.
-	if boss.phase2 and rng.randf() < 0.2:
-		return _phase2_attack()
+	if t.phase2 and rng.randf() < 0.2:
+		return _phase2_attack(t)
 	var roll := rng.randf()
-	if roll < boss.bias_charge:
+	if roll < t.bias_charge:
 		return "charge"
-	if roll < boss.bias_charge + boss.bias_aoe:
+	if roll < t.bias_charge + t.bias_aoe:
 		return "aoe"
 	return "fan"
 
@@ -2356,8 +2515,10 @@ func _spawn_minion(skin_index: int, at: Vector2 = Vector2.INF) -> void:
 	actors.append(actor)
 
 
-func _spawn_boss() -> void:
-	var id := str(biome["boss"])
+## The boss actor's build: the stats, the archetype and the attack mix a
+## boss critter brings. Both the biome boss and a lair boss are built this
+## way, so a lair stands beside the biome boss as the same kind of fight.
+func _make_boss_actor(id: String) -> Actor:
 	var info := Catalog.critter(id)
 	var mul := float(biome["boss_mul"])
 	var dhp := float(_diff()["hp"])
@@ -2374,17 +2535,23 @@ func _spawn_boss() -> void:
 	actor.hp = actor.max_hp
 	actor.speed = float(info.get("boss_speed", 70)) * _foe_speed_mul()
 	actor.dmg = float(info.get("boss_touch", 16)) * mul * ddmg
+	actor.bias_charge = float(info.get("bias_charge", 0.33))
+	actor.bias_aoe = float(info.get("bias_aoe", 0.33))
+	actor.aoe_dmg = float(info.get("aoe", 22)) * mul * ddmg
+	actor.charge_dmg = float(info.get("charge", 28)) * mul * ddmg
+	actor.shot_dmg = float(info.get("shot", 11)) * mul * ddmg
+	return actor
+
+
+func _spawn_boss() -> void:
+	var id := str(biome["boss"])
+	var actor := _make_boss_actor(id)
 	actor.pos = map.lair if explore else map.boss_spawn(actor.radius)
 	actor.prev = actor.pos
 	# Rise and hold: the intro beat keeps the boss planted and untouchable
 	# until the reveal has played, then normal AI resumes.
 	actor.boss_state = "intro"
 	actor.boss_timer = BOSS_INTRO
-	actor.bias_charge = float(info.get("bias_charge", 0.33))
-	actor.bias_aoe = float(info.get("bias_aoe", 0.33))
-	actor.aoe_dmg = float(info.get("aoe", 22)) * mul * ddmg
-	actor.charge_dmg = float(info.get("charge", 28)) * mul * ddmg
-	actor.shot_dmg = float(info.get("shot", 11)) * mul * ddmg
 	actors.append(actor)
 	boss = actor
 	boss_mark = 0
@@ -2400,6 +2567,41 @@ func _spawn_boss() -> void:
 		if other.kind == "minion" and other.alive:
 			other.alive = false
 			events.append({"type": "die", "id": other.id, "pos": other.pos, "radius": other.radius, "sprite": other.sprite, "kind": "minion"})
+
+
+## The lair this hunt holds: the biome's lair whose depth the hunt reaches.
+## A shallow ground holds none, so the meadow and the mushroom wood stay as
+## they are.
+func _hunt_lair_id() -> String:
+	for lair in Catalog.lairs_at_depth(biome_id, Catalog.depth_index(biome_id)):
+		return str(lair["id"])
+	return ""
+
+
+## The lair boss: a boss of its own, built like the biome boss and standing
+## in the lair beside it. It never takes the biome boss's seat -- the sim
+## tracks one boss, with its bar, its adds and its phase -- so it keeps its
+## own actor, its own fight and its own hoard.
+func _spawn_lair_boss() -> void:
+	if lair_id == "" or lair_boss != null:
+		return
+	var actor := _make_boss_actor(lair_id)
+	# It waits beside the middle of the lair, where the biome boss rises, so
+	# the two stand in the same ground without sharing one spot: the biome
+	# boss holds the middle, the lair boss holds its own corner of it.
+	actor.pos = map.lair + Vector2(map.lair_r * 0.55, 0.0)
+	actor.prev = actor.pos
+	# The post it guards: it holds this ground and comes back to it.
+	actor.home = actor.pos
+	# Rise and hold: the reveal beat keeps it planted and untouchable
+	# until it has shown itself.
+	actor.boss_state = "intro"
+	actor.boss_timer = BOSS_INTRO
+	actors.append(actor)
+	lair_boss = actor
+	lair_spawned = true
+	lair_mark = 0
+	events.append({"type": "banner", "text": "%s rises!" % actor.display})
 
 
 ## The boss name card's subtitle: one per biome, a neutral fallback otherwise.
@@ -2526,7 +2728,7 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 			"stop": 0.045 if crit else 0.028,
 		})
 	if target.kind == "boss":
-		_boss_gems()
+		_boss_gems(target)
 	if allow_thorns and target.kind == "hero" and attacker != null and attacker.alive and attacker != target:
 		var thorns := float(target.stats.get("thorns", 0.0))
 		if thorns > 0.0:
@@ -2628,6 +2830,13 @@ func _kill(actor: Actor) -> void:
 		return
 	if actor.kind == "boss":
 		_gear_roll_drop(LootTable.boss_source(actor.sprite), actor.pos)
+		if actor == lair_boss:
+			# The lair's own boss: its hoard is paid from its own table, but
+			# the hunt goes on. The biome boss is still to come, and it holds
+			# the run's ending.
+			lair_boss = null
+			events.append({"type": "lair_down", "id": actor.sprite, "name": actor.display, "pos": actor.pos, "shake": 0.8, "stop": 0.08})
+			return
 		phase = "over"
 		result = "win"
 		paused = true
@@ -2732,13 +2941,22 @@ func _drop_gem(at: Vector2, value: int) -> void:
 		gems.remove_at(0)
 
 
-func _boss_gems() -> void:
-	if boss == null or boss.max_hp <= 0.0:
+## The health gems a boss leaves as it falls: four bands, dropped as the
+## boss's own health goes down. The lair boss keeps its own count, so the
+## two bosses pay their own gems.
+func _boss_gems(b: Actor = null) -> void:
+	var t := b if b != null else boss
+	if t == null or t.max_hp <= 0.0:
 		return
-	var mark := int((1.0 - boss.hp / boss.max_hp) * 4.0)
-	if mark > boss_mark and boss.hp > 0.0:
+	var mark := int((1.0 - t.hp / t.max_hp) * 4.0)
+	if t == lair_boss:
+		if mark > lair_mark and t.hp > 0.0:
+			lair_mark = mark
+			_drop_gem(t.pos, 8)
+		return
+	if mark > boss_mark and t.hp > 0.0:
 		boss_mark = mark
-		_drop_gem(boss.pos, 8)
+		_drop_gem(t.pos, 8)
 
 
 func _enemy_shot(actor: Actor, target: Actor, dmg: float, speed: float) -> void:
@@ -2813,10 +3031,14 @@ func _enrage_at() -> float:
 	return EXPLORE_ENRAGE_AT if explore else ARENA_ENRAGE_AT
 
 
-func _focus_hero() -> Actor:
+func _focus_hero(from: Actor = null) -> Actor:
 	var best: Actor = null
 	var best_d := 99999.0
-	var origin := boss.pos if boss != null else play.get_center()
+	var origin := play.get_center()
+	if from != null:
+		origin = from.pos
+	elif boss != null:
+		origin = boss.pos
 	for hero in heroes:
 		if not hero.alive:
 			continue
@@ -2956,20 +3178,21 @@ func _rage() -> float:
 ## One-shot phase 2 trigger: the first time the boss drops to half health it
 ## roars (an invulnerable 0.8 s telegraph), then attacks 20% faster with an
 ## extra archetype pattern. The intro is exempt, so the reveal is never cut.
-func _check_phase2() -> void:
-	if boss == null or not boss.alive or boss.phase2 or boss.boss_state == "intro":
+func _check_phase2(b: Actor = null) -> void:
+	var t := b if b != null else boss
+	if t == null or not t.alive or t.phase2 or t.boss_state == "intro":
 		return
-	if boss.max_hp <= 0.0 or boss.hp / boss.max_hp > BOSS_PHASE_HP:
+	if t.max_hp <= 0.0 or t.hp / t.max_hp > BOSS_PHASE_HP:
 		return
-	boss.phase2 = true
-	boss.atk_speed = BOSS_PHASE_SPEED
-	boss.boss_state = "roar"
-	boss.boss_timer = BOSS_ROAR
-	boss.vel = Vector2.ZERO
+	t.phase2 = true
+	t.atk_speed = BOSS_PHASE_SPEED
+	t.boss_state = "roar"
+	t.boss_timer = BOSS_ROAR
+	t.vel = Vector2.ZERO
 	events.append({
 		"type": "boss_enrage",
-		"id": boss.id,
-		"name": boss.display,
+		"id": t.id,
+		"name": t.display,
 		"time": BOSS_ROAR,
 		"shake": 0.55,
 		"stop": 0.06,
@@ -2978,8 +3201,11 @@ func _check_phase2() -> void:
 
 ## The phase-2 extra pattern, chosen by archetype role: a melee boss slams a
 ## ring into the ground, a ranged/caster boss fires a five-projectile fan.
-func _phase2_attack() -> String:
-	return "fan2" if Catalog.is_ranged(str(boss.role)) else "slam"
+func _phase2_attack(b: Actor = null) -> String:
+	var t := b if b != null else boss
+	if t == null:
+		return "fan"
+	return "fan2" if Catalog.is_ranged(str(t.role)) else "slam"
 
 
 func _halt() -> bool:
@@ -3497,6 +3723,12 @@ func _step_explore(dt: float) -> void:
 			goblin_roll = true
 			var side := hero.pos + Vector2.RIGHT.rotated(rng.randf() * TAU) * 600.0
 			_spawn_goblin(_goblin_spot(hero.pos, side, GOBLIN_SHOW_NEAR, GOBLIN_SHOW_FAR))
+	# The lair's own boss: it waits in the lair, beside the biome boss that
+	# rises there, and shows itself once the hero brings the lair into
+	# sight. The biome boss is untouched by this: it still rises on the
+	# clock or when the hero walks into the lair, exactly as before.
+	if lair_id != "" and not lair_spawned and hero.pos.distance_to(map.lair) < LAIR_SIGHT:
+		_spawn_lair_boss()
 	# The lair: walk in and the boss rises.
 	if phase == "hunt" and hero.pos.distance_to(map.lair) < map.lair_r * 0.72:
 		begin_boss()
