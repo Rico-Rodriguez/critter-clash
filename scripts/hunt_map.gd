@@ -438,11 +438,15 @@ func _affix_camps(rng: RandomNumberGenerator) -> void:
 		c["affixes"] = picked
 
 
-## The treasure goblin hides in one pocket, or a clearing on a pocket-poor map.
+## The treasure goblin waits in a clearing on the MAIN TRAIL. The hero walks
+## the trail to reach the lair, so the haunt is a place the hunt actually
+## goes through: a pocket off the trail was a place it never did, and the
+## goblin never showed itself. The middle of the trail is met on the way up,
+## well clear of the start.
 func _goblin_haunt(rng: RandomNumberGenerator) -> void:
 	var places: Array = []
-	for i in nodes.size():
-		if str(nodes[i]["kind"]) == "pocket":
+	for i in _main:
+		if str(nodes[i]["kind"]) == "clearing":
 			places.append(i)
 	if places.is_empty():
 		for i in nodes.size():
@@ -450,7 +454,9 @@ func _goblin_haunt(rng: RandomNumberGenerator) -> void:
 				places.append(i)
 	if places.is_empty():
 		return
-	goblin_at = nodes[places[rng.randi() % places.size()]]["pos"]
+	var mid := places.size() / 2
+	var pick := int(places[clampi(mid + rng.randi_range(-1, 1), 0, places.size() - 1)])
+	goblin_at = nodes[pick]["pos"]
 
 
 ## Resource nodes for this biome, one per open area, easiest first: the area

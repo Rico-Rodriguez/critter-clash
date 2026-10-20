@@ -285,17 +285,28 @@ const SHRINE_SECONDS := 30.0
 ## Warding's regen surge: hp/s for the first few seconds of the buff.
 const WARD_REGEN := 20.0
 const WARD_REGEN_TIME := 4.0
-## Treasure goblin: one roll on first approach, then a short flight.
-const GOBLIN_CHANCE := 0.6
-const GOBLIN_SIGHT := 700.0
+## Treasure goblin: one roll per hunt, then a short flight.
+## The chance a hunt holds a goblin at all: about one hunt in four.
+const GOBLIN_CHANCE := 0.28
+## How close the hero must come to the haunt for the goblin to show itself.
+## The haunt is a clearing on the main trail, so the hunt walks past it.
+const GOBLIN_SIGHT := 900.0
+## A hero who never passes the haunt still meets the goblin: after this many
+## seconds of the hunt it darts out of the brush beside them, so a hunt that
+## rolled a goblin always pays one out.
+const GOBLIN_FALLBACK_AT := 30.0
 const GOBLIN_LEASH := 1600.0
-const GOBLIN_LIFE := 12.0
-## The goblin's flight speed, as a share of the hero's own base speed: it
-## starts a shade under the hero, so a chasing hero can close the gap.
+## The flight window: long enough for a chase to be won.
+const GOBLIN_LIFE := 16.0
+## The goblin's flight speed, as a share of the hero's own speed: it starts
+## a shade under the hero, so a chasing hero can close the gap.
 const GOBLIN_SPEED := 0.92
 ## How far the goblin tires over its flight: by the end of its window it
 ## runs at this share of its start speed, so the chase can be won.
-const GOBLIN_TIRE := 0.45
+const GOBLIN_TIRE := 0.40
+## The goblin's hoard: the coin burst it pays when it is caught, on top of
+## the chest it drops. It is the biggest payout in the hunt.
+const GOBLIN_COINS := 120
 ## Loot chests on the map: {pos, tier, open}
 var chests: Array = []
 ## Shrines on the map: {pos, kind, used}. Claimed once by walking within
@@ -304,6 +315,11 @@ var shrines: Array = []
 ## The run's treasure goblin, if its roll passed, and whether the roll is spent.
 var goblin: Actor = null
 var goblin_roll := false
+## True when this hunt holds a goblin at all: rolled once, when the hunt
+## starts, so a hunt that has one always shows it.
+var goblin_present := false
+## The goblin's own roll stream, so the hunt's other rolls never shift.
+var goblin_rng := RandomNumberGenerator.new()
 var loot_coins := 0
 ## How long the boss fight has run, in sim seconds. The enrage is measured
 ## from the hunt's own clock, not from this one.
@@ -533,6 +549,7 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	rng.seed = run_seed
 	loot_rng.seed = run_seed ^ 0x6EA2
 	gather_rng.seed = run_seed ^ 0x6EA3
+	goblin_rng.seed = run_seed ^ 0x6EA4
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
@@ -1714,7 +1731,9 @@ func _step_minions(dt: float) -> void:
 			actor.vel = Vector2.ZERO
 			continue
 		if actor.goblin:
-			_step_goblin(actor, dt, target)
+			# The goblin runs from whoever is closest: it is chased, not aimed at.
+			var runner := _nearest_living_hero(actor.pos)
+			_step_goblin(actor, dt, runner if runner != null else target)
 			continue
 		actor.flash = maxf(0.0, actor.flash - dt)
 		actor.touch_cd = maxf(0.0, actor.touch_cd - dt)
@@ -3138,6 +3157,9 @@ func _spawn_world() -> void:
 		gather_nodes.append({"node": str(g["node"]), "pos": g["pos"]})
 	goblin = null
 	goblin_roll = false
+	# One roll for the whole hunt: about one hunt in four holds a goblin.
+	# It is rolled from its own stream, so the map and the loot keep theirs.
+	goblin_present = goblin_rng.randf() < GOBLIN_CHANCE
 
 
 ## Stamps a camp's affixes onto its leader alone: the affix is the camp's
@@ -3287,13 +3309,21 @@ func _step_explore(dt: float) -> void:
 		if bool(c["open"]) or hero.pos.distance_to(c["pos"]) > hero.radius + 56.0:
 			continue
 		_claim_chest(c, hero)
-	# The treasure goblin: the first time the hero nears its haunt the run
-	# rolls once (seeded). Whatever the roll, it never rolls again.
-	if goblin == null and not goblin_roll and map.goblin_at != Vector2.INF:
-		if hero.pos.distance_to(map.goblin_at) < GOBLIN_SIGHT:
+	# The treasure goblin: this hunt rolled one (about one hunt in four) and
+	# it waits in its haunt until the hero comes close. The haunt is a
+	# clearing on the main trail, so the hunt walks past it. A hero who cuts
+	# across the woods still meets one: after a while it darts out of the
+	# brush beside them.
+	if goblin == null and not goblin_roll and goblin_present and phase == "hunt":
+		if map.goblin_at != Vector2.INF and hero.pos.distance_to(map.goblin_at) < GOBLIN_SIGHT:
 			goblin_roll = true
-			if rng.randf() < GOBLIN_CHANCE:
-				_spawn_goblin(map.goblin_at)
+			_spawn_goblin(_goblin_spot(map.goblin_at, hero.pos, 200.0, 300.0))
+		elif time >= GOBLIN_FALLBACK_AT and hero.pos.distance_to(map.goblin_at) > GOBLIN_SIGHT * 2.0:
+			# The hero never came near the haunt: they went another way
+			# entirely, so the goblin finds them instead.
+			goblin_roll = true
+			var side := hero.pos + Vector2.RIGHT.rotated(rng.randf() * TAU) * 600.0
+			_spawn_goblin(_goblin_spot(hero.pos, side, 520.0, 820.0))
 	# The lair: walk in and the boss rises.
 	if phase == "hunt" and hero.pos.distance_to(map.lair) < map.lair_r * 0.72:
 		begin_boss()
@@ -3308,11 +3338,13 @@ func _step_explore(dt: float) -> void:
 
 ## Opens a chest: coins home, a ring of gems, a sip of health and the loot
 ## event run_screen turns into a chest sent home. Goblin loot borrows this too.
-func _claim_chest(c: Dictionary, hero: Actor) -> void:
+## The coin bonus is extra: a map chest pays its own, the goblin's hoard adds
+## a fat burst on top of it.
+func _claim_chest(c: Dictionary, hero: Actor, coin_bonus := 0) -> void:
 	c["open"] = true
 	var rare: bool = str(c["tier"]) == "rare"
 	var value := (40 if rare else 18) + level * 2
-	var coins := 40 if rare else 15
+	var coins := (40 if rare else 15) + coin_bonus
 	loot_coins += coins
 	var count := 9 if rare else 6
 	# The chest pays its whole value: the gems split it evenly and the first
@@ -3386,11 +3418,18 @@ func _spawn_goblin(at: Vector2) -> Actor:
 	actor.pos = map.push_inside(at, 30.0)
 	actor.prev = actor.pos
 	actor.radius = 26.0
-	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * 5.0 * float(_diff()["hp"])
+	# Fragile on purpose: it is a runner, not a fight. One clean hit (or two)
+	# brings it down, so a chase that is won is a chase that pays.
+	actor.max_hp = float(info.get("hp", 30)) * float(biome["hp_mul"]) * MINION_HP * 1.6 * float(_diff()["hp"])
 	actor.hp = actor.max_hp
-	var base_speed := 150.0
-	if not heroes.is_empty() and bases.has(heroes[0].id):
-		base_speed = float(bases[heroes[0].id]["speed"])
+	# Its flight speed is a shade under the hero's own: the chase is always
+	# winnable, and it wears down as the flight goes on.
+	var base_speed := 240.0
+	if not heroes.is_empty():
+		var hero: Actor = heroes[0]
+		base_speed = hero.speed
+		if base_speed <= 0.0 and bases.has(hero.id):
+			base_speed = float(bases[hero.id].get("speed", 240.0))
 	actor.speed = base_speed * GOBLIN_SPEED
 	actor.dmg = 0.0
 	actor.interval = 999.0
@@ -3402,6 +3441,22 @@ func _spawn_goblin(at: Vector2) -> Actor:
 	goblin = actor
 	events.append({"type": "fx", "fx": "goblin_spawn", "pos": actor.pos})
 	return actor
+
+
+## Where the goblin shows itself: a clear patch of open ground a short way
+## off the spot it was waiting at, on the hero's side of it, so it darts out
+## of the haunt toward the hero instead of away into the woods. Never
+## buried in a camp or half inside the forest.
+func _goblin_spot(near: Vector2, toward: Vector2, near_r: float, far_r: float) -> Vector2:
+	var face := toward - near
+	if face.length() < 1.0:
+		face = Vector2.RIGHT
+	face = face.normalized()
+	for k in 8:
+		var at := near + face.rotated(rng.randf_range(-1.0, 1.0)) * rng.randf_range(near_r, far_r)
+		if play.grow(-60.0).has_point(at) and map.depth(at) > 40.0:
+			return map.push_inside(at, 30.0)
+	return map.push_inside(near + face * near_r, 30.0)
 
 
 func _step_goblin(actor: Actor, dt: float, target: Actor) -> void:
@@ -3445,16 +3500,26 @@ func _step_goblin(actor: Actor, dt: float, target: Actor) -> void:
 	actor.vel = (actor.pos - was) / maxf(dt, 0.0001)
 
 
+## The goblin's hoard: the biggest payout in the hunt. The chest it drops is a
+## silver one (so it still goes home as a camp chest), the coins come in one
+## fat burst on top of it, the gems in a fat ring, and three pieces of gear
+## ride out of the pile.
 func _goblin_loot(actor: Actor) -> void:
 	goblin = null
-	_gear_roll_drop("goblin", actor.pos)
+	for k in 3:
+		var off := Vector2.RIGHT.rotated(TAU * float(k) / 3.0) * 46.0
+		_gear_roll_drop("goblin", actor.pos + off)
 	var chest := {"pos": actor.pos, "tier": "rare", "open": false}
 	chests.append(chest)
 	var hero := _nearest_living_hero(actor.pos)
 	if hero != null:
-		_claim_chest(chest, hero)
-	for k in 10:
-		_drop_gem(actor.pos + Vector2.RIGHT.rotated(TAU * float(k) / 10.0) * rng.randf_range(36.0, 96.0), 2)
+		_claim_chest(chest, hero, GOBLIN_COINS + level * 6)
+	else:
+		events.append({"type": "loot", "pos": actor.pos, "tier": "rare", "coins": GOBLIN_COINS + level * 6, "shake": 0.4})
+	# The gem ring: a fat circle of coins on the ground, plus one big one.
+	for k in 12:
+		_drop_gem(actor.pos + Vector2.RIGHT.rotated(TAU * float(k) / 12.0) * rng.randf_range(40.0, 120.0), 5)
+	_drop_gem(actor.pos, 20)
 
 
 ## Roll one source into the run's loot list and emit a gear_drop event for the
