@@ -358,10 +358,10 @@ func _biome_index(biome_id: String) -> int:
 	return 0
 
 
-## The two knights a new save starts with; Gnash and Mordrek join on the road.
-const STARTERS := ["pebble", "ember"]
-## Animal heroes retired from the playable roster (saves move to Aldric).
-const RETIRED := ["juniper", "pip"]
+## The four heroes a new save starts with.
+const STARTERS := ["barbarian", "paladin", "sorceress", "rogue"]
+## Animal heroes and old knights retired from the playable roster (saves move to closest new class).
+const RETIRED := ["juniper", "pip", "pebble", "ember", "lumen", "bramble"]
 
 func hero(id: String) -> Dictionary:
 	return data["heroes"][id]

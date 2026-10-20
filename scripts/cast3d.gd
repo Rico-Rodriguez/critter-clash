@@ -15,19 +15,19 @@ extends RefCounted
 
 const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
 
-## Grimdark Knights (2026-10-18): humanoid heroes on the DJMaesen knight rig
-## (CC-BY), clips retargeted from KayKit (CC0) by tools/retarget.gd, gear
-## tiers from Gear3D. The id stays for saves; the name is in Catalog.
-## Retired animal heroes (fox archer, frog mage) render as Aldric anywhere an
-## old id still turns up: saves, logs, sim fixtures. No animal hero ships.
-const RETIRED := {"juniper": "pebble", "pip": "pebble"}
+## Diablo-esque Heroes (2026-10-20): humanoid heroes on new rigs.
+## Placeholder paths under assets/models/heroes_new/ — exact file assignment
+## comes in a later task. Retired animal heroes and old knights render as
+## the closest new class anywhere an old id still turns up.
+const RETIRED := {
+	"juniper": "rogue", "pip": "paladin", "pebble": "paladin",
+	"ember": "sorceress", "lumen": "barbarian", "bramble": "barbarian"
+}
 const HEROES := {
-	"juniper": "res://assets/models/heroes/paladin/paladin.tscn",
-	"pip": "res://assets/models/heroes/paladin/paladin.tscn",
-	"pebble": "res://assets/models/heroes/paladin/paladin.tscn",
-	"bramble": "res://assets/models/heroes/boneknight/boneknight.tscn",
-	"lumen": "res://assets/models/heroes/ghoul/ghoul.tscn",
-	"ember": "res://assets/models/heroes/plague/plague.tscn",
+	"barbarian": "res://assets/models/heroes_new/barbarian/barbarian.tscn",
+	"paladin": "res://assets/models/heroes_new/paladin/paladin.tscn",
+	"sorceress": "res://assets/models/heroes_new/sorceress/sorceress.tscn",
+	"rogue": "res://assets/models/heroes_new/rogue/rogue.tscn",
 }
 const HERO_CLIPS := {"idle": "idle", "walk": "walk", "run": "run", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle", "cast": "cast", "block": "block", "bash": "bash", "dodge": "dodge"}
 
