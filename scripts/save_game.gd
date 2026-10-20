@@ -897,6 +897,37 @@ func commit_victory(biome_id: String, boss_id: String, slain: int = 0, tier: int
 	}
 
 
+## A lair boss falls: its own hoard is paid and its kill is counted, but the
+## biome is not cleared and no trophy is paid. A lair stands beside the biome
+## boss, so the run's clear is still the biome boss's to give, and the hunt
+## chest comes home with that clear. The lair's rows carry the rare promise,
+## so a lair kill is a haul and never a coin purse.
+func commit_lair(biome_id: String, boss_id: String) -> Dictionary:
+	data["kills"][boss_id] = int(data["kills"].get(boss_id, 0)) + 1
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var rolled := _roll_boss(boss_id, rng)
+	var drops: Array = []
+	var reveal := {}
+	for entry in rolled:
+		# The summary carries its own copy so _apply_drop can stamp the
+		# granted result without ever touching the Catalog.DROPS constants.
+		var drop: Dictionary = (entry as Dictionary).duplicate()
+		_apply_drop(drop, rng, biome_id)
+		drops.append(drop)
+		if str(drop.get("kind", "")) == "pet":
+			reveal = drop
+		elif reveal.is_empty() and Catalog.is_reveal(drop):
+			reveal = drop
+	_write()
+	return {
+		"boss": boss_id,
+		"drops": drops,
+		"reveal": reveal,
+		"kills": int(data["kills"][boss_id]),
+	}
+
+
 ## A daily won on a biome the player has not unlocked: the boss falls and the
 ## run scores, but the clear is daily-only. No cleared flag, trophies, boss
 ## kill or slayer progress, so it never unlocks the biome or advances

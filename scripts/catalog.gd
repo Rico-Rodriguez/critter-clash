@@ -406,12 +406,18 @@ const BIOMES: Array = [
 ## drop table, its own promise -- and it never replaces the biome boss: both
 ## stand in the same ground. A lair also carries the rarity floor of its
 ## payout ("guarantee"), so a lair kill always lands rare or better.
+##
+## "depth_min" is the depth a ground must reach for the lair to stand in it,
+## counted like DEPTH_TIERS (fringe 0, wilds 1, deep 2, abyss 3). It is the
+## same depth as the lair's own "tier": a lair waits in the deep ground, so
+## the shallows never hold one.
 const LAIRS: Array = [
 	{
 		"id": "boreal",
 		"name": "Boreal, the Frost Wyrm",
 		"biome": "frost",
 		"tier": "deep",
+		"depth_min": 2,
 		"guarantee": "rare",
 	},
 	{
@@ -419,6 +425,7 @@ const LAIRS: Array = [
 		"name": "Inferno, the Magma Colossus",
 		"biome": "volcano",
 		"tier": "abyss",
+		"depth_min": 3,
 		"guarantee": "rare",
 	},
 ]
@@ -1158,6 +1165,23 @@ static func lairs_for(biome_id: String) -> Array:
 	var out: Array = []
 	for entry in LAIRS:
 		if str(entry["biome"]) == biome_id:
+			out.append(entry)
+	return out
+
+
+## The depth a ground sits in, as a number: 0 the Fringe, 1 the Wilds, 2 the
+## Deep, 3 the Abyss (the order of DEPTH_TIERS). A hunt runs at the depth of
+## the ground it is hunting.
+static func depth_index(id: String) -> int:
+	return maxi(0, DEPTH_TIERS.find(depth_tier(id)))
+
+
+## The lairs that stand in a ground at this depth: a lair appears only where
+## the ground is deep enough for it, so a shallow biome holds none.
+static func lairs_at_depth(biome_id: String, depth: int) -> Array:
+	var out: Array = []
+	for entry in lairs_for(biome_id):
+		if int(entry.get("depth_min", 0)) <= depth:
 			out.append(entry)
 	return out
 
