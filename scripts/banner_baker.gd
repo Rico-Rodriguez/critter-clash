@@ -95,13 +95,13 @@ func _bake(entry: Dictionary) -> void:
 			for i in 26:
 				var side := -1.0 if i % 2 == 0 else 1.0
 				var at := look + Vector3(side * frng.randf_range(3.2, 7.5), 0, frng.randf_range(-6.0, 5.5))
-				stage._place_prop(["bush_flower", "fern", "fern", "flower_warm", "grass_tall"][i % 5], at, frng.randf_range(0.8, 1.6), true)
+				stage._place_prop(["bush_flower", "fern", "fern", "flower_warm", "grass_tall"][i % 5], at, frng.randf_range(0.8, 1.6), true, frng)
 			for i in 40:
 				var at := look + Vector3(frng.randf_range(-6.0, 6.0), 0, frng.randf_range(2.6, 6.0))
-				stage._place_prop(["grass_tall", "grass_wispy", "flower_a", "flower_b", "clover"][i % 5], at, frng.randf_range(0.6, 1.0), false)
+				stage._place_prop(["grass_tall", "grass_wispy", "flower_a", "flower_b", "clover"][i % 5], at, frng.randf_range(0.6, 1.0), false, frng)
 			for i in 14:
 				var at := look + Vector3(lerpf(-14.0, 14.0, i / 13.0) + frng.randf_range(-0.8, 0.8), 0, -11.0 - frng.randf_range(0.0, 5.0))
-				stage._place_prop(["tree_a", "tree_b", "tree_pine", "tree_pine_b"][i % 4], at, frng.randf_range(2.6, 3.6), true)
+				stage._place_prop(["tree_a", "tree_b", "tree_pine", "tree_pine_b"][i % 4], at, frng.randf_range(2.6, 3.6), true, frng)
 		"mushroom":
 			# A glowing mushroom forest at violet dusk: giant caps framing the
 			# clearing, cool teal spores drifting, a deep plum horizon.
@@ -131,14 +131,14 @@ func _bake(entry: Dictionary) -> void:
 				var side := -1.0 if i % 2 == 0 else 1.0
 				var at := look + Vector3(side * mrng.randf_range(4.0, 9.0), 0, mrng.randf_range(-12.0, 2.0))
 				var sc := mrng.randf_range(3.6, 6.5)
-				stage._place_prop("mushroom_tall", at, sc, true)
+				stage._place_prop("mushroom_tall", at, sc, true, mrng)
 				var shroom: Node3D = stage._props[-1]
 				shroom.rotation.z = mrng.randf_range(-0.12, 0.12)
 				# A pool of gill light on the ground under each cap.
 				_glow_pool(stage, at + Vector3(0, 0.04, 0), sc * 0.4, Color(0.3, 0.95, 0.8) if i % 3 != 1 else Color(0.7, 0.45, 1.0))
 			for i in 30:
 				var at := look + Vector3(mrng.randf_range(-6.0, 6.0), 0, mrng.randf_range(1.5, 6.0))
-				stage._place_prop(["mushroom", "fern", "grass_tall", "mushroom_shelf"][i % 4], at, mrng.randf_range(0.5, 1.0), false)
+				stage._place_prop(["mushroom", "fern", "grass_tall", "mushroom_shelf"][i % 4], at, mrng.randf_range(0.5, 1.0), false, mrng)
 			# Bioluminescent pools of light under the caps.
 			for i in 6:
 				var lp := look + Vector3(mrng.randf_range(-6.0, 6.0), 0.6, mrng.randf_range(-8.0, 3.0))
