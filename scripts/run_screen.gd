@@ -38,6 +38,11 @@ var summary: Dictionary = {}
 var run_gear: Array = []
 var _boss_lit := false
 var _modal_up := false
+## The pick latch. Taking a card applies it and the row of cards is
+## rebuilt for the next choice, so a second tap on the same spot would
+## take a card the player never read. The latch holds the pick until
+## the rebuilt row has landed.
+var _pick_latched := false
 var minimap: MiniMap
 var hint_layer: HintLayer
 var dodge_btn: DodgeButton
@@ -1473,7 +1478,21 @@ func _close_modal() -> void:
 	_clear_modal()
 
 
-func _show_levelup(level_n: int, offer: Array) -> void:
+## The row of upgrade cards. `rebuild` is true when this row replaces a
+## card the player has just taken: the pick stays latched until the new
+## cards have landed, so the tail of that tap cannot take a card out of
+## the row that replaced it. A fresh offer from the sim has no such tail
+## and opens the pick at once.
+func _show_levelup(level_n: int, offer: Array, rebuild: bool = false) -> void:
+	if rebuild:
+		# The row that replaces the card just taken is still slamming in
+		# (a card starts 0.12s after the one before it and takes 0.38s to
+		# land), so the pick opens when the last card is down.
+		var land := 0.12 * float(maxi(0, offer.size() - 1)) + 0.38
+		get_tree().create_timer(land).timeout.connect(func() -> void: _pick_latched = false)
+	else:
+		# A fresh offer from the sim is on screen: the pick is open.
+		_pick_latched = false
 	_open_modal()
 	var title := UiKit.title("LEVEL %d" % level_n, 44)
 	modal_box.add_child(title)
@@ -1603,15 +1622,16 @@ static func _roman(n: int) -> String:
 
 
 func _pick(index: int) -> void:
-	if sim == null:
+	if sim == null or _pick_latched:
 		return
+	_pick_latched = true
 	var nxt: Array = sim.choose(index)
 	AudioDirector.sfx("card_pick")
 	AudioDirector.haptic("medium")
 	if nxt.is_empty():
 		_close_modal()
 	else:
-		_show_levelup(sim.level, nxt)
+		_show_levelup(sim.level, nxt, true)
 
 
 func _mount_pet() -> void:
