@@ -517,6 +517,28 @@ static func depth_tier(id: String) -> String:
 	return DEPTH_TIERS[0]
 
 
+## The ground a depth tier is: the tier and the biome are the same place
+## seen two ways, so the Fringe is the meadow, the Wilds the mushroom wood,
+## the Deep the frost peaks and the Abyss the volcano.
+static func biome_for_tier(tier_id: String) -> String:
+	var key := _key_id(tier_id)
+	for i in DEPTH_TIERS.size():
+		if _key_id(DEPTH_TIERS[i]) == key:
+			var entry: Dictionary = BIOMES[clampi(i, 0, BIOMES.size() - 1)]
+			return str(entry["id"])
+	return str(BIOMES[0]["id"])
+
+
+## The depth tier a ground is, read from the same table.
+static func tier_for_biome(biome_id: String) -> String:
+	var key := _key_id(biome_id)
+	for i in BIOMES.size():
+		var entry: Dictionary = BIOMES[i]
+		if _key_id(str(entry["id"])) == key:
+			return DEPTH_TIERS[clampi(i, 0, DEPTH_TIERS.size() - 1)]
+	return DEPTH_TIERS[0]
+
+
 ## The visible aura flag: an elite wears its glow where the ground allows
 ## elite spawns at all. The Fringe never shows one.
 static func elite_has_aura(key: Variant) -> bool:

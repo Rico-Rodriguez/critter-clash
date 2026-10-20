@@ -192,17 +192,17 @@ static func _roles() -> void:
 
 
 static func _modes() -> void:
-	var coop := Session.coop("meadow", "ember", "pebble")
+	var coop := Session.coop("meadow", "sorceress", "barbarian")
 	coop.seed = 4
 	var sim := RunSim.new()
-	sim.start(coop, {"ember": Catalog.base_stats("ember"), "pebble": Catalog.base_stats("pebble")})
+	sim.start(coop, {"sorceress": Catalog.base_stats("sorceress"), "barbarian": Catalog.base_stats("barbarian")})
 	if sim.heroes.size() != 2 or int(sim.heroes[0].team) != 0 or int(sim.heroes[1].team) != 0:
 		_fail("coop teams")
 	sim.step(STEP, [Vector2.RIGHT, Vector2.LEFT])
-	var duel := Session.duel("meadow", "juniper", "pebble")
+	var duel := Session.duel("meadow", "rogue", "barbarian")
 	duel.seed = 8
 	var rival := RunSim.new()
-	rival.start(duel, {"juniper": Catalog.base_stats("juniper"), "pebble": Catalog.base_stats("pebble")})
+	rival.start(duel, {"rogue": Catalog.base_stats("rogue"), "barbarian": Catalog.base_stats("barbarian")})
 	if rival.heroes.size() != 2 or int(rival.heroes[1].team) != 2:
 		_fail("duel team")
 	var before: float = rival.heroes[0].dmg
@@ -250,14 +250,14 @@ static func _save() -> void:
 		_fail("relic drops did not bank as coins")
 	# Relics no longer buy levels: power comes from trained skills. A fresh
 	# hero matches base stats, and banked Strength/Hitpoints xp raise hp/damage.
-	var base_hp := float(Catalog.base_stats("ember")["hp"])
-	var base_dmg := float(Catalog.base_stats("ember")["dmg"])
-	var bare := SaveGame.build_run_stats("ember")
+	var base_hp := float(Catalog.base_stats("sorceress")["hp"])
+	var base_dmg := float(Catalog.base_stats("sorceress")["dmg"])
+	var bare := SaveGame.build_run_stats("sorceress")
 	if float(bare["hp"]) != base_hp or float(bare["dmg"]) != base_dmg:
 		_fail("fresh hero did not match base stats")
-	GearDB.add_xp("ember", "strength", GearDB.xp_for_level(20))
-	GearDB.add_xp("ember", "hitpoints", GearDB.xp_for_level(20))
-	var trained := SaveGame.build_run_stats("ember")
+	GearDB.add_xp("sorceress", "strength", GearDB.xp_for_level(20))
+	GearDB.add_xp("sorceress", "hitpoints", GearDB.xp_for_level(20))
+	var trained := SaveGame.build_run_stats("sorceress")
 	if float(trained["hp"]) <= base_hp or float(trained["dmg"]) <= base_dmg:
 		_fail("training did not scale hp and damage")
 	SaveGame.data["trophies"] = 80
@@ -292,7 +292,7 @@ static func _gear_save_check() -> void:
 	var legacy := {
 		"save_version": 2,
 		"coins": 30,
-		"featured": "pebble",
+		"featured": "barbarian",
 		"bag": [
 			{"uid": 1, "slot": "weapon", "rarity": "common", "name": "Old Claw", "stats": {"dmg_pct": 0.1}},
 			{"uid": 2, "slot": "armor", "rarity": "common", "name": "Old Vest", "stats": {"hp_flat": 20}},
@@ -304,8 +304,8 @@ static func _gear_save_check() -> void:
 			{"uid": 14, "slot": "helmet", "rarity": "epic", "name": "Junk Bit", "stats": {}},
 		],
 		"heroes": {
-			"pebble": {"unlocked": true, "cards": 3, "level": 2, "weapon": 1, "armor": 2, "charm": 4},
-			"ember": {"unlocked": true, "cards": 1, "level": 4, "weapon": 5, "armor": 0, "charm": 0},
+			"barbarian": {"unlocked": true, "cards": 3, "level": 2, "weapon": 1, "armor": 2, "charm": 4},
+			"sorceress": {"unlocked": true, "cards": 1, "level": 4, "weapon": 5, "armor": 0, "charm": 0},
 		},
 	}
 	SaveGame.data = legacy
@@ -313,20 +313,20 @@ static func _gear_save_check() -> void:
 	var armory: Dictionary = SaveGame.data["armory"]
 	if int(armory.get("migrated_from", 0)) != 2:
 		_fail("migration did not stamp migrated_from %s" % str(armory))
-	var eq_pebble: Dictionary = GearDB.equipped("pebble")
-	var eq_ember: Dictionary = GearDB.equipped("ember")
-	if eq_pebble["weapon"] != "pebble.weapon.1" or eq_pebble["chest"] != "pebble.chest.1" or eq_pebble["charm"] != "":
-		_fail("pebble migration equipped %s" % str(eq_pebble))
-	if eq_ember["weapon"] != "ember.weapon.1":
+	var eq_pebble: Dictionary = GearDB.equipped("barbarian")
+	var eq_ember: Dictionary = GearDB.equipped("sorceress")
+	if eq_pebble["weapon"] != "barbarian.weapon.1" or eq_pebble["chest"] != "barbarian.chest.1" or eq_pebble["charm"] != "":
+		_fail("barbarian migration equipped %s" % str(eq_pebble))
+	if eq_ember["weapon"] != "sorceress.weapon.1":
 		_fail("ember migration equipped %s" % str(eq_ember))
-	for missing in ["pebble.charm.2", "pebble.weapon.2", "pebble.chest.2", "pebble.charm.3"]:
-		if not GearDB.has("pebble", missing):
+	for missing in ["barbarian.charm.2", "barbarian.weapon.2", "barbarian.chest.2", "barbarian.charm.3"]:
+		if not GearDB.has("barbarian", missing):
 			_fail("migration lost gated piece %s" % missing)
-	if not GearDB.has("ember", "ember.weapon.1") or GearDB.has("ember", "ember.chest.2"):
-		_fail("migration granted the wrong ember pieces")
+	if not GearDB.has("sorceress", "sorceress.weapon.1") or GearDB.has("sorceress", "sorceress.chest.2"):
+		_fail("migration granted the wrong sorceress pieces")
 	if int(SaveGame.data["coins"]) != 40:
 		_fail("unmapped legacy pieces did not pay 10 coins each, coins %d" % int(SaveGame.data["coins"]))
-	if SaveGame.data.has("bag") or SaveGame.data.has("gear_uid") or SaveGame.data["heroes"]["pebble"].has("weapon"):
+	if SaveGame.data.has("bag") or SaveGame.data.has("gear_uid") or SaveGame.data["heroes"]["barbarian"].has("weapon"):
 		_fail("migration left the legacy Loadout keys behind")
 	var stamp: Dictionary = armory.duplicate(true)
 	SaveGame.migrate_legacy_armory(2)
@@ -336,21 +336,21 @@ static func _gear_save_check() -> void:
 	# the summed GearDB stats_for + level_bonus of what is on.
 	GearDB.store_override = {}
 	SaveGame.reset_new()
-	var bare := SaveGame.build_run_stats("pebble")
-	var base := Catalog.base_stats("pebble")
+	var bare := SaveGame.build_run_stats("barbarian")
+	var base := Catalog.base_stats("barbarian")
 	if bare != base:
 		_fail("bare hero run stats drifted from base: %s vs %s" % [str(bare), str(base)])
-	var worn_ids: Array = ["pebble.helm.1", "pebble.weapon.2", "pebble.gloves.1", "pebble.boots.1"]
+	var worn_ids: Array = ["barbarian.helm.1", "barbarian.weapon.2", "barbarian.gloves.1", "barbarian.boots.1"]
 	for id in worn_ids:
 		if not GearDB.grant(id):
 			_fail("grant %s" % id)
-	if GearDB.add_xp("pebble", "attack", GearDB.xp_for_level(20)) != 19:
+	if GearDB.add_xp("barbarian", "attack", GearDB.xp_for_level(20)) != 19:
 		_fail("attack xp did not reach level 20")
 	for id in worn_ids:
-		if not GearDB.equip("pebble", id):
+		if not GearDB.equip("barbarian", id):
 			_fail("equip %s" % id)
-	var geared := SaveGame.build_run_stats("pebble")
-	var want: Dictionary = GearDB.stats("pebble")
+	var geared := SaveGame.build_run_stats("barbarian")
+	var want: Dictionary = GearDB.stats("barbarian")
 	var per: Dictionary = {}
 	for id in worn_ids:
 		for k in GearDB.item(id)["stats"]:
@@ -358,8 +358,8 @@ static func _gear_save_check() -> void:
 	for k in per:
 		if not is_equal_approx(float(per[k]), float(want.get(k, 0.0))):
 			_fail("GearDB.stats is not the sum of stats_for for %s" % k)
-	for k in GearDB.level_bonus("pebble"):
-		want[k] = float(want.get(k, 0.0)) + float(GearDB.level_bonus("pebble")[k])
+	for k in GearDB.level_bonus("barbarian"):
+		want[k] = float(want.get(k, 0.0)) + float(GearDB.level_bonus("barbarian")[k])
 	_folds_pct_add(geared, bare, want, "hp", "hp_pct", "hp_flat")
 	_folds(geared, bare, want, "armor", "add", "armor")
 	_folds(geared, bare, want, "crit", "add", "crit")
@@ -369,21 +369,21 @@ static func _gear_save_check() -> void:
 	_folds(geared, bare, want, "speed", "mul", "speed_pct")
 	# (c) A rune piece with a level-1 skill stays owned and never equips.
 	GearDB.store_override = {}
-	if not GearDB.grant("pebble.boots.3"):
+	if not GearDB.grant("barbarian.boots.3"):
 		_fail("grant gated rune boots")
-	var gate: Dictionary = GearDB.can_equip("pebble", "pebble.boots.3")
+	var gate: Dictionary = GearDB.can_equip("barbarian", "barbarian.boots.3")
 	if bool(gate["ok"]) or str(gate["reason"]) != "Requires Defence 40":
 		_fail("rune boots gate said %s" % str(gate))
-	if GearDB.equip("pebble", "pebble.boots.3") or str(GearDB.equipped("pebble")["boots"]) != "":
+	if GearDB.equip("barbarian", "barbarian.boots.3") or str(GearDB.equipped("barbarian")["boots"]) != "":
 		_fail("rune boots equipped through the gate")
 	# (d) Save -> load round trip: JSON, reconcile and the (stamped) migration
 	# pass must leave the armory byte-identical, unknown keys included.
 	GearDB.store_override = null
 	SaveGame.data["armory"] = {
 		"v": 1,
-		"owned": {"pebble": {"pebble.helm.1": 2, "pebble.chest.2": 1}},
-		"equipped": {"pebble": {"helm": "pebble.helm.1", "weapon": "pebble.weapon.2"}, "ember": {}},
-		"xp": {"pebble": {"attack": 4156, "hitpoints": 1154}},
+		"owned": {"barbarian": {"barbarian.helm.1": 2, "barbarian.chest.2": 1}},
+		"equipped": {"barbarian": {"helm": "barbarian.helm.1", "weapon": "barbarian.weapon.2"}, "sorceress": {}},
+		"xp": {"barbarian": {"attack": 4156, "hitpoints": 1154}},
 		"migrated_from": 2,
 		"future_unknown_key": {"hint": "survives"},
 	}
@@ -816,14 +816,14 @@ static func _save_safety_check() -> void:
 	SaveGame.data["coins"] = "abc"
 	SaveGame.data["trophies"] = -5
 	SaveGame.data["heroes"] = "broken"
-	SaveGame.data["armory"] = {"v": 1, "owned": {"pebble": ["pebble.helm.1"]}, "equipped": {}, "xp": {}}
+	SaveGame.data["armory"] = {"v": 1, "owned": {"barbarian": ["barbarian.helm.1"]}, "equipped": {}, "xp": {}}
 	put.call(path, JSON.stringify(SaveGame.data))
 	SaveGame._load()
 	if int(SaveGame.data["coins"]) != 0 or int(SaveGame.data["trophies"]) != 0:
 		_fail("wrong-typed or negative wallet not reset")
 	if typeof(SaveGame.data["heroes"]) != TYPE_DICTIONARY or SaveGame.data["heroes"].is_empty():
 		_fail("broken heroes field not restored")
-	if str(SaveGame.data.get("armory", {}).get("owned", {})).find("pebble.helm.1") < 0:
+	if str(SaveGame.data.get("armory", {}).get("owned", {})).find("barbarian.helm.1") < 0:
 		_fail("type sanity dropped the armory")
 	put.call(path, JSON.stringify({"save_version": 3, "coins": 77.0}))
 	SaveGame._load()
@@ -844,8 +844,8 @@ static func _save_safety_check() -> void:
 static func _daily_check() -> void:
 	var base := 1750000000
 	var key := Daily.today_key(base)
-	var a := Session.daily("ember", base)
-	var b := Session.daily("pebble", base)
+	var a := Session.daily("sorceress", base)
+	var b := Session.daily("barbarian", base)
 	if a.seed != b.seed or a.biome_id != b.biome_id or a.daily_key != b.daily_key:
 		_fail("daily is not deterministic")
 	if str(a.modifiers) != str(b.modifiers):
@@ -892,16 +892,16 @@ static func _daily_check() -> void:
 	SaveGame.data["daily"] = {}
 	SaveGame.data["pending_upload"] = []
 	var tk := "2000-01-01"
-	if SaveGame.record_daily(tk, {"score": 100, "hero": "ember", "time": 100, "result": "loss", "at": 1}) != 1:
+	if SaveGame.record_daily(tk, {"score": 100, "hero": "sorceress", "time": 100, "result": "loss", "at": 1}) != 1:
 		_fail("first daily run should rank 1")
-	if SaveGame.record_daily(tk, {"score": 500, "hero": "ember", "time": 90, "result": "win", "at": 2}) != 1:
+	if SaveGame.record_daily(tk, {"score": 500, "hero": "sorceress", "time": 90, "result": "win", "at": 2}) != 1:
 		_fail("best daily run should rank 1")
-	if SaveGame.record_daily(tk, {"score": 300, "hero": "juniper", "time": 120, "result": "loss", "at": 3}) != 2:
+	if SaveGame.record_daily(tk, {"score": 300, "hero": "rogue", "time": 120, "result": "loss", "at": 3}) != 2:
 		_fail("middle daily run should rank 2")
 	if SaveGame.daily_best(tk) != 500:
 		_fail("daily best should be 500")
 	for i in 15:
-		SaveGame.record_daily(tk, {"score": i + 1, "hero": "ember", "time": 60, "result": "loss", "at": 4 + i})
+		SaveGame.record_daily(tk, {"score": i + 1, "hero": "sorceress", "time": 60, "result": "loss", "at": 4 + i})
 	var board := SaveGame.daily_board(tk)
 	if board.size() != SaveGame.DAILY_RUNS:
 		_fail("daily board should keep %d runs, got %d" % [SaveGame.DAILY_RUNS, board.size()])
@@ -925,9 +925,9 @@ static func _daily_check() -> void:
 	else:
 		var locked_id := Daily.biome_for(Daily.today_key(locked_unix))
 		var before: Dictionary = SaveGame.data["cleared"].duplicate(true)
-		var daily_session := Session.daily("ember", locked_unix)
+		var daily_session := Session.daily("sorceress", locked_unix)
 		var daily_sim := RunSim.new()
-		daily_sim.start(daily_session, {"ember": Catalog.base_stats("ember")})
+		daily_sim.start(daily_session, {"sorceress": Catalog.base_stats("sorceress")})
 		for _i in 5:
 			daily_sim.step(STEP, [Vector2.ZERO])
 		SaveGame.commit_daily_pass(locked_id, str(Catalog.biome(locked_id)["boss"]))
@@ -1040,7 +1040,7 @@ static func _cards() -> void:
 	# per card. The default path keeps one fresh seeded run per card.
 	var role_sims := {}
 	if quick:
-		for pair in [["mage", "ember"], ["archer", "juniper"], ["tank", "pebble"]]:
+		for pair in [["mage", "sorceress"], ["archer", "rogue"], ["tank", "barbarian"]]:
 			var pool_session := Session.solo("meadow", str(pair[1]))
 			pool_session.seed = 77
 			var pool := RunSim.new()
@@ -1053,10 +1053,10 @@ static func _cards() -> void:
 			continue
 		seen[id] = true
 		var roles: Array = entry.get("roles", [])
-		var hero := "ember"
+		var hero := "sorceress"
 		var sim: RunSim = null
 		if roles.size() > 0:
-			hero = str({"mage": "ember", "archer": "juniper", "tank": "pebble"}.get(str(roles[0]), "ember"))
+			hero = str({"mage": "sorceress", "archer": "rogue", "tank": "barbarian"}.get(str(roles[0]), "sorceress"))
 		if quick:
 			sim = role_sims[str(roles[0])] if roles.size() > 0 else role_sims["mage"]
 		else:
@@ -1373,12 +1373,12 @@ static func _fights() -> void:
 	# --quick keeps one short pebble hunt so bot planning still gets exercised
 	# without waiting out three full clears.
 	if quick:
-		var short := _play("pebble", "meadow", 11, false, 60.0 * 60.0)
-		print("FIGHT pebble ", short)
+		var short := _play("barbarian", "meadow", 11, false, 60.0 * 60.0)
+		print("FIGHT barbarian ", short)
 		return
 	# Explore hunts: each hero clears a map and kills the lair boss in a
 	# 2.5-5.5 minute bot run (bots walk the map greedily; players land at 3-5+).
-	for hero in ["ember", "juniper", "pebble"]:
+	for hero in ["sorceress", "rogue", "barbarian"]:
 		var report := _play(hero, "meadow", 11, false)
 		print("FIGHT ", hero, " ", report)
 		if str(report["result"]) != "win":
@@ -1388,7 +1388,7 @@ static func _fights() -> void:
 		if int(report["level"]) < 6:
 			_fail("%s only reached level %s" % [hero, report["level"]])
 	# No clock and no wave spawner: a hero who stands at the start is safe.
-	var idle := _play("ember", "meadow", 11, true, 60.0 * 90.0)
+	var idle := _play("sorceress", "meadow", 11, true, 60.0 * 90.0)
 	print("FIGHT idle ", idle)
 	if str(idle["result"]) != "" or float(idle["hp"]) <= 0.0:
 		_fail("standing at the start should be safe in an explore hunt")
@@ -1421,10 +1421,10 @@ static func _world_maps() -> void:
 					elites += 1
 			if elites < 2:
 				_fail("%s/%d needs two elite packs" % [biome, seed])
-	var session := Session.solo("meadow", "ember")
+	var session := Session.solo("meadow", "sorceress")
 	session.seed = 11
 	var sim := RunSim.new()
-	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	sim.start(session, {"sorceress": Catalog.base_stats("sorceress")})
 	if not sim.explore:
 		_fail("solo hunts should be explore maps")
 		return
@@ -1445,11 +1445,11 @@ static func _world_maps() -> void:
 ## average win time as a share of the 120 s hunt limit.
 ##   godot --path . -- --balance
 static func balance() -> void:
-	for hero in ["ember", "juniper", "pebble", "idle"]:
+	for hero in ["sorceress", "rogue", "barbarian", "idle"]:
 		var times: Array = []
 		var wins := 0
 		for seed in [3, 7, 11, 19, 23, 31, 42, 57]:
-			var r := _play("ember" if hero == "idle" else hero, "meadow", seed, hero == "idle")
+			var r := _play("sorceress" if hero == "idle" else hero, "meadow", seed, hero == "idle")
 			times.append(float(r["time"]))
 			if str(r["result"]) == "win":
 				wins += 1
@@ -1524,7 +1524,7 @@ static func _class_tag() -> String:
 ## BEFORE tank 276 s, 28 dmg/min | archer 2/3 wins, 9 dmg/min | mage 215 s, 8 dmg/min
 ## AFTER  tank 192 s,  7 dmg/min | archer 207 s, 4 dmg/min    | mage 219 s, 10 dmg/min
 static func class_report(tag: String) -> void:
-	var reps := {"tank": "pebble", "archer": "juniper", "mage": "ember"}
+	var reps := {"tank": "barbarian", "archer": "rogue", "mage": "sorceress"}
 	var seeds := [3, 7, 11, 19, 23]
 	for role in ["tank", "archer", "mage"]:
 		var hero := str(reps[role])
@@ -1558,7 +1558,7 @@ static func class_report(tag: String) -> void:
 ## pathing, and are only reported.
 ##   godot --path . -- --sim-check --seed-sweep
 static func seed_sweep() -> void:
-	var reps := {"tank": "pebble", "archer": "juniper", "mage": "ember"}
+	var reps := {"tank": "barbarian", "archer": "rogue", "mage": "sorceress"}
 	for role in ["tank", "archer", "mage"]:
 		var hero: String = reps[role]
 		var wins := 0
@@ -1600,10 +1600,10 @@ static func seed_sweep() -> void:
 ## the boss must keep closing in (no stall longer than ~1 s while chasing)
 ## and never end up inside a stone.
 static func _kite() -> void:
-	var session := Session.solo("meadow", "pebble")
+	var session := Session.solo("meadow", "barbarian")
 	session.seed = 11
 	var sim := RunSim.new()
-	var stats := {"pebble": Catalog.base_stats("pebble")}
+	var stats := {"barbarian": Catalog.base_stats("barbarian")}
 	sim.start(session, stats)
 	sim.heroes[0].hp = 1e9
 	sim.heroes[0].max_hp = 1e9
@@ -1655,10 +1655,10 @@ static func _kite() -> void:
 ## holds still and cannot be hurt or attack for BOSS_INTRO seconds, and its
 ## first telegraph only opens once it shares the hero's view.
 static func _boss_intro_check() -> void:
-	var session := Session.solo("meadow", "ember")
+	var session := Session.solo("meadow", "sorceress")
 	session.seed = 11
 	var sim := RunSim.new()
-	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	sim.start(session, {"sorceress": Catalog.base_stats("sorceress")})
 	if not sim.explore:
 		_fail("boss intro check needs an explore map")
 		return
@@ -1730,8 +1730,8 @@ static func _step_one(sim: RunSim) -> void:
 ## a ranged caster). Both patterns telegraph >= 0.7 s and spawn hazards or
 ## projectiles. Keyed by role/archetype, never by hero id.
 static func _boss_phase_check() -> void:
-	_boss_phase_run("thistle", "meadow", "ember", false)
-	_boss_phase_run("nimbus", "frost", "ember", true)
+	_boss_phase_run("thistle", "meadow", "sorceress", false)
+	_boss_phase_run("nimbus", "frost", "sorceress", true)
 
 
 static func _boss_phase_run(boss_id: String, biome: String, hero_id: String, ranged: bool) -> void:
@@ -1831,10 +1831,10 @@ static func _boss_phase_run(boss_id: String, biome: String, hero_id: String, ran
 ## respects the cooldown, shoots a dodge event, and never ends inside an
 ## obstacle (dodged straight into the forest edge, the hero stays outside).
 static func _dodge_check() -> void:
-	var session := Session.solo("meadow", "ember")
+	var session := Session.solo("meadow", "sorceress")
 	session.seed = 11
 	var sim := RunSim.new()
-	sim.start(session, {"ember": Catalog.base_stats("ember")})
+	sim.start(session, {"sorceress": Catalog.base_stats("sorceress")})
 	if not sim.explore:
 		_fail("dodge check needs an explore map")
 		return
@@ -1899,7 +1899,7 @@ static func _dodge_check() -> void:
 ## nothing solid, barely moves a boss, a crit cancels a pending wind-up, and the
 ## hit-stop events it asks for are rate-limited.
 static func _melee_impact_check() -> void:
-	var sim := _sim("meadow", "pebble", 11)
+	var sim := _sim("meadow", "barbarian", 11)
 	var hero: RunSim.Actor = sim.heroes[0]
 	if str(hero.role) != "tank":
 		_fail("melee impact check needs a tank hero")
@@ -1991,7 +1991,7 @@ static func _events_check() -> void:
 	if a.goblin_at == Vector2.INF:
 		_fail("world rolled no goblin haunt")
 	# (b) A shrine raises the stat it names, then lets go after 30 s.
-	var bsim := _sim("meadow", "ember", 11)
+	var bsim := _sim("meadow", "sorceress", 11)
 	if bsim.shrines.is_empty():
 		_fail("run has no shrines")
 		return
@@ -2008,7 +2008,7 @@ static func _events_check() -> void:
 	if bhero.shrine_buffs.has("fury") or bhero.dmg != base_dmg:
 		_fail("fury shrine did not expire after 30 s")
 	# (c) A shielded elite soaks damage with its shield before its hp.
-	var csim := _sim("meadow", "ember", 11)
+	var csim := _sim("meadow", "sorceress", 11)
 	var chero: RunSim.Actor = csim.heroes[0]
 	var elite := csim._place_minion(0, csim._clamp_point(chero.pos + Vector2(400, 0), 24.0), -1)
 	csim._make_elite(elite)
@@ -2023,7 +2023,7 @@ static func _events_check() -> void:
 	if elite.hp >= ehp:
 		_fail("hp did not drop once the shield broke")
 	# (d) The goblin outruns the hero, and killing it pays out a chest.
-	var gsim := _sim("meadow", "ember", 11)
+	var gsim := _sim("meadow", "sorceress", 11)
 	var ghero: RunSim.Actor = gsim.heroes[0]
 	var lane := _clear_dir(gsim, ghero)
 	var gob := gsim._spawn_goblin(gsim.map.push_inside(ghero.pos + lane * 340.0, 30.0))
@@ -2045,7 +2045,7 @@ static func _events_check() -> void:
 	if not looted:
 		_fail("goblin kill dropped no loot")
 	# (e) A molten death leaves a burning patch that hurts the hero.
-	var msim := _sim("meadow", "ember", 11)
+	var msim := _sim("meadow", "sorceress", 11)
 	var mhero: RunSim.Actor = msim.heroes[0]
 	var molten := msim._place_minion(0, msim._clamp_point(mhero.pos + Vector2(-300, 0), 24.0), -1)
 	msim._apply_affixes(molten, ["molten"])
@@ -2078,8 +2078,8 @@ static func _gear_drop_smoke() -> void:
 	SaveGame.no_write = true
 	SaveGame.data["gear_shards"] = 0
 	var sources := ["camp", "elite", "boss", "goblin", "chest_common", "chest_epic"]
-	var a := _sim("meadow", "ember", 11)
-	var b := _sim("meadow", "ember", 11)
+	var a := _sim("meadow", "sorceress", 11)
+	var b := _sim("meadow", "sorceress", 11)
 	for sim in [a, b]:
 		for source in sources:
 			sim._gear_roll_drop(source, Vector2.ZERO)
@@ -2097,7 +2097,7 @@ static func _gear_drop_smoke() -> void:
 	if a.bank_gear().size() != 0 or _owned_total() != banked.size():
 		_fail("gear banked twice")
 	GearDB.store_override = {}
-	var c := _sim("meadow", "ember", 11)
+	var c := _sim("meadow", "sorceress", 11)
 	for source in sources:
 		c._gear_roll_drop(source, Vector2.ZERO)
 	c.result = "lose"
@@ -2223,20 +2223,20 @@ static func _skill_xp_smoke() -> void:
 	var prev_nowrite: bool = SaveGame.no_write
 	GearDB.store_override = {}
 	SaveGame.no_write = true
-	var melee := _fight_xp("pebble", 11)
-	var melee_row: Dictionary = melee.skill_xp.get("pebble", {})
+	var melee := _fight_xp("barbarian", 11)
+	var melee_row: Dictionary = melee.skill_xp.get("barbarian", {})
 	if float(melee_row.get("attack", 0.0)) <= 0.0 or float(melee_row.get("strength", 0.0)) <= 0.0:
 		_fail("melee fight trained no Attack/Strength")
 	if float(melee_row.get("defence", 0.0)) <= 0.0:
 		_fail("controlled melee trained no Defence")
-	var mage := _fight_xp("ember", 11)
-	var mage_row: Dictionary = mage.skill_xp.get("ember", {})
+	var mage := _fight_xp("sorceress", 11)
+	var mage_row: Dictionary = mage.skill_xp.get("sorceress", {})
 	if float(mage_row.get("magic", 0.0)) <= 0.0:
 		_fail("mage fight trained no Magic")
 	if float(mage_row.get("defence", 0.0)) <= 0.0:
 		_fail("longrange spell trained no Defence")
 	# Top up so the commit is guaranteed to gain a level and queue the event.
-	melee.skill_xp["pebble"]["attack"] = float(melee_row.get("attack", 0.0)) + 5000.0
+	melee.skill_xp["barbarian"]["attack"] = float(melee_row.get("attack", 0.0)) + 5000.0
 	melee.bank_gear()
 	var total := _skill_total()
 	if total <= 0:
@@ -2434,7 +2434,7 @@ static func _xp_drop_check() -> void:
 	var prev_nowrite: bool = SaveGame.no_write
 	GearDB.store_override = {}
 	SaveGame.no_write = true
-	var hero := "pebble"
+	var hero := "barbarian"
 	# Park the hero a sliver below a few level-ups so the run crosses real
 	# levels mid-fight; the crossings, not the numbers, are under test.
 	GearDB.add_xp(hero, "attack", GearDB.xp_for_level(2) - 1)
@@ -2653,7 +2653,7 @@ static func _forge_check() -> void:
 		if str(o["id"]) == target:
 			_fail("an owned id stayed in the forge options")
 	# Unknown, foreign and not-a-hero-slot ids are all refused without a claim.
-	if SaveGame.forge(hero, "nonsense.id.1") or SaveGame.forge(hero, "ember.helm.1"):
+	if SaveGame.forge(hero, "nonsense.id.1") or SaveGame.forge(hero, "sorceress.helm.1"):
 		_fail("the forge accepted an unknown or foreign id")
 	# Mushroom (depth 1) unlocks steel but never rune.
 	SaveGame.data["trophies"] = 30
@@ -3032,14 +3032,14 @@ static func _gear_gating_check() -> void:
 	var deep_rolls := 1500 if quick else 4000
 	for _run in runs:
 		for source in sources:
-			for id in LootTable.roll(rng, str(source), "ember", 0):
+			for id in LootTable.roll(rng, str(source), "sorceress", 0):
 				if int(str(id).get_slice(".", 2)) != GearDB.Tier.IRON:
 					_fail("meadow rolled %s outside iron" % str(id))
 					return
 	var saw_steel := false
 	for _i in deep_rolls:
 		for source in sources:
-			for id in LootTable.roll(rng, str(source), "ember", 1):
+			for id in LootTable.roll(rng, str(source), "sorceress", 1):
 				var tier := int(str(id).get_slice(".", 2))
 				if tier == GearDB.Tier.RUNE:
 					_fail("mushroom rolled rune %s" % str(id))
@@ -3057,7 +3057,7 @@ static func _gear_gating_check() -> void:
 	for source in sources:
 		var cap: int = int(LootTable.max_tier(str(source), 2))
 		for _i in deep_rolls:
-			for id in LootTable.roll(rng, str(source), "ember", 2):
+			for id in LootTable.roll(rng, str(source), "sorceress", 2):
 				if int(str(id).get_slice(".", 2)) > cap:
 					_fail("frost %s rolled above its cap %d: %s" % [str(source), cap, str(id)])
 					return
@@ -3218,19 +3218,19 @@ static func _train_check() -> void:
 			if not is_equal_approx(float(bare.get(k, -999999.0)), float(base[k])):
 				_fail("fresh %s drifts from base at %s: %s vs %s" % [str(hero), k, str(bare.get(k)), str(base[k])])
 	# (b) Each skill drives its own stat.
-	var start := SaveGame.build_run_stats("pebble")
-	GearDB.add_xp("pebble", "strength", GearDB.xp_for_level(20))
-	GearDB.add_xp("pebble", "hitpoints", GearDB.xp_for_level(20))
-	var grown := SaveGame.build_run_stats("pebble")
+	var start := SaveGame.build_run_stats("barbarian")
+	GearDB.add_xp("barbarian", "strength", GearDB.xp_for_level(20))
+	GearDB.add_xp("barbarian", "hitpoints", GearDB.xp_for_level(20))
+	var grown := SaveGame.build_run_stats("barbarian")
 	if float(grown["dmg"]) <= float(start["dmg"]):
 		_fail("strength training did not raise damage")
 	if float(grown["hp"]) <= float(start["hp"]):
 		_fail("hitpoints training did not raise hp")
 	if float(grown["armor"]) != float(start["armor"]) or float(grown["crit"]) != float(start["crit"]):
 		_fail("strength/hitpoints training leaked into armor/crit")
-	GearDB.add_xp("pebble", "attack", GearDB.xp_for_level(20) - GearDB.xp("pebble", "attack"))
-	GearDB.add_xp("pebble", "defence", GearDB.xp_for_level(20))
-	var split := SaveGame.build_run_stats("pebble")
+	GearDB.add_xp("barbarian", "attack", GearDB.xp_for_level(20) - GearDB.xp("barbarian", "attack"))
+	GearDB.add_xp("barbarian", "defence", GearDB.xp_for_level(20))
+	var split := SaveGame.build_run_stats("barbarian")
 	if float(split["crit"]) <= float(grown["crit"]):
 		_fail("attack training did not raise crit")
 	if float(split["armor"]) <= float(grown["armor"]):
@@ -3239,37 +3239,37 @@ static func _train_check() -> void:
 	GearDB.store_override = null
 	SaveGame.data = SaveGame._fresh()
 	SaveGame.data["training_migrated"] = false
-	SaveGame.data["heroes"]["ember"]["unlocked"] = true
-	SaveGame.data["heroes"]["ember"]["level"] = 4
+	SaveGame.data["heroes"]["sorceress"]["unlocked"] = true
+	SaveGame.data["heroes"]["sorceress"]["level"] = 4
 	SaveGame.migrate_training()
-	var str_lvl := GearDB.level("ember", "strength")
-	var hp_lvl := GearDB.level("ember", "hitpoints")
+	var str_lvl := GearDB.level("sorceress", "strength")
+	var hp_lvl := GearDB.level("sorceress", "hitpoints")
 	if str_lvl < 1 + SaveGame.TRAIN_LEVELS_PER_CARD * 3 or hp_lvl < 10 + SaveGame.TRAIN_LEVELS_PER_CARD * 3:
 		_fail("migration banked too little: strength %d hp %d" % [str_lvl, hp_lvl])
-	if GearDB.level("ember", "magic") < str_lvl:
+	if GearDB.level("sorceress", "magic") < str_lvl:
 		_fail("mage migration skipped the weapon skill")
-	if float(SaveGame.build_run_stats("ember")["hp"]) < float(Catalog.base_stats("ember")["hp"]) * (1.0 + 0.08 * 3.0):
+	if float(SaveGame.build_run_stats("sorceress")["hp"]) < float(Catalog.base_stats("sorceress")["hp"]) * (1.0 + 0.08 * 3.0):
 		_fail("migration lost hp power")
-	var stamp := GearDB.xp("ember", "strength")
+	var stamp := GearDB.xp("sorceress", "strength")
 	SaveGame.data["training_migrated"] = false
 	SaveGame.migrate_training()
-	if GearDB.xp("ember", "strength") != stamp:
+	if GearDB.xp("sorceress", "strength") != stamp:
 		_fail("migration applied twice")
 	# (d) Reinforce: coins out, stats up, hard cap.
 	GearDB.store_override = {}
 	SaveGame.data = SaveGame._fresh()
 	SaveGame.data["coins"] = 100000
-	if not GearDB.grant("pebble.weapon.1") or not GearDB.equip("pebble", "pebble.weapon.1"):
+	if not GearDB.grant("barbarian.weapon.1") or not GearDB.equip("barbarian", "barbarian.weapon.1"):
 		_fail("reinforce setup")
-	var before := GearDB.stats("pebble")
-	var cost := GearDB.reinforce_cost("pebble", "pebble.weapon.1")
-	if cost <= 0 or not GearDB.reinforce("pebble", "pebble.weapon.1"):
+	var before := GearDB.stats("barbarian")
+	var cost := GearDB.reinforce_cost("barbarian", "barbarian.weapon.1")
+	if cost <= 0 or not GearDB.reinforce("barbarian", "barbarian.weapon.1"):
 		_fail("reinforce refused a legal owned piece")
-	if GearDB.reinforce_level("pebble", "pebble.weapon.1") != 1:
+	if GearDB.reinforce_level("barbarian", "barbarian.weapon.1") != 1:
 		_fail("reinforce level did not reach 1")
 	if int(SaveGame.data["coins"]) != 100000 - cost:
 		_fail("reinforce charged the wrong price")
-	var after := GearDB.stats("pebble")
+	var after := GearDB.stats("barbarian")
 	var raised := false
 	for k in after:
 		if float(after[k]) > float(before.get(k, 0.0)):
@@ -3277,10 +3277,10 @@ static func _train_check() -> void:
 	if not raised:
 		_fail("reinforce did not raise the piece stats")
 	for _i in GearDB.REINFORCE_MAX + 3:
-		GearDB.reinforce("pebble", "pebble.weapon.1")
-	if GearDB.reinforce_level("pebble", "pebble.weapon.1") != GearDB.REINFORCE_MAX:
+		GearDB.reinforce("barbarian", "barbarian.weapon.1")
+	if GearDB.reinforce_level("barbarian", "barbarian.weapon.1") != GearDB.REINFORCE_MAX:
 		_fail("reinforce did not cap at %d" % GearDB.REINFORCE_MAX)
-	if GearDB.reinforce("pebble", "pebble.weapon.1") or GearDB.reinforce("pebble", "pebble.weapon.2"):
+	if GearDB.reinforce("barbarian", "barbarian.weapon.1") or GearDB.reinforce("barbarian", "barbarian.weapon.2"):
 		_fail("reinforce accepted a maxed or unowned piece")
 	SaveGame.data = keep
 	SaveGame.no_write = keep_no_write
@@ -3331,15 +3331,15 @@ static func _gear_runs() -> void:
 ## same win/drop/pickup assertions finish in a slice of the vanilla 253 s
 ## simulation; the default run stays on the untouched baseline stats.
 static func _gear_run(seed: int, cap: int, boost := false) -> Dictionary:
-	var session := Session.solo("meadow", "ember")
+	var session := Session.solo("meadow", "sorceress")
 	session.seed = seed
-	var stats: Dictionary = {"ember": Catalog.base_stats("ember")}
+	var stats: Dictionary = {"sorceress": Catalog.base_stats("sorceress")}
 	if boost:
-		var s: Dictionary = Catalog.base_stats("ember")
+		var s: Dictionary = Catalog.base_stats("sorceress")
 		s["hp"] = float(s["hp"]) * 6.0
 		s["dmg"] = float(s["dmg"]) * 50.0
 		s["speed"] = float(s["speed"]) * 6.0
-		stats = {"ember": s}
+		stats = {"sorceress": s}
 	var sim := RunSim.new()
 	sim.start(session, stats)
 	var drops := {}
@@ -3949,7 +3949,7 @@ static func _difficulty_check() -> void:
 	rng.seed = 987654
 	var rune := 0
 	for _i in 600:
-		for id in LootTable.roll(rng, "boss", "pebble", 0, 2):
+		for id in LootTable.roll(rng, "boss", "barbarian", 0, 2):
 			if int(str(id).get_slice(".", 2)) == GearDB.Tier.RUNE:
 				rune += 1
 	if rune > 0:
@@ -3965,11 +3965,11 @@ static func _difficulty_check() -> void:
 	if Catalog.xp_falloff(90, 3, 0) > Catalog.xp_falloff(30, 3, 0):
 		_fail("falloff should not rise with combat level")
 	# Wired end to end: the same hit trains less once the hero is over-leveled.
-	var fp := _difficulty_fresh_sim("pebble", 0)
+	var fp := _difficulty_fresh_sim("barbarian", 0)
 	var xp_fresh := _difficulty_hit_xp(fp)
 	for skill in ["attack", "strength", "defence", "hitpoints"]:
-		GearDB.add_xp("pebble", skill, GearDB.xp_for_level(70))
-	var boosted := _difficulty_fresh_sim("pebble", 0)
+		GearDB.add_xp("barbarian", skill, GearDB.xp_for_level(70))
+	var boosted := _difficulty_fresh_sim("barbarian", 0)
 	var xp_boosted := _difficulty_hit_xp(boosted)
 	if boosted.xp_falloff() >= 1.0:
 		_fail("an over-leveled Normal run reported no falloff")
@@ -3987,10 +3987,10 @@ static func _difficulty_check() -> void:
 
 ## A fresh exploration run at `tier` for the tier/falloff checks.
 static func _difficulty_sim(biome: String, tier: int, seed := 11) -> RunSim:
-	var session := Session.solo(biome, "pebble")
+	var session := Session.solo(biome, "barbarian")
 	session.seed = seed
 	var sim := RunSim.new()
-	sim.start(session, {"pebble": Catalog.base_stats("pebble")}, tier)
+	sim.start(session, {"barbarian": Catalog.base_stats("barbarian")}, tier)
 	return sim
 
 
@@ -4089,15 +4089,18 @@ static func _difficulty_unlock_check() -> void:
 static func _dock_pip_check() -> void:
 	var dock := UiKit.Dock.new("home", Callable())
 	dock.size = Vector2(1179, 130)
-	var road := dock.tab_icon_rect("trophy")
+	var camp := dock.tab_icon_rect("hub")
 	var heroes := dock.tab_icon_rect("heroes")
+	var road := dock.tab_icon_rect("trophy")
 	var third := dock.size.x / 3.0
-	if road == Rect2() or heroes == Rect2():
-		_fail("a real tab id returned no icon rect (road %s heroes %s)" % [str(road), str(heroes)])
+	if road == Rect2() or heroes == Rect2() or camp == Rect2():
+		_fail("a real tab id returned no icon rect (camp %s heroes %s road %s)" % [str(camp), str(heroes), str(road)])
+	elif camp.position.x < -0.01 or camp.end.x > third + 0.01:
+		_fail("the Camp icon is not in the left third: %s" % str(camp))
+	elif heroes.position.x < third - 0.01 or heroes.end.x > third * 2.0 + 0.01:
+		_fail("the Heroes icon is not in the middle third: %s" % str(heroes))
 	elif road.position.x < third * 2.0 - 0.01 or road.end.x > dock.size.x + 0.01:
 		_fail("the Road icon is not in the right third: %s" % str(road))
-	elif heroes.position.x < -0.01 or heroes.end.x > third + 0.01:
-		_fail("the Heroes icon is not in the left third: %s" % str(heroes))
 	if dock.tab_icon_rect("nope") != Rect2():
 		_fail("an unknown tab id returned an icon rect")
 	dock.free()

@@ -374,7 +374,9 @@ func _walk(hero_id: String) -> void:
 		if not st._bodies.has(h.id):
 			continue
 		var body: Node3D = st._bodies[h.id]
-		var player: AnimationPlayer = body.get_meta("player")
+		var player: AnimationPlayer = null
+		if body.has_meta("player"):
+			player = body.get_meta("player") as AnimationPlayer
 		var state := str(body.get_meta("state", ""))
 		states[state] = int(states.get(state, 0)) + 1
 		if h.vel.length() > 18.0 and t > 0.5:

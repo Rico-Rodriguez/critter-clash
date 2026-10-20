@@ -249,7 +249,7 @@ func bind_pedestal(hero_id: String) -> void:
 	_hide_catch(body)
 	var clips: Dictionary = body.get_meta("clips")
 	if clips.has("perch"):
-		var player: AnimationPlayer = body.get_meta("player")
+		var player: AnimationPlayer = _player_of(body)
 		if player != null and player.has_animation(str(clips["perch"])):
 			player.get_animation(str(clips["perch"])).loop_mode = Animation.LOOP_PINGPONG
 	_play(body, "perch" if clips.has("perch") else "idle")
@@ -2693,11 +2693,20 @@ func _center_posed(body: Node3D, lift: float) -> void:
 	body.set_meta("model_base", model.position)
 
 
+## The AnimationPlayer of a spawned body, or null. A model with no clip
+## library (a static mesh) has no player at all, and Godot 4's get_meta
+## errors on a missing key even when a default is passed, so the key is
+## checked first.
+func _player_of(body: Node3D) -> AnimationPlayer:
+	if body == null or not body.has_meta("player"):
+		return null
+	return body.get_meta("player") as AnimationPlayer
+
+
 func _spawn_model(sprite: String, meters: float) -> Node3D:
 	var root := Node3D.new()
 	root.set_meta("clips", Cast3D.clips(sprite))
 	root.set_meta("lock", "")
-	root.set_meta("player", null)
 	var packed := load(Cast3D.model(sprite)) as PackedScene
 	if packed == null:
 		return root
@@ -3038,19 +3047,19 @@ func _anim(body: Node3D, actor: RunSim.Actor) -> void:
 	var moving := actor.vel.length() > 18.0
 	body.set_meta("moving", moving)
 	if moving:
-		var player0: AnimationPlayer = body.get_meta("player")
+		var player0: AnimationPlayer = _player_of(body)
 		var slow := actor.vel.length() < actor.speed * 0.5
 		if slow and player0 != null and _has_walk(player0, body):
 			_play(body, "walk")
 		else:
 			_play(body, "run")
 		# Belt and braces: a locomotion clip that has stopped is restarted.
-		var p1: AnimationPlayer = body.get_meta("player")
+		var p1: AnimationPlayer = _player_of(body)
 		if p1 != null and not p1.is_playing() and str(body.get_meta("state", "")) in ["run", "walk"]:
 			body.set_meta("state", "")
 			_play(body, "walk" if slow and _has_walk(p1, body) else "run")
 		# Cadence follows speed: half-tilted stick, half-speed legs.
-		var player: AnimationPlayer = body.get_meta("player")
+		var player: AnimationPlayer = _player_of(body)
 		var stt := str(body.get_meta("state", ""))
 		if player != null and (stt == "run" or stt == "walk"):
 			var ref := actor.speed * (0.5 if stt == "walk" else 1.0)
@@ -3111,7 +3120,7 @@ func _motion(body: Node3D, moving: bool, now: float, speed_k: float) -> void:
 		var e := sin(PI * st / 0.22) * (1.0 - st / 0.22)
 		lean += 0.12 * e
 		sq *= Vector3(1.0 + 0.05 * e, 1.0 - 0.07 * e, 1.0 + 0.05 * e)
-	if body.get_meta("player") == null:
+	if _player_of(body) == null:
 		sq.y *= 1.0 + 0.03 * sin(now * 2.2 + float(body.get_instance_id() % 7))
 	var ht := now - float(body.get_meta("hit_t", -10.0))
 	if ht < 0.24:
@@ -3255,7 +3264,7 @@ func _play(body: Node3D, state: String) -> void:
 	if str(body.get_meta("state", "")) == state:
 		return
 	body.set_meta("state", state)
-	var player: AnimationPlayer = body.get_meta("player")
+	var player: AnimationPlayer = _player_of(body)
 	if player == null:
 		_pose(body, state)
 		return

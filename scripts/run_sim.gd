@@ -300,6 +300,14 @@ var bases: Dictionary = {}
 ## arena's clock: the boss rises on time and the hunt ends when the clock
 ## runs out.
 var explore := false
+## The depth tier the hunt started in ("" for the old whole-world hunt).
+var tier_id := ""
+## True when the hunt runs the world's depth tiers: the band a camp stands
+## in owns its critters, its level and its share of elites.
+var tier_mode := false
+## The tier the hero is in right now, and the crossings they make as they
+## walk north. The tracker is the same one the world map uses.
+var tier_tracker: TierBounds.Tracker = TierBounds.Tracker.new()
 ## Fog of war on the map's pathing grid: seen stays 1 once revealed, now is
 ## what the hero can see this moment.
 var fog_seen := PackedByteArray()
@@ -620,10 +628,16 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
+	tier_id = str(session.tier)
+	tier_mode = tier_id != ""
 	difficulty = clampi(tier, 0, Catalog.TIER_COUNT - 1)
 	modifiers = session.modifiers
 	explore = mode != Session.Mode.DUEL
 	map = HuntMap.world(biome_id, rng.seed) if explore else HuntMap.for_biome(biome_id)
+	if explore and tier_id != "":
+		# A gate into a depth tier drops the hero at that tier's south
+		# edge, so the hunt opens in the ground the gate stands in.
+		map.start = map.entry_for_tier(tier_id)
 	play = map.play
 	if explore:
 		fog_seen.resize(map.grid_w * map.grid_h)
@@ -697,6 +711,7 @@ func step(dt: float, moves: Array) -> void:
 	if explore:
 		_step_shrines(dt)
 		_step_explore(dt)
+		_step_tier(dt)
 		_step_gathering(dt)
 	else:
 		_step_spawns(dt)
@@ -3391,21 +3406,24 @@ func _open_side(actor: Actor, dir: Vector2) -> Vector2:
 ## Places the map's camps, elite packs and patrols. Critters further north
 ## (closer to the lair) are tougher and pay more.
 func _spawn_world() -> void:
-	var skins: Array = biome["skins"]
 	var density := float(_diff()["density"])
-	# The biome sets the floor for elites (fringe none, wilds 5%, deep 15%,
-	# abyss 30%) and the difficulty tier adds its own chance on top.
-	var elite_chance := Catalog.elite_chance(biome_id, difficulty)
 	for ci in map.camps.size():
 		var camp: Dictionary = map.camps[ci]
 		var at: Vector2 = camp["pos"]
 		var count: int = camp["count"]
+		# The band the camp stands in owns its critters, its level and its
+		# share of elites: the Fringe keeps the barrow beasts, the Abyss the
+		# ash ones, and walking north walks up through them. A hunt with no
+		# tier keeps the biome's own content.
+		var band := _band_at(at) if tier_mode else ""
+		var skins: Array = _band_skins(band) if band != "" else biome.get("skins", [])
+		var elite_chance := _band_elite_chance(band) if band != "" else Catalog.elite_chance(biome_id, difficulty)
 		# "Swarming" thickens every camp by 30%; a raised tier adds density on
 		# top. Normal's density is 1.0, so both leave the camp count untouched.
 		if has_modifier("swarming"):
 			count = int(ceil(float(count) * 1.3))
 		count = maxi(1, int(round(float(count) * density)))
-		var base := ci % skins.size()
+		var base := ci % maxi(skins.size(), 1)
 		var affixes: Array = camp.get("affixes", [])
 		# A camp's affix is the camp's identity, so it rides on one member --
 		# its leader -- and the rest of the pack stays plain.
@@ -3425,7 +3443,7 @@ func _spawn_world() -> void:
 			elif m.elite and not leader.elite:
 				leader = m
 		if bool(camp["elite"]):
-			var e := _place_minion(rng.randi() % skins.size(), at, ci)
+			var e := _place_minion(rng.randi() % maxi(skins.size(), 1), at, ci, band)
 			_make_elite(e)
 			leader = e
 		_apply_affixes(leader, affixes)
@@ -3436,8 +3454,11 @@ func _spawn_world() -> void:
 		var a: Vector2 = pat["a"]
 		var b: Vector2 = pat["b"]
 		var tag := 1000 + pi
+		var band := _band_at(a) if tier_mode else ""
+		var skins: Array = _band_skins(band) if band != "" else biome.get("skins", [])
+		var elite_chance := _band_elite_chance(band) if band != "" else Catalog.elite_chance(biome_id, difficulty)
 		for k in maxi(1, int(round(float(pat["count"]) * density))):
-			var m := _place_minion(rng.randi() % skins.size(), a + Vector2(rng.randf_range(-50, 50), rng.randf_range(-50, 50)), tag)
+			var m := _place_minion(rng.randi() % maxi(skins.size(), 1), a + Vector2(rng.randf_range(-50, 50), rng.randf_range(-50, 50)), tag, band)
 			if elite_chance > 0.0 and rng.randf() < elite_chance:
 				_make_elite(m)
 			m.patrol_a = a
@@ -3564,7 +3585,7 @@ func _apply_affixes(m: Actor, affixes: Array) -> void:
 				m.shield = m.max_hp * 0.4
 
 
-func _place_minion(skin: int, at: Vector2, camp: int) -> Actor:
+func _place_minion(skin: int, at: Vector2, camp: int, band_id: String = "") -> Actor:
 	_spawn_minion(skin, at)
 	var m: Actor = actors[-1]
 	m.camp = camp
@@ -3572,11 +3593,40 @@ func _place_minion(skin: int, at: Vector2, camp: int) -> Actor:
 	m.aggro = false
 	m.facing = rng.randf() * TAU
 	var depth := _depth_at(at.y)
-	m.max_hp = m.base_hp * EXPLORE_HP * (1.0 + depth * EXPLORE_DEPTH)
+	if band_id == "":
+		# A hunt with no tier keeps the old scaling: the depth curve alone.
+		m.max_hp = m.base_hp * EXPLORE_HP * (1.0 + depth * EXPLORE_DEPTH)
+		m.hp = m.max_hp
+		m.dmg *= 1.0 + depth * 0.5
+		m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * (1.0 + depth * 0.6) * float(_diff()["xp"]))))
+		return m
+	# A tier hunt: the band sets the floor for how hard a pack is. The
+	# Fringe's beasts are the shallow ones, the Abyss' the deep ones, and
+	# the walk north inside a band adds the rest.
+	var band_level := _band_level(band_id, depth)
+	var scale := 1.0 + float(band_level - 1) * 0.055
+	m.max_hp = m.base_hp * EXPLORE_HP * scale * (1.0 + depth * EXPLORE_DEPTH)
 	m.hp = m.max_hp
-	m.dmg *= 1.0 + depth * 0.5
-	m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * (1.0 + depth * 0.6) * float(_diff()["xp"]))))
+	m.dmg *= scale * (1.0 + depth * 0.5)
+	m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * scale * (1.0 + depth * 0.6) * float(_diff()["xp"]))))
 	return m
+
+
+## The level a monster stands at: its band's own range, climbing as the
+## walk goes north inside the band.
+func _band_level(band_id: String, depth: float) -> int:
+	var levels := WorldData.monster_level_range(band_id)
+	var lo := int(levels.get("min", 1))
+	var hi := int(levels.get("max", 10))
+	if hi <= lo:
+		return lo
+	# The level climbs inside the band: the walk north from the band's south
+	# edge runs from the bottom of its range to the top.
+	var span := TierBounds.band_span(band_id)
+	var from := float(span.get("depth_from", 0.0))
+	var to := float(span.get("depth_to", 1.0))
+	var t := 0.0 if to <= from else clampf((depth - from) / (to - from), 0.0, 1.0)
+	return int(round(lerpf(float(lo), float(hi), t)))
 
 
 const EXPLORE_HP := 1.6
@@ -3595,6 +3645,26 @@ const ELITE_HP := 5.0
 ## How deep in the map a spot lies: 0 at the south edge, 1 up by the lair.
 func _depth_at(y: float) -> float:
 	return 1.0 - clampf(y / maxf(map.size.y, 1.0), 0.0, 1.0)
+
+
+## The depth tier a spot lies in ("fringe", "wilds", "deep", "abyss").
+func _band_at(at: Vector2) -> String:
+	return TierBounds.tier_id_at_position(at, map.size)
+
+
+## The critters of a band: the Fringe keeps the barrow beasts, the Wilds
+## the blight ones, the Deep the rime ones and the Abyss the ash ones.
+func _band_skins(band_id: String) -> Array:
+	var biome := Catalog.biome(Catalog.biome_for_tier(band_id))
+	var skins: Array = biome.get("skins", [])
+	return skins if not skins.is_empty() else biome.get("skins", [])
+
+
+## The share of a band's packs that turn elite, plus the difficulty tier's
+## own share on top.
+func _band_elite_chance(band_id: String) -> float:
+	var base := Catalog.elite_spawn_chance(band_id)
+	return clampf(base + float(Catalog.tier_mul(difficulty).get("elite", 0.0)), 0.0, Catalog.ELITE_CHANCE_CAP)
 
 
 func _make_elite(m: Actor) -> void:
@@ -3739,6 +3809,24 @@ func _step_explore(dt: float) -> void:
 	if phase == "hunt" and time >= EXPLORE_BOSS_AT:
 		begin_boss()
 		_add_t = 6.0
+
+
+## The depth tier the hero is in, and the crossing they make when they
+## walk into the next one. The HUD shows the tier and the warning.
+func _step_tier(dt: float) -> void:
+	if map == null or map.size.y <= 0.0 or heroes.is_empty():
+		return
+	var hero: Actor = heroes[0]
+	var event := tier_tracker.update(TierBounds.depth_at_position(hero.pos, map.size))
+	if event.is_empty():
+		return
+	events.append({
+		"type": "tier_change",
+		"tier": str(event.get("tier", "")),
+		"name": str(event.get("name", "")),
+		"message": str(event.get("message", "")),
+		"deeper": bool(event.get("deeper", false)),
+	})
 
 
 ## Opens a chest: coins home, a ring of gems, a sip of health and the loot

@@ -213,7 +213,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("Credits"))
 	box.add_child(body("CC-BY music and models keep the artist's name. CC0 work is listed because we use it."))
 	var scroll := ScrollContainer.new()

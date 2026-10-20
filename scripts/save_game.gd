@@ -468,6 +468,40 @@ func gate_open(gate_id: String) -> bool:
 	return bool(_gates_unlocked().get(gate_id, false))
 
 
+## Whether the gate into a depth tier stands open. The shallowest tier is
+## open from the start; every deeper one opens when the tier below it has
+## been cleared.
+func tier_open(tier_id: String) -> bool:
+	var order := WorldData.tier_order()
+	for i in order.size():
+		if str(order[i]) != tier_id:
+			continue
+		if i == 0:
+			return true
+		var below := str(order[i - 1])
+		var cleared: Dictionary = data.get("tiers_cleared", {})
+		return bool(cleared.get(below, false))
+	return false
+
+
+## Notes that a depth tier has been cleared, which opens the gate into the
+## tier above it. Idempotent.
+func clear_tier(tier_id: String) -> void:
+	if not data.has("tiers_cleared") or typeof(data["tiers_cleared"]) != TYPE_DICTIONARY:
+		data["tiers_cleared"] = {}
+	var cleared: Dictionary = data["tiers_cleared"]
+	if bool(cleared.get(tier_id, false)):
+		return
+	cleared[tier_id] = true
+	_write()
+
+
+## Whether a depth tier has been cleared.
+func tier_cleared(tier_id: String) -> bool:
+	var cleared: Dictionary = data.get("tiers_cleared", {})
+	return bool(cleared.get(tier_id, false))
+
+
 ## Open a hub gate and remember it. Idempotent: a gate opened twice is
 ## written once.
 func unlock_gate(gate_id: String) -> void:

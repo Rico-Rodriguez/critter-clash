@@ -11,6 +11,8 @@ const LOW_HP := 0.3
 const CLOCK_WARN := 15
 
 var biome_id := "meadow"
+## The depth tier this hunt runs in ("" for the old whole-world hunt).
+var tier_id := ""
 var shade: TextureRect
 var hero_id := "ember"
 ## The map's difficulty tier chosen in the picker (0 Normal).
@@ -191,8 +193,11 @@ func open(args: Dictionary = {}) -> void:
 		# Crisp pass: a light vignette, so the edges of the field stay readable.
 		shade.modulate.a = 0.55 if biome_id == "mushroom" else 0.45
 	hero_id = str(args.get("hero", "ember"))
+	# The depth tier the gate stands in: "" for the old whole-world hunt.
+	tier_id = str(args.get("tier", ""))
 	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)
+	session.tier = tier_id
 	# Real runs keep Session.solo's fresh random seed, so every load lays out
 	# a slightly different map. Captures, movies and the daily challenge pin
 	# one through args["seed"] (or CC_SEED for the capture scripts).
@@ -1118,6 +1123,11 @@ func _drain() -> void:
 			"banner":
 				_banner(str(ev["text"]))
 				AudioDirector.sfx("banner")
+			"tier_change":
+				# Walking into the next depth tier says so.
+				_banner(str(ev.get("message", "")))
+				AudioDirector.sfx("banner")
+				minimap.set_tier(str(ev.get("tier", "")))
 			"fx":
 				var at: Vector2 = ev.get("pos", Vector2.ZERO)
 				var fx := str(ev.get("fx", ""))
@@ -3552,6 +3562,8 @@ class MiniMap extends Control:
 	var _paper: TextureRect
 	var _mat: ShaderMaterial
 	var _marks: Control
+	## The depth tier the hero is in right now, written under the map.
+	var current_tier := ""
 	## Corner disc, in UI px, and how much of the map it spans (px of world).
 	const DIAM := 150.0
 	const SPAN := 3600.0
@@ -3598,6 +3610,15 @@ class MiniMap extends Control:
 			accept_event()
 			tapped.emit()
 			toggle()
+
+	## The depth tier the hero is in: the map names it, and the hero's
+	## place in the world reads by it.
+	func set_tier(tier_id: String) -> void:
+		var id := str(tier_id)
+		if id == str(current_tier):
+			return
+		current_tier = id
+		queue_redraw()
 
 	func toggle() -> void:
 		big = not big
@@ -3817,6 +3838,13 @@ class MiniMap extends Control:
 	func _draw() -> void:
 		if big:
 			draw_rect(Rect2(-position, get_viewport_rect().size), Color(0, 0, 0, 0.6), true)
+		if str(current_tier) == "":
+			return
+		var font := UiKit.font_x
+		var label := WorldData.tier_name(str(current_tier)).to_upper()
+		var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		var at := Vector2(size.x * 0.5 - w * 0.5, size.y + 22.0)
+		draw_string(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.86, 0.78, 0.6, 0.9))
 
 	func draw_marks(ci) -> void:
 		if sim == null or _base == null:

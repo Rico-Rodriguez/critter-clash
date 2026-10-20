@@ -38,7 +38,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("The Forge"))
 	_shards = UiKit.label("", 26, UiKit.GOLD.lightened(0.15), "x", 5)
 	_shards.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

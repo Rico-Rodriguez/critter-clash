@@ -48,7 +48,7 @@ func build() -> void:
 	home_button = UiKit.secondary("Home", 220, 88)
 	home_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	home_button.visible = false
-	home_button.pressed.connect(func() -> void: go("home"))
+	home_button.pressed.connect(func() -> void: go("hub"))
 	foot.add_child(home_button)
 
 

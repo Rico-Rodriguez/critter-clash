@@ -11,7 +11,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = "trophy"
 	var box := column()
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("Trophy Road"))
 	box.add_child(body("Win hunts to climb. Claim each reward as you pass it."))
 	var scroll := ScrollContainer.new()

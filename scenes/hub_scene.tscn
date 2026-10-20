@@ -5,7 +5,7 @@
 [node name="HubScene" type="Node3D"]
 script = ExtResource("1_hub")
 
-[node name="Campfire" type="PointLight3D" parent="."]
+[node name="Campfire" type="OmniLight3D" parent="."]
 position = Vector3(0, 0, 0)
 light_color = Color(1, 0.784314, 0.470588, 1)
 light_energy = 2.0

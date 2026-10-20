@@ -9,7 +9,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("Settings"))
 	box.add_child(body("Sound, comfort and text options. Changes save straight away."))
 	var pad := MarginContainer.new()

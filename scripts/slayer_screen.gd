@@ -18,7 +18,7 @@ func build() -> void:
 	nav_tab = ""
 	var box := column()
 	box.add_theme_constant_override("separation", 16)
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("Slayer Master"))
 	# The warden speaks from a framed dialogue panel.
 	var talk_plate := UiKit.Plate.new()

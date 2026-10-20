@@ -128,7 +128,9 @@ func _bake(id: String, head: bool) -> void:
 	# Full-body cards use the standing perch pose; the head crop keeps the
 	# idle, where the head sits above the wings.
 	_stage._play(body, "perch" if clips.has("perch") and not head else "idle")
-	var player: AnimationPlayer = body.get_meta("player")
+	var player: AnimationPlayer = null
+	if body.has_meta("player"):
+		player = body.get_meta("player") as AnimationPlayer
 	if player != null and player.is_playing():
 		player.seek(Cast3D.portrait_time(id), true)
 		player.pause()

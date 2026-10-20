@@ -27,7 +27,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("Stash"))
 	_summary = UiKit.label("", 24, Color("e6d8bc"), "x", 4)
 	_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -56,8 +56,8 @@ func build() -> void:
 ## Where the back chip goes: the Hub by default, the Skills screen's bag when
 ## the player came from there.
 func open(args: Dictionary = {}) -> void:
-	var from := str(args.get("from", "home"))
-	back_target = from if from == "skills" else "home"
+	var from := str(args.get("from", "hub"))
+	back_target = from if from == "skills" else "hub"
 
 
 func _tab_bar() -> HBoxContainer:

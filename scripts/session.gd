@@ -20,6 +20,9 @@ var hero_ids: PackedStringArray = PackedStringArray()
 var seed: int = 0
 ## Set only for a Daily Challenge run: the UTC day key and its modifiers.
 var daily_key: String = ""
+## The depth tier the hunt runs in ("" for the old whole-world hunt). A tier
+## hunt starts in that tier's ground and holds that tier's own critters.
+var tier: String = ""
 var modifiers: Array = []
 
 

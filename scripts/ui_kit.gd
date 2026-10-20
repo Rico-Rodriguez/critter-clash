@@ -935,8 +935,8 @@ class Pill extends Control:
 ## tab raised on a gilded plaque with a warm glow.
 class Dock extends Control:
 	const TABS := [
+		["hub", "Camp", "home"],
 		["heroes", "Heroes", "crown_a"],
-		["home", "Battle", "sword"],
 		["trophy", "Road", "trophy"],
 	]
 	var current := ""

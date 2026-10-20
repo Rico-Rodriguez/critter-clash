@@ -15,25 +15,33 @@ extends RefCounted
 
 const EMBER_CUTE := "res://assets/models/sketchfab/ember_cute.glb"
 
-## Diablo-esque Heroes (2026-10-20): humanoid heroes on new rigs.
-## Placeholder paths under assets/models/heroes_new/ — exact file assignment
-## comes in a later task. Retired animal heroes and old knights render as
-## the closest new class anywhere an old id still turns up.
+## Diablo-esque Heroes (2026-10-20): humanoid heroes on the rigged set in
+## assets/models/heroes_rigged/ (the static FBX sources stay in heroes_new/).
+## Each class scene under heroes_new/<class>/ carries the rigged mesh and its
+## clip library (baked by tools/retarget.gd).
+## Retired animal heroes and old knights render as the closest new class
+## anywhere an old id still turns up.
 const RETIRED := {
-	"juniper": "rogue", "pip": "paladin", "pebble": "paladin",
-	"ember": "sorceress", "lumen": "barbarian", "bramble": "barbarian"
+	"juniper": "rogue", "pip": "sorceress", "pebble": "paladin",
+	"ember": "sorceress", "lumen": "barbarian", "bramble": "necromancer"
 }
 const HEROES := {
 	"barbarian": "res://assets/models/heroes_new/barbarian/barbarian.tscn",
 	"paladin": "res://assets/models/heroes_new/paladin/paladin.tscn",
 	"sorceress": "res://assets/models/heroes_new/sorceress/sorceress.tscn",
 	"rogue": "res://assets/models/heroes_new/rogue/rogue.tscn",
+	"necromancer": "res://assets/models/heroes_new/necromancer/necromancer.tscn",
+	"druid": "res://assets/models/heroes_new/druid/druid.tscn",
 }
 const HERO_CLIPS := {"idle": "idle", "walk": "walk", "run": "run", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle", "cast": "cast", "block": "block", "bash": "bash", "dodge": "dodge"}
 
 
+static func resolve(id: String) -> String:
+	return str(RETIRED.get(id, id))
+
+
 static func knight(id: String) -> bool:
-	return HEROES.has(id)
+	return HEROES.has(resolve(id))
 
 
 ## Wild critters and bosses wear their own species (Quaternius Ultimate
@@ -119,6 +127,7 @@ static func monster(id: String) -> String:
 
 
 static func model(id: String) -> String:
+	id = resolve(id)
 	if HEROES.has(id):
 		return HEROES[id]
 	if BossLook.has(id):
@@ -198,6 +207,7 @@ static func family(id: String) -> String:
 
 
 static func clips(id: String) -> Dictionary:
+	id = resolve(id)
 	if HEROES.has(id):
 		return HERO_CLIPS
 	if BossLook.has(id):
@@ -247,6 +257,7 @@ static func clips(id: String) -> Dictionary:
 ## Material fixes for licensed meshes whose PBR maps import badly.
 ## Empty means "leave the file's materials alone".
 static func pbr(id: String) -> Dictionary:
+	id = resolve(id)
 	if HEROES.has(id):
 		# Gear3D owns the knights' materials (tier finish shader).
 		return {}
@@ -336,6 +347,7 @@ static func pbr(id: String) -> Dictionary:
 ## rest pose spreads its wings flat, but it flies with them raised, so it
 ## came out about half the height of the ring under it.
 static func size_boost(id: String) -> float:
+	id = resolve(id)
 	if BossLook.has(id):
 		return BossLook.size_boost(id)
 	if model(id).ends_with("sketchfab/ember.glb"):
@@ -356,6 +368,7 @@ static func tint(id: String) -> Color:
 	# Multiply the painted texture. Heroes stay recognizable: Ember orange-red,
 	# Juniper russet, Pebble a teal-brown otter. Shared meshes still take the
 	# catalog color.
+	id = resolve(id)
 	var path := model(id)
 	if HEROES.has(id) or "/sketchfab/dark/" in path or BossLook.has(id):
 		return Color.WHITE
@@ -389,6 +402,7 @@ static func tint(id: String) -> Color:
 static func nose(id: String) -> float:
 	# Sketchfab rigs have no Forward marker. Mixamo and these FBX exports
 	# face +Z. Returning a negative value keeps the old "nose is -Z" default.
+	id = resolve(id)
 	var path := model(id)
 	if HEROES.has(id) or BossLook.has(id):
 		return 0.0
@@ -449,6 +463,7 @@ static func head_window(id: String) -> Rect2:
 
 ## Share of the body height that is head, for the medallion close-up.
 static func head_share(id: String) -> float:
+	id = resolve(id)
 	if HEROES.has(id):
 		# Horned great helm: the top fifth reads as the knight's face.
 		return 0.24

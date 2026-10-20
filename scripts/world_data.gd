@@ -150,6 +150,40 @@ const GATES: Array = [
 	},
 ]
 
+## The gates out of the hub into the Barrow Lands, one per depth tier.
+## The first stands open; each deeper one opens when the tier above it is
+## cleared, so the world is walked from the Fringe up to the Abyss.
+const TIER_GATES: Array = [
+	{
+		"id": "fringe_gate",
+		"tier": "fringe",
+		"name": "Fringe Gate",
+		"open_by_default": true,
+		"need": "",
+	},
+	{
+		"id": "wilds_gate",
+		"tier": "wilds",
+		"name": "Wilds Gate",
+		"open_by_default": false,
+		"need": "fringe",
+	},
+	{
+		"id": "deep_gate",
+		"tier": "deep",
+		"name": "Deep Gate",
+		"open_by_default": false,
+		"need": "wilds",
+	},
+	{
+		"id": "abyss_gate",
+		"tier": "abyss",
+		"name": "Abyss Gate",
+		"open_by_default": false,
+		"need": "deep",
+	},
+]
+
 const SHOPS: Dictionary = {
 	"general_store": {
 		"id": "general_store",
@@ -186,9 +220,31 @@ static func hub_data() -> Dictionary:
 static func gates() -> Array:
 	return GATES
 
+
+## The depth tier gates out of the hub, shallowest first.
+static func tier_gates() -> Array:
+	return TIER_GATES
+
+
+## The gate that stands in a depth tier, or {} when the tier has none.
+static func tier_gate(tier_id: String) -> Dictionary:
+	for gate in TIER_GATES:
+		if str(gate["tier"]) == tier_id:
+			return gate
+	return {}
+
+
+## The gate one tier deeper than this one, or {} when this is the deepest.
+static func next_tier_gate(tier_id: String) -> Dictionary:
+	var order := tier_order()
+	for i in order.size():
+		if str(order[i]) == tier_id and i + 1 < order.size():
+			return tier_gate(str(order[i + 1]))
+	return {}
+
 ## One gate by its id. An unknown id reads as an empty gate.
 static func gate_by_id(id: String) -> Dictionary:
-	for gate in GATES:
+	for gate in GATES + TIER_GATES:
 		if str(gate["id"]) == id:
 			return gate
 	return {}

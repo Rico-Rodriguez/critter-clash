@@ -1,0 +1,12 @@
+{
+  "idle": "idle",
+  "walk": "walk",
+  "run": "run",
+  "attack": "attack",
+  "hit": "hit",
+  "death": "death",
+  "cast": "cast",
+  "block": "block",
+  "bash": "bash",
+  "dodge": "dodge"
+}

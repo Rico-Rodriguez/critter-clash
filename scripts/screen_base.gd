@@ -110,7 +110,7 @@ func leave(toward: int) -> void:
 	tw.chain().tween_callback(queue_free)
 
 
-const NAV_ORDER := ["heroes", "home", "trophy"]
+const NAV_ORDER := ["hub", "heroes", "trophy"]
 
 
 func _nav(screen: String) -> void:

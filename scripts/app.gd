@@ -199,6 +199,7 @@ var _want: Array = []
 
 
 func _capture() -> void:
+	print("CAPTURE_START")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shots="):
 			_want = arg.substr(8).split(",")
@@ -295,7 +296,7 @@ func _capture() -> void:
 			go("heroes", {"biome": "meadow"})
 			await _settle()
 			await _shot(str(st[0]))
-	SaveGame.data["heroes"]["ember"]["cards"] = 8
+	SaveGame.hero(SaveGame.featured_id())["cards"] = 8
 	if _wants("credits"):
 		go("credits")
 		await _settle()
@@ -584,7 +585,9 @@ func _settle() -> void:
 
 
 func _shot(shot_name: String) -> void:
+	print("SHOT_START ", shot_name)
 	await RenderingServer.frame_post_draw
+	print("SHOT_FRAME ", shot_name)
 	var image := get_viewport().get_texture().get_image()
 	if image == null:
 		return
@@ -690,13 +693,14 @@ func _perf_dump(shot_name: String, sv: SubViewport) -> void:
 
 
 ## The hub: Barrow Haven, the safe camp at the heart of the Barrow Lands.
-## The camp itself is the HubScene (scenes/hub_scene.tscn); the hub keeps it
-## whole and asks it what the stalls trade and which gates stand open. The
-## screen around the camp is the counter: the stalls, the stash, the hero and
-## the gates that lead out of the camp.
+## The camp itself is the HubScene (scenes/hub_scene.tscn) seen through the
+## HubView; the screen over it is the counter: the stalls, the stash, the
+## hero and the gates that lead out of the camp.
 class HubScreen extends ScreenBase:
 	## The camp scene: Barrow Haven itself.
 	const CAMP := preload("res://scenes/hub_scene.tscn")
+	## How much of the screen the camp takes; the counter sits below it.
+	const CAMP_FRACTION := 0.44
 
 	## The camp.
 	var hub: HubScene
@@ -711,17 +715,49 @@ class HubScreen extends ScreenBase:
 	var _stall_body: VBoxContainer
 
 
+	## The camp paints the background, so the stone backdrop would only
+	## cover it. This has to be set before the screen is built.
+	func _init() -> void:
+		paint_bg = false
+
+
 	func build() -> void:
-		hub = CAMP.instantiate() as HubScene
-		add_child(hub)
-		var box := column()
+		# The camp is the top of the screen and the counter is the rest, so
+		# the hub reads as a place the player stands in rather than a list
+		# of buttons.
+		var view := HubView.new()
+		view.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		view.anchor_bottom = CAMP_FRACTION
+		view.offset_bottom = 0.0
+		add_child(view)
+		hub = view.camp
+		# The counter's own dark plate, from the camp's lower edge down.
+		var pad := insets()
+		var shade := ColorRect.new()
+		shade.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		shade.anchor_top = CAMP_FRACTION
+		shade.offset_top = 0.0
+		shade.color = Color(0.035, 0.03, 0.026, 0.9)
+		shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(shade)
+		var margin := MarginContainer.new()
+		margin.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		margin.anchor_top = CAMP_FRACTION
+		margin.offset_top = 0.0
+		margin.add_theme_constant_override("margin_left", int(pad["l"]))
+		margin.add_theme_constant_override("margin_right", int(pad["r"]))
+		margin.add_theme_constant_override("margin_top", 18)
+		margin.add_theme_constant_override("margin_bottom", int(pad["b"]))
+		add_child(margin)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 10)
+		margin.add_child(box)
 		box.add_child(header())
 		box.add_child(h1(str(WorldData.hub_data().get("name", "Barrow Haven"))))
 		box.add_child(body("The safe camp. Nothing fights here."))
 		box.add_child(_stall_row())
 		box.add_child(_service_row())
 		box.add_child(_gate_list())
-
 
 	## The stalls in the camp: one button per shop the hub keeps. The name
 	## on the button is the stall's own, as the hub's trade sheet gives it.
@@ -748,7 +784,7 @@ class HubScreen extends ScreenBase:
 		row.add_theme_constant_override("separation", 14)
 		row.add_child(_service_button("STASH", "stash"))
 		row.add_child(_service_button("HERO", "heroes"))
-		row.add_child(_service_button("HOME", "home"))
+		row.add_child(_service_button("DESK", "home"))
 		return row
 
 
@@ -759,21 +795,15 @@ class HubScreen extends ScreenBase:
 		return button
 
 
-	## The gates out of the camp: the portals the hub knows, one per depth
-	## of the world, and the other doors the camp keeps.
+	## The gates out of the camp: one standing stone pair per depth tier, in
+	## tier order, so the menu can point at the one that opens.
 	func _gate_list() -> Control:
 		var col := VBoxContainer.new()
 		col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_theme_constant_override("separation", 12)
 		col.add_child(UiKit.label("GATES", 22, UiKit.GOLD, "x", 3))
-		var portals := hub.list_gates()
-		var tiers := WorldData.tier_order()
-		for i in portals.size():
-			var tier_id := str(tiers[i]) if i < tiers.size() else ""
-			col.add_child(_portal_row(str(portals[i]), tier_id))
-		var doors := _other_doors()
-		if doors.get_child_count() > 0:
-			col.add_child(doors)
+		for tier_id in WorldData.tier_order():
+			col.add_child(_portal_row(WorldData.tier_name(str(tier_id)), str(tier_id)))
 		return col
 
 
@@ -781,8 +811,7 @@ class HubScreen extends ScreenBase:
 	## that stands in it. A gate that stands open leads to a hunt; a sealed
 	## one leads nowhere.
 	func _portal_row(portal_name: String, tier_id: String) -> Control:
-		var gate := _camp_gate(tier_id)
-		var open := SaveGame.gate_open(str(gate.get("id", "")))
+		var open := SaveGame.tier_open(tier_id)
 		var col := VBoxContainer.new()
 		col.add_theme_constant_override("separation", 2)
 		var row := HBoxContainer.new()
@@ -790,125 +819,63 @@ class HubScreen extends ScreenBase:
 		col.add_child(row)
 		var text_col := VBoxContainer.new()
 		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(text_col)
 		text_col.add_child(UiKit.label(portal_name.to_upper(), 28, UiKit.GOLD.lightened(0.2) if open else UiKit.MUTED, "x", 3))
-		row.add_child(text_col)
 		var button := UiKit.button("TRAVEL" if open else "SEALED", 190, 80, "gold" if open else "grey")
 		button.disabled = not open
 		if open:
-			button.pressed.connect(func() -> void: _travel(gate))
+			button.pressed.connect(func() -> void: _travel(tier_id))
 		else:
-			button.tooltip_text = _seal_text(gate)
+			button.tooltip_text = _seal_text(tier_id)
 		row.add_child(button)
-		var note := UiKit.label(_portal_note(tier_id, gate, open), 17, UiKit.MUTED, "b", 0)
+		var note := UiKit.label(_portal_note(tier_id, open), 17, UiKit.MUTED, "b", 0)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col.add_child(note)
 		return col
 
 
-	## The camp's other doors: the gates that lead to other grounds. They
-	## stand sealed until the world opens them, and a sealed gate opens no
-	## hunt.
-	func _other_doors() -> Control:
-		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 10)
-		var world := str(WorldData.BIOME.get("id", ""))
-		var rows: Array = []
-		for gate in WorldData.gates():
-			if str(gate.get("biome", "")) != world:
-				rows.append(gate)
-		if rows.is_empty():
-			return col
-		col.add_child(UiKit.label("OTHER DOORS", 22, UiKit.GOLD, "x", 3))
-		for gate in rows:
-			col.add_child(_door_row(gate))
-		return col
-
-
-	## A door to another ground: the gate's own name and the rule that keeps
-	## it shut.
-	func _door_row(gate: Dictionary) -> Control:
-		var gate_id := str(gate.get("id", ""))
-		var open := SaveGame.gate_open(gate_id)
-		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 2)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 12)
-		col.add_child(row)
-		var text_col := VBoxContainer.new()
-		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text_col.add_child(UiKit.label(str(gate.get("name", gate_id)).to_upper(), 26, UiKit.GOLD.lightened(0.2) if open else UiKit.MUTED, "x", 3))
-		row.add_child(text_col)
-		var button := UiKit.button("TRAVEL" if open else "SEALED", 190, 80, "gold" if open else "grey")
-		button.disabled = not open
-		if open:
-			button.pressed.connect(func() -> void: _travel(gate))
-		else:
-			button.tooltip_text = _seal_text(gate)
-		row.add_child(button)
-		var note := UiKit.label(_seal_text(gate), 17, UiKit.MUTED, "b", 0)
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		col.add_child(note)
-		return col
-
-
-	## The camp gate a portal stands in: the gate that leads into that
-	## depth, or the gate of the world the depth belongs to for a depth
-	## that lies further inside it.
-	func _camp_gate(tier_id: String) -> Dictionary:
-		for gate in WorldData.gates():
-			if str(gate.get("dest", "")) == tier_id:
-				return gate
-		var world := str(WorldData.BIOME.get("id", ""))
-		for gate in WorldData.gates():
-			if str(gate.get("biome", "")) == world:
-				return gate
-		return {}
+	## The tier below this one, or "" when this is the shallowest.
+	func _tier_below(tier_id: String) -> String:
+		var order := WorldData.tier_order()
+		for i in order.size():
+			if str(order[i]) == tier_id:
+				return str(order[i - 1]) if i > 0 else ""
+		return ""
 
 
 	## What a portal says under its name: the ground it leads into, or the
 	## rule that keeps the gate shut.
-	func _portal_note(tier_id: String, gate: Dictionary, open: bool) -> String:
+	func _portal_note(tier_id: String, open: bool) -> String:
 		if not open:
-			return _seal_text(gate)
+			return _seal_text(tier_id)
 		var description := WorldData.tier_description(tier_id)
 		return description if description != "" else "The way out of the camp."
 
 
-	## Why a gate stands shut: the rule the world sets for it.
-	func _seal_text(gate: Dictionary) -> String:
-		var need := str(gate.get("need", ""))
-		if need == "":
+	## Why a gate stands shut: the tier below it has to be cleared first.
+	func _seal_text(tier_id: String) -> String:
+		var below := _tier_below(tier_id)
+		if below == "":
 			return "Sealed"
-		return "Sealed · %s to unlock" % need
+		return "Sealed \u00b7 clear %s to unlock" % WorldData.tier_name(below)
 
 
 	## A gate that stands open leads out of the camp into a hunt. A sealed
 	## one starts nothing.
-	func _travel(gate: Dictionary) -> void:
-		var gate_id := str(gate.get("id", ""))
-		if gate_id == "" or not SaveGame.gate_open(gate_id):
+	func _travel(tier_id: String) -> void:
+		if not SaveGame.tier_open(tier_id):
 			toast("That gate is sealed.")
 			return
-		_start_hunt(_hunt_biome(gate))
+		_start_hunt(tier_id)
 
 
-	## Starting a hunt is the entry Home's HUNT button makes (home_screen
-	## .gd, start_hunt): the same last_biome bookkeeping, the same run args
-	## and the featured hero.
-	func _start_hunt(biome_id: String) -> void:
+	## Starting a hunt is the entry the old Home's HUNT button made: the
+	## same last_biome bookkeeping, the same run args and the featured
+	## hero, and the depth tier the gate stands in.
+	func _start_hunt(tier_id: String) -> void:
+		var biome_id := Catalog.biome_for_tier(tier_id)
 		SaveGame.data["last_biome"] = biome_id
-		go("run", {"biome": biome_id, "hero": SaveGame.featured_id()})
-
-
-	## The ground a gate leads into, as the hunt system knows it: the
-	## gate's own biome when there is one, else the ground of the world the
-	## camp stands in (the Barrow Lands are the shipped meadow ground).
-	func _hunt_biome(gate: Dictionary) -> String:
-		var id := str(gate.get("biome", ""))
-		for entry in Catalog.BIOMES:
-			if str(entry["id"]) == id:
-				return id
-		return str(Catalog.BIOMES[0]["id"])
+		go("run", {"biome": biome_id, "hero": SaveGame.featured_id(), "tier": tier_id})
 
 
 	## Opens a stall: the trade sheet the hub hands over, with what the
@@ -924,7 +891,8 @@ class HubScreen extends ScreenBase:
 		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		dim.gui_input.connect(func(e: InputEvent) -> void:
 			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
-				_close_stall())
+				_close_stall()
+		)
 		sheet.add_child(dim)
 		var pad := UiKit.safe_insets()
 		var panel := PanelContainer.new()
@@ -945,17 +913,16 @@ class HubScreen extends ScreenBase:
 		box.add_theme_constant_override("separation", 10)
 		panel.add_child(box)
 		_stall_title = UiKit.title("STALL", 40)
+		_stall_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(_stall_title)
 		_stall_blurb = UiKit.label("", 18, UiKit.CREAM, "b", 0)
 		_stall_blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_stall_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(_stall_blurb)
-		_stall_coins = UiKit.label("", 20, UiKit.GOLD, "x", 3)
+		_stall_coins = UiKit.label("%d coins" % int(SaveGame.data.get("coins", 0)), 20, UiKit.GOLD, "x", 3)
 		_stall_coins.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(_stall_coins)
-		_stall_result = UiKit.label("", 18, UiKit.MUTED, "b", 0)
+		_stall_result = UiKit.label("", 20, UiKit.MUTED, "x", 3)
 		_stall_result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_stall_result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(_stall_result)
 		var scroll := ScrollContainer.new()
 		scroll.custom_minimum_size = Vector2(0, 420)
@@ -1045,7 +1012,7 @@ class HubScreen extends ScreenBase:
 		var col := VBoxContainer.new()
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		col.add_child(UiKit.label(MaterialDB.name_of(id), 24, UiKit.CREAM, "x", 3))
-		col.add_child(UiKit.label("%d in the bag · %d each" % [count, price], 16, UiKit.MUTED, "b", 0))
+		col.add_child(UiKit.label("%d in the bag \u00b7 %d each" % [count, price], 16, UiKit.MUTED, "b", 0))
 		row.add_child(col)
 		var button := UiKit.button("SELL", 170, 72, "gold")
 		button.pressed.connect(func() -> void: _trade(id, 1))
@@ -1068,7 +1035,7 @@ class HubScreen extends ScreenBase:
 		if bool(info.get("ok", false)):
 			AudioDirector.sfx("card_pick")
 			var coins := int(info.get("coins", 0))
-			_stall_result.text = "Traded." if coins <= 0 else "Traded · %d coins." % coins
+			_stall_result.text = "Traded." if coins <= 0 else "Traded \u00b7 %d coins." % coins
 		else:
 			_stall_result.text = str(info.get("reason", ""))
 		_refresh_stall()

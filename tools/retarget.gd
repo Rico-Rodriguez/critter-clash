@@ -7,6 +7,32 @@ extends SceneTree
 ## Unmapped bones keep the target's rest (finger grip) or bind (neck, collars).
 
 const MAPS := {
+	# The baked knight rig (assets/models/heroes/paladin) onto the new
+	# hyper-real hero rigs. "_src" names the source bone for each logical
+	# joint, because the knight rig numbers its bones (hips_01, L_arm_015).
+	"paladin_to_new": {
+		"_src": {
+			"hips": "hips_01", "spine": "spine_012", "chest": "chest_013", "neck": "neck_061", "head": "head_062",
+			"upperarm.l": "L_arm_015", "lowerarm.l": "L_elbow_016", "hand.l": "L_wrist_017",
+			"upperarm.r": "R_arm_039", "lowerarm.r": "R_elbow_040", "hand.r": "R_wrist_041",
+			"upperleg.l": "L_leg_07", "lowerleg.l": "L_knee_08", "foot.l": "L_ankle_09",
+			"upperleg.r": "R_leg_02", "lowerleg.r": "R_knee_03", "foot.r": "R_ankle_04",
+		},
+		"hips": "hips", "spine": "spine", "chest": "chest", "neck": "neck", "head": "head",
+		"upperarm.l": "upper_arm.L", "lowerarm.l": "forearm.L", "hand.l": "hand.L",
+		"upperarm.r": "upper_arm.R", "lowerarm.r": "forearm.R", "hand.r": "hand.R",
+		"upperleg.l": "thigh.L", "lowerleg.l": "shin.L", "foot.l": "foot.L",
+		"upperleg.r": "thigh.R", "lowerleg.r": "shin.R", "foot.r": "foot.R",
+	},
+	# KayKit -> the new hyper-real hero rigs (assets/models/heroes_rigged).
+	# Mixamo-style names: upper_arm.L, forearm.L, thigh.L, shin.L.
+	"kaykit_hero_new": {
+		"hips": "hips", "spine": "spine", "chest": "chest", "head": "head",
+		"upperarm.l": "upper_arm.L", "lowerarm.l": "forearm.L", "hand.l": "hand.L",
+		"upperarm.r": "upper_arm.R", "lowerarm.r": "forearm.R", "hand.r": "hand.R",
+		"upperleg.l": "thigh.L", "lowerleg.l": "shin.L", "foot.l": "foot.L",
+		"upperleg.r": "thigh.R", "lowerleg.r": "shin.R", "foot.r": "foot.R",
+	},
 	# KayKit (CC0) -> DJMaesen knight rig (Paladin, Skeleton Lord, Ghoul).
 	"kaykit_djm": {
 		"hips": "hips_01", "spine": "spine_012", "chest": "chest_013", "head": "head_062",
@@ -47,6 +73,14 @@ const SWING := [["upperarm.l", "lowerarm.l"], ["lowerarm.l", "hand.l"], ["uppera
 const KEEP_REST := ["thumb", "point", "middle", "ring", "pink", "Joint_3"]
 
 
+## The source bone for a logical joint. Most maps name the source bone
+## after the joint; a map with "_src" renames it (the knight rig numbers
+## its bones).
+static func _src_name(map: Dictionary, key: String) -> String:
+	var over: Dictionary = map.get("_src", {})
+	return str(over.get(key, key))
+
+
 func _skel(n: Node) -> Skeleton3D:
 	return n.find_children("*", "Skeleton3D", true, false)[0]
 
@@ -58,7 +92,12 @@ func _init() -> void:
 	root.add_child(src)
 	root.add_child(dst)
 	var map: Dictionary = (MAPS[args[3]] as Dictionary).duplicate()
-	var clips: Dictionary = JSON.parse_string(args[4]) if args.size() > 4 else {}
+	var clips: Dictionary = {}
+	if args.size() > 4:
+		var raw := args[4]
+		if raw.begins_with("@"):
+			raw = FileAccess.get_file_as_string(raw.substr(1))
+		clips = JSON.parse_string(raw)
 	await process_frame
 	var ss := _skel(src)
 	var ts := _skel(dst)
@@ -68,6 +107,8 @@ func _init() -> void:
 		var rx := RegEx.create_from_string("_\\d+$")
 		return rx.sub(n, "")
 	for k in map.keys():
+		if str(k).begins_with("_"):
+			continue
 		if ts.find_bone(map[k]) >= 0:
 			continue
 		for b in ts.get_bone_count():
@@ -114,7 +155,7 @@ func _init() -> void:
 			if bi >= 0:
 				t_bind[bi] = m.skin.get_bind_pose(i).affine_inverse()
 	var ref := t_bind.duplicate()
-	var sidx := func(n: String) -> int: return ss.find_bone(n)
+	var sidx := func(n: String) -> int: return ss.find_bone(_src_name(map, n))
 	var tidx := func(n: String) -> int: return ts.find_bone(map[n])
 	# Swing limbs so the target reference matches the source silhouette.
 	for pair in SWING:
@@ -132,12 +173,14 @@ func _init() -> void:
 				ref[b] = Transform3D(Basis(q) * g.basis, pivot + q * (g.origin - pivot))
 	var pairs := []  # [t_bone, s_bone]
 	for k in map.keys():
-		pairs.append([ts.find_bone(map[k]), ss.find_bone(k)])
+		if str(k).begins_with("_"):
+			continue
+		pairs.append([ts.find_bone(map[k]), ss.find_bone(_src_name(map, k))])
 	var t_of := {}
 	for p in pairs:
 		t_of[p[0]] = p[1]
 	var hip_t := ts.find_bone(map["hips"])
-	var hip_s := ss.find_bone("hips")
+	var hip_s := ss.find_bone(_src_name(map, "hips"))
 	var k_pos: float = ref[hip_t].origin.y / maxf(s_rest[hip_s].origin.y, 0.001)
 	# Rigs whose skeleton space is turned against the source's (Unreal-style
 	# Z-up exports under a rotated root): deltas are carried into the
@@ -148,7 +191,7 @@ func _init() -> void:
 	# at y = 0) scale hip travel by hip-to-foot length instead of hip height.
 	if (turned or OS.get_environment("K_LEGS") == "1") and map.has("foot.l"):
 		var tl: float = (ref[hip_t].origin - ref[ts.find_bone(map["foot.l"])].origin).length()
-		var sl: float = (s_rest[hip_s].origin - s_rest[ss.find_bone("foot.l")].origin).length()
+		var sl: float = (s_rest[hip_s].origin - s_rest[ss.find_bone(_src_name(map, "foot.l"))].origin).length()
 		k_pos = tl / maxf(sl, 0.0001)
 	print("axes turned ", turned, " k_pos ", k_pos)
 	var skel_path := String(dst.get_path_to(ts))
@@ -157,8 +200,8 @@ func _init() -> void:
 	# offset scaled by forearm length, stored relative to the target hand bone.
 	var sockets := {}
 	for side in ["l", "r"]:
-		var sh := ss.find_bone("hand." + side)
-		var sl := ss.find_bone("handslot." + side)
+		var sh := ss.find_bone(_src_name(map, "hand." + side))
+		var sl := ss.find_bone(_src_name(map, "handslot." + side))
 		if sh < 0 or sl < 0:
 			continue
 		var th := ts.find_bone(map["hand." + side])

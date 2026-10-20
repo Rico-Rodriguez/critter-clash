@@ -11,7 +11,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = "world"
 	var box := column()
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("Biomes"))
 	box.add_child(body("Clear them in order. Each boss guards its own drops."))
 	var scroll := ScrollContainer.new()

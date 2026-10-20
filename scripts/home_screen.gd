@@ -5,8 +5,10 @@ extends ScreenBase
 
 
 func build() -> void:
-	show_nav = true
-	nav_tab = "home"
+	# The camp is the front door now, so Home is its counter: the HUNT
+	# sheet, the chest drawer and the side tiles, with no tab of its own.
+	show_nav = false
+	nav_tab = ""
 	var pad := insets()
 	var hero_id := SaveGame.featured_id()
 	# The 3D stage bleeds to the screen edges and under the status bar.

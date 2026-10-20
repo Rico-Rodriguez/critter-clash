@@ -2,10 +2,14 @@ class_name HubScene
 extends Node3D
 
 ## The safe zone of the Barrow Lands: Barrow Haven. A Node3D root that lays
-## out the camp — the spawn point in the middle, a stall either side for the
-## two shops, the campfire at the centre and a gate portal per depth tier.
+## out the camp — the spawn point in the middle, a stall either side for
+## the two shops, the campfire at the centre and a gate portal per depth tier.
 ## Nothing fights here (WorldData marks the hub "no_combat"), so the scene
 ## only places the player and points them at the right counter.
+##
+## The camp is built in code, so the whole thing is one file: the ground, the
+## fire, the two stalls, the ring of trees and the standing stones that
+## mark the gates out of the camp.
 
 ## Where the player lands in the camp: the middle of the fire.
 const SPAWN_POS := Vector3(0.0, 0.0, 0.0)
@@ -19,12 +23,198 @@ const MATERIAL_BUYER_POS := Vector3(6.0, 0.0, 0.0)
 ## The camp's own id, as WorldData spells it.
 const HUB_ID := "hub"
 
+## How big the camp's ground is, in metres.
+const GROUND := 46.0
+
+## The trees and stones that ring the camp.
+const RIM := [
+	{"model": "tree_a", "at": Vector3(-11.0, 0.0, -7.0), "scale": 1.25},
+	{"model": "tree_b", "at": Vector3(-6.5, 0.0, -10.5), "scale": 1.05},
+	{"model": "tree_a", "at": Vector3(2.5, 0.0, -11.5), "scale": 1.15},
+	{"model": "tree_twist", "at": Vector3(8.5, 0.0, -9.0), "scale": 1.1},
+	{"model": "tree_b", "at": Vector3(12.0, 0.0, -3.5), "scale": 1.2},
+	{"model": "tree_a", "at": Vector3(-12.5, 0.0, -1.5), "scale": 1.15},
+	{"model": "tree_pine", "at": Vector3(-9.5, 0.0, 5.5), "scale": 1.1},
+	{"model": "tree_pine", "at": Vector3(10.5, 0.0, 5.0), "scale": 1.05},
+	{"model": "tree_b", "at": Vector3(13.0, 0.0, 2.0), "scale": 0.95},
+	{"model": "tree_twist", "at": Vector3(-13.5, 0.0, 3.0), "scale": 1.0},
+	{"model": "rock_a", "at": Vector3(-4.5, 0.0, -6.0), "scale": 0.9},
+	{"model": "rock_b", "at": Vector3(5.0, 0.0, -6.5), "scale": 1.1},
+	{"model": "rock_c", "at": Vector3(-7.5, 0.0, 4.0), "scale": 0.85},
+	{"model": "stump", "at": Vector3(3.2, 0.0, 4.2), "scale": 1.0},
+	{"model": "log", "at": Vector3(-2.6, 0.0, 5.0), "scale": 1.0},
+	{"model": "bush", "at": Vector3(7.0, 0.0, 3.0), "scale": 1.2},
+	{"model": "bush_flower", "at": Vector3(-6.0, 0.0, 6.2), "scale": 1.0},
+]
+
 
 ## Announce the camp: the hub's name and where the player stands.
 func _ready() -> void:
 	var hub := WorldData.hub_data()
 	var spawn := WorldData.hub_spawn()
 	print("[HubScene] %s - spawn %s" % [str(hub.get("name", "Hub")), spawn])
+	_ground()
+	_fire()
+	_stall(GENERAL_STORE_POS, "general_store")
+	_stall(MATERIAL_BUYER_POS, "material_buyer")
+	_rim()
+	_gates()
+
+
+## The camp's ground: a wide disc of grass with a worn path through it.
+func _ground() -> void:
+	var disc := CylinderMesh.new()
+	disc.top_radius = GROUND * 0.5
+	disc.bottom_radius = GROUND * 0.5
+	disc.height = 0.4
+	disc.radial_segments = 48
+	disc.rings = 1
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = load("res://assets/textures/ground_grass_color.jpg")
+	mat.albedo_color = Color(0.86, 0.92, 0.72)
+	mat.uv1_scale = Vector3(9.0, 9.0, 1.0)
+	mat.roughness = 0.95
+	mat.metallic = 0.0
+	disc.material = mat
+	var ground := MeshInstance3D.new()
+	ground.mesh = disc
+	ground.position = Vector3(0.0, -0.2, 0.0)
+	ground.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(ground)
+	# The worn path from the fire to the north gate, where the tier gates
+	# stand: a strip of dirt so the camp has a way out.
+	var path := BoxMesh.new()
+	path.size = Vector3(2.6, 0.06, 12.0)
+	var path_mat := StandardMaterial3D.new()
+	path_mat.albedo_texture = load("res://assets/textures/path_color.jpg")
+	path_mat.albedo_color = Color(0.95, 0.86, 0.68)
+	path_mat.uv1_scale = Vector3(2.0, 6.0, 1.0)
+	path_mat.roughness = 0.98
+	path.material = path_mat
+	var strip := MeshInstance3D.new()
+	strip.mesh = path
+	strip.position = Vector3(0.0, 0.03, -8.0)
+	strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(strip)
+
+
+## The campfire: a ring of stones, a few logs and the flame itself. The
+## light that warms the camp is the scene's own Campfire node.
+func _fire() -> void:
+	for i in 9:
+		var ang := TAU * float(i) / 9.0
+		var stone := _prop("rock_c", Vector3(cos(ang) * 0.85, 0.0, sin(ang) * 0.85), 0.28)
+		if stone != null:
+			add_child(stone)
+	for i in 3:
+		var ang := TAU * float(i) / 3.0 + 0.4
+		var log := _prop("log", Vector3(cos(ang) * 0.22, 0.12, sin(ang) * 0.22), 0.55)
+		if log != null:
+			add_child(log)
+	var flame := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.34
+	cone.height = 0.85
+	cone.radial_segments = 10
+	flame.mesh = cone
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color("ffb14a")
+	mat.emission_enabled = true
+	mat.emission = Color("ff7a18")
+	mat.emission_energy_multiplier = 3.2
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flame.material_override = mat
+	flame.position = Vector3(0.0, 0.45, 0.0)
+	add_child(flame)
+
+
+## A stall: a timber counter with a cloth awning over it, and the goods
+## on the counter. The name is the one the camp's trade sheet uses.
+func _stall(at: Vector3, shop_id: String) -> void:
+	var counter := BoxMesh.new()
+	counter.size = Vector3(2.4, 1.0, 1.1)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_texture = load("res://assets/textures/wood_color.jpg")
+	wood.albedo_color = Color(0.55, 0.42, 0.28)
+	wood.uv1_scale = Vector3(2.0, 1.0, 1.0)
+	wood.roughness = 0.9
+	counter.material = wood
+	var stand := MeshInstance3D.new()
+	stand.mesh = counter
+	stand.position = at + Vector3(0.0, 0.5, 0.0)
+	add_child(stand)
+	var awning := BoxMesh.new()
+	awning.size = Vector3(2.9, 0.14, 1.7)
+	var cloth := StandardMaterial3D.new()
+	cloth.albedo_color = Color(0.42, 0.16, 0.14) if shop_id == "general_store" else Color(0.16, 0.24, 0.4)
+	cloth.roughness = 0.95
+	awning.material = cloth
+	var roof := MeshInstance3D.new()
+	roof.mesh = awning
+	roof.position = at + Vector3(0.0, 2.15, 0.0)
+	add_child(roof)
+	for i in 2:
+		var post := BoxMesh.new()
+		post.size = Vector3(0.16, 2.1, 0.16)
+		post.material = wood
+		var p := MeshInstance3D.new()
+		p.mesh = post
+		p.position = at + Vector3(-1.2 if i == 0 else 1.2, 1.05, 0.0)
+		add_child(p)
+	# The goods: a crate and a barrel on the counter.
+	var crate := BoxMesh.new()
+	crate.size = Vector3(0.7, 0.5, 0.6)
+	crate.material = wood
+	var c := MeshInstance3D.new()
+	c.mesh = crate
+	c.position = at + Vector3(-0.6, 1.25, 0.0)
+	add_child(c)
+	var barrel := MeshInstance3D.new()
+	var bmesh := CylinderMesh.new()
+	bmesh.top_radius = 0.32
+	bmesh.bottom_radius = 0.32
+	bmesh.height = 0.7
+	bmesh.radial_segments = 12
+	bmesh.material = wood
+	barrel.mesh = bmesh
+	barrel.position = at + Vector3(0.65, 1.35, 0.0)
+	add_child(barrel)
+
+
+## The ring of trees and stones that closes the camp in.
+func _rim() -> void:
+	for entry in RIM:
+		var at: Vector3 = entry["at"]
+		var node := _prop(str(entry["model"]), at, float(entry["scale"]))
+		if node != null:
+			add_child(node)
+
+
+## The gates out of the camp: one standing stone pair per depth tier, in
+## tier order, so the menu can point at the one that opens.
+func _gates() -> void:
+	var tiers := WorldData.tier_order()
+	for i in tiers.size():
+		var at := Vector3(-4.5 + 3.0 * float(i), 0.0, -13.0)
+		for side in [-1.0, 1.0]:
+			var stone := _prop("rock_a", at + Vector3(0.85 * side, 0.0, 0.0), 1.15)
+			if stone != null:
+				add_child(stone)
+
+
+## Loads a camp prop and drops it on the ground.
+func _prop(model: String, at: Vector3, scale: float) -> Node3D:
+	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
+	if packed == null:
+		return null
+	var node := packed.instantiate() as Node3D
+	if node == null:
+		return null
+	node.position = at
+	node.scale = Vector3.ONE * scale
+	node.rotation.y = at.x * 0.7 + at.z * 0.3
+	return node
 
 
 ## The spawn point in world space: the hub's 2D spawn lifted off the ground.

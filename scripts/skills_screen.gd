@@ -128,7 +128,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	_header = header_with_back("home")
+	_header = header_with_back("hub")
 	box.add_child(_header)
 	box.add_child(h1("Skills"))
 	_summary = UiKit.label("", 24, Color("e6d8bc"), "x", 4)

@@ -26,7 +26,7 @@ func build() -> void:
 	show_nav = true
 	nav_tab = ""
 	var box := column()
-	box.add_child(header_with_back("home"))
+	box.add_child(header_with_back("hub"))
 	box.add_child(h1("Collection Log"))
 	crest = BossCrest.new()
 	crest.custom_minimum_size = Vector2(0, 170)
