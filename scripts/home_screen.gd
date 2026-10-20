@@ -70,18 +70,18 @@ var _pills: Array = []
 func open(_args: Dictionary = {}) -> void:
 	_sync()
 	if bool(SaveGame.last_chest.get("full", false)):
-		var paid: Dictionary = SaveGame.last_chest.get("payout", {})
+		var queued: Dictionary = SaveGame.last_chest.get("queued", {})
 		SaveGame.last_chest = {}
-		var note := _payout_note(paid)
+		var note := _queued_note(queued)
 		get_tree().create_timer(0.5).timeout.connect(func() -> void: toast(note))
 
 
 ## What the last chest that found no room in the drawer became, said once on
-## the way home: the prize the player was promised, in their purse.
-func _payout_note(paid: Dictionary) -> String:
-	if paid.is_empty():
+## the way home: it joined the queue and waits its turn there.
+func _queued_note(queued: Dictionary) -> String:
+	if queued.is_empty():
 		return "Chest slots full! Open one to make room."
-	return "Chest paid out: %s" % SaveGame.payout_text(paid)
+	return SaveGame.queue_text(queued)
 
 
 func _collect_pills() -> void:
@@ -265,14 +265,53 @@ func _chests() -> VBoxContainer:
 			_slots[int(f)].arrive(0.45 + 0.22 * k)
 			k += 1
 	col.add_child(row)
-	# The last chest that found no room in the drawer: what it became. The
-	# prize was paid out, and the line keeps it in front of the player.
-	var newest := SaveGame.newest_payout()
-	if not newest.is_empty():
-		var note := UiKit.label("Last chest paid out: %s" % SaveGame.payout_text(newest), 19, UiKit.MUTED.lightened(0.15), "b", 2)
-		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		col.add_child(note)
+	# The queue: the chests that found the drawer full, each with its own
+	# clock on the moment it may be opened.
+	if SaveGame.queued_count() > 0:
+		col.add_child(_queued_row())
 	return col
+
+
+## The queued chests, one chip each: the chest's look, its rarity and the
+## countdown on its timer. A chip that is ready opens the chest; one that
+## is still waiting says how long it waits. Nothing is drawn when the queue
+## is empty.
+func _queued_row() -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	var waiting := SaveGame.queued_count()
+	if waiting <= 0:
+		return col
+	var head := UiKit.label("QUEUED · %d WAITING" % waiting, 17, UiKit.MUTED.lightened(0.15), "b", 2)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(head)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	# Four chips fit the row; the rest are counted in one line.
+	for i in mini(waiting, 4):
+		var chip := QueuedChip.new()
+		chip.index = i
+		chip.custom_minimum_size = Vector2(156, 168)
+		chip.pressed.connect(_tap_queued.bind(i))
+		row.add_child(chip)
+	if waiting > 4:
+		var more := UiKit.label("+%d MORE" % (waiting - 4), 18, UiKit.MUTED.lightened(0.15), "b", 2)
+		more.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(more)
+	col.add_child(row)
+	return col
+
+
+## A queued chest: it opens once its timer is up. Before that the chip says
+## how long it still waits and does nothing else.
+func _tap_queued(i: int) -> void:
+	AudioDirector.sfx("ui_tap")
+	if SaveGame.queued_state(i) == "ready":
+		AudioDirector.haptic("medium")
+		go("chest", {"queue": i})
+		return
+	toast("Opens in %s" % SaveGame.span(SaveGame.queued_wait(i)))
 
 
 ## Clash rules: a ready chest opens; a locked one starts its timer if
@@ -547,6 +586,88 @@ class ChestSlot extends Control:
 		draw_rect(body, ink, false, 2.0)
 		draw_arc(Vector2(c.x, body.position.y), bw * 0.5, PI, TAU, 24, ink, 2.0, true)
 		draw_line(Vector2(body.position.x, body.position.y + 2), Vector2(body.end.x, body.position.y + 2), Color(0, 0, 0, 0.5), 1.0)
+
+
+## A chest waiting its turn in the queue: its look, its rarity and the clock
+## on the moment it may be opened. The chip is live, so the countdown ticks
+## down while Home is open, and the chest lights up once its timer is up.
+class QueuedChip extends Button:
+	var index := 0
+	var _wait := 0
+	var _total := 1
+	var _age := 0
+	var _is_ready := false
+	var _flash := 0.0
+	var _t := 0.0
+
+	func _ready() -> void:
+		UiKit.ensure()
+		focus_mode = Control.FOCUS_NONE
+		var empty := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
+			add_theme_stylebox_override(state, empty)
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		button_down.connect(func() -> void: _flash = 1.0)
+
+	## The chip reads the queue every frame, so it never shows a stale
+	## countdown: the chest leaves the queue by being opened, and the chip
+	## for it stops drawing when its place is gone.
+	func _process(delta: float) -> void:
+		_t += delta
+		_flash = maxf(0.0, _flash - delta * 2.4)
+		if index >= SaveGame.queued_count():
+			queue_redraw()
+			return
+		_wait = SaveGame.queued_wait(index)
+		_total = maxi(1, SaveGame.queued_total(index))
+		_age = SaveGame.queued_age_of(SaveGame.queued_chest(index))
+		_is_ready = _wait <= 0
+		queue_redraw()
+
+	func _draw() -> void:
+		UiKit.ensure()
+		if index >= SaveGame.queued_count():
+			return
+		var r := Rect2(Vector2.ZERO, size)
+		var font := UiKit.font_x
+		var rarity := SaveGame.queued_rarity(index)
+		var tone := SaveGame.queued_tone(index)
+		var cols: Dictionary = UiKit.rarity_colors(rarity)
+		var base: Color = cols["bg"]
+		var lip: Color = cols["lip"]
+		var glow: Color = cols["glow"]
+		# The plate the chip sits on: the rarity's own metal, dimmed while
+		# the chest waits and lit once its timer is up.
+		var face := base if not _is_ready else base.lightened(0.10)
+		UiKit.rr_shadow(self, r, 12.0, 4.0, 0.35)
+		UiKit.rr_fill(self, r, 12.0, face.lightened(0.08), face.darkened(0.22))
+		UiKit.rr_line(self, r.grow(-2.0), 10.0, Color(lip, 0.85 if _is_ready else 0.5), 2.0)
+		if _is_ready:
+			# A ready chest breathes a little light around its plate.
+			var pulse := 0.30 + 0.16 * sin(_t * 3.0)
+			for i in 4:
+				UiKit.rr_line(self, r.grow(3.0 + i * 3.0), 14.0 + i * 3.0, Color(glow, pulse * (1.0 - float(i) / 4.0)), 2.0)
+		# The chest itself, in the tone it was earned in.
+		var tex := SpriteBank._load("res://assets/sprites/chests/%s.png" % tone, "chest_" + tone)
+		var art := Rect2(Vector2(r.size.x * 0.5 - 34.0, 32.0), Vector2(68, 68))
+		if tex:
+			draw_texture_rect(tex, art, false, Color.WHITE if _is_ready else Color(0.74, 0.72, 0.70))
+		# Rarity tag across the top.
+		UiKit.draw_text(self, font, Vector2(0, 24), rarity.to_upper(), 15, glow.lightened(0.35), Color(0.03, 0.02, 0.01), 2, r.size.x)
+		# How long it has been waiting, counted from the moment it queued.
+		var since := "just now" if _age < 60 else "%s ago" % SaveGame.span(_age)
+		UiKit.draw_text(self, font, Vector2(0, r.size.y - 44), since, 14, UiKit.MUTED.lightened(0.1), Color(0.05, 0.03, 0.02), 2, r.size.x)
+		# The countdown: the clock on the chest, ticking down.
+		var caption := "READY" if _is_ready else SaveGame.clock(_wait)
+		var ink := UiKit.GOLD.lightened(0.25) if _is_ready else UiKit.CREAM
+		UiKit.draw_text(self, font, Vector2(0, r.size.y - 22), caption, 21, ink, Color(0.05, 0.03, 0.02), 2, r.size.x)
+		# A thin bar: how much of the wait is done.
+		var bar := Rect2(r.size.x * 0.16, r.size.y - 12, r.size.x * 0.68, 6)
+		draw_rect(bar.grow(1.0), Color(0.02, 0.01, 0.0, 0.9))
+		var f := clampf(1.0 - float(_wait) / float(_total), 0.0, 1.0)
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), lip)
+		if _flash > 0.0:
+			UiKit.rr_line(self, r.grow(-2.0), 10.0, Color(1.0, 0.92, 0.72, _flash * 0.8), 3.0)
 
 
 ## A dark smoked plate behind the logo with gilt rules either side, so the

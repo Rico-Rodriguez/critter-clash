@@ -281,13 +281,14 @@ func _offer(offer: Dictionary) -> Button:
 		if SaveGame.buy_slayer(str(offer["id"])):
 			AudioDirector.haptic("light")
 			toast("Bought %s" % str(offer["name"]))
-			# A bought chest with no room in the drawer pays out instead of
-			# being lost: say what it became, once the first toast is read.
-			var paid := SaveGame.take_payout()
-			if not paid.is_empty():
+			# A bought chest with no room in the drawer joins the queue
+			# instead of being lost: say how long it waits, once the first
+			# toast is read.
+			var queued := SaveGame.take_queued()
+			if not queued.is_empty():
 				var tw := create_tween()
 				tw.tween_interval(1.05)
-				tw.tween_callback(func() -> void: toast("Chest paid out: %s" % SaveGame.payout_text(paid)))
+				tw.tween_callback(func() -> void: toast(SaveGame.queue_text(queued)))
 			_refresh()
 		else:
 			AudioDirector.haptic("light")

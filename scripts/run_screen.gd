@@ -1930,14 +1930,14 @@ func _end_stats() -> VBoxContainer:
 
 
 ## The chest that comes home: its baked icon, rarity and unlock time, and
-## where it went (the Home chest slots), or, when every slot was taken, what
-## it paid out instead.
+## where it went (the Home chest slots), or, when every slot was taken, the
+## queue it joined and how long it waits there.
 func _end_chest(win: bool) -> Control:
 	var info: Dictionary = SaveGame.last_chest
 	var tone := str(info.get("tone", "silver" if win else "wood"))
 	var rarity := str(info.get("rarity", "rare" if win else "common"))
 	var full := bool(info.get("full", false))
-	var paid: Dictionary = info.get("payout", {})
+	var queued: Dictionary = info.get("queued", {})
 	var plate := UiKit.Plate.new()
 	plate.kind = "plaque"
 	plate.pad = 14
@@ -1962,14 +1962,14 @@ func _end_chest(win: bool) -> Control:
 	var kind := "HUNT CHEST" if win else "SMALL POUCH"
 	v.add_child(UiKit.label("%s CHEST EARNED" % rarity.to_upper() if win else "%s POUCH EARNED" % rarity.to_upper(), 24, UiKit.rarity_colors(rarity)["glow"].lightened(0.25), "x", 3))
 	if full:
-		if paid.is_empty():
+		if queued.is_empty():
 			v.add_child(UiKit.label("Chest slots full!", 26, Color("ff8a6a"), "x", 3))
 			v.add_child(UiKit.label("Open a chest to make room next time.", 19, UiKit.MUTED.lightened(0.15), "b", 2))
 		else:
-			# Every slot was taken, so the chest paid out instead of being
-			# lost: the player sees what the prize became.
-			v.add_child(UiKit.label("Chest paid out", 26, Color("ff8a6a"), "x", 3))
-			v.add_child(UiKit.label("Drawer full · %s in your purse" % SaveGame.payout_text(paid), 19, UiKit.MUTED.lightened(0.15), "b", 2))
+			# Every slot was taken, so the chest waits in the queue instead
+			# of being lost: the player sees how long it waits.
+			v.add_child(UiKit.label("Chest queued", 26, Color("ff8a6a"), "x", 3))
+			v.add_child(UiKit.label("Drawer full · %s" % SaveGame.queue_when(queued), 19, UiKit.MUTED.lightened(0.15), "b", 2))
 	else:
 		v.add_child(UiKit.label("Sent to your chest slots", 26, UiKit.CREAM, "x", 3))
 		v.add_child(UiKit.label("Unlock time %s · tap it on Home" % SaveGame.span(int(SaveGame.UNLOCK_SECONDS.get(rarity, 3600))), 19, UiKit.MUTED.lightened(0.15), "b", 2))

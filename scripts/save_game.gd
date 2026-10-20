@@ -7,7 +7,9 @@ extends Node
 const PATH := "user://critter_clash.json"
 ## 6: the Hub stash (data["stash"]) holds the materials the player has parked
 ## in the Hub, out of the bag (see docs/stash.md). An old save starts with an
-## empty stash.
+## empty stash; a chest that arrives with the drawer full waits in the queue
+## (data["chest_queue"]) instead of paying into the purse on the spot; see
+## migrate_chest_queue.
 ## 5: the gathering skills are Woodcutting, Fishing and Mining (Catalog.SKILLS);
 ## the old placeholder ids (foraging, taming, crafting) are dropped on load,
 ## see migrate_gathering_skills.
@@ -51,23 +53,23 @@ func mark_hint(id: String) -> void:
 ## player taps one to start its timer (one unlocks at a time), and the
 ## timer scales with rarity. Reward chests (milestones, the slayer shop)
 ## arrive ready. The drawer never holds more than four: a chest that
-## arrives with every slot taken pays out into the wallet instead of being
-## lost (see pay_out).
+## arrives with every slot taken joins the queue (see queue_chest) and
+## waits its turn, so no chest is ever lost.
 const SLOTS := 4
 const UNLOCK_SECONDS := {"common": 15 * 60, "rare": 60 * 60, "epic": 3 * 60 * 60}
 const RARITY_OF_TONE := {"wood": "common", "silver": "rare", "magic": "epic", "gold": "epic"}
 
-## How many payouts the save keeps: what each chest became when the drawer
-## was full.
-const PAYOUT_LOG_LIMIT := 10
+## How long a queued chest waits before it may be opened, by rarity: the
+## same ladder the drawer unlocks on (common 15m, rare 1h, epic 3h).
+const QUEUE_SECONDS := {"common": 15 * 60, "rare": 60 * 60, "epic": 3 * 60 * 60}
 
 ## What the last hunt sent home: {"tone", "rarity", "full", "index",
-## "payout"}. Not saved.
+## "queued"}. Not saved.
 var last_chest: Dictionary = {}
 
-## The payout waiting to be announced by the screen that earned it. Not
-## saved; the save keeps the log of every payout.
-var last_payout: Dictionary = {}
+## The queued chest waiting to be announced by the screen that earned it.
+## Not saved; the queue itself lives in the save.
+var last_queued: Dictionary = {}
 
 
 func _new_chest(kind: String, biome_id: String, timed: bool) -> Dictionary:
@@ -96,87 +98,180 @@ func _chest_seed(chest: Dictionary) -> int:
 
 ## Put a chest in the drawer. The drawer holds SLOTS chests and no more, and
 ## the cap is never bypassed: a chest that arrives when every slot is taken
-## cannot be stored, so it pays out into the wallet instead (see pay_out) and
-## false comes back. No chest is ever lost.
+## cannot be stored, so it joins the queue (see queue_chest) and false comes
+## back. No chest is ever lost.
 func add_chest(chest: Dictionary) -> bool:
 	# Every chest carries the seed its loot is rolled from, so one that
-	# arrives without a seed still pays out when it opens.
+	# arrives without a seed still pays its loot when it opens.
 	_chest_seed(chest)
 	if data["chests"].size() >= SLOTS:
-		last_payout = pay_out(chest)
+		last_queued = queue_chest(chest)
 		return false
 	chest["fresh"] = true
 	data["chests"].append(chest)
 	return true
 
 
-## A chest with nowhere to go pays out instead of being lost: it opens on the
-## spot and its loot is credited to the wallet (coins, with the relic stacks
-## banked as coins, and gear shards) and any gear piece goes to its hero.
-## The payout joins the log, so the player can still see what became what.
-func pay_out(chest: Dictionary) -> Dictionary:
-	var loot := _chest_loot(chest)
-	var gear: Array = []
-	for piece in loot.get("gear_items", []):
-		if piece is Dictionary:
-			gear.append(str(piece.get("id", "")))
-	var paid := {
-		"coins": int(loot.get("coins", 0)),
-		"shards": int(loot.get("gear_shards", 0)),
-		"gear": gear,
-		"at": int(Time.get_unix_time_from_system()),
-	}
-	var log := payout_log()
-	log.append(paid.duplicate(true))
-	while log.size() > PAYOUT_LOG_LIMIT:
-		log.pop_front()
-	data["payouts"] = log
-	return paid
+## --- The chest queue --------------------------------------------------------
+## A chest that finds the drawer full waits here instead of being lost: the
+## queue is a list of chests in the save, each stamped with the moment it
+## was queued (queued_at) and the moment it may be opened (ready_at). The
+## wait is the rarity ladder (common 15m, rare 1h, epic 3h), so a queued
+## chest opens through the same loot roll as a drawer chest (see
+## open_queued) and is worth exactly what it would have been worth there.
+
+## The queue, always an array.
+func _queue() -> Array:
+	if not data.has("chest_queue") or typeof(data["chest_queue"]) != TYPE_ARRAY:
+		data["chest_queue"] = []
+	return data["chest_queue"]
 
 
-## The payouts this save has made, newest last.
-func payout_log() -> Array:
-	var out: Variant = data.get("payouts", [])
-	return out if typeof(out) == TYPE_ARRAY else []
+## Queue a chest that found no room in the drawer. The chest is stamped
+## with its own timers and its rarity, and it keeps the seed its loot is
+## rolled from, so opening it pays exactly what it would have paid in the
+## drawer. The caller persists the save.
+func queue_chest(chest: Dictionary) -> Dictionary:
+	_chest_seed(chest)
+	var entry := chest.duplicate(true)
+	_stamp_queued(entry)
+	_queue().append(entry)
+	return entry
 
 
-## The newest payout on record, or {} when the drawer never turned one away.
-func newest_payout() -> Dictionary:
-	var log := payout_log()
-	if log.is_empty():
+## Stamps a queued chest with its timers: when it was queued and when it
+## may be opened. A chest that already carries them keeps them, so a save
+## written by an earlier build is never re-timed; a chest without them is
+## stamped now, on the rarity ladder.
+func _stamp_queued(chest: Dictionary) -> void:
+	var tone := chest_tone_of(chest)
+	var rarity := str(chest.get("rarity", RARITY_OF_TONE.get(tone, "common")))
+	chest["tone"] = tone
+	chest["rarity"] = rarity
+	if chest.has("queued_at") and chest.has("ready_at"):
+		return
+	var now := int(Time.get_unix_time_from_system())
+	chest["queued_at"] = now
+	chest["ready_at"] = now + int(QUEUE_SECONDS.get(rarity, 3600))
+
+
+## How many chests are waiting in the queue.
+func queued_count() -> int:
+	return _queue().size()
+
+
+## The queued chest at index, or {} when there is none.
+func queued_chest(i: int) -> Dictionary:
+	var queue := _queue()
+	if i < 0 or i >= queue.size():
 		return {}
-	var entry: Variant = log[log.size() - 1]
-	return entry if typeof(entry) == TYPE_DICTIONARY else {}
+	var entry: Variant = queue[i]
+	return entry if entry is Dictionary else {}
 
 
-## The payout waiting to be announced, taken once: the screen that earned it
-## calls this so the same payout is never told twice.
-func take_payout() -> Dictionary:
-	var paid := last_payout
-	last_payout = {}
-	return paid
+## The look of a queued chest: the same rule a drawer chest follows.
+func queued_tone(i: int) -> String:
+	var chest := queued_chest(i)
+	if chest.is_empty():
+		return "wood"
+	return chest_tone_of(chest)
 
 
-## What a payout paid, in one line: "128 coins", "128 coins + 5 shards",
-## "128 coins + Iron Blade". Empty text for an empty payout.
-func payout_text(payout: Dictionary) -> String:
-	if payout.is_empty():
+## The rarity of a queued chest, from its stamp.
+func queued_rarity(i: int) -> String:
+	var chest := queued_chest(i)
+	if chest.is_empty():
+		return "common"
+	return str(chest.get("rarity", RARITY_OF_TONE.get(chest_tone_of(chest), "common")))
+
+
+## Seconds until a queued chest may be opened (0 = ready).
+func queued_wait(i: int) -> int:
+	return queued_wait_of(queued_chest(i))
+
+
+## Seconds until a queued chest may be opened, from its own stamp.
+func queued_wait_of(chest: Dictionary) -> int:
+	return maxi(0, int(chest.get("ready_at", 0)) - int(Time.get_unix_time_from_system()))
+
+
+## How long a queued chest waits in all, by its rarity: the same ladder the
+## drawer unlocks on (common 15m, rare 1h, epic 3h).
+func queued_total(i: int) -> int:
+	return int(QUEUE_SECONDS.get(queued_rarity(i), 3600))
+
+
+## How long a queued chest has been waiting, in seconds.
+func queued_age_of(chest: Dictionary) -> int:
+	return maxi(0, int(Time.get_unix_time_from_system()) - int(chest.get("queued_at", 0)))
+
+
+## "queued" (still waiting) or "ready". Empty for a chest that is not in
+## the queue.
+func queued_state(i: int) -> String:
+	if i < 0 or i >= queued_count():
 		return ""
-	var parts := PackedStringArray()
-	var coins := int(payout.get("coins", 0))
-	if coins > 0:
-		parts.append("%d coins" % coins)
-	var shards := int(payout.get("shards", 0))
-	if shards > 0:
-		parts.append("%d shards" % shards)
-	for piece in payout.get("gear", []):
-		var id := str(piece)
-		if piece is Dictionary:
-			id = str(piece.get("id", ""))
-		parts.append(str(GearDB.item(id).get("name", "gear")))
-	if parts.is_empty():
-		return "coins"
-	return " + ".join(parts)
+	return "ready" if queued_wait(i) <= 0 else "queued"
+
+
+## The first queued chest that is ready to open, or -1 when none is.
+func first_queued_ready() -> int:
+	for i in queued_count():
+		if queued_state(i) == "ready":
+			return i
+	return -1
+
+
+## When a queued chest may be opened, as a phrase: "opens in 1h 30m" or
+## "ready now". Empty text for an empty entry.
+func queue_when(chest: Dictionary) -> String:
+	if chest.is_empty():
+		return ""
+	var wait := queued_wait_of(chest)
+	return "ready now" if wait <= 0 else "opens in %s" % span(wait)
+
+
+## A queued chest in one line, for a toast or a card: "Chest queued, opens
+## in 1h 30m" / "Chest queued, ready now". Empty text for an empty entry.
+func queue_text(chest: Dictionary) -> String:
+	if chest.is_empty():
+		return ""
+	return "Chest queued, %s" % queue_when(chest)
+
+
+## The queued chest waiting to be announced, taken once: the screen that
+## earned it calls this so the same chest is never told twice.
+func take_queued() -> Dictionary:
+	var queued := last_queued
+	last_queued = {}
+	return queued.duplicate(true) if not queued.is_empty() else {}
+
+
+## Open a queued chest: the same loot roll a drawer chest pays (see
+## _chest_loot), so a chest that waited its turn is worth exactly what it
+## would have been worth in the drawer. The chest leaves the queue only
+## after its loot is rolled, so a roll that ever fails leaves the chest
+## waiting instead of destroying it with its reward. A chest whose timer
+## has not run out refuses to open. Returns the loot, or {} when it did
+## not open.
+func open_queued(index: int = 0) -> Dictionary:
+	var queue := _queue()
+	if index < 0 or index >= queue.size():
+		return {}
+	var entry: Variant = queue[index]
+	if not entry is Dictionary:
+		return {}
+	var chest: Dictionary = entry
+	if queued_wait(index) > 0:
+		return {}
+	var loot := _chest_loot(chest)
+	if loot.is_empty():
+		# The roll came back with nothing: the chest keeps its place in the
+		# queue rather than being spent for no prize.
+		return {}
+	queue.remove_at(index)
+	_write()
+	return loot
 
 
 func slots_full() -> bool:
@@ -263,7 +358,7 @@ static func span(seconds: int) -> String:
 
 ## The look of a chest: reward chests are gilded, pouches are plain wood, a
 ## hunt chest takes its biome's metal. Reads a chest that is not in the drawer
-## yet, so a chest that pays out still knows what it looked like.
+## yet, so a chest that queues still knows what it looked like.
 func chest_tone_of(chest: Dictionary) -> String:
 	var tone := str(chest.get("tone", ""))
 	if tone != "":
@@ -669,6 +764,33 @@ func migrate_gathering_skills() -> void:
 			data["skills"].erase(sid)
 
 
+## --- Chest queue migration --------------------------------------------------
+## v6 replaces the direct payout with the queue. Before v6 a chest that
+## arrived with the drawer full paid out on the spot and the save kept a
+## "payouts" log of what each one became. From v6 a chest that finds the
+## drawer full waits its turn in data["chest_queue"] instead, stamped with
+## the rarity ladder (common 15m, rare 1h, epic 3h).
+## The pass:
+##   1. drops the old payout log, which nothing reads any more,
+##   2. makes sure the queue exists and is a list,
+##   3. stamps every queued chest that has lost its timers, so an entry
+##      written by an older build still opens on the right clock.
+## The log of past payouts is kept out of the way: an old save's payouts
+## are already in the wallet, so nothing is given twice.
+
+func migrate_chest_queue(old_version: int) -> void:
+	if old_version < 6:
+		# Before v6 a chest that found the drawer full paid out on the spot
+		# and the save kept a log of what each one became. Those prizes are
+		# already in the wallet, so the log is simply dropped.
+		data.erase("payouts")
+	if not data.has("chest_queue") or typeof(data["chest_queue"]) != TYPE_ARRAY:
+		data["chest_queue"] = []
+	for entry in data["chest_queue"]:
+		if entry is Dictionary:
+			_stamp_queued(entry as Dictionary)
+
+
 ## --- Daily Challenge local board -------------------------------------------
 ## data["daily"][key] = {"best": int, "runs": [{score, hero, time, result, at}]}
 ## kept sorted by score (top 10). This is the local leaderboard stub.
@@ -791,15 +913,15 @@ func commit_daily_pass(biome_id: String, boss_id: String) -> Dictionary:
 
 
 ## A chest comes home to the drawer. The drawer holds SLOTS chests: with every
-## slot taken the chest cannot be stored, so it pays out into the wallet
-## instead of being dropped, and last_chest says what it paid.
+## slot taken the chest cannot be stored, so it joins the queue and waits
+## its turn instead of being dropped, and last_chest says where it went.
 func _send_home(chest: Dictionary) -> void:
 	var tone := chest_tone_of(chest)
 	var rarity := str(RARITY_OF_TONE.get(tone, "rare"))
 	if data["chests"].size() >= SLOTS:
-		# The drawer is full: the chest pays out rather than being lost. The
-		# run card and Home say what it paid, so no menu screen repeats it.
-		last_chest = {"tone": tone, "rarity": rarity, "full": true, "index": -1, "payout": pay_out(chest)}
+		# The drawer is full: the chest queues instead of being lost. The
+		# run card and Home say how long it waits, so no menu screen repeats it.
+		last_chest = {"tone": tone, "rarity": rarity, "full": true, "index": -1, "queued": queue_chest(chest)}
 		return
 	add_chest(chest)
 	var i: int = data["chests"].size() - 1
@@ -1322,7 +1444,7 @@ func buy_slayer(offer_id: String) -> bool:
 			data["cosmetic"] = str(offer.get("cosmetic", "ribbon"))
 		"chest":
 			# A bought chest is a promised prize: with the drawer full it
-			# pays out into the wallet rather than being lost.
+			# joins the queue and waits its turn rather than being lost.
 			add_chest(_new_chest("hunt", "meadow", false))
 	_write()
 	# The warden takes the points and hands something over: coins jingle,
@@ -1482,8 +1604,8 @@ func open_next(index: int = 0) -> Dictionary:
 
 ## What a chest pays when it opens: coins (with the relic stacks banked as
 ## coins), gear shards and any gear piece it rolled. The chest's own seed
-## fixes the roll, so a chest that pays out because the drawer was full pays
-## exactly what it would have paid there. The gear tier follows the chest's
+## fixes the roll, so a chest that waits in the queue pays exactly what it
+## would have paid in the drawer. The gear tier follows the chest's
 ## depth and never runs ahead of the ground the player has opened.
 func _chest_loot(chest: Dictionary) -> Dictionary:
 	# One seed for the whole chest: the coins and the gear are rolled from
@@ -1738,7 +1860,7 @@ func claim(id: String) -> bool:
 			data["coins"] = int(data["coins"]) + int(entry["amount"])
 		"chest":
 			# A claimed prize is never thrown away: with the drawer full it
-			# pays out into the wallet instead.
+			# joins the queue and waits its turn instead.
 			add_chest(_new_chest("hunt", "meadow", false))
 		"unlock":
 			# Relics no longer buy hero levels, so the joining bonus pays coins.
@@ -1959,7 +2081,7 @@ func claim_mastery(id: String) -> bool:
 		"chest":
 			# A hunt chest from the deepest open ground, so a late trophy's
 			# chest can hold the tiers the player is hunting now. With the
-			# drawer full it pays out into the wallet instead.
+			# drawer full it joins the queue instead.
 			add_chest(_new_chest("hunt", _deepest_open_biome(), false))
 	_write()
 	# The sound follows the prize: coins jingle, a chest opens.
@@ -2029,8 +2151,9 @@ func _fresh() -> Dictionary:
 		# Hub gates the player has opened, by gate id (see WorldData.GATES).
 		"gates_unlocked": {"barrow_gate": true},
 		"chests": [],
-		# What each chest paid out when the drawer was full, newest last.
-		"payouts": [],
+		# Chests waiting for a drawer slot, each stamped with the moment it
+		# was queued and the moment it may be opened (see queue_chest).
+		"chest_queue": [],
 		"clan_id": "",
 		"duel_rating": 0,
 		"featured": "paladin",
@@ -2077,10 +2200,10 @@ func _reconcile() -> void:
 		var entry: Variant = data["chests"][i]
 		if entry is Dictionary:
 			_chest_seed(entry as Dictionary)
-	# The payout log: what each chest became when the drawer was full. An old
-	# save has never turned a chest away, so it starts empty.
-	if not data.has("payouts") or typeof(data["payouts"]) != TYPE_ARRAY:
-		data["payouts"] = []
+	# The chest queue: the chests waiting for a drawer slot. An old save has
+	# never queued one, so it starts empty.
+	if not data.has("chest_queue") or typeof(data["chest_queue"]) != TYPE_ARRAY:
+		data["chest_queue"] = []
 	if not data.has("cleared") or typeof(data["cleared"]) != TYPE_DICTIONARY:
 		data["cleared"] = {}
 	# Per-biome highest cleared difficulty tier. Old saves start at none.
@@ -2239,6 +2362,7 @@ func _load() -> void:
 	migrate_legacy_armory(old_version)
 	migrate_training()
 	migrate_gathering_skills()
+	migrate_chest_queue(old_version)
 	_write()
 
 
