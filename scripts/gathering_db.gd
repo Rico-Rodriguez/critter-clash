@@ -67,6 +67,8 @@ const RESOURCES: Dictionary = {
 	"glacierheart_logs": {"name": "Glacierheart logs", "skill": "woodcutting"},
 	"cinderwood_logs": {"name": "Cinderwood logs", "skill": "woodcutting"},
 	"emberbark_logs": {"name": "Emberbark logs", "skill": "woodcutting"},
+	"yew_logs": {"name": "Yew logs", "skill": "woodcutting"},
+	"magic_logs": {"name": "Magic logs", "skill": "woodcutting"},
 	"brook_fish": {"name": "Brook fish", "skill": "fishing"},
 	"pool_fish": {"name": "Pool fish", "skill": "fishing"},
 	"spore_carp": {"name": "Spore carp", "skill": "fishing"},
@@ -75,6 +77,10 @@ const RESOURCES: Dictionary = {
 	"frostspring_crab": {"name": "Frostspring crab", "skill": "fishing"},
 	"magma_fish": {"name": "Magma fish", "skill": "fishing"},
 	"emberdeep_fish": {"name": "Emberdeep fish", "skill": "fishing"},
+	"shrimp": {"name": "Shrimp", "skill": "fishing"},
+	"trout": {"name": "Trout", "skill": "fishing"},
+	"salmon": {"name": "Salmon", "skill": "fishing"},
+	"shark": {"name": "Shark", "skill": "fishing"},
 	"copper_ore": {"name": "Copper ore", "skill": "mining"},
 	"tin_ore": {"name": "Tin ore", "skill": "mining"},
 	"iron_ore": {"name": "Iron ore", "skill": "mining"},
@@ -83,7 +89,69 @@ const RESOURCES: Dictionary = {
 	"gold_ore": {"name": "Gold ore", "skill": "mining"},
 	"cinderore": {"name": "Cinderore", "skill": "mining"},
 	"runebound_shard": {"name": "Runebound shard", "skill": "mining"},
+	"mithril_ore": {"name": "Mithril ore", "skill": "mining"},
+	"runite_ore": {"name": "Runite ore", "skill": "mining"},
 }
+
+## Depth tiers for danger-gated gathering (no skill requirement; skill affects
+## speed and yield only). Each tier has one node per skill. Respawn scales with
+## the tier's value. Nodes live in the depths, not biomes.
+const DEPTH_TIERS: Array = [
+	{
+		"id": "fringe",
+		"name": "Fringe",
+		"depth": 0,
+		"danger": 1,
+		"nodes": [
+			{"id": "fringe_oak", "skill": "woodcutting", "name": "Oak", "kind": "tree", "resource": "oak_logs", "xp": 45, "respawn": 10.0},
+			{"id": "fringe_copper", "skill": "mining", "name": "Copper Vein", "kind": "vein", "resource": "copper_ore", "xp": 40, "respawn": 10.0},
+			{"id": "fringe_shrimp", "skill": "fishing", "name": "Shrimp Spot", "kind": "spot", "resource": "shrimp", "xp": 35, "respawn": 10.0},
+		]
+	},
+	{
+		"id": "wilds",
+		"name": "Wilds",
+		"depth": 1,
+		"danger": 2,
+		"nodes": [
+			{"id": "wilds_willow", "skill": "woodcutting", "name": "Willow", "kind": "tree", "resource": "willow_logs", "xp": 70, "respawn": 15.0},
+			{"id": "wilds_iron", "skill": "mining", "name": "Iron Vein", "kind": "vein", "resource": "iron_ore", "xp": 65, "respawn": 15.0},
+			{"id": "wilds_trout", "skill": "fishing", "name": "Trout Spot", "kind": "spot", "resource": "trout", "xp": 60, "respawn": 15.0},
+		]
+	},
+	{
+		"id": "deep",
+		"name": "Deep",
+		"depth": 2,
+		"danger": 3,
+		"nodes": [
+			{"id": "deep_yew", "skill": "woodcutting", "name": "Yew", "kind": "tree", "resource": "yew_logs", "xp": 110, "respawn": 25.0},
+			{"id": "deep_mithril", "skill": "mining", "name": "Mithril Vein", "kind": "vein", "resource": "mithril_ore", "xp": 100, "respawn": 25.0},
+			{"id": "deep_salmon", "skill": "fishing", "name": "Salmon Spot", "kind": "spot", "resource": "salmon", "xp": 95, "respawn": 25.0},
+		]
+	},
+	{
+		"id": "abyss",
+		"name": "Abyss",
+		"depth": 3,
+		"danger": 4,
+		"nodes": [
+			{"id": "abyss_magic", "skill": "woodcutting", "name": "Magic Tree", "kind": "tree", "resource": "magic_logs", "xp": 180, "respawn": 40.0},
+			{"id": "abyss_runite", "skill": "mining", "name": "Runite Vein", "kind": "vein", "resource": "runite_ore", "xp": 170, "respawn": 40.0},
+			{"id": "abyss_shark", "skill": "fishing", "name": "Shark Spot", "kind": "spot", "resource": "shark", "xp": 160, "respawn": 40.0},
+		]
+	},
+]
+
+## Flat list of all depth nodes for iteration.
+const DEPTH_NODES: Array = []
+for tier in DEPTH_TIERS:
+	for node in tier["nodes"]:
+		var n = node.duplicate()
+		n["tier"] = tier["id"]
+		n["depth"] = tier["depth"]
+		n["danger"] = tier["danger"]
+		DEPTH_NODES.append(n)
 
 
 # --- Lookups -----------------------------------------------------------------
@@ -181,3 +249,60 @@ static func resource_name(id: String) -> String:
 ## The resource record, or {} for an unknown id.
 static func resource(id: String) -> Dictionary:
 	return RESOURCES.get(id, {})
+
+# --- Depth tier lookups -------------------------------------------------------
+
+## The depth tier record, or {} for an unknown id.
+static func depth_tier(id: String) -> Dictionary:
+	for entry in DEPTH_TIERS:
+		if str(entry["id"]) == id:
+			return entry
+	return {}
+
+## The depth tier names in order.
+static func depth_tier_ids() -> Array[String]:
+	var out: Array[String] = []
+	for entry in DEPTH_TIERS:
+		out.append(str(entry["id"]))
+	return out
+
+## The depth node record, or {} for an unknown id.
+static func depth_node(id: String) -> Dictionary:
+	for entry in DEPTH_NODES:
+		if str(entry["id"]) == id:
+			return entry
+	return {}
+
+## True when the id names a depth node.
+static func has_depth_node(id: String) -> bool:
+	return not depth_node(id).is_empty()
+
+## All depth nodes, ordered by depth then skill.
+static func depth_nodes() -> Array:
+	return DEPTH_NODES.duplicate()
+
+## The depth nodes for one gathering skill, ordered by depth.
+static func depth_nodes_for_skill(skill: String) -> Array:
+	var out: Array = []
+	for entry in DEPTH_NODES:
+		if str(entry["skill"]) == skill:
+			out.append(entry)
+	return out
+
+## The depth nodes for one tier, ordered by skill.
+static func depth_nodes_for_tier(tier: String) -> Array:
+	var out: Array = []
+	for entry in DEPTH_NODES:
+		if str(entry["tier"]) == tier:
+			out.append(entry)
+	return out
+
+## The tier a depth node belongs to, or "" for unknown.
+static func tier_of_depth_node(id: String) -> String:
+	var n := depth_node(id)
+	return str(n["tier"]) if not n.is_empty() else ""
+
+## The danger rating of a depth tier (1..4).
+static func tier_danger(tier: String) -> int:
+	var t := depth_tier(tier)
+	return int(t.get("danger", 0)) if not t.is_empty() else 0
