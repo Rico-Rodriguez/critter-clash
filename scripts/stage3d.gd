@@ -281,7 +281,10 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 		if sim.explore and actor.kind == "minion":
 			body.visible = actor.aggro or sim.visible_at(actor.pos)
 		var pos: Vector2 = actor.prev.lerp(actor.pos, alpha)
-		body.position = _to3(pos)
+		# The body root stands on the terrain, not on a flat plane: the
+		# ground rolls a few centimetres, so a root at y=0 sinks into the
+		# rises and hangs over the dips.
+		body.position = _seat_body(_to3(pos))
 		var dt := get_process_delta_time()
 		var turn := 1.0 - exp(-(45.0 if actor.kind == "hero" else 16.0) * dt)
 		body.rotation.y = lerp_angle(body.rotation.y, _yaw(actor.facing, body), turn)
@@ -298,6 +301,9 @@ func sync_hunt(sim: RunSim, alpha: float) -> void:
 				_hero_key.global_position = hero_at + Vector3(1.6, 4.2, 3.4)
 			if is_instance_valid(_hero_rim):
 				_hero_rim.global_position = hero_at + Vector3(-2.2, 3.6, -2.8)
+		# The ground decals the body carries sit on the terrain under it,
+		# laid along its slope.
+		_seat_ground_decals(body)
 	var boss_up := false
 	var boss_at := Vector3.ZERO
 	for actor in sim.actors:
@@ -642,7 +648,7 @@ func died(actor_id: int, sim_pos: Vector2, sprite: String) -> void:
 	var body: Node3D = _bodies.get(actor_id, null)
 	if body == null:
 		body = _spawn_model(sprite, 1.0)
-		body.position = _to3(sim_pos)
+		body.position = _seat_body(_to3(sim_pos))
 		actor_root.add_child(body)
 		_bodies[actor_id] = body
 	body.set_meta("dying", true)
@@ -1848,6 +1854,8 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		})
 		hoard.position.y = 0.03
 		body.add_child(hoard)
+		# The ring rides the terrain under the goblin, not a flat height.
+		_ride_ground(body, hoard, 0.03)
 	if actor.kind == "boss":
 		# The boss gets its own soft contact shadow. Its threat ring is a thin,
 		# soft, low-opacity line that fades in only when the critter is close
@@ -1862,6 +1870,8 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 		blob.position.y = 0.03
 		body.add_child(blob)
 		body.set_meta("threat", blob.material_override)
+		# The shadow rides the terrain under the boss, laid along its slope.
+		_ride_ground(body, blob, 0.03)
 	body.rotation.y = _yaw(actor.facing, body)
 	actor_root.add_child(body)
 	_bodies[actor.id] = body
@@ -3667,10 +3677,48 @@ func _ground_basis(xz: Vector2) -> Basis:
 ## Seats a ground decal on the terrain: its centre on the surface under it
 ## and its up axis along the slope there, so it lies down on the ground
 ## instead of floating over a bump or sinking into the next one.
+##
+## The seat is a world transform, so a decal that rides a body (a critter's
+## ring, the boss's contact shadow) lands on the ground even though its
+## parent is turned with the mob's facing.
 func _seat_ground(node: Node3D, at: Vector3, lift: float, yaw := 0.0, size := Vector3.ONE) -> void:
 	var xz := Vector2(at.x, at.z)
-	node.position = Vector3(at.x, float(_ground_at(xz)["h"]) + lift, at.z)
-	node.basis = _ground_basis(xz) * Basis(Vector3.UP, yaw) * Basis.from_scale(size)
+	var basis := _ground_basis(xz) * Basis(Vector3.UP, yaw) * Basis.from_scale(size)
+	var pos := Vector3(at.x, float(_ground_at(xz)["h"]) + lift, at.z)
+	if node.is_inside_tree():
+		node.global_transform = Transform3D(basis, pos)
+	else:
+		node.position = pos
+		node.basis = basis
+
+
+## The ground point a body root stands on: the surface under it, so a mob
+## meets the ground with its feet instead of clipping into a rise or
+## hanging over a dip. The body keeps its own motion on top of this.
+func _seat_body(at: Vector3) -> Vector3:
+	var xz := Vector2(at.x, at.z)
+	return Vector3(at.x, float(_ground_at(xz)["h"]), at.z)
+
+
+## A ground decal that rides a body: it is seated on the terrain under the
+## body every frame, so it lies along the slope there instead of hovering
+## at a flat height.
+func _ride_ground(body: Node3D, node: Node3D, lift: float) -> void:
+	var list: Array = body.get_meta("ground_decals", [])
+	list.append({"node": node, "lift": lift})
+	body.set_meta("ground_decals", list)
+
+
+## Seats the ground decals a body rides on the terrain under it.
+func _seat_ground_decals(body: Node3D) -> void:
+	if not body.has_meta("ground_decals"):
+		return
+	for entry in body.get_meta("ground_decals"):
+		var d: Dictionary = entry
+		var node := d.get("node") as Node3D
+		if node == null or not is_instance_valid(node):
+			continue
+		_seat_ground(node, body.position, float(d.get("lift", 0.03)))
 
 
 ## How far the ground is from a worn trail, in metres: the arena's own paths,
@@ -3807,6 +3855,8 @@ void fragment() {
 	halo.position.y = 0.04
 	halo.top_level = false
 	body.add_child(halo)
+	# The halo lies on the terrain under its wearer, along the slope there.
+	_ride_ground(body, halo, 0.04)
 	var p := GPUParticles3D.new()
 	p.amount = 18
 	p.lifetime = 1.3
