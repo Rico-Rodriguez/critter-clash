@@ -881,8 +881,14 @@ func log_mark_seen(ids: Array = []) -> void:
 		_write()
 
 
+## The kills of a boss. A legacy boss id counts toward the boss that took
+## over its lair, so an old save keeps the kills it already earned.
 func boss_kills(id: String) -> int:
-	return int(data["kills"].get(id, 0))
+	var total := int(data["kills"].get(id, 0))
+	for legacy in Catalog.LEGACY_BOSSES:
+		if str(Catalog.LEGACY_BOSSES[legacy]) == id:
+			total += int(data["kills"].get(legacy, 0))
+	return total
 
 
 func active_pet() -> String:

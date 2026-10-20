@@ -52,6 +52,40 @@ const BOSSES := {
 		# to read as big: ~2.7x the knight's on-screen height in the lair.
 		"size_boost": 1.45,
 	},
+	# Boreal, the Frost Wyrm (Deep / Frost Peaks lair). Pale blue corruption.
+	"boreal": {
+		"scene": DIR + "wyrm.tscn",
+		"clips": {"idle": "idle", "run": "run", "walk": "walk", "attack": "attack", "hit": "stagger", "death": "death", "perch": "idle"},
+		"glow": Color(0.4, 0.7, 1.0),
+		"vein_energy": 1.4,
+		"mats": {
+			"MI_Wyrm_Body": {"veins": DIR + "wyrm_veins_body.png"},
+			"MI_Wyrm_Head": {"veins": DIR + "wyrm_veins_head.png"},
+			"MI_Wyrm_Tail": {"veins": DIR + "wyrm_veins_tail.png"},
+		},
+		"core_bone": "Spine_03",
+		"core_size": 0.08,
+		"eyes": "bones",
+		# Long serpentine body: size_boost stretches it to ~3x hero height.
+		"size_boost": 2.0,
+	},
+	# Inferno, the Magma Colossus (Abyss / Ember Volcano lair). White-hot corruption.
+	"inferno": {
+		"scene": DIR + "colossus.tscn",
+		"clips": {"idle": "idle", "run": "run", "walk": "walk", "attack": "attack", "hit": "hit", "death": "death", "perch": "idle"},
+		"glow": Color(1.0, 0.55, 0.1),
+		"vein_energy": 1.6,
+		"mats": {
+			"MI_Colossus_Body": {"veins": DIR + "colossus_veins_body.png"},
+			"MI_Colossus_Arms": {"veins": DIR + "colossus_veins_arms.png"},
+			"MI_Colossus_Head": {"veins": DIR + "colossus_veins_head.png"},
+		},
+		"core_bone": "Chest_Main",
+		"core_size": 0.09,
+		"eyes": "Head_Eyes",
+		# Massive bulky frame: reads as ~2.8x hero height.
+		"size_boost": 2.2,
+	},
 }
 
 
