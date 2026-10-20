@@ -296,7 +296,7 @@ func _queued_row() -> VBoxContainer:
 		chip.pressed.connect(_tap_queued.bind(i))
 		row.add_child(chip)
 	if waiting > 4:
-		var more := UiKit.label("+%d MORE", waiting - 4, 18, UiKit.MUTED.lightened(0.15), "b", 2)
+		var more := UiKit.label("+%d MORE" % (waiting - 4), 18, UiKit.MUTED.lightened(0.15), "b", 2)
 		more.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(more)
 	col.add_child(row)
@@ -596,7 +596,7 @@ class QueuedChip extends Button:
 	var _wait := 0
 	var _total := 1
 	var _age := 0
-	var _ready := false
+	var _is_ready := false
 	var _flash := 0.0
 	var _t := 0.0
 
@@ -621,7 +621,7 @@ class QueuedChip extends Button:
 		_wait = SaveGame.queued_wait(index)
 		_total = maxi(1, SaveGame.queued_total(index))
 		_age = SaveGame.queued_age_of(SaveGame.queued_chest(index))
-		_ready = _wait <= 0
+		_is_ready = _wait <= 0
 		queue_redraw()
 
 	func _draw() -> void:
@@ -638,11 +638,11 @@ class QueuedChip extends Button:
 		var glow: Color = cols["glow"]
 		# The plate the chip sits on: the rarity's own metal, dimmed while
 		# the chest waits and lit once its timer is up.
-		var face := base if not _ready else base.lightened(0.10)
+		var face := base if not _is_ready else base.lightened(0.10)
 		UiKit.rr_shadow(self, r, 12.0, 4.0, 0.35)
 		UiKit.rr_fill(self, r, 12.0, face.lightened(0.08), face.darkened(0.22))
-		UiKit.rr_line(self, r.grow(-2.0), 10.0, Color(lip, 0.85 if _ready else 0.5), 2.0)
-		if _ready:
+		UiKit.rr_line(self, r.grow(-2.0), 10.0, Color(lip, 0.85 if _is_ready else 0.5), 2.0)
+		if _is_ready:
 			# A ready chest breathes a little light around its plate.
 			var pulse := 0.30 + 0.16 * sin(_t * 3.0)
 			for i in 4:
@@ -651,15 +651,15 @@ class QueuedChip extends Button:
 		var tex := SpriteBank._load("res://assets/sprites/chests/%s.png" % tone, "chest_" + tone)
 		var art := Rect2(Vector2(r.size.x * 0.5 - 34.0, 32.0), Vector2(68, 68))
 		if tex:
-			draw_texture_rect(tex, art, false, Color.WHITE if _ready else Color(0.74, 0.72, 0.70))
+			draw_texture_rect(tex, art, false, Color.WHITE if _is_ready else Color(0.74, 0.72, 0.70))
 		# Rarity tag across the top.
 		UiKit.draw_text(self, font, Vector2(0, 24), rarity.to_upper(), 15, glow.lightened(0.35), Color(0.03, 0.02, 0.01), 2, r.size.x)
 		# How long it has been waiting, counted from the moment it queued.
 		var since := "just now" if _age < 60 else "%s ago" % SaveGame.span(_age)
 		UiKit.draw_text(self, font, Vector2(0, r.size.y - 44), since, 14, UiKit.MUTED.lightened(0.1), Color(0.05, 0.03, 0.02), 2, r.size.x)
 		# The countdown: the clock on the chest, ticking down.
-		var caption := "READY" if _ready else SaveGame.clock(_wait)
-		var ink := UiKit.GOLD.lightened(0.25) if _ready else UiKit.CREAM
+		var caption := "READY" if _is_ready else SaveGame.clock(_wait)
+		var ink := UiKit.GOLD.lightened(0.25) if _is_ready else UiKit.CREAM
 		UiKit.draw_text(self, font, Vector2(0, r.size.y - 22), caption, 21, ink, Color(0.05, 0.03, 0.02), 2, r.size.x)
 		# A thin bar: how much of the wait is done.
 		var bar := Rect2(r.size.x * 0.16, r.size.y - 12, r.size.x * 0.68, 6)
