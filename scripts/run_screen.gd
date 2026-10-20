@@ -1578,7 +1578,8 @@ func _offer_card(index: int, id: String) -> Button:
 
 ## Names stay on one line: the display face steps down until the line fits,
 ## never wrapping. Descriptions cap at three lines, the body face easing
-## down a little when a longer line would spill over.
+## down a little when a longer line would spill over. The Text size setting
+## scales both faces on top of the base sizes, like every other panel.
 func _fit_card(button: Button, name: Label, desc: Label) -> void:
 	var width := button.size.x
 	if width <= 1.0:
@@ -1586,19 +1587,21 @@ func _fit_card(button: Button, name: Label, desc: Label) -> void:
 	width = maxf(90.0, width - 34.0)
 	var base := int(name.get_meta("base_size", 28))
 	name.set_meta("base_size", base)
+	var ntop := UiKit.text_px(base)
 	var nf: Font = name.get_theme_font("font")
 	if nf != null:
-		var px := base
-		while px > int(round(float(base) * 0.7)) and nf.get_string_size(name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x > width:
+		var px := ntop
+		while px > int(round(float(ntop) * 0.7)) and nf.get_string_size(name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x > width:
 			px -= 1
 		name.add_theme_font_size_override("font_size", px)
 	var dbase := int(desc.get_meta("base_size", 26))
 	desc.set_meta("base_size", dbase)
+	var dtop := UiKit.text_px(dbase)
 	var df: Font = desc.get_theme_font("font")
 	if df == null:
 		return
-	var px2 := dbase
-	var floor_px := int(round(float(dbase) * 0.82))
+	var px2 := dtop
+	var floor_px := int(round(float(dtop) * 0.82))
 	while px2 > floor_px:
 		var tall := df.get_multiline_string_size(desc.text, HORIZONTAL_ALIGNMENT_CENTER, width, px2, -1, TextServer.BREAK_WORD_BOUND | TextServer.BREAK_MANDATORY).y
 		var lines := int(round(tall / maxf(df.get_height(px2), 1.0)))
