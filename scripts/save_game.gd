@@ -358,6 +358,36 @@ func _biome_index(biome_id: String) -> int:
 	return 0
 
 
+## Whether a hub gate stands open: the gate that is open by default, or one
+## the player has already unlocked. The unlocks live in the save, so an
+## opened gate stays open across restarts.
+func gate_open(gate_id: String) -> bool:
+	var gate := WorldData.gate_by_id(gate_id)
+	if gate.is_empty():
+		return false
+	if bool(gate.get("open_by_default", false)):
+		return true
+	return bool(_gates_unlocked().get(gate_id, false))
+
+
+## Open a hub gate and remember it. Idempotent: a gate opened twice is
+## written once.
+func unlock_gate(gate_id: String) -> void:
+	var unlocked := _gates_unlocked()
+	if bool(unlocked.get(gate_id, false)):
+		return
+	unlocked[gate_id] = true
+	_write()
+
+
+## The map of opened hub gates, created when an old save has none.
+func _gates_unlocked() -> Dictionary:
+	if not data.has("gates_unlocked") or typeof(data["gates_unlocked"]) != TYPE_DICTIONARY:
+		data["gates_unlocked"] = {"barrow_gate": true}
+	var unlocked: Dictionary = data["gates_unlocked"]
+	return unlocked
+
+
 ## The two knights a new save starts with; Gnash and Mordrek join on the road.
 const STARTERS := ["pebble", "ember"]
 ## Animal heroes retired from the playable roster (saves move to Aldric).
@@ -1875,6 +1905,8 @@ func _fresh() -> Dictionary:
 		"claimed": [],
 		"cleared": {},
 		"difficulty_cleared": {},
+		# Hub gates the player has opened, by gate id (see WorldData.GATES).
+		"gates_unlocked": {"barrow_gate": true},
 		"chests": [],
 		# What each chest paid out when the drawer was full, newest last.
 		"payouts": [],
@@ -1931,6 +1963,10 @@ func _reconcile() -> void:
 	# Per-biome highest cleared difficulty tier. Old saves start at none.
 	if not data.has("difficulty_cleared") or typeof(data["difficulty_cleared"]) != TYPE_DICTIONARY:
 		data["difficulty_cleared"] = {}
+	# Hub gates the player has opened. Old saves predate the hub gates, so
+	# they start with the default-open gate only.
+	if not data.has("gates_unlocked") or typeof(data["gates_unlocked"]) != TYPE_DICTIONARY:
+		data["gates_unlocked"] = {"barrow_gate": true}
 	# An old or trimmed save can be missing the wallet; biome gating and card
 	# levelling read these directly, so they must never be absent.
 	if not data.has("coins"):
