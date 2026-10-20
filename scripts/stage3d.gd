@@ -18,6 +18,10 @@ const AIM := 1.5
 ## 10% of the screen height; the boss stands about 3x the hero's footprint.
 const HERO_METERS := 3.6
 const PEDESTAL_TOP := 0.34
+## The pedestal renders its 3D at a fraction of the screen resolution. It
+## is a small, slow showcase behind a blur, so the extra pixels buy
+## nothing; FSR upscales the result. The hunt keeps the full resolution.
+const PEDESTAL_SCALE := 0.6
 const HERO_BOOST := 1.18
 ## Screen fraction (from the top) the boss's cap must stay below: the bottom
 ## of the boss bar plus a margin.
@@ -196,6 +200,12 @@ func bind_pedestal(hero_id: String) -> void:
 	_world_map = false
 	_ground_cache.clear()
 	viewport.transparent_bg = false
+	# The pedestal is a menu showcase, not the game: draw its 3D at a
+	# fraction of the screen resolution and let FSR upscale it. The stage
+	# still fills the frame (the camera and the viewport are unchanged),
+	# so the drift, the rim lights and the backdrop blur all behave.
+	viewport.scaling_3d_scale = PEDESTAL_SCALE
+	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 	# Golden hour in a quiet glade: a low warm sun, a dim dusky sky, warm fog
 	# that swallows the distance, and a cool fill so the hero still reads.
 	# It sits under dark, torch-lit menu chrome, so it must not be noon-bright.
@@ -3465,7 +3475,9 @@ func _split_hero(body: Node3D) -> void:
 	_hero_vp.world_3d = viewport.find_world_3d()
 	# The pedestal only needs a small silhouette of the hero, so render it at
 	# a fraction of the frame resolution instead of the full viewport size.
-	_hero_vp.scaling_3d_scale = 0.6
+	# It uses the pedestal's own scale, so the mask's edge lands exactly on
+	# the hero's outline now that the main pass is scaled the same way.
+	_hero_vp.scaling_3d_scale = PEDESTAL_SCALE
 	_hero_vp.scaling_3d_mode = SubViewport.SCALING_3D_MODE_FSR
 	_hero_vp.msaa_3d = Viewport.MSAA_DISABLED
 	_hero_vp.use_debanding = true
