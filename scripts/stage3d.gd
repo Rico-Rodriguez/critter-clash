@@ -2463,8 +2463,12 @@ func _sync_mob_decals(sim: RunSim, hero_at: Vector3) -> void:
 		var ring := lerpf(float(body.get_meta("ring", 0.0)), want, 0.12)
 		body.set_meta("ring", ring)
 		var size := float(body.get_meta("decal_size", 1.0))
-		var pos := body.position + Vector3(0, 0.03, 0)
-		mm.set_instance_transform(n, Transform3D(Basis.from_scale(Vector3(size, 1.0, size)), pos))
+		# Seat the decal on the terrain like _seat_ground does: height from
+		# the cached ground value plus the usual lift, and a slope-aligned
+		# basis so the ring lies down on bumps instead of floating or sinking.
+		var xz := Vector2(body.position.x, body.position.z)
+		var pos := Vector3(xz.x, float(_ground_at(xz)["h"]) + 0.03, xz.y)
+		mm.set_instance_transform(n, Transform3D(_ground_basis(xz) * Basis.from_scale(Vector3(size, 1.0, size)), pos))
 		mm.set_instance_custom_data(n, Color(ring, 1.0 - float(body.get_meta("fade", 0.0)), 0, 0))
 		n += 1
 	mm.visible_instance_count = n
