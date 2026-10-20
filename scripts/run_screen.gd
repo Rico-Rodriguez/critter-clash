@@ -4,6 +4,8 @@ extends ScreenBase
 ## Combat steps at a fixed 60Hz. The stick is sampled every displayed frame.
 
 const STEP := 1.0 / 60.0
+## The share of the hero's health below which the life bar reads as urgent.
+const LOW_HP := 0.3
 
 var biome_id := "meadow"
 var shade: TextureRect
@@ -81,6 +83,7 @@ var level_badge: UiKit.Badge
 var name_label: Label
 var hero_medal: UiKit.Medal
 var clock_label: Label
+var objective_label: Label
 var boss_label: Label
 var banner: Label
 var boss_card: BossNameCard
@@ -299,6 +302,24 @@ func _build_hud() -> void:
 	side.add_child(pause)
 	row.add_child(side)
 	top.add_child(row)
+	# The objective line: one short line telling the player what the hunt
+	# wants next (clear the camps, loot what is left, head for the lair,
+	# kill the boss). It sits under the hero plate in a centred plaque, so
+	# it reads as a task and not as another stat.
+	var objective_plate := UiKit.Plate.new()
+	objective_plate.kind = "plaque"
+	objective_plate.pad = 8
+	objective_plate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	objective_label = UiKit.label("", 22, UiKit.GOLD.lightened(0.2), "b", 3)
+	objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	objective_plate.add_child(objective_label)
+	var objective_row := HBoxContainer.new()
+	objective_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	objective_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	objective_row.add_child(objective_plate)
+	top.add_child(objective_row)
+	# Plate._ready sets PASS; put it back so the plaque never eats a touch.
+	objective_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var xp_row := HBoxContainer.new()
 	xp_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	xp_row.add_theme_constant_override("separation", 8)
@@ -582,10 +603,16 @@ func _hud() -> void:
 	if sim.heroes.is_empty():
 		return
 	var hero: RunSim.Actor = sim.heroes[0]
-	hp_meter.ratio = hero.hp / maxf(hero.max_hp, 1.0)
+	var hp_ratio := hero.hp / maxf(hero.max_hp, 1.0)
+	hp_meter.ratio = hp_ratio
+	# Under a third of the life left, the bar burns hot and breathes.
+	hp_meter.low = hp_ratio < LOW_HP
 	xp_meter.ratio = float(sim.xp) / float(maxi(sim.xp_need, 1))
 	var secs := int(sim.time)
 	clock_label.text = "%d:%02d" % [secs / 60, secs % 60]
+	var goal := _objective()
+	if objective_label.text != goal:
+		objective_label.text = goal
 	level_label.text = str(sim.level)
 	if level_badge.level != sim.level:
 		level_badge.level = sim.level
@@ -603,6 +630,43 @@ func _hud() -> void:
 		var boss_enraged := sim.boss.phase2
 		boss_label.text = sim.boss.display + ("   ENRAGED" if boss_enraged else "")
 		boss_label.modulate = Color("ff9a4a") if boss_enraged else Color.WHITE
+
+
+## What the hunt wants next, in one short line: clear the camps, loot what
+## is left, then head for the lair and kill the boss. The clock stays a
+## plain elapsed timer: an explore hunt has no deadline to show.
+func _objective() -> String:
+	if sim.result == "win":
+		return "Boss defeated" if sim.boss != null and not sim.boss.alive else "Hunt won"
+	if sim.phase == "boss":
+		return "Defeat the boss"
+	if not sim.explore:
+		# The arena hunt has waves first, then the boss walks in.
+		return "Survive until the boss comes"
+	if _camps_left() > 0:
+		return "Clear the camps"
+	if _chests_left() > 0:
+		return "Loot the chests"
+	return "Find the lair"
+
+
+## Camp members still standing on the explore map. Patrols carry a camp tag
+## of their own and the boss's adds carry none, so neither counts here.
+func _camps_left() -> int:
+	var left := 0
+	for a in sim.actors:
+		if a.alive and a.kind == "minion" and a.camp >= 0 and a.camp < sim.map.camps.size():
+			left += 1
+	return left
+
+
+## Loot chests still closed on the map.
+func _chests_left() -> int:
+	var left := 0
+	for c in sim.chests:
+		if not bool(c["open"]):
+			left += 1
+	return left
 
 
 func _drain() -> void:
@@ -2754,7 +2818,12 @@ class Meter extends Control:
 	var fill := Color("d8352a")
 	var segments := 1
 	var ornate := false
+	## Urgent: the bar is nearly spent, so it burns a hotter red and swells
+	## with a slow breath. The breath is off when Reduce Flashing is on.
+	var low := false
 	var _ghost := 1.0
+	## The breath's clock, for the low-life pulse.
+	var _pulse_t := 0.0
 	## Batched: the bar's ~15 polygons go out as one draw.
 	var _batch := CanvasBatch.new()
 
@@ -2767,7 +2836,13 @@ class Meter extends Control:
 			_ghost = maxf(ratio, _ghost - delta * 0.5)
 		else:
 			_ghost = ratio
+		_pulse_t += delta
 		queue_redraw()
+
+	## Reduce Flashing: the urgent breath is off, so a low life bar changes
+	## colour but never pulses.
+	func _flashing_reduced() -> bool:
+		return bool(AudioDirector.settings.get("reduce_flashing", false))
 
 	func _draw() -> void:
 		var b := _batch.begin(self)
@@ -2784,7 +2859,17 @@ class Meter extends Control:
 		var width := bar.size.x * clampf(ratio, 0.0, 1.0)
 		if width > bar.size.y * 0.6:
 			var fr := Rect2(bar.position, Vector2(width, bar.size.y))
-			b.ch_fill(fr, bar.size.y * 0.5, fill.lightened(0.25), fill.darkened(0.45))
+			var col := fill
+			if low:
+				# Urgent: the life burns a hotter red, and a slow breath
+				# breathes the glow around it (never a strobe).
+				col = fill.lerp(Color("ff5a2a"), 0.7)
+				var glow := 0.0
+				if not _flashing_reduced():
+					glow = 0.18 + 0.1 * sin(_pulse_t * 2.6)
+				for i in 3:
+					b.ch_fill(fr.grow(2.0 + i * 2.0), bar.size.y * 0.5 + 2.0 + i * 2.0, Color(col, glow / (i + 1)), Color(col, glow / (i + 1)))
+			b.ch_fill(fr, bar.size.y * 0.5, col.lightened(0.25), col.darkened(0.45))
 			b.ch_fill(Rect2(fr.position + Vector2(3, 1), Vector2(fr.size.x - 6, fr.size.y * 0.38)), fr.size.y * 0.2, Color(1, 1, 1, 0.32), Color(1, 1, 1, 0.0))
 		if segments > 1:
 			for i in range(1, segments):
