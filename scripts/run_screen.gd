@@ -3790,7 +3790,7 @@ class HintLayer extends Control:
 	var _tween: Tween
 
 	const TEXT := {
-		"move": "Drag anywhere to move.",
+		"move": "Drag on the lower part of the screen to move.",
 		"still": "Stand still to strike.",
 		"lair": "The lair is marked on your map. Tap the map to look.",
 		"loot": "Walk over gear to claim it.",
