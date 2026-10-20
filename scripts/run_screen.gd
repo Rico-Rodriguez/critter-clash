@@ -850,6 +850,7 @@ func _drain() -> void:
 				AudioDirector.sfx("chest_open")
 				AudioDirector.haptic("rare")
 			"goblin_escape":
+				_banner("The goblin slips away.")
 				_burst(ev.get("pos", Vector2.ZERO), Color("b7a06a"), 8, 120.0)
 				AudioDirector.sfx("goblin_escape")
 			"shield_break":
@@ -1025,6 +1026,11 @@ func _drain() -> void:
 				if ev.has("to"):
 					var to: Vector2 = ev.get("to", at)
 					_burst(at.lerp(to, 0.5), fx_col, 5, 130.0)
+				if fx == "goblin_spawn":
+					# The goblin is worth one line of text: it is a rare
+					# event, it is the biggest payout in the hunt, and a
+					# player who never learns it is there never chases it.
+					_banner("A treasure goblin darts out!")
 				# The loud abilities get their own voice; the rest share
 				# the generic chime. Every kind worth a voice of its
 				# own is listed, so a big ability never lands on the

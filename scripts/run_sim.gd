@@ -286,11 +286,19 @@ const SHRINE_SECONDS := 30.0
 const WARD_REGEN := 20.0
 const WARD_REGEN_TIME := 4.0
 ## Treasure goblin: one roll per hunt, then a short flight.
-## The chance a hunt holds a goblin at all: about one hunt in four.
+## The chance a hunt holds a goblin at all: about one hunt in three or four.
 const GOBLIN_CHANCE := 0.28
 ## How close the hero must come to the haunt for the goblin to show itself.
 ## The haunt is a clearing on the main trail, so the hunt walks past it.
 const GOBLIN_SIGHT := 900.0
+## How close the hero is to the haunt when the goblin appears at the haunt
+## itself. Past this the goblin dashes the rest of the way out of the brush,
+## so it always shows itself inside the camera's view.
+const GOBLIN_AT_HAUNT := 520.0
+## How far the goblin shows itself from the hero when it dashes out of the
+## brush: near enough to be on screen, far enough to be a chase.
+const GOBLIN_SHOW_NEAR := 300.0
+const GOBLIN_SHOW_FAR := 520.0
 ## A hero who never passes the haunt still meets the goblin: after this many
 ## seconds of the hunt it darts out of the brush beside them, so a hunt that
 ## rolled a goblin always pays one out.
@@ -3309,21 +3317,32 @@ func _step_explore(dt: float) -> void:
 		if bool(c["open"]) or hero.pos.distance_to(c["pos"]) > hero.radius + 56.0:
 			continue
 		_claim_chest(c, hero)
-	# The treasure goblin: this hunt rolled one (about one hunt in four) and
-	# it waits in its haunt until the hero comes close. The haunt is a
-	# clearing on the main trail, so the hunt walks past it. A hero who cuts
-	# across the woods still meets one: after a while it darts out of the
-	# brush beside them.
+	# The treasure goblin: this hunt rolled one (about one hunt in three or
+	# four) and it waits in its haunt until the hero comes close. The haunt
+	# is a clearing on the main trail, so the hunt walks past it. A hero who
+	# cuts across the woods still meets one: after a while it darts out of
+	# the brush beside them, so a hunt that rolled a goblin always shows one.
 	if goblin == null and not goblin_roll and goblin_present and phase == "hunt":
 		if map.goblin_at != Vector2.INF and hero.pos.distance_to(map.goblin_at) < GOBLIN_SIGHT:
 			goblin_roll = true
-			_spawn_goblin(_goblin_spot(map.goblin_at, hero.pos, 200.0, 300.0))
-		elif time >= GOBLIN_FALLBACK_AT and hero.pos.distance_to(map.goblin_at) > GOBLIN_SIGHT * 2.0:
+			# It shows itself where the hero can actually see it: standing
+			# in its haunt when the hero is close enough to read the
+			# clearing, otherwise the last dash out of the brush toward
+			# them. A goblin that pops in off-screen is a goblin nobody
+			# ever sees.
+			var gap := hero.pos.distance_to(map.goblin_at)
+			if gap <= GOBLIN_AT_HAUNT:
+				_spawn_goblin(_goblin_spot(map.goblin_at, hero.pos, 150.0, 280.0))
+			else:
+				_spawn_goblin(_goblin_spot(hero.pos, map.goblin_at, GOBLIN_SHOW_NEAR, GOBLIN_SHOW_FAR))
+		elif time >= GOBLIN_FALLBACK_AT:
 			# The hero never came near the haunt: they went another way
-			# entirely, so the goblin finds them instead.
+			# entirely, so the goblin finds them instead. This is the
+			# backstop for every hunt that rolled a goblin, so no hunt
+			# that holds one can end without the goblin ever showing.
 			goblin_roll = true
 			var side := hero.pos + Vector2.RIGHT.rotated(rng.randf() * TAU) * 600.0
-			_spawn_goblin(_goblin_spot(hero.pos, side, 520.0, 820.0))
+			_spawn_goblin(_goblin_spot(hero.pos, side, GOBLIN_SHOW_NEAR, GOBLIN_SHOW_FAR))
 	# The lair: walk in and the boss rises.
 	if phase == "hunt" and hero.pos.distance_to(map.lair) < map.lair_r * 0.72:
 		begin_boss()
