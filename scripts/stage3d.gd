@@ -3514,11 +3514,16 @@ func _open_around(hero: Vector3) -> void:
 	if camera != null and _mode == "hunt":
 		hs = camera.unproject_position(hero + Vector3(0, HERO_METERS * 0.4, 0))
 		reach = viewport.size.x * 0.24 if viewport != null else 280.0
+	# Occluders are measured against the camera, not the hero: a hero-side
+	# distance blinked rocks and rim trees out of the world as the player
+	# walked up to them. The camera is the one that can be crowded.
+	var cam_flat := Vector2.INF
+	if camera != null:
+		cam_flat = Vector2(camera.position.x, camera.position.z)
 	for node in _props:
 		var prop := node as Node3D
 		if prop == null:
 			continue
-		var flat := Vector2(prop.position.x - hero.x, prop.position.z - hero.z)
 		if bool(prop.get_meta("canopy", false)):
 			# Canopy fade: a tree whose crown covers the hero on screen
 			# eases to see-through instead of hiding the fight.
@@ -3534,6 +3539,8 @@ func _open_around(hero: Vector3) -> void:
 				for gi in prop.find_children("*", "GeometryInstance3D", true, false):
 					(gi as GeometryInstance3D).transparency = cur
 			continue
+		# Hide what crowds the lens and blocks the view of the fight.
+		var flat := cam_flat - Vector2(prop.position.x, prop.position.z)
 		prop.visible = flat.length() > 3.1
 
 
