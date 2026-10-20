@@ -424,9 +424,19 @@ func try_level(id: String) -> bool:
 func grant_reward(hero_id: String, slot: String, rarity: String) -> String:
 	var gear_slot := str({"armor": "chest"}.get(slot, slot))
 	var tier := int({"common": 1, "uncommon": 1, "rare": 2, "epic": 2, "legendary": 3}.get(rarity, 1))
+	var owned: Dictionary = GearDB._store()["owned"].get(hero_id, {})
 	for t in range(tier, 4):
 		var id := GearDB.item_id(hero_id, gear_slot, t)
-		if GearDB.is_item(id) and not GearDB.has(hero_id, id):
+		if not GearDB.is_item(id):
+			continue
+		var owns_any := false
+		for oid in owned:
+			if int(owned[oid]) > 0:
+				var p := GearDB._parse_id(str(oid))
+				if not p.is_empty() and p["slot"] == gear_slot and int(p["tier"]) == t:
+					owns_any = true
+					break
+		if not owns_any:
 			GearDB.grant(id)
 			return id
 	var fallback := GearDB.item_id(hero_id, gear_slot, tier)
@@ -1129,12 +1139,20 @@ func _cache_piece(hero_id: String, rng: RandomNumberGenerator) -> String:
 	var tier := _cache_tier(rng)
 	var best := ""
 	var best_rank := -1
+	var owned: Dictionary = GearDB._store()["owned"].get(hero_id, {})
 	for slot in GearDB.HERO_SLOTS.get(hero_id, []):
 		var slot_key := str(slot)
 		var bare := true
 		for t in range(GearDB.Tier.IRON, GearDB.Tier.STEEL + 1):
 			var id := GearDB.item_id(hero_id, slot_key, t)
-			if GearDB.has(hero_id, id):
+			var owns := false
+			for oid in owned:
+				if int(owned[oid]) > 0:
+					var p := GearDB._parse_id(str(oid))
+					if not p.is_empty() and p["slot"] == slot_key and int(p["tier"]) == t:
+						owns = true
+						break
+			if owns:
 				bare = false
 				continue
 			# Gift order: bare slot, on-roll tier, richer tier, kit order.
@@ -1263,9 +1281,19 @@ func _grant_boss_gear(drop: Dictionary, biome_id: String) -> Dictionary:
 		"legendary": GearDB.Tier.RUNE,
 	}.get(str(drop.get("gear_rarity", "common")), GearDB.Tier.IRON))
 	var cap := mini(wanted, LootTable.max_tier("boss", biome_idx))
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for t in range(cap, GearDB.Tier.IRON - 1, -1):
 		var id := GearDB.item_id(hero, gear_slot, t)
-		if GearDB.is_item(id) and not GearDB.has(hero, id):
+		if not GearDB.is_item(id):
+			continue
+		var owns_any := false
+		for oid in owned:
+			if int(owned[oid]) > 0:
+				var p := GearDB._parse_id(str(oid))
+				if not p.is_empty() and p["slot"] == gear_slot and int(p["tier"]) == t:
+					owns_any = true
+					break
+		if not owns_any:
 			GearDB.grant(id)
 			return {"kind": "gear", "id": id, "amount": 1}
 	return _bank_gear_piece(GearDB.item_id(hero, gear_slot, cap))
@@ -1396,10 +1424,18 @@ func _bank_gear_piece(id: String) -> Dictionary:
 	return {"kind": "shards", "id": id, "amount": GEAR_SHARDS[tier]}
 
 
-## True when hero already owns every GearDB item of a tier.
+## True when hero already owns every GearDB item of a tier (any rarity/affixes).
 func _owns_tier(hero: String, tier: int) -> bool:
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for slot in GearDB.HERO_SLOTS.get(hero, []):
-		if not GearDB.has(hero, GearDB.item_id(hero, str(slot), tier)):
+		var found := false
+		for id in owned:
+			if int(owned[id]) > 0:
+				var p := GearDB._parse_id(str(id))
+				if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+					found = true
+					break
+		if not found:
 			return false
 	return true
 
@@ -1438,10 +1474,20 @@ func forge_options(hero: String) -> Array:
 	if not GearDB.HERO_SLOTS.has(hero):
 		return out
 	var shards := int(data.get("gear_shards", 0))
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for tier in range(forge_cap(), GearDB.Tier.IRON - 1, -1):
 		for slot in GearDB.HERO_SLOTS[hero]:
 			var id := GearDB.item_id(hero, str(slot), tier)
-			if not GearDB.is_item(id) or GearDB.has(hero, id):
+			if not GearDB.is_item(id):
+				continue
+			var owns_any := false
+			for oid in owned:
+				if int(owned[oid]) > 0:
+					var p := GearDB._parse_id(str(oid))
+					if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+						owns_any = true
+						break
+			if owns_any:
 				continue
 			var cost := FORGE_COST[tier]
 			var reason := forge_skill_gate(hero, id)
@@ -1574,11 +1620,25 @@ func claim(id: String) -> bool:
 ## an array that reconciles in for old saves.
 
 ## Slots a hero has at a tier: owned (iron) or worn (blackened steel).
+## Counts any rarity/affix variant of the base tier item.
 func _kit_count(hero: String, tier: int, equipped: bool) -> int:
 	var count := 0
 	for slot in GearDB.HERO_SLOTS.get(hero, []):
-		var id := GearDB.item_id(hero, str(slot), tier)
-		var met := GearDB.slot_tier(hero, str(slot)) == tier if equipped else GearDB.has(hero, id)
+		var met := false
+		if equipped:
+			var eq_id: String = GearDB.equipped(hero).get(slot, "")
+			if eq_id != "":
+				var p := GearDB._parse_id(eq_id)
+				if not p.is_empty() and int(p["tier"]) == tier:
+					met = true
+		else:
+			var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
+			for id in owned:
+				if int(owned[id]) > 0:
+					var p := GearDB._parse_id(str(id))
+					if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+						met = true
+						break
 		if met:
 			count += 1
 	return count

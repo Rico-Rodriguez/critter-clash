@@ -143,15 +143,22 @@ const DEPTH_TIERS: Array = [
 	},
 ]
 
-## Flat list of all depth nodes for iteration.
-const DEPTH_NODES: Array = []
-for tier in DEPTH_TIERS:
-	for node in tier["nodes"]:
-		var n = node.duplicate()
-		n["tier"] = tier["id"]
-		n["depth"] = tier["depth"]
-		n["danger"] = tier["danger"]
-		DEPTH_NODES.append(n)
+## Flat list of all depth nodes for iteration. GDScript forbids executable
+## statements at class scope, so the list is assembled on first use and cached.
+static var _depth_nodes_cache: Array = []
+
+
+## All depth nodes, ordered by depth then skill.
+static func depth_nodes() -> Array:
+	if _depth_nodes_cache.is_empty():
+		for tier in DEPTH_TIERS:
+			for node in tier["nodes"]:
+				var n: Dictionary = (node as Dictionary).duplicate()
+				n["tier"] = tier["id"]
+				n["depth"] = tier["depth"]
+				n["danger"] = tier["danger"]
+				_depth_nodes_cache.append(n)
+	return _depth_nodes_cache
 
 
 # --- Lookups -----------------------------------------------------------------
@@ -268,7 +275,7 @@ static func depth_tier_ids() -> Array[String]:
 
 ## The depth node record, or {} for an unknown id.
 static func depth_node(id: String) -> Dictionary:
-	for entry in DEPTH_NODES:
+	for entry in depth_nodes():
 		if str(entry["id"]) == id:
 			return entry
 	return {}
@@ -277,14 +284,10 @@ static func depth_node(id: String) -> Dictionary:
 static func has_depth_node(id: String) -> bool:
 	return not depth_node(id).is_empty()
 
-## All depth nodes, ordered by depth then skill.
-static func depth_nodes() -> Array:
-	return DEPTH_NODES.duplicate()
-
 ## The depth nodes for one gathering skill, ordered by depth.
 static func depth_nodes_for_skill(skill: String) -> Array:
 	var out: Array = []
-	for entry in DEPTH_NODES:
+	for entry in depth_nodes():
 		if str(entry["skill"]) == skill:
 			out.append(entry)
 	return out
@@ -292,7 +295,7 @@ static func depth_nodes_for_skill(skill: String) -> Array:
 ## The depth nodes for one tier, ordered by skill.
 static func depth_nodes_for_tier(tier: String) -> Array:
 	var out: Array = []
-	for entry in DEPTH_NODES:
+	for entry in depth_nodes():
 		if str(entry["tier"]) == tier:
 			out.append(entry)
 	return out
