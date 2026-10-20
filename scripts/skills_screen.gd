@@ -453,9 +453,11 @@ func _confirm_sell_all() -> void:
 	var value := SaveGame.bag_value()
 	if value <= 0:
 		return
-	var sheet := ConfirmSheet.new()
-	sheet.total = value
-	sheet.items = SaveGame.bag_count()
+	var sheet := UiKit.ConfirmSheet.new()
+	sheet.heading = "Sell the bag?"
+	sheet.body = "%d materials for %d coins." % [SaveGame.bag_count(), value]
+	sheet.keep_text = "KEEP"
+	sheet.go_text = "SELL"
 	sheet.confirmed.connect(func() -> void:
 		sheet.queue_free()
 		var coins := SaveGame.sell_all_materials()
@@ -785,53 +787,6 @@ class MaterialIcon extends Control:
 				var edge := chunk.duplicate()
 				edge.append(chunk[0])
 				draw_polyline(edge, ink, 2.0, true)
-
-
-## A dimmed sheet over the page that asks once before a bulk sale: what goes,
-## what it pays, and the two ways out.
-class ConfirmSheet extends Control:
-	signal confirmed
-	signal cancelled
-	var total := 0
-	var items := 0
-
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_STOP
-		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		var dim := ColorRect.new()
-		dim.color = Color(0, 0, 0, 0.62)
-		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		dim.gui_input.connect(func(e: InputEvent) -> void:
-			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
-				cancelled.emit())
-		add_child(dim)
-		var center := CenterContainer.new()
-		center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		add_child(center)
-		var plate := UiKit.Plate.new()
-		plate.kind = "panel"
-		plate.pad = 24
-		center.add_child(plate)
-		var box := VBoxContainer.new()
-		box.add_theme_constant_override("separation", 14)
-		plate.add_child(box)
-		var title := UiKit.title("Sell the bag?", 40)
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(title)
-		var line := UiKit.label("%d materials for %d coins." % [items, total], 22, UiKit.CREAM, "b", 4)
-		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(line)
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 14)
-		box.add_child(row)
-		var keep := UiKit.secondary("KEEP", 240, 88)
-		keep.pressed.connect(func() -> void: cancelled.emit())
-		row.add_child(keep)
-		var sell := UiKit.confirm("SELL", 240, 88)
-		sell.pressed.connect(func() -> void: confirmed.emit())
-		row.add_child(sell)
 
 
 ## A forged medallion with a carved glyph for the skill. Every glyph is drawn

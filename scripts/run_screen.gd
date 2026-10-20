@@ -51,6 +51,9 @@ var _pick_latched := false
 ## True while the hunt pause panel is the open modal, so the back gesture can
 ## close it again instead of opening a second one.
 var _pause_up := false
+## The leave-hunt confirmation sheet, while it is up. Held so a back gesture
+## can take the sheet down instead of the pause panel behind it.
+var _leave_sheet: Control
 var minimap: MiniMap
 var hint_layer: HintLayer
 var dodge_btn: DodgeButton
@@ -89,6 +92,9 @@ var clock_label: Label
 var objective_label: Label
 var boss_label: Label
 var banner: Label
+## The banner's live fade tween. A new message kills the old one, or the
+## old tween keeps fading the new text out early.
+var _banner_tween: Tween
 var boss_card: BossNameCard
 var floats: Array = []
 var _jitter: Dictionary = {}
@@ -299,7 +305,7 @@ func _build_hud() -> void:
 	clock_label.custom_minimum_size = Vector2(70, 0)
 	clock_plate.add_child(clock_label)
 	side.add_child(clock_plate)
-	var pause := UiKit.icon_button("II", 64, "steel")
+	var pause := UiKit.icon_button("II", 88, "steel")
 	pause.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pause.pressed.connect(_pause)
 	side.add_child(pause)
@@ -965,10 +971,18 @@ func _drain() -> void:
 				AudioDirector.haptic("heavy")
 				AudioDirector.sting(true)
 				var reveal: Dictionary = summary.get("reveal", {})
-				if reveal.is_empty():
-					_show_victory(str(ev["name"]))
-				else:
-					_show_rare(reveal, str(ev["name"]))
+				var boss_name := str(ev["name"])
+				# Let the fall read before the card covers it: the death clip,
+				# the shake and the loot reveal all play under the panel
+				# otherwise. The same beat the defeat path waits, on a timer
+				# so the hunt keeps drawing (and answering) meanwhile.
+				get_tree().create_timer(1.3).timeout.connect(func() -> void:
+					if is_inside_tree():
+						if reveal.is_empty():
+							_show_victory(boss_name)
+						else:
+							_show_rare(reveal, boss_name)
+				)
 			"duel_win":
 				# A duel won: the rival team is down and the run is over.
 				# There is no duel end card yet, so the win is announced
@@ -1199,11 +1213,16 @@ func _hurt_flash() -> void:
 
 
 func _banner(text: String) -> void:
+	# A message that lands while the last one is still showing replaces it:
+	# the old tween would otherwise fade the new text out early.
+	if _banner_tween != null and _banner_tween.is_valid():
+		_banner_tween.kill()
 	banner.text = text
+	banner.visible = true
 	banner.modulate.a = 1.0
-	var tw := create_tween()
-	tw.tween_interval(0.85)
-	tw.tween_property(banner, "modulate:a", 0.0, 0.35)
+	_banner_tween = create_tween()
+	_banner_tween.tween_interval(0.85)
+	_banner_tween.tween_property(banner, "modulate:a", 0.0, 0.35)
 
 
 ## Rapid non-crit hits on one target fold into a single rising number: any
@@ -1561,6 +1580,7 @@ func _open_modal() -> void:
 	# The panel that opens is not the pause panel until it says so.
 	_pause_up = false
 	_end_stick()
+	_drop_leave_sheet()
 	_clear_modal()
 	# The insets can have moved since the screen was built (a rotation, a
 	# notch appearing), so read them again as the modal opens.
@@ -1574,8 +1594,16 @@ func _open_modal() -> void:
 func _close_modal() -> void:
 	_modal_up = false
 	_pause_up = false
+	_drop_leave_sheet()
 	modal.visible = false
 	_clear_modal()
+
+
+## Takes the leave sheet down (if it is up) and forgets it.
+func _drop_leave_sheet() -> void:
+	if is_instance_valid(_leave_sheet):
+		_leave_sheet.queue_free()
+	_leave_sheet = null
 
 
 ## The row of upgrade cards. `rebuild` is true when this row replaces a
@@ -1781,7 +1809,7 @@ func _show_rare(drop: Dictionary, boss_name: String) -> void:
 	var sub := UiKit.label("%s dropped something rare." % boss_name, 20, Color("ffe7b0"), "x", 4)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modal_box.add_child(sub)
-	var button := UiKit.button("LOVELY", 420, 80)
+	var button := UiKit.button("LOVELY", 420, 88)
 	button.pressed.connect(func() -> void:
 		if is_instance_valid(beam):
 			beam.queue_free()
@@ -2119,7 +2147,7 @@ func _show_defeat(reason: String) -> void:
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(func() -> void: go("home"))
 	col.add_child(button)
-	var again := UiKit.secondary("TRY AGAIN", 300, 64)
+	var again := UiKit.secondary("TRY AGAIN", 300, 88)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# A daily retries the same seeded hunt; a normal run rolls a fresh map.
 	again.pressed.connect(func() -> void: go("run", run_args if is_daily else {"biome": biome_id, "hero": hero_id, "tier": difficulty}))
@@ -2130,6 +2158,11 @@ func _show_defeat(reason: String) -> void:
 ## opens, so a stray gesture never throws the run away. With the panel
 ## already up the gesture closes it again (the usual stack order).
 func back() -> void:
+	if is_instance_valid(_leave_sheet):
+		# The leave sheet is up: the gesture takes the sheet down first, so
+		# the panel behind it stays and the hunt goes on.
+		_drop_leave_sheet()
+		return
 	if _pause_up:
 		_close_modal()
 		return
@@ -2149,11 +2182,11 @@ func _pause() -> void:
 	var hunt := _pause_skills_block()
 	if hunt != null:
 		modal_box.add_child(hunt)
-	var resume := UiKit.confirm("RESUME", 420, 84)
+	var resume := UiKit.confirm("RESUME", 420, 88)
 	resume.pressed.connect(_close_modal)
 	modal_box.add_child(resume)
-	var leave := UiKit.danger("LEAVE HUNT", 420, 72)
-	leave.pressed.connect(func() -> void: go("home"))
+	var leave := UiKit.danger("LEAVE HUNT", 420, 88)
+	leave.pressed.connect(_confirm_leave)
 	modal_box.add_child(leave)
 	# The settings are the tall part of the panel, so they get a scroll box
 	# of their own, like the settings screen: the rows keep their size and
@@ -2175,6 +2208,29 @@ func _pause() -> void:
 	pass_through(sc)
 	panel.child_entered_tree.connect(func(_n: Node) -> void: pass_through.call_deferred(sc))
 	_fit_pause_settings()
+
+
+## The LEAVE HUNT button asks first: walking out of a hunt throws the run
+## away. Nothing is banked when the player leaves (the run's XP, gear and
+## gathered materials are written when the hunt ends, on a win or a loss),
+## so the sheet says plainly that the hunt's earnings are lost. The panel
+## behind it stays up when the player backs out, and the hunt goes on.
+func _confirm_leave() -> void:
+	if is_instance_valid(_leave_sheet):
+		return
+	var sheet := UiKit.ConfirmSheet.new()
+	sheet.heading = "Leave the hunt?"
+	sheet.body = "The XP, gear and materials this hunt has earned are lost."
+	sheet.keep_text = "KEEP PLAYING"
+	sheet.go_text = "LEAVE"
+	sheet.go_danger = true
+	sheet.wide = 280
+	sheet.confirmed.connect(func() -> void:
+		_drop_leave_sheet()
+		go("home"))
+	sheet.cancelled.connect(func() -> void: _drop_leave_sheet())
+	_leave_sheet = sheet
+	modal.add_child(sheet)
 
 
 ## Give the pause panel's settings scroll the room that is left on screen.
