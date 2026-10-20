@@ -26,6 +26,8 @@ Around 68 seconds the minions leave and the biome boss arrives. It telegraphs ar
 
 On a win the boss rolls a drop table and you still bring a hunt chest home. The clear is saved as soon as the boss falls.
 
+Roughly one hunt in three or four holds a treasure goblin. It waits in a clearing on the main trail and darts out when you come close; if you never walk past its haunt, it still finds you a little way into the hunt, so a hunt that rolls a goblin always shows one. It never fights, it runs, and it tires as it goes, so a chase you keep is a chase you win. Catch it and its hoard is the biggest payout in the hunt: three pieces of gear, a silver chest, and a burst of coins.
+
 ## Boss drops
 
 Each boss has a weighted table of common, uncommon, rare, and very rare loot: coins, critter cards, gear, and crafting materials. A boss pet is a separate roll at 1/50 (`Catalog.PET_RATE`). Pets are cosmetic. The active pet follows your hero in a hunt and does not fight. A pet or a very rare drop plays a gold beam and a fanfare before the loot list.

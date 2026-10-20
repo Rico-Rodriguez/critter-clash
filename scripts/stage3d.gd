@@ -1517,6 +1517,22 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 			# per critter costs a draw per split for little gain on phones.
 			for gi in body.find_children("*", "GeometryInstance3D", true, false):
 				(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if actor.goblin:
+		# The treasure goblin wears a gold ring on the ground: a green
+		# critter running for its life still reads as the goblin across a
+		# clearing, and the ring is the one mark that says so.
+		var hoard := _decal(meters * 1.2, {
+			"ring_color": Color(0.98, 0.8, 0.34, 0.6),
+			"ring_radius": 0.34,
+			"ring_width": 0.018,
+			"ring_glow": 0.55,
+			"shadow_alpha": 0.0,
+			"shadow_radius": 0.34,
+			"pulse": 0.5,
+			"ring_fade": 1.0,
+		})
+		hoard.position.y = 0.03
+		body.add_child(hoard)
 	if actor.kind == "boss":
 		# The boss gets its own soft contact shadow. Its threat ring is a thin,
 		# soft, low-opacity line that fades in only when the critter is close
