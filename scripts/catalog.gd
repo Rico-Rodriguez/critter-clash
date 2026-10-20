@@ -372,9 +372,9 @@ const TIER_COUNT := 3
 const TIER_NAMES: Array[String] = ["Normal", "Veteran", "Nightmare"]
 const TIER_KEYS: Array[String] = ["normal", "veteran", "nightmare"]
 const TIER_MUL: Array = [
-	{"hp": 1.0, "dmg": 1.0, "density": 1.0, "elite": 0.0, "loot": 0, "xp": 1.0},
-	{"hp": 1.35, "dmg": 1.2, "density": 1.18, "elite": 0.1, "loot": 1, "xp": 1.5},
-	{"hp": 1.8, "dmg": 1.45, "density": 1.35, "elite": 0.22, "loot": 2, "xp": 2.25},
+	{"hp": 1.0, "dmg": 1.0, "density": 1.0, "elite": 0.0, "loot": 0, "xp": 1.0, "aggro": 1.0},
+	{"hp": 1.35, "dmg": 1.2, "density": 1.18, "elite": 0.1, "loot": 1, "xp": 1.5, "aggro": 1.25},
+	{"hp": 1.8, "dmg": 1.45, "density": 1.35, "elite": 0.22, "loot": 2, "xp": 2.25, "aggro": 1.55},
 ]
 
 
@@ -384,6 +384,96 @@ static func tier_mul(tier: int) -> Dictionary:
 
 static func tier_name(tier: int) -> String:
 	return TIER_NAMES[clampi(tier, 0, TIER_COUNT - 1)]
+
+
+## Intra-tier depth scaling (0.0 at biome start, 1.0 at boss lair).
+## HP scales more aggressively than damage so depth feels like endurance.
+## Aggro radius grows with depth so Abyss monsters hunt the player.
+const DEPTH_HP_CURVE := 1.6
+const DEPTH_DMG_CURVE := 0.7
+const DEPTH_AGGRO_CURVE := 0.5
+const DEPTH_XP_CURVE := 0.6
+
+## Returns the combined multiplier for a given tier and depth (0..1).
+## tier_mul provides the baseline; depth adds intra-tier progression.
+static func depth_mul(tier: int, depth: float) -> Dictionary:
+	var t := tier_mul(tier)
+	var d := clampf(depth, 0.0, 1.0)
+	return {
+		"hp": t["hp"] * (1.0 + d * DEPTH_HP_CURVE),
+		"dmg": t["dmg"] * (1.0 + d * DEPTH_DMG_CURVE),
+		"aggro": t["aggro"] * (1.0 + d * DEPTH_AGGRO_CURVE),
+		"xp": t["xp"] * (1.0 + d * DEPTH_XP_CURVE),
+		"density": t["density"],
+		"elite": t["elite"],
+		"loot": t["loot"],
+	}
+
+
+## Aggro radius multiplier for a tier (Abyss monsters hunt the player).
+static func aggro_mul(tier: int) -> float:
+	return tier_mul(tier)["aggro"]
+
+
+## Returns base stats for a critter scaled by tier and depth (0..1).
+## Uses the critter's own tier_hp, tier_dmg, depth_hp, depth_dmg, aggro params.
+static func scaled_stats(id: String, tier: int, depth: float) -> Dictionary:
+	var c := critter(id)
+	if c.is_empty():
+		return {}
+	var dm := depth_mul(tier, depth)
+	var tier_hp := float(c.get("tier_hp", 1.0))
+	var tier_dmg := float(c.get("tier_dmg", 1.0))
+	var depth_hp := float(c.get("depth_hp", 1.0))
+	var depth_dmg := float(c.get("depth_dmg", 1.0))
+	var aggro := float(c.get("aggro", 1.0))
+	return {
+		"hp": float(c.get("hp", 100)) * dm["hp"] * tier_hp * depth_hp,
+		"dmg": float(c.get("dmg", 10)) * dm["dmg"] * tier_dmg * depth_dmg,
+		"interval": float(c.get("interval", 0.5)),
+		"range": float(c.get("range", 200)),
+		"speed": float(c.get("speed", 240)),
+		"armor": float(c.get("armor", 0)),
+		"regen": 0.0,
+		"crit": 0.05,
+		"crit_mult": 1.8,
+		"splash": float(c.get("splash", 0)),
+		"splash_mul": float(c.get("splash_mul", 0.62)),
+		"pierce": 0,
+		"bounce": 0,
+		"shots": 0,
+		"thorns": 0.0,
+		"bash": 0,
+		"magnet": 56.0,
+		"siphon": 0.0,
+		"revive": 0,
+		"proj_speed": float(c.get("proj_speed", 520)),
+		"orbit": 0,
+		"chain": 0,
+		"trail": 0,
+		"nova": 0,
+		"crit_siphon": 0.0,
+		"aura": 0,
+		"ricochet": 0.0,
+		"execute": 0.0,
+		"blink": 0,
+		"wolf": 0,
+		"static": 0,
+		"gemburst": 0,
+		"vampkill": 0.0,
+		"berserk": 0.0,
+		"meteor": 0,
+		"split": 0,
+		"volley": 0,
+		"mark": 0.0,
+		"quake": 0,
+		"bulwark": 0.0,
+		"taunt": 0,
+		"phoenix": 0,
+		"storm": 0,
+		"aggro_radius": float(c.get("radius", 24)) * dm["aggro"] * aggro,
+		"xp": int(c.get("xp", 1)) * dm["xp"],
+	}
 
 
 ## The combat level a map is tuned for; the map picker reads this and Normal
@@ -583,6 +673,7 @@ const CRITTERS: Dictionary = {
 		"boss_hp": 1600, "boss_speed": 74, "boss_radius": 78, "boss_touch": 15,
 		"aoe": 24, "charge": 30, "shot": 11,
 		"bias_charge": 0.46, "bias_aoe": 0.34,
+		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
 	},
 	"caplet": {
 		"name": "Nightmaw", "role": "mage", "kind": "boss", "color": "d45ad0",
@@ -593,6 +684,7 @@ const CRITTERS: Dictionary = {
 		"boss_hp": 1500, "boss_speed": 64, "boss_radius": 80, "boss_touch": 15,
 		"aoe": 26, "charge": 26, "shot": 12,
 		"bias_charge": 0.16, "bias_aoe": 0.40,
+		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
 	},
 	"nimbus": {
 		"name": "Nimbus", "role": "archer", "kind": "boss", "color": "d7e7f6",
@@ -603,6 +695,7 @@ const CRITTERS: Dictionary = {
 		"boss_hp": 1420, "boss_speed": 92, "boss_radius": 70, "boss_touch": 14,
 		"aoe": 22, "charge": 28, "shot": 12,
 		"bias_charge": 0.40, "bias_aoe": 0.22,
+		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
 	},
 	"cinder": {
 		"name": "Cinder", "role": "mage", "kind": "boss", "color": "ff5a32",
@@ -613,23 +706,24 @@ const CRITTERS: Dictionary = {
 		"boss_hp": 1680, "boss_speed": 68, "boss_radius": 82, "boss_touch": 18,
 		"aoe": 28, "charge": 32, "shot": 13,
 		"bias_charge": 0.22, "bias_aoe": 0.50,
+		"tier_hp": 1.2, "tier_dmg": 1.15, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.3,
 	},
-	"sprout": {"name": "Rot Badger", "kind": "minion", "archetype": "chaser", "color": "67b85a", "hp": 28, "dmg": 7, "speed": 96, "radius": 24, "xp": 2},
-	"beetle": {"name": "Barrow Scarab", "kind": "minion", "archetype": "runner", "color": "d2a03a", "hp": 38, "dmg": 8, "speed": 128, "radius": 22, "xp": 3},
-	"moth": {"name": "Grave Moth", "kind": "minion", "archetype": "shooter", "color": "f0e2b0", "hp": 22, "dmg": 7, "speed": 72, "radius": 22, "xp": 3, "interval": 1.55, "shot_speed": 200, "shot_range": 250},
-	"boarlet": {"name": "Grave Bear", "kind": "minion", "archetype": "brute", "color": "c47858", "hp": 78, "dmg": 11, "speed": 88, "radius": 30, "xp": 5},
-	"capling": {"name": "Mossback", "kind": "minion", "archetype": "chaser", "color": "d85a8a", "hp": 32, "dmg": 8, "speed": 100, "radius": 24, "xp": 2},
-	"spore": {"name": "Blight Skitterer", "kind": "minion", "archetype": "runner", "color": "c9b6ef", "hp": 40, "dmg": 9, "speed": 150, "radius": 22, "xp": 3},
-	"glowmoth": {"name": "Blight Moth", "kind": "minion", "archetype": "shooter", "color": "8ef0c8", "hp": 30, "dmg": 9, "speed": 76, "radius": 22, "xp": 3, "interval": 1.3, "shot_speed": 235, "shot_range": 290},
-	"puddle": {"name": "Blight Troll", "kind": "minion", "archetype": "brute", "color": "6a8f4e", "hp": 96, "dmg": 13, "speed": 90, "radius": 32, "xp": 5},
-	"snowpup": {"name": "Rime Stalker", "kind": "minion", "archetype": "chaser", "color": "e7f2fb", "hp": 34, "dmg": 8, "speed": 108, "radius": 24, "xp": 2},
-	"shard": {"name": "Ice Wraith", "kind": "minion", "archetype": "runner", "color": "9fd4ef", "hp": 44, "dmg": 10, "speed": 156, "radius": 22, "xp": 3},
-	"icewisp": {"name": "Frostcaller", "kind": "minion", "archetype": "shooter", "color": "d5f4ff", "hp": 30, "dmg": 10, "speed": 80, "radius": 22, "xp": 3, "interval": 1.25, "shot_speed": 250, "shot_range": 300},
-	"yeti": {"name": "Yeti", "kind": "minion", "archetype": "brute", "color": "f7f7fb", "hp": 110, "dmg": 14, "speed": 88, "radius": 34, "xp": 5},
-	"cindling": {"name": "Ash Wyrmling", "kind": "minion", "archetype": "chaser", "color": "ff8a3c", "hp": 34, "dmg": 9, "speed": 110, "radius": 24, "xp": 2},
-	"skink": {"name": "Ashrunner", "kind": "minion", "archetype": "runner", "color": "e25b2a", "hp": 46, "dmg": 10, "speed": 160, "radius": 22, "xp": 3},
-	"ashbat": {"name": "Ashbat", "kind": "minion", "archetype": "shooter", "color": "6a534c", "hp": 32, "dmg": 11, "speed": 84, "radius": 22, "xp": 3, "interval": 1.2, "shot_speed": 255, "shot_range": 300},
-	"magmash": {"name": "Magma Behemoth", "kind": "minion", "archetype": "brute", "color": "ff5a2a", "hp": 120, "dmg": 15, "speed": 86, "radius": 34, "xp": 5},
+	"sprout": {"name": "Rot Badger", "kind": "minion", "archetype": "chaser", "color": "67b85a", "hp": 28, "dmg": 7, "speed": 96, "radius": 24, "xp": 2, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
+	"beetle": {"name": "Barrow Scarab", "kind": "minion", "archetype": "runner", "color": "d2a03a", "hp": 38, "dmg": 8, "speed": 128, "radius": 22, "xp": 3, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
+	"moth": {"name": "Grave Moth", "kind": "minion", "archetype": "shooter", "color": "f0e2b0", "hp": 22, "dmg": 7, "speed": 72, "radius": 22, "xp": 3, "interval": 1.55, "shot_speed": 200, "shot_range": 250, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.2},
+	"boarlet": {"name": "Grave Bear", "kind": "minion", "archetype": "brute", "color": "c47858", "hp": 78, "dmg": 11, "speed": 88, "radius": 30, "xp": 5, "tier_hp": 1.15, "tier_dmg": 1.1, "depth_hp": 1.1, "depth_dmg": 1.05, "aggro": 1.1},
+	"capling": {"name": "Mossback", "kind": "minion", "archetype": "chaser", "color": "d85a8a", "hp": 32, "dmg": 8, "speed": 100, "radius": 24, "xp": 2, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
+	"spore": {"name": "Blight Skitterer", "kind": "minion", "archetype": "runner", "color": "c9b6ef", "hp": 40, "dmg": 9, "speed": 150, "radius": 22, "xp": 3, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.15},
+	"glowmoth": {"name": "Blight Moth", "kind": "minion", "archetype": "shooter", "color": "8ef0c8", "hp": 30, "dmg": 9, "speed": 76, "radius": 22, "xp": 3, "interval": 1.3, "shot_speed": 235, "shot_range": 290, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.2},
+	"puddle": {"name": "Blight Troll", "kind": "minion", "archetype": "brute", "color": "6a8f4e", "hp": 96, "dmg": 13, "speed": 90, "radius": 32, "xp": 5, "tier_hp": 1.15, "tier_dmg": 1.1, "depth_hp": 1.1, "depth_dmg": 1.05, "aggro": 1.1},
+	"snowpup": {"name": "Rime Stalker", "kind": "minion", "archetype": "chaser", "color": "e7f2fb", "hp": 34, "dmg": 8, "speed": 108, "radius": 24, "xp": 2, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
+	"shard": {"name": "Ice Wraith", "kind": "minion", "archetype": "runner", "color": "9fd4ef", "hp": 44, "dmg": 10, "speed": 156, "radius": 22, "xp": 3, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.15},
+	"icewisp": {"name": "Frostcaller", "kind": "minion", "archetype": "shooter", "color": "d5f4ff", "hp": 30, "dmg": 10, "speed": 80, "radius": 22, "xp": 3, "interval": 1.25, "shot_speed": 250, "shot_range": 300, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.2},
+	"yeti": {"name": "Yeti", "kind": "minion", "archetype": "brute", "color": "f7f7fb", "hp": 110, "dmg": 14, "speed": 88, "radius": 34, "xp": 5, "tier_hp": 1.15, "tier_dmg": 1.1, "depth_hp": 1.1, "depth_dmg": 1.05, "aggro": 1.1},
+	"cindling": {"name": "Ash Wyrmling", "kind": "minion", "archetype": "chaser", "color": "ff8a3c", "hp": 34, "dmg": 9, "speed": 110, "radius": 24, "xp": 2, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.0},
+	"skink": {"name": "Ashrunner", "kind": "minion", "archetype": "runner", "color": "e25b2a", "hp": 46, "dmg": 10, "speed": 160, "radius": 22, "xp": 3, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.15},
+	"ashbat": {"name": "Ashbat", "kind": "minion", "archetype": "shooter", "color": "6a534c", "hp": 32, "dmg": 11, "speed": 84, "radius": 22, "xp": 3, "interval": 1.2, "shot_speed": 255, "shot_range": 300, "tier_hp": 1.0, "tier_dmg": 1.0, "depth_hp": 1.0, "depth_dmg": 1.0, "aggro": 1.2},
+	"magmash": {"name": "Magma Behemoth", "kind": "minion", "archetype": "brute", "color": "ff5a2a", "hp": 120, "dmg": 15, "speed": 86, "radius": 34, "xp": 5, "tier_hp": 1.15, "tier_dmg": 1.1, "depth_hp": 1.1, "depth_dmg": 1.05, "aggro": 1.1},
 }
 
 
