@@ -2924,11 +2924,11 @@ static func _tmp_time(label: String = "") -> void:
 ## one tier the owned-out rerolls keep duplicates well under the uniform rate.
 static func _gear_loot_rates() -> void:
 	GearDB.store_override = {}
-	var run_hero := "ember"
+	var run_hero := "sorceress"
 	## The hero owns everything except two tier-2 slots: a tier-2 pick should
 	## end owned only if all four uniform slot attempts miss the two holes
 	## (about 1 - (6/8)^4 of such picks), versus 6/8 without preference.
-	var unowned := ["ember.helm.2", "ember.boots.2"]
+	var unowned := ["sorceress.helm.2", "sorceress.boots.2"]
 	for id in GearDB.all_items():
 		if str(id) in unowned:
 			continue
@@ -2971,8 +2971,8 @@ static func _gear_loot_rates() -> void:
 					if not GearDB.is_item(sid) or not (str(parts[1]) in GearDB.HERO_SLOTS[str(parts[0])]):
 						_fail("%s is not a real item on a legal slot" % sid)
 						continue
-					if str(parts[1]) == "offhand" and str(parts[0]) == "lumen":
-						_fail("Gnash rolled an offhand piece")
+					if str(parts[1]) == "offhand" and str(parts[0]) == "sorceress":
+						_fail("Sorceress rolled an offhand piece")
 					if str(parts[0]) == run_hero:
 						hero_kept += 1
 						if int(parts[2]) == 2:
@@ -3118,7 +3118,7 @@ static func _gear_duplicates_check() -> void:
 	# Banking a run twice pays once.
 	var sim := RunSim.new()
 	sim.result = "win"
-	sim.gear_found.assign(["pebble.helm.1", "pebble.helm.1"])
+	sim.gear_found.assign(["paladin.helm.1", "paladin.helm.1"])
 	var first: Array = sim.bank_gear()
 	var wallet := int(SaveGame.data["gear_shards"])
 	var coins_now := int(SaveGame.data["coins"])
@@ -3416,7 +3416,7 @@ static func _gear_bank() -> void:
 	GearDB.store_override = {}
 	SaveGame.no_write = true
 	var snapshot: Dictionary = SaveGame.data.duplicate(true)
-	var ids: Array[String] = ["pebble.helm.1", "pebble.chest.1", "pebble.weapon.2", "pebble.boots.1", "ember.charm.1"]
+	var ids: Array[String] = ["paladin.helm.1", "paladin.chest.1", "paladin.weapon.2", "paladin.boots.1", "sorceress.charm.1"]
 	var win := RunSim.new()
 	win.result = "win"
 	for id in ids:
@@ -3435,8 +3435,8 @@ static func _gear_bank() -> void:
 		_fail("a loss did not keep the earliest floor-half: %s" % str(kept))
 	if lose.bank_gear().size() != 0 or _owned_total() != ids.size() / 2:
 		_fail("a repeat loss bank call changed the armory")
-	for late in ["pebble.weapon.2", "pebble.boots.1", "ember.charm.1"]:
-		if GearDB.has("pebble", late) or GearDB.has("ember", late):
+	for late in ["paladin.weapon.2", "paladin.boots.1", "sorceress.charm.1"]:
+		if GearDB.has("paladin", late) or GearDB.has("sorceress", late):
 			_fail("a banked loss kept the tail piece %s" % late)
 	if SaveGame.data != snapshot or GearDB.store_override == null:
 		_fail("banking wrote the real save")
