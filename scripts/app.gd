@@ -9,6 +9,7 @@ const SCREENS := {
 	"log": preload("res://scripts/log_screen.gd"),
 	"slayer": preload("res://scripts/slayer_screen.gd"),
 	"skills": preload("res://scripts/skills_screen.gd"),
+	"stash": preload("res://scripts/stash_screen.gd"),
 	"forge": preload("res://scripts/forge_screen.gd"),
 	"credits": preload("res://scripts/credits_screen.gd"),
 	"settings": preload("res://scripts/settings_screen.gd"),

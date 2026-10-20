@@ -40,6 +40,8 @@ The slayer master offers tasks such as "Defeat 40 Meadow critters" or "Defeat Gr
 
 Woodcutting, Fishing and Mining are saved as XP for the account. Levels run from 1 to 99 on the same curve as Old School RuneScape (83 XP to reach level 2, 13,034,431 XP to reach level 99). Gathering is still being built: the worlds now carry resource nodes, walking up to one works it for XP and materials, and the skills screen's Gathering tab shows the account's levels and the XP toward the next one. The materials it pays, and the boss materials, share one bag: the Skills screen has a Materials tab that lists them and sells them for a few coins each. The contract is in `docs/gathering.md`.
 
+The bag is the sell pile, so what you want to keep has its own place: the Hub stash. The Stash tile on Home (or the STASH button under the bag) parks a stack out of reach of the sell button, and takes it back when you want it. The contract is in `docs/stash.md`.
+
 ## Heroes
 
 | Critter | Role | How you get them |
