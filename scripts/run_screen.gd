@@ -943,10 +943,18 @@ func _drain() -> void:
 				AudioDirector.haptic("heavy")
 				AudioDirector.sting(true)
 				var reveal: Dictionary = summary.get("reveal", {})
-				if reveal.is_empty():
-					_show_victory(str(ev["name"]))
-				else:
-					_show_rare(reveal, str(ev["name"]))
+				var boss_name := str(ev["name"])
+				# Let the fall read before the card covers it: the death clip,
+				# the shake and the loot reveal all play under the panel
+				# otherwise. The same beat the defeat path waits, on a timer
+				# so the hunt keeps drawing (and answering) meanwhile.
+				get_tree().create_timer(1.3).timeout.connect(func() -> void:
+					if is_inside_tree():
+						if reveal.is_empty():
+							_show_victory(boss_name)
+						else:
+							_show_rare(reveal, boss_name)
+				)
 			"duel_win":
 				# A duel won: the rival team is down and the run is over.
 				# There is no duel end card yet, so the win is announced
