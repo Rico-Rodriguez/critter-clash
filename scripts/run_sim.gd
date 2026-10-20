@@ -176,8 +176,22 @@ var gather_drops: Array = []
 ## Gathering rolls use their own stream, seeded from the run seed (xor
 ## constant) in start(), so working a node never perturbs the loot rolls.
 var gather_rng := RandomNumberGenerator.new()
+## The world layout (where the depth nodes stand) has its own stream too, so
+## placing them never shifts the rolls the run already made.
+var _layout_rng := RandomNumberGenerator.new()
 ## Node id -> the sim time it can be worked again (its respawn).
 var _gather_ready_at := {}
+## Node id -> how many gathers it still pays before it is spent. A node that
+## has run out waits out its respawn and comes back whole.
+var _gather_charges := {}
+## Node id -> where it stands in the world.
+var _gather_pos := {}
+## Node id -> the node record itself, so the per-frame gate does not walk
+## the whole database every step.
+var _gather_records := {}
+## Hero id -> the combat standing the hero brings to a node. It never moves
+## during a run: the combat XP is banked at the end of it.
+var _gather_standing := {}
 ## Node id -> the sim time it last said what it needs (a locked node).
 var _gather_notice_at := {}
 ## The account's gathering XP and levels when the run started, so a level
@@ -197,6 +211,9 @@ const GATHER_REACH := 70.0
 ## sim seconds. The hero can stand on a locked node, so the refusal is rate
 ## limited: it is said when the player walks up, not once a frame.
 const GATHER_NOTICE_COOLDOWN := 10.0
+## How long a hero must stand still at a node before the work starts, in sim
+## seconds. A brush past the node is not a gather.
+const GATHER_PLANT := 0.15
 var boss_mark := 0
 ## True once the boss has opened with its first attack; only that first
 ## telegraph waits until the boss shares the hero's view.
@@ -425,6 +442,12 @@ class Actor extends RefCounted:
 	var side_dir := Vector2.ZERO
 	## Seconds since the stick was released (0 while moving).
 	var still := 0.0
+	## Gathering: the node the hero is working, the time into the channel and
+	## how long the whole thing takes. An empty node id means the hero is
+	## working nothing.
+	var gather_node := ""
+	var gather_t := 0.0
+	var gather_need := 0.0
 	# Dodge roll: cooldown left, dash time left, dash heading.
 	var dodge_cd := 0.0
 	var dodge_t := 0.0
@@ -533,6 +556,7 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	rng.seed = run_seed
 	loot_rng.seed = run_seed ^ 0x6EA2
 	gather_rng.seed = run_seed ^ 0x6EA3
+	_layout_rng.seed = run_seed ^ 0x6EA4
 	mode = session.mode
 	biome_id = session.biome_id
 	biome = Catalog.biome(biome_id)
@@ -698,12 +722,19 @@ func _begin_gathering_tracking() -> void:
 	_gather_drop_total = {}
 	_gather_drop_time = {}
 	_gather_notice_at = {}
+	_gather_standing = {}
 	for entry in Catalog.SKILLS:
 		var id := str(entry["id"])
 		var held := SaveGame.gathering_xp(id)
 		_gather_base_xp[id] = held
 		_gather_level[id] = Catalog.skill_level(held)
 		_gather_level_at_start[id] = Catalog.skill_level(held)
+	# The combat standing of the heroes, read once: the depth tiers are
+	# gated by it and the combat XP is banked at the end of the run, so it
+	# never moves under a run.
+	for hero in heroes:
+		if hero.team == 0:
+			_gather_standing[hero.id] = _combat_level(hero)
 
 
 ## Emits xp_drop events for the XP a skill has earned since its last drop. A
@@ -2424,6 +2455,9 @@ func _hurt(target: Actor, amount: float, from_pos: Vector2, crit: bool, attacker
 		# landed it: taking a hit is never a shield.
 		target.post_hit_iframes = POST_HIT_IFRAMES
 		target.post_hit_src = src
+		# A hit breaks the work: the channel is lost, and the node keeps its
+		# charges, so the gather has to be started again.
+		_cancel_gather(target, "hurt")
 		events.append({
 			"type": "hero_hurt",
 			"pos": target.pos,
@@ -2499,6 +2533,8 @@ func _kill(actor: Actor) -> void:
 		"kind": actor.kind,
 	})
 	if actor.kind == "hero":
+		# The work dies with the hero: the node keeps its charges.
+		_cancel_gather(actor, "down")
 		var stats: Dictionary = actor.stats
 		if int(stats.get("revive", 0)) > 0 and not revive_spent and actor.team == 0:
 			revive_spent = true
@@ -3136,8 +3172,99 @@ func _spawn_world() -> void:
 	gather_nodes.clear()
 	for g in map.gathering:
 		gather_nodes.append({"node": str(g["node"]), "pos": g["pos"]})
+	# The depth tiers stand in the depths, not the biomes: each tier's nodes
+	# go into the part of the map that matches its depth.
+	_lay_depth_gathering()
+	_gather_pos.clear()
+	_gather_charges.clear()
+	_gather_records.clear()
+	for entry in gather_nodes:
+		var gid := str(entry["node"])
+		_gather_pos[gid] = entry["pos"]
+		_gather_records[gid] = GatheringDB.record(gid)
+		_gather_charges[gid] = GatheringRules.charges_for(_gather_records[gid])
 	goblin = null
 	goblin_roll = false
+
+
+## The depth tiers stand in the depths, not the biomes: each tier's nodes go
+## into the part of the map that matches its depth, so the deeper the tier,
+## the further up the trail its nodes sit. The tier data is in
+## GatheringDB.DEPTH_TIERS; the map lays out the biome's own nodes.
+func _lay_depth_gathering() -> void:
+	if map == null:
+		return
+	var areas: Array = []
+	for i in map.nodes.size():
+		var area: Dictionary = map.nodes[i]
+		var kind := str(area["kind"])
+		# The lair is the boss's ground and the start is the hero's: neither
+		# carries a resource node.
+		if kind == "lair" or kind == "start":
+			continue
+		var at: Vector2 = area["pos"]
+		areas.append({"i": i, "d": _depth_at(at.y), "used": false})
+	if areas.is_empty():
+		return
+	areas.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
+	var tiers: Array = GatheringDB.DEPTH_TIERS
+	var last := maxi(tiers.size() - 1, 1)
+	for t in tiers.size():
+		var tier: Dictionary = tiers[t]
+		# The area whose depth is closest to the tier's own.
+		var want := float(t) / float(last)
+		var best := -1
+		var best_d := 1e9
+		for k in areas.size():
+			var entry: Dictionary = areas[k]
+			if bool(entry["used"]):
+				continue
+			var diff: float = absf(float(entry["d"]) - want)
+			if diff < best_d:
+				best_d = diff
+				best = k
+		if best < 0:
+			break
+		var picked: Dictionary = areas[best]
+		picked["used"] = true
+		var area: Dictionary = map.nodes[int(picked["i"])]
+		for node in tier["nodes"]:
+			gather_nodes.append({"node": str(node["id"]), "pos": _depth_gathering_spot(area)})
+
+
+## A free spot inside an area for a depth node: away from the camps, the
+## chests, the landmarks and the other resource nodes.
+func _depth_gathering_spot(area: Dictionary) -> Vector2:
+	var centre: Vector2 = area["pos"]
+	var r: float = area["r"]
+	var at := centre
+	for k in 10:
+		at = centre + Vector2.RIGHT.rotated(_layout_rng.randf() * TAU) * r * _layout_rng.randf_range(0.3, 0.72)
+		if _spot_free(at):
+			break
+	return at
+
+
+## True when a spot is clear of the camps, the chests, the landmarks and the
+## resource nodes already standing there.
+func _spot_free(at: Vector2) -> bool:
+	for c in map.camps:
+		var cp: Vector2 = c["pos"]
+		if at.distance_to(cp) < 150.0:
+			return false
+	for c in map.loot:
+		var lp: Vector2 = c["pos"]
+		if at.distance_to(lp) < 140.0:
+			return false
+	for l in map.landmarks:
+		var lpos: Vector2 = l["pos"]
+		if at.distance_to(lpos) < 110.0:
+			return false
+	for entry in gather_nodes:
+		var gp: Vector2 = entry["pos"]
+		if at.distance_to(gp) < 120.0:
+			return false
+	return true
 
 
 ## Stamps a camp's affixes onto its leader alone: the affix is the camp's
@@ -3558,40 +3685,60 @@ func _commit_skill_xp() -> void:
 # Gathering is account-wide (docs/gathering.md): the XP and the materials it
 # pays are the account's, not a hero's, so they are banked once when the run
 # commits, exactly like the combat XP. The nodes themselves live in
-# GatheringDB.NODES; the world places them (HuntMap.gathering).
+# GatheringDB.NODES (the biome's) and GatheringDB.DEPTH_TIERS (the depths');
+# the world places them (HuntMap.gathering and _lay_depth_gathering).
+#
+# The interaction layer is in scripts/gathering_rules.gd: how long a gather
+# takes, what it is worth and who may work a node at all. The sim applies
+# it: a hero walks to a node, stands at it, and the channel runs until the
+# node pays - unless the hero walks off or takes a hit.
 
 ## Resolves one gathering action at a resource node: the account's level in
 ## the node's skill must meet the node's requirement, then the node pays its
 ## XP and rolls its loot table. The XP and the materials are banked with the
 ## rest of the run when it commits.
+## `pos` is where the work happened (the screen floats the take over it) and
+## `standing` is the hero's combat standing (-1 for none): a depth node is
+## gated by danger, so a hero too weak for the tier is turned away.
 ## Returns {ok, reason, node, skill, xp, drops}.
-func gather(node_id: String) -> Dictionary:
-	var node := GatheringDB.node(node_id)
+func gather(node_id: String, pos := Vector2.ZERO, standing := -1) -> Dictionary:
+	var node := _gather_record(node_id)
 	if node.is_empty():
 		return {"ok": false, "reason": "Unknown node", "node": node_id, "skill": "", "xp": 0, "drops": []}
 	var skill := str(node["skill"])
-	var need := int(node["level"])
 	var out := {"ok": false, "reason": "", "node": node_id, "skill": skill, "xp": 0, "drops": []}
 	# The account's level is read once, when the run starts, so the nodes a
 	# run can work never change under it (the XP it earns is banked at the
 	# end of the run, like the combat XP).
 	if gather_locked(node_id):
-		out["reason"] = "Needs %s %d" % [GatheringDB.skill_name(skill), need]
+		out["reason"] = "Needs %s %d" % [GatheringDB.skill_name(skill), int(node["level"])]
+		return out
+	# The danger gate: a depth node is only for a hero strong enough for
+	# the tier. A biome node asks for a skill level, not for standing.
+	if standing >= 0 and GatheringRules.danger_blocked(node, standing):
+		out["reason"] = GatheringRules.danger_reason(node)
 		return out
 	# A node needs its respawn time before it can be worked again.
-	if time < float(_gather_ready_at.get(node_id, 0.0)):
+	if not _gather_ready(node_id):
 		out["reason"] = "Not ready"
 		return out
 	var xp := int(node["xp"])
 	gather_xp[skill] = int(gather_xp.get(skill, 0)) + xp
-	_gather_ready_at[node_id] = time + float(node["respawn"])
-	var drops := LootTable.roll_resource(gather_rng, node_id)
-	for drop in drops:
-		gather_drops.append(drop)
+	# The take: what the node's table rolled, scaled by the rules (the
+	# tier's yield and the skill's bonus).
+	var level := _gather_start_level(skill)
+	var paid: Array = []
+	for drop in LootTable.roll_resource(gather_rng, node_id):
+		var rolled := {"id": str(drop["id"]), "amount": GatheringRules.yield_amount(int(drop["amount"]), node, level)}
+		paid.append(rolled)
+		gather_drops.append(rolled)
+	# The node is spent: a charge goes, and the last one puts the node on
+	# its respawn.
+	_spend_gather_charge(node_id, node)
 	out["ok"] = true
 	out["xp"] = xp
-	out["drops"] = drops
-	events.append({"type": "gather", "node": node_id, "skill": skill, "xp": xp, "drops": drops})
+	out["drops"] = paid
+	events.append({"type": "gather", "node": node_id, "skill": skill, "xp": xp, "drops": paid, "pos": pos})
 	return out
 
 
@@ -3601,35 +3748,207 @@ func _gather_start_level(skill: String) -> int:
 	return int(_gather_level_at_start.get(skill, 1))
 
 
+## The combat standing of a hero: the OSRS combat level of its own trained
+## skills. This is what a depth tier's gate reads.
+func _combat_level(hero: Actor) -> int:
+	return SkillsScreen.combat_level(GearDB.skills(str(hero.sprite)))
+
+
+## The standing the hero brings to a node, cached when the run started.
+func _standing_of(hero: Actor) -> int:
+	return int(_gather_standing.get(hero.id, 0))
+
+
+## The node record, from the run's own table (the world knows the nodes).
+func _gather_record(node_id: String) -> Dictionary:
+	var rec: Dictionary = _gather_records.get(node_id, {})
+	if rec.is_empty():
+		rec = GatheringDB.record(node_id)
+	return rec
+
+
 ## Whether a node is locked for this run: the account's level in the node's
-## skill is below what the node asks for. The gate is the one gather()
-## applies, read on its own so a refusal can say what it needs.
+## skill is below what the node asks for. A depth node asks for no skill
+## level (it is gated by danger instead), so it is never locked here.
+## The gate is the one gather() applies, read on its own so a refusal can
+## say what it needs.
 func gather_locked(node_id: String) -> bool:
-	var node := GatheringDB.node(node_id)
+	var node := _gather_record(node_id)
 	if node.is_empty():
+		return false
+	if not node.has("level"):
 		return false
 	return _gather_start_level(str(node["skill"])) < int(node["level"])
 
 
-## Works the nodes the hero has reached: a node in reach, ready and within
-## the account's skill level is gathered, and then it needs its respawn time
-## before it can be worked again. Claimed on contact, like the shrines.
-## A node the account's level cannot work is refused, and the refusal is
-## reported instead of thrown away: the reason is what the screen shows.
-func _step_gathering(_dt: float) -> void:
+## Whether a node is out of reach for a hero: the depth tier demands a
+## standing the hero does not have. The gate is the one the channel applies
+## before it starts, read on its own so a refusal can say what it needs.
+func gather_blocked(node_id: String, standing: int) -> bool:
+	var node := _gather_record(node_id)
+	if node.is_empty():
+		return false
+	return GatheringRules.danger_blocked(node, standing)
+
+
+## Why a hero may not work a node, or "" when they may: the skill the node
+## asks for, or the standing its tier demands.
+func _gather_block_reason(node_id: String, hero: Actor) -> String:
+	var node := _gather_record(node_id)
+	if node.is_empty():
+		return ""
+	var standing := _standing_of(hero)
+	if gather_blocked(node_id, standing):
+		return GatheringRules.danger_reason(node)
+	return GatheringRules.blocked_reason(node, _gather_start_level(str(node["skill"])), standing)
+
+
+## True when the node can be worked: its respawn is over and it still has
+## charges to pay. A node that has run out of charges waits out its
+## respawn and comes back whole.
+func _gather_ready(node_id: String) -> bool:
+	if time < float(_gather_ready_at.get(node_id, 0.0)):
+		return false
+	if int(_gather_charges.get(node_id, 0)) <= 0:
+		# The respawn is over: the node comes back whole.
+		_gather_charges[node_id] = GatheringRules.charges_for(_gather_record(node_id))
+	return true
+
+
+## The node pays one gather: a charge goes, and the last one puts the node
+## on its respawn.
+func _spend_gather_charge(node_id: String, node: Dictionary) -> void:
+	var left := int(_gather_charges.get(node_id, 1)) - 1
+	_gather_charges[node_id] = left
+	if left <= 0:
+		_gather_ready_at[node_id] = time + float(node.get("respawn", 6.0))
+
+
+## Works the nodes the heroes have reached. A hero who stands at a node
+## works it: the channel runs while it holds and the node pays when it
+## ends. A hero who walks away or takes a hit loses the work, and the node
+## keeps its charges. A node the hero may not work is refused, and the
+## refusal is reported instead of thrown away: the reason is what the
+## screen shows.
+func _step_gathering(dt: float) -> void:
 	if gather_nodes.is_empty():
 		return
+	for hero in heroes:
+		if not hero.alive:
+			if hero.gather_node != "":
+				_cancel_gather(hero, "down")
+			continue
+		if hero.gather_node != "":
+			_step_gather_channel(hero, dt)
+		else:
+			_try_start_gather(hero)
+
+
+## Starts a channel when a hero stands at a node it may work. The node
+## nearest the hero that is open to them wins.
+func _try_start_gather(hero: Actor) -> void:
+	# The nodes in reach, nearest first.
+	var near: Array = []
 	for entry in gather_nodes:
-		var node_id := str(entry["node"])
-		for hero in heroes:
-			if not hero.alive:
-				continue
-			if hero.pos.distance_to(entry["pos"]) > GATHER_REACH + hero.radius:
-				continue
-			var out := gather(node_id)
-			if not bool(out.get("ok", true)) and gather_locked(node_id):
-				_notice_locked(node_id, str(out.get("reason", "")), entry["pos"])
-			break
+		var at: Vector2 = entry["pos"]
+		var d := hero.pos.distance_to(at)
+		if d > GATHER_REACH + hero.radius:
+			continue
+		near.append({"node": str(entry["node"]), "d": d})
+	if near.is_empty():
+		return
+	near.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["d"]) < float(b["d"]))
+	# The gates: the skill the node asks for and the standing its tier
+	# demands. A refused node says what it needs, once per cooldown.
+	var refused := ""
+	var refused_node := ""
+	var start_id := ""
+	for item in near:
+		var row: Dictionary = item
+		var node_id := str(row["node"])
+		var reason := _gather_block_reason(node_id, hero)
+		if reason != "":
+			if refused == "":
+				refused = reason
+				refused_node = node_id
+			continue
+		if not _gather_ready(node_id):
+			continue
+		start_id = node_id
+		break
+	if refused != "":
+		_notice_locked(refused_node, refused, hero.pos)
+	# The work starts when the hero plants: a brush past the node is not
+	# a gather.
+	if start_id == "" or hero.still < GATHER_PLANT:
+		return
+	var node := _gather_record(start_id)
+	hero.gather_node = start_id
+	hero.gather_t = 0.0
+	hero.gather_need = GatheringRules.channel_time(node, _gather_start_level(str(node["skill"])))
+
+
+## The channel: the hero works the node while it holds. It ends when the
+## hero walks off the node, when a hit breaks the work, or when the timer
+## runs out and the node pays.
+func _step_gather_channel(hero: Actor, dt: float) -> void:
+	var node_id := hero.gather_node
+	var at: Vector2 = _gather_pos.get(node_id, Vector2.ZERO)
+	# The hero has to stay at the node: a step away and the work is lost.
+	if hero.pos.distance_to(at) > GATHER_REACH + hero.radius or hero.still <= 0.0:
+		_cancel_gather(hero, "left")
+		return
+	hero.gather_t += dt
+	if hero.gather_t < hero.gather_need:
+		return
+	_complete_gather(hero)
+
+
+## The channel ran out: the node pays. The take is what the rules make of
+## the node's table, and the XP is banked with the rest of the run.
+func _complete_gather(hero: Actor) -> void:
+	var node_id := hero.gather_node
+	var node := _gather_record(node_id)
+	hero.gather_node = ""
+	hero.gather_t = 0.0
+	hero.gather_need = 0.0
+	if node.is_empty():
+		return
+	# The gate is read again at the end of the work: a hero that is too
+	# weak for the tier never takes the take.
+	gather(node_id, hero.pos, _standing_of(hero))
+
+
+## The work is lost: the hero is not at the node any more, or a hit landed.
+## The node keeps its charges, so nothing is paid.
+func _cancel_gather(hero: Actor, reason: String) -> void:
+	if hero.gather_node == "":
+		return
+	var node_id := hero.gather_node
+	hero.gather_node = ""
+	hero.gather_t = 0.0
+	hero.gather_need = 0.0
+	events.append({"type": "gather_interrupt", "node": node_id, "reason": reason, "pos": hero.pos})
+
+
+## The channels the heroes are working right now: one entry per hero with a
+## node under the axe, with the progress and where it happens. The run
+## screen reads it to draw the progress bar.
+func gather_channels() -> Array:
+	var out: Array = []
+	for hero in heroes:
+		if hero.gather_node == "" or not hero.alive:
+			continue
+		var node := _gather_record(hero.gather_node)
+		out.append({
+			"id": hero.id,
+			"node": hero.gather_node,
+			"name": str(node.get("name", hero.gather_node)),
+			"skill": str(node.get("skill", "")),
+			"ratio": clampf(hero.gather_t / maxf(hero.gather_need, 0.0001), 0.0, 1.0),
+			"pos": hero.pos,
+		})
+	return out
 
 
 ## Says what a locked node needs, at most once per cooldown: the hero can
