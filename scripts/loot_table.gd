@@ -12,6 +12,10 @@ extends RefCounted
 ## Duplicates are allowed once the rerolls run out and convert to shards or
 ## coins at banking time (see save_game.gd).
 ##
+## Rarity (Common..Legendary) is rolled first via Rarity.roll(), then a gear
+## tier (Iron..Rune) is picked within the source's weights, and affixes are
+## applied for Rare+ gear via Rarity.roll_affixes().
+##
 ## The same file also holds the gathering drop tables (RESOURCE_TABLES): what
 ## a resource node pays out when it is worked (see docs/gathering.md).
 
@@ -112,12 +116,20 @@ const RESOURCE_TABLES := {
 }
 
 
-## Roll a source into earned item ids. Empty when the source's chance misses.
-## hero is the run's critter id (any hero is fine); biome_idx is the biome's
-## position in Catalog.BIOMES (deeper = a little more steel/rune). difficulty is
-## the run's tier (Catalog.Tier), shifting weights further before the cap.
+## Roll a source into earned item ids (backward compatible).
+## Returns Array[String] of base item IDs "hero.slot.tier".
 static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome_idx := 0, difficulty := 0) -> Array[String]:
 	var out: Array[String] = []
+	var detailed := roll_detailed(rng, source, hero, biome_idx, difficulty)
+	for entry in detailed:
+		out.append(str(entry["id"]))
+	return out
+
+
+## Roll a source into detailed drop entries with rarity and affixes.
+## Returns Array[Dictionary] with keys: id (String extended), rarity (int Rarity.Tier), affixes (Array[Dictionary]).
+static func roll_detailed(rng: RandomNumberGenerator, source: String, hero: String, biome_idx := 0, difficulty := 0) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	var s: Dictionary = SOURCES.get(source, {})
 	if s.is_empty():
 		return out
@@ -125,7 +137,21 @@ static func roll(rng: RandomNumberGenerator, source: String, hero: String, biome
 		return out
 	var weights := _weights(s["weights"], biome_idx, source, difficulty)
 	for _i in rng.randi_range(int(s["count"][0]), int(s["count"][1])):
-		out.append(_pick(rng, hero, _tier(rng, weights)))
+		var tier: int = _tier(rng, weights)
+		var rarity: int = Rarity.roll(rng, biome_idx, difficulty)
+		var affixes: Array[Dictionary] = Rarity.roll_affixes(rng, rarity)
+		var keys: Array = GearDB.HERO_SLOTS.keys()
+		var h := hero if GearDB.HERO_SLOTS.has(hero) else ""
+		if h == "" or rng.randf() >= RUN_HERO_SHARE:
+			h = str(keys[rng.randi() % keys.size()])
+		var slots: Array = GearDB.HERO_SLOTS[h]
+		var slot := str(slots[rng.randi() % slots.size()])
+		for _j in OWNED_REROLLS:
+			if not GearDB.owns_any_variant(h, slot, tier):
+				break
+			slot = str(slots[rng.randi() % slots.size()])
+		var ext_id := GearDB.item_id_ext(h, slot, tier, rarity, affixes)
+		out.append({"id": ext_id, "rarity": rarity, "affixes": affixes})
 	return out
 
 
