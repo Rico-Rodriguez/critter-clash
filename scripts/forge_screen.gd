@@ -188,12 +188,20 @@ func _req_text(req: Dictionary) -> String:
 
 func _locked_footnote(hero: String) -> Control:
 	var lines := PackedStringArray()
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for tier in range(GearDB.Tier.IRON + 1, GearDB.Tier.RUNE + 1):
 		var reason := SaveGame.forge_lock_reason(tier)
 		if reason == "":
 			continue
 		for slot in GearDB.HERO_SLOTS.get(hero, []):
-			if not GearDB.has(hero, GearDB.item_id(hero, str(slot), tier)):
+			var owns_any := false
+			for oid in owned:
+				if int(owned[oid]) > 0:
+					var p := GearDB._parse_id(str(oid))
+					if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+						owns_any = true
+						break
+			if not owns_any:
 				lines.append(reason)
 				break
 	if lines.is_empty():

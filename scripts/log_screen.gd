@@ -173,6 +173,7 @@ func _fill_armory() -> void:
 	for tier in [GearDB.Tier.IRON, GearDB.Tier.STEEL, GearDB.Tier.RUNE]:
 		grid.add_child(_armory_head_cell(GearDB.TIER_NAMES[tier].to_upper(), GearDB.TIER_COLORS[tier]))
 	var slots: Array = GearDB.HERO_SLOTS.get(hero, [])
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for slot in slots:
 		var name := UiKit.label(GearDB.SLOT_NAMES[GearDB.SLOT_KEYS.find(str(slot))], 22, Color("e6d8bc"), "b", 4)
 		name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -182,9 +183,21 @@ func _fill_armory() -> void:
 		for tier in [GearDB.Tier.IRON, GearDB.Tier.STEEL, GearDB.Tier.RUNE]:
 			var id := GearDB.item_id(hero, str(slot), tier)
 			var cell := ArmoryCell.new()
-			cell.owned = GearDB.has(hero, id)
-			cell.title = str(GearDB.item(id).get("name", "?")) if cell.owned else "?"
-			cell.hint = "" if cell.owned else drop_hint(tier)
+			var owns_any := false
+			var best_id := id
+			var best_rarity := -1
+			for oid in owned:
+				if int(owned[oid]) > 0:
+					var p := GearDB._parse_id(str(oid))
+					if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+						owns_any = true
+						if int(p["rarity"]) > best_rarity:
+							best_rarity = int(p["rarity"])
+							best_id = str(oid)
+						break
+			cell.owned = owns_any
+			cell.title = str(GearDB.item(best_id).get("name", "?")) if owns_any else "?"
+			cell.hint = "" if owns_any else drop_hint(tier)
 			cell.req = _req_text(id)
 			cell.custom_minimum_size = Vector2(0, 116)
 			cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -253,9 +266,17 @@ func _pick_armory_hero(id: String) -> void:
 static func armory_counts(hero: String) -> Dictionary:
 	var slots: Array = GearDB.HERO_SLOTS.get(hero, [])
 	var counts := {"iron": 0, "steel": 0, "rune": 0, "total": slots.size()}
+	var owned: Dictionary = GearDB._store()["owned"].get(hero, {})
 	for slot in slots:
 		for tier in [GearDB.Tier.IRON, GearDB.Tier.STEEL, GearDB.Tier.RUNE]:
-			if not GearDB.has(hero, GearDB.item_id(hero, str(slot), tier)):
+			var owns_any := false
+			for oid in owned:
+				if int(owned[oid]) > 0:
+					var p := GearDB._parse_id(str(oid))
+					if not p.is_empty() and p["slot"] == slot and int(p["tier"]) == tier:
+						owns_any = true
+						break
+			if not owns_any:
 				continue
 			match tier:
 				GearDB.Tier.IRON:
