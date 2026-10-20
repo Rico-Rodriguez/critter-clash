@@ -43,6 +43,9 @@ var _modal_up := false
 ## take a card the player never read. The latch holds the pick until
 ## the rebuilt row has landed.
 var _pick_latched := false
+## True while the hunt pause panel is the open modal, so the back gesture can
+## close it again instead of opening a second one.
+var _pause_up := false
 var minimap: MiniMap
 var hint_layer: HintLayer
 var dodge_btn: DodgeButton
@@ -90,6 +93,11 @@ var _stick_out := Vector2.ZERO
 
 func _init() -> void:
 	paint_bg = false
+	# The hunt joins the shared back route: the base class sends Esc and the
+	# Android back button to back(), and back() opens the pause panel instead
+	# of leaving the run. "home" is where the pause panel's own LEAVE HUNT
+	# button goes.
+	back_target = "home"
 
 
 func build() -> void:
@@ -1461,6 +1469,8 @@ func _clear_modal() -> void:
 
 func _open_modal() -> void:
 	_modal_up = true
+	# The panel that opens is not the pause panel until it says so.
+	_pause_up = false
 	_end_stick()
 	_clear_modal()
 	# The insets can have moved since the screen was built (a rotation, a
@@ -1474,6 +1484,7 @@ func _open_modal() -> void:
 
 func _close_modal() -> void:
 	_modal_up = false
+	_pause_up = false
 	modal.visible = false
 	_clear_modal()
 
@@ -2026,10 +2037,24 @@ func _show_defeat(reason: String) -> void:
 	col.add_child(again)
 
 
+## Esc / the Android back button during a hunt: the same panel the "II" chip
+## opens, so a stray gesture never throws the run away. With the panel
+## already up the gesture closes it again (the usual stack order).
+func back() -> void:
+	if _pause_up:
+		_close_modal()
+		return
+	if _modal_up:
+		# Another panel is up (a blessing, the end of the run): it stays.
+		return
+	_pause()
+
+
 func _pause() -> void:
 	if _modal_up or sim == null or sim.result != "":
 		return
 	_open_modal()
+	_pause_up = true
 	var title := UiKit.title("PAUSED", 52)
 	modal_box.add_child(title)
 	var hunt := _pause_skills_block()
