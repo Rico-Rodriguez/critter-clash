@@ -895,7 +895,7 @@ static func all_drops() -> Array:
 static func log_entries() -> Array:
 	var rows: Array = []
 	for biome in BIOMES:
-		var boss := str(biome["boss"])
+		var boss := resolve_boss(str(biome["boss"]))
 		var group: Array = []
 		for entry in DROPS:
 			if str(entry["boss"]) == boss:
