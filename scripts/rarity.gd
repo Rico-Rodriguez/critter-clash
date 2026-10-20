@@ -16,7 +16,7 @@ const TIER_COLORS: Array[Color] = [
 
 ## Drop weights per biome depth (Catalog.BIOMES index).
 ## Legendaries only unlock at Deep (frost, idx 2) and Abyss (volcano, idx 3).
-const DROP_WEIGHTS: Array[Array[int]] = [
+const DROP_WEIGHTS: Array = [
 	[85, 14, 1, 0, 0],
 	[70, 25, 5, 0, 0],
 	[55, 30, 12, 3, 0],
