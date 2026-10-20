@@ -110,9 +110,9 @@ func _init() -> void:
 	paint_bg = false
 	# The hunt joins the shared back route: the base class sends Esc and the
 	# Android back button to back(), and back() opens the pause panel instead
-	# of leaving the run. "home" is where the pause panel's own LEAVE HUNT
-	# button goes.
-	back_target = "home"
+	# of leaving the run. "hub" is where the pause panel's own LEAVE HUNT
+	# button goes: a hunt ends back at the camp.
+	back_target = "hub"
 
 
 func build() -> void:
@@ -2168,7 +2168,8 @@ func _show_victory(boss_name: String) -> void:
 	col.add_child(_end_chest(true))
 	var button := UiKit.button("CONTINUE", 600, 104, "gold")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(func() -> void: go("home"))
+	# The hunt is over: back to the camp, where the gates stand.
+	button.pressed.connect(func() -> void: go("hub"))
 	col.add_child(button)
 
 
@@ -2203,7 +2204,8 @@ func _show_defeat(reason: String) -> void:
 	col.add_child(hint)
 	var button := UiKit.button("CONTINUE", 660, 104, "steel")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(func() -> void: go("home"))
+	# The hunt is over: back to the camp, where the gates stand.
+	button.pressed.connect(func() -> void: go("hub"))
 	col.add_child(button)
 	var again := UiKit.secondary("TRY AGAIN", 300, 88)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -2285,7 +2287,7 @@ func _confirm_leave() -> void:
 	sheet.wide = 280
 	sheet.confirmed.connect(func() -> void:
 		_drop_leave_sheet()
-		go("home"))
+		go("hub"))
 	sheet.cancelled.connect(func() -> void: _drop_leave_sheet())
 	_leave_sheet = sheet
 	modal.add_child(sheet)
