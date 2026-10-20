@@ -1884,21 +1884,59 @@ const ARENA_PROPS_PER_FRAME := 2
 ## The explore lair can need the sim's ring stones on top of its own
 ## landmarks, so the pool of stones is made deeper than the landmarks.
 const ARENA_POOL_SPARE := 14
+## The arena seed's base: the fight's own identity is hashed onto it, so
+## every boss and biome lays its arena out its own way.
+const ARENA_SEED_BASE := 7331
 
-## Arenas by boss type (the biome's boss), so the props are built once and
-## the next fight reuses them instead of building them again.
+## Arenas by fight (its biome, its boss and its hunt seed), so a fight's
+## props are built once and the rest of that hunt reuses them instead of
+## building them again.
 var _arena_cache := {}
 ## The arena of this run: which boss it belongs to, and how much of it is
 ## built.
 var _arena_key := ""
 var _arena_built := false
+## The fight the arena belongs to: its biome, its boss and the hunt's own
+## seed. The arena's rng is hashed from it, so the same fight always
+## rebuilds the same arena and no two fights share one.
+var _arena_identity := ""
 
 
-## Queue the arena for this boss type: the explore map's lair gets the
-## sim's own stones, the arena hunt gets the broken ring. The props are
-## made while the hunt runs on, so the fight's first frame only has to
-## stand them up.
+## The fight an arena belongs to: its biome, the boss that will fight it
+## and the hunt's own seed. It is hashed into the arena's rng, so every
+## boss in every biome gets its own layout while the same fight always
+## rebuilds the same arena. The identity is read once per hunt and never
+## from the clock or the global rng: a seeded world builds the same arena
+## every time.
+func _arena_fight(sim: RunSim) -> String:
+	var biome := _biome
+	var boss := ""
+	var seed := 0
+	if sim != null:
+		if not str(sim.biome_id).is_empty():
+			biome = str(sim.biome_id)
+		if sim.boss != null:
+			boss = str(sim.boss.sprite)
+		if sim.map != null:
+			seed = int(sim.map.seed)
+		if seed == 0:
+			# The arena hunt's map carries no seed of its own: its hunt seed
+			# is the run's.
+			seed = int(sim.rng.seed)
+	if boss.is_empty():
+		# The boss has not risen yet: the biome names the one that will.
+		boss = str(Catalog.biome(biome).get("boss", ""))
+	return "%s|%s|%d" % [biome, boss, seed]
+
+
+## Queue the arena for this fight: the explore map's lair gets the sim's
+## own stones, the arena hunt gets the broken ring. The props are made
+## while the hunt runs on, so the fight's first frame only has to stand
+## them up. The fight's identity is taken once, on the hunt's first frame:
+## the boss has not risen yet, so the biome names the one that will.
 func _arena_prepare(sim: RunSim) -> void:
+	if _arena_identity == "":
+		_arena_identity = _arena_fight(sim)
 	if sim.explore:
 		_arena_prepare_sim(sim)
 	else:
@@ -1908,29 +1946,36 @@ func _arena_prepare(sim: RunSim) -> void:
 ## The explore map's lair: a pool of standing stones, deep enough for the
 ## lair's landmarks and for the ring the sim draws around the boss.
 func _arena_prepare_sim(sim: RunSim) -> void:
-	var key := "sim:" + _biome
+	if _arena_identity == "":
+		_arena_identity = _arena_fight(sim)
+	var key := "sim:" + _arena_identity
 	if _arena_cache.has(key):
 		_arena_key = key
 		return
-	var rng := _arena_rng()
+	var rng := _arena_rng(_arena_identity)
 	_arena_prepare_key(key, _arena_pool_slots(rng, _arena_lair_stones(sim.map) + ARENA_POOL_SPARE), rng)
 
 
-## The arena hunt's ring: the same broken circle for every boss.
+## The arena hunt's ring: a broken circle of tall menhirs, laid out by the
+## fight's own seed, so every boss rings itself differently.
 func _arena_prepare_ring() -> void:
-	var key := "ring:" + _biome
+	if _arena_identity == "":
+		_arena_identity = _arena_fight(null)
+	var key := "ring:" + _arena_identity
 	if _arena_cache.has(key):
 		_arena_key = key
 		return
-	var rng := _arena_rng()
+	var rng := _arena_rng(_arena_identity)
 	_arena_prepare_key(key, _arena_ring_slots(rng), rng)
 
 
 ## The arena's own seeded rng: it lays the slots out and, later, spins the
 ## props as they are made, so a seeded world builds the same arena every time.
-func _arena_rng() -> RandomNumberGenerator:
+## The seed comes from the fight's identity, so each boss and biome lays out
+## its own arena and the same fight always rebuilds the same one.
+func _arena_rng(identity: String) -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 7331
+	rng.seed = ARENA_SEED_BASE + hash(identity)
 	return rng
 
 
@@ -1954,6 +1999,7 @@ func _arena_reset() -> void:
 			root.queue_free()
 	_arena_cache.clear()
 	_arena_key = ""
+	_arena_identity = ""
 
 
 func _arena_now() -> Dictionary:
