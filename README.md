@@ -81,6 +81,12 @@ Only chunks that overlap the view, plus a small margin, are instanced. The 3D hu
 
 Wild critters spawn on the rim of the zone nearest the hero, not on the edge of the screen. With one zone, that rim is the edge of the playfield.
 
+## Wilderness
+
+The Barrow Lands are four depth tiers — the Fringe, the Wilds, the Deep, the Abyss — and each one is a large explorable zone, not an arena. `ZoneBuilder` lays them out from `WorldData`: the ground (a gate at the south, a gate at the north, a chain of clearings between them, pockets off the side), the monster spawn points (scaled by the tier's level range, pack size and patrol density), the elite packs (the tier's elite chance, and a guaranteed few in the deep tiers), the resource nodes the tier names, and the scenery each tier wears. The Fringe is 4480×2560 sim px and the Abyss 5600×5120, so every zone is at least four times the ground of the shipped hunt arena.
+
+A zone is a `HuntMap`, so the hunt simulation already knows how to walk one, and the four zones stack north to south in tier order: the Fringe's north gate is the Wilds' south gate. The builder only makes the place; the run that opens it comes later. The contract is in `docs/wilderness.md`, and `godot --headless --path . -s res://tools/zone_check.gd` checks the four zones.
+
 ## Later modes
 
 The launch build is single-player. The hunt itself does not know about buttons or sprites. `Session` can describe a solo hunt, a co-op pair that shares a team, or a duel. `RunBot.steer` is the stand-in brain for a future rival. The save keeps an unused `clan_id`. None of those modes have a screen yet.
@@ -137,7 +143,7 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 
 ## Project layout
 
-- `scripts/` hunt simulation, map data, follow camera, chunk stream, 3D stage, screens (including the collection log, slayer master, and skills stub), save, portrait loader
+- `scripts/` hunt simulation, map data, follow camera, chunk stream, 3D stage, wilderness zone builder, screens (including the collection log, slayer master, and skills stub), save, portrait loader
 - `assets/models/` licensed critter and nature GLBs
 - `assets/textures/` baked ground maps, the sky HDRI, and the dust puff
 - `shaders/terrain.gdshader` ground blend
