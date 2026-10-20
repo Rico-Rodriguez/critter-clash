@@ -103,6 +103,9 @@ const RESOURCES: Dictionary = {
 ##            weak for the tier is turned away.
 ##   charges  how many gathers a node of this tier pays before it is spent.
 ##            A spent node waits out its respawn and comes back whole.
+##   yield    what one gather of the tier's node is worth, before the skill
+##            has its say (scripts/gathering_rules.gd): the deeper the tier,
+##            the more a single gather pulls out of it.
 const DEPTH_TIERS: Array = [
 	{
 		"id": "fringe",
@@ -111,6 +114,7 @@ const DEPTH_TIERS: Array = [
 		"danger": 1,
 		"need": 1,
 		"charges": 4,
+		"yield": 1,
 		"nodes": [
 			{"id": "fringe_oak", "skill": "woodcutting", "name": "Oak", "kind": "tree", "resource": "oak_logs", "xp": 45, "respawn": 10.0},
 			{"id": "fringe_copper", "skill": "mining", "name": "Copper Vein", "kind": "vein", "resource": "copper_ore", "xp": 40, "respawn": 10.0},
@@ -124,6 +128,7 @@ const DEPTH_TIERS: Array = [
 		"danger": 2,
 		"need": 8,
 		"charges": 3,
+		"yield": 1,
 		"nodes": [
 			{"id": "wilds_willow", "skill": "woodcutting", "name": "Willow", "kind": "tree", "resource": "willow_logs", "xp": 70, "respawn": 15.0},
 			{"id": "wilds_iron", "skill": "mining", "name": "Iron Vein", "kind": "vein", "resource": "iron_ore", "xp": 65, "respawn": 15.0},
@@ -137,6 +142,7 @@ const DEPTH_TIERS: Array = [
 		"danger": 3,
 		"need": 18,
 		"charges": 3,
+		"yield": 2,
 		"nodes": [
 			{"id": "deep_yew", "skill": "woodcutting", "name": "Yew", "kind": "tree", "resource": "yew_logs", "xp": 110, "respawn": 25.0},
 			{"id": "deep_mithril", "skill": "mining", "name": "Mithril Vein", "kind": "vein", "resource": "mithril_ore", "xp": 100, "respawn": 25.0},
@@ -150,6 +156,7 @@ const DEPTH_TIERS: Array = [
 		"danger": 4,
 		"need": 30,
 		"charges": 2,
+		"yield": 3,
 		"nodes": [
 			{"id": "abyss_magic", "skill": "woodcutting", "name": "Magic Tree", "kind": "tree", "resource": "magic_logs", "xp": 180, "respawn": 40.0},
 			{"id": "abyss_runite", "skill": "mining", "name": "Runite Vein", "kind": "vein", "resource": "runite_ore", "xp": 170, "respawn": 40.0},
@@ -175,6 +182,7 @@ static func depth_nodes() -> Array:
 				n["danger"] = tier["danger"]
 				n["need"] = tier["need"]
 				n["charges"] = tier["charges"]
+				n["yield"] = int(tier.get("yield", 1))
 				_depth_nodes_cache.append(n)
 	return _depth_nodes_cache
 
@@ -348,6 +356,21 @@ static func tier_need(tier: String) -> int:
 static func tier_charges(tier: String) -> int:
 	var t := depth_tier(tier)
 	return int(t.get("charges", 0)) if not t.is_empty() else 0
+
+## What one gather of a depth tier's node is worth, before the skill has its
+## say (scripts/gathering_rules.gd): the deeper the tier, the more a single
+## gather pulls out of it.
+static func tier_yield(tier: String) -> int:
+	var t := depth_tier(tier)
+	return int(t.get("yield", 1)) if not t.is_empty() else 1
+
+## The yield of any node: a depth node carries its tier's, a biome node is
+## worth one.
+static func node_yield(id: String) -> int:
+	var n := record(id)
+	if n.is_empty():
+		return 1
+	return int(n["yield"]) if n.has("yield") else 1
 
 ## True when the id names a depth tier.
 static func has_tier(id: String) -> bool:
