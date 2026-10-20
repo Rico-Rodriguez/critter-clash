@@ -127,12 +127,12 @@ static func item_id_ext(hero: String, slot: String, tier: int, rarity: int, affi
 ## Supports both new format (id:value) and legacy format (id only, value from pool).
 static func _parse_id(id: String) -> Dictionary:
 	var p := id.split(".")
-	var base_ok := p.size() >= 3 and HERO_SLOTS.has(p[0]) and (p[1] in HERO_SLOTS[p[0]])
-	var t := int(p[2]) if p.size() >= 3 else -1
-	var tier_ok := t >= Tier.IRON and t <= Tier.RUNE and str(t) == p[2]
+	var base_ok: bool = p.size() >= 3 and HERO_SLOTS.has(p[0]) and (p[1] in HERO_SLOTS[p[0]])
+	var t: int = int(p[2]) if p.size() >= 3 else -1
+	var tier_ok: bool = t >= Tier.IRON and t <= Tier.RUNE and str(t) == p[2]
 	if not base_ok or not tier_ok:
 		return {}
-	var rarity := Rarity.Tier.COMMON
+	var rarity: int = Rarity.Tier.COMMON
 	var affixes: Array[Dictionary] = []
 	if p.size() >= 5:
 		rarity = int(p[3])
@@ -174,7 +174,7 @@ static func base_id(id: String) -> String:
 
 ## Get rarity tier from any item id.
 static func item_rarity(id: String) -> int:
-	return _parse_id(id).get("rarity", Rarity.Tier.COMMON)
+	return int(_parse_id(id).get("rarity", Rarity.Tier.COMMON))
 
 
 ## Get affix IDs from any item id.
@@ -202,23 +202,23 @@ static func item(id: String) -> Dictionary:
 	var p := _parse_id(id)
 	if p.is_empty():
 		return {}
-	var hero := p["hero"]
-	var slot := p["slot"]
-	var tier := p["tier"]
-	var rarity := p["rarity"]
+	var hero: String = p["hero"]
+	var slot: String = p["slot"]
+	var tier: int = p["tier"]
+	var rarity: int = p["rarity"]
 	var affixes: Array[Dictionary] = p["affixes"]
 	var base_stats := stats_for(slot, tier)
 	var affix_objects: Array[Dictionary] = []
 	for a in affixes:
 		for pool_affix in Rarity.AFFIX_POOL:
 			if str(pool_affix["id"]) == str(a["id"]):
-				var affix_copy := pool_affix.duplicate()
+				var affix_copy: Dictionary = pool_affix.duplicate()
 				affix_copy["value"] = float(a["value"])
 				affix_objects.append(affix_copy)
 				break
-	var final_stats := Rarity.apply_affixes(base_stats, affix_objects)
+	var final_stats: Dictionary = Rarity.apply_affixes(base_stats, affix_objects)
 	var base_name := "%s %s" % [TIER_PREFIX[tier], NAMES[hero][slot]]
-	var full_name := Rarity.format_name(base_name, rarity, affix_objects)
+	var full_name: String = Rarity.format_name(base_name, rarity, affix_objects)
 	return {"id": id, "hero": hero, "slot": slot, "tier": tier, "rarity": rarity,
 		"name": full_name, "stats": final_stats, "requires": requirements(id)}
 

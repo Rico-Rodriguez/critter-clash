@@ -137,9 +137,9 @@ static func roll_detailed(rng: RandomNumberGenerator, source: String, hero: Stri
 		return out
 	var weights := _weights(s["weights"], biome_idx, source, difficulty)
 	for _i in rng.randi_range(int(s["count"][0]), int(s["count"][1])):
-		var tier := _tier(rng, weights)
-		var rarity := Rarity.roll(rng, biome_idx, difficulty)
-		var affixes := Rarity.roll_affixes(rng, rarity)
+		var tier: int = _tier(rng, weights)
+		var rarity: int = Rarity.roll(rng, biome_idx, difficulty)
+		var affixes: Array[Dictionary] = Rarity.roll_affixes(rng, rarity)
 		var keys: Array = GearDB.HERO_SLOTS.keys()
 		var h := hero if GearDB.HERO_SLOTS.has(hero) else ""
 		if h == "" or rng.randf() >= RUN_HERO_SHARE:

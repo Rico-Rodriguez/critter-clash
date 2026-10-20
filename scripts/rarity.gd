@@ -32,6 +32,13 @@ const DIFFICULTY_SHIFT: Array[float] = [0.0, 0.10, 0.20]
 ## Number of affixes per rarity tier (Rare+ only).
 const AFFIX_COUNT: Array[int] = [0, 0, 1, 2, 3]
 
+## Stat keys that are whole numbers rather than fractions. Mirrors
+## GearDB.INT_STATS ("hp_flat", "armor", "magnet"). The list is copied here on
+## purpose: GearDB needs this file for its rarity tiers and affix pool, so
+## referring back to GearDB here would make the two classes depend on each
+## other and Godot could not resolve the cycle.
+const INT_STATS: Array[String] = ["hp_flat", "armor", "magnet"]
+
 ## Affix pool: {id, name, stat_key, base_value, is_percent, min_tier}.
 ## min_tier is Rarity.Tier (Rare=2, Epic=3, Legendary=4).
 const AFFIX_POOL: Array[Dictionary] = [
@@ -104,7 +111,7 @@ static func roll_affixes(rng: RandomNumberGenerator, rarity: int) -> Array[Dicti
 		if available.is_empty():
 			break
 		var idx := rng.randi() % available.size()
-		var picked := available[idx]
+		var picked: Dictionary = available[idx]
 		available.remove_at(idx)
 		var mul := 1.0
 		if rarity == Tier.LEGENDARY:
@@ -127,12 +134,14 @@ static func roll_affixes(rng: RandomNumberGenerator, rarity: int) -> Array[Dicti
 
 
 ## Apply affixes to a base stat dictionary (from GearDB.stats_for).
-static func apply_affixes(base: Dictionary, affixes: Array[Dictionary]) -> Dictionary:
-	var out := base.duplicate(true)
+## int_stats lists the whole-number stat keys; it defaults to this file's
+## INT_STATS so the caller does not have to know about them.
+static func apply_affixes(base: Dictionary, affixes: Array[Dictionary], int_stats: Array = INT_STATS) -> Dictionary:
+	var out: Dictionary = base.duplicate(true)
 	for affix in affixes:
 		var key := str(affix["stat_key"])
 		var value := float(affix["value"])
-		if key in GearDB.INT_STATS:
+		if key in int_stats:
 			out[key] = out.get(key, 0) + int(round(value))
 		else:
 			out[key] = out.get(key, 0.0) + value
