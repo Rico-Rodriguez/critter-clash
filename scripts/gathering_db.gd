@@ -96,12 +96,21 @@ const RESOURCES: Dictionary = {
 ## Depth tiers for danger-gated gathering (no skill requirement; skill affects
 ## speed and yield only). Each tier has one node per skill. Respawn scales with
 ## the tier's value. Nodes live in the depths, not biomes.
+##
+##   need     the combat standing a hero needs to work a node of this tier.
+##            The tiers are gated by danger, not by a skill: the deeper the
+##            tier, the harder the monsters that walk it, so a hero too
+##            weak for the tier is turned away.
+##   charges  how many gathers a node of this tier pays before it is spent.
+##            A spent node waits out its respawn and comes back whole.
 const DEPTH_TIERS: Array = [
 	{
 		"id": "fringe",
 		"name": "Fringe",
 		"depth": 0,
 		"danger": 1,
+		"need": 1,
+		"charges": 4,
 		"nodes": [
 			{"id": "fringe_oak", "skill": "woodcutting", "name": "Oak", "kind": "tree", "resource": "oak_logs", "xp": 45, "respawn": 10.0},
 			{"id": "fringe_copper", "skill": "mining", "name": "Copper Vein", "kind": "vein", "resource": "copper_ore", "xp": 40, "respawn": 10.0},
@@ -113,6 +122,8 @@ const DEPTH_TIERS: Array = [
 		"name": "Wilds",
 		"depth": 1,
 		"danger": 2,
+		"need": 8,
+		"charges": 3,
 		"nodes": [
 			{"id": "wilds_willow", "skill": "woodcutting", "name": "Willow", "kind": "tree", "resource": "willow_logs", "xp": 70, "respawn": 15.0},
 			{"id": "wilds_iron", "skill": "mining", "name": "Iron Vein", "kind": "vein", "resource": "iron_ore", "xp": 65, "respawn": 15.0},
@@ -124,6 +135,8 @@ const DEPTH_TIERS: Array = [
 		"name": "Deep",
 		"depth": 2,
 		"danger": 3,
+		"need": 18,
+		"charges": 3,
 		"nodes": [
 			{"id": "deep_yew", "skill": "woodcutting", "name": "Yew", "kind": "tree", "resource": "yew_logs", "xp": 110, "respawn": 25.0},
 			{"id": "deep_mithril", "skill": "mining", "name": "Mithril Vein", "kind": "vein", "resource": "mithril_ore", "xp": 100, "respawn": 25.0},
@@ -135,6 +148,8 @@ const DEPTH_TIERS: Array = [
 		"name": "Abyss",
 		"depth": 3,
 		"danger": 4,
+		"need": 30,
+		"charges": 2,
 		"nodes": [
 			{"id": "abyss_magic", "skill": "woodcutting", "name": "Magic Tree", "kind": "tree", "resource": "magic_logs", "xp": 180, "respawn": 40.0},
 			{"id": "abyss_runite", "skill": "mining", "name": "Runite Vein", "kind": "vein", "resource": "runite_ore", "xp": 170, "respawn": 40.0},
@@ -148,7 +163,8 @@ const DEPTH_TIERS: Array = [
 static var _depth_nodes_cache: Array = []
 
 
-## All depth nodes, ordered by depth then skill.
+## All depth nodes, ordered by depth then skill. A flat node carries its
+## tier's fields with it, so a caller never has to look the tier up.
 static func depth_nodes() -> Array:
 	if _depth_nodes_cache.is_empty():
 		for tier in DEPTH_TIERS:
@@ -157,6 +173,8 @@ static func depth_nodes() -> Array:
 				n["tier"] = tier["id"]
 				n["depth"] = tier["depth"]
 				n["danger"] = tier["danger"]
+				n["need"] = tier["need"]
+				n["charges"] = tier["charges"]
 				_depth_nodes_cache.append(n)
 	return _depth_nodes_cache
 
@@ -169,6 +187,16 @@ static func node(id: String) -> Dictionary:
 		if str(entry["id"]) == id:
 			return entry
 	return {}
+
+
+## The record of any node, whichever family it belongs to: a biome node
+## (NODES) or a depth-tier node (DEPTH_TIERS). The world carries both kinds
+## of node, so the sim reads them through this one lookup.
+static func record(id: String) -> Dictionary:
+	var n := node(id)
+	if not n.is_empty():
+		return n
+	return depth_node(id)
 
 
 static func has_node(id: String) -> bool:
@@ -222,7 +250,7 @@ static func nodes_for(skill: String, biome: String) -> Array:
 
 ## The gathering skill a node trains, or "" for an unknown node.
 static func skill_of(id: String) -> String:
-	var n := node(id)
+	var n := record(id)
 	return str(n["skill"]) if not n.is_empty() else ""
 
 
@@ -309,3 +337,18 @@ static func tier_of_depth_node(id: String) -> String:
 static func tier_danger(tier: String) -> int:
 	var t := depth_tier(tier)
 	return int(t.get("danger", 0)) if not t.is_empty() else 0
+
+## The combat standing a depth tier asks for: a hero below it is turned away
+## from the tier's nodes, because the tier is too dangerous for them.
+static func tier_need(tier: String) -> int:
+	var t := depth_tier(tier)
+	return int(t.get("need", 0)) if not t.is_empty() else 0
+
+## How many gathers a depth tier's nodes pay before they are spent.
+static func tier_charges(tier: String) -> int:
+	var t := depth_tier(tier)
+	return int(t.get("charges", 0)) if not t.is_empty() else 0
+
+## True when the id names a depth tier.
+static func has_tier(id: String) -> bool:
+	return not depth_tier(id).is_empty()
