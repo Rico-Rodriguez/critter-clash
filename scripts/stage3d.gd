@@ -1087,6 +1087,31 @@ func _off_path_point(rng: RandomNumberGenerator, keep: float) -> Vector3:
 	return at
 
 
+## The culling grid for the grass: the playfield is cut into cells this many
+## meters across and every scattered kind gets one multimesh per cell, so
+## the cells the camera cannot see are skipped whole instead of every blade
+## being drawn.
+const CULL_CELL := 4.0
+## Blades a cell should hold before the grid splits any finer. A kind with
+## fewer blades than this stays in one multimesh: splitting it would cost
+## more draw calls than the culling saves.
+const CULL_PER_CELL := 96
+
+
+## Grid size (cells across, cells deep) for a scatter of `count` blades.
+func _cull_grid(count: int) -> Vector2i:
+	var lo3 := _to3(HuntMap.PLAY.position)
+	var span3 := _to3(HuntMap.PLAY.end) - lo3
+	var area := maxf(span3.x * span3.z, 1.0)
+	# Aim for a fixed number of blades per cell: the dense kinds get a fine
+	# grid, where dropping an off-screen cell pays for its own draw call;
+	# the sparse ones stay whole.
+	var cell := maxf(CULL_CELL, sqrt(area * CULL_PER_CELL / maxf(float(count), 1.0)))
+	return Vector2i(
+		maxi(1, int(ceil(span3.x / cell))),
+		maxi(1, int(ceil(span3.z / cell))))
+
+
 func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, hi: float, sway: bool) -> void:
 	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
 	if packed == null:
@@ -1098,11 +1123,13 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 		return
 	var posed := _chain(source, probe)
 	# The arena is about twice what the camera frames: big scatters are cut
-	# into a 2x3 grid of multimeshes so off-screen cells are culled whole.
-	# The far camera now frames most of the arena, so cells rarely cull:
-	# one multimesh per kind keeps the draw-call count down.
-	var cols := 1
-	var rows := 1
+	# into a grid of multimeshes so off-screen cells are culled whole. Each
+	# cell carries its own transform (the node sits on the cell's corner and
+	# its blades are relative to it), so the cell's bounds stay tight and
+	# the engine can drop the whole cell in one go.
+	var grid := _cull_grid(count)
+	var cols := grid.x
+	var rows := grid.y
 	var cells: Array = []
 	for i in cols * rows:
 		cells.append([])
@@ -1118,25 +1145,34 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 	var grass: ShaderMaterial = _grass_material(source) if sway else null
 	if grass:
 		_grass_mats.append(grass)
-	for cell in cells:
-		if cell.is_empty():
-			continue
-		var multi := MultiMesh.new()
-		multi.transform_format = MultiMesh.TRANSFORM_3D
-		multi.use_colors = false
-		multi.mesh = source.mesh
-		multi.instance_count = cell.size()
-		for i in cell.size():
-			multi.set_instance_transform(i, cell[i])
-		var node := MultiMeshInstance3D.new()
-		node.multimesh = multi
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_grass_nodes.append(node)
-		# Coarser mesh LODs: blades are a few pixels tall at the hunt zoom.
-		node.lod_bias = 0.35 if _tier() != "high" else 0.6
-		if grass:
-			node.material_override = grass
-		world_root.add_child(node)
+	for cy in rows:
+		for cx in cols:
+			var cell: Array = cells[cy * cols + cx]
+			if cell.is_empty():
+				continue
+			# The cell's own corner: the node carries it and the blades in
+			# the multimesh are relative to it, so the cell's bounds are the
+			# bounds of its own blades.
+			var step := Vector3(span3.x / float(cols), 0.0, span3.z / float(rows))
+			var corner := lo3 + Vector3(float(cx), 0.0, float(cy)) * step
+			var to_cell := Transform3D(Basis.IDENTITY, -corner)
+			var multi := MultiMesh.new()
+			multi.transform_format = MultiMesh.TRANSFORM_3D
+			multi.use_colors = false
+			multi.mesh = source.mesh
+			multi.instance_count = cell.size()
+			for i in cell.size():
+				multi.set_instance_transform(i, to_cell * (cell[i] as Transform3D))
+			var node := MultiMeshInstance3D.new()
+			node.transform = Transform3D(Basis.IDENTITY, corner)
+			node.multimesh = multi
+			node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_grass_nodes.append(node)
+			# Coarser mesh LODs: blades are a few pixels tall at the hunt zoom.
+			node.lod_bias = 0.35 if _tier() != "high" else 0.6
+			if grass:
+				node.material_override = grass
+			world_root.add_child(node)
 	probe.free()
 
 
@@ -3891,9 +3927,16 @@ func _watch_frames(delta: float) -> void:
 
 ## Low tier: thin the grass, no sun shadows, no SSAO or glow.
 func _apply_low() -> void:
+	# The grass is split into grid cells now, so every cell keeps its own
+	# share of the blades: a cell that rounds its share down to nothing
+	# would leave a bald patch where it stood.
 	for node in _grass_nodes:
-		if is_instance_valid(node) and node.multimesh != null:
-			node.multimesh.visible_instance_count = int(node.multimesh.instance_count * 0.4)
+		if not is_instance_valid(node) or node.multimesh == null:
+			continue
+		var n := node.multimesh.instance_count
+		if n <= 0:
+			continue
+		node.multimesh.visible_instance_count = maxi(1, int(round(n * 0.4)))
 	if sun != null:
 		sun.shadow_enabled = false
 	if _env_ref != null:
