@@ -776,6 +776,61 @@ class Plate extends PanelContainer:
 		add_child(skin)
 
 
+## A dimmed sheet over the page that asks once before something that cannot
+## be undone: a heading, one plain line about what it costs, and the two ways
+## out. The caller sets the words and the tone of the way forward.
+class ConfirmSheet extends Control:
+	signal confirmed
+	signal cancelled
+	var heading := "Are you sure?"
+	## What the action costs, in plain words. Left out when empty.
+	var body := ""
+	var keep_text := "KEEP"
+	var go_text := "GO"
+	## True when the way forward is the dangerous one (red metal, not green).
+	var go_danger := false
+	var wide := 240.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.62)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		dim.gui_input.connect(func(e: InputEvent) -> void:
+			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+				cancelled.emit())
+		add_child(dim)
+		var center := CenterContainer.new()
+		center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(center)
+		var plate := Plate.new()
+		plate.kind = "panel"
+		plate.pad = 24
+		center.add_child(plate)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 14)
+		plate.add_child(box)
+		var title := UiKit.title(heading, 40)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(title)
+		if body != "":
+			var line := UiKit.label(body, 22, UiKit.CREAM, "b", 4)
+			line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(line)
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 14)
+		box.add_child(row)
+		var keep := UiKit.secondary(keep_text, wide, 88)
+		keep.pressed.connect(func() -> void: cancelled.emit())
+		row.add_child(keep)
+		var go: Button = UiKit.danger(go_text, wide, 88) if go_danger else UiKit.confirm(go_text, wide, 88)
+		go.pressed.connect(func() -> void: confirmed.emit())
+		row.add_child(go)
+
+
 class Pill extends Control:
 	static var _last: Dictionary = {}
 	var kind := "coin"
