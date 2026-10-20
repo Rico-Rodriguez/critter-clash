@@ -447,7 +447,7 @@ static func rarity_box(rarity: String) -> StyleBoxFlat:
 ## The last computed safe insets, and the sizes they were computed for.
 static var _insets: Dictionary = {}
 static var _insets_vp: Vector2 = Vector2.ZERO
-static var _insets_px: Vector2 = Vector2.ZERO
+static var _insets_px: Vector2i = Vector2i.ZERO
 
 
 ## Safe-area insets in viewport pixels: the notch, the home indicator and
