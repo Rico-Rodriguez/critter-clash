@@ -338,7 +338,7 @@ const BIOMES: Array = [
 	{
 		"id": "frost",
 		"name": "Frost Peaks",
-		"boss": "boreal",
+		"boss": "nimbus",
 		"gate": 80,
 		"need": "mushroom",
 		"recommended_level": 40,
