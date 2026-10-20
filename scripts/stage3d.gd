@@ -137,6 +137,10 @@ func _process(delta: float) -> void:
 		_flap_wings()
 	if _mode == "hunt":
 		_watch_frames(delta)
+	if _arena_key != "":
+		# The boss arena is made while the hunt runs on, a couple of props
+		# per frame, so the fight's first frame has nothing left to build.
+		_arena_build_step()
 	# The hero's pose is owned by its PedestalIdle node (attached in
 	# bind_pedestal); the stage only drifts the camera slowly so the glade
 	# breathes and parallaxes.
@@ -150,6 +154,7 @@ func _process(delta: float) -> void:
 func bind_hunt(biome_id: String) -> void:
 	_mode = "hunt"
 	_arena_built = false
+	_arena_reset()
 	_biome = biome_id
 	viewport.transparent_bg = false
 	_ground(biome_id)
@@ -231,6 +236,9 @@ func bind_pedestal(hero_id: String) -> void:
 func sync_hunt(sim: RunSim, alpha: float) -> void:
 	if _mode != "hunt":
 		return
+	# The boss arena is queued here, on the hunt's first frame, so its props
+	# are built long before the boss lands.
+	_arena_prepare(sim)
 	var seen := {}
 	var hero_at := _look
 	_sim_ref = sim
@@ -1260,14 +1268,29 @@ func _scatter_kit(rng: RandomNumberGenerator, model: String, count: int, lo: flo
 ## Breaks the kit rocks' rounded look: non-uniform stretch (tall shards,
 ## flat slabs), a tilt so they sit bedded in the ground, partly sunk.
 func _shape_rock(node: Node3D, rng: RandomNumberGenerator) -> void:
+	var shape := _shape_rock_params(rng)
+	_shape_rock_apply(node, shape)
+	node.position.y -= 0.08 * node.scale.y
+
+
+## The shape a rock takes, drawn apart from the rock itself: the boss arena
+## makes its stones long before the fight knows where they stand.
+func _shape_rock_params(rng: RandomNumberGenerator) -> Dictionary:
 	var kind := rng.randi() % 3
 	var stretch := Vector3(rng.randf_range(0.8, 1.3), rng.randf_range(0.9, 1.7), rng.randf_range(0.8, 1.2))
 	if kind == 1:
 		stretch = Vector3(rng.randf_range(1.2, 1.7), rng.randf_range(0.45, 0.7), rng.randf_range(1.0, 1.4))
-	node.scale *= stretch
-	node.rotate_object_local(Vector3.RIGHT, rng.randf_range(-0.25, 0.25))
-	node.rotate_object_local(Vector3.FORWARD, rng.randf_range(-0.25, 0.25))
-	node.position.y -= 0.08 * node.scale.y
+	return {
+		"stretch": stretch,
+		"tilt": Vector2(rng.randf_range(-0.25, 0.25), rng.randf_range(-0.25, 0.25)),
+	}
+
+
+func _shape_rock_apply(node: Node3D, shape: Dictionary) -> void:
+	node.scale *= shape["stretch"]
+	var tilt: Vector2 = shape["tilt"]
+	node.rotate_object_local(Vector3.RIGHT, tilt.x)
+	node.rotate_object_local(Vector3.FORWARD, tilt.y)
 
 
 func _off_path_point(rng: RandomNumberGenerator, keep: float) -> Vector3:
@@ -1368,7 +1391,9 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 	probe.free()
 
 
-func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> void:
+## Puts a model in the world. `parent` parks the prop somewhere else than
+## the field (the boss arena keeps its stones in their own hidden node).
+func _place_prop(model: String, at: Vector3, scale: float, shadows: bool, parent: Node = null) -> void:
 	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
 	if packed == null:
 		return
@@ -1387,7 +1412,10 @@ func _place_prop(model: String, at: Vector3, scale: float, shadows: bool) -> voi
 		if model.begins_with("tree") or (model == "mushroom_tall" and scale > 2.0):
 			(node as Node3D).set_meta("canopy", true)
 		_props.append(node)
-	world_root.add_child(node)
+	if parent != null:
+		parent.add_child(node)
+	else:
+		world_root.add_child(node)
 
 
 ## The materials a prop wears: bark on the logs and stumps, the rock shader
@@ -1798,11 +1826,227 @@ func _body_for(actor: RunSim.Actor) -> Node3D:
 	return body
 
 
+## --- Boss arena ---------------------------------------------------------
 ## The boss fight gets a place: a broken ring of standing stones rises
 ## around where the boss lands, with gnarled roots between them and a
 ## fringe of giant mushrooms and ferns outside, so the wider boss camera
 ## frames an arena instead of an empty field.
+##
+## The arena is built while the hunt runs on, not when the boss lands: its
+## props are made a couple per frame, parked out of sight, and the fight
+## only stands them up and shows them. Making them on the boss's first
+## frame put a whole scene of fresh glTF instantiations in one go, which
+## hitched right on the fight's opening beat.
+const ARENA_PROPS_PER_FRAME := 2
+## The explore lair can need the sim's ring stones on top of its own
+## landmarks, so the pool of stones is made deeper than the landmarks.
+const ARENA_POOL_SPARE := 14
+
+## Arenas by boss type (the biome's boss), so the props are built once and
+## the next fight reuses them instead of building them again.
+var _arena_cache := {}
+## The arena of this run: which boss it belongs to, and how much of it is
+## built.
+var _arena_key := ""
 var _arena_built := false
+
+
+## Queue the arena for this boss type: the explore map's lair gets the
+## sim's own stones, the arena hunt gets the broken ring. The props are
+## made while the hunt runs on, so the fight's first frame only has to
+## stand them up.
+func _arena_prepare(sim: RunSim) -> void:
+	if sim.explore:
+		_arena_prepare_sim(sim)
+	else:
+		_arena_prepare_ring()
+
+
+## The explore map's lair: a pool of standing stones, deep enough for the
+## lair's landmarks and for the ring the sim draws around the boss.
+func _arena_prepare_sim(sim: RunSim) -> void:
+	var key := "sim:" + _biome
+	if _arena_cache.has(key):
+		_arena_key = key
+		return
+	_arena_prepare_key(key, _arena_pool_slots(_arena_lair_stones(sim.map) + ARENA_POOL_SPARE))
+
+
+## The arena hunt's ring: the same broken circle for every boss.
+func _arena_prepare_ring() -> void:
+	var key := "ring:" + _biome
+	if _arena_cache.has(key):
+		_arena_key = key
+		return
+	_arena_prepare_key(key, _arena_ring_slots())
+
+
+func _arena_prepare_key(key: String, slots: Array) -> void:
+	_arena_key = key
+	if _arena_cache.has(key):
+		return
+	var root := Node3D.new()
+	root.name = "BossArena"
+	root.visible = false
+	world_root.add_child(root)
+	_arena_cache[key] = {"root": root, "slots": slots, "made": 0}
+
+
+## Drop the arenas of the last run: the props belong to the world they
+## were built for.
+func _arena_reset() -> void:
+	for key in _arena_cache.keys():
+		var root: Node3D = _arena_cache[key]["root"]
+		if is_instance_valid(root):
+			root.queue_free()
+	_arena_cache.clear()
+	_arena_key = ""
+
+
+func _arena_now() -> Dictionary:
+	if _arena_key == "" or not _arena_cache.has(_arena_key):
+		return {}
+	return _arena_cache[_arena_key]
+
+
+## Make a couple of the parked arena props per frame: the work is the same,
+## but no single frame carries the whole lot.
+func _arena_build_step() -> void:
+	var arena := _arena_now()
+	if arena.is_empty():
+		return
+	var slots: Array = arena["slots"]
+	var made := int(arena["made"])
+	var budget := ARENA_PROPS_PER_FRAME
+	while made < slots.size() and budget > 0:
+		_arena_make(slots[made], arena["root"])
+		made += 1
+		budget -= 1
+	arena["made"] = made
+
+
+## Make the rest of the arena at once. Only a boss that arrived before the
+## hunt had time to build the props would need this.
+func _arena_build_all() -> void:
+	var arena := _arena_now()
+	if arena.is_empty():
+		return
+	var slots: Array = arena["slots"]
+	var made := int(arena["made"])
+	while made < slots.size():
+		_arena_make(slots[made], arena["root"])
+		made += 1
+	arena["made"] = made
+
+
+## Make one arena prop: the model and its paint, plus the shape and the
+## stance the layout gives it. It waits at the origin until the fight
+## stands it up.
+func _arena_make(slot: Dictionary, root: Node3D) -> void:
+	var count := _props.size()
+	_place_prop(str(slot["model"]), Vector3.ZERO, float(slot["scale"]), bool(slot["shadows"]), root)
+	if _props.size() == count:
+		return
+	var node: Node3D = _props[-1]
+	if slot.has("stretch"):
+		node.scale *= slot["stretch"]
+	if slot.has("rot"):
+		node.rotation = slot["rot"]
+	if slot.has("shape"):
+		_shape_rock_apply(node, slot["shape"])
+	# The arena is not field dressing: a parked prop stays out of the
+	# field's bookkeeping until the fight stands it up.
+	_props.erase(node)
+	slot["node"] = node
+
+
+## The arena hunt's ring: a broken circle of tall menhirs with low slabs
+## between them and a fringe of mushrooms and ferns outside. The stones are
+## laid out around the origin; the fight gives the ring its centre and its
+## radius.
+func _arena_ring_slots() -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7331
+	var slots: Array = []
+	var count := 15
+	for i in count:
+		if i % 5 == 4:
+			continue  # gaps so the ring reads as old and broken
+		var ang := TAU * float(i) / float(count) + rng.randf_range(-0.08, 0.08)
+		# Tall, leaning menhirs.
+		slots.append({
+			"model": ["rock_a", "rock_b"][i % 2],
+			"ang": ang,
+			"delta": rng.randf_range(-0.4, 0.4),
+			"scale": rng.randf_range(2.8, 3.4),
+			"stretch": Vector3(0.7, rng.randf_range(1.8, 2.4), 0.65),
+			"rot": Vector3(rng.randf_range(-0.12, 0.12), ang, rng.randf_range(-0.12, 0.12)),
+			"shadows": i % 3 == 0,
+			"rise": true,
+			"order": float(i),
+			"in_props": true,
+		})
+		# A low rock slab between neighbouring stones, sunk like a root.
+		if i % 2 == 0:
+			slots.append({
+				"model": "rock_flat",
+				"ang": ang + PI / float(count),
+				"delta": -0.4,
+				"scale": rng.randf_range(1.6, 2.2),
+				"shape": _shape_rock_params(rng),
+				"shadows": false,
+				"rise": false,
+				"in_props": true,
+			})
+	# Outer fringe: big mushrooms and ferns just beyond the stones.
+	for i in 10:
+		slots.append({
+			"model": "mushroom_tall" if i % 3 != 2 else "bush_flower",
+			"ang": TAU * float(i) / 10.0 + 0.3,
+			"delta": rng.randf_range(1.6, 3.2),
+			"scale": rng.randf_range(1.6, 2.6),
+			"shadows": false,
+			"rise": false,
+			"in_props": true,
+		})
+	return slots
+
+
+## The explore lair's stones: one standing stone per stone the sim put
+## down, drawn from a pool made ahead of the fight. The pool is deep
+## enough for the lair's landmarks and for the ring the sim draws around
+## the boss, so the fight never has to make a prop.
+func _arena_pool_slots(count: int) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7331
+	var slots: Array = []
+	for i in count:
+		slots.append({
+			"model": ["rock_a", "rock_b"][i % 2],
+			"scale": rng.randf_range(2.8, 3.4),
+			"stretch": Vector3(0.7, rng.randf_range(1.8, 2.4), 0.65),
+			"rot": Vector3(rng.randf_range(-0.12, 0.12), rng.randf() * TAU, rng.randf_range(-0.12, 0.12)),
+			"shadows": i % 3 == 0,
+			"rise": true,
+			"order": float(i),
+			"in_props": false,
+		})
+	return slots
+
+
+## How many of the map's landmarks stand close enough to the lair to be
+## part of the fight's ground.
+func _arena_lair_stones(map: HuntMap) -> int:
+	var n := 0
+	for l in map.landmarks:
+		var p: Vector2 = l["pos"]
+		if p.distance_to(map.lair) <= map.lair_r + 200.0:
+			n += 1
+	return n
+
+
+## Stand the arena up around the fight: the parked props are put where
+## they belong, and the standing stones rise as the boss drops.
 func _boss_arena(center: Vector3) -> void:
 	if _arena_built or _mode != "hunt":
 		return
@@ -1810,8 +2054,11 @@ func _boss_arena(center: Vector3) -> void:
 	if _sim_ref != null and _sim_ref.explore:
 		_arena_from_sim(_sim_ref)
 		return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7331
+	_arena_prepare_ring()
+	_arena_build_all()
+	var arena := _arena_now()
+	if arena.is_empty():
+		return
 	# Ring the whole fight: centred between the landing spot and the hero,
 	# wide enough that both stand inside it.
 	var radius := 10.0
@@ -1819,33 +2066,37 @@ func _boss_arena(center: Vector3) -> void:
 		var hero := Vector3(_mark.global_position.x, 0, _mark.global_position.z)
 		radius = clampf(center.distance_to(hero) * 0.5 + 7.5, 10.0, 13.0)
 		center = center.lerp(hero, 0.5)
-	var count := 15
-	for i in count:
-		if i % 5 == 4:
-			continue  # gaps so the ring reads as old and broken
-		var ang := TAU * float(i) / float(count) + rng.randf_range(-0.08, 0.08)
-		var at := center + Vector3(cos(ang), 0, sin(ang)) * (radius + rng.randf_range(-0.4, 0.4))
-		_place_prop(["rock_a", "rock_b"][i % 2], at, rng.randf_range(2.8, 3.4), i % 3 == 0)
-		var stone: Node3D = _props[-1]
-		# Tall, leaning menhirs.
-		stone.scale *= Vector3(0.7, rng.randf_range(1.8, 2.4), 0.65)
-		stone.rotation = Vector3(rng.randf_range(-0.12, 0.12), ang, rng.randf_range(-0.12, 0.12))
-		var rest: Vector3 = stone.position
-		stone.position = rest - Vector3(0, 2.6, 0)
-		var tw := create_tween()
-		# The ring rises while the boss drops, so the intro shows it.
-		tw.tween_interval(0.03 * i)
-		tw.tween_property(stone, "position", rest, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		# A low rock slab between neighbouring stones, sunk like a root.
-		if i % 2 == 0:
-			var mid := ang + PI / float(count)
-			_place_prop("rock_flat", center + Vector3(cos(mid), 0, sin(mid)) * (radius - 0.4), rng.randf_range(1.6, 2.2), false)
-			_shape_rock(_props[-1], rng)
-	# Outer fringe: big mushrooms and ferns just beyond the stones.
-	for i in 10:
-		var ang := TAU * float(i) / 10.0 + 0.3
-		var at := center + Vector3(cos(ang), 0, sin(ang)) * (radius + rng.randf_range(1.6, 3.2))
-		_place_prop("mushroom_tall" if i % 3 != 2 else "bush_flower", at, rng.randf_range(1.6, 2.6), false)
+	var slots: Array = arena["slots"]
+	for slot in slots:
+		var node: Node3D = slot.get("node")
+		if node == null:
+			continue
+		var ang := float(slot["ang"])
+		var at := center + Vector3(cos(ang), 0, sin(ang)) * (radius + float(slot["delta"]))
+		_arena_stand(slot, node, at)
+		if bool(slot.get("in_props", false)):
+			# The ring is part of the field now, so the near-hero hide and
+			# the canopy fade treat it like the rest of the props.
+			_props.append(node)
+	arena["root"].visible = true
+
+
+## Put a parked prop where it belongs: the standing stones start below the
+## ground and rise while the boss drops.
+func _arena_stand(slot: Dictionary, node: Node3D, at: Vector3) -> void:
+	if slot.has("shape"):
+		# The slab is bedded in the ground, not standing on it.
+		at.y -= 0.08 * node.scale.y
+	node.position = at
+	node.visible = true
+	if not bool(slot.get("rise", false)):
+		return
+	var rest: Vector3 = at
+	node.position = rest - Vector3(0, 2.6, 0)
+	var tw := create_tween()
+	# The ring rises while the boss drops, so the intro shows it.
+	tw.tween_interval(0.03 * float(slot.get("order", 0.0)))
+	tw.tween_property(node, "position", rest, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## Boss wind-up glow: an additive hot rim over the whole body, driven by
@@ -4191,6 +4442,7 @@ const RCHUNK := Vector2(2240, 2560)
 func bind_world(map: HuntMap, biome_id: String) -> void:
 	_mode = "hunt"
 	_arena_built = false
+	_arena_reset()
 	_biome = biome_id
 	world_map = map
 	viewport.transparent_bg = false
@@ -4793,26 +5045,32 @@ func sync_fog(sim: RunSim, delta: float) -> void:
 
 ## Explore lairs: raise a standing stone on every stone the sim placed (the
 ## ring is trimmed to the lair's open ground there), so what blocks is what shows.
+## The stones come from the pool made ahead of the fight, so the lair's
+## ground is only stood up here, never built.
 func _arena_from_sim(sim: RunSim) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7331
+	_arena_prepare_sim(sim)
+	_arena_build_all()
+	var arena := _arena_now()
+	if arena.is_empty():
+		return
+	var slots: Array = arena["slots"]
 	var i := 0
 	for o in sim.obstacles:
 		var at := _to3(Vector2(o.x, o.y))
 		if Vector2(o.x, o.y).distance_to(sim.map.lair) > sim.map.lair_r + 200.0:
 			continue
-		_place_prop(["rock_a", "rock_b"][i % 2], at, rng.randf_range(2.8, 3.4), i % 3 == 0)
-		var stone: Node3D = _props[-1]
-		_props.erase(stone)
-		stone.scale *= Vector3(0.7, rng.randf_range(1.8, 2.4), 0.65)
-		stone.rotation = Vector3(rng.randf_range(-0.12, 0.12), rng.randf() * TAU, rng.randf_range(-0.12, 0.12))
-		var rest: Vector3 = stone.position
-		stone.position = rest - Vector3(0, 2.6, 0)
-		var tw := create_tween()
-		# The ring rises while the boss drops, so the intro shows it.
-		tw.tween_interval(0.03 * i)
-		tw.tween_property(stone, "position", rest, 0.55).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if i >= slots.size():
+			break
+		var node: Node3D = slots[i].get("node")
+		if node != null:
+			_arena_stand(slots[i], node, at)
 		i += 1
+	# The stones the fight did not need stay out of the clearing.
+	for k in range(i, slots.size()):
+		var spare: Node3D = slots[k].get("node")
+		if spare != null:
+			spare.visible = false
+	arena["root"].visible = true
 
 
 # --- Class-combat visuals (events from run_sim ROLE_TUNING) -----------------
