@@ -178,7 +178,7 @@ func header(compact := false) -> HBoxContainer:
 	row.add_child(trophies)
 	row.add_child(coins)
 	# With the back chip leading the row there is no room for three pills at
-	# 720 px; the always-zero gem pill is the one that goes.
+	# 720 px; the third pill is the one that goes.
 	if compact:
 		gems.queue_free()
 	else:
