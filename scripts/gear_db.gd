@@ -30,12 +30,15 @@ const TIER_MUL: Array[float] = [0.0, 1.0, 1.7, 2.6]
 const SAVE_KEY := "armory"
 const SAVE_V := 2
 
-## Heroes and the slots each can fill (Sorceress and Rogue fight bare-handed: no off-hand).
+## Heroes and the slots each can fill (Sorceress, Rogue and the two new
+## casters fight bare-handed: no off-hand).
 const HERO_SLOTS := {
 	"barbarian": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"],
 	"paladin": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"],
 	"sorceress": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
 	"rogue": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
+	"necromancer": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
+	"druid": ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "charm"],
 }
 
 ## Per-hero, per-slot base name; the tier prefixes it ("Iron Bascinet").
@@ -48,6 +51,10 @@ const NAMES := {
 		"boots": "Sandals", "weapon": "Staff", "charm": "Amulet"},
 	"rogue": {"helm": "Hood", "chest": "Jerkin", "pauldrons": "Shoulder Guards", "gloves": "Bracers",
 		"boots": "Boots", "weapon": "Bow", "charm": "Quiver"},
+	"necromancer": {"helm": "Bone Circlet", "chest": "Ossuary Robes", "pauldrons": "Ribbed Mantle", "gloves": "Fingerbone Wraps",
+		"boots": "Grave Sandals", "weapon": "Ossuary Wand", "charm": "Soul Lantern"},
+	"druid": {"helm": "Antler Crown", "chest": "Thornwood Hide", "pauldrons": "Bark Pauldrons", "gloves": "Bramble Gloves",
+		"boots": "Rootbound Boots", "weapon": "Thornwood Maul", "charm": "Seed Totem"},
 }
 const TIER_PREFIX: Array[String] = ["", "Iron", "Blackened", "Runebound"]
 
@@ -92,7 +99,8 @@ const SLOT_SKILL := {
 	"helm": "defence", "chest": "defence", "boots": "defence", "offhand": "defence",
 	"pauldrons": "strength", "gloves": "strength", "weapon": "", "charm": "hitpoints",
 }
-const WEAPON_SKILL := {"barbarian": "attack", "paladin": "attack", "sorceress": "magic", "rogue": "ranged"}
+const WEAPON_SKILL := {"barbarian": "attack", "paladin": "attack", "sorceress": "magic", "rogue": "ranged",
+	"necromancer": "magic", "druid": "attack"}
 ## Per-item overrides: item_id -> {skill: level}. Merged over the default.
 const REQ_OVERRIDES := {}
 

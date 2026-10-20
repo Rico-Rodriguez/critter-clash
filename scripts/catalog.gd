@@ -102,6 +102,30 @@ static func playable_ids() -> Array:
 	return ids
 
 
+## True for a hero class on the playable roster.
+static func is_class(id: String) -> bool:
+	return str(id) in PLAYABLE
+
+
+## The class a retired hero id became ("" for a live id or an unknown one).
+static func replacement_for(id: String) -> String:
+	return str(RETIRED_HEROES.get(id, ""))
+
+
+## The skills a class really trains (GearDB skill keys). Empty for anything
+## that is not a hero class.
+static func class_skills(id: String) -> Array:
+	var row := critter(id)
+	if row.is_empty():
+		return []
+	return row.get("skills", [])
+
+
+## The class's headline ability, an AbilityDB id. "" for anything else.
+static func class_ability(id: String) -> String:
+	return str(critter(id).get("ability", ""))
+
+
 static func role_name(role: String) -> String:
 	match role:
 		"mage":
@@ -299,12 +323,21 @@ static func _index_cards() -> void:
 	}
 
 
-## The four Diablo-esque heroes. Retired ids ("juniper", "pip", "pebble",
+## The six Diablo-esque hero classes. Retired ids ("juniper", "pip", "pebble",
 ## "ember", "lumen", "bramble") keep rows below only so old saves and
 ## duel/daily records still resolve; they render as the closest new class.
 const PLAYABLE: Array = [
-	"barbarian", "paladin", "sorceress", "rogue",
+	"barbarian", "paladin", "sorceress", "rogue", "necromancer", "druid",
 ]
+
+## The old hero ids and the class each one became. A save that owned or
+## featured a retired hero moves to the class that replaced it (see
+## SaveGame.migrate_retired_heroes), and the 3D cast and the portraits render
+## the retired id as that same class.
+const RETIRED_HEROES: Dictionary = {
+	"juniper": "rogue", "pip": "sorceress", "pebble": "paladin",
+	"ember": "sorceress", "lumen": "barbarian", "bramble": "necromancer",
+}
 
 ## Boss pet roll. 1 in PET_RATE, separate from the weighted table.
 const PET_RATE := 50
@@ -617,9 +650,9 @@ static func xp_falloff(combat: int, recommended: int, tier: int) -> float:
 const MILESTONES: Array = [
 	{"id": "m10", "trophies": 10, "kind": "coins", "amount": 40, "label": "Coin purse", "detail": "40 coins"},
 	{"id": "m30", "trophies": 30, "kind": "chest", "label": "Trail chest", "detail": "A hunt chest"},
-	{"id": "m45", "trophies": 45, "kind": "unlock", "hero": "lumen", "cards": 8, "label": "Gnash joins", "detail": "Ghoul berserker unlocked"},
+	{"id": "m45", "trophies": 45, "kind": "unlock", "hero": "druid", "cards": 8, "label": "Druid joins", "detail": "Grove shapeshifter unlocked"},
 	{"id": "m80", "trophies": 80, "kind": "gear", "slot": "charm", "rarity": "rare", "label": "Rare charm", "detail": "A charm for any hero"},
-	{"id": "m110", "trophies": 110, "kind": "unlock", "hero": "bramble", "cards": 8, "label": "Mordrek joins", "detail": "Bone Knight unlocked"},
+	{"id": "m110", "trophies": 110, "kind": "unlock", "hero": "necromancer", "cards": 8, "label": "Necromancer joins", "detail": "Bone binder unlocked"},
 	{"id": "m150", "trophies": 150, "kind": "gear", "slot": "armor", "rarity": "rare", "label": "Rare armour", "detail": "Blackened steel for any knight"},
 	{"id": "m190", "trophies": 190, "kind": "coins", "amount": 120, "label": "Heavy purse", "detail": "120 coins"},
 	{"id": "m240", "trophies": 240, "kind": "gear", "slot": "weapon", "rarity": "epic", "label": "Epic weapon", "detail": "A strong weapon"},
@@ -735,6 +768,9 @@ const CRITTERS: Dictionary = {
 		"name": "Barbarian", "role": "tank", "kind": "hero", "color": "c0392b",
 		"blurb": "A wandering berserker from the Dreadlands. Twin axes carve a red path through the barrows.",
 		"unlock": "A starter hero.",
+		## The class ability (an AbilityDB id) and the skills the class
+		## really trains. Its abilities scale with those skills.
+		"ability": "whirlwind", "skills": ["attack", "strength"],
 		"hp": 320, "dmg": 28, "interval": 0.45, "range": 120, "speed": 270,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 2,
 	},
@@ -742,13 +778,15 @@ const CRITTERS: Dictionary = {
 		"name": "Paladin", "role": "tank", "kind": "hero", "color": "f1c40f",
 		"blurb": "A Zakarum zealot clad in blessed steel. Sword and shield hold the line against the dark.",
 		"unlock": "A starter hero.",
+		"ability": "aura_of_light", "skills": ["strength", "hitpoints"],
 		"hp": 300, "dmg": 24, "interval": 0.48, "range": 135, "speed": 250,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 4,
 	},
 	"sorceress": {
 		"name": "Sorceress", "role": "mage", "kind": "hero", "color": "8e44ad",
-		"blurb": "A Vizjerei prodigy. Fire, ice, and lightning answer her call from afar.",
+		"blurb": "A Vizjerei prodigy. Fire, ice and lightning answer her call from afar.",
 		"unlock": "A starter hero.",
+		"ability": "frost_nova", "skills": ["magic", "hitpoints"],
 		"hp": 180, "dmg": 22, "interval": 0.5, "range": 340, "speed": 260,
 		"splash": 100, "splash_mul": 0.7, "proj_speed": 540, "armor": 0,
 	},
@@ -756,8 +794,25 @@ const CRITTERS: Dictionary = {
 		"name": "Rogue", "role": "archer", "kind": "hero", "color": "27ae60",
 		"blurb": "A Sister of the Sightless Eye. Bows and traps strike unseen from the shadows.",
 		"unlock": "A starter hero.",
+		"ability": "fan_of_knives", "skills": ["ranged", "defence"],
 		"hp": 200, "dmg": 18, "interval": 0.38, "range": 420, "speed": 290,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 800, "armor": 1,
+	},
+	"necromancer": {
+		"name": "Necromancer", "role": "mage", "kind": "hero", "color": "5f7a6b",
+		"blurb": "A binder of bone. The dead rise at her call and hold the line beside her.",
+		"unlock": "Trophy road.",
+		"ability": "raise_skeleton", "skills": ["magic", "hitpoints"],
+		"hp": 172, "dmg": 19, "interval": 0.54, "range": 300, "speed": 258,
+		"splash": 80, "splash_mul": 0.66, "proj_speed": 490, "armor": 0,
+	},
+	"druid": {
+		"name": "Druid", "role": "tank", "kind": "hero", "color": "3f8f5f",
+		"blurb": "A shapeshifter of the wilds. Bear form, thornwood, and the patience of the grove.",
+		"unlock": "Trophy road.",
+		"ability": "wild_shape", "skills": ["strength", "defence"],
+		"hp": 262, "dmg": 25, "interval": 0.43, "range": 130, "speed": 282,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 2,
 	},
 	"juniper": {
 		"name": "Juniper", "role": "archer", "kind": "hero", "color": "e07a3d",
@@ -900,8 +955,8 @@ const DROPS: Array = [
 	{"id": "thistle_pouch", "boss": "thistle", "name": "Heavy purse", "kind": "coins", "amount": 90, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "meadow_fiber", "boss": "thistle", "name": "Barrow sinew", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "67b85a"},
 	{"id": "pollen", "boss": "thistle", "name": "Grave ash", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "f2d35a"},
-	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 2, "rarity": "common", "weight": 12, "color": "8fd14f"},
-	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Mordrek relics", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
+	{"id": "thistle_ember_cards", "boss": "thistle", "name": "Sorceress relics", "kind": "cards", "hero": "sorceress", "amount": 2, "rarity": "common", "weight": 12, "color": "8e44ad"},
+	{"id": "thistle_juniper_cards", "boss": "thistle", "name": "Necromancer relics", "kind": "cards", "hero": "necromancer", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "5f7a6b"},
 	{"id": "thistle_claw", "boss": "thistle", "name": "Gravemaw talon", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "c46b8a"},
 	{"id": "thistle_shell", "boss": "thistle", "name": "Barrow-hide mantle", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8d4e6a"},
 	{"id": "boar_bristle", "boss": "thistle", "name": "Troll bristle", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "a86848"},
@@ -912,8 +967,8 @@ const DROPS: Array = [
 	{"id": "caplet_pouch", "boss": "caplet", "name": "Heavy purse", "kind": "coins", "amount": 110, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "cap_bits", "boss": "caplet", "name": "Rot fur", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d45ad0"},
 	{"id": "spore_dust", "boss": "caplet", "name": "Blight dust", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "c9b6ef"},
-	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Aldric relics", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "common", "weight": 12, "color": "b89a5e"},
-	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "c0453a"},
+	{"id": "caplet_pebble_cards", "boss": "caplet", "name": "Paladin relics", "kind": "cards", "hero": "paladin", "amount": 2, "rarity": "common", "weight": 12, "color": "f1c40f"},
+	{"id": "caplet_pip_cards", "boss": "caplet", "name": "Barbarian relics", "kind": "cards", "hero": "barbarian", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "c0392b"},
 	{"id": "caplet_wand", "boss": "caplet", "name": "Blightfang wand", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d45ad0"},
 	{"id": "caplet_wrap", "boss": "caplet", "name": "Wolfhide wrap", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8a3a86"},
 	{"id": "toad_cap", "boss": "caplet", "name": "Moonless pelt", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e23a4a"},
@@ -924,8 +979,8 @@ const DROPS: Array = [
 	{"id": "nimbus_pouch", "boss": "nimbus", "name": "Heavy purse", "kind": "coins", "amount": 130, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "frost_wool", "boss": "nimbus", "name": "Rimefang pelt", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "d7e7f6"},
 	{"id": "ice_shard", "boss": "nimbus", "name": "Ice shard", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "9fd4ef"},
-	{"id": "nimbus_lumen_cards", "boss": "nimbus", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "common", "weight": 12, "color": "c0453a"},
-	{"id": "nimbus_bramble_cards", "boss": "nimbus", "name": "Mordrek relics", "kind": "cards", "hero": "bramble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "6fbf8f"},
+	{"id": "nimbus_lumen_cards", "boss": "nimbus", "name": "Barbarian relics", "kind": "cards", "hero": "barbarian", "amount": 2, "rarity": "common", "weight": 12, "color": "c0392b"},
+	{"id": "nimbus_bramble_cards", "boss": "nimbus", "name": "Necromancer relics", "kind": "cards", "hero": "necromancer", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "5f7a6b"},
 	{"id": "nimbus_sling", "boss": "nimbus", "name": "Frostfang blade", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "d7e7f6"},
 	{"id": "nimbus_coat", "boss": "nimbus", "name": "Rimeguard coat", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "8aa4c0"},
 	{"id": "hare_fluff", "boss": "nimbus", "name": "Wraith wisp", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
@@ -936,8 +991,8 @@ const DROPS: Array = [
 	{"id": "cinder_pouch", "boss": "cinder", "name": "Heavy purse", "kind": "coins", "amount": 150, "rarity": "uncommon", "weight": 10, "color": "e8c07a"},
 	{"id": "ash_clump", "boss": "cinder", "name": "Ash clump", "kind": "material", "amount": 4, "rarity": "common", "weight": 20, "color": "6a534c"},
 	{"id": "ember_ore", "boss": "cinder", "name": "Ember ore", "kind": "material", "amount": 2, "rarity": "uncommon", "weight": 12, "color": "ff8a3c"},
-	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "common", "weight": 12, "color": "8fd14f"},
-	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Aldric relics", "kind": "cards", "hero": "pebble", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "b89a5e"},
+	{"id": "cinder_ember_cards", "boss": "cinder", "name": "Sorceress relics", "kind": "cards", "hero": "sorceress", "amount": 3, "rarity": "common", "weight": 12, "color": "8e44ad"},
+	{"id": "cinder_pebble_cards", "boss": "cinder", "name": "Paladin relics", "kind": "cards", "hero": "paladin", "amount": 2, "rarity": "uncommon", "weight": 8, "color": "f1c40f"},
 	{"id": "cinder_mallet", "boss": "cinder", "name": "Cinderfang", "kind": "gear", "slot": "weapon", "gear_rarity": "common", "rarity": "uncommon", "weight": 8, "color": "ff5a32"},
 	{"id": "cinder_plate", "boss": "cinder", "name": "Ash plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "a84830"},
 	{"id": "salamander_scale", "boss": "cinder", "name": "Cinder scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
@@ -953,7 +1008,7 @@ const DROPS: Array = [
 	{"id": "wyrm_essence", "boss": "boreal", "name": "Wyrm essence", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "f7f7fb"},
 	{"id": "boreal_heart", "boss": "boreal", "name": "Boreal heart", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "b7f0ff"},
 	{"id": "boreal_hoard", "boss": "boreal", "name": "Wyrm hoard", "kind": "coins", "amount": 180, "rarity": "very_rare", "weight": 3, "color": "f0b429"},
-	{"id": "boreal_lumen_cards", "boss": "boreal", "name": "Gnash relics", "kind": "cards", "hero": "lumen", "amount": 2, "rarity": "rare", "weight": 3, "color": "c0453a"},
+	{"id": "boreal_lumen_cards", "boss": "boreal", "name": "Barbarian relics", "kind": "cards", "hero": "barbarian", "amount": 2, "rarity": "rare", "weight": 3, "color": "c0392b"},
 	{"id": "boreal_pet", "boss": "boreal", "name": "Frostling", "kind": "pet", "sprite": "boreal", "rarity": "very_rare", "weight": 0, "color": "b7f0ff"},
 	{"id": "inferno_plate", "boss": "inferno", "name": "Magma plate", "kind": "gear", "slot": "armor", "gear_rarity": "rare", "rarity": "rare", "weight": 6, "color": "a84830"},
 	{"id": "inferno_mallet", "boss": "inferno", "name": "Infernofang", "kind": "gear", "slot": "weapon", "gear_rarity": "rare", "rarity": "rare", "weight": 5, "color": "ff6a1a"},
@@ -961,7 +1016,7 @@ const DROPS: Array = [
 	{"id": "colossus_scale", "boss": "inferno", "name": "Colossus scale", "kind": "material", "amount": 1, "rarity": "rare", "weight": 4, "color": "e25b2a"},
 	{"id": "heart_of_inferno", "boss": "inferno", "name": "Heart of inferno", "kind": "material", "amount": 1, "rarity": "very_rare", "weight": 2, "color": "ff5a2a"},
 	{"id": "inferno_hoard", "boss": "inferno", "name": "Colossus hoard", "kind": "coins", "amount": 220, "rarity": "very_rare", "weight": 3, "color": "f0b429"},
-	{"id": "inferno_ember_cards", "boss": "inferno", "name": "Corvin relics", "kind": "cards", "hero": "ember", "amount": 3, "rarity": "rare", "weight": 3, "color": "8fd14f"},
+	{"id": "inferno_ember_cards", "boss": "inferno", "name": "Sorceress relics", "kind": "cards", "hero": "sorceress", "amount": 3, "rarity": "rare", "weight": 3, "color": "8e44ad"},
 	{"id": "inferno_pet", "boss": "inferno", "name": "Emberling", "kind": "pet", "sprite": "inferno", "rarity": "very_rare", "weight": 0, "color": "ff6a1a"},
 ]
 
