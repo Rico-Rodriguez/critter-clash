@@ -93,8 +93,11 @@ func _collect_pills() -> void:
 			_pills.append(child)
 
 
+## Re-read the three counters on enter: the trophies, the coins and the gear
+## shards. The shard wallet is read from the same place the Forge reads it, so
+## a duplicate melted into shards shows here instead of a flat zero.
 func _sync() -> void:
-	var amounts := [str(int(SaveGame.data["trophies"])), str(int(SaveGame.data["coins"])), "0"]
+	var amounts := [str(int(SaveGame.data["trophies"])), str(int(SaveGame.data["coins"])), str(int(SaveGame.data.get("gear_shards", 0)))]
 	for i in _pills.size():
 		if i < amounts.size():
 			_pills[i].set_amount(amounts[i])
