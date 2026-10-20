@@ -222,7 +222,7 @@ static func _save() -> void:
 		_fail("skill curve")
 	if Catalog.skill_level(0) != 1 or Catalog.skill_level(83) != 2 or Catalog.skill_level(13034431) != 99:
 		_fail("skill level")
-	if Catalog.all_drops().size() != 48:
+	if Catalog.all_drops().size() != 64:
 		_fail("drop log size %d" % Catalog.all_drops().size())
 	SaveGame.assign_task("meadow_critters")
 	var summary := SaveGame.commit_victory("meadow", "thistle", 40)
@@ -2320,7 +2320,7 @@ static func _skills_screen_check() -> void:
 			relock.append(str(id))
 			row["unlocked"] = true
 	var featured_raw := str(SaveGame.data.get("featured", ""))
-	var other := "pebble" if hero != "pebble" else "ember"
+	var other := "sorceress" if hero != "sorceress" else "paladin"
 	var screen := SkillsScreen.new()
 	if screen.view_id() != hero:
 		_fail("skills view should open on the featured hero %s" % hero)
@@ -3087,25 +3087,25 @@ static func _gear_duplicates_check() -> void:
 	SaveGame.data["gear_shards"] = 0
 	SaveGame.data["coins"] = 0
 	# First copy banks the piece, the second copy of the same piece pays shards.
-	var res: Dictionary = SaveGame.bank_gear(["ember.helm.1", "ember.helm.1"])
-	if str(res["ids"]) != "[\"ember.helm.1\"]" or int(res["shards"]) != 5 or int(res["coins"]) != 0:
+	var res: Dictionary = SaveGame.bank_gear(["sorceress.helm.1", "sorceress.helm.1"])
+	if str(res["ids"]) != "[\"sorceress.helm.1\"]" or int(res["shards"]) != 5 or int(res["coins"]) != 0:
 		_fail("iron duplicate banked %s" % str(res))
-	if not GearDB.has("ember", "ember.helm.1") or int(SaveGame.data["gear_shards"]) != 5:
+	if not GearDB.has("sorceress", "sorceress.helm.1") or int(SaveGame.data["gear_shards"]) != 5:
 		_fail("iron duplicate did not pay 5 shards")
 	# Steel is 15, rune is 40.
-	GearDB.grant("ember.chest.2")
-	res = SaveGame.bank_gear(["ember.chest.2"])
+	GearDB.grant("sorceress.chest.2")
+	res = SaveGame.bank_gear(["sorceress.chest.2"])
 	if int(res["shards"]) != 15 or int(SaveGame.data["gear_shards"]) != 20:
 		_fail("steel duplicate paid %s" % str(res))
-	GearDB.grant("ember.weapon.3")
-	res = SaveGame.bank_gear(["ember.weapon.3"])
+	GearDB.grant("sorceress.weapon.3")
+	res = SaveGame.bank_gear(["sorceress.weapon.3"])
 	if int(res["shards"]) != 40 or int(SaveGame.data["gear_shards"]) != 60:
 		_fail("rune duplicate paid %s" % str(res))
-	# Full tier: ember owns every iron item, so an iron duplicate pays coins.
-	for slot in GearDB.HERO_SLOTS["ember"]:
-		GearDB.grant(GearDB.item_id("ember", str(slot), GearDB.Tier.IRON))
+	# Full tier: sorceress owns every iron item, so an iron duplicate pays coins.
+	for slot in GearDB.HERO_SLOTS["sorceress"]:
+		GearDB.grant(GearDB.item_id("sorceress", str(slot), GearDB.Tier.IRON))
 	var coins_before := int(SaveGame.data["coins"])
-	res = SaveGame.bank_gear(["ember.helm.1"])
+	res = SaveGame.bank_gear(["sorceress.helm.1"])
 	if int(res["coins"]) != 10 or int(res["shards"]) != 0 or int(SaveGame.data["coins"]) != coins_before + 10:
 		_fail("a complete iron tier did not pay 10 coins: %s" % str(res))
 	if int(SaveGame.data["gear_shards"]) != 60:

@@ -401,9 +401,9 @@ func hero(id: String) -> Dictionary:
 
 
 func featured_id() -> String:
-	var id := str(data.get("featured", "pebble"))
+	var id := str(data.get("featured", "paladin"))
 	if not data["heroes"].has(id) or not bool(data["heroes"][id]["unlocked"]):
-		return "pebble"
+		return "paladin"
 	return id
 
 
@@ -2033,7 +2033,7 @@ func _fresh() -> Dictionary:
 		"payouts": [],
 		"clan_id": "",
 		"duel_rating": 0,
-		"featured": "pebble",
+		"featured": "paladin",
 		"heroes": heroes,
 		"kills": {},
 		"log": [],
@@ -2103,10 +2103,10 @@ func _reconcile() -> void:
 	if not data.has("duel_rating"):
 		data["duel_rating"] = 0
 	if not data.has("featured"):
-		data["featured"] = "pebble"
+		data["featured"] = "paladin"
 	# Retired animal heroes: a save that had one equipped moves to Aldric.
 	if str(data["featured"]) in RETIRED:
-		data["featured"] = "pebble"
+		data["featured"] = "paladin"
 	for rid in RETIRED:
 		if data["heroes"].has(rid):
 			data["heroes"].erase(rid)
