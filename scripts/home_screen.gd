@@ -112,6 +112,9 @@ var _trophy_pip: Control
 ## The Skills tile carries the bag: it gets a dot while the bag holds
 ## something worth selling.
 var _skills_pip: Control
+## The Stash tile carries the Hub stash: it gets a dot while something is
+## parked there.
+var _stash_pip: Control
 
 
 ## Re-read the three attention pips on enter, beside the counters: Forge when a
@@ -124,6 +127,8 @@ func _refresh_pips() -> void:
 		_slayer_pip.visible = SaveGame.slayer_ready()
 	if _skills_pip != null:
 		_skills_pip.visible = SaveGame.bag_value() > 0
+	if _stash_pip != null:
+		_stash_pip.visible = SaveGame.stash_total() > 0
 	if _trophy_pip == null:
 		_add_road_pip()
 	if _trophy_pip != null:
@@ -338,12 +343,17 @@ func _tap_slot(i: int) -> void:
 func _tiles() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	for tab in [["log", "Log", "book_open"], ["slayer", "Slayer", "skull"], ["skills", "Skills", "flask_full"], ["forge", "Forge", "gear"], ["credits", "Credits", "notepad"]]:
+	row.add_theme_constant_override("separation", 10)
+	var tabs := [["log", "Log", "book_open"], ["slayer", "Slayer", "skull"], ["skills", "Skills", "flask_full"], ["forge", "Forge", "gear"], ["stash", "Stash", "pouch"], ["credits", "Credits", "notepad"]]
+	# Six tiles share the narrow portrait row, so the width comes from the
+	# safe area: the row never runs off the screen and every tile keeps the
+	# 88 px tap floor.
+	var pad := insets()
+	var avail := get_viewport_rect().size.x - float(pad["l"]) - float(pad["r"])
+	var tile_w := clampi(int((avail - 10.0 * (tabs.size() - 1)) / float(tabs.size())), 88, 128)
+	for tab in tabs:
 		var tile := UiKit.tile_button(str(tab[1]), str(tab[2]), 150, "forged")
-		# Five tiles share the narrow portrait row; 128 wide still leaves the
-		# 88 px tap floor and keeps every caption readable.
-		tile.custom_minimum_size = Vector2(128, 128)
+		tile.custom_minimum_size = Vector2(tile_w, 128)
 		tile.pressed.connect(go.bind(str(tab[0]), {}))
 		# A ready Forge piece or a finishable contract gets a small dot; the
 		# mastery dot rides the Road tab instead (see _add_road_pip).
@@ -354,6 +364,8 @@ func _tiles() -> HBoxContainer:
 				_slayer_pip = _add_tile_pip(tile)
 			"skills":
 				_skills_pip = _add_tile_pip(tile)
+			"stash":
+				_stash_pip = _add_tile_pip(tile)
 		row.add_child(tile)
 	return row
 

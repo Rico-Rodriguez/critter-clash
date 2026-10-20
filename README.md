@@ -26,6 +26,8 @@ Around 68 seconds the minions leave and the biome boss arrives. It telegraphs ar
 
 On a win the boss rolls a drop table and you still bring a hunt chest home. The clear is saved as soon as the boss falls.
 
+Roughly one hunt in three or four holds a treasure goblin. It waits in a clearing on the main trail and darts out when you come close; if you never walk past its haunt, it still finds you a little way into the hunt, so a hunt that rolls a goblin always shows one. It never fights, it runs, and it tires as it goes, so a chase you keep is a chase you win. Catch it and its hoard is the biggest payout in the hunt: three pieces of gear, a silver chest, and a burst of coins.
+
 ## Boss drops
 
 Each boss has a weighted table of common, uncommon, rare, and very rare loot: coins, critter cards, gear, and crafting materials. A boss pet is a separate roll at 1/50 (`Catalog.PET_RATE`). Pets are cosmetic. The active pet follows your hero in a hunt and does not fight. A pet or a very rare drop plays a gold beam and a fanfare before the loot list.
@@ -39,6 +41,8 @@ The slayer master offers tasks such as "Defeat 40 Meadow critters" or "Defeat Gr
 ## Skills
 
 Woodcutting, Fishing and Mining are saved as XP for the account. Levels run from 1 to 99 on the same curve as Old School RuneScape (83 XP to reach level 2, 13,034,431 XP to reach level 99). Gathering is still being built: the worlds now carry resource nodes, walking up to one works it for XP and materials, and the skills screen's Gathering tab shows the account's levels and the XP toward the next one. The materials it pays, and the boss materials, share one bag: the Skills screen has a Materials tab that lists them and sells them for a few coins each. The contract is in `docs/gathering.md`.
+
+The bag is the sell pile, so what you want to keep has its own place: the Hub stash. The Stash tile on Home (or the STASH button under the bag) parks a stack out of reach of the sell button, and takes it back when you want it. The contract is in `docs/stash.md`.
 
 ## Heroes
 
@@ -80,6 +84,12 @@ The simulation stores a follow camera for when maps grow. Inside a soft deadzone
 Only chunks that overlap the view, plus a small margin, are instanced. The 3D hunt draws one terrain mesh and a MultiMesh of grass and flowers for the whole clearing, and it keeps trees and rocks around the rim. The chunk stream is still in the project for the larger maps. A 4×4 map does not build all sixteen chunks at once.
 
 Wild critters spawn on the rim of the zone nearest the hero, not on the edge of the screen. With one zone, that rim is the edge of the playfield.
+
+## Wilderness
+
+The Barrow Lands are four depth tiers — the Fringe, the Wilds, the Deep, the Abyss — and each one is a large explorable zone, not an arena. `ZoneBuilder` lays them out from `WorldData`: the ground (a gate at the south, a gate at the north, a chain of clearings between them, pockets off the side), the monster spawn points (scaled by the tier's level range, pack size and patrol density), the elite packs (the tier's elite chance, and a guaranteed few in the deep tiers), the resource nodes the tier names, and the scenery each tier wears. The Fringe is 4480×2560 sim px and the Abyss 5600×5120, so every zone is at least four times the ground of the shipped hunt arena.
+
+A zone is a `HuntMap`, so the hunt simulation already knows how to walk one, and the four zones stack north to south in tier order: the Fringe's north gate is the Wilds' south gate. The builder only makes the place; the run that opens it comes later. The contract is in `docs/wilderness.md`, and `godot --headless --path . -s res://tools/zone_check.gd` checks the four zones.
 
 ## Later modes
 
@@ -137,7 +147,7 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 
 ## Project layout
 
-- `scripts/` hunt simulation, map data, follow camera, chunk stream, 3D stage, screens (including the collection log, slayer master, and skills stub), save, portrait loader
+- `scripts/` hunt simulation, map data, follow camera, chunk stream, 3D stage, wilderness zone builder, screens (including the collection log, slayer master, and skills stub), save, portrait loader
 - `assets/models/` licensed critter and nature GLBs
 - `assets/textures/` baked ground maps, the sky HDRI, and the dust puff
 - `shaders/terrain.gdshader` ground blend

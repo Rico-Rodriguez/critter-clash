@@ -425,7 +425,7 @@ static func rarity_metal(rarity: String) -> Array:
 
 
 static func hero_rarity(id: String) -> String:
-	if id in ["thistle", "caplet", "nimbus", "cinder"]:
+	if id in ["thistle", "caplet", "boreal", "inferno"]:
 		return "legendary"
 	if id in ["lumen", "pip", "bramble"]:
 		return "epic"

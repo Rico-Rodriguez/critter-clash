@@ -5,7 +5,9 @@ extends Node
 ## ladder can persist without a save migration. Nothing reads them yet.
 
 const PATH := "user://critter_clash.json"
-## 6: a chest that arrives with the drawer full waits in the queue
+## 6: the Hub stash (data["stash"]) holds the materials the player has parked
+## in the Hub, out of the bag (see docs/stash.md). An old save starts with an
+## empty stash; a chest that arrives with the drawer full waits in the queue
 ## (data["chest_queue"]) instead of paying into the purse on the spot; see
 ## migrate_chest_queue.
 ## 5: the gathering skills are Woodcutting, Fishing and Mining (Catalog.SKILLS);
@@ -452,6 +454,36 @@ func _biome_index(biome_id: String) -> int:
 		if str(Catalog.BIOMES[i]["id"]) == biome_id:
 			return i
 	return 0
+
+
+## Whether a hub gate stands open: the gate that is open by default, or one
+## the player has already unlocked. The unlocks live in the save, so an
+## opened gate stays open across restarts.
+func gate_open(gate_id: String) -> bool:
+	var gate := WorldData.gate_by_id(gate_id)
+	if gate.is_empty():
+		return false
+	if bool(gate.get("open_by_default", false)):
+		return true
+	return bool(_gates_unlocked().get(gate_id, false))
+
+
+## Open a hub gate and remember it. Idempotent: a gate opened twice is
+## written once.
+func unlock_gate(gate_id: String) -> void:
+	var unlocked := _gates_unlocked()
+	if bool(unlocked.get(gate_id, false)):
+		return
+	unlocked[gate_id] = true
+	_write()
+
+
+## The map of opened hub gates, created when an old save has none.
+func _gates_unlocked() -> Dictionary:
+	if not data.has("gates_unlocked") or typeof(data["gates_unlocked"]) != TYPE_DICTIONARY:
+		data["gates_unlocked"] = {"barrow_gate": true}
+	var unlocked: Dictionary = data["gates_unlocked"]
+	return unlocked
 
 
 ## The two knights a new save starts with; Gnash and Mordrek join on the road.
@@ -974,8 +1006,14 @@ func log_mark_seen(ids: Array = []) -> void:
 		_write()
 
 
+## The kills of a boss. A legacy boss id counts toward the boss that took
+## over its lair, so an old save keeps the kills it already earned.
 func boss_kills(id: String) -> int:
-	return int(data["kills"].get(id, 0))
+	var total := int(data["kills"].get(id, 0))
+	for legacy in Catalog.LEGACY_BOSSES:
+		if str(Catalog.LEGACY_BOSSES[legacy]) == id:
+			total += int(data["kills"].get(legacy, 0))
+	return total
 
 
 func active_pet() -> String:
@@ -1082,6 +1120,111 @@ func bag_value() -> int:
 		var id := str(key)
 		total += material_value(id, material_count(id))
 	return total
+
+
+# --- The Hub stash ----------------------------------------------------------
+
+## The Hub stash: the materials the player has parked in the Hub (see
+## docs/stash.md). It holds the same material ids as the bag, so a stack
+## moves between the two without renaming, and it is never sold: the bag is
+## the sell pile, the stash is the keep pile.
+##
+## data["stash"] maps a material id to how many of it is parked.
+
+## How many of a material the stash holds.
+func stash_count(id: String) -> int:
+	return int(data["stash"].get(id, 0))
+
+
+## How many items the stash holds, every kind together.
+func stash_total() -> int:
+	var total := 0
+	for key in data["stash"].keys():
+		total += stash_count(str(key))
+	return total
+
+
+## What the whole stash is worth, in coins. The same prices as the bag
+## (MaterialDB), so the player can see what the stash is worth without
+## selling it.
+func stash_value() -> int:
+	var total := 0
+	for key in data["stash"].keys():
+		var id := str(key)
+		total += material_value(id, stash_count(id))
+	return total
+
+
+## Puts materials from the bag into the stash and returns how many moved.
+## `amount` is how many to park; a negative amount parks the whole stack.
+## Nothing moves when the bag does not hold the material.
+func deposit_stash(id: String, amount: int = -1) -> int:
+	var have := material_count(id)
+	if have <= 0:
+		return 0
+	var moved := have if amount < 0 else mini(amount, have)
+	if moved <= 0:
+		return 0
+	if moved >= have:
+		data["materials"].erase(id)
+	else:
+		data["materials"][id] = have - moved
+	data["stash"][id] = stash_count(id) + moved
+	_write()
+	return moved
+
+
+## Takes materials out of the stash and back into the bag, and returns how
+## many moved. `amount` is how many to take; a negative amount takes the
+## whole stack. Nothing moves when the stash does not hold the material.
+func withdraw_stash(id: String, amount: int = -1) -> int:
+	var have := stash_count(id)
+	if have <= 0:
+		return 0
+	var moved := have if amount < 0 else mini(amount, have)
+	if moved <= 0:
+		return 0
+	if moved >= have:
+		data["stash"].erase(id)
+	else:
+		data["stash"][id] = have - moved
+	data["materials"][id] = material_count(id) + moved
+	_write()
+	return moved
+
+
+## Parks the whole bag in the stash, in one write, and returns how many items
+## moved. A material with no count is left alone.
+func deposit_all_stash() -> int:
+	var moved := 0
+	for key in data["materials"].keys():
+		var id := str(key)
+		var count := material_count(id)
+		if count <= 0:
+			continue
+		data["stash"][id] = stash_count(id) + count
+		moved += count
+	if moved > 0:
+		data["materials"] = {}
+		_write()
+	return moved
+
+
+## Takes the whole stash back into the bag, in one write, and returns how
+## many items moved.
+func withdraw_all_stash() -> int:
+	var moved := 0
+	for key in data["stash"].keys():
+		var id := str(key)
+		var count := stash_count(id)
+		if count <= 0:
+			continue
+		data["materials"][id] = material_count(id) + count
+		moved += count
+	if moved > 0:
+		data["stash"] = {}
+		_write()
+	return moved
 
 
 # --- Gathering skills --------------------------------------------------------
@@ -1998,6 +2141,8 @@ func _fresh() -> Dictionary:
 		"claimed": [],
 		"cleared": {},
 		"difficulty_cleared": {},
+		# Hub gates the player has opened, by gate id (see WorldData.GATES).
+		"gates_unlocked": {"barrow_gate": true},
 		"chests": [],
 		# Chests waiting for a drawer slot, each stamped with the moment it
 		# was queued and the moment it may be opened (see queue_chest).
@@ -2012,6 +2157,8 @@ func _fresh() -> Dictionary:
 		"pets": {},
 		"active_pet": "",
 		"materials": {},
+		# The Hub stash: the materials parked in the Hub, out of the bag.
+		"stash": {},
 		"cosmetic": "",
 		"mastery_claimed": [],
 		"slayer": {"points": 0, "streak": 0, "task": {}},
@@ -2055,6 +2202,10 @@ func _reconcile() -> void:
 	# Per-biome highest cleared difficulty tier. Old saves start at none.
 	if not data.has("difficulty_cleared") or typeof(data["difficulty_cleared"]) != TYPE_DICTIONARY:
 		data["difficulty_cleared"] = {}
+	# Hub gates the player has opened. Old saves predate the hub gates, so
+	# they start with the default-open gate only.
+	if not data.has("gates_unlocked") or typeof(data["gates_unlocked"]) != TYPE_DICTIONARY:
+		data["gates_unlocked"] = {"barrow_gate": true}
 	# An old or trimmed save can be missing the wallet; biome gating and card
 	# levelling read these directly, so they must never be absent.
 	if not data.has("coins"):
@@ -2082,9 +2233,14 @@ func _reconcile() -> void:
 	# looked at, so what it owns counts as read and only new finds get marked.
 	if not data.has("log_seen") or typeof(data["log_seen"]) != TYPE_ARRAY:
 		data["log_seen"] = (data["log"] as Array).duplicate()
-	for key in ["kills", "pets", "materials"]:
+	for key in ["kills", "pets", "materials", "stash"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_DICTIONARY:
 			data[key] = {}
+	# The Hub stash: a stack that is not a positive count is nothing, so it
+	# is dropped rather than carried around as a row the screen cannot show.
+	for key in data["stash"].keys():
+		if stash_count(str(key)) <= 0:
+			data["stash"].erase(key)
 	if not data.has("active_pet"):
 		data["active_pet"] = ""
 	if not data.has("cosmetic"):

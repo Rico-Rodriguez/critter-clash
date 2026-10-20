@@ -12,6 +12,10 @@ enum Mode { SOLO, COOP, DUEL }
 
 var mode: int = Mode.SOLO
 var biome_id: String = "meadow"
+## The network id of the peer this session belongs to. Empty in solo play;
+## a multiplayer session carries the id the server assigned (see
+## MULTIPLAYER_NOTES.md).
+var network_id: String = ""
 var hero_ids: PackedStringArray = PackedStringArray()
 var seed: int = 0
 ## Set only for a Daily Challenge run: the UTC day key and its modifiers.

@@ -97,6 +97,9 @@ var banner: Label
 var _banner_tween: Tween
 var boss_card: BossNameCard
 var floats: Array = []
+## The gather bars, one per hero that is working a node: hero id -> the bar
+## drawn over it.
+var gather_bars: Dictionary = {}
 var _jitter: Dictionary = {}
 var finger := -1
 var finger_at := Vector2.ZERO
@@ -609,6 +612,9 @@ func _end_stick() -> void:
 
 
 func _hud() -> void:
+	# The gather bars follow the sim's channels, so they are synced even
+	# when the hunt has no hero to show (a stale bar is dropped).
+	_sync_gather_bars()
 	if sim.heroes.is_empty():
 		return
 	var hero: RunSim.Actor = sim.heroes[0]
@@ -647,6 +653,41 @@ func _hud() -> void:
 		var boss_enraged := sim.boss.phase2
 		boss_label.text = sim.boss.display + ("   ENRAGED" if boss_enraged else "")
 		boss_label.modulate = Color("ff9a4a") if boss_enraged else Color.WHITE
+
+
+## The gather bars: one over each hero that is working a node, filled as the
+## channel runs. The bar is the work made visible; it is dropped as soon as
+## the work ends (the node paid, the hero walked off, or a hit broke it).
+func _sync_gather_bars() -> void:
+	if sim == null or world == null:
+		return
+	var live := {}
+	for entry in sim.gather_channels():
+		var channel: Dictionary = entry
+		var id := int(channel["id"])
+		live[id] = true
+		var bar: GatherBar = gather_bars.get(id, null)
+		if bar == null:
+			bar = GatherBar.new()
+			bar.z_index = 900
+			world.add_child(bar)
+			gather_bars[id] = bar
+		bar.ratio = float(channel.get("ratio", 0.0))
+		bar.caption = str(channel.get("name", ""))
+		# The bar rides the hero, so it follows the interpolated position.
+		var at: Vector2 = channel.get("pos", Vector2.ZERO)
+		var worker := sim._actor_by_id(id)
+		if worker != null:
+			at = worker.prev.lerp(worker.pos, sync_alpha)
+		bar.position = _projected(at) + Vector2(-GatherBar.SIZE.x * 0.5, -96.0)
+		bar.visible = not _modal_up
+	for key in gather_bars.keys():
+		var id := int(key)
+		if live.has(id):
+			continue
+		var bar: GatherBar = gather_bars[id]
+		gather_bars.erase(id)
+		bar.queue_free()
 
 
 ## What the hunt wants next, in one short line. The explore hunt has a
@@ -850,6 +891,7 @@ func _drain() -> void:
 				AudioDirector.sfx("chest_open")
 				AudioDirector.haptic("rare")
 			"goblin_escape":
+				_banner("The goblin slips away.")
 				_burst(ev.get("pos", Vector2.ZERO), Color("b7a06a"), 8, 120.0)
 				AudioDirector.sfx("goblin_escape")
 			"shield_break":
@@ -912,10 +954,21 @@ func _drain() -> void:
 					AudioDirector.sfx("xp_gain")
 			"gather":
 				# A node was worked. The node itself has no picture
-				# (docs/gathering.md): it pays through the xp_drop event
-				# above, which is the moment the screen speaks, so this
-				# event is carried and stays silent.
-				pass
+				# (docs/gathering.md), so the take floats over the hero
+				# who worked it, and the XP pays through the xp_drop
+				# event above.
+				var at: Vector2 = ev.get("pos", Vector2.ZERO)
+				var drops: Array = ev.get("drops", [])
+				for entry in drops:
+					var drop: Dictionary = entry
+					var amount := int(drop.get("amount", 0))
+					if amount <= 0:
+						continue
+					var mat := str(drop.get("id", ""))
+					_float(at + Vector2(0, -70), "+%d %s" % [amount, MaterialDB.name_of(mat)], Color("cfe08a"), false)
+				if not drops.is_empty():
+					AudioDirector.sfx("sparkle")
+					AudioDirector.haptic("light")
 			"gather_locked":
 				# A node the account's level cannot work. The sim says
 				# what it needs ("Needs Woodcutting 15") and the note
@@ -1025,6 +1078,11 @@ func _drain() -> void:
 				if ev.has("to"):
 					var to: Vector2 = ev.get("to", at)
 					_burst(at.lerp(to, 0.5), fx_col, 5, 130.0)
+				if fx == "goblin_spawn":
+					# The goblin is worth one line of text: it is a rare
+					# event, it is the biggest payout in the hunt, and a
+					# player who never learns it is there never chases it.
+					_banner("A treasure goblin darts out!")
 				# The loud abilities get their own voice; the rest share
 				# the generic chime. Every kind worth a voice of its
 				# own is listed, so a big ability never lands on the
@@ -2968,6 +3026,31 @@ class Meter extends Control:
 				b.draw_colored_polygon(big, Color("120a04"))
 				b.draw_polygon(pts, PackedColorArray([Color("ffe6a8"), Color("c8963a"), Color("6a4416"), Color("c8963a")]))
 		b.flush()
+
+
+## Gathering: the channel made visible. A slim bar over the hero that fills
+## as the work goes on, with the node's name above it. The node has no art
+## of its own (docs/gathering.md), so the bar is what says "you are working
+## something here".
+class GatherBar extends Meter:
+	## The bar's own size, in screen px.
+	const SIZE := Vector2(140, 14)
+	## The node being worked, named above the bar.
+	var caption := ""
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		size = SIZE
+		fill = Color("8fd06a")
+		# The work has not begun: the bar starts empty.
+		ratio = 0.0
+		_ghost = 0.0
+
+	func _draw() -> void:
+		super._draw()
+		if caption == "":
+			return
+		UiKit.draw_text(self, UiKit.font_b, Vector2(0, -7), caption, 15, UiKit.CREAM, UiKit.INK, 3, size.x)
 
 
 class StickLayer extends Control:

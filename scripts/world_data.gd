@@ -115,6 +115,41 @@ const BIOME: Dictionary = {
 	"cell_size": Vector2(1120, 1280),
 }
 
+## The gates of the hub: one per biome, each a door that leads out to that
+## biome's Fringe tier. The first biome's gate stands open; the rest are
+## sealed until the player unlocks them (the unlock is kept in the save,
+## see SaveGame.gate_open). 'frost' and 'ember' are placeholders for biomes
+## that do not exist yet.
+const GATES: Array = [
+	{
+		"id": "barrow_gate",
+		"biome": "barrow",
+		"name": "Barrow Gate",
+		"dest": "fringe",
+		"spawn": Vector2(0, 0),
+		"open_by_default": true,
+		"need": "",
+	},
+	{
+		"id": "frost_gate",
+		"biome": "frost",
+		"name": "Frost Gate",
+		"dest": "fringe",
+		"spawn": Vector2(0, 0),
+		"open_by_default": false,
+		"need": "Clear the Barrow Lands",
+	},
+	{
+		"id": "ember_gate",
+		"biome": "ember",
+		"name": "Ember Gate",
+		"dest": "fringe",
+		"spawn": Vector2(0, 0),
+		"open_by_default": false,
+		"need": "Clear the Frost Peaks",
+	},
+]
+
 const SHOPS: Dictionary = {
 	"general_store": {
 		"id": "general_store",
@@ -147,6 +182,17 @@ static func biome(id: String) -> Dictionary:
 static func hub_data() -> Dictionary:
 	return HUB
 
+## Every hub gate, in hub order.
+static func gates() -> Array:
+	return GATES
+
+## One gate by its id. An unknown id reads as an empty gate.
+static func gate_by_id(id: String) -> Dictionary:
+	for gate in GATES:
+		if str(gate["id"]) == id:
+			return gate
+	return {}
+
 static func tier_data(tier_id: String) -> Dictionary:
 	for tier in TIERS:
 		if str(tier["id"]) == tier_id:
@@ -158,6 +204,13 @@ static func tier_by_depth(depth: int) -> Dictionary:
 		if int(tier["depth"]) == depth:
 			return tier
 	return TIERS[0]
+
+## The tier's depth index, or -1 when the id is not a wilderness tier.
+static func tier_index(tier_id: String) -> int:
+	for tier in TIERS:
+		if str(tier["id"]) == tier_id:
+			return int(tier["depth"])
+	return -1
 
 static func shop_data(shop_id: String) -> Dictionary:
 	return SHOPS.get(shop_id, {})
