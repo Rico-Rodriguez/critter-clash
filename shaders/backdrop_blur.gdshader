@@ -14,12 +14,17 @@ void fragment() {
 	vec2 px = TEXTURE_PIXEL_SIZE * r;
 	vec4 acc = texture(TEXTURE, UV) * 0.16;
 	float wsum = 0.16;
-	for (int i = 0; i < 12; i++) {
-		float a = float(i) * 0.5235988;
+	// 9 taps instead of 25: four samples on the outer ring, four on the
+	// inner ring (half a step apart) and the centre. The angular gap widens
+	// to 45 deg so each sample covers more of the disc, while the ring radii
+	// stay put and the blur radius and look are unchanged.
+	for (int i = 0; i < 4; i++) {
+		float a = float(i) * 1.5707963;
 		vec2 d = vec2(cos(a), sin(a));
-		acc += texture(TEXTURE, UV + d * px) * 0.07;
-		acc += texture(TEXTURE, UV + d * px * 0.5 + vec2(-d.y, d.x) * px * 0.2) * 0.07;
-		wsum += 0.14;
+		vec2 d2 = vec2(cos(a + 0.7853982), sin(a + 0.7853982));
+		acc += texture(TEXTURE, UV + d * px) * 0.21;
+		acc += texture(TEXTURE, UV + d2 * px * 0.5385) * 0.21;
+		wsum += 0.42;
 	}
 	vec3 soft = acc.rgb / wsum * darken;
 	vec3 sharp = texture(TEXTURE, UV).rgb;
