@@ -895,7 +895,7 @@ func _foliage(biome_id: String) -> void:
 		for i in (11 if _tier() == "low" else 20):
 			var name: String = trees[i % trees.size()]
 			var at := _rim_point(rng)
-			_place_prop(name, at, rng.randf_range(1.15, 1.55), true)
+			_place_prop(name, at, rng.randf_range(1.15, 1.55), true, null, rng)
 	if not biome_id in ["frost", "volcano"]:
 		# The leafy, blossoming nature pack belongs in green biomes only.
 		_sketchfab_nature(rng)
@@ -910,7 +910,7 @@ func _foliage(biome_id: String) -> void:
 			# and only the canopy edge overhangs the clearing.
 			var x := HuntMap.PLAY.position.x - rng.randf_range(90.0, 140.0) if side < 0.0 else HuntMap.PLAY.end.x + rng.randf_range(90.0, 140.0)
 			var y := lerpf(HuntMap.PLAY.position.y + 100.0, HuntMap.PLAY.end.y - 80.0, float(i / 2) / 3.0) + rng.randf_range(-60.0, 60.0)
-			_place_prop(edge_trees[i % edge_trees.size()], _to3(Vector2(x, y)), rng.randf_range(2.2, 2.9), true)
+			_place_prop(edge_trees[i % edge_trees.size()], _to3(Vector2(x, y)), rng.randf_range(2.2, 2.9), true, null, rng)
 	_field_props(rng)
 	_clutter(rng, biome_id)
 	# Every canopy tree is in place now: cache them and their meshes once.
@@ -1138,7 +1138,7 @@ func _scatter_rocks(rng: RandomNumberGenerator, rows: Array) -> void:
 			# Shadow casters cost a draw per split: only the big pieces cast.
 			var shadows := (model.begins_with("rock") and sc > 0.75) or model == "log"
 			if not rocky:
-				_place_prop(model, at, sc, shadows)
+				_place_prop(model, at, sc, shadows, null, rng)
 				continue
 			_rock_spot(probes, spots, model, at, sc, shadows, rng)
 			# Rocks sit in groups: a couple of chips beside each one.
@@ -1167,7 +1167,7 @@ func _rock_spot(probes: Dictionary, spots: Dictionary, model: String, at: Vector
 		return
 	var node: Node3D = probe["node"]
 	_rock_reset(node, probe["home"])
-	_pose_prop(node, model, at, scale)
+	_pose_prop(node, model, at, scale, rng)
 	_shape_rock(node, rng)
 	if not spots.has(model):
 		spots[model] = {"shade": [], "plain": []}
@@ -1408,14 +1408,15 @@ func _scatter(rng: RandomNumberGenerator, model: String, count: int, lo: float, 
 
 ## Puts a model in the world. `parent` parks the prop somewhere else than
 ## the field (the boss arena keeps its stones in their own hidden node).
-func _place_prop(model: String, at: Vector3, scale: float, shadows: bool, parent: Node = null) -> void:
+## `rng`, when given, draws the prop yaw so seeded worlds rebuild identically.
+func _place_prop(model: String, at: Vector3, scale: float, shadows: bool, parent: Node = null, rng: RandomNumberGenerator = null) -> void:
 	var packed := load("res://assets/models/%s.glb" % model) as PackedScene
 	if packed == null:
 		return
 	var node := packed.instantiate()
 	_paint_prop(node, model)
 	if node is Node3D:
-		_pose_prop(node as Node3D, model, at, scale)
+		_pose_prop(node as Node3D, model, at, scale, rng)
 	if not shadows:
 		# glTF roots are plain Node3D: switch off every mesh under the prop.
 		if node is GeometryInstance3D:
@@ -1447,8 +1448,11 @@ func _paint_prop(node: Node, model: String) -> void:
 
 
 ## Puts a prop where it belongs: placed, sized, spun, and sitting in its own
-## soft contact shadow.
-func _pose_prop(node: Node3D, model: String, at: Vector3, scale: float) -> void:
+## soft contact shadow. The spin is a full turn drawn from the builder's
+## seeded rng, so a given seed lays the world out the same way every time
+## (dailies, captures and movies rebuild identically). The global rng is
+## only a fallback for callers with no seeded rng of their own.
+func _pose_prop(node: Node3D, model: String, at: Vector3, scale: float, rng: RandomNumberGenerator = null) -> void:
 	node.position = at
 	var contact := {"rock": 0.75, "pebble": 0.55, "log": 1.0, "stump": 0.6, "tree": 1.1, "mushroom_tall": 0.5, "bush": 0.8}
 	for key in contact.keys():
@@ -1456,7 +1460,12 @@ func _pose_prop(node: Node3D, model: String, at: Vector3, scale: float) -> void:
 			_contacts.append(Vector3(at.x, at.z, float(contact[key]) * scale))
 			break
 	node.scale *= scale
-	node.rotation.y = randf() * TAU
+	var yaw := 0.0
+	if rng != null:
+		yaw = rng.randf()
+	else:
+		yaw = randf()
+	node.rotation.y = yaw * TAU
 
 
 ## Giant mushrooms: the kit's clay caps repainted with plum tops, freckles,
@@ -1635,35 +1644,35 @@ func _pedestal_set() -> void:
 		["rock_c", Vector3(2.6, 0, -2.4), 0.9],
 	]
 	for row in dressing:
-		_place_prop(str(row[0]), row[1], float(row[2]), true)
+		_place_prop(str(row[0]), row[1], float(row[2]), true, null, rng)
 	for i in 70:
 		var ang := rng.randf() * TAU
 		var r := rng.randf_range(1.6, 4.5)
-		_place_prop("grass_short" if i % 3 else "clover", Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.5, 0.8), false)
+		_place_prop("grass_short" if i % 3 else "clover", Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.5, 0.8), false, null, rng)
 	for i in 14:
 		var ang := rng.randf() * TAU
 		var r := rng.randf_range(0.5, 1.15)
-		_place_prop("grass_short", Vector3(cos(ang) * r, PEDESTAL_TOP, sin(ang) * r), rng.randf_range(0.35, 0.5), false)
+		_place_prop("grass_short", Vector3(cos(ang) * r, PEDESTAL_TOP, sin(ang) * r), rng.randf_range(0.35, 0.5), false, null, rng)
 	# A real forest edge behind the glade: layered trees, then a dense band
 	# of bushes and tall grass, so the backdrop has depth instead of flat fog.
 	var trees := ["tree_a", "tree_b", "tree_pine", "tree_pine_b", "tree_a", "tree_b"]
 	for i in 16:
 		var x := lerpf(-9.0, 9.0, float(i) / 15.0) + rng.randf_range(-0.6, 0.6)
 		var z := -6.5 - rng.randf_range(0.0, 4.5) - absf(x) * 0.1
-		_place_prop(trees[i % trees.size()], Vector3(x, 0, z), rng.randf_range(2.4, 3.4), true)
+		_place_prop(trees[i % trees.size()], Vector3(x, 0, z), rng.randf_range(2.4, 3.4), true, null, rng)
 	for i in 18:
 		var x := rng.randf_range(-7.5, 7.5)
 		var z := rng.randf_range(-5.8, -3.6)
-		_place_prop("bush_flower", Vector3(x, 0, z), rng.randf_range(1.1, 1.8), true)
+		_place_prop("bush_flower", Vector3(x, 0, z), rng.randf_range(1.1, 1.8), true, null, rng)
 	for i in 120:
 		var ang := rng.randf() * TAU
 		var r := rng.randf_range(2.2, 6.5)
 		var kind := "grass_tall" if i % 3 == 0 else ("grass_wispy" if i % 3 == 1 else "fern")
-		_place_prop(kind, Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.7, 1.15), false)
+		_place_prop(kind, Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.7, 1.15), false, null, rng)
 	for i in 26:
 		var ang := rng.randf() * TAU
 		var r := rng.randf_range(1.7, 3.6)
-		_place_prop(["flower_a", "flower_b", "flower_warm", "pebble_rock_b"][i % 4], Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.4, 0.65), false)
+		_place_prop(["flower_a", "flower_b", "flower_warm", "pebble_rock_b"][i % 4], Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.4, 0.65), false, null, rng)
 	# The glade's trees are in place: cache them for the canopy fade.
 	_cache_canopy()
 
@@ -4507,11 +4516,11 @@ func bind_world(map: HuntMap, biome_id: String) -> void:
 	_world_ground(map, biome_id)
 	_world_forest(map, biome_id, rng)
 	_world_cover(map, biome_id, rng)
-	_world_landmarks(map, biome_id)
+	_world_landmarks(map, biome_id, rng)
 	if _hp_probe:
 		_hp_probe.free()
 		_hp_probe = null
-	_world_chests(map)
+	_world_chests(map, rng)
 	_world_lair(map)
 	_world_fog(map)
 	# The world builders are done: cache the canopy trees and their meshes.
@@ -4950,7 +4959,7 @@ func _world_cover(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) ->
 
 
 var _landmarks: Array = []
-func _world_landmarks(map: HuntMap, biome_id: String) -> void:
+func _world_landmarks(map: HuntMap, biome_id: String, rng: RandomNumberGenerator) -> void:
 	for l in map.landmarks:
 		var at := _to3(l["pos"])
 		var yaw: float = l["yaw"]
@@ -4961,24 +4970,24 @@ func _world_landmarks(map: HuntMap, biome_id: String) -> void:
 				var elder := {"meadow": "oak_green_2", "mushroom": "oak_dead_3", "frost": "pine_3"}.get(biome_id, "oak_dead_1") as String
 				var g := {"mushroom": Color(0.62, 0.66, 0.8), "frost": Color(0.78, 0.88, 0.98), "volcano": Color(0.5, 0.42, 0.4)}.get(biome_id, Color(0.74, 0.8, 0.72)) as Color
 				_pack_chunks(elder, [Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * 1.7), at)], true, g)
-				_place_prop("rock_a", at + Vector3(1.4, 0, 0.6), 1.3, true)
+				_place_prop("rock_a", at + Vector3(1.4, 0, 0.6), 1.3, true, null, rng)
 			"great_tree":
-				_place_prop("tree_a" if biome_id in ["meadow", "mushroom"] else ("tree_pine" if biome_id == "frost" else "tree_dead"), at, 4.6, true)
+				_place_prop("tree_a" if biome_id in ["meadow", "mushroom"] else ("tree_pine" if biome_id == "frost" else "tree_dead"), at, 4.6, true, null, rng)
 			"standing_stones":
 				for k in 3:
 					var off := Vector3(cos(yaw + k * 2.1), 0, sin(yaw + k * 2.1)) * 1.3
-					_place_prop("rock_b", at + off, 2.2, true)
+					_place_prop("rock_b", at + off, 2.2, true, null, rng)
 					var st: Node3D = _props[-1]
 					st.scale *= Vector3(0.6, 2.3, 0.6)
-					st.rotation = Vector3(randf_range(-0.1, 0.1), yaw + k, randf_range(-0.1, 0.1))
+					st.rotation = Vector3(rng.randf_range(-0.1, 0.1), yaw + k, rng.randf_range(-0.1, 0.1))
 			"ruin":
-				_place_prop("den", at, 2.6, true)
+				_place_prop("den", at, 2.6, true, null, rng)
 			"crystal":
-				_place_prop("crystal", at, 3.2, true)
+				_place_prop("crystal", at, 3.2, true, null, rng)
 			"hollow_log":
-				_place_prop("log", at, 3.6, true)
+				_place_prop("log", at, 3.6, true, null, rng)
 			_:
-				_place_prop("rock_a", at, 2.5, true)
+				_place_prop("rock_a", at, 2.5, true, null, rng)
 		var node: Node3D = _props[-1]
 		node.rotation.y = yaw
 		# Landmarks are not field dressing: keep them out of the near-hero hide.
@@ -4989,13 +4998,13 @@ func _world_landmarks(map: HuntMap, biome_id: String) -> void:
 		_landmarks.append(node)
 
 
-func _world_chests(map: HuntMap) -> void:
+func _world_chests(map: HuntMap, rng: RandomNumberGenerator) -> void:
 	_chest_nodes.clear()
 	for c in map.loot:
 		var chest := Chest3D.new("silver" if str(c["tier"]) == "rare" else "wood")
 		chest.scale = Vector3.ONE * 1.5
 		chest.position = _to3(c["pos"])
-		chest.rotation.y = randf_range(-0.6, 0.6)
+		chest.rotation.y = rng.randf_range(-0.6, 0.6)
 		if chest.inner_light:
 			chest.inner_light.visible = false
 		var glow := _decal(3.2, {"ring_color": Color(1.0, 0.8, 0.35, 0.5), "ring_radius": 0.36, "ring_width": 0.02, "ring_glow": 0.9, "shadow_alpha": 0.55, "shadow_radius": 0.3, "pulse": 1.0})
