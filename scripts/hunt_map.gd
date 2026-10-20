@@ -549,20 +549,52 @@ static func _seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
 	return p.distance_to(a + ab * t)
 
 
-## Moves a body of `radius` back onto open ground, sliding along the edge.
-## Each open shape offers its nearest valid spot; the closest one that is
-## really open (depth >= radius in the union) wins, so junctions and trail
-## mouths never trap a body between two shapes.
-func push_inside(p: Vector2, radius: float) -> Vector2:
-	var cands: Array = []
+## How many candidate spots push_inside weighs before it settles on one.
+const PUSH_CANDS := 4
+
+## Scratch for push_inside: the candidate spots are rebuilt on every call, so
+## they live here instead of in a fresh array per actor, per frame.
+var _push_pos := PackedVector2Array()
+## How deep each candidate already sits in the shape it came from. A spot
+## that deep is open ground without a full depth() sweep.
+var _push_own := PackedFloat64Array()
+
+
+## True when a body of `radius` already fits inside one of the open shapes.
+## Every actor asks this every frame, so it stays a plain scan: no buffers,
+## no candidates, nothing allocated.
+func _fits(p: Vector2, radius: float) -> bool:
+	for n in nodes:
+		var c: Vector2 = n["pos"]
+		if float(n["r"]) - p.distance_to(c) >= radius:
+			return true
+	for sg in segs:
+		var a: Vector2 = sg["a"]
+		var ab: Vector2 = (sg["b"] as Vector2) - a
+		var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+		if float(sg["w"]) * 0.5 - p.distance_to(a + ab * t) >= radius:
+			return true
+	return false
+
+
+## Every open shape's nearest spot for a body of `radius` at `p`, written
+## into the scratch buffer: the spot, and how deep it already sits in the
+## shape it came from.
+func _collect_candidates(p: Vector2, radius: float) -> int:
+	var need := nodes.size() + segs.size()
+	if _push_pos.size() < need:
+		_push_pos.resize(need)
+		_push_own.resize(need)
+	var count := 0
 	for n in nodes:
 		var c: Vector2 = n["pos"]
 		var r: float = n["r"]
 		var off := p - c
-		var d := r - off.length()
-		if d >= radius:
-			return p
-		cands.append(c + (off.normalized() if off.length() > 0.01 else Vector2.RIGHT) * maxf(r - radius, 0.0))
+		var off_len := off.length()
+		var dir: Vector2 = (off / off_len) if off_len > 0.01 else Vector2.RIGHT
+		_push_pos[count] = c + dir * maxf(r - radius, 0.0)
+		_push_own[count] = minf(r, radius)
+		count += 1
 	for sg in segs:
 		var a: Vector2 = sg["a"]
 		var ab: Vector2 = (sg["b"] as Vector2) - a
@@ -570,15 +602,51 @@ func push_inside(p: Vector2, radius: float) -> Vector2:
 		var q := a + ab * t
 		var half: float = float(sg["w"]) * 0.5
 		var off := p - q
-		var d := half - off.length()
-		if d >= radius:
-			return p
-		cands.append(q + (off.normalized() if off.length() > 0.01 else ab.orthogonal().normalized()) * maxf(half - radius, 0.0))
-	cands.sort_custom(func(x: Vector2, y: Vector2) -> bool: return x.distance_squared_to(p) < y.distance_squared_to(p))
-	for k in mini(4, cands.size()):
-		if depth(cands[k]) >= radius - 0.5:
-			return cands[k]
-	return cands[0] if not cands.is_empty() else p
+		var off_len := off.length()
+		var dir: Vector2 = (off / off_len) if off_len > 0.01 else ab.orthogonal().normalized()
+		_push_pos[count] = q + dir * maxf(half - radius, 0.0)
+		_push_own[count] = minf(half, radius)
+		count += 1
+	return count
+
+
+## Moves a body of `radius` back onto open ground, sliding along the edge.
+## Each open shape offers its nearest valid spot; the closest one that is
+## really open (depth >= radius in the union) wins, so junctions and trail
+## mouths never trap a body between two shapes.
+func push_inside(p: Vector2, radius: float) -> Vector2:
+	# Already on open ground: the body does not move, and the call costs
+	# nothing but the scan that decided it.
+	if _fits(p, radius):
+		return p
+	var count := _collect_candidates(p, radius)
+	if count == 0:
+		return p
+	# The nearest candidates, closest first. The old version sorted the
+	# whole list with a fresh lambda; picking the nearest few out of the
+	# scratch buffer gives the same order without the sort.
+	for k in mini(PUSH_CANDS, count):
+		var best := k
+		var best_d2 := _push_pos[k].distance_squared_to(p)
+		for i in range(k + 1, count):
+			var d2 := _push_pos[i].distance_squared_to(p)
+			if d2 < best_d2:
+				best_d2 = d2
+				best = i
+		# A candidate rests on the edge of the shape it came from, so it is
+		# already open ground unless that shape is too narrow for the body.
+		# Only then does the depth() sweep have to run.
+		var cand := _push_pos[best]
+		if _push_own[best] >= radius - 0.5 or depth(cand) >= radius - 0.5:
+			return cand
+		# Take it out of the running so the next round finds the next one.
+		var spot := _push_pos[k]
+		_push_pos[k] = cand
+		_push_pos[best] = spot
+		var own := _push_own[k]
+		_push_own[k] = _push_own[best]
+		_push_own[best] = own
+	return _push_pos[0]
 
 
 func _bake_grid() -> void:
