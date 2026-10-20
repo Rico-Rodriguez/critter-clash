@@ -59,6 +59,18 @@ var _frame_acc := 0.0
 var _frame_n := 0
 var _slow_windows := 0
 var _props: Array = []
+## Canopy trees and the meshes under them, collected once when the stage is
+## built: the fade only has to touch a tree's geometry when its value
+## changes, and walking every tree hierarchy each frame allocated dozens of
+## arrays per frame. Refreshed wherever props are added (see _cache_canopy).
+var _canopy_props: Array[Node3D] = []
+## The meshes of all the canopy trees, flattened: tree i owns the meshes
+## from _canopy_start[i] up to _canopy_start[i] + _canopy_count[i].
+var _canopy_meshes: Array[GeometryInstance3D] = []
+var _canopy_start: PackedInt32Array = PackedInt32Array()
+var _canopy_count: PackedInt32Array = PackedInt32Array()
+## The props that are not canopy: they only need their visibility toggled.
+var _plain_props: Array[Node3D] = []
 var _contacts: Array[Vector3] = []
 var _xray_mat: ShaderMaterial
 var _hero_key: OmniLight3D
@@ -849,6 +861,7 @@ func _foliage(biome_id: String) -> void:
 	_grass_mats.clear()
 	_grass_nodes.clear()
 	_props.clear()
+	_cache_canopy()
 	_contacts.clear()
 	# Budget: the pulled-back camera sees nearly the whole field, so every
 	# blade is drawn. grass_short is ~155 tris, wispy ~620, flowers ~1700,
@@ -900,6 +913,8 @@ func _foliage(biome_id: String) -> void:
 			_place_prop(edge_trees[i % edge_trees.size()], _to3(Vector2(x, y)), rng.randf_range(2.2, 2.9), true)
 	_field_props(rng)
 	_clutter(rng, biome_id)
+	# Every canopy tree is in place now: cache them and their meshes once.
+	_cache_canopy()
 
 
 ## Small 3D ground clutter so the floor reads as material, not a painting:
@@ -1641,7 +1656,7 @@ func _pedestal_set() -> void:
 		var z := rng.randf_range(-5.8, -3.6)
 		_place_prop("bush_flower", Vector3(x, 0, z), rng.randf_range(1.1, 1.8), true)
 	for i in 120:
-		var ang := rng.randf_range(PI * 0.95, TAU * 1.02)
+		var ang := rng.randf() * TAU
 		var r := rng.randf_range(2.2, 6.5)
 		var kind := "grass_tall" if i % 3 == 0 else ("grass_wispy" if i % 3 == 1 else "fern")
 		_place_prop(kind, Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.7, 1.15), false)
@@ -1649,6 +1664,8 @@ func _pedestal_set() -> void:
 		var ang := rng.randf() * TAU
 		var r := rng.randf_range(1.7, 3.6)
 		_place_prop(["flower_a", "flower_b", "flower_warm", "pebble_rock_b"][i % 4], Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.4, 0.65), false)
+	# The glade's trees are in place: cache them for the canopy fade.
+	_cache_canopy()
 
 
 func _field_point(rng: RandomNumberGenerator) -> Vector3:
@@ -2053,6 +2070,7 @@ func _boss_arena(center: Vector3) -> void:
 	_arena_built = true
 	if _sim_ref != null and _sim_ref.explore:
 		_arena_from_sim(_sim_ref)
+		_cache_canopy()
 		return
 	_arena_prepare_ring()
 	_arena_build_all()
@@ -2079,6 +2097,8 @@ func _boss_arena(center: Vector3) -> void:
 			# the canopy fade treat it like the rest of the props.
 			_props.append(node)
 	arena["root"].visible = true
+	# Arena props joined the field: refresh the canopy cache.
+	_cache_canopy()
 
 
 ## Put a parked prop where it belongs: the standing stones start below the
@@ -4012,6 +4032,32 @@ func _grass_material(source: MeshInstance3D) -> ShaderMaterial:
 	return shader_mat
 
 
+## Collect the canopy trees and their geometry, plus the props that only need
+## their visibility toggled. Called once the stage content is built (and
+## again wherever props are added later), so the per-frame fade walks a
+## cached list instead of the whole tree hierarchy.
+func _cache_canopy() -> void:
+	_canopy_props.clear()
+	_canopy_meshes.clear()
+	_canopy_start.clear()
+	_canopy_count.clear()
+	_plain_props.clear()
+	for node in _props:
+		var prop := node as Node3D
+		if prop == null:
+			continue
+		if not bool(prop.get_meta("canopy", false)):
+			_plain_props.append(prop)
+			continue
+		_canopy_props.append(prop)
+		_canopy_start.append(_canopy_meshes.size())
+		var n := 0
+		for gi in prop.find_children("*", "GeometryInstance3D", true, false):
+			_canopy_meshes.append(gi as GeometryInstance3D)
+			n += 1
+		_canopy_count.append(n)
+
+
 func _open_around(hero: Vector3) -> void:
 	if _mode == "hunt":
 		_fade_occluders(hero)
@@ -4026,26 +4072,27 @@ func _open_around(hero: Vector3) -> void:
 	var cam_flat := Vector2.INF
 	if camera != null:
 		cam_flat = Vector2(camera.position.x, camera.position.z)
-	for node in _props:
-		var prop := node as Node3D
-		if prop == null:
-			continue
-		if bool(prop.get_meta("canopy", false)):
-			# Canopy fade: a tree whose crown covers the hero on screen
-			# eases to see-through instead of hiding the fight.
-			var want := 0.0
-			if hs != Vector2.INF and prop.position.z > hero.z - 1.0:
-				var crown := camera.unproject_position(prop.position + Vector3(0, 2.2 * prop.scale.y, 0))
-				var d := crown.distance_to(hs)
-				want = clampf(1.0 - (d - reach * 0.5) / reach, 0.0, 1.0)
-			var cur := float(prop.get_meta("fade", 0.0))
-			if absf(cur - want) > 0.005:
-				cur = move_toward(cur, want, 0.06)
-				prop.set_meta("fade", cur)
-				for gi in prop.find_children("*", "GeometryInstance3D", true, false):
-					(gi as GeometryInstance3D).transparency = cur
-			continue
-		# Hide what crowds the lens and blocks the view of the fight.
+	# Canopy fade: a tree whose crown covers the hero on screen eases to
+	# see-through instead of hiding the fight. The trees and their meshes
+	# come from the build-time cache, so no hierarchy is walked per frame.
+	for i in _canopy_props.size():
+		var prop := _canopy_props[i]
+		var want := 0.0
+		if hs != Vector2.INF and prop.position.z > hero.z - 1.0:
+			var crown := camera.unproject_position(prop.position + Vector3(0, 2.2 * prop.scale.y, 0))
+			var d := crown.distance_to(hs)
+			want = clampf(1.0 - (d - reach * 0.5) / reach, 0.0, 1.0)
+		var cur := float(prop.get_meta("fade", 0.0))
+		if absf(cur - want) > 0.005:
+			cur = move_toward(cur, want, 0.06)
+			prop.set_meta("fade", cur)
+			var k := _canopy_start[i]
+			var last := k + _canopy_count[i]
+			while k < last:
+				_canopy_meshes[k].transparency = cur
+				k += 1
+	# Hide what crowds the lens and blocks the view of the fight.
+	for prop in _plain_props:
 		var flat := cam_flat - Vector2(prop.position.x, prop.position.z)
 		prop.visible = flat.length() > 3.1
 
@@ -4449,6 +4496,7 @@ func bind_world(map: HuntMap, biome_id: String) -> void:
 	_grass_mats.clear()
 	_grass_nodes.clear()
 	_props.clear()
+	_cache_canopy()
 	_contacts.clear()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(biome_id) + 91 + map.seed * 31
@@ -4462,6 +4510,8 @@ func bind_world(map: HuntMap, biome_id: String) -> void:
 	_world_chests(map)
 	_world_lair(map)
 	_world_fog(map)
+	# The world builders are done: cache the canopy trees and their meshes.
+	_cache_canopy()
 	_biome_mood(biome_id)
 	_apply_render_scale()
 	_look = _to3(map.start)
