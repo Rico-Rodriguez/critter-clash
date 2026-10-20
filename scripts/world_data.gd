@@ -159,6 +159,13 @@ static func tier_by_depth(depth: int) -> Dictionary:
 			return tier
 	return TIERS[0]
 
+## The tier's depth index, or -1 when the id is not a wilderness tier.
+static func tier_index(tier_id: String) -> int:
+	for tier in TIERS:
+		if str(tier["id"]) == tier_id:
+			return int(tier["depth"])
+	return -1
+
 static func shop_data(shop_id: String) -> Dictionary:
 	return SHOPS.get(shop_id, {})
 
