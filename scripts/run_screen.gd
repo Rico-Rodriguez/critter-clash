@@ -86,6 +86,9 @@ var clock_label: Label
 var objective_label: Label
 var boss_label: Label
 var banner: Label
+## The banner's live fade tween. A new message kills the old one, or the
+## old tween keeps fading the new text out early.
+var _banner_tween: Tween
 var boss_card: BossNameCard
 var floats: Array = []
 var _jitter: Dictionary = {}
@@ -1174,11 +1177,16 @@ func _hurt_flash() -> void:
 
 
 func _banner(text: String) -> void:
+	# A message that lands while the last one is still showing replaces it:
+	# the old tween would otherwise fade the new text out early.
+	if _banner_tween != null and _banner_tween.is_valid():
+		_banner_tween.kill()
 	banner.text = text
+	banner.visible = true
 	banner.modulate.a = 1.0
-	var tw := create_tween()
-	tw.tween_interval(0.85)
-	tw.tween_property(banner, "modulate:a", 0.0, 0.35)
+	_banner_tween = create_tween()
+	_banner_tween.tween_interval(0.85)
+	_banner_tween.tween_property(banner, "modulate:a", 0.0, 0.35)
 
 
 ## Rapid non-crit hits on one target fold into a single rising number: any
