@@ -186,7 +186,7 @@ static func material_buyer_price(id: String) -> int:
 	var base := MaterialDB.price(id)
 	if base <= 0:
 		return 0
-	var mult := MATERIAL_PREMIUM.get(id, 1.0)
+	var mult: float = float(MATERIAL_PREMIUM.get(id, 1.0))
 	return int(round(float(base) * mult))
 
 ## All material ids the Material Buyer pays premium for, in stable order.
