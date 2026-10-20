@@ -15,6 +15,14 @@ uniform sampler2D forest_data : hint_default_white, filter_linear_mipmap_anisotr
 uniform sampler2D dirt_color : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D dirt_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D dirt_data : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
+// The ground noise is baked once into a repeating value-noise texture (see
+// _terrain_noise in stage3d.gd). The shader used to evaluate a three-octave
+// fbm per fragment for every splat mask; sampling the baked field keeps the
+// same scales and grain but costs one fetch instead of a stack of hashes.
+uniform sampler2D noise_tex : filter_linear_mipmap_anisotropic, repeat_enable;
+// Noise-lattice units per texture tile: the argument of fbm() stays in
+// lattice units, so a mask keeps the world size it had.
+uniform float noise_uv = 0.0625;
 uniform vec3 tint = vec3(1.0);
 uniform vec3 dirt_tint = vec3(1.0);
 // Biome surface: snow drifts over the turf (frost), or ash with glowing
@@ -40,25 +48,17 @@ uniform float w_seg_w[40];
 
 varying vec2 world_xz;
 
-float hash21(vec2 p) {
-	p = fract(p * vec2(123.34, 345.45));
-	p += dot(p, p + 34.345);
-	return fract(p.x * p.y);
-}
-
-float noise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float a = hash21(i);
-	float b = hash21(i + vec2(1.0, 0.0));
-	float c = hash21(i + vec2(0.0, 1.0));
-	float d = hash21(i + vec2(1.0, 1.0));
-	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
+// Baked stand-in for the old analytic fbm. The argument is still in noise
+// lattice units, so every mask keeps the scale it had, but the value comes
+// from one texture fetch instead of a dozen hash round trips.
 float fbm(vec2 p) {
-	return noise(p) * 0.55 + noise(p * 2.03 + 3.1) * 0.3 + noise(p * 4.1 + 7.7) * 0.15;
+	return texture(noise_tex, p * noise_uv).r;
+}
+
+// The vertex stage has no derivatives, so it samples the same baked field
+// at a fixed mip.
+float fbm_lod(vec2 p) {
+	return textureLod(noise_tex, p * noise_uv, 0.0).r;
 }
 
 // Rotate the tile per large cell so repeats do not line up.
@@ -67,9 +67,10 @@ vec2 tile_uv(vec2 w, float scale) {
 }
 
 // Distance to the winding paths, in meters. World x runs 0..14.4 and z
-// 0..25.6 across the playfield.
-float path_dist(vec2 w) {
-	float wob = (fbm(w * 0.35) - 0.5) * 1.1;
+// 0..25.6 across the playfield. The noise wobble is passed in: the vertex
+// stage samples the baked noise at a fixed mip, the fragment stage at the
+// mip the ground is drawn at.
+float path_dist(vec2 w, float wob) {
 	// A long trail down the clearing.
 	float a = abs(w.x - (11.2 + sin(w.y * 0.17 + 0.6) * 3.8 + wob));
 	// A cross trail that bends over it.
@@ -97,22 +98,23 @@ float open_depth(vec2 p) {
 	return best;
 }
 
-float trail_dist(vec2 p) {
+float trail_dist(vec2 p, float wob) {
 	float best = 1e4;
 	for (int i = 0; i < w_nseg; i++) {
 		best = min(best, seg_dist(p, w_segs[i].xy, w_segs[i].zw));
 	}
-	return best + (fbm(p * 0.35) - 0.5) * 1.1;
+	return best + wob;
 }
 
-float any_path(vec2 w) {
-	return world_mode ? trail_dist(w) : path_dist(w);
+float any_path(vec2 w, float wob) {
+	return world_mode ? trail_dist(w, wob) : path_dist(w, wob);
 }
 
 void vertex() {
 	world_xz = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
-	float roll = noise(world_xz * 0.18);
-	float worn = smoothstep(path_width * 1.4, 0.0, any_path(world_xz));
+	float roll = fbm_lod(world_xz * 0.18);
+	float wob = (fbm_lod(world_xz * 0.35) - 0.5) * 1.1;
+	float worn = smoothstep(path_width * 1.4, 0.0, any_path(world_xz, wob));
 	VERTEX.y += (roll - 0.5) * 0.12 - worn * 0.04;
 }
 
@@ -181,7 +183,7 @@ void fragment() {
 		canopy = 1.0 - smoothstep(-0.5, 3.5, od);
 		forest = 1.0 - smoothstep(-2.5, 0.5, od);
 	}
-	float pd = any_path(w);
+	float pd = any_path(w, (fbm(w * 0.35) - 0.5) * 1.1);
 	float edge = path_width * (0.75 + fbm(w * 1.3) * 0.5);
 	// Multi-octave patch mask: small, broken drifts of litter with soft
 	// borders instead of big blotches.

@@ -706,6 +706,88 @@ func _apply_env(env: Environment) -> void:
 	camera.environment = env
 
 
+## Lattice cells of the baked noise field across one texture tile. The
+## terrain shader samples the field in the same lattice units the old
+## analytic fbm used, so every mask keeps the world size it had.
+const NOISE_CELLS := 16
+const NOISE_SIZE := 256
+## The noise field the terrain shader splats with. Baking it once turns
+## every mask into a single texture fetch instead of a per-fragment fbm.
+static var _noise_tex: ImageTexture
+
+
+## Tileable three-octave value noise, baked once and reused by every ground.
+## The lattice of each octave wraps, so the field is periodic and the
+## texture tiles without a seam.
+static func _terrain_noise() -> ImageTexture:
+	if _noise_tex == null:
+		_noise_tex = _bake_noise(NOISE_SIZE, NOISE_CELLS)
+	return _noise_tex
+
+
+static func _bake_noise(size: int, cells: int) -> ImageTexture:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 0x5EED17
+	var counts: Array[int] = []
+	counts.append(cells)
+	counts.append(cells * 2)
+	counts.append(cells * 4)
+	var tables: Array[PackedFloat32Array] = []
+	for c in counts:
+		var t := PackedFloat32Array()
+		t.resize(c * c)
+		for i in c * c:
+			t[i] = rng.randf()
+		tables.append(t)
+	var data := PackedByteArray()
+	data.resize(size * size)
+	var step := 1.0 / float(size)
+	var t0: PackedFloat32Array = tables[0]
+	var t1: PackedFloat32Array = tables[1]
+	var t2: PackedFloat32Array = tables[2]
+	var c0 := counts[0]
+	var c1 := counts[1]
+	var c2 := counts[2]
+	for y in size:
+		var fy := (float(y) + 0.5) * step
+		for x in size:
+			var fx := (float(x) + 0.5) * step
+			# Same octaves and weights as the shader's fbm: one cell of the
+			# base octave is one lattice unit, so scales carry over unchanged.
+			var v := _lattice(t0, c0, fx, fy) * 0.55 \
+				+ _lattice(t1, c1, fx, fy) * 0.3 \
+				+ _lattice(t2, c2, fx, fy) * 0.15
+			data[y * size + x] = int(clampf(v, 0.0, 1.0) * 255.0)
+	var img := Image.create_from_data(size, size, false, Image.FORMAT_L8, data)
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+## One octave of value noise over the tile: bilinear between the lattice
+## corners, faded like the shader's noise() did.
+static func _lattice(t: PackedFloat32Array, c: int, fx: float, fy: float) -> float:
+	var ux := fx * float(c)
+	var uy := fy * float(c)
+	var ix := int(ux)
+	var iy := int(uy)
+	var tx := ux - float(ix)
+	var ty := uy - float(iy)
+	tx = tx * tx * (3.0 - 2.0 * tx)
+	ty = ty * ty * (3.0 - 2.0 * ty)
+	var m := c - 1
+	var i0 := ix & m
+	var i1 := (ix + 1) & m
+	var j0 := (iy & m) * c
+	var j1 := ((iy + 1) & m) * c
+	var h00 := t[j0 + i0]
+	var h10 := t[j0 + i1]
+	var h01 := t[j1 + i0]
+	var h11 := t[j1 + i1]
+	var a := h00 + (h10 - h00) * tx
+	var b := h01 + (h11 - h01) * tx
+	return a + (b - a) * ty
+
+
 func _ground(biome_id: String) -> void:
 	var plane := PlaneMesh.new()
 	plane.orientation = PlaneMesh.FACE_Y
@@ -725,6 +807,8 @@ func _ground(biome_id: String) -> void:
 	mat.set_shader_parameter("dirt_color", load("res://assets/textures/ground_dirt_color.jpg"))
 	mat.set_shader_parameter("dirt_normal", load("res://assets/textures/ground_dirt_normal.jpg"))
 	mat.set_shader_parameter("dirt_data", load("res://assets/textures/ground_dirt_data.jpg"))
+	mat.set_shader_parameter("noise_tex", _terrain_noise())
+	mat.set_shader_parameter("noise_uv", 1.0 / float(NOISE_CELLS))
 	mat.set_shader_parameter("world_span", span)
 	mat.set_shader_parameter("tint", _biome_tint(biome_id))
 	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
@@ -4141,6 +4225,8 @@ func _world_ground(map: HuntMap, biome_id: String) -> void:
 		mat.set_shader_parameter(layer + "_color", load("res://assets/textures/ground_%s_color.jpg" % layer))
 		mat.set_shader_parameter(layer + "_normal", load("res://assets/textures/ground_%s_normal.jpg" % layer))
 		mat.set_shader_parameter(layer + "_data", load("res://assets/textures/ground_%s_data.jpg" % layer))
+	mat.set_shader_parameter("noise_tex", _terrain_noise())
+	mat.set_shader_parameter("noise_uv", 1.0 / float(NOISE_CELLS))
 	mat.set_shader_parameter("tint", _biome_tint(biome_id))
 	mat.set_shader_parameter("dirt_tint", _dirt_tint(biome_id))
 	mat.set_shader_parameter("snow", 0.75 if biome_id == "frost" else 0.0)
