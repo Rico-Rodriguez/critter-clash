@@ -127,6 +127,8 @@ var offer_queue := 0
 var stacks: Dictionary = {}
 var revive_spent := false
 var phoenix_spent := false
+var respawn_timer := 0.0
+var respawn_pending := false
 var events: Array = []
 var actors: Array[Actor] = []
 var heroes: Array[Actor] = []
@@ -558,6 +560,7 @@ func step(dt: float, moves: Array) -> void:
 	if paused or result != "":
 		return
 	time += dt
+	_step_respawn(dt)
 	for actor in actors:
 		actor.prev = actor.pos
 	for shot in shots:
@@ -611,6 +614,48 @@ func step(dt: float, moves: Array) -> void:
 	_flush_xp_drops(result != "")
 	_flush_gather_drops(result != "")
 	_compact()
+
+
+func _step_respawn(dt: float) -> void:
+	if not respawn_pending:
+		return
+	respawn_timer -= dt
+	if respawn_timer <= 0.0:
+		respawn_pending = false
+		_respawn_heroes()
+
+
+func _start_respawn() -> void:
+	respawn_timer = 5.0
+	respawn_pending = true
+	events.append({"type": "respawn_start", "time": 5.0})
+
+
+func _respawn_heroes() -> void:
+	for hero in heroes:
+		if hero.team == 0 and not hero.alive:
+			hero.alive = true
+			hero.hp = hero.max_hp
+			hero.pos = map.start if explore else play.get_center()
+			hero.prev = hero.pos
+			hero.vel = Vector2.ZERO
+			hero.dodge_iframes = 1.0
+			hero.post_hit_iframes = 0.0
+			hero.stun = 0.0
+			hero.slow = 0.0
+			hero.slow_k = 0.0
+			hero.cd = 0.0
+			hero.charge_t = 0.0
+			hero.charge_cd = 0.0
+			hero.dodge_t = 0.0
+			hero.dodge_cd = 0.0
+			hero.kb_left = 0.0
+			hero.flash = 0.0
+			for key in hero.cds.keys():
+				hero.cds[key] = 0.0
+			hero.blade_cd.clear()
+			hero.summon_ids.clear()
+	events.append({"type": "respawn_done", "pos": map.start if explore else play.get_center()})
 
 
 func drain_events() -> Array:
@@ -2481,6 +2526,9 @@ func _kill(actor: Actor) -> void:
 						break
 			events.append({"type": "fx", "fx": "phoenix", "pos": actor.pos, "radius": radius})
 			events.append({"type": "revive", "pos": actor.pos, "shake": 0.4, "stop": 0.08})
+			return
+		if explore and actor.team == 0:
+			_start_respawn()
 			return
 		if result == "" and _team_wiped(actor.team) and actor.team == 0:
 			result = "lose"
