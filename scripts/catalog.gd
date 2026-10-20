@@ -299,10 +299,11 @@ static func _index_cards() -> void:
 	}
 
 
-## The four knights. Two retired ids ("juniper", "pip") keep rows below only
-## so old saves and duel/daily records still resolve; they render as Aldric.
+## The four Diablo-esque heroes. Retired ids ("juniper", "pip", "pebble",
+## "ember", "lumen", "bramble") keep rows below only so old saves and
+## duel/daily records still resolve; they render as the closest new class.
 const PLAYABLE: Array = [
-	"pebble", "ember", "lumen", "bramble",
+	"barbarian", "paladin", "sorceress", "rogue",
 ]
 
 ## Boss pet roll. 1 in PET_RATE, separate from the weighted table.
@@ -730,12 +731,33 @@ const CARDS: Array = [
 ]
 
 const CRITTERS: Dictionary = {
-	"ember": {
-		"name": "Corvin", "role": "mage", "kind": "hero", "color": "8fd14f",
-		"blurb": "Plague doctor. Miasma bolts burst and linger.",
+	"barbarian": {
+		"name": "Barbarian", "role": "tank", "kind": "hero", "color": "c0392b",
+		"blurb": "A wandering berserker from the Dreadlands. Twin axes carve a red path through the barrows.",
 		"unlock": "A starter hero.",
-		"hp": 168, "dmg": 21, "interval": 0.46, "range": 320, "speed": 268,
-		"splash": 92, "splash_mul": 0.66, "proj_speed": 520, "armor": 0,
+		"hp": 320, "dmg": 28, "interval": 0.45, "range": 120, "speed": 270,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 2,
+	},
+	"paladin": {
+		"name": "Paladin", "role": "tank", "kind": "hero", "color": "f1c40f",
+		"blurb": "A Zakarum zealot clad in blessed steel. Sword and shield hold the line against the dark.",
+		"unlock": "A starter hero.",
+		"hp": 300, "dmg": 24, "interval": 0.48, "range": 135, "speed": 250,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 4,
+	},
+	"sorceress": {
+		"name": "Sorceress", "role": "mage", "kind": "hero", "color": "8e44ad",
+		"blurb": "A Vizjerei prodigy. Fire, ice, and lightning answer her call from afar.",
+		"unlock": "A starter hero.",
+		"hp": 180, "dmg": 22, "interval": 0.5, "range": 340, "speed": 260,
+		"splash": 100, "splash_mul": 0.7, "proj_speed": 540, "armor": 0,
+	},
+	"rogue": {
+		"name": "Rogue", "role": "archer", "kind": "hero", "color": "27ae60",
+		"blurb": "A Sister of the Sightless Eye. Bows and traps strike unseen from the shadows.",
+		"unlock": "A starter hero.",
+		"hp": 200, "dmg": 18, "interval": 0.38, "range": 420, "speed": 290,
+		"splash": 0, "splash_mul": 0.0, "proj_speed": 800, "armor": 1,
 	},
 	"juniper": {
 		"name": "Juniper", "role": "archer", "kind": "hero", "color": "e07a3d",
@@ -747,14 +769,14 @@ const CRITTERS: Dictionary = {
 	"pebble": {
 		"name": "Aldric", "role": "tank", "kind": "hero", "color": "b89a5e",
 		"blurb": "Ashen paladin. Sword and shield; hard to move.",
-		"unlock": "A starter hero.",
+		"unlock": "Retired.",
 		"hp": 280, "dmg": 31, "interval": 0.42, "range": 138, "speed": 256,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 420, "armor": 3,
 	},
 	"lumen": {
 		"name": "Gnash", "role": "tank", "kind": "hero", "color": "c0453a",
 		"blurb": "Ghoul berserker. Twin claws, fast and frenzied, thin hide.",
-		"unlock": "Trophy road.",
+		"unlock": "Retired.",
 		"hp": 224, "dmg": 17, "interval": 0.3, "range": 104, "speed": 292,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 1,
 	},
@@ -765,10 +787,17 @@ const CRITTERS: Dictionary = {
 		"hp": 138, "dmg": 15, "interval": 0.48, "range": 280, "speed": 270,
 		"splash": 68, "splash_mul": 0.7, "proj_speed": 510, "armor": 0,
 	},
+	"ember": {
+		"name": "Corvin", "role": "mage", "kind": "hero", "color": "8fd14f",
+		"blurb": "Plague doctor. Miasma bolts burst and linger.",
+		"unlock": "Retired.",
+		"hp": 168, "dmg": 21, "interval": 0.46, "range": 320, "speed": 268,
+		"splash": 92, "splash_mul": 0.66, "proj_speed": 520, "armor": 0,
+	},
 	"bramble": {
 		"name": "Mordrek", "role": "tank", "kind": "hero", "color": "6fbf8f",
 		"blurb": "Bone Knight. A cursed duelist with one long blade.",
-		"unlock": "Trophy road.",
+		"unlock": "Retired.",
 		"hp": 276, "dmg": 20, "interval": 0.52, "range": 110, "speed": 214,
 		"splash": 0, "splash_mul": 0.0, "proj_speed": 400, "armor": 4,
 	},
