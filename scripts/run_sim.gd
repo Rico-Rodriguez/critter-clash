@@ -99,6 +99,21 @@ var difficulty := 0
 var modifiers: Array = []
 var map: HuntMap
 var play := Rect2(40, 168, 640, 980)
+## --- The hunt clock ---
+## The deadline every hunt shares: the clock runs out at 119 s and the
+## hunt ends there (README: "still fighting at 119 seconds ends the
+## hunt"), so a hunt never runs past two minutes.
+const HUNT_LIMIT := 119.0
+## The explore hunt's boss rises on the clock, not when the hero happens
+## to walk into the lair: at 68 s the lair's boss walks out wherever the
+## hero is (README: "Around 68 seconds the biome boss arrives").
+const EXPLORE_BOSS_AT := 68.0
+## When the boss enrages, in hunt seconds. Both modes measure it from the
+## hunt's own start, the way the arena hunt does: the arena at 100 s, the
+## explore hunt at 75 s (a few seconds after its boss rises, so the
+## explore fight always shows the rage).
+const ARENA_ENRAGE_AT := 100.0
+const EXPLORE_ENRAGE_AT := 75.0
 var time := 0.0
 var phase := "hunt"
 var result := ""
@@ -249,7 +264,9 @@ var bases: Dictionary = {}
 ## --- Explore mode (solo and co-op hunts) ---
 ## The hunt is a map to explore: camps, patrols, elite packs and loot chests
 ## are placed up front, the boss waits in its lair at the far end, and
-## killing it ends the run. No wave spawner and no clock.
+## killing it ends the run. No wave spawner, but the hunt keeps the
+## arena's clock: the boss rises on time and the hunt ends when the clock
+## runs out.
 var explore := false
 ## Fog of war on the map's pathing grid: seen stays 1 once revealed, now is
 ## what the hero can see this moment.
@@ -286,6 +303,8 @@ var shrines: Array = []
 var goblin: Actor = null
 var goblin_roll := false
 var loot_coins := 0
+## How long the boss fight has run, in sim seconds. The enrage is measured
+## from the hunt's own clock, not from this one.
 var boss_time := 0.0
 ## Fancy title for the boss name card, keyed by biome ("Lord of the Lair" else).
 var boss_title := ""
@@ -600,6 +619,12 @@ func drain_events() -> Array:
 	return out
 
 
+## Seconds left in the hunt. The clock counts down from HUNT_LIMIT and the
+## hunt ends when it runs out, so this is the number the HUD counts down.
+func hunt_left() -> float:
+	return maxf(0.0, HUNT_LIMIT - time)
+
+
 ## Reads the run hero's GearDB XP once, so mid-run level crosses can be
 ## announced from GearDB's totals plus the run's own tally. Read-only: no
 ## GearDB write ever happens here (the commit still owns the one write).
@@ -777,8 +802,9 @@ func debug_offer() -> void:
 ## The run's clock keeps the time it has: the boss arriving is not a time
 ## skip, so ground loot keeps its magnet delay, gathering nodes keep their
 ## respawns and the run timer keeps counting from where it was. The clock
-## gate on the boss belongs to the arena spawn (Catalog.BOSS_AT); here the
-## gate is the lair the hero has walked into.
+## gate on the boss belongs to the spawn (Catalog.BOSS_AT in the arena,
+## EXPLORE_BOSS_AT on the explore map); the lair the hero has walked into
+## is the other door in.
 func begin_boss() -> void:
 	if phase != "hunt":
 		return
@@ -2131,8 +2157,9 @@ func _step_gems(dt: float) -> void:
 
 func _step_spawns(dt: float) -> void:
 	# The arena's clock gate: the boss walks in once the run's clock reaches
-	# BOSS_AT. The explore map has no wave spawner: its boss rises when the
-	# hero walks into the lair (begin_boss), never by moving the clock.
+	# BOSS_AT. The explore map has no wave spawner: its boss rises on its
+	# own clock gate (EXPLORE_BOSS_AT) or when the hero walks into the
+	# lair, never by moving the clock.
 	if phase == "hunt" and time >= Catalog.BOSS_AT:
 		phase = "boss"
 		_spawn_boss()
@@ -2633,19 +2660,24 @@ func _separate() -> void:
 
 
 func _enrage_and_timeout() -> void:
-	if explore:
-		if phase == "boss" and not enraged and boss_time >= 75.0:
-			enraged = true
-			events.append({"type": "banner", "text": "The boss is furious"})
-		return
-	if phase == "boss" and not enraged and time >= 100.0:
+	# The boss enrages on the hunt's own clock in both modes: the arena at
+	# 100 s, the explore hunt 75 s in, a few seconds after its boss rose.
+	if phase == "boss" and not enraged and time >= _enrage_at():
 		enraged = true
 		events.append({"type": "banner", "text": "The boss is furious"})
-	if result == "" and time >= 119.0:
+	# The clock runs out: the hunt ends here, the same way it ends in the
+	# arena (a defeat, so the spoils are halved and the XP still lands).
+	if result == "" and time >= HUNT_LIMIT:
 		result = "lose"
 		phase = "over"
 		paused = true
 		events.append({"type": "hero_down", "reason": "time"})
+
+
+## When the boss enrages, in hunt seconds. Both modes measure it from the
+## hunt's own start, so the rage lands the same way in each.
+func _enrage_at() -> float:
+	return EXPLORE_ENRAGE_AT if explore else ARENA_ENRAGE_AT
 
 
 func _focus_hero() -> Actor:
@@ -3216,6 +3248,12 @@ func _step_explore(dt: float) -> void:
 				_spawn_goblin(map.goblin_at)
 	# The lair: walk in and the boss rises.
 	if phase == "hunt" and hero.pos.distance_to(map.lair) < map.lair_r * 0.72:
+		begin_boss()
+		_add_t = 6.0
+	# The boss also rises on the clock: the hunt's deadline is the arena's,
+	# so the lair's boss walks out at 68 s whether or not the hero has
+	# found the lair (the arena's gate is the same clock gate).
+	if phase == "hunt" and time >= EXPLORE_BOSS_AT:
 		begin_boss()
 		_add_t = 6.0
 

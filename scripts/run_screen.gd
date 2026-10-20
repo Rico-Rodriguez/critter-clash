@@ -6,6 +6,9 @@ extends ScreenBase
 const STEP := 1.0 / 60.0
 ## The share of the hero's health below which the life bar reads as urgent.
 const LOW_HP := 0.3
+## Seconds left on the hunt clock below which the clock and the objective
+## line read as urgent: the hunt is nearly over.
+const CLOCK_WARN := 15
 
 var biome_id := "meadow"
 var shade: TextureRect
@@ -609,7 +612,15 @@ func _hud() -> void:
 	hp_meter.low = hp_ratio < LOW_HP
 	xp_meter.ratio = float(sim.xp) / float(maxi(sim.xp_need, 1))
 	var secs := int(sim.time)
+	var urgent := false
+	if sim.explore:
+		# The explore hunt counts down: the clock is the deadline, so the
+		# number is what is left of the hunt, not what has passed.
+		secs = int(ceil(sim.hunt_left()))
+		urgent = secs <= CLOCK_WARN
 	clock_label.text = "%d:%02d" % [secs / 60, secs % 60]
+	# The last seconds burn hot, so the deadline reads at a glance.
+	clock_label.modulate = Color("ff8a6a") if urgent else Color.WHITE
 	var goal := _objective()
 	if objective_label.text != goal:
 		objective_label.text = goal
@@ -632,22 +643,36 @@ func _hud() -> void:
 		boss_label.modulate = Color("ff9a4a") if boss_enraged else Color.WHITE
 
 
-## What the hunt wants next, in one short line: clear the camps, loot what
-## is left, then head for the lair and kill the boss. The clock stays a
-## plain elapsed timer: an explore hunt has no deadline to show.
+## What the hunt wants next, in one short line. The explore hunt has a
+## deadline: the line counts down to the boss, then names the fight, and
+## the last seconds say the hunt is running out. The arena hunt keeps its
+## plain steps.
 func _objective() -> String:
 	if sim.result == "win":
 		return "Boss defeated" if sim.boss != null and not sim.boss.alive else "Hunt won"
-	if sim.phase == "boss":
-		return "Defeat the boss"
+	if sim.result == "lose":
+		return "Time is up" if sim.hunt_left() <= 0.0 else "Hunt lost"
 	if not sim.explore:
 		# The arena hunt has waves first, then the boss walks in.
+		if sim.phase == "boss":
+			return "Defeat the boss"
 		return "Survive until the boss comes"
+	# The explore hunt: the clock is the deadline.
+	var left := int(ceil(sim.hunt_left()))
+	if left <= CLOCK_WARN:
+		return "Hunt ends in %ds" % maxi(left, 0)
+	if sim.phase == "boss":
+		if sim.enraged:
+			return "The boss is furious"
+		return "Defeat the boss!"
+	# The boss is still on its way: the line counts down to it.
+	var to_boss := int(ceil(RunSim.EXPLORE_BOSS_AT - sim.time))
+	var goal := "Defeat minions"
 	if _camps_left() > 0:
-		return "Clear the camps"
-	if _chests_left() > 0:
-		return "Loot the chests"
-	return "Find the lair"
+		goal = "Clear the camps"
+	elif _chests_left() > 0:
+		goal = "Loot the chests"
+	return "%s · boss in %ds" % [goal, maxi(to_boss, 0)]
 
 
 ## Camp members still standing on the explore map. Patrols carry a camp tag
