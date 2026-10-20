@@ -1425,7 +1425,7 @@ func _pedestal_set() -> void:
 		var z := rng.randf_range(-5.8, -3.6)
 		_place_prop("bush_flower", Vector3(x, 0, z), rng.randf_range(1.1, 1.8), true)
 	for i in 120:
-		var ang := rng.randf_range(PI * 0.95, TAU * 1.02)
+		var ang := rng.randf() * TAU
 		var r := rng.randf_range(2.2, 6.5)
 		var kind := "grass_tall" if i % 3 == 0 else ("grass_wispy" if i % 3 == 1 else "fern")
 		_place_prop(kind, Vector3(cos(ang) * r, 0, sin(ang) * r), rng.randf_range(0.7, 1.15), false)
