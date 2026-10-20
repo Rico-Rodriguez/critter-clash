@@ -173,6 +173,9 @@ static func model(id: String) -> String:
 			file = "bramble_forest"
 	if file == "thistle_boss":
 		return "res://assets/models/thistle_boss.gltf"
+	var legacy := ["pebble_base", "pebble_water", "pebble_forest", "bramble_base", "bramble_forest", "bramble_lava", "ember_base", "ember_lava", "ember_water", "lumen_base", "lumen_forest", "lumen_water"]
+	if file in legacy:
+		return "res://assets/models/legacy_heroes/%s.glb" % file
 	return "res://assets/models/%s.glb" % file
 
 
