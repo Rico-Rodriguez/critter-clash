@@ -444,7 +444,36 @@ static func rarity_box(rarity: String) -> StyleBoxFlat:
 	return s
 
 
+## The last computed safe insets, and the sizes they were computed for.
+static var _insets: Dictionary = {}
+static var _insets_vp: Vector2 = Vector2.ZERO
+static var _insets_px: Vector2 = Vector2.ZERO
+
+
+## Safe-area insets in viewport pixels: the notch, the home indicator and
+## the side cutouts, with a small margin. They only move when the window
+## does, so they are computed once and kept until the viewport size or the
+## window size changes (a rotation, a resize, another device). Every caller
+## reads the same cached dictionary: it is shared, so read it and do not
+## change it.
 static func safe_insets() -> Dictionary:
+	var tree := Engine.get_main_loop()
+	if not (tree is SceneTree):
+		return _compute_insets()
+	var root := (tree as SceneTree).root
+	# The viewport size in logical pixels, and the window size in device
+	# pixels: a rotation changes the first, a rescaled window the second.
+	var vp := root.get_visible_rect().size
+	var px := root.size
+	if _insets.is_empty() or vp != _insets_vp or px != _insets_px:
+		_insets_vp = vp
+		_insets_px = px
+		_insets = _compute_insets()
+	return _insets
+
+
+## The real work behind safe_insets(): ask the display server once.
+static func _compute_insets() -> Dictionary:
 	var vp := Vector2(720, 1280)
 	var tree := Engine.get_main_loop()
 	if tree is SceneTree:
