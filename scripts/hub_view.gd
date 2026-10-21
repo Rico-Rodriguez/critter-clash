@@ -26,8 +26,8 @@ const HERO_METERS := 1.9
 ## Where the camera stands and what it looks at. The look point is low and
 ## near, so the fire and the ground fill the frame and the sky is only a
 ## band above the treeline.
-const CAM_POS := Vector3(0.0, 3.6, 12.6)
-const CAM_LOOK := Vector3(0.0, 0.5, -1.2)
+const CAM_POS := Vector3(0.0, 6.2, 8.8)
+const CAM_LOOK := Vector3(0.0, 0.9, -1.4)
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -41,6 +41,8 @@ var walking := false
 ## Where the hero is walking to, in the town's ground plane (x, z). INF
 ## when he stands still.
 var _walk_to := Vector2.INF
+## The way the stick points, in the town's ground plane (x, z).
+var _drive := Vector2.ZERO
 ## How fast the hero walks, in metres a second.
 const WALK_SPEED := 5.6
 ## How far the hero may walk from the middle of the plaza: the town wall.
@@ -112,8 +114,15 @@ func _process(delta: float) -> void:
 func _step_walk(delta: float) -> void:
 	if _hero == null:
 		return
+	# The stick points the way: up on the screen is north, into the town.
+	if _drive.length() > 0.05:
+		_walk_to = Vector2.INF
+		_walk_by(_drive, delta)
+		_camera_follows()
+		return
 	if _walk_to == Vector2.INF:
 		_play("idle")
+		_camera_follows()
 		return
 	var here: Vector3 = _hero.position
 	var flat := Vector2(here.x, here.z)
@@ -121,8 +130,19 @@ func _step_walk(delta: float) -> void:
 	if to.length() < 0.3:
 		_walk_to = Vector2.INF
 		_play("idle")
+		_camera_follows()
 		return
-	var dir := _avoid(flat, to.normalized())
+	_walk_by(to.normalized(), delta)
+	_camera_follows()
+
+
+## Walks the hero a step in a direction, around what stands in the plaza.
+func _walk_by(want: Vector2, delta: float) -> void:
+	if _hero == null:
+		return
+	var here: Vector3 = _hero.position
+	var flat := Vector2(here.x, here.z)
+	var dir := _avoid(flat, want)
 	flat += dir * WALK_SPEED * delta
 	if flat.length() > PLAZA_RADIUS:
 		flat = flat.normalized() * PLAZA_RADIUS
@@ -132,6 +152,23 @@ func _step_walk(delta: float) -> void:
 	_hero.position = here
 	_hero.rotation.y = atan2(dir.x, dir.y)
 	_play("walk")
+
+
+## The camera follows the hero, a little behind and above him, so the town
+## can be bigger than one screen.
+func _camera_follows() -> void:
+	if _hero == null:
+		return
+	var here: Vector3 = _hero.position
+	var want := Vector3(here.x, CAM_POS.y, here.z + CAM_POS.z)
+	camera.position = camera.position.lerp(want, 0.12)
+	var look := Vector3(here.x, CAM_LOOK.y, here.z + CAM_LOOK.z)
+	camera.look_at(look, Vector3.UP)
+
+
+## The way the stick points, in the town's ground plane.
+func set_drive(v: Vector2) -> void:
+	_drive = v
 
 
 ## The direction to walk, with the things in the plaza pushed out of the
@@ -407,12 +444,6 @@ func _gui_input(event: InputEvent) -> void:
 		AudioDirector.haptic("light")
 		place_tapped.emit(place_id)
 		return
-	if walking:
-		# Otherwise the tap is on the ground: the hero walks there.
-		var ground := ground_at(at)
-		if ground != Vector2.INF:
-			accept_event()
-			walk_to(ground)
 
 
 ## The hero's bounds, in his own space.

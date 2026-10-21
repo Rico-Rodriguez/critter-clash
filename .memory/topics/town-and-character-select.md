@@ -1,5 +1,9 @@
 # The town, the character select and the two ways out
 
+- 2026-10-21 — **The town is walked with the hunt's own thumbstick.** The stick was pulled out of the run screen into `scripts/stick_layer.gd` so both use one; a drag on the lower part of the screen plants it and the hero walks the way it points, up being north — `scripts/stick_layer.gd` (new), `scripts/run_screen.gd`, `scripts/app.gd` (`_input`, `_begin_stick`, `_drag_stick`, `_end_stick`)
+- 2026-10-21 — The camera follows the hero from above and behind, so the town is a place the hero moves through rather than one screen he stands in — `scripts/hub_view.gd` (`_camera_follows`, `CAM_POS`, `CAM_LOOK`)
+- 2026-10-21 — The town's drawer holds the whole of the town's business now: the hero, the four doors, the desk, the daily, the stash, the Heroes tab and the Road — `scripts/app.gd` (`_service_row`)
+
 - 2026-10-21 — **The town is walked in, not tapped into.** The 3D town fills the screen, the hero stands in the plaza, and a tap on the ground sends him there; the camera holds the plaza the way a fixed town camera does, and the hero keeps to the plaza and walks around the stalls, the well and the places — `scripts/hub_view.gd` (`walking`, `_step_walk`, `walk_to`, `ground_at`, `_avoid`), `scripts/app.gd` (`HubScreen.build`)
 - 2026-10-21 — Standing under a door or a place says what it is: the bar along the bottom names it and the button acts on it (LEAVE for a door, OPEN for a place) — `scripts/app.gd` (`_process`, `_act_on_near`, `_near`)
 - 2026-10-21 — The town's business became a drawer that slides up over the town, so the town is the thing you stand in and the menu is the thing you open — `scripts/app.gd` (`_drawer`, `_toggle_drawer`)

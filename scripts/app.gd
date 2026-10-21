@@ -253,9 +253,12 @@ func _capture() -> void:
 		go("hub")
 		await _settle()
 		if current != null and current.view != null:
-			# Walk north to the Mushroom gate and see him get there.
-			current.view.walk_to(Vector2(0.0, -7.0))
-			await get_tree().create_timer(2.6).timeout
+			# The stick: push it north and let the hero walk.
+			current.stick.active = true
+			current.stick.origin = Vector2(360.0, 1000.0)
+			current.stick.knob = current.stick.origin
+			current.stick.place(current.stick.origin + Vector2(0.0, -22.0))
+			await get_tree().create_timer(2.2).timeout
 			print("WALK hero=", current.view.hero_pos(), " near=", current.view.near())
 		await _shot("walk")
 	if _wants("hub"):
@@ -816,6 +819,11 @@ class HubScreen extends ScreenBase:
 		town_button.tooltip_text = "The town's business"
 		town_button.pressed.connect(_toggle_drawer)
 		bar_row.add_child(town_button)
+		# The thumbstick: the same one the hunt drives the hero with.
+		stick = StickLayer.new()
+		stick.set_anchors_preset(Control.PRESET_FULL_RECT)
+		stick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(stick)
 		# The drawer: the town's business, over the town.
 		_drawer = Control.new()
 		_drawer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -918,6 +926,10 @@ class HubScreen extends ScreenBase:
 	var _act: Button
 	## Whatever the hero is standing at right now.
 	var _near: Dictionary = {}
+	## The thumbstick, the same one the hunt uses.
+	var stick: StickLayer
+	## The finger that holds the stick (-1 none, -2 the mouse).
+	var finger := -1
 
 	## The ways out of the town: the two barriers in the town wall. The
 	## north one leads deeper, the south one to the shallow ground, and a
@@ -979,6 +991,60 @@ class HubScreen extends ScreenBase:
 		_start_hunt(tier_id)
 
 
+	## The town is walked with the same thumbstick as the hunt: a drag on
+	## the lower part of the screen plants the stick and the hero walks the
+	## way it points.
+	func _input(event: InputEvent) -> void:
+		if stick == null or _drawer != null and _drawer.visible:
+			return
+		var height := size.y if size.y > 1.0 else 1280.0
+		var limit := height * 0.40
+		if event is InputEventScreenTouch:
+			var touch := event as InputEventScreenTouch
+			if touch.pressed and touch.position.y > limit and finger < 0:
+				finger = touch.index
+				_begin_stick(touch.position)
+			elif not touch.pressed and touch.index == finger:
+				_end_stick()
+		elif event is InputEventScreenDrag:
+			var drag := event as InputEventScreenDrag
+			if stick.active and drag.index == finger:
+				_drag_stick(drag.position)
+		elif event is InputEventMouseButton:
+			var mouse := event as InputEventMouseButton
+			if mouse.button_index != MOUSE_BUTTON_LEFT:
+				return
+			if mouse.pressed and mouse.position.y > limit:
+				finger = -2
+				_begin_stick(mouse.position)
+			elif not mouse.pressed and finger == -2:
+				_end_stick()
+		elif event is InputEventMouseMotion and finger == -2 and stick.active:
+			_drag_stick((event as InputEventMouseMotion).position)
+
+
+	func _begin_stick(at: Vector2) -> void:
+		stick.active = true
+		stick.origin = at
+		stick.knob = at
+		stick.vec = Vector2.ZERO
+		stick.queue_redraw()
+
+
+	func _drag_stick(at: Vector2) -> void:
+		stick.place(at)
+		stick.queue_redraw()
+
+
+	func _end_stick() -> void:
+		finger = -1
+		stick.active = false
+		stick.vec = Vector2.ZERO
+		stick.queue_redraw()
+		if view != null:
+			view.set_drive(Vector2.ZERO)
+
+
 	## A place in the town: it opens its screen, and it says what it is
 	## when the tap does not open anything.
 	func _open_place(place_id: String) -> void:
@@ -1005,6 +1071,11 @@ class HubScreen extends ScreenBase:
 	func _process(_delta: float) -> void:
 		if view == null:
 			return
+		# The stick points the way: up on the screen is north, the same way
+		# up on the screen is up in the hunt.
+		if stick != null and stick.active:
+			var v := stick.vec
+			view.set_drive(Vector2(v.x, v.y))
 		_near = view.near()
 		if _near.is_empty():
 			_prompt.text = "Walk to a door or a stall."
@@ -1098,6 +1169,8 @@ class HubScreen extends ScreenBase:
 		row.add_theme_constant_override("separation", 10)
 		row.add_child(_service_button("STASH", "stash"))
 		row.add_child(_service_button("DESK", "home"))
+		row.add_child(_service_button("HEROES", "heroes"))
+		row.add_child(_service_button("ROAD", "trophy"))
 		var daily := UiKit.button("DAILY", 0, 84, "blue")
 		daily.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		daily.tooltip_text = "Today's seeded hunt"
