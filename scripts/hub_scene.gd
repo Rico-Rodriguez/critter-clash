@@ -76,6 +76,7 @@ func _ready() -> void:
 	_lanterns()
 	_scatter()
 	_people()
+	_pack()
 	_places()
 	_wall()
 	_rim()
@@ -431,6 +432,59 @@ func _far_bank() -> void:
 		var node := _prop("rock_b" if i % 2 == 0 else "stump", Vector3(x, 0.0, rng.randf_range(-9.4, -8.2)), rng.randf_range(0.5, 0.9))
 		if node != null:
 			node.rotation.y = rng.randf() * TAU
+
+
+## The town's asset pack: every model in assets/models/town/ is placed in
+## the town by the name of the file, so a pack of houses, stalls or trees
+## dropped in shows up in the town without a line of code.
+const PACK_DIR := "res://assets/models/town/"
+
+## The places the town knows by name. Anything else is set on a ring.
+const PACK_SPOTS := {
+	"house_a": Vector3(-6.0, 0.0, -8.4),
+	"house_b": Vector3(6.0, 0.0, -8.4),
+	"house_c": Vector3(-9.0, 0.0, 1.0),
+	"house_d": Vector3(9.0, 0.0, 1.0),
+	"fountain": Vector3(0.0, 0.0, 1.2),
+	"statue": Vector3(-2.2, 0.0, -1.4),
+	"cart": Vector3(2.6, 0.0, 0.2),
+	"anvil": Vector3(-3.4, 0.0, 1.0),
+	"barrel": Vector3(3.4, 0.0, 1.0),
+	"crate": Vector3(-4.2, 0.0, 0.4),
+	"sign": Vector3(1.6, 0.0, -4.6),
+	"well": Vector3(-2.6, 0.0, 2.0),
+}
+
+
+## Places the models of the asset pack.
+func _pack() -> void:
+	var dir := DirAccess.open(PACK_DIR)
+	if dir == null:
+		return
+	var files := dir.get_files()
+	files.sort()
+	var ring := 0
+	for file in files:
+		var name := str(file)
+		if not name.ends_with(".glb"):
+			continue
+		var kind := name.get_basename()
+		# A size in the name: house_a_1.4.glb stands at 1.4 times its own.
+		var scale := 1.0
+		var parts := kind.split("_")
+		if parts.size() >= 2 and str(parts[parts.size() - 1]).is_valid_float():
+			scale = float(str(parts[parts.size() - 1]))
+			kind = "_".join(Array(parts.slice(0, parts.size() - 1)))
+		var at: Vector3 = PACK_SPOTS.get(kind, Vector3.INF)
+		if at == Vector3.INF:
+			# A name the town does not know: set it on a ring around the
+			# plaza, so a pack of anything still stands in the town.
+			var ang := TAU * float(ring) / 8.0
+			at = Vector3(cos(ang) * 7.4, 0.0, sin(ang) * 7.4)
+			ring += 1
+		var node := _prop(kind, at, scale)
+		if node != null:
+			add_child(node)
 
 
 func _buildings() -> void:
