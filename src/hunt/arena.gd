@@ -24,6 +24,10 @@ var lights: Array[OmniLight3D] = []
 var env: Environment
 var sun: DirectionalLight3D
 var low := false
+## Tall props that can stand between the camera and a fighter. Each entry:
+## {"meshes": Array[MeshInstance3D], "x", "z", "r", "h", "t"} — faded by
+## update_occlusion() while they cover the hero or the boss.
+var occluders: Array = []
 
 var _obs: Array = [] # [Vector2 center, radius]
 var _grid := {}
@@ -166,7 +170,9 @@ func _noise(size: int, freq: float, seed_: int) -> NoiseTexture2D:
 
 # --- Props ---------------------------------------------------------------
 
-func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, shadow := true) -> Node3D:
+## `occlude` > 0 marks the prop as view-blocking: its footprint radius in
+## metres at scale 1 (the prop fades while it hides the hero).
+func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, shadow := true, occlude := 0.0) -> Node3D:
 	var n := KK.prop(path)
 	n.position = pos
 	n.rotation.y = yaw
@@ -177,7 +183,45 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if block > 0.0:
 		add_obstacle(Vector2(pos.x, pos.z), block * scale_)
+	if occlude > 0.0:
+		var meshes: Array = n.find_children("*", "MeshInstance3D", true, false)
+		if not meshes.is_empty():
+			occluders.append({"meshes": meshes, "x": pos.x, "z": pos.z, "r": occlude * scale_, "h": size_of(path).y * scale_, "t": 0.0})
 	return n
+
+
+## A moving occluder (the boss): same fade, position read from the node.
+func add_dynamic_occluder(node: Node3D, r: float, h: float) -> void:
+	var meshes: Array = node.find_children("*", "MeshInstance3D", true, false)
+	occluders.append({"meshes": meshes, "node": node, "x": 0.0, "z": 0.0, "r": r, "h": h, "t": 0.0})
+
+
+## Fades props that sit between the camera (south, +Z) and any of `points`.
+## A prop of height h covers the ground up to h / tan(pitch) north of itself.
+func update_occlusion(points: Array, pitch_deg: float, dt: float) -> void:
+	var reach := 1.0 / tan(deg_to_rad(clampf(pitch_deg, 25.0, 80.0)))
+	for o in occluders:
+		var want := 0.0
+		var self_node: Node3D = o.get("node")
+		if self_node != null:
+			if not is_instance_valid(self_node):
+				continue
+			o["x"] = self_node.position.x
+			o["z"] = self_node.position.z
+		for q: Vector3 in points:
+			if self_node != null and q.distance_squared_to(self_node.position) < 0.01:
+				continue
+			var dz: float = o["z"] - q.z
+			var dx: float = absf(o["x"] - q.x)
+			if dz > -float(o["r"]) * 0.6 and dz < float(o["h"]) * reach + float(o["r"]) and dx < float(o["r"]) + 0.6:
+				want = 0.72
+				break
+		var t: float = o["t"]
+		var nt := move_toward(t, want, dt * 4.0)
+		if absf(nt - t) > 0.004:
+			o["t"] = nt
+			for mi: MeshInstance3D in o["meshes"]:
+				mi.transparency = nt
 
 
 func size_of(path: String) -> Vector3:
@@ -237,15 +281,15 @@ func resolve(p: Vector3, r: float) -> Vector3:
 
 func _layout() -> void:
 	# The crypt: the King's lair at the north end.
-	var crypt := put(G + "crypt.gltf", crypt_pos, 0.0, 1.9)
+	var crypt := put(G + "crypt.gltf", crypt_pos, 0.0, 1.9, -1.0, true, 2.4)
 	for x in [-2.8, -1.0, 1.0, 2.8]:
 		add_obstacle(Vector2(crypt_pos.x + x, crypt_pos.z - 0.4), 2.2)
 	var cl := _light(crypt_pos + Vector3(0, 2.5, 3.6), Color(0.35, 1.0, 0.75), 2.6, 9.0, false)
 	cl.set_meta("flicker", 0.15)
-	put(G + "post_skull.gltf", crypt_pos + Vector3(-4.6, 0, 3.2), 0.0, 1.3, 0.3)
-	put(G + "post_skull.gltf", crypt_pos + Vector3(4.6, 0, 3.2), 0.0, 1.3, 0.3)
-	put(G + "pillar.gltf", crypt_pos + Vector3(-6.5, 0, 4.5), 0.0, 1.4, 0.5)
-	put(G + "pillar.gltf", crypt_pos + Vector3(6.5, 0, 4.5), 0.0, 1.4, 0.5)
+	put(G + "post_skull.gltf", crypt_pos + Vector3(-4.6, 0, 3.2), 0.0, 1.3, 0.3, true, 0.8)
+	put(G + "post_skull.gltf", crypt_pos + Vector3(4.6, 0, 3.2), 0.0, 1.3, 0.3, true, 0.8)
+	put(G + "pillar.gltf", crypt_pos + Vector3(-6.5, 0, 4.5), 0.0, 1.4, 0.5, true, 1.0)
+	put(G + "pillar.gltf", crypt_pos + Vector3(6.5, 0, 4.5), 0.0, 1.4, 0.5, true, 1.0)
 
 	# Perimeter: iron fence with stone pillars; the gate at the south.
 	_fence_line(Vector3(min_x - 0.6, 0, max_z + 0.6), Vector3(-3.2, 0, max_z + 0.6))
@@ -253,10 +297,10 @@ func _layout() -> void:
 	_fence_line(Vector3(min_x - 0.6, 0, min_z - 0.6), Vector3(max_x + 0.6, 0, min_z - 0.6))
 	_fence_line(Vector3(min_x - 0.6, 0, min_z - 0.6), Vector3(min_x - 0.6, 0, max_z + 0.6))
 	_fence_line(Vector3(max_x + 0.6, 0, min_z - 0.6), Vector3(max_x + 0.6, 0, max_z + 0.6))
-	put(G + "arch_gate.gltf", Vector3(0, 0, max_z + 0.6), 0.0, 1.6)
+	put(G + "arch_gate.gltf", Vector3(0, 0, max_z + 0.6), 0.0, 1.6, -1.0, true, 3.0)
 	_light(Vector3(-3.4, 2.2, max_z - 0.6), Color(1.0, 0.6, 0.3), 1.6, 7.0)
-	put(G + "lantern_standing.gltf", Vector3(-3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3)
-	put(G + "lantern_standing.gltf", Vector3(3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3)
+	put(G + "lantern_standing.gltf", Vector3(-3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3, true, 0.6)
+	put(G + "lantern_standing.gltf", Vector3(3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3, true, 0.6)
 
 	# Grave plots: rows of headstones with open graves the dead climb out of.
 	_plot(Vector3(-12, 0, 8), 3, 4, 0.0)
@@ -267,18 +311,18 @@ func _layout() -> void:
 	_plot(Vector3(8, 0, -24), 2, 2, 0.0)
 
 	# The shrine and benches by the cross path.
-	put(G + "shrine_candles.gltf", Vector3(17.5, 0, -6), -PI * 0.5, 1.4, 1.0)
+	put(G + "shrine_candles.gltf", Vector3(17.5, 0, -6), -PI * 0.5, 1.4, 1.0, true, 1.2)
 	_light(Vector3(16.5, 1.6, -6), Color(1.0, 0.65, 0.3), 1.4, 6.0)
 	put(G + "bench_decorated.gltf", Vector3(-6, 0, -9.6), 0.0, 1.3, 0.7)
 	put(G + "bench.gltf", Vector3(7, 0, -10), 0.2, 1.3, 0.7)
 	# Lanterns along the paths.
 	for lp in [Vector3(-2.6, 0, 9), Vector3(4.2, 0, -1.5), Vector3(-5, 0, -2), Vector3(2.8, 0, -17)]:
-		put(G + "post_lantern.gltf", lp, _rng.randf() * TAU, 1.35, 0.3)
+		put(G + "post_lantern.gltf", lp, _rng.randf() * TAU, 1.35, 0.3, true, 0.6)
 		_light(lp + Vector3(0, 2.4, 0), Color(1.0, 0.62, 0.32), 1.5, 7.5)
 	# Dead trees inside the walls.
 	for tp in [Vector3(-17, 0, -2), Vector3(16, 0, 3), Vector3(-17.5, 0, 17), Vector3(17, 0, 17.5), Vector3(-2, 0, -12.5), Vector3(-18, 0, -27), Vector3(18, 0, -27)]:
 		var tn: String = ["tree_dead_large.gltf", "tree_dead_large_decorated.gltf", "tree_dead_medium.gltf"][_rng.randi() % 3]
-		put(G + tn, tp, _rng.randf() * TAU, _rng.randf_range(1.3, 1.7), 0.45)
+		put(G + tn, tp, _rng.randf() * TAU, _rng.randf_range(1.3, 1.7), 0.45, true, 1.2)
 	# Coffins, skulls and bones lying about.
 	for i in 26:
 		var p := _free_spot(0.5)
@@ -351,7 +395,8 @@ func _forest() -> void:
 			continue
 		var k: String = kinds[_rng.randi() % kinds.size()]
 		var sc := _rng.randf_range(1.6, 2.6) if k.begins_with(G) else _rng.randf_range(1.3, 2.0)
-		put(k, p, _rng.randf() * TAU, sc, -1.0, absf(p.x) < max_x + 6.0 and p.z > min_z - 6.0)
+		var near := p.x > min_x - 4.0 and p.x < max_x + 4.0 and p.z > min_z - 4.0 and p.z < max_z + 4.0
+		put(k, p, _rng.randf() * TAU, sc, -1.0, absf(p.x) < max_x + 6.0 and p.z > min_z - 6.0, 1.2 if near else 0.0)
 		placed += 1
 	for i in (14 if low else 30):
 		var p2 := Vector3(_rng.randf_range(min_x - 8, max_x + 8), 0, _rng.randf_range(min_z - 6, max_z + 6))

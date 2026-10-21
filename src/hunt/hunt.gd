@@ -159,6 +159,10 @@ func tick(dt: float) -> void:
 				_end(true)
 	_frame_camera()
 	cam.follow(dt, hero.vel)
+	var watch := [hero.position]
+	if boss and boss.alive:
+		watch.append(boss.position)
+	arena.update_occlusion(watch, cam.pitch_deg, dt)
 	_skill_t -= dt
 	if _skill_t <= 0.0:
 		_skill_t = 0.4

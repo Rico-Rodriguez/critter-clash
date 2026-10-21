@@ -157,7 +157,7 @@ calling `cam.follow`).
 Verify: `tools/dev/shots.sh boss,victory`. Boss and hero both visible in the
 boss shot; the crypt roof does not cover more than the top fifth of the screen.
 
-### [ ] 1.3 Fade props that block the view
+### [x] 1.3 Fade props that block the view
 
 Files: `src/hunt/arena.gd`, `src/hunt/hunt.gd`.
 
