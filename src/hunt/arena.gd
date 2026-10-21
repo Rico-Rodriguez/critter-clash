@@ -382,7 +382,7 @@ func _grass() -> void:
 		var p := Vector3(_rng.randf_range(min_x - 4, max_x + 4), 0, _rng.randf_range(min_z - 4, max_z + 4))
 		if on_path(p) > 0.25 or blocked(p, 0.3) and p.x > min_x and p.x < max_x and p.z > min_z and p.z < max_z:
 			continue
-		var b := Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(0.9, 1.6))
+		var b := Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * _rng.randf_range(0.55, 0.95))
 		mm.set_instance_transform(n, Transform3D(b, p))
 		var shade := _rng.randf_range(0.55, 0.9)
 		mm.set_instance_color(n, Color(shade, shade, shade))
