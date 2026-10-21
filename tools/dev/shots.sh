@@ -1,0 +1,12 @@
+#!/bin/bash
+# Screenshots of named screens into ./shots (gitignored), at phone size.
+# Usage: tools/dev/shots.sh lobby,hunt,boss [720x1280|720x1560]
+# Shots: lobby heroes skills log bag chest settings hunt levelup boss victory
+#        results death film flow icon (see _capture in src/main.gd)
+# Software rendering is slow: ~1-3 minutes per hunt shot. Read the PNGs to look.
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+D="$(cd "$(dirname "$0")" && pwd)"
+OUT="$ROOT/shots"
+mkdir -p "$OUT"
+timeout 3000 "$D/godot-gpu.sh" --resolution "${2:-720x1280}" --fixed-fps 30 -- --capture --shots="${1:-lobby,hunt}" --out="$OUT" 2>&1 | grep -E "SHOT|SCRIPT ERROR|SHADER ERROR"
+ls "$OUT"

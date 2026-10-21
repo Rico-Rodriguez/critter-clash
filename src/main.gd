@@ -191,6 +191,15 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
+			"devpanel":
+				_set_screen_now("hunt")
+				var hd: Hunt = current
+				await _wait_sim(hd, 3.0)
+				hd.hud._open_pause()
+				await _wait(0.6)
+				hd.hud.get_children().back().open_dev_panel()
+				await _wait(0.8)
+				await _save("devpanel")
 			"film":
 				_set_screen_now("hunt")
 				var hf: Hunt = current

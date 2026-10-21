@@ -81,6 +81,7 @@ func _ready() -> void:
 	world.add_child(cam)
 	cam.target = hero
 	cam.shake_enabled = bool(Game.setting("shake"))
+	cam.dist_mult = {"close": 0.86, "wide": 1.16}.get(str(Game.setting("camera")), 1.0)
 	cam.snap()
 	cam.current = true
 	if str(Game.data.get("pet", "")) != "":
@@ -153,17 +154,38 @@ func tick(dt: float) -> void:
 		"boss_intro":
 			if phase_t > 2.6:
 				phase = "boss"
-				cam.focus_override = null
 				hud.boss_mode(boss)
 		"victory":
 			if phase_t > 7.0 or (phase_t > 3.0 and _loot_left() == 0):
 				_end(true)
+	_frame_camera()
 	cam.follow(dt, hero.vel)
+	var watch := [hero.position]
+	if boss and boss.alive:
+		watch.append(boss.position)
+	arena.update_occlusion(watch, cam.pitch_deg, dt)
 	_skill_t -= dt
 	if _skill_t <= 0.0:
 		_skill_t = 0.4
 		_check_skill_levels()
 	hud.refresh(dt)
+
+
+## Sets the camera's zoom and focus for the moment: wider for the boss and
+## big crowds, tight on the loot fountain after a win.
+func _frame_camera() -> void:
+	match phase:
+		"boss_intro":
+			cam.zoom_target = 1.25
+		"boss":
+			cam.zoom_target = 1.18
+			if boss and boss.alive:
+				cam.focus_override = hero.position.lerp(boss.position, 0.25)
+		"victory":
+			cam.zoom_target = 0.85
+			cam.focus_override = null
+		_:
+			cam.zoom_target = 1.0 + clampf((foes.size() - 15) / 60.0, 0.0, 0.12)
 
 
 # --- Foes ----------------------------------------------------------------

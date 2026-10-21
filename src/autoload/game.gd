@@ -44,7 +44,7 @@ func _fresh() -> Dictionary:
 		"tier": 0,
 		"pet": "",
 		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}},
-		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto"},
+		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard"},
 		"seen_tutorial": false,
 	}
 

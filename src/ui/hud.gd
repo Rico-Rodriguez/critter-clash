@@ -49,8 +49,8 @@ func setup(h: Hunt) -> void:
 		_hint.add_theme_font_size_override("font_size", 24)
 		_hint.anchor_left = 0.0
 		_hint.anchor_right = 1.0
-		_hint.anchor_top = 0.62
-		_hint.anchor_bottom = 0.62
+		_hint.anchor_top = 0.72
+		_hint.anchor_bottom = 0.72
 		_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		add_child(_hint)
 

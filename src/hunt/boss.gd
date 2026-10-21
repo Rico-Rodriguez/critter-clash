@@ -35,6 +35,7 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	mass = d["mass"]
 	build_model(d["model"], d["weapons"], Color(0.4, 1.0, 0.75), 0.55, Color(0.4, 1.0, 0.7, 1.0))
 	model.scale = Vector3.ONE * float(d["scale"])
+	hunt.arena.add_dynamic_occluder(self, 1.8, 5.0)
 	# A crown of green fire over the King's head.
 	var crown := GPUParticles3D.new()
 	crown.amount = 40
