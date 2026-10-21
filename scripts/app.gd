@@ -1059,7 +1059,9 @@ class HubScreen extends ScreenBase:
 			# who he is.
 			toast("%s: %s" % [name, line] if line != "" else name)
 			return
-		if place_id == "general_store" or place_id == "material_buyer":
+		if place_id == "quests":
+			_open_quests()
+		elif place_id == "general_store" or place_id == "material_buyer":
 			_open_stall(place_id)
 		elif place_id == "forge":
 			go("forge")
@@ -1071,6 +1073,121 @@ class HubScreen extends ScreenBase:
 			go("stash")
 		else:
 			toast(name if name != "" else "Nothing here yet.")
+
+
+	## The board of tasks: a sheet over the town with what each one wants
+	## and what it pays. A finished task is paid out once.
+	func _open_quests() -> void:
+		if sheet != null:
+			return
+		sheet = Control.new()
+		sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(sheet)
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.7)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		dim.gui_input.connect(func(e: InputEvent) -> void:
+			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+				_close_quests()
+		)
+		sheet.add_child(dim)
+		var pad := insets()
+		var panel := PanelContainer.new()
+		var empty := StyleBoxEmpty.new()
+		for side in ["left", "right", "top", "bottom"]:
+			empty.set("content_margin_" + side, 20)
+		panel.add_theme_stylebox_override("panel", empty)
+		panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		panel.anchor_top = 0.22
+		panel.offset_top = 0.0
+		panel.offset_left = float(pad["l"]) + 16.0
+		panel.offset_right = -float(pad["r"]) - 16.0
+		panel.offset_bottom = -float(pad["b"]) - 16.0
+		panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		sheet.add_child(panel)
+		var frame := UiKit.Frame.new("panel", "leather", {})
+		frame.margin = 20.0
+		panel.add_child(frame)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 8)
+		panel.add_child(box)
+		var title := UiKit.title("THE BOARD", 36)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(title)
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(0, 380)
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		box.add_child(scroll)
+		var list := VBoxContainer.new()
+		list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list.add_theme_constant_override("separation", 10)
+		scroll.add_child(list)
+		for quest in Quests.board():
+			list.add_child(_quest_row(quest))
+		pass_through(scroll)
+		var foot := HBoxContainer.new()
+		foot.alignment = BoxContainer.ALIGNMENT_CENTER
+		var close := UiKit.secondary("Close", 240, 88)
+		close.pressed.connect(_close_quests)
+		foot.add_child(close)
+		box.add_child(foot)
+
+
+	## One task on the board: what it wants, what it pays and the button
+	## that pays it out when it is done.
+	func _quest_row(quest: Dictionary) -> Control:
+		var state := str(quest["state"])
+		var row := VBoxContainer.new()
+		row.add_theme_constant_override("separation", 0)
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 12)
+		row.add_child(head)
+		var name := UiKit.label(str(quest["name"]).to_upper(), 26, UiKit.GOLD.lightened(0.2), "x", 3)
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(name)
+		var reward: Dictionary = quest["reward"]
+		var pay: Array = []
+		if reward.has("coins"):
+			pay.append("%d coins" % int(reward["coins"]))
+		if reward.has("trophies"):
+			pay.append("%d trophies" % int(reward["trophies"]))
+		if reward.has("gear_shards"):
+			pay.append("%d shards" % int(reward["gear_shards"]))
+		head.add_child(UiKit.label(" \u00b7 ".join(pay), 17, UiKit.MUTED, "b", 1))
+		row.add_child(UiKit.label(str(quest["blurb"]), 18, UiKit.CREAM, "b", 1))
+		var goal := UiKit.label(str(quest["goal"]), 16, UiKit.MUTED, "m", 1)
+		row.add_child(goal)
+		if state == "done":
+			var button := UiKit.button("CLAIM", 190, 66, "gold")
+			button.pressed.connect(func() -> void: _claim_quest(str(quest["id"])))
+			row.add_child(button)
+		elif state == "ready":
+			row.add_child(UiKit.label("Paid out.", 17, Color("9fe08a"), "b", 1))
+		return row
+
+
+	## Pays a finished task out, once, and says what it paid.
+	func _claim_quest(id: String) -> void:
+		var reward := Quests.claim(id)
+		if reward.is_empty():
+			return
+		AudioDirector.sfx("card_pick")
+		AudioDirector.haptic("medium")
+		var pay: Array = []
+		if reward.has("coins"):
+			pay.append("%d coins" % int(reward["coins"]))
+		if reward.has("trophies"):
+			pay.append("%d trophies" % int(reward["trophies"]))
+		if reward.has("gear_shards"):
+			pay.append("%d shards" % int(reward["gear_shards"]))
+		toast("Paid: " + ", ".join(pay))
+		_close_quests()
+
+
+	func _close_quests() -> void:
+		if sheet != null:
+			sheet.queue_free()
+		sheet = null
 
 
 	## The town keeps an eye on where the hero is standing, and says what

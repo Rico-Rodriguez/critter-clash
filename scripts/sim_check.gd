@@ -14,7 +14,7 @@ static var _times: Array = []
 ## Every check in run order. The name is the --only tag and the --timings label.
 const CHECKS := [
 	"roles", "modes", "save", "gear_save", "train", "slayer_log", "slayer_gear", "settings",
-	"save_safety", "daily", "steer", "maps", "tier_entry", "zone_hunt", "cards", "pools", "exclusivity", "fights",
+	"save_safety", "daily", "steer", "maps", "tier_entry", "zone_hunt", "quests", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "boss_phase", "dodge", "events", "gear_drop", "skill_xp",
 	"gear_coverage", "melee_impact", "skills_screen", "xp_drop", "skill_trophies",
 	"end_card", "drops_names", "gear_log", "forge", "boss_gear", "home_pips", "hints",
@@ -90,6 +90,8 @@ static func _dispatch(name: String) -> void:
 			_tier_entry()
 		"zone_hunt":
 			_zone_hunt()
+		"quests":
+			_quests()
 		"cards":
 			_cards()
 		"grim_names":
@@ -1566,6 +1568,31 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 		"boss": boss_rose,
 		"skill_xp": sim.skill_xp.duplicate(true),
 	}
+
+
+## The board of tasks: nothing is finished before anything is done, a
+## finished task pays out, and it pays out once.
+static func _quests() -> void:
+	SaveGame.no_write = true
+	SaveGame.reset_new()
+	for quest in Quests.board():
+		if str(quest["state"]) != "open":
+			_fail("a task was finished before anything was done")
+			return
+	SaveGame.data["tiers_cleared"] = {"fringe": true}
+	var board := Quests.board()
+	if str(board[0]["state"]) != "done":
+		_fail("clearing the fringe did not finish the first task")
+		return
+	if Quests.claim("road_out").is_empty():
+		_fail("a finished task paid nothing")
+		return
+	if not Quests.claim("road_out").is_empty():
+		_fail("a task paid out twice")
+		return
+	SaveGame.reset_new()
+	SaveGame.no_write = false
+	print("QUESTS ok: the board judges the save and pays a task once")
 
 
 ## A depth zone can be walked: the bot goes from the south gate to the far

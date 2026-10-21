@@ -231,6 +231,13 @@ func _places() -> void:
 	var stash_at := Vector3(2.8, 0.0, -6.2)
 	_people_prop("chest", stash_at + Vector3(0.0, 0.35, 0.0), Vector3(0.9, 0.6, 0.6), Vector3.ZERO)
 	places.append({"id": "stash", "pos": stash_at + Vector3(0.0, 0.7, 0.0), "name": "The Stash"})
+	# The quest board: a board with papers nailed to it, in the middle of
+	# the plaza where a hunter would stop at it.
+	var board_at := Vector3(-0.2, 0.0, -3.6)
+	_people_prop("board", board_at + Vector3(0.0, 1.5, 0.0), Vector3(1.9, 1.3, 0.14), Vector3.ZERO)
+	_post(board_at + Vector3(-0.75, 0.0, 0.0), 1.5)
+	_post(board_at + Vector3(0.75, 0.0, 0.0), 1.5)
+	places.append({"id": "quests", "pos": board_at + Vector3(0.0, 1.6, 0.0), "name": "The Board"})
 	# The two stalls: they are places in the town, so a tap on one opens
 	# its trade sheet.
 	places.append({"id": "general_store", "pos": GENERAL_STORE_POS + Vector3(0.0, 2.3, 0.0), "name": "The General Store"})
