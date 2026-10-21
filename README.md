@@ -164,6 +164,7 @@ Biome ids: `meadow`, `mushroom`, `frost`, `volcano`.
 - `assets/fonts/` Nunito for body copy, Lilita One for titles, numbers, and buttons
 - `tools/build_sfx.py`, `tools/build_sfx_synth.py`, `tools/check_sfx.py` and `tools/make_icon.py`
 - `.github/workflows/ios-ipa.yml` unsigned IPA
+- `.memory/` the project memory: `index.md` is the table of contents, `topics/*.md` hold the history and the open issues
 
 ## Art and audio rebuild
 

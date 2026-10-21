@@ -1688,11 +1688,16 @@ static func _boss_intro_check() -> void:
 	while boss.boss_state == "intro" and guard < 600:
 		guard += 1
 		_step_one(sim)
+		# The step that ends the reveal is the step the fight opens on, so
+		# only a hit or an attack that landed while the boss was still in
+		# its intro counts as one.
+		var still_intro := boss.boss_state == "intro"
 		for e in sim.drain_events():
 			var kind := str(e.get("type", ""))
 			if (kind == "windup" or kind == "attack") and int(e.get("id", -1)) == boss.id:
-				seen_attack = true
-		if boss.hp < hp0:
+				if still_intro:
+					seen_attack = true
+		if still_intro and boss.hp < hp0:
 			_fail("the boss took damage during its intro")
 			break
 	if seen_attack:

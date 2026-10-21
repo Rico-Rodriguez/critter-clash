@@ -15,3 +15,7 @@ _src/
 # local debug scratch
 dbg_*.gd
 dbg_*.gd.uid
+
+# local headless run logs
+out_*.txt
+err_*.txt
