@@ -1,5 +1,6 @@
 # The town, the character select and the two ways out
 
+- 2026-10-21 — **The board has a road through it.** The four depths are a line of steps on the board (clear the Fringe, the Wilds, the Deep, the Abyss), each marked with the step it is, and the one the player is on says "You are here"; the side tasks (three chests home, steel for the smith) sit beside the road — `scripts/quests.gd` (`ROAD`, `board`, `current_step`), `scripts/app.gd` (`_quest_row`)
 - 2026-10-21 — **The far bank is wooded.** The ground beyond the river carries a treeline (with boulders and stumps on the bank), so the north of the town has a horizon instead of an empty edge — `scripts/hub_scene.gd` (`_far_bank`)
 - 2026-10-21 — **Coming home is a walk in.** The run screen sends you back through the gate, and the town shows the hero coming down the bridge and walking into the plaza, instead of popping him into the middle of it — `scripts/hub_view.gd` (`arrive`), `scripts/app.gd` (`open`), `scripts/run_screen.gd` (the CONTINUE button)
 - 2026-10-21 — **A river runs across the north of the town**, between the plaza and the four doors, with stones along its banks and the bridge the project has over it. The way out of the town is now a bridge, which gives the ground a shape — `scripts/hub_scene.gd` (`_river`, `RIVER_Z`)
