@@ -1049,9 +1049,16 @@ class HubScreen extends ScreenBase:
 	## when the tap does not open anything.
 	func _open_place(place_id: String) -> void:
 		var name := ""
+		var line := ""
 		for place in hub.list_places():
 			if str(place.get("id", "")) == place_id:
 				name = str(place.get("name", ""))
+				line = str(place.get("line", ""))
+		if place_id.begins_with("person_"):
+			# A person of the town: he says his piece, and the town says
+			# who he is.
+			toast("%s: %s" % [name, line] if line != "" else name)
+			return
 		if place_id == "general_store" or place_id == "material_buyer":
 			_open_stall(place_id)
 		elif place_id == "forge":

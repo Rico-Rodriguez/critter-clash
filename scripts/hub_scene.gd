@@ -62,10 +62,13 @@ func _ready() -> void:
 	var spawn := WorldData.hub_spawn()
 	print("[HubScene] %s - spawn %s" % [str(hub.get("name", "Hub")), spawn])
 	_ground()
+	_plaza()
 	_fire()
 	_stall(GENERAL_STORE_POS, "general_store")
 	_stall(MATERIAL_BUYER_POS, "material_buyer")
 	_well()
+	_buildings()
+	_lanterns()
 	_people()
 	_places()
 	_wall()
@@ -306,6 +309,181 @@ func _post(at: Vector3, h: float) -> void:
 ## frame, so they all stand where the camera can see them.
 const DOOR_ARC := [3.75, 4.28, 5.15, 5.67]
 
+## The houses of the town: timber walls, a slate roof, a door and a window
+## with a light behind it. They are built from primitives with the town's
+## own textures, so the place has a skyline instead of a fence.
+func _buildings() -> void:
+	var houses := [
+		{"at": Vector3(-6.6, 0.0, -4.6), "w": 3.4, "d": 2.8, "h": 2.5, "rot": 0.55},
+		{"at": Vector3(6.8, 0.0, -4.2), "w": 3.0, "d": 2.6, "h": 2.2, "rot": -0.6},
+		{"at": Vector3(-7.4, 0.0, 3.4), "w": 2.8, "d": 2.4, "h": 2.1, "rot": 2.3},
+		{"at": Vector3(7.2, 0.0, 3.8), "w": 2.6, "d": 2.4, "h": 2.0, "rot": -2.2},
+	]
+	for house in houses:
+		_house(house)
+
+
+## One house: the walls, the frame, the roof, a door and a lit window.
+func _house(house: Dictionary) -> void:
+	var at: Vector3 = house["at"]
+	var w: float = house["w"]
+	var d: float = house["d"]
+	var h: float = house["h"]
+	var rot: float = house["rot"]
+	var root := Node3D.new()
+	root.position = at
+	root.rotation.y = rot
+	add_child(root)
+	# The walls: plaster over timber, with the wood texture.
+	var walls := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(w, h, d)
+	walls.mesh = box
+	var plaster := StandardMaterial3D.new()
+	plaster.albedo_texture = load("res://assets/textures/ui_stone.jpg")
+	plaster.albedo_color = Color(0.72, 0.66, 0.56)
+	plaster.uv1_scale = Vector3(1.6, 1.0, 1.6)
+	plaster.roughness = 0.95
+	walls.mesh.material = plaster
+	walls.position = Vector3(0.0, h * 0.5, 0.0)
+	root.add_child(walls)
+	# The frame: the beams that hold the plaster up.
+	var beam := StandardMaterial3D.new()
+	beam.albedo_texture = load("res://assets/textures/wood_color.jpg")
+	beam.albedo_color = Color(0.46, 0.32, 0.2)
+	beam.roughness = 0.9
+	for x in [-w * 0.5, 0.0, w * 0.5]:
+		_beam(root, Vector3(x, h * 0.5, d * 0.5 + 0.03), Vector3(0.16, h, 0.08), beam)
+		_beam(root, Vector3(x, h * 0.5, -d * 0.5 - 0.03), Vector3(0.16, h, 0.08), beam)
+	_beam(root, Vector3(0.0, h - 0.08, d * 0.5 + 0.03), Vector3(w, 0.16, 0.08), beam)
+	_beam(root, Vector3(0.0, h - 0.08, -d * 0.5 - 0.03), Vector3(w, 0.16, 0.08), beam)
+	# The roof: a slate prism over the walls.
+	var roof := MeshInstance3D.new()
+	var prism := PrismMesh.new()
+	prism.size = Vector3(w + 0.7, 1.5, d + 0.9)
+	roof.mesh = prism
+	var slate := StandardMaterial3D.new()
+	slate.albedo_texture = load("res://assets/textures/ui_marble.jpg")
+	slate.albedo_color = Color(0.3, 0.31, 0.36)
+	slate.roughness = 0.85
+	roof.mesh.material = slate
+	roof.position = Vector3(0.0, h, 0.0)
+	root.add_child(roof)
+	# The door: a dark board in the front wall.
+	var door := MeshInstance3D.new()
+	var slab := BoxMesh.new()
+	slab.size = Vector3(0.85, 1.5, 0.12)
+	door.mesh = slab
+	var oak := StandardMaterial3D.new()
+	oak.albedo_texture = load("res://assets/textures/wood_color.jpg")
+	oak.albedo_color = Color(0.3, 0.19, 0.12)
+	oak.roughness = 0.85
+	door.mesh.material = oak
+	door.position = Vector3(-w * 0.25, 0.75, d * 0.5 + 0.05)
+	root.add_child(door)
+	# The window: a lit panel, and the light it throws on the ground.
+	var window := MeshInstance3D.new()
+	var pane := BoxMesh.new()
+	pane.size = Vector3(0.8, 0.7, 0.1)
+	window.mesh = pane
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = Color(1.0, 0.82, 0.5)
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.76, 0.42)
+	glow.emission_energy_multiplier = 2.6
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	window.mesh.material = glow
+	window.position = Vector3(w * 0.22, 1.45, d * 0.5 + 0.05)
+	root.add_child(window)
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color("ffbb70")
+	lamp.light_energy = 1.6
+	lamp.omni_range = 6.0
+	lamp.shadow_enabled = false
+	lamp.position = Vector3(w * 0.22, 1.4, d * 0.5 + 0.6)
+	root.add_child(lamp)
+
+
+## One timber beam.
+func _beam(root: Node3D, at: Vector3, size: Vector3, mat: Material) -> void:
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	mesh.mesh = box
+	mesh.mesh.material = mat
+	mesh.position = at
+	root.add_child(mesh)
+
+
+## The lanterns of the town: the lantern on a post, and the pool of light it
+## throws. They are what makes the place feel lit at night.
+func _lanterns() -> void:
+	var spots := [
+		Vector3(-3.4, 0.0, 3.4), Vector3(3.4, 0.0, 3.4),
+		Vector3(-3.4, 0.0, -2.6), Vector3(3.4, 0.0, -2.6),
+	]
+	for at in spots:
+		var post := _prop("stump", at, 0.9)
+		if post != null:
+			post.position = at + Vector3(0.0, 0.9, 0.0)
+		var lamp := _prop("lantern", at + Vector3(0.0, 2.0, 0.0), 0.9)
+		if lamp != null:
+			add_child(lamp)
+		var light := OmniLight3D.new()
+		light.light_color = Color("ffb060")
+		light.light_energy = 2.6
+		light.omni_range = 9.0
+		light.shadow_enabled = false
+		light.position = at + Vector3(0.0, 2.1, 0.0)
+		add_child(light)
+
+
+## The cobbled plaza: a disc of set stone in the middle of the grass, with
+## the worn path running through it.
+func _plaza() -> void:
+	var disc := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 7.4
+	cyl.bottom_radius = 7.4
+	cyl.height = 0.06
+	cyl.radial_segments = 40
+	disc.mesh = cyl
+	var stone := StandardMaterial3D.new()
+	stone.albedo_texture = load("res://assets/textures/path_color.jpg")
+	stone.albedo_color = Color(0.62, 0.58, 0.52)
+	stone.uv1_scale = Vector3(5.0, 5.0, 1.0)
+	stone.roughness = 0.95
+	disc.mesh.material = stone
+	disc.position = Vector3(0.0, 0.03, 0.0)
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(disc)
+
+
+## The arch on a door: two pillars and a lintel, so the ways out look like
+## ways out.
+func _arch(at: Vector3, facing: float) -> void:
+	var stone := StandardMaterial3D.new()
+	stone.albedo_texture = load("res://assets/textures/ui_marble.jpg")
+	stone.albedo_color = Color(0.52, 0.5, 0.47)
+	stone.roughness = 0.92
+	for side in [-1.0, 1.0]:
+		var pillar := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(0.7, 3.4, 0.7)
+		pillar.mesh = box
+		pillar.mesh.material = stone
+		pillar.position = at + Vector3(1.5 * side, 1.7, 0.0)
+		pillar.rotation.y = facing
+		add_child(pillar)
+	var lintel := MeshInstance3D.new()
+	var bar := BoxMesh.new()
+	bar.size = Vector3(3.9, 0.55, 0.8)
+	lintel.mesh = bar
+	lintel.mesh.material = stone
+	lintel.position = at + Vector3(0.0, 3.5, 0.0)
+	lintel.rotation.y = facing
+	add_child(lintel)
+
 ## The ways out of the town: a gate in the town wall at the north and one
 ## at the south. The north barrier leads deeper, the south one to the
 ## shallow ground, and the one that stands open is lit, so the town shows
@@ -323,6 +501,8 @@ func _gates() -> void:
 		var angle: float = DOOR_ARC[i] if i < DOOR_ARC.size() else -PI * 0.5
 		i += 1
 		var at := Vector3(cos(angle) * 10.0, 0.0, sin(angle) * 10.0)
+		# The arch: two pillars and a lintel, across the wall.
+		_arch(at, angle + PI * 0.5)
 		var pair: Array = []
 		for side in [-1.0, 1.0]:
 			var stone := _prop("rock_a", at + Vector3(1.1 * side, 0.0, 0.0), 1.4)
@@ -416,12 +596,34 @@ func _well() -> void:
 ## the old cast, and they never become heroes.
 func _people() -> void:
 	var keepers := [
-		{"sprite": "sprout", "at": Vector3(-4.6, 0.0, 0.9)},
-		{"sprite": "beetle", "at": Vector3(4.6, 0.0, 0.9)},
-		{"sprite": "moth", "at": Vector3(2.0, 0.0, -2.0)},
-		{"sprite": "boarlet", "at": Vector3(-1.6, 0.0, -6.5)},
+		{
+			"sprite": "sprout", "at": Vector3(-4.6, 0.0, 0.9),
+			"name": "Old Sprout",
+			"line": "Steel is out in the deep ground. Bring me back something you are not using.",
+		},
+		{
+			"sprite": "beetle", "at": Vector3(4.6, 0.0, 0.9),
+			"name": "Scarab the Trader",
+			"line": "Everything I have, I bought. Everything I want, somebody else found first.",
+		},
+		{
+			"sprite": "moth", "at": Vector3(2.0, 0.0, -2.0),
+			"name": "Moth the Watchful",
+			"line": "The gates open one at a time. Clear the ground beyond, and the next one opens.",
+		},
+		{
+			"sprite": "boarlet", "at": Vector3(-1.6, 0.0, -6.5),
+			"name": "Old Boarlet",
+			"line": "I walked the Fringe once. I was quicker then.",
+		},
 	]
 	for person in keepers:
+		places.append({
+			"id": "person_" + str(person["sprite"]),
+			"pos": person["at"],
+			"name": str(person["name"]),
+			"line": str(person["line"]),
+		})
 		var sprite := str(person["sprite"])
 		var path := Cast3D.model(sprite)
 		var packed := load(path) as PackedScene
