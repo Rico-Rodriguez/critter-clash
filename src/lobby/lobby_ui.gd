@@ -7,7 +7,7 @@ var lobby: Node3D
 var chest_opening := false
 var _shown_hero := ""
 var _sheet: Sheet
-var _bag_filter := ""
+var equipment: Equipment
 
 
 func setup(l: Node3D) -> void:
@@ -65,6 +65,7 @@ func refresh() -> void:
 		b.add_theme_color_override("font_pressed_color", t["color"])
 		b.add_theme_color_override("font_hover_pressed_color", t["color"])
 	%NavHeroes.get_node("Dot").visible = _any_upgrade()
+	%NavBag.get_node("Dot").visible = Game.new_item_count() > 0
 
 
 func _any_upgrade() -> bool:
@@ -133,6 +134,19 @@ func chest_done() -> void:
 
 # --- Sheets --------------------------------------------------------------
 
+## The equipment screen takes over the camp: the 3D hero stays visible in the
+## middle with the slots around them.
+func open_equipment() -> void:
+	%Safe.visible = false
+	var eq := Equipment.new()
+	equipment = eq
+	%Overlay.add_child(eq)
+	eq.open(self)
+	eq.closed.connect(func():
+		%Safe.visible = true
+		refresh())
+
+
 func open_sheet(name_: String) -> void:
 	if _sheet and is_instance_valid(_sheet):
 		_sheet.queue_free()
@@ -145,7 +159,9 @@ func open_sheet(name_: String) -> void:
 		"heroes":
 			_sheet.open("Heroes", _build_heroes)
 		"bag":
-			_sheet.open("Bag", _build_bag)
+			_sheet.queue_free()
+			open_equipment()
+			return
 		"skills":
 			_sheet.open("Skills", _build_skills)
 		"log":
@@ -318,172 +334,39 @@ func _build_heroes(s: Sheet) -> void:
 			uv.add_child(ub)
 		uc.add_child(uv)
 		b.add_child(uc)
-		# Gear.
+		# Gear: what this hero wears at a glance, and a way into the equipment screen.
 		b.add_child(Ui.label("GEAR", "Caption"))
+		var gear := _card()
+		var gv := VBoxContainer.new()
+		gv.add_theme_constant_override("separation", 12)
+		var strip := HBoxContainer.new()
+		strip.alignment = BoxContainer.ALIGNMENT_CENTER
+		strip.add_theme_constant_override("separation", 12)
 		for slot in DB.SLOTS:
-			b.add_child(_gear_row(id2, slot, s))
+			var worn := Game.equipped(id2, slot)
+			var wc := DB.rarity_color(worn["rarity"]) if not worn.is_empty() else Color(0.4, 0.38, 0.36)
+			var d_ := _disc(DB.SLOT_ICON[slot], wc, 80)
+			d_.modulate.a = 1.0 if not worn.is_empty() else 0.5
+			strip.add_child(d_)
+		gv.add_child(strip)
+		var open_eq := Button.new()
+		open_eq.text = "Equipment"
+		open_eq.theme_type_variation = "PrimaryButton"
+		open_eq.custom_minimum_size = Vector2(0, 80)
+		open_eq.focus_mode = Control.FOCUS_NONE
+		open_eq.pressed.connect(func():
+			s.close()
+			await get_tree().create_timer(0.25).timeout
+			open_equipment())
+		gv.add_child(open_eq)
+		gear.add_child(gv)
+		b.add_child(gear)
 	else:
 		var lc := _card()
 		var ll := Ui.label("Locked — " + ("clear Veteran, or gather 20 shards from chests." if d2["unlock"] == "veteran" else "gather 20 shards from chests."), "Body")
 		ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lc.add_child(ll)
 		b.add_child(lc)
-
-
-func _gear_row(hid: String, slot: String, s: Sheet) -> Control:
-	var it := Game.equipped(hid, slot)
-	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(0, 92)
-	btn.focus_mode = Control.FOCUS_NONE
-	var r := _row([], 14)
-	r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	r.offset_left = 16
-	r.offset_right = -16
-	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var col := DB.rarity_color(it["rarity"]) if not it.is_empty() else Color(0.5, 0.5, 0.52)
-	r.add_child(_disc(DB.SLOT_ICON[slot], col, 62))
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 0)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if it.is_empty():
-		v.add_child(Ui.label(DB.SLOT_NAME[slot], "Body"))
-		v.add_child(Ui.label("Empty — tap to equip", "Small"))
-	else:
-		var n := Ui.label(str(it["name"]), "Body")
-		n.add_theme_color_override("font_color", col)
-		v.add_child(n)
-		var sl := Ui.label(" · ".join(Game.describe_stats(it)), "Small")
-		sl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		sl.add_theme_font_size_override("font_size", 18)
-		v.add_child(sl)
-	r.add_child(v)
-	btn.add_child(r)
-	btn.pressed.connect(func():
-		_bag_filter = slot
-		s.close()
-		await get_tree().create_timer(0.25).timeout
-		open_sheet("bag"))
-	return btn
-
-
-func _build_bag(s: Sheet) -> void:
-	var b := s.body
-	var hid := Game.hero_id()
-	var tabs := _row([], 6)
-	for f in ["", "weapon", "armor", "trinket"]:
-		var t := Button.new()
-		t.theme_type_variation = "Ghost"
-		t.toggle_mode = true
-		t.button_pressed = _bag_filter == f
-		t.text = "All" if f == "" else DB.SLOT_NAME[f]
-		t.focus_mode = Control.FOCUS_NONE
-		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var ff: String = f
-		t.pressed.connect(func():
-			_bag_filter = ff
-			s.rebuild())
-		tabs.add_child(t)
-	b.add_child(tabs)
-	var items: Array = Game.data["items"].duplicate()
-	items.sort_custom(func(a, c): return Game.item_score(a) > Game.item_score(c))
-	var shown := 0
-	b.add_child(Ui.label("%d / %d items · equipping on %s" % [items.size(), Game.INVENTORY_CAP, DB.HEROES[hid]["name"]], "Small"))
-	for it in items:
-		if _bag_filter != "" and it["slot"] != _bag_filter:
-			continue
-		shown += 1
-		b.add_child(_item_card(it, hid, s))
-	if shown == 0:
-		var e := Ui.label("Nothing here yet. Champions, the King and chests drop gear.", "Body", HORIZONTAL_ALIGNMENT_CENTER)
-		e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		b.add_child(e)
-	var sell := Button.new()
-	sell.text = "Sell all Common & Magic"
-	sell.focus_mode = Control.FOCUS_NONE
-	sell.custom_minimum_size = Vector2(0, 76)
-	sell.pressed.connect(func():
-		var g := Game.salvage_below("magic")
-		if g > 0:
-			Sfx.play("coin", 0.0)
-		s.rebuild())
-	b.add_child(sell)
-
-
-func _item_card(it: Dictionary, hid: String, s: Sheet) -> Control:
-	var col := DB.rarity_color(it["rarity"])
-	var c := PanelContainer.new()
-	var st := StyleBoxFlat.new()
-	st.bg_color = Color(0.13, 0.12, 0.15)
-	st.set_corner_radius_all(12)
-	st.border_width_left = 6
-	st.border_color = col
-	st.content_margin_left = 18
-	st.content_margin_right = 14
-	st.content_margin_top = 12
-	st.content_margin_bottom = 12
-	c.add_theme_stylebox_override("panel", st)
-	var r := _row([], 14)
-	var icon_name: String = DB.UNIQUES[it["unique"]]["icon"] if str(it.get("unique", "")) != "" else DB.SLOT_ICON[it["slot"]]
-	r.add_child(Ui.icon_rect(icon_name, 52, col))
-	var v := VBoxContainer.new()
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_theme_constant_override("separation", 2)
-	var n := Ui.label(str(it["name"]), "Body")
-	n.add_theme_color_override("font_color", col)
-	n.add_theme_font_size_override("font_size", 24)
-	v.add_child(n)
-	var meta := "%s %s" % [DB.RARITY_NAME[it["rarity"]], DB.SLOT_NAME.get(it["slot"], "")]
-	var owner := Game.owner_of(int(it["uid"]))
-	if owner != "":
-		meta += " · on %s" % DB.HEROES[owner]["name"]
-	v.add_child(Ui.label(meta, "Small"))
-	for line in Game.describe_stats(it):
-		var sl := Ui.label(line, "Body")
-		sl.add_theme_font_size_override("font_size", 20)
-		sl.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0) if not line.begins_with("Start") else Color(1.0, 0.65, 0.3))
-		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(sl)
-	r.add_child(v)
-	var acts := VBoxContainer.new()
-	acts.alignment = BoxContainer.ALIGNMENT_CENTER
-	var uid := int(it["uid"])
-	if owner == hid:
-		var u := Button.new()
-		u.text = "Remove"
-		u.focus_mode = Control.FOCUS_NONE
-		u.add_theme_font_size_override("font_size", 20)
-		u.pressed.connect(func():
-			Game.unequip(hid, it["slot"])
-			s.rebuild())
-		acts.add_child(u)
-	else:
-		var e := Button.new()
-		e.text = "Equip"
-		e.theme_type_variation = "PrimaryButton"
-		e.focus_mode = Control.FOCUS_NONE
-		e.add_theme_font_size_override("font_size", 22)
-		if Game.is_better(it, hid):
-			e.text = "Equip ▲"
-		e.pressed.connect(func():
-			Game.equip(hid, uid)
-			Sfx.play("gear_equip", -2.0)
-			s.rebuild())
-		acts.add_child(e)
-		var sell := Button.new()
-		sell.text = "+%d" % Game.item_value(it)
-		sell.icon = Ui.icon("two-coins")
-		sell.focus_mode = Control.FOCUS_NONE
-		sell.add_theme_font_size_override("font_size", 18)
-		sell.pressed.connect(func():
-			Game.salvage(uid)
-			Sfx.play("coin", -2.0)
-			s.rebuild())
-		acts.add_child(sell)
-	r.add_child(acts)
-	c.add_child(r)
-	return c
 
 
 func _build_skills(s: Sheet) -> void:

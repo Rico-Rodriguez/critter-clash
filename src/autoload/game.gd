@@ -6,7 +6,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -46,6 +46,7 @@ func _fresh() -> Dictionary:
 		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}},
 		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard", "buttons": "right"},
 		"seen_tutorial": false,
+		"seen_items": [],
 	}
 
 
@@ -57,8 +58,23 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) == SAVE_VERSION:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, SAVE_VERSION]:
+		if int(parsed.get("version", 0)) == 1:
+			_migrate_v1(parsed)
 		_merge(data, parsed)
+
+
+## v1 had three slots (weapon, armor, trinket); armor became chest.
+func _migrate_v1(d: Dictionary) -> void:
+	for it in d.get("items", []):
+		if it.get("slot", "") == "armor":
+			it["slot"] = "chest"
+	for hid in d.get("heroes", {}):
+		var g: Dictionary = d["heroes"][hid].get("gear", {})
+		if g.has("armor"):
+			g["chest"] = g["armor"]
+			g.erase("armor")
+	d["version"] = SAVE_VERSION
 
 
 ## Copies saved values over the fresh defaults so new keys keep defaults.
@@ -199,6 +215,79 @@ func salvage_below(rarity: String) -> int:
 	return total
 
 
+## Items the player has not looked at yet (shown with a dot).
+func new_item_count() -> int:
+	var n := 0
+	for it in data["items"]:
+		if not int(it["uid"]) in data["seen_items"]:
+			n += 1
+	return n
+
+
+func is_new(uid: int) -> bool:
+	return not uid in data["seen_items"]
+
+
+func mark_items_seen() -> void:
+	for it in data["items"]:
+		if not int(it["uid"]) in data["seen_items"]:
+			data["seen_items"].append(int(it["uid"]))
+	save()
+
+
+## Puts the best bag item in every slot, taking only from this hero or from
+## the bag (never from another hero). Returns how many slots changed.
+func equip_best(hero_id_: String) -> int:
+	var changed_n := 0
+	for slot in DB.SLOTS:
+		var best := equipped(hero_id_, slot)
+		var best_score := item_score(best) if not best.is_empty() else -1.0
+		for it in data["items"]:
+			if it["slot"] != slot:
+				continue
+			var owner := owner_of(int(it["uid"]))
+			if owner != "" and owner != hero_id_:
+				continue
+			if item_score(it) > best_score:
+				best = it
+				best_score = item_score(it)
+		if not best.is_empty() and int(hero(hero_id_)["gear"].get(slot, 0)) != int(best["uid"]):
+			hero(hero_id_)["gear"][slot] = int(best["uid"])
+			changed_n += 1
+	if changed_n > 0:
+		save()
+	return changed_n
+
+
+## Unequipped, non-unique common and magic items: safe to sell in one go.
+func junk_items() -> Array:
+	var out := []
+	for it in data["items"]:
+		if DB.RARITIES.find(it["rarity"]) <= 1 and str(it.get("unique", "")) == "" and owner_of(int(it["uid"])) == "":
+			out.append(it)
+	return out
+
+
+## Stat-by-stat difference of `it` against `cur` (the equipped piece, or {}).
+## Returns [{"key", "label", "diff", "text"}], biggest changes first.
+func compare(it: Dictionary, cur: Dictionary) -> Array:
+	var keys := {}
+	for k in it["stats"]:
+		keys[k] = true
+	if not cur.is_empty():
+		for k in cur["stats"]:
+			keys[k] = true
+	var out := []
+	for k in keys:
+		var d: int = int(it["stats"].get(k, 0)) - (int(cur["stats"].get(k, 0)) if not cur.is_empty() else 0)
+		if d == 0:
+			continue
+		var sh: Array = DB.AFFIX_SHORT[k]
+		out.append({"key": k, "label": sh[0], "diff": d, "text": "%s%d%s %s" % ["+" if d > 0 else "", d, sh[1], sh[0]]})
+	out.sort_custom(func(a, b): return absi(a["diff"]) > absi(b["diff"]))
+	return out
+
+
 func upgrade_cost(id: String) -> Dictionary:
 	var lvl := int(hero(id)["level"])
 	if lvl >= DB.HERO_MAX_LEVEL:
@@ -324,8 +413,8 @@ func roll_item(source: String, tier_i: int, slot := "") -> Dictionary:
 
 func _roll_affix(key: String, step: int, mult: float) -> int:
 	var r: Array = DB.AFFIXES[key]["roll"]
-	var lo: float = r[0] * (1.0 + 0.5 * step) * mult
-	var hi: float = r[1] * (1.0 + 0.5 * step) * mult
+	var lo: float = r[0] * (1.0 + 0.35 * step) * mult
+	var hi: float = r[1] * (1.0 + 0.35 * step) * mult
 	return int(round(rng.randf_range(lo, hi)))
 
 

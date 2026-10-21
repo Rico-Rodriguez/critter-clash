@@ -22,6 +22,9 @@ var anim: AnimationPlayer
 var cur_anim := ""
 var _meshes: Array[MeshInstance3D] = []
 var _tint := Color(0, 0, 0, 0)
+var _rim := Color.WHITE
+var _rim_strength := 0.5
+var _eyes := Color(0, 0, 0, 0)
 static var _mats := {}
 static var _grime: NoiseTexture2D
 
@@ -49,7 +52,18 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 		_grime.noise = fn
 	anim = KK.anim_player(model)
 	anim.playback_default_blend_time = 0.12
-	for mi in KK.meshes(model):
+	_rim = rim
+	_rim_strength = rim_strength
+	_eyes = eyes
+	restyle(model)
+
+
+## Applies the character shader to every mesh under `root` and tracks them for
+## flashes and tints. Call it again for parts added later (a swapped weapon).
+func restyle(root: Node) -> void:
+	for mi in KK.meshes(root):
+		if mi in _meshes:
+			continue
 		_meshes.append(mi)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		for s in mi.mesh.get_surface_count():
@@ -59,17 +73,27 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 				tex = (src as BaseMaterial3D).albedo_texture
 			if tex == null:
 				continue
-			var key := "%s|%s|%.2f|%s" % [tex.resource_path, rim.to_html(), rim_strength, eyes.to_html()]
+			var key := "%s|%s|%.2f|%s" % [tex.resource_path, _rim.to_html(), _rim_strength, _eyes.to_html()]
 			if not _mats.has(key):
 				var m := ShaderMaterial.new()
 				m.shader = CHAR_SHADER
 				m.set_shader_parameter("albedo_tex", tex)
-				m.set_shader_parameter("rim_color", rim)
-				m.set_shader_parameter("rim_strength", rim_strength)
-				m.set_shader_parameter("eye_glow", eyes)
+				m.set_shader_parameter("rim_color", _rim)
+				m.set_shader_parameter("rim_strength", _rim_strength)
+				m.set_shader_parameter("eye_glow", _eyes)
 				m.set_shader_parameter("grime_tex", _grime)
 				_mats[key] = m
 			mi.set_surface_override_material(s, _mats[key])
+
+
+## Stops tracking the meshes under `root` (call before freeing it).
+func forget(root: Node) -> void:
+	for mi in KK.meshes(root):
+		_meshes.erase(mi)
+
+
+func mesh_list() -> Array[MeshInstance3D]:
+	return _meshes
 
 
 func play(name_: String, blend := -1.0, speed_ := 1.0, restart := false) -> void:

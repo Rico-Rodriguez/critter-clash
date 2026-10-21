@@ -157,16 +157,28 @@ func _capture(args: PackedStringArray) -> void:
 	for i in 5:
 		Game.grant_item(Game.roll_item("chest", 0))
 	Game.grant_item(Game.make_unique("cleaver"))
+	# Two good pieces per slot so the equipment screen has something to compare.
+	for slot in DB.SLOTS:
+		for t in 2:
+			Game.grant_item(Game.roll_item("boss", 1, slot))
+	if _arg(args, "geared", "0") == "1":
+		for slot in DB.SLOTS:
+			var best := {}
+			for it in Game.data["items"]:
+				if it["slot"] == slot and (best.is_empty() or Game.item_score(it) > Game.item_score(best)):
+					best = it
+			if not best.is_empty():
+				Game.equip(hid, int(best["uid"]))
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "chest", "settings":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings":
 				if shot == "chest":
 					pending_chest = "gold"
 				_set_screen_now("lobby")
 				await _wait(1.2)
 				if shot != "lobby":
-					current.open_sheet(shot)
+					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
 				await _save(shot)
 			"flow":
@@ -200,6 +212,18 @@ func _capture(args: PackedStringArray) -> void:
 				hd.hud.get_children().back().open_dev_panel()
 				await _wait(0.8)
 				await _save("devpanel")
+			"equipdetail":
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				current.open_sheet("bag")
+				await _wait(0.8)
+				var eqs: Equipment = current.ui.equipment
+				for it in Game.data["items"]:
+					if it["slot"] == "weapon" and Game.owner_of(int(it["uid"])) == "" and it["rarity"] != "common":
+						eqs._open_detail(it)
+						break
+				await _wait(0.8)
+				await _save("equipdetail")
 			"film":
 				_set_screen_now("hunt")
 				var hf: Hunt = current

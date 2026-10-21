@@ -69,6 +69,7 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	radius = 0.5
 	mass = 4.0
 	build_model(def["model"], def["weapons"], Color(1.0, 0.78, 0.5), 0.35)
+	GearLook.apply(self, id)
 	_build_tree()
 	# The hero carries the light: Diablo's lantern radius.
 	light = OmniLight3D.new()

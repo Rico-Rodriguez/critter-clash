@@ -27,6 +27,7 @@ const HEROES := {
 		"name": "Knight", "title": "The Oathsworn", "role": "Tank",
 		"model": "Knight",
 		"weapons": {"handslot.r": "sword_1handed.gltf", "handslot.l": "shield_badge_color.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": ["", "", "sword_2handed_color.gltf", "sword_2handed_color.gltf"],
 		"style": "melee", "hp": 430.0, "speed": 5.3, "dmg": 26.0, "rate": 1.15,
 		"range": 2.5, "arc": 130.0, "armor": 0.15,
 		"super": "slam", "super_name": "Judgement", "super_desc": "Leap and smash the ground, stunning everything nearby.",
@@ -39,6 +40,7 @@ const HEROES := {
 		"name": "Ranger", "title": "The Grave Warden", "role": "Marksman",
 		"model": "Ranger",
 		"weapons": {"handslot.l": "bow_withString.gltf"},
+		"weapon_bone": "handslot.l", "weapon_looks": [],
 		"style": "bow", "hp": 360.0, "speed": 5.8, "dmg": 16.0, "rate": 1.9, "pierce": 1, "shots": 2,
 		"range": 9.5, "proj_speed": 26.0, "armor": 0.0,
 		"super": "volley", "super_name": "Hail of Arrows", "super_desc": "A wide fan of piercing arrows.",
@@ -51,6 +53,7 @@ const HEROES := {
 		"name": "Mage", "title": "The Ember Witch", "role": "Caster",
 		"model": "Mage",
 		"weapons": {"handslot.r": "staff.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "magic", "hp": 300.0, "speed": 5.4, "dmg": 25.0, "rate": 1.15,
 		"range": 8.5, "proj_speed": 16.0, "splash": 2.2, "armor": 0.0,
 		"super": "nova", "super_name": "Frost Nova", "super_desc": "A ring of ice that freezes and shatters the horde.",
@@ -63,6 +66,7 @@ const HEROES := {
 		"name": "Barbarian", "title": "The Bonebreaker", "role": "Bruiser",
 		"model": "Barbarian",
 		"weapons": {"handslot.r": "axe_2handed.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "melee", "hp": 500.0, "speed": 5.1, "dmg": 40.0, "rate": 0.82,
 		"range": 2.9, "arc": 190.0, "armor": 0.08,
 		"super": "whirlwind", "super_name": "Whirlwind", "super_desc": "Spin through the horde, cutting everything you touch.",
@@ -172,13 +176,20 @@ static func run_level_xp(level: int) -> int:
 
 # --- Items ---------------------------------------------------------------
 
-const SLOTS := ["weapon", "armor", "trinket"]
-const SLOT_NAME := {"weapon": "Weapon", "armor": "Armor", "trinket": "Trinket"}
-const SLOT_ICON := {"weapon": "broadsword", "armor": "breastplate", "trinket": "gem-pendant"}
+const SLOTS := ["weapon", "helm", "chest", "legs", "trinket"]
+const SLOT_NAME := {"weapon": "Weapon", "helm": "Helm", "chest": "Chest", "legs": "Legs", "trinket": "Trinket"}
+const SLOT_ICON := {"weapon": "broadsword", "helm": "visored-helm", "chest": "breastplate", "legs": "leg-armor", "trinket": "gem-pendant"}
 const ITEM_BASES := {
 	"weapon": ["Brand", "Cleaver", "Edge", "Fang", "Reaver"],
-	"armor": ["Mail", "Hauberk", "Plate", "Shroud", "Carapace"],
+	"helm": ["Helm", "Sallet", "Cowl", "Crown", "Visage"],
+	"chest": ["Mail", "Hauberk", "Plate", "Shroud", "Carapace"],
+	"legs": ["Greaves", "Leggings", "Cuisses", "Treads", "Wraps"],
 	"trinket": ["Charm", "Talisman", "Sigil", "Amulet", "Idol"],
+}
+## Short stat names for compare lines, and whether the number is a percent.
+const AFFIX_SHORT := {
+	"dmg": ["Damage", "%"], "hp": ["Health", "%"], "aspd": ["Attack speed", "%"], "crit": ["Crit chance", "%"],
+	"speed": ["Move speed", "%"], "armor": ["Armor", "%"], "gold": ["Gold found", "%"], "regen": ["Regen", "/s"],
 }
 const ITEM_PREFIX := {
 	"common": ["Worn", "Plain", "Rusted", "Old"],
@@ -196,19 +207,21 @@ const AFFIXES := {
 	"gold": {"label": "+%d%% gold found", "roll": [10, 20]},
 	"regen": {"label": "+%d health per second", "roll": [2, 4]},
 }
-const SLOT_MAIN := {"weapon": "dmg", "armor": "hp", "trinket": "crit"}
+const SLOT_MAIN := {"weapon": "dmg", "helm": "crit", "chest": "hp", "legs": "armor", "trinket": "aspd"}
 const SLOT_POOL := {
 	"weapon": ["aspd", "crit", "dmg"],
-	"armor": ["armor", "regen", "hp"],
-	"trinket": ["speed", "gold", "aspd", "regen"],
+	"helm": ["hp", "armor", "regen"],
+	"chest": ["armor", "regen", "hp"],
+	"legs": ["speed", "hp", "regen"],
+	"trinket": ["gold", "speed", "regen", "crit"],
 }
 
 ## Unique drops tracked by the collection log. `card` legendaries start the
 ## hunt holding that card. Rates are 1/n per roll on that source.
 const UNIQUES := {
-	"cleaver": {"name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
-	"shroud": {"name": "Shroud of the Barrow", "slot": "armor", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
-	"crown": {"name": "Crown of the Barrow King", "slot": "trinket", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "storm", "power": "Start every hunt with Storm Call", "icon": "crowned-skull"},
+	"cleaver": {"name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe", "look": "axe_2handed.gltf"},
+	"shroud": {"name": "Shroud of the Barrow", "slot": "chest", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
+	"crown": {"name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "storm", "power": "Start every hunt with Storm Call", "icon": "crowned-skull"},
 	"emberheart": {"name": "Emberheart", "slot": "trinket", "rarity": "legendary", "source": "elite", "rate": 60, "stats": {"dmg": 12, "regen": 4}, "card": "nova", "power": "Start every hunt with Fire Nova", "icon": "flame"},
 	"bonelet": {"name": "Bonelet", "slot": "pet", "rarity": "legendary", "source": "boss", "rate": 50, "icon": "skull-crossed-bones", "power": "A tiny skeleton that follows you everywhere."},
 	"sigil": {"name": "Champion's Sigil", "slot": "trophy", "rarity": "rare", "source": "elite", "rate": 12, "icon": "rune-stone", "power": "Proof of a champion slain. Sells for 150 gold.", "sell": 150},

@@ -730,7 +730,7 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 	var spd := randf_range(2.0, 4.0)
 	p.vel = Vector3(sin(a) * spd, 7.0, cos(a) * spd)
 	p.settle = 0.75
-	var model_path: String = {"weapon": "res://assets/kaykit/weapons/sword_2handed_color.gltf", "armor": "res://assets/kaykit/weapons/shield_badge_color.gltf", "trinket": "res://assets/kaykit/dungeon/key.gltf", "pet": "res://assets/kaykit/graveyard/skull.gltf", "trophy": "res://assets/kaykit/graveyard/skull_candle.gltf"}.get(it["slot"], "res://assets/kaykit/dungeon/coin_stack_small.gltf")
+	var model_path: String = {"weapon": "res://assets/kaykit/weapons/sword_2handed_color.gltf", "helm": "res://assets/kaykit/graveyard/skull.gltf", "chest": "res://assets/kaykit/weapons/shield_badge_color.gltf", "legs": "res://assets/kaykit/weapons/shield_square_color.gltf", "trinket": "res://assets/kaykit/dungeon/key.gltf", "pet": "res://assets/kaykit/graveyard/skull.gltf", "trophy": "res://assets/kaykit/graveyard/skull_candle.gltf"}.get(it["slot"], "res://assets/kaykit/dungeon/coin_stack_small.gltf")
 	var m := KK.prop(model_path)
 	m.scale = Vector3.ONE * 1.3
 	m.rotation = Vector3(0, randf() * TAU, PI * 0.5 if it["slot"] == "weapon" else 0.0)
@@ -801,7 +801,8 @@ func collect(p: Pickup) -> void:
 			fx.release_beam(p.beam)
 			var col := DB.rarity_color(p.item["rarity"])
 			fx.burst(hero.flat_pos(), col, 12, 5.0)
-			hud.toast("[color=#%s]%s[/color]" % [col.to_html(false), p.item["name"]], "Picked up")
+			var better: bool = p.item["slot"] in DB.SLOTS and Game.is_better(p.item, hero_id)
+			hud.toast("[color=#%s]%s[/color]" % [col.to_html(false), p.item["name"]], "▲ Upgrade for your %s" % DB.SLOT_NAME[p.item["slot"]].to_lower() if better else "Picked up")
 			Sfx.play("gear_pickup", -2.0)
 	p.queue_free()
 

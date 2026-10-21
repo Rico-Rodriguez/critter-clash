@@ -29,13 +29,8 @@ func open(r: Dictionary) -> void:
 	if items.is_empty():
 		%LootTitle.text = "No loot this time"
 	for it in items:
-		var col := DB.rarity_color(it["rarity"])
-		var row := HBoxContainer.new()
-		row.add_child(Ui.icon_rect(DB.SLOT_ICON.get(it["slot"], "swap-bag") if not DB.UNIQUES.has(str(it.get("unique", ""))) else DB.UNIQUES[it["unique"]]["icon"], 30, col))
-		var l := Ui.label(str(it["name"]), "Body")
-		l.add_theme_color_override("font_color", col)
-		row.add_child(l)
-		%Loot.add_child(row)
+		%Loot.add_child(_loot_row(it, str(r["hero"])))
+	_refresh_upgrades()
 	# Rewards that wait in camp.
 	if win and str(r.get("chest", "")) != "":
 		var c: Dictionary = DB.CHESTS[r["chest"]]
@@ -51,6 +46,52 @@ func open(r: Dictionary) -> void:
 		closed.emit())
 	Ui.pop_in(%Panel, 0.0, 0.9)
 	Ui.pop_in(%Title, 0.15, 1.4)
+
+
+var _rows: Array = []
+
+
+## One loot line; gear that beats what the hero wears gets an Equip button.
+func _loot_row(it: Dictionary, hero_id: String) -> Control:
+	var col := DB.rarity_color(it["rarity"])
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var icon_name: String = DB.UNIQUES[it["unique"]]["icon"] if DB.UNIQUES.has(str(it.get("unique", ""))) else DB.SLOT_ICON.get(it["slot"], "swap-bag")
+	row.add_child(Ui.icon_rect(icon_name, 30, col))
+	var l := Ui.label(str(it["name"]), "Body")
+	l.add_theme_color_override("font_color", col)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(l)
+	var is_gear: bool = it["slot"] in DB.SLOTS and int(it.get("uid", 0)) > 0
+	if is_gear:
+		var up := Ui.label("▲", "Value")
+		up.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5))
+		row.add_child(up)
+		var eq := Button.new()
+		eq.text = "Equip"
+		eq.custom_minimum_size = Vector2(130, 52)
+		eq.focus_mode = Control.FOCUS_NONE
+		eq.add_theme_font_size_override("font_size", 20)
+		eq.pressed.connect(func():
+			Game.equip(hero_id, int(it["uid"]))
+			Sfx.play("gear_equip", -2.0)
+			_refresh_upgrades())
+		row.add_child(eq)
+		_rows.append({"item": it, "hero": hero_id, "up": up, "btn": eq})
+	return row
+
+
+## Shows the arrow and button only on pieces that still beat the worn one.
+func _refresh_upgrades() -> void:
+	for e in _rows:
+		var it: Dictionary = e["item"]
+		var worn: bool = Game.owner_of(int(it["uid"])) == e["hero"]
+		var better: bool = Game.is_better(it, e["hero"]) and not worn
+		e["up"].visible = better
+		var b: Button = e["btn"]
+		b.visible = better or worn
+		b.disabled = worn
+		b.text = "Equipped ✓" if worn else "Equip"
 
 
 func _stat(title: String, value: String, ic: String) -> void:

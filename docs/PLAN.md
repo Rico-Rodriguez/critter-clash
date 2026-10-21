@@ -332,7 +332,7 @@ row in the Heroes sheet, no clear comparison, and only three slots.
 
 Do G after Phase A is decided, because visible gear depends on the art.
 
-### [ ] G.1 Visible gear
+### [x] G.1 Visible gear
 
 Files: `src/data/db.gd`, `src/autoload/game.gd`, `src/hunt/actor.gd` (or the
 new pack loader), `src/lobby/lobby.gd`, `src/hunt/hero.gd`.
@@ -350,14 +350,14 @@ new pack loader), `src/lobby/lobby.gd`, `src/hunt/hero.gd`.
 - Item pickups in the hunt show the item's real model under the beam (today
   they show a generic sword, shield or key).
 
-### [ ] G.2 Slots
+### [x] G.2 Slots
 
 Go from 3 slots to 5: weapon, helm, chest, gloves/legs (whatever the art
 supports), trinket. Migration: existing `armor` items become `chest`. Add the
 new keys to `Game._fresh()` and convert old saves in `load_save()` (bump
 `SAVE_VERSION` to 2 and write a `_migrate_v1()`; never drop items).
 
-### [ ] G.3 Paper-doll equipment screen
+### [x] G.3 Paper-doll equipment screen
 
 Replace the gear rows in the Heroes sheet and the Bag sheet's per-row buttons
 with one **Equipment** screen (`src/lobby/equipment.tscn` + `.gd`):
@@ -377,12 +377,18 @@ with one **Equipment** screen (`src/lobby/equipment.tscn` + `.gd`):
   uids seen in the save).
 - The Bag nav button opens this screen; the Heroes sheet links to it.
 
-### [ ] G.4 In-hunt pickup feedback
+### [x] G.4 In-hunt pickup feedback
 
 When you walk over an item, the toast shows the item's name, rarity and "▲
 upgrade" if it beats your equipped piece, so loot feels meaningful in the
 moment. In results, upgrades are marked the same way, with an "Equip" button
 per upgrade.
+
+> **Done with KayKit.** Models aren't modular, so gear shows as: weapon model
+> and size by rarity (unique looks via `look` in `DB.UNIQUES`), a rarity glow
+> on the body parts each piece covers, and a glowing belt charm for the
+> trinket (`src/core/gear_look.gd`). A modular art pack would only replace that
+> file's internals. The equipment screen is `src/lobby/equipment.gd`.
 
 Verify (whole phase): shots `lobby,heroes,bag` plus a new `equip` shot that
 opens the equipment screen with a demo inventory (extend `_capture` in
