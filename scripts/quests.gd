@@ -7,6 +7,10 @@ extends RefCounted
 ## and works out what is finished.
 
 ## One task: what it is called, what it wants, and what it pays.
+## The road through the depths: the first task to finish, the next one, and
+## so on to the lair. The board shows it as a road.
+const ROAD: Array = ["road_out", "deeper", "the_deep", "the_abyss"]
+
 const LIST: Array = [
 	{
 		"id": "road_out",
@@ -21,6 +25,20 @@ const LIST: Array = [
 		"blurb": "The Mushroom Gate waits for whoever can walk the Wilds and live.",
 		"goal": "Clear the Wilds",
 		"reward": {"coins": 260, "trophies": 20},
+	},
+	{
+		"id": "the_deep",
+		"name": "The old barrows",
+		"blurb": "The Deep is rime and blight and the ground that never warms. Walk it anyway.",
+		"goal": "Clear the Deep",
+		"reward": {"coins": 520, "trophies": 40},
+	},
+	{
+		"id": "the_abyss",
+		"name": "The lair road",
+		"blurb": "The Ember Gate stands at the edge of the ash. What waits past it does not wait long.",
+		"goal": "Clear the Abyss",
+		"reward": {"coins": 900, "trophies": 80, "gear_shards": 40},
 	},
 	{
 		"id": "three_chests",
@@ -43,15 +61,17 @@ const LIST: Array = [
 ## "open" (still to do).
 static func board() -> Array:
 	var out: Array = []
+	var claimed_map: Dictionary = SaveGame.data.get("quests_claimed", {})
 	for quest in LIST:
 		var id := str(quest["id"])
 		var met := _met(id)
-		var claimed := bool(SaveGame.data.get("quests_claimed", {}).get(id, false))
+		var claimed := bool(claimed_map.get(id, false))
 		var state := "open"
 		if met and not claimed:
 			state = "done"
 		elif claimed:
 			state = "ready"
+		var step := ROAD.find(id)
 		out.append({
 			"id": id,
 			"name": str(quest["name"]),
@@ -59,8 +79,23 @@ static func board() -> Array:
 			"goal": str(quest["goal"]),
 			"reward": quest["reward"],
 			"state": state,
+			# The road: which step this is, and whether it is the one the
+			# player is on.
+			"step": step + 1 if step >= 0 else 0,
+			"steps": ROAD.size(),
+			"road": step >= 0,
+			"current": step == current_step(),
 		})
 	return out
+
+
+## The step of the road the player is on: the first one not yet paid for.
+static func current_step() -> int:
+	var claimed_map: Dictionary = SaveGame.data.get("quests_claimed", {})
+	for i in ROAD.size():
+		if not bool(claimed_map.get(str(ROAD[i]), false)):
+			return i
+	return ROAD.size() - 1
 
 
 ## Whether the goal of a task is met, read from the save.
@@ -70,6 +105,10 @@ static func _met(id: String) -> bool:
 			return SaveGame.tier_cleared("fringe")
 		"deeper":
 			return SaveGame.tier_cleared("wilds")
+		"the_deep":
+			return SaveGame.tier_cleared("deep")
+		"the_abyss":
+			return SaveGame.tier_cleared("abyss")
 		"three_chests":
 			return _hunt_chests() >= 3
 		"old_sprout":

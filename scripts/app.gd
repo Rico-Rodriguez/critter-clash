@@ -1157,6 +1157,9 @@ class HubScreen extends ScreenBase:
 		var name := UiKit.label(str(quest["name"]).to_upper(), 26, UiKit.GOLD.lightened(0.2), "x", 3)
 		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		head.add_child(name)
+		if int(quest.get("step", 0)) > 0:
+			var step := UiKit.label("STEP %d OF %d" % [int(quest["step"]), int(quest["steps"])], 16, UiKit.MUTED, "b", 1)
+			head.add_child(step)
 		var reward: Dictionary = quest["reward"]
 		var pay: Array = []
 		if reward.has("coins"):
@@ -1169,6 +1172,9 @@ class HubScreen extends ScreenBase:
 		row.add_child(UiKit.label(str(quest["blurb"]), 18, UiKit.CREAM, "b", 1))
 		var goal := UiKit.label(str(quest["goal"]), 16, UiKit.MUTED, "m", 1)
 		row.add_child(goal)
+		if bool(quest.get("current", false)):
+			# The step the player is on: it says so.
+			row.add_child(UiKit.label("You are here.", 17, Color("9fe08a"), "b", 1))
 		if state == "done":
 			var button := UiKit.button("CLAIM", 190, 66, "gold")
 			button.pressed.connect(func() -> void: _claim_quest(str(quest["id"])))
