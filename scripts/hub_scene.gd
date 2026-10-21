@@ -34,6 +34,9 @@ var places: Array = []
 ## How big the camp's ground is, in metres.
 const GROUND := 46.0
 
+## Where the river runs across the town, in metres from the middle.
+const RIVER_Z := -6.4
+
 ## The trees and stones that ring the camp.
 const RIM := [
 	{"model": "tree_a", "at": Vector3(-11.0, 0.0, -7.0), "scale": 1.25},
@@ -67,6 +70,7 @@ func _ready() -> void:
 	_stall(GENERAL_STORE_POS, "general_store")
 	_stall(MATERIAL_BUYER_POS, "material_buyer")
 	_well()
+	_river()
 	_buildings()
 	_lanterns()
 	_scatter()
@@ -364,6 +368,35 @@ func _green_spot(rng: RandomNumberGenerator) -> Vector3:
 			continue
 		return at
 	return Vector3.INF
+
+
+## The river that runs across the north of the town, between the plaza
+## and the doors. The way out is the bridge over it.
+func _river() -> void:
+	var water := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(30.0, 0.12, 2.6)
+	water.mesh = box
+	var wet := StandardMaterial3D.new()
+	wet.albedo_color = Color(0.09, 0.16, 0.2)
+	wet.metallic = 0.35
+	wet.roughness = 0.12
+	water.mesh.material = wet
+	water.position = Vector3(0.0, 0.04, RIVER_Z)
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(water)
+	# The banks: stones along both sides, so the water sits in a bed.
+	for side in [-1.0, 1.0]:
+		for i in 12:
+			var x := -13.0 + 2.3 * float(i)
+			var rock := _prop("rock_c", Vector3(x, -0.05, RIVER_Z + 1.5 * side), 0.55)
+			if rock != null:
+				rock.rotation.y = randf() * TAU
+	# The bridge over it, on the line of the doors.
+	var bridge := _prop("bridge", Vector3(0.0, 0.0, RIVER_Z), 1.15)
+	if bridge != null:
+		bridge.rotation.y = 0.0
+		add_child(bridge)
 
 
 func _buildings() -> void:
