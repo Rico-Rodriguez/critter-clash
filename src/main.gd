@@ -1,7 +1,7 @@
 extends Node
 ## App shell: switches between the camp (lobby) and a hunt with a fade.
 ## Also hosts two command-line modes used for checks:
-##   -- --bot [--hero=knight] [--tier=0] [--runs=1] [--idle]   headless autopilot hunts
+##   -- --bot [--hero=knight] [--tier=0] [--zone=barrow|depths] [--runs=1] [--idle]   headless autopilot hunts
 ##   -- --capture --shots=lobby,hunt,... --out=/abs/dir         screenshots
 ##   -- --check                                                 compile every script and scene
 
@@ -26,6 +26,8 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.has("--check"):
 		_check.call_deferred()
+	elif args.has("--test"):
+		_test.call_deferred()
 	elif args.has("--bot"):
 		_run_bot.call_deferred(args)
 	elif args.has("--capture"):
@@ -87,6 +89,12 @@ func _check() -> void:
 	get_tree().quit(0 if bad == 0 else 1)
 
 
+func _test() -> void:
+	var fails := Tests.new().run()
+	print("TESTS ", "PASSED" if fails == 0 else "%d FAILED" % fails)
+	get_tree().quit(0 if fails == 0 else 1)
+
+
 func _walk(dir: String) -> PackedStringArray:
 	var out := PackedStringArray()
 	for f in ResourceLoader.list_directory(dir):
@@ -113,6 +121,7 @@ func _run_bot(args: PackedStringArray) -> void:
 	var tier := int(_arg(args, "tier", "0"))
 	var idle := args.has("--idle")
 	var levels := int(_arg(args, "level", "1"))
+	var zone := _arg(args, "zone", "barrow")
 	var ok := true
 	for hid in heroes:
 		Game.hero(hid)["unlocked"] = true
@@ -120,6 +129,7 @@ func _run_bot(args: PackedStringArray) -> void:
 		for r in runs:
 			Game.data["hero"] = hid
 			Game.data["tier_unlocked"] = 2
+			Game.data["zone"] = zone
 			Game.data["tier"] = tier
 			var h := Hunt.new()
 			add_child(h)
@@ -127,7 +137,7 @@ func _run_bot(args: PackedStringArray) -> void:
 				h._bot.idle = true
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
-			print("BOT hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f cards=%s" % [hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.cards])
+			print("BOT zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f cards=%s" % [zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.cards])
 			if idle and res["win"]:
 				ok = false
 			h.queue_free()
@@ -140,6 +150,9 @@ func _run_bot(args: PackedStringArray) -> void:
 # --- Screenshots ----------------------------------------------------------
 
 var _shots_dir := "/tmp/shots"
+## A phone's frame budget: shots over this need a look before they ship.
+const BUDGET_DRAWS := 700
+const BUDGET_PRIMS := 400000
 
 
 func _capture(args: PackedStringArray) -> void:
@@ -151,22 +164,42 @@ func _capture(args: PackedStringArray) -> void:
 	Game.data["hero"] = hid
 	Game.hero(hid)["shards"] = 9
 	Game.data["tier_unlocked"] = 1
+	if _arg(args, "zone", "barrow") != "barrow":
+		Game.data["tier_unlocked"] = 2
+		Game.data["zone"] = _arg(args, "zone", "barrow")
 	for s in DB.SKILLS:
 		Game.data["skills"][s] = DB.xp_for_level({"attack": 14, "strength": 17, "defence": 11, "hitpoints": 18, "ranged": 9, "magic": 6}[s])
 	Game.data["log"] = {"tooth": 3, "sigil": 1, "cleaver": 1}
 	for i in 5:
 		Game.grant_item(Game.roll_item("chest", 0))
 	Game.grant_item(Game.make_unique("cleaver"))
+	# Two good pieces per slot so the equipment screen has something to compare.
+	for slot in DB.SLOTS:
+		for t in 2:
+			Game.grant_item(Game.roll_item("boss", 1, slot))
+	if _arg(args, "geared", "0") == "1":
+		for slot in DB.SLOTS:
+			var best := {}
+			for it in Game.data["items"]:
+				if it["slot"] == slot and (best.is_empty() or Game.item_score(it) > Game.item_score(best)):
+					best = it
+			if not best.is_empty():
+				Game.equip(hid, int(best["uid"]))
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "chest", "settings":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties":
 				if shot == "chest":
 					pending_chest = "gold"
+				if shot == "bounties":
+					Game.refresh_bounties()
+					var bl: Array = Game.data["bounties"]["list"]
+					bl[0]["progress"] = bl[0]["target"]
+					bl[1]["progress"] = int(bl[1]["target"]) / 2
 				_set_screen_now("lobby")
 				await _wait(1.2)
 				if shot != "lobby":
-					current.open_sheet(shot)
+					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
 				await _save(shot)
 			"flow":
@@ -200,6 +233,65 @@ func _capture(args: PackedStringArray) -> void:
 				hd.hud.get_children().back().open_dev_panel()
 				await _wait(0.8)
 				await _save("devpanel")
+			"equipdetail":
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				current.open_sheet("bag")
+				await _wait(0.8)
+				var eqs: Equipment = current.ui.equipment
+				for it in Game.data["items"]:
+					if it["slot"] == "weapon" and Game.owner_of(int(it["uid"])) == "" and it["rarity"] != "common":
+						eqs._open_detail(it)
+						break
+				await _wait(0.8)
+				await _save("equipdetail")
+			"shrine":
+				_set_screen_now("hunt")
+				var hs: Hunt = current
+				hs.bot = true
+				hs._bot = HuntBot.new()
+				hs._bot.hunt = hs
+				hs._bot.idle = true
+				await _wait(2.5)
+				hs.hero.invuln = 999.0
+				hs.hero.position = hs.shrines[0]["pos"] + Vector3(0.2, 0, 0)
+				await _wait(2.6)
+				await _save("shrine")
+			"evolve":
+				_set_screen_now("hunt")
+				var he: Hunt = current
+				he.bot = true
+				he._bot = HuntBot.new()
+				he._bot.hunt = he
+				he._bot.idle = true
+				await _wait(2.5)
+				he.bot = false
+				he.cards["blades"] = 4
+				he.cards["haste"] = 1
+				he.run_level = 6
+				he.run_xp = DB.run_level_xp(he.run_level)
+				he._check_level()
+				await _wait(1.0)
+				await _save("evolve")
+			"foes":
+				# One of every new foe and every elite affix, standing around the hero.
+				_set_screen_now("hunt")
+				var hf2: Hunt = current
+				hf2.bot = true
+				hf2._bot = HuntBot.new()
+				hf2._bot.hunt = hf2
+				hf2._bot.idle = true
+				await _wait(2.5)
+				hf2.hero.invuln = 999.0
+				hf2.robber_spawned = true
+				var base := hf2.hero.flat_pos()
+				var lineup := [["bomber", ""], ["necro", ""], ["robber", ""], ["minion", "vampiric"], ["warrior", "swift"], ["warrior", "molten"], ["minion", "warded"]]
+				for i in lineup.size():
+					var a := -PI * 0.5 + (i - (lineup.size() - 1) * 0.5) * 0.5
+					var at := base + Vector3(sin(a), 0, -cos(a)) * 6.0
+					hf2.spawn_foe(lineup[i][0], at, lineup[i][1] != "", lineup[i][1])
+				await _wait(2.4)
+				await _save("foes")
 			"film":
 				_set_screen_now("hunt")
 				var hf: Hunt = current
@@ -210,7 +302,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death":
+			"hunt", "levelup", "boss", "victory", "results", "death", "hexer":
 				_set_screen_now("hunt")
 				var h: Hunt = current
 				h.bot = true
@@ -224,6 +316,13 @@ func _capture(args: PackedStringArray) -> void:
 					h.run_xp = DB.run_level_xp(h.run_level)
 					h._check_level()
 					await _wait(0.9)
+				elif shot == "hexer":
+					await _wait_sim(h, 4.0)
+					h.souls = h.souls_goal
+					await _wait_sim(h, 9.0)
+					h.bot = false
+					h.boss._begin("circles")
+					await _wait_sim(h, 0.8)
 				elif shot in ["boss", "victory", "results"]:
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal
@@ -234,7 +333,7 @@ func _capture(args: PackedStringArray) -> void:
 						if shot == "results":
 							h.bot = false
 							h._end(true)
-							await _wait(1.2)
+							await _wait(2.2)
 				elif shot == "death":
 					await _wait_sim(h, 5.0)
 					h.hero.invuln = 0.0
@@ -280,4 +379,8 @@ func _save(name_: String) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png("%s/%s.png" % [_shots_dir, name_])
-	print("SHOT %s draws=%d objects=%d prims=%d nodes=%d" % [name_, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+	var draws := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	var prims := int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+	print("SHOT %s draws=%d objects=%d prims=%d nodes=%d" % [name_, draws, Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), prims, Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+	if draws > BUDGET_DRAWS or prims > BUDGET_PRIMS:
+		print("BUDGET WARNING %s: %d draw calls (limit %d), %d triangles (limit %d)" % [name_, draws, BUDGET_DRAWS, prims, BUDGET_PRIMS])

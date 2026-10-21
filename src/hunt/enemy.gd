@@ -22,13 +22,20 @@ var nameplate: Label3D
 var warded_t := 0.0
 var _sink := 0.0
 var _hit_cd := {}
+## While > 0 the foe is reeling from a hit and does not move or start attacks.
+var hit_t := 0.0
 const SPAWN_TIME := 0.95
+var age := 0.0
+var ward_hp := 0.0
+var ward_mesh: MeshInstance3D
+var _trail_t := 0.0
+var _fire_t := 0.0
 
 
-func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false) -> void:
+func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affix := "") -> void:
 	hunt = h
 	kind = kind_
-	def = DB.ENEMIES[kind]
+	def = DB.enemy(kind)
 	elite = elite_
 	max_hp = def["hp"] * tier["hp"] * (1.0 + hunt.progress() * 0.6)
 	dmg = def["dmg"] * tier["dmg"]
@@ -51,6 +58,8 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false) -> void:
 		var a: Array = DB.ELITE_AFFIXES.keys()
 		a.shuffle()
 		affixes = a.slice(0, 1 if tier["id"] == "normal" else 2)
+		if force_affix != "":
+			affixes = [force_affix]
 		var c: Color = DB.ELITE_AFFIXES[affixes[0]]["color"]
 		set_tint(Color(c.r, c.g, c.b, 0.8))
 		if "swift" in affixes:
@@ -71,7 +80,18 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false) -> void:
 		nameplate.text = "%s\n%s" % [elite_name, " · ".join(tags)]
 		nameplate.position = Vector3(0, 2.9, 0)
 		add_child(nameplate)
+	if def.has("tint") and not elite:
+		set_tint(def["tint"])
+	if kind == "robber":
+		_wear_sack()
+	if elite and "warded" in affixes:
+		ward_hp = max_hp * 0.25
+		ward_mesh = Fx.make_ward(1.0)
+		ward_mesh.position = Vector3(0, 1.0, 0)
+		add_child(ward_mesh)
 	model.scale = Vector3.ONE * sc
+	if ward_mesh:
+		ward_mesh.scale = Vector3.ONE * sc * 1.15
 	hp = max_hp
 	state = "spawn"
 	var spawn_anim: String = def["anim"]["spawn"]
@@ -82,11 +102,49 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false) -> void:
 	atk_cd = randf_range(0.2, 0.8)
 
 
+## The Grave Robber carries his loot on his back.
+func _wear_sack() -> void:
+	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
+	var att := BoneAttachment3D.new()
+	att.bone_name = "chest"
+	skel.add_child(att)
+	var sack := KK.prop("res://assets/kaykit/dungeon/coin_stack_medium.gltf")
+	sack.position = Vector3(0, 0.05, -0.3)
+	sack.scale = Vector3.ONE * 1.7
+	att.add_child(sack)
+	restyle(sack)
+	for mi in KK.meshes(sack):
+		mi.set_instance_shader_parameter("tint", Color(1.0, 0.8, 0.25, 0.5))
+
+
+func _escape() -> void:
+	hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.25, 0.8), 10, 1.0, 2.5)
+	hunt.fx.text(flat_pos(), "Escaped!", Color(1.0, 0.85, 0.4))
+	Sfx.play("goblin_escape", -2.0)
+	hunt.foes.erase(self)
+	queue_free()
+
+
 func tick(dt: float) -> void:
 	if not alive:
 		_tick_dead(dt)
 		return
 	tick_common(dt)
+	age += dt
+	if kind == "robber" and age > 16.0:
+		_escape()
+		return
+	if elite and state == "chase":
+		if "swift" in affixes:
+			_trail_t -= dt
+			if _trail_t <= 0.0:
+				_trail_t = 0.2
+				hunt.fx.puff(flat_pos(), Color(0.3, 0.55, 0.65, 0.35), 1, 0.2, 0.6)
+		if "molten" in affixes:
+			_fire_t -= dt
+			if _fire_t <= 0.0:
+				_fire_t = 0.6
+				hunt.add_fire_patch(flat_pos(), 0.9, 3.0, dmg * 0.25)
 	state_t -= dt
 	atk_cd -= dt
 	warded_t -= dt
@@ -104,6 +162,9 @@ func tick(dt: float) -> void:
 	if freeze_t > 0.0 or stun_t > 0.0:
 		if state == "windup":
 			_cancel_windup()
+		return
+	if hit_t > 0.0:
+		hit_t -= dt
 		return
 	match state:
 		"chase":
@@ -128,7 +189,10 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	var want := Vector3.ZERO
 	var ai: String = def["ai"]
 	var hero := hunt.hero
-	if ai == "melee":
+	if ai == "flee":
+		_flee(dt, to_hero, dist)
+		return
+	if ai == "melee" or ai == "bomb":
 		want = to_hero / maxf(dist, 0.01)
 		if dist <= reach + hero.radius + 0.15 and atk_cd <= 0.0:
 			_windup()
@@ -147,11 +211,26 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	var spd := speed * hunt.foe_speed_mult
 	position += want * spd * dt
 	if want.length_squared() > 0.01:
-		face(atan2(want.x, want.z) if ai == "melee" or dist > reach else yaw_to(position, hero.position), dt, 10.0)
+		face(atan2(want.x, want.z) if ai == "melee" or ai == "bomb" or dist > reach else yaw_to(position, hero.position), dt, 10.0)
 		play(def["anim"]["run"], 0.15, clampf(spd / 3.2, 0.7, 1.5))
 	else:
 		face(yaw_to(position, hero.position), dt)
 		play(def["anim"]["idle"], 0.2)
+
+
+## Runs straight away from the hero, around walls, and tires as it goes: a
+## chase you keep is a chase you win.
+func _flee(dt: float, to_hero: Vector3, dist: float) -> void:
+	var away := -to_hero / maxf(dist, 0.01)
+	var spd := speed * (1.0 - 0.18 * floorf(age / 4.0)) * hunt.foe_speed_mult
+	var want := away
+	for i in 6:
+		if not hunt.arena.blocked(position + want * 1.4, radius):
+			break
+		want = away.rotated(Vector3.UP, deg_to_rad(40.0 * (i + 1)) * (1.0 if i % 2 == 0 else -1.0))
+	position += want * spd * dt
+	face(atan2(want.x, want.z), dt, 12.0)
+	play(def["anim"]["run"], 0.12, clampf(spd / 3.2, 0.8, 1.8))
 
 
 func _windup() -> void:
@@ -176,6 +255,9 @@ func _windup() -> void:
 			var blast: float = def["blast"] * (1.25 if elite else 1.0)
 			tele = hunt.fx.telegraph(0, aim, 0.0, Vector2(blast, 0), w)
 			Sfx.play("enemy_windup", -6.0)
+		"bomb", "necro":
+			tele = hunt.fx.telegraph(0, flat_pos(), 0.0, Vector2(float(def["blast"]), 0), w)
+			Sfx.play("enemy_windup", -6.0, 1.3)
 
 
 func _cancel_windup() -> void:
@@ -210,9 +292,42 @@ func _release() -> void:
 			Sfx.play("boom", -8.0, 1.2)
 			if hero.flat_pos().distance_to(aim) <= blast + hero.radius * 0.5:
 				hunt.damage_hero(dmg, self)
+		"bomb":
+			var blast_r: float = def["blast"]
+			var at := flat_pos()
+			hunt.fx.ring(at, blast_r * 1.15, Color(1.0, 0.5, 0.15), 0.35, 0.18)
+			hunt.fx.burst(at, Color(1.0, 0.55, 0.2), 20, 8.0, 0.8)
+			hunt.fx.puff(at, Color(0.3, 0.25, 0.2, 0.7), 8, 1.2, 3.0)
+			hunt.fx.flash_light(at, Color(1.0, 0.55, 0.25), 5.0, 8.0, 0.3)
+			hunt.shake(0.3)
+			Sfx.play("boom", -3.0)
+			if hero.flat_pos().distance_to(at) <= blast_r + hero.radius * 0.5:
+				hunt.damage_hero(dmg, self)
+			for f in hunt.foes_near(position, blast_r + 1.0):
+				if f != self and not f is Boss and at.distance_to(f.flat_pos()) <= blast_r:
+					hunt.damage_foe(f, dmg * 0.8, self, (f.flat_pos() - at).normalized(), 9.0)
+			hp = 0.0
+			hunt._kill(self)
+			return
+		"necro":
+			for i in 3:
+				var a := TAU * i / 3.0 + randf() * 0.5
+				var sp := hunt.arena.resolve(flat_pos() + Vector3(sin(a), 0, cos(a)) * 2.2, 0.5)
+				if hunt.foes.size() < Hunt.MAX_FOES:
+					hunt.spawn_foe("minion", sp)
+			hunt.fx.ring(flat_pos(), 3.2, Color(0.7, 0.3, 1.0), 0.5)
+			Sfx.play("unlock_start", -4.0)
 	state = "recover"
 	state_t = 0.35
 	atk_cd = float(def["cooldown"]) * (0.7 if "swift" in affixes else 1.0) * randf_range(0.85, 1.15)
+
+
+## Light foes flinch when hit: a short stagger so blows read as blows.
+func stagger() -> void:
+	if elite or state != "chase" or kind in ["warrior", "mage", "necro", "robber", "bomber"]:
+		return
+	hit_t = 0.18
+	play(def["anim"]["hit"], 0.04, 1.6, true)
 
 
 func can_hit(id: int, cd: float) -> bool:

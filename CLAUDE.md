@@ -9,7 +9,7 @@ commit.
 ```
 tools/dev/setup.sh            # once per fresh container (Godot + software GPU)
 tools/dev/check.sh            # before every commit: must print CHECKS PASSED
-tools/dev/check.sh --quick    # compile only, while iterating
+tools/dev/check.sh --quick    # compile + rule checks (`-- --test`), while iterating
 tools/dev/shots.sh lobby,hunt # screenshots into ./shots — then Read the PNGs
 ```
 

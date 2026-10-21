@@ -241,7 +241,7 @@ proportions, bright palette). What's wanted is adult proportions, armor that
 reads as armor, and a darker, dirtier palette. Low-poly is fine (OSRS is
 low-poly); cute is not.
 
-### [ ] A.1 Research and shortlist (no code)
+### [x] A.1 Research and shortlist (no code)
 
 Search for free 3D character packs and write the findings to
 `docs/art-options.md`. Requirements, in order:
@@ -281,6 +281,14 @@ recommendation and a fallback ("keep KayKit but re-grade it": desaturated
 palette, darker textures, grime overlay in `char.gdshader`).
 
 Reply to the user with the shortlist and **wait for their choice** before A.2.
+
+> **Done:** see `docs/art-options.md`. Finding: no free pack covers the whole
+> cast in a realistic style (free Quaternius outfits are Ranger + Peasant only;
+> Mixamo is the only full-cast route and has a redistribution catch). The
+> KayKit **grit pass** (smaller heads via `src/core/bone_scaler.gd`, darker
+> desaturated palette and dirt in `src/fx/char.gdshader`) was built as the
+> fallback and ships now; tune `desat`, `darken`, `grime` there. A.2 and A.3
+> (swapping in a different pack) still wait for the user's choice.
 
 ### [ ] A.2 Prove it with one hero
 
@@ -324,7 +332,7 @@ row in the Heroes sheet, no clear comparison, and only three slots.
 
 Do G after Phase A is decided, because visible gear depends on the art.
 
-### [ ] G.1 Visible gear
+### [x] G.1 Visible gear
 
 Files: `src/data/db.gd`, `src/autoload/game.gd`, `src/hunt/actor.gd` (or the
 new pack loader), `src/lobby/lobby.gd`, `src/hunt/hero.gd`.
@@ -342,14 +350,14 @@ new pack loader), `src/lobby/lobby.gd`, `src/hunt/hero.gd`.
 - Item pickups in the hunt show the item's real model under the beam (today
   they show a generic sword, shield or key).
 
-### [ ] G.2 Slots
+### [x] G.2 Slots
 
 Go from 3 slots to 5: weapon, helm, chest, gloves/legs (whatever the art
 supports), trinket. Migration: existing `armor` items become `chest`. Add the
 new keys to `Game._fresh()` and convert old saves in `load_save()` (bump
 `SAVE_VERSION` to 2 and write a `_migrate_v1()`; never drop items).
 
-### [ ] G.3 Paper-doll equipment screen
+### [x] G.3 Paper-doll equipment screen
 
 Replace the gear rows in the Heroes sheet and the Bag sheet's per-row buttons
 with one **Equipment** screen (`src/lobby/equipment.tscn` + `.gd`):
@@ -369,12 +377,18 @@ with one **Equipment** screen (`src/lobby/equipment.tscn` + `.gd`):
   uids seen in the save).
 - The Bag nav button opens this screen; the Heroes sheet links to it.
 
-### [ ] G.4 In-hunt pickup feedback
+### [x] G.4 In-hunt pickup feedback
 
 When you walk over an item, the toast shows the item's name, rarity and "▲
 upgrade" if it beats your equipped piece, so loot feels meaningful in the
 moment. In results, upgrades are marked the same way, with an "Equip" button
 per upgrade.
+
+> **Done with KayKit.** Models aren't modular, so gear shows as: weapon model
+> and size by rarity (unique looks via `look` in `DB.UNIQUES`), a rarity glow
+> on the body parts each piece covers, and a glowing belt charm for the
+> trinket (`src/core/gear_look.gd`). A modular art pack would only replace that
+> file's internals. The equipment screen is `src/lobby/equipment.gd`.
 
 Verify (whole phase): shots `lobby,heroes,bag` plus a new `equip` shot that
 opens the equipment screen with a demo inventory (extend `_capture` in
@@ -387,7 +401,7 @@ Note: task 4.3 (gear compare and glow) is superseded by this phase; skip it.
 
 ## Phase 2 — Feel and readability
 
-### [ ] 2.1 Haptics
+### [x] 2.1 Haptics
 
 Files: `src/autoload/game.gd` (`_fresh()` settings: `"haptics": true`), new
 static helper `Ui.buzz(ms: int, amp := 0.5)` in `src/ui/ui.gd` that calls
@@ -402,7 +416,7 @@ Do not buzz on every enemy hit.
 
 Verify: compile check (no phone here). List the call sites in the commit message.
 
-### [ ] 2.2 Shader and effect warm-up (removes first-use stutter on phones)
+### [x] 2.2 Shader and effect warm-up (removes first-use stutter on phones)
 
 Files: `src/hunt/hunt.gd`, `src/ui/hud.tscn` (+ `hud.gd`).
 
@@ -430,7 +444,7 @@ hunt start:
 Verify: `tools/dev/shots.sh hunt`; nothing left over from the warm-up is
 visible, kills and souls start at 0, the curtain is gone. `check.sh` passes.
 
-### [ ] 2.3 Target marker and enemy stagger
+### [x] 2.3 Target marker and enemy stagger
 
 Files: `src/hunt/hero.gd`, `src/hunt/enemy.gd`, `src/hunt/fx.gd`.
 
@@ -446,7 +460,7 @@ Files: `src/hunt/hero.gd`, `src/hunt/enemy.gd`, `src/hunt/fx.gd`.
 Verify: `tools/dev/shots.sh film` (6 frames ~0.13 s apart). The ring is under
 the enemy being hit; minions visibly react.
 
-### [ ] 2.4 Damage-number merging and a kill-streak counter
+### [x] 2.4 Damage-number merging and a kill-streak counter
 
 Files: `src/hunt/fx.gd`, `src/hunt/hunt.gd`, `src/ui/hud.gd`/`.tscn`.
 
@@ -460,7 +474,7 @@ Files: `src/hunt/fx.gd`, `src/hunt/hunt.gd`, `src/ui/hud.gd`/`.tscn`.
 
 Verify: `tools/dev/shots.sh hunt`. Fewer stacked numbers around the hero.
 
-### [ ] 2.5 Audio buses and ducking
+### [x] 2.5 Audio buses and ducking
 
 Files: new `default_bus_layout.tres` (buses `Master`, `Music`, `SFX`; a
 `AudioEffectLowPassFilter` on `Music`, disabled by default), `src/autoload/sfx.gd`
@@ -474,7 +488,7 @@ Write the `.tres` with `AudioServer` in a small `tools/build_buses.gd` script
 Verify: compile check; bot run still passes. Mention in the commit that it
 can't be heard here.
 
-### [ ] 2.6 Boss stall guard
+### [x] 2.6 Boss stall guard
 
 File: `src/hunt/boss.gd`.
 
@@ -488,7 +502,7 @@ Verify: `check.sh`.
 
 ## Phase 3 — More to do in a hunt
 
-### [ ] 3.1 The Grave Robber (treasure goblin)
+### [x] 3.1 The Grave Robber (treasure goblin)
 
 Files: `src/data/db.gd` (`ENEMIES["robber"]`: model `Skeleton_Rogue`, no
 weapon, hp 260, speed 6.2, ai `flee`, xp 10), `src/hunt/enemy.gd` (an `ai ==
@@ -505,7 +519,7 @@ digs back into the ground with a puff and is gone), `src/hunt/hunt.gd`.
 
 Verify: add a capture shot `robber` that forces the spawn; `shots.sh robber`.
 
-### [ ] 3.2 Shrines
+### [x] 3.2 Shrines
 
 Files: `src/hunt/arena.gd` (record shrine positions; place 2 more
 `shrine_candles.gltf` so there are three), `src/hunt/hunt.gd`, `src/data/db.gd`
@@ -522,7 +536,7 @@ Files: `src/hunt/arena.gd` (record shrine positions; place 2 more
 
 Verify: a capture shot that walks the hero to a shrine (`--shots=shrine`).
 
-### [ ] 3.3 Card evolutions
+### [x] 3.3 Card evolutions
 
 Files: `src/data/db.gd`, `src/hunt/hunt.gd` (`roll_cards`), `src/hunt/hero.gd`.
 
@@ -546,7 +560,7 @@ Files: `src/data/db.gd`, `src/hunt/hunt.gd` (`roll_cards`), `src/hunt/hero.gd`.
 Verify: a capture shot `evolve` that grants the prerequisite cards and calls
 `_offer_cards()`. Read it: the evolution card is in the offer.
 
-### [ ] 3.4 Elite affixes you can see
+### [x] 3.4 Elite affixes you can see
 
 Files: `src/hunt/enemy.gd`, `src/hunt/fx.gd`, `src/hunt/hunt.gd`.
 
@@ -562,7 +576,7 @@ Files: `src/hunt/enemy.gd`, `src/hunt/fx.gd`, `src/hunt/hunt.gd`.
 
 Verify: a capture shot `elites` that spawns one elite per affix near the hero.
 
-### [ ] 3.5 Two new enemy types
+### [x] 3.5 Two new enemy types
 
 File: `src/data/db.gd` (data), `src/hunt/enemy.gd` (behavior), `src/hunt/hunt.gd`
 (`_pick_kind` weights).
@@ -580,7 +594,7 @@ File: `src/data/db.gd` (data), `src/hunt/enemy.gd` (behavior), `src/hunt/hunt.gd
 Verify: shots `hunt` late in a run (or a forced spawn shot); `check.sh` still
 wins for knight/mage/barbarian.
 
-### [ ] 3.6 Pacing: surges and breathers
+### [x] 3.6 Pacing: surges and breathers
 
 File: `src/hunt/hunt.gd` (`_direct`).
 
@@ -595,7 +609,7 @@ Verify: bot runs still clear in 90–200 s (`check.sh` prints times).
 
 ## Phase 4 — Camp and progression
 
-### [ ] 4.1 Real hero portraits
+### [x] 4.1 Real hero portraits
 
 Files: new `src/ui/portraits.gd` (`class_name Portraits`, static cache),
 `src/ui/hud.gd` (medal), `src/lobby/lobby_ui.gd` (roster tiles, chest shard
@@ -613,7 +627,7 @@ the cache. Fall back to the current icon when running headless.
 Verify: `tools/dev/shots.sh lobby,heroes,hunt`; portraits in the roster and HUD
 medal.
 
-### [ ] 4.2 Daily bounties
+### [x] 4.2 Daily bounties
 
 Files: `src/data/db.gd` (`BOUNTY_POOL`: kill N skeletons, slay N champions,
 win with hero X, clear Veteran, collect N gold, reach run level N — each with a
@@ -640,7 +654,7 @@ Files: `src/lobby/lobby_ui.gd` (`_item_card`), `src/hunt/hero.gd` and
 
 Verify: shots `bag,lobby`.
 
-### [ ] 4.4 Results screen count-ups
+### [x] 4.4 Results screen count-ups
 
 File: `src/ui/results.gd`.
 
@@ -651,7 +665,7 @@ finishes (tap anywhere skips to the end).
 
 Verify: shot `results` (after the count) — final numbers match today's.
 
-### [ ] 4.5 Level-up reroll
+### [x] 4.5 Level-up reroll
 
 Files: `src/hunt/hunt.gd`, `src/ui/levelup.gd`/`.tscn`.
 
@@ -666,7 +680,7 @@ Verify: shot `levelup`.
 
 Do this only after phases 1–4. Keep the Barrow exactly as it is.
 
-### [ ] 5.1 Zones as data
+### [x] 5.1 Zones as data
 
 Files: `src/data/db.gd` (`ZONES := {"barrow": {...}, "depths": {...}}` with
 name, enemy weights, boss id, music, souls multiplier, unlock rule),
@@ -676,7 +690,7 @@ takes a zone id), `src/hunt/hunt.gd` (read the zone), `src/autoload/game.gd`
 
 No visible change yet. Verify: `check.sh` passes, shots identical to before.
 
-### [ ] 5.2 The Sunken Crypt (indoor zone)
+### [x] 5.2 The Sunken Crypt (indoor zone)
 
 File: `src/hunt/arena.gd` (`_layout_depths()`).
 
@@ -690,7 +704,7 @@ DirectionalLight from above for shadows).
 
 Verify: shots `hunt` with the zone forced via a capture arg `--zone=depths`.
 
-### [ ] 5.3 Second boss: the Hexer Queen
+### [x] 5.3 Second boss: the Hexer Queen
 
 Files: `src/data/db.gd` (`BOSSES` dict; move `BOSS` into it), new
 `src/hunt/boss_hexer.gd` extending `Boss` (override `_choose`/`_begin`/
@@ -705,7 +719,7 @@ hero 40% for 3 s if hit). Enrage at 50%: orbs ×2.
 Verify: a `boss` shot in the depths zone; `check.sh` with a new bot line
 `--zone=depths` for knight and mage.
 
-### [ ] 5.4 Zone choice in camp
+### [x] 5.4 Zone choice in camp
 
 Files: `src/lobby/lobby_ui.gd` + `.tscn`: above the tier row, a zone picker
 (two cards with the zone name, boss name and a lock showing the unlock rule).
@@ -724,7 +738,7 @@ Only when the user confirms: `git rm -r _legacy`. Keep `docs/ota.md`. Update
 `_legacy/tools/` for the audio build scripts — move the two audio scripts the
 credits mention into `tools/audio/` first if the user wants to keep them).
 
-### [ ] 6.2 Unit checks (`--test` mode)
+### [x] 6.2 Unit checks (`--test` mode)
 
 File: `src/main.gd` (add `--test` like `--check`), new `src/tests.gd`.
 
@@ -736,18 +750,62 @@ level, `Game.roll_rarity("boss")` never returns common over 2000 rolls,
 `Game.data` equals the original), bounty day rollover (after 4.2). Add the
 `--test` run to `tools/dev/check.sh` and `.github/workflows/checks.yml`.
 
-### [ ] 6.3 Performance budget in captures
+### [x] 6.3 Performance budget in captures
 
 File: `src/main.gd` (`_save`). If a hunt shot reports more than 700 draw calls
 or 400k triangles, print `BUDGET WARNING` with the numbers. Mention any warning
 in the task's reply.
 
-### [ ] 6.4 Bot improvements
+### [x] 6.4 Bot improvements
 
 File: `src/hunt/bot.gd`. Ranged heroes: collect souls when no enemy is within
 5 m; kite in a circle around the arena center instead of straight away. Goal:
 the Ranger wins ≥ 3 of 4 bot runs on Normal. Then add `ranger` to the CI bot
 line in `.github/workflows/checks.yml`.
+
+---
+
+## Phase 7 — Where it goes next (ideas, not tasks yet)
+
+The Barrow and the Sunken Crypt are one mode: a timed horde hunt that ends in
+a boss. It is a good start, but it is not what keeps people coming back. These
+are the directions, roughly in the order they should be tried. Each needs its
+own plan before anyone codes it; do not start one without asking.
+
+### 7.1 The Long Road (trial mode)
+
+The old game had a "trail" — walk a path, fight what is on it, reach a boss.
+Rebuild it on the new engine: a run is five to seven short rooms (30–45 s
+each, reuse `Hunt` with a `room` rule instead of a soul meter), a choice
+between rooms (an altar for a blessing, a rest fire, a harder room for better
+loot, a shop for gold), and a boss at the end. Cards and shrine buffs carry
+through the run; death ends it and pays out by how far you got. This is the
+Slay-the-Spire-meets-Hunt-Royale loop: every run different, every choice
+meaningful, and runs are short enough for a bus ride.
+
+Needs: `Hunt` split into "arena + rules" so a room can be a rule set;
+a run map UI; per-run state kept outside `Hunt` so it survives rooms.
+
+### 7.2 Royale hunt (Hunt Royale style)
+
+Several heroes (you and 5–7 bots) share one big arena that shrinks. Everyone
+fights the same horde for souls and loot; the last band standing or the first
+to kill the boss wins. The existing `HuntBot` is the seed for the bot heroes.
+Needs: a bigger arena (a third zone), a shrinking-zone hazard, bot heroes with
+their own gear, and a placement reward. Only worth it once the core hunt feels
+great; it is the biggest bet on this list.
+
+### 7.3 Engagement ideas that fit the current hunt
+
+- Weekly "mutator" hunt: one rule twist for everyone (double elites, no dash,
+  arrows only) with a bigger reward; a banner in camp shows this week's rule.
+- Boss rush: all bosses in a row with the same hero, no soul phase.
+- Hero mastery: a per-hero track (kills, wins) that unlocks cosmetic weapon
+  glows and a title under the name.
+- A third zone and boss for each new KayKit pack that fits the palette
+  (the Halloween bits and the forest are already imported).
+- Gear sets: two or three pieces of the same set give a bonus; the Barrow set
+  is the Gravemaw uniques, the Crypt set is the Hexer uniques.
 
 ---
 

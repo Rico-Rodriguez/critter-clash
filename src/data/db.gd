@@ -27,6 +27,7 @@ const HEROES := {
 		"name": "Knight", "title": "The Oathsworn", "role": "Tank",
 		"model": "Knight",
 		"weapons": {"handslot.r": "sword_1handed.gltf", "handslot.l": "shield_badge_color.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": ["", "", "sword_2handed_color.gltf", "sword_2handed_color.gltf"],
 		"style": "melee", "hp": 430.0, "speed": 5.3, "dmg": 26.0, "rate": 1.15,
 		"range": 2.5, "arc": 130.0, "armor": 0.15,
 		"super": "slam", "super_name": "Judgement", "super_desc": "Leap and smash the ground, stunning everything nearby.",
@@ -39,6 +40,7 @@ const HEROES := {
 		"name": "Ranger", "title": "The Grave Warden", "role": "Marksman",
 		"model": "Ranger",
 		"weapons": {"handslot.l": "bow_withString.gltf"},
+		"weapon_bone": "handslot.l", "weapon_looks": [],
 		"style": "bow", "hp": 360.0, "speed": 5.8, "dmg": 16.0, "rate": 1.9, "pierce": 1, "shots": 2,
 		"range": 9.5, "proj_speed": 26.0, "armor": 0.0,
 		"super": "volley", "super_name": "Hail of Arrows", "super_desc": "A wide fan of piercing arrows.",
@@ -51,6 +53,7 @@ const HEROES := {
 		"name": "Mage", "title": "The Ember Witch", "role": "Caster",
 		"model": "Mage",
 		"weapons": {"handslot.r": "staff.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "magic", "hp": 300.0, "speed": 5.4, "dmg": 25.0, "rate": 1.15,
 		"range": 8.5, "proj_speed": 16.0, "splash": 2.2, "armor": 0.0,
 		"super": "nova", "super_name": "Frost Nova", "super_desc": "A ring of ice that freezes and shatters the horde.",
@@ -63,6 +66,7 @@ const HEROES := {
 		"name": "Barbarian", "title": "The Bonebreaker", "role": "Bruiser",
 		"model": "Barbarian",
 		"weapons": {"handslot.r": "axe_2handed.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "melee", "hp": 500.0, "speed": 5.1, "dmg": 40.0, "rate": 0.82,
 		"range": 2.9, "arc": 190.0, "armor": 0.08,
 		"super": "whirlwind", "super_name": "Whirlwind", "super_desc": "Spin through the horde, cutting everything you touch.",
@@ -111,11 +115,70 @@ const ENEMIES := {
 	},
 }
 
-const BOSS := {
-	"name": "Gravemaw", "title": "the Barrow King",
-	"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"},
-	"hp": 3400.0, "dmg": 26.0, "speed": 3.0, "radius": 1.5, "scale": 2.6, "mass": 40.0,
+## Added foes. bomber: runs in and detonates (hurts other skeletons too).
+## necro: keeps its distance and raises minions. robber: the treasure goblin.
+const ENEMIES_EXTRA := {
+	"bomber": {
+		"name": "Pumpkin Bomber", "model": "Skeleton_Minion", "weapons": {"handslot.r": "res://assets/kaykit/graveyard/pumpkin_orange_jackolantern.gltf"},
+		"ai": "bomb", "hp": 22.0, "dmg": 38.0, "speed": 4.3, "radius": 0.42, "reach": 1.7,
+		"windup": 0.75, "cooldown": 9.0, "mass": 1.0, "xp": 2, "scale": 1.0, "blast": 2.4, "tint": Color(1.0, 0.5, 0.1, 0.4),
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"necro": {
+		"name": "Grave Caller", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
+		"ai": "necro", "hp": 90.0, "dmg": 0.0, "speed": 2.6, "radius": 0.5, "reach": 9.0,
+		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 1.18, "blast": 3.0, "tint": Color(0.7, 0.3, 1.0, 0.45),
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Summon", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"robber": {
+		"name": "Grave Robber", "model": "Skeleton_Rogue", "weapons": {},
+		"ai": "flee", "hp": 260.0, "dmg": 0.0, "speed": 6.2, "radius": 0.45, "reach": 0.0,
+		"windup": 1.0, "cooldown": 99.0, "mass": 1.0, "xp": 10, "scale": 1.1, "tint": Color(1.0, 0.8, 0.2, 0.55),
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
 }
+
+const BOSSES := {
+	"gravemaw": {
+		"name": "Gravemaw", "title": "the Barrow King", "wake": "the Barrow King wakes", "fall": "Gravemaw falls. Take what is yours.",
+		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"},
+		"hp": 3400.0, "dmg": 26.0, "speed": 3.0, "radius": 1.5, "scale": 2.6, "mass": 40.0,
+		"color": Color(0.4, 1.0, 0.75), "source": "boss", "occluder": Vector2(1.8, 5.0), "summon_line": "The King calls his dead!",
+	},
+	"hexer": {
+		"name": "Hexer Queen", "title": "of the Sunken Crypt", "wake": "the Queen of the Crypt rises", "fall": "The Hexer Queen unravels. Take what is yours.",
+		"model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
+		"hp": 3900.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.3, "mass": 30.0,
+		"color": Color(0.75, 0.4, 1.0), "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!",
+	},
+}
+
+## The places a hunt can happen. `weights` scale how often each foe is drawn.
+## `env` drives the arena's light; `unlock` is a human line for the locked card.
+const ZONES := {
+	"barrow": {
+		"name": "The Barrow", "boss": "gravemaw", "blurb": "A walled graveyard under a cold moon.",
+		"wake": "Gather %d souls to wake the King", "defeat": "The Barrow keeps you", "enter": "Enter the Barrow",
+		"weights": {}, "souls_mult": 1.0, "unlock": "",
+		"env": {"bg": Color(0.015, 0.02, 0.035), "ambient": Color(0.32, 0.38, 0.58), "ambient_e": 0.3, "fog": Color(0.09, 0.11, 0.17), "fog_d": 0.012,
+			"sun": Color(0.62, 0.7, 1.0), "sun_e": 0.5, "sun_rot": Vector3(-58, -32, 0), "mist": Color(0.55, 0.62, 0.8, 0.13), "motes": Color(0.55, 1.0, 0.7, 0.9)},
+	},
+	"depths": {
+		"name": "The Sunken Crypt", "boss": "hexer", "blurb": "Torchlit halls under the barrow. The Queen's cult waits.",
+		"wake": "Gather %d souls to wake the Queen", "defeat": "The Crypt keeps you", "enter": "Descend into the Crypt",
+		"weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5}, "souls_mult": 1.0, "unlock": "Clear Veteran in the Barrow",
+		"env": {"bg": Color(0.02, 0.012, 0.03), "ambient": Color(0.4, 0.3, 0.55), "ambient_e": 0.34, "fog": Color(0.1, 0.06, 0.14), "fog_d": 0.016,
+			"sun": Color(0.7, 0.62, 1.0), "sun_e": 0.28, "sun_rot": Vector3(-78, -20, 0), "mist": Color(0.6, 0.45, 0.8, 0.09), "motes": Color(1.0, 0.65, 0.35, 0.9)},
+	},
+}
+const ZONE_ORDER := ["barrow", "depths"]
+
+static func zone(id: String) -> Dictionary:
+	return ZONES[id] if ZONES.has(id) else ZONES["barrow"]
+
+
+static func boss_def(id: String) -> Dictionary:
+	return BOSSES[id] if BOSSES.has(id) else BOSSES["gravemaw"]
 
 ## Elite affixes: Diablo-style champions. Each multiplies or adds a trait.
 const ELITE_AFFIXES := {
@@ -161,9 +224,52 @@ const CARDS := {
 	"ward": {"name": "Bone Ward", "desc": "A shield blocks one hit, recharging", "icon": "bolt-shield", "rarity": "rare", "max": 3},
 	"thorns": {"name": "Thorns", "desc": "Melee attackers take 60% of the hit", "icon": "slashed-shield", "rarity": "rare", "max": 3},
 	"greed": {"name": "Grave Robber", "desc": "+30% gold", "icon": "two-coins", "rarity": "common", "max": 3},
+	"bladestorm": {"name": "Bladestorm", "desc": "Twice the blades, spinning faster", "icon": "spinning-sword", "rarity": "legendary", "max": 1, "evo": ["blades", "haste"]},
+	"tempest": {"name": "Tempest", "desc": "Storm Call strikes 3 more foes, and crits call lightning", "icon": "lightning-helix", "rarity": "legendary", "max": 1, "evo": ["storm", "crit"]},
+	"inferno_heart": {"name": "Inferno Heart", "desc": "Fire Nova is half again as wide and heals you", "icon": "flame", "rarity": "legendary", "max": 1, "evo": ["nova", "vigor"]},
+	"rain": {"name": "Rain of Arrows", "desc": "Every third volley fires a full circle", "icon": "arrow-cluster", "rarity": "legendary", "max": 1, "evo": ["multishot", "pierce"], "only": ["bow"]},
+	"judgement_day": {"name": "Judgement Day", "desc": "Sword waves are twice as wide and stun", "icon": "crossed-swords", "rarity": "legendary", "max": 1, "evo": ["wave", "reach"], "only": ["melee"]},
 	"phoenix": {"name": "Undying", "desc": "Once per hunt, rise again at half health", "icon": "ghost", "rarity": "legendary", "max": 1},
 }
 const CARD_WEIGHT := {"common": 10.0, "rare": 6.0, "epic": 3.2, "legendary": 0.8}
+
+## All foe definitions, base and extra.
+static func enemy(kind: String) -> Dictionary:
+	return ENEMIES[kind] if ENEMIES.has(kind) else ENEMIES_EXTRA[kind]
+
+
+static func enemy_kinds() -> Array:
+	return ENEMIES.keys() + ENEMIES_EXTRA.keys()
+
+
+## Daily bounties: three are drawn per calendar day. `stat` is summed over
+## hunts (or the best single hunt with `best`); `win` counts only won hunts,
+## `veteran` only wins on Veteran or harder, `hero` ties it to a hero.
+## targets/gold are parallel lists (easy → hard); shards go to the hero named.
+const BOUNTY_POOL := {
+	"kills": {"text": "Slay %d skeletons", "stat": "kills", "targets": [120, 220], "gold": [150, 300]},
+	"elites": {"text": "Slay %d champions", "stat": "elites", "targets": [3, 6], "gold": [180, 360]},
+	"boss": {"text": "Slay the Gravemaw", "stat": "wins", "targets": [1], "gold": [250], "win": true},
+	"hero": {"text": "Win a hunt as the %s", "stat": "wins", "targets": [1], "gold": [200], "win": true, "hero": true, "shards": 3},
+	"veteran": {"text": "Clear Veteran", "stat": "wins", "targets": [1], "gold": [400], "win": true, "veteran": true, "shards": 4},
+	"gold": {"text": "Collect %d gold in hunts", "stat": "gold", "targets": [300, 600], "gold": [150, 300]},
+	"level": {"text": "Reach level %d in one hunt", "stat": "level", "targets": [8, 10], "gold": [150, 250], "best": true},
+}
+const BOUNTIES_PER_DAY := 3
+
+## Shrines in the graveyard: stand in the ring for a moment to take the
+## blessing for SHRINE_TIME seconds. Each hunt assigns the three at random.
+const SHRINES := {
+	"fury": {"name": "Shrine of Fury", "short": "Fury", "color": Color(1.0, 0.35, 0.2), "dmg": 1.5},
+	"haste": {"name": "Shrine of Haste", "short": "Haste", "color": Color(0.35, 0.9, 1.0), "rate": 1.4, "speed": 1.2},
+	"bones": {"name": "Shrine of Bones", "short": "Bones", "color": Color(0.85, 0.85, 0.65), "armor": 0.35},
+}
+const SHRINE_TIME := 20.0
+
+## Kill-streak milestones ("Massacre"): reaching one pays bonus souls and gold.
+## A streak ends after STREAK_WINDOW seconds without a kill.
+const STREAKS := [15, 30, 50, 100]
+const STREAK_WINDOW := 2.5
 
 ## XP (souls) needed for each in-hunt level: grows gently so the first few
 ## choices come fast and the later ones mark real progress.
@@ -172,13 +278,20 @@ static func run_level_xp(level: int) -> int:
 
 # --- Items ---------------------------------------------------------------
 
-const SLOTS := ["weapon", "armor", "trinket"]
-const SLOT_NAME := {"weapon": "Weapon", "armor": "Armor", "trinket": "Trinket"}
-const SLOT_ICON := {"weapon": "broadsword", "armor": "breastplate", "trinket": "gem-pendant"}
+const SLOTS := ["weapon", "helm", "chest", "legs", "trinket"]
+const SLOT_NAME := {"weapon": "Weapon", "helm": "Helm", "chest": "Chest", "legs": "Legs", "trinket": "Trinket"}
+const SLOT_ICON := {"weapon": "broadsword", "helm": "visored-helm", "chest": "breastplate", "legs": "leg-armor", "trinket": "gem-pendant"}
 const ITEM_BASES := {
 	"weapon": ["Brand", "Cleaver", "Edge", "Fang", "Reaver"],
-	"armor": ["Mail", "Hauberk", "Plate", "Shroud", "Carapace"],
+	"helm": ["Helm", "Sallet", "Cowl", "Crown", "Visage"],
+	"chest": ["Mail", "Hauberk", "Plate", "Shroud", "Carapace"],
+	"legs": ["Greaves", "Leggings", "Cuisses", "Treads", "Wraps"],
 	"trinket": ["Charm", "Talisman", "Sigil", "Amulet", "Idol"],
+}
+## Short stat names for compare lines, and whether the number is a percent.
+const AFFIX_SHORT := {
+	"dmg": ["Damage", "%"], "hp": ["Health", "%"], "aspd": ["Attack speed", "%"], "crit": ["Crit chance", "%"],
+	"speed": ["Move speed", "%"], "armor": ["Armor", "%"], "gold": ["Gold found", "%"], "regen": ["Regen", "/s"],
 }
 const ITEM_PREFIX := {
 	"common": ["Worn", "Plain", "Rusted", "Old"],
@@ -196,26 +309,32 @@ const AFFIXES := {
 	"gold": {"label": "+%d%% gold found", "roll": [10, 20]},
 	"regen": {"label": "+%d health per second", "roll": [2, 4]},
 }
-const SLOT_MAIN := {"weapon": "dmg", "armor": "hp", "trinket": "crit"}
+const SLOT_MAIN := {"weapon": "dmg", "helm": "crit", "chest": "hp", "legs": "armor", "trinket": "aspd"}
 const SLOT_POOL := {
 	"weapon": ["aspd", "crit", "dmg"],
-	"armor": ["armor", "regen", "hp"],
-	"trinket": ["speed", "gold", "aspd", "regen"],
+	"helm": ["hp", "armor", "regen"],
+	"chest": ["armor", "regen", "hp"],
+	"legs": ["speed", "hp", "regen"],
+	"trinket": ["gold", "speed", "regen", "crit"],
 }
 
 ## Unique drops tracked by the collection log. `card` legendaries start the
 ## hunt holding that card. Rates are 1/n per roll on that source.
 const UNIQUES := {
-	"cleaver": {"name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
-	"shroud": {"name": "Shroud of the Barrow", "slot": "armor", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
-	"crown": {"name": "Crown of the Barrow King", "slot": "trinket", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "storm", "power": "Start every hunt with Storm Call", "icon": "crowned-skull"},
+	"cleaver": {"name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe", "look": "axe_2handed.gltf"},
+	"shroud": {"name": "Shroud of the Barrow", "slot": "chest", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
+	"crown": {"name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "storm", "power": "Start every hunt with Storm Call", "icon": "crowned-skull"},
 	"emberheart": {"name": "Emberheart", "slot": "trinket", "rarity": "legendary", "source": "elite", "rate": 60, "stats": {"dmg": 12, "regen": 4}, "card": "nova", "power": "Start every hunt with Fire Nova", "icon": "flame"},
+	"scepter": {"name": "Hexer's Scepter", "slot": "weapon", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"dmg": 26, "crit": 8}, "card": "leech", "power": "Start every hunt with Bloodthirst", "icon": "wizard-staff", "look": "Skeleton_Staff.gltf"},
+	"gown": {"name": "Gown of Thorns", "slot": "chest", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"hp": 24, "armor": 6}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
+	"greaves": {"name": "Wraithstep Greaves", "slot": "legs", "rarity": "legendary", "source": "hexer", "rate": 30, "stats": {"speed": 8, "hp": 14}, "card": "regen", "power": "Start every hunt with Second Breath", "icon": "leg-armor"},
+	"charm": {"name": "Hex Charm", "slot": "trophy", "rarity": "magic", "source": "hexer", "rate": 4, "icon": "gems", "power": "A cultist's token. Sells for 90 gold.", "sell": 90},
 	"bonelet": {"name": "Bonelet", "slot": "pet", "rarity": "legendary", "source": "boss", "rate": 50, "icon": "skull-crossed-bones", "power": "A tiny skeleton that follows you everywhere."},
 	"sigil": {"name": "Champion's Sigil", "slot": "trophy", "rarity": "rare", "source": "elite", "rate": 12, "icon": "rune-stone", "power": "Proof of a champion slain. Sells for 150 gold.", "sell": 150},
 	"tooth": {"name": "Barrow Tooth", "slot": "trophy", "rarity": "magic", "source": "boss", "rate": 4, "icon": "broken-bone", "power": "An old king's tooth. Sells for 60 gold.", "sell": 60},
 	"abyssal": {"name": "Abyssal Gem", "slot": "trophy", "rarity": "legendary", "source": "nightmare", "rate": 80, "icon": "crystal-shine", "power": "It hums. Sells for 2000 gold.", "sell": 2000},
 }
-const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "emberheart", "sigil", "abyssal"]
+const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "charm", "emberheart", "sigil", "abyssal"]
 
 ## Rarity weights by source; tier loot multiplier shifts weight upward.
 const DROP_RARITY := {

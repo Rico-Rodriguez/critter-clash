@@ -12,6 +12,14 @@ static func icon(name_: String) -> Texture2D:
 	return _icons[name_]
 
 
+## A short vibration on phones, if the player left haptics on. Keep these for
+## moments that matter (you got hit, a super, a boss falling), never for every hit.
+static func buzz(ms: int, amp := 0.5) -> void:
+	if not OS.has_feature("mobile") or not bool(Game.setting("haptics")):
+		return
+	Input.vibrate_handheld(ms, amp)
+
+
 static func fmt_time(sec: float) -> String:
 	var s := int(sec)
 	return "%d:%02d" % [s / 60, s % 60]

@@ -33,6 +33,7 @@ func _ready() -> void:
 	add_child(ui)
 	ui.setup(self)
 	show_hero(Game.hero_id(), false)
+	_make_portraits()
 	if str(Game.data.get("pet", "")) != "":
 		_spawn_pet()
 	Sfx.music("home")
@@ -243,6 +244,7 @@ func show_hero(id: String, cheer := true) -> void:
 	hero = Actor.new()
 	add_child(hero)
 	hero.build_model(d["model"], d["weapons"], Color(0.55, 0.68, 1.0), 0.45)
+	GearLook.apply(hero, id)
 	hero.rotation.y = 0.3 + _spin
 	if cheer and cam:
 		if _push_tween:
@@ -256,6 +258,25 @@ func show_hero(id: String, cheer := true) -> void:
 		hero.cur_anim = ""
 	else:
 		hero.play(d["anim"]["idle"], 0.0)
+
+
+## Renders the hero portraits (first visit) and rebuilds the roster when ready.
+func _make_portraits() -> void:
+	if Portraits.ready_all():
+		return
+	await Portraits.build(self)
+	if is_instance_valid(ui) and Portraits.ready_all():
+		ui.portraits_ready()
+
+
+## Re-dresses the camp hero after a gear change, with a short white flash.
+func refresh_gear() -> void:
+	if hero == null or not is_instance_valid(hero):
+		return
+	GearLook.apply(hero, Game.hero_id())
+	Portraits.rebuild(self, Game.hero_id())
+	var t := create_tween()
+	t.tween_method(hero.set_flash, 0.9, 0.0, 0.3)
 
 
 func place_chest(kind: String) -> void:

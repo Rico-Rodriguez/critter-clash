@@ -6,7 +6,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -22,6 +22,7 @@ func _ready() -> void:
 		data = _fresh()
 	else:
 		load_save()
+	Sfx.refresh_volume.call_deferred()
 
 
 func _fresh() -> Dictionary:
@@ -44,8 +45,11 @@ func _fresh() -> Dictionary:
 		"tier": 0,
 		"pet": "",
 		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}},
-		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard"},
+		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard", "buttons": "right", "haptics": true},
 		"seen_tutorial": false,
+		"seen_items": [],
+		"bounties": {"day": "", "list": []},
+		"zone": "barrow",
 	}
 
 
@@ -57,8 +61,23 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) == SAVE_VERSION:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, SAVE_VERSION]:
+		if int(parsed.get("version", 0)) == 1:
+			_migrate_v1(parsed)
 		_merge(data, parsed)
+
+
+## v1 had three slots (weapon, armor, trinket); armor became chest.
+func _migrate_v1(d: Dictionary) -> void:
+	for it in d.get("items", []):
+		if it.get("slot", "") == "armor":
+			it["slot"] = "chest"
+	for hid in d.get("heroes", {}):
+		var g: Dictionary = d["heroes"][hid].get("gear", {})
+		if g.has("armor"):
+			g["chest"] = g["armor"]
+			g.erase("armor")
+	d["version"] = SAVE_VERSION
 
 
 ## Copies saved values over the fresh defaults so new keys keep defaults.
@@ -99,6 +118,21 @@ func hero(id: String) -> Dictionary:
 func set_hero(id: String) -> void:
 	if hero(id)["unlocked"]:
 		data["hero"] = id
+		save()
+
+
+func zone_id() -> String:
+	var z := str(data.get("zone", "barrow"))
+	return z if DB.ZONES.has(z) and zone_unlocked(z) else "barrow"
+
+
+func zone_unlocked(id: String) -> bool:
+	return id == "barrow" or (id == "depths" and int(data["tier_unlocked"]) >= 2)
+
+
+func set_zone(id: String) -> void:
+	if DB.ZONES.has(id) and zone_unlocked(id):
+		data["zone"] = id
 		save()
 
 
@@ -197,6 +231,79 @@ func salvage_below(rarity: String) -> int:
 		if DB.RARITIES.find(it["rarity"]) <= cap and owner_of(int(it["uid"])) == "" and str(it.get("unique", "")) == "":
 			total += salvage(int(it["uid"]))
 	return total
+
+
+## Items the player has not looked at yet (shown with a dot).
+func new_item_count() -> int:
+	var n := 0
+	for it in data["items"]:
+		if not int(it["uid"]) in data["seen_items"]:
+			n += 1
+	return n
+
+
+func is_new(uid: int) -> bool:
+	return not uid in data["seen_items"]
+
+
+func mark_items_seen() -> void:
+	for it in data["items"]:
+		if not int(it["uid"]) in data["seen_items"]:
+			data["seen_items"].append(int(it["uid"]))
+	save()
+
+
+## Puts the best bag item in every slot, taking only from this hero or from
+## the bag (never from another hero). Returns how many slots changed.
+func equip_best(hero_id_: String) -> int:
+	var changed_n := 0
+	for slot in DB.SLOTS:
+		var best := equipped(hero_id_, slot)
+		var best_score := item_score(best) if not best.is_empty() else -1.0
+		for it in data["items"]:
+			if it["slot"] != slot:
+				continue
+			var owner := owner_of(int(it["uid"]))
+			if owner != "" and owner != hero_id_:
+				continue
+			if item_score(it) > best_score:
+				best = it
+				best_score = item_score(it)
+		if not best.is_empty() and int(hero(hero_id_)["gear"].get(slot, 0)) != int(best["uid"]):
+			hero(hero_id_)["gear"][slot] = int(best["uid"])
+			changed_n += 1
+	if changed_n > 0:
+		save()
+	return changed_n
+
+
+## Unequipped, non-unique common and magic items: safe to sell in one go.
+func junk_items() -> Array:
+	var out := []
+	for it in data["items"]:
+		if DB.RARITIES.find(it["rarity"]) <= 1 and str(it.get("unique", "")) == "" and owner_of(int(it["uid"])) == "":
+			out.append(it)
+	return out
+
+
+## Stat-by-stat difference of `it` against `cur` (the equipped piece, or {}).
+## Returns [{"key", "label", "diff", "text"}], biggest changes first.
+func compare(it: Dictionary, cur: Dictionary) -> Array:
+	var keys := {}
+	for k in it["stats"]:
+		keys[k] = true
+	if not cur.is_empty():
+		for k in cur["stats"]:
+			keys[k] = true
+	var out := []
+	for k in keys:
+		var d: int = int(it["stats"].get(k, 0)) - (int(cur["stats"].get(k, 0)) if not cur.is_empty() else 0)
+		if d == 0:
+			continue
+		var sh: Array = DB.AFFIX_SHORT[k]
+		out.append({"key": k, "label": sh[0], "diff": d, "text": "%s%d%s %s" % ["+" if d > 0 else "", d, sh[1], sh[0]]})
+	out.sort_custom(func(a, b): return absi(a["diff"]) > absi(b["diff"]))
+	return out
 
 
 func upgrade_cost(id: String) -> Dictionary:
@@ -324,8 +431,8 @@ func roll_item(source: String, tier_i: int, slot := "") -> Dictionary:
 
 func _roll_affix(key: String, step: int, mult: float) -> int:
 	var r: Array = DB.AFFIXES[key]["roll"]
-	var lo: float = r[0] * (1.0 + 0.5 * step) * mult
-	var hi: float = r[1] * (1.0 + 0.5 * step) * mult
+	var lo: float = r[0] * (1.0 + 0.35 * step) * mult
+	var hi: float = r[1] * (1.0 + 0.35 * step) * mult
 	return int(round(rng.randf_range(lo, hi)))
 
 
@@ -364,7 +471,7 @@ func roll_uniques(source: String, tier_i: int) -> Array:
 	for u in DB.LOG_ORDER:
 		var ud: Dictionary = DB.UNIQUES[u]
 		var src := str(ud["source"])
-		if src == source or (src == "nightmare" and source == "boss" and tier_i == 2):
+		if src == source or (src == "nightmare" and source in ["boss", "hexer"] and tier_i == 2):
 			if rng.randf() < mult / float(ud["rate"]):
 				hits.append(u)
 	return hits
@@ -461,7 +568,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		st["wins"] = int(st["wins"]) + 1
 		st["boss_kills"] = int(st["boss_kills"]) + 1
 		var t := int(r["tier"])
-		var key := str(t)
+		var key := str(t) if str(r.get("zone", "barrow")) == "barrow" else "%s%d" % [r["zone"], t]
 		var best := float(st["best"].get(key, 0.0))
 		if best <= 0.0 or float(r["time"]) < best:
 			st["best"][key] = float(r["time"])
@@ -471,8 +578,102 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if t >= 1 and not hero("barbarian")["unlocked"]:
 			hero("barbarian")["unlocked"] = true
 			summary["unlocked_hero"] = "barbarian"
+	_bounty_progress(r)
 	var opened := unlock_by_shards()
 	if opened != "":
 		summary["unlocked_hero"] = opened
 	save()
 	return summary
+
+
+# --- Daily bounties --------------------------------------------------------
+
+## Draws today's bounties if the date changed. Seeded by the date, so the same
+## day always gives the same three. Returns true when a new set was drawn.
+func refresh_bounties(today := "") -> bool:
+	if today == "":
+		today = Time.get_date_string_from_system()
+	var b: Dictionary = data["bounties"]
+	if str(b["day"]) == today and not (b["list"] as Array).is_empty():
+		return false
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(today)
+	var ids: Array = DB.BOUNTY_POOL.keys()
+	if int(data["tier_unlocked"]) < 1:
+		ids.erase("veteran")
+	var list := []
+	while list.size() < DB.BOUNTIES_PER_DAY and not ids.is_empty():
+		var id: String = ids[rng.randi() % ids.size()]
+		ids.erase(id)
+		var def: Dictionary = DB.BOUNTY_POOL[id]
+		var k := rng.randi() % (def["targets"] as Array).size()
+		var entry := {"id": id, "target": int(def["targets"][k]), "gold": int(def["gold"][k]), "progress": 0, "claimed": false, "hero": "", "shards": 0, "shard_hero": ""}
+		if def.has("hero"):
+			var pool: Array = DB.HERO_ORDER.filter(func(h): return hero(h)["unlocked"])
+			entry["hero"] = pool[rng.randi() % pool.size()]
+		if def.has("shards"):
+			entry["shards"] = int(def["shards"])
+			entry["shard_hero"] = entry["hero"] if entry["hero"] != "" else hero_id()
+		list.append(entry)
+	data["bounties"] = {"day": today, "list": list}
+	save()
+	return true
+
+
+func bounty_text(e: Dictionary) -> String:
+	var def: Dictionary = DB.BOUNTY_POOL[e["id"]]
+	var t: String = def["text"]
+	if def.has("hero"):
+		return t % DB.HEROES[e["hero"]]["name"]
+	return t % int(e["target"]) if t.contains("%d") else t
+
+
+func bounty_done(e: Dictionary) -> bool:
+	return int(e["progress"]) >= int(e["target"])
+
+
+func bounty_claimable() -> int:
+	var n := 0
+	for e in data["bounties"]["list"]:
+		if bounty_done(e) and not e["claimed"]:
+			n += 1
+	return n
+
+
+func _bounty_progress(r: Dictionary) -> void:
+	var won: bool = r.get("win", false)
+	for e in data["bounties"]["list"]:
+		var def: Dictionary = DB.BOUNTY_POOL[e["id"]]
+		if e["claimed"] or (def.has("win") and not won):
+			continue
+		if def.has("veteran") and int(r.get("tier", 0)) < 1:
+			continue
+		if def.has("hero") and str(r.get("hero", "")) != str(e["hero"]):
+			continue
+		var amount := 0
+		match def["stat"]:
+			"wins": amount = 1
+			"level": amount = int(r.get("level", 0))
+			_: amount = int(r.get(def["stat"], 0))
+		if def.has("best"):
+			e["progress"] = maxi(int(e["progress"]), amount)
+		else:
+			e["progress"] = mini(int(e["progress"]) + amount, int(e["target"]))
+
+
+## Pays out a finished bounty. Returns its reward ({} if not claimable).
+func claim_bounty(i: int) -> Dictionary:
+	var list: Array = data["bounties"]["list"]
+	if i < 0 or i >= list.size():
+		return {}
+	var e: Dictionary = list[i]
+	if e["claimed"] or not bounty_done(e):
+		return {}
+	e["claimed"] = true
+	data["gold"] = gold() + int(e["gold"])
+	var sh := str(e.get("shard_hero", ""))
+	if int(e["shards"]) > 0 and sh != "":
+		hero(sh)["shards"] = int(hero(sh)["shards"]) + int(e["shards"])
+	var opened := unlock_by_shards()
+	save()
+	return {"gold": int(e["gold"]), "shards": int(e["shards"]), "hero": sh, "unlocked": opened}

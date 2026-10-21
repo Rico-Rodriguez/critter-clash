@@ -13,9 +13,18 @@ func _ready() -> void:
 	shake.focus_mode = Control.FOCUS_NONE
 	shake.toggled.connect(func(on: bool): Game.set_setting("shake", on))
 	add_child(shake)
+	var buzz := CheckButton.new()
+	buzz.text = "Vibration"
+	buzz.button_pressed = bool(Game.setting("haptics"))
+	buzz.focus_mode = Control.FOCUS_NONE
+	buzz.toggled.connect(func(on: bool):
+		Game.set_setting("haptics", on)
+		Ui.buzz(30))
+	add_child(buzz)
+	_choices("Buttons", "buttons", ["right", "left"])
 	_choices("Camera", "camera", ["close", "standard", "wide"])
 	_choices("Graphics", "quality", ["auto", "low", "high"])
-	var note := Ui.label("Camera and graphics changes apply on the next hunt.", "Small")
+	var note := Ui.label("Button, camera and graphics changes apply on the next hunt.", "Small")
 	note.add_theme_font_size_override("font_size", 17)
 	add_child(note)
 

@@ -16,10 +16,15 @@ var _music_a: AudioStreamPlayer
 var _music_b: AudioStreamPlayer
 var _music_name := ""
 var _music_tween: Tween
+## True when default_bus_layout.tres is loaded (Music and SFX buses exist).
+## Without it (an older install taking a content update) volume falls back to
+## per-player levels and ducking does nothing.
+var _has_buses := false
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_has_buses = AudioServer.get_bus_index("SFX") >= 0 and AudioServer.get_bus_index("Music") >= 0
 	for f in ResourceLoader.list_directory(SFX_DIR):
 		if not f.ends_with(".ogg"):
 			continue
@@ -31,21 +36,27 @@ func _ready() -> void:
 		_variants[key].append(SFX_DIR + f)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master"
+		p.bus = "SFX" if _has_buses else "Master"
 		add_child(p)
 		_players.append(p)
 	_music_a = AudioStreamPlayer.new()
 	_music_b = AudioStreamPlayer.new()
+	_music_a.bus = "Music" if _has_buses else "Master"
+	_music_b.bus = _music_a.bus
 	add_child(_music_a)
 	add_child(_music_b)
 
 
 func _sfx_db(extra: float) -> float:
+	if _has_buses:
+		return extra
 	var v := float(Game.setting("sfx")) if Game.data.size() > 0 else 1.0
 	return linear_to_db(maxf(v, 0.0001)) + extra
 
 
 func _music_db() -> float:
+	if _has_buses:
+		return 0.0
 	var v := float(Game.setting("music")) if Game.data.size() > 0 else 0.7
 	return linear_to_db(maxf(v * 0.8, 0.0001))
 
@@ -94,7 +105,19 @@ func music(track: String, fade := 1.2) -> void:
 		_music_tween.chain().tween_callback(outgoing.stop)
 
 
+## Applies the music and effects sliders to their buses.
 func refresh_volume() -> void:
+	if _has_buses and Game.data.size() > 0:
+		AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), linear_to_db(maxf(float(Game.setting("sfx")), 0.0001)))
+		AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(maxf(float(Game.setting("music")) * 0.8, 0.0001)))
+		return
 	for p in [_music_a, _music_b]:
 		if p.playing and p.volume_db > -39.0:
 			p.volume_db = _music_db()
+
+
+## Muffles the music (a low-pass on the Music bus) while a menu is open.
+func duck(on: bool) -> void:
+	if not _has_buses:
+		return
+	AudioServer.set_bus_effect_enabled(AudioServer.get_bus_index("Music"), 0, on)
