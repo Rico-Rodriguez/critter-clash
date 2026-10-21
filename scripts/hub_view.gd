@@ -29,8 +29,12 @@ const HERO_METERS := 1.9
 ## The camera stands this far behind and above the hero, and looks this
 ## far ahead of him: a 40-degree tilt, the angle a town like this reads
 ## best from. The player cannot pan, so the angle never changes.
-const CAM_POS := Vector3(0.0, 9.8, 9.0)
-const CAM_LOOK := Vector3(0.0, 1.0, -1.5)
+const CAM_POS := Vector3(0.0, 9.8, 0.0)
+const CAM_LOOK := Vector3(0.0, 1.0, 0.0)
+## How far behind the hero the camera stands, and how far ahead of him it
+## looks.
+const CAM_BACK := 9.0
+const CAM_LEAD := 3.2
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -46,6 +50,8 @@ var walking := false
 var _walk_to := Vector2.INF
 ## The way the stick points, in the town's ground plane (x, z).
 var _drive := Vector2.ZERO
+## The way the camera is turned, smoothed.
+var _facing := PI
 ## How fast the hero walks, in metres a second.
 const WALK_SPEED := 5.6
 ## How far the hero may walk from the middle of the plaza: the town wall.
@@ -163,13 +169,14 @@ func _camera_follows() -> void:
 	if _hero == null:
 		return
 	var here: Vector3 = _hero.position
-	# The camera slides with the hero and never swings: a lag would make
-	# the view drift and then catch up, and the player cannot pan to fix
-	# it. It looks a little ahead of him, so the ground he is walking into
-	# is in the picture.
-	var lead := Vector3(_drive.x, 0.0, _drive.y) * 2.4
-	camera.position = Vector3(here.x, CAM_POS.y, here.z + CAM_POS.z)
-	var look := Vector3(here.x, CAM_LOOK.y, here.z + CAM_LOOK.z) + lead
+	# The camera stands behind the hero and looks ahead of him, and it
+	# turns with him: the player never pans it, but the town still reads
+	# the same from every side, because the camera follows the way he
+	# walks. The turn is smoothed so a change of direction does not snap.
+	_facing = lerp_angle(_facing, _hero.rotation.y, 0.16)
+	var forward := Vector3(sin(_facing), 0.0, cos(_facing))
+	camera.position = Vector3(here.x, CAM_POS.y, here.z) - forward * CAM_BACK
+	var look := Vector3(here.x, CAM_LOOK.y, here.z) + forward * CAM_LEAD
 	camera.look_at(look, Vector3.UP)
 
 

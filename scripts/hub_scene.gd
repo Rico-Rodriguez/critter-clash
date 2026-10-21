@@ -320,7 +320,10 @@ func _post(at: Vector3, h: float) -> void:
 ## Where the doors stand: an arc across the far wall, in the order of the
 ## depths. A door at the side of the town falls outside the portrait
 ## frame, so they all stand where the camera can see them.
-const DOOR_ARC := [3.75, 4.28, 5.15, 5.67]
+## The doors stand in the order of the road: the Meadow Gate in the south
+## wall (the shallow ground is on that side of the town), the three deeper
+## gates in an arc across the north wall.
+const DOOR_ARC := [1.57, 4.28, 5.15, 5.67]
 
 ## The houses of the town: timber walls, a slate roof, a door and a window
 ## with a light behind it. They are built from primitives with the town's
