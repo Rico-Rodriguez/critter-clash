@@ -24,8 +24,10 @@ A portrait, one-thumb action game for phones, built in Godot 4.7.2.
 
 ## The loop
 
-1. **Camp.** Your hero stands by the fire. Pick a hero, pick a difficulty
-   (Normal → Veteran → Nightmare; each clear opens the next), and *Enter the Barrow*.
+1. **Camp.** Your hero stands by the fire. Pick a hero, a place (the Barrow, or the
+   **Sunken Crypt** once you clear Veteran), a difficulty (Normal → Veteran →
+   Nightmare; each clear opens the next) and go. Three **daily bounties** and the
+   equipment screen live here too.
 2. **The rise.** The dead climb out of the graves around you. Every kill fills the
    **soul meter** and drops souls (XP) and sometimes gold. Each level-up pauses the
    hunt and offers **three cards** (more damage, orbiting blades, chain lightning,
@@ -35,6 +37,8 @@ A portrait, one-thumb action game for phones, built in Godot 4.7.2.
    Barrow King** bursts out of the crypt. Every attack he has is drawn on the
    ground first (cleave cone, quake circle, charge lane, grave eruptions) or comes
    as a spear volley you can walk out of. At half health he enrages.
+   In the Sunken Crypt the boss is the **Hexer Queen**: rings of orbs, summoning
+   circles, a blink, and a cursed lane that slows you.
 4. **The hoard.** Gold fountains out, items fall in rarity-colored pillars, and the
    boss rolls his collection-log table (legendaries, the Bonelet pet at 1/50).
 5. **Back at camp.** Open the chest (gold, hero shards, gear), upgrade heroes with

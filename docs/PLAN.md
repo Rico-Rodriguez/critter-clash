@@ -738,7 +738,7 @@ Only when the user confirms: `git rm -r _legacy`. Keep `docs/ota.md`. Update
 `_legacy/tools/` for the audio build scripts — move the two audio scripts the
 credits mention into `tools/audio/` first if the user wants to keep them).
 
-### [ ] 6.2 Unit checks (`--test` mode)
+### [x] 6.2 Unit checks (`--test` mode)
 
 File: `src/main.gd` (add `--test` like `--check`), new `src/tests.gd`.
 
@@ -750,18 +750,62 @@ level, `Game.roll_rarity("boss")` never returns common over 2000 rolls,
 `Game.data` equals the original), bounty day rollover (after 4.2). Add the
 `--test` run to `tools/dev/check.sh` and `.github/workflows/checks.yml`.
 
-### [ ] 6.3 Performance budget in captures
+### [x] 6.3 Performance budget in captures
 
 File: `src/main.gd` (`_save`). If a hunt shot reports more than 700 draw calls
 or 400k triangles, print `BUDGET WARNING` with the numbers. Mention any warning
 in the task's reply.
 
-### [ ] 6.4 Bot improvements
+### [x] 6.4 Bot improvements
 
 File: `src/hunt/bot.gd`. Ranged heroes: collect souls when no enemy is within
 5 m; kite in a circle around the arena center instead of straight away. Goal:
 the Ranger wins ≥ 3 of 4 bot runs on Normal. Then add `ranger` to the CI bot
 line in `.github/workflows/checks.yml`.
+
+---
+
+## Phase 7 — Where it goes next (ideas, not tasks yet)
+
+The Barrow and the Sunken Crypt are one mode: a timed horde hunt that ends in
+a boss. It is a good start, but it is not what keeps people coming back. These
+are the directions, roughly in the order they should be tried. Each needs its
+own plan before anyone codes it; do not start one without asking.
+
+### 7.1 The Long Road (trial mode)
+
+The old game had a "trail" — walk a path, fight what is on it, reach a boss.
+Rebuild it on the new engine: a run is five to seven short rooms (30–45 s
+each, reuse `Hunt` with a `room` rule instead of a soul meter), a choice
+between rooms (an altar for a blessing, a rest fire, a harder room for better
+loot, a shop for gold), and a boss at the end. Cards and shrine buffs carry
+through the run; death ends it and pays out by how far you got. This is the
+Slay-the-Spire-meets-Hunt-Royale loop: every run different, every choice
+meaningful, and runs are short enough for a bus ride.
+
+Needs: `Hunt` split into "arena + rules" so a room can be a rule set;
+a run map UI; per-run state kept outside `Hunt` so it survives rooms.
+
+### 7.2 Royale hunt (Hunt Royale style)
+
+Several heroes (you and 5–7 bots) share one big arena that shrinks. Everyone
+fights the same horde for souls and loot; the last band standing or the first
+to kill the boss wins. The existing `HuntBot` is the seed for the bot heroes.
+Needs: a bigger arena (a third zone), a shrinking-zone hazard, bot heroes with
+their own gear, and a placement reward. Only worth it once the core hunt feels
+great; it is the biggest bet on this list.
+
+### 7.3 Engagement ideas that fit the current hunt
+
+- Weekly "mutator" hunt: one rule twist for everyone (double elites, no dash,
+  arrows only) with a bigger reward; a banner in camp shows this week's rule.
+- Boss rush: all bosses in a row with the same hero, no soul phase.
+- Hero mastery: a per-hero track (kills, wins) that unlocks cosmetic weapon
+  glows and a title under the name.
+- A third zone and boss for each new KayKit pack that fits the palette
+  (the Halloween bits and the forest are already imported).
+- Gear sets: two or three pieces of the same set give a bonus; the Barrow set
+  is the Gravemaw uniques, the Crypt set is the Hexer uniques.
 
 ---
 

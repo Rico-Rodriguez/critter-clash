@@ -86,7 +86,7 @@ func steer(dt: float) -> Vector2:
 		var b := hunt.boss
 		var to := b.flat_pos() - p
 		var l2 := to.length()
-		var ideal := 3.4 if melee else 7.5
+		var ideal := 3.4 if melee else 8.6
 		if b.pattern in ["quake", "cleave"] and b.state == "attack":
 			ideal = 7.5
 		if l2 > ideal + 0.5:

@@ -26,6 +26,8 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.has("--check"):
 		_check.call_deferred()
+	elif args.has("--test"):
+		_test.call_deferred()
 	elif args.has("--bot"):
 		_run_bot.call_deferred(args)
 	elif args.has("--capture"):
@@ -87,6 +89,12 @@ func _check() -> void:
 	get_tree().quit(0 if bad == 0 else 1)
 
 
+func _test() -> void:
+	var fails := Tests.new().run()
+	print("TESTS ", "PASSED" if fails == 0 else "%d FAILED" % fails)
+	get_tree().quit(0 if fails == 0 else 1)
+
+
 func _walk(dir: String) -> PackedStringArray:
 	var out := PackedStringArray()
 	for f in ResourceLoader.list_directory(dir):
@@ -142,6 +150,9 @@ func _run_bot(args: PackedStringArray) -> void:
 # --- Screenshots ----------------------------------------------------------
 
 var _shots_dir := "/tmp/shots"
+## A phone's frame budget: shots over this need a look before they ship.
+const BUDGET_DRAWS := 700
+const BUDGET_PRIMS := 400000
 
 
 func _capture(args: PackedStringArray) -> void:
@@ -368,4 +379,8 @@ func _save(name_: String) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png("%s/%s.png" % [_shots_dir, name_])
-	print("SHOT %s draws=%d objects=%d prims=%d nodes=%d" % [name_, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+	var draws := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	var prims := int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+	print("SHOT %s draws=%d objects=%d prims=%d nodes=%d" % [name_, draws, Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), prims, Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+	if draws > BUDGET_DRAWS or prims > BUDGET_PRIMS:
+		print("BUDGET WARNING %s: %d draw calls (limit %d), %d triangles (limit %d)" % [name_, draws, BUDGET_DRAWS, prims, BUDGET_PRIMS])

@@ -33,10 +33,16 @@ jobs:
           grep -q "CHECK .* OK" check.log
           ! grep -q "SCRIPT ERROR" check.log
 
+      - name: Rule checks
+        run: |
+          set -euo pipefail
+          timeout 300 "$GODOT" --headless --path . -- --test 2>&1 | tee test.log
+          grep -q "TESTS PASSED" test.log
+
       - name: Autopilot hunts
         run: |
           set -euo pipefail
-          timeout 900 "$GODOT" --headless --path . --fixed-fps 60 -- --bot --hero=knight,mage,barbarian --runs=1 2>&1 | tee bot.log
+          timeout 900 "$GODOT" --headless --path . --fixed-fps 60 -- --bot --hero=knight,mage,barbarian,ranger --runs=1 2>&1 | tee bot.log
           grep -q "BOT DONE PASS" bot.log
           ! grep -q "SCRIPT ERROR" bot.log
           test "$(grep -c 'win=true' bot.log)" -ge 2
