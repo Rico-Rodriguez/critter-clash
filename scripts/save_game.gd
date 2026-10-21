@@ -2328,6 +2328,16 @@ func _reconcile() -> void:
 			break
 	if not any_hero and data["heroes"].has("paladin"):
 		(data["heroes"]["paladin"] as Dictionary)["unlocked"] = true
+	# The starters are free and always available: the character select is
+	# the front door, and a player who cannot pick a hero there cannot play
+	# at all. Only the two road heroes stay behind the trophy road.
+	for id in STARTERS:
+		if not data["heroes"].has(id):
+			continue
+		var hero_row: Dictionary = data["heroes"][id]
+		if not bool(hero_row.get("unlocked", false)):
+			hero_row["unlocked"] = true
+			hero_row["cards"] = maxi(int(hero_row.get("cards", 0)), 1)
 	for key in ["log"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
 			data[key] = []

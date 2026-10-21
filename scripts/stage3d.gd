@@ -3321,13 +3321,14 @@ func _frame(look: Vector3) -> void:
 	camera.look_at(look + Vector3(0.0, AIM, 0.0), Vector3.UP)
 
 
-## Frames the hero so its body fills about 60% of the stage height, standing
-## a little below center with the plinth and props in view.
+## Frames the hero so its body fills about 42% of the stage height, standing
+## a little below center with the plinth and props in view. It used to fill
+## 60%, which read as a close-up of a torso rather than a hero on a plinth.
 func _frame_on(body: Node3D) -> void:
 	var box := _measure_local(body)
 	var h := maxf(box.size.y, maxf(box.size.x, box.size.z) * 0.75)
-	camera.fov = 30.0
-	var view_h := h / 0.6
+	camera.fov = 34.0
+	var view_h := h / 0.42
 	var dist := view_h * 0.5 / tan(deg_to_rad(camera.fov * 0.5))
 	var focus := body.position + Vector3(0, box.position.y + box.size.y * 0.5 - h * 0.06, 0)
 	var dir := Vector3(0.0, 0.32, 1.0).normalized()

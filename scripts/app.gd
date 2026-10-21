@@ -776,7 +776,7 @@ class HubScreen extends ScreenBase:
 		# A tap on a standing stone in the camp walks the hero through it,
 		# and a tap on a place opens the screen that belongs to it.
 		view.gate_tapped.connect(func(tier_id: String) -> void: _travel(tier_id))
-		view.place_tapped.connect(func(place_id: String) -> void: go(place_id))
+		view.place_tapped.connect(func(place_id: String) -> void: _open_place(place_id))
 		add_child(view)
 		hub = view.camp
 		# The counter's own dark plate, from the camp's lower edge down.
@@ -811,7 +811,6 @@ class HubScreen extends ScreenBase:
 		_ways_holder.add_theme_constant_override("separation", 8)
 		_ways_holder.add_child(_ways_out())
 		box.add_child(_ways_holder)
-		box.add_child(_stall_row())
 		box.add_child(_service_row())
 
 
@@ -875,7 +874,7 @@ class HubScreen extends ScreenBase:
 	## barrier that stands shut says why.
 	func _ways_out() -> Control:
 		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 6)
+		col.add_theme_constant_override("separation", 4)
 		for gate in WorldData.town_gates(SaveGame.data.get("tiers_cleared", {})):
 			col.add_child(_way_row(gate))
 		return col
@@ -886,21 +885,21 @@ class HubScreen extends ScreenBase:
 		var tier_id := str(gate["tier"])
 		var open := bool(gate["open"])
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 12)
+		row.add_theme_constant_override("separation", 10)
 		var text_col := VBoxContainer.new()
 		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text_col.add_theme_constant_override("separation", -2)
-		text_col.add_child(UiKit.label(str(gate["name"]).to_upper(), 26, UiKit.GOLD.lightened(0.2) if open else UiKit.MUTED, "x", 3))
-		var note := UiKit.label(_way_note(tier_id, open), 17, UiKit.MUTED, "b", 0)
+		text_col.add_theme_constant_override("separation", -4)
+		text_col.add_child(UiKit.label(str(gate["name"]).to_upper(), 22, UiKit.GOLD.lightened(0.2) if open else UiKit.MUTED, "x", 3))
+		var note := UiKit.label(_way_note(tier_id, open), 15, UiKit.MUTED, "b", 0)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(note)
 		row.add_child(text_col)
-		var button := UiKit.button("LEAVE" if open else "SHUT", 170, 74, "gold" if open else "grey")
+		var button := UiKit.button("LEAVE" if open else "SHUT", 150, 62, "gold" if open else "grey")
 		button.disabled = not open
 		if open:
 			button.pressed.connect(func() -> void: _travel(tier_id))
 		else:
-			button.tooltip_text = "Clear the ground south of the town first."
+			button.tooltip_text = "Clear the ground below it first."
 		row.add_child(button)
 		return row
 
@@ -909,18 +908,46 @@ class HubScreen extends ScreenBase:
 	## rule that keeps it shut.
 	func _way_note(tier_id: String, open: bool) -> String:
 		if not open:
-			return "Shut until the Fringe is cleared."
+			var below := _tier_below(tier_id)
+			if below == "":
+				return "Shut."
+			return "Shut until the %s is cleared." % WorldData.tier_name(below)
 		var description := WorldData.tier_description(tier_id)
 		return description if description != "" else "The way out of the town."
 
 
 	## A barrier that stands open leads out of the town into a hunt. A shut
-	## one starts nothing.
+	## one says why and starts nothing.
 	func _travel(tier_id: String) -> void:
 		if not SaveGame.tier_open(tier_id):
-			toast("That way is shut.")
+			var below := _tier_below(tier_id)
+			if below == "":
+				toast("That gate is shut.")
+			else:
+				toast("Shut until the %s is cleared." % WorldData.tier_name(below))
 			return
 		_start_hunt(tier_id)
+
+
+	## A place in the town: it opens its screen, and it says what it is
+	## when the tap does not open anything.
+	func _open_place(place_id: String) -> void:
+		var name := ""
+		for place in hub.list_places():
+			if str(place.get("id", "")) == place_id:
+				name = str(place.get("name", ""))
+		if place_id == "general_store" or place_id == "material_buyer":
+			_open_stall(place_id)
+		elif place_id == "forge":
+			go("forge")
+		elif place_id == "slayer":
+			go("slayer")
+		elif place_id == "trophy":
+			go("trophy")
+		elif place_id == "stash":
+			go("stash")
+		else:
+			toast(name if name != "" else "Nothing here yet.")
 
 
 	## Starting a hunt from a barrier: the depth it leads into, the
@@ -967,23 +994,6 @@ class HubScreen extends ScreenBase:
 			child.queue_free()
 		_ways_holder.add_child(_ways_out())
 
-
-
-	## The stalls in the camp: one button per shop the hub keeps. The name
-	## on the button is the stall's own, as the hub's trade sheet gives it.
-	func _stall_row() -> Control:
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 14)
-		var shops: Array = WorldData.hub_data().get("shops", [])
-		for shop_id in shops:
-			var id := str(shop_id)
-			var info := hub.open_shop(id)
-			var button := UiKit.button(str(info.get("name", id)).to_upper(), 0, 84, "gold")
-			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			button.pressed.connect(func() -> void: _open_stall(id))
-			row.add_child(button)
-		return row
 
 
 	## What the camp offers besides the stalls: the stash, the desk (which

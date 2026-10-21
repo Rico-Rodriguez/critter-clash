@@ -314,22 +314,33 @@ static func danger_params(tier_id: String) -> Dictionary:
 ## they all are. The south barrier leads to the shallow ground. `cleared`
 ## is the tier-cleared map from the save.
 static func town_gates(cleared: Dictionary) -> Array:
-	var north := "abyss"
-	for id in ["wilds", "deep", "abyss"]:
-		if not bool(cleared.get(str(id), false)):
-			north = str(id)
-			break
-	return [
-		{
-			"id": "north", "tier": north, "name": "North Gate",
-			# The north barrier opens when the shallow ground is cleared.
-			"open": bool(cleared.get("fringe", false)),
-		},
-		{
-			"id": "south", "tier": "fringe", "name": "South Gate",
-			"open": true,
-		},
-	]
+	# One door per depth, shallowest first: each opens when the one before
+	# it is cleared, so the town always shows the next ground to take.
+	var order := ["fringe", "wilds", "deep", "abyss"]
+	# Where each door stands in the town, and the name it carries.
+	var spots := {
+		"fringe": {"at": "south", "name": "Meadow Gate"},
+		"wilds": {"at": "north", "name": "Mushroom Gate"},
+		"deep": {"at": "east", "name": "Frost Gate"},
+		"abyss": {"at": "west", "name": "Ember Gate"},
+	}
+	var out: Array = []
+	var open := true
+	for i in order.size():
+		var tier_id := str(order[i])
+		var spot: Dictionary = spots[tier_id]
+		out.append({
+			"id": tier_id,
+			"tier": tier_id,
+			"spot": str(spot["at"]),
+			"name": str(spot["name"]),
+			"open": open,
+		})
+		# The next door opens when this one is cleared.
+		if not bool(cleared.get(tier_id, false)):
+			open = false
+	return out
+
 
 
 static func recommended_combat(tier_id: String) -> int:

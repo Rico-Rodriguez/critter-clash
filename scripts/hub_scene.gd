@@ -228,6 +228,10 @@ func _places() -> void:
 	var stash_at := Vector3(2.8, 0.0, -6.2)
 	_people_prop("chest", stash_at + Vector3(0.0, 0.35, 0.0), Vector3(0.9, 0.6, 0.6), Vector3.ZERO)
 	places.append({"id": "stash", "pos": stash_at + Vector3(0.0, 0.7, 0.0), "name": "The Stash"})
+	# The two stalls: they are places in the town, so a tap on one opens
+	# its trade sheet.
+	places.append({"id": "general_store", "pos": GENERAL_STORE_POS + Vector3(0.0, 2.3, 0.0), "name": "The General Store"})
+	places.append({"id": "material_buyer", "pos": MATERIAL_BUYER_POS + Vector3(0.0, 2.3, 0.0), "name": "The Material Buyer"})
 
 
 ## A simple prop for a place: a box, a sphere or a cylinder in stone or
@@ -297,6 +301,11 @@ func _post(at: Vector3, h: float) -> void:
 	add_child(mesh)
 
 
+## Where the doors stand: an arc across the far wall, in the order of the
+## depths. A door at the side of the town falls outside the portrait
+## frame, so they all stand where the camera can see them.
+const DOOR_ARC := [3.75, 4.28, 5.15, 5.67]
+
 ## The ways out of the town: a gate in the town wall at the north and one
 ## at the south. The north barrier leads deeper, the south one to the
 ## shallow ground, and the one that stands open is lit, so the town shows
@@ -304,20 +313,22 @@ func _post(at: Vector3, h: float) -> void:
 func _gates() -> void:
 	gates.clear()
 	var cleared: Dictionary = SaveGame.data.get("tiers_cleared", {})
+	var i := 0
 	for gate in WorldData.town_gates(cleared):
 		var gate_id := str(gate["id"])
 		var tier_id := str(gate["tier"])
 		var open := bool(gate["open"])
-		# The north gate stands in the north wall, the south one in the
-		# south wall, and the town is between them.
-		var at := Vector3(0.0, 0.0, -9.5) if gate_id == "north" else Vector3(0.0, 0.0, 9.5)
+		# The doors stand in an arc across the far wall, in the order of
+		# the depths, so all four of them are in the portrait frame.
+		var angle: float = DOOR_ARC[i] if i < DOOR_ARC.size() else -PI * 0.5
+		i += 1
+		var at := Vector3(cos(angle) * 10.0, 0.0, sin(angle) * 10.0)
 		var pair: Array = []
 		for side in [-1.0, 1.0]:
 			var stone := _prop("rock_a", at + Vector3(1.1 * side, 0.0, 0.0), 1.4)
 			if stone != null:
 				add_child(stone)
 				pair.append(stone)
-		# The lit mark of an open gate: a standing shaft of light between
 		# the two stones, so the way out is the one that glows.
 		if open and pair.size() == 2:
 			var glow := OmniLight3D.new()
@@ -355,7 +366,11 @@ func _wall() -> void:
 		var ang := TAU * float(i) / 40.0
 		# The gaps: north (straight ahead) and south (behind).
 		var deg := rad_to_deg(ang)
-		if absf(deg) < 14.0 or absf(absf(deg) - 180.0) < 14.0:
+		var gap := false
+		for door in DOOR_ARC:
+			if absf(rad_to_deg(door) - deg) < 13.0:
+				gap = true
+		if gap:
 			continue
 		var at := Vector3(cos(ang) * radius, 0.0, sin(ang) * radius)
 		var kind := "rock_a" if i % 3 == 0 else "rock_b"

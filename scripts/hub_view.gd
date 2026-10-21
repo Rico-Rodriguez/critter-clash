@@ -63,7 +63,9 @@ func _ready() -> void:
 	world_root.add_child(camp)
 	_lights()
 	camera = Camera3D.new()
-	camera.fov = 46.0
+	# A wide lens: the town is 20 m across and the frame is a portrait one,
+	# so a narrow lens would only ever show the middle of the plaza.
+	camera.fov = 62.0
 	camera.near = 0.05
 	camera.far = 120.0
 	camera.position = CAM_POS
@@ -198,8 +200,6 @@ func gate_at(tap: Vector2) -> String:
 	var best := ""
 	var best_d := 70.0
 	for gate in camp.list_gate_markers():
-		if not bool(gate.get("open", false)):
-			continue
 		var world: Vector3 = gate["pos"]
 		if camera.is_position_behind(world):
 			continue
