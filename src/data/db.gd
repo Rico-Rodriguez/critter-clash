@@ -115,6 +115,29 @@ const ENEMIES := {
 	},
 }
 
+## Added foes. bomber: runs in and detonates (hurts other skeletons too).
+## necro: keeps its distance and raises minions. robber: the treasure goblin.
+const ENEMIES_EXTRA := {
+	"bomber": {
+		"name": "Pumpkin Bomber", "model": "Skeleton_Minion", "weapons": {"handslot.r": "res://assets/kaykit/graveyard/pumpkin_orange_jackolantern.gltf"},
+		"ai": "bomb", "hp": 22.0, "dmg": 38.0, "speed": 4.3, "radius": 0.42, "reach": 1.7,
+		"windup": 0.75, "cooldown": 9.0, "mass": 1.0, "xp": 2, "scale": 1.0, "blast": 2.4, "tint": Color(1.0, 0.5, 0.1, 0.4),
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"necro": {
+		"name": "Grave Caller", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
+		"ai": "necro", "hp": 90.0, "dmg": 0.0, "speed": 2.6, "radius": 0.5, "reach": 9.0,
+		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 1.18, "blast": 3.0, "tint": Color(0.7, 0.3, 1.0, 0.45),
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Summon", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"robber": {
+		"name": "Grave Robber", "model": "Skeleton_Rogue", "weapons": {},
+		"ai": "flee", "hp": 260.0, "dmg": 0.0, "speed": 6.2, "radius": 0.45, "reach": 0.0,
+		"windup": 1.0, "cooldown": 99.0, "mass": 1.0, "xp": 10, "scale": 1.1, "tint": Color(1.0, 0.8, 0.2, 0.55),
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+}
+
 const BOSS := {
 	"name": "Gravemaw", "title": "the Barrow King",
 	"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"},
@@ -165,9 +188,32 @@ const CARDS := {
 	"ward": {"name": "Bone Ward", "desc": "A shield blocks one hit, recharging", "icon": "bolt-shield", "rarity": "rare", "max": 3},
 	"thorns": {"name": "Thorns", "desc": "Melee attackers take 60% of the hit", "icon": "slashed-shield", "rarity": "rare", "max": 3},
 	"greed": {"name": "Grave Robber", "desc": "+30% gold", "icon": "two-coins", "rarity": "common", "max": 3},
+	"bladestorm": {"name": "Bladestorm", "desc": "Twice the blades, spinning faster", "icon": "spinning-sword", "rarity": "legendary", "max": 1, "evo": ["blades", "haste"]},
+	"tempest": {"name": "Tempest", "desc": "Storm Call strikes 3 more foes, and crits call lightning", "icon": "lightning-helix", "rarity": "legendary", "max": 1, "evo": ["storm", "crit"]},
+	"inferno_heart": {"name": "Inferno Heart", "desc": "Fire Nova is half again as wide and heals you", "icon": "flame", "rarity": "legendary", "max": 1, "evo": ["nova", "vigor"]},
+	"rain": {"name": "Rain of Arrows", "desc": "Every third volley fires a full circle", "icon": "arrow-cluster", "rarity": "legendary", "max": 1, "evo": ["multishot", "pierce"], "only": ["bow"]},
+	"judgement_day": {"name": "Judgement Day", "desc": "Sword waves are twice as wide and stun", "icon": "crossed-swords", "rarity": "legendary", "max": 1, "evo": ["wave", "reach"], "only": ["melee"]},
 	"phoenix": {"name": "Undying", "desc": "Once per hunt, rise again at half health", "icon": "ghost", "rarity": "legendary", "max": 1},
 }
 const CARD_WEIGHT := {"common": 10.0, "rare": 6.0, "epic": 3.2, "legendary": 0.8}
+
+## All foe definitions, base and extra.
+static func enemy(kind: String) -> Dictionary:
+	return ENEMIES[kind] if ENEMIES.has(kind) else ENEMIES_EXTRA[kind]
+
+
+static func enemy_kinds() -> Array:
+	return ENEMIES.keys() + ENEMIES_EXTRA.keys()
+
+
+## Shrines in the graveyard: stand in the ring for a moment to take the
+## blessing for SHRINE_TIME seconds. Each hunt assigns the three at random.
+const SHRINES := {
+	"fury": {"name": "Shrine of Fury", "short": "Fury", "color": Color(1.0, 0.35, 0.2), "dmg": 1.5},
+	"haste": {"name": "Shrine of Haste", "short": "Haste", "color": Color(0.35, 0.9, 1.0), "rate": 1.4, "speed": 1.2},
+	"bones": {"name": "Shrine of Bones", "short": "Bones", "color": Color(0.85, 0.85, 0.65), "armor": 0.35},
+}
+const SHRINE_TIME := 20.0
 
 ## Kill-streak milestones ("Massacre"): reaching one pays bonus souls and gold.
 ## A streak ends after STREAK_WINDOW seconds without a kill.

@@ -51,7 +51,7 @@ func _card(id: String) -> Control:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 8)
 	b.add_child(v)
-	var r := Ui.label(DB.RARITY_NAME[rarity].to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	var r := Ui.label("EVOLUTION" if c.has("evo") else DB.RARITY_NAME[rarity].to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 	r.add_theme_color_override("font_color", col)
 	r.add_theme_font_size_override("font_size", 16)
 	v.add_child(r)

@@ -52,6 +52,14 @@ var _skill_t := 0.0
 var _bot: HuntBot
 var _ended := false
 var _warming := false
+var patches: Array = []
+var shrines: Array = []
+var surge_marks := [0.25, 0.5, 0.75]
+var surge_queue: Array = []
+var calm_t := 0.0
+var _storming := false
+var robber_wanted := false
+var robber_spawned := false
 var streak := 0
 var streak_t := 0.0
 
@@ -61,6 +69,7 @@ func _ready() -> void:
 	tier = DB.TIERS[tier_i]
 	hero_id = Game.hero_id()
 	souls_goal = int(tier["souls"])
+	robber_wanted = randf() < 0.35
 	low = str(Game.setting("quality")) == "low" or OS.has_feature("mobile") and str(Game.setting("quality")) == "auto" and _weak_device()
 	bot = OS.get_cmdline_user_args().has("--bot")
 	world = Node3D.new()
@@ -89,6 +98,7 @@ func _ready() -> void:
 	cam.current = true
 	if str(Game.data.get("pet", "")) != "":
 		_spawn_pet()
+	_setup_shrines()
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
 	hud.setup(self)
@@ -144,7 +154,7 @@ func _warmup() -> void:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
 	var temp: Array[Enemy] = []
 	var x := -3.0
-	for kind in DB.ENEMIES:
+	for kind in DB.enemy_kinds():
 		temp.append(spawn_foe(kind, at + Vector3(x, 0, -2.0)))
 		x += 1.5
 	temp.append(spawn_foe("minion", at + Vector3(0, 0, -4.0), true))
@@ -181,6 +191,67 @@ func _warmup() -> void:
 	t.tween_callback(layer.queue_free)
 
 
+## Each shrine gets a random blessing and a colored ring on the ground.
+func _setup_shrines() -> void:
+	var ids: Array = DB.SHRINES.keys()
+	ids.shuffle()
+	var ring_shader := preload("res://src/fx/hero_ring.gdshader")
+	for i in arena.shrines.size():
+		var sd: Dictionary = arena.shrines[i]
+		var id: String = ids[i % ids.size()]
+		var col: Color = DB.SHRINES[id]["color"]
+		(sd["light"] as OmniLight3D).light_color = col
+		var ring := MeshInstance3D.new()
+		var q := PlaneMesh.new()
+		q.size = Vector2(3.6, 3.6)
+		ring.mesh = q
+		var m := ShaderMaterial.new()
+		m.shader = ring_shader
+		m.set_shader_parameter("color", col)
+		m.set_shader_parameter("intensity", 1.4)
+		ring.material_override = m
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world.add_child(ring)
+		ring.position = Vector3(sd["pos"].x, 0.06, sd["pos"].z)
+		shrines.append({"pos": sd["pos"], "id": id, "fill": 0.0, "used": false, "ring": ring, "light": sd["light"]})
+
+
+## Standing in a shrine's ring fills it; full, it blesses the hero for a while.
+func _tick_shrines(dt: float) -> void:
+	for s in shrines:
+		if s["used"]:
+			continue
+		var inside: bool = hero.alive and hero.flat_pos().distance_to(s["pos"]) < 1.8
+		s["fill"] = clampf(float(s["fill"]) + (dt / 1.5 if inside else -dt * 1.5), 0.0, 1.0)
+		var k: float = s["fill"]
+		(s["ring"] as MeshInstance3D).scale = Vector3.ONE * (1.0 + k * 0.3)
+		(s["light"] as OmniLight3D).light_energy = 1.6 + k * 3.0
+		if k >= 1.0:
+			_activate_shrine(s)
+	var changed := false
+	for bid in hero.buffs.keys():
+		if time >= float(hero.buffs[bid]):
+			hero.buffs.erase(bid)
+			changed = true
+	if changed:
+		hero.recompute()
+
+
+func _activate_shrine(s: Dictionary) -> void:
+	s["used"] = true
+	var d: Dictionary = DB.SHRINES[s["id"]]
+	hero.buffs[s["id"]] = time + DB.SHRINE_TIME
+	hero.recompute()
+	(s["ring"] as MeshInstance3D).queue_free()
+	(s["light"] as OmniLight3D).light_energy = 0.4
+	banner(str(d["name"]), d["color"], "%d seconds" % int(DB.SHRINE_TIME))
+	fx.ring(hero.flat_pos(), 4.0, d["color"], 0.6)
+	fx.burst(hero.flat_pos(), d["color"], 24, 8.0, 1.0)
+	fx.flash_light(hero.flat_pos(), d["color"], 4.0, 8.0, 0.5)
+	Sfx.play("unlock_start", 0.0)
+	Ui.buzz(40, 0.5)
+
+
 func _weak_device() -> bool:
 	var name_ := RenderingServer.get_video_adapter_name().to_lower()
 	return name_.contains("mali-g5") or name_.contains("adreno (tm) 5") or name_.contains("powervr")
@@ -215,6 +286,7 @@ func tick(dt: float) -> void:
 		mv = Vector2.ZERO
 	hero.move_input = mv
 	hero.tick(dt)
+	_tick_shrines(dt)
 	_tick_foes(dt)
 	if boss:
 		boss.tick(dt)
@@ -222,6 +294,7 @@ func tick(dt: float) -> void:
 			_separate_from(boss)
 	_tick_projs(dt)
 	_tick_pickups(dt)
+	_tick_patches(dt)
 	if pet:
 		_tick_pet(dt)
 	match phase:
@@ -372,16 +445,38 @@ func on_screen(p: Vector3, margin := 0.0) -> bool:
 	return s.x > -margin * 40.0 and s.x < vp.size.x + margin * 40.0 and s.y > 80.0 and s.y < vp.size.y - 40.0
 
 
+## A burning patch of ground left by a molten champion. It telegraphs red; the
+## hero takes `dps` a second while standing in it.
+func add_fire_patch(at: Vector3, r: float, dur: float, dps: float) -> void:
+	patches.append({"pos": at, "r": r, "t": dur, "dps": dps, "tick": 0.5, "node": fx.telegraph(0, at, 0.0, Vector2(r, 0), dur)})
+
+
+func _tick_patches(dt: float) -> void:
+	var i := patches.size() - 1
+	while i >= 0:
+		var pt: Dictionary = patches[i]
+		pt["t"] -= dt
+		pt["tick"] -= dt
+		if pt["tick"] <= 0.0:
+			pt["tick"] = 0.5
+			var d: float = hero.flat_pos().distance_to(pt["pos"])
+			if hero.alive and d < float(pt["r"]) + hero.radius * 0.5:
+				damage_hero(float(pt["dps"]) * 0.5, null)
+		if pt["t"] <= 0.0:
+			patches.remove_at(i)
+		i -= 1
+
+
 func progress() -> float:
 	return clampf(float(souls) / float(souls_goal), 0.0, 1.0)
 
 
-func spawn_foe(kind: String, at: Vector3, elite := false) -> Enemy:
+func spawn_foe(kind: String, at: Vector3, elite := false, affix := "") -> Enemy:
 	var e := Enemy.new()
 	world.add_child(e)
 	e.position = at
 	e.rotation.y = Actor.yaw_to(at, hero.position)
-	e.setup(self, kind, tier, elite)
+	e.setup(self, kind, tier, elite, affix)
 	foes.append(e)
 	fx.puff(at, Color(0.28, 0.23, 0.18, 0.75), 7, 0.7, 1.6)
 	if on_screen(at):
@@ -395,15 +490,27 @@ func _direct(dt: float) -> void:
 	var p := progress()
 	var target := int(lerpf(7.0, 30.0, p)) + tier_i * 3
 	target = mini(target, MAX_FOES)
+	calm_t -= dt
+	if calm_t > 0.0:
+		target = int(target * 0.6)
+	if not surge_marks.is_empty() and p >= surge_marks[0]:
+		surge_marks.pop_front()
+		_start_surge(p)
+	_tick_surge(dt)
 	spawn_t -= dt
 	if spawn_t <= 0.0 and foes.size() < target:
-		spawn_t = lerpf(1.7, 0.75, p)
+		spawn_t = lerpf(1.7, 0.75, p) * (2.0 if calm_t > 0.0 else 1.0)
 		var pack := randi_range(2, 3 + int(p * 4.0))
 		var center := arena.spawn_point(hero.position, 8.5, 14.0)
 		for i in pack:
 			var at := arena.resolve(center + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.6, 1.6)), 0.5)
 			spawn_foe(_pick_kind(p), at)
 		Sfx.play("aggro", -14.0)
+	if robber_wanted and not robber_spawned and p >= 0.4:
+		robber_spawned = true
+		spawn_foe("robber", arena.spawn_point(hero.position, 9.0, 12.0))
+		banner("A Grave Robber!", Color(1.0, 0.85, 0.35), "Catch him before he gets away")
+		Sfx.play("roar", -2.0, 1.6)
 	if not elite_marks.is_empty() and p >= elite_marks[0]:
 		elite_marks.pop_front()
 		var kinds := ["warrior", "minion", "rogue", "mage"] if p > 0.5 else ["warrior", "minion"]
@@ -415,8 +522,49 @@ func _direct(dt: float) -> void:
 		_begin_boss()
 
 
+## "The graves open!": a ring of the dead climbs out around the hero over two
+## seconds, then the hunt breathes for eight.
+func _start_surge(p: float) -> void:
+	banner("The graves open!", Color(0.7, 0.95, 0.6), "Hold your ground")
+	shake(0.3)
+	Sfx.play("boom", -4.0, 0.7)
+	var count := randi_range(10, 14) + tier_i * 2
+	for i in count:
+		var dir := Actor.dir_of(TAU * i / count + randf() * 0.2)
+		var at := arena.resolve(hero.position + dir * randf_range(8.0, 10.0), 0.6)
+		surge_queue.append({"t": 0.14 * i, "kind": _pick_kind(p), "pos": at})
+	calm_t = 10.0
+
+
+func _tick_surge(dt: float) -> void:
+	var i := surge_queue.size() - 1
+	while i >= 0:
+		var q: Dictionary = surge_queue[i]
+		q["t"] -= dt
+		if q["t"] <= 0.0:
+			if foes.size() < MAX_FOES:
+				spawn_foe(q["kind"], q["pos"])
+			surge_queue.remove_at(i)
+		i -= 1
+
+
+func necro_count() -> int:
+	var n := 0
+	for f in foes:
+		if f.alive and f.kind == "necro":
+			n += 1
+	return n
+
+
 func _pick_kind(p: float) -> String:
-	var w := {"minion": 1.0, "warrior": 0.28 if p > 0.12 else 0.0, "rogue": 0.3 if p > 0.22 else 0.0, "mage": 0.2 if p > 0.42 else 0.0}
+	var w := {
+		"minion": 1.0,
+		"warrior": 0.28 if p > 0.12 else 0.0,
+		"rogue": 0.3 if p > 0.22 else 0.0,
+		"mage": 0.2 if p > 0.42 else 0.0,
+		"bomber": 0.22 if p > 0.3 else 0.0,
+		"necro": 0.12 if p > 0.55 and necro_count() < 2 else 0.0,
+	}
 	var total := 0.0
 	for k in w:
 		total += w[k]
@@ -473,14 +621,28 @@ func damage_foe(f: Actor, amount: float, _src: Node3D, dir: Vector3, force: floa
 	var crit := randf() < hero.crit
 	if crit:
 		amount *= 2.0
-	if f is Enemy and "warded" in (f as Enemy).affixes:
-		amount *= 0.65
 	amount = roundf(amount * randf_range(0.92, 1.08))
+	if f is Enemy and (f as Enemy).ward_hp > 0.0:
+		var e := f as Enemy
+		var soak := minf(amount, e.ward_hp)
+		e.ward_hp -= soak
+		amount -= soak
+		if e.ward_hp <= 0.0:
+			e.ward_mesh.queue_free()
+			e.ward_mesh = null
+			fx.burst(f.flat_pos(), Color(0.6, 0.55, 1.0), 16, 7.0)
+			Sfx.play("shield_break", -4.0)
+		if amount <= 0.0:
+			fx.text(f.flat_pos(), "Warded", Color(0.7, 0.65, 1.0), 0.6, 0.6)
+			return
 	var landed := minf(amount, maxf(f.hp, 0.0))
 	f.hp -= amount
 	f.hit_flash()
 	if f is Enemy and f.hp > 0.0:
 		(f as Enemy).stagger()
+		if (f as Enemy).kind == "robber":
+			for i in randi_range(1, 2):
+				_drop("gold", f.flat_pos(), randi_range(2, 5))
 	if force > 0.0:
 		f.push(dir, force)
 	var big := f is Boss
@@ -488,6 +650,10 @@ func damage_foe(f: Actor, amount: float, _src: Node3D, dir: Vector3, force: floa
 	fx.burst(f.flat_pos(), Color(1.0, 0.85, 0.6) if not crit else Color(1.0, 0.6, 0.2), 5 if not crit else 9, 6.0)
 	if crit:
 		Sfx.play("crit", -6.0)
+		if int(cards.get("tempest", 0)) > 0 and not _storming and randf() < 0.2:
+			_storming = true
+			hero._storm(3, hero.dmg * 0.8)
+			_storming = false
 	dmg_dealt += landed
 	hero.super_charge = minf(hero.super_charge + landed / (hero.dmg * 15.0) * hero.super_rate, 1.0)
 	if hero.leech > 0.0 and hero.alive:
@@ -531,6 +697,14 @@ func _kill(f: Enemy) -> void:
 			_drop("gold", at, randi_range(1, 3))
 	if randf() < 0.012:
 		_drop("heart", at, 1)
+	if f.kind == "robber":
+		for i in 25:
+			_drop("gold", at, randi_range(3, 8))
+		for i in 2:
+			_drop_item(at, _roll_good("elite", 1 if i == 0 else 0))
+		hitstop(0.08)
+		banner("Grave Robber slain", Color(1.0, 0.85, 0.35), "His hoard spills out")
+		Sfx.play("rare_chime", -2.0)
 	if f.elite:
 		elites_killed += 1
 		hitstop(0.09)
@@ -551,6 +725,16 @@ func _kill(f: Enemy) -> void:
 		Sfx.play("rare_chime", -4.0)
 	elif randf() < 0.012:
 		_drop_item(at, Game.roll_item("trash", tier_i))
+
+
+## Rolls an item of at least rarity index `min_idx` (tries a few times).
+func _roll_good(source: String, min_idx: int) -> Dictionary:
+	var it := Game.roll_item(source, tier_i)
+	for i in 6:
+		if DB.RARITIES.find(it["rarity"]) >= min_idx:
+			break
+		it = Game.roll_item(source, tier_i)
+	return it
 
 
 func _kill_boss() -> void:
@@ -615,6 +799,7 @@ func damage_hero(amount: float, src: Node3D) -> void:
 		var e := src as Enemy
 		if "vampiric" in e.affixes:
 			e.hp = minf(e.hp + amount * 2.0, e.max_hp)
+			fx.lightning(PackedVector3Array([hero.position + Vector3(0, 1.0, 0), e.position + Vector3(0, 1.0, 0)]), Color(1.0, 0.2, 0.25))
 		if hero.thorns > 0.0 and e.def["ai"] == "melee" and e.alive:
 			Sfx.play("thorns", -6.0)
 			damage_foe(e, amount * hero.thorns * 2.0, hero, (e.flat_pos() - hero.flat_pos()).normalized(), 3.0)
@@ -923,7 +1108,7 @@ func _offer_cards() -> void:
 	Ui.buzz(25, 0.4)
 	fx.ring(hero.flat_pos(), 3.0, Color(0.4, 0.9, 1.0), 0.6)
 	if bot:
-		var pref := ["blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]
+		var pref := ["bladestorm", "tempest", "inferno_heart", "rain", "judgement_day", "blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]
 		var best: String = choices[0]
 		for c in pref:
 			if c in choices:
@@ -946,9 +1131,14 @@ func roll_cards(n: int) -> Array:
 			continue
 		if c["rarity"] == "legendary" and run_level < 5:
 			continue
+		if c.has("evo"):
+			continue # evolutions are offered by rule, below
 		pool.append(id)
 		weights.append(float(DB.CARD_WEIGHT[c["rarity"]]))
 	var out := []
+	var evos := eligible_evolutions()
+	if not evos.is_empty():
+		out.append(evos.pick_random())
 	while out.size() < n and not pool.is_empty():
 		var total := 0.0
 		for w in weights:
@@ -961,6 +1151,23 @@ func roll_cards(n: int) -> Array:
 				pool.remove_at(i)
 				weights.remove_at(i)
 				break
+	return out
+
+
+## Evolution cards on offer: the first card of the pair is maxed, the second
+## is owned, and the evolution itself is not taken yet.
+func eligible_evolutions() -> Array:
+	var out := []
+	for id in DB.CARDS:
+		var c: Dictionary = DB.CARDS[id]
+		if not c.has("evo") or int(cards.get(id, 0)) > 0:
+			continue
+		if c.has("only") and not str(hero.def["style"]) in c["only"]:
+			continue
+		var a: String = c["evo"][0]
+		var b: String = c["evo"][1]
+		if int(cards.get(a, 0)) >= int(DB.CARDS[a]["max"]) and int(cards.get(b, 0)) >= 1:
+			out.append(id)
 	return out
 
 

@@ -502,7 +502,7 @@ Verify: `check.sh`.
 
 ## Phase 3 — More to do in a hunt
 
-### [ ] 3.1 The Grave Robber (treasure goblin)
+### [x] 3.1 The Grave Robber (treasure goblin)
 
 Files: `src/data/db.gd` (`ENEMIES["robber"]`: model `Skeleton_Rogue`, no
 weapon, hp 260, speed 6.2, ai `flee`, xp 10), `src/hunt/enemy.gd` (an `ai ==
@@ -519,7 +519,7 @@ digs back into the ground with a puff and is gone), `src/hunt/hunt.gd`.
 
 Verify: add a capture shot `robber` that forces the spawn; `shots.sh robber`.
 
-### [ ] 3.2 Shrines
+### [x] 3.2 Shrines
 
 Files: `src/hunt/arena.gd` (record shrine positions; place 2 more
 `shrine_candles.gltf` so there are three), `src/hunt/hunt.gd`, `src/data/db.gd`
@@ -536,7 +536,7 @@ Files: `src/hunt/arena.gd` (record shrine positions; place 2 more
 
 Verify: a capture shot that walks the hero to a shrine (`--shots=shrine`).
 
-### [ ] 3.3 Card evolutions
+### [x] 3.3 Card evolutions
 
 Files: `src/data/db.gd`, `src/hunt/hunt.gd` (`roll_cards`), `src/hunt/hero.gd`.
 
@@ -560,7 +560,7 @@ Files: `src/data/db.gd`, `src/hunt/hunt.gd` (`roll_cards`), `src/hunt/hero.gd`.
 Verify: a capture shot `evolve` that grants the prerequisite cards and calls
 `_offer_cards()`. Read it: the evolution card is in the offer.
 
-### [ ] 3.4 Elite affixes you can see
+### [x] 3.4 Elite affixes you can see
 
 Files: `src/hunt/enemy.gd`, `src/hunt/fx.gd`, `src/hunt/hunt.gd`.
 
@@ -576,7 +576,7 @@ Files: `src/hunt/enemy.gd`, `src/hunt/fx.gd`, `src/hunt/hunt.gd`.
 
 Verify: a capture shot `elites` that spawns one elite per affix near the hero.
 
-### [ ] 3.5 Two new enemy types
+### [x] 3.5 Two new enemy types
 
 File: `src/data/db.gd` (data), `src/hunt/enemy.gd` (behavior), `src/hunt/hunt.gd`
 (`_pick_kind` weights).
@@ -594,7 +594,7 @@ File: `src/data/db.gd` (data), `src/hunt/enemy.gd` (behavior), `src/hunt/hunt.gd
 Verify: shots `hunt` late in a run (or a forced spawn shot); `check.sh` still
 wins for knight/mage/barbarian.
 
-### [ ] 3.6 Pacing: surges and breathers
+### [x] 3.6 Pacing: surges and breathers
 
 File: `src/hunt/hunt.gd` (`_direct`).
 

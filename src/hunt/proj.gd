@@ -69,6 +69,8 @@ func tick(dt: float, h: Hunt) -> bool:
 				return false
 			var force := 3.5 if kind == "arrow" else 6.0
 			h.damage_foe(f, dmg, source, vel.normalized(), force)
+			if float(extra.get("stun", 0.0)) > 0.0 and f.alive:
+				f.stun_t = maxf(f.stun_t, float(extra["stun"]))
 			hits_left -= 1
 			if hits_left <= 0:
 				return false

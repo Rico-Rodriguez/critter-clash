@@ -224,6 +224,53 @@ func _capture(args: PackedStringArray) -> void:
 						break
 				await _wait(0.8)
 				await _save("equipdetail")
+			"shrine":
+				_set_screen_now("hunt")
+				var hs: Hunt = current
+				hs.bot = true
+				hs._bot = HuntBot.new()
+				hs._bot.hunt = hs
+				hs._bot.idle = true
+				await _wait(2.5)
+				hs.hero.invuln = 999.0
+				hs.hero.position = hs.shrines[0]["pos"] + Vector3(0.2, 0, 0)
+				await _wait(2.6)
+				await _save("shrine")
+			"evolve":
+				_set_screen_now("hunt")
+				var he: Hunt = current
+				he.bot = true
+				he._bot = HuntBot.new()
+				he._bot.hunt = he
+				he._bot.idle = true
+				await _wait(2.5)
+				he.bot = false
+				he.cards["blades"] = 4
+				he.cards["haste"] = 1
+				he.run_level = 6
+				he.run_xp = DB.run_level_xp(he.run_level)
+				he._check_level()
+				await _wait(1.0)
+				await _save("evolve")
+			"foes":
+				# One of every new foe and every elite affix, standing around the hero.
+				_set_screen_now("hunt")
+				var hf2: Hunt = current
+				hf2.bot = true
+				hf2._bot = HuntBot.new()
+				hf2._bot.hunt = hf2
+				hf2._bot.idle = true
+				await _wait(2.5)
+				hf2.hero.invuln = 999.0
+				hf2.robber_spawned = true
+				var base := hf2.hero.flat_pos()
+				var lineup := [["bomber", ""], ["necro", ""], ["robber", ""], ["minion", "vampiric"], ["warrior", "swift"], ["warrior", "molten"], ["minion", "warded"]]
+				for i in lineup.size():
+					var a := -PI * 0.5 + (i - (lineup.size() - 1) * 0.5) * 0.5
+					var at := base + Vector3(sin(a), 0, -cos(a)) * 6.0
+					hf2.spawn_foe(lineup[i][0], at, lineup[i][1] != "", lineup[i][1])
+				await _wait(2.4)
+				await _save("foes")
 			"film":
 				_set_screen_now("hunt")
 				var hf: Hunt = current

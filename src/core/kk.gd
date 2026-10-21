@@ -42,7 +42,7 @@ static func character(model: String, weapons := {}) -> Node3D:
 		var att := BoneAttachment3D.new()
 		att.bone_name = slot
 		skel.add_child(att)
-		att.add_child(prop(WEAPON_DIR + str(weapons[slot])))
+		att.add_child(prop(str(weapons[slot]) if str(weapons[slot]).begins_with("res://") else WEAPON_DIR + str(weapons[slot])))
 	return root
 
 

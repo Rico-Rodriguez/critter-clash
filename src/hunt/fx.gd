@@ -84,6 +84,22 @@ func _ready() -> void:
 		_lights.append(o)
 
 
+## A translucent shield bubble (used by warded champions).
+static func make_ward(radius: float) -> MeshInstance3D:
+	var sh := Shader.new()
+	sh.code = "shader_type spatial;\nrender_mode blend_add, unshaded, cull_back, depth_draw_never, shadows_disabled;\nvoid fragment(){ float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5); ALBEDO = vec3(0.55, 0.5, 1.0) * 2.0; ALPHA = clamp(f * 0.9 + 0.05, 0.0, 1.0); }"
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	var mi := MeshInstance3D.new()
+	var sph := SphereMesh.new()
+	sph.radius = radius
+	sph.height = radius * 2.0
+	mi.mesh = sph
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
 func _first_mesh(path: String) -> Mesh:
 	var n: Node = load(path).instantiate()
 	var mi: MeshInstance3D = n as MeshInstance3D

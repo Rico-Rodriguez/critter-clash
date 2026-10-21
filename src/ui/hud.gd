@@ -23,6 +23,7 @@ var _boss: Boss
 var _modal: Control
 var _hint: Label
 var _streak: Label
+var _buffs: Label
 
 
 func setup(h: Hunt) -> void:
@@ -46,6 +47,13 @@ func setup(h: Hunt) -> void:
 	%Toast.modulate.a = 0.0
 	%Scroll.modulate.a = 0.0
 	%ObjTitle.text = "SOULS"
+	_buffs = Ui.label("", "HudLabel")
+	_buffs.add_theme_font_size_override("font_size", 22)
+	_buffs.offset_left = 134.0
+	_buffs.offset_top = 112.0
+	_buffs.offset_right = 520.0
+	_buffs.offset_bottom = 142.0
+	add_child(_buffs)
 	_streak = Ui.label("", "HudTitle", HORIZONTAL_ALIGNMENT_RIGHT)
 	_streak.add_theme_font_size_override("font_size", 30)
 	_streak.add_theme_color_override("font_color", Color(1.0, 0.55, 0.35))
@@ -114,6 +122,14 @@ func refresh(dt: float) -> void:
 	%Souls.value = hunt.progress() * 100.0
 	%SoulText.text = "%d / %d" % [hunt.souls, hunt.souls_goal]
 	%Gold.text = Ui.fmt_num(hunt.gold)
+	# Active shrine blessings with their time left.
+	var parts: PackedStringArray = []
+	var bcol := Color.WHITE
+	for bid: String in hero.buffs:
+		parts.append("%s %ds" % [DB.SHRINES[bid]["short"], ceili(float(hero.buffs[bid]) - hunt.time)])
+		bcol = DB.SHRINES[bid]["color"]
+	_buffs.text = "  ".join(parts)
+	_buffs.add_theme_color_override("font_color", bcol)
 	# Kill streak: appears from 5 and fades with the window.
 	if hunt.streak >= 5:
 		_streak.text = "%d kills" % hunt.streak

@@ -56,6 +56,9 @@ var blades: Array[Node3D] = []
 var blade_angle := 0.0
 var light: OmniLight3D
 var target_ring: MeshInstance3D
+## Shrine blessings: id -> hunt time they end.
+var buffs := {}
+var volley_n := 0
 var ward_mesh: MeshInstance3D
 var tree: AnimationTree
 var _up_anim: AnimationNodeAnimation
@@ -205,6 +208,12 @@ func recompute() -> void:
 	gold_mult = base["gold"] * (1.0 + 0.3 * lv.call("greed"))
 	leech = 0.03 * lv.call("leech")
 	thorns = 0.6 * lv.call("thorns")
+	for bid: String in buffs:
+		var b: Dictionary = DB.SHRINES[bid]
+		dmg *= float(b.get("dmg", 1.0))
+		rate *= float(b.get("rate", 1.0))
+		speed *= float(b.get("speed", 1.0))
+		armor = minf(armor + float(b.get("armor", 0.0)), 0.7)
 	if old_max > 0.0 and max_hp > old_max:
 		hp += max_hp - old_max
 	hp = minf(hp, max_hp)
@@ -320,13 +329,19 @@ func _impact() -> void:
 				hunt.shake(0.12 + 0.03 * mini(hit, 5))
 			if hunt.cards.get("wave", 0) > 0:
 				var wl: int = hunt.cards["wave"]
-				hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 15.0, dmg * (0.45 + 0.15 * wl), 99, self, {"life": 0.35 + 0.08 * wl, "width": 1.2 + 0.2 * wl})
+				var jd := int(hunt.cards.get("judgement_day", 0)) > 0
+				hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 15.0, dmg * (0.45 + 0.15 * wl), 99, self, {"life": 0.35 + 0.08 * wl, "width": (1.2 + 0.2 * wl) * (2.0 if jd else 1.0), "stun": 0.5 if jd else 0.0})
 		"bow":
 			var n := shots
 			for i in n:
 				var a := aim_yaw + (i - (n - 1) * 0.5) * deg_to_rad(7.0)
 				var d := dir_of(a)
 				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * float(base["proj_speed"]), dmg, 1 + pierce, self)
+			volley_n += 1
+			if int(hunt.cards.get("rain", 0)) > 0 and volley_n % 3 == 0:
+				for i in 12:
+					var da := dir_of(TAU * i / 12.0)
+					hunt.spawn_proj("arrow", flat_pos() + da * 0.5, da * float(base["proj_speed"]), dmg * 0.8, 1 + pierce, self)
 			Sfx.play("atk_archer", -5.0)
 		"magic":
 			var n2 := shots
@@ -478,6 +493,8 @@ func _slam_land() -> void:
 
 func _sync_blades(level: int) -> void:
 	var want := 0 if level <= 0 else level + 1
+	if int(hunt.cards.get("bladestorm", 0)) > 0:
+		want *= 2
 	while blades.size() < want:
 		var b := KK.prop("res://assets/kaykit/weapons/sword_1handed.gltf")
 		var m := StandardMaterial3D.new()
@@ -498,7 +515,7 @@ func _tick_cards(dt: float) -> void:
 	var c := hunt.cards
 	# Orbiting blades.
 	if not blades.is_empty():
-		blade_angle += dt * 3.4
+		blade_angle += dt * 3.4 * (1.6 if int(c.get("bladestorm", 0)) > 0 else 1.0)
 		var bl: int = c.get("blades", 0)
 		var r := 2.3 + 0.15 * bl
 		for i in blades.size():
@@ -517,19 +534,23 @@ func _tick_cards(dt: float) -> void:
 		storm_t -= dt
 		if storm_t <= 0.0:
 			storm_t = maxf(3.2 - 0.45 * sl, 1.2)
-			_storm(2 + sl, dmg * (1.0 + 0.25 * sl))
+			_storm(2 + sl + (3 if int(c.get("tempest", 0)) > 0 else 0), dmg * (1.0 + 0.25 * sl))
 	# Fire nova.
 	var nl: int = c.get("nova", 0)
 	if nl > 0:
 		nova_t -= dt
 		if nova_t <= 0.0:
 			nova_t = maxf(5.0 - 0.7 * nl, 2.0)
-			var r2 := 3.4 + 0.5 * nl
+			var r2 := (3.4 + 0.5 * nl) * (1.5 if int(c.get("inferno_heart", 0)) > 0 else 1.0)
 			hunt.fx.ring(flat_pos(), r2, Color(1.0, 0.5, 0.15), 0.4, 0.12)
 			hunt.fx.embers_at(flat_pos(), Color(1.0, 0.5, 0.15), 16, r2 * 0.7)
 			hunt.fx.flash_light(flat_pos(), Color(1.0, 0.5, 0.2), 3.0, r2 * 1.6, 0.3)
+			var struck := 0
 			for f in hunt.foes_near(position, r2):
 				hunt.damage_foe(f, dmg * (1.2 + 0.3 * nl), self, (f.flat_pos() - flat_pos()).normalized(), 7.0)
+				struck += 1
+			if int(c.get("inferno_heart", 0)) > 0 and struck > 0:
+				hp = minf(hp + max_hp * minf(0.03 * struck, 0.10), max_hp)
 			Sfx.play("fire_trail", -4.0)
 	# Bone ward.
 	var wl: int = c.get("ward", 0)

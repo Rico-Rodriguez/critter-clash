@@ -24,6 +24,8 @@ var lights: Array[OmniLight3D] = []
 var env: Environment
 var sun: DirectionalLight3D
 var low := false
+## [{"pos": Vector3 (stand here), "light": OmniLight3D}] for the three shrines.
+var shrines: Array = []
 ## Tall props that can stand between the camera and a fighter. Each entry:
 ## {"meshes": Array[MeshInstance3D], "x", "z", "r", "h", "t"} — faded by
 ## update_occlusion() while they cover the hero or the boss.
@@ -311,8 +313,12 @@ func _layout() -> void:
 	_plot(Vector3(8, 0, -24), 2, 2, 0.0)
 
 	# The shrine and benches by the cross path.
-	put(G + "shrine_candles.gltf", Vector3(17.5, 0, -6), -PI * 0.5, 1.4, 1.0, true, 1.2)
-	_light(Vector3(16.5, 1.6, -6), Color(1.0, 0.65, 0.3), 1.4, 6.0)
+	for sp in [[Vector3(17.5, 0, -6), -PI * 0.5], [Vector3(-17.5, 0, 6.0), PI * 0.5], [Vector3(17.5, 0, 9.0), -PI * 0.5]]:
+		var at: Vector3 = sp[0]
+		put(G + "shrine_candles.gltf", at, sp[1], 1.4, 1.0, true, 1.2)
+		var inward := -signf(at.x)
+		var sl := _light(at + Vector3(inward * 1.0, 1.6, 0), Color(1.0, 0.65, 0.3), 1.6, 6.5)
+		shrines.append({"pos": at + Vector3(inward * 1.9, 0, 0), "light": sl})
 	put(G + "bench_decorated.gltf", Vector3(-6, 0, -9.6), 0.0, 1.3, 0.7)
 	put(G + "bench.gltf", Vector3(7, 0, -10), 0.2, 1.3, 0.7)
 	# Lanterns along the paths.
