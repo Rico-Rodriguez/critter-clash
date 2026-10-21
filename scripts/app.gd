@@ -773,8 +773,10 @@ class HubScreen extends ScreenBase:
 		view.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 		view.anchor_bottom = CAMP_FRACTION
 		view.offset_bottom = 0.0
-		# A tap on a standing stone in the camp walks the hero through it.
+		# A tap on a standing stone in the camp walks the hero through it,
+		# and a tap on a place opens the screen that belongs to it.
 		view.gate_tapped.connect(func(tier_id: String) -> void: _travel(tier_id))
+		view.place_tapped.connect(func(place_id: String) -> void: go(place_id))
 		add_child(view)
 		hub = view.camp
 		# The counter's own dark plate, from the camp's lower edge down.

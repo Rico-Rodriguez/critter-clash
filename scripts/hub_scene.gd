@@ -27,6 +27,10 @@ const HUB_ID := "hub"
 ## stones stand and whether the gate stands open.
 var gates: Array = []
 
+## The places of the town: the forge, the slayer post, the road, the
+## stash, with the screen each one opens.
+var places: Array = []
+
 ## How big the camp's ground is, in metres.
 const GROUND := 46.0
 
@@ -63,6 +67,7 @@ func _ready() -> void:
 	_stall(MATERIAL_BUYER_POS, "material_buyer")
 	_well()
 	_people()
+	_places()
 	_wall()
 	_rim()
 	_gates()
@@ -196,6 +201,100 @@ func _rim() -> void:
 		var node := _prop(str(entry["model"]), at, float(entry["scale"]))
 		if node != null:
 			add_child(node)
+
+
+## The places of the town: the forge, the slayer master's post, the
+## trophy board, the stash chest and the desk. Each one stands where it
+## is in the town, so a tap on it opens the screen that belongs to it.
+func _places() -> void:
+	places.clear()
+	# The forge: an anvil on its block, with a small fire beside it.
+	var anvil_at := Vector3(-5.2, 0.0, -4.6)
+	_people_prop("anvil", anvil_at, Vector3(0.9, 0.55, 0.4), Vector3(0.0, 0.45, 0.0))
+	_block(anvil_at + Vector3(0.0, 0.0, 0.9), 0.5)
+	places.append({"id": "forge", "pos": anvil_at + Vector3(0.0, 0.8, 0.0), "name": "The Forge"})
+	# The slayer master: a skull on a post.
+	var slayer_at := Vector3(5.4, 0.0, -4.2)
+	_people_prop("skull", slayer_at + Vector3(0.0, 1.1, 0.0), Vector3(0.42, 0.42, 0.42), Vector3.ZERO)
+	_post(slayer_at, 1.2)
+	places.append({"id": "slayer", "pos": slayer_at + Vector3(0.0, 1.4, 0.0), "name": "The Slayer Master"})
+	# The trophy board: a board on two legs.
+	var road_at := Vector3(-1.0, 0.0, -7.4)
+	_people_prop("board", road_at + Vector3(0.0, 1.0, 0.0), Vector3(1.5, 1.0, 0.12), Vector3.ZERO)
+	_post(road_at + Vector3(-0.6, 0.0, 0.0), 1.0)
+	_post(road_at + Vector3(0.6, 0.0, 0.0), 1.0)
+	places.append({"id": "trophy", "pos": road_at + Vector3(0.0, 1.2, 0.0), "name": "The Road"})
+	# The stash: a chest by the wall.
+	var stash_at := Vector3(2.8, 0.0, -6.2)
+	_people_prop("chest", stash_at + Vector3(0.0, 0.35, 0.0), Vector3(0.9, 0.6, 0.6), Vector3.ZERO)
+	places.append({"id": "stash", "pos": stash_at + Vector3(0.0, 0.7, 0.0), "name": "The Stash"})
+
+
+## A simple prop for a place: a box, a sphere or a cylinder in stone or
+## wood, so a place in the town is something you can see.
+func _people_prop(kind: String, at: Vector3, size: Vector3, rot: Vector3) -> void:
+	var mesh := MeshInstance3D.new()
+	match kind:
+		"anvil":
+			var m := BoxMesh.new()
+			m.size = size
+			mesh.mesh = m
+		"skull":
+			var m := SphereMesh.new()
+			m.radius = size.x
+			m.height = size.y * 2.0
+			mesh.mesh = m
+		"chest":
+			var m := BoxMesh.new()
+			m.size = size
+			mesh.mesh = m
+		_:
+			var m := BoxMesh.new()
+			m.size = size
+			mesh.mesh = m
+	var mat := StandardMaterial3D.new()
+	if kind == "skull":
+		mat.albedo_color = Color(0.86, 0.84, 0.76)
+	elif kind == "chest":
+		mat.albedo_color = Color(0.42, 0.3, 0.18)
+	else:
+		mat.albedo_color = Color(0.32, 0.3, 0.28)
+	mat.roughness = 0.9
+	mesh.material_override = mat
+	mesh.position = at
+	mesh.rotation = rot
+	add_child(mesh)
+
+
+## The block an anvil stands on.
+func _block(at: Vector3, h: float) -> void:
+	var mesh := MeshInstance3D.new()
+	var m := BoxMesh.new()
+	m.size = Vector3(0.8, h, 0.8)
+	mesh.mesh = m
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.36, 0.3, 0.24)
+	mat.roughness = 0.95
+	mesh.material_override = mat
+	mesh.position = at + Vector3(0.0, h * 0.5, 0.0)
+	add_child(mesh)
+
+
+## A post, for the things that hang on one.
+func _post(at: Vector3, h: float) -> void:
+	var mesh := MeshInstance3D.new()
+	var m := CylinderMesh.new()
+	m.top_radius = 0.09
+	m.bottom_radius = 0.11
+	m.height = h
+	m.radial_segments = 8
+	mesh.mesh = m
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.34, 0.26, 0.18)
+	mat.roughness = 0.95
+	mesh.material_override = mat
+	mesh.position = at + Vector3(0.0, h * 0.5, 0.0)
+	add_child(mesh)
 
 
 ## The ways out of the town: a gate in the town wall at the north and one
@@ -344,9 +443,14 @@ func _measure(node: Node3D) -> AABB:
 
 
 ## The camp's gates, one per depth tier: the tier's id, where its stones
-## stand in the world and whether the gate stands open.
+## stand and whether the gate stands open.
 func list_gate_markers() -> Array:
 	return gates
+
+
+## The places of the town, with the screen each one opens.
+func list_places() -> Array:
+	return places
 
 
 ## Loads a camp prop and drops it on the ground.

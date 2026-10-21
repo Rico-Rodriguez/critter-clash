@@ -12,6 +12,9 @@ extends Control
 ## Emitted when a gate in the camp is tapped: the depth tier's id.
 signal gate_tapped(tier_id: String)
 
+## Emitted when a place in the camp is tapped: the screen it opens.
+signal place_tapped(place_id: String)
+
 ## The camp scene: the ground, the fire, the stalls and the rim of trees.
 const CAMP := preload("res://scenes/hub_scene.tscn")
 
@@ -208,7 +211,29 @@ func gate_at(tap: Vector2) -> String:
 	return best
 
 
-## A tap on the camp: on a gate stone it walks the hero through it.
+## The place of the town under a tap, or "" when the tap missed them all.
+## The places are three-dimensional, so the tap is matched against where
+## each one stands on the screen.
+func place_at(tap: Vector2) -> String:
+	if camp == null or camera == null:
+		return ""
+	var density := clampf(get_viewport().get_final_transform().get_scale().x, 1.0, 3.0)
+	var best := ""
+	var best_d := 70.0
+	for place in camp.list_places():
+		var world: Vector3 = place["pos"]
+		if camera.is_position_behind(world):
+			continue
+		var on_screen := camera.unproject_position(world)
+		var d := Vector2(on_screen.x / density, on_screen.y / density).distance_to(tap)
+		if d < best_d:
+			best_d = d
+			best = str(place.get("id", ""))
+	return best
+
+
+## A tap on the camp: on a gate stone it walks the hero through it, and
+## on a place it opens the screen that belongs to it.
 func _gui_input(event: InputEvent) -> void:
 	var tap := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
 	if not tap:
@@ -219,12 +244,19 @@ func _gui_input(event: InputEvent) -> void:
 	elif event is InputEventScreenTouch:
 		at = (event as InputEventScreenTouch).position
 	var tier_id := gate_at(at)
-	if tier_id == "":
+	if tier_id != "":
+		accept_event()
+		AudioDirector.sfx("ui_tap")
+		AudioDirector.haptic("medium")
+		gate_tapped.emit(tier_id)
+		return
+	var place_id := place_at(at)
+	if place_id == "":
 		return
 	accept_event()
 	AudioDirector.sfx("ui_tap")
-	AudioDirector.haptic("medium")
-	gate_tapped.emit(tier_id)
+	AudioDirector.haptic("light")
+	place_tapped.emit(place_id)
 
 
 ## The hero's bounds, in his own space.
