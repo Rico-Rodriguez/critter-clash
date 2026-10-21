@@ -1,2 +1,0 @@
-To https://github.com/Rico-Rodriguez/critter-clash.git
-   37793ad..07847b7  main -> main

@@ -134,7 +134,6 @@ tools/
   bake_anims.gd           rebuild the shared animation library
   build_theme.gd          rebuild src/ui/theme.tres (all colors, fonts, buttons)
   preview.gd              cast preview render
-_legacy/                  the previous project, kept out of the build (.gdignore)
 ```
 
 **UI** is built from real scenes (`.tscn`) styled by one Theme. To restyle the
@@ -157,9 +156,3 @@ download on launch (`src/autoload/ota_boot.gd`, details in
 This rebuild changed the autoloads, so `NATIVE_VERSION` went to 2: **phones need
 the new IPA once.** Older installs ignore the new content packs instead of
 loading something they can't run.
-
-## The old project
-
-The previous version (critters, the 2D-sim hunt, the walk-around town, the
-AI-generated hero models) is in `_legacy/`. Godot ignores it, and it isn't in
-builds. It can be deleted once you're happy with this one.

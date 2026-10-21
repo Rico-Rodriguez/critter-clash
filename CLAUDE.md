@@ -27,7 +27,6 @@ a visual result you have not looked at.
 - `src/ui/` — HUD and modal scenes (`.tscn` + script), `theme.tres`.
 - `src/fx/` — shaders.
 - `src/main.gd` — screen switching plus the `--check`, `--bot`, `--capture` modes.
-- `_legacy/` — the old game. Never edit, never import from it.
 
 ## GDScript traps that cost time here
 

@@ -84,4 +84,4 @@ Licensed (CC0), trimmed and layered:
 
 Some effects (swings, dashes, novas, chain lightning, thorns and similar) were
 synthesized from oscillators and noise for this project and are original work.
-The scripts that built the audio are kept in `_legacy/tools/`.
+The scripts that built the audio are are kept in `tools/audio/`.

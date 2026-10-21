@@ -13,5 +13,3 @@
 *.gdshader text eol=lf
 *.import text eol=lf
 
-# The archived project stays as plain git objects.
-_legacy/** !filter !diff !merge

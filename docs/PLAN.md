@@ -15,7 +15,7 @@ the files, the steps, and how to prove it works. Read `CLAUDE.md` first.
    commit it, and write what's left under "Notes for the next task" at the end
    of this file.
 6. Tick the box in this file when a task is done, in the same commit.
-7. Never touch `_legacy/`. Never push to `main` unless the user says so.
+7. Never push to `main` unless the user says so.
 
 Numbers given here are starting values. The user tunes feel on a real phone;
 the dev panel (task 1.5) is how they do it.
@@ -731,7 +731,7 @@ Verify: shot `lobby`.
 
 ## Phase 6 — Housekeeping
 
-### [ ] 6.1 Remove `_legacy/` (ask the user first)
+### [x] 6.1 Remove `_legacy/` (done at the user's request)
 
 Only when the user confirms: `git rm -r _legacy`. Keep `docs/ota.md`. Update
 `README.md` (the "old project" section) and `CREDITS.md` (it points at
