@@ -38,9 +38,32 @@ const BONES := {
 		"wrist.l": "L_wrist_039", "wrist.r": "R_wrist_063",
 		"knee.l": "L_knee_030", "knee.r": "R_knee_025",
 		"ankle.l": "L_ankle_031", "ankle.r": "R_ankle_026",
-		"foot.l": "L_foot_032", "foot.r": "R_foot_027",
+		"foot.l": "L_foot_032", "foot.r": "R_foot_025",
 		"toes.l": "L_toes_033", "toes.r": "R_toes_028",
 	},
+	# The six new class rigs (assets/models/heroes_rigged) all share one
+	# Mixamo-style skeleton: hips, spine, chest, neck, head, the arms
+	# (upper_arm, forearm, hand) and the legs (thigh, shin, foot). They
+	# have no toe bones, so the toe piece rides the foot.
+	"barbarian": NEW_BONES,
+	"paladin": NEW_BONES,
+	"sorceress": NEW_BONES,
+	"rogue": NEW_BONES,
+	"necromancer": NEW_BONES,
+	"druid": NEW_BONES,
+}
+
+## The bones the new class rigs share.
+const NEW_BONES := {
+	"hips": "hips", "spine": "spine", "chest": "chest",
+	"neck": "neck", "head": "head",
+	"shoulder.l": "upper_arm.L", "shoulder.r": "upper_arm.R",
+	"elbow.l": "forearm.L", "elbow.r": "forearm.R",
+	"wrist.l": "hand.L", "wrist.r": "hand.R",
+	"knee.l": "thigh.L", "knee.r": "thigh.R",
+	"ankle.l": "shin.L", "ankle.r": "shin.R",
+	"foot.l": "foot.L", "foot.r": "foot.R",
+	"toes.l": "foot.L", "toes.r": "foot.R",
 }
 
 static var _mats := {}
@@ -66,6 +89,11 @@ static func dress(sk: Skeleton3D, hero: String, t: Dictionary) -> void:
 				_pebble_piece(sk, slot, tier, F)
 			"bramble":
 				_bramble_piece(sk, slot, tier, F)
+			_:
+				# The new class rigs wear the standard plate set. The pieces
+				# are built in the frame the rig's own bones give, so they
+				# fit the new skeletons as they are.
+				_pebble_piece(sk, slot, tier, F)
 
 
 ## Character frame in skeleton space: bone positions, up/lateral/facing
@@ -81,7 +109,7 @@ static func _frame(sk: Skeleton3D, hero: String) -> Dictionary:
 	var lat := ((P["shoulder.l"] as Vector3) - (P["shoulder.r"] as Vector3)).normalized()
 	var fwd := lat.cross(up).normalized()
 	var h := (head - hips).length() * 2.2
-	return {"P": P, "up": up, "lat": lat, "fwd": fwd, "h": h}
+	return {"P": P, "up": up, "lat": lat, "fwd": fwd, "h": h, "hero": hero}
 
 
 # --- materials -------------------------------------------------------------
@@ -439,7 +467,7 @@ static func _pebble_helm(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 		# Rune gorget.
 		_prim(acc, "runeplate", _torus(8.5, 10.5),
 				_xf(neck + up * 2.0, Vector3(1.0, 1.0, 1.0), Vector3(PI * 0.5, 0, 0)))
-	_attach(sk, _bone(sk, "pebble", "head"), "PlateHelm", _bake(acc))
+	_attach(sk, _bone(sk, str(F.get("hero", "pebble")), "head"), "PlateHelm", _bake(acc))
 
 
 ## Chest: a real cuirass over the gambeson — plain iron (T1), blackened
@@ -509,7 +537,7 @@ static func _pebble_chest(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 			_xf(centre - up * (hh - 0.6), Vector3(1.3, 1.0, 0.95)))
 	_prim(acc, "gold", _torus(r_bot - 0.2, r_bot + 0.8),
 			_xf(centre - up * (hh - 2.0), Vector3(1.3, 1.0, 0.95)))
-	_attach(sk, _bone(sk, "pebble", "chest"), "PlateChest", _bake(acc))
+	_attach(sk, _bone(sk, str(F.get("hero", "pebble")), "chest"), "PlateChest", _bake(acc))
 
 
 ## Pauldrons: layered shoulder cops, one lame a tier bigger each step, with
@@ -549,7 +577,7 @@ static func _pebble_pauldrons(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 		var ry := r * sy * 0.55
 		_prim(acc, "edge", _torus(rr - 0.9, rr + 0.1), _xf(c - up * ry))
 		_prim(acc, "gold", _torus(rr + 0.2, rr + 1.8), _xf(c - up * ry))
-		_attach(sk, _bone(sk, "pebble", "shoulder." + side),
+		_attach(sk, _bone(sk, str(F.get("hero", "pebble")), "shoulder." + side),
 				"PlatePauldron" + side.to_upper(), _bake(acc))
 
 
@@ -600,7 +628,7 @@ static func _pebble_gloves(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 		_prim(acc, "gold", _torus(cuff_bot - 0.2, cuff_bot + 1.0), Transform3D(basis, arm_end + dir * 0.9))
 		_prim(acc, "gold", _box(Vector3(8.6, 0.8, 0.8)),
 				Transform3D(Basis.from_euler(Vector3(0.35, 0, 0)), wrist + fwd * 8.2 - up * 1.6))
-		_attach(sk, _bone(sk, "pebble", "wrist." + side),
+		_attach(sk, _bone(sk, str(F.get("hero", "pebble")), "wrist." + side),
 				"PlateGlove" + side.to_upper(), _bake(acc))
 
 
@@ -649,7 +677,7 @@ static func _pebble_boots(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 					Transform3D(Basis.from_euler(Vector3(PI * 0.5, 0, atan2(fwd_f.x, fwd_f.z))), toes + fwd_f * 3.0 + up * 1.5))
 			_prim(acc, "runeglow", _box(Vector3(0.8, 0.8, 12.0)),
 					Transform3D(Basis.from_euler(Vector3(0, atan2(fwd_f.x, fwd_f.z), 0)), fmid + up * 3.6))
-		_attach(sk, _bone(sk, "pebble", "ankle." + side),
+		_attach(sk, _bone(sk, str(F.get("hero", "pebble")), "ankle." + side),
 				"PlateBoot" + side.to_upper(), _bake(acc))
 
 # --- bramble (Mordrek, the Bone Knight) ---------------------------------------
@@ -723,7 +751,7 @@ static func _bramble_helm(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 		# Soulfire circlet.
 		_prim(acc, "soulfire", _torus(10.8, 11.6),
 				_xf(dome_c + up * 1.0, Vector3(1.0, 1.0, 1.0), Vector3(PI * 0.5, 0, 0)))
-	_attach(sk, _bone(sk, "bramble", "head"), "PlateHelm", _bake(acc))
+	_attach(sk, _bone(sk, str(F.get("hero", "bramble")), "head"), "PlateHelm", _bake(acc))
 
 
 ## Chest: a ribcage cuirass — pale bone (T1), charred with a spine ridge
@@ -777,7 +805,7 @@ static func _bramble_chest(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 				var at := yc + lat * cos(a) * 14.0 + fwd * sin(a) * 11.0 - up * 3.0
 				_prim(acc, "bonedark", _cone(1.0, 4.5),
 						Transform3D(_y_to((up * 0.4 + (at - yc).normalized() * 0.9).normalized()), at))
-	_attach(sk, _bone(sk, "bramble", "chest"), "PlateChest", _bake(acc))
+	_attach(sk, _bone(sk, str(F.get("hero", "bramble")), "chest"), "PlateChest", _bake(acc))
 
 
 ## Pauldrons: jagged bone spaulders, charred at T2, wreathed in soulfire
@@ -810,7 +838,7 @@ static func _bramble_pauldrons(sk: Skeleton3D, tier: int, F: Dictionary) -> void
 			for k in 5:
 				var at := c + up * (6.5 - (k % 2) * 2.0) + lat * s * (k - 2) * 3.2 - fwd * 1.5
 				_prim(acc, "soulfire", _cone(1.1, 7.0), Transform3D(_y_to((up * 0.85 + lat * s * 0.3).normalized()), at))
-		_attach(sk, _bone(sk, "bramble", "shoulder." + side),
+		_attach(sk, _bone(sk, str(F.get("hero", "bramble")), "shoulder." + side),
 				"PlatePauldron" + side.to_upper(), _bake(acc))
 
 
@@ -839,7 +867,7 @@ static func _bramble_gloves(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 			var d: Vector3 = (fwd * 0.9 - up * 0.45).normalized()
 			_prim(acc, glow if tier == 3 and k % 2 == 0 else plate, _cone(0.9, talon_len),
 					Transform3D(_y_to(d), at + d * talon_len * 0.4))
-		_attach(sk, _bone(sk, "bramble", "wrist." + side),
+		_attach(sk, _bone(sk, str(F.get("hero", "bramble")), "wrist." + side),
 				"PlateGlove" + side.to_upper(), _bake(acc))
 
 
@@ -879,7 +907,7 @@ static func _bramble_boots(sk: Skeleton3D, tier: int, F: Dictionary) -> void:
 		if tier == 3:
 			_prim(acc, "soulfire", _box(Vector3(0.8, 0.8, shin_len * 0.7)),
 					Transform3D(sbasis, smid + fwd * 4.8))
-		_attach(sk, _bone(sk, "bramble", "ankle." + side),
+		_attach(sk, _bone(sk, str(F.get("hero", "bramble")), "ankle." + side),
 				"PlateBoot" + side.to_upper(), _bake(acc))
 
 

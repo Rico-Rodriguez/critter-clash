@@ -526,6 +526,10 @@ const STARTERS := ["barbarian", "paladin", "sorceress", "rogue"]
 const RETIRED := ["juniper", "pip", "pebble", "ember", "lumen", "bramble"]
 
 func hero(id: String) -> Dictionary:
+	# A class the save never heard of is still a class: it reads as locked
+	# rather than breaking the screen that asks about it.
+	if not data["heroes"].has(id):
+		data["heroes"][id] = {"unlocked": false, "cards": 0, "level": 1}
 	return data["heroes"][id]
 
 
@@ -2292,12 +2296,38 @@ func _reconcile() -> void:
 		data["duel_rating"] = 0
 	if not data.has("featured"):
 		data["featured"] = "paladin"
-	# Retired animal heroes: a save that had one equipped moves to Aldric.
+	# Retired animal heroes: a save that had one moves to the class that
+	# replaced it, and keeps what it earned. The class it moves to is
+	# unlocked by the move, so a save that owned a hero still owns one.
 	if str(data["featured"]) in RETIRED:
-		data["featured"] = "paladin"
+		data["featured"] = str(Catalog.RETIRED_HEROES.get(str(data["featured"]), "paladin"))
 	for rid in RETIRED:
-		if data["heroes"].has(rid):
-			data["heroes"].erase(rid)
+		if not data["heroes"].has(rid):
+			continue
+		var old_hero: Dictionary = data["heroes"][rid]
+		var to_id := str(Catalog.RETIRED_HEROES.get(rid, ""))
+		if to_id != "":
+			if not data["heroes"].has(to_id):
+				data["heroes"][to_id] = {"unlocked": false, "cards": 0, "level": 1}
+			var moved: Dictionary = data["heroes"][to_id]
+			moved["unlocked"] = true
+			moved["cards"] = maxi(int(moved.get("cards", 0)), int(old_hero.get("cards", 0)))
+			moved["level"] = maxi(int(moved.get("level", 1)), int(old_hero.get("level", 1)))
+		data["heroes"].erase(rid)
+	# Every class is in the save, so the hero picker can list them all and
+	# never trips over a class the save never heard of.
+	for id in Catalog.playable_ids():
+		if not data["heroes"].has(id):
+			data["heroes"][id] = {"unlocked": false, "cards": 0, "level": 1}
+	# A save that ends up with no hero at all gets the paladin, so the camp
+	# always has someone standing in it.
+	var any_hero := false
+	for id in data["heroes"].keys():
+		if bool((data["heroes"][id] as Dictionary).get("unlocked", false)):
+			any_hero = true
+			break
+	if not any_hero and data["heroes"].has("paladin"):
+		(data["heroes"]["paladin"] as Dictionary)["unlocked"] = true
 	for key in ["log"]:
 		if not data.has(key) or typeof(data[key]) != TYPE_ARRAY:
 			data[key] = []

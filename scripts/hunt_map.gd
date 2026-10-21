@@ -668,12 +668,12 @@ func _bake_grid() -> void:
 	for y in grid_h:
 		for x in grid_w:
 			var c := Vector2((float(x) + 0.5) * GRID, (float(y) + 0.5) * GRID)
-			# A cell is open when the ground covers it. The pathing must never
-			# cut a trail in two, so the test is coverage and not room: a
-			# body that finds thinner ground than it needs is pushed back
-			# onto the open ground (see PUSH_SLACK), while a pathing gap
-			# would strand whoever walked into it.
-			var ok := depth(c) > 4.0
+			# A cell is open when the ground covers it with room for a
+			# body: the hero is 26 px wide and wants 21 of it, so the
+			# pathing never sends anyone into a wedge too thin to stand
+			# in. The pathing must not cut a trail in two either, so the
+			# test is coverage plus that margin.
+			var ok := depth(c) > 30.0
 			for l in landmarks:
 				if c.distance_to(l["pos"]) < float(l["r"]) + 46.0:
 					ok = false

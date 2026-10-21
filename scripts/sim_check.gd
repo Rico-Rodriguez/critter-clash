@@ -1573,7 +1573,7 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 static func _zone_hunt() -> void:
 	for tier in ["fringe", "wilds"]:
 		var id := str(tier)
-		var report := _play("sorceress", Catalog.biome_for_tier(id), 11, false, 60.0 * 180.0, id)
+		var report := _play("sorceress", Catalog.biome_for_tier(id), 11, false, 60.0 * 300.0, id)
 		print("ZONE ", id, " ", report)
 		if not bool(report.get("boss", false)):
 			_zone_walk_trace(id)

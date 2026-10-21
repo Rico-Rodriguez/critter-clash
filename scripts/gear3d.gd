@@ -16,6 +16,25 @@ extends RefCounted
 const GEAR := "res://assets/models/gear/"
 const SHADER := preload("res://shaders/gear_tier.gdshader")
 
+## The kit the six new class rigs share. The rigs carry no baked plate and
+## no baked sword, so nothing has to be stripped and nothing has to be
+## hidden: a bare slot shows the model, and an earned piece mounts on the
+## rig's own bones.
+const NEW_KIT := {
+	"anims": "",
+	"hide": [],
+	"plate": true,
+	"plate_strip": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+	"strip": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+	"main": ["", "plate:dirk_1", "plate:dirk_2", "gear:blade_oarimaar"],
+	"off": ["", "gear:shield_round", "gear:shield_heater", "gear:shield_tower"],
+	"main_xf": [Vector3(0, 3, 0), Vector3(0, 180, 0)],
+	"off_xf": [Vector3(0, -9, 12), Vector3(0, 0, 0)],
+	"under": Color(0.22, 0.18, 0.14),
+	"wrap": Color(0.4, 0.35, 0.28),
+	"quilt_scale": 0.2,
+}
+
 ## Capture/bake override, e.g. CC_GEAR=weapon:3,armor:2 or CC_GEAR=3.
 static var override := {}
 ## Art-direction lock (2026-10-18): heroes keep the artist's PBR materials.
@@ -358,6 +377,18 @@ static func _rune_lit(src: Material, kit: Dictionary) -> Material:
 const TIER_NAMES := ["Squire's Kit", "Dented Iron", "Blackened Steel", "Runebound"]
 
 const KITS := {
+	# The six new class rigs (assets/models/heroes_rigged) carry no baked
+	# plate and no baked sword of their own, so a bare slot simply shows
+	# the model and every earned piece mounts on the rig's own bones: the
+	# armor from the plate set, the shield and the blade from the gear
+	# set. The hand sockets ride the baked clip library, so the weapon
+	# sits in the hand the way the artist posed it.
+	"barbarian": NEW_KIT,
+	"paladin": NEW_KIT,
+	"sorceress": NEW_KIT,
+	"rogue": NEW_KIT,
+	"necromancer": NEW_KIT,
+	"druid": NEW_KIT,
 	"pebble": {
 		"anims": "res://assets/models/heroes/paladin/paladin_anims.res",
 		"hide": ["BastardScabbard", "swordscabbard", "shortsword", "bastardsword"],
@@ -503,6 +534,16 @@ static func has_kit(id: String) -> bool:
 
 static func anims(id: String) -> String:
 	return str(KITS.get(id, {}).get("anims", ""))
+
+
+## The clip library a kit hangs its hand sockets on. A kit with no library
+## of its own uses the class's own baked one, which is where the new rigs
+## keep their sockets.
+static func _anim_lib(kit: Dictionary, id: String) -> AnimationLibrary:
+	var path := str(kit.get("anims", ""))
+	if path == "":
+		path = "res://assets/models/heroes_new/%s/%s_anims.res" % [id, id]
+	return load(path) as AnimationLibrary
 
 
 const SLOTS := ["helm", "chest", "pauldrons", "gloves", "boots", "weapon", "offhand", "charm"]
@@ -665,7 +706,7 @@ static func dress(model: Node3D, id: String, t: Dictionary = {}) -> void:
 					fm.set_shader_parameter("t_groove", PackedFloat32Array([0.2, 0.6, 0.45, 0.3]))
 				m.set_surface_override_material(i, fm)
 	var sockets: Dictionary = {}
-	var lib := load(str(kit["anims"])) as AnimationLibrary
+	var lib := _anim_lib(kit, id)
 	if lib:
 		sockets = lib.get_meta("sockets", {})
 	var main_xf: Array = kit["main_xf"]

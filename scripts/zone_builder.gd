@@ -43,6 +43,9 @@ const BASE_PACK := 4
 
 ## How far two packs keep apart, in sim px.
 const PACK_GAP := 340.0
+## How far the south gate keeps its packs: the hero walks in through it,
+## so the ground right inside the gate stays clear.
+const QUIET_ENTRY := 1100.0
 
 ## How far a pack keeps from a gate, in sim px.
 const GATE_GAP := 430.0
@@ -359,6 +362,10 @@ static func _lay_camps(zone: WildernessZone, rng: RandomNumberGenerator) -> void
 	for i in zone.nodes.size():
 		if str(zone.nodes[i]["kind"]) == "gate":
 			continue
+		# The way in stays quiet: a pack that waits at the south gate
+		# would jump the hero the moment they step through it.
+		if (zone.nodes[i]["pos"] as Vector2).distance_to(zone.entry) < QUIET_ENTRY:
+			continue
 		hosts.append(i)
 	if hosts.is_empty():
 		return
@@ -417,6 +424,9 @@ static func _lay_patrols(zone: WildernessZone, rng: RandomNumberGenerator) -> vo
 		var s: Dictionary = segs[k]
 		var a: Vector2 = s["a"]
 		var b: Vector2 = s["b"]
+		# The walk in from the south gate is kept clear of patrols too.
+		if a.lerp(b, 0.5).distance_to(zone.entry) < QUIET_ENTRY:
+			continue
 		zone.patrols.append({
 			"a": a.lerp(b, 0.2),
 			"b": a.lerp(b, 0.8),

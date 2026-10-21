@@ -1062,7 +1062,7 @@ func _spawn_hero(id: String, stats: Dictionary, index: int) -> void:
 	hero.sprite = id
 	hero.role = str(info.get("role", "mage"))
 	hero.display = str(info.get("name", id))
-	hero.radius = 32.0
+	hero.radius = 26.0
 	hero.pos = (map.start if explore else play.get_center()) + Vector2(-70 if index > 0 else 0, 40 if index > 0 else 0)
 	hero.prev = hero.pos
 	hero.alive = true
@@ -3654,12 +3654,13 @@ func _place_minion(skin: int, at: Vector2, camp: int, band_id: String = "", leve
 	var depth := _depth_at(at.y)
 	if level > 0:
 		# A zone pack: the level the zone gave it, which already climbs as
-		# the walk goes north inside the zone.
+		# the walk goes north inside the zone, and the depth's own share of
+		# the XP: the deeper ground pays better for the same fight.
 		var scale := 1.0 + float(level - 1) * 0.055
 		m.max_hp = m.base_hp * EXPLORE_HP * scale
 		m.hp = m.max_hp
 		m.dmg *= scale
-		m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * scale * float(_diff()["xp"]))))
+		m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * scale * WorldData.tier_xp_mul(tier_id) * float(_diff()["xp"]))))
 		return m
 	if band_id == "":
 		# A hunt with no tier keeps the old scaling: the depth curve alone.

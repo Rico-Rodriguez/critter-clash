@@ -1,4 +1,4 @@
-# Depth tiers and exploration
+# The depth tiers: the camp, the gates and the walks
 
 - 2026-10-20 — Four depth tiers with their own gates, requirements and descriptions: fringe, wilds, deep, abyss — `scripts/world_data.gd` (`TIER_GATES`, `tier_gates()`, `tier_gate()`, `next_tier_gate()`)
 - 2026-10-20 — `gate_by_id` now scans both the biome gates and the tier gates — `scripts/world_data.gd`
@@ -12,10 +12,11 @@
 - 2026-10-20 — Tier progress is stored as `data["tiers_cleared"]` and decides which gates are open — `scripts/save_game.gd` (`tier_open()`, `clear_tier()`, `tier_cleared()`)
 - 2026-10-20 — The session carries the tier, and the run reads it from the gate that was used — `scripts/session.gd`, `scripts/app.gd` (`_travel`, `_start_hunt`)
 - 2026-10-20 — `Catalog.biome_for_tier()` and `Catalog.tier_for_biome()` translate between the tier a gate stands in and the biome a hunt reports — `scripts/catalog.gd`
-- 2026-10-20 — The intended next world model is the per-tier `ZoneBuilder` zone (fringe 4×2, wilds 4×3, deep 5×3, abyss 5×4 cells) — `docs/wilderness.md`, `scripts/zone_builder.gd`
 - 2026-10-21 — **The tier hunt now plays the zone.** A gate opens that tier's own ground: the hero walks in at the south gate, the tier's own beasts and levels stand in it, its chests and resources are in it, and its guardian waits at the far gate at the north. The guardian rises when the hero gets there, and killing it clears the tier — `scripts/run_sim.gd` (`zone_mode`, `_spawn_world`, `_place_minion`, `_skin_index`), `scripts/zone_builder.gd`
 - 2026-10-21 — A zone hunt runs on a longer clock than a single-screen hunt (300 s against 119 s): the ground is many times bigger and the walk is the point — `scripts/run_sim.gd` (`ZONE_LIMIT`, `_hunt_limit`)
 - 2026-10-21 — A zone's boss enrages fourteen seconds into its fight, not on the hunt's clock, because the fight starts when the hero reaches the gate — `scripts/run_sim.gd` (`ZONE_ENRAGE_AFTER`)
 - 2026-10-21 — The zone's ground was opened up so a body cannot be wedged: wider corridors, a way clearing at every bend, and a push margin when a body does not fit — `scripts/zone_builder.gd` (`_link_wide`), `scripts/hunt_map.gd` (`PUSH_SLACK`)
-- 2026-10-20 — Every hunt shares one clock: the lair boss rises at 68 s and the hunt ends at 119 s, so a hero has 51 s to fight it — `scripts/run_sim.gd` (`EXPLORE_BOSS_AT`, `HUNT_LIMIT`)
-- 2026-10-20 — The whole-world map is 4480×8960 sim px (4 cols × 7 rows of 1120×1280 cells); the per-tier zones are 4480×2560 or taller per tier, which is what makes them walkable inside that clock — `scripts/hunt_map.gd`, `scripts/zone_builder.gd`
+- 2026-10-21 — The way in is quiet: no pack and no patrol waits within 1100 px of the south gate, so the hero is never jumped the moment they step through — `scripts/zone_builder.gd` (`QUIET_ENTRY`)
+- 2026-10-21 — The hero's body is 26 px wide and the pathing keeps 30 px of ground under itself, so nobody walks into a wedge too thin to stand in — `scripts/run_sim.gd` (`_spawn_hero`), `scripts/hunt_map.gd` (`_bake_grid`)
+- 2026-10-21 — **The deeper ground pays better.** Each tier has an XP multiplier of its own (1.0, 1.6, 2.4, 3.4) and the gear cap already rises with the depth — `scripts/world_data.gd` (`xp_mul`, `tier_xp_mul`), `scripts/run_sim.gd` (`_place_minion`), `scripts/loot_table.gd` (`MAX_TIER_BY_DEPTH`)
+- 2026-10-21 — The daily runs a depth zone now, the same flow a gate opens — `scripts/app.gd` (`_start_daily`)

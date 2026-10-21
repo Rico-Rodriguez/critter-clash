@@ -159,6 +159,9 @@ func _spawn_hero() -> void:
 	if hero == null:
 		return
 	world_root.add_child(hero)
+	# The hero wears what the player equipped: the armor, the shield and
+	# the blade, hung on the rig's own bones.
+	Gear3D.dress(hero, hero_id, Gear3D.tiers(hero_id))
 	var box := _measure(hero)
 	var h: float = maxf(box.size.y, 0.05)
 	hero.scale = Vector3.ONE * (HERO_METERS / h)

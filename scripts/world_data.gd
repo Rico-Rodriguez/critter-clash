@@ -32,6 +32,9 @@ const TIERS: Array = [
 			"environmental_hazard": false,
 		},
 		"recommended_combat": 5,
+		## What the ground pays: the deeper tiers pay more XP for
+		## the same fight, so the risk is worth the walk.
+		"xp_mul": 1.0,
 		"description": "The treeline. Rot badgers and barrow beetles skulk at the edge of the light.",
 	},
 	{
@@ -50,6 +53,7 @@ const TIERS: Array = [
 			"environmental_hazard": false,
 		},
 		"recommended_combat": 18,
+		"xp_mul": 1.6,
 		"description": "Deeper gloom. Blight skitterers and moths hunt in packs; the trails grow narrow.",
 	},
 	{
@@ -71,6 +75,7 @@ const TIERS: Array = [
 			"hazard_damage_per_tick": 8,
 		},
 		"recommended_combat": 35,
+		"xp_mul": 2.4,
 		"description": "The old barrows. Rime stalkers and blight trolls guard the ways; fog seeps from the ground.",
 	},
 	{
@@ -92,6 +97,7 @@ const TIERS: Array = [
 			"hazard_damage_per_tick": 15,
 		},
 		"recommended_combat": 58,
+		"xp_mul": 3.4,
 		"description": "The lair approaches. Ashwyrms and magma behemoths rule; the air itself burns.",
 	},
 ]
@@ -306,6 +312,13 @@ static func danger_params(tier_id: String) -> Dictionary:
 static func recommended_combat(tier_id: String) -> int:
 	var tier := tier_data(tier_id)
 	return int(tier.get("recommended_combat", 1))
+
+
+## What a tier's ground pays in XP: the deeper it is, the more a fight in
+## it is worth.
+static func tier_xp_mul(tier_id: String) -> float:
+	var tier := tier_data(tier_id)
+	return float(tier.get("xp_mul", 1.0))
 
 static func tier_name(tier_id: String) -> String:
 	var tier := tier_data(tier_id)
