@@ -680,7 +680,7 @@ Verify: shot `levelup`.
 
 Do this only after phases 1–4. Keep the Barrow exactly as it is.
 
-### [ ] 5.1 Zones as data
+### [x] 5.1 Zones as data
 
 Files: `src/data/db.gd` (`ZONES := {"barrow": {...}, "depths": {...}}` with
 name, enemy weights, boss id, music, souls multiplier, unlock rule),
@@ -690,7 +690,7 @@ takes a zone id), `src/hunt/hunt.gd` (read the zone), `src/autoload/game.gd`
 
 No visible change yet. Verify: `check.sh` passes, shots identical to before.
 
-### [ ] 5.2 The Sunken Crypt (indoor zone)
+### [x] 5.2 The Sunken Crypt (indoor zone)
 
 File: `src/hunt/arena.gd` (`_layout_depths()`).
 
@@ -704,7 +704,7 @@ DirectionalLight from above for shadows).
 
 Verify: shots `hunt` with the zone forced via a capture arg `--zone=depths`.
 
-### [ ] 5.3 Second boss: the Hexer Queen
+### [x] 5.3 Second boss: the Hexer Queen
 
 Files: `src/data/db.gd` (`BOSSES` dict; move `BOSS` into it), new
 `src/hunt/boss_hexer.gd` extending `Boss` (override `_choose`/`_begin`/
@@ -719,7 +719,7 @@ hero 40% for 3 s if hit). Enrage at 50%: orbs ×2.
 Verify: a `boss` shot in the depths zone; `check.sh` with a new bot line
 `--zone=depths` for knight and mage.
 
-### [ ] 5.4 Zone choice in camp
+### [x] 5.4 Zone choice in camp
 
 Files: `src/lobby/lobby_ui.gd` + `.tscn`: above the tier row, a zone picker
 (two cards with the zone name, boss name and a lock showing the unlock rule).

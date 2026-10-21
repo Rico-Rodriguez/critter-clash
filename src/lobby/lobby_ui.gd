@@ -27,6 +27,13 @@ func setup(l: Node3D) -> void:
 		b.icon = Ui.icon(pair[2])
 		var sheet_name: String = pair[1]
 		b.pressed.connect(func(): open_sheet(sheet_name))
+	for i in DB.ZONE_ORDER.size():
+		var zb: Button = %Zones.get_child(i)
+		var zid: String = DB.ZONE_ORDER[i]
+		zb.pressed.connect(func():
+			Game.set_zone(zid)
+			Sfx.play("ui_press", -2.0)
+			refresh())
 	for i in DB.TIERS.size():
 		var b2: Button = %Tiers.get_child(i)
 		var ti := i
@@ -55,8 +62,17 @@ func refresh() -> void:
 		%Lock.visible = true
 		%Lock.text = "Clear Veteran, or gather 20 shards (%d/20)" % int(h["shards"]) if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)" % int(h["shards"])
 	else:
-		%Hunt.text = "Enter the Barrow"
-		%Lock.visible = false
+		%Hunt.text = DB.zone(Game.zone_id())["enter"]
+		var shut := Game.zone_unlocked("depths")
+		%Lock.visible = not shut
+		%Lock.text = "%s opens: %s" % [DB.ZONES["depths"]["name"], DB.ZONES["depths"]["unlock"]]
+	for i in DB.ZONE_ORDER.size():
+		var zb: Button = %Zones.get_child(i)
+		var z: Dictionary = DB.ZONES[DB.ZONE_ORDER[i]]
+		var zopen := Game.zone_unlocked(DB.ZONE_ORDER[i])
+		zb.disabled = not zopen
+		zb.text = z["name"] if zopen else "🔒 " + str(z["name"])
+		zb.button_pressed = DB.ZONE_ORDER[i] == Game.zone_id()
 	for i in DB.TIERS.size():
 		var b: Button = %Tiers.get_child(i)
 		var t: Dictionary = DB.TIERS[i]
@@ -522,7 +538,7 @@ func _build_log(s: Sheet) -> void:
 		if int(Game.data["log"].get(u, 0)) > 0:
 			got += 1
 	var st: Dictionary = Game.data["stats"]
-	var head := _row([Ui.label("Obtained %d / %d" % [got, DB.LOG_ORDER.size()], "Heading"), _spacer(), Ui.label("Gravemaw kills: %d" % int(st["boss_kills"]), "Small")])
+	var head := _row([Ui.label("Obtained %d / %d" % [got, DB.LOG_ORDER.size()], "Heading"), _spacer(), Ui.label("Boss kills: %d" % int(st["boss_kills"]), "Small")])
 	b.add_child(head)
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -543,7 +559,7 @@ func _build_log(s: Sheet) -> void:
 		nm.add_theme_font_size_override("font_size", 20)
 		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(nm)
-		var src: String = {"boss": "Gravemaw", "elite": "Champions", "nightmare": "Gravemaw (Nightmare)"}[ud["source"]]
+		var src: String = {"boss": "Gravemaw", "hexer": "Hexer Queen", "elite": "Champions", "nightmare": "Bosses (Nightmare)"}[ud["source"]]
 		var rl := Ui.label("1/%d · %s" % [int(ud["rate"]), src], "Small", HORIZONTAL_ALIGNMENT_CENTER)
 		rl.add_theme_font_size_override("font_size", 16)
 		v.add_child(rl)

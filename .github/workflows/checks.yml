@@ -41,6 +41,14 @@ jobs:
           ! grep -q "SCRIPT ERROR" bot.log
           test "$(grep -c 'win=true' bot.log)" -ge 2
 
+      - name: Autopilot hunts in the Sunken Crypt
+        run: |
+          set -euo pipefail
+          timeout 900 "$GODOT" --headless --path . --fixed-fps 60 -- --bot --zone=depths --hero=knight,mage --runs=1 2>&1 | tee depths.log
+          grep -q "BOT DONE PASS" depths.log
+          ! grep -q "SCRIPT ERROR" depths.log
+          test "$(grep -c 'win=true' depths.log)" -ge 1
+
       - name: Idle hero must lose
         run: |
           set -euo pipefail

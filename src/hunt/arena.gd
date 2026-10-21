@@ -24,6 +24,8 @@ var lights: Array[OmniLight3D] = []
 var env: Environment
 var sun: DirectionalLight3D
 var low := false
+var zone := "barrow"
+var zone_env: Dictionary
 ## [{"pos": Vector3 (stand here), "light": OmniLight3D}] for the three shrines.
 var shrines: Array = []
 ## Tall props that can stand between the camera and a fighter. Each entry:
@@ -41,13 +43,18 @@ var _path_tex: ImageTexture
 const PATH_RECT := Rect2(-30, -40, 60, 70)
 
 
-func build(low_quality := false) -> void:
+func build(low_quality := false, zone_id := "barrow") -> void:
 	low = low_quality
+	zone = zone_id
+	zone_env = DB.zone(zone_id)["env"]
 	_rng.seed = 7331
 	_environment()
-	_paths()
-	_ground()
-	_layout()
+	if zone_id == "depths":
+		DepthsLayout.build(self)
+	else:
+		_paths()
+		_ground()
+		_layout()
 	_atmosphere()
 
 
@@ -57,10 +64,10 @@ func _environment() -> void:
 	var we := WorldEnvironment.new()
 	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.015, 0.02, 0.035)
+	env.background_color = zone_env["bg"]
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.32, 0.38, 0.58)
-	env.ambient_light_energy = 0.3
+	env.ambient_light_color = zone_env["ambient"]
+	env.ambient_light_energy = zone_env["ambient_e"]
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.05
 	env.glow_enabled = true
@@ -69,8 +76,8 @@ func _environment() -> void:
 	env.glow_hdr_threshold = 0.95
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.09, 0.11, 0.17)
-	env.fog_density = 0.012
+	env.fog_light_color = zone_env["fog"]
+	env.fog_density = zone_env["fog_d"]
 	env.fog_sky_affect = 0.0
 	env.fog_height = 0.4
 	env.fog_height_density = 0.06
@@ -84,9 +91,9 @@ func _environment() -> void:
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()
-	sun.light_color = Color(0.62, 0.7, 1.0)
-	sun.light_energy = 0.5
-	sun.rotation_degrees = Vector3(-58, -32, 0)
+	sun.light_color = zone_env["sun"]
+	sun.light_energy = zone_env["sun_e"]
+	sun.rotation_degrees = zone_env["sun_rot"]
 	sun.shadow_enabled = true
 	sun.shadow_opacity = 0.85
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if low else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
@@ -131,6 +138,8 @@ func _seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
 
 
 func on_path(p: Vector3) -> float:
+	if _path_img == null:
+		return 0.0
 	var u := (p.x - PATH_RECT.position.x) / PATH_RECT.size.x
 	var v := (p.z - PATH_RECT.position.y) / PATH_RECT.size.y
 	if u < 0 or u >= 1 or v < 0 or v >= 1:
@@ -495,7 +504,7 @@ func _atmosphere() -> void:
 	pm.gravity = Vector3.ZERO
 	pm.scale_min = 0.8
 	pm.scale_max = 1.6
-	pm.color = Color(0.55, 0.62, 0.8, 0.13)
+	pm.color = zone_env["mist"]
 	var ramp := Gradient.new()
 	ramp.set_color(0, Color(1, 1, 1, 0))
 	ramp.add_point(0.3, Color(1, 1, 1, 1))
@@ -533,7 +542,7 @@ func _atmosphere() -> void:
 	fm.turbulence_enabled = true
 	fm.turbulence_noise_strength = 0.6
 	fm.turbulence_noise_scale = 3.0
-	fm.color = Color(0.55, 1.0, 0.7, 0.9)
+	fm.color = zone_env["motes"]
 	var fr := Gradient.new()
 	fr.set_color(0, Color(1, 1, 1, 0))
 	fr.add_point(0.2, Color(1, 1, 1, 1))

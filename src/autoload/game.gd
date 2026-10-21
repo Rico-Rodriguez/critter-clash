@@ -49,6 +49,7 @@ func _fresh() -> Dictionary:
 		"seen_tutorial": false,
 		"seen_items": [],
 		"bounties": {"day": "", "list": []},
+		"zone": "barrow",
 	}
 
 
@@ -117,6 +118,21 @@ func hero(id: String) -> Dictionary:
 func set_hero(id: String) -> void:
 	if hero(id)["unlocked"]:
 		data["hero"] = id
+		save()
+
+
+func zone_id() -> String:
+	var z := str(data.get("zone", "barrow"))
+	return z if DB.ZONES.has(z) and zone_unlocked(z) else "barrow"
+
+
+func zone_unlocked(id: String) -> bool:
+	return id == "barrow" or (id == "depths" and int(data["tier_unlocked"]) >= 2)
+
+
+func set_zone(id: String) -> void:
+	if DB.ZONES.has(id) and zone_unlocked(id):
+		data["zone"] = id
 		save()
 
 
@@ -455,7 +471,7 @@ func roll_uniques(source: String, tier_i: int) -> Array:
 	for u in DB.LOG_ORDER:
 		var ud: Dictionary = DB.UNIQUES[u]
 		var src := str(ud["source"])
-		if src == source or (src == "nightmare" and source == "boss" and tier_i == 2):
+		if src == source or (src == "nightmare" and source in ["boss", "hexer"] and tier_i == 2):
 			if rng.randf() < mult / float(ud["rate"]):
 				hits.append(u)
 	return hits
@@ -552,7 +568,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		st["wins"] = int(st["wins"]) + 1
 		st["boss_kills"] = int(st["boss_kills"]) + 1
 		var t := int(r["tier"])
-		var key := str(t)
+		var key := str(t) if str(r.get("zone", "barrow")) == "barrow" else "%s%d" % [r["zone"], t]
 		var best := float(st["best"].get(key, 0.0))
 		if best <= 0.0 or float(r["time"]) < best:
 			st["best"][key] = float(r["time"])

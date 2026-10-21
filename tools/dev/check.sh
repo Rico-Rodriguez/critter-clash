@@ -21,6 +21,11 @@ if [ "${1:-}" != "--quick" ]; then
 	grep -q "BOT DONE PASS" "$LOG/bot.log" || fail=1
 	grep -q "SCRIPT ERROR" "$LOG/bot.log" && fail=1
 	[ "$(grep -c 'win=true' "$LOG/bot.log")" -ge 2 ] || fail=1
+	timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --zone=depths --hero=knight,mage > "$LOG/depths.log" 2>&1
+	grep -E "^BOT|SCRIPT ERROR" "$LOG/depths.log" | cut -c1-150
+	grep -q "BOT DONE PASS" "$LOG/depths.log" || fail=1
+	grep -q "SCRIPT ERROR" "$LOG/depths.log" && fail=1
+	[ "$(grep -c 'win=true' "$LOG/depths.log")" -ge 1 ] || fail=1
 	timeout 600 "$D/godot.sh" --fixed-fps 60 -- --bot --hero=knight --idle > "$LOG/idle.log" 2>&1
 	grep -E "^BOT" "$LOG/idle.log" | cut -c1-110
 	grep -q "BOT DONE PASS" "$LOG/idle.log" || fail=1

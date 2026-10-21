@@ -10,6 +10,8 @@ const HUD_SCENE := preload("res://src/ui/hud.tscn")
 const MAX_FOES := 44
 
 var tier_i := 0
+var zone_id := "barrow"
+var zone: Dictionary
 var rerolls_left := 1
 var tier: Dictionary
 var hero_id := "knight"
@@ -66,6 +68,8 @@ var streak_t := 0.0
 
 
 func _ready() -> void:
+	zone_id = Game.zone_id()
+	zone = DB.zone(zone_id)
 	tier_i = Game.tier()
 	rerolls_left = 2 if tier_i >= 2 else 1
 	tier = DB.TIERS[tier_i]
@@ -79,7 +83,7 @@ func _ready() -> void:
 	add_child(world)
 	arena = Arena.new()
 	world.add_child(arena)
-	arena.build(low)
+	arena.build(low, zone_id)
 	fx = Fx.new()
 	fx.quality_low = low
 	world.add_child(fx)
@@ -119,7 +123,7 @@ func _ready() -> void:
 		await _warmup()
 	Sfx.music("hunt")
 	Sfx.play("hunt_start", -2.0)
-	hud.banner("The Barrow", Color(0.85, 0.8, 0.7), "%s · Gather %d souls to wake the King" % [tier["name"], souls_goal])
+	hud.banner(str(zone["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], str(zone["wake"]) % souls_goal])
 
 
 ## On a phone the first draw of every material, particle and effect compiles a
@@ -152,7 +156,7 @@ func _warmup() -> void:
 	fx.flare(at, Color.WHITE)
 	fx.flash_light(at, Color.WHITE, 0.1, 3.0, 0.1)
 	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]))
-	for kind in ["arrow", "bolt", "fireball", "spear", "wave"]:
+	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
 	var temp: Array[Enemy] = []
 	var x := -3.0
@@ -160,7 +164,7 @@ func _warmup() -> void:
 		temp.append(spawn_foe(kind, at + Vector3(x, 0, -2.0)))
 		x += 1.5
 	temp.append(spawn_foe("minion", at + Vector3(0, 0, -4.0), true))
-	var b := Boss.new()
+	var b := _make_boss()
 	world.add_child(b)
 	b.position = at + Vector3(0, 0, -7.0)
 	b.setup(self, tier)
@@ -567,6 +571,8 @@ func _pick_kind(p: float) -> String:
 		"bomber": 0.22 if p > 0.3 else 0.0,
 		"necro": 0.12 if p > 0.55 and necro_count() < 2 else 0.0,
 	}
+	for k in zone["weights"]:
+		w[k] = float(w[k]) * float(zone["weights"][k])
 	var total := 0.0
 	for k in w:
 		total += w[k]
@@ -579,6 +585,12 @@ func _pick_kind(p: float) -> String:
 
 
 var boss_at := 0.0
+
+
+func _make_boss() -> Boss:
+	var b: Boss = BossHexer.new() if zone["boss"] == "hexer" else Boss.new()
+	b.boss_id = zone["boss"]
+	return b
 
 
 func _begin_boss() -> void:
@@ -595,7 +607,7 @@ func _begin_boss() -> void:
 	for pr in projs:
 		_release_proj(pr)
 	projs.clear()
-	boss = Boss.new()
+	boss = _make_boss()
 	world.add_child(boss)
 	boss.position = arena.boss_spawn
 	boss.rotation.y = 0.0
@@ -603,12 +615,14 @@ func _begin_boss() -> void:
 	cam.focus_override = arena.boss_spawn + Vector3(0, 0, 3.0)
 	fx.puff(arena.boss_spawn, Color(0.3, 0.27, 0.22, 0.85), 22, 3.0, 3.0)
 	fx.bone_burst(arena.boss_spawn, 10, 8.0)
-	fx.ring(arena.boss_spawn, 7.0, Color(0.4, 1.0, 0.7), 0.8)
-	fx.flash_light(arena.boss_spawn, Color(0.4, 1.0, 0.7), 8.0, 16.0, 1.2)
+	var aura: Color = DB.boss_def(str(zone["boss"]))["color"]
+	fx.ring(arena.boss_spawn, 7.0, aura, 0.8)
+	fx.flash_light(arena.boss_spawn, aura, 8.0, 16.0, 1.2)
 	shake(0.8)
 	Sfx.music("boss", 0.6)
 	Sfx.play("boss_roar", 2.0)
-	banner("Gravemaw", Color(0.55, 1.0, 0.8), "the Barrow King wakes")
+	var bd := DB.boss_def(str(zone["boss"]))
+	banner(str(bd["name"]), Color(bd["color"]).lightened(0.25), str(bd["wake"]))
 
 
 # --- Damage --------------------------------------------------------------
@@ -750,13 +764,13 @@ func _kill_boss() -> void:
 	_real_hitstop = 1.4
 	var at := boss.flat_pos()
 	fx.bone_burst(at, 20, 10.0)
-	fx.ring(at, 9.0, Color(0.5, 1.0, 0.8), 1.0)
-	fx.flash_light(at, Color(0.6, 1.0, 0.8), 10.0, 18.0, 1.5)
+	fx.ring(at, 9.0, Color(DB.boss_def(str(zone["boss"]))["color"]).lightened(0.2), 1.0)
+	fx.flash_light(at, Color(DB.boss_def(str(zone["boss"]))["color"]).lightened(0.3), 10.0, 18.0, 1.5)
 	shake(1.0)
 	Sfx.play("boss_die", 2.0)
 	Sfx.music("", 2.0)
 	get_tree().create_timer(0.35 * 0.25, true).timeout.connect(func(): Sfx.play("sting_victory", 0.0))
-	banner("Victory", Color(1.0, 0.85, 0.45), "Gravemaw falls. Take what is yours.")
+	banner("Victory", Color(1.0, 0.85, 0.45), str(DB.boss_def(str(zone["boss"]))["fall"]))
 	if hero.alive:
 		hero.act("Cheering", 1.6, true)
 	# The hoard.
@@ -764,7 +778,7 @@ func _kill_boss() -> void:
 		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
 	for i in randi_range(3, 4):
 		_drop_item(at, Game.roll_item("boss", tier_i))
-	for u in Game.roll_uniques("boss", tier_i):
+	for u in Game.roll_uniques(str(DB.boss_def(str(zone["boss"]))["source"]), tier_i):
 		_drop_item(at, Game.make_unique(u))
 	for i in 10:
 		_drop("soul", at, 4)
@@ -829,7 +843,7 @@ func _hero_dies() -> void:
 	_real_hitstop = 1.2
 	Sfx.music("", 1.5)
 	Sfx.play("sting_defeat", 0.0)
-	banner("You have died", Color(0.85, 0.2, 0.18), "The Barrow keeps you")
+	banner("You have died", Color(0.85, 0.2, 0.18), str(zone["defeat"]))
 	get_tree().create_timer(2.4 * 0.35, true).timeout.connect(func(): _end(false))
 
 
@@ -880,6 +894,22 @@ func _proj_body(kind: String) -> Node3D:
 			s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(s)
 			root.add_child(_streak(Color(1.0, 0.5, 0.15), 1.4, 0.7))
+		"orb":
+			var o := MeshInstance3D.new()
+			var om := SphereMesh.new()
+			om.radius = 0.3
+			om.height = 0.6
+			o.mesh = om
+			var omat := StandardMaterial3D.new()
+			omat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			omat.albedo_color = Color(0.9, 0.7, 1.0)
+			omat.emission_enabled = true
+			omat.emission = Color(0.7, 0.35, 1.0)
+			omat.emission_energy_multiplier = 4.0
+			o.material_override = omat
+			o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(o)
+			root.add_child(_streak(Color(0.7, 0.4, 1.0), 1.4, 0.6))
 		"spear":
 			var bone := KK.prop("res://assets/kaykit/graveyard/bone_A.gltf")
 			bone.scale = Vector3.ONE * 2.2
@@ -1295,7 +1325,7 @@ func _end(win: bool) -> void:
 						items.append(p.item)
 	var spent := _end_time if _end_time > 0.0 else time
 	result = {
-		"win": win, "tier": tier_i, "hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
+		"win": win, "tier": tier_i, "zone": zone_id, "hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
 		"items": items, "kills": kills, "elites": elites_killed, "time": spent,
 		"chest": tier["chest"] if win else "", "level": run_level, "souls": souls,
 	}

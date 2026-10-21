@@ -224,6 +224,32 @@ focus_mode = 0
 theme_type_variation = &"GoldButton"
 text = "Open your chest"
 
+[node name="Zones" type="HBoxContainer" parent="Safe/V"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="Z0" type="Button" parent="Safe/V/Zones"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+theme_override_font_sizes/font_size = 22
+toggle_mode = true
+text = "The Barrow"
+
+[node name="Z1" type="Button" parent="Safe/V/Zones"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+theme_override_font_sizes/font_size = 22
+toggle_mode = true
+text = "Sunken Crypt"
+
 [node name="Tiers" type="HBoxContainer" parent="Safe/V"]
 unique_name_in_owner = true
 layout_mode = 2

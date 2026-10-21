@@ -8,6 +8,8 @@ const UPPER_BONES := ["spine", "chest", "upperarm.l", "lowerarm.l", "wrist.l", "
 const DASH_SPEED := 21.0
 const DASH_TIME := 0.21
 
+## Seconds left of a curse that cuts move speed (the Hexer Queen's lane).
+var slow_t := 0.0
 var id := "knight"
 var def: Dictionary
 var base: Dictionary
@@ -247,6 +249,9 @@ func tick(dt: float) -> void:
 	if want.length() > 1.0:
 		want = want.normalized()
 	var swing_slow := 0.82 if impact_t > 0.0 and def["style"] == "melee" else 1.0
+	if slow_t > 0.0:
+		slow_t -= dt
+		swing_slow *= 0.6
 	var target_vel := want * speed * swing_slow
 	var accel := 60.0 if want.length() > 0.1 else 70.0
 	vel = vel.move_toward(target_vel, accel * dt)
