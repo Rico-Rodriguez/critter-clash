@@ -14,28 +14,30 @@ the world. Everything else is a hunt.
    Barrow Lands: a plaza with a fire and a well, the two stalls, the critters
    who keep the place, and the town wall with its two gates. Nothing fights
    here. The counter over the town holds the business of the town.
-3. **You leave past a barrier.** The town wall has a gate north and a gate
-   south. The north gate leads to the deeper grounds; the south gate leads
-   to the shallow one. The north barrier opens when the shallow ground is
-   cleared, and it always leads to the first depth that is not cleared yet.
+3. **You leave past a barrier.** The town wall has a door for each depth,
+   and each door leads to the biome that depth is made of: the Meadow
+   Gate, the Mushroom Gate, the Frost Gate and the Ember Gate, standing in
+   an arc across the far wall of the plaza. A door opens when the depth
+   before it is cleared, so the town always shows the next ground to take.
 4. **You hunt.** A hunt is a walk through a depth zone, from its south gate
    to its far gate, where the guardian of that depth waits. Clear it and
-   the next gate opens.
+   the next door opens.
 
 So the map is a town with ground on both sides of it:
 
 ```
-            the Abyss      (the lair)
+            the Abyss      (the lair, the Ember Gate)
                |
-            the Deep
+            the Deep       (the Frost Gate)
                |
-            the Wilds
+            the Wilds      (the Mushroom Gate)
                |
-  the Fringe - BARROW HAVEN - (further south, not built)
+  the Fringe - BARROW HAVEN - the Meadow Gate
 ```
 
 The town sits in the middle of that line, which is the point: the shallow
-ground and the deep ground are both a walk from the fire.
+ground and the deep ground are both a walk from the fire, and the doors
+around the plaza are the choice between them.
 
 ## What the town is for
 
