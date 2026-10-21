@@ -23,13 +23,30 @@ var cur_anim := ""
 var _meshes: Array[MeshInstance3D] = []
 var _tint := Color(0, 0, 0, 0)
 static var _mats := {}
+static var _grime: NoiseTexture2D
 
 
 ## Loads a KayKit character, swaps its materials for the shared character
 ## shader (one material per texture), and keeps the mesh list for flashes.
-func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_strength := 0.5, eyes := Color(0, 0, 0, 0)) -> void:
+## `head_scale` < 1 shrinks the head (and helmet) on the shared skeleton for a
+## more adult build; the chest is broadened a little to match.
+func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_strength := 0.5, eyes := Color(0, 0, 0, 0), head_scale := 0.8) -> void:
 	model = KK.character(model_name, weapons)
 	add_child(model)
+	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
+	if skel and head_scale != 1.0:
+		var bs := BoneScaler.new()
+		bs.scales = {"head": Vector3.ONE * head_scale, "chest": Vector3(1.06, 1.0, 1.1)}
+		skel.add_child(bs)
+	if _grime == null:
+		_grime = NoiseTexture2D.new()
+		_grime.width = 128
+		_grime.height = 128
+		_grime.seamless = true
+		var fn := FastNoiseLite.new()
+		fn.frequency = 0.045
+		fn.fractal_octaves = 3
+		_grime.noise = fn
 	anim = KK.anim_player(model)
 	anim.playback_default_blend_time = 0.12
 	for mi in KK.meshes(model):
@@ -50,6 +67,7 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 				m.set_shader_parameter("rim_color", rim)
 				m.set_shader_parameter("rim_strength", rim_strength)
 				m.set_shader_parameter("eye_glow", eyes)
+				m.set_shader_parameter("grime_tex", _grime)
 				_mats[key] = m
 			mi.set_surface_override_material(s, _mats[key])
 

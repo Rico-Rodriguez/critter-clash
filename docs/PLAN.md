@@ -241,7 +241,7 @@ proportions, bright palette). What's wanted is adult proportions, armor that
 reads as armor, and a darker, dirtier palette. Low-poly is fine (OSRS is
 low-poly); cute is not.
 
-### [ ] A.1 Research and shortlist (no code)
+### [x] A.1 Research and shortlist (no code)
 
 Search for free 3D character packs and write the findings to
 `docs/art-options.md`. Requirements, in order:
@@ -281,6 +281,14 @@ recommendation and a fallback ("keep KayKit but re-grade it": desaturated
 palette, darker textures, grime overlay in `char.gdshader`).
 
 Reply to the user with the shortlist and **wait for their choice** before A.2.
+
+> **Done:** see `docs/art-options.md`. Finding: no free pack covers the whole
+> cast in a realistic style (free Quaternius outfits are Ranger + Peasant only;
+> Mixamo is the only full-cast route and has a redistribution catch). The
+> KayKit **grit pass** (smaller heads via `src/core/bone_scaler.gd`, darker
+> desaturated palette and dirt in `src/fx/char.gdshader`) was built as the
+> fallback and ships now; tune `desat`, `darken`, `grime` there. A.2 and A.3
+> (swapping in a different pack) still wait for the user's choice.
 
 ### [ ] A.2 Prove it with one hero
 
