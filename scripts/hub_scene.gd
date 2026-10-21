@@ -71,6 +71,7 @@ func _ready() -> void:
 	_stall(MATERIAL_BUYER_POS, "material_buyer")
 	_well()
 	_river()
+	_far_bank()
 	_buildings()
 	_lanterns()
 	_scatter()
@@ -397,6 +398,36 @@ func _river() -> void:
 	if bridge != null:
 		bridge.rotation.y = 0.0
 		add_child(bridge)
+
+
+## The far bank: the wood beyond the river, where the doors stand. It
+## closes the view north of the water and gives the town a horizon.
+func _far_bank() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 771204
+	for i in 26:
+		var x := rng.randf_range(-16.0, 16.0)
+		var z := rng.randf_range(-13.5, -9.6)
+		# The road to the bridge stays clear.
+		if absf(x) < 2.6 and z > -12.0:
+			continue
+		var kind := "tree_a"
+		var roll := rng.randf()
+		if roll > 0.66:
+			kind = "tree_pine"
+		elif roll > 0.33:
+			kind = "tree_b"
+		var node := _prop(kind, Vector3(x, 0.0, z), rng.randf_range(0.85, 1.35))
+		if node != null:
+			node.rotation.y = rng.randf() * TAU
+	# A few boulders and stumps on the bank itself.
+	for i in 8:
+		var x := rng.randf_range(-13.0, 13.0)
+		if absf(x) < 2.4:
+			continue
+		var node := _prop("rock_b" if i % 2 == 0 else "stump", Vector3(x, 0.0, rng.randf_range(-9.4, -8.2)), rng.randf_range(0.5, 0.9))
+		if node != null:
+			node.rotation.y = rng.randf() * TAU
 
 
 func _buildings() -> void:
