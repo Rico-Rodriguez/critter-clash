@@ -28,6 +28,7 @@ func setup(h: Hunt) -> void:
 	hunt = h
 	Ui.apply_safe_area(%Safe)
 	%Stick.blockers.assign([%Dash, %Super, %Pause])
+	_layout_buttons()
 	%Dash.pressed.connect(func(): dash_pressed.emit())
 	%Super.pressed.connect(func(): super_pressed.emit())
 	%Pause.pressed.connect(_open_pause)
@@ -53,6 +54,29 @@ func setup(h: Hunt) -> void:
 		_hint.anchor_bottom = 0.72
 		_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		add_child(_hint)
+
+
+## Dash and Super tuck into the bottom corner on the thumb's side (setting
+## "buttons": right or left), leaving the middle of the screen free for the
+## stick. The floating stick's rest spot moves to the other side.
+func _layout_buttons() -> void:
+	var left := str(Game.setting("buttons")) == "left"
+	for spec in [[%Dash, 112.0, 116.0], [%Super, 136.0, 256.0]]:
+		var c: Control = spec[0]
+		var sz: float = spec[1]
+		var bottom: float = spec[2]
+		c.anchor_left = 0.0 if left else 1.0
+		c.anchor_right = 0.0 if left else 1.0
+		c.anchor_top = 1.0
+		c.anchor_bottom = 1.0
+		var x := 36.0 + (136.0 - sz) * 0.5
+		c.offset_left = x if left else -x - sz
+		c.offset_right = x + sz if left else -x
+		c.offset_top = -bottom - sz
+		c.offset_bottom = -bottom
+		c.grow_horizontal = Control.GROW_DIRECTION_END if left else Control.GROW_DIRECTION_BEGIN
+	%Stick.home_frac = 0.73 if left else 0.27
+	%Stick._place_home()
 
 
 func move_vector() -> Vector2:
@@ -108,7 +132,7 @@ func banner(text: String, color: Color, sub := "") -> void:
 	_banner_tween = create_tween().set_parallel(true)
 	_banner_tween.tween_property(%Banner, "modulate:a", 1.0, 0.18)
 	_banner_tween.tween_property(%Banner, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_banner_tween.chain().tween_interval(1.9)
+	_banner_tween.chain().tween_interval(1.4)
 	_banner_tween.chain().tween_property(%Banner, "modulate:a", 0.0, 0.5)
 
 
@@ -134,7 +158,7 @@ func skill_toast(skill: String, level: int) -> void:
 		_scroll_tween.kill()
 	_scroll_tween = create_tween().set_parallel(true)
 	_scroll_tween.tween_property(%Scroll, "modulate:a", 1.0, 0.2)
-	_scroll_tween.chain().tween_interval(2.6)
+	_scroll_tween.chain().tween_interval(2.0)
 	_scroll_tween.chain().tween_property(%Scroll, "modulate:a", 0.0, 0.5)
 	hunt.fx.burst(hunt.hero.flat_pos() + Vector3(0, 1.4, 0), Color(1.0, 0.85, 0.3), 16, 6.0, 1.4)
 

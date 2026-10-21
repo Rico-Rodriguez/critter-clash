@@ -14,6 +14,7 @@ var knob := Vector2.ZERO
 var value := Vector2.ZERO
 var blockers: Array[Control] = []
 var home := Vector2.ZERO
+var home_frac := 0.27
 var _alpha := 0.35
 
 
@@ -24,7 +25,7 @@ func _ready() -> void:
 
 
 func _place_home() -> void:
-	home = Vector2(size.x * 0.27, size.y * 0.8)
+	home = Vector2(size.x * home_frac, size.y * 0.8)
 	if finger < 0:
 		origin = home
 		knob = home
