@@ -7,6 +7,7 @@ var lobby: Node3D
 var chest_opening := false
 var _shown_hero := ""
 var _sheet: Sheet
+var _sheet_name := ""
 var equipment: Equipment
 
 
@@ -14,13 +15,14 @@ func setup(l: Node3D) -> void:
 	lobby = l
 	Ui.apply_safe_area(%Safe)
 	_shown_hero = Game.hero_id()
+	Game.refresh_bounties()
 	%Prev.pressed.connect(func(): _cycle(-1))
 	%Next.pressed.connect(func(): _cycle(1))
 	%Hunt.pressed.connect(_on_hunt)
 	%Settings.icon = Ui.icon("cog")
 	%Settings.pressed.connect(func(): open_sheet("settings"))
 	%Chest.pressed.connect(_open_chest)
-	for pair in [[%NavHeroes, "heroes", "visored-helm"], [%NavBag, "bag", "swap-bag"], [%NavSkills, "skills", "upgrade"], [%NavLog, "log", "scroll-unfurled"]]:
+	for pair in [[%NavHeroes, "heroes", "visored-helm"], [%NavBag, "bag", "swap-bag"], [%NavSkills, "skills", "upgrade"], [%NavLog, "log", "scroll-unfurled"], [%NavBounty, "bounties", "archery-target"]]:
 		var b: Button = pair[0]
 		b.icon = Ui.icon(pair[2])
 		var sheet_name: String = pair[1]
@@ -66,6 +68,7 @@ func refresh() -> void:
 		b.add_theme_color_override("font_hover_pressed_color", t["color"])
 	%NavHeroes.get_node("Dot").visible = _any_upgrade()
 	%NavBag.get_node("Dot").visible = Game.new_item_count() > 0
+	%NavBounty.get_node("Dot").visible = Game.bounty_claimable() > 0
 
 
 func _any_upgrade() -> bool:
@@ -154,6 +157,7 @@ func open_sheet(name_: String) -> void:
 		_open_chest()
 		return
 	_sheet = Sheet.new()
+	_sheet_name = name_
 	%Overlay.add_child(_sheet)
 	match name_:
 		"heroes":
@@ -166,9 +170,17 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Skills", _build_skills)
 		"log":
 			_sheet.open("Collection Log", _build_log)
+		"bounties":
+			_sheet.open("Daily Bounties", _build_bounties)
 		"settings":
 			_sheet.open("Settings", _build_settings, 0.7)
 	_sheet.closed.connect(refresh)
+
+
+## The portraits finished rendering after the Heroes sheet was already opened.
+func portraits_ready() -> void:
+	if _sheet and is_instance_valid(_sheet) and _sheet_name == "heroes":
+		_sheet.rebuild()
 
 
 func _card() -> PanelContainer:
@@ -208,6 +220,32 @@ func _disc(icon: String, col: Color, size_: float) -> Panel:
 	return p
 
 
+## A hero's portrait in a rounded frame; the flat icon disc until it is rendered.
+func _portrait(id: String, col: Color, size_: float) -> Control:
+	var t := Portraits.tex(id)
+	if t == null:
+		return _disc(DB.HEROES[id]["icon"], col, size_)
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(size_, size_)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var st := StyleBoxFlat.new()
+	st.bg_color = col.darkened(0.7)
+	st.set_corner_radius_all(int(size_ * 0.5))
+	st.set_border_width_all(3)
+	st.border_color = col
+	st.anti_aliasing = true
+	p.add_theme_stylebox_override("panel", st)
+	p.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	var tr := TextureRect.new()
+	tr.texture = t
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(tr)
+	return p
+
+
 func _build_heroes(s: Sheet) -> void:
 	var b := s.body
 	var roster := HBoxContainer.new()
@@ -228,7 +266,10 @@ func _build_heroes(s: Sheet) -> void:
 		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var cc := CenterContainer.new()
 		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cc.add_child(_disc(d["icon"], d["color"] if h["unlocked"] else Color(0.4, 0.4, 0.42), 76))
+		var pc := _portrait(id, d["color"] if h["unlocked"] else Color(0.4, 0.4, 0.42), 88)
+		if not h["unlocked"]:
+			pc.modulate = Color(0.35, 0.35, 0.4)
+		cc.add_child(pc)
 		v.add_child(cc)
 		var nm := Ui.label(d["name"], "Body", HORIZONTAL_ALIGNMENT_CENTER)
 		nm.add_theme_font_size_override("font_size", 21)
@@ -423,6 +464,55 @@ func _build_skills(s: Sheet) -> void:
 	var note := Ui.label("Damage you deal trains your skills: melee heroes train Attack, Strength and Defence; the Ranger trains Ranged; the Mage trains Magic. Hitpoints always trains.", "Small")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(note)
+
+
+func _build_bounties(s: Sheet) -> void:
+	var b := s.body
+	b.add_child(Ui.label("Three new bounties every day. Progress counts from any hunt.", "Small"))
+	var list: Array = Game.data["bounties"]["list"]
+	for i in list.size():
+		var e: Dictionary = list[i]
+		var done := Game.bounty_done(e)
+		var claimed: bool = e["claimed"]
+		var c := _card()
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 8)
+		var rew := "%d gold" % int(e["gold"])
+		if int(e["shards"]) > 0:
+			rew += " + %d %s shards" % [int(e["shards"]), DB.HEROES[e["shard_hero"]]["name"]]
+		var top := _row([Ui.label(Game.bounty_text(e), "Body"), _spacer()], 8)
+		top.get_child(0).add_theme_color_override("font_color", Color(0.6, 0.6, 0.6) if claimed else Color(1.0, 0.94, 0.85))
+		v.add_child(top)
+		var pb := ProgressBar.new()
+		pb.theme_type_variation = "XPBar"
+		pb.custom_minimum_size = Vector2(0, 14)
+		pb.show_percentage = false
+		pb.value = float(e["progress"]) / float(maxi(int(e["target"]), 1)) * 100.0
+		v.add_child(pb)
+		var bottom := _row([Ui.label("%d / %d" % [mini(int(e["progress"]), int(e["target"])), int(e["target"])], "Small"), _spacer(), Ui.label(rew, "Small")], 8)
+		bottom.get_child(2).add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
+		v.add_child(bottom)
+		if done and not claimed:
+			var cb := Button.new()
+			cb.theme_type_variation = "GoldButton"
+			cb.text = "Claim"
+			cb.custom_minimum_size = Vector2(0, 76)
+			cb.focus_mode = Control.FOCUS_NONE
+			var idx := i
+			cb.pressed.connect(func():
+				var got := Game.claim_bounty(idx)
+				if not got.is_empty():
+					Sfx.play("coin", -2.0)
+					Ui.buzz(20, 0.4)
+					refresh()
+					s.rebuild())
+			v.add_child(cb)
+		elif claimed:
+			var dn := Ui.label("Claimed", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+			dn.add_theme_color_override("font_color", Color(0.5, 0.85, 0.55))
+			v.add_child(dn)
+		c.add_child(v)
+		b.add_child(c)
 
 
 func _build_log(s: Sheet) -> void:

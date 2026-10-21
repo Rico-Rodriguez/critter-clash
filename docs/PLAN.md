@@ -609,7 +609,7 @@ Verify: bot runs still clear in 90–200 s (`check.sh` prints times).
 
 ## Phase 4 — Camp and progression
 
-### [ ] 4.1 Real hero portraits
+### [x] 4.1 Real hero portraits
 
 Files: new `src/ui/portraits.gd` (`class_name Portraits`, static cache),
 `src/ui/hud.gd` (medal), `src/lobby/lobby_ui.gd` (roster tiles, chest shard
@@ -627,7 +627,7 @@ the cache. Fall back to the current icon when running headless.
 Verify: `tools/dev/shots.sh lobby,heroes,hunt`; portraits in the roster and HUD
 medal.
 
-### [ ] 4.2 Daily bounties
+### [x] 4.2 Daily bounties
 
 Files: `src/data/db.gd` (`BOUNTY_POOL`: kill N skeletons, slay N champions,
 win with hero X, clear Veteran, collect N gold, reach run level N — each with a
@@ -654,7 +654,7 @@ Files: `src/lobby/lobby_ui.gd` (`_item_card`), `src/hunt/hero.gd` and
 
 Verify: shots `bag,lobby`.
 
-### [ ] 4.4 Results screen count-ups
+### [x] 4.4 Results screen count-ups
 
 File: `src/ui/results.gd`.
 
@@ -665,7 +665,7 @@ finishes (tap anywhere skips to the end).
 
 Verify: shot `results` (after the count) — final numbers match today's.
 
-### [ ] 4.5 Level-up reroll
+### [x] 4.5 Level-up reroll
 
 Files: `src/hunt/hunt.gd`, `src/ui/levelup.gd`/`.tscn`.
 

@@ -5,19 +5,46 @@ signal picked(id: String)
 
 var _done := false
 var _hunt: Hunt
+var _choices: Array = []
+var _reroll: Button
 
 
 func open(h: Hunt, choices: Array, level: int) -> void:
 	_hunt = h
 	%Title.text = "Level %d" % level
+	_reroll = Button.new()
+	_reroll.theme_type_variation = "Ghost"
+	_reroll.focus_mode = Control.FOCUS_NONE
+	_reroll.custom_minimum_size = Vector2(0, 72)
+	_reroll.pressed.connect(_do_reroll)
+	$Box.add_child(_reroll)
+	_fill(choices)
+	Ui.pop_in(%Title, 0.0, 1.3)
+
+
+func _fill(choices: Array) -> void:
+	_choices = choices
+	Ui.clear(%Cards)
 	for id in choices:
 		%Cards.add_child(_card(id))
+	_reroll.text = "Reroll (%d)" % _hunt.rerolls_left
+	_reroll.disabled = _hunt.rerolls_left <= 0
+	_reroll.modulate.a = 0.4 if _hunt.rerolls_left <= 0 else 1.0
 	await get_tree().process_frame
 	var i := 0
 	for c in %Cards.get_children():
-		Ui.pop_in(c, 0.05 + i * 0.07, 0.7)
+		Ui.pop_in(c, 0.03 + i * 0.07, 0.7)
 		i += 1
-	Ui.pop_in(%Title, 0.0, 1.3)
+
+
+func _do_reroll() -> void:
+	if _done:
+		return
+	var fresh := _hunt.reroll_cards(_choices)
+	if fresh.is_empty():
+		return
+	Sfx.play("card_flip", -4.0)
+	_fill(fresh)
 
 
 func _card(id: String) -> Control:
@@ -108,6 +135,10 @@ func _card(id: String) -> Control:
 ## tapped while the thumb still rests on the stick is read from the raw touch.
 func _input(e: InputEvent) -> void:
 	if _done or not (e is InputEventScreenTouch) or not e.pressed or e.index == 0:
+		return
+	if _reroll.get_global_rect().has_point(e.position):
+		get_viewport().set_input_as_handled()
+		_reroll.pressed.emit()
 		return
 	for c in %Cards.get_children():
 		if (c as Control).get_global_rect().has_point(e.position):

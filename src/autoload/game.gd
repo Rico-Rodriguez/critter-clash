@@ -48,6 +48,7 @@ func _fresh() -> Dictionary:
 		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard", "buttons": "right", "haptics": true},
 		"seen_tutorial": false,
 		"seen_items": [],
+		"bounties": {"day": "", "list": []},
 	}
 
 
@@ -561,8 +562,102 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if t >= 1 and not hero("barbarian")["unlocked"]:
 			hero("barbarian")["unlocked"] = true
 			summary["unlocked_hero"] = "barbarian"
+	_bounty_progress(r)
 	var opened := unlock_by_shards()
 	if opened != "":
 		summary["unlocked_hero"] = opened
 	save()
 	return summary
+
+
+# --- Daily bounties --------------------------------------------------------
+
+## Draws today's bounties if the date changed. Seeded by the date, so the same
+## day always gives the same three. Returns true when a new set was drawn.
+func refresh_bounties(today := "") -> bool:
+	if today == "":
+		today = Time.get_date_string_from_system()
+	var b: Dictionary = data["bounties"]
+	if str(b["day"]) == today and not (b["list"] as Array).is_empty():
+		return false
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(today)
+	var ids: Array = DB.BOUNTY_POOL.keys()
+	if int(data["tier_unlocked"]) < 1:
+		ids.erase("veteran")
+	var list := []
+	while list.size() < DB.BOUNTIES_PER_DAY and not ids.is_empty():
+		var id: String = ids[rng.randi() % ids.size()]
+		ids.erase(id)
+		var def: Dictionary = DB.BOUNTY_POOL[id]
+		var k := rng.randi() % (def["targets"] as Array).size()
+		var entry := {"id": id, "target": int(def["targets"][k]), "gold": int(def["gold"][k]), "progress": 0, "claimed": false, "hero": "", "shards": 0, "shard_hero": ""}
+		if def.has("hero"):
+			var pool: Array = DB.HERO_ORDER.filter(func(h): return hero(h)["unlocked"])
+			entry["hero"] = pool[rng.randi() % pool.size()]
+		if def.has("shards"):
+			entry["shards"] = int(def["shards"])
+			entry["shard_hero"] = entry["hero"] if entry["hero"] != "" else hero_id()
+		list.append(entry)
+	data["bounties"] = {"day": today, "list": list}
+	save()
+	return true
+
+
+func bounty_text(e: Dictionary) -> String:
+	var def: Dictionary = DB.BOUNTY_POOL[e["id"]]
+	var t: String = def["text"]
+	if def.has("hero"):
+		return t % DB.HEROES[e["hero"]]["name"]
+	return t % int(e["target"]) if t.contains("%d") else t
+
+
+func bounty_done(e: Dictionary) -> bool:
+	return int(e["progress"]) >= int(e["target"])
+
+
+func bounty_claimable() -> int:
+	var n := 0
+	for e in data["bounties"]["list"]:
+		if bounty_done(e) and not e["claimed"]:
+			n += 1
+	return n
+
+
+func _bounty_progress(r: Dictionary) -> void:
+	var won: bool = r.get("win", false)
+	for e in data["bounties"]["list"]:
+		var def: Dictionary = DB.BOUNTY_POOL[e["id"]]
+		if e["claimed"] or (def.has("win") and not won):
+			continue
+		if def.has("veteran") and int(r.get("tier", 0)) < 1:
+			continue
+		if def.has("hero") and str(r.get("hero", "")) != str(e["hero"]):
+			continue
+		var amount := 0
+		match def["stat"]:
+			"wins": amount = 1
+			"level": amount = int(r.get("level", 0))
+			_: amount = int(r.get(def["stat"], 0))
+		if def.has("best"):
+			e["progress"] = maxi(int(e["progress"]), amount)
+		else:
+			e["progress"] = mini(int(e["progress"]) + amount, int(e["target"]))
+
+
+## Pays out a finished bounty. Returns its reward ({} if not claimable).
+func claim_bounty(i: int) -> Dictionary:
+	var list: Array = data["bounties"]["list"]
+	if i < 0 or i >= list.size():
+		return {}
+	var e: Dictionary = list[i]
+	if e["claimed"] or not bounty_done(e):
+		return {}
+	e["claimed"] = true
+	data["gold"] = gold() + int(e["gold"])
+	var sh := str(e.get("shard_hero", ""))
+	if int(e["shards"]) > 0 and sh != "":
+		hero(sh)["shards"] = int(hero(sh)["shards"]) + int(e["shards"])
+	var opened := unlock_by_shards()
+	save()
+	return {"gold": int(e["gold"]), "shards": int(e["shards"]), "hero": sh, "unlocked": opened}

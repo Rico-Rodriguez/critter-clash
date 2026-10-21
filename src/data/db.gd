@@ -206,6 +206,21 @@ static func enemy_kinds() -> Array:
 	return ENEMIES.keys() + ENEMIES_EXTRA.keys()
 
 
+## Daily bounties: three are drawn per calendar day. `stat` is summed over
+## hunts (or the best single hunt with `best`); `win` counts only won hunts,
+## `veteran` only wins on Veteran or harder, `hero` ties it to a hero.
+## targets/gold are parallel lists (easy → hard); shards go to the hero named.
+const BOUNTY_POOL := {
+	"kills": {"text": "Slay %d skeletons", "stat": "kills", "targets": [120, 220], "gold": [150, 300]},
+	"elites": {"text": "Slay %d champions", "stat": "elites", "targets": [3, 6], "gold": [180, 360]},
+	"boss": {"text": "Slay the Gravemaw", "stat": "wins", "targets": [1], "gold": [250], "win": true},
+	"hero": {"text": "Win a hunt as the %s", "stat": "wins", "targets": [1], "gold": [200], "win": true, "hero": true, "shards": 3},
+	"veteran": {"text": "Clear Veteran", "stat": "wins", "targets": [1], "gold": [400], "win": true, "veteran": true, "shards": 4},
+	"gold": {"text": "Collect %d gold in hunts", "stat": "gold", "targets": [300, 600], "gold": [150, 300]},
+	"level": {"text": "Reach level %d in one hunt", "stat": "level", "targets": [8, 10], "gold": [150, 250], "best": true},
+}
+const BOUNTIES_PER_DAY := 3
+
 ## Shrines in the graveyard: stand in the ring for a moment to take the
 ## blessing for SHRINE_TIME seconds. Each hunt assigns the three at random.
 const SHRINES := {

@@ -172,9 +172,14 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties":
 				if shot == "chest":
 					pending_chest = "gold"
+				if shot == "bounties":
+					Game.refresh_bounties()
+					var bl: Array = Game.data["bounties"]["list"]
+					bl[0]["progress"] = bl[0]["target"]
+					bl[1]["progress"] = int(bl[1]["target"]) / 2
 				_set_screen_now("lobby")
 				await _wait(1.2)
 				if shot != "lobby":
@@ -305,7 +310,7 @@ func _capture(args: PackedStringArray) -> void:
 						if shot == "results":
 							h.bot = false
 							h._end(true)
-							await _wait(1.2)
+							await _wait(2.2)
 				elif shot == "death":
 					await _wait_sim(h, 5.0)
 					h.hero.invuln = 0.0

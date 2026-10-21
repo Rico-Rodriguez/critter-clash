@@ -36,7 +36,18 @@ func setup(h: Hunt) -> void:
 	%Pause.pressed.connect(_open_pause)
 	%Pause.icon = Ui.icon("pause-button")
 	var d: Dictionary = h.hero.def
-	%HeroIcon.texture = Ui.icon(d["icon"])
+	var pt := Portraits.tex(Game.hero_id())
+	if pt:
+		%HeroIcon.texture = pt
+		%HeroIcon.offset_left = 4
+		%HeroIcon.offset_top = 4
+		%HeroIcon.offset_right = -4
+		%HeroIcon.offset_bottom = -4
+		%HeroIcon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		%HeroIcon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		%Medal.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	else:
+		%HeroIcon.texture = Ui.icon(d["icon"])
 	%Medal.self_modulate = d["color"]
 	%Super.icon_name = {"slam": "meteor-impact", "whirlwind": "whirlwind", "volley": "arrow-cluster", "nova": "frozen-orb"}.get(d["super"], "explosion-rays")
 	%Super._icon = Ui.icon(%Super.icon_name)

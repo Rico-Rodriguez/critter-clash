@@ -10,6 +10,7 @@ const HUD_SCENE := preload("res://src/ui/hud.tscn")
 const MAX_FOES := 44
 
 var tier_i := 0
+var rerolls_left := 1
 var tier: Dictionary
 var hero_id := "knight"
 var arena: Arena
@@ -66,6 +67,7 @@ var streak_t := 0.0
 
 func _ready() -> void:
 	tier_i = Game.tier()
+	rerolls_left = 2 if tier_i >= 2 else 1
 	tier = DB.TIERS[tier_i]
 	hero_id = Game.hero_id()
 	souls_goal = int(tier["souls"])
@@ -1120,7 +1122,25 @@ func _offer_cards() -> void:
 	hud.show_levelup(choices, run_level)
 
 
-func roll_cards(n: int) -> Array:
+## Redraws the level-up cards, never repeating what was just shown. Evolutions
+## stay on offer. Returns [] when no reroll is left.
+func reroll_cards(shown: Array) -> Array:
+	if rerolls_left <= 0:
+		return []
+	rerolls_left -= 1
+	var out := []
+	for id in shown:
+		if DB.CARDS[id].has("evo"):
+			out.append(id)
+	var fresh := roll_cards(3 - out.size(), shown)
+	out.append_array(fresh)
+	if fresh.is_empty() and out.size() < shown.size():
+		rerolls_left += 1
+		return []
+	return out
+
+
+func roll_cards(n: int, exclude := []) -> Array:
 	var pool := []
 	var weights := []
 	for id in DB.CARDS:
@@ -1131,13 +1151,13 @@ func roll_cards(n: int) -> Array:
 			continue
 		if c["rarity"] == "legendary" and run_level < 5:
 			continue
-		if c.has("evo"):
+		if c.has("evo") or id in exclude:
 			continue # evolutions are offered by rule, below
 		pool.append(id)
 		weights.append(float(DB.CARD_WEIGHT[c["rarity"]]))
 	var out := []
 	var evos := eligible_evolutions()
-	if not evos.is_empty():
+	if not evos.is_empty() and exclude.is_empty():
 		out.append(evos.pick_random())
 	while out.size() < n and not pool.is_empty():
 		var total := 0.0

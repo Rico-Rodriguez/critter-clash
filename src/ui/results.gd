@@ -10,10 +10,11 @@ func open(r: Dictionary) -> void:
 	%Title.text = "Victory" if win else "Defeated"
 	%Title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4) if win else Color(0.9, 0.3, 0.25))
 	%Sub.text = "%s · %s · %s" % [DB.HEROES[r["hero"]]["name"], tier["name"], Ui.fmt_time(r["time"])]
-	_stat("Kills", str(r["kills"]), "skull-crossed-bones")
-	_stat("Champions", str(r["elites"]), "crowned-skull")
-	_stat("Level", str(r["level"]), "upgrade")
-	_stat("Gold", "+%d" % int(r["gold"]), "two-coins")
+	_count(_stat("Kills", "0", "skull-crossed-bones"), int(r["kills"]), "%d")
+	_count(_stat("Champions", "0", "crowned-skull"), int(r["elites"]), "%d")
+	_count(_stat("Level", "0", "upgrade"), int(r["level"]), "%d")
+	_gold = _stat("Gold", "+0", "two-coins")
+	_count(_gold, int(r["gold"]), "+%d")
 	var s: Dictionary = r.get("summary", {})
 	# Skills.
 	var levels := {}
@@ -44,11 +45,71 @@ func open(r: Dictionary) -> void:
 	%Continue.pressed.connect(func():
 		Sfx.play("ui_press", -2.0)
 		closed.emit())
+	%Continue.disabled = true
 	Ui.pop_in(%Panel, 0.0, 0.9)
 	Ui.pop_in(%Title, 0.15, 1.4)
+	_run_counts()
+
+
+var _counters: Array = []
+var _gold: Label
+var _tween: Tween
+var _counting := false
+var _last_tick := 0.0
+
+
+func _count(l: Label, to: int, fmt: String) -> void:
+	_counters.append({"label": l, "to": to, "fmt": fmt})
+
+
+## Numbers climb from zero over a short beat; tapping anywhere jumps to the end.
+func _run_counts() -> void:
+	_counting = true
+	_tween = create_tween()
+	_tween.tween_interval(0.35)
+	_tween.tween_method(_apply_counts, 0.0, 1.0, 0.8)
+	_tween.tween_callback(_finish_counts)
+
+
+func _apply_counts(t: float) -> void:
+	var k := 1.0 - pow(1.0 - t, 3.0)
+	for c in _counters:
+		(c["label"] as Label).text = c["fmt"] % int(round(float(c["to"]) * k))
+	for sk in _skill_labels:
+		var e: Dictionary = _skill_labels[sk]
+		(e["xp"] as Label).text = "+%s xp" % Ui.fmt_num(int(round(float(e["gained"]) * k)))
+	var now := Time.get_ticks_msec() / 1000.0
+	if t < 1.0 and now - _last_tick > 0.07 and _gold and int(_gold.text.trim_prefix("+")) > 0:
+		_last_tick = now
+		Sfx.play("coin", -14.0, 1.0 + t * 0.4)
+
+
+func _finish_counts() -> void:
+	if not _counting:
+		return
+	_counting = false
+	if _tween:
+		_tween.kill()
+	_apply_counts(1.0)
+	for sk in _skill_labels:
+		var e: Dictionary = _skill_labels[sk]
+		if e["leveled"]:
+			var l: Label = e["level"]
+			l.text = "▲ %d" % Game.skill_level(sk)
+			l.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
+			Ui.pop_in(l, 0.0, 1.6)
+			Sfx.play("skill_level", -6.0)
+	%Continue.disabled = false
+
+
+func _input(e: InputEvent) -> void:
+	if _counting and ((e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed)):
+		get_viewport().set_input_as_handled()
+		_finish_counts()
 
 
 var _rows: Array = []
+var _skill_labels := {}
 
 
 ## One loot line; gear that beats what the hero wears gets an Equip button.
@@ -94,7 +155,7 @@ func _refresh_upgrades() -> void:
 		b.text = "Equipped ✓" if worn else "Equip"
 
 
-func _stat(title: String, value: String, ic: String) -> void:
+func _stat(title: String, value: String, ic: String) -> Label:
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 0)
@@ -106,6 +167,7 @@ func _stat(title: String, value: String, ic: String) -> void:
 	v.add_child(top)
 	v.add_child(Ui.label(title.to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER))
 	%Stats.add_child(v)
+	return val
 
 
 func _skill_row(sk: String, gained: int, lv: Dictionary) -> Control:
@@ -114,15 +176,14 @@ func _skill_row(sk: String, gained: int, lv: Dictionary) -> Control:
 	var n := Ui.label(DB.SKILL_NAME[sk], "Body")
 	n.custom_minimum_size = Vector2(130, 0)
 	row.add_child(n)
-	var xp := Ui.label("+%s xp" % Ui.fmt_num(gained), "Small")
+	var xp := Ui.label("+0 xp", "Small")
 	xp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(xp)
 	var level := Game.skill_level(sk)
-	var l := Ui.label(("▲ %d" % level) if not lv.is_empty() else ("Lv %d" % level), "Value")
+	var l := Ui.label("Lv %d" % (int(lv["from"]) if not lv.is_empty() else level), "Value")
 	l.add_theme_font_size_override("font_size", 22)
-	if not lv.is_empty():
-		l.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
 	row.add_child(l)
+	_skill_labels[sk] = {"xp": xp, "gained": gained, "level": l, "leveled": not lv.is_empty()}
 	return row
 
 

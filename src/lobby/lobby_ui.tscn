@@ -337,6 +337,27 @@ text = "Log"
 icon_alignment = 1
 vertical_icon_alignment = 0
 
+[node name="NavBounty" type="Button" parent="Safe/V/Nav"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+text = "Bounties"
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="Dot" type="ColorRect" parent="Safe/V/Nav/NavBounty"]
+visible = false
+layout_mode = 0
+offset_left = 108.0
+offset_top = 10.0
+offset_right = 124.0
+offset_bottom = 26.0
+mouse_filter = 2
+color = Color(0.4, 1, 0.5, 1)
+
 [node name="Overlay" type="Control" parent="."]
 unique_name_in_owner = true
 anchors_preset = 15
