@@ -166,7 +166,7 @@ const ZONES := {
 	"depths": {
 		"name": "The Sunken Crypt", "boss": "hexer", "blurb": "Torchlit halls under the barrow. The Queen's cult waits.",
 		"wake": "Gather %d souls to wake the Queen", "defeat": "The Crypt keeps you", "enter": "Descend into the Crypt",
-		"weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5}, "souls_mult": 1.0, "unlock": "Clear Veteran in the Barrow",
+		"loot_bonus": 1, "weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5}, "souls_mult": 1.0, "unlock": "Clear Veteran in the Barrow",
 		"env": {"bg": Color(0.02, 0.012, 0.03), "ambient": Color(0.4, 0.3, 0.55), "ambient_e": 0.34, "fog": Color(0.1, 0.06, 0.14), "fog_d": 0.016,
 			"sun": Color(0.7, 0.62, 1.0), "sun_e": 0.28, "sun_rot": Vector3(-78, -20, 0), "mist": Color(0.6, 0.45, 0.8, 0.09), "motes": Color(1.0, 0.65, 0.35, 0.9)},
 	},
@@ -279,7 +279,7 @@ static func run_level_xp(level: int) -> int:
 # --- Items ---------------------------------------------------------------
 
 const SLOTS := ["weapon", "helm", "chest", "legs", "trinket"]
-const SLOT_NAME := {"weapon": "Weapon", "helm": "Helm", "chest": "Chest", "legs": "Legs", "trinket": "Trinket"}
+const SLOT_NAME := {"weapon": "Weapon", "helm": "Helm", "chest": "Chest", "legs": "Legs", "trinket": "Offhand"}
 const SLOT_ICON := {"weapon": "broadsword", "helm": "visored-helm", "chest": "breastplate", "legs": "leg-armor", "trinket": "gem-pendant"}
 const ITEM_BASES := {
 	"weapon": ["Brand", "Cleaver", "Edge", "Fang", "Reaver"],
@@ -321,13 +321,13 @@ const SLOT_POOL := {
 ## Unique drops tracked by the collection log. `card` legendaries start the
 ## hunt holding that card. Rates are 1/n per roll on that source.
 const UNIQUES := {
-	"cleaver": {"name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe", "look": "axe_2handed.gltf"},
-	"shroud": {"name": "Shroud of the Barrow", "slot": "chest", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
-	"crown": {"name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "storm", "power": "Start every hunt with Storm Call", "icon": "crowned-skull"},
-	"emberheart": {"name": "Emberheart", "slot": "trinket", "rarity": "legendary", "source": "elite", "rate": 60, "stats": {"dmg": 12, "regen": 4}, "card": "nova", "power": "Start every hunt with Fire Nova", "icon": "flame"},
-	"scepter": {"name": "Hexer's Scepter", "slot": "weapon", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"dmg": 26, "crit": 8}, "card": "leech", "power": "Start every hunt with Bloodthirst", "icon": "wizard-staff", "look": "Skeleton_Staff.gltf"},
-	"gown": {"name": "Gown of Thorns", "slot": "chest", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"hp": 24, "armor": 6}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
-	"greaves": {"name": "Wraithstep Greaves", "slot": "legs", "rarity": "legendary", "source": "hexer", "rate": 30, "stats": {"speed": 8, "hp": 14}, "card": "regen", "power": "Start every hunt with Second Breath", "icon": "leg-armor"},
+	"cleaver": {"cls": "barbarian", "dye": Color(0.45, 0.95, 0.7), "name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
+	"shroud": {"cls": "ranger", "dye": Color(0.12, 0.28, 0.22), "name": "Shroud of the Barrow", "slot": "chest", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
+	"crown": {"cls": "knight", "dye": Color(0.95, 0.78, 0.3), "name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "storm", "power": "Start every hunt with Storm Call", "icon": "crowned-skull"},
+	"emberheart": {"cls": "mage", "dye": Color(1.0, 0.4, 0.1), "name": "Emberheart", "slot": "trinket", "rarity": "legendary", "source": "elite", "rate": 60, "stats": {"dmg": 12, "regen": 4}, "card": "nova", "power": "Start every hunt with Fire Nova", "icon": "flame"},
+	"scepter": {"cls": "mage", "dye": Color(0.75, 0.4, 1.0), "name": "Hexer's Scepter", "slot": "weapon", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"dmg": 26, "crit": 8}, "card": "leech", "power": "Start every hunt with Bloodthirst", "icon": "wizard-staff"},
+	"gown": {"cls": "mage", "dye": Color(0.45, 0.2, 0.6), "name": "Gown of Thorns", "slot": "chest", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"hp": 24, "armor": 6}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
+	"greaves": {"cls": "knight", "dye": Color(0.5, 0.85, 1.0), "name": "Wraithstep Greaves", "slot": "legs", "rarity": "legendary", "source": "hexer", "rate": 30, "stats": {"speed": 8, "hp": 14}, "card": "regen", "power": "Start every hunt with Second Breath", "icon": "leg-armor"},
 	"charm": {"name": "Hex Charm", "slot": "trophy", "rarity": "magic", "source": "hexer", "rate": 4, "icon": "gems", "power": "A cultist's token. Sells for 90 gold.", "sell": 90},
 	"bonelet": {"name": "Bonelet", "slot": "pet", "rarity": "legendary", "source": "boss", "rate": 50, "icon": "skull-crossed-bones", "power": "A tiny skeleton that follows you everywhere."},
 	"sigil": {"name": "Champion's Sigil", "slot": "trophy", "rarity": "rare", "source": "elite", "rate": 12, "icon": "rune-stone", "power": "Proof of a champion slain. Sells for 150 gold.", "sell": 150},

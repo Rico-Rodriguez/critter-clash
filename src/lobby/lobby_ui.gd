@@ -401,8 +401,8 @@ func _build_heroes(s: Sheet) -> void:
 		strip.add_theme_constant_override("separation", 12)
 		for slot in DB.SLOTS:
 			var worn := Game.equipped(id2, slot)
-			var wc := DB.rarity_color(worn["rarity"]) if not worn.is_empty() else Color(0.4, 0.38, 0.36)
-			var d_ := _disc(DB.SLOT_ICON[slot], wc, 80)
+			var wc := GearDB.item_color(worn) if not worn.is_empty() else Color(0.4, 0.38, 0.36)
+			var d_ := _disc(GearDB.icon(id2, slot), wc, 80)
 			d_.modulate.a = 1.0 if not worn.is_empty() else 0.5
 			strip.add_child(d_)
 		gv.add_child(strip)

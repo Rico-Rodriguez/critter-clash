@@ -106,9 +106,9 @@ func _reward_card(r: Dictionary) -> Control:
 		"item":
 			var it: Dictionary = r["item"]
 			col = DB.rarity_color(it["rarity"])
-			icon = DB.UNIQUES[it["unique"]]["icon"] if str(it.get("unique", "")) != "" else DB.SLOT_ICON[it["slot"]]
+			icon = GearDB.item_icon(it)
 			title = str(it["name"])
-			sub = "%s %s\n%s" % [DB.RARITY_NAME[it["rarity"]], DB.SLOT_NAME.get(it["slot"], ""), "\n".join(Game.describe_stats(it))]
+			sub = "%s %s · for the %s\n%s" % [DB.RARITY_NAME[it["rarity"]], DB.SLOT_NAME.get(it["slot"], ""), DB.HEROES[it["cls"]]["name"], "\n".join(Game.describe_stats(it))]
 		"unlock":
 			var d2: Dictionary = DB.HEROES[r["hero"]]
 			col = d2["color"]

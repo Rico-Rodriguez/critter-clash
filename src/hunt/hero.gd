@@ -74,7 +74,7 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	base = stats
 	radius = 0.5
 	mass = 4.0
-	build_model(def["model"], def["weapons"], Color(1.0, 0.78, 0.5), 0.35)
+	build_model(def["model"], {}, Color(1.0, 0.78, 0.5), 0.35)
 	GearLook.apply(self, id)
 	_build_tree()
 	# The hero carries the light: Diablo's lantern radius.

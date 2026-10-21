@@ -59,7 +59,50 @@ func run() -> int:
 		_ok("zone %s boss exists" % z, DB.BOSSES.has(DB.ZONES[z]["boss"]))
 	for u in DB.LOG_ORDER:
 		_ok("unique %s defined" % u, DB.UNIQUES.has(u))
+	_gear_tests()
 	return _fails
+
+
+func _gear_tests() -> void:
+	Game.data = Game._fresh()
+	# Every part a gear stage names exists in its KayKit file, every weapon model loads.
+	var missing := []
+	var scenes := {}
+	for cls in GearDB.LINES:
+		for slot in DB.SLOTS:
+			for st: Dictionary in GearDB.LINES[cls][slot]:
+				for spec: String in GearDB.expand(st.get("parts", [])):
+					var src := spec.get_slice("/", 0)
+					if not scenes.has(src):
+						scenes[src] = load(KK.CHAR_DIR + src + ".glb").instantiate()
+					if (scenes[src] as Node).find_child(GearDB.mesh_name(spec), true, false) == null:
+						missing.append(spec)
+				if st.has("model") and not ResourceLoader.exists(KK.WEAPON_DIR + str(st["model"])):
+					missing.append(st["model"])
+	for n: Node in scenes.values():
+		n.free()
+	_ok("gear parts exist %s" % str(missing), missing.is_empty())
+	var it := Game.make_item("mage", "chest", 3, "rare")
+	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and str(it["name"]).ends_with("Mystic Robe Top"))
+	Game.grant_item(it)
+	_ok("wrong class blocked", Game.wear_block("knight", it) != "")
+	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Needs Magic"))
+	Game.data["skills"]["magic"] = DB.xp_for_level(40)
+	_ok("skill lets you wear", Game.wear_block("mage", it) == "")
+	Game.equip("mage", int(it["uid"]))
+	_ok("equipped", Game.equipped("mage", "chest")["uid"] == it["uid"])
+	Game.equip("knight", int(it["uid"]))
+	_ok("knight cannot take it", Game.owner_of(int(it["uid"])) == "mage")
+	# Old saves: v2 items become class gear and keep their wearer.
+	var old := {"version": 2, "heroes": {"knight": {"gear": {"weapon": 5}}}, "items": [{"uid": 5, "slot": "weapon", "rarity": "rare", "name": "Old Brand", "stats": {"dmg": 9}, "unique": "", "tier": 1}, {"uid": 6, "slot": "chest", "rarity": "legendary", "name": "Shroud of the Barrow", "stats": {}, "unique": "shroud", "tier": 0}]}
+	Game._migrate_v2(old)
+	_ok("migrated to wearer", old["items"][0]["cls"] == "knight" and old["items"][0]["mat"] >= 2 and old["version"] == Game.SAVE_VERSION)
+	_ok("migrated unique", old["items"][1]["cls"] == "ranger" and old["items"][1]["mat"] == 6)
+	var drops := {}
+	var rng := RandomNumberGenerator.new()
+	for i in 600:
+		drops[GearDB.roll_mat(0, 0, rng)] = true
+	_ok("normal does not drop dragon", not drops.has(6))
 
 
 ## Deep equality that treats 3 and 3.0 as equal (JSON has one number type).

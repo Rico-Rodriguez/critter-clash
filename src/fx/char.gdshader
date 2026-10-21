@@ -21,6 +21,9 @@ varying vec3 lpos;
 
 instance uniform float flash = 0.0;
 instance uniform vec4 tint : source_color = vec4(0.0);
+// Gear dye: rgb is the material color (bronze, mithril, dragonhide...), a is how
+// much of it replaces the texture while keeping its light and dark detail.
+instance uniform vec4 dye : source_color = vec4(0.0);
 
 void vertex() {
 	lpos = VERTEX; // skinned, in the model's local space: y = height above the feet
@@ -30,6 +33,7 @@ void fragment() {
 	vec3 c0 = texture(albedo_tex, UV).rgb;
 	float luma = dot(c0, vec3(0.299, 0.587, 0.114));
 	vec3 c = mix(c0, vec3(luma), desat) * darken;
+	c = mix(c, dye.rgb * (0.18 + luma * 1.35) * darken, dye.a);
 	// Dirt: blotches, a muddy hem, and soot on surfaces that face the ground.
 	float n = texture(grime_tex, lpos.xz * 0.9 + vec2(lpos.y * 0.6, lpos.y * 0.35)).r;
 	float hem = 1.0 - smoothstep(0.0, 0.7, lpos.y);

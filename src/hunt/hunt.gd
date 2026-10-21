@@ -11,6 +11,8 @@ const MAX_FOES := 44
 
 var tier_i := 0
 var zone_id := "barrow"
+## Tiers added to the metal of everything that drops (deeper zones, trial depth).
+var loot_bonus := 0
 var zone: Dictionary
 var rerolls_left := 1
 var tier: Dictionary
@@ -70,6 +72,7 @@ var streak_t := 0.0
 func _ready() -> void:
 	zone_id = Game.zone_id()
 	zone = DB.zone(zone_id)
+	loot_bonus = int(zone.get("loot_bonus", 0))
 	tier_i = Game.tier()
 	rerolls_left = 2 if tier_i >= 2 else 1
 	tier = DB.TIERS[tier_i]
@@ -727,7 +730,7 @@ func _kill(f: Enemy) -> void:
 		shake(0.5)
 		for i in 10:
 			_drop("gold", at, randi_range(2, 5))
-		_drop_item(at, Game.roll_item("elite", tier_i))
+		_drop_item(at, Game.roll_item("elite", tier_i, "", "", loot_bonus))
 		for u in Game.roll_uniques("elite", tier_i):
 			_drop_item(at, Game.make_unique(u))
 		if "molten" in f.affixes:
@@ -740,16 +743,16 @@ func _kill(f: Enemy) -> void:
 		banner("%s slain" % f.elite_name, Color(1.0, 0.85, 0.5))
 		Sfx.play("rare_chime", -4.0)
 	elif randf() < 0.012:
-		_drop_item(at, Game.roll_item("trash", tier_i))
+		_drop_item(at, Game.roll_item("trash", tier_i, "", "", loot_bonus))
 
 
 ## Rolls an item of at least rarity index `min_idx` (tries a few times).
 func _roll_good(source: String, min_idx: int) -> Dictionary:
-	var it := Game.roll_item(source, tier_i)
+	var it := Game.roll_item(source, tier_i, "", "", loot_bonus)
 	for i in 6:
 		if DB.RARITIES.find(it["rarity"]) >= min_idx:
 			break
-		it = Game.roll_item(source, tier_i)
+		it = Game.roll_item(source, tier_i, "", "", loot_bonus)
 	return it
 
 
@@ -777,7 +780,7 @@ func _kill_boss() -> void:
 	for i in 26:
 		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
 	for i in randi_range(3, 4):
-		_drop_item(at, Game.roll_item("boss", tier_i))
+		_drop_item(at, Game.roll_item("boss", tier_i, "", "", loot_bonus))
 	for u in Game.roll_uniques(str(DB.boss_def(str(zone["boss"]))["source"]), tier_i):
 		_drop_item(at, Game.make_unique(u))
 	for i in 10:

@@ -168,15 +168,15 @@ func _capture(args: PackedStringArray) -> void:
 		Game.data["tier_unlocked"] = 2
 		Game.data["zone"] = _arg(args, "zone", "barrow")
 	for s in DB.SKILLS:
-		Game.data["skills"][s] = DB.xp_for_level({"attack": 14, "strength": 17, "defence": 11, "hitpoints": 18, "ranged": 9, "magic": 6}[s])
+		Game.data["skills"][s] = DB.xp_for_level({"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s])
 	Game.data["log"] = {"tooth": 3, "sigil": 1, "cleaver": 1}
 	for i in 5:
-		Game.grant_item(Game.roll_item("chest", 0))
-	Game.grant_item(Game.make_unique("cleaver"))
+		Game.grant_item(Game.roll_item("chest", 1, "", hid))
+	Game.grant_item(Game.make_unique({"knight": "crown", "ranger": "shroud", "mage": "gown", "barbarian": "cleaver"}[hid]))
 	# Two good pieces per slot so the equipment screen has something to compare.
 	for slot in DB.SLOTS:
 		for t in 2:
-			Game.grant_item(Game.roll_item("boss", 1, slot))
+			Game.grant_item(Game.roll_item("boss", 1, slot, hid))
 	if _arg(args, "geared", "0") == "1":
 		for slot in DB.SLOTS:
 			var best := {}
@@ -215,6 +215,9 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
+			"parts", "weapons", "dress":
+				await _contact_sheet(shot)
+				await _save(shot)
 			"icon":
 				_set_screen_now("lobby")
 				var lob = current
@@ -241,7 +244,7 @@ func _capture(args: PackedStringArray) -> void:
 				var eqs: Equipment = current.ui.equipment
 				for it in Game.data["items"]:
 					if it["slot"] == "weapon" and Game.owner_of(int(it["uid"])) == "" and it["rarity"] != "common":
-						eqs._open_detail(it)
+						eqs._select(it)
 						break
 				await _wait(0.8)
 				await _save("equipdetail")
@@ -373,6 +376,82 @@ func _wait_sim(h: Hunt, sec: float) -> void:
 	var guard := Time.get_ticks_msec() + 240000
 	while h.time < end and Time.get_ticks_msec() < guard and is_instance_valid(h):
 		await get_tree().process_frame
+
+
+## A lineup of every character (or weapon) on a bare stage, for choosing parts.
+func _contact_sheet(kind: String) -> void:
+	if current:
+		current.queue_free()
+		current = null
+	var root := Node3D.new()
+	add_child(root)
+	current = root
+	var we := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.18, 0.18, 0.22)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.7, 0.7, 0.8)
+	env.ambient_light_energy = 0.8
+	we.environment = env
+	root.add_child(we)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-40, -20, 0)
+	root.add_child(sun)
+	var names: Array = []
+	if kind == "dress":
+		var cam2 := Camera3D.new()
+		root.add_child(cam2)
+		cam2.fov = 30
+		for r in DB.HERO_ORDER.size():
+			var hid: String = DB.HERO_ORDER[r]
+			for c in 4:
+				var a := Actor.new()
+				root.add_child(a)
+				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				a.position = Vector3((c - 1.5) * 1.7, -r * 2.2, 0)
+				var mat: int = [-1, 1, 3, 6][c]
+				var pre := {}
+				for slot in DB.SLOTS:
+					pre[slot] = {} if mat < 0 else Game.make_item(hid, slot, mat, "rare")
+				GearLook.apply(a, hid, pre)
+				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+		cam2.look_at_from_position(Vector3(0, -2.9, 21.0), Vector3(0, -2.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if kind == "parts":
+		names = ["Knight", "Barbarian", "Mage", "Ranger", "Rogue_Hooded", "Skeleton_Warrior", "Skeleton_Mage", "Skeleton_Rogue"]
+	else:
+		for f in ResourceLoader.list_directory(KK.WEAPON_DIR):
+			if f.ends_with(".gltf"):
+				names.append(f)
+	var cols := 4 if kind == "parts" else 8
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.fov = 30
+	var rows := int(ceil(names.size() / float(cols)))
+	for i in names.size():
+		var pos := Vector3((i % cols - (cols - 1) * 0.5) * (1.7 if kind == "parts" else 1.0), -(i / cols) * (2.2 if kind == "parts" else 1.4), 0)
+		if kind == "parts":
+			var a := Actor.new()
+			root.add_child(a)
+			a.build_model(names[i], {}, Color(0.5, 0.6, 1.0), 0.2, Color(0, 0, 0, 0), 1.0)
+			a.position = pos
+			a.play("Idle_A", 0.0)
+		else:
+			var w := KK.prop(KK.WEAPON_DIR + names[i])
+			w.position = pos
+			root.add_child(w)
+			var lb := Label3D.new()
+			lb.text = str(names[i]).trim_suffix(".gltf")
+			lb.font_size = 24
+			lb.pixel_size = 0.004
+			lb.position = pos + Vector3(0, -0.7, 0)
+			lb.no_depth_test = true
+			root.add_child(lb)
+	var w_total := cols * (1.7 if kind == "parts" else 1.0)
+	cam.look_at_from_position(Vector3(0, -(rows - 1) * (1.1 if kind == "parts" else 0.7) + (0.9 if kind == "parts" else 0.0), 11.0 + rows * 1.5), Vector3(0, -(rows - 1) * (1.1 if kind == "parts" else 0.7) + (0.9 if kind == "parts" else 0.0), 0), Vector3.UP)
+	await _wait(1.0)
 
 
 func _save(name_: String) -> void:

@@ -1,22 +1,23 @@
 class_name Equipment
 extends Control
-## The equipment screen: the camp hero stays visible in the middle with the
-## five slots around them, and the bag is a grid underneath. Tap a tile for a
-## side-by-side compare against what is worn; switch heroes with the arrows to
-## dress each one. Everything applies immediately and the 3D hero changes with it.
+## The equipment screen, Old School style: your hero big in the middle (drag to
+## turn them), the five slots either side, and the bag underneath. Tapping a
+## piece tries it on the model right away; Equip makes it stick. Gear is
+## class-specific, so the bag shows this hero's pieces first and the others'
+## under "Others".
 
 signal closed
 
-const TILE := 126.0
-const SLOT_POS := {
-	"helm": Vector2(0, 0), "chest": Vector2(0, 1), "legs": Vector2(0, 2),
-	"weapon": Vector2(1, 0), "trinket": Vector2(1, 1),
-}
+const TILE := 118.0
+const SLOT_SIDE := {"helm": 0, "chest": 0, "legs": 0, "weapon": 1, "trinket": 1}
+const GOLD := Color(0.91, 0.71, 0.35)
 
 var ui: LobbyUI
 var lobby: Node3D
 var hero_id := "knight"
 var filter := ""
+var show_others := false
+var selected: Dictionary = {}
 
 var _name: Label
 var _sub: Label
@@ -24,12 +25,21 @@ var _delta: Label
 var _slots := {}
 var _grid: GridContainer
 var _filter_buttons := {}
+var _others_btn: Button
 var _sell_btn: Button
+var _info: PanelContainer
 var _toast: Label
+var _hint: Label
 var _popup: Control
 var _new_uids := {}
 var _last_power := 0
 var _delta_tween: Tween
+
+var _vp: SubViewport
+var _actor: Actor
+var _yaw := 0.45
+var _spin := 0.0
+var _dragging := false
 
 
 func open(u: LobbyUI) -> void:
@@ -41,9 +51,33 @@ func open(u: LobbyUI) -> void:
 	for it in Game.data["items"]:
 		if Game.is_new(int(it["uid"])):
 			_new_uids[int(it["uid"])] = true
-	_build_header()
-	_build_slots()
-	_build_panel()
+	var bg := ColorRect.new()
+	bg.color = Color(0.045, 0.04, 0.055)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+	var safe := MarginContainer.new()
+	safe.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	safe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Ui.apply_safe_area(safe, 14)
+	add_child(safe)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	safe.add_child(col)
+	_build_header(col)
+	_build_stage(col)
+	_info = PanelContainer.new()
+	_info.theme_type_variation = "Card"
+	col.add_child(_info)
+	_build_bag(col)
+	_toast = Ui.label("", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
+	_toast.add_theme_font_size_override("font_size", 26)
+	_toast.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_toast.offset_top = 560.0
+	_toast.modulate.a = 0.0
+	add_child(_toast)
+	_build_actor()
 	_last_power = Game.power_score(hero_id)
 	_refresh()
 	modulate.a = 0.0
@@ -52,23 +86,18 @@ func open(u: LobbyUI) -> void:
 
 # --- Layout ----------------------------------------------------------------
 
-func _build_header() -> void:
-	var m := MarginContainer.new()
-	m.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	Ui.apply_safe_area(m, 20)
-	add_child(m)
+func _build_header(col: VBoxContainer) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	m.add_child(row)
+	col.add_child(row)
 	row.add_child(_round_button("‹", func(): _cycle(-1)))
 	var mid := VBoxContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_theme_constant_override("separation", 0)
 	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_name = Ui.label("", "Title", HORIZONTAL_ALIGNMENT_CENTER)
-	_name.add_theme_font_size_override("font_size", 40)
+	_name.add_theme_font_size_override("font_size", 38)
 	mid.add_child(_name)
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -90,46 +119,113 @@ func _round_button(text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.theme_type_variation = "RoundButton"
 	b.text = text
-	b.custom_minimum_size = Vector2(68, 68)
+	b.custom_minimum_size = Vector2(64, 64)
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", 34)
-	b.add_theme_color_override("font_color", Color(0.91, 0.71, 0.35))
+	b.add_theme_font_size_override("font_size", 32)
+	b.add_theme_color_override("font_color", GOLD)
 	b.pressed.connect(func():
 		Sfx.play("ui_tap", -4.0)
 		cb.call())
 	return b
 
 
-func _build_slots() -> void:
-	for slot: String in SLOT_POS:
-		var p: Vector2 = SLOT_POS[slot]
+## The 3D stage with the hero, and the slot buttons floating either side.
+func _build_stage(col: VBoxContainer) -> void:
+	var stage := Control.new()
+	stage.custom_minimum_size = Vector2(0, 430)
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(stage)
+	var glow := TextureRect.new()
+	var gt := GradientTexture2D.new()
+	var g := Gradient.new()
+	g.set_color(0, Color(0.26, 0.2, 0.17, 1.0))
+	g.set_color(1, Color(0.05, 0.045, 0.055, 0.0))
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.6)
+	gt.fill_to = Vector2(0.5, 0.0)
+	gt.width = 256
+	gt.height = 256
+	glow.texture = gt
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(glow)
+	var svc := SubViewportContainer.new()
+	svc.stretch = true
+	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	svc.mouse_filter = Control.MOUSE_FILTER_STOP
+	svc.gui_input.connect(_stage_input)
+	stage.add_child(svc)
+	_vp = SubViewport.new()
+	_vp.transparent_bg = true
+	_vp.own_world_3d = true
+	_vp.msaa_3d = Viewport.MSAA_2X
+	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	svc.add_child(_vp)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.5, 0.52, 0.7)
+	env.ambient_light_energy = 0.75
+	var we := WorldEnvironment.new()
+	we.environment = env
+	_vp.add_child(we)
+	var key := DirectionalLight3D.new()
+	key.light_color = Color(1.0, 0.86, 0.68)
+	key.light_energy = 1.6
+	key.rotation_degrees = Vector3(-35, 40, 0)
+	_vp.add_child(key)
+	var rim := DirectionalLight3D.new()
+	rim.light_color = Color(0.5, 0.65, 1.0)
+	rim.light_energy = 1.0
+	rim.rotation_degrees = Vector3(-20, -150, 0)
+	_vp.add_child(rim)
+	var floor_m := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 1.05
+	cyl.bottom_radius = 1.1
+	cyl.height = 0.08
+	floor_m.mesh = cyl
+	floor_m.position = Vector3(0, -0.04, 0)
+	var fm := StandardMaterial3D.new()
+	fm.albedo_color = Color(0.12, 0.1, 0.1)
+	fm.roughness = 0.9
+	floor_m.material_override = fm
+	_vp.add_child(floor_m)
+	var cam := Camera3D.new()
+	cam.fov = 30.0
+	_vp.add_child(cam)
+	cam.look_at_from_position(Vector3(0, 1.35, 4.5), Vector3(0, 0.93, 0), Vector3.UP)
+	for slot: String in SLOT_SIDE:
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
-		b.anchor_left = p.x
-		b.anchor_right = p.x
-		b.anchor_top = 0.0
-		b.anchor_bottom = 0.0
-		var x := 16.0
-		b.offset_left = x if p.x == 0.0 else -x - 128.0
-		b.offset_right = x + 128.0 if p.x == 0.0 else -x
-		var y := 250.0 + p.y * 146.0
-		b.offset_top = y
-		b.offset_bottom = y + 128.0
+		b.custom_minimum_size = Vector2(104, 104)
+		b.size = Vector2(104, 104)
 		b.pressed.connect(func(): _on_slot(slot))
-		add_child(b)
+		stage.add_child(b)
 		_slots[slot] = b
+	# Left column: helm, chest, legs. Right column: weapon, offhand.
+	var order := {"helm": 0, "chest": 1, "legs": 2, "weapon": 0, "trinket": 1}
+	for slot: String in _slots:
+		var b: Button = _slots[slot]
+		var right: bool = SLOT_SIDE[slot] == 1
+		b.anchor_left = 1.0 if right else 0.0
+		b.anchor_right = b.anchor_left
+		b.offset_left = -118.0 if right else 6.0
+		b.offset_right = -6.0 if right else 118.0
+		b.offset_top = 18.0 + order[slot] * 124.0
+		b.offset_bottom = b.offset_top + 108.0
+	_hint = Ui.label("Drag to turn", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_hint.offset_top = -34.0
+	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint.modulate.a = 0.6
+	stage.add_child(_hint)
 
 
-func _build_panel() -> void:
-	var panel := PanelContainer.new()
-	panel.theme_type_variation = "Sheet"
-	panel.anchor_right = 1.0
-	panel.anchor_top = 0.55
-	panel.anchor_bottom = 1.0
-	add_child(panel)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
-	panel.add_child(v)
+func _build_bag(col: VBoxContainer) -> void:
 	var filters := HBoxContainer.new()
 	filters.add_theme_constant_override("separation", 4)
 	for f in ["", "weapon", "helm", "chest", "legs", "trinket"]:
@@ -138,7 +234,7 @@ func _build_panel() -> void:
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, 58)
+		b.custom_minimum_size = Vector2(0, 54)
 		if f == "":
 			b.text = "All"
 		else:
@@ -151,11 +247,23 @@ func _build_panel() -> void:
 			_refresh())
 		filters.add_child(b)
 		_filter_buttons[f] = b
-	v.add_child(filters)
+	_others_btn = Button.new()
+	_others_btn.theme_type_variation = "Ghost"
+	_others_btn.toggle_mode = true
+	_others_btn.focus_mode = Control.FOCUS_NONE
+	_others_btn.custom_minimum_size = Vector2(120, 54)
+	_others_btn.add_theme_font_size_override("font_size", 20)
+	_others_btn.pressed.connect(func():
+		show_others = _others_btn.button_pressed
+		Sfx.play("ui_tap", -6.0)
+		_refresh())
+	filters.add_child(_others_btn)
+	col.add_child(filters)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, 150)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	v.add_child(scroll)
+	col.add_child(scroll)
 	_grid = GridContainer.new()
 	_grid.columns = 5
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -167,30 +275,67 @@ func _build_panel() -> void:
 	var best := Button.new()
 	best.text = "Equip best"
 	best.theme_type_variation = "GoldButton"
-	best.custom_minimum_size = Vector2(0, 76)
+	best.custom_minimum_size = Vector2(0, 68)
 	best.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	best.focus_mode = Control.FOCUS_NONE
 	best.add_theme_font_size_override("font_size", 26)
 	best.pressed.connect(_equip_best)
 	foot.add_child(best)
 	_sell_btn = Button.new()
-	_sell_btn.custom_minimum_size = Vector2(0, 76)
+	_sell_btn.custom_minimum_size = Vector2(0, 68)
 	_sell_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sell_btn.focus_mode = Control.FOCUS_NONE
-	_sell_btn.add_theme_font_size_override("font_size", 22)
+	_sell_btn.add_theme_font_size_override("font_size", 21)
 	_sell_btn.pressed.connect(_confirm_sell_junk)
 	foot.add_child(_sell_btn)
-	v.add_child(foot)
-	_toast = Ui.label("", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-	_toast.add_theme_font_size_override("font_size", 26)
-	_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	_toast.anchor_left = 0.0
-	_toast.anchor_right = 1.0
-	_toast.offset_left = 0.0
-	_toast.offset_right = 0.0
-	_toast.offset_top = 700.0
-	_toast.modulate.a = 0.0
-	add_child(_toast)
+	col.add_child(foot)
+
+
+# --- The model ---------------------------------------------------------------
+
+func _build_actor() -> void:
+	if _actor and is_instance_valid(_actor):
+		_actor.queue_free()
+	var d: Dictionary = DB.HEROES[hero_id]
+	_actor = Actor.new()
+	_vp.add_child(_actor)
+	_actor.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
+	_actor.play(d["anim"]["idle"], 0.0)
+	_actor.rotation.y = _yaw
+	_dress()
+
+
+## Puts on what the hero wears, plus the selected piece as a try-on.
+func _dress() -> void:
+	var preview := {}
+	if not selected.is_empty() and str(selected["cls"]) == hero_id:
+		preview[selected["slot"]] = selected
+	GearLook.apply(_actor, hero_id, preview)
+
+
+func _process(dt: float) -> void:
+	if _actor == null or not is_instance_valid(_actor):
+		return
+	if not _dragging:
+		_yaw += _spin * dt
+		_spin = lerpf(_spin, 0.0, 1.0 - exp(-3.0 * dt))
+	_actor.rotation.y = _yaw
+
+
+func _stage_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		_dragging = e.pressed
+		if e.pressed:
+			_spin = 0.0
+			create_tween().tween_property(_hint, "modulate:a", 0.0, 0.4)
+	elif e is InputEventMouseMotion and _dragging:
+		var dx: float = e.relative.x * 0.011
+		_yaw += dx
+		_spin = dx * 40.0
+	elif e is InputEventScreenDrag:
+		var dx2: float = e.relative.x * 0.011
+		_yaw += dx2
+		_spin = dx2 * 40.0
 
 
 # --- Refresh ---------------------------------------------------------------
@@ -198,7 +343,7 @@ func _build_panel() -> void:
 func _refresh() -> void:
 	var d: Dictionary = DB.HEROES[hero_id]
 	_name.text = d["name"]
-	_name.add_theme_color_override("font_color", Color(0.91, 0.71, 0.35).lerp(d["color"], 0.4))
+	_name.add_theme_color_override("font_color", GOLD.lerp(d["color"], 0.4))
 	var power := Game.power_score(hero_id)
 	_sub.text = "Lv %d · Power %d" % [int(Game.hero(hero_id)["level"]), power]
 	if power != _last_power:
@@ -208,6 +353,12 @@ func _refresh() -> void:
 		_style_slot(_slots[slot], slot)
 	for f: String in _filter_buttons:
 		_filter_buttons[f].button_pressed = f == filter
+	var others := 0
+	for it in Game.data["items"]:
+		if str(it["cls"]) != hero_id:
+			others += 1
+	_others_btn.text = "Others %d" % others
+	_others_btn.button_pressed = show_others
 	Ui.clear(_grid)
 	var items: Array = Game.data["items"].duplicate()
 	items.sort_custom(func(a, b):
@@ -215,17 +366,23 @@ func _refresh() -> void:
 		var eb := 1 if Game.owner_of(int(b["uid"])) == hero_id else 0
 		if ea != eb:
 			return ea > eb
+		var wa := 1 if Game.wear_block(hero_id, a) == "" else 0
+		var wb := 1 if Game.wear_block(hero_id, b) == "" else 0
+		if wa != wb:
+			return wa > wb
 		return Game.item_score(a) > Game.item_score(b))
 	var shown := 0
 	for it in items:
+		if (str(it["cls"]) != hero_id) != show_others:
+			continue
 		if filter != "" and it["slot"] != filter:
 			continue
 		_grid.add_child(_tile(it))
 		shown += 1
 	if shown == 0:
-		var empty := Ui.label("Nothing here yet.\nChampions, the King and chests drop gear.", "Body", HORIZONTAL_ALIGNMENT_CENTER)
+		var empty := Ui.label("Nothing here yet.\nKill things, open chests, beat the bosses." if not show_others else "No gear for the other heroes.", "Body", HORIZONTAL_ALIGNMENT_CENTER)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty.custom_minimum_size = Vector2(600, 120)
+		empty.custom_minimum_size = Vector2(600, 90)
 		_grid.add_child(empty)
 	var junk := Game.junk_items()
 	var gold := 0
@@ -233,48 +390,37 @@ func _refresh() -> void:
 		gold += Game.item_value(it)
 	_sell_btn.text = "Sell junk (%d) · %d gold" % [junk.size(), gold] if not junk.is_empty() else "No junk to sell"
 	_sell_btn.disabled = junk.is_empty()
+	_build_info()
 
 
 func _style_slot(b: Button, slot: String) -> void:
 	var it := Game.equipped(hero_id, slot)
+	var sel: bool = not selected.is_empty() and selected["slot"] == slot and str(selected["cls"]) == hero_id
 	var col := DB.rarity_color(it["rarity"]) if not it.is_empty() else Color(0.45, 0.42, 0.4)
-	b.add_theme_stylebox_override("normal", _frame(col, 0.0 if it.is_empty() else 0.25, 16, 4))
-	b.add_theme_stylebox_override("hover", _frame(col, 0.3, 16, 4))
-	b.add_theme_stylebox_override("pressed", _frame(col, 0.4, 16, 4))
+	var w := 6 if sel else 4
+	b.add_theme_stylebox_override("normal", _frame(col.lightened(0.5) if sel else col, 0.0 if it.is_empty() else 0.25, 16, w))
+	b.add_theme_stylebox_override("hover", _frame(col, 0.3, 16, w))
+	b.add_theme_stylebox_override("pressed", _frame(col, 0.4, 16, w))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	for c in b.get_children():
 		c.queue_free()
-	var icon_name: String = DB.SLOT_ICON[slot]
-	if not it.is_empty() and str(it.get("unique", "")) != "":
-		icon_name = DB.UNIQUES[it["unique"]]["icon"]
-	var ic := Ui.icon_rect(icon_name, 70, col.lightened(0.3) if not it.is_empty() else Color(0.5, 0.48, 0.46, 0.55))
-	ic.position = Vector2(29, 12)
+	var ic_col := GearDB.item_color(it) if not it.is_empty() else Color(0.5, 0.48, 0.46, 0.55)
+	var ic := Ui.icon_rect(GearDB.icon(hero_id, slot) if it.is_empty() else GearDB.item_icon(it), 58, ic_col)
+	ic.position = Vector2(23, 8)
 	b.add_child(ic)
-	var cap := Ui.label(DB.SLOT_NAME[slot] if it.is_empty() else _short_stat(it), "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-	cap.add_theme_font_size_override("font_size", 17)
+	var cap_text: String = DB.SLOT_NAME[slot] if it.is_empty() else GearDB.material_name(hero_id, int(it["mat"]))
+	var cap := Ui.label(cap_text, "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
+	cap.add_theme_font_size_override("font_size", 16)
 	cap.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	cap.offset_top = -34
-	cap.offset_bottom = -8
+	cap.offset_bottom = -6
+	cap.clip_text = true
 	b.add_child(cap)
-
-
-## The main stat of an item as a short line ("+12% Damage").
-func _short_stat(it: Dictionary) -> String:
-	var best_k := ""
-	var best_v := -1
-	for k in it["stats"]:
-		if int(it["stats"][k]) > best_v:
-			best_v = int(it["stats"][k])
-			best_k = k
-	if best_k == "":
-		return "—"
-	var sh: Array = DB.AFFIX_SHORT[best_k]
-	return "+%d%s %s" % [best_v, sh[1], sh[0]]
 
 
 func _frame(col: Color, fill: float, radius: int, border: int) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.07, 0.065, 0.08, 0.86).lerp(Color(col.r, col.g, col.b, 0.9), fill * 0.5)
+	s.bg_color = Color(0.07, 0.065, 0.08, 0.9).lerp(Color(col.r, col.g, col.b, 0.9), fill * 0.5)
 	s.set_corner_radius_all(radius)
 	s.set_border_width_all(border)
 	s.border_color = col
@@ -288,24 +434,30 @@ func _tile(it: Dictionary) -> Control:
 	var uid := int(it["uid"])
 	var col := DB.rarity_color(it["rarity"])
 	var owner := Game.owner_of(uid)
+	var mine: bool = str(it["cls"]) == hero_id
+	var blocked := Game.wear_block(hero_id, it)
+	var is_sel: bool = not selected.is_empty() and int(selected["uid"]) == uid
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(0, TILE)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_stylebox_override("normal", _frame(col, 0.0, 12, 3))
-	b.add_theme_stylebox_override("hover", _frame(col, 0.25, 12, 3))
-	b.add_theme_stylebox_override("pressed", _frame(col, 0.4, 12, 3))
+	var bw := 6 if is_sel else 3
+	b.add_theme_stylebox_override("normal", _frame(col.lightened(0.5) if is_sel else col, 0.0, 12, bw))
+	b.add_theme_stylebox_override("hover", _frame(col, 0.25, 12, bw))
+	b.add_theme_stylebox_override("pressed", _frame(col, 0.4, 12, bw))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	var icon_name: String = DB.UNIQUES[it["unique"]]["icon"] if str(it.get("unique", "")) != "" else DB.SLOT_ICON[it["slot"]]
-	var ic := Ui.icon_rect(icon_name, 62, col.lightened(0.25))
-	ic.position = Vector2(32, 18)
+	var ic := Ui.icon_rect(GearDB.item_icon(it), 58, GearDB.item_color(it))
+	ic.position = Vector2(30, 12)
 	b.add_child(ic)
-	var cap := Ui.label(_short_stat(it), "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-	cap.add_theme_font_size_override("font_size", 15)
+	var cap := Ui.label(GearDB.material_name(str(it["cls"]), int(it["mat"])), "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
+	cap.add_theme_font_size_override("font_size", 16)
 	cap.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	cap.offset_top = -30
+	cap.offset_top = -32
 	cap.offset_bottom = -6
+	cap.clip_text = true
 	b.add_child(cap)
+	if not mine or blocked != "":
+		b.modulate = Color(1, 1, 1, 0.5)
 	if _new_uids.has(uid) and owner == "":
 		var dot := ColorRect.new()
 		dot.color = Color(0.4, 1.0, 0.5)
@@ -313,7 +465,7 @@ func _tile(it: Dictionary) -> Control:
 		dot.position = Vector2(8, 8)
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(dot)
-	if owner == "" and _beats_worn(it):
+	if owner == "" and mine and blocked == "" and _beats_worn(it):
 		var up := Ui.label("▲", "HudLabel", HORIZONTAL_ALIGNMENT_RIGHT)
 		up.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5))
 		up.add_theme_font_size_override("font_size", 24)
@@ -322,33 +474,145 @@ func _tile(it: Dictionary) -> Control:
 		up.offset_right = -8
 		up.offset_top = 4
 		b.add_child(up)
-	if owner != "":
-		var badge := Panel.new()
-		badge.size = Vector2(28, 28)
-		badge.position = Vector2(TILE - 36.0, 8.0) if owner != hero_id else Vector2(8.0, 8.0)
-		var bs := StyleBoxFlat.new()
-		bs.bg_color = DB.HEROES[owner]["color"]
-		bs.set_corner_radius_all(14)
-		bs.set_border_width_all(2)
-		bs.border_color = Color(0, 0, 0, 0.7)
-		badge.add_theme_stylebox_override("panel", bs)
-		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var t := Ui.label("E" if owner == hero_id else str(DB.HEROES[owner]["name"]).left(1), "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-		t.add_theme_font_size_override("font_size", 16)
-		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		badge.add_child(t)
-		b.add_child(badge)
+	elif mine and blocked != "" and owner == "":
+		var lk := Ui.label("🔒", "HudLabel", HORIZONTAL_ALIGNMENT_RIGHT)
+		lk.add_theme_font_size_override("font_size", 20)
+		lk.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		lk.offset_left = -40
+		lk.offset_right = -8
+		lk.offset_top = 4
+		b.add_child(lk)
+	if owner == hero_id:
+		b.add_child(_badge("E", DB.HEROES[owner]["color"], Vector2(8, 8)))
+	elif not mine:
+		b.add_child(_badge(str(DB.HEROES[it["cls"]]["name"]).left(1), DB.HEROES[it["cls"]]["color"], Vector2(8, 8)))
 	b.pressed.connect(func():
 		Sfx.play("ui_tap", -4.0)
-		_open_detail(it))
+		_select(it))
 	return b
+
+
+func _badge(text: String, col: Color, at: Vector2) -> Panel:
+	var badge := Panel.new()
+	badge.size = Vector2(28, 28)
+	badge.position = at
+	var bs := StyleBoxFlat.new()
+	bs.bg_color = col
+	bs.set_corner_radius_all(14)
+	bs.set_border_width_all(2)
+	bs.border_color = Color(0, 0, 0, 0.7)
+	badge.add_theme_stylebox_override("panel", bs)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var t := Ui.label(text, "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
+	t.add_theme_font_size_override("font_size", 16)
+	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.add_child(t)
+	return badge
 
 
 ## True when `it` is a better pick than what the current hero wears there.
 func _beats_worn(it: Dictionary) -> bool:
 	var cur := Game.equipped(hero_id, it["slot"])
 	return cur.is_empty() or Game.item_score(it) > Game.item_score(cur)
+
+
+# --- The detail strip -------------------------------------------------------
+
+func _build_info() -> void:
+	Ui.clear(_info)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	_info.add_child(v)
+	if selected.is_empty():
+		var hint := Ui.label("Tap a piece to try it on.", "Body", HORIZONTAL_ALIGNMENT_CENTER)
+		hint.add_theme_font_size_override("font_size", 22)
+		hint.add_theme_color_override("font_color", Color(0.7, 0.66, 0.6))
+		v.add_child(hint)
+		return
+	var it := selected
+	var uid := int(it["uid"])
+	var col := DB.rarity_color(it["rarity"])
+	var owner := Game.owner_of(uid)
+	var is_worn := owner == hero_id
+	var mine: bool = str(it["cls"]) == hero_id
+	var cur := Game.equipped(hero_id, it["slot"])
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	head.add_child(Ui.icon_rect(GearDB.item_icon(it), 56, GearDB.item_color(it)))
+	var hv := VBoxContainer.new()
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.add_theme_constant_override("separation", 0)
+	var nm := Ui.label(str(it["name"]), "Heading")
+	nm.add_theme_font_size_override("font_size", 25)
+	nm.add_theme_color_override("font_color", col.lightened(0.2))
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hv.add_child(nm)
+	var req_skill := GearDB.skill_for(str(it["cls"]), str(it["slot"]))
+	var req := GearDB.req_for(it)
+	var sub := "%s · %s %d" % [DB.RARITY_NAME[it["rarity"]], DB.SKILL_NAME[req_skill], req]
+	if owner != "" and owner != hero_id:
+		sub += " · worn by %s" % DB.HEROES[owner]["name"]
+	var sl := Ui.label(sub, "Small")
+	var block := Game.wear_block(hero_id, it)
+	sl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.42) if block != "" else Color(0.7, 0.68, 0.62))
+	hv.add_child(sl)
+	head.add_child(hv)
+	v.add_child(head)
+	var stats := HFlowContainer.new()
+	stats.add_theme_constant_override("h_separation", 14)
+	stats.add_theme_constant_override("v_separation", 0)
+	for line in Game.describe_stats(it):
+		var l := Ui.label(line, "Body")
+		l.add_theme_font_size_override("font_size", 20)
+		l.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3) if line.begins_with("Start") else Color(0.6, 0.78, 1.0))
+		stats.add_child(l)
+	if mine and not is_worn and not cur.is_empty():
+		for d in Game.compare(it, cur):
+			var up: bool = d["diff"] > 0
+			var dl := Ui.label("%s %s" % ["▲" if up else "▼", d["text"]], "Body")
+			dl.add_theme_font_size_override("font_size", 20)
+			dl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5) if up else Color(1.0, 0.45, 0.4))
+			stats.add_child(dl)
+	v.add_child(stats)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	if is_worn:
+		row.add_child(_action("Remove", "", func(): _unequip(it["slot"])))
+	else:
+		var eq := _action("Equip" if block == "" else block, "PrimaryButton", func(): _equip(it))
+		eq.disabled = block != ""
+		row.add_child(eq)
+		if owner == "":
+			var sell := _action("Sell %d" % Game.item_value(it), "", Callable())
+			sell.icon = Ui.icon("two-coins")
+			var needs_confirm := DB.RARITIES.find(it["rarity"]) >= 2
+			sell.pressed.connect(func():
+				if needs_confirm and sell.text != "Tap to sell":
+					sell.text = "Tap to sell"
+					Sfx.play("ui_error", -8.0)
+					return
+				Game.salvage(uid)
+				Sfx.play("coin", -2.0)
+				selected = {}
+				_dress()
+				_refresh())
+			row.add_child(sell)
+	v.add_child(row)
+
+
+func _action(text: String, variation: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	if variation != "":
+		b.theme_type_variation = variation
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 64)
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", 24)
+	if cb.is_valid():
+		b.pressed.connect(cb)
+	return b
 
 
 func _show_delta(d: int) -> void:
@@ -373,6 +637,12 @@ func _say(text: String, col := Color(1.0, 0.85, 0.5)) -> void:
 
 # --- Actions -----------------------------------------------------------------
 
+func _select(it: Dictionary) -> void:
+	selected = it if selected.is_empty() or int(selected["uid"]) != int(it["uid"]) else {}
+	_dress()
+	_refresh()
+
+
 func _cycle(dir: int) -> void:
 	var order: Array = DB.HERO_ORDER
 	var i := order.find(hero_id)
@@ -384,6 +654,9 @@ func _cycle(dir: int) -> void:
 	Game.set_hero(hero_id)
 	ui._shown_hero = hero_id
 	lobby.show_hero(hero_id, false)
+	selected = {}
+	show_others = false
+	_build_actor()
 	_last_power = Game.power_score(hero_id)
 	_delta.text = ""
 	_refresh()
@@ -392,23 +665,34 @@ func _cycle(dir: int) -> void:
 func _on_slot(slot: String) -> void:
 	Sfx.play("ui_tap", -4.0)
 	filter = slot
-	_refresh()
+	show_others = false
 	var it := Game.equipped(hero_id, slot)
-	if not it.is_empty():
-		_open_detail(it)
+	selected = it
+	_dress()
+	_refresh()
+
+
+## After a change, redress the model with a short flash.
+func _redress() -> void:
+	_dress()
+	var t := create_tween()
+	t.tween_method(_actor.set_flash, 0.9, 0.0, 0.3)
+	Portraits.rebuild(self, hero_id)
 
 
 func _equip(it: Dictionary) -> void:
 	Game.equip(hero_id, int(it["uid"]))
 	Sfx.play("gear_equip", -2.0)
-	lobby.refresh_gear()
+	selected = Game.item(int(it["uid"]))
+	_redress()
 	_refresh()
 
 
 func _unequip(slot: String) -> void:
 	Game.unequip(hero_id, slot)
 	Sfx.play("ui_back", -4.0)
-	lobby.refresh_gear()
+	selected = {}
+	_redress()
 	_refresh()
 
 
@@ -419,7 +703,8 @@ func _equip_best() -> void:
 		Sfx.play("ui_error", -8.0)
 		return
 	Sfx.play("gear_equip", -2.0)
-	lobby.refresh_gear()
+	selected = {}
+	_redress()
 	_say("%d piece%s equipped" % [n, "" if n == 1 else "s"], Color(0.4, 1.0, 0.5))
 	_refresh()
 
@@ -438,32 +723,20 @@ func _confirm_sell_junk() -> void:
 	box.add_child(msg)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
-	var no := Button.new()
-	no.text = "Keep"
-	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	no.custom_minimum_size = Vector2(0, 76)
-	no.focus_mode = Control.FOCUS_NONE
-	no.pressed.connect(_close_popup)
-	row.add_child(no)
-	var yes := Button.new()
-	yes.text = "Sell"
-	yes.theme_type_variation = "GoldButton"
-	yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	yes.custom_minimum_size = Vector2(0, 76)
-	yes.focus_mode = Control.FOCUS_NONE
-	yes.pressed.connect(func():
+	row.add_child(_action("Keep", "", _close_popup))
+	row.add_child(_action("Sell", "GoldButton", func():
 		var got := 0
 		for it in Game.junk_items():
 			got += Game.salvage(int(it["uid"]))
 		Sfx.play("coin", 0.0)
 		_close_popup()
 		_say("+%d gold" % got)
-		_refresh())
-	row.add_child(yes)
+		if not selected.is_empty() and Game.item(int(selected["uid"])).is_empty():
+			selected = {}
+			_dress()
+		_refresh()))
 	box.add_child(row)
 
-
-# --- Item detail ---------------------------------------------------------------
 
 func _modal() -> VBoxContainer:
 	_close_popup()
@@ -501,98 +774,11 @@ func _close_popup() -> void:
 	_popup = null
 
 
-func _open_detail(it: Dictionary) -> void:
-	var uid := int(it["uid"])
-	var col := DB.rarity_color(it["rarity"])
-	var owner := Game.owner_of(uid)
-	var cur := Game.equipped(hero_id, it["slot"])
-	var is_worn := owner == hero_id
-	var v := _modal()
-	var icon_name: String = DB.UNIQUES[it["unique"]]["icon"] if str(it.get("unique", "")) != "" else DB.SLOT_ICON[it["slot"]]
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 14)
-	head.add_child(Ui.icon_rect(icon_name, 70, col))
-	var hv := VBoxContainer.new()
-	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hv.add_theme_constant_override("separation", 0)
-	var nm := Ui.label(str(it["name"]), "Heading")
-	nm.add_theme_color_override("font_color", col.lightened(0.2))
-	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hv.add_child(nm)
-	var where := "" if owner == "" else (" · worn by %s" % DB.HEROES[owner]["name"])
-	hv.add_child(Ui.label("%s %s%s" % [DB.RARITY_NAME[it["rarity"]], DB.SLOT_NAME[it["slot"]], where], "Small"))
-	head.add_child(hv)
-	v.add_child(head)
-	for line in Game.describe_stats(it):
-		var l := Ui.label(line, "Body")
-		l.add_theme_font_size_override("font_size", 23)
-		l.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3) if line.begins_with("Start") else Color(0.6, 0.78, 1.0))
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(l)
-	if not is_worn:
-		v.add_child(HSeparator.new())
-		if cur.is_empty():
-			v.add_child(Ui.label("Nothing worn in this slot yet", "Small"))
-		else:
-			v.add_child(Ui.label("Compared with %s" % cur["name"], "Caption"))
-			var diffs := Game.compare(it, cur)
-			if diffs.is_empty():
-				v.add_child(Ui.label("Same stats", "Body"))
-			for d in diffs:
-				var up: bool = d["diff"] > 0
-				var dl := Ui.label("%s %s" % ["▲" if up else "▼", d["text"] if up else str(d["text"])], "Body")
-				dl.add_theme_font_size_override("font_size", 23)
-				dl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5) if up else Color(1.0, 0.45, 0.4))
-				v.add_child(dl)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	if is_worn:
-		var rm := Button.new()
-		rm.text = "Remove"
-		rm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		rm.custom_minimum_size = Vector2(0, 76)
-		rm.focus_mode = Control.FOCUS_NONE
-		rm.pressed.connect(func():
-			_close_popup()
-			_unequip(it["slot"]))
-		row.add_child(rm)
-	else:
-		var eq := Button.new()
-		eq.text = "Equip on %s" % DB.HEROES[hero_id]["name"]
-		eq.theme_type_variation = "PrimaryButton"
-		eq.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		eq.custom_minimum_size = Vector2(0, 76)
-		eq.focus_mode = Control.FOCUS_NONE
-		eq.add_theme_font_size_override("font_size", 26)
-		eq.pressed.connect(func():
-			_close_popup()
-			_equip(it))
-		row.add_child(eq)
-		if owner == "":
-			var sell := Button.new()
-			sell.text = "Sell %d" % Game.item_value(it)
-			sell.icon = Ui.icon("two-coins")
-			sell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			sell.custom_minimum_size = Vector2(0, 76)
-			sell.focus_mode = Control.FOCUS_NONE
-			var needs_confirm := DB.RARITIES.find(it["rarity"]) >= 2
-			sell.pressed.connect(func():
-				if needs_confirm and sell.text != "Tap to sell":
-					sell.text = "Tap to sell"
-					Sfx.play("ui_error", -8.0)
-					return
-				Game.salvage(uid)
-				Sfx.play("coin", -2.0)
-				_close_popup()
-				_refresh())
-			row.add_child(sell)
-	v.add_child(row)
-
-
 # --- Closing -------------------------------------------------------------------
 
 func _close() -> void:
 	Game.mark_items_seen()
+	lobby.refresh_gear()
 	var t := create_tween()
 	t.tween_property(self, "modulate:a", 0.0, 0.18)
 	t.tween_callback(func():

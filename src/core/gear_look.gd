@@ -1,11 +1,14 @@
 class_name GearLook
 extends RefCounted
-## Makes equipped gear visible on a hero. KayKit characters are not modular,
-## so a piece shows up as: the main weapon changing model and size with its
-## rarity (and uniques having their own look), a rarity-colored glow on the
-## body parts each armor piece covers, and a glowing charm at the belt for the
-## trinket. A new art pack with modular parts replaces this file's internals;
-## the callers (`apply`) stay the same.
+## Dresses a hero in what it wears. KayKit characters share one skeleton, so
+## their body parts can be lifted from one character onto another: a Knight in
+## the Mage's hat, a Barbarian in the Ranger's tunic. Which parts, which dye
+## and which weapon model each piece shows is decided by GearDB; this file only
+## does the dressing. With nothing equipped a hero is a plain man in a tunic
+## holding a starter weapon.
+##
+## `apply` can take `preview` ({slot: item}) to show a piece the player has not
+## equipped yet, which is how the equipment screen lets you try things on.
 
 ## Glow color (alpha = strength) by rarity; common gear shows no glow.
 const GLOW := {
@@ -13,17 +16,6 @@ const GLOW := {
 	"magic": Color(0.42, 0.62, 1.0, 0.13),
 	"rare": Color(1.0, 0.84, 0.32, 0.19),
 	"legendary": Color(1.0, 0.5, 0.15, 0.28),
-}
-const WEAPON_SCALE := {"common": 1.0, "magic": 1.03, "rare": 1.07, "legendary": 1.12}
-## Mesh-name suffixes (after the hero prefix, e.g. "Knight_Helmet") by slot.
-const PARTS := {
-	"helm": ["Helmet", "HelmetVisor", "BearHat", "Hat"],
-	"chest": ["Body", "Cape", "ArmLeft", "ArmRight", "Quiver"],
-	"legs": ["LegLeft", "LegRight"],
-}
-## The ranger's hood is part of her cape mesh.
-const OVERRIDES := {
-	"ranger": {"helm": ["Cape"], "chest": ["Body", "ArmLeft", "ArmRight", "Quiver"]},
 }
 
 
@@ -34,92 +26,141 @@ static func glow_of(item: Dictionary, boost := 1.0) -> Color:
 	return Color(c.r, c.g, c.b, c.a * boost)
 
 
-## Re-dresses `actor` (built from DB.HEROES[hero_id]) in what the hero wears.
-static func apply(actor: Actor, hero_id: String) -> void:
-	var parts: Dictionary = PARTS.duplicate()
-	parts.merge(OVERRIDES.get(hero_id, {}), true)
-	for mi in actor.mesh_list():
-		if not is_instance_valid(mi) or mi.get_meta("gear_ignore", false):
+## Re-dresses `actor` (built from DB.HEROES[hero_id]). `preview` replaces what
+## is worn in the slots it names (an empty dictionary there means "bare").
+static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
+	var skel: Skeleton3D = actor.model.find_child("Skeleton3D", true, false)
+	var worn := {}
+	for slot in DB.SLOTS:
+		worn[slot] = preview[slot] if preview.has(slot) else Game.equipped(hero_id, slot)
+	var own_head := "%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")
+	# Everything dressable goes away, then the wanted parts come back.
+	for mi in skel.get_children():
+		if mi is MeshInstance3D and mi.name != own_head:
+			mi.visible = false
+	var head := skel.get_node_or_null(own_head) as MeshInstance3D
+	if head:
+		head.visible = true
+	var basic := Color(GearDB.BASIC_DYE)
+	_dress(actor, skel, hero_id, worn["chest"], "chest", ["T:Rogue_Hooded"], basic)
+	_dress(actor, skel, hero_id, worn["legs"], "legs", ["L:Rogue_Hooded"], basic)
+	_dress(actor, skel, hero_id, worn["helm"], "helm", [], Color(0, 0, 0, 0))
+	if not worn["trinket"].is_empty() and GearDB.stage(hero_id, "trinket", int(worn["trinket"].get("mat", 0))).has("parts"):
+		_dress(actor, skel, hero_id, worn["trinket"], "trinket", [], Color(0, 0, 0, 0))
+	if head and not _hood_on(worn["helm"], hero_id):
+		head.visible = true
+	_hands(actor, skel, hero_id, worn)
+
+
+static func _hood_on(item: Dictionary, hero_id: String) -> bool:
+	return not item.is_empty() and bool(GearDB.look(item)["hood"])
+
+
+static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictionary, slot: String, fallback: Array, fallback_dye: Color) -> void:
+	var parts: Array = fallback
+	var dye := fallback_dye
+	var glow := Color(0, 0, 0, 0)
+	var hood := false
+	if not item.is_empty():
+		var lk := GearDB.look(item)
+		parts = lk["parts"]
+		dye = lk["dye"]
+		hood = lk["hood"]
+		glow = glow_of(item)
+	parts = GearDB.expand(parts)
+	for spec: String in parts:
+		var mi := _part(actor, skel, spec)
+		if mi == null:
 			continue
-		var slot := _slot_of(mi, parts)
-		if slot != "":
-			mi.set_instance_shader_parameter("tint", glow_of(Game.equipped(hero_id, slot)))
-	_weapon(actor, hero_id)
-	_charm(actor, hero_id)
+		mi.visible = true
+		mi.set_instance_shader_parameter("dye", Color(dye, dye.a * (0.4 if hood else 1.0)))
+		mi.set_instance_shader_parameter("tint", glow)
+	if hood:
+		var own := skel.get_node_or_null("%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")) as MeshInstance3D
+		if own:
+			own.visible = false
 
 
-static func _slot_of(mi: MeshInstance3D, parts: Dictionary) -> String:
-	var suffix := mi.name.get_slice("_", 1) if "_" in mi.name else ""
-	for slot: String in parts:
-		if suffix in parts[slot]:
-			return slot
-	return ""
+## The mesh for a part spec like "Mage/Hat": the hero's own if it has one by
+## that name, otherwise lifted from the other character's file (once).
+static func _part(actor: Actor, skel: Skeleton3D, spec: String) -> MeshInstance3D:
+	var reg: Dictionary = actor.get_meta("gl_parts", {})
+	actor.set_meta("gl_parts", reg)
+	if reg.has(spec) and is_instance_valid(reg[spec]):
+		return reg[spec]
+	var nm := GearDB.mesh_name(spec)
+	var found := skel.get_node_or_null(nm) as MeshInstance3D
+	if found == null:
+		var src := spec.get_slice("/", 0)
+		var sc: Node = KK.scene(KK.CHAR_DIR + src + ".glb").instantiate()
+		var mi := sc.find_child(nm, true, false) as MeshInstance3D
+		if mi == null:
+			sc.free()
+			return null
+		mi.get_parent().remove_child(mi)
+		sc.free()
+		skel.add_child(mi)
+		mi.skeleton = NodePath("..")
+		actor.restyle(skel)
+		found = mi
+	reg[spec] = found
+	return found
 
 
-static func _weapon(actor: Actor, hero_id: String) -> void:
+## Weapon in the main hand, offhand piece in the other (or on the back).
+static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictionary) -> void:
 	var d: Dictionary = DB.HEROES[hero_id]
-	var bone: String = d["weapon_bone"]
-	var item := Game.equipped(hero_id, "weapon")
-	var rarity: String = item["rarity"] if not item.is_empty() else "common"
-	var file: String = d["weapons"][bone]
-	var looks: Array = d["weapon_looks"]
-	var ri := DB.RARITIES.find(rarity)
-	if ri < looks.size() and str(looks[ri]) != "":
-		file = looks[ri]
-	var u := str(item.get("unique", ""))
-	if u != "" and DB.UNIQUES[u].has("look") and d["style"] == "melee":
-		file = DB.UNIQUES[u]["look"]
-	var skel: Skeleton3D = actor.model.find_child("Skeleton3D", true, false)
-	for att in skel.get_children():
-		if not (att is BoneAttachment3D) or (att as BoneAttachment3D).bone_name != bone:
-			continue
-		if att.get_meta("look", "") != file:
-			for c in att.get_children():
-				actor.forget(c)
-				c.queue_free()
-			var prop := KK.prop(KK.WEAPON_DIR + file)
-			att.add_child(prop)
-			actor.restyle(prop)
-			att.set_meta("look", file)
-		var w := att.get_child(att.get_child_count() - 1)
-		if w is Node3D:
-			(w as Node3D).scale = Vector3.ONE * float(WEAPON_SCALE[rarity])
-		for mi in KK.meshes(att):
-			mi.set_instance_shader_parameter("tint", glow_of(item, 1.2))
-
-
-## The trinket is a small glowing charm hanging at the belt.
-static func _charm(actor: Actor, hero_id: String) -> void:
-	var skel: Skeleton3D = actor.model.find_child("Skeleton3D", true, false)
-	var att: BoneAttachment3D = skel.get_node_or_null("Charm")
-	var item := Game.equipped(hero_id, "trinket")
-	if item.is_empty():
-		if att:
-			att.visible = false
+	var line: Dictionary = GearDB.LINES[hero_id]
+	var w: Dictionary = worn["weapon"]
+	var file: String = line["starter"]
+	var scale_ := 1.0
+	var dye := Color(0, 0, 0, 0)
+	if not w.is_empty():
+		var lk := GearDB.look(w)
+		file = lk["model"]
+		scale_ = lk["scale"]
+		dye = lk["dye"]
+	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow_of(w, 1.2), Transform3D.IDENTITY)
+	var off: Dictionary = worn["trinket"]
+	var st := GearDB.stage(hero_id, "trinket", int(off.get("mat", 0))) if not off.is_empty() else {}
+	var model := str(st.get("model", ""))
+	if model == "":
+		_hold(actor, skel, "GearOff", "handslot.l", "", 1.0, Color(0, 0, 0, 0), Color(0, 0, 0, 0), Transform3D.IDENTITY)
 		return
+	var olk := GearDB.look(off)
+	var bone := str(line["offhand_bone"])
+	var xf := Transform3D.IDENTITY
+	if bone == "back":
+		bone = "chest"
+		xf = Transform3D(Basis(Vector3.UP, PI) * Basis(Vector3.RIGHT, deg_to_rad(-90)), Vector3(0, -0.05, -0.28))
+	_hold(actor, skel, "GearOff", bone, model, olk["scale"], olk["dye"], glow_of(off, 1.2), xf)
+
+
+static func _hold(actor: Actor, skel: Skeleton3D, att_name: String, bone: String, file: String, scale_: float, dye: Color, glow: Color, xf: Transform3D) -> void:
+	var att := skel.get_node_or_null(att_name) as BoneAttachment3D
 	if att == null:
 		att = BoneAttachment3D.new()
-		att.name = "Charm"
-		att.bone_name = "hips"
+		att.name = att_name
+		att.bone_name = bone
 		skel.add_child(att)
-		var orb := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.07
-		sm.height = 0.14
-		sm.radial_segments = 12
-		sm.rings = 6
-		orb.mesh = sm
-		orb.name = "Orb"
-		orb.position = Vector3(0.24, 0.02, 0.14)
-		orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.emission_enabled = true
-		orb.material_override = m
-		att.add_child(orb)
+	elif att.bone_name != bone:
+		att.bone_name = bone
+	if file == "":
+		att.visible = false
+		return
 	att.visible = true
-	var col: Color = GLOW[item["rarity"]] if item["rarity"] != "common" else Color(0.85, 0.8, 0.7, 1.0)
-	var orb_m: StandardMaterial3D = (att.get_node("Orb") as MeshInstance3D).material_override
-	orb_m.albedo_color = Color(col.r, col.g, col.b)
-	orb_m.emission = Color(col.r, col.g, col.b)
-	orb_m.emission_energy_multiplier = 2.5
+	if att.get_meta("look", "") != file:
+		for c in att.get_children():
+			actor.forget(c)
+			c.queue_free()
+		var prop := KK.prop(KK.WEAPON_DIR + file)
+		att.add_child(prop)
+		actor.restyle(prop)
+		att.set_meta("look", file)
+	var node := att.get_child(att.get_child_count() - 1) as Node3D
+	if node:
+		node.transform = xf
+		node.scale = Vector3.ONE * scale_
+	for mi in KK.meshes(att):
+		mi.set_instance_shader_parameter("dye", dye)
+		mi.set_instance_shader_parameter("tint", glow)

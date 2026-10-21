@@ -6,7 +6,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -61,9 +61,11 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
+		if int(parsed.get("version", 0)) == 2:
+			_migrate_v2(parsed)
 		_merge(data, parsed)
 
 
@@ -77,6 +79,32 @@ func _migrate_v1(d: Dictionary) -> void:
 		if g.has("armor"):
 			g["chest"] = g["armor"]
 			g.erase("armor")
+	d["version"] = 2
+
+
+## v3 made gear class-specific with material tiers. Old pieces go to the hero
+## wearing them (or a hero picked by item id) at a tier matching their rarity.
+func _migrate_v2(d: Dictionary) -> void:
+	var worn := {}
+	for hid in d.get("heroes", {}):
+		for slot in d["heroes"][hid].get("gear", {}):
+			worn[int(d["heroes"][hid]["gear"][slot])] = hid
+	for it in d.get("items", []):
+		if it.has("cls"):
+			continue
+		var uid := int(it.get("uid", 0))
+		var u := str(it.get("unique", ""))
+		if u != "" and DB.UNIQUES.has(u) and DB.UNIQUES[u].has("cls"):
+			it["cls"] = DB.UNIQUES[u]["cls"]
+			it["mat"] = 6
+		else:
+			it["cls"] = worn.get(uid, DB.HERO_ORDER[uid % DB.HERO_ORDER.size()])
+			it["mat"] = clampi(DB.RARITIES.find(str(it.get("rarity", "common"))) * 2 + int(it.get("tier", 0)), 0, 5)
+		# A piece worn by a hero other than its new owner goes back to the bag.
+		if worn.has(uid) and worn[uid] != it["cls"]:
+			d["heroes"][worn[uid]]["gear"].erase(it["slot"])
+		if u == "":
+			it["name"] = _item_name(it, str(it.get("rarity", "common")))
 	d["version"] = SAVE_VERSION
 
 
@@ -189,9 +217,21 @@ func owner_of(uid: int) -> String:
 	return ""
 
 
+## Why a hero cannot wear a piece ("" when it can): wrong class, or too low a
+## skill level for the material.
+func wear_block(hero_id_: String, it: Dictionary) -> String:
+	if str(it.get("cls", hero_id_)) != hero_id_:
+		return "Made for the %s" % DB.HEROES[it["cls"]]["name"]
+	var skill := GearDB.skill_for(hero_id_, str(it["slot"]))
+	var need := GearDB.req_for(it)
+	if skill_level(skill) < need:
+		return "Needs %s %d" % [DB.SKILL_NAME[skill], need]
+	return ""
+
+
 func equip(hero_id_: String, uid: int) -> void:
 	var it := item(uid)
-	if it.is_empty():
+	if it.is_empty() or wear_block(hero_id_, it) != "":
 		return
 	var prev := owner_of(uid)
 	if prev != "":
@@ -206,7 +246,7 @@ func unequip(hero_id_: String, slot: String) -> void:
 
 
 func item_value(it: Dictionary) -> int:
-	return {"common": 8, "magic": 25, "rare": 70, "legendary": 400}.get(it["rarity"], 5)
+	return int({"common": 8, "magic": 25, "rare": 70, "legendary": 400}.get(it["rarity"], 5) * (1.0 + 0.5 * int(it.get("mat", 0))))
 
 
 func salvage(uid: int) -> int:
@@ -264,7 +304,7 @@ func equip_best(hero_id_: String) -> int:
 			if it["slot"] != slot:
 				continue
 			var owner := owner_of(int(it["uid"]))
-			if owner != "" and owner != hero_id_:
+			if (owner != "" and owner != hero_id_) or wear_block(hero_id_, it) != "":
 				continue
 			if item_score(it) > best_score:
 				best = it
@@ -398,35 +438,53 @@ func roll_rarity(source: String, loot_mult := 1.0) -> String:
 	return "common"
 
 
-## A random item. Legendary rolls become a known unique from the source's
-## table when one exists, so legendaries always mean something.
-func roll_item(source: String, tier_i: int, slot := "") -> Dictionary:
+## A random item for one hero's class (mostly the hero being played, so loot
+## is useful). Harder content drops better material: `bonus` shifts the tier
+## (zone, depth, boss). Legendary rolls become a known unique of that class.
+func roll_item(source: String, tier_i: int, slot := "", cls := "", bonus := 0) -> Dictionary:
 	var t: Dictionary = DB.TIERS[tier_i]
 	var rarity := roll_rarity(source, t["loot"])
+	if cls == "":
+		cls = hero_id() if rng.randf() < 0.65 else DB.HERO_ORDER[rng.randi() % DB.HERO_ORDER.size()]
 	if rarity == "legendary":
 		var pool := []
 		for u in DB.UNIQUES:
 			var ud: Dictionary = DB.UNIQUES[u]
-			if ud["slot"] in DB.SLOTS:
+			if ud["slot"] in DB.SLOTS and ud["cls"] == cls and (slot == "" or ud["slot"] == slot):
 				pool.append(u)
-		return make_unique(pool[rng.randi() % pool.size()])
+		if not pool.is_empty():
+			return make_unique(pool[rng.randi() % pool.size()])
+		rarity = "rare"
 	if slot == "":
 		slot = DB.SLOTS[rng.randi() % DB.SLOTS.size()]
+	var mat := GearDB.roll_mat(tier_i, bonus + (1 if source == "boss" else 0), rng)
+	return make_item(cls, slot, mat, rarity)
+
+
+## Builds a piece: stats scale with the material and the rarity.
+func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionary:
 	var step := DB.RARITIES.find(rarity)
-	var tier_bonus := 1.0 + 0.35 * tier_i
+	var scale_ := 1.0 + 0.22 * mat
 	var stats := {}
 	var main: String = DB.SLOT_MAIN[slot]
-	stats[main] = _roll_affix(main, step, tier_bonus)
+	stats[main] = _roll_affix(main, step, scale_)
 	var pool: Array = DB.SLOT_POOL[slot].duplicate()
 	pool.erase(main)
 	pool.shuffle()
 	for i in step:
 		if i < pool.size():
-			stats[pool[i]] = _roll_affix(pool[i], step, tier_bonus)
-	var prefixes: Array = DB.ITEM_PREFIX[rarity]
-	var bases: Array = DB.ITEM_BASES[slot]
-	var name_ := "%s %s" % [prefixes[rng.randi() % prefixes.size()], bases[rng.randi() % bases.size()]]
-	return {"uid": 0, "slot": slot, "rarity": rarity, "name": name_, "stats": stats, "unique": "", "tier": tier_i}
+			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
+	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat}
+	it["name"] = _item_name(it, rarity)
+	return it
+
+
+func _item_name(it: Dictionary, rarity: String) -> String:
+	var base := GearDB.base_name(str(it["cls"]), str(it["slot"]), int(it.get("mat", 0)))
+	if rarity == "common":
+		return base
+	var prefixes: Array = DB.ITEM_PREFIX[rarity] if DB.ITEM_PREFIX.has(rarity) else DB.ITEM_PREFIX["rare"]
+	return "%s %s" % [prefixes[rng.randi() % prefixes.size()], base]
 
 
 func _roll_affix(key: String, step: int, mult: float) -> int:
@@ -438,7 +496,7 @@ func _roll_affix(key: String, step: int, mult: float) -> int:
 
 func make_unique(u: String) -> Dictionary:
 	var ud: Dictionary = DB.UNIQUES[u]
-	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "tier": 0}
+	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "cls": ud.get("cls", "knight"), "mat": 6}
 
 
 ## Adds an item to the bag (or the log / pet / sale for non-gear uniques).

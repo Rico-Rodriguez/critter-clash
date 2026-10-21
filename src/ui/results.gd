@@ -117,7 +117,7 @@ func _loot_row(it: Dictionary, hero_id: String) -> Control:
 	var col := DB.rarity_color(it["rarity"])
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var icon_name: String = DB.UNIQUES[it["unique"]]["icon"] if DB.UNIQUES.has(str(it.get("unique", ""))) else DB.SLOT_ICON.get(it["slot"], "swap-bag")
+	var icon_name: String = GearDB.item_icon(it) if it["slot"] in DB.SLOTS else DB.SLOT_ICON.get(it["slot"], "swap-bag")
 	row.add_child(Ui.icon_rect(icon_name, 30, col))
 	var l := Ui.label(str(it["name"]), "Body")
 	l.add_theme_color_override("font_color", col)

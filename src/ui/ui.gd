@@ -41,7 +41,8 @@ static func hex(c: Color) -> String:
 static func apply_safe_area(m: MarginContainer, base := 20) -> void:
 	var win := DisplayServer.window_get_size()
 	var safe := DisplayServer.get_display_safe_area()
-	var vp := m.get_viewport_rect().size
+	# Not the node's own viewport: it may not be in the tree yet.
+	var vp: Vector2 = (Engine.get_main_loop() as SceneTree).root.get_visible_rect().size
 	var top := base
 	var bottom := base
 	var left := base
