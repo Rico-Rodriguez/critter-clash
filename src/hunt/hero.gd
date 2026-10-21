@@ -55,6 +55,7 @@ var nova_t := 3.0
 var blades: Array[Node3D] = []
 var blade_angle := 0.0
 var light: OmniLight3D
+var target_ring: MeshInstance3D
 var ward_mesh: MeshInstance3D
 var tree: AnimationTree
 var _up_anim: AnimationNodeAnimation
@@ -94,6 +95,18 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	ward_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ward_mesh.visible = false
 	add_child(ward_mesh)
+	target_ring = MeshInstance3D.new()
+	var tq := PlaneMesh.new()
+	tq.size = Vector2(1.5, 1.5)
+	target_ring.mesh = tq
+	var tm := ShaderMaterial.new()
+	tm.shader = preload("res://src/fx/hero_ring.gdshader")
+	tm.set_shader_parameter("color", Color(1.0, 0.28, 0.22))
+	tm.set_shader_parameter("intensity", 2.2)
+	target_ring.material_override = tm
+	target_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	target_ring.visible = false
+	h.world.add_child(target_ring)
 	var ring := MeshInstance3D.new()
 	var rq := PlaneMesh.new()
 	rq.size = Vector2(2.1, 2.1)
@@ -240,6 +253,18 @@ func tick(dt: float) -> void:
 	elif moving > 0.5:
 		face(atan2(vel.x, vel.z), dt, 14.0)
 	_tick_attack(dt)
+	_tick_target_ring()
+
+
+## A red ring under whatever the hero is hitting, so you can see your target
+## in the crowd.
+func _tick_target_ring() -> void:
+	var on := aim_hold > 0.0 and target != null and is_instance_valid(target) and target.alive
+	target_ring.visible = on
+	if on:
+		var s := (target.radius * 2.6 + 0.4)
+		target_ring.scale = Vector3(s / 1.5, 1.0, s / 1.5)
+		target_ring.position = Vector3(target.position.x, 0.06, target.position.z)
 
 
 func _tick_attack(dt: float) -> void:
@@ -330,6 +355,7 @@ func try_dash() -> bool:
 	act("Dodge_Forward", DASH_TIME + 0.15, true)
 	hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.26, 0.55), 6, 0.5, 2.0)
 	Sfx.play("dodge", -3.0)
+	Ui.buzz(12, 0.3)
 	return true
 
 
@@ -341,6 +367,7 @@ func try_super() -> bool:
 	if not super_ready():
 		return false
 	super_charge = 0.0
+	Ui.buzz(50, 0.7)
 	super_kind = def["super"]
 	impact_t = -1.0
 	var fwd := Vector3(move_input.x, 0, move_input.y)
@@ -442,6 +469,7 @@ func _slam_land() -> void:
 			f.stun_t = 1.6
 	hunt.shake(0.7)
 	hunt.hitstop(0.09)
+	Ui.buzz(70, 0.8)
 	Sfx.play("charge_land", 0.0)
 	Sfx.play("meteor", -3.0)
 
@@ -550,6 +578,7 @@ func break_ward() -> void:
 
 func die_anim() -> void:
 	alive = false
+	target_ring.visible = false
 	flash_t = 0.0
 	set_flash(0.0)
 	tree.active = false

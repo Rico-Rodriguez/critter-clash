@@ -22,6 +22,8 @@ var nameplate: Label3D
 var warded_t := 0.0
 var _sink := 0.0
 var _hit_cd := {}
+## While > 0 the foe is reeling from a hit and does not move or start attacks.
+var hit_t := 0.0
 const SPAWN_TIME := 0.95
 
 
@@ -104,6 +106,9 @@ func tick(dt: float) -> void:
 	if freeze_t > 0.0 or stun_t > 0.0:
 		if state == "windup":
 			_cancel_windup()
+		return
+	if hit_t > 0.0:
+		hit_t -= dt
 		return
 	match state:
 		"chase":
@@ -213,6 +218,14 @@ func _release() -> void:
 	state = "recover"
 	state_t = 0.35
 	atk_cd = float(def["cooldown"]) * (0.7 if "swift" in affixes else 1.0) * randf_range(0.85, 1.15)
+
+
+## Light foes flinch when hit: a short stagger so blows read as blows.
+func stagger() -> void:
+	if elite or state != "chase" or kind in ["warrior", "mage"]:
+		return
+	hit_t = 0.18
+	play(def["anim"]["hit"], 0.04, 1.6, true)
 
 
 func can_hit(id: int, cd: float) -> bool:

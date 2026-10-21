@@ -22,6 +22,7 @@ var _hp_shown := 1.0
 var _boss: Boss
 var _modal: Control
 var _hint: Label
+var _streak: Label
 
 
 func setup(h: Hunt) -> void:
@@ -45,6 +46,17 @@ func setup(h: Hunt) -> void:
 	%Toast.modulate.a = 0.0
 	%Scroll.modulate.a = 0.0
 	%ObjTitle.text = "SOULS"
+	_streak = Ui.label("", "HudTitle", HORIZONTAL_ALIGNMENT_RIGHT)
+	_streak.add_theme_font_size_override("font_size", 30)
+	_streak.add_theme_color_override("font_color", Color(1.0, 0.55, 0.35))
+	_streak.anchor_left = 1.0
+	_streak.anchor_right = 1.0
+	_streak.offset_left = -260.0
+	_streak.offset_right = -24.0
+	_streak.offset_top = 156.0
+	_streak.offset_bottom = 196.0
+	_streak.modulate.a = 0.0
+	add_child(_streak)
 	if not bool(Game.data.get("seen_tutorial", false)):
 		_hint = Ui.label("Drag anywhere to move\nYou attack on your own · tap the buttons to dash and unleash", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
 		_hint.add_theme_font_size_override("font_size", 24)
@@ -102,6 +114,12 @@ func refresh(dt: float) -> void:
 	%Souls.value = hunt.progress() * 100.0
 	%SoulText.text = "%d / %d" % [hunt.souls, hunt.souls_goal]
 	%Gold.text = Ui.fmt_num(hunt.gold)
+	# Kill streak: appears from 5 and fades with the window.
+	if hunt.streak >= 5:
+		_streak.text = "%d kills" % hunt.streak
+		_streak.modulate.a = clampf(hunt.streak_t / 0.6, 0.0, 1.0)
+	else:
+		_streak.modulate.a = 0.0
 	%Super.fill = hero.super_charge
 	%Super.is_ready = hero.super_ready()
 	%Dash.fill = 1.0 - clampf(hero.dash_cd / hero.dash_cd_max, 0.0, 1.0)
@@ -174,11 +192,13 @@ func boss_mode(b: Boss) -> void:
 
 func show_levelup(choices: Array, level: int) -> void:
 	%Stick.release()
+	Sfx.duck(true)
 	var m := LEVELUP.instantiate()
 	add_child(m)
 	m.open(hunt, choices, level)
 	m.picked.connect(func(id: String):
 		m.queue_free()
+		Sfx.duck(false)
 		card_picked.emit(id))
 
 
@@ -187,14 +207,17 @@ func _open_pause() -> void:
 		return
 	%Stick.release()
 	get_tree().paused = true
+	Sfx.duck(true)
 	var m := PAUSE.instantiate()
 	add_child(m)
 	m.open(hunt)
 	m.resumed.connect(func():
 		m.queue_free()
+		Sfx.duck(false)
 		get_tree().paused = false)
 	m.abandoned.connect(func():
 		m.queue_free()
+		Sfx.duck(false)
 		abandon_pressed.emit())
 	Sfx.play("ui_tap", -4.0)
 

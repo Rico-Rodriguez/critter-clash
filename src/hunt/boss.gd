@@ -18,6 +18,9 @@ var charge_dir := Vector3.ZERO
 var charge_hit := false
 var graves_at: Array = []
 var last := ""
+var fight_t := 0.0
+var berserk := false
+var cd_mult := 1.0
 var display_name := ""
 var title := ""
 
@@ -95,6 +98,9 @@ func tick(dt: float) -> void:
 		return
 	if freeze_t > 0.0 or stun_t > 0.0:
 		return
+	fight_t += dt
+	if not berserk and fight_t > 150.0:
+		_berserk()
 	if not enraged and hp < max_hp * 0.5:
 		_enrage()
 	if state == "chase" and (summons_done == 0 and hp < max_hp * 0.7 or summons_done == 1 and hp < max_hp * 0.35):
@@ -281,13 +287,25 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 func _finish(recover: float) -> void:
 	_clear_tele()
 	state = "chase"
-	cd = recover * (0.65 if enraged else 1.0) + randf_range(0.2, 0.6)
+	cd = (recover * (0.65 if enraged else 1.0) + randf_range(0.2, 0.6)) * cd_mult
 
 
 func _clear_tele() -> void:
 	for t in tele:
 		hunt.fx.cancel(t)
 	tele.clear()
+
+
+## Stall guard: a fight dragged past two and a half minutes ends in a frenzy,
+## so kiting forever is never the safe answer.
+func _berserk() -> void:
+	berserk = true
+	dmg *= 1.5
+	speed *= 1.3
+	cd_mult = 0.7
+	hunt.banner("Gravemaw grows impatient", Color(1.0, 0.5, 0.3))
+	hunt.shake(0.4)
+	Sfx.play("boss_roar", -2.0, 0.9)
 
 
 func _enrage() -> void:

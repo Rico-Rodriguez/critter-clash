@@ -32,6 +32,8 @@ var _lights: Array[OmniLight3D] = []
 var _light_i := 0
 var title_font: FontVariation
 var quality_low := false
+var _merge := {}
+var _serial := 0
 
 
 func _init() -> void:
@@ -366,7 +368,22 @@ func release_beam(n: Node3D) -> void:
 		_release("beam", n)
 
 
-func number(pos: Vector3, amount: int, color: Color, size := 1.0) -> void:
+## Damage number. Pass `key` (the target) and rapid hits on it merge into one
+## growing number instead of stacking a pile of them.
+func number(pos: Vector3, amount: int, color: Color, size := 1.0, key: Object = null) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if key != null:
+		var m: Dictionary = _merge.get(key.get_instance_id(), {})
+		if not m.is_empty() and now < float(m["until"]):
+			var ml: Label3D = m["label"]
+			if ml.visible and ml.get_meta("serial", -1) == m["serial"]:
+				m["total"] = int(m["total"]) + amount
+				m["until"] = now + 0.3
+				ml.text = str(m["total"])
+				for e in _live:
+					if e["node"] == ml:
+						e["t"] = minf(float(e["t"]), 0.12)
+				return
 	var l := _numbers[_num_i]
 	_num_i = (_num_i + 1) % _numbers.size()
 	for e in _live:
@@ -378,6 +395,10 @@ func number(pos: Vector3, amount: int, color: Color, size := 1.0) -> void:
 	l.visible = true
 	var from := pos + Vector3(randf_range(-0.3, 0.3), 1.9, 0)
 	l.position = from
+	_serial += 1
+	l.set_meta("serial", _serial)
+	if key != null:
+		_merge[key.get_instance_id()] = {"label": l, "total": amount, "until": now + 0.3, "serial": _serial}
 	_live.append({"node": l, "t": 0.0, "dur": 0.75, "kind": "num", "from": from, "size": size, "dx": randf_range(-0.5, 0.5)})
 
 

@@ -401,7 +401,7 @@ Note: task 4.3 (gear compare and glow) is superseded by this phase; skip it.
 
 ## Phase 2 — Feel and readability
 
-### [ ] 2.1 Haptics
+### [x] 2.1 Haptics
 
 Files: `src/autoload/game.gd` (`_fresh()` settings: `"haptics": true`), new
 static helper `Ui.buzz(ms: int, amp := 0.5)` in `src/ui/ui.gd` that calls
@@ -416,7 +416,7 @@ Do not buzz on every enemy hit.
 
 Verify: compile check (no phone here). List the call sites in the commit message.
 
-### [ ] 2.2 Shader and effect warm-up (removes first-use stutter on phones)
+### [x] 2.2 Shader and effect warm-up (removes first-use stutter on phones)
 
 Files: `src/hunt/hunt.gd`, `src/ui/hud.tscn` (+ `hud.gd`).
 
@@ -444,7 +444,7 @@ hunt start:
 Verify: `tools/dev/shots.sh hunt`; nothing left over from the warm-up is
 visible, kills and souls start at 0, the curtain is gone. `check.sh` passes.
 
-### [ ] 2.3 Target marker and enemy stagger
+### [x] 2.3 Target marker and enemy stagger
 
 Files: `src/hunt/hero.gd`, `src/hunt/enemy.gd`, `src/hunt/fx.gd`.
 
@@ -460,7 +460,7 @@ Files: `src/hunt/hero.gd`, `src/hunt/enemy.gd`, `src/hunt/fx.gd`.
 Verify: `tools/dev/shots.sh film` (6 frames ~0.13 s apart). The ring is under
 the enemy being hit; minions visibly react.
 
-### [ ] 2.4 Damage-number merging and a kill-streak counter
+### [x] 2.4 Damage-number merging and a kill-streak counter
 
 Files: `src/hunt/fx.gd`, `src/hunt/hunt.gd`, `src/ui/hud.gd`/`.tscn`.
 
@@ -474,7 +474,7 @@ Files: `src/hunt/fx.gd`, `src/hunt/hunt.gd`, `src/ui/hud.gd`/`.tscn`.
 
 Verify: `tools/dev/shots.sh hunt`. Fewer stacked numbers around the hero.
 
-### [ ] 2.5 Audio buses and ducking
+### [x] 2.5 Audio buses and ducking
 
 Files: new `default_bus_layout.tres` (buses `Master`, `Music`, `SFX`; a
 `AudioEffectLowPassFilter` on `Music`, disabled by default), `src/autoload/sfx.gd`
@@ -488,7 +488,7 @@ Write the `.tres` with `AudioServer` in a small `tools/build_buses.gd` script
 Verify: compile check; bot run still passes. Mention in the commit that it
 can't be heard here.
 
-### [ ] 2.6 Boss stall guard
+### [x] 2.6 Boss stall guard
 
 File: `src/hunt/boss.gd`.
 

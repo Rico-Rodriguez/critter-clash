@@ -169,6 +169,11 @@ const CARDS := {
 }
 const CARD_WEIGHT := {"common": 10.0, "rare": 6.0, "epic": 3.2, "legendary": 0.8}
 
+## Kill-streak milestones ("Massacre"): reaching one pays bonus souls and gold.
+## A streak ends after STREAK_WINDOW seconds without a kill.
+const STREAKS := [15, 30, 50, 100]
+const STREAK_WINDOW := 2.5
+
 ## XP (souls) needed for each in-hunt level: grows gently so the first few
 ## choices come fast and the later ones mark real progress.
 static func run_level_xp(level: int) -> int:

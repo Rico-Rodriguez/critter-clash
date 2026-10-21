@@ -51,6 +51,9 @@ var _skill_shown := {}
 var _skill_t := 0.0
 var _bot: HuntBot
 var _ended := false
+var _warming := false
+var streak := 0
+var streak_t := 0.0
 
 
 func _ready() -> void:
@@ -100,9 +103,82 @@ func _ready() -> void:
 	if bot:
 		_bot = HuntBot.new()
 		_bot.hunt = self
+	if not bot:
+		await _warmup()
 	Sfx.music("hunt")
 	Sfx.play("hunt_start", -2.0)
 	hud.banner("The Barrow", Color(0.85, 0.8, 0.7), "%s · Gather %d souls to wake the King" % [tier["name"], souls_goal])
+
+
+## On a phone the first draw of every material, particle and effect compiles a
+## shader pipeline and hitches the frame. Draw one of everything behind a black
+## curtain before the hunt begins, so the hitches happen where nobody sees them.
+func _warmup() -> void:
+	_warming = true
+	var layer := CanvasLayer.new()
+	layer.layer = 40
+	add_child(layer)
+	var curtain := ColorRect.new()
+	curtain.color = Color(0.01, 0.01, 0.02, 1.0)
+	curtain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	curtain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(curtain)
+	var at := hero.flat_pos() + Vector3(0, 0, -3.0)
+	var flat := Vector3.UP
+	for deg in [60, 120, 180, 360]:
+		fx.slash(at, 0.0, 2.0, deg, Color.WHITE)
+	fx.ring(at, 2.0, Color.WHITE, 0.3)
+	for shape in 3:
+		fx.telegraph(shape, at, 0.0, Vector2(2.0, 5.0), 0.4)
+	var beam := fx.beam(at, Color.WHITE, 3.0)
+	fx.number(at, 1, Color.WHITE)
+	fx.text(at, "x", Color.WHITE)
+	fx.burst(at, Color.WHITE, 4)
+	fx.puff(at, Color(1, 1, 1, 0.3), 2)
+	fx.bone_burst(at, 2)
+	fx.embers_at(at, Color.ORANGE, 2)
+	fx.flare(at, Color.WHITE)
+	fx.flash_light(at, Color.WHITE, 0.1, 3.0, 0.1)
+	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]))
+	for kind in ["arrow", "bolt", "fireball", "spear", "wave"]:
+		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
+	var temp: Array[Enemy] = []
+	var x := -3.0
+	for kind in DB.ENEMIES:
+		temp.append(spawn_foe(kind, at + Vector3(x, 0, -2.0)))
+		x += 1.5
+	temp.append(spawn_foe("minion", at + Vector3(0, 0, -4.0), true))
+	var b := Boss.new()
+	world.add_child(b)
+	b.position = at + Vector3(0, 0, -7.0)
+	b.setup(self, tier)
+	_drop("soul", at, 1)
+	_drop("gold", at, 1)
+	_drop("heart", at, 1)
+	_drop_item(at, Game.roll_item("chest", 0))
+	for i in 3:
+		await get_tree().process_frame
+	for e in temp:
+		foes.erase(e)
+		e.queue_free()
+	for o in arena.occluders.duplicate():
+		if o.get("node") == b:
+			arena.occluders.erase(o)
+	b.queue_free()
+	fx.release_beam(beam)
+	for pk in pickups:
+		if is_instance_valid(pk):
+			if pk.beam:
+				fx.release_beam(pk.beam)
+			pk.queue_free()
+	pickups.clear()
+	await get_tree().process_frame
+	time = 0.0
+	phase_t = 0.0
+	_warming = false
+	var t := create_tween()
+	t.tween_property(curtain, "color:a", 0.0, 0.35)
+	t.tween_callback(layer.queue_free)
 
 
 func _weak_device() -> bool:
@@ -158,6 +234,10 @@ func tick(dt: float) -> void:
 		"victory":
 			if phase_t > 7.0 or (phase_t > 3.0 and _loot_left() == 0):
 				_end(true)
+	if streak > 0:
+		streak_t -= dt
+		if streak_t <= 0.0:
+			streak = 0
 	_frame_camera()
 	cam.follow(dt, hero.vel)
 	var watch := [hero.position]
@@ -310,6 +390,8 @@ func spawn_foe(kind: String, at: Vector3, elite := false) -> Enemy:
 
 
 func _direct(dt: float) -> void:
+	if _warming:
+		return
 	var p := progress()
 	var target := int(lerpf(7.0, 30.0, p)) + tier_i * 3
 	target = mini(target, MAX_FOES)
@@ -397,10 +479,12 @@ func damage_foe(f: Actor, amount: float, _src: Node3D, dir: Vector3, force: floa
 	var landed := minf(amount, maxf(f.hp, 0.0))
 	f.hp -= amount
 	f.hit_flash()
+	if f is Enemy and f.hp > 0.0:
+		(f as Enemy).stagger()
 	if force > 0.0:
 		f.push(dir, force)
 	var big := f is Boss
-	fx.number(f.flat_pos() + Vector3(0, 0.6 if big else 0.0, 0), int(amount), Color(1.0, 0.72, 0.25) if crit else Color(1, 1, 1), 1.35 if crit else 1.0)
+	fx.number(f.flat_pos() + Vector3(0, 0.6 if big else 0.0, 0), int(amount), Color(1.0, 0.72, 0.25) if crit else Color(1, 1, 1), 1.35 if crit else 1.0, null if crit else f)
 	fx.burst(f.flat_pos(), Color(1.0, 0.85, 0.6) if not crit else Color(1.0, 0.6, 0.2), 5 if not crit else 9, 6.0)
 	if crit:
 		Sfx.play("crit", -6.0)
@@ -422,6 +506,15 @@ func _kill(f: Enemy) -> void:
 	f.die()
 	foes.erase(f)
 	kills += 1
+	streak += 1
+	streak_t = DB.STREAK_WINDOW
+	if streak in DB.STREAKS:
+		run_xp += streak / 3
+		gold += streak / 5
+		banner("Massacre ×%d" % streak, Color(1.0, 0.4, 0.3), "+%d souls  +%d gold" % [streak / 3, streak / 5])
+		Sfx.play("rare_chime", -2.0, 0.8)
+		shake(0.25)
+		_check_level()
 	var at := f.flat_pos()
 	fx.bone_burst(at, 5 if not f.elite else 12, 5.5 if not f.elite else 8.0)
 	fx.puff(at, Color(0.4, 0.38, 0.35, 0.5), 3, 0.4, 1.2)
@@ -462,6 +555,7 @@ func _kill(f: Enemy) -> void:
 
 func _kill_boss() -> void:
 	boss.die()
+	Ui.buzz(120, 0.9)
 	phase = "victory"
 	phase_t = 0.0
 	_end_time = time
@@ -514,6 +608,7 @@ func damage_hero(amount: float, src: Node3D) -> void:
 	hero.invuln = 0.08
 	fx.number(hero.flat_pos(), int(amount), Color(1.0, 0.3, 0.25), 0.9)
 	hud.hurt(clampf(amount / hero.max_hp * 4.0, 0.25, 1.0))
+	Ui.buzz(35, clampf(amount / hero.max_hp * 5.0, 0.3, 1.0))
 	shake(0.22)
 	Sfx.play("hero_hurt", -3.0)
 	if src is Enemy:
@@ -539,6 +634,7 @@ func damage_hero(amount: float, src: Node3D) -> void:
 
 func _hero_dies() -> void:
 	hero.die_anim()
+	Ui.buzz(120, 0.8)
 	phase = "defeat"
 	phase_t = 0.0
 	_end_time = time
@@ -759,6 +855,7 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 			Sfx.play("gear_drop", -2.0)
 			if it["rarity"] == "legendary":
 				Sfx.play("sparkle", 0.0)
+				Ui.buzz(60, 0.6)
 			if it["rarity"] in ["rare", "legendary"]:
 				Sfx.play("rare_chime", 0.0, 0.9 if it["rarity"] == "legendary" else 1.0))
 	pickups.append(p)
@@ -823,6 +920,7 @@ func _offer_cards() -> void:
 		pending_levels = 0
 		return
 	Sfx.play("levelup", 0.0)
+	Ui.buzz(25, 0.4)
 	fx.ring(hero.flat_pos(), 3.0, Color(0.4, 0.9, 1.0), 0.6)
 	if bot:
 		var pref := ["blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]
