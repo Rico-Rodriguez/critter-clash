@@ -138,7 +138,7 @@ not just helmet tops; there is more ground visible above the hero than below;
 the HUD bars don't cover the hero. Run `tools/dev/check.sh`: the bot still
 wins (it uses `on_screen` for ranged enemies).
 
-### [ ] 1.2 Dynamic framing: boss, crowds, victory
+### [x] 1.2 Dynamic framing: boss, crowds, victory
 
 File: `src/hunt/hunt.gd` (in `tick()`, after `cam.follow`… set targets before
 calling `cam.follow`).
