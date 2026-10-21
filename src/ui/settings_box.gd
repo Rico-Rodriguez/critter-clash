@@ -13,29 +13,36 @@ func _ready() -> void:
 	shake.focus_mode = Control.FOCUS_NONE
 	shake.toggled.connect(func(on: bool): Game.set_setting("shake", on))
 	add_child(shake)
+	_choices("Camera", "camera", ["close", "standard", "wide"])
+	_choices("Graphics", "quality", ["auto", "low", "high"])
+	var note := Ui.label("Camera and graphics changes apply on the next hunt.", "Small")
+	note.add_theme_font_size_override("font_size", 17)
+	add_child(note)
+
+
+## A row of exclusive toggle buttons that writes the chosen value to a setting.
+func _choices(title: String, key: String, options: Array) -> void:
 	var row := HBoxContainer.new()
-	row.add_child(Ui.label("Graphics", "Body"))
+	row.add_child(Ui.label(title, "Body"))
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(sp)
-	for q in ["auto", "low", "high"]:
+	for o: String in options:
 		var b := Button.new()
-		b.text = q.capitalize()
+		b.text = o.capitalize()
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_NONE
 		b.theme_type_variation = "Ghost"
 		b.add_theme_font_size_override("font_size", 20)
-		b.button_pressed = str(Game.setting("quality")) == q
+		b.button_pressed = str(Game.setting(key)) == o
 		b.pressed.connect(func():
-			Game.set_setting("quality", q)
+			Game.set_setting(key, o)
+			Sfx.play("ui_tap", -4.0)
 			for c in row.get_children():
 				if c is Button:
 					c.button_pressed = c == b)
 		row.add_child(b)
 	add_child(row)
-	var note := Ui.label("Graphics changes apply on the next hunt.", "Small")
-	note.add_theme_font_size_override("font_size", 17)
-	add_child(note)
 
 
 func _slider(title: String, key: String) -> void:

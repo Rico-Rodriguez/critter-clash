@@ -187,7 +187,7 @@ Verify: `tools/dev/shots.sh boss` (the crypt sits behind the boss spawn) and a
 `film` shot. Props right in front of the hero are see-through; nothing else is.
 Check `draws=` in the shot output did not jump by more than ~30.
 
-### [ ] 1.4 Camera distance setting
+### [x] 1.4 Camera distance setting
 
 Files: `src/autoload/game.gd` (`_fresh()` settings: add `"camera": "standard"`),
 `src/ui/settings_box.gd` (add a row like the Graphics row with three toggle

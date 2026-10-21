@@ -81,6 +81,7 @@ func _ready() -> void:
 	world.add_child(cam)
 	cam.target = hero
 	cam.shake_enabled = bool(Game.setting("shake"))
+	cam.dist_mult = {"close": 0.86, "wide": 1.16}.get(str(Game.setting("camera")), 1.0)
 	cam.snap()
 	cam.current = true
 	if str(Game.data.get("pet", "")) != "":
