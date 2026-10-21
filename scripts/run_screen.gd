@@ -193,10 +193,13 @@ func open(args: Dictionary = {}) -> void:
 		# Crisp pass: a light vignette, so the edges of the field stay readable.
 		shade.modulate.a = 0.55 if biome_id == "mushroom" else 0.45
 	hero_id = str(args.get("hero", "ember"))
-	# The depth tier the gate stands in: "" for the old whole-world hunt.
+	# The depth tier the gate stands in. A run that names no gate still
+	# plays a depth: the one its biome belongs to, so every hunt in the
+	# game is a walk through a zone and the old whole-world hunt is gone
+	# from the flow.
 	tier_id = str(args.get("tier", ""))
 	if not WorldData.tier_order().has(tier_id):
-		tier_id = ""
+		tier_id = Catalog.tier_for_biome(biome_id)
 	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)
 	session.tier = tier_id
