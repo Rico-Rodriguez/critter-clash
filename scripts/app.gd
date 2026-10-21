@@ -247,6 +247,10 @@ func _capture() -> void:
 	if _wants("hub"):
 		go("hub")
 		await _settle()
+		if current != null and current.view != null and current.view.camera != null:
+			for gate in current.view.camp.list_gate_markers():
+				var at: Vector2 = current.view.camera.unproject_position((gate["pos"] as Vector3) + Vector3(0.0, 1.4, 0.0))
+				print("GATE ", str(gate["tier"]), " open=", str(gate["open"]), " screen=", at, " tap=", current.view.gate_at(at))
 		await _shot("hub")
 	if _wants("hubhero"):
 		go("hub")
@@ -764,6 +768,8 @@ class HubScreen extends ScreenBase:
 		view.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 		view.anchor_bottom = CAMP_FRACTION
 		view.offset_bottom = 0.0
+		# A tap on a standing stone in the camp walks the hero through it.
+		view.gate_tapped.connect(func(tier_id: String) -> void: _travel(tier_id))
 		add_child(view)
 		hub = view.camp
 		# The counter's own dark plate, from the camp's lower edge down.

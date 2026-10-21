@@ -13,3 +13,5 @@
 - 2026-10-20 — The gates are a strip of four (one tile per depth, with its challenge under it) instead of four tall rows, so the camp keeps the top half of the screen and every way out is visible at once — `scripts/app.gd` (`_gate_strip`, `_gate_tile`)
 - 2026-10-20 — The camp takes half the screen and the camera looks down at the fire, so the sky is a band instead of a third of the picture — `scripts/app.gd` (`CAMP_FRACTION`), `scripts/hub_view.gd` (`CAM_POS`, `CAM_LOOK`)
 - 2026-10-20 — The daily challenge moved from the desk into the camp counter, next to the gates — `scripts/app.gd` (`_start_daily`)
+- 2026-10-21 — The camp's gates are a place now: one standing stone pair per depth tier, the open one lit with a shaft of light, and a tap on the stone walks the hero through it (the counter's buttons stay as the plain path) — `scripts/hub_scene.gd` (`_gates`, `list_gate_markers`), `scripts/hub_view.gd` (`gate_at`, `gate_tapped`), `scripts/app.gd` (`_travel`)
+- 2026-10-21 — The daily runs a depth zone now, the same flow a gate opens — `scripts/app.gd` (`_start_daily`)

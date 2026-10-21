@@ -5,6 +5,12 @@ extends Control
 ## camera on the fire, and the player's hero standing in it. The menu is
 ## drawn over the top of it, so the hub reads as a place the player is
 ## standing in rather than a list of buttons.
+##
+## The gates in the camp can be tapped: a tap on a lit standing stone walks
+## the hero through it.
+
+## Emitted when a gate in the camp is tapped: the depth tier's id.
+signal gate_tapped(tier_id: String)
 
 ## The camp scene: the ground, the fire, the stalls and the rim of trees.
 const CAMP := preload("res://scenes/hub_scene.tscn")
@@ -29,7 +35,7 @@ var _t := 0.0
 
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	clip_contents = true
 	viewport = SubViewport.new()
 	viewport.own_world_3d = true
@@ -174,6 +180,48 @@ func set_hero(hero_id: String) -> void:
 		_hero.queue_free()
 		_hero = null
 	_spawn_hero()
+
+
+## The camp's gate under a tap, or "" when the tap missed every stone. The
+## stones are three-dimensional, so the tap is matched against where each
+## one stands on the screen.
+func gate_at(tap: Vector2) -> String:
+	if camp == null or camera == null:
+		return ""
+	var density := clampf(get_viewport().get_final_transform().get_scale().x, 1.0, 3.0)
+	var best := ""
+	var best_d := 70.0
+	for gate in camp.list_gate_markers():
+		if not bool(gate.get("open", false)):
+			continue
+		var world: Vector3 = gate["pos"]
+		if camera.is_position_behind(world):
+			continue
+		var on_screen := camera.unproject_position(world + Vector3(0.0, 1.4, 0.0))
+		var d := Vector2(on_screen.x / density, on_screen.y / density).distance_to(tap)
+		if d < best_d:
+			best_d = d
+			best = str(gate.get("tier", ""))
+	return best
+
+
+## A tap on the camp: on a gate stone it walks the hero through it.
+func _gui_input(event: InputEvent) -> void:
+	var tap := (event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT) or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
+	if not tap:
+		return
+	var at := Vector2.ZERO
+	if event is InputEventMouseButton:
+		at = (event as InputEventMouseButton).position
+	elif event is InputEventScreenTouch:
+		at = (event as InputEventScreenTouch).position
+	var tier_id := gate_at(at)
+	if tier_id == "":
+		return
+	accept_event()
+	AudioDirector.sfx("ui_tap")
+	AudioDirector.haptic("medium")
+	gate_tapped.emit(tier_id)
 
 
 ## The hero's bounds, in his own space.

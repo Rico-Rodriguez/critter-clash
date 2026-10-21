@@ -23,6 +23,10 @@ const MATERIAL_BUYER_POS := Vector3(6.0, 0.0, 0.0)
 ## The camp's own id, as WorldData spells it.
 const HUB_ID := "hub"
 
+## The gate markers: one per depth tier, with the tier's id, where its
+## stones stand and whether the gate stands open.
+var gates: Array = []
+
 ## How big the camp's ground is, in metres.
 const GROUND := 46.0
 
@@ -192,15 +196,54 @@ func _rim() -> void:
 
 
 ## The gates out of the camp: one standing stone pair per depth tier, in
-## tier order, so the menu can point at the one that opens.
+## tier order, so the menu can point at the one that opens. The pair that
+## stands open is lit, so the camp shows the way out at a glance.
 func _gates() -> void:
 	var tiers := WorldData.tier_order()
+	gates.clear()
 	for i in tiers.size():
-		var at := Vector3(-4.5 + 3.0 * float(i), 0.0, -13.0)
+		var tier_id := str(tiers[i])
+		var at := Vector3(-3.6 + 2.4 * float(i), 0.0, -9.5)
+		var open := SaveGame.tier_open(tier_id)
+		var pair: Array = []
 		for side in [-1.0, 1.0]:
-			var stone := _prop("rock_a", at + Vector3(0.85 * side, 0.0, 0.0), 1.15)
+			var stone := _prop("rock_a", at + Vector3(0.8 * side, 0.0, 0.0), 1.2)
 			if stone != null:
 				add_child(stone)
+				pair.append(stone)
+		# The lit mark of an open gate: a standing shaft of light between
+		# the two stones, so the way out is the one that glows.
+		if open and pair.size() == 2:
+			var glow := OmniLight3D.new()
+			glow.light_color = Color("ffc27a")
+			glow.light_energy = 3.2
+			glow.omni_range = 6.0
+			glow.position = at + Vector3(0.0, 1.6, 0.0)
+			glow.shadow_enabled = false
+			add_child(glow)
+			var shaft := MeshInstance3D.new()
+			var beam := CylinderMesh.new()
+			beam.top_radius = 0.4
+			beam.bottom_radius = 0.62
+			beam.height = 2.6
+			shaft.mesh = beam
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = Color(1.0, 0.82, 0.52, 0.1)
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.emission_enabled = true
+			mat.emission = Color(1.0, 0.78, 0.45)
+			mat.emission_energy_multiplier = 0.4
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			shaft.mesh.material = mat
+			shaft.position = at + Vector3(0.0, 1.3, 0.0)
+			add_child(shaft)
+		gates.append({"tier": tier_id, "pos": at, "open": open})
+
+
+## The camp's gates, one per depth tier: the tier's id, where its stones
+## stand in the world and whether the gate stands open.
+func list_gate_markers() -> Array:
+	return gates
 
 
 ## Loads a camp prop and drops it on the ground.
