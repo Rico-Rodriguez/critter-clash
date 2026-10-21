@@ -26,8 +26,11 @@ const HERO_METERS := 1.9
 ## Where the camera stands and what it looks at. The look point is low and
 ## near, so the fire and the ground fill the frame and the sky is only a
 ## band above the treeline.
-const CAM_POS := Vector3(0.0, 6.2, 8.8)
-const CAM_LOOK := Vector3(0.0, 0.9, -1.4)
+## The camera stands this far behind and above the hero, and looks this
+## far ahead of him: a 40-degree tilt, the angle a town like this reads
+## best from. The player cannot pan, so the angle never changes.
+const CAM_POS := Vector3(0.0, 9.8, 9.0)
+const CAM_LOOK := Vector3(0.0, 1.0, -1.5)
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -160,9 +163,13 @@ func _camera_follows() -> void:
 	if _hero == null:
 		return
 	var here: Vector3 = _hero.position
-	var want := Vector3(here.x, CAM_POS.y, here.z + CAM_POS.z)
-	camera.position = camera.position.lerp(want, 0.12)
-	var look := Vector3(here.x, CAM_LOOK.y, here.z + CAM_LOOK.z)
+	# The camera slides with the hero and never swings: a lag would make
+	# the view drift and then catch up, and the player cannot pan to fix
+	# it. It looks a little ahead of him, so the ground he is walking into
+	# is in the picture.
+	var lead := Vector3(_drive.x, 0.0, _drive.y) * 2.4
+	camera.position = Vector3(here.x, CAM_POS.y, here.z + CAM_POS.z)
+	var look := Vector3(here.x, CAM_LOOK.y, here.z + CAM_LOOK.z) + lead
 	camera.look_at(look, Vector3.UP)
 
 

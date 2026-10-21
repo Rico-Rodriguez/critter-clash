@@ -69,6 +69,7 @@ func _ready() -> void:
 	_well()
 	_buildings()
 	_lanterns()
+	_scatter()
 	_people()
 	_places()
 	_wall()
@@ -319,10 +320,71 @@ const DOOR_ARC := [3.75, 4.28, 5.15, 5.67]
 ## The houses of the town: timber walls, a slate roof, a door and a window
 ## with a light behind it. They are built from primitives with the town's
 ## own textures, so the place has a skyline instead of a fence.
+## The green of the town: the flowers, ferns and bushes that grow where
+## people walk. They are placed off the paths and the plaza, so the
+## ground looks like a place and not a texture.
+func _scatter() -> void:
+	var kit := [
+		{"model": "bush_flower", "n": 7, "scale": Vector2(0.8, 1.3)},
+		{"model": "flower_a", "n": 9, "scale": Vector2(0.7, 1.1)},
+		{"model": "flower_b", "n": 8, "scale": Vector2(0.7, 1.1)},
+		{"model": "fern", "n": 6, "scale": Vector2(0.6, 1.0)},
+		{"model": "grass_tall", "n": 10, "scale": Vector2(0.6, 1.0)},
+		{"model": "clover", "n": 6, "scale": Vector2(0.7, 1.0)},
+	]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261021
+	for row in kit:
+		for i in int(row["n"]):
+			var at := _green_spot(rng)
+			if at == Vector3.INF:
+				continue
+			var lo: float = (row["scale"] as Vector2).x
+			var hi: float = (row["scale"] as Vector2).y
+			var node := _prop(str(row["model"]), at, rng.randf_range(lo, hi))
+			if node != null:
+				node.rotation.y = rng.randf() * TAU
+
+
+## A spot for the green: off the cobbles, off the path, and inside the
+## town.
+func _green_spot(rng: RandomNumberGenerator) -> Vector3:
+	for k in 24:
+		var ang := rng.randf() * TAU
+		var d := rng.randf_range(8.0, 15.0)
+		var at := Vector3(cos(ang) * d, 0.0, sin(ang) * d)
+		# The plaza and the road are kept clear.
+		if at.length() < 8.2:
+			continue
+		if absf(at.x) < 1.6 and at.z < 6.0:
+			continue
+		if at.distance_to(Vector3(-4.6, 0.0, -0.4)) < 2.4:
+			continue
+		if at.distance_to(Vector3(4.6, 0.0, -0.4)) < 2.4:
+			continue
+		return at
+	return Vector3.INF
+
+
 func _buildings() -> void:
+	# The burrow and the den: the dwellings of a town that lives underground
+	# and in the rocks. They are the best models the project has for a
+	# home, so two of the four houses are these.
+	for home in [
+		{"model": "burrow", "at": Vector3(-8.2, 0.0, -5.4), "scale": 1.35, "rot": 0.5},
+		{"model": "den", "at": Vector3(8.0, 0.0, -5.0), "scale": 1.25, "rot": -0.6},
+	]:
+		var node := _prop(str(home["model"]), home["at"], float(home["scale"]))
+		if node != null:
+			node.rotation.y = float(home["rot"])
+			add_child(node)
+	# The hill behind the town wall: the skyline the place sits against.
+	var hill := _prop("hill", Vector3(-2.0, -0.4, -17.0), 3.4)
+	if hill != null:
+		add_child(hill)
 	var houses := [
-		{"at": Vector3(-6.6, 0.0, -4.6), "w": 3.4, "d": 2.8, "h": 2.5, "rot": 0.55},
-		{"at": Vector3(6.8, 0.0, -4.2), "w": 3.0, "d": 2.6, "h": 2.2, "rot": -0.6},
+		{"at": Vector3(-5.2, 0.0, -3.0), "w": 3.0, "d": 2.6, "h": 2.4, "rot": 0.7},
+		{"at": Vector3(5.4, 0.0, -2.8), "w": 2.8, "d": 2.5, "h": 2.2, "rot": -0.8},
 		{"at": Vector3(-7.4, 0.0, 3.4), "w": 2.8, "d": 2.4, "h": 2.1, "rot": 2.3},
 		{"at": Vector3(7.2, 0.0, 3.8), "w": 2.6, "d": 2.4, "h": 2.0, "rot": -2.2},
 	]
