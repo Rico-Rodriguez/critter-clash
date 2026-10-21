@@ -197,7 +197,7 @@ buttons `Close / Standard / Wide`), `src/hunt/hunt.gd` (`_ready()`: set
 Verify: `tools/dev/shots.sh settings`; the row is there and matches the
 Graphics row's style.
 
-### [ ] 1.5 Hidden dev tuning panel (so the user can tune on the phone)
+### [x] 1.5 Hidden dev tuning panel (so the user can tune on the phone)
 
 Files: new `src/ui/dev_panel.gd` (a `PanelContainer` built in code),
 `src/ui/pause.gd` / `pause.tscn`.
