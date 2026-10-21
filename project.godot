@@ -1,24 +1,24 @@
 ; Engine configuration file.
-; Godot 4.7 — Critter Clash
+; Godot 4.7 — Barrowfall (repo: critter-clash)
 
 config_version=5
 
 [application]
 
-config/name="Critter Clash"
-config/description="A portrait hero-run. Steer one critter through a 3D hunt."
-config/version="1.1.0"
-run/main_scene="res://scenes/main.tscn"
+config/name="Barrowfall"
+config/description="A portrait dark-fantasy hunt. Rise through the Barrow, break the dead, take their loot."
+config/version="2.0.0"
+run/main_scene="res://src/main.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
-boot_splash/bg_color=Color(0.12, 0.28, 0.55, 1)
+boot_splash/bg_color=Color(0.03, 0.03, 0.05, 1)
 boot_splash/show_image=false
-config/icon="res://icon.png"
+config/icon="res://assets/icon.png"
 
 [autoload]
 
-Ota="*res://scripts/ota_boot.gd"
-AudioDirector="*res://scripts/audio_director.gd"
-SaveGame="*res://scripts/save_game.gd"
+Ota="*res://src/autoload/ota_boot.gd"
+Game="*res://src/autoload/game.gd"
+Sfx="*res://src/autoload/sfx.gd"
 
 [ota]
 
@@ -29,27 +29,69 @@ sha=""
 
 window/size/viewport_width=720
 window/size/viewport_height=1280
-window/size/window_width_override=720
-window/size/window_height_override=1280
+window/size/window_width_override=450
+window/size/window_height_override=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 window/vsync/vsync_mode=1
 window/ios/allow_high_refresh_rate=true
 
+[gui]
+
+theme/custom="res://src/ui/theme.tres"
+common/snap_controls_to_pixels=true
+
+[input]
+
+move_up={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":87,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+, Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194320,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+move_down={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":83,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+, Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194322,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+move_left={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":65,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+, Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194319,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+move_right={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":68,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+, Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194321,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+dash={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":32,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+super={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":69,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+]
+}
+
 [input_devices]
 
-pointing/emulate_touch_from_mouse=false
+pointing/emulate_touch_from_mouse=true
 
 [rendering]
 
-2d/snap/snap_2d_transforms_to_pixel=false
 renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="mobile"
 rendering_device/driver.ios="metal"
 textures/vram_compression/import_etc2_astc=true
-anti_aliasing/quality/msaa_2d=2
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/use_debanding=true
 lights_and_shadows/directional_shadow/size=2048
-environment/defaults/default_clear_color=Color(0.07, 0.15, 0.32, 1)
+lights_and_shadows/directional_shadow/size.mobile=1024
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+environment/defaults/default_clear_color=Color(0.03, 0.03, 0.05, 1)

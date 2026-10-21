@@ -1,0 +1,457 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/ui/hud.gd" id="1_hud"]
+[ext_resource type="Script" path="res://src/ui/joystick.gd" id="2_stick"]
+[ext_resource type="Script" path="res://src/ui/radial_button.gd" id="3_radial"]
+[ext_resource type="Texture2D" path="res://assets/icons/two-coins.svg" id="4_coin"]
+
+[sub_resource type="Shader" id="Shader_hurt"]
+code = "shader_type canvas_item;
+uniform float strength = 0.0;
+uniform vec4 color : source_color = vec4(0.62, 0.02, 0.02, 1.0);
+void fragment() {
+	vec2 uv = UV - vec2(0.5);
+	float d = length(uv * vec2(1.0, 0.75));
+	float v = smoothstep(0.28, 0.72, d);
+	COLOR = vec4(color.rgb, v * strength * 0.85);
+}
+"
+
+[sub_resource type="ShaderMaterial" id="Mat_hurt"]
+shader = SubResource("Shader_hurt")
+shader_parameter/strength = 0.0
+
+[sub_resource type="StyleBoxFlat" id="Style_medal"]
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.1, 0.08, 0.06, 1)
+corner_radius_top_left = 60
+corner_radius_top_right = 60
+corner_radius_bottom_right = 60
+corner_radius_bottom_left = 60
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 6
+anti_aliasing = true
+
+[node name="Hud" type="CanvasLayer"]
+process_mode = 3
+script = ExtResource("1_hud")
+
+[node name="Hurt" type="ColorRect" parent="."]
+unique_name_in_owner = true
+material = SubResource("Mat_hurt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Controls" type="Control" parent="."]
+unique_name_in_owner = true
+process_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Stick" type="Control" parent="Controls"]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_stick")
+
+[node name="Dash" type="Control" parent="Controls"]
+unique_name_in_owner = true
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -190.0
+offset_top = -250.0
+offset_right = -66.0
+offset_bottom = -126.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("3_radial")
+icon_name = "sprint"
+ring_color = Color(0.6, 0.8, 1, 1)
+glow_color = Color(0.6, 0.85, 1, 1)
+
+[node name="Super" type="Control" parent="Controls"]
+unique_name_in_owner = true
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -366.0
+offset_top = -394.0
+offset_right = -212.0
+offset_bottom = -240.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("3_radial")
+icon_name = "explosion-rays"
+
+[node name="Safe" type="MarginContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="Top" type="VBoxContainer" parent="Safe"]
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 14
+
+[node name="Row" type="HBoxContainer" parent="Safe/Top"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+
+[node name="Medal" type="Panel" parent="Safe/Top/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(92, 92)
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("Style_medal")
+
+[node name="HeroIcon" type="TextureRect" parent="Safe/Top/Row/Medal"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Bars" type="VBoxContainer" parent="Safe/Top/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="HPWrap" type="Control" parent="Safe/Top/Row/Bars"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HP" type="ProgressBar" parent="Safe/Top/Row/Bars/HPWrap"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"HPBar"
+value = 100.0
+show_percentage = false
+
+[node name="HPText" type="Label" parent="Safe/Top/Row/Bars/HPWrap"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"HudLabel"
+theme_override_font_sizes/font_size = 21
+text = "430"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="XPRow" type="HBoxContainer" parent="Safe/Top/Row/Bars"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="LvlChip" type="PanelContainer" parent="Safe/Top/Row/Bars/XPRow"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Chip"
+
+[node name="Lvl" type="Label" parent="Safe/Top/Row/Bars/XPRow/LvlChip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Value"
+theme_override_font_sizes/font_size = 20
+text = "1"
+horizontal_alignment = 1
+
+[node name="XP" type="ProgressBar" parent="Safe/Top/Row/Bars/XPRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"XPBar"
+show_percentage = false
+
+[node name="GoldIcon" type="TextureRect" parent="Safe/Top/Row/Bars/XPRow"]
+self_modulate = Color(1, 0.8, 0.35, 1)
+custom_minimum_size = Vector2(26, 26)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("4_coin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Gold" type="Label" parent="Safe/Top/Row/Bars/XPRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(54, 0)
+layout_mode = 2
+theme_type_variation = &"HudLabel"
+theme_override_colors/font_color = Color(1, 0.85, 0.45, 1)
+theme_override_font_sizes/font_size = 22
+text = "0"
+
+[node name="Right" type="VBoxContainer" parent="Safe/Top/Row"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Pause" type="Button" parent="Safe/Top/Row/Right"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(76, 76)
+layout_mode = 2
+size_flags_horizontal = 4
+focus_mode = 0
+theme_type_variation = &"RoundButton"
+icon_alignment = 1
+expand_icon = true
+
+[node name="Clock" type="Label" parent="Safe/Top/Row/Right"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudValue"
+theme_override_font_sizes/font_size = 22
+text = "0:00"
+horizontal_alignment = 1
+
+[node name="ObjBox" type="VBoxContainer" parent="Safe/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="ObjTitle" type="Label" parent="Safe/Top/ObjBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Caption"
+theme_override_colors/font_color = Color(0.7, 0.9, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+text = "SOULS"
+horizontal_alignment = 1
+
+[node name="SoulWrap" type="Control" parent="Safe/Top/ObjBox"]
+custom_minimum_size = Vector2(380, 26)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Souls" type="ProgressBar" parent="Safe/Top/ObjBox/SoulWrap"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = &"SoulBar"
+show_percentage = false
+
+[node name="SoulText" type="Label" parent="Safe/Top/ObjBox/SoulWrap"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"HudLabel"
+theme_override_font_sizes/font_size = 18
+text = "0 / 110"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BossBox" type="VBoxContainer" parent="Safe/Top"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(580, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="BossName" type="Label" parent="Safe/Top/BossBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Caption"
+theme_override_colors/font_color = Color(0.6, 1, 0.82, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 22
+text = "GRAVEMAW, THE BARROW KING"
+horizontal_alignment = 1
+
+[node name="BossBar" type="ProgressBar" parent="Safe/Top/BossBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(580, 26)
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"BossBar"
+value = 100.0
+show_percentage = false
+
+[node name="Banner" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 20.0
+offset_top = 330.0
+offset_right = -20.0
+offset_bottom = 470.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="BannerTitle" type="Label" parent="Banner"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudTitle"
+theme_override_font_sizes/font_size = 52
+text = "The Barrow"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="BannerSub" type="Label" parent="Banner"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudLabel"
+theme_override_font_sizes/font_size = 24
+text = "Gather souls to wake the King"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Scroll" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -290.0
+offset_top = 470.0
+offset_right = 290.0
+offset_bottom = 570.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_type_variation = &"Parchment"
+
+[node name="Box" type="HBoxContainer" parent="Scroll"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+
+[node name="ScrollIcon" type="TextureRect" parent="Scroll/Box"]
+unique_name_in_owner = true
+self_modulate = Color(0.42, 0.08, 0.03, 1)
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Text" type="VBoxContainer" parent="Scroll/Box"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="ScrollTitle" type="Label" parent="Scroll/Box/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"ParchmentTitle"
+text = "Congratulations!"
+
+[node name="ScrollText" type="Label" parent="Scroll/Box/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"ParchmentText"
+text = "You've just advanced a Strength level."
+autowrap_mode = 3
+
+[node name="Toast" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -250.0
+offset_top = -540.0
+offset_right = 250.0
+offset_bottom = -456.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"Plaque"
+
+[node name="Box" type="VBoxContainer" parent="Toast"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="ToastCap" type="Label" parent="Toast/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Small"
+theme_override_font_sizes/font_size = 18
+text = "Picked up"
+horizontal_alignment = 1
+
+[node name="ToastText" type="RichTextLabel" parent="Toast/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+bbcode_enabled = true
+text = "[center]Item[/center]"
+fit_content = true
+scroll_active = false
+autowrap_mode = 0

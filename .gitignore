@@ -20,3 +20,6 @@ dbg_*.gd.uid
 out_*.txt
 err_*.txt
 shots*/
+
+# capture output
+/shots/

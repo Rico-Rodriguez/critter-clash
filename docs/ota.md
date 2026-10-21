@@ -11,9 +11,9 @@ publishes to the `ota` prerelease (assets replaced in place):
   imported asset, iOS texture formats).
 - `version.json`: `{build, sha, pck_url, sha256, size, min_engine, godot, platform, date}`.
   `build` is the workflow run number (monotonic). `min_engine` is
-  `NATIVE_VERSION` from `scripts/ota_boot.gd`.
+  `NATIVE_VERSION` from `src/autoload/ota_boot.gd`.
 
-`scripts/ota_boot.gd` is the first autoload (`Ota`). Its `_init` runs before any
+`src/autoload/ota_boot.gd` is the first autoload (`Ota`). Its `_init` runs before any
 other game script loads, so a mounted pack replaces autoloads, screens and
 assets alike:
 
@@ -35,7 +35,7 @@ assets alike:
    the current content while one background retry stages the pack for the next
    launch. The running pack is kept as the fallback; older packs are deleted.
 
-Nothing outside `user://ota/` is touched; saves stay in `user://critter_clash.json`.
+Nothing outside `user://ota/` is touched; saves stay in `user://barrowfall_save.json`.
 Settings shows `v1.1.0 · Build <baked> · Content <ota>`, and the first launch on a
 new pack shows an "UPDATED TO BUILD N" plaque.
 

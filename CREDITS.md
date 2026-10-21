@@ -1,147 +1,87 @@
 # Credits
 
-Critter Clash is an original game. The hunt, the roster, and the interface are original. The world is licensed 3D: critters, nature, ground textures, and a sky. Kenney pictures remain on the interface portraits. Nothing in the game changes a critter's role based on where it stands.
+Barrowfall is an original game. Code, design and shaders are original. Everything
+below is free to use under the license given; nothing here was paid for.
 
-## Code and engine
+## Engine
 
 - Godot Engine 4.7.2 — https://godotengine.org — MIT License.
 
-## Fonts
+## 3D art — KayKit by Kay Lousberg (CC0)
 
-- Cinzel by Natanael Gama and the Cinzel Project Authors (display type). File: `assets/fonts/Cinzel-Variable.ttf`, plus `CinzelDecorative-Black.ttf`. License: SIL Open Font License 1.1. See `assets/fonts/OFL-Cinzel.txt`. Source: [google/fonts](https://github.com/google/fonts) `ofl/cinzel`, `ofl/cinzeldecorative`.
-- Alegreya Sans by Juan Pablo del Peral and Huerta Tipográfica (body text). Files: `assets/fonts/AlegreyaSans-Bold.ttf`, `AlegreyaSans-Medium.ttf`. License: SIL Open Font License 1.1. See `assets/fonts/OFL-AlegreyaSans.txt`. Source: [google/fonts](https://github.com/google/fonts) `ofl/alegreyasans`.
+All characters, animations, weapons and props are from KayKit by Kay Lousberg
+(www.kaylousberg.com), released under Creative Commons Zero (CC0 1.0). Crediting
+is not required; we do it anyway. Each pack's license file is kept beside the
+files in `assets/kaykit/`.
 
-The older fonts below remain in the repository but the interface no longer uses them:
+- KayKit : Adventurers Character Pack 2.0 (Free) — Knight, Ranger, Mage, Barbarian
+  and their weapons — https://kaylousberg.itch.io/kaykit-adventurers
+- KayKit : Skeletons Character Pack 1.1 (Free) — every enemy, and Gravemaw (the
+  Skeleton Warrior at 2.6× scale) — https://kaylousberg.itch.io/kaykit-skeletons
+- KayKit : Character Animations 1.1 (Free) — the shared Rig_Medium animation set,
+  baked into `assets/kaykit/animations/rig_medium_lib.res` by `tools/bake_anims.gd`
+  — https://kaylousberg.itch.io/kaykit-character-animations
+- KayKit : Halloween Bits 1.0 (Free) — the graveyard: crypt, graves, fences,
+  lanterns, dead trees, bones — https://kaylousberg.itch.io/halloween-bits
+- KayKit : Forest Nature Pack 1.0 (Free) — trees, rocks, bushes, grass —
+  https://kaylousberg.itch.io/kaykit-forest
+- KayKit : Dungeon Pack Remastered 1.1 (Free) — chests, coins, barrels, camp
+  props — https://kaylousberg.itch.io/kaykit-dungeon-pack
 
-- Nunito by Vernon Adams, Cyreal, Jacques Le Bailly, and other contributors.
-- Files: `assets/fonts/Nunito-SemiBold.ttf`, `Nunito-Bold.ttf`, `Nunito-ExtraBold.ttf`.
-- License: SIL Open Font License 1.1. See `assets/fonts/OFL.txt`.
-- Source: [fontsource Nunito](https://fontsource.org/fonts/nunito) latin weights 600, 700, and 800.
-- Lilita One by Juan Montoreano. File: `assets/fonts/LilitaOne-Regular.ttf`.
-- License: SIL Open Font License 1.1, reserved font name Lilita. See `assets/fonts/OFL-LilitaOne.txt`.
-- Source: [google/fonts](https://github.com/google/fonts) `ofl/lilitaone`.
+## Icons — game-icons.net (CC BY 3.0)
 
-## 3D models
+Interface and card icons in `assets/icons/` are from https://game-icons.net,
+licensed under Creative Commons Attribution 3.0
+(https://creativecommons.org/licenses/by/3.0/). Downloaded as white SVGs, otherwise
+unchanged. Authors:
 
-- Ember the dragon: "Cute Dragon" by shakiller — https://sketchfab.com/3d-models/cute-dragon-df14ec74767c4598920132758dab8a49 — CC-BY 4.0. File `assets/models/sketchfab/ember_cute.glb`, with its own hand-painted scale textures and one idle clip.
-- Cinder and Cindling (volcano dragons): "Stylized Dragon" by Stan (Stas_SayHallo) — https://sketchfab.com/3d-models/stylized-dragon-97d00c182fa24fa4838493c41ad8e52c — CC-BY 4.0. File `assets/models/sketchfab/ember.glb`. Clips are wing flaps and a head turn. The CC0 fallback is Pixor's "Small Dragon" — https://pixor.art/library/creatures/dragon-small/ — files `assets/models/ember_*.glb`, used for lava and water variants.
-- Pebble the otter: "Cozy Animals" by Gamideo — https://dragofive.itch.io/cozy-animals-3d — CC0. File `pebble_*.glb`. No CC0 or CC-BY rigged otter on Sketchfab was a real otter with a walk cycle, so this mesh stays. It is tinted teal-brown in game.
-- Lumen the owl: Pixor "Owl" — https://pixor.art/library/creatures/owl/ — CC0. Files `lumen_*.glb`. Searches did not turn up a rigged CC0 or CC-BY owl that was actually an owl.
-- Beetle, spore, shard and skink minions (Frog rig) and sprout, capling and yeti minions (Cactoro rig): Quaternius Ultimate Monsters — https://quaternius.com — CC0. Files `pip_*.glb` and `bramble_*.glb`. Clips include Idle, Run, Punch, HitReact, and Death.
-- Pinecone boar critters (Mossback, Yeti, Magmash; formerly the hero Bramble): "Crazy Critter Crate - Swinecone" by Moped (mopedgames) — https://sketchfab.com/3d-models/crazy-critter-crate-swinecone-bae685e5a9d9442a85e78b1525b08aaf — CC-BY 4.0. File `assets/models/sketchfab/bramble.glb` (the display rock is stripped out). It replaces the sombrero cactus (Quaternius Cactoro), whose `bramble_*.glb` files remain only as unused fallbacks.
-- Former meadow boss (fallback only since the grimdark boss pass): "Mushroom Boss - game ready with animations" by iamjohnhult — https://sketchfab.com/3d-models/mushroom-boss-game-ready-with-animations-ee611e4925e94a98baa4cfd3d89d3449 — CC-BY 4.0. File `assets/models/sketchfab/thistle.glb`. Idle, Walk, Attack, and Die. The CC0 fallback is Quaternius "Demon" in `assets/models/thistle_boss.gltf`.
-- Meadow trees, bushes, and rocks: "Nature Vegetation Pack" by AnderArts — https://sketchfab.com/3d-models/nature-vegetation-pack-c257b444645542da867fce0cf221e52d — CC-BY 4.0. File `assets/models/sketchfab/nature/grove.glb`. The shipped file keeps one LOD0 of each tree, bush, and rock. The astronaut, ground plane, cliffs, and extra LODs are not included.
-- Grass, flowers, mushrooms, pedestal stones, and the trees outside the meadow: Quaternius Stylized Nature MegaKit — https://quaternius.com/packs/stylizednature.html — CC0.
+- Lorc — https://lorcblog.blogspot.com — most icons (crossed-swords, broadsword,
+  fireball, magnet, ghost, cog, trophy, scroll-unfurled, sprint, spinning-blades,
+  arrow-cluster, lightning-helix, crystal-shine, checked-shield, sword-wound,
+  bolt-shield, explosion-rays, barbed-arrow, high-shot, ice-bolt, frozen-orb,
+  spinning-sword, battle-axe, wizard-staff, pocket-bow, visored-helm, crowned-skull,
+  dripping-sword, hourglass, stopwatch, skull-crossed-bones, bone-gnawer, fire-ring,
+  meteor-impact, arrow-flights, heavy-arrow, broken-bone, back-forth, padlock,
+  locked-chest, swap-bag, book-cover, rune-stone, castle, gems, diamond-hard,
+  gem-pendant, breastplate, crossed-axes, slashed-shield, fist, wolf-head, anvil,
+  sword-smithing, strong, muscle-up, fairy-wand, magic-swirl, archery-target,
+  arrow-scope, lightning-tear, heart-organ, cloak-dagger, sun, moon, campfire,
+  tombstone, glowing-hands, sword-spin, whirlwind)
+- Delapouite — https://delapouite.com — two-coins, running-shoe, upgrade,
+  round-star, house, padlock-open
+- Skoll — bullseye, open-treasure-chest
+- Zeromancer — heart-plus
+- Carl Olsen — flame
+- Sbed — shield, health-normal
+- Guard13007 — pause-button
 
-### Enemies and bosses
+## Fonts (SIL Open Font License 1.1)
 
-- Every wild enemy and lair boss uses Quaternius's **Ultimate Monsters** pack (CC0) — https://quaternius.com/packs/ultimatemonsters.html , downloaded via https://poly.pizza (glb, rigged and animated). Files in `assets/models/monsters/`. Hero critter models are no longer reused for enemies. Restyled in-engine (PBR roughness/rim pass in `scripts/cast3d.gd`).
+- Cinzel by Natanael Gama and the Cinzel Project Authors — titles and numbers.
+  `assets/fonts/Cinzel-Variable.ttf`, license `assets/fonts/OFL-Cinzel.txt`.
+- Alegreya Sans by Juan Pablo del Peral and Huerta Tipográfica — body text.
+  `assets/fonts/AlegreyaSans-*.ttf`, license `assets/fonts/OFL-AlegreyaSans.txt`.
 
-- Sketchfab creatures, all CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/), files in `assets/models/sketchfab/mon/`, tinted per biome in `scripts/cast3d.gd`:
-  - "Golem" by **DWN (dwn76)** — https://sketchfab.com/3d-models/golem-241619b4423148029ceecddbbe691af0 — Cinder and Nimbus lair bosses. Changes: clip times rebased to zero, vein emission mask (`golem_glow.png`), ice repaint for Nimbus (`golem_ice.png`).
-  - "fantasy boar animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/fantasy-boar-animation-a9dd958971ea462fbaab621410c30748 — Snowpup, Magmash.
-  - "giant scorpion animation" by **blam (Blam577895)** — https://sketchfab.com/3d-models/giant-scorpion-animation-651c17e0a3784c0386790e5b7c565f1a — Skink, Shard.
-  - "Bat Lord" by **Huh (SkibidiSanya)** — https://sketchfab.com/3d-models/bat-lord-8ee898e9c5384493989a5f1cbc38dab3 — Moth, Glowmoth, Ashbat, Icewisp.
-- Dark-fantasy pass, all CC-BY 4.0 by **AnimalMesh 3D (AnimalMesh3D)**, files in `assets/models/sketchfab/dark/`, graded darker in `scripts/cast3d.gd`:
-  - "Animated Fox 3D Model" — https://sketchfab.com/3d-models/animated-fox-3d-model-7b7d4f07d47a444ab6c08b62adfd4aff — spirit wolves (feral fox beasts).
-  - "Animated Badger – 3D Animal Model" — https://sketchfab.com/3d-models/animated-badger-3d-animal-model-c495442f215d4f2ba18c29fcd9cc7587 — Rot Badger (id `sprout`).
-  - "Animated Realistic Bear – 3D Animal Model" — https://sketchfab.com/3d-models/animated-realistic-bear-3d-animal-model-77a1fcdc92e14db698767da9ee09f84a — Grave Bear (id `boarlet`).
-- Grimdark lair bosses (2026-10-18), CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/), files in `assets/models/sketchfab/boss/`, dressed by `scripts/boss_look.gd`. Licences checked against the Sketchfab API (model uid, author, licence) before use:
-  - "Troll Cave" by **Vasian-Digital3D** — https://sketchfab.com/3d-models/troll-cave-16eabe8c1e244bc99d87c181a907c58f — Gravemaw, the meadow lair boss (id `thistle`). File `troll.glb` (+ `troll_*.png` textures the importer extracted from it). Changes: native clips renamed into `troll_anims.res` by `tools/boss_bake.gd`; artist materials used as authored; ember corruption veins as an emission mask (`troll_veins_*.png`, drawn by `tools/paint_boss.py`); glowing eyes, chest core and ember particles added in-engine.
-  - "Stylized Nightmarish Werewolf" by **Stylized Builder (Stylized.Builder)** — https://sketchfab.com/3d-models/stylized-nightmarish-werewolf-53e21af08b8c495cb67a9fbd95750071 — CC-BY 4.0 (licence and author checked on the Sketchfab API; not by milakpro) — Nightmaw, the mushroom-forest lair boss (id `caplet`). File `assets/models/sketchfab/boss/werewolf.glb` (+ `werewolf_0..6.png` extracted by the importer). Changes: clips renamed into `werewolf_anims.res` by `tools/boss_bake.gd`; the artist's own materials and textures are used as authored, plus blight veins as an emission mask (`werewolf_veins.png`, from `tools/paint_boss.py`); glowing eyes, chest core and particles in-engine. Its death and hit clips are KayKit "Death_A" / "Hit_A" (CC0), retargeted by `tools/retarget.gd` (map `kaykit_werewolf`).
-  - Gravemaw's death clip is KayKit Adventurers (Kay Lousberg, CC0, https://kaylousberg.itch.io/kaykit-adventurers) "Death_A", retargeted by `tools/retarget.gd` (map `kaykit_troll`) and merged by `tools/boss_bake.gd`; its hit reaction is the model's own stagger clip.
-- The Mushroom Boss model listed above is no longer used by a boss (the former Thistle and Caplet; fallback only).
-- Enemy portraits in `assets/sprites/portraits/` are re-baked from these models.
+## Music (CC BY 4.0)
 
-### Hunt forest
+- "Achaidh Cheide" (camp), "Heroic Age" (hunt) and "Five Armies" (boss) by Kevin
+  MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 —
+  https://creativecommons.org/licenses/by/4.0/ . Re-encoded to OGG and
+  loudness-matched; otherwise unchanged.
+- Victory sting: "Victory Fanfare Short" by cynicmusic —
+  https://opengameart.org/content/victory-fanfare-short — CC0 (trimmed).
 
-- "Handpainted Tree Pack" by **rudolfs** — https://sketchfab.com/3d-models/handpainted-tree-pack-d246b8b4439d44c6adc854ebc5ffc5ba — licensed under CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/). File `assets/models/sketchfab/nature/handpainted.glb`. Changes: colour-graded darker per biome, alpha-scissor leaves, instanced in `scripts/stage3d.gd`.
+## Sound effects
 
-## Textures and sky
+Licensed (CC0), trimmed and layered:
 
-- Ground textures are ambientCG — https://ambientcg.com — CC0:
-  - Hunt floor (2K): Grass004 (`ground_grass_*`), Ground037 forest floor (`ground_forest_*`), and Ground078 dirt (`ground_dirt_*`). Ambient occlusion is baked into the colour maps; `*_data.jpg` packs roughness (R) and height (G) for the height-blended splat.
-  - Grass004 (`assets/textures/grass_*.jpg`) and Grass001 (`lush_*.jpg`) for the turf.
-  - Ground078 (`path_*.jpg`) for the dirt trails.
-  - Rock051 color, normal and roughness (`rock_color.jpg`, `rock_normal.jpg`, `rock_rough.jpg`) for the pedestal and field rocks.
-  - Moss002 color and normal (`moss_color.jpg`, `moss_normal.jpg`) for moss on the field rocks.
-- Collection-log item icons are rendered in-engine from primitives and the game's own models by `scripts/icon_baker.gd`.
-- Interface materials are ambientCG — CC0, reduced to 512 px in `assets/textures/ui/`:
-  - Rock030 (`ui_stone.jpg`) for the carved-stone backdrop and the tab bar.
-  - Marble006 (`ui_marble.jpg`) for the panel faces.
-  - Leather037 normal map (`ui_leather_n.jpg`) for the leather bump under the frames.
-  - Planks037A (`ui_wood.jpg`).
-- The metal frames, bevels, rivets, and glows are procedural (`shaders/ui_frame.gdshader`).
-- Ember's painted albedo (`assets/models/sketchfab/ember_paint.png`) is derived from the Stylized Dragon's own textures by `tools/paint_ember.py` (CC-BY 4.0, same credit as the model).
-- Sky: Poly Haven `kloofendal_48d_partly_cloudy_puresky` (1k) — https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky — CC0. File `assets/textures/sky.hdr`.
-- `assets/textures/dust.png` is drawn for this game.
+- Kenney (www.kenney.nl): Impact Sounds, Interface Sounds, UI Audio, RPG Audio,
+  Casino Audio, Music Jingles — https://kenney.nl/assets
+- rubberduck on OpenGameArt: "80 CC0 RPG SFX", "80 CC0 creature SFX",
+  "100 CC0 SFX", "100 CC0 SFX #2" — https://opengameart.org/users/rubberduck
+- trazzz123 — "CC0 Deep Monster Roar" — https://opengameart.org/content/cc0-deep-monster-roar
+- Darsycho — "Monster snarls" — https://opengameart.org/content/monster-snarls
 
-## Knight heroes and gear
-
-All CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) unless marked CC0. Gear is re-textured with tier shading in `shaders/gear_tier.gdshader`; the meshes are otherwise unchanged.
-
-- "Paladin" by DJMaesen (bumstrum): https://sketchfab.com/3d-models/paladin-4f1c320f2cec49dc9bf38c6aad2d8ea9 . Used for Aldric, the ashen paladin hero.
-- "Skeleton Lord" by DJMaesen (bumstrum): https://sketchfab.com/3d-models/skeleton-lord-a3f7b44275cf4c489ad62c535268ac16 . Used for Mordrek, the Bone Knight hero (finger grip borrowed from the Paladin rig's rest pose).
-- "Ghoul" by DJMaesen (bumstrum): https://sketchfab.com/3d-models/ghoul-f37f43b23fd541df8a2926571acfce70 . Used for Gnash, the ghoul berserker hero.
-- "Plague Doctor" by BeardenInc: https://sketchfab.com/3d-models/plague-doctor-41f7a1dfd6984135b876f334908e3ca4 . Used for Corvin, the plague-doctor caster hero (display plinth hidden).
-- Animations: KayKit Adventurers and Skeletons character packs by Kay Lousberg (CC0, https://kaylousberg.itch.io/kaykit-adventurers). They are retargeted onto each hero rig by `tools/retarget.gd`.
-- "Reinforced Wooden Shield (game ready asset)" by apariciosilva3D: https://sketchfab.com/3d-models/reinforced-wooden-shield-game-ready-asset-20a4a579371d4b6c86244fad9404a313
-- "Medieval Wood Heater Shield" by iedalton: https://sketchfab.com/3d-models/medieval-wood-heater-shield-2a3aba2c1ef041168fab0c595e2e5882
-- "Paladin Shield [Free Download]" by Efarys: https://sketchfab.com/3d-models/paladin-shield-free-download-0ae0f62030ad48d88364b327b7cd3fc3
-- "Black Blade of Oarimaar" by Pippa (Planetrix23): https://sketchfab.com/3d-models/black-blade-of-oarimaar-d84a41ac0a2a4d9bb39a0a2b7fe1027f
-- "Ancient Pauldron" by Ciarán Wilson: https://sketchfab.com/3d-models/ancient-pauldron-8c5cd28345ce487d93c46cb94101fce3 (CC-BY 4.0; rune-tier shoulder plates)
-
-## Interface pictures
-
-- Critter portraits on cards, the collection log, the slayer panel, and the hunt medallion are renders of each critter's own 3D model (credited above), baked by `scripts/portrait_baker.gd` into `assets/sprites/portraits/`. Kenney's [Animal Pack Redux](https://opengameart.org/content/animal-pack-redux) (CC0) stays in `assets/sprites/critters/` only as a fallback.
-- Interface icons (`assets/sprites/icons/`) are from Kenney's [Board Game Icons](https://kenney.nl/assets/board-game-icons) and [Game Icons](https://kenney.nl/assets/game-icons), CC0, recoloured to white at 128 px.
-- Credit to Kenney (www.kenney.nl) is appreciated and not required.
-- `icon.png` is drawn by `tools/make_icon.py`.
-
-## Audio
-
-Built from the sources below by `tools/build_sfx.py` (trim, layer, peak-normalise, OGG). Music is in `assets/audio/music/`, effects in `assets/audio/sfx/`.
-
-### Music (CC-BY 4.0)
-
-- "Achaidh Cheide" (home theme), "Heroic Age" (hunt theme), and "Five Armies" (boss theme) by Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 — https://creativecommons.org/licenses/by/4.0/ . Sources: https://incompetech.com/music/royalty-free/mp3-royaltyfree/Achaidh%20Cheide.mp3 , .../Heroic%20Age.mp3 , .../Five%20Armies.mp3 . Re-encoded to OGG and loudness-matched; otherwise unchanged.
-- Victory sting: "Victory Fanfare Short" by cynicmusic — https://opengameart.org/content/victory-fanfare-short — CC0 (trimmed to 8 s).
-
-### Sound effects (CC0)
-
-- Kenney (www.kenney.nl) — CC0: Impact Sounds, Interface Sounds, UI Audio, RPG Audio, Casino Audio, Music Jingles (pizzicato jingles for the level-up and defeat stings). https://kenney.nl/assets
-- rubberduck on OpenGameArt — CC0: "80 CC0 RPG SFX" (fire spells, gems, coins, roar, locks) https://opengameart.org/content/80-cc0-rpg-sfx , "80 CC0 creature SFX" (critter squeaks, hurts, spits) https://opengameart.org/content/80-cc0-creature-sfx , "100 CC0 SFX" (bells, slams, plops, gong, box open) https://opengameart.org/content/100-cc0-sfx , "100 CC0 SFX #2" (air whooshes, stones) https://opengameart.org/content/100-cc0-sfx-2
-- trazzz123 — "CC0 Deep Monster Roar" — https://opengameart.org/content/cc0-deep-monster-roar — CC0 (boss roar).
-- Darsycho — "Monster snarls" — https://opengameart.org/content/monster-snarls — CC0 (boss wind-up).
-
-The earlier synthesized effects from `tools/build_audio.py` are no longer shipped.
-
-### Synthesized effects (original work)
-
-The moments the packs above do not cover are drawn from scratch by
-`tools/build_sfx_synth.py`: the melee arc, the dodge, the tank's dash and
-landing, the cleave, the splash, the enemy's aim tell, a skill tick, the
-training pip, a skill level, the run banner, a fading shrine buff, gear
-landing and being equipped, lifted or removed, the goblin slipping away,
-the hunt opening, a chest finishing its unlock, and the short chord the
-music volume slider previews.
-
-The combat pass added more in the same hand: a hero's cast charge and the
-impact burst where a hit lands, a blow turned aside by a guard, a ward
-shattering, a foe's growl of recognition, life drained off a foe, a blink,
-and one voice for each loud ability — chain lightning, a frost nova, an
-earthquake, an arrow volley, a crown of storm, a taunting roar, a wolf's
-howl, a ring of blades, a thorn aura, a static field, fire from the sky,
-a hunter's mark, a siphon, a splitting shot, a ricochet, and the fanfare
-for a won duel.
-
-Every one of them is generated by that script from oscillators and noise —
-no sampled material, no third-party licence — and ships as mono 44.1 kHz
-OGG in `assets/audio/sfx/` beside the licensed clips, under the same event
-names. The script is deterministic: each clip is drawn from fixed seeds,
-so the same command writes the same bytes. A clip already on disk is left
-alone, so a rebuild does not churn the resource uids.
-
-## Chest
-- Chest model: Kenney Pirate Kit 2.1 (`chest.glb`), www.kenney.nl, CC0. Restyled in-engine (shaders/chest.gdshader, scripts/chest3d.gd).
-- Planks012 (wood) and Metal032 (iron normal/roughness): ambientCG, CC0, https://ambientcg.com
+Some effects (swings, dashes, novas, chain lightning, thorns and similar) were
+synthesized from oscillators and noise for this project and are original work.
+The scripts that built the audio are kept in `_legacy/tools/`.

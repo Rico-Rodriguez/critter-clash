@@ -24,13 +24,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Stamp the OTA build number
         run: |
           set -euo pipefail
           # Monotonic build id for OTA content packs and the AltStore source.
           # The IPA bakes it as ProjectSettings ota/build (read by
-          # scripts/ota_boot.gd before any pack mounts) and as its bundle version.
+          # src/autoload/ota_boot.gd before any pack mounts) and as its bundle version.
           BUILD="${{ github.run_number }}"
           python3 - "$BUILD" "${{ github.sha }}" << 'PY'
           import re, sys
@@ -47,7 +49,7 @@ jobs:
           open("export_presets.cfg", "w").write(text)
           print("OTA build", build, "app version", "%s.%s" % (base, build))
           PY
-          NATIVE="$(sed -n 's/^const NATIVE_VERSION := \([0-9][0-9]*\).*/\1/p' scripts/ota_boot.gd)"
+          NATIVE="$(sed -n 's/^const NATIVE_VERSION := \([0-9][0-9]*\).*/\1/p' src/autoload/ota_boot.gd)"
           test -n "$NATIVE"
           echo "OTA_BUILD=$BUILD" >> "$GITHUB_ENV"
           echo "OTA_NATIVE=$NATIVE" >> "$GITHUB_ENV"
@@ -148,7 +150,7 @@ jobs:
           set -euo pipefail
           # The iOS export's main pack holds every script, scene and imported
           # asset (iOS texture formats). Shipped as-is, it is the OTA patch:
-          # scripts/ota_boot.gd mounts it over the baked content on launch.
+          # src/autoload/ota_boot.gd mounts it over the baked content on launch.
           pck="$(find build/ios -name '*.pck' -size +100k -print -quit)"
           mkdir -p dist
           cp "$pck" dist/critter_clash.pck
@@ -236,15 +238,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios-v1
-          name: Critter Clash ios-v1
+          name: Barrowfall ios-v1
           prerelease: true
           files: build/ios/CritterClash.ipa
           # Same tag every build: the IPA asset is replaced in place.
           overwrite_files: true
           body: |
-            Unsigned Critter Clash build for sideloading.
+            Unsigned Barrowfall build for sideloading.
             Built from ${{ github.sha }} (run ${{ github.run_id }}).
-            Bundle id `com.rico.critterclash`, display name Critter Clash.
+            Bundle id `com.rico.critterclash`, display name Barrowfall.
             Re-sign with SideInstaller using your Apple ID. The export team id ABCDE12345 is a placeholder and is replaced when you re-sign.
             Godot 4.7.2, Mobile renderer, minimum iOS 15.
         env:

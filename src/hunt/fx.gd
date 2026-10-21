@@ -1,0 +1,481 @@
+class_name Fx
+extends Node3D
+## Pooled visual effects for the hunt. Everything here is cosmetic: gameplay
+## never waits on an effect. Particle bursts go through a handful of shared
+## GPUParticles3D emitters (emit_particle), so a hundred hits cost nothing.
+
+const SLASH := preload("res://src/fx/slash.gdshader")
+const RING := preload("res://src/fx/ring.gdshader")
+const TELE := preload("res://src/fx/telegraph.gdshader")
+const BEAM := preload("res://src/fx/beam.gdshader")
+const SOFT := preload("res://src/fx/soft.gdshader")
+const SMOKE := preload("res://src/fx/smoke.gdshader")
+
+const FLAGS := GPUParticles3D.EMIT_FLAG_POSITION | GPUParticles3D.EMIT_FLAG_VELOCITY | GPUParticles3D.EMIT_FLAG_COLOR | GPUParticles3D.EMIT_FLAG_CUSTOM
+
+var _live: Array = []
+var _pools := {}
+var _arc_meshes := {}
+var _slash_mat: ShaderMaterial
+var _ring_mat: ShaderMaterial
+var _tele_mat: ShaderMaterial
+var _beam_mat: ShaderMaterial
+var _quad: PlaneMesh
+var sparks: GPUParticles3D
+var embers: GPUParticles3D
+var dust: GPUParticles3D
+var bones: GPUParticles3D
+var glow: GPUParticles3D
+var _numbers: Array[Label3D] = []
+var _num_i := 0
+var _lights: Array[OmniLight3D] = []
+var _light_i := 0
+var title_font: FontVariation
+var quality_low := false
+
+
+func _init() -> void:
+	name = "Fx"
+
+
+func _ready() -> void:
+	_slash_mat = ShaderMaterial.new()
+	_slash_mat.shader = SLASH
+	_ring_mat = ShaderMaterial.new()
+	_ring_mat.shader = RING
+	_tele_mat = ShaderMaterial.new()
+	_tele_mat.shader = TELE
+	_tele_mat.render_priority = -1
+	_beam_mat = ShaderMaterial.new()
+	_beam_mat.shader = BEAM
+	_quad = PlaneMesh.new()
+	_quad.size = Vector2(2, 2)
+	title_font = FontVariation.new()
+	title_font.base_font = load("res://assets/fonts/Cinzel-Variable.ttf")
+	title_font.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 900}
+	sparks = _emitter(220, 0.45, _soft_mesh(0.16), Vector3(0, -14, 0), 2.5)
+	embers = _emitter(160, 1.4, _soft_mesh(0.12), Vector3(0, 1.5, 0), 1.2)
+	glow = _emitter(60, 0.35, _soft_mesh(1.4), Vector3.ZERO, 0.0)
+	dust = _emitter(140, 0.9, _smoke_mesh(1.1), Vector3(0, 0.8, 0), 2.2)
+	var bone_mesh := _first_mesh("res://assets/kaykit/graveyard/bone_A.gltf")
+	bones = _emitter(150, 1.1, bone_mesh, Vector3(0, -16, 0), 0.6, true)
+	for i in 36:
+		var l := Label3D.new()
+		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		l.no_depth_test = true
+		l.fixed_size = false
+		l.pixel_size = 0.0082
+		l.font = title_font
+		l.font_size = 64
+		l.outline_size = 18
+		l.outline_modulate = Color(0.05, 0.02, 0.02, 0.95)
+		l.render_priority = 10
+		l.outline_render_priority = 9
+		l.visible = false
+		add_child(l)
+		_numbers.append(l)
+	for i in 4:
+		var o := OmniLight3D.new()
+		o.visible = false
+		o.shadow_enabled = false
+		add_child(o)
+		_lights.append(o)
+
+
+func _first_mesh(path: String) -> Mesh:
+	var n: Node = load(path).instantiate()
+	var mi: MeshInstance3D = n as MeshInstance3D
+	if mi == null:
+		for c in n.find_children("*", "MeshInstance3D", true, false):
+			mi = c
+			break
+	var m: Mesh = mi.mesh
+	n.free()
+	return m
+
+
+func _soft_mesh(size: float) -> QuadMesh:
+	var q := QuadMesh.new()
+	q.size = Vector2(size, size)
+	var m := ShaderMaterial.new()
+	m.shader = SOFT
+	q.material = m
+	return q
+
+
+func _smoke_mesh(size: float) -> QuadMesh:
+	var q := QuadMesh.new()
+	q.size = Vector2(size, size)
+	var m := ShaderMaterial.new()
+	m.shader = SMOKE
+	var nt := NoiseTexture2D.new()
+	nt.width = 128
+	nt.height = 128
+	nt.seamless = true
+	var fn := FastNoiseLite.new()
+	fn.frequency = 0.03
+	nt.noise = fn
+	m.set_shader_parameter("noise", nt)
+	q.material = m
+	return q
+
+
+func _emitter(amount: int, life: float, mesh: Mesh, gravity: Vector3, damping: float, spin := false) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = life
+	p.explosiveness = 0.0
+	p.local_coords = false
+	p.emitting = true
+	p.amount_ratio = 0.0
+	p.visibility_aabb = AABB(Vector3(-80, -10, -80), Vector3(160, 40, 160))
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if not spin else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	var pm := ParticleProcessMaterial.new()
+	pm.gravity = gravity
+	pm.damping_min = damping
+	pm.damping_max = damping
+	pm.initial_velocity_min = 0.0
+	pm.initial_velocity_max = 0.0
+	pm.direction = Vector3.ZERO
+	pm.spread = 0.0
+	var curve := CurveTexture.new()
+	var c := Curve.new()
+	c.add_point(Vector2(0, 1))
+	c.add_point(Vector2(0.6, 0.8))
+	c.add_point(Vector2(1, 0))
+	curve.curve = c
+	pm.scale_curve = curve
+	if spin:
+		pm.angular_velocity_min = -720.0
+		pm.angular_velocity_max = 720.0
+		pm.particle_flag_rotate_y = true
+		pm.scale_min = 0.8
+		pm.scale_max = 1.3
+		var sc := Curve.new()
+		sc.add_point(Vector2(0, 1))
+		sc.add_point(Vector2(0.8, 1))
+		sc.add_point(Vector2(1, 0))
+		var sct := CurveTexture.new()
+		sct.curve = sc
+		pm.scale_curve = sct
+	else:
+		var alpha := Gradient.new()
+		alpha.set_color(0, Color(1, 1, 1, 1))
+		alpha.set_color(1, Color(1, 1, 1, 0))
+		var gt := GradientTexture1D.new()
+		gt.gradient = alpha
+		pm.color_ramp = gt
+	p.process_material = pm
+	p.draw_pass_1 = mesh
+	if spin:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.93, 0.88, 0.78)
+		m.roughness = 0.8
+		p.material_override = m
+	add_child(p)
+	return p
+
+
+func _process(delta: float) -> void:
+	var i := _live.size() - 1
+	while i >= 0:
+		var e: Dictionary = _live[i]
+		e["t"] += delta
+		var k: float = clampf(e["t"] / e["dur"], 0.0, 1.0)
+		var n: Node3D = e["node"]
+		if not is_instance_valid(n):
+			_live.remove_at(i)
+			i -= 1
+			continue
+		match str(e["kind"]):
+			"slash", "ring":
+				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
+			"tele":
+				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
+				var fade_in: float = clampf(e["t"] / 0.12, 0.0, 1.0)
+				(n as GeometryInstance3D).set_instance_shader_parameter("fade", fade_in)
+			"num":
+				var l := n as Label3D
+				var base: Vector3 = e["from"]
+				var pop: float = 1.0 + 0.6 * pow(1.0 - minf(k * 5.0, 1.0), 2.0)
+				l.scale = Vector3.ONE * pop * float(e["size"])
+				l.position = base + Vector3(e["dx"] * k, 1.1 * (1.0 - pow(1.0 - k, 2.0)), 0)
+				l.modulate.a = 1.0 - smoothstep(0.65, 1.0, k)
+				l.outline_modulate.a = l.modulate.a * 0.95
+			"light":
+				var o := n as OmniLight3D
+				o.light_energy = float(e["energy"]) * pow(1.0 - k, 2.0)
+			"beam":
+				pass
+		if k >= 1.0:
+			if e["kind"] == "num" or e["kind"] == "light":
+				n.visible = false
+			elif e["kind"] != "beam":
+				_release(str(e["kind"]), n)
+			_live.remove_at(i)
+		i -= 1
+
+
+func _take(kind: String, make: Callable) -> Node3D:
+	var pool: Array = _pools.get(kind, [])
+	_pools[kind] = pool
+	var n: Node3D = pool.pop_back() if not pool.is_empty() else make.call()
+	if n.get_parent() == null:
+		add_child(n)
+	n.visible = true
+	return n
+
+
+func _release(kind: String, n: Node3D) -> void:
+	n.visible = false
+	var key := kind
+	if n.has_meta("pool"):
+		key = str(n.get_meta("pool"))
+	_pools[key] = _pools.get(key, [])
+	_pools[key].append(n)
+
+
+## A flat arc mesh around +Z, inner/outer radius 0.55/1.0 (scale it).
+func _arc(deg: int) -> ArrayMesh:
+	if _arc_meshes.has(deg):
+		return _arc_meshes[deg]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var seg := 24
+	var half := deg_to_rad(deg) * 0.5
+	for s in seg:
+		var a0 := -half + (2.0 * half) * s / seg
+		var a1 := -half + (2.0 * half) * (s + 1) / seg
+		var u0 := float(s) / seg
+		var u1 := float(s + 1) / seg
+		var pts := [
+			[Vector3(sin(a0), 0, cos(a0)) * 0.45, Vector2(u0, 0)],
+			[Vector3(sin(a0), 0, cos(a0)), Vector2(u0, 1)],
+			[Vector3(sin(a1), 0, cos(a1)), Vector2(u1, 1)],
+			[Vector3(sin(a1), 0, cos(a1)) * 0.45, Vector2(u1, 0)],
+		]
+		for idx in [0, 1, 2, 0, 2, 3]:
+			st.set_uv(pts[idx][1])
+			st.set_normal(Vector3.UP)
+			st.add_vertex(pts[idx][0])
+	var m := st.commit()
+	_arc_meshes[deg] = m
+	return m
+
+
+## A sword swing: arc of `deg` around the facing angle `yaw`.
+func slash(pos: Vector3, yaw: float, radius: float, deg: float, color: Color, mirror := false, dur := 0.2) -> void:
+	var d := int(clampf(roundf(deg / 10.0) * 10.0, 30.0, 360.0))
+	var kind := "slash%d" % d
+	var n := _take(kind, func():
+		var mi := MeshInstance3D.new()
+		mi.mesh = _arc(d)
+		mi.material_override = _slash_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_meta("pool", kind)
+		return mi)
+	n.position = pos + Vector3(0, 0.9, 0)
+	n.rotation = Vector3(0, yaw, 0)
+	n.scale = Vector3(-radius if mirror else radius, 1, radius)
+	(n as GeometryInstance3D).set_instance_shader_parameter("tint", color)
+	(n as GeometryInstance3D).set_instance_shader_parameter("progress", 0.0)
+	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "slash"})
+
+
+## Expanding ground ring (shockwaves, novas, landings).
+func ring(pos: Vector3, radius: float, color: Color, dur := 0.45, width := 0.12) -> void:
+	var n := _take("ring", func():
+		var mi := MeshInstance3D.new()
+		mi.mesh = _quad
+		mi.material_override = _ring_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_meta("pool", "ring")
+		return mi)
+	n.position = pos + Vector3(0, 0.06, 0)
+	n.rotation = Vector3.ZERO
+	n.scale = Vector3(radius, 1, radius)
+	(n as GeometryInstance3D).set_instance_shader_parameter("tint", color)
+	(n as GeometryInstance3D).set_instance_shader_parameter("progress", 0.0)
+	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "ring"})
+
+
+## Ground warning. shape: 0 circle (size = radius), 1 cone (size = radius,
+## cone = half angle), 2 lane (size = Vector2 half width, length). The fill
+## completes after `dur`. Returns the node so the caller can cancel it.
+func telegraph(shape: int, pos: Vector3, yaw: float, size: Vector2, dur: float, cone := 0.6) -> MeshInstance3D:
+	var n := _take("tele", func():
+		var mi := MeshInstance3D.new()
+		mi.mesh = _quad
+		mi.material_override = _tele_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_meta("pool", "tele")
+		return mi)
+	n.rotation = Vector3(0, yaw, 0)
+	if shape == 2:
+		# Lane from pos forward along yaw.
+		var fwd := Vector3(sin(yaw), 0, cos(yaw))
+		n.position = pos + fwd * size.y * 0.5 + Vector3(0, 0.04, 0)
+		n.scale = Vector3(size.x, 1, size.y * 0.5)
+	else:
+		n.position = pos + Vector3(0, 0.04, 0)
+		n.scale = Vector3(size.x, 1, size.x)
+	var gi := n as GeometryInstance3D
+	gi.set_instance_shader_parameter("shape", float(shape))
+	gi.set_instance_shader_parameter("cone", cone)
+	gi.set_instance_shader_parameter("progress", 0.0)
+	gi.set_instance_shader_parameter("fade", 0.0)
+	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "tele"})
+	return n
+
+
+func cancel(n: Node3D) -> void:
+	if n == null or not is_instance_valid(n):
+		return
+	for i in _live.size():
+		if _live[i]["node"] == n:
+			_live.remove_at(i)
+			break
+	_release("tele", n)
+
+
+## Loot pillar. Lives until the caller frees it with release_beam.
+func beam(pos: Vector3, color: Color, height := 7.0) -> MeshInstance3D:
+	var n := _take("beam", func():
+		var mi := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.28
+		cyl.bottom_radius = 0.42
+		cyl.height = 1.0
+		cyl.cap_top = false
+		cyl.cap_bottom = false
+		cyl.radial_segments = 12
+		mi.mesh = cyl
+		mi.material_override = _beam_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_meta("pool", "beam")
+		return mi)
+	n.position = pos + Vector3(0, height * 0.5, 0)
+	n.scale = Vector3(1, height, 1)
+	(n as GeometryInstance3D).set_instance_shader_parameter("tint", color)
+	(n as GeometryInstance3D).set_instance_shader_parameter("strength", 1.0)
+	return n
+
+
+func release_beam(n: Node3D) -> void:
+	if n and is_instance_valid(n):
+		_release("beam", n)
+
+
+func number(pos: Vector3, amount: int, color: Color, size := 1.0) -> void:
+	var l := _numbers[_num_i]
+	_num_i = (_num_i + 1) % _numbers.size()
+	for e in _live:
+		if e["node"] == l:
+			_live.erase(e)
+			break
+	l.text = str(amount)
+	l.modulate = color
+	l.visible = true
+	var from := pos + Vector3(randf_range(-0.3, 0.3), 1.9, 0)
+	l.position = from
+	_live.append({"node": l, "t": 0.0, "dur": 0.75, "kind": "num", "from": from, "size": size, "dx": randf_range(-0.5, 0.5)})
+
+
+func text(pos: Vector3, s: String, color: Color, size := 0.8, dur := 1.1) -> void:
+	var l := _numbers[_num_i]
+	_num_i = (_num_i + 1) % _numbers.size()
+	for e in _live:
+		if e["node"] == l:
+			_live.erase(e)
+			break
+	l.text = s
+	l.modulate = color
+	l.visible = true
+	var from := pos + Vector3(0, 2.4, 0)
+	l.position = from
+	_live.append({"node": l, "t": 0.0, "dur": dur, "kind": "num", "from": from, "size": size, "dx": 0.0})
+
+
+func flash_light(pos: Vector3, color: Color, energy := 3.0, radius := 6.0, dur := 0.25) -> void:
+	if quality_low:
+		return
+	var o := _lights[_light_i]
+	_light_i = (_light_i + 1) % _lights.size()
+	for e in _live:
+		if e["node"] == o:
+			_live.erase(e)
+			break
+	o.visible = true
+	o.position = pos + Vector3(0, 1.2, 0)
+	o.light_color = color
+	o.omni_range = radius
+	o.light_energy = energy
+	_live.append({"node": o, "t": 0.0, "dur": dur, "kind": "light", "energy": energy})
+
+
+# --- Particle bursts -----------------------------------------------------
+
+func burst(pos: Vector3, color: Color, count := 10, speed := 6.0, up := 0.5) -> void:
+	for i in count:
+		var dir := Vector3(randf_range(-1, 1), randf_range(0.2, 1.0) * up + 0.15, randf_range(-1, 1)).normalized()
+		sparks.emit_particle(Transform3D(Basis(), pos + Vector3(0, 0.9, 0)), dir * speed * randf_range(0.4, 1.0), color, Color(randf(), randf(), 0, 0), FLAGS)
+
+
+func embers_at(pos: Vector3, color: Color, count := 6, radius := 0.6) -> void:
+	for i in count:
+		var off := Vector3(randf_range(-radius, radius), randf_range(0.2, 1.4), randf_range(-radius, radius))
+		embers.emit_particle(Transform3D(Basis(), pos + off), Vector3(randf_range(-0.4, 0.4), randf_range(0.5, 1.8), randf_range(-0.4, 0.4)), color, Color(randf(), randf(), 0, 0), FLAGS)
+
+
+func puff(pos: Vector3, color := Color(0.32, 0.27, 0.22, 0.55), count := 6, spread := 0.8, speed := 1.4) -> void:
+	for i in count:
+		var dir := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).normalized()
+		dust.emit_particle(Transform3D(Basis(), pos + dir * randf() * spread + Vector3(0, 0.25, 0)), dir * speed * randf_range(0.5, 1.0) + Vector3(0, randf_range(0.2, 0.8), 0), color, Color(randf(), randf(), 0, 0), FLAGS)
+
+
+func flare(pos: Vector3, color: Color) -> void:
+	glow.emit_particle(Transform3D(Basis(), pos + Vector3(0, 0.9, 0)), Vector3.ZERO, color, Color(), FLAGS)
+
+
+func bone_burst(pos: Vector3, count := 6, force := 5.0) -> void:
+	if quality_low:
+		count = mini(count, 3)
+	for i in count:
+		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()
+		var b := Basis(Vector3(randf(), randf(), randf()).normalized(), randf() * TAU)
+		bones.emit_particle(Transform3D(b, pos + Vector3(0, 0.8, 0)), dir * force * randf_range(0.6, 1.1), Color.WHITE, Color(), FLAGS)
+
+
+## Chain lightning: a jagged additive ribbon between points that flickers out.
+func lightning(points: PackedVector3Array, color := Color(0.6, 0.8, 1.0)) -> void:
+	var im := ImmediateMesh.new()
+	var mi := MeshInstance3D.new()
+	mi.mesh = im
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = Color(color.r * 2.5, color.g * 2.5, color.b * 2.5)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for s in points.size() - 1:
+		var a := points[s]
+		var b := points[s + 1]
+		var steps := 6
+		for j in steps + 1:
+			var t := float(j) / steps
+			var p := a.lerp(b, t)
+			if j > 0 and j < steps:
+				p += Vector3(randf_range(-0.35, 0.35), randf_range(-0.2, 0.3), randf_range(-0.35, 0.35))
+			var side := (b - a).cross(Vector3.UP).normalized() * 0.07
+			im.surface_add_vertex(p - side)
+			im.surface_add_vertex(p + side)
+	im.surface_end()
+	var tw := mi.create_tween()
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.22).from(1.0)
+	tw.tween_callback(mi.queue_free)
+	for p in points:
+		flare(p - Vector3(0, 0.9, 0), color)

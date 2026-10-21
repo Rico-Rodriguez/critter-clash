@@ -1,0 +1,337 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/lobby/lobby_ui.gd" id="1_ui"]
+
+[node name="LobbyUI" type="CanvasLayer"]
+script = ExtResource("1_ui")
+
+[node name="Shade" type="ColorRect" parent="."]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -620.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+color = Color(0.02, 0.02, 0.03, 0.55)
+
+[node name="Safe" type="MarginContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="V" type="VBoxContainer" parent="Safe"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="Top" type="HBoxContainer" parent="Safe/V"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="CombatChip" type="PanelContainer" parent="Safe/V/Top"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"Chip"
+
+[node name="H" type="HBoxContainer" parent="Safe/V/Top/CombatChip"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="CombatIcon" type="TextureRect" parent="Safe/V/Top/CombatChip/H"]
+unique_name_in_owner = true
+self_modulate = Color(0.95, 0.75, 0.4, 1)
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Combat" type="Label" parent="Safe/V/Top/CombatChip/H"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Value"
+theme_override_font_sizes/font_size = 22
+text = "Combat 3"
+
+[node name="Spacer" type="Control" parent="Safe/V/Top"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="GoldChip" type="PanelContainer" parent="Safe/V/Top"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"Chip"
+
+[node name="H" type="HBoxContainer" parent="Safe/V/Top/GoldChip"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="GoldIcon" type="TextureRect" parent="Safe/V/Top/GoldChip/H"]
+unique_name_in_owner = true
+self_modulate = Color(1, 0.8, 0.35, 1)
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Gold" type="Label" parent="Safe/V/Top/GoldChip/H"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Value"
+theme_override_colors/font_color = Color(1, 0.86, 0.5, 1)
+theme_override_font_sizes/font_size = 24
+text = "0"
+
+[node name="Gap" type="Control" parent="Safe/V/Top"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Settings" type="Button" parent="Safe/V/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 70)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"RoundButton"
+icon_alignment = 1
+expand_icon = true
+
+[node name="Space" type="Control" parent="Safe/V"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="HeroBox" type="VBoxContainer" parent="Safe/V"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Row" type="HBoxContainer" parent="Safe/V/HeroBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Prev" type="Button" parent="Safe/V/HeroBox/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(76, 76)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_type_variation = &"RoundButton"
+theme_override_colors/font_color = Color(0.91, 0.71, 0.35, 1)
+theme_override_font_sizes/font_size = 44
+text = "‹"
+
+[node name="Mid" type="VBoxContainer" parent="Safe/V/HeroBox/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="HeroName" type="Label" parent="Safe/V/HeroBox/Row/Mid"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Title"
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 54
+text = "Knight"
+horizontal_alignment = 1
+
+[node name="HeroTitle" type="Label" parent="Safe/V/HeroBox/Row/Mid"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HudLabel"
+theme_override_colors/font_color = Color(0.8, 0.76, 0.68, 1)
+theme_override_font_sizes/font_size = 22
+text = "The Oathsworn · Tank"
+horizontal_alignment = 1
+
+[node name="Chips" type="HBoxContainer" parent="Safe/V/HeroBox/Row/Mid"]
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+
+[node name="LevelChip" type="PanelContainer" parent="Safe/V/HeroBox/Row/Mid/Chips"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Chip"
+
+[node name="HeroLevel" type="Label" parent="Safe/V/HeroBox/Row/Mid/Chips/LevelChip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Value"
+theme_override_font_sizes/font_size = 20
+text = "Lv 1"
+
+[node name="PowerChip" type="PanelContainer" parent="Safe/V/HeroBox/Row/Mid/Chips"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Chip"
+
+[node name="Power" type="Label" parent="Safe/V/HeroBox/Row/Mid/Chips/PowerChip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Value"
+theme_override_colors/font_color = Color(1, 0.84, 0.5, 1)
+theme_override_font_sizes/font_size = 20
+text = "Power 400"
+
+[node name="Next" type="Button" parent="Safe/V/HeroBox/Row"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(76, 76)
+layout_mode = 2
+size_flags_vertical = 4
+focus_mode = 0
+theme_type_variation = &"RoundButton"
+theme_override_colors/font_color = Color(0.91, 0.71, 0.35, 1)
+theme_override_font_sizes/font_size = 44
+text = "›"
+
+[node name="Lock" type="Label" parent="Safe/V/HeroBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"HudLabel"
+theme_override_colors/font_color = Color(1, 0.7, 0.45, 1)
+theme_override_font_sizes/font_size = 20
+text = "Locked"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Chest" type="Button" parent="Safe/V"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"GoldButton"
+text = "Open your chest"
+
+[node name="Tiers" type="HBoxContainer" parent="Safe/V"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="T0" type="Button" parent="Safe/V/Tiers"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+theme_override_font_sizes/font_size = 22
+toggle_mode = true
+text = "Normal"
+
+[node name="T1" type="Button" parent="Safe/V/Tiers"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+theme_override_font_sizes/font_size = 22
+toggle_mode = true
+text = "Veteran"
+
+[node name="T2" type="Button" parent="Safe/V/Tiers"]
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+theme_override_font_sizes/font_size = 22
+toggle_mode = true
+text = "Nightmare"
+
+[node name="Hunt" type="Button" parent="Safe/V"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 118)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"PrimaryButton"
+theme_override_font_sizes/font_size = 38
+text = "Enter the Barrow"
+
+[node name="Nav" type="HBoxContainer" parent="Safe/V"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="NavHeroes" type="Button" parent="Safe/V/Nav"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+text = "Heroes"
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="Dot" type="ColorRect" parent="Safe/V/Nav/NavHeroes"]
+visible = false
+layout_mode = 0
+offset_left = 108.0
+offset_top = 10.0
+offset_right = 124.0
+offset_bottom = 26.0
+mouse_filter = 2
+color = Color(0.4, 1, 0.5, 1)
+
+[node name="NavBag" type="Button" parent="Safe/V/Nav"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+text = "Bag"
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="NavSkills" type="Button" parent="Safe/V/Nav"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+text = "Skills"
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="NavLog" type="Button" parent="Safe/V/Nav"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+text = "Log"
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="Overlay" type="Control" parent="."]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
