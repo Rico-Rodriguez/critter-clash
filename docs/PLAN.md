@@ -39,7 +39,7 @@ Target: a lower, more cinematic angle (~50°), the hero a bit below screen
 center, the camera leading where you move, props fading when they block the
 view, a wider frame for the boss, and player-selectable distance.
 
-### [ ] 1.1 Rewrite the camera rig with real parameters
+### [x] 1.1 Rewrite the camera rig with real parameters
 
 File: `src/hunt/cam.gd` (replace the whole file; keep the class name `HuntCam`
 and the public API `target`, `focus_override`, `shake_enabled`, `snap()`,
