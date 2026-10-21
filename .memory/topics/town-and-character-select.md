@@ -1,5 +1,10 @@
 # The town, the character select and the two ways out
 
+- 2026-10-21 — **The town is walked in, not tapped into.** The 3D town fills the screen, the hero stands in the plaza, and a tap on the ground sends him there; the camera holds the plaza the way a fixed town camera does, and the hero keeps to the plaza and walks around the stalls, the well and the places — `scripts/hub_view.gd` (`walking`, `_step_walk`, `walk_to`, `ground_at`, `_avoid`), `scripts/app.gd` (`HubScreen.build`)
+- 2026-10-21 — Standing under a door or a place says what it is: the bar along the bottom names it and the button acts on it (LEAVE for a door, OPEN for a place) — `scripts/app.gd` (`_process`, `_act_on_near`, `_near`)
+- 2026-10-21 — The town's business became a drawer that slides up over the town, so the town is the thing you stand in and the menu is the thing you open — `scripts/app.gd` (`_drawer`, `_toggle_drawer`)
+- 2026-10-21 — The hero plays the walk clip while he walks and the idle clip when he stops, and he turns to face where he is going — `scripts/hub_view.gd` (`_play`, `_step_walk`)
+
 - 2026-10-21 — **The character select is the front door.** The game opens on it: the six classes, the one you are looking at standing on its plinth in 3D wearing what you equipped it with, and ENTER THE TOWN takes that hero into the world — `scripts/char_select.gd`, `scripts/app.gd` (`_ready`)
 - 2026-10-21 — The roster tile is shared, so a hero reads the same in the character select and in the Heroes tab — `scripts/hero_tile.gd`, `scripts/hero_screen.gd`
 - 2026-10-21 — **The town has two ways out, not four gates.** The town wall has a gate north and a gate south: the north barrier leads to the first depth that is not cleared yet (the deepest one once they all are) and the south barrier to the shallow ground. The north barrier opens when the Fringe is cleared — `scripts/world_data.gd` (`town_gates`), `scripts/hub_scene.gd` (`_gates`), `scripts/app.gd` (`_ways_out`, `_way_row`, `_travel`)

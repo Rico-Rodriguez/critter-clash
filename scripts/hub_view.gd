@@ -36,6 +36,19 @@ var camp: HubScene
 var _hero: Node3D
 var _t := 0.0
 
+## True while the player walks the hero around the town.
+var walking := false
+## Where the hero is walking to, in the town's ground plane (x, z). INF
+## when he stands still.
+var _walk_to := Vector2.INF
+## How fast the hero walks, in metres a second.
+const WALK_SPEED := 5.6
+## How far the hero may walk from the middle of the plaza: the town wall.
+const PLAZA_RADIUS := 8.4
+## How close the hero has to be for a door or a place to be the one under
+## him.
+const NEAR_RADIUS := 3.4
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -83,11 +96,148 @@ func _process(delta: float) -> void:
 	var target := Vector2i(maxi(16, int(size.x * density)), maxi(16, int(size.y * density)))
 	if viewport.size != target:
 		viewport.size = target
-	# The camera drifts a little, so the camp breathes behind the menu.
 	_t += delta
+	if walking:
+		_step_walk(delta)
+		return
+	# The camera drifts a little, so the camp breathes behind the menu.
 	var drift := Vector3(sin(_t * 0.21) * 0.16, sin(_t * 0.17) * 0.05, 0.0)
 	camera.position = CAM_POS + drift
 	camera.look_at(CAM_LOOK + Vector3(drift.x * 0.3, 0.0, 0.0), Vector3.UP)
+
+
+## The hero walks to where the player tapped, and stands still when he is
+## there. The town is a place, so he keeps to the plaza and walks around
+## what stands in it.
+func _step_walk(delta: float) -> void:
+	if _hero == null:
+		return
+	if _walk_to == Vector2.INF:
+		_play("idle")
+		return
+	var here: Vector3 = _hero.position
+	var flat := Vector2(here.x, here.z)
+	var to := _walk_to - flat
+	if to.length() < 0.3:
+		_walk_to = Vector2.INF
+		_play("idle")
+		return
+	var dir := _avoid(flat, to.normalized())
+	flat += dir * WALK_SPEED * delta
+	if flat.length() > PLAZA_RADIUS:
+		flat = flat.normalized() * PLAZA_RADIUS
+	here.x = flat.x
+	here.z = flat.y
+	here.y = 0.0
+	_hero.position = here
+	_hero.rotation.y = atan2(dir.x, dir.y)
+	_play("walk")
+
+
+## The direction to walk, with the things in the plaza pushed out of the
+## way: the stalls, the well and the places.
+func _avoid(here: Vector2, dir: Vector2) -> Vector2:
+	var out := dir
+	for o in _obstacles():
+		var at := Vector2(o.x, o.z)
+		var away := here - at
+		var d := away.length()
+		if d > 2.2 or d < 0.01:
+			continue
+		out += away / d * (1.0 - d / 2.2) * 1.4
+	return out.normalized() if out.length() > 0.01 else dir
+
+
+## The things in the plaza the hero walks around.
+func _obstacles() -> Array:
+	var out: Array = []
+	if camp == null:
+		return out
+	for place in camp.list_places():
+		var at: Vector3 = place["pos"]
+		out.append(Vector3(at.x, 0.0, at.z))
+	out.append(Vector3(-4.6, 0.0, -0.4))
+	out.append(Vector3(4.6, 0.0, -0.4))
+	out.append(Vector3(-2.6, 0.0, 2.0))
+	return out
+
+
+## Plays a clip on the hero, if the rig has it.
+func _play(clip: String) -> void:
+	if _hero == null or clip == _playing:
+		return
+	var player := _hero.find_children("*", "AnimationPlayer", true, false)
+	if player.is_empty():
+		return
+	var ap: AnimationPlayer = player[0]
+	if not ap.has_animation(clip):
+		return
+	ap.play(clip)
+	_playing = clip
+
+
+## The clip the hero is playing.
+var _playing := ""
+
+
+## Sends the hero to a spot in the town, in the town's ground plane.
+func walk_to(at: Vector2) -> void:
+	_walk_to = at
+
+
+## Stops the hero where he is.
+func stop() -> void:
+	_walk_to = Vector2.INF
+
+
+## Where the hero stands, in the town's ground plane (x, z).
+func hero_pos() -> Vector2:
+	if _hero == null:
+		return Vector2.ZERO
+	return Vector2(_hero.position.x, _hero.position.z)
+
+
+## The ground under a tap, in the town's ground plane (x, z). INF when the
+## tap missed the ground.
+func ground_at(screen: Vector2) -> Vector2:
+	if camera == null:
+		return Vector2.INF
+	var density := clampf(get_viewport().get_final_transform().get_scale().x, 1.0, 3.0)
+	var vp := Vector2(screen.x * density, screen.y * density)
+	var from := camera.project_ray_origin(vp)
+	var dir := camera.project_ray_normal(vp)
+	if absf(dir.y) < 0.001:
+		return Vector2.INF
+	var t := -from.y / dir.y
+	if t <= 0.0:
+		return Vector2.INF
+	return Vector2(from.x + dir.x * t, from.z + dir.z * t)
+
+
+## The door or the place the hero is standing at, or {} when he is
+## between them.
+func near() -> Dictionary:
+	if _hero == null or camp == null:
+		return {}
+	var here := Vector2(_hero.position.x, _hero.position.z)
+	var best: Dictionary = {}
+	var best_d := NEAR_RADIUS
+	for gate in camp.list_gate_markers():
+		var at: Vector3 = gate["pos"]
+		var d := here.distance_to(Vector2(at.x, at.z))
+		if d < best_d:
+			best_d = d
+			best = {
+				"kind": "gate", "id": str(gate.get("tier", "")),
+				"name": str(gate.get("name", "")), "open": bool(gate.get("open", false)),
+			}
+	for place in camp.list_places():
+		var at: Vector3 = place["pos"]
+		var d := here.distance_to(Vector2(at.x, at.z))
+		if d < best_d:
+			best_d = d
+			best = {"kind": "place", "id": str(place.get("id", "")), "name": str(place.get("name", ""))}
+	return best
 
 
 ## The camp's light: a warm fire at the centre, a cool moon overhead and a
@@ -251,12 +401,18 @@ func _gui_input(event: InputEvent) -> void:
 		gate_tapped.emit(tier_id)
 		return
 	var place_id := place_at(at)
-	if place_id == "":
+	if place_id != "":
+		accept_event()
+		AudioDirector.sfx("ui_tap")
+		AudioDirector.haptic("light")
+		place_tapped.emit(place_id)
 		return
-	accept_event()
-	AudioDirector.sfx("ui_tap")
-	AudioDirector.haptic("light")
-	place_tapped.emit(place_id)
+	if walking:
+		# Otherwise the tap is on the ground: the hero walks there.
+		var ground := ground_at(at)
+		if ground != Vector2.INF:
+			accept_event()
+			walk_to(ground)
 
 
 ## The hero's bounds, in his own space.

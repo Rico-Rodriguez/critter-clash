@@ -249,6 +249,15 @@ func _capture() -> void:
 		go("char_select")
 		await _settle()
 		await _shot("char")
+	if _wants("walk"):
+		go("hub")
+		await _settle()
+		if current != null and current.view != null:
+			# Walk north to the Mushroom gate and see him get there.
+			current.view.walk_to(Vector2(0.0, -7.0))
+			await get_tree().create_timer(2.6).timeout
+			print("WALK hero=", current.view.hero_pos(), " near=", current.view.near())
+		await _shot("walk")
 	if _wants("hub"):
 		go("hub")
 		await _settle()
@@ -766,37 +775,69 @@ class HubScreen extends ScreenBase:
 
 
 	func build() -> void:
-		# The camp is the top of the screen and the counter is the rest, so
-		# the hub reads as a place the player stands in rather than a list
-		# of buttons.
+		# The town fills the screen: the hero stands in the plaza and walks
+		# where the player taps. The town's business is a drawer over it.
 		view = HubView.new()
-		view.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-		view.anchor_bottom = CAMP_FRACTION
-		view.offset_bottom = 0.0
-		# A tap on a standing stone in the camp walks the hero through it,
+		view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		view.walking = true
+		# A tap on a standing stone in the town walks the hero through it,
 		# and a tap on a place opens the screen that belongs to it.
 		view.gate_tapped.connect(func(tier_id: String) -> void: _travel(tier_id))
 		view.place_tapped.connect(func(place_id: String) -> void: _open_place(place_id))
 		add_child(view)
 		hub = view.camp
-		# The counter's own dark plate, from the camp's lower edge down.
 		var pad := insets()
-		var shade := ColorRect.new()
-		shade.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		shade.anchor_top = CAMP_FRACTION
-		shade.offset_top = 0.0
-		shade.color = Color(0.035, 0.03, 0.026, 0.9)
-		shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(shade)
+		# The bar along the bottom: what the hero is standing at, and the
+		# two things a player always needs.
+		var bar := PanelContainer.new()
+		bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		bar.offset_top = -96.0
+		bar.offset_bottom = 0.0
+		bar.add_theme_stylebox_override("panel", UiKit.panel())
+		add_child(bar)
+		var bar_pad := MarginContainer.new()
+		bar_pad.add_theme_constant_override("margin_left", int(pad["l"]) + 8)
+		bar_pad.add_theme_constant_override("margin_right", int(pad["r"]) + 8)
+		bar_pad.add_theme_constant_override("margin_top", 6)
+		bar_pad.add_theme_constant_override("margin_bottom", 6)
+		bar.add_child(bar_pad)
+		var bar_row := HBoxContainer.new()
+		bar_row.add_theme_constant_override("separation", 10)
+		bar_pad.add_child(bar_row)
+		_prompt = UiKit.label("", 20, UiKit.CREAM, "b", 2)
+		_prompt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		bar_row.add_child(_prompt)
+		_act = UiKit.button("GO", 140, 70, "gold")
+		_act.pressed.connect(_act_on_near)
+		bar_row.add_child(_act)
+		var town_button := UiKit.button("TOWN", 150, 70, "blue")
+		town_button.tooltip_text = "The town's business"
+		town_button.pressed.connect(_toggle_drawer)
+		bar_row.add_child(town_button)
+		# The drawer: the town's business, over the town.
+		_drawer = Control.new()
+		_drawer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_drawer.visible = false
+		add_child(_drawer)
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.66)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		dim.gui_input.connect(func(e: InputEvent) -> void:
+			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+				_toggle_drawer()
+		)
+		_drawer.add_child(dim)
 		var margin := MarginContainer.new()
 		margin.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		margin.anchor_top = CAMP_FRACTION
+		margin.anchor_top = 0.34
 		margin.offset_top = 0.0
 		margin.add_theme_constant_override("margin_left", int(pad["l"]))
 		margin.add_theme_constant_override("margin_right", int(pad["r"]))
 		margin.add_theme_constant_override("margin_top", 14)
 		margin.add_theme_constant_override("margin_bottom", int(pad["b"]))
-		add_child(margin)
+		_drawer.add_child(margin)
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 8)
 		margin.add_child(box)
@@ -868,6 +909,15 @@ class HubScreen extends ScreenBase:
 			return "Sealed"
 		return "Sealed \u00b7 clear %s to unlock" % WorldData.tier_name(below)
 
+
+	## The drawer: the town's business, over the town.
+	var _drawer: Control
+	## The line along the bottom: what the hero is standing at.
+	var _prompt: Label
+	## The button that acts on whatever the hero is standing at.
+	var _act: Button
+	## Whatever the hero is standing at right now.
+	var _near: Dictionary = {}
 
 	## The ways out of the town: the two barriers in the town wall. The
 	## north one leads deeper, the south one to the shallow ground, and a
@@ -948,6 +998,50 @@ class HubScreen extends ScreenBase:
 			go("stash")
 		else:
 			toast(name if name != "" else "Nothing here yet.")
+
+
+	## The town keeps an eye on where the hero is standing, and says what
+	## is under him.
+	func _process(_delta: float) -> void:
+		if view == null:
+			return
+		_near = view.near()
+		if _near.is_empty():
+			_prompt.text = "Walk to a door or a stall."
+			_act.disabled = true
+			_act.text = "GO"
+			return
+		var kind := str(_near.get("kind", ""))
+		if kind == "gate":
+			var open := bool(_near.get("open", false))
+			_prompt.text = "%s \\u00b7 %s" % [str(_near.get("name", "")).to_upper(), "the ground beyond" if open else "shut"]
+			_act.disabled = not open
+			_act.text = "LEAVE" if open else "SHUT"
+		else:
+			_prompt.text = str(_near.get("name", ""))
+			_act.disabled = false
+			_act.text = "OPEN"
+
+
+	## Acts on whatever the hero is standing at.
+	func _act_on_near() -> void:
+		if _near.is_empty():
+			return
+		if str(_near.get("kind", "")) == "gate":
+			_travel(str(_near.get("id", "")))
+		else:
+			_open_place(str(_near.get("id", "")))
+
+
+	## The town's business slides up over the town, and back down again.
+	func _toggle_drawer() -> void:
+		if _drawer == null:
+			return
+		_drawer.visible = not _drawer.visible
+		AudioDirector.sfx("ui_tap")
+		AudioDirector.haptic("light")
+		if _drawer.visible and view != null:
+			view.stop()
 
 
 	## Starting a hunt from a barrier: the depth it leads into, the
