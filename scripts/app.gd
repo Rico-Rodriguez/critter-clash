@@ -405,6 +405,24 @@ func _capture() -> void:
 		if _want.has("explore") or _want.has("lair"):
 			get_tree().quit()
 			return
+	if _wants("zone") or _wants("zonemap"):
+		# A depth zone: the tier's own ground, walked from the south gate.
+		go("run", {"biome": "meadow", "hero": SaveGame.featured_id(), "tier": "fringe", "seed": 7})
+		await _settle()
+		var zrun = current
+		var zsim: RunSim = zrun.sim
+		zrun.drive = Vector2(0.15, -1).normalized()
+		var zt0 := zsim.time
+		while zsim.time < zt0 + 3.0:
+			await get_tree().process_frame
+		zrun.drive = Vector2.ZERO
+		await _shot("zone")
+		if _wants("zonemap"):
+			zrun.minimap.toggle()
+			await get_tree().create_timer(0.4).timeout
+			await _shot("zonemap")
+		get_tree().quit()
+		return
 	if _wants("hunt") or _wants("boss") or _wants("levelup") or _wants("rare") or _wants("victory") or _wants("defeat"):
 		go("run", {"biome": "meadow", "hero": SaveGame.featured_id(), "seed": 11})
 		await _settle()
@@ -1005,6 +1023,7 @@ class HubScreen extends ScreenBase:
 		go("run", {
 			"biome": biome_id,
 			"hero": SaveGame.featured_id(),
+			"tier": Catalog.tier_for_biome(biome_id),
 			"seed": Daily.seed_for(key),
 			"daily": key,
 			"modifiers": Daily.modifiers_for(key),

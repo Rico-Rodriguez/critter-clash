@@ -14,7 +14,7 @@ static var _times: Array = []
 ## Every check in run order. The name is the --only tag and the --timings label.
 const CHECKS := [
 	"roles", "modes", "save", "gear_save", "train", "slayer_log", "slayer_gear", "settings",
-	"save_safety", "daily", "steer", "maps", "tier_entry", "cards", "pools", "exclusivity", "fights",
+	"save_safety", "daily", "steer", "maps", "tier_entry", "zone_hunt", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "boss_phase", "dodge", "events", "gear_drop", "skill_xp",
 	"gear_coverage", "melee_impact", "skills_screen", "xp_drop", "skill_trophies",
 	"end_card", "drops_names", "gear_log", "forge", "boss_gear", "home_pips", "hints",
@@ -88,6 +88,8 @@ static func _dispatch(name: String) -> void:
 			_maps()
 		"tier_entry":
 			_tier_entry()
+		"zone_hunt":
+			_zone_hunt()
 		"cards":
 			_cards()
 		"grim_names":
@@ -957,36 +959,50 @@ static func _steer() -> void:
 		_fail("stop should be immediate, got %s" % vel)
 
 
-## A gate into a depth tier opens the hunt in that tier's own ground: the
-## entry is the gate of the band, not the world start, and a run started
-## from that gate stands in the band's ground too.
+## A gate into a depth tier opens that tier's own zone: the hunt stands in
+## the zone, the hero walks in at the south gate, and the packs in it are
+## the tier's own beasts at the tier's own levels.
 static func _tier_entry() -> void:
 	var tiers := WorldData.tier_order()
 	for tier_id in tiers:
 		var tier := str(tier_id)
 		var biome := Catalog.biome_for_tier(tier)
-		var map := HuntMap.world(biome, 4242)
-		var at := map.entry_for_tier(tier)
-		var where := str(TierBounds.tier_id_at_position(at, map.size))
-		if where != tier:
-			_fail("the %s gate opens in the %s ground" % [tier, where])
-			return
 		var session := Session.solo(biome, "sorceress")
 		session.tier = tier
 		session.seed = 4242
 		var sim := RunSim.new()
 		sim.start(session, {"sorceress": Catalog.base_stats("sorceress")})
-		if not sim.tier_mode:
-			_fail("a %s hunt is not in tier mode" % tier)
+		if not sim.zone_mode:
+			_fail("a %s hunt did not open the zone" % tier)
+			return
+		var zone := sim.map as WildernessZone
+		if zone == null or zone.tier_id != tier:
+			_fail("the %s hunt opened the %s zone" % [tier, zone.tier_id if zone != null else "no"])
 			return
 		if sim.heroes.is_empty():
 			_fail("the %s hunt has no hero" % tier)
 			return
-		var hero_tier := str(TierBounds.tier_id_at_position(sim.heroes[0].pos, sim.map.size))
-		if hero_tier != tier:
-			_fail("the %s hunt started in the %s ground" % [tier, hero_tier])
+		if sim.heroes[0].pos.distance_to(zone.entry) > 1.0:
+			_fail("the %s hunt did not start at the south gate" % tier)
 			return
-	print("TIER ENTRY ok: %d gates open in their own ground" % tiers.size())
+		# The zone's packs carry the tier's own skins and levels.
+		var skins := ZoneBuilder.tier_skins(tier)
+		for camp in zone.camps:
+			if not skins.has(str(camp.get("skin", ""))):
+				_fail("the %s zone holds a %s" % [tier, str(camp.get("skin", ""))])
+				return
+			if int(camp.get("level", 0)) <= 0:
+				_fail("a %s pack has no level" % tier)
+				return
+		# The monsters that walk in the zone are the zone's own.
+		var mine := 0
+		for actor in sim.actors:
+			if actor.kind == "minion":
+				mine += 1
+		if mine <= 0:
+			_fail("the %s zone held no monsters" % tier)
+			return
+	print("TIER ZONE ok: %d gates open their own zone" % tiers.size())
 
 
 static func _maps() -> void:
@@ -1413,12 +1429,14 @@ static func _fights() -> void:
 	# Explore hunts: each hero clears a map and kills the lair boss in a
 	# 2.5-5.5 minute bot run (bots walk the map greedily; players land at 3-5+).
 	for hero in ["sorceress", "rogue", "barbarian"]:
-		var report := _play(hero, "meadow", 11, false)
+		# The flow the camp plays: a gate into a depth zone, walked from
+		# the south gate to the far one, where the guardian waits.
+		var report := _play(hero, "meadow", 11, false, 60.0 * 300.0, "fringe")
 		print("FIGHT ", hero, " ", report)
 		if str(report["result"]) != "win":
-			_fail("%s should clear the meadow, got %s" % [hero, report["result"]])
-		if float(report["time"]) < 150.0 or float(report["time"]) > 330.0:
-			_fail("%s time %s outside the 2.5-5.5 min bot window" % [hero, report["time"]])
+			_fail("%s should clear the fringe, got %s" % [hero, report["result"]])
+		if float(report["time"]) < 90.0 or float(report["time"]) > 300.0:
+			_fail("%s time %s outside the 1.5-5 min bot window" % [hero, report["time"]])
 		if int(report["level"]) < 6:
 			_fail("%s only reached level %s" % [hero, report["level"]])
 	# No clock and no wave spawner: a hero who stands at the start is safe.
@@ -1494,15 +1512,17 @@ static func balance() -> void:
 		print("BALANCE %s wins %d/8 avg %.1fs min %.1f max %.1f" % [hero, wins, avg, times.min(), times.max()])
 
 
-static func _play(hero: String, biome: String, seed: int, idle: bool, frames: float = 60.0 * 600.0) -> Dictionary:
+static func _play(hero: String, biome: String, seed: int, idle: bool, frames: float = 60.0 * 600.0, tier := "") -> Dictionary:
 	var session := Session.solo(biome, hero)
 	session.seed = seed
+	session.tier = tier
 	var sim := RunSim.new()
 	var stats := {}
 	stats[hero] = Catalog.base_stats(hero)
 	sim.start(session, stats)
 	var guard := 0
 	var mem := {}
+	var boss_rose := false
 	while sim.result == "" and guard < int(frames):
 		guard += 1
 		if sim.paused and sim.offer.size() > 0:
@@ -1513,7 +1533,9 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 			return {"result": "stuck", "time": sim.time, "level": sim.level, "hp": 0}
 		var mv := Vector2.ZERO if idle else (RunBot.explore_steer(sim, 0, mem) if sim.explore else RunBot.steer(sim, 0))
 		sim.step(1.0 / 60.0, [mv])
-		sim.drain_events()
+		for e in sim.drain_events():
+			if str(e.get("type", "")) == "boss_in":
+				boss_rose = true
 		if OS.get_environment("CC_TRACE") == hero and guard % 600 == 0:
 			var h: RunSim.Actor = sim.heroes[0]
 			var bosses := []
@@ -1525,7 +1547,12 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 				if a.alive and a.kind == "minion" and a.pos.distance_to(h.pos) < 700.0:
 					near.append([a.sprite, a.pos.round(), a.aggro, int(a.pos.distance_to(h.pos)), a.range])
 			print("TRACE near=", near)
-			print("TRACE %s/%d t=%d hp=%d pos=%s mv=%s phase=%s boss=%s goal=%s" % [hero, session.seed, int(sim.time), int(h.hp), str(h.pos.round()), str(mv.snapped(Vector2(0.01, 0.01))), sim.phase, str(bosses), str(mem.get("goal", ""))])
+			var near_obs := []
+			for o in sim.obstacles:
+				var c := Vector2(o.x, o.y)
+				if c.distance_to(h.pos) < 400.0:
+					near_obs.append([c.round(), int(o.z), int(c.distance_to(h.pos))])
+			print("TRACE %s/%d t=%d hp=%d pos=%s mv=%s phase=%s boss=%s goal=%s depth=%d obs=%s spd=%s cellopen=%d vel=%s gather=%s" % [hero, session.seed, int(sim.time), int(h.hp), str(h.pos.round()), str(mv.snapped(Vector2(0.01, 0.01))), sim.phase, str(bosses), str(mem.get("goal", "")), int(sim.map.depth(h.pos)), str(near_obs), str(h.speed), int(sim.map.open_cells[sim.map.cell_index(h.pos)]), str(h.vel.snapped(Vector2(0.01, 0.01))), str(h.gather_node)])
 	var hp := 0.0
 	if sim.heroes.size() > 0:
 		hp = sim.heroes[0].hp
@@ -1536,9 +1563,56 @@ static func _play(hero: String, biome: String, seed: int, idle: bool, frames: fl
 		"hp": hp,
 		"dmg_taken": sim.dmg_taken,
 		"kills": sim.kills,
+		"boss": boss_rose,
 		"skill_xp": sim.skill_xp.duplicate(true),
 	}
 
+
+## A depth zone can be walked: the bot goes from the south gate to the far
+## gate, the guardian rises there, and the fight that follows is a real one.
+static func _zone_hunt() -> void:
+	for tier in ["fringe", "wilds"]:
+		var id := str(tier)
+		var report := _play("sorceress", Catalog.biome_for_tier(id), 11, false, 60.0 * 180.0, id)
+		print("ZONE ", id, " ", report)
+		if not bool(report.get("boss", false)):
+			_zone_walk_trace(id)
+			_fail("the %s guardian never rose" % id)
+			return
+		if str(report["result"]) == "stuck":
+			_fail("the %s hunt stalled" % id)
+			return
+	print("ZONE HUNT ok: the zones are walked and their guardians rise")
+
+
+## Prints the first ninety seconds of a zone hunt frame by frame, for the
+## days when the walk does not get to the far gate.
+static func _zone_walk_trace(tier: String) -> void:
+	var session := Session.solo(Catalog.biome_for_tier(tier), "sorceress")
+	session.tier = tier
+	session.seed = 11
+	var sim := RunSim.new()
+	sim.start(session, {"sorceress": Catalog.base_stats("sorceress")})
+	var mem := {}
+	var guard := 0
+	var last := Vector2.INF
+	while sim.time < 90.0 and guard < 5400:
+		guard += 1
+		if sim.paused and sim.offer.size() > 0:
+			sim.choose(_best(sim))
+			sim.drain_events()
+			continue
+		var mv := RunBot.explore_steer(sim, 0, mem)
+		sim.step(1.0 / 60.0, [mv])
+		sim.drain_events()
+		if sim.heroes.is_empty():
+			break
+		var h: RunSim.Actor = sim.heroes[0]
+		if h.pos.distance_to(last) < 1.0 and guard % 30 == 0:
+			var g: Vector2 = mem.get("goal", Vector2.ZERO)
+			var foe := sim.nearest_hostile(h, 700.0)
+			print("ZONEWALK %s t=%d pos=%s mv=%s vel=%s depth=%d fit=%s goal=%s gd=%d foe=%s" % [tier, int(sim.time), str(h.pos.round()), str(mv.snapped(Vector2(0.01, 0.01))), str(h.vel.snapped(Vector2(0.01, 0.01))), int(sim.map.depth(h.pos)), str(sim.map._fits(h.pos, h.radius * 0.8)), str(g.round()), int(h.pos.distance_to(g)), str(foe.pos.round()) if foe != null else "none"])
+		last = h.pos
 
 ## Optional tag for the class report: --class-tag=AFTER (defaults to REPORT).
 static func _class_tag() -> String:
@@ -3371,6 +3445,9 @@ static func _gear_runs() -> void:
 ## simulation; the default run stays on the untouched baseline stats.
 static func _gear_run(seed: int, cap: int, boost := false) -> Dictionary:
 	var session := Session.solo("meadow", "sorceress")
+	# The flow the camp plays: a gate into the fringe, which is the zone
+	# the seeded run and the daily both run in.
+	session.tier = "fringe"
 	session.seed = seed
 	var stats: Dictionary = {"sorceress": Catalog.base_stats("sorceress")}
 	if boost:

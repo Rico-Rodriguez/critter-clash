@@ -122,6 +122,7 @@ static func build(tier_id: String, seed: int) -> WildernessZone:
 	_lay_terrain(zone, rng)
 	_lay_camps(zone, rng)
 	_lay_patrols(zone, rng)
+	_lay_loot(zone, rng)
 	_lay_gathering(zone, rng)
 	_lay_scenery(zone, rng)
 	_repair(zone)
@@ -307,10 +308,10 @@ static func _lay_terrain(zone: WildernessZone, rng: RandomNumberGenerator) -> vo
 		at.y = clampf(at.y + rng.randf_range(-150.0, 150.0), 460.0, h - 460.0)
 		var r := rng.randf_range(400.0, 640.0)
 		var idx := zone.add_area(at, r, "clearing")
-		zone.link(prev, idx, rng.randf_range(300.0, 430.0), rng, true)
+		_link_wide(zone, prev, idx, rng.randf_range(380.0, 520.0), rng, true)
 		chain.append(idx)
 		prev = idx
-	zone.link(prev, last, rng.randf_range(320.0, 450.0), rng, true)
+	_link_wide(zone, prev, last, rng.randf_range(400.0, 540.0), rng, true)
 	# Pockets: quiet clearings off the side of the chain.
 	var want := 2 + zone.tier_depth
 	var made := 0
@@ -336,7 +337,7 @@ static func _lay_terrain(zone: WildernessZone, rng: RandomNumberGenerator) -> vo
 			continue
 		var idx := zone.add_area(at, r, "pocket")
 		var from_id: int = int(chain[rng.randi() % chain.size()])
-		zone.link(from_id, idx, rng.randf_range(220.0, 290.0), rng, false)
+		_link_wide(zone, from_id, idx, rng.randf_range(300.0, 400.0), rng, false)
 		made += 1
 
 
@@ -423,6 +424,51 @@ static func _lay_patrols(zone: WildernessZone, rng: RandomNumberGenerator) -> vo
 			"skin": str(skins[rng.randi() % skins.size()]),
 			"level": _level_at(zone, a, lvl_lo, lvl_hi, rng),
 		})
+
+
+## The zone's chests: one in every pocket, and one out in the open by a
+## clearing. The pockets are the quiet ground off the trail, so a chest is
+## the reward for walking away from the path.
+static func _lay_loot(zone: WildernessZone, rng: RandomNumberGenerator) -> void:
+	var pockets: Array = []
+	var clearings: Array = []
+	for i in zone.nodes.size():
+		var kind := str(zone.nodes[i]["kind"])
+		if kind == "pocket":
+			pockets.append(i)
+		elif kind == "clearing":
+			clearings.append(i)
+	_shuffle(pockets, rng)
+	for i in pockets:
+		var n: Dictionary = zone.nodes[i]
+		var away := Vector2.UP
+		if not (n["links"] as Array).is_empty():
+			away = -(n["links"][0] as Vector2).normalized()
+		zone.loot.append({
+			"pos": (n["pos"] as Vector2) + away * float(n["r"]) * 0.45,
+			"tier": "rare" if zone.tier_depth >= 2 else "common",
+		})
+	if not clearings.is_empty():
+		var i: int = clearings[rng.randi() % clearings.size()]
+		var n: Dictionary = zone.nodes[i]
+		zone.loot.append({
+			"pos": (n["pos"] as Vector2) + Vector2.RIGHT.rotated(rng.randf() * TAU) * float(n["r"]) * 0.6,
+			"tier": "common",
+		})
+
+
+## Joins two areas with a corridor that has room to bend. A plain link
+## bends the corridor once, and the inside of that bend is a corner where
+## two shapes meet at an angle: a body that walks into it can be wedged
+## between them. A way clearing at the bend opens the corner up, so the
+## whole route is walkable.
+static func _link_wide(zone: WildernessZone, a: int, b: int, w: float, rng: RandomNumberGenerator, trail: bool) -> void:
+	var pa: Vector2 = zone.nodes[a]["pos"]
+	var pb: Vector2 = zone.nodes[b]["pos"]
+	var mid := pa.lerp(pb, 0.5)
+	var way := zone.add_area(mid, w * 0.85, "way")
+	zone.link(a, way, w, rng, trail)
+	zone.link(way, b, w, rng, trail)
 
 
 ## The level of the monsters at a place: the tier's own range, low at the
@@ -623,6 +669,17 @@ static func _repair(zone: WildernessZone) -> void:
 		g["pos"] = at
 		kept_nodes.append(g)
 	zone.gathering = kept_nodes
+	var kept_loot: Array = []
+	for entry in zone.loot:
+		var c: Dictionary = entry
+		var at: Vector2 = c["pos"]
+		if not _reachable(zone, field, at):
+			at = _nudge(zone, at, field)
+		if at == Vector2.INF:
+			continue
+		c["pos"] = at
+		kept_loot.append(c)
+	zone.loot = kept_loot
 
 
 ## True when every pack, every node and the exit gate can be walked to.

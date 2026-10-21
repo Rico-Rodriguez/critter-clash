@@ -223,27 +223,6 @@ func _add_node(pos: Vector2, r: float, kind: String, row := -1) -> int:
 	return nodes.size() - 1
 
 
-## Where a hunt in this depth starts: the southern gate of the band, which
-## is the trail node in that row. The band above the lair row is a clearing,
-## the lair's own row is the lair itself, so the kind does not matter here.
-func entry_for_tier(tier_id: String) -> Vector2:
-	var band := TierBounds.band_span(tier_id)
-	if band.is_empty():
-		return start
-	var row := int(band["to_row"])
-	var fallback := Vector2.INF
-	for n in nodes:
-		if int(n.get("row", -1)) != row:
-			continue
-		if str(n.get("kind", "")) == "clearing":
-			return n["pos"]
-		if fallback == Vector2.INF:
-			fallback = n["pos"]
-	if fallback != Vector2.INF:
-		return fallback
-	return start
-
-
 ## A corridor between two nodes, bent once at a jittered midpoint so trails wind.
 func _link(a: int, b: int, w: float, rng: RandomNumberGenerator, trail: bool) -> void:
 	var pa: Vector2 = nodes[a]["pos"]
@@ -605,6 +584,12 @@ func _fits(p: Vector2, radius: float) -> bool:
 
 
 ## Every open shape's nearest spot for a body of `radius` at `p`, written
+## How far inside the ground a body is put when it has to be pushed back.
+## Without the margin a body lands exactly on the line where it just fits,
+## and the next step pushes it out again: it jitters in one spot and never
+## gets away. The margin gives it room to walk on.
+const PUSH_SLACK := 10.0
+
 ## into the scratch buffer: the spot, and how deep it already sits in the
 ## shape it came from.
 func _collect_candidates(p: Vector2, radius: float) -> int:
@@ -619,7 +604,7 @@ func _collect_candidates(p: Vector2, radius: float) -> int:
 		var off := p - c
 		var off_len := off.length()
 		var dir: Vector2 = (off / off_len) if off_len > 0.01 else Vector2.RIGHT
-		_push_pos[count] = c + dir * maxf(r - radius, 0.0)
+		_push_pos[count] = c + dir * maxf(r - radius - PUSH_SLACK, 0.0)
 		_push_own[count] = minf(r, radius)
 		count += 1
 	for sg in segs:
@@ -631,7 +616,7 @@ func _collect_candidates(p: Vector2, radius: float) -> int:
 		var off := p - q
 		var off_len := off.length()
 		var dir: Vector2 = (off / off_len) if off_len > 0.01 else ab.orthogonal().normalized()
-		_push_pos[count] = q + dir * maxf(half - radius, 0.0)
+		_push_pos[count] = q + dir * maxf(half - radius - PUSH_SLACK, 0.0)
 		_push_own[count] = minf(half, radius)
 		count += 1
 	return count
@@ -683,7 +668,12 @@ func _bake_grid() -> void:
 	for y in grid_h:
 		for x in grid_w:
 			var c := Vector2((float(x) + 0.5) * GRID, (float(y) + 0.5) * GRID)
-			var ok := depth(c) > 40.0
+			# A cell is open when the ground covers it. The pathing must never
+			# cut a trail in two, so the test is coverage and not room: a
+			# body that finds thinner ground than it needs is pushed back
+			# onto the open ground (see PUSH_SLACK), while a pathing gap
+			# would strand whoever walked into it.
+			var ok := depth(c) > 4.0
 			for l in landmarks:
 				if c.distance_to(l["pos"]) < float(l["r"]) + 46.0:
 					ok = false

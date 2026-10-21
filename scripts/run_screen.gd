@@ -237,6 +237,9 @@ func open(args: Dictionary = {}) -> void:
 	if sim.explore:
 		stage.bind_world(sim.map, biome_id)
 		minimap.sim = sim
+		# The map charts the ground the hunt actually stands in: the zone's
+		# own bounds when the hunt runs a depth tier.
+		minimap.set_tier(tier_id)
 		minimap.visible = true
 	else:
 		stage.bind_hunt(biome_id)

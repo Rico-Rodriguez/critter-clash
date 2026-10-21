@@ -104,6 +104,15 @@ var play := Rect2(40, 168, 640, 980)
 ## hunt ends there (README: "still fighting at 119 seconds ends the
 ## hunt"), so a hunt never runs past two minutes.
 const HUNT_LIMIT := 119.0
+## The clock of a depth zone. A zone is a ground to walk through, many
+## times the size of the arena, and the hero has to reach the far gate at
+## the north of it: the walk and the packs on the way need more room than
+## the two minutes a single-screen hunt gets.
+const ZONE_LIMIT := 300.0
+## How long into a zone's guardian fight the boss enrages. The zone's fight
+## starts when the hero reaches the far gate, so the rage counts from the
+## fight and not from the hunt's start.
+const ZONE_ENRAGE_AFTER := 14.0
 ## The explore hunt's boss rises on the clock, not when the hero happens
 ## to walk into the lair: at 68 s the lair's boss walks out wherever the
 ## hero is (README: "Around 68 seconds the biome boss arrives").
@@ -305,6 +314,10 @@ var tier_id := ""
 ## True when the hunt runs the world's depth tiers: the band a camp stands
 ## in owns its critters, its level and its share of elites.
 var tier_mode := false
+## True when the hunt runs a depth zone (scripts/zone_builder.gd): the
+## tier's own ground, with the tier's own monsters, levels and resources in
+## it, walked from the south gate to the north one.
+var zone_mode := false
 ## The tier the hero is in right now, and the crossings they make as they
 ## walk north. The tracker is the same one the world map uses.
 var tier_tracker: TierBounds.Tracker = TierBounds.Tracker.new()
@@ -635,9 +648,14 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 	explore = mode != Session.Mode.DUEL
 	map = HuntMap.world(biome_id, rng.seed) if explore else HuntMap.for_biome(biome_id)
 	if explore and tier_id != "":
-		# A gate into a depth tier drops the hero at that tier's south
-		# edge, so the hunt opens in the ground the gate stands in.
-		map.start = map.entry_for_tier(tier_id)
+		# A gate into a depth tier opens that tier's own zone: the ground
+		# between its south gate and its north gate, with the tier's own
+		# monsters, elites and resources in it. The hero walks in at the
+		# south gate.
+		var zone := ZoneBuilder.build(tier_id, rng.seed)
+		map = zone
+		map.start = zone.entry
+		zone_mode = true
 	play = map.play
 	if explore:
 		fog_seen.resize(map.grid_w * map.grid_h)
@@ -645,6 +663,13 @@ func start(session: Session, stats_for: Dictionary, tier := 0) -> void:
 		# The lair this ground holds: it waits in the lair for the hero,
 		# beside the biome boss that rises there.
 		lair_id = _hunt_lair_id()
+		if zone_mode:
+			# A zone says where it wants the hero to go: the far gate, at the
+			# north of the ground, holds the guardian that clears the tier.
+			events.append({
+				"type": "banner",
+				"text": "Walk north to the far gate",
+			})
 	_reset_explored()
 	xp_need = Catalog.xp_for_level(1)
 	var count := session.hero_ids.size()
@@ -773,7 +798,13 @@ func drain_events() -> Array:
 ## Seconds left in the hunt. The clock counts down from HUNT_LIMIT and the
 ## hunt ends when it runs out, so this is the number the HUD counts down.
 func hunt_left() -> float:
-	return maxf(0.0, HUNT_LIMIT - time)
+	return maxf(0.0, _hunt_limit() - time)
+
+
+## The clock this hunt runs on: the arena's two minutes, or the longer one
+## a depth zone needs.
+func _hunt_limit() -> float:
+	return ZONE_LIMIT if zone_mode else HUNT_LIMIT
 
 
 ## Reads the run hero's GearDB XP once, so mid-run level crosses can be
@@ -3028,12 +3059,14 @@ func _separate() -> void:
 func _enrage_and_timeout() -> void:
 	# The boss enrages on the hunt's own clock in both modes: the arena at
 	# 100 s, the explore hunt 75 s in, a few seconds after its boss rose.
-	if phase == "boss" and not enraged and time >= _enrage_at():
+	# A depth zone has no fixed moment for its guardian to rise, so the
+	# rage counts from the fight itself.
+	if phase == "boss" and not enraged and (boss_time >= ZONE_ENRAGE_AFTER if zone_mode else time >= _enrage_at()):
 		enraged = true
 		events.append({"type": "banner", "text": "The boss is furious"})
 	# The clock runs out: the hunt ends here, the same way it ends in the
 	# arena (a defeat, so the spoils are halved and the XP still lands).
-	if result == "" and time >= HUNT_LIMIT:
+	if result == "" and time >= _hunt_limit():
 		result = "lose"
 		phase = "over"
 		paused = true
@@ -3415,9 +3448,15 @@ func _spawn_world() -> void:
 		# share of elites: the Fringe keeps the barrow beasts, the Abyss the
 		# ash ones, and walking north walks up through them. A hunt with no
 		# tier keeps the biome's own content.
-		var band := _band_at(at) if tier_mode else ""
+		var band := _band_at(at) if tier_mode and not zone_mode else ""
 		var skins: Array = _band_skins(band) if band != "" else biome.get("skins", [])
 		var elite_chance := _band_elite_chance(band) if band != "" else Catalog.elite_chance(biome_id, difficulty)
+		# A zone knows its own packs: the skin and the level it built them
+		# with, so the tier's ground holds the tier's beasts.
+		var camp_skin := _skin_index(camp)
+		var camp_level := int(camp.get("level", 0)) if zone_mode else 0
+		if zone_mode:
+			elite_chance = float(_diff()["elite"])
 		# "Swarming" thickens every camp by 30%; a raised tier adds density on
 		# top. Normal's density is 1.0, so both leave the camp count untouched.
 		if has_modifier("swarming"):
@@ -3431,8 +3470,8 @@ func _spawn_world() -> void:
 		for k in count:
 			var ang := TAU * float(k) / float(count) + rng.randf_range(-0.3, 0.3)
 			var p := map.push_inside(at + Vector2.RIGHT.rotated(ang) * rng.randf_range(70.0, 150.0), 30.0)
-			var skin := base if k % 2 == 0 else rng.randi() % skins.size()
-			var m := _place_minion(skin, p, ci)
+			var skin := camp_skin if zone_mode else (base if k % 2 == 0 else rng.randi() % skins.size())
+			var m := _place_minion(skin, p, ci, band, camp_level)
 			# The ground promotes some camp members to elites and a raised
 			# tier promotes more. The Fringe rolls nothing (chance 0), so
 			# its RNG stream is bit-for-bit unchanged.
@@ -3443,7 +3482,7 @@ func _spawn_world() -> void:
 			elif m.elite and not leader.elite:
 				leader = m
 		if bool(camp["elite"]):
-			var e := _place_minion(rng.randi() % maxi(skins.size(), 1), at, ci, band)
+			var e := _place_minion(camp_skin if zone_mode else rng.randi() % maxi(skins.size(), 1), at, ci, band, camp_level)
 			_make_elite(e)
 			leader = e
 		_apply_affixes(leader, affixes)
@@ -3454,11 +3493,15 @@ func _spawn_world() -> void:
 		var a: Vector2 = pat["a"]
 		var b: Vector2 = pat["b"]
 		var tag := 1000 + pi
-		var band := _band_at(a) if tier_mode else ""
+		var band := _band_at(a) if tier_mode and not zone_mode else ""
 		var skins: Array = _band_skins(band) if band != "" else biome.get("skins", [])
 		var elite_chance := _band_elite_chance(band) if band != "" else Catalog.elite_chance(biome_id, difficulty)
+		var patrol_skin := _skin_index(pat)
+		var patrol_level := int(pat.get("level", 0)) if zone_mode else 0
+		if zone_mode:
+			elite_chance = float(_diff()["elite"])
 		for k in maxi(1, int(round(float(pat["count"]) * density))):
-			var m := _place_minion(rng.randi() % maxi(skins.size(), 1), a + Vector2(rng.randf_range(-50, 50), rng.randf_range(-50, 50)), tag, band)
+			var m := _place_minion(patrol_skin if zone_mode else rng.randi() % maxi(skins.size(), 1), a + Vector2(rng.randf_range(-50, 50), rng.randf_range(-50, 50)), tag, band, patrol_level)
 			if elite_chance > 0.0 and rng.randf() < elite_chance:
 				_make_elite(m)
 			m.patrol_a = a
@@ -3472,8 +3515,10 @@ func _spawn_world() -> void:
 	for g in map.gathering:
 		gather_nodes.append({"node": str(g["node"]), "pos": g["pos"]})
 	# The depth tiers stand in the depths, not the biomes: each tier's nodes
-	# go into the part of the map that matches its depth.
-	_lay_depth_gathering()
+	# go into the part of the map that matches its depth. A zone brings its
+	# own nodes, so the map is left alone there.
+	if not zone_mode:
+		_lay_depth_gathering()
 	_gather_pos.clear()
 	_gather_charges.clear()
 	_gather_records.clear()
@@ -3585,7 +3630,21 @@ func _apply_affixes(m: Actor, affixes: Array) -> void:
 				m.shield = m.max_hp * 0.4
 
 
-func _place_minion(skin: int, at: Vector2, camp: int, band_id: String = "") -> Actor:
+## The skin index of a zone pack or patrol: the critter the zone built it
+## with, looked up in the biome's own skins. 0 when the zone names one the
+## biome does not have.
+func _skin_index(entry: Dictionary) -> int:
+	var id := str(entry.get("skin", ""))
+	if id == "":
+		return 0
+	var skins: Array = biome.get("skins", [])
+	for i in skins.size():
+		if str(skins[i]) == id:
+			return i
+	return 0
+
+
+func _place_minion(skin: int, at: Vector2, camp: int, band_id: String = "", level := 0) -> Actor:
 	_spawn_minion(skin, at)
 	var m: Actor = actors[-1]
 	m.camp = camp
@@ -3593,6 +3652,15 @@ func _place_minion(skin: int, at: Vector2, camp: int, band_id: String = "") -> A
 	m.aggro = false
 	m.facing = rng.randf() * TAU
 	var depth := _depth_at(at.y)
+	if level > 0:
+		# A zone pack: the level the zone gave it, which already climbs as
+		# the walk goes north inside the zone.
+		var scale := 1.0 + float(level - 1) * 0.055
+		m.max_hp = m.base_hp * EXPLORE_HP * scale
+		m.hp = m.max_hp
+		m.dmg *= scale
+		m.xp = maxi(1, int(round(float(m.xp) * EXPLORE_XP * scale * float(_diff()["xp"]))))
+		return m
 	if band_id == "":
 		# A hunt with no tier keeps the old scaling: the depth curve alone.
 		m.max_hp = m.base_hp * EXPLORE_HP * (1.0 + depth * EXPLORE_DEPTH)
@@ -3805,8 +3873,10 @@ func _step_explore(dt: float) -> void:
 		_add_t = 6.0
 	# The boss also rises on the clock: the hunt's deadline is the arena's,
 	# so the lair's boss walks out at 68 s whether or not the hero has
-	# found the lair (the arena's gate is the same clock gate).
-	if phase == "hunt" and time >= EXPLORE_BOSS_AT:
+	# found the lair (the arena's gate is the same clock gate). A depth zone
+	# is walked instead: its guardian waits at the far gate, so the boss
+	# rises when the hero gets there and not before.
+	if phase == "hunt" and time >= EXPLORE_BOSS_AT and not zone_mode:
 		begin_boss()
 		_add_t = 6.0
 
@@ -3814,6 +3884,9 @@ func _step_explore(dt: float) -> void:
 ## The depth tier the hero is in, and the crossing they make when they
 ## walk into the next one. The HUD shows the tier and the warning.
 func _step_tier(dt: float) -> void:
+	if zone_mode:
+		# A zone is one tier: there is no other band to walk into.
+		return
 	if map == null or map.size.y <= 0.0 or heroes.is_empty():
 		return
 	var hero: Actor = heroes[0]

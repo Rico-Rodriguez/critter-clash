@@ -4834,15 +4834,21 @@ func _world_ground(map: HuntMap, biome_id: String) -> void:
 	_w_segs = PackedVector4Array()
 	for i in mini(segs.size(), 40):
 		_w_segs.append(segs[i])
-	# One plane per map cell (plus a forest margin ring) so off-screen ground culls.
+	# One plane per map cell (plus a forest margin ring) so off-screen ground
+	# culls. The grid comes from the map's own chunks, so a depth zone lays
+	# its ground the size of the zone and the world map keeps its own.
 	var margin := 1
 	var cell3 := HuntMap.CELL * SCALE
+	var grid := Vector2i(HuntMap.WORLD_COLS, HuntMap.WORLD_ROWS)
+	for chunk in map.chunks:
+		grid.x = maxi(grid.x, int(chunk["col"]) + 1)
+		grid.y = maxi(grid.y, int(chunk["row"]) + 1)
 	var plane := PlaneMesh.new()
 	plane.size = cell3
 	plane.subdivide_width = 22
 	plane.subdivide_depth = 26
-	for row in range(-margin, HuntMap.WORLD_ROWS + margin):
-		for col in range(-margin, HuntMap.WORLD_COLS + margin):
+	for row in range(-margin, grid.y + margin):
+		for col in range(-margin, grid.x + margin):
 			var mesh := MeshInstance3D.new()
 			mesh.mesh = plane
 			mesh.material_override = mat

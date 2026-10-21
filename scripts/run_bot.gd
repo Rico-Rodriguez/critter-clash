@@ -326,9 +326,17 @@ static func _choose_goal(sim: RunSim, hero: RunSim.Actor, mem: Dictionary) -> vo
 	var from_hero := sim.map.flow(hero.pos)
 	var goal := sim.map.lair
 	var best := 1 << 30
-	if sim.time < CLEAR_CAP:
+	# A depth zone is a walk: the far gate is the goal, so the bot stops
+	# collecting and heads north early. A single-screen hunt has the time
+	# to pick everything up first.
+	var cap := 60.0 if sim.zone_mode else CLEAR_CAP
+	if sim.time < cap:
 		for c in sim.chests:
 			if bool(c["open"]):
+				continue
+			# A chest under the hero's own feet is not a walk: skip it, or
+			# the bot stands on its goal and never moves again.
+			if (c["pos"] as Vector2).distance_to(hero.pos) < 80.0:
 				continue
 			var d := from_hero[sim.map.cell_index(c["pos"])]
 			if d >= 0 and d < best:
@@ -336,6 +344,8 @@ static func _choose_goal(sim: RunSim, hero: RunSim.Actor, mem: Dictionary) -> vo
 				goal = c["pos"]
 		for a in sim.actors:
 			if a.alive and a.kind == "minion" and not a.aggro and not a.goblin:
+				if a.pos.distance_to(hero.pos) < 80.0:
+					continue
 				var d := from_hero[sim.map.cell_index(a.pos)]
 				if d >= 0 and d < best:
 					best = d
@@ -366,7 +376,27 @@ static func _flow_step(sim: RunSim, hero: RunSim.Actor, field: PackedInt32Array)
 		if score < best_score:
 			best_score = score
 			best = dir
-	return best if best != Vector2.ZERO else base
+	if best != Vector2.ZERO:
+		return best
+	# The pathing does not reach this spot: the body is in a pinch the grid
+	# does not know, and every lane the field offers is closed. Walk into
+	# the open ground instead, so the body gets out of the pinch and the
+	# field can pick it up again.
+	return _deepest_dir(sim, hero)
+
+
+## The heading that leads to the most open ground: the way out of a pinch.
+static func _deepest_dir(sim: RunSim, hero: RunSim.Actor) -> Vector2:
+	var best := Vector2.ZERO
+	var best_depth := sim.map.depth(hero.pos)
+	var reach := maxf(hero.radius * 2.0, 40.0)
+	for k in 8:
+		var dir := Vector2.RIGHT.rotated(TAU * float(k) / 8.0)
+		var d := sim.map.depth(hero.pos + dir * reach)
+		if d > best_depth:
+			best_depth = d
+			best = dir
+	return best
 
 
 ## True when the next couple of body-lengths along `dir` stay on open ground.
