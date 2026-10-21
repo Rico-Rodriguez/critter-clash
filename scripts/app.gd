@@ -777,6 +777,18 @@ class HubScreen extends ScreenBase:
 		paint_bg = false
 
 
+	## True when the player has just come back from a hunt, so the town
+	## should show him walking in over the bridge.
+	var _arriving := false
+
+
+	func open(args: Dictionary = {}) -> void:
+		_arriving = bool(args.get("from_hunt", false))
+		if _arriving and view != null:
+			# The hunter comes down the bridge and walks into the town.
+			view.arrive()
+
+
 	func build() -> void:
 		# The town fills the screen: the hero stands in the plaza and walks
 		# where the player taps. The town's business is a drawer over it.

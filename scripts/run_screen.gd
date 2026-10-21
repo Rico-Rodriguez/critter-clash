@@ -2243,7 +2243,7 @@ func _show_victory(boss_name: String) -> void:
 	var button := UiKit.button("CONTINUE", 600, 104, "gold")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# The hunt is over: back to the camp, where the gates stand.
-	button.pressed.connect(func() -> void: go("hub"))
+	button.pressed.connect(func() -> void: go("hub", {"from_hunt": true}))
 	col.add_child(button)
 
 

@@ -375,6 +375,17 @@ func _spawn_hero() -> void:
 			ap.seek(0.0, true)
 
 
+## The hero comes home: he comes down the bridge and walks into the town
+## from the north, the way a hunter would.
+func arrive() -> void:
+	if _hero == null:
+		return
+	_hero.position = Vector3(0.0, _hero.position.y, -8.6)
+	_hero.rotation.y = PI
+	_walk_to = Vector2(0.0, -2.6)
+	_play("walk")
+
+
 ## Puts another hero in the camp: the one the player just chose. The old
 ## one steps out of the firelight.
 func set_hero(hero_id: String) -> void:
