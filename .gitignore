@@ -19,3 +19,4 @@ dbg_*.gd.uid
 # local headless run logs
 out_*.txt
 err_*.txt
+shots*/

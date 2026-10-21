@@ -195,6 +195,8 @@ func open(args: Dictionary = {}) -> void:
 	hero_id = str(args.get("hero", "ember"))
 	# The depth tier the gate stands in: "" for the old whole-world hunt.
 	tier_id = str(args.get("tier", ""))
+	if not WorldData.tier_order().has(tier_id):
+		tier_id = ""
 	run_args = args.duplicate(true)
 	var session := Session.solo(biome_id, hero_id)
 	session.tier = tier_id
@@ -215,8 +217,9 @@ func open(args: Dictionary = {}) -> void:
 	# heroes the Daily pass so the taste of a later biome is fair.
 	daily_pass = is_daily and not SaveGame.biome_open(biome_id)
 	# Difficulty tier chosen in the map picker (0 Normal when absent). A sealed
-	# biome reached through the daily always plays Normal.
-	difficulty = 0 if is_daily else clampi(int(args.get("tier", 0)), 0, Catalog.TIER_COUNT - 1)
+	# biome reached through the daily always plays Normal. The depth tier
+	# rides under "tier", so the difficulty has its own key.
+	difficulty = 0 if is_daily else clampi(int(args.get("difficulty", 0)), 0, Catalog.TIER_COUNT - 1)
 	sim = RunSim.new()
 	var stats := {}
 	stats[hero_id] = SaveGame.build_run_stats(hero_id)
@@ -1069,6 +1072,10 @@ func _drain() -> void:
 						summary = SaveGame.commit_daily_pass(biome_id, str(ev["id"]))
 					else:
 						summary = SaveGame.commit_victory(biome_id, str(ev["id"]), sim.slain, sim.difficulty)
+					# A tier hunt clears that depth, which opens the gate
+					# into the one above it.
+					if tier_id != "":
+						SaveGame.clear_tier(tier_id)
 					if not is_daily:
 						# Fixed-seed dailies are replayable, so they never bank gear.
 						# Pieces still on the ground when the boss falls join the spoils.
@@ -2271,7 +2278,7 @@ func _show_defeat(reason: String) -> void:
 	var again := UiKit.secondary("TRY AGAIN", 300, 88)
 	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# A daily retries the same seeded hunt; a normal run rolls a fresh map.
-	again.pressed.connect(func() -> void: go("run", run_args if is_daily else {"biome": biome_id, "hero": hero_id, "tier": difficulty}))
+	again.pressed.connect(func() -> void: go("run", run_args if is_daily else {"biome": biome_id, "hero": hero_id, "tier": tier_id, "difficulty": difficulty}))
 	col.add_child(again)
 
 

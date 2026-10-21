@@ -6,3 +6,5 @@
 - 2026-10-20 — Repo is `https://github.com/Rico-Rodriguez/critter-clash` on branch `main`; work is committed and pushed with `git push origin main`
 - 2026-10-20 — The OTA release branch is `ota` at `fb76a7e`; the deploy flow is written down in `docs/ota.md`
 - 2026-10-20 — The project memory lives in `.memory/` inside the repo: `index.md` is the table of contents, `topics/*.md` are the history pages
+- 2026-10-21 — A screenshot can be read as text: `python tools/ascii_shot.py shots/hub.png 100` prints the picture as ASCII art, and `python -c "from PIL import Image; ..."` crops a region for a closer look. This is how the camp was checked without eyes
+- 2026-10-21 — The capture harness takes a `hubhero` shot, which opens the hero sheet over the camp — `scripts/app.gd` (`_capture`)

@@ -1,21 +1,24 @@
 extends ScreenBase
 
-## Home: the featured hero on a lit 3D meadow plinth across the top half,
-## a big HUNT button, chest slots, and tidy icon tiles for the side screens.
+## The desk in the camp: the chest drawer, the wordmark and tidy icon tiles
+## for the side screens (log, slayer, skills, forge, stash, credits).
+##
+## There is no hunt button here any more. Hunts start at a gate in the camp,
+## so the desk is where the camp's own business lives.
 
 
 func build() -> void:
-	# The camp is the front door now, so Home is its counter: the HUNT
-	# sheet, the chest drawer and the side tiles, with no tab of its own.
+	# The camp is the front door now, so the desk is the camp's counter: the
+	# chest drawer and the side tiles, with no tab of its own.
 	show_nav = false
 	nav_tab = ""
 	var pad := insets()
-	var hero_id := SaveGame.featured_id()
-	# The 3D stage bleeds to the screen edges and under the status bar.
+	# The desk shows the hero on the lit plinth: the camp shows the place,
+	# the desk shows the one who works there.
 	var stage := Showcase.new()
-	stage.hero_id = hero_id
+	stage.hero_id = SaveGame.featured_id()
 	stage.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	stage.anchor_bottom = 0.5
+	stage.anchor_bottom = 0.42
 	stage.offset_bottom = 30
 	add_child(stage)
 	var margin := MarginContainer.new()
@@ -48,20 +51,10 @@ func build() -> void:
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(spacer)
-	box.add_child(_nameplate(hero_id))
-	var play := ForgedButton.new()
-	play.text = "HUNT"
-	play.custom_minimum_size = Vector2(600, 136)
-	play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# HUNT opens the map sheet: pick a biome (sealed ones show why), then
-	# Start runs it with the equipped hero.
-	play.pressed.connect(open_map_sheet)
-	box.add_child(play)
 	box.add_child(_chests())
 	box.add_child(_tiles())
 
 
-var sheet: Control
 var _header: HBoxContainer
 var _pills: Array = []
 
@@ -177,62 +170,6 @@ func _place_road_pip() -> void:
 		return
 	_trophy_pip.size = Vector2(22, 22)
 	_trophy_pip.position = Vector2(icon.position.x + icon.size.x - 20.0, icon.position.y - 8.0)
-
-
-func open_map_sheet() -> void:
-	if sheet != null:
-		return
-	AudioDirector.sfx("ui_tap")
-	sheet = MapSheet.new()
-	sheet.home = self
-	sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(sheet)
-
-
-func start_hunt(biome_id: String) -> void:
-	SaveGame.data["last_biome"] = biome_id
-	go("run", {"biome": biome_id, "hero": SaveGame.featured_id()})
-
-
-## Today's seeded challenge, run with the equipped hero. The seed, day key and
-## modifiers ride the run args so run_screen pins the exact same hunt.
-func start_daily() -> void:
-	var key := Daily.today_key(int(Time.get_unix_time_from_system()))
-	var biome_id := Daily.biome_for(key)
-	SaveGame.data["last_biome"] = biome_id
-	go("run", {
-		"biome": biome_id,
-		"hero": SaveGame.featured_id(),
-		"seed": Daily.seed_for(key),
-		"daily": key,
-		"modifiers": Daily.modifiers_for(key),
-	})
-
-
-func _nameplate(hero_id: String) -> Control:
-	var info := Catalog.critter(hero_id)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var badge := UiKit.Badge.new()
-	badge.level = int(SaveGame.hero(hero_id).get("level", 1))
-	badge.custom_minimum_size = Vector2(76, 84)
-	row.add_child(badge)
-	# The name plate fills the row and wraps, so a long name (or a long
-	# role title) never runs off the screen beside the badge.
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", -6)
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var name_label := UiKit.label(str(info.get("name", "Hero")).to_upper(), 58, Color("fff1d0"), "x", 12)
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(name_label)
-	var role_label := UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 27, Color("ffcf5a"), "x", 7)
-	role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(role_label)
-	row.add_child(col)
-	return row
 
 
 var _slots: Array = []
@@ -388,49 +325,6 @@ class Pip extends Control:
 		draw_circle(c - Vector2(0, r * 0.12), r * 0.68, Color("c0341f"))
 		draw_circle(c - Vector2(0, r * 0.28), r * 0.34, Color("ff8a4a"))
 		draw_arc(c, r * 0.9, PI * 1.05, PI * 1.95, 16, Color(1, 0.95, 0.78, 0.75), 1.5, true)
-
-
-class Showcase extends Control:
-	var hero_id := "ember"
-	var fill := 0.46
-	var stage: Stage3D
-
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		stage = Stage3D.new()
-		stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(stage)
-		stage.pedestal_fill = fill
-		# The pedestal dresses the hero from what is actually equipped
-		# (GearDB tiers); no showcase override, so a bare hero reads bare.
-		stage.bind_pedestal(hero_id)
-		# Soft fade into the menu below, and a dark band under the pills.
-		var fade := Fade.new()
-		fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		add_child(fade)
-
-
-class Fade extends Control:
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	func _draw() -> void:
-		# Vertex-colored quads interpolate per pixel, so there are no bands.
-		var h := size.y
-		var w := size.x
-		var bottom := Color(0.075, 0.06, 0.05)
-		_grad(Rect2(0, h * 0.6, w, h * 0.4 + 1.0), Color(bottom, 0.0), bottom)
-		_grad(Rect2(0, 0, w, h * 0.24), Color(0.02, 0.015, 0.01, 0.7), Color(0.02, 0.015, 0.01, 0.0))
-		# Side vignette so the scene sinks into the stone frame.
-		var side := Color(0.02, 0.015, 0.01, 0.55)
-		var clear := Color(0.02, 0.015, 0.01, 0.0)
-		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w * 0.22, 0), Vector2(w * 0.22, h), Vector2(0, h)]), PackedColorArray([side, clear, clear, side]))
-		draw_polygon(PackedVector2Array([Vector2(w * 0.78, 0), Vector2(w, 0), Vector2(w, h), Vector2(w * 0.78, h)]), PackedColorArray([clear, side, side, clear]))
-
-	func _grad(r: Rect2, top: Color, bot: Color) -> void:
-		var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
-		draw_polygon(pts, PackedColorArray([top, top, bot, bot]))
 
 
 class ChestSlot extends Control:
@@ -731,336 +625,3 @@ class Wordmark extends Control:
 			var a := 0.12 - 0.035 * i
 			draw_rect(Rect2(at.x - 4, top + i * clip_h / 3.0, w + 8, clip_h / 3.0), Color(1, 0.95, 0.8, 0.0))
 			draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color(1, 0.93, 0.7, a))
-
-
-## HUNT: a slab of oxblood leather in a forged iron frame with gilt bevels
-## and rivets, an embossed gilt label, and a real pressed state.
-class ForgedButton extends BaseButton:
-	var text := "HUNT"
-
-	func _ready() -> void:
-		button_down.connect(queue_redraw)
-		button_up.connect(queue_redraw)
-		mouse_entered.connect(queue_redraw)
-		mouse_exited.connect(queue_redraw)
-		resized.connect(queue_redraw)
-		pivot_offset = size * 0.5
-
-	func _poly(r: Rect2, cut: float) -> PackedVector2Array:
-		return PackedVector2Array([
-			r.position + Vector2(cut, 0), Vector2(r.end.x - cut, r.position.y), Vector2(r.end.x, r.position.y + cut),
-			Vector2(r.end.x, r.end.y - cut), Vector2(r.end.x - cut, r.end.y), Vector2(r.position.x + cut, r.end.y),
-			Vector2(r.position.x, r.end.y - cut), Vector2(r.position.x, r.position.y + cut)])
-
-	func _draw() -> void:
-		UiKit.ensure()
-		var down := is_pressed() or button_pressed
-		var sink := 6.0 if down else 0.0
-		var r := Rect2(Vector2(0, sink), size - Vector2(0, 8))
-		# Drop shadow shrinks when pressed.
-		var sh := _poly(Rect2(r.position + Vector2(0, 8.0 - sink), r.size), 18)
-		draw_colored_polygon(sh, Color(0, 0, 0, 0.55 if not down else 0.35))
-		# Forged iron frame: dark rim, lit top bevel, gilt inner lip.
-		draw_colored_polygon(_poly(r, 18), Color("17110c"))
-		var iron := r.grow(-4)
-		var top := Color("6a5c4c") if not down else Color("4a4036")
-		var bot := Color("2a221b")
-		var ip := _poly(iron, 15)
-		draw_polygon(ip, PackedColorArray([top, top, top, bot, bot, bot, bot, top]))
-		var gilt := iron.grow(-7)
-		var gp := _poly(gilt, 11)
-		var gl := PackedVector2Array(gp)
-		gl.append(gp[0])
-		draw_polyline(gl, Color("e6c06a"), 2.5, true)
-		# Leather: deep oxblood, lighter toward the top, with stitching.
-		var lea := gilt.grow(-4)
-		var lt := Color("7c1e18") if not down else Color("5e1612")
-		var lb := Color("3a0c0a")
-		var lp := _poly(lea, 8)
-		draw_polygon(lp, PackedColorArray([lt, lt, lt, lb, lb, lb, lb, lt]))
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 41
-		for i in 90:
-			var p := lea.position + Vector2(rng.randf() * lea.size.x, rng.randf() * lea.size.y)
-			draw_line(p, p + Vector2(rng.randf_range(2, 6), rng.randf_range(-1, 1)), Color(0, 0, 0, 0.12), 1.0)
-		var st := lea.grow(-8)
-		var x := st.position.x + 6.0
-		while x < st.end.x - 6.0:
-			draw_line(Vector2(x, st.position.y), Vector2(x + 7, st.position.y), Color(0.85, 0.62, 0.35, 0.55), 1.5)
-			draw_line(Vector2(x, st.end.y), Vector2(x + 7, st.end.y), Color(0.85, 0.62, 0.35, 0.45), 1.5)
-			x += 13.0
-		# Gloss band across the upper leather.
-		draw_rect(Rect2(lea.position + Vector2(10, 5), Vector2(lea.size.x - 20, lea.size.y * 0.22)), Color(1, 0.85, 0.75, 0.08 if not down else 0.03))
-		# Rivets in the iron corners.
-		for c in [iron.position + Vector2(18, iron.size.y * 0.5), Vector2(iron.end.x - 18, iron.position.y + iron.size.y * 0.5)]:
-			draw_circle(c + Vector2(0, 1.5), 6.5, Color(0, 0, 0, 0.6))
-			draw_circle(c, 6.0, Color("b08a48"))
-			draw_circle(c - Vector2(1.5, 1.5), 2.5, Color("ffe6a8"))
-		# Embossed gilt label: dark chisel above, light lip below, gold face.
-		var font := UiKit.font_n
-		var fs := 62
-		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var at := Vector2((size.x - w) * 0.5, r.position.y + r.size.y * 0.5 + fs * 0.35)
-		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 7, Color("1e0604"))
-		draw_string(font, at + Vector2(0, -2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("2a0a06"))
-		draw_string(font, at + Vector2(0, 2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("ffe9b0"))
-		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("e8b85a") if not down else Color("c89a48"))
-
-
-## Map choice: a sheet that rises over Home with one row per biome (art
-## strip, name, boss, status; sealed biomes greyed with their unlock rule),
-## the chosen row lit, and START at the foot.
-class MapSheet extends Control:
-	var home: Node
-	var chosen := ""
-	var _rows := {}
-	var _start: Button
-	var _panel: Control
-
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_STOP
-		var dim := ColorRect.new()
-		dim.color = Color(0, 0, 0, 0.62)
-		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		dim.gui_input.connect(func(e: InputEvent) -> void:
-			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
-				close()
-		)
-		add_child(dim)
-		var pad := UiKit.safe_insets()
-		_panel = PanelContainer.new()
-		var empty := StyleBoxEmpty.new()
-		for side in ["left", "right", "top", "bottom"]:
-			empty.set("content_margin_" + side, 26)
-		_panel.add_theme_stylebox_override("panel", empty)
-		_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		_panel.offset_left = float(pad["l"]) + 18.0
-		_panel.offset_right = -float(pad["r"]) - 18.0
-		_panel.offset_bottom = -float(pad["b"]) - 18.0
-		_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		add_child(_panel)
-		var frame := UiKit.Frame.new("panel", "leather", {})
-		frame.margin = 26.0
-		_panel.add_child(frame)
-		var box := VBoxContainer.new()
-		box.add_theme_constant_override("separation", 14)
-		_panel.add_child(box)
-		var title := UiKit.title("Choose a hunt", 46)
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(title)
-		box.add_child(_daily_row())
-		var last := str(SaveGame.data.get("last_biome", ""))
-		for entry in Catalog.BIOMES:
-			var id := str(entry["id"])
-			if chosen == "" and SaveGame.biome_open(id):
-				chosen = id
-			box.add_child(_row(entry))
-		if last != "" and SaveGame.biome_open(last):
-			chosen = last
-		var foot := HBoxContainer.new()
-		foot.alignment = BoxContainer.ALIGNMENT_CENTER
-		foot.add_theme_constant_override("separation", 16)
-		var back := UiKit.secondary("Close", 200, 88)
-		back.pressed.connect(close)
-		foot.add_child(back)
-		_start = UiKit.button("START", 400, 104, "gold")
-		_start.pressed.connect(func() -> void:
-			if chosen != "":
-				AudioDirector.sfx("card_pick")
-				home.start_hunt(chosen)
-		)
-		foot.add_child(_start)
-		box.add_child(foot)
-		_light()
-		_panel.modulate.a = 0.0
-		_panel.position.y += 80.0
-		var tw := create_tween().set_parallel(true)
-		tw.tween_property(_panel, "modulate:a", 1.0, 0.16)
-		tw.tween_property(_panel, "position:y", _panel.position.y - 80.0, 0.26).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-
-	func close() -> void:
-		AudioDirector.sfx("ui_tap")
-		home.sheet = null
-		queue_free()
-
-	func _row(entry: Dictionary) -> Control:
-		var id := str(entry["id"])
-		var open := SaveGame.biome_open(id)
-		var cleared := SaveGame.biome_cleared(id)
-		var b := Button.new()
-		b.focus_mode = Control.FOCUS_NONE
-		b.flat = true
-		b.custom_minimum_size = Vector2(0, 132)
-		var none := StyleBoxEmpty.new()
-		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-			b.add_theme_stylebox_override(st, none)
-		var holder := Control.new()
-		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		b.add_child(holder)
-		_press_feel(b, holder)
-		var h := HBoxContainer.new()
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		h.offset_left = 14
-		h.offset_right = -14
-		h.offset_top = 10
-		h.offset_bottom = -10
-		h.add_theme_constant_override("separation", 16)
-		b.add_child(h)
-		var art := TextureRect.new()
-		art.texture = _art(id)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.custom_minimum_size = Vector2(196, 0)
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if not open:
-			art.modulate = Color(0.35, 0.35, 0.38)
-		h.add_child(art)
-		var v := VBoxContainer.new()
-		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.add_theme_constant_override("separation", 2)
-		h.add_child(v)
-		v.add_child(UiKit.label(str(entry["name"]).to_upper(), 30, UiKit.GOLD.lightened(0.2) if open else Color("8d8478"), "x", 4))
-		var boss := Catalog.critter(str(entry["boss"]))
-		v.add_child(UiKit.label("Guarded by %s" % str(boss["name"]), 18, UiKit.CREAM if open else UiKit.MUTED, "b", 0))
-		var status := "✦ CLEARED" if cleared else ("OPEN" if open else "SEALED · " + SaveGame.biome_lock_text(id) + " to unlock")
-		var st_label := UiKit.label(status, 16, Color("9fe08a") if cleared else (UiKit.GOLD if open else Color("c89a8a")), "x", 2)
-		st_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(st_label)
-		v.add_child(UiKit.label(Catalog.recommended_text(id), 16, UiKit.MUTED, "b", 0))
-		if not open:
-			# Sealed: the row itself is disabled and its label says why, so
-			# it reads as unavailable instead of a dead tap.
-			b.disabled = true
-			b.tooltip_text = SaveGame.biome_lock_text(id) + " to unlock"
-			var lock := TextureRect.new()
-			lock.texture = UiKit.icon("lock_closed")
-			lock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			lock.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			lock.custom_minimum_size = Vector2(48, 48)
-			lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			h.add_child(lock)
-		else:
-			b.pressed.connect(func() -> void:
-				chosen = id
-				AudioDirector.sfx("ui_tap")
-				_light()
-			)
-		_rows[id] = [b, holder]
-		return b
-
-	## The Daily Challenge row at the top of the sheet: today's seeded biome,
-	## its modifiers and your best local score. Always open; tapping runs it
-	## with the equipped hero (one attempt per run, retries fine).
-	func _daily_row() -> Control:
-		var key := Daily.today_key(int(Time.get_unix_time_from_system()))
-		var biome := Catalog.biome(Daily.biome_for(key))
-		var parts := PackedStringArray()
-		for m in Daily.modifiers_for(key):
-			parts.append(str(m.get("name", "")))
-		var best := SaveGame.daily_best(key)
-		# A sealed biome is still today's daily; flag the daily-only access.
-		var locked := not SaveGame.biome_open(str(biome["id"]))
-		var b := Button.new()
-		b.focus_mode = Control.FOCUS_NONE
-		b.flat = true
-		b.custom_minimum_size = Vector2(0, 132)
-		var none := StyleBoxEmpty.new()
-		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-			b.add_theme_stylebox_override(st, none)
-		var holder := Control.new()
-		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		b.add_child(holder)
-		_press_feel(b, holder)
-		var frame := UiKit.Frame.new("card", "leather", {
-			"metal_hi": Color("ffe6a8"), "metal_lo": Color("6a4416"), "frame": 5.0,
-			"glow_color": Color(1.0, 0.72, 0.3, 0.38),
-			"face_top": Color("2a2016"), "face_bot": Color("0c0907"),
-		})
-		frame.margin = 2.0
-		holder.add_child(frame)
-		var h := HBoxContainer.new()
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		h.offset_left = 14
-		h.offset_right = -14
-		h.offset_top = 10
-		h.offset_bottom = -10
-		h.add_theme_constant_override("separation", 16)
-		b.add_child(h)
-		var art := TextureRect.new()
-		art.texture = _art(str(biome["id"]))
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.custom_minimum_size = Vector2(196, 0)
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(art)
-		var v := VBoxContainer.new()
-		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.add_theme_constant_override("separation", 2)
-		h.add_child(v)
-		v.add_child(UiKit.label("DAILY CHALLENGE", 30, UiKit.GOLD.lightened(0.25), "x", 4))
-		v.add_child(UiKit.label("%s · %s" % [str(biome["name"]).to_upper(), " + ".join(parts)], 18, UiKit.CREAM, "b", 0))
-		v.add_child(UiKit.label("Best today %d" % best if best > 0 else "No run today yet", 16, UiKit.GOLD if best > 0 else UiKit.MUTED, "x", 2))
-		v.add_child(UiKit.label(Catalog.recommended_text(str(biome["id"])), 16, UiKit.MUTED, "b", 0))
-		if locked:
-			v.add_child(UiKit.label("Daily pass", 16, Color("9fe08a"), "b", 2))
-		var tag := UiKit.label("TODAY", 16, Color("9fe08a"), "x", 2)
-		tag.custom_minimum_size = Vector2(90, 0)
-		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		h.add_child(tag)
-		b.pressed.connect(func() -> void:
-			AudioDirector.sfx("card_pick")
-			home.start_daily()
-		)
-		return b
-
-
-	func _art(id: String) -> Texture2D:
-		var path := "res://assets/sprites/arenas/%s_banner.png" % id
-		return load(path) if ResourceLoader.exists(path) else SpriteBank.arena(id)
-
-	## The flat rows are hand-drawn, so give them the same pressed sink the
-	## shared buttons have: a quick shrink, then a spring back.
-	func _press_feel(button: Button, holder: Control) -> void:
-		button.button_down.connect(func() -> void:
-			holder.pivot_offset = holder.size * 0.5
-			var tw := create_tween()
-			tw.tween_property(holder, "scale", Vector2(0.975, 0.975), 0.05))
-		button.button_up.connect(func() -> void:
-			holder.pivot_offset = holder.size * 0.5
-			var tw := create_tween()
-			tw.tween_property(holder, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
-
-	func _light() -> void:
-		for id in _rows:
-			var holder: Control = _rows[id][1]
-			for c in holder.get_children():
-				c.queue_free()
-			var on: bool = id == chosen
-			var metal := [Color("ffe6a8"), Color("6a4416")] if on else UiKit.rarity_metal("common")
-			var frame := UiKit.Frame.new("card", "leather", {
-				"metal_hi": metal[0], "metal_lo": metal[1], "frame": 5.0 if on else 3.0,
-				"glow_color": Color(1.0, 0.72, 0.3, 0.5) if on else Color(0, 0, 0, 0),
-				"face_top": Color("2a2016") if on else Color("15100c"), "face_bot": Color("0c0907"),
-			})
-			frame.margin = 2.0
-			holder.add_child(frame)
-		_set_start_enabled(chosen != "")
-
-	## START greys out (frame and label) when there is no hunt to launch, and
-	## says what is missing.
-	func _set_start_enabled(on: bool) -> void:
-		_start.disabled = not on
-		_start.tooltip_text = "" if on else "Pick a biome to begin"
-		var skin = _start.get("skin")
-		if skin != null:
-			skin.tone = "gold" if on else "grey"
-			skin.apply()

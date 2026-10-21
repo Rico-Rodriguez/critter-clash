@@ -2,7 +2,6 @@ extends Node
 
 const SCREENS := {
 	"home": preload("res://scripts/home_screen.gd"),
-	"world": preload("res://scripts/world_screen.gd"),
 	"heroes": preload("res://scripts/hero_screen.gd"),
 	"trophy": preload("res://scripts/trophy_screen.gd"),
 	"chest": preload("res://scripts/chest_screen.gd"),
@@ -249,14 +248,19 @@ func _capture() -> void:
 		go("hub")
 		await _settle()
 		await _shot("hub")
+	if _wants("hubhero"):
+		go("hub")
+		await _settle()
+		if current != null and current.has_method("_open_hero_sheet"):
+			current._open_hero_sheet()
+		await _settle()
+		await _shot("hubhero")
 	if _wants("home"):
 		go("home")
 		await _settle()
 		await _shot("home")
 	if _wants("map"):
-		go("home")
-		await _settle()
-		current.open_map_sheet()
+		go("hub")
 		await _settle()
 		await _shot("map")
 	if _wants("heroes"):
@@ -700,10 +704,12 @@ class HubScreen extends ScreenBase:
 	## The camp scene: Barrow Haven itself.
 	const CAMP := preload("res://scenes/hub_scene.tscn")
 	## How much of the screen the camp takes; the counter sits below it.
-	const CAMP_FRACTION := 0.44
+	const CAMP_FRACTION := 0.50
 
 	## The camp.
 	var hub: HubScene
+	## The camp view: the 3D camp and the hero standing in it.
+	var view: HubView
 	## The stall sheet, while a stall stands open.
 	var sheet: Control
 
@@ -713,6 +719,17 @@ class HubScreen extends ScreenBase:
 	var _stall_coins: Label
 	var _stall_result: Label
 	var _stall_body: VBoxContainer
+	## The hero sheet, while the choice of hero stands open.
+	var _hero_sheet: Control
+
+	## The challenge each gate is set to (tier id -> difficulty index).
+	var _difficulty_pick: Dictionary = {}
+
+	## The gate strip, so it can be rebuilt when a challenge is changed.
+	var _gate_strip_holder: VBoxContainer
+
+	## The hero row: the hero who travels, and the button that changes him.
+	var _hero_row: HBoxContainer
 
 
 	## The camp paints the background, so the stone backdrop would only
@@ -725,7 +742,7 @@ class HubScreen extends ScreenBase:
 		# The camp is the top of the screen and the counter is the rest, so
 		# the hub reads as a place the player stands in rather than a list
 		# of buttons.
-		var view := HubView.new()
+		view = HubView.new()
 		view.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 		view.anchor_bottom = CAMP_FRACTION
 		view.offset_bottom = 0.0
@@ -746,92 +763,63 @@ class HubScreen extends ScreenBase:
 		margin.offset_top = 0.0
 		margin.add_theme_constant_override("margin_left", int(pad["l"]))
 		margin.add_theme_constant_override("margin_right", int(pad["r"]))
-		margin.add_theme_constant_override("margin_top", 18)
+		margin.add_theme_constant_override("margin_top", 14)
 		margin.add_theme_constant_override("margin_bottom", int(pad["b"]))
 		add_child(margin)
 		var box := VBoxContainer.new()
-		box.add_theme_constant_override("separation", 10)
+		box.add_theme_constant_override("separation", 8)
 		margin.add_child(box)
 		box.add_child(header())
 		box.add_child(h1(str(WorldData.hub_data().get("name", "Barrow Haven"))))
 		box.add_child(body("The safe camp. Nothing fights here."))
+		var spacer := Control.new()
+		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		box.add_child(spacer)
+		box.add_child(_hero_row_widget())
+		_gate_strip_holder = VBoxContainer.new()
+		_gate_strip_holder.add_theme_constant_override("separation", 8)
+		_gate_strip_holder.add_child(_gate_strip())
+		box.add_child(_gate_strip_holder)
 		box.add_child(_stall_row())
 		box.add_child(_service_row())
-		box.add_child(_gate_list())
-
-	## The stalls in the camp: one button per shop the hub keeps. The name
-	## on the button is the stall's own, as the hub's trade sheet gives it.
-	func _stall_row() -> Control:
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 14)
-		var shops: Array = WorldData.hub_data().get("shops", [])
-		for shop_id in shops:
-			var id := str(shop_id)
-			var info := hub.open_shop(id)
-			var button := UiKit.button(str(info.get("name", id)).to_upper(), 0, 88, "gold")
-			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			button.pressed.connect(func() -> void: _open_stall(id))
-			row.add_child(button)
-		return row
 
 
-	## What the camp offers besides the stalls: the stash, the hero and the
-	## home flow, which still holds the skills, the log and the chests.
-	func _service_row() -> Control:
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 14)
-		row.add_child(_service_button("STASH", "stash"))
-		row.add_child(_service_button("HERO", "heroes"))
-		row.add_child(_service_button("DESK", "home"))
-		return row
-
-
-	func _service_button(text: String, screen: String) -> Button:
-		var button := UiKit.button(text, 0, 88, "blue")
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.pressed.connect(func() -> void: go(screen))
-		return button
-
-
-	## The gates out of the camp: one standing stone pair per depth tier, in
-	## tier order, so the menu can point at the one that opens.
-	func _gate_list() -> Control:
+	## Who travels: the featured hero, his level, and the button that
+	## changes him. The hero in the camp is this one.
+	func _hero_row_widget() -> Control:
+		_hero_row = HBoxContainer.new()
+		_hero_row.add_theme_constant_override("separation", 12)
+		var badge := UiKit.Badge.new()
+		badge.level = int(SaveGame.hero(SaveGame.featured_id()).get("level", 1))
+		badge.custom_minimum_size = Vector2(62, 62)
+		_hero_row.add_child(badge)
 		var col := VBoxContainer.new()
-		col.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		col.add_theme_constant_override("separation", 12)
-		col.add_child(UiKit.label("GATES", 22, UiKit.GOLD, "x", 3))
-		for tier_id in WorldData.tier_order():
-			col.add_child(_portal_row(WorldData.tier_name(str(tier_id)), str(tier_id)))
-		return col
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", -2)
+		col.add_child(_hero_name())
+		col.add_child(_hero_role())
+		_hero_row.add_child(col)
+		var choose := UiKit.button("CHOOSE", 170, 78, "blue")
+		choose.tooltip_text = "Pick the hero who travels"
+		choose.pressed.connect(func() -> void: _open_hero_sheet())
+		_hero_row.add_child(choose)
+		return _hero_row
 
 
-	## A portal into the world: the depth it leads into and the camp gate
-	## that stands in it. A gate that stands open leads to a hunt; a sealed
-	## one leads nowhere.
-	func _portal_row(portal_name: String, tier_id: String) -> Control:
-		var open := SaveGame.tier_open(tier_id)
-		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 2)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 12)
-		col.add_child(row)
-		var text_col := VBoxContainer.new()
-		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(text_col)
-		text_col.add_child(UiKit.label(portal_name.to_upper(), 28, UiKit.GOLD.lightened(0.2) if open else UiKit.MUTED, "x", 3))
-		var button := UiKit.button("TRAVEL" if open else "SEALED", 190, 80, "gold" if open else "grey")
-		button.disabled = not open
-		if open:
-			button.pressed.connect(func() -> void: _travel(tier_id))
-		else:
-			button.tooltip_text = _seal_text(tier_id)
-		row.add_child(button)
-		var note := UiKit.label(_portal_note(tier_id, open), 17, UiKit.MUTED, "b", 0)
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		col.add_child(note)
-		return col
+	## The featured hero's name.
+	func _hero_name() -> Label:
+		var info := Catalog.critter(SaveGame.featured_id())
+		var label := UiKit.label(str(info.get("name", "Hero")).to_upper(), 30, UiKit.CREAM, "x", 4)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		return label
+
+
+	## The featured hero's role.
+	func _hero_role() -> Label:
+		var info := Catalog.critter(SaveGame.featured_id())
+		var label := UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 18, UiKit.GOLD, "b", 2)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		return label
 
 
 	## The tier below this one, or "" when this is the shallowest.
@@ -843,21 +831,95 @@ class HubScreen extends ScreenBase:
 		return ""
 
 
-	## What a portal says under its name: the ground it leads into, or the
-	## rule that keeps the gate shut.
-	func _portal_note(tier_id: String, open: bool) -> String:
-		if not open:
-			return _seal_text(tier_id)
-		var description := WorldData.tier_description(tier_id)
-		return description if description != "" else "The way out of the camp."
-
-
 	## Why a gate stands shut: the tier below it has to be cleared first.
 	func _seal_text(tier_id: String) -> String:
 		var below := _tier_below(tier_id)
 		if below == "":
 			return "Sealed"
 		return "Sealed \u00b7 clear %s to unlock" % WorldData.tier_name(below)
+
+
+	## The gates out of the camp, one standing stone pair per depth tier.
+	## They sit in a strip of four, so the camp keeps the top of the screen
+	## and the player sees every way out at once.
+	func _gate_strip() -> Control:
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 2)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		col.add_child(row)
+		for tier_id in WorldData.tier_order():
+			row.add_child(_gate_tile(str(tier_id)))
+		var note := UiKit.label(_gate_note(), 16, UiKit.MUTED, "b", 0)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(note)
+		return col
+
+
+	## One gate: the depth it leads into, whether it stands open, and the
+	## challenge it is set to.
+	func _gate_tile(tier_id: String) -> Control:
+		var open := SaveGame.tier_open(tier_id)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", 0)
+		var button := UiKit.button(WorldData.tier_name(tier_id).to_upper(), 0, 74, "gold" if open else "grey")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.tooltip_text = WorldData.tier_description(tier_id)
+		if open:
+			button.pressed.connect(func() -> void: _travel(tier_id))
+		else:
+			button.pressed.connect(func() -> void: toast(_seal_text(tier_id)))
+		col.add_child(button)
+		var state := UiKit.secondary(_gate_state(tier_id, open), 0, 46)
+		state.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		state.disabled = not open
+		state.tooltip_text = "Step the challenge up"
+		if open:
+			state.pressed.connect(func() -> void: _step_difficulty(tier_id))
+		col.add_child(state)
+		return col
+
+
+	## What a gate says under its name: whether it stands open, and the
+	## challenge it is set to. Tapping the line steps the challenge up.
+	func _gate_state(tier_id: String, open: bool) -> String:
+		if not open:
+			return "SEALED"
+		return "OPEN \u00b7 %s" % Catalog.TIER_NAMES[_difficulty(tier_id)].to_upper()
+
+
+	## The challenge a gate is set to. Veteran and Nightmare open when the
+	## ground below has been cleared on that challenge.
+	func _difficulty(tier_id: String) -> int:
+		var biome_id := Catalog.biome_for_tier(tier_id)
+		var open := SaveGame.difficulty_unlocked(biome_id)
+		var picked := int(_difficulty_pick.get(tier_id, 0))
+		return clampi(picked, 0, maxi(open, 0))
+
+
+	## Steps a gate up to the next challenge it has earned.
+	func _step_difficulty(tier_id: String) -> void:
+		var biome_id := Catalog.biome_for_tier(tier_id)
+		var open := SaveGame.difficulty_unlocked(biome_id)
+		var now := _difficulty(tier_id)
+		var next := now + 1
+		if next > open:
+			next = 0
+		_difficulty_pick[tier_id] = next
+		AudioDirector.sfx("ui_tap")
+		_refresh_gates()
+		toast("%s \u00b7 %s" % [WorldData.tier_name(tier_id), Catalog.TIER_NAMES[next]])
+
+
+	## Rebuilds the gate strip after a challenge was changed.
+	func _refresh_gates() -> void:
+		if _gate_strip_holder == null:
+			return
+		for child in _gate_strip_holder.get_children():
+			child.queue_free()
+		_gate_strip_holder.add_child(_gate_strip())
 
 
 	## A gate that stands open leads out of the camp into a hunt. A sealed
@@ -869,13 +931,202 @@ class HubScreen extends ScreenBase:
 		_start_hunt(tier_id)
 
 
-	## Starting a hunt is the entry the old Home's HUNT button made: the
-	## same last_biome bookkeeping, the same run args and the featured
-	## hero, and the depth tier the gate stands in.
+	## Starting a hunt from a gate: the depth the gate stands in, the
+	## challenge it is set to, and the hero who stands in the camp.
 	func _start_hunt(tier_id: String) -> void:
 		var biome_id := Catalog.biome_for_tier(tier_id)
 		SaveGame.data["last_biome"] = biome_id
-		go("run", {"biome": biome_id, "hero": SaveGame.featured_id(), "tier": tier_id})
+		go("run", {
+			"biome": biome_id,
+			"hero": SaveGame.featured_id(),
+			"tier": tier_id,
+			"difficulty": _difficulty(tier_id),
+		})
+
+
+	## The line under the gates: what the way out leads into, or the rule
+	## that keeps it shut.
+	func _gate_note() -> String:
+		for tier_id in WorldData.tier_order():
+			var id := str(tier_id)
+			if SaveGame.tier_open(id):
+				var text := WorldData.tier_description(id)
+				return text if text != "" else "The way out of the camp."
+		return "Every gate stands shut until the ground below is cleared."
+
+
+	## The stalls in the camp: one button per shop the hub keeps. The name
+	## on the button is the stall's own, as the hub's trade sheet gives it.
+	func _stall_row() -> Control:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 14)
+		var shops: Array = WorldData.hub_data().get("shops", [])
+		for shop_id in shops:
+			var id := str(shop_id)
+			var info := hub.open_shop(id)
+			var button := UiKit.button(str(info.get("name", id)).to_upper(), 0, 84, "gold")
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.pressed.connect(func() -> void: _open_stall(id))
+			row.add_child(button)
+		return row
+
+
+	## What the camp offers besides the stalls: the stash, the desk (which
+	## still holds the skills, the log and the chests) and today's hunt.
+	func _service_row() -> Control:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 10)
+		row.add_child(_service_button("STASH", "stash"))
+		row.add_child(_service_button("DESK", "home"))
+		var daily := UiKit.button("DAILY", 0, 84, "blue")
+		daily.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		daily.tooltip_text = "Today's seeded hunt"
+		daily.pressed.connect(_start_daily)
+		row.add_child(daily)
+		return row
+
+
+	func _service_button(text: String, screen: String) -> Button:
+		var button := UiKit.button(text, 0, 84, "blue")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(func() -> void: go(screen))
+		return button
+
+
+	## Today's seeded challenge, run with the hero the camp holds. The
+	## seed, day key and modifiers ride the run args so the run pins the
+	## exact same hunt.
+	func _start_daily() -> void:
+		var key := Daily.today_key(int(Time.get_unix_time_from_system()))
+		var biome_id := Daily.biome_for(key)
+		SaveGame.data["last_biome"] = biome_id
+		go("run", {
+			"biome": biome_id,
+			"hero": SaveGame.featured_id(),
+			"seed": Daily.seed_for(key),
+			"daily": key,
+			"modifiers": Daily.modifiers_for(key),
+		})
+
+
+	## The hero sheet: the heroes the camp holds, one button each. The
+	## chosen one stands in the camp and travels from it.
+	func _open_hero_sheet() -> void:
+		if _hero_sheet != null:
+			return
+		AudioDirector.sfx("ui_tap")
+		_hero_sheet = Control.new()
+		_hero_sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(_hero_sheet)
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.7)
+		dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		dim.gui_input.connect(func(e: InputEvent) -> void:
+			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+				_close_hero_sheet()
+		)
+		_hero_sheet.add_child(dim)
+		var pad := insets()
+		var panel := PanelContainer.new()
+		var empty := StyleBoxEmpty.new()
+		for side in ["left", "right", "top", "bottom"]:
+			empty.set("content_margin_" + side, 20)
+		panel.add_theme_stylebox_override("panel", empty)
+		panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		panel.offset_left = float(pad["l"]) + 16.0
+		panel.offset_right = -float(pad["r"]) - 16.0
+		panel.offset_bottom = -float(pad["b"]) - 16.0
+		panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_hero_sheet.add_child(panel)
+		var frame := UiKit.Frame.new("panel", "leather", {})
+		frame.margin = 20.0
+		panel.add_child(frame)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 10)
+		panel.add_child(box)
+		var title := UiKit.title("WHO TRAVELS", 38)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(title)
+		var list := VBoxContainer.new()
+		list.add_theme_constant_override("separation", 8)
+		box.add_child(list)
+		for id in Catalog.playable_ids():
+			if not bool(SaveGame.hero(id)["unlocked"]):
+				continue
+			list.add_child(_hero_choice(str(id)))
+		var foot := HBoxContainer.new()
+		foot.alignment = BoxContainer.ALIGNMENT_CENTER
+		foot.add_theme_constant_override("separation", 14)
+		var close := UiKit.secondary("Close", 240, 88)
+		close.pressed.connect(_close_hero_sheet)
+		foot.add_child(close)
+		box.add_child(foot)
+
+
+	## One hero in the sheet: his name, his role and the button that makes
+	## him the one who travels.
+	func _hero_choice(id: String) -> Control:
+		var info := Catalog.critter(id)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", -2)
+		var name_label := UiKit.label(str(info.get("name", id)).to_upper(), 28, UiKit.CREAM, "x", 4)
+		col.add_child(name_label)
+		col.add_child(UiKit.label(Catalog.role_name(str(info.get("role", ""))).to_upper(), 17, UiKit.GOLD, "b", 2))
+		row.add_child(col)
+		if id == SaveGame.featured_id():
+			var current := UiKit.button("READY", 170, 76, "grey")
+			current.disabled = true
+			row.add_child(current)
+		else:
+			var pick := UiKit.button("PICK", 170, 76, "gold")
+			pick.pressed.connect(func() -> void: _pick_hero(id))
+			row.add_child(pick)
+		return row
+
+
+	## Makes this hero the one who travels, and puts him in the camp.
+	func _pick_hero(id: String) -> void:
+		SaveGame.set_featured(id)
+		AudioDirector.sfx("card_pick")
+		AudioDirector.haptic("medium")
+		if view != null:
+			view.set_hero(id)
+		_refresh_hero_row()
+		toast("%s travels from the camp" % str(Catalog.critter(id)["name"]))
+		_close_hero_sheet()
+
+
+	## The hero row after a change: the new name, role and level.
+	func _refresh_hero_row() -> void:
+		if _hero_row == null:
+			return
+		for child in _hero_row.get_children():
+			child.queue_free()
+		var badge := UiKit.Badge.new()
+		badge.level = int(SaveGame.hero(SaveGame.featured_id()).get("level", 1))
+		badge.custom_minimum_size = Vector2(62, 62)
+		_hero_row.add_child(badge)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", -2)
+		col.add_child(_hero_name())
+		col.add_child(_hero_role())
+		_hero_row.add_child(col)
+		var choose := UiKit.button("CHOOSE", 170, 78, "blue")
+		choose.tooltip_text = "Pick the hero who travels"
+		choose.pressed.connect(func() -> void: _open_hero_sheet())
+		_hero_row.add_child(choose)
+
+
+	func _close_hero_sheet() -> void:
+		if _hero_sheet != null:
+			_hero_sheet.queue_free()
+		_hero_sheet = null
 
 
 	## Opens a stall: the trade sheet the hub hands over, with what the

@@ -218,9 +218,30 @@ func _cell_center(col: int, row: int) -> Vector2:
 	return Vector2((float(col) + 0.5) * CELL.x, (float(row) + 0.5) * CELL.y)
 
 
-func _add_node(pos: Vector2, r: float, kind: String) -> int:
-	nodes.append({"pos": pos, "r": r, "kind": kind, "links": []})
+func _add_node(pos: Vector2, r: float, kind: String, row := -1) -> int:
+	nodes.append({"pos": pos, "r": r, "kind": kind, "links": [], "row": row})
 	return nodes.size() - 1
+
+
+## Where a hunt in this depth starts: the southern gate of the band, which
+## is the trail node in that row. The band above the lair row is a clearing,
+## the lair's own row is the lair itself, so the kind does not matter here.
+func entry_for_tier(tier_id: String) -> Vector2:
+	var band := TierBounds.band_span(tier_id)
+	if band.is_empty():
+		return start
+	var row := int(band["to_row"])
+	var fallback := Vector2.INF
+	for n in nodes:
+		if int(n.get("row", -1)) != row:
+			continue
+		if str(n.get("kind", "")) == "clearing":
+			return n["pos"]
+		if fallback == Vector2.INF:
+			fallback = n["pos"]
+	if fallback != Vector2.INF:
+		return fallback
+	return start
 
 
 ## A corridor between two nodes, bent once at a jittered midpoint so trails wind.
@@ -264,7 +285,7 @@ func _lay_trail(rng: RandomNumberGenerator) -> void:
 			var at: Vector2 = _cell_center(c, row) + jit
 			at.x = clampf(at.x, r + 60.0, size.x - r - 60.0)
 			at.y = clampf(at.y, r + 60.0, size.y - r - 60.0)
-			var idx := _add_node(at, r, kind)
+			var idx := _add_node(at, r, kind, row)
 			_used[Vector2i(c, row)] = idx
 			if prev >= 0:
 				# Most trails are comfortable; one in three narrows to a chokepoint.
@@ -292,7 +313,7 @@ func _lay_pockets(rng: RandomNumberGenerator) -> void:
 		var at := _cell_center(to.x, to.y) + Vector2(rng.randf_range(-200.0, 200.0), rng.randf_range(-200.0, 200.0))
 		at.x = clampf(at.x, r + 60.0, size.x - r - 60.0)
 		at.y = clampf(at.y, r + 60.0, size.y - r - 60.0)
-		var idx := _add_node(at, r, "pocket")
+		var idx := _add_node(at, r, "pocket", to.y)
 		_used[to] = idx
 		_link(from, idx, rng.randf_range(230.0, 300.0), rng, false)
 		made += 1

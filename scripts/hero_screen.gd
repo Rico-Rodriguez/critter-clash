@@ -6,7 +6,6 @@ extends ScreenBase
 ## Home and every hunt use the equipped hero. Heroes train for power (skill XP
 ## from hunts); coins go to gear reinforcing, not hero levels.
 
-const Home := preload("res://scripts/home_screen.gd")
 const StatsPanel := preload("res://scripts/stats_panel.gd")
 
 var biome_id := "meadow"
@@ -125,7 +124,7 @@ func _fill() -> void:
 		list.add_child(_tile(id))
 	if showcase != null:
 		showcase.queue_free()
-	showcase = Home.Showcase.new()
+	showcase = Showcase.new()
 	showcase.hero_id = selected
 	showcase.fill = 0.645
 	showcase.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

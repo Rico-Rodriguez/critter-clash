@@ -14,7 +14,7 @@ static var _times: Array = []
 ## Every check in run order. The name is the --only tag and the --timings label.
 const CHECKS := [
 	"roles", "modes", "save", "gear_save", "train", "slayer_log", "slayer_gear", "settings",
-	"save_safety", "daily", "steer", "maps", "cards", "pools", "exclusivity", "fights",
+	"save_safety", "daily", "steer", "maps", "tier_entry", "cards", "pools", "exclusivity", "fights",
 	"kite", "boss_intro", "boss_phase", "dodge", "events", "gear_drop", "skill_xp",
 	"gear_coverage", "melee_impact", "skills_screen", "xp_drop", "skill_trophies",
 	"end_card", "drops_names", "gear_log", "forge", "boss_gear", "home_pips", "hints",
@@ -86,6 +86,8 @@ static func _dispatch(name: String) -> void:
 			_steer()
 		"maps":
 			_maps()
+		"tier_entry":
+			_tier_entry()
 		"cards":
 			_cards()
 		"grim_names":
@@ -953,6 +955,38 @@ static func _steer() -> void:
 	vel = RunSim.ease_stick(vel, Vector2.ZERO, STEP)
 	if vel != Vector2.ZERO:
 		_fail("stop should be immediate, got %s" % vel)
+
+
+## A gate into a depth tier opens the hunt in that tier's own ground: the
+## entry is the gate of the band, not the world start, and a run started
+## from that gate stands in the band's ground too.
+static func _tier_entry() -> void:
+	var tiers := WorldData.tier_order()
+	for tier_id in tiers:
+		var tier := str(tier_id)
+		var biome := Catalog.biome_for_tier(tier)
+		var map := HuntMap.world(biome, 4242)
+		var at := map.entry_for_tier(tier)
+		var where := str(TierBounds.tier_id_at_position(at, map.size))
+		if where != tier:
+			_fail("the %s gate opens in the %s ground" % [tier, where])
+			return
+		var session := Session.solo(biome, "sorceress")
+		session.tier = tier
+		session.seed = 4242
+		var sim := RunSim.new()
+		sim.start(session, {"sorceress": Catalog.base_stats("sorceress")})
+		if not sim.tier_mode:
+			_fail("a %s hunt is not in tier mode" % tier)
+			return
+		if sim.heroes.is_empty():
+			_fail("the %s hunt has no hero" % tier)
+			return
+		var hero_tier := str(TierBounds.tier_id_at_position(sim.heroes[0].pos, sim.map.size))
+		if hero_tier != tier:
+			_fail("the %s hunt started in the %s ground" % [tier, hero_tier])
+			return
+	print("TIER ENTRY ok: %d gates open in their own ground" % tiers.size())
 
 
 static func _maps() -> void:

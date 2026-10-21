@@ -14,9 +14,11 @@ const CAMP := preload("res://scenes/hub_scene.tscn")
 ## hero keeps his own size.
 const HERO_METERS := 1.9
 
-## Where the camera stands and what it looks at.
-const CAM_POS := Vector3(0.0, 3.05, 8.4)
-const CAM_LOOK := Vector3(0.0, 0.85, -0.6)
+## Where the camera stands and what it looks at. The look point is low and
+## near, so the fire and the ground fill the frame and the sky is only a
+## band above the treeline.
+const CAM_POS := Vector3(0.0, 3.15, 7.6)
+const CAM_LOOK := Vector3(0.0, 0.35, -0.4)
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -163,6 +165,15 @@ func _spawn_hero() -> void:
 		if ap.has_animation("idle"):
 			ap.play("idle")
 			ap.seek(0.0, true)
+
+
+## Puts another hero in the camp: the one the player just chose. The old
+## one steps out of the firelight.
+func set_hero(hero_id: String) -> void:
+	if _hero != null:
+		_hero.queue_free()
+		_hero = null
+	_spawn_hero()
 
 
 ## The hero's bounds, in his own space.
