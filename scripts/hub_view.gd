@@ -23,8 +23,8 @@ const HERO_METERS := 1.9
 ## Where the camera stands and what it looks at. The look point is low and
 ## near, so the fire and the ground fill the frame and the sky is only a
 ## band above the treeline.
-const CAM_POS := Vector3(0.0, 3.15, 7.6)
-const CAM_LOOK := Vector3(0.0, 0.35, -0.4)
+const CAM_POS := Vector3(0.0, 3.6, 12.6)
+const CAM_LOOK := Vector3(0.0, 0.5, -1.2)
 
 var viewport: SubViewport
 var camera: Camera3D

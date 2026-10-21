@@ -1,6 +1,7 @@
 extends Node
 
 const SCREENS := {
+	"char_select": preload("res://scripts/char_select.gd"),
 	"home": preload("res://scripts/home_screen.gd"),
 	"heroes": preload("res://scripts/hero_screen.gd"),
 	"trophy": preload("res://scripts/trophy_screen.gd"),
@@ -73,9 +74,9 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--ota-probe"):
 		_ota_probe()
 		return
-	# The hub is the front door: the game opens on Barrow Haven, the safe
-	# camp, and every other screen is reached from there.
-	go("hub")
+	# The character select is the front door: the player picks the hero who
+	# walks into the world, and the town is where the game opens after that.
+	go("char_select")
 	_ota_hook()
 
 
@@ -244,6 +245,10 @@ func _capture() -> void:
 			GearDB.equip(fh, "%s.%s" % [fh, piece])
 		# Enough coins to show gear reinforcing as affordable.
 		SaveGame.data["coins"] = maxi(int(SaveGame.data["coins"]), 240)
+	if _wants("char"):
+		go("char_select")
+		await _settle()
+		await _shot("char")
 	if _wants("hub"):
 		go("hub")
 		await _settle()
@@ -748,7 +753,7 @@ class HubScreen extends ScreenBase:
 	var _difficulty_pick: Dictionary = {}
 
 	## The gate strip, so it can be rebuilt when a challenge is changed.
-	var _gate_strip_holder: VBoxContainer
+	var _ways_holder: VBoxContainer
 
 	## The hero row: the hero who travels, and the button that changes him.
 	var _hero_row: HBoxContainer
@@ -795,15 +800,15 @@ class HubScreen extends ScreenBase:
 		margin.add_child(box)
 		box.add_child(header())
 		box.add_child(h1(str(WorldData.hub_data().get("name", "Barrow Haven"))))
-		box.add_child(body("The safe camp. Nothing fights here."))
+		box.add_child(body("The safe town. Nothing fights here."))
 		var spacer := Control.new()
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		box.add_child(spacer)
 		box.add_child(_hero_row_widget())
-		_gate_strip_holder = VBoxContainer.new()
-		_gate_strip_holder.add_theme_constant_override("separation", 8)
-		_gate_strip_holder.add_child(_gate_strip())
-		box.add_child(_gate_strip_holder)
+		_ways_holder = VBoxContainer.new()
+		_ways_holder.add_theme_constant_override("separation", 8)
+		_ways_holder.add_child(_ways_out())
+		box.add_child(_ways_holder)
 		box.add_child(_stall_row())
 		box.add_child(_service_row())
 
@@ -863,100 +868,61 @@ class HubScreen extends ScreenBase:
 		return "Sealed \u00b7 clear %s to unlock" % WorldData.tier_name(below)
 
 
-	## The gates out of the camp, one standing stone pair per depth tier.
-	## They sit in a strip of four, so the camp keeps the top of the screen
-	## and the player sees every way out at once.
-	func _gate_strip() -> Control:
+	## The ways out of the town: the two barriers in the town wall. The
+	## north one leads deeper, the south one to the shallow ground, and a
+	## barrier that stands shut says why.
+	func _ways_out() -> Control:
 		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 2)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		col.add_child(row)
-		for tier_id in WorldData.tier_order():
-			row.add_child(_gate_tile(str(tier_id)))
-		var note := UiKit.label(_gate_note(), 16, UiKit.MUTED, "b", 0)
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		col.add_child(note)
+		col.add_theme_constant_override("separation", 6)
+		for gate in WorldData.town_gates(SaveGame.data.get("tiers_cleared", {})):
+			col.add_child(_way_row(gate))
 		return col
 
 
-	## One gate: the depth it leads into, whether it stands open, and the
-	## challenge it is set to.
-	func _gate_tile(tier_id: String) -> Control:
-		var open := SaveGame.tier_open(tier_id)
-		var col := VBoxContainer.new()
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		col.add_theme_constant_override("separation", 0)
-		var button := UiKit.button(WorldData.tier_name(tier_id).to_upper(), 0, 74, "gold" if open else "grey")
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.tooltip_text = WorldData.tier_description(tier_id)
+	## One barrier: the gate, the ground behind it, and the way through.
+	func _way_row(gate: Dictionary) -> Control:
+		var tier_id := str(gate["tier"])
+		var open := bool(gate["open"])
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var text_col := VBoxContainer.new()
+		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text_col.add_theme_constant_override("separation", -2)
+		text_col.add_child(UiKit.label(str(gate["name"]).to_upper(), 26, UiKit.GOLD.lightened(0.2) if open else UiKit.MUTED, "x", 3))
+		var note := UiKit.label(_way_note(tier_id, open), 17, UiKit.MUTED, "b", 0)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text_col.add_child(note)
+		row.add_child(text_col)
+		var button := UiKit.button("LEAVE" if open else "SHUT", 170, 74, "gold" if open else "grey")
+		button.disabled = not open
 		if open:
 			button.pressed.connect(func() -> void: _travel(tier_id))
 		else:
-			button.pressed.connect(func() -> void: toast(_seal_text(tier_id)))
-		col.add_child(button)
-		var state := UiKit.secondary(_gate_state(tier_id, open), 0, 46)
-		state.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		state.disabled = not open
-		state.tooltip_text = "Step the challenge up"
-		if open:
-			state.pressed.connect(func() -> void: _step_difficulty(tier_id))
-		col.add_child(state)
-		return col
+			button.tooltip_text = "Clear the ground south of the town first."
+		row.add_child(button)
+		return row
 
 
-	## What a gate says under its name: whether it stands open, and the
-	## challenge it is set to. Tapping the line steps the challenge up.
-	func _gate_state(tier_id: String, open: bool) -> String:
+	## What a barrier says under its name: the ground it leads into, or the
+	## rule that keeps it shut.
+	func _way_note(tier_id: String, open: bool) -> String:
 		if not open:
-			return "SEALED"
-		return "OPEN \u00b7 %s" % Catalog.TIER_NAMES[_difficulty(tier_id)].to_upper()
+			return "Shut until the Fringe is cleared."
+		var description := WorldData.tier_description(tier_id)
+		return description if description != "" else "The way out of the town."
 
 
-	## The challenge a gate is set to. Veteran and Nightmare open when the
-	## ground below has been cleared on that challenge.
-	func _difficulty(tier_id: String) -> int:
-		var biome_id := Catalog.biome_for_tier(tier_id)
-		var open := SaveGame.difficulty_unlocked(biome_id)
-		var picked := int(_difficulty_pick.get(tier_id, 0))
-		return clampi(picked, 0, maxi(open, 0))
-
-
-	## Steps a gate up to the next challenge it has earned.
-	func _step_difficulty(tier_id: String) -> void:
-		var biome_id := Catalog.biome_for_tier(tier_id)
-		var open := SaveGame.difficulty_unlocked(biome_id)
-		var now := _difficulty(tier_id)
-		var next := now + 1
-		if next > open:
-			next = 0
-		_difficulty_pick[tier_id] = next
-		AudioDirector.sfx("ui_tap")
-		_refresh_gates()
-		toast("%s \u00b7 %s" % [WorldData.tier_name(tier_id), Catalog.TIER_NAMES[next]])
-
-
-	## Rebuilds the gate strip after a challenge was changed.
-	func _refresh_gates() -> void:
-		if _gate_strip_holder == null:
-			return
-		for child in _gate_strip_holder.get_children():
-			child.queue_free()
-		_gate_strip_holder.add_child(_gate_strip())
-
-
-	## A gate that stands open leads out of the camp into a hunt. A sealed
+	## A barrier that stands open leads out of the town into a hunt. A shut
 	## one starts nothing.
 	func _travel(tier_id: String) -> void:
 		if not SaveGame.tier_open(tier_id):
-			toast("That gate is sealed.")
+			toast("That way is shut.")
 			return
 		_start_hunt(tier_id)
 
 
-	## Starting a hunt from a gate: the depth the gate stands in, the
-	## challenge it is set to, and the hero who stands in the camp.
+	## Starting a hunt from a barrier: the depth it leads into, the
+	## challenge it is set to, and the hero who stands in the town.
 	func _start_hunt(tier_id: String) -> void:
 		var biome_id := Catalog.biome_for_tier(tier_id)
 		SaveGame.data["last_biome"] = biome_id
@@ -968,15 +934,37 @@ class HubScreen extends ScreenBase:
 		})
 
 
-	## The line under the gates: what the way out leads into, or the rule
-	## that keeps it shut.
-	func _gate_note() -> String:
-		for tier_id in WorldData.tier_order():
-			var id := str(tier_id)
-			if SaveGame.tier_open(id):
-				var text := WorldData.tier_description(id)
-				return text if text != "" else "The way out of the camp."
-		return "Every gate stands shut until the ground below is cleared."
+	## The challenge a way out is set to. Veteran and Nightmare open when
+	## the ground has been cleared on that challenge.
+	func _difficulty(tier_id: String) -> int:
+		var biome_id := Catalog.biome_for_tier(tier_id)
+		var open := SaveGame.difficulty_unlocked(biome_id)
+		var picked := int(_difficulty_pick.get(tier_id, 0))
+		return clampi(picked, 0, maxi(open, 0))
+
+
+	## Steps a way out up to the next challenge it has earned.
+	func _step_difficulty(tier_id: String) -> void:
+		var biome_id := Catalog.biome_for_tier(tier_id)
+		var open := SaveGame.difficulty_unlocked(biome_id)
+		var now := _difficulty(tier_id)
+		var next := now + 1
+		if next > open:
+			next = 0
+		_difficulty_pick[tier_id] = next
+		AudioDirector.sfx("ui_tap")
+		_refresh_ways()
+		toast("%s \u00b7 %s" % [WorldData.tier_name(tier_id), Catalog.TIER_NAMES[next]])
+
+
+	## Rebuilds the ways out after a challenge was changed.
+	func _refresh_ways() -> void:
+		if _ways_holder == null:
+			return
+		for child in _ways_holder.get_children():
+			child.queue_free()
+		_ways_holder.add_child(_ways_out())
+
 
 
 	## The stalls in the camp: one button per shop the hub keeps. The name

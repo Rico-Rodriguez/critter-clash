@@ -15,10 +15,10 @@ extends Node3D
 const SPAWN_POS := Vector3(0.0, 0.0, 0.0)
 
 ## The General Store stall, west of the campfire.
-const GENERAL_STORE_POS := Vector3(-6.0, 0.0, 0.0)
+const GENERAL_STORE_POS := Vector3(-4.6, 0.0, -0.4)
 
 ## The Material Buyer stall, east of the campfire.
-const MATERIAL_BUYER_POS := Vector3(6.0, 0.0, 0.0)
+const MATERIAL_BUYER_POS := Vector3(4.6, 0.0, -0.4)
 
 ## The camp's own id, as WorldData spells it.
 const HUB_ID := "hub"
@@ -61,6 +61,9 @@ func _ready() -> void:
 	_fire()
 	_stall(GENERAL_STORE_POS, "general_store")
 	_stall(MATERIAL_BUYER_POS, "material_buyer")
+	_well()
+	_people()
+	_wall()
 	_rim()
 	_gates()
 
@@ -195,19 +198,23 @@ func _rim() -> void:
 			add_child(node)
 
 
-## The gates out of the camp: one standing stone pair per depth tier, in
-## tier order, so the menu can point at the one that opens. The pair that
-## stands open is lit, so the camp shows the way out at a glance.
+## The ways out of the town: a gate in the town wall at the north and one
+## at the south. The north barrier leads deeper, the south one to the
+## shallow ground, and the one that stands open is lit, so the town shows
+## the way out at a glance.
 func _gates() -> void:
-	var tiers := WorldData.tier_order()
 	gates.clear()
-	for i in tiers.size():
-		var tier_id := str(tiers[i])
-		var at := Vector3(-3.6 + 2.4 * float(i), 0.0, -9.5)
-		var open := SaveGame.tier_open(tier_id)
+	var cleared: Dictionary = SaveGame.data.get("tiers_cleared", {})
+	for gate in WorldData.town_gates(cleared):
+		var gate_id := str(gate["id"])
+		var tier_id := str(gate["tier"])
+		var open := bool(gate["open"])
+		# The north gate stands in the north wall, the south one in the
+		# south wall, and the town is between them.
+		var at := Vector3(0.0, 0.0, -9.5) if gate_id == "north" else Vector3(0.0, 0.0, 9.5)
 		var pair: Array = []
 		for side in [-1.0, 1.0]:
-			var stone := _prop("rock_a", at + Vector3(0.8 * side, 0.0, 0.0), 1.2)
+			var stone := _prop("rock_a", at + Vector3(1.1 * side, 0.0, 0.0), 1.4)
 			if stone != null:
 				add_child(stone)
 				pair.append(stone)
@@ -217,15 +224,15 @@ func _gates() -> void:
 			var glow := OmniLight3D.new()
 			glow.light_color = Color("ffc27a")
 			glow.light_energy = 3.2
-			glow.omni_range = 6.0
-			glow.position = at + Vector3(0.0, 1.6, 0.0)
+			glow.omni_range = 7.0
+			glow.position = at + Vector3(0.0, 1.8, 0.0)
 			glow.shadow_enabled = false
 			add_child(glow)
 			var shaft := MeshInstance3D.new()
 			var beam := CylinderMesh.new()
-			beam.top_radius = 0.4
-			beam.bottom_radius = 0.62
-			beam.height = 2.6
+			beam.top_radius = 0.45
+			beam.bottom_radius = 0.7
+			beam.height = 3.0
 			shaft.mesh = beam
 			var mat := StandardMaterial3D.new()
 			mat.albedo_color = Color(1.0, 0.82, 0.52, 0.1)
@@ -235,9 +242,105 @@ func _gates() -> void:
 			mat.emission_energy_multiplier = 0.4
 			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			shaft.mesh.material = mat
-			shaft.position = at + Vector3(0.0, 1.3, 0.0)
+			shaft.position = at + Vector3(0.0, 1.5, 0.0)
 			add_child(shaft)
-		gates.append({"tier": tier_id, "pos": at, "open": open})
+		gates.append({"id": gate_id, "tier": tier_id, "name": str(gate["name"]), "pos": at, "open": open})
+
+
+## The town wall: a ring of standing stone round the town, with a gap at
+## the north and a gap at the south for the two gates. It is what makes
+## the town a place inside the world and not an open field.
+func _wall() -> void:
+	var radius := 10.0
+	for i in 40:
+		var ang := TAU * float(i) / 40.0
+		# The gaps: north (straight ahead) and south (behind).
+		var deg := rad_to_deg(ang)
+		if absf(deg) < 14.0 or absf(absf(deg) - 180.0) < 14.0:
+			continue
+		var at := Vector3(cos(ang) * radius, 0.0, sin(ang) * radius)
+		var kind := "rock_a" if i % 3 == 0 else "rock_b"
+		var stone := _prop(kind, at, 1.5)
+		if stone != null:
+			stone.rotation.y = ang + PI * 0.5
+
+
+## The well in the middle of the plaza: the stone rim, the water and the
+## little roof over it.
+func _well() -> void:
+	var rim := MeshInstance3D.new()
+	var tube := CylinderMesh.new()
+	tube.top_radius = 1.05
+	tube.bottom_radius = 1.15
+	tube.height = 0.9
+	tube.radial_segments = 16
+	rim.mesh = tube
+	var stone := StandardMaterial3D.new()
+	stone.albedo_color = Color(0.44, 0.42, 0.38)
+	stone.roughness = 0.95
+	rim.mesh.material = stone
+	rim.position = Vector3(-2.6, 0.45, 2.0)
+	add_child(rim)
+	var water := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.92
+	disc.bottom_radius = 0.92
+	disc.height = 0.05
+	disc.radial_segments = 16
+	water.mesh = disc
+	var wet := StandardMaterial3D.new()
+	wet.albedo_color = Color(0.09, 0.14, 0.18)
+	wet.metallic = 0.3
+	wet.roughness = 0.15
+	water.mesh.material = wet
+	water.position = Vector3(-2.6, 0.9, 2.0)
+	add_child(water)
+
+
+## The people of the town: the critters that keep the place. A stall
+## keeper behind each stall, one by the fire, one at the gate. They are
+## the old cast, and they never become heroes.
+func _people() -> void:
+	var keepers := [
+		{"sprite": "sprout", "at": Vector3(-4.6, 0.0, 0.9)},
+		{"sprite": "beetle", "at": Vector3(4.6, 0.0, 0.9)},
+		{"sprite": "moth", "at": Vector3(2.0, 0.0, -2.0)},
+		{"sprite": "boarlet", "at": Vector3(-1.6, 0.0, -6.5)},
+	]
+	for person in keepers:
+		var sprite := str(person["sprite"])
+		var path := Cast3D.model(sprite)
+		var packed := load(path) as PackedScene
+		if packed == null:
+			continue
+		var node := packed.instantiate() as Node3D
+		if node == null:
+			continue
+		add_child(node)
+		var box := _measure(node)
+		var h: float = maxf(box.size.y, 0.05)
+		var scale := 0.9 / h
+		node.scale = Vector3.ONE * scale
+		node.position = (person["at"] as Vector3) + Vector3(0.0, -box.position.y * scale, 0.0)
+		node.rotation.y = PI * 0.85
+
+
+## A node's bounds, in its own space.
+func _measure(node: Node3D) -> AABB:
+	var box := AABB()
+	var first := true
+	for mi in node.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m == null or m.mesh == null:
+			continue
+		var b: AABB = m.global_transform * m.get_aabb()
+		if first:
+			box = b
+			first = false
+		else:
+			box = box.merge(b)
+	return box
+
 
 
 ## The camp's gates, one per depth tier: the tier's id, where its stones

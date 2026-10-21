@@ -309,6 +309,29 @@ static func danger_params(tier_id: String) -> Dictionary:
 	var tier := tier_data(tier_id)
 	return Dictionary(tier.get("danger", {}))
 
+## The two ways out of the town. The north barrier leads deeper: it opens
+## on the first depth that is not cleared yet, and on the deepest one once
+## they all are. The south barrier leads to the shallow ground. `cleared`
+## is the tier-cleared map from the save.
+static func town_gates(cleared: Dictionary) -> Array:
+	var north := "abyss"
+	for id in ["wilds", "deep", "abyss"]:
+		if not bool(cleared.get(str(id), false)):
+			north = str(id)
+			break
+	return [
+		{
+			"id": "north", "tier": north, "name": "North Gate",
+			# The north barrier opens when the shallow ground is cleared.
+			"open": bool(cleared.get("fringe", false)),
+		},
+		{
+			"id": "south", "tier": "fringe", "name": "South Gate",
+			"open": true,
+		},
+	]
+
+
 static func recommended_combat(tier_id: String) -> int:
 	var tier := tier_data(tier_id)
 	return int(tier.get("recommended_combat", 1))
