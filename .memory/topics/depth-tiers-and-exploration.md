@@ -10,3 +10,5 @@
 - 2026-10-20 — The session carries the tier, and the run reads it from the gate that was used — `scripts/session.gd`, `scripts/app.gd` (`_travel`, `_start_hunt`)
 - 2026-10-20 — `Catalog.biome_for_tier()` and `Catalog.tier_for_biome()` translate between the tier a gate stands in and the biome a hunt reports — `scripts/catalog.gd`
 - 2026-10-20 — The intended next world model is the per-tier `ZoneBuilder` zone (fringe 4×2, wilds 4×3, deep 5×3, abyss 5×4 cells); the run still plays the old whole-world map — `docs/wilderness.md`, `scripts/zone_builder.gd`
+- 2026-10-20 — Every hunt shares one clock: the lair boss rises at 68 s and the hunt ends at 119 s, so a hero has 51 s to fight it — `scripts/run_sim.gd` (`EXPLORE_BOSS_AT`, `HUNT_LIMIT`)
+- 2026-10-20 — The whole-world map is 4480×8960 sim px (4 cols × 7 rows of 1120×1280 cells); the per-tier zones are 4480×2560 or taller per tier, which is what makes them walkable inside that clock — `scripts/hunt_map.gd`, `scripts/zone_builder.gd`
