@@ -219,7 +219,7 @@ Verify: compile check; one screenshot is optional (the panel needs taps, so a
 capture would need a `devpanel` shot that opens it directly — add one to
 `_capture` in `main.gd` if you want to look at it).
 
-### [ ] 1.6 Camp camera polish
+### [x] 1.6 Camp camera polish
 
 File: `src/lobby/lobby.gd` (`_build_world`, `cam.look_at_from_position`).
 

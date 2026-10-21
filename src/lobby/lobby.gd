@@ -18,6 +18,11 @@ var _drag := -1
 var _drag_x := 0.0
 var _spin := 0.0
 var _t := 0.0
+const CAM_BASE := Vector3(0.0, 2.0, 5.6)
+const CAM_LOOK := Vector3(0.0, 0.05, -0.4)
+## 0..1 push-in toward the hero, tweened on a hero change.
+var push := 0.0
+var _push_tween: Tween
 var _rng := RandomNumberGenerator.new()
 
 
@@ -156,7 +161,7 @@ func _build_world() -> void:
 	cam.keep_aspect = Camera3D.KEEP_WIDTH
 	cam.fov = 46.0
 	add_child(cam)
-	cam.look_at_from_position(Vector3(0.0, 2.0, 5.6), Vector3(0, 0.05, -0.4), Vector3.UP)
+	cam.look_at_from_position(CAM_BASE, CAM_LOOK, Vector3.UP)
 	cam.current = true
 
 
@@ -239,6 +244,12 @@ func show_hero(id: String, cheer := true) -> void:
 	add_child(hero)
 	hero.build_model(d["model"], d["weapons"], Color(0.55, 0.68, 1.0), 0.45)
 	hero.rotation.y = 0.3 + _spin
+	if cheer and cam:
+		if _push_tween:
+			_push_tween.kill()
+		_push_tween = create_tween()
+		_push_tween.tween_property(self, "push", 1.0, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		_push_tween.tween_property(self, "push", 0.0, 0.34).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	if cheer and Game.hero(id)["unlocked"]:
 		hero.play("Cheering", 0.0)
 		hero.anim.queue(d["anim"]["idle"])
@@ -320,6 +331,11 @@ func start_hunt() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	if cam:
+		# A slow sideways drift keeps the camp alive; the push-in sells a swap.
+		var drift := sin(_t * TAU / 12.0) * 0.15
+		var pos := CAM_BASE + Vector3(drift, 0, 0) + (CAM_LOOK - CAM_BASE).normalized() * 0.4 * push
+		cam.look_at_from_position(pos, CAM_LOOK, Vector3.UP)
 	if fire_light:
 		fire_light.light_energy = 2.6 * (1.0 + 0.14 * sin(_t * 11.0) + 0.08 * sin(_t * 27.0))
 	if hero and _drag < 0:
