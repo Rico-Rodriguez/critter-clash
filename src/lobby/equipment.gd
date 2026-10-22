@@ -421,7 +421,7 @@ func _style_slot(b: Button, slot: String) -> void:
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	for c in b.get_children():
 		c.queue_free()
-	var ic_col := ICON_TONE if not it.is_empty() else Color(0.5, 0.48, 0.46, 0.55)
+	var ic_col := _icon_tone(it) if not it.is_empty() else Color(0.5, 0.48, 0.46, 0.55)
 	var ic := Ui.icon_rect(GearDB.icon(hero_id, slot) if it.is_empty() else GearDB.item_icon(it), 54, ic_col)
 	ic.position = Vector2(25, 10)
 	b.add_child(ic)
@@ -511,7 +511,7 @@ func _tile(it: Dictionary) -> Control:
 	b.add_theme_stylebox_override("hover", _frame(col, 0.5, 12, bw))
 	b.add_theme_stylebox_override("pressed", _frame(col, 0.65, 12, bw))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	var ic := Ui.icon_rect(GearDB.item_icon(it), 54, ICON_TONE)
+	var ic := Ui.icon_rect(GearDB.item_icon(it), 54, _icon_tone(it))
 	ic.position = Vector2(34, 22)
 	b.add_child(ic)
 	# Under the icon: the tier, or in red what stops you wearing it.
@@ -599,7 +599,7 @@ func _build_info() -> void:
 	var mine: bool = str(it["cls"]) == hero_id
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
-	head.add_child(Ui.icon_rect(GearDB.item_icon(it), 50, ICON_TONE))
+	head.add_child(Ui.icon_rect(GearDB.item_icon(it), 50, _icon_tone(it)))
 	var hv := VBoxContainer.new()
 	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hv.add_theme_constant_override("separation", 0)
@@ -899,3 +899,11 @@ func _close() -> void:
 	t.tween_callback(func():
 		closed.emit()
 		queue_free())
+
+
+## An item's icon color: its metal, hide or cloth (Old School style), kept
+## light enough to read on the rarity frame.
+func _icon_tone(it: Dictionary) -> Color:
+	if not it.has("cls"):
+		return ICON_TONE
+	return ICON_TONE.lerp(GearDB.accent(it).lerp(GearDB.item_color(it), 0.5), 0.6)

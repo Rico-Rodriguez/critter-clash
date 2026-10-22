@@ -27,6 +27,30 @@ const CLOTH := [
 	Color(0.55, 0.52, 0.48), Color(0.28, 0.4, 0.8), Color(0.2, 0.62, 0.62), Color(0.5, 0.28, 0.8),
 	Color(0.78, 0.22, 0.5), Color(0.95, 0.75, 0.25), Color(0.16, 0.1, 0.28),
 ]
+## How fine each material tier looks, per kind of line (char.gdshader `grade`):
+## polish, shimmer, veins, vein heat. Low tiers are dull and dirty; from the
+## fourth up a band of light runs over the piece; the top tier glows from
+## within. Metal gleams most, hide takes a sheen, cloth carries the light.
+const GRADES := {
+	"metal": [
+		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.2, 0.0, 0.0, 0.0), Vector4(0.5, 0.0, 0.0, 0.0), Vector4(0.7, 0.3, 0.0, 0.0),
+		Vector4(0.8, 0.6, 0.0, 0.0), Vector4(0.9, 0.9, 0.35, 0.0), Vector4(0.9, 0.6, 1.0, 0.25),
+	],
+	"hide": [
+		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.05, 0.0, 0.0, 0.0), Vector4(0.2, 0.0, 0.0, 0.0), Vector4(0.35, 0.25, 0.0, 0.0),
+		Vector4(0.45, 0.5, 0.0, 0.0), Vector4(0.5, 0.75, 0.3, 0.0), Vector4(0.55, 0.5, 0.9, 0.1),
+	],
+	"cloth": [
+		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.05, 0.15, 0.0, 0.0), Vector4(0.1, 0.35, 0.0, 0.0),
+		Vector4(0.15, 0.55, 0.3, 0.0), Vector4(0.2, 0.8, 0.6, 0.0), Vector4(0.25, 0.6, 1.0, 0.3),
+	],
+}
+## Glow colors where a material's dye is too dark to glow in its own color.
+const ACCENTS := {"cloth": {6: Color(0.72, 0.35, 1.0)}, "hide": {6: Color(0.3, 0.85, 0.55)}}
+## From this material tier a weapon or offhand gives off sparks, and a hero
+## wearing it in all five slots stands in an aura.
+const ENCHANT_FROM := 4
+
 const METAL_NAMES := ["Bronze", "Iron", "Steel", "Mithril", "Adamant", "Rune", "Dragon"]
 const HIDE_NAMES := ["Leather", "Hard Leather", "Studded", "Green Dragonhide", "Blue Dragonhide", "Red Dragonhide", "Black Dragonhide"]
 const CLOTH_NAMES := ["Novice", "Apprentice", "Adept", "Mystic", "Arcane", "Infinity", "Eldritch"]
@@ -187,6 +211,62 @@ static func stage(cls: String, slot: String, mat: int) -> Dictionary:
 		if int(st["from"]) <= mat:
 			out = st
 	return out
+
+
+static func kind(cls: String) -> String:
+	return {"mage": "cloth", "ranger": "hide"}.get(cls, "metal")
+
+
+## The shader grade of a worn piece. Legendaries and uniques shimmer at least
+## a little whatever their metal.
+static func grade(it: Dictionary) -> Vector4:
+	if it.is_empty():
+		return Vector4.ZERO
+	var g: Vector4 = GRADES[kind(str(it.get("cls", "knight")))][clampi(int(it.get("mat", 0)), 0, TIERS - 1)]
+	if str(it.get("rarity", "")) == "legendary" or str(it.get("unique", "")) != "":
+		g = Vector4(maxf(g.x, 0.5), maxf(g.y, 0.45), g.z, g.w)
+	return g
+
+
+## What a piece's grade glows in: a line's own accent, else its dye brought
+## up to full brightness (a uniques's dye for uniques).
+static func accent(it: Dictionary) -> Color:
+	if it.is_empty():
+		return Color(1, 1, 1)
+	var cls := str(it.get("cls", "knight"))
+	var mat := clampi(int(it.get("mat", 0)), 0, TIERS - 1)
+	var u := str(it.get("unique", ""))
+	if u == "" and ACCENTS.get(kind(cls), {}).has(mat):
+		return ACCENTS[kind(cls)][mat]
+	var c := item_color(it)
+	var m := maxf(maxf(c.r, c.g), maxf(c.b, 0.05))
+	return Color(c.r / m, c.g / m, c.b / m)
+
+
+## Sparks off a weapon or offhand: the color, alpha = how many (0 = none).
+static func enchant(it: Dictionary) -> Color:
+	if it.is_empty():
+		return Color(0, 0, 0, 0)
+	var mat := int(it.get("mat", 0))
+	var c := accent(it)
+	var a := clampf((mat - ENCHANT_FROM + 1) / 3.0, 0.0, 1.0)
+	if str(it.get("rarity", "")) == "legendary" or str(it.get("unique", "")) != "":
+		a = maxf(a, 0.5)
+	return Color(c, a)
+
+
+## The aura of a hero in a full set of fine gear: the color of its weakest
+## piece, alpha by how fine (0 = no aura).
+static func aura(worn: Dictionary, cls: String) -> Color:
+	var low := TIERS
+	for slot in DB.SLOTS:
+		var it: Dictionary = worn.get(slot, {})
+		if it.is_empty():
+			return Color(0, 0, 0, 0)
+		low = mini(low, int(it.get("mat", 0)))
+	if low < ENCHANT_FROM:
+		return Color(0, 0, 0, 0)
+	return Color(accent({"cls": cls, "mat": low}), (low - ENCHANT_FROM + 1) / float(TIERS - ENCHANT_FROM))
 
 
 static func material_name(cls: String, mat: int) -> String:

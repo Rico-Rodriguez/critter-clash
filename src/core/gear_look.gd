@@ -73,6 +73,8 @@ static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictio
 		dye = lk["dye"]
 		hood = lk["hood"]
 		glow = glow_of(item)
+	var gr := GearDB.grade(item)
+	var acc := GearDB.accent(item)
 	parts = GearDB.expand(parts)
 	for spec: String in parts:
 		var mi := _part(actor, skel, spec)
@@ -81,6 +83,8 @@ static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictio
 		mi.visible = true
 		mi.set_instance_shader_parameter("dye", Color(dye, dye.a * (0.4 if hood else 1.0)))
 		mi.set_instance_shader_parameter("tint", glow)
+		mi.set_instance_shader_parameter("grade", gr)
+		mi.set_instance_shader_parameter("accent", acc)
 	if hood:
 		var own := skel.get_node_or_null("%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")) as MeshInstance3D
 		if own:
@@ -131,12 +135,18 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	var hg := str(Game.hero(hero_id).get("glow", ""))
 	if DB.GLOWS.has(hg):
 		glow = DB.GLOWS[hg]["color"]
-	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow, Transform3D.IDENTITY)
+	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow, Transform3D.IDENTITY, GearDB.grade(w), GearDB.accent(w))
+	var spark := GearDB.enchant(w)
+	if DB.GLOWS.has(hg) and spark.a > 0.0:
+		spark = Color(Color(DB.GLOWS[hg]["color"]), spark.a)
+	_sparks(skel, "GearMain", spark)
+	_aura(actor, GearDB.aura(worn, hero_id))
 	var off: Dictionary = worn["trinket"]
 	var st := GearDB.stage(hero_id, "trinket", int(off.get("mat", 0))) if not off.is_empty() else {}
 	var model := str(st.get("model", ""))
 	if model == "":
 		_hold(actor, skel, "GearOff", "handslot.l", "", 1.0, Color(0, 0, 0, 0), Color(0, 0, 0, 0), Transform3D.IDENTITY)
+		_sparks(skel, "GearOff", Color(0, 0, 0, 0))
 		return
 	var olk := GearDB.look(off)
 	var bone := str(line["offhand_bone"])
@@ -144,10 +154,11 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	if bone == "back":
 		bone = "chest"
 		xf = Transform3D(Basis(Vector3.UP, PI) * Basis(Vector3.RIGHT, deg_to_rad(-90)), Vector3(0, -0.05, -0.28))
-	_hold(actor, skel, "GearOff", bone, model, olk["scale"], olk["dye"], glow_of(off, 1.2), xf)
+	_hold(actor, skel, "GearOff", bone, model, olk["scale"], olk["dye"], glow_of(off, 1.2), xf, GearDB.grade(off), GearDB.accent(off))
+	_sparks(skel, "GearOff", GearDB.enchant(off) * Color(1, 1, 1, 0.6))
 
 
-static func _hold(actor: Actor, skel: Skeleton3D, att_name: String, bone: String, file: String, scale_: float, dye: Color, glow: Color, xf: Transform3D) -> void:
+static func _hold(actor: Actor, skel: Skeleton3D, att_name: String, bone: String, file: String, scale_: float, dye: Color, glow: Color, xf: Transform3D, grade := Vector4.ZERO, accent := Color(1, 1, 1)) -> void:
 	var att := skel.get_node_or_null(att_name) as BoneAttachment3D
 	if att == null:
 		att = BoneAttachment3D.new()
@@ -175,3 +186,116 @@ static func _hold(actor: Actor, skel: Skeleton3D, att_name: String, bone: String
 	for mi in KK.meshes(att):
 		mi.set_instance_shader_parameter("dye", dye)
 		mi.set_instance_shader_parameter("tint", glow)
+		mi.set_instance_shader_parameter("grade", grade)
+		mi.set_instance_shader_parameter("accent", accent)
+
+
+## Sparks drifting off a fine weapon (one emitter per hand, made once, then
+## only recolored). World-space, so a swing leaves a trail of them.
+static func _sparks(skel: Skeleton3D, att_name: String, col: Color) -> void:
+	var att := skel.get_node_or_null(att_name) as BoneAttachment3D
+	if att == null:
+		return
+	var p := att.get_node_or_null("Sparks") as GPUParticles3D
+	if col.a <= 0.0 or not att.visible:
+		if p:
+			p.emitting = false
+			p.visible = false
+		return
+	if p == null:
+		p = _emitter(32, 0.9, 0.09)
+		p.name = "Sparks"
+		var pm := p.process_material as ParticleProcessMaterial
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		pm.emission_box_extents = Vector3(0.05, 0.4, 0.05)
+		pm.gravity = Vector3(0, 0.9, 0)
+		pm.initial_velocity_min = 0.05
+		pm.initial_velocity_max = 0.35
+		pm.spread = 180.0
+		p.position = Vector3(0, 0.45, 0)
+		att.add_child(p)
+	p.visible = true
+	p.emitting = true
+	p.amount_ratio = clampf(col.a, 0.25, 1.0)
+	(p.process_material as ParticleProcessMaterial).color = Color(col.r, col.g, col.b, 1.0)
+
+
+## A full set of fine gear: motes rising from a ring at the feet.
+static func _aura(actor: Actor, col: Color) -> void:
+	var p := actor.get_node_or_null("GearAura") as GPUParticles3D
+	if col.a <= 0.0:
+		if p:
+			p.emitting = false
+			p.visible = false
+		return
+	if p == null:
+		p = _emitter(56, 1.6, 0.075)
+		p.name = "GearAura"
+		var pm := p.process_material as ParticleProcessMaterial
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+		pm.emission_ring_axis = Vector3.UP
+		pm.emission_ring_radius = 0.62
+		pm.emission_ring_inner_radius = 0.5
+		pm.emission_ring_height = 0.05
+		pm.gravity = Vector3(0, 1.1, 0)
+		pm.initial_velocity_min = 0.1
+		pm.initial_velocity_max = 0.3
+		pm.direction = Vector3.UP
+		pm.spread = 15.0
+		p.position = Vector3(0, 0.08, 0)
+		actor.add_child(p)
+	p.visible = true
+	p.emitting = true
+	p.amount_ratio = clampf(0.35 + col.a * 0.65, 0.0, 1.0)
+	(p.process_material as ParticleProcessMaterial).color = Color(col.r, col.g, col.b, 1.0)
+
+
+static func _emitter(amount: int, life: float, size: float) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = life
+	p.local_coords = false
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.visibility_aabb = AABB(Vector3(-4, -2, -4), Vector3(8, 6, 8))
+	var pm := ParticleProcessMaterial.new()
+	var sc := Curve.new()
+	sc.add_point(Vector2(0, 0.2))
+	sc.add_point(Vector2(0.25, 1.0))
+	sc.add_point(Vector2(1, 0))
+	var sct := CurveTexture.new()
+	sct.curve = sc
+	pm.scale_curve = sct
+	pm.scale_min = 0.6
+	pm.scale_max = 1.2
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(size, size)
+	q.material = _spark_mat()
+	p.draw_pass_1 = q
+	return p
+
+
+static var _mat: StandardMaterial3D
+
+
+static func _spark_mat() -> StandardMaterial3D:
+	if _mat == null:
+		_mat = StandardMaterial3D.new()
+		_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_mat.vertex_color_use_as_albedo = true
+		_mat.no_depth_test = false
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill = GradientTexture2D.FILL_RADIAL
+		gt.fill_from = Vector2(0.5, 0.5)
+		gt.fill_to = Vector2(1.0, 0.5)
+		gt.width = 32
+		gt.height = 32
+		_mat.albedo_texture = gt
+	return _mat
