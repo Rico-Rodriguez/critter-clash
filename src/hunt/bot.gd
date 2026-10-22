@@ -50,10 +50,9 @@ func steer(dt: float) -> Vector2:
 			var away := (p - cen).normalized()
 			want += away * 1.5 + away.cross(Vector3.UP) * 0.8
 	var mid := Vector3(0, 0, -4) - p
-	if hunt.mode == "trial":
-		if absf(p.x) > 16.0:
-			want += Vector3(-signf(p.x), 0, 0) * 1.2
-	elif absf(p.x) > 15.0 or p.z > 15.0 or p.z < -24.0:
+	# (On the Long Road the walls bound the hall; a pull to the middle only
+	# fights the waypoint and parks the bot at the edge.)
+	if hunt.mode != "trial" and (absf(p.x) > 15.0 or p.z > 15.0 or p.z < -24.0):
 		want += mid.normalized() * 1.2
 	# Walk out of anything red on the ground.
 	for e in hunt.fx._live:
