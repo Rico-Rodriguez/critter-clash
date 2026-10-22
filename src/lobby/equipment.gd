@@ -35,6 +35,7 @@ var selected: Dictionary = {}
 var _name: Label
 var _sub: Label
 var _delta: Label
+var _faces: HBoxContainer
 var _slots := {}
 var _strip: GridContainer
 var _power: Label
@@ -109,33 +110,57 @@ func open(u: LobbyUI) -> void:
 
 # --- Layout ----------------------------------------------------------------
 
+## A plain way back on the left and the heroes you own as faces on the
+## right: tap a face to dress that hero. The name lives beside the stage.
 func _build_header(col: VBoxContainer) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(row)
-	row.add_child(_round_button("‹", func(): _cycle(-1)))
-	var mid := VBoxContainer.new()
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mid.add_theme_constant_override("separation", 0)
-	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_name = Ui.label("", "Title", HORIZONTAL_ALIGNMENT_CENTER)
-	_name.add_theme_font_size_override("font_size", 38)
-	mid.add_child(_name)
-	var line := HBoxContainer.new()
-	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.add_theme_constant_override("separation", 10)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_sub = Ui.label("", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-	_sub.add_theme_font_size_override("font_size", 22)
-	line.add_child(_sub)
-	_delta = Ui.label("", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-	_delta.add_theme_font_size_override("font_size", 22)
-	line.add_child(_delta)
-	mid.add_child(line)
-	row.add_child(mid)
-	row.add_child(_round_button("›", func(): _cycle(1)))
-	row.add_child(_round_button("✕", _close))
+	var back := Button.new()
+	back.theme_type_variation = "Ghost"
+	back.text = "‹ Camp"
+	back.focus_mode = Control.FOCUS_NONE
+	back.custom_minimum_size = Vector2(0, 64)
+	back.add_theme_font_size_override("font_size", 26)
+	back.pressed.connect(func():
+		Sfx.play("ui_tap", -4.0)
+		_close())
+	row.add_child(back)
+	var fill := Control.new()
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(fill)
+	_faces = HBoxContainer.new()
+	_faces.add_theme_constant_override("separation", 8)
+	row.add_child(_faces)
+
+
+## One face per unlocked hero; the one shown is lit and ringed in its color.
+func _build_faces() -> void:
+	Ui.clear(_faces)
+	var owned: Array = DB.HERO_ORDER.filter(func(id): return Game.hero(id)["unlocked"])
+	_faces.visible = owned.size() > 1
+	for id: String in owned:
+		var on := id == hero_id
+		var d: Dictionary = DB.HEROES[id]
+		var f := Button.new()
+		f.flat = true
+		f.focus_mode = Control.FOCUS_NONE
+		f.custom_minimum_size = Vector2(64, 64)
+		var cc := CenterContainer.new()
+		cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var p := ui._portrait(id, d["color"] if on else Color(0.45, 0.42, 0.4), 60)
+		if not on:
+			p.modulate = Color(0.6, 0.6, 0.65)
+		cc.add_child(p)
+		f.add_child(cc)
+		f.pressed.connect(func():
+			if id != hero_id:
+				Sfx.play("ui_tap", -4.0)
+				_show_hero(id))
+		_faces.add_child(f)
 
 
 func _round_button(text: String, cb: Callable) -> Button:
@@ -166,6 +191,23 @@ func _build_top(col: VBoxContainer) -> void:
 	side.add_theme_constant_override("separation", 2)
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(side)
+	_name = Ui.label("", "Title")
+	_name.add_theme_font_size_override("font_size", 38)
+	side.add_child(_name)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 10)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sub = Ui.label("", "HudLabel")
+	_sub.add_theme_font_size_override("font_size", 22)
+	line.add_child(_sub)
+	_delta = Ui.label("", "HudLabel")
+	_delta.add_theme_font_size_override("font_size", 22)
+	line.add_child(_delta)
+	side.add_child(line)
+	var gap0 := Control.new()
+	gap0.custom_minimum_size = Vector2(0, 10)
+	gap0.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.add_child(gap0)
 	side.add_child(Ui.label("TOTAL POWER", "Caption"))
 	_power = Ui.label("", "Title")
 	_power.add_theme_font_size_override("font_size", 64)
@@ -402,6 +444,7 @@ func _stage_input(e: InputEvent) -> void:
 
 func _refresh() -> void:
 	var d: Dictionary = DB.HEROES[hero_id]
+	_build_faces()
 	_name.text = d["name"]
 	_name.add_theme_color_override("font_color", GOLD.lerp(d["color"], 0.4))
 	var power := Game.power_score(hero_id)
@@ -1087,14 +1130,8 @@ func _select(it: Dictionary, keep := false) -> void:
 	_open_card(it)
 
 
-func _cycle(dir: int) -> void:
-	var order: Array = DB.HERO_ORDER
-	var i := order.find(hero_id)
-	for n in order.size():
-		i = posmod(i + dir, order.size())
-		if Game.hero(order[i])["unlocked"]:
-			break
-	hero_id = order[i]
+func _show_hero(id: String) -> void:
+	hero_id = id
 	Game.set_hero(hero_id)
 	ui._shown_hero = hero_id
 	lobby.show_hero(hero_id, false)
