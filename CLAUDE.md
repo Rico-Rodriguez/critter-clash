@@ -25,8 +25,22 @@ a visual result you have not looked at.
 
 - `src/data/db.gd` — every tuning number (heroes, enemies, boss, cards, loot,
   tiers, skills). Balance changes go here, not in logic files.
-- `src/autoload/game.gd` — save data, hero stats, loot rolls, rewards.
-- `src/hunt/` — the hunt. `hunt.gd` owns rules, spawning, damage, loot.
+- `src/autoload/game.gd` — save data, hero stats, loot rolls, rewards. The
+  `Game` autoload is a chain of scripts by subject, each extending the one
+  before: `game_state` (save, accessors) < `game_items` (gear) < `game_heroes`
+  (stats, talents) < `game_rewards` (chests, road, omen, clues, bounties) <
+  `game_goals` (mastery, dailies, achievements, season) < `game` (boot,
+  migrations, `finish_hunt`).
+- `src/hunt/` — the hunt. `Hunt` is the same kind of chain: `hunt_state`
+  (fields, queries, feel) < `hunt_loot` (drops, cards, projectiles) <
+  `hunt_combat` (damage, kills, the end) < `hunt_events` (shrines, surges,
+  ritual) < `hunt_modes` (Long Road, Wilderness, Descent, Rush) < `hunt.gd`
+  (setup, tick, director).
+- `src/lobby/lobby_ui.gd` sits on `lobby_ui_widgets` < `lobby_ui_hero_sheets`
+  < `lobby_ui_sheets`.
+- A part may only call parts below it (GDScript won't compile a call to a
+  method a base doesn't have). New code goes in the lowest part that has
+  everything it calls. The chains use path `extends`, not `class_name`.
 - `src/lobby/` — the camp screen and its sheets.
 - `src/ui/` — HUD and modal scenes (`.tscn` + script), `theme.tres`.
 - `src/fx/` — shaders.
