@@ -36,7 +36,7 @@ func upgrade(id: String) -> bool:
 func hero_stats(id: String, preview := {}) -> Dictionary:
 	var h: Dictionary = DB.HEROES[id]
 	var lvl := int(hero(id)["level"])
-	var sk := skill_levels()
+	var sk := skill_levels(id)
 	var power := 1.0 + DB.LEVEL_POWER * (mini(lvl, 10) - 1) + DB.LEVEL_POWER_LATE * maxi(lvl - 10, 0)
 	var s := {
 		"hp": h["hp"] * power, "dmg": h["dmg"] * power, "rate": h["rate"], "speed": h["speed"],

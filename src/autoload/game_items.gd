@@ -32,7 +32,7 @@ func wear_block(hero_id_: String, it: Dictionary) -> String:
 		return "Made for the %s" % DB.HEROES[it["cls"]]["name"]
 	var skill := GearDB.skill_for(hero_id_, str(it["slot"]))
 	var need := GearDB.req_for(it)
-	if skill_level(skill) < need:
+	if skill_level(skill, hero_id_) < need:
 		return "Requires %s %d" % [DB.SKILL_NAME[skill], need]
 	return ""
 

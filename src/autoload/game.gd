@@ -182,10 +182,12 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			r["chest"] = grades[mini(grades.find(str(r["chest"])) + 1, 2)]
 		summary["first_win"] = true
 	data["gold"] = gold() + int(r.get("gold", 0))
-	var before := skill_levels()
+	# Skill XP goes to the hero who earned it.
+	var sk_hid := str(r.get("hero", hero_id()))
+	var before := skill_levels(sk_hid)
 	for s in r.get("xp", {}):
-		data["skills"][s] = mini(int(data["skills"][s]) + int(r["xp"][s]), 200000000)
-	var after := skill_levels()
+		skills(sk_hid)[s] = mini(skill_xp(s, sk_hid) + int(r["xp"][s]), 200000000)
+	var after := skill_levels(sk_hid)
 	for s in DB.SKILLS:
 		if after[s] > before[s]:
 			summary["levels"].append({"skill": s, "from": before[s], "to": after[s]})

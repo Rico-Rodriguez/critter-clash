@@ -50,8 +50,8 @@ func setup(l: Node3D) -> void:
 
 func refresh() -> void:
 	%Gold.text = Ui.fmt_num(Game.gold())
-	%Combat.text = "Combat %d" % Game.combat_level()
 	var id := _shown_hero
+	%Combat.text = "Combat %d" % Game.combat_level(id)
 	var d: Dictionary = DB.HEROES[id]
 	var h := Game.hero(id)
 	%HeroName.text = d["name"]
@@ -286,7 +286,7 @@ func open_sheet(name_: String) -> void:
 			open_equipment()
 			return
 		"skills":
-			_sheet.open("Skills", _build_skills)
+			_sheet.open("%s · Skills" % DB.HEROES[_shown_hero]["name"], _build_skills)
 		"talents":
 			_sheet.open("Talents", _build_talents)
 		"road":

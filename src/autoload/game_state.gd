@@ -18,10 +18,7 @@ func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
 		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
-			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "best_mat": -1}
-	var skills := {}
-	for s in DB.SKILLS:
-		skills[s] = DB.xp_for_level(10) if s == "hitpoints" else 0
+			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "best_mat": -1, "skills": _fresh_skills()}
 	return {
 		"version": SAVE_VERSION,
 		"gold": 0,
@@ -29,7 +26,9 @@ func _fresh() -> Dictionary:
 		"heroes": heroes,
 		"items": [],
 		"next_uid": 1,
-		"skills": skills,
+		# The shared skill XP from before each hero trained their own. Unread,
+		# kept so nothing is lost if per-hero skills are ever rolled back.
+		"skills": _fresh_skills(),
 		"log": {},
 		"tier_unlocked": 0,
 		## Each mode opens its own difficulties: {mode: highest open tier}.
@@ -63,6 +62,15 @@ func _fresh() -> Dictionary:
 		"ally": "",
 		"tips": {},
 	}
+
+
+## Skill XP for a new hero (or the old shared pool): Hitpoints starts at 10.
+## Old saves pick this up per hero through _merge, so heroes start fresh.
+func _fresh_skills() -> Dictionary:
+	var out := {}
+	for s in DB.SKILLS:
+		out[s] = DB.xp_for_level(10) if s == "hitpoints" else 0
+	return out
 
 
 ## Copies saved values over the fresh defaults so new keys keep defaults.
@@ -181,19 +189,28 @@ func set_setting(key: String, value) -> void:
 	save()
 
 
-func skill_level(s: String) -> int:
-	return DB.level_for_xp(int(data["skills"][s]))
+## Each hero trains their own skills. An empty id means the selected hero.
+func skills(id := "") -> Dictionary:
+	return hero(id if id != "" else hero_id())["skills"]
 
 
-func skill_levels() -> Dictionary:
+func skill_xp(s: String, id := "") -> int:
+	return int(skills(id)[s])
+
+
+func skill_level(s: String, id := "") -> int:
+	return DB.level_for_xp(skill_xp(s, id))
+
+
+func skill_levels(id := "") -> Dictionary:
 	var out := {}
 	for s in DB.SKILLS:
-		out[s] = skill_level(s)
+		out[s] = skill_level(s, id)
 	return out
 
 
-func combat_level() -> int:
-	return DB.combat_level(skill_levels())
+func combat_level(id := "") -> int:
+	return DB.combat_level(skill_levels(id))
 
 
 # --- Dates --------------------------------------------------------------------

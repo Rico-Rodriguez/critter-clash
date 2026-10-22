@@ -149,7 +149,7 @@ func _run_bot(args: PackedStringArray) -> void:
 		Game.hero(hid)["level"] = levels
 		if gear >= 0:
 			for sk in DB.SKILLS:
-				Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[gear])))
+				Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(int(GearDB.REQ[gear])))
 			for slot in DB.SLOTS:
 				var it := Game.grant_item(Game.make_item(hid, slot, gear, "rare"))
 				Game.equip(hid, int(it["uid"]))
@@ -218,8 +218,11 @@ func _capture(args: PackedStringArray) -> void:
 		Game.data["tier_unlocked"] = DB.TIERS.size() - 1
 		Game.data["mode_tiers"][Game.data["mode"]] = DB.TIERS.size() - 1
 		Game.data["zone"] = _arg(args, "zone", "barrow")
-	for s in DB.SKILLS:
-		Game.data["skills"][s] = DB.xp_for_level({"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s])
+	# Each hero trained apart, so the shots show different combat levels.
+	for h2 in DB.HERO_ORDER:
+		for s in DB.SKILLS:
+			var base: int = {"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s]
+			Game.skills(h2)[s] = DB.xp_for_level(base - 7 * DB.HERO_ORDER.find(h2))
 	Game.data["log"] = {"tooth": 3, "sigil": 1, "cleaver": 1}
 	for i in 5:
 		Game.grant_item(Game.roll_item("chest", 1, "", hid))
@@ -232,7 +235,7 @@ func _capture(args: PackedStringArray) -> void:
 	var mat := int(_arg(args, "mat", "-1"))
 	if mat >= 0:
 		for sk in DB.SKILLS:
-			Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[mat])))
+			Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(int(GearDB.REQ[mat])))
 		for slot in DB.SLOTS:
 			var mk := Game.make_item(hid, slot, mat, "rare")
 			# --set=hexer: the boss set's look; --look=N: a stage's Nth alternative.

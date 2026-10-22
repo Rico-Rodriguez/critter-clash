@@ -309,7 +309,7 @@ func _skill_row(sk: String, gained: int, lv: Dictionary) -> Control:
 	l.add_theme_font_size_override("font_size", 22)
 	row.add_child(l)
 	# A thin bar toward the next level, so the grind is visible.
-	var from_xp := int(Game.data["skills"][sk]) - gained
+	var from_xp := Game.skill_xp(sk) - gained
 	var bar := ProgressBar.new()
 	bar.theme_type_variation = "XPBar"
 	bar.show_percentage = false

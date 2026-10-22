@@ -414,7 +414,8 @@ func _talent_node(s: Sheet, id: String, pi: int, ni: int, n: Dictionary) -> Butt
 
 func _build_skills(s: Sheet) -> void:
 	var b := s.body
-	var levels := Game.skill_levels()
+	var id := _shown_hero
+	var levels := Game.skill_levels(id)
 	var total := 0
 	for k in levels:
 		total += int(levels[k])
@@ -422,7 +423,7 @@ func _build_skills(s: Sheet) -> void:
 	var hr := _row([_disc("crossed-swords", Color(0.95, 0.75, 0.35), 84)], 18)
 	var hv := VBoxContainer.new()
 	hv.add_theme_constant_override("separation", 0)
-	var cl := Ui.label("Combat level %d" % Game.combat_level(), "Heading")
+	var cl := Ui.label("Combat level %d" % Game.combat_level(id), "Heading")
 	hv.add_child(cl)
 	hv.add_child(Ui.label("Total level %d · 99 is the top" % total, "Small"))
 	hr.add_child(hv)
@@ -431,7 +432,7 @@ func _build_skills(s: Sheet) -> void:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	for sk in DB.SKILLS:
-		var xp := int(Game.data["skills"][sk])
+		var xp := Game.skill_xp(sk, id)
 		var lvl := DB.level_for_xp(xp)
 		var c := _card()
 		var v := VBoxContainer.new()
@@ -463,6 +464,6 @@ func _build_skills(s: Sheet) -> void:
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(c)
 	b.add_child(grid)
-	var note := Ui.label("Damage you deal trains your skills: melee heroes train Attack, Strength and Defence; the Ranger trains Ranged; the Mage trains Magic. Hitpoints always trains.", "Small")
+	var note := Ui.label("Each hero trains their own skills with the damage they deal: melee heroes train Attack, Strength and Defence; the Ranger trains Ranged; the Mage trains Magic. Hitpoints always trains.", "Small")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(note)

@@ -28,6 +28,12 @@ func run() -> int:
 	_ok("xp level 99", DB.xp_for_level(99) == 13034431)
 	_ok("level for xp", DB.level_for_xp(DB.xp_for_level(40)) == 40 and DB.level_for_xp(DB.xp_for_level(40) - 1) == 39)
 	_ok("fresh combat level", Game.combat_level() == 3)
+	# Skills are per hero: XP from a hunt goes to the hero who played it.
+	var keep_sk := Game.data.duplicate(true)
+	Game.finish_hunt({"hero": "ranger", "xp": {"ranged": DB.xp_for_level(40), "hitpoints": 0}})
+	_ok("hunt xp trains its hero", Game.skill_level("ranged", "ranger") == 40 and Game.combat_level("ranger") > 3)
+	_ok("other heroes keep their own skills", Game.skill_level("ranged", "knight") == 1 and Game.combat_level("knight") == 3)
+	Game.data = keep_sk
 
 	var base: float = Game.hero_stats("knight")["hp"]
 	Game.hero("knight")["level"] = 2
@@ -142,7 +148,7 @@ func _gear_tests() -> void:
 	# The first higher material a hero wears is news once; lower ones never are.
 	Game.data = Game._fresh()
 	for sk in DB.SKILLS:
-		Game.data["skills"][sk] = DB.xp_for_level(40)
+		Game.skills("knight")[sk] = DB.xp_for_level(40)
 	Game.new_tier = -1
 	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "helm", 0, "common"))["uid"]))
 	_ok("bronze is not a new tier", Game.new_tier == -1)
@@ -156,7 +162,7 @@ func _gear_tests() -> void:
 	Game.grant_item(it)
 	_ok("wrong class blocked", Game.wear_block("knight", it) != "")
 	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Requires Magic"))
-	Game.data["skills"]["magic"] = DB.xp_for_level(40)
+	Game.skills("mage")["magic"] = DB.xp_for_level(40)
 	_ok("skill lets you wear", Game.wear_block("mage", it) == "")
 	Game.equip("mage", int(it["uid"]))
 	_ok("equipped", Game.equipped("mage", "chest")["uid"] == it["uid"])
@@ -235,7 +241,7 @@ func _meta_tests() -> void:
 	var keep := Game.data.duplicate(true)
 	Game.data["gold"] = 100000
 	for s in DB.SKILLS:
-		Game.data["skills"][s] = DB.xp_for_level(60)
+		Game.skills("knight")[s] = DB.xp_for_level(60)
 	var it := Game.grant_item(Game.make_item("knight", "weapon", 2, "rare"))
 	var uid := int(it["uid"])
 	var main_v := int(it["stats"]["dmg"])
