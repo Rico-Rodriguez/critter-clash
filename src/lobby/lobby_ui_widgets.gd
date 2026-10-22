@@ -5,6 +5,8 @@ extends CanvasLayer
 var lobby: Node3D
 var chest_opening := false
 var _shown_hero := ""
+## Which tab of the Heroes sheet is showing.
+var _hero_tab := "stats"
 var _sheet: Sheet
 var _sheet_name := ""
 var equipment: Equipment

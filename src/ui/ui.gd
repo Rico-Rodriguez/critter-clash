@@ -110,3 +110,31 @@ static func label(text: String, variation := "", align := HORIZONTAL_ALIGNMENT_L
 	l.horizontal_alignment = align
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+## Lets drags on `n` and everything under it reach `root`'s own input (a
+## list that scrolls, a sheet that swipes away): buttons and panels stop
+## input by default, so they are switched to pass it on. Sliders, text boxes,
+## inner lists and 3D views keep their own drags.
+static func pass_drags(n: Node, root: Control) -> void:
+	if not is_instance_valid(n) or not is_instance_valid(root):
+		return
+	if n != root and (n is Range or n is LineEdit or n is TextEdit or n is ScrollContainer or n is SubViewportContainer):
+		return
+	if n is Control and n != root and (n as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	for c in n.get_children():
+		pass_drags(c, root)
+
+
+## Calls off the press on any button under `at` inside `root`, so the finger
+## lifting after a drag does not count as a tap. Toggling `disabled` is the
+## one public way to clear a BaseButton's press.
+static func cancel_press(root: Node, at: Vector2) -> void:
+	for c in root.get_children():
+		if c is BaseButton:
+			var b := c as BaseButton
+			if not b.disabled and b.is_visible_in_tree() and b.get_global_rect().has_point(at):
+				b.disabled = true
+				b.disabled = false
+		cancel_press(c, at)

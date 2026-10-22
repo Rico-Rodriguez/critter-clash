@@ -302,6 +302,74 @@ func _capture(args: PackedStringArray) -> void:
 			"parts", "weapons", "dress", "sets", "sets2", "arms":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
+			"gear":
+				# The equipment screen's slots, bag, a piece's card and its
+				# Improve panel; then the Heroes sheet's other two tabs.
+				Game.data["gold"] = 14020
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				current.open_sheet("bag")
+				await _wait(2.5)
+				await _save("gear_slots")
+				var eqg: Equipment = current.ui.equipment
+				eqg._bag_btn.pressed.emit()
+				await _wait(2.0)
+				await _save("gear_bag")
+				for it in Game.data["items"]:
+					if str(it["cls"]) == eqg.hero_id and it["rarity"] == "rare" and Game.owner_of(int(it["uid"])) == "":
+						eqg._select(it)
+						break
+				await _wait(1.0)
+				await _save("gear_card")
+				eqg._open_forge(eqg.selected)
+				await _wait(0.6)
+				await _save("gear_forge")
+				eqg._close()
+				await _wait(0.8)
+				for tab in ["progress", "looks"]:
+					current.ui._hero_tab = tab
+					current.open_sheet("heroes")
+					await _wait(1.2)
+					await _save("heroes_" + tab)
+					current.ui._sheet.close()
+					await _wait(0.6)
+			"swipe":
+				# Drag gestures through the real GUI: a drag that starts on a
+				# row scrolls the list (and does not tap it), a card swipes away.
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				current.open_sheet("bag")
+				await _wait(1.0)
+				var eq: Equipment = current.ui.equipment
+				eq._bag_btn.pressed.emit()
+				await _wait(1.0)
+				var row: Control = eq._list.get_child(1)
+				var at := row.get_global_rect().get_center()
+				await _save("swipe_before")
+				await _finger(at, at + Vector2(0, -260), 8)
+				await _wait(0.3)
+				print("SWIPE list scrolled=%d selected=%s" % [eq._scroll.scroll_vertical, not eq.selected.is_empty()])
+				await _save("swipe_list")
+				await _finger(at, at, 1)
+				await _wait(0.4)
+				print("SWIPE tap selects=%s card=%s" % [not eq.selected.is_empty(), eq._card != null])
+				var c := eq._card.get_global_rect().get_center()
+				await _finger(c, c + Vector2(0, 150), 6, false)
+				await _save("swipe_card")
+				await _finger_up(c + Vector2(0, 150))
+				await _wait(0.6)
+				print("SWIPE card closed=%s" % (eq._card == null))
+				eq._close()
+				await _wait(0.8)
+				current.open_sheet("skills")
+				await _wait(1.0)
+				var sh: Sheet = current.ui._sheet
+				var hd := sh.title_label.get_global_rect().get_center()
+				await _finger(hd, hd + Vector2(0, 260), 8, false)
+				await _save("swipe_sheet")
+				await _finger_up(hd + Vector2(0, 260))
+				await _wait(0.8)
+				print("SWIPE sheet closed=%s" % (not is_instance_valid(sh) or not sh.is_inside_tree()))
 			"icon":
 				_set_screen_now("lobby")
 				var lob = current
@@ -538,6 +606,40 @@ func _set_screen_now(screen: String) -> void:
 
 ## Waits a number of frames (captures run at a fixed frame step, so frames
 ## are game time).
+## A finger pressed at `a` and dragged to `b` over `steps` frames, lifted at
+## the end unless `lift` is false.
+func _finger(a: Vector2, b: Vector2, steps: int, lift := true) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = a
+	down.global_position = a
+	get_viewport().push_input(down)
+	var last := a
+	for i in steps:
+		await get_tree().process_frame
+		var p := a.lerp(b, float(i + 1) / steps)
+		var mv := InputEventMouseMotion.new()
+		mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+		mv.position = p
+		mv.global_position = p
+		mv.relative = p - last
+		last = p
+		get_viewport().push_input(mv)
+	if lift:
+		await _finger_up(b)
+
+
+func _finger_up(at: Vector2) -> void:
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = at
+	up.global_position = at
+	get_viewport().push_input(up)
+	await get_tree().process_frame
+
+
 func _wait(sec: float) -> void:
 	for i in int(sec * 30.0):
 		await get_tree().process_frame

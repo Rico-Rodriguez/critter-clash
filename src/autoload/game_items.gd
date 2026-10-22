@@ -150,10 +150,38 @@ func equip_best(hero_id_: String) -> int:
 ## Unequipped, non-unique common and magic items: safe to sell in one go.
 func junk_items() -> Array:
 	var out := []
+	var spare := spare_copies()
 	for it in data["items"]:
-		if DB.RARITIES.find(it["rarity"]) <= 1 and str(it.get("unique", "")) == "" and owner_of(int(it["uid"])) == "":
+		if owner_of(int(it["uid"])) != "":
+			continue
+		if (DB.RARITIES.find(it["rarity"]) <= 1 and str(it.get("unique", "")) == "") or spare.has(int(it["uid"])):
 			out.append(it)
 	return out
+
+
+## Two pieces that are the same in every way (name, material, stats) share
+## a key: the bag stacks them, and only one is worth keeping.
+func copy_key(it: Dictionary) -> String:
+	return "%s|%s|%s|%d|%s" % [it["cls"], it["slot"], it["name"], int(it.get("mat", 0)), JSON.stringify(it["stats"], "", true)]
+
+
+## uid -> true for every unworn piece that is an exact copy of another piece
+## kept (a worn copy is kept first).
+func spare_copies() -> Dictionary:
+	var kept := {}
+	for it in data["items"]:
+		if owner_of(int(it["uid"])) != "":
+			kept[copy_key(it)] = true
+	var spare := {}
+	for it in data["items"]:
+		if owner_of(int(it["uid"])) != "":
+			continue
+		var k := copy_key(it)
+		if kept.has(k):
+			spare[int(it["uid"])] = true
+		else:
+			kept[k] = true
+	return spare
 
 
 ## Stat-by-stat difference of `it` against `cur` (the equipped piece, or {}).

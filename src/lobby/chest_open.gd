@@ -135,7 +135,10 @@ func _reward_card(r: Dictionary) -> Control:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cc.add_child(Ui.icon_rect(icon, 150, col.lightened(0.2)))
+	if str(r["type"]) == "item":
+		cc.add_child(ItemIcons.rect(r["item"], 170, col.lightened(0.2)))
+	else:
+		cc.add_child(Ui.icon_rect(icon, 150, col.lightened(0.2)))
 	v.add_child(cc)
 	var t := Ui.label(title, "Heading", HORIZONTAL_ALIGNMENT_CENTER)
 	t.add_theme_font_size_override("font_size", 36)
