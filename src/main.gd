@@ -259,6 +259,9 @@ func _capture(args: PackedStringArray) -> void:
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
 				Game.season()["claimed"] = 2
 				Game.data["stats"]["wins"] = 3
+				Game.data["stats"]["hunts"] = 5
+				for k in ["camp_hunt", "camp_chest", "camp_gear", "camp_heroes"]:
+					Game.data["tips"][k] = true
 				Game.hero(hid)["mastery"] = 520
 				Game.hero(hid)["mastery_rank"] = 1
 				Game.hero(hid)["rating"] = 64
@@ -285,6 +288,11 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
+				await _save(shot)
+			"firstcamp":
+				# A new player's camp: no side column, a note on the hunt button.
+				_set_screen_now("lobby")
+				await _wait(2.0)
 				await _save(shot)
 			"flow":
 				# Exercise the real transitions: camp -> hunt -> camp.
@@ -515,7 +523,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "hexer", "powers", "descent", "pact", "wild":
+			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "powers", "descent", "pact", "wild":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -579,11 +587,13 @@ func _capture(args: PackedStringArray) -> void:
 							h.bot = false
 							h._end(true)
 							await _wait(2.2)
-				elif shot == "death":
+				elif shot == "death" or shot == "defeat":
 					await _wait_sim(h, 5.0)
+					if shot == "defeat":
+						h.bot = false
 					h.hero.invuln = 0.0
 					h.damage_hero(99999.0, null)
-					await _wait(1.6)
+					await _wait(1.6 if shot == "death" else 6.0)
 				await _save(shot)
 	get_tree().quit()
 

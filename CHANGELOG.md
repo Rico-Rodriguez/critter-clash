@@ -10,6 +10,30 @@ version is 6.
 
 ---
 
+## 2026-10-29: First steps, more music, results
+
+No save version change (the new tutorial notes use the existing `tips` key).
+`NATIVE_VERSION` unchanged.
+
+### Added
+- **First camp is quieter.** Before the first hunt the camp shows the hero,
+  the expedition, the big button and the tabs; the side column, bounties and
+  the road appear once there is something on them.
+- **One-time notes** point at the next thing for a new player: the hunt
+  button, the first chest, new gear, a hero ready to level up. Any tap puts
+  one away; each shows once per save.
+- **Five more music tracks** by Kevin MacLeod: two for camp, two for hunts,
+  one for bosses. Camp, hunt and boss pick a different track each visit.
+- **Defeat points somewhere.** The defeat screen names the one thing most
+  likely to win the next try (equip a found upgrade, level the hero, close a
+  power gap, or a tip), and its button reads "Try again".
+
+### Fixed
+- Loot left on the ground at a win flies to the hero instead of standing
+  there: its floating names showed through the results screen.
+- The results chest sits beside its name, so three loot rows fit on a short
+  phone instead of one and a half.
+
 ## 2026-10-28: Release cleanup
 
 Save version 6 (stored item names take the new gear words). `NATIVE_VERSION`
