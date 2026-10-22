@@ -35,6 +35,10 @@ unchanged.
   device and the log on the clipboard, ready to paste into a message.
   Bots and captures don't write it. No backend, nothing leaves the phone.
 
+### Process
+- **Feature freeze** until the first real playtest: see `docs/PLAN.md`,
+  Next up. Fixes, tuning, feel, art swaps and release work continue.
+
 ---
 
 ## 2026-10-27: Fantasy Weapons Bits
