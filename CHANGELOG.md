@@ -6,13 +6,110 @@ shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 
 Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is still 2 (no
 autoloads, input map or project settings changed since the last IPA). Save
-version is 4.
+version is 5.
+
+---
+
+## 2026-10-27: Fantasy Weapons Bits
+
+No save, settings or native changes.
+
+### Added
+- **The KayKit Fantasy Weapons Bits pack (CC0)** and new drop looks built from
+  it. Knight: Arming Sword, Morning Star, Warhammer, Rapier, Claymore, Halberd,
+  Plank, Crest and Bulwark shields. Barbarian: Spiked Club, Bearded Axe,
+  Double Axe, Labrys, Maul, Plank Shield, Bulwark. Mage: Crystal Wand, Crystal
+  Staff. Ranger: Hunting Bow, Recurve Bow.
+- **Bigger boss-set pieces.** The Blackguard Blade is now a black claymore with
+  a crest shield, the Dread Axe a labrys with a bulwark, the Shade Bow a
+  recurve. The Thorn set gets a katana-thin Thornblade, a plank Grove Shield,
+  a spiked Root Club and a hunting-bow Thornbow.
+- `--shots=arms --hero=H`: every weapon and offhand look in one hero's hands.
+
+---
+
+## 2026-10-26: More gear looks, a clearer equipment screen, bigger supers
+
+Save version still 5 (one new per-hero key, `best_mat`, defaults in `_fresh()`;
+items gain an optional `look` roll, old items show their stage's base look).
+`NATIVE_VERSION` unchanged.
+
+### Added
+- **Many more gear looks, all KayKit.** Tier stages can roll an alternative
+  model: horned helms, war axes, tower and heraldic shields, witch hats, cowls,
+  ragged robes, bandit masks, lantern staffs, skull orbs, candelabras,
+  phylacteries, hooded cloaks. Each boss set has its own look per hero:
+  the Barrow King's **bone** set (horned bone helm, skull shield, ribcage
+  harness, bone staff), the Crypt Queen's **blackened** set (Blackguard plate,
+  Necromancer robes and Deathlight staff, Shade garb) and the Thornmother's
+  **bark** set (bear masks, druid cowls, the Grove Lantern). Uniques got models
+  of their own (the Crown is a horned gold helm, the Cleaver a bone axe).
+  New weapons are put together from several props (`GearDB.KITS`).
+- **Equipment screen, rebuilt.** The bag is a list grouped by what matters:
+  Upgrades (sorted by power gained), Wearing, In your bag, Needs more skill,
+  and other heroes' gear folded away. Each row says what the piece is in words
+  and shows one number: the power it adds. Slots show their material and a
+  green arrow when the bag holds an upgrade. Tapping a row tries it on and
+  slides up a card with what it replaces and every action.
+- **Inspect:** any piece alone, big and turning; weapons float with their
+  sparks, worn pieces are shown on the bare hero with the camera on them.
+- **New tier reveal:** the first time a hero wears a higher material, light
+  wheels out behind them and the material's name punches in.
+- **Supers:** the Knight's Judgement brings down a crown of lightning around the
+  landing; the Barbarian's Whirlwind becomes a column of fire; the Ranger's
+  Hail of Arrows darkens the sky and rains arrows all around.
+- **Descent:** each new depth sends a red shockwave out from the hero, embers
+  burst from the ground and the camera drops back.
+
+### Fixed
+- Hats, hoods and horned helms from the skeleton characters never showed (they
+  are pinned to a bone, not skinned). The Barbarian's starting Horned Cap was
+  invisible because of it.
+- The rarity glow and polish washed whole pieces in color; they stay on the
+  edges now, so black reads black and bone reads bone.
+- Tall pines on the camera's side of the arena hid fights near the south wall
+  (worse when a super pushes the camera in); they fade like the near trees.
+
+---
+
+## 2026-10-25: Playtest fixes, gear that looks its tier, big moments
+
+Save version is now 5 (each mode keeps its own unlocked difficulty; old saves
+rebuild them from the wins they already record). `NATIVE_VERSION` unchanged.
+
+### Fixed
+- Tapping the campfire crashed the app (a scene node was not marked unique).
+  A test now checks every `%Name` lookup against its scene.
+- After a boss fell mid-run in the Descent or Boss Rush, the camera stayed
+  pinned where the fight had been.
+- Winning a difficulty opened it in every mode. Each mode now opens its own;
+  the Descent opens its next tier when one of its bosses falls.
+- The fallen never left the ground (thousands of bodies deep in the Descent,
+  and a growing cost per frame). They now lie 20 s, at most 45 at once.
+- Long Road: foes walk through the gap to reach you in another room instead of
+  pressing against the wall; a shove can no longer push you through a sealed
+  gate past the fight. Loot no longer lands outside the walls.
+
+### Added
+- **Gear that looks its tier.** Every material has a finish: bronze and iron
+  dull and dirty, steel and mithril clean and gleaming, adamant and rune with
+  light running over them, dragon (and Eldritch, black dragonhide) glowing
+  from molten seams. Weapons and offhands from the fifth tier shed sparks, and
+  a full set from that tier wraps the hero in rising motes. Item icons take
+  their metal's color.
+- **Weapons in combat:** melee swings take the weapon's metal color, and
+  dropped weapons and offhands show their real model on the ground.
+- **Super moment:** the camera pushes in, the screen washes in the hero's
+  color and the super's name rises over the hero.
+- **Legendary moment:** a bolt of light on the drop, a brief slow-down and its
+  name in the feed.
+- The campfire answers every tap: what it paid, or its rate per hour.
 
 ---
 
 ## 2026-10-24: Skill over stats, the Hollow Grove, Phase 11
 
-On branch `claude/game-codebase-review-m1uchq`, not yet on `main`. Save version
+Merged to `main`. Save version
 is now 4 (old saves migrate: Veteran becomes tier 3 of 8, Nightmare tier 5).
 `NATIVE_VERSION` is unchanged; no project settings changed.
 

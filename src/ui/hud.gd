@@ -267,14 +267,35 @@ func victory_mode() -> void:
 	var t := create_tween().set_ignore_time_scale(true)
 	t.tween_property(%Controls, "modulate:a", 0.0, 0.4)
 	t.tween_callback(func(): %Controls.visible = false)
-	var flash := ColorRect.new()
-	flash.color = Color(1.0, 0.97, 0.9, 0.85)
-	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(flash)
-	var t2 := create_tween().set_ignore_time_scale(true)
-	t2.tween_property(flash, "color:a", 0.0, 0.6).set_ease(Tween.EASE_OUT)
-	t2.tween_callback(flash.queue_free)
+	flash(Color(1.0, 0.97, 0.9, 0.85), 0.6)
+
+
+## A full-screen wash of color that fades out.
+func flash(color: Color, dur := 0.4) -> void:
+	var f := ColorRect.new()
+	f.color = color
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	f.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(f)
+	var t := create_tween().set_ignore_time_scale(true)
+	t.tween_property(f, "color:a", 0.0, dur).set_ease(Tween.EASE_OUT)
+	t.tween_callback(f.queue_free)
+
+
+## The world darkens for a moment (under the HUD, which stays readable):
+## the sky full of arrows, the ground giving way.
+func dim(color: Color, rise: float, hold: float, fall: float) -> void:
+	var f := ColorRect.new()
+	f.color = Color(color, 0.0)
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	f.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(f)
+	move_child(f, 0)
+	var t := create_tween()
+	t.tween_property(f, "color:a", color.a, rise)
+	t.tween_interval(hold)
+	t.tween_property(f, "color:a", 0.0, fall)
+	t.tween_callback(f.queue_free)
 
 
 func show_levelup(choices: Array, level: int) -> void:

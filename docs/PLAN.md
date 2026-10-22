@@ -985,6 +985,46 @@ telegraphs perfectly but never perfect-dodges on purpose; real players will
 find the eruption rate and the mechanic share either fair or too much. Tune
 `DB.ERUPTION` and `TIERS[*].mech` first.
 
+## Phase 12 — Playtest round 5: fixes, gear that shows its tier (done)
+
+Feedback: "very fun now"; four bugs (campfire crash, Descent camera stuck after
+a boss, difficulty unlocks shared across modes, bodies never despawn) and
+"gear is so underwhelming; in OSRS gear looks so cool as you progress".
+All in CHANGELOG 2026-10-25. Where to tune:
+- Gear finish per material: `GearDB.GRADES` (polish, shimmer, veins, heat),
+  `GearDB.ACCENTS` for dark materials, `GearDB.ENCHANT_FROM` for sparks and
+  the full-set aura. The look itself is `src/fx/char.gdshader` (`grade`,
+  `accent`). Shots: `--shots=icon --mat=N --hero=H`, `--shots=equip --mat=6`.
+- Item icons now take their material's color (reverses 9.4's single neutral
+  tone: the frame still carries rarity, the icon carries the metal).
+- Bodies: `DB.CORPSE_LINGER`, `DB.CORPSE_MAX`. Per-mode tiers: save key
+  `mode_tiers`, `Game.mode_tier_unlocked()`.
+- Moments: `Hunt.super_moment()`, `Hunt._legendary_moment()`; shots `super`,
+  `legendary`, `campfire`.
+
+## Phase 13 — Gear variety, equipment screen, bigger supers (done)
+
+Feedback: "the gear equipment menu is confusing, even to me", "even cooler
+looking options: a bone staff, a different wizard outfit, a blacked-out
+knight set... we want a lot more variety". All in CHANGELOG 2026-10-26.
+Where to tune:
+- Looks: `GearDB.LINES` stages and their `alts` (rolled per drop through the
+  item's `look`), `GearDB.SET_LOOKS` (dye, accent, least grade, model per
+  hero and slot), `GearDB.UNIQUE_LOOKS`, `GearDB.KITS` (props put together into
+  one weapon), `GearDB.PART_NUDGE` (rigid parts that sit wrong on a living
+  head). `GearDB.piece(it)` resolves them in that order.
+- Shots: `--shots=sets` and `sets2` (contact sheets),
+  `--shots=equip --hero=H --mat=N --set=hexer` or `--look=1`, `weapons`
+  (now includes kits), `equipdetail`, `inspect`, `inspecthelm`, `reveal`,
+  `super --hero=H --after=S`, `depth`.
+- The KayKit **Fantasy Weapons Bits** pack is in `assets/kaykit/weapons/`
+  (its files have letter suffixes: `hammer_A`, `sword_E`, `shield_C`...). Its
+  bows lie along X, so they go through the `hunting_bow` and `recurve` kits,
+  which turn them. Unused so far: `spear_A`, `dagger_A`/`dagger_B`, `staff_A`,
+  the fist weapons and arrows. `--shots=arms --hero=H` lines up every weapon
+  and offhand look in that hero's hands. The paid Mystery Monthly series 5 has a Black Knight character whose
+  parts would slot straight into `GearDB` like any other KayKit character.
+
 ## Next up
 
 Ordered. Do the first item before the rest: it is the only one that needs a

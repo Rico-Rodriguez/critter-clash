@@ -167,6 +167,7 @@ func _run_bot(args: PackedStringArray) -> void:
 		for r in runs:
 			Game.data["hero"] = hid
 			Game.data["tier_unlocked"] = DB.TIERS.size() - 1
+			Game.data["mode_tiers"][mode] = DB.TIERS.size() - 1
 			Game.data["zone"] = zone
 			Game.data["mode"] = mode
 			Game.data["tier"] = tier
@@ -212,8 +213,10 @@ func _capture(args: PackedStringArray) -> void:
 	Game.hero(hid)["shards"] = 9
 	Game.data["tier_unlocked"] = 1
 	Game.data["mode"] = _arg(args, "mode", "horde")
+	Game.data["mode_tiers"][Game.data["mode"]] = 1
 	if _arg(args, "zone", "barrow") != "barrow":
 		Game.data["tier_unlocked"] = DB.TIERS.size() - 1
+		Game.data["mode_tiers"][Game.data["mode"]] = DB.TIERS.size() - 1
 		Game.data["zone"] = _arg(args, "zone", "barrow")
 	for s in DB.SKILLS:
 		Game.data["skills"][s] = DB.xp_for_level({"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s])
@@ -225,6 +228,20 @@ func _capture(args: PackedStringArray) -> void:
 	for slot in DB.SLOTS:
 		for t in 2:
 			Game.grant_item(Game.roll_item("boss", 1, slot, hid))
+	# --mat=N: a full rare set of material N, to look at what fine gear does.
+	var mat := int(_arg(args, "mat", "-1"))
+	if mat >= 0:
+		for sk in DB.SKILLS:
+			Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[mat])))
+		for slot in DB.SLOTS:
+			var mk := Game.make_item(hid, slot, mat, "rare")
+			# --set=hexer: the boss set's look; --look=N: a stage's Nth alternative.
+			if _arg(args, "set", "") != "":
+				mk["set"] = _arg(args, "set", "")
+			mk["look"] = int(_arg(args, "look", "0"))
+			mk["name"] = GearDB.base_name(mk)
+			var it := Game.grant_item(mk)
+			Game.equip(hid, int(it["uid"]))
 	if _arg(args, "geared", "0") == "1":
 		for slot in DB.SLOTS:
 			var best := {}
@@ -236,7 +253,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -262,7 +279,10 @@ func _capture(args: PackedStringArray) -> void:
 						Game.learn_talent(hid, n[0], n[1])
 				_set_screen_now("lobby")
 				await _wait(1.2)
-				if shot != "lobby" and shot != "lobbychest":
+				if shot == "campfire":
+					current.ui._side_pressed("idle")
+					await _wait(1.0)
+				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
 				await _save(shot)
@@ -279,8 +299,8 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
-			"parts", "weapons", "dress":
-				await _contact_sheet(shot)
+			"parts", "weapons", "dress", "sets", "sets2", "arms":
+				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
 			"icon":
 				_set_screen_now("lobby")
@@ -291,6 +311,30 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
+			"depth":
+				# The Descent going a level deeper.
+				Game.data["mode"] = "descent"
+				_set_screen_now("hunt")
+				var hdp: Hunt = current
+				hdp.hero.invuln = 99.0
+				await _wait_sim(hdp, 4.0)
+				hdp.depth_t = DB.DESCENT_TIME
+				await _wait(float(_arg(args, "after", "0.4")))
+				await _save(shot)
+			"super", "legendary":
+				# The moment a super goes off, or a legendary falls.
+				_set_screen_now("hunt")
+				var hs: Hunt = current
+				hs.hero.invuln = 99.0
+				await _wait_sim(hs, 4.0)
+				if shot == "super":
+					hs.hero.super_charge = 1.0
+					hs.hero.try_super()
+					await _wait(float(_arg(args, "after", "0.35")))
+				else:
+					hs._drop_item(hs.hero.flat_pos() + Vector3(2.0, 0, -1.5), Game.make_unique("crown"))
+					await _wait(1.0)
+				await _save(shot)
 			"devpanel":
 				_set_screen_now("hunt")
 				var hd: Hunt = current
@@ -312,6 +356,27 @@ func _capture(args: PackedStringArray) -> void:
 						break
 				await _wait(0.8)
 				await _save("equipdetail")
+			"inspect", "inspecthelm", "reveal":
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				current.open_sheet("bag")
+				await _wait(0.8)
+				var eqi: Equipment = current.ui.equipment
+				var want_slot := "helm" if shot == "inspecthelm" else "weapon"
+				var pick := {}
+				for it in Game.data["items"]:
+					if it["slot"] == want_slot and str(it["cls"]) == hid and (pick.is_empty() or Game.item_power(it) > Game.item_power(pick)):
+						pick = it
+				if shot == "reveal":
+					Game.hero(hid)["best_mat"] = 0
+					for slot in DB.SLOTS:
+						Game.unequip(hid, slot)
+					eqi._equip(pick)
+					await _wait(0.45)
+				else:
+					eqi._inspect(pick)
+					await _wait(1.2)
+				await _save(shot)
 			"shrine":
 				_set_screen_now("hunt")
 				var hs: Hunt = current
@@ -475,7 +540,7 @@ func _wait_sim(h: Hunt, sec: float) -> void:
 
 
 ## A lineup of every character (or weapon) on a bare stage, for choosing parts.
-func _contact_sheet(kind: String) -> void:
+func _contact_sheet(kind: String, only := "") -> void:
 	if current:
 		current.queue_free()
 		current = null
@@ -495,24 +560,83 @@ func _contact_sheet(kind: String) -> void:
 	sun.rotation_degrees = Vector3(-40, -20, 0)
 	root.add_child(sun)
 	var names: Array = []
-	if kind == "dress":
+	if kind == "dress" or kind.begins_with("sets"):
 		var cam2 := Camera3D.new()
 		root.add_child(cam2)
 		cam2.fov = 30
+		# sets: plain T6, its alternative look, then the three boss sets.
+		# sets2: alternatives at T3 and T5 (look 1 and 2).
+		var cols: Array = [-1, 1, 3, 6]
+		if kind == "sets":
+			cols = ["a0", "a1", "gravemaw", "hexer", "thorn"]
+		elif kind == "sets2":
+			cols = ["b1", "b2", "c1", "c2", "a2"]
 		for r in DB.HERO_ORDER.size():
 			var hid: String = DB.HERO_ORDER[r]
-			for c in 4:
+			for c in cols.size():
 				var a := Actor.new()
 				root.add_child(a)
 				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
-				a.position = Vector3((c - 1.5) * 1.7, -r * 2.2, 0)
-				var mat: int = [-1, 1, 3, 6][c]
+				a.position = Vector3((c - (cols.size() - 1) * 0.5) * 1.7, -r * 2.2, 0)
 				var pre := {}
 				for slot in DB.SLOTS:
-					pre[slot] = {} if mat < 0 else Game.make_item(hid, slot, mat, "rare")
+					var spec = cols[c]
+					if spec is int:
+						pre[slot] = {} if spec < 0 else Game.make_item(hid, slot, spec, "rare")
+						continue
+					var mat: int = {"a": 6, "b": 3, "c": 5}.get(str(spec).left(1), 5)
+					var it := Game.make_item(hid, slot, mat, "rare")
+					it["look"] = int(str(spec).right(1)) if str(spec).length() == 2 else 0
+					if DB.SETS.has(str(spec)):
+						it["set"] = str(spec)
+					pre[slot] = it
 				GearLook.apply(a, hid, pre)
 				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
-		cam2.look_at_from_position(Vector3(0, -2.9, 21.0), Vector3(0, -2.9, 0), Vector3.UP)
+		cam2.look_at_from_position(Vector3(0, -2.9, 21.0 + (cols.size() - 4) * 4.0), Vector3(0, -2.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if kind == "arms":
+		# Every weapon and offhand look in each hero's hands, one hero a row.
+		var cam3 := Camera3D.new()
+		root.add_child(cam3)
+		cam3.fov = 30
+		var most := 0
+		var rows: Array = DB.HERO_ORDER if only == "" else [only]
+		for r in rows.size():
+			var hid: String = rows[r]
+			var looks := {}
+			for slot in ["weapon", "trinket"]:
+				looks[slot] = []
+				for st: Dictionary in GearDB.LINES[hid][slot]:
+					for k in st.get("alts", []).size() + 1:
+						looks[slot].append([int(st["from"]), k])
+			var n: int = max(looks["weapon"].size(), looks["trinket"].size())
+			most = max(most, n)
+			for c in n:
+				var a := Actor.new()
+				root.add_child(a)
+				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				a.position = Vector3(c * 1.5, -r * 2.4, 0)
+				a.rotation.y = 0.5
+				var pre := {}
+				for slot in DB.SLOTS:
+					pre[slot] = Game.make_item(hid, slot, 5, "rare")
+					pre[slot]["look"] = 0
+				for slot in ["weapon", "trinket"]:
+					var lk: Array = looks[slot][min(c, looks[slot].size() - 1)]
+					pre[slot] = Game.make_item(hid, slot, lk[0], "rare")
+					pre[slot]["look"] = lk[1]
+				GearLook.apply(a, hid, pre)
+				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+				var lb := Label3D.new()
+				lb.text = GearDB.base_name(pre["weapon"]) + "\n" + GearDB.base_name(pre["trinket"])
+				lb.font_size = 20
+				lb.pixel_size = 0.004
+				lb.position = a.position + Vector3(0, -0.25, 0.5)
+				lb.no_depth_test = true
+				root.add_child(lb)
+		var mid := Vector3((most - 1) * 0.75, -(rows.size() - 1) * 1.2, 0)
+		cam3.look_at_from_position(mid + Vector3(0, 0.9, 1.0 + most * 1.1 + (rows.size() - 1) * 2.5), mid + Vector3(0, 0.9, 0), Vector3.UP)
 		await _wait(1.0)
 		return
 	if kind == "parts":
@@ -521,6 +645,8 @@ func _contact_sheet(kind: String) -> void:
 		for f in ResourceLoader.list_directory(KK.WEAPON_DIR):
 			if f.ends_with(".gltf"):
 				names.append(f)
+		for k in GearDB.KITS:
+			names.append("kit:" + k)
 	var cols := 4 if kind == "parts" else 8
 	var cam := Camera3D.new()
 	root.add_child(cam)
@@ -535,7 +661,7 @@ func _contact_sheet(kind: String) -> void:
 			a.position = pos
 			a.play("Idle_A", 0.0)
 		else:
-			var w := KK.prop(KK.WEAPON_DIR + names[i])
+			var w := GearLook.prop_for(names[i])
 			w.position = pos
 			root.add_child(w)
 			var lb := Label3D.new()

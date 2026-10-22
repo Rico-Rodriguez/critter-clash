@@ -24,6 +24,8 @@ var warded_t := 0.0
 var _cast_t := 3.0
 var _pool_t := 0.0
 var _sink := 0.0
+## Seconds the body lies after the death animation before it sinks.
+var linger := DB.CORPSE_LINGER
 var _hit_cd := {}
 ## While > 0 the foe is reeling from a hit and does not move or start attacks.
 var hit_t := 0.0
@@ -282,6 +284,15 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	if ai == "flee":
 		_flee(dt, to_hero, dist)
 		return
+	# On the Long Road a hero in another room is reached through the gap.
+	if hunt.mode == "trial":
+		var via := hunt.arena.route(flat_pos(), hero.flat_pos())
+		if via.distance_to(hero.flat_pos()) > 0.01:
+			var tv := via - flat_pos()
+			position += tv / maxf(tv.length(), 0.01) * speed * hunt.foe_speed_mult * dt
+			face(atan2(tv.x, tv.z), dt, 10.0)
+			play(def["anim"]["run"], 0.15)
+			return
 	if ai == "melee" or ai == "bomb" or ai == "charge" or ai == "slam":
 		# Cut the corner: run to where the hero is going, and fan out so a pack
 		# surrounds instead of queueing behind itself.
@@ -494,6 +505,9 @@ func _tick_dead(dt: float) -> void:
 		knock = knock.move_toward(Vector3.ZERO, 22.0 * dt)
 	state_t -= dt
 	if state_t <= 0.0:
+		linger -= dt
+		if linger > 0.0:
+			return
 		_sink += dt
 		position.y = -_sink * 3.0
 		if _sink > 0.4:

@@ -42,6 +42,16 @@ static func hex(c: Color) -> String:
 
 ## Keeps a full-rect MarginContainer clear of notches and the home bar.
 static func apply_safe_area(m: MarginContainer, base := 20) -> void:
+	var ins := safe_insets(base)
+	m.add_theme_constant_override("margin_left", int(ins.x))
+	m.add_theme_constant_override("margin_top", int(ins.y))
+	m.add_theme_constant_override("margin_right", int(ins.z))
+	m.add_theme_constant_override("margin_bottom", int(ins.w))
+
+
+## Room to leave for notches and the home bar, in UI pixels: left, top,
+## right, bottom (never less than `base`).
+static func safe_insets(base := 20) -> Vector4:
 	var win := DisplayServer.window_get_size()
 	var safe := DisplayServer.get_display_safe_area()
 	# Not the node's own viewport: it may not be in the tree yet.
@@ -61,10 +71,7 @@ static func apply_safe_area(m: MarginContainer, base := 20) -> void:
 	top = maxi(top, int(forced_inset.y))
 	right = maxi(right, int(forced_inset.z))
 	bottom = maxi(bottom, int(forced_inset.w))
-	m.add_theme_constant_override("margin_top", top)
-	m.add_theme_constant_override("margin_bottom", bottom)
-	m.add_theme_constant_override("margin_left", left)
-	m.add_theme_constant_override("margin_right", right)
+	return Vector4(left, top, right, bottom)
 
 
 ## A quick scale-and-fade entrance.

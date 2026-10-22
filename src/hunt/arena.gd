@@ -433,7 +433,9 @@ func _forest() -> void:
 			continue
 		var k: String = kinds[_rng.randi() % kinds.size()]
 		var sc := _rng.randf_range(1.6, 2.6) if k.begins_with(G) else _rng.randf_range(1.3, 2.0)
-		var near := p.x > min_x - 4.0 and p.x < max_x + 4.0 and p.z > min_z - 4.0 and p.z < max_z + 4.0
+		# Trees by the wall, and every tree on the camera's side (south), fade
+		# while they cover the hero: tall pines there hide fights at the edge.
+		var near := p.x > min_x - 4.0 and p.x < max_x + 4.0 and p.z > min_z - 4.0 and (p.z < max_z + 4.0 or p.z > max_z)
 		put(k, p, _rng.randf() * TAU, sc, -1.0, absf(p.x) < max_x + 6.0 and p.z > min_z - 6.0, 1.2 if near else 0.0)
 		placed += 1
 	for i in (14 if low else 30):
@@ -667,6 +669,30 @@ func room_at(z: float) -> int:
 		if z <= float(r["hi"]) and z > float(r["lo"]):
 			return int(r["index"])
 	return trial.get("rooms", []).size() if z <= float(trial.get("boss_z", -1e9)) + 6.0 else -1
+
+
+## On the Long Road, where to walk to get from `a` toward `b`: `b` itself in
+## the same room, else the gap in the divider between a's room and the next
+## one toward b (first to its near side, then just past it). Walls between
+## rooms are walked around, not pressed against.
+func route(a: Vector3, b: Vector3) -> Vector3:
+	if trial.is_empty():
+		return b
+	var rooms: Array = trial["rooms"]
+	var ia := room_at(a.z)
+	var ib := room_at(b.z)
+	if ia < 0 or ib < 0 or ia == ib:
+		return b
+	var k := ia if ib > ia else ia - 1
+	if k < 0 or k >= rooms.size():
+		return b
+	var r: Dictionary = rooms[k]
+	var line := float(r["lo"])
+	var ahead := -1.0 if ib > ia else 1.0
+	var gx := float(r["gap_x"])
+	if absf(a.z - line) > 2.5 or absf(a.x - gx) > 1.6:
+		return Vector3(gx, 0, line - ahead * 1.8)
+	return Vector3(gx, 0, line + ahead * 1.8)
 
 
 ## A free spot in a room, at least `min_hero` from `hero_pos`.

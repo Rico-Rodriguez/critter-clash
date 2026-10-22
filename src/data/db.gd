@@ -294,6 +294,11 @@ static func boss_def(id: String) -> Dictionary:
 	return BOSSES[id] if BOSSES.has(id) else BOSSES["gravemaw"]
 
 ## Elite affixes: Diablo-style champions. Each multiplies or adds a trait.
+## The fallen stay on the ground a while, then sink; past CORPSE_MAX the
+## oldest sink first (thousands of bodies in a deep Descent cost frames).
+const CORPSE_LINGER := 20.0
+const CORPSE_MAX := 45
+
 const ELITE_AFFIXES := {
 	"vampiric": {"name": "Vampiric", "color": Color(0.9, 0.12, 0.2)},
 	"swift": {"name": "Swift", "color": Color(0.3, 0.9, 1.0)},

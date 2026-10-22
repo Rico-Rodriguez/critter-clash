@@ -384,6 +384,10 @@ func _impact() -> void:
 				hunt.damage_foe(f, dmg, self, to.normalized(), 5.5)
 				hit += 1
 			var col := Color(0.75, 0.88, 1.0) if id == "knight" else Color(1.0, 0.62, 0.3)
+			# Fine metal cuts in its own color.
+			var wpn := Game.equipped(id, "weapon")
+			if not wpn.is_empty() and int(wpn.get("mat", 0)) >= 2:
+				col = col.lerp(GearDB.item_color(wpn).lightened(0.25), 0.75)
 			hunt.fx.slash(flat_pos(), aim_yaw, reach * 1.05, arc, col, swing_i % 2 == 0, 0.2)
 			Sfx.play("atk_tank" if id == "knight" else "cleave", -4.0)
 			Sfx.play("swing", -8.0)
@@ -515,6 +519,10 @@ func try_super() -> bool:
 			tree.active = false
 			play(def["anim"]["super"], 0.1, 1.6)
 			Sfx.play("blades", -2.0)
+			Sfx.play("fire_trail", -4.0, 0.8)
+			# The spin becomes a column of fire.
+			hunt.fx.tornado(self, Color(1.0, 0.42, 0.12), super_t)
+			hunt.fx.ring(flat_pos(), 3.4, Color(1.0, 0.55, 0.2), 0.45, 0.16)
 		"volley":
 			super_t = 0.35
 			act(def["anim"]["super"], 0.35, true)
@@ -525,6 +533,12 @@ func try_super() -> bool:
 				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * 30.0, dmg * 1.7, 99, self, {"super": true})
 			hunt.shake(0.25)
 			Sfx.play("volley", 0.0)
+			# The sky goes dark with arrows: a dim, and a rain that falls
+			# everywhere around (only the volleys on foes do damage).
+			hunt.hud.dim(Color(0.04, 0.05, 0.1, 0.42), 0.15, 0.7, 0.6)
+			for j in 26:
+				var cp := flat_pos() + Vector3(randf_range(-9.0, 9.0), 0, randf_range(-9.0, 9.0))
+				hunt.fx.fall("arrow", cp, randf_range(0.15, 0.95), 0.28, func(): hunt.fx.puff(cp, Color(0.32, 0.27, 0.22, 0.4), 2, 0.4, 1.0))
 			# A second wave from above, onto the foes the fan runs through.
 			var rain := _foes_in(12.0, 5)
 			for k in rain.size():
@@ -541,6 +555,8 @@ func try_super() -> bool:
 			meteor_shower(14 if arm else 9, dmg * 3.2, 2.9, 13.0)
 			hunt.shake(0.3)
 			Sfx.play("charge", -3.0, 0.7)
+	# The name goes up where the hero will be (the Knight's leap lands away).
+	hunt.super_moment(leap_to if super_kind == "slam" else flat_pos())
 	return true
 
 
@@ -570,6 +586,7 @@ func _tick_super(dt: float) -> void:
 					hunt.damage_foe(f, dmg * 0.75, self, to.normalized(), 3.0)
 					any = true
 				hunt.fx.slash(flat_pos(), randf() * TAU, 3.2, 360, Color(1.0, 0.55, 0.25), false, 0.22)
+				hunt.fx.embers_at(flat_pos(), Color(1.0, 0.6, 0.2), 5, 2.4)
 				if any:
 					Sfx.play("hit", -6.0)
 			if super_t <= 0.0:
@@ -595,6 +612,14 @@ func _slam_land() -> void:
 		hunt.fx.sky_bolt(f2.flat_pos(), Color(1.0, 0.88, 0.5), 0.22)
 		if f2.alive:
 			hunt.damage_foe(f2, dmg * 1.5, self, Vector3.ZERO, 3.0)
+	# Judgement: a crown of lightning comes down around the knight.
+	for i in 8:
+		var bp := at + Vector3.FORWARD.rotated(Vector3.UP, TAU * i / 8.0) * 3.6
+		get_tree().create_timer(0.035 * i, false).timeout.connect(func():
+			if is_instance_valid(hunt):
+				hunt.fx.sky_bolt(bp, Color(0.85, 0.92, 1.0), 0.14, 12.0))
+	hunt.hud.flash(Color(1.0, 0.92, 0.6, 0.3), 0.35)
+	hunt.cam.punch = maxf(hunt.cam.punch, 0.12)
 	hunt.shake(0.7)
 	hunt.hitstop(0.09)
 	Ui.buzz(70, 0.8)

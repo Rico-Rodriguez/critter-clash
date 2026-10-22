@@ -6,7 +6,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -31,7 +31,7 @@ func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
 		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
-			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": []}
+			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "best_mat": -1}
 	var skills := {}
 	for s in DB.SKILLS:
 		skills[s] = DB.xp_for_level(10) if s == "hitpoints" else 0
@@ -45,6 +45,9 @@ func _fresh() -> Dictionary:
 		"skills": skills,
 		"log": {},
 		"tier_unlocked": 0,
+		## Each mode opens its own difficulties: {mode: highest open tier}.
+		## tier_unlocked stays the best across all modes (zones, campfire).
+		"mode_tiers": {},
 		"tier": 0,
 		"pet": "",
 		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}, "rifts": 0, "best_perfect": 0, "best_tier_won": 0},
@@ -83,13 +86,15 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
 		if int(parsed.get("version", 0)) == 2:
 			_migrate_v2(parsed)
 		if int(parsed.get("version", 0)) == 3:
 			_migrate_v3(parsed)
+		if int(parsed.get("version", 0)) == 4:
+			_migrate_v4(parsed)
 		_merge(data, parsed)
 
 
@@ -149,6 +154,29 @@ func _migrate_v3(d: Dictionary) -> void:
 			out[k] = best[k]
 	if d.has("stats"):
 		d["stats"]["best"] = out
+	d["version"] = 4
+
+
+## v5 gives each mode its own unlocked difficulty, rebuilt from the wins the
+## save already records (best-time keys carry mode and tier). The Descent
+## keeps no per-tier record, so it takes the Horde's.
+func _migrate_v4(d: Dictionary) -> void:
+	var cap := int(d.get("tier_unlocked", 0))
+	var mt := {}
+	var re := RegEx.create_from_string("^(t|tdepths|tgrove|depths|grove|rush|rift|wild)?([0-9])(_.*)?$")
+	for k: String in d.get("stats", {}).get("best", {}):
+		var m := re.search(k)
+		if m == null:
+			continue
+		var pre := m.get_string(1)
+		var mode := "horde"
+		if pre.begins_with("t"):
+			mode = "trial"
+		elif pre in ["rush", "rift", "wild"]:
+			mode = pre
+		mt[mode] = mini(maxi(int(mt.get(mode, 0)), int(m.get_string(2)) + 1), mini(cap, DB.TIERS.size() - 1))
+	mt["descent"] = int(mt.get("horde", 0))
+	d["mode_tiers"] = mt
 	d["version"] = SAVE_VERSION
 
 
@@ -236,11 +264,26 @@ func set_zone(id: String) -> void:
 
 
 func tier() -> int:
-	return int(data["tier"])
+	return clampi(int(data["tier"]), 0, mode_tier_unlocked())
+
+
+## The highest difficulty open in a mode (the chosen mode by default).
+func mode_tier_unlocked(mode := "") -> int:
+	var m := mode if mode != "" else mode_id()
+	return mini(int(data["mode_tiers"].get(m, 0)), DB.TIERS.size() - 1)
+
+
+## Opens the next difficulty in `mode` after tier `t` is beaten there.
+## Returns the newly opened tier, or -1.
+func _open_mode_tier(mode: String, t: int) -> int:
+	if t < mode_tier_unlocked(mode) or t >= DB.TIERS.size() - 1:
+		return -1
+	data["mode_tiers"][mode] = t + 1
+	return t + 1
 
 
 func set_tier(t: int) -> void:
-	data["tier"] = clampi(t, 0, int(data["tier_unlocked"]))
+	data["tier"] = clampi(t, 0, mode_tier_unlocked())
 	save()
 
 
@@ -308,7 +351,28 @@ func equip(hero_id_: String, uid: int) -> void:
 	if prev != "":
 		hero(prev)["gear"].erase(it["slot"])
 	hero(hero_id_)["gear"][it["slot"]] = uid
+	_note_tier(hero_id_, it)
 	save()
+
+
+## Set when a hero first puts on a higher material than it ever wore: the
+## equipment screen reads it (and resets it to -1) to celebrate the new tier.
+var new_tier := -1
+
+
+func _note_tier(id: String, it: Dictionary) -> void:
+	var h := hero(id)
+	if int(h.get("best_mat", -1)) < 0:
+		# An older save: what the hero already wears is not news.
+		var b := 0
+		for slot in DB.SLOTS:
+			if slot != it["slot"] and not equipped(id, slot).is_empty():
+				b = maxi(b, int(equipped(id, slot).get("mat", 0)))
+		h["best_mat"] = b
+	var mat := int(it.get("mat", 0))
+	if mat > int(h["best_mat"]):
+		h["best_mat"] = mat
+		new_tier = mat
 
 
 func unequip(hero_id_: String, slot: String) -> void:
@@ -382,6 +446,7 @@ func equip_best(hero_id_: String) -> int:
 				best_score = item_score(it)
 		if not best.is_empty() and int(hero(hero_id_)["gear"].get(slot, 0)) != int(best["uid"]):
 			hero(hero_id_)["gear"][slot] = int(best["uid"])
+			_note_tier(hero_id_, best)
 			changed_n += 1
 	if changed_n > 0:
 		save()
@@ -628,13 +693,14 @@ func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionar
 	for i in step:
 		if i < pool.size():
 			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
-	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat}
+	# `look` picks among a stage's alternative models (GearDB.piece).
+	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat, "look": rng.randi() % 1000}
 	it["name"] = _item_name(it, rarity)
 	return it
 
 
 func _item_name(it: Dictionary, rarity: String) -> String:
-	var base := GearDB.base_name(str(it["cls"]), str(it["slot"]), int(it.get("mat", 0)))
+	var base := GearDB.base_name(it)
 	if rarity == "common":
 		return base
 	var prefixes: Array = DB.ITEM_PREFIX[rarity] if DB.ITEM_PREFIX.has(rarity) else DB.ITEM_PREFIX["rare"]
@@ -814,7 +880,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			st["best"][key] = float(r["time"])
 		if t >= int(data["tier_unlocked"]) and t < DB.TIERS.size() - 1:
 			data["tier_unlocked"] = t + 1
-			summary["unlocked_tier"] = t + 1
+		summary["unlocked_tier"] = _open_mode_tier(str(r.get("mode", "horde")), t)
 		if t >= DB.TIER_VETERAN and not hero("barbarian")["unlocked"]:
 			hero("barbarian")["unlocked"] = true
 			summary["unlocked_hero"] = "barbarian"
@@ -842,6 +908,12 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			st["best"][wkey] = place
 			summary["record"] = true
 	if str(r.get("mode", "horde")) == "descent":
+		# The Descent never ends in a win: felling its first boss beats the tier.
+		if (r.get("bosses", []) as Array).size() > 0:
+			var tt := int(r["tier"])
+			summary["unlocked_tier"] = _open_mode_tier("descent", tt)
+			if tt >= int(data["tier_unlocked"]) and tt < DB.TIERS.size() - 1:
+				data["tier_unlocked"] = tt + 1
 		var dkey: String = "descent_" + str(r["hero"])
 		var d := int(r.get("depth", 1))
 		if d > int(st["best"].get(dkey, 0)):
@@ -1170,10 +1242,14 @@ func temper(uid: int) -> bool:
 	var k := (1.0 + 0.22 * (mat + 1)) / (1.0 + 0.22 * mat)
 	for key in it["stats"]:
 		it["stats"][key] = int(round(float(it["stats"][key]) * k))
+	var old_base := GearDB.base_name(it)
 	it["mat"] = mat + 1
-	var prefix := str(it["name"]).get_slice(" ", 0) if it["rarity"] != "common" else ""
-	var base := GearDB.base_name(str(it["cls"]), str(it["slot"]), mat + 1)
-	it["name"] = base if prefix == "" else "%s %s" % [prefix, base]
+	var base := GearDB.base_name(it)
+	if str(it["name"]).contains(old_base):
+		it["name"] = str(it["name"]).replace(old_base, base)
+	else:
+		var prefix := str(it["name"]).get_slice(" ", 0) if it["rarity"] != "common" else ""
+		it["name"] = base if prefix == "" else "%s %s" % [prefix, base]
 	# Tempering can lift a piece past what the hero may wear: unequip if so.
 	var owner := owner_of(uid)
 	if owner != "" and wear_block(owner, it) != "":
@@ -1208,12 +1284,7 @@ func set_glow(id: String, glow: String) -> void:
 
 ## The set a piece belongs to ("" for none): its tag, or its unique's boss.
 func item_set(it: Dictionary) -> String:
-	if it.has("set"):
-		return str(it["set"])
-	var u := str(it.get("unique", ""))
-	if u != "" and DB.UNIQUES.has(u):
-		return str(DB.SOURCE_BOSS.get(DB.UNIQUES[u]["source"], ""))
-	return ""
+	return GearDB.set_of(it)
 
 
 ## Pieces of each set a hero wears.
@@ -1247,7 +1318,8 @@ func roll_boss_item(boss_id: String, tier_i: int, bonus := 0) -> Dictionary:
 	var it := roll_item("boss", tier_i, "", "", bonus)
 	if str(it.get("unique", "")) == "" and it["rarity"] != "common" and DB.SETS.has(boss_id) and rng.randf() < DB.SET_CHANCE:
 		it["set"] = boss_id
-		it["name"] = "%s %s" % [DB.SETS[boss_id]["short"], GearDB.base_name(str(it["cls"]), str(it["slot"]), int(it["mat"]))]
+		# A set piece wears the set's own look, and is named for it.
+		it["name"] = GearDB.base_name(it)
 	return it
 
 
@@ -1492,9 +1564,9 @@ func next_goal() -> String:
 			return "Level %d is ready: upgrade in Heroes" % (int(hero(id)["level"]) + 1)
 		if need_s > 0 and need_s <= 30:
 			return "%d shards to level %d" % [need_s, int(hero(id)["level"]) + 1]
-	var t := int(data["tier_unlocked"])
+	var t := mode_tier_unlocked()
 	if t < DB.TIERS.size() - 1 and tier() == t:
-		return "Win on %s to open %s" % [DB.TIERS[t]["name"], DB.TIERS[t + 1]["name"]]
+		return "%s on %s to open %s" % ["Fell a Descent boss" if mode_id() == "descent" else "Win", DB.TIERS[t]["name"], DB.TIERS[t + 1]["name"]]
 	var nxt := mastery_next(id)
 	if nxt > 0:
 		return "%d mastery to %s" % [nxt - int(hero(id)["mastery"]), DB.MASTERY[int(hero(id)["mastery_rank"]) + 1]["title"]]

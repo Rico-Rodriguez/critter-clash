@@ -32,6 +32,8 @@ var boss: Boss
 var pet: Actor
 var ally: Ally
 var foes: Array[Enemy] = []
+## The fallen, still lying where they died (see DB.CORPSE_MAX).
+var corpses: Array[Enemy] = []
 var projs: Array[Proj] = []
 var pickups: Array[Pickup] = []
 var cards := {}
@@ -487,6 +489,8 @@ func _frame_camera() -> void:
 			cam.zoom_target = 1.18
 			if boss and boss.alive:
 				cam.focus_override = hero.position.lerp(boss.position, 0.25)
+			else:
+				cam.focus_override = null
 		"victory":
 			# First the fall, close on the boss, then back to the hero and the loot.
 			if phase_t < 0.6 and boss:
@@ -497,6 +501,9 @@ func _frame_camera() -> void:
 				cam.focus_override = null
 		_:
 			cam.zoom_target = 1.0 + clampf((foes.size() - 15) / 60.0, 0.0, 0.12)
+			# Back to the hero: a boss that fell mid-run (Descent, Boss Rush)
+			# would otherwise leave the camera pinned where the fight was.
+			cam.focus_override = null
 
 
 # --- Foes ----------------------------------------------------------------
@@ -514,6 +521,18 @@ func _tick_foes(dt: float) -> void:
 		else:
 			f.tick(dt)
 		i -= 1
+	# The fallen lie a while and sink; the oldest go first past the cap.
+	var extra := corpses.size() - DB.CORPSE_MAX
+	var j := corpses.size() - 1
+	while j >= 0:
+		var c := corpses[j]
+		if not is_instance_valid(c):
+			corpses.remove_at(j)
+		else:
+			if j < extra:
+				c.linger = minf(c.linger, 0.0)
+			c.tick(dt)
+		j -= 1
 	# Separation: the dead push each other apart and off the hero.
 	var n := foes.size()
 	for a in n:
@@ -1003,6 +1022,10 @@ func _direct_trial(dt: float) -> void:
 				if int(r["index"]) > 0 and z < float(r["hi"]) - 4.0:
 					_start_room(r)
 			"active":
+				# The sealed way on holds: a shove into the gate must not pop the
+				# hero out on the far side, past the fight.
+				if hero.position.z < float(r["lo"]) + hero.radius and hero.position.z > float(r["lo"]) - 3.0:
+					hero.position.z = float(r["lo"]) + hero.radius + 0.9
 				if _spawn_q.is_empty() and _room_alive(r) == 0:
 					_clear_room(r)
 				elif r.has("deadline") and time > float(r["deadline"]) and not r.get("sealed", false):
@@ -1385,6 +1408,7 @@ func _tick_depth(dt: float) -> void:
 	depth_t = 0.0
 	depth += 1
 	banner("Depth %d" % depth, Color(0.95, 0.8, 0.5), "The dead grow bolder")
+	_depth_moment()
 	# Deeper looks deeper: thicker fog, redder light, less of the moon.
 	var k := clampf((depth - 1) / 12.0, 0.0, 1.0)
 	var tw := create_tween().set_parallel()
@@ -1409,6 +1433,22 @@ func _tick_depth(dt: float) -> void:
 		banner(e.elite_name, DB.ELITE_AFFIXES[e.affixes[0]]["color"].lightened(0.3), "A champion rises!")
 	if depth % 3 == 0:
 		_start_surge(progress())
+
+
+## The ground gives way a little further: a red shockwave out from the hero,
+## embers bursting from the earth all around, the camera dropping back.
+func _depth_moment() -> void:
+	var at := hero.flat_pos()
+	var col := Color(1.0, 0.3, 0.15)
+	fx.ring(at, 14.0, col, 0.9, 0.3)
+	fx.ring(at, 7.0, Color(1.0, 0.6, 0.3), 0.6, 0.2)
+	fx.flash_light(at, col, 5.0, 14.0, 0.8)
+	for i in 14:
+		var p := at + Vector3(randf_range(-10.0, 10.0), 0, randf_range(-10.0, 10.0))
+		fx.embers_at(p, col.lerp(Color(1.0, 0.8, 0.4), randf()), 4, 0.8)
+	fx.puff(at, Color(0.3, 0.12, 0.08, 0.5), 10, 4.0, 3.0)
+	hud.dim(Color(0.25, 0.02, 0.02, 0.3), 0.1, 0.25, 0.8)
+	cam.punch = -0.12
 
 
 func _direct_rush(dt: float) -> void:
@@ -1482,6 +1522,7 @@ func _begin_boss() -> void:
 	for f in foes.duplicate():
 		if f.alive:
 			f.die()
+			corpses.append(f)
 			fx.bone_burst(f.flat_pos(), 3, 4.0)
 	foes.clear()
 	for pr in projs:
@@ -1589,6 +1630,7 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 func _kill(f: Enemy) -> void:
 	f.die()
 	foes.erase(f)
+	corpses.append(f)
 	kills += 1
 	if hero.flags.has("bloodlust"):
 		hero.rage = mini(hero.rage + 1, int(hero.flags["bloodlust"]))
@@ -2026,8 +2068,12 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 	p.vel = Vector3(sin(a) * spd, 7.0, cos(a) * spd)
 	p.settle = 0.75
 	var model_path: String = {"weapon": "res://assets/kaykit/weapons/sword_2handed_color.gltf", "helm": "res://assets/kaykit/graveyard/skull.gltf", "chest": "res://assets/kaykit/weapons/shield_badge_color.gltf", "legs": "res://assets/kaykit/weapons/shield_square_color.gltf", "trinket": "res://assets/kaykit/dungeon/key.gltf", "pet": "res://assets/kaykit/graveyard/skull.gltf", "trophy": "res://assets/kaykit/graveyard/skull_candle.gltf"}.get(it["slot"], "res://assets/kaykit/dungeon/coin_stack_small.gltf")
-	var m := KK.prop(model_path)
-	m.scale = Vector3.ONE * 1.3
+	# A weapon or offhand shows itself; worn pieces keep a stand-in.
+	var own_model := ""
+	if it["slot"] in ["weapon", "trinket"] and it.has("cls") and GearDB.LINES.has(str(it["cls"])):
+		own_model = str(GearDB.look(it)["model"])
+	var m := GearLook.prop_for(own_model) if own_model != "" else KK.prop(model_path)
+	m.scale = Vector3.ONE * (1.6 if own_model != "" else 1.3)
 	m.rotation = Vector3(0, randf() * TAU, PI * 0.5 if it["slot"] == "weapon" else 0.0)
 	m.position.y = 0.2
 	var holder := Node3D.new()
@@ -2057,6 +2103,7 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 			if it["rarity"] == "legendary":
 				Sfx.play("sparkle", 0.0)
 				Ui.buzz(60, 0.6)
+				_legendary_moment(Vector3(p.position.x, 0, p.position.z), it)
 			if it["rarity"] in ["rare", "legendary"]:
 				Sfx.play("rare_chime", 0.0, 0.9 if it["rarity"] == "legendary" else 1.0))
 	pickups.append(p)
@@ -2308,6 +2355,31 @@ func hitstop(t: float) -> void:
 
 func shake(v: float) -> void:
 	cam.add_trauma(v)
+
+
+## A super goes off: the camera pushes in, the screen washes in the hero's
+## color, its name rises over the hero, and the world holds its breath.
+func super_moment(at: Vector3) -> void:
+	var col: Color = hero.def["color"]
+	cam.punch = 0.1
+	hud.flash(Color(col.lightened(0.3), 0.3), 0.35)
+	fx.text(at + Vector3(0, 2.6, 0), str(hero.def["super_name"]).to_upper(), col.lightened(0.35), 1.3, 1.0)
+	hitstop(0.06)
+
+
+## A legendary falls: a pillar of light, the world slows a moment, its name.
+func _legendary_moment(at: Vector3, it: Dictionary) -> void:
+	var col := DB.rarity_color(it["rarity"])
+	fx.sky_bolt(at, col.lightened(0.3), 0.5, 18.0)
+	fx.ring(at, 4.0, col, 0.7, 0.15)
+	fx.burst(at + Vector3(0, 0.6, 0), col.lightened(0.2), 24, 7.0, 1.4)
+	fx.flash_light(at, col, 6.0, 10.0, 0.8)
+	hud.flash(Color(col, 0.18), 0.5)
+	cam.punch = maxf(cam.punch, 0.06)
+	if phase != "victory":
+		Engine.time_scale = 0.35
+		_real_hitstop = maxf(_real_hitstop, 0.35)
+	hud.event("%s!" % str(it["name"]), col.lightened(0.2), "crowned-skull")
 
 
 func banner(text: String, color := Color(1, 0.85, 0.5), sub := "") -> void:

@@ -10,6 +10,7 @@ const TELE := preload("res://src/fx/telegraph.gdshader")
 const BEAM := preload("res://src/fx/beam.gdshader")
 const SOFT := preload("res://src/fx/soft.gdshader")
 const SMOKE := preload("res://src/fx/smoke.gdshader")
+const TORNADO := preload("res://src/fx/tornado.gdshader")
 
 const FLAGS := GPUParticles3D.EMIT_FLAG_POSITION | GPUParticles3D.EMIT_FLAG_VELOCITY | GPUParticles3D.EMIT_FLAG_COLOR | GPUParticles3D.EMIT_FLAG_CUSTOM
 
@@ -225,6 +226,12 @@ func _process(delta: float) -> void:
 				o.light_energy = float(e["energy"]) * pow(1.0 - k, 2.0)
 			"beam":
 				pass
+			"tornado":
+				if is_instance_valid(e["follow"]):
+					n.position = (e["follow"] as Actor).flat_pos()
+				n.rotation.y -= delta * 9.0
+				var fade: float = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.85, 1.0, k))
+				(n.get_child(0) as GeometryInstance3D).set_instance_shader_parameter("fade", fade)
 		if k >= 1.0:
 			if e["kind"] == "num" or e["kind"] == "light":
 				n.visible = false
@@ -377,6 +384,38 @@ func beam(pos: Vector3, color: Color, height := 7.0) -> MeshInstance3D:
 	(n as GeometryInstance3D).set_instance_shader_parameter("tint", color)
 	(n as GeometryInstance3D).set_instance_shader_parameter("strength", 1.0)
 	return n
+
+
+## A column of fire spinning around `follow` for `dur` seconds (the
+## Barbarian's whirlwind). One cone, reused.
+func tornado(follow: Actor, color: Color, dur: float) -> void:
+	var n := _take("tornado", func():
+		var mi := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 2.4
+		cyl.bottom_radius = 0.9
+		cyl.height = 3.4
+		cyl.cap_top = false
+		cyl.cap_bottom = false
+		cyl.radial_segments = 24
+		cyl.rings = 4
+		mi.mesh = cyl
+		var m := ShaderMaterial.new()
+		m.shader = TORNADO
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_meta("pool", "tornado")
+		# The mesh is centred: lift it so the narrow end sits on the ground.
+		var holder := Node3D.new()
+		holder.add_child(mi)
+		mi.position.y = 1.7
+		holder.set_meta("pool", "tornado")
+		return holder)
+	n.position = follow.flat_pos()
+	var cone := n.get_child(0) as GeometryInstance3D
+	cone.set_instance_shader_parameter("tint", color)
+	cone.set_instance_shader_parameter("fade", 0.0)
+	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "tornado", "follow": follow})
 
 
 func release_beam(n: Node3D) -> void:

@@ -63,6 +63,7 @@ func run() -> int:
 		_ok("unique %s defined" % u, DB.UNIQUES.has(u))
 	_depth_tests()
 	_meta_tests()
+	_unique_names()
 	_gear_tests()
 	return _fails
 
@@ -72,22 +73,69 @@ func _gear_tests() -> void:
 	# Every part a gear stage names exists in its KayKit file, every weapon model loads.
 	var missing := []
 	var scenes := {}
+	# Every look: stages, their alternatives, set looks and unique looks.
+	var looks: Array = []
 	for cls in GearDB.LINES:
 		for slot in DB.SLOTS:
 			for st: Dictionary in GearDB.LINES[cls][slot]:
-				for spec: String in GearDB.expand(st.get("parts", [])):
-					var src := spec.get_slice("/", 0)
-					if not scenes.has(src):
-						scenes[src] = load(KK.CHAR_DIR + src + ".glb").instantiate()
-					if (scenes[src] as Node).find_child(GearDB.mesh_name(spec), true, false) == null:
-						missing.append(spec)
-				if st.has("model") and not ResourceLoader.exists(KK.WEAPON_DIR + str(st["model"])):
-					missing.append(st["model"])
+				looks.append(st)
+				looks.append_array(st.get("alts", []))
+	for sid in GearDB.SET_LOOKS:
+		_ok("set look %s is a set" % sid, DB.SETS.has(sid))
+		for cls in GearDB.LINES:
+			for slot in DB.SLOTS:
+				looks.append(GearDB.SET_LOOKS[sid]["cls"][cls][slot])
+	for u in GearDB.UNIQUE_LOOKS:
+		_ok("unique look %s is a unique" % u, DB.UNIQUES.has(u))
+		looks.append(GearDB.UNIQUE_LOOKS[u])
+	for st: Dictionary in looks:
+		for spec: String in GearDB.expand(st.get("parts", [])):
+			var src := spec.get_slice("/", 0)
+			if not scenes.has(src):
+				scenes[src] = load(KK.CHAR_DIR + src + ".glb").instantiate()
+			if (scenes[src] as Node).find_child(GearDB.mesh_name(spec), true, false) == null:
+				missing.append(spec)
+		var model := str(st.get("model", ""))
+		if model.begins_with("kit:"):
+			if not GearDB.KITS.has(model.trim_prefix("kit:")):
+				missing.append(model)
+			else:
+				for part: Array in GearDB.KITS[model.trim_prefix("kit:")]:
+					if not ResourceLoader.exists("res://assets/kaykit/" + str(part[0])):
+						missing.append(part[0])
+		elif model != "" and not ResourceLoader.exists(KK.WEAPON_DIR + model):
+			missing.append(model)
+		if st.has("icon") and not ResourceLoader.exists("res://assets/icons/%s.svg" % st["icon"]):
+			missing.append(st["icon"])
 	for n: Node in scenes.values():
 		n.free()
 	_ok("gear parts exist %s" % str(missing), missing.is_empty())
 	var it := Game.make_item("mage", "chest", 3, "rare")
-	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and str(it["name"]).ends_with("Mystic Robe Top"))
+	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and (str(it["name"]).ends_with("Mystic Robe Top") or str(it["name"]).ends_with("Mystic Ragged Robe")))
+	# Alternatives and set looks change the model and the name, never the stats.
+	it["look"] = 0
+	_ok("look 0 is the stage", GearDB.base_name(it) == "Mystic Robe Top")
+	it["look"] = 1
+	_ok("look 1 is the alternative", GearDB.base_name(it) == "Mystic Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
+	it["set"] = "hexer"
+	_ok("a set piece wears the set", GearDB.base_name(it) == "Mystic Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	var kn := Game.make_item("knight", "helm", 0, "common")
+	kn["look"] = 1
+	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Bronze Med Helm")
+	# The first higher material a hero wears is news once; lower ones never are.
+	Game.data = Game._fresh()
+	for sk in DB.SKILLS:
+		Game.data["skills"][sk] = DB.xp_for_level(40)
+	Game.new_tier = -1
+	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "helm", 0, "common"))["uid"]))
+	_ok("bronze is not a new tier", Game.new_tier == -1)
+	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "chest", 3, "common"))["uid"]))
+	_ok("mithril is a new tier", Game.new_tier == 3)
+	Game.new_tier = -1
+	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "legs", 2, "common"))["uid"]))
+	_ok("steel after mithril is not", Game.new_tier == -1)
+	Game.new_tier = -1
+	Game.data = Game._fresh()
 	Game.grant_item(it)
 	_ok("wrong class blocked", Game.wear_block("knight", it) != "")
 	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Requires Magic"))
@@ -104,8 +152,11 @@ func _gear_tests() -> void:
 	var v3 := {"version": 3, "tier_unlocked": 2, "tier": 1, "stats": {"best": {"1": 80.0, "depths2": 90.0, "t1": 70.0, "rush2_mage": 60.0, "descent_mage": 7, "wildplace_knight": 2}}}
 	Game._migrate_v3(v3)
 	var b3: Dictionary = v3["stats"]["best"]
-	_ok("v3 tiers move up the ladder", v3["tier_unlocked"] == 4 and v3["tier"] == 2 and v3["version"] == Game.SAVE_VERSION)
+	_ok("v3 tiers move up the ladder", v3["tier_unlocked"] == 4 and v3["tier"] == 2 and v3["version"] == 4)
 	_ok("v3 best keys follow", b3.has("2") and b3.has("depths4") and b3.has("t2") and b3.has("rush4_mage") and b3.has("descent_mage") and b3.has("wildplace_knight"))
+	Game._migrate_v4(v3)
+	var mt3: Dictionary = v3["mode_tiers"]
+	_ok("v4 modes keep the tiers they won", v3["version"] == Game.SAVE_VERSION and int(mt3["horde"]) == 4 and int(mt3["trial"]) == 3 and int(mt3["rush"]) == 4 and int(mt3["descent"]) == 4 and not mt3.has("wild"))
 	var sh0 := int(Game.hero(Game.hero_id())["shards"])
 	Game.open_chest("gold")
 	_ok("chest shards go to the hero played", int(Game.hero(Game.hero_id())["shards"]) - sh0 >= int(DB.CHESTS["gold"]["shards"] * DB.SHARDS_TO_PLAYED))
@@ -243,6 +294,17 @@ func _depth_tests() -> void:
 	_ok("modes locked until a win", not Game.mode_unlocked("descent") and Game.mode_unlocked("horde"))
 	Game.data["tier_unlocked"] = 1
 	_ok("modes open after a win", Game.mode_unlocked("descent") and Game.mode_unlocked("rush"))
+	# Difficulties open per mode: a Horde win does not open Hard in Boss Rush.
+	Game.data["mode_tiers"] = {}
+	Game.set_mode("horde")
+	Game.finish_hunt({"win": true, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"})
+	_ok("a win opens the next tier in its mode", Game.mode_tier_unlocked("horde") == 1 and Game.mode_tier_unlocked("rush") == 0)
+	Game.set_mode("rush")
+	Game.set_tier(1)
+	_ok("other modes stay shut", Game.tier() == 0)
+	Game.finish_hunt({"win": false, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
+	_ok("a Descent boss opens the Descent's next tier", Game.mode_tier_unlocked("descent") == 1)
+	Game.set_mode("horde")
 	Game.data["clue"] = {"step": 0, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 	var r := {"win": true, "tier": 1, "hero": "knight", "gold": 400, "elites": 3, "kills": 10, "xp": {}, "items": [], "dashes": 3, "mode": "horde", "time": 100.0, "zone": "barrow"}
 	Game.finish_hunt(r)
@@ -253,3 +315,33 @@ func _depth_tests() -> void:
 	var depth_r := {"win": false, "tier": 0, "hero": "mage", "gold": 5, "kills": 5, "elites": 0, "xp": {}, "items": [], "mode": "descent", "depth": 6}
 	Game.finish_hunt(depth_r)
 	_ok("deepest descent kept", Game.best_depth("mage") == 6)
+
+
+## Every `%Name` a scene script looks up must be marked unique in its .tscn:
+## a missing flag is a null at runtime (tapping the campfire crashed the app).
+func _unique_names() -> void:
+	var missing: Array = []
+	var dirs: Array = ["res://src"]
+	while not dirs.is_empty():
+		var dir: String = dirs.pop_back()
+		for sub in DirAccess.get_directories_at(dir):
+			dirs.append(dir.path_join(sub))
+		for f in DirAccess.get_files_at(dir):
+			if not f.ends_with(".tscn") or not FileAccess.file_exists(dir.path_join(f.get_basename() + ".gd")):
+				continue
+			var uniq := {}
+			var cur := ""
+			for line in FileAccess.get_file_as_string(dir.path_join(f)).split("\n"):
+				if line.begins_with("[node name=\""):
+					cur = line.get_slice("\"", 1)
+				elif line.begins_with("["):
+					cur = ""
+				elif cur != "" and line.strip_edges() == "unique_name_in_owner = true":
+					uniq[cur] = true
+			var re := RegEx.create_from_string("(?<![\\w\"'])%([A-Z]\\w*)")
+			for m in re.search_all(FileAccess.get_file_as_string(dir.path_join(f.get_basename() + ".gd"))):
+				if not uniq.has(m.get_string(1)):
+					missing.append("%s:%s" % [f, m.get_string(1)])
+	if not missing.is_empty():
+		print("missing unique names: ", missing)
+	_ok("scene unique names", missing.is_empty())
