@@ -53,196 +53,265 @@ func _build_heroes(s: Sheet) -> void:
 	var id2 := _shown_hero
 	var d2: Dictionary = DB.HEROES[id2]
 	var h2 := Game.hero(id2)
-	var st := Game.hero_stats(id2)
-	# Identity.
+	# Who they are.
 	var head := VBoxContainer.new()
-	head.add_theme_constant_override("separation", 2)
-	var nm2 := Ui.label("%s — %s" % [d2["name"], d2["title"]], "Heading")
+	head.add_theme_constant_override("separation", 0)
+	var nm2 := Ui.label(d2["name"], "Title")
+	nm2.add_theme_font_size_override("font_size", 40)
 	nm2.add_theme_color_override("font_color", d2["color"].lightened(0.3))
 	head.add_child(nm2)
-	var bl := Ui.label(d2["blurb"], "Body")
+	var bl := Ui.label("%s · %s" % [d2["title"], d2["blurb"]], "Body")
+	bl.add_theme_color_override("font_color", Color(0.66, 0.63, 0.58))
 	bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	head.add_child(bl)
 	b.add_child(head)
-	# Stats.
+	# One sheet, three tabs: everything about a hero used to be one long scroll.
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	for t in [["stats", "Stats"], ["progress", "Progress"], ["looks", "Looks"]]:
+		var tb := Button.new()
+		tb.theme_type_variation = &"Choice"
+		tb.toggle_mode = true
+		tb.button_pressed = _hero_tab == t[0]
+		tb.focus_mode = Control.FOCUS_NONE
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tb.custom_minimum_size = Vector2(0, 64)
+		tb.text = t[1]
+		if t[0] == "progress" and (Game.can_upgrade(id2) or Game.talent_points(id2) > 0):
+			tb.text += " •"
+		var tid: String = t[0]
+		tb.pressed.connect(func():
+			_hero_tab = tid
+			Sfx.play("ui_tap", -6.0)
+			s.rebuild())
+		tabs.add_child(tb)
+	b.add_child(tabs)
+	if not h2["unlocked"] and _hero_tab != "stats":
+		_hero_locked(s, id2)
+		return
+	match _hero_tab:
+		"progress":
+			_hero_progress(s, id2)
+		"looks":
+			_hero_looks(s, id2)
+		_:
+			_hero_stats(s, id2)
+
+
+func _hero_stats(s: Sheet, id2: String) -> void:
+	var b := s.body
+	var d2: Dictionary = DB.HEROES[id2]
+	var h2 := Game.hero(id2)
+	var st := Game.hero_stats(id2)
 	var card := _card()
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	for pair in [
+	var sv0 := VBoxContainer.new()
+	sv0.add_theme_constant_override("separation", 0)
+	var pairs := [
 		["Health", "%d" % int(st["hp"]), "heart-organ"], ["Damage", "%d" % int(st["dmg"]), "sword-wound"],
-		["Attacks / sec", "%.2f" % st["rate"], "lightning-tear"], ["Move speed", "%.1f" % st["speed"], "running-shoe"],
-		["Critical", "%d%%" % int(st["crit"] * 100.0), "bullseye"], ["Armor", "%d%%" % int(DB.armor_dr(st["armor"]) * 100.0), "checked-shield"],
-	]:
-		var r := _row([Ui.icon_rect(pair[2], 26, Color(0.85, 0.72, 0.48)), Ui.label(pair[0], "Small")], 8)
-		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var val := Ui.label(pair[1], "Value", HORIZONTAL_ALIGNMENT_RIGHT)
-		val.add_theme_font_size_override("font_size", 24)
-		val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		["Attacks / sec", "%.2f" % st["rate"], "lightning-tear"], ["Critical", "%d%%" % int(st["crit"] * 100.0), "bullseye"],
+		["Armor", "%d%%" % int(DB.armor_dr(st["armor"]) * 100.0), "checked-shield"], ["Move speed", "%.1f" % st["speed"], "running-shoe"],
+	]
+	for i in pairs.size():
+		var pair: Array = pairs[i]
+		var r := _row([Ui.icon_rect(pair[2], 28, Color(0.85, 0.72, 0.48)), Ui.label(pair[0], "Body")], 12)
+		r.custom_minimum_size = Vector2(0, 58)
+		r.add_child(_spacer())
+		var val := Ui.label(pair[1], "Value")
+		val.add_theme_font_size_override("font_size", 26)
 		r.add_child(val)
-		grid.add_child(r)
-	card.add_child(grid)
+		sv0.add_child(r)
+		if i < pairs.size() - 1:
+			sv0.add_child(HSeparator.new())
+	card.add_child(sv0)
 	b.add_child(card)
 	# Super.
 	var sc := _card()
-	var srow := _row([_disc({"slam": "sun", "whirlwind": "whirlwind", "volley": "arrow-cluster", "meteor": "meteor-impact"}[d2["super"]], Color(1.0, 0.6, 0.25), 64)])
+	var disc := _disc({"slam": "sun", "whirlwind": "whirlwind", "volley": "arrow-cluster", "meteor": "meteor-impact"}[d2["super"]], Color(1.0, 0.6, 0.25), 64)
+	disc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var srow := _row([disc])
 	var sv := VBoxContainer.new()
 	sv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sv.add_theme_constant_override("separation", 0)
-	sv.add_child(Ui.label("SUPER · " + str(d2["super_name"]).to_upper(), "Caption"))
+	sv.add_child(Ui.label("SUPER", "Caption"))
+	sv.add_child(Ui.label(str(d2["super_name"]), "Heading"))
 	var sd := Ui.label(d2["super_desc"], "Body")
 	sd.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sv.add_child(sd)
 	srow.add_child(sv)
 	sc.add_child(srow)
 	b.add_child(sc)
-	# Upgrade.
-	if h2["unlocked"]:
-		var uc := _card()
-		var uv := VBoxContainer.new()
-		var cost := Game.upgrade_cost(id2)
-		if cost.is_empty():
-			uv.add_child(Ui.label("Max level", "Heading", HORIZONTAL_ALIGNMENT_CENTER))
-		else:
-			var top := _row([Ui.label("Level %d → %d" % [int(h2["level"]), int(h2["level"]) + 1], "Heading"), _spacer(), Ui.label("+%d%% health and damage" % int(DB.LEVEL_POWER * 100.0), "Small")])
-			uv.add_child(top)
-			var ready_up: bool = int(h2["shards"]) >= int(cost["shards"])
-			var pb := ProgressBar.new()
-			pb.theme_type_variation = &"ProgressBar" if ready_up else &"XPBar"
-			pb.custom_minimum_size = Vector2(0, 30)
-			pb.max_value = cost["shards"]
-			pb.value = mini(int(h2["shards"]), cost["shards"])
-			pb.show_percentage = false
-			var pl := Ui.label("Ready" if ready_up else "%d / %d shards" % [int(h2["shards"]), cost["shards"]], "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-			pl.add_theme_font_size_override("font_size", 19)
-			pl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			pb.add_child(pl)
-			uv.add_child(pb)
-			var ub := Button.new()
-			ub.theme_type_variation = "GoldButton"
-			ub.text = "Upgrade · %d gold" % cost["gold"]
-			ub.icon = Ui.icon("upgrade")
-			ub.custom_minimum_size = Vector2(0, 84)
-			ub.focus_mode = Control.FOCUS_NONE
-			ub.disabled = not Game.can_upgrade(id2)
-			ub.pressed.connect(func():
-				if Game.upgrade(id2):
-					Sfx.play("levelup", 0.0)
-					lobby.show_hero(id2)
-					s.rebuild())
-			uv.add_child(ub)
-		uc.add_child(uv)
-		b.add_child(uc)
-		# Mastery and rating: progress that every hunt with this hero moves.
-		var mc := _card()
-		var mv := VBoxContainer.new()
-		mv.add_theme_constant_override("separation", 4)
-		var nxt := Game.mastery_next(id2)
-		mv.add_child(_row([Ui.icon_rect("round-star", 34, Color(1.0, 0.8, 0.35)), Ui.label("Mastery · %s" % Game.mastery_title(id2), "Heading"), _spacer(), Ui.label("Rating %d" % int(h2.get("rating", 0)), "Value")], 10))
-		var mb := ProgressBar.new()
-		mb.theme_type_variation = &"XPBar"
-		mb.show_percentage = false
-		mb.custom_minimum_size = Vector2(0, 12)
-		var rank := int(h2.get("mastery_rank", 0))
-		var lo := int(DB.MASTERY[rank]["at"])
-		mb.value = 100.0 if nxt < 0 else float(int(h2.get("mastery", 0)) - lo) / float(nxt - lo) * 100.0
-		mv.add_child(mb)
-		var ml := Ui.label("Top rank" if nxt < 0 else "%d / %d to %s · ranks pay gold, shards and weapon glows" % [int(h2.get("mastery", 0)), nxt, DB.MASTERY[rank + 1]["title"]], "Small")
-		ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		mv.add_child(ml)
-		var rl := Ui.label("Rating: wins add, losses take away. Every %d pays out." % DB.RATING_STEP, "Small")
-		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		mv.add_child(rl)
-		mc.add_child(mv)
-		b.add_child(mc)
-		# Weapon glows: cosmetics bought with gold (or earned by mastery).
-		b.add_child(Ui.label("WEAPON GLOW", "Caption"))
-		var gl := HFlowContainer.new()
-		gl.add_theme_constant_override("h_separation", 8)
-		gl.add_theme_constant_override("v_separation", 8)
-		for g in [""] + DB.GLOW_ORDER:
-			var gb := Button.new()
-			gb.toggle_mode = true
-			gb.focus_mode = Control.FOCUS_NONE
-			gb.button_pressed = str(h2.get("glow", "")) == g
-			gb.custom_minimum_size = Vector2(0, 60)
-			var owned: bool = g == "" or g in h2.get("glows", [])
-			gb.text = "None" if g == "" else (str(DB.GLOWS[g]["name"]) if owned else "%s · %s" % [DB.GLOWS[g]["name"], Ui.fmt_num(int(DB.GLOWS[g]["gold"]))])
-			if g != "":
-				gb.add_theme_color_override("font_color", Color(DB.GLOWS[g]["color"], 1.0).lightened(0.3))
-			var gid: String = g
-			gb.pressed.connect(func():
-				if gid == "" or gid in Game.hero(id2)["glows"]:
-					Game.set_glow(id2, gid)
-				elif not Game.buy_glow(id2, gid):
-					Sfx.play("ui_error", -6.0)
-					s.rebuild()
-					return
-				else:
-					Sfx.play("coin", 0.0)
-				lobby.show_hero(id2)
-				refresh()
-				s.rebuild())
-			gl.add_child(gb)
-		b.add_child(gl)
-		# Companion: another hero of the band fights at your side.
-		var ally := str(Game.data.get("ally", ""))
-		var ab := Button.new()
-		ab.theme_type_variation = &"CardButton"
-		ab.focus_mode = Control.FOCUS_NONE
-		ab.custom_minimum_size = Vector2(0, 72)
-		ab.icon = Ui.icon("crossed-swords")
-		ab.text = "Companion: %s (tap to change)" % (DB.HEROES[ally]["name"] if ally != "" else "none")
-		ab.pressed.connect(func():
-			var pool: Array = [""] + DB.HERO_ORDER.filter(func(x): return Game.hero(x)["unlocked"])
-			var i := pool.find(str(Game.data.get("ally", "")))
-			Game.data["ally"] = pool[(i + 1) % pool.size()]
-			Game.save()
-			Sfx.play("ui_toggle", -4.0)
-			s.rebuild())
-		b.add_child(ab)
-		# Talents: a point per level, spent down three paths.
-		var pts := Game.talent_points(id2)
-		var tb := Button.new()
-		tb.text = "Talents · %d point%s" % [pts, "" if pts == 1 else "s"] if pts > 0 else "Talents"
-		tb.theme_type_variation = &"GoldButton" if pts > 0 else &"CardButton"
-		tb.icon = Ui.icon("round-star")
-		tb.custom_minimum_size = Vector2(0, 80)
-		tb.focus_mode = Control.FOCUS_NONE
-		tb.pressed.connect(func(): open_sheet("talents"))
-		b.add_child(tb)
-		# Gear: what this hero wears at a glance, and a way into the equipment screen.
-		b.add_child(Ui.label("GEAR", "Caption"))
-		var gear := _card()
-		var gv := VBoxContainer.new()
-		gv.add_theme_constant_override("separation", 12)
-		var worn_n := 0
-		var gear_power := 0
-		for slot in DB.SLOTS:
-			var worn := Game.equipped(id2, slot)
-			if not worn.is_empty():
-				worn_n += 1
-				gear_power += Game.item_power(worn)
-		gv.add_child(_row([Ui.icon_rect("breastplate", 40, Color(0.85, 0.72, 0.48)), Ui.label("Gear power %d" % gear_power, "Heading"), _spacer(), Ui.label("%d / %d slots" % [worn_n, DB.SLOTS.size()], "Small")], 12))
-		var open_eq := Button.new()
-		open_eq.text = "Equipment"
-		open_eq.theme_type_variation = "PrimaryButton"
-		open_eq.custom_minimum_size = Vector2(0, 80)
-		open_eq.focus_mode = Control.FOCUS_NONE
-		open_eq.pressed.connect(func():
-			s.close()
-			await get_tree().create_timer(0.25).timeout
-			open_equipment())
-		gv.add_child(open_eq)
-		gear.add_child(gv)
-		b.add_child(gear)
+	if not h2["unlocked"]:
+		_hero_locked(s, id2)
+		return
+	# Gear: what this hero wears at a glance, and a way into the equipment screen.
+	b.add_child(Ui.label("GEAR", "Caption"))
+	var gear := _card()
+	var gv := VBoxContainer.new()
+	gv.add_theme_constant_override("separation", 12)
+	var worn_n := 0
+	var gear_power := 0
+	for slot in DB.SLOTS:
+		var worn := Game.equipped(id2, slot)
+		if not worn.is_empty():
+			worn_n += 1
+			gear_power += Game.item_power(worn)
+	gv.add_child(_row([Ui.icon_rect("breastplate", 40, Color(0.85, 0.72, 0.48)), Ui.label("Gear power %d" % gear_power, "Heading"), _spacer(), Ui.label("%d / %d slots" % [worn_n, DB.SLOTS.size()], "Small")], 12))
+	var open_eq := Button.new()
+	open_eq.text = "Equipment"
+	open_eq.theme_type_variation = "PrimaryButton"
+	open_eq.custom_minimum_size = Vector2(0, 80)
+	open_eq.focus_mode = Control.FOCUS_NONE
+	open_eq.pressed.connect(func():
+		s.close()
+		await get_tree().create_timer(0.25).timeout
+		open_equipment())
+	gv.add_child(open_eq)
+	gear.add_child(gv)
+	b.add_child(gear)
+
+
+func _hero_progress(s: Sheet, id2: String) -> void:
+	var b := s.body
+	var d2: Dictionary = DB.HEROES[id2]
+	var h2 := Game.hero(id2)
+	var uc := _card()
+	var uv := VBoxContainer.new()
+	var cost := Game.upgrade_cost(id2)
+	if cost.is_empty():
+		uv.add_child(Ui.label("Max level", "Heading", HORIZONTAL_ALIGNMENT_CENTER))
 	else:
-		var lc := _card()
-		var ll := Ui.label("Locked — " + ("clear Veteran, or gather 20 shards from chests." if d2["unlock"] == "veteran" else "gather 20 shards from chests."), "Body")
-		ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		lc.add_child(ll)
-		b.add_child(lc)
+		var top := _row([Ui.label("Level %d → %d" % [int(h2["level"]), int(h2["level"]) + 1], "Heading"), _spacer(), Ui.label("+%d%% health and damage" % int(DB.LEVEL_POWER * 100.0), "Small")])
+		uv.add_child(top)
+		var ready_up: bool = int(h2["shards"]) >= int(cost["shards"])
+		var pb := ProgressBar.new()
+		pb.theme_type_variation = &"ProgressBar" if ready_up else &"XPBar"
+		pb.custom_minimum_size = Vector2(0, 30)
+		pb.max_value = cost["shards"]
+		pb.value = mini(int(h2["shards"]), cost["shards"])
+		pb.show_percentage = false
+		var pl := Ui.label("Ready" if ready_up else "%d / %d shards" % [int(h2["shards"]), cost["shards"]], "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
+		pl.add_theme_font_size_override("font_size", 19)
+		pl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		pb.add_child(pl)
+		uv.add_child(pb)
+		var ub := Button.new()
+		ub.theme_type_variation = "GoldButton"
+		ub.text = "Upgrade · %d gold" % cost["gold"]
+		# Say what is missing rather than showing a dead button.
+		if not ready_up:
+			ub.text = "Need %d more shards · win hunts as %s" % [int(cost["shards"]) - int(h2["shards"]), d2["name"]]
+			ub.theme_type_variation = "CardButton"
+			ub.icon = null
+		elif Game.gold() < int(cost["gold"]):
+			ub.text = "Need %s more gold" % Ui.fmt_num(int(cost["gold"]) - Game.gold())
+			ub.theme_type_variation = "CardButton"
+		ub.icon = Ui.icon("upgrade")
+		ub.custom_minimum_size = Vector2(0, 84)
+		ub.focus_mode = Control.FOCUS_NONE
+		ub.disabled = not Game.can_upgrade(id2)
+		ub.pressed.connect(func():
+			if Game.upgrade(id2):
+				Sfx.play("levelup", 0.0)
+				lobby.show_hero(id2)
+				s.rebuild())
+		uv.add_child(ub)
+	uc.add_child(uv)
+	b.add_child(uc)
+	# Mastery and rating: progress that every hunt with this hero moves.
+	var mc := _card()
+	var mv := VBoxContainer.new()
+	mv.add_theme_constant_override("separation", 4)
+	var nxt := Game.mastery_next(id2)
+	mv.add_child(_row([Ui.icon_rect("round-star", 34, Color(1.0, 0.8, 0.35)), Ui.label("Mastery · %s" % Game.mastery_title(id2), "Heading"), _spacer(), Ui.label("Rating %d" % int(h2.get("rating", 0)), "Value")], 10))
+	var mb := ProgressBar.new()
+	mb.theme_type_variation = &"XPBar"
+	mb.show_percentage = false
+	mb.custom_minimum_size = Vector2(0, 12)
+	var rank := int(h2.get("mastery_rank", 0))
+	var lo := int(DB.MASTERY[rank]["at"])
+	mb.value = 100.0 if nxt < 0 else float(int(h2.get("mastery", 0)) - lo) / float(nxt - lo) * 100.0
+	mv.add_child(mb)
+	var ml := Ui.label("Top rank" if nxt < 0 else "%d / %d to %s · ranks pay gold, shards and weapon glows" % [int(h2.get("mastery", 0)), nxt, DB.MASTERY[rank + 1]["title"]], "Small")
+	ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mv.add_child(ml)
+	var rl := Ui.label("Rating: wins add, losses take away. Every %d pays out." % DB.RATING_STEP, "Small")
+	rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mv.add_child(rl)
+	mc.add_child(mv)
+	b.add_child(mc)
+	# Talents: a point per level, spent down three paths.
+	var pts := Game.talent_points(id2)
+	var tb := Button.new()
+	tb.text = "Talents · %d point%s" % [pts, "" if pts == 1 else "s"] if pts > 0 else "Talents"
+	tb.theme_type_variation = &"GoldButton" if pts > 0 else &"CardButton"
+	tb.icon = Ui.icon("round-star")
+	tb.custom_minimum_size = Vector2(0, 80)
+	tb.focus_mode = Control.FOCUS_NONE
+	tb.pressed.connect(func(): open_sheet("talents"))
+	b.add_child(tb)
+
+
+func _hero_looks(s: Sheet, id2: String) -> void:
+	var b := s.body
+	var d2: Dictionary = DB.HEROES[id2]
+	var h2 := Game.hero(id2)
+	# Weapon glows: cosmetics bought with gold (or earned by mastery).
+	b.add_child(Ui.label("WEAPON GLOW", "Caption"))
+	var gl := HFlowContainer.new()
+	gl.add_theme_constant_override("h_separation", 8)
+	gl.add_theme_constant_override("v_separation", 8)
+	for g in [""] + DB.GLOW_ORDER:
+		var gb := Button.new()
+		gb.toggle_mode = true
+		gb.focus_mode = Control.FOCUS_NONE
+		gb.button_pressed = str(h2.get("glow", "")) == g
+		gb.custom_minimum_size = Vector2(0, 60)
+		var owned: bool = g == "" or g in h2.get("glows", [])
+		gb.text = "None" if g == "" else (str(DB.GLOWS[g]["name"]) if owned else "%s · %s" % [DB.GLOWS[g]["name"], Ui.fmt_num(int(DB.GLOWS[g]["gold"]))])
+		if g != "":
+			gb.add_theme_color_override("font_color", Color(DB.GLOWS[g]["color"], 1.0).lightened(0.3))
+		var gid: String = g
+		gb.pressed.connect(func():
+			if gid == "" or gid in Game.hero(id2)["glows"]:
+				Game.set_glow(id2, gid)
+			elif not Game.buy_glow(id2, gid):
+				Sfx.play("ui_error", -6.0)
+				s.rebuild()
+				return
+			else:
+				Sfx.play("coin", 0.0)
+			lobby.show_hero(id2)
+			refresh()
+			s.rebuild())
+		gl.add_child(gb)
+	b.add_child(gl)
+	# Companion: another hero of the band fights at your side.
+	var ally := str(Game.data.get("ally", ""))
+	var ab := Button.new()
+	ab.theme_type_variation = &"CardButton"
+	ab.focus_mode = Control.FOCUS_NONE
+	ab.custom_minimum_size = Vector2(0, 72)
+	ab.icon = Ui.icon("crossed-swords")
+	ab.text = "Companion: %s (tap to change)" % (DB.HEROES[ally]["name"] if ally != "" else "none")
+	ab.pressed.connect(func():
+		var pool: Array = [""] + DB.HERO_ORDER.filter(func(x): return Game.hero(x)["unlocked"])
+		var i := pool.find(str(Game.data.get("ally", "")))
+		Game.data["ally"] = pool[(i + 1) % pool.size()]
+		Game.save()
+		Sfx.play("ui_toggle", -4.0)
+		s.rebuild())
+	b.add_child(ab)
+
+
+func _hero_locked(s: Sheet, id2: String) -> void:
+	var b := s.body
+	var d2: Dictionary = DB.HEROES[id2]
+	var lc := _card()
+	var ll := Ui.label("Locked — " + ("clear Veteran, or gather 20 shards from chests." if d2["unlock"] == "veteran" else "gather 20 shards from chests."), "Body")
+	ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lc.add_child(ll)
+	b.add_child(lc)
 
 
 ## The talent tree: three columns, each a path read top to bottom.
