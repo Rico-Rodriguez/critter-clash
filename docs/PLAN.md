@@ -813,6 +813,104 @@ brutes, a champion, a shrine or guarded treasure; the way on is sealed until
 the room is clear; the boss waits at the end. The autopilot plays it
 (`--bot --mode=trial`).
 
+## Phase 9 — UI and UX pass (user feedback, round 4)
+
+Feedback: the camp screen is cluttered, the hunt HUD is cluttered, and the
+equipment screen is not clear. The full review, with the reasons behind each
+task, is `docs/review-ux-and-depth.md` (Part 1). Take every shot at
+`720x1560` with `--notch` (run `tools/dev/godot-gpu.sh --resolution 720x1560
+--fixed-fps 30 -- --capture --notch --shots=... --out=$PWD/shots`).
+
+### [x] 9.1 Camp: one expedition card, bounties on the home screen
+Mode, location and difficulty rows replaced by one `Expedition` card (theme
+`CardButton`) that opens an Expedition sheet (`_build_expedition` in
+`lobby_ui.gd`): one card per choice with what it means, or how to unlock it.
+Bounties moved from the tab bar to a round button with a red `Badge` count and
+"Bounties n / 3". Tab bar: Heroes, Gear, Skills, Log. Red `Badge` dots replace
+the green squares. New capture shot: `expedition`.
+
+### [x] 9.2 HUD: streak and blessings inside the safe area
+Bug: under a notch the kill-streak label covered the pause button and clock.
+The streak and shrine-buff labels now sit in a row inside `%Safe/Top`.
+
+### [ ] 9.3 HUD: one bar at the top, HP on the hero
+Files: `src/ui/hud.tscn` + `hud.gd`, `src/hunt/hero.gd`.
+- A world-space HP bar under the hero (a `Sprite3D` or `SubViewport`-free
+  quad with a shader; one node, moved with the hero) with the run level as a
+  chip at its left end. Remove `HPWrap` from the top row.
+- XP becomes a ring around the portrait medal (a `TextureProgressBar` with a
+  ring texture, or a shader on `Medal`). Remove the XP row; gold moves to a
+  chip under the clock.
+- The top strip is `[portrait+XP ring] [objective bar] [pause / clock]`. The
+  boss bar replaces the objective bar in the same spot.
+- An event feed on the left edge (VBox, max 3 rows, icon + short text, fades
+  after 2 s) takes the streak, shrine and champion messages. `banner()` stays
+  for: champion rises, boss wakes, room clear, victory.
+- Joystick ghost only while the tutorial flag is unset or a finger is down.
+Verify: shots `hunt,boss,shrine` at 720x1560 `--notch`. Nothing but the
+objective/boss bar and the event feed sits between the top strip and the hero.
+
+### [ ] 9.4 Gear screen: rarity is the only color, item power on every tile
+Files: `src/lobby/equipment.gd` (move layout into a new `equipment.tscn`
+while here), `src/data/db.gd`, `src/data/gear_db.gd`.
+- Tile: frame + soft background in the rarity color; icon in one neutral
+  tone; under it the tier tag ("T4 · Mithril"); top-right the item power, or a
+  green "▲ 42" (score gain) when it beats what is worn. Locked tiles say the
+  requirement in red ("Attack 20").
+- "New": one red `Badge` dot, cleared when that slot filter is opened.
+- Slot naming: `trinket` is shown as "Offhand" with the shield icon
+  everywhere (`DB.SLOT_NAME`, `DB.SLOT_ICON`, the filter row, the Heroes sheet).
+- A stat strip under the name (Health, Damage, Armor, Attack speed) that shows
+  `33 → 41 ▲` while an item is selected.
+- Item details open as a bottom sheet over the bag; the 3D hero never resizes.
+- "Requires Attack 20" wording; "Other heroes" tab hidden when empty; "14 / 48"
+  bag count by the filters.
+Verify: shots `equip,equipdetail`. Read them and check every tile's color
+matches its rarity and the selected item's stat deltas are visible.
+
+### [ ] 9.5 Heroes sheet and sheet sizes
+Files: `src/lobby/lobby_ui.gd`, `src/lobby/sheet.gd`.
+- Shard bar: "Ready" (gold fill) when shards ≥ cost; never "9 / 6".
+- Replace the gear circles with "Gear power N · 3 / 5 slots" and a link.
+- Roster tiles: power number and a red `Badge` on a hero that can level up.
+- `Sheet.open` sizes the panel to its content, capped at 0.86 of the screen.
+- Collection log: scroll hint (fade at the bottom edge) when content overflows.
+Verify: shots `heroes,bounties,skills,log`.
+
+### [ ] 9.6 Camp follow-ups
+- Profile chip (portrait + combat level) top-left opens Skills and Log.
+- Tapping the hero (or swiping) opens the roster.
+- Pending chest: a chest slot on a right-side rail instead of a full-width
+  button that pushes the layout. Center the chest-open prompt.
+Verify: shots `lobby,chest`.
+
+---
+
+## Phase 10 — Depth (proposals; ask the user before starting each)
+
+The reasoning and the details are in `docs/review-ux-and-depth.md`, Part 2.
+Each item needs its own short plan (files, data, save keys with defaults in
+`Game._fresh()`) before code. Recommended order:
+
+- [ ] 10.1 **Talent trees**: three paths per hero, a point per hero level
+  (`HERO_MAX_LEVEL` 10 → 30), minor / notable / keystone nodes, free respec.
+- [ ] 10.2 **Endless Descent**: horde without end, depth rises every 60 s,
+  personal best per hero.
+- [ ] 10.3 **Boss Rush**: every boss in a row, card pick between fights,
+  best time.
+- [ ] 10.4 **Prayer**: bury bones, unlock OSRS prayers, take 1–2 into a hunt.
+- [ ] 10.5 **Slayer**: tasks from a Slayer Master, points for unlocks and
+  superior foes.
+- [ ] 10.6 **Smithing**: smelt gear into bars, smith or reforge pieces.
+- [ ] 10.7 **Renown road**: one progression track on the camp screen that
+  hands out today's scattered unlocks in order.
+- [ ] 10.8 **Weekly Omen**: one rule twist a week, better chest.
+- [ ] 10.9 **Treasure Trails**: clue scroll drops with multi-step goals.
+- [ ] 10.10 **The Wilderness**: Hunt Royale-style shared shrinking map with
+  bot heroes.
+- In-run variety (any time, small): cursed shrine, omen choice at 50% souls,
+  five more elite affixes, a potion, one new boss pattern per tier.
+
 ## Next up
 
 Ordered. Do the first item before the rest: it is the only one that needs a
@@ -831,11 +929,7 @@ real phone. Everything else is tuned by the autopilot and by eye.
 4. **Nightmare and Veteran balance.** The numbers in CHANGELOG 2026-10-22 came
    from autopilot runs only. Tune in `src/data/db.gd` `TIERS`. Watch Ranger on
    Trial: it has won on Normal but has not been tested on higher tiers.
-5. **UI polish pass (task #12).** The user still finds some screens clunky
-   beyond the clipping fix. Open items: capture the hunt, level-up and boss
-   screens with `tools/dev/godot-gpu.sh --resolution 720x1560 -- --capture
-   --notch --shots=hunt,levelup,boss`; check every sheet's tap targets are at
-   least 56 px tall.
+5. **UI polish pass.** Now Phase 9 above (9.1 and 9.2 done; 9.3–9.6 next).
 6. **Difficulty and AI (task #13).** The complaint was that the hunt is brain
    dead. The autopilot still kites well. Ideas, in order of cost: foes that
    cut off retreat paths; a Nightmare-only fast hound pack; elites that

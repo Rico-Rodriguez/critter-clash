@@ -10,6 +10,32 @@ version is 3.
 
 ---
 
+## 2026-10-22: A cleaner camp (UI pass, part 1)
+
+On branch `claude/game-codebase-review-m1uchq`, not yet on `main`.
+
+### Changed
+- **Camp screen:** the three choice rows (mode, location, difficulty) are now
+  one expedition card above the Play button. Tap it to open the Expedition
+  sheet, where each choice says what it means (for example "Foes ×2.6 health,
+  ×2.1 damage · loot ×1.6 · Gold Chest") or how to unlock it.
+- **Bounties** moved from the tab bar to a button under the top bar, with a red
+  badge counting rewards to claim and a "Bounties 1 / 3" line.
+- Tab bar: Heroes, Gear (was Bag), Skills, Log.
+- "Something new" markers are red round badges instead of green squares.
+
+### Fixed
+- On iPhones with a notch, the kill-streak counter covered the pause button
+  and the clock.
+
+### Docs
+- `docs/review-ux-and-depth.md`: a review of every screen, and a proposal for
+  more depth (talent trees, OSRS-style Prayer, Slayer and Smithing, Endless
+  Descent and Boss Rush modes, a renown road). Tasks are Phases 9 and 10 in
+  `docs/PLAN.md`.
+
+---
+
 ## 2026-10-22: The Long Road, class powers, gear v2
 
 Commits on `main`: `2d2254b`, `f6bd479`, `565f234`, `c5ae099`.
