@@ -58,24 +58,20 @@ func setup(h: Hunt) -> void:
 	%Toast.modulate.a = 0.0
 	%Scroll.modulate.a = 0.0
 	%ObjTitle.text = h.objective_title()
+	# Blessings and the kill streak share one row under the bars, inside the
+	# safe area (fixed offsets landed on the pause button under a notch).
+	var feed := HBoxContainer.new()
+	feed.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	%Safe.get_node("Top").add_child(feed)
 	_buffs = Ui.label("", "HudLabel")
 	_buffs.add_theme_font_size_override("font_size", 22)
-	_buffs.offset_left = 134.0
-	_buffs.offset_top = 112.0
-	_buffs.offset_right = 520.0
-	_buffs.offset_bottom = 142.0
-	add_child(_buffs)
+	_buffs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	feed.add_child(_buffs)
 	_streak = Ui.label("", "HudTitle", HORIZONTAL_ALIGNMENT_RIGHT)
 	_streak.add_theme_font_size_override("font_size", 30)
 	_streak.add_theme_color_override("font_color", Color(1.0, 0.55, 0.35))
-	_streak.anchor_left = 1.0
-	_streak.anchor_right = 1.0
-	_streak.offset_left = -260.0
-	_streak.offset_right = -24.0
-	_streak.offset_top = 156.0
-	_streak.offset_bottom = 196.0
 	_streak.modulate.a = 0.0
-	add_child(_streak)
+	feed.add_child(_streak)
 	if not bool(Game.data.get("seen_tutorial", false)):
 		_hint = Ui.label("Drag anywhere to move\nYou attack on your own · tap the buttons to dash and unleash", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
 		_hint.add_theme_font_size_override("font_size", 24)
