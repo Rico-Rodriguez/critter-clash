@@ -311,6 +311,18 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
+			"appicon":
+				# The app icon: the hero with a lantern in the dark, in plain
+				# polished gear so no rarity glow muddies it at 60 px
+				# (tools/app_icon.gd; tools/dev/icon.sh writes assets/icon.png).
+				for slot in DB.SLOTS:
+					var pc := Game.make_item(hid, slot, maxi(mat, 0), "common")
+					pc["look"] = 0
+					Game.equip(hid, int(Game.grant_item(pc)["uid"]))
+				_set_screen_now("lobby")
+				AppIcon.stage(current)
+				await _wait(1.5)
+				await _save("appicon")
 			"depth":
 				# The Descent going a level deeper.
 				Game.data["mode"] = "descent"

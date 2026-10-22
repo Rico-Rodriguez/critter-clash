@@ -28,6 +28,10 @@ unchanged.
 - **Level-up scroll** reads "Strength rises! Your Strength is now level 12."
 
 ### Added
+- **A new app icon.** The Knight, lit from below by a lantern at his feet,
+  graves behind him in blue night. Rendered from the game's own models by
+  `tools/dev/icon.sh` (`tools/app_icon.gd`, shot `appicon`), so it can be
+  re-rendered when the art changes. Shows on the home screen with the next IPA.
 - **Error report for playtests.** Every engine and script error is logged
   locally (`user://errors.json`, repeats folded into one line with a count),
   and a run that never closed cleanly counts as a crash. Settings shows
