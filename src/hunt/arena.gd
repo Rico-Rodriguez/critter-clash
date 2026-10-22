@@ -43,6 +43,24 @@ var occluders: Array = []
 var _obs: Array = [] # [Vector2 center, radius]
 var _grid := {}
 const CELL := 4.0
+## Steps from the hero over a 1 m grid, so a foe behind a wall can walk round
+## it instead of pressing into it. Kept within FLOW_STEPS of the hero and
+## rebuilt a slice per frame into a back buffer, so no frame pays for all of it.
+const FLOW_STEPS := 40
+const FLOW_N := FLOW_STEPS * 2 + 1
+const FLOW_EVERY := 0.25
+const FLOW_BUDGET := 250
+const FLOW_CLEAR := 0.45
+const FLOW_FAR := 1 << 20
+var _flow := PackedInt32Array() # FLOW_N * FLOW_N steps, FLOW_FAR when unreached
+var _flow_o := Vector2i.ZERO # cell at the window's corner
+var _fb := PackedInt32Array() # the one being built
+var _fb_o := Vector2i.ZERO
+var _fq := PackedInt32Array()
+var _fq_head := 0
+var _fq_tail := 0
+var _flow_t := 0.0
+var _open := PackedByteArray() # per arena cell: 0 unknown, 1 open, 2 blocked; reset when a gate moves
 const GATE_ALPHA := 0.55
 var _rng := RandomNumberGenerator.new()
 var _aabbs := {}
@@ -289,11 +307,126 @@ func add_obstacle(c: Vector2, r: float) -> void:
 
 func blocked(p: Vector3, r: float) -> bool:
 	var k := Vector2i(int(floor(p.x / CELL)), int(floor(p.z / CELL)))
-	for idx in _grid.get(k, []):
-		var o: Array = _obs[idx]
-		if Vector2(p.x, p.z).distance_to(o[0]) < o[1] + r:
-			return true
+	# Neighbouring cells too: an obstacle is filed only under the cells its own
+	# circle covers, but `r` reaches past them near a cell's edge.
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			for idx in _grid.get(Vector2i(k.x + dx, k.y + dz), []):
+				var o: Array = _obs[idx]
+				if Vector2(p.x, p.z).distance_to(o[0]) < o[1] + r:
+					return true
 	return p.x < min_x or p.x > max_x or p.z < min_z or p.z > max_z
+
+
+## Carries on building the step field toward `target`; starts a new one
+## FLOW_EVERY seconds after the last was done.
+func update_flow(target: Vector3, dt: float) -> void:
+	if _flow.is_empty():
+		_flow.resize(FLOW_N * FLOW_N)
+		_flow.fill(FLOW_FAR)
+		_fb.resize(FLOW_N * FLOW_N)
+		_fq.resize(FLOW_N * FLOW_N)
+	if _open.is_empty():
+		# Fill the whole grid once, at the start, so the hunt never pays for it.
+		_open.resize(_arena_w() * (int(max_z - min_z) + 3))
+		for cz in range(floori(min_z) - 1, ceili(max_z) + 2):
+			for cx in range(floori(min_x) - 1, ceili(max_x) + 2):
+				_passable(cx, cz)
+	if _fq_head >= _fq_tail:
+		_flow_t -= dt
+		if _flow_t > 0.0:
+			return
+		_flow_t = FLOW_EVERY
+		_fb.fill(FLOW_FAR)
+		_fb_o = Vector2i(roundi(target.x) - FLOW_STEPS, roundi(target.z) - FLOW_STEPS)
+		var start := FLOW_STEPS * FLOW_N + FLOW_STEPS
+		_fb[start] = 0
+		_fq[0] = start
+		_fq_head = 0
+		_fq_tail = 1
+	var budget := FLOW_BUDGET
+	while _fq_head < _fq_tail and budget > 0:
+		budget -= 1
+		var i := _fq[_fq_head]
+		_fq_head += 1
+		var d := _fb[i] + 1
+		if d > FLOW_STEPS:
+			continue
+		var x := i % FLOW_N
+		var z := i / FLOW_N
+		if x + 1 < FLOW_N:
+			_flow_visit(i + 1, x + 1, z, d)
+		if x > 0:
+			_flow_visit(i - 1, x - 1, z, d)
+		if z + 1 < FLOW_N:
+			_flow_visit(i + FLOW_N, x, z + 1, d)
+		if z > 0:
+			_flow_visit(i - FLOW_N, x, z - 1, d)
+	if _fq_head >= _fq_tail:
+		var t := _flow
+		_flow = _fb
+		_fb = t
+		_flow_o = _fb_o
+
+
+func _flow_visit(ni: int, nx: int, nz: int, d: int) -> void:
+	if _fb[ni] != FLOW_FAR or not _passable(_fb_o.x + nx, _fb_o.y + nz):
+		return
+	_fb[ni] = d
+	_fq[_fq_tail] = ni
+	_fq_tail += 1
+
+
+func _arena_w() -> int:
+	return int(max_x - min_x) + 3
+
+
+func _open_idx(cx: int, cz: int) -> int:
+	var ax := cx - int(floor(min_x)) + 1
+	var az := cz - int(floor(min_z)) + 1
+	var w := _arena_w()
+	if ax < 0 or az < 0 or ax >= w or az * w + ax >= _open.size():
+		return -1
+	return az * w + ax
+
+
+func _passable(cx: int, cz: int) -> bool:
+	var k := _open_idx(cx, cz)
+	if k < 0:
+		return false
+	if _open[k] == 0:
+		_open[k] = 2 if blocked(Vector3(cx, 0, cz), FLOW_CLEAR) else 1
+	return _open[k] == 1
+
+
+func _flow_at(cx: int, cz: int) -> int:
+	var x := cx - _flow_o.x
+	var z := cz - _flow_o.y
+	if x < 0 or z < 0 or x >= FLOW_N or z >= FLOW_N or _flow.is_empty():
+		return FLOW_FAR
+	return _flow[z * FLOW_N + x]
+
+
+## The way to walk from `p` to get nearer the hero round walls, or zero when
+## `p` is outside the field.
+func flow_dir(p: Vector3) -> Vector3:
+	var cx := roundi(p.x)
+	var cz := roundi(p.z)
+	var best := mini(_flow_at(cx, cz), FLOW_STEPS + 1)
+	var to := Vector2i(cx, cz)
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var v := _flow_at(cx + dx, cz + dz)
+			# No cutting a corner past a blocked cell.
+			if dx != 0 and dz != 0 and (_flow_at(cx + dx, cz) == FLOW_FAR or _flow_at(cx, cz + dz) == FLOW_FAR):
+				continue
+			if v < best:
+				best = v
+				to = Vector2i(cx + dx, cz + dz)
+	if to == Vector2i(cx, cz):
+		return Vector3.ZERO
+	var d := Vector3(to.x - p.x, 0, to.y - p.z)
+	return d / maxf(d.length(), 0.01)
 
 
 ## Pushes a position out of every obstacle and back inside the bounds.
@@ -648,6 +781,15 @@ func add_gate(x0: float, x1: float, z: float) -> Dictionary:
 
 func set_gate(g: Dictionary, closed: bool, instant := false) -> void:
 	g["closed"] = closed
+	# Only the cells the gate covers change; rechecked when next needed.
+	if not _open.is_empty():
+		for id: int in g["ids"]:
+			var c: Vector2 = _obs[id][0]
+			for cx in range(floori(c.x) - 2, floori(c.x) + 4):
+				for cz in range(floori(c.y) - 2, floori(c.y) + 4):
+					var k := _open_idx(cx, cz)
+					if k >= 0:
+						_open[k] = 0
 	var ids: Array = g["ids"]
 	for i in ids.size():
 		_obs[ids[i]][1] = float(g["radii"][i]) if closed else -2.0

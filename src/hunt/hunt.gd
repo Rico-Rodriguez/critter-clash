@@ -299,6 +299,7 @@ func _frame_camera() -> void:
 # --- Foes ----------------------------------------------------------------
 
 func _tick_foes(dt: float) -> void:
+	arena.update_flow(hero.position, dt)
 	var i := foes.size() - 1
 	while i >= 0:
 		# A foe's tick can remove others (a bomber's blast, a robber escaping).

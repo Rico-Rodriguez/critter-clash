@@ -98,6 +98,7 @@ func refresh() -> void:
 		_goal.text = Game.next_goal()
 		_goal.visible = _goal.text != ""
 	_refresh_side()
+	_first_steps()
 
 
 ## Back from a hunt: the gold on the top bar ticks up from what it was.
@@ -115,6 +116,46 @@ func _count_gold_in() -> void:
 		if randf() < 0.3:
 			Sfx.play("coin", -14.0, 1.2), float(from), float(to), 1.1)
 	%Gold.text = Ui.fmt_num(from)
+
+
+# --- First steps: a new player sees less and is pointed at the next thing --
+
+const CampGuide := preload("res://src/lobby/camp_guide.gd")
+var _guide: Control
+
+
+## The first visit shows the hero, the hunt and the tabs; the side column,
+## bounties and the road join after the first hunt, when they mean something.
+func _first_steps() -> void:
+	var fresh := int(Game.data["stats"]["hunts"]) == 0
+	if _side:
+		_side.visible = not fresh
+	%Road.visible = not fresh
+	%Bounties.visible = not fresh
+	_coach.call_deferred()
+
+
+## Points at the first thing a new player hasn't been shown yet. Each note
+## shows once per save.
+func _coach() -> void:
+	if is_instance_valid(_guide) or not camp_idle() or not is_inside_tree():
+		return
+	var tips: Dictionary = Game.data["tips"]
+	var played := int(Game.data["stats"]["hunts"]) > 0
+	for st in [
+		["camp_hunt", not played, %Hunt, "Your first hunt", "Drag to move; you attack on your own. Survive the horde, pick a power each level, then beat the boss.", false],
+		["camp_chest", %Chest.visible, %Chest, "A chest!", "Your win earned it. Tap to open it.", true],
+		["camp_gear", played and Game.new_item_count() > 0, %NavBag, "New gear", "Put on what you found: better gear is the fastest way to grow.", false],
+		["camp_heroes", played and _any_upgrade(), %NavHeroes, "Level up", "A hero is ready to level up: more health and damage.", false],
+	]:
+		if not bool(st[1]) or tips.has(st[0]):
+			continue
+		tips[st[0]] = true
+		Game.save()
+		_guide = CampGuide.new()
+		_guide.setup(st[2], st[3], st[4], st[5], camp_idle)
+		%Overlay.add_child(_guide)
+		return
 
 
 # --- Side column: daily, campfire, season, feats ---------------------------

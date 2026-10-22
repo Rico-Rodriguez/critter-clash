@@ -4,9 +4,49 @@ Patch notes for Gravelight (formerly Barrowfall), newest first. Each entry lists
 shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 **Next up**.
 
-Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is still 2 (no
-autoloads, input map or project settings changed since the last IPA). Save
+Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is 3 (the boot
+splash settings changed: reinstall the IPA). Save
 version is 6.
+
+---
+
+## 2026-10-29: First steps, more music, results
+
+No save version change (the new tutorial notes use the existing `tips` key).
+`NATIVE_VERSION` unchanged.
+
+### Added
+- **First camp is quieter.** Before the first hunt the camp shows the hero,
+  the expedition, the big button and the tabs; the side column, bounties and
+  the road appear once there is something on them.
+- **One-time notes** point at the next thing for a new player: the hunt
+  button, the first chest, new gear, a hero ready to level up. Any tap puts
+  one away; each shows once per save.
+- **Five more music tracks** by Kevin MacLeod: two for camp, two for hunts,
+  one for bosses. Camp, hunt and boss pick a different track each visit.
+- **Defeat points somewhere.** The defeat screen names the one thing most
+  likely to win the next try (equip a found upgrade, level the hero, close a
+  power gap, or a tip), and its button reads "Try again".
+
+### Fixed
+- Loot left on the ground at a win flies to the hero instead of standing
+  there: its floating names showed through the results screen.
+- The results chest sits beside its name, so three loot rows fit on a short
+  phone instead of one and a half.
+
+## Unreleased: Launch splash and in-game updates
+
+`NATIVE_VERSION` 3: needs a new IPA. Installs on shell 2 keep their current
+content until reinstalled.
+
+- The launch screen is a Gravelight splash (the app icon's lantern scene, full
+  length, with the title) instead of the Godot logo. iOS builds its launch
+  screen from `application/boot_splash/image`; with none set it used Godot's.
+  `tools/dev/splash.sh` re-renders `assets/splash.png`.
+- Boot holds on that splash while the update check runs, then fades into camp.
+- An update shows a progress bar over the splash, then restarts the game on the
+  new content in-process (scene freed, scripts and resources reloaded,
+  autoloads rebuilt), so it applies without closing the app.
 
 ---
 
