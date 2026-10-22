@@ -10,6 +10,25 @@ version is 6.
 
 ---
 
+## Unreleased: Gear has one quality ladder
+
+Save version unchanged (old item names are rewritten on load). `NATIVE_VERSION`
+unchanged.
+
+### Changed
+- **Tier is the color.** A piece's frame, name and drop beam show its
+  material tier, grey to red, everywhere. Rarity is now pips under the icon
+  (how many bonus stats); uniques carry a star.
+- **Plain names.** "Barrowborn Steel Greaves" is now "Steel Greaves": the
+  random prefixes are gone, and gear already in a bag is renamed.
+- **Equipment screen.** The hero stands between the slots, with the stats
+  under them and the bag as a grid of tiles below. No power numbers on gear:
+  the card says what changes on the hero ("Health 516 → 634") if you wear it.
+- **Armor icons** for helms, chests and legs are flat outlines in place of
+  tiny renders of a whole hero.
+
+---
+
 ## 2026-10-29: First steps, more music, results
 
 No save version change (the new tutorial notes use the existing `tips` key).

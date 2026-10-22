@@ -247,7 +247,7 @@ func roll_item(source: String, tier_i: int, slot := "", cls := "", bonus := 0) -
 		for k in it["stats"]:
 			it["stats"][k] = int(round(float(it["stats"][k]) * DB.ANCIENT_MULT))
 		it["ancient"] = true
-		it["name"] = "Ancient " + str(it["name"])
+		it["name"] = gear_name(it)
 	return it
 
 
@@ -266,16 +266,41 @@ func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionar
 			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
 	# `look` picks among a stage's alternative models (GearDB.piece).
 	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat, "look": rng.randi() % 1000}
-	it["name"] = _item_name(it, rarity)
+	it["name"] = gear_name(it)
 	return it
 
 
-func _item_name(it: Dictionary, rarity: String) -> String:
-	var base := GearDB.base_name(it)
-	if rarity == "common":
-		return base
-	var prefixes: Array = DB.ITEM_PREFIX[rarity] if DB.ITEM_PREFIX.has(rarity) else DB.ITEM_PREFIX["rare"]
-	return "%s %s" % [prefixes[rng.randi() % prefixes.size()], base]
+## What a piece is called: its material and kind ("Steel Greaves"). No random
+## prefix: the tier color and the bonus-stat pips already say how good it is,
+## so the name only says what it is. Uniques keep their own names.
+func gear_name(it: Dictionary) -> String:
+	if str(it.get("unique", "")) != "":
+		return str(it["name"])
+	return ("Ancient " if it.get("ancient", false) else "") + GearDB.base_name(it)
+
+
+## How many bonus stats a piece has beyond its slot's main one (0 to 2).
+func bonus_count(it: Dictionary) -> int:
+	return maxi(it["stats"].size() - 1, 0)
+
+
+## "Tier 3 · 2 bonus stats · Legs", plus Ancient, a set or Unique: what a
+## piece is, in words, without a power number.
+func item_tag(it: Dictionary, with_slot := true) -> String:
+	var parts := ["Tier %d" % (int(it.get("mat", 0)) + 1)]
+	if str(it.get("unique", "")) != "":
+		parts.append("Unique")
+	else:
+		var n := bonus_count(it)
+		parts.append("no bonus stats" if n == 0 else ("1 bonus stat" if n == 1 else "%d bonus stats" % n))
+	if it.get("ancient", false):
+		parts.append("Ancient")
+	var st := item_set(it)
+	if st != "":
+		parts.append("%s set" % DB.SETS[st]["short"])
+	if with_slot:
+		parts.append(str(DB.SLOT_NAME[it["slot"]]))
+	return " · ".join(parts)
 
 
 func _roll_affix(key: String, step: int, mult: float) -> int:
@@ -401,14 +426,8 @@ func temper(uid: int) -> bool:
 	var k := (1.0 + 0.22 * (mat + 1)) / (1.0 + 0.22 * mat)
 	for key in it["stats"]:
 		it["stats"][key] = int(round(float(it["stats"][key]) * k))
-	var old_base := GearDB.base_name(it)
 	it["mat"] = mat + 1
-	var base := GearDB.base_name(it)
-	if str(it["name"]).contains(old_base):
-		it["name"] = str(it["name"]).replace(old_base, base)
-	else:
-		var prefix := str(it["name"]).get_slice(" ", 0) if it["rarity"] != "common" else ""
-		it["name"] = base if prefix == "" else "%s %s" % [prefix, base]
+	it["name"] = gear_name(it)
 	# Tempering can lift a piece past what the hero may wear: unequip if so.
 	var owner := owner_of(uid)
 	if owner != "" and wear_block(owner, it) != "":

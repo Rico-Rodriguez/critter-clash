@@ -25,7 +25,7 @@ func open(it: Dictionary) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_swipe = SwipeDismiss.attach(self, _close, null, false)
-	var col := DB.rarity_color(it["rarity"])
+	var col := DB.gear_color(it)
 	var bg := ColorRect.new()
 	bg.color = Color(0.03, 0.028, 0.04)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -94,11 +94,7 @@ func open(it: Dictionary) -> void:
 	nm.add_theme_color_override("font_color", col.lightened(0.25))
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(nm)
-	var parts := ["T%d %s" % [int(it.get("mat", 0)) + 1, GearDB.material_name(str(it["cls"]), int(it.get("mat", 0)))], DB.RARITY_NAME[it["rarity"]], "Power %d" % Game.item_power(it)]
-	var st := GearDB.set_of(it)
-	if st != "":
-		parts.insert(2, DB.SETS[st]["name"])
-	var sub := Ui.label(" · ".join(parts), "Body", HORIZONTAL_ALIGNMENT_CENTER)
+	var sub := Ui.label(Game.item_tag(it, false), "Body", HORIZONTAL_ALIGNMENT_CENTER)
 	sub.add_theme_color_override("font_color", Color(0.72, 0.68, 0.62))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(sub)
