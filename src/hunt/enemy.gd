@@ -18,6 +18,9 @@ var tele: MeshInstance3D
 var aim := Vector3.ZERO
 var aim_yaw := 0.0
 var strafe := 1.0
+## Which way this foe turns to get round a wall; kept so it follows the wall
+## instead of dithering at it.
+var _side := 1.0
 var _hound_t := 0.0 # time spent chasing without closing in; harder tiers speed up
 var nameplate: Label3D
 var warded_t := 0.0
@@ -54,6 +57,7 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 	reach = def["reach"]
 	xp_value = def["xp"]
 	strafe = 1.0 if randf() < 0.5 else -1.0
+	_side = strafe
 	var rim := Color(0.45, 0.6, 1.0)
 	build_model(def["model"], def["weapons"], rim, 0.45, Color(1.0, 0.55, 0.15, 1.0))
 	var sc: float = def["scale"]
@@ -288,8 +292,8 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	if hunt.mode == "trial":
 		var via := hunt.arena.route(flat_pos(), hero.flat_pos())
 		if via.distance_to(hero.flat_pos()) > 0.01:
-			var tv := via - flat_pos()
-			position += tv / maxf(tv.length(), 0.01) * speed * hunt.foe_speed_mult * dt
+			var tv := _around_walls(via - flat_pos(), INF)
+			position += tv * speed * hunt.foe_speed_mult * dt
 			face(atan2(tv.x, tv.z), dt, 10.0)
 			play(def["anim"]["run"], 0.15)
 			return
@@ -326,6 +330,7 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 		spd *= 1.0 + 0.05 * hunt.ai() * _hound_t
 	elif dist < 3.0:
 		_hound_t = 0.0
+	want = _around_walls(want, dist, to_hero / maxf(dist, 0.01))
 	position += want * spd * dt
 	if want.length_squared() > 0.01:
 		face(atan2(want.x, want.z) if ai == "melee" or ai == "bomb" or dist > reach else yaw_to(position, hero.position), dt, 10.0)
@@ -333,6 +338,38 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	else:
 		face(yaw_to(position, hero.position), dt)
 		play(def["anim"]["idle"], 0.2)
+
+
+## Turns `want` off a wall in the way. Pushing straight into the circles a
+## wall is made of pins a foe in the dip between two of them. Heading for the
+## hero, follow the arena's step field round the wall; otherwise (or outside
+## the field) take the first clear heading on a fan, favouring the side it
+## turned last.
+func _around_walls(want: Vector3, dist: float, to_hero := Vector3.ZERO) -> Vector3:
+	var l := want.length()
+	if l < 0.01:
+		return want
+	var dir := want / l
+	var look := radius + 0.8
+	# Nothing to steer round when the target is closer than the wall.
+	if dist < look or not _walled(dir, look):
+		return dir * minf(l, 1.0)
+	if dir.dot(to_hero) > 0.3:
+		var f := hunt.arena.flow_dir(flat_pos())
+		if f != Vector3.ZERO:
+			return f * minf(l, 1.0)
+	for a in [35.0, 70.0, 105.0, 140.0]:
+		for sgn in [_side, -_side]:
+			var d := dir.rotated(Vector3.UP, deg_to_rad(a) * sgn)
+			if not _walled(d, look):
+				_side = sgn
+				return d * minf(l, 1.0)
+	return dir * minf(l, 1.0)
+
+
+func _walled(d: Vector3, look: float) -> bool:
+	var p := flat_pos()
+	return hunt.arena.blocked(p + d * look, radius) or hunt.arena.blocked(p + d * look * 0.5, radius)
 
 
 ## Runs straight away from the hero, around walls, and tires as it goes: a
