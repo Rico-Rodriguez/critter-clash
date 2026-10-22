@@ -1290,3 +1290,21 @@ func _build_settings(s: Sheet) -> void:
 	if ota:
 		ver += " · build %d · content %d" % [int(ota.get("baked_build")), int(ota.get("build"))]
 	b.add_child(Ui.label(ver, "Small"))
+	_error_report_row(b, ver)
+
+
+## One tap copies the error log, so a playtester can paste it into a message.
+func _error_report_row(b: Control, ver: String) -> void:
+	var n := Game.errors.error_count()
+	var c := Game.errors.crash_count()
+	var row := _row([Ui.label("Errors %d · crashes %d" % [n, c], "Small"), _spacer()], 8)
+	var copy := Button.new()
+	copy.text = "Copy report"
+	copy.theme_type_variation = "Ghost"
+	copy.focus_mode = Control.FOCUS_NONE
+	copy.pressed.connect(func():
+		DisplayServer.clipboard_set(Game.errors.report(ver))
+		Sfx.play("ui_tap", -4.0)
+		copy.text = "Copied")
+	row.add_child(copy)
+	b.add_child(row)

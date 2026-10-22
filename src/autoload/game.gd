@@ -13,6 +13,8 @@ var data: Dictionary = {}
 var rng := RandomNumberGenerator.new()
 ## Set by the capture harness and tests: never touch the disk.
 var memory_only := false
+## Local error and crash log (Settings copies it as a report).
+var errors: ErrorLog
 
 
 func _ready() -> void:
@@ -20,11 +22,24 @@ func _ready() -> void:
 	if OS.get_cmdline_user_args().has("--fresh") or OS.get_cmdline_user_args().has("--capture") or OS.get_cmdline_user_args().has("--bot"):
 		memory_only = true
 		data = _fresh()
-	else:
+	errors = ErrorLog.install(not memory_only)
+	var ota := get_node_or_null("/root/Ota")
+	if ota:
+		errors.set_build(int(ota.get("build")))
+	if not memory_only:
 		load_save()
 	if int(data.get("idle_since", 0)) <= 0:
 		data["idle_since"] = int(Time.get_unix_time_from_system())
 	Sfx.refresh_volume.call_deferred()
+
+
+func _notification(what: int) -> void:
+	if errors == null:
+		return
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_EXIT_TREE]:
+		errors.session_closed()
+	elif what == NOTIFICATION_APPLICATION_RESUMED and not memory_only:
+		errors.session_open()
 
 
 func _fresh() -> Dictionary:

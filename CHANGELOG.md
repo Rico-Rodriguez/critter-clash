@@ -27,6 +27,14 @@ unchanged.
   Gear already in a bag is renamed on load.
 - **Level-up scroll** reads "Strength rises! Your Strength is now level 12."
 
+### Added
+- **Error report for playtests.** Every engine and script error is logged
+  locally (`user://errors.json`, repeats folded into one line with a count),
+  and a run that never closed cleanly counts as a crash. Settings shows
+  "Errors N · crashes N" and a **Copy report** button that puts build,
+  device and the log on the clipboard, ready to paste into a message.
+  Bots and captures don't write it. No backend, nothing leaves the phone.
+
 ---
 
 ## 2026-10-27: Fantasy Weapons Bits

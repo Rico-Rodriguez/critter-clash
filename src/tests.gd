@@ -161,6 +161,13 @@ func _gear_tests() -> void:
 	Game._migrate_v5(v5)
 	var n5: Array = v5["items"].map(func(i: Dictionary) -> String: return str(i["name"]))
 	_ok("v5 gear takes the new names %s" % str(n5), v5["version"] == Game.SAVE_VERSION and n5 == ["Moonlit Bloodiron Warden Shield", "Ancient Nightscale Chaps", "Worn Sage Robe", "Crown of the Barrow King"])
+	# The error log folds repeats into one line with a count.
+	var el := ErrorLog.new()
+	el._enabled = false
+	el._add("script", "hunt.gd:10 _tick", "Invalid access")
+	el._add("script", "hunt.gd:10 _tick", "Invalid access")
+	el._add("error", "fx.gd:3 burst", "Bad index")
+	_ok("error log dedupes", el.error_count() == 3 and el._d["errors"].size() == 2 and el.report("T").contains("x2"))
 	var sh0 := int(Game.hero(Game.hero_id())["shards"])
 	Game.open_chest("gold")
 	_ok("chest shards go to the hero played", int(Game.hero(Game.hero_id())["shards"]) - sh0 >= int(DB.CHESTS["gold"]["shards"] * DB.SHARDS_TO_PLAYED))
