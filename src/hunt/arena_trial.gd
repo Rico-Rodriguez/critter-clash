@@ -15,7 +15,7 @@ const G := "res://assets/kaykit/graveyard/"
 const ROOM_DEPTH := 34.0
 const START_DEPTH := 26.0
 const BOSS_DEPTH := 44.0
-const GAP := 11.0
+const GAP := 12.0 # three wall pieces, so the gap meets the wall with no hole beside it
 
 const KINDS_EARLY := ["ambush", "ambush", "hunters", "treasure"]
 const KINDS_MID := ["ambush", "elite", "hunters", "horde", "brutes", "shrine", "treasure"]
@@ -42,7 +42,9 @@ static func build(a: Arena, seed_: int, rooms: int) -> void:
 	for i in rooms + 1:
 		var depth := START_DEPTH if i == 0 else ROOM_DEPTH
 		z_lo = z_hi - depth
-		gap_x = rng.randf_range(-9.0, 9.0)
+		# Snap to the wall-piece grid (pieces are 4 wide from min_x - 1).
+		var g0: float = a.min_x - 1.0 + 4.0 * roundf((rng.randf_range(-9.0, 9.0) - GAP * 0.5 - (a.min_x - 1.0)) / 4.0)
+		gap_x = g0 + GAP * 0.5
 		var kind := "start"
 		if i > 0:
 			kind = _kind_for(i, rooms, rng)
@@ -158,11 +160,15 @@ static func _divider(a: Arena, z: float, gap_x: float, _walls: Array) -> void:
 	var gap1 := gap_x + GAP * 0.5
 	while x < a.max_x + 1.0:
 		var cx := x + 2.0
-		if cx + 2.0 <= gap0 or cx - 2.0 >= gap1:
+		if cx + 2.0 <= gap0 + 0.01 or cx - 2.0 >= gap1 - 0.01:
 			pieces.append(Vector3(cx, 0, z))
-			a.add_obstacle(Vector2(cx - 1.0, z), 0.75)
-			a.add_obstacle(Vector2(cx + 1.0, z), 0.75)
 		x += 4.0
+	# Collision is its own dense run of circles so no sliver is left open.
+	var bx := a.min_x - 2.0
+	while bx <= a.max_x + 2.0:
+		if bx <= gap0 or bx >= gap1:
+			a.add_obstacle(Vector2(bx, z), 0.8)
+		bx += 1.0
 	_multi(a, D + "barrier.gltf", pieces, false, 0.0)
 	# A pillar either side of the gap, taller than the wall, to read as a door.
 	for gx in [gap0 - 0.4, gap1 + 0.4]:

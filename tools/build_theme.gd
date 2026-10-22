@@ -202,6 +202,14 @@ func _buttons() -> void:
 	theme.set_font("font", "Ghost", title)
 	theme.set_font_size("font_size", "Ghost", 20)
 	theme.set_constant("icon_max_width", "Ghost", 46)
+	# Segmented choice buttons (mode, location, difficulty): the chosen one is lit.
+	theme.set_type_variation("Choice", "Ghost")
+	var cn := box(Color(1, 1, 1, 0.04), 12, 2, Color(1, 1, 1, 0.08))
+	var cp := box(Color(GOLD, 0.22), 12, 3, Color(GOLD, 0.9))
+	for k in ["normal", "hover", "disabled"]:
+		theme.set_stylebox(k, "Choice", cn)
+	for k in ["pressed", "hover_pressed"]:
+		theme.set_stylebox(k, "Choice", cp)
 	# Round icon buttons (pause, settings, arrows).
 	theme.set_type_variation("RoundButton", "Button")
 	var r := box(Color(0.06, 0.055, 0.07, 0.8), 60, 3, Color(GOLD, 0.45))

@@ -27,6 +27,16 @@ func setup(l: Node3D) -> void:
 		b.icon = Ui.icon(pair[2])
 		var sheet_name: String = pair[1]
 		b.pressed.connect(func(): open_sheet(sheet_name))
+	# Name each row, and say in a line what the chosen mode is.
+	for pair in [[%Modes, "GAME MODE"], [%Zones, "LOCATION"], [%Tiers, "DIFFICULTY"]]:
+		var row: Control = pair[0]
+		var cap := Ui.label(pair[1], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		row.get_parent().add_child(cap)
+		row.get_parent().move_child(cap, row.get_index())
+	_mode_blurb = Ui.label("", "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	_mode_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	%Modes.get_parent().add_child(_mode_blurb)
+	%Modes.get_parent().move_child(_mode_blurb, %Modes.get_index() + 1)
 	for i in DB.MODE_ORDER.size():
 		var mb: Button = %Modes.get_child(i)
 		var mid: String = DB.MODE_ORDER[i]
@@ -53,7 +63,11 @@ func setup(l: Node3D) -> void:
 	refresh()
 
 
+var _mode_blurb: Label
+
+
 func refresh() -> void:
+	_mode_blurb.text = str(DB.MODES[Game.mode_id()]["blurb"])
 	%Gold.text = Ui.fmt_num(Game.gold())
 	%Combat.text = "Combat %d" % Game.combat_level()
 	var id := _shown_hero

@@ -18,6 +18,7 @@ var tele: MeshInstance3D
 var aim := Vector3.ZERO
 var aim_yaw := 0.0
 var strafe := 1.0
+var _hound_t := 0.0 # time spent chasing without closing in; harder tiers speed up
 var nameplate: Label3D
 var warded_t := 0.0
 var _sink := 0.0
@@ -232,7 +233,7 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 		var lead := hero.vel * clampf(dist / maxf(speed * hunt.foe_speed_mult, 1.0), 0.0, 1.0) * (0.4 + 0.2 * hunt.tier_i)
 		want = (to_hero + lead) / maxf((to_hero + lead).length(), 0.01)
 		if dist > 3.5 and ai != "slam":
-			want = (want + to_hero.cross(Vector3.UP).normalized() * strafe * 0.3).normalized()
+			want = (want + to_hero.cross(Vector3.UP).normalized() * strafe * (0.3 + 0.15 * hunt.tier_i)).normalized()
 		if ai == "charge":
 			if dist < 8.5 and dist > 2.6 and atk_cd <= 0.0:
 				_windup()
@@ -252,6 +253,13 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 			_windup()
 			return
 	var spd := speed * hunt.foe_speed_mult
+	# A long kite wears the pack's patience: on Veteran and up, foes that cannot
+	# close the gap run harder the longer it lasts.
+	if hunt.tier_i > 0 and (ai == "melee" or ai == "slam") and dist > 4.0:
+		_hound_t = minf(_hound_t + dt, 5.0)
+		spd *= 1.0 + 0.05 * hunt.tier_i * _hound_t
+	elif dist < 3.0:
+		_hound_t = 0.0
 	position += want * spd * dt
 	if want.length_squared() > 0.01:
 		face(atan2(want.x, want.z) if ai == "melee" or ai == "bomb" or dist > reach else yaw_to(position, hero.position), dt, 10.0)

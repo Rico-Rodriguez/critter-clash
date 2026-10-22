@@ -596,11 +596,11 @@ func _process(_dt: float) -> void:
 ## A glowing barrier across a gap in a divider. Starts open; `set_gate` closes it.
 func add_gate(x0: float, x1: float, z: float) -> Dictionary:
 	var ids: Array = []
-	var x := x0 + 0.6
-	while x <= x1 - 0.5:
+	var x := x0 + 0.5
+	while x <= x1 - 0.4:
 		ids.append(_obs.size())
 		add_obstacle(Vector2(x, z), 0.9)
-		x += 1.4
+		x += 1.0
 	var mi := MeshInstance3D.new()
 	var q := QuadMesh.new()
 	q.size = Vector2(x1 - x0, 3.2)
