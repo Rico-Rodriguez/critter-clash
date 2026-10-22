@@ -72,8 +72,19 @@ var robber_wanted := false
 var robber_spawned := false
 ## Pacts taken this hunt (see DB.PACTS), and whether the mid-hunt offer is spent.
 var pacts: Array[String] = []
+## The weekly omen this hunt carries ({} when off), see DB.WEEKLY_OMENS.
+var omen := {}
+var dashes := 0
+var boss_time := 9999.0
 var pact_offered := false
 var curse_t := 0.0
+## The Wilderness: the ring's radius now, its mesh, the rival count.
+var ring_r := 34.0
+var ring_mesh: MeshInstance3D
+var rivals_total := 0
+var rivals_spawned := false
+var _ring_hurt_t := 0.0
+var _ring_stage := 0
 var depth := 1
 var depth_t := 0.0
 ## Boss Rush: which boss is next, and the breather before it.
@@ -101,11 +112,17 @@ func _ready() -> void:
 		trial_seed = Game.rng.randi()
 		souls_goal = 100
 		loot_bonus += 1
-	if mode == "descent" or mode == "rush":
+	if mode == "descent" or mode == "rush" or mode == "wild":
 		elite_marks.clear()
 		surge_marks.clear()
 		rush_wait = 3.0
+	if mode == "wild":
+		souls_goal = 99999
+		elite_marks = [0.45, 0.8]
 	cur_boss = str(zone["boss"])
+	omen = Game.active_omen(mode)
+	if not omen.is_empty():
+		foe_speed_mult *= 1.0 + float(omen["mod"].get("foe_speed", 0.0))
 	robber_wanted = randf() < 0.35 and mode == "horde"
 	low = str(Game.setting("quality")) == "low" or OS.has_feature("mobile") and str(Game.setting("quality")) == "auto" and _weak_device()
 	bot = OS.get_cmdline_user_args().has("--bot")
@@ -600,6 +617,8 @@ func progress() -> float:
 		return clampf(0.12 + (depth - 1) * 0.07, 0.0, 1.0)
 	if mode == "rush":
 		return 0.5
+	if mode == "wild":
+		return clampf(time / 240.0, 0.05, 1.0)
 	return clampf(float(souls) / float(souls_goal), 0.0, 1.0)
 
 
@@ -609,6 +628,8 @@ func objective_fill() -> float:
 		return clampf(depth_t / DB.DESCENT_TIME, 0.0, 1.0)
 	if mode == "rush":
 		return float(rush_i) / DB.RUSH_ORDER.size()
+	if mode == "wild":
+		return float(rivals_alive()) / float(maxi(rivals_total, 1))
 	return progress()
 
 
@@ -636,8 +657,12 @@ func _direct(dt: float) -> void:
 		return
 	if mode == "descent":
 		_tick_depth(dt)
+	if mode == "wild":
+		_tick_wild(dt)
 	var p := progress()
 	var target := int((lerpf(7.0, 30.0, p) + tier_i * 3) * float(tier.get("press", 1.0)))
+	if mode == "wild":
+		target = int(target * DB.WILD_PVE)
 	target = mini(int(target * (1.0 + pact_sum("pack"))), MAX_FOES)
 	if mode == "horde" and not pact_offered and p >= 0.5:
 		offer_pact()
@@ -758,12 +783,16 @@ func objective_title() -> String:
 			return "DEPTH"
 		"rush":
 			return "BOSS RUSH"
+		"wild":
+			return "THE WILDERNESS"
 	return "SOULS"
 
 
 func objective_text() -> String:
 	if mode == "descent":
 		return "Depth %d" % depth
+	if mode == "wild":
+		return "%d rivals · ring %dm" % [rivals_alive(), int(ring_r)]
 	if mode == "rush":
 		return "Boss %d / %d" % [mini(rush_i + 1, DB.RUSH_ORDER.size()), DB.RUSH_ORDER.size()]
 	if mode != "trial":
@@ -931,16 +960,126 @@ func _make_boss() -> Boss:
 	return b
 
 
+# --- The Wilderness ------------------------------------------------------
+
+func rivals_alive() -> int:
+	var n := 0
+	for f in foes:
+		if is_instance_valid(f) and f.alive and f.kind.begins_with("rival_"):
+			n += 1
+	return n
+
+
+func _spawn_rivals() -> void:
+	rivals_spawned = true
+	rivals_total = int(DB.WILD_RIVALS[tier_i])
+	var order := ["knight", "ranger", "mage", "barbarian"]
+	order.shuffle()
+	for i in rivals_total:
+		var a := TAU * (i + randf() * 0.4) / rivals_total
+		var at := arena.resolve(DB.WILD_CENTER + Vector3(sin(a), 0, cos(a)) * 17.0, 0.8)
+		if at.distance_to(hero.position) < 12.0:
+			at = arena.resolve(DB.WILD_CENTER + Vector3(sin(a + PI), 0, cos(a + PI)) * 15.0, 0.8)
+		spawn_foe("rival_" + str(order[i % order.size()]), at)
+	banner("The Wilderness", Color(0.95, 0.75, 0.45), "%d rival bands. The ring closes. Be the last." % rivals_total)
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 1.0
+	cyl.bottom_radius = 1.0
+	cyl.height = 6.0
+	cyl.radial_segments = 72
+	cyl.rings = 1
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(1.0, 0.22, 0.2, 0.22)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	ring_mesh = MeshInstance3D.new()
+	ring_mesh.mesh = cyl
+	ring_mesh.material_override = m
+	ring_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring_mesh.position = DB.WILD_CENTER + Vector3(0, 3.0, 0)
+	world.add_child(ring_mesh)
+
+
+func _tick_wild(dt: float) -> void:
+	if not rivals_spawned:
+		if time > 1.5:
+			_spawn_rivals()
+		return
+	ring_r = DB.wild_ring(time)
+	ring_mesh.scale = Vector3(ring_r, 1.0, ring_r)
+	# Each time the ring starts to close a banner says so.
+	var stage := 0
+	for t in [35.0, 95.0, 150.0, 200.0]:
+		if time >= t:
+			stage += 1
+	if stage > _ring_stage:
+		_ring_stage = stage
+		banner("The ring closes", Color(1.0, 0.45, 0.35), "Get inside")
+		Sfx.play("roar", -4.0, 0.8)
+	_ring_hurt_t -= dt
+	if _ring_hurt_t <= 0.0:
+		_ring_hurt_t = 0.5
+		if hero.alive and hero.flat_pos().distance_to(DB.WILD_CENTER) > ring_r + 0.4:
+			damage_hero(hero.max_hp * (0.03 + 0.012 * _ring_stage), null)
+		for f in foes.duplicate():
+			if is_instance_valid(f) and f.alive and f.state != "spawn" and f.flat_pos().distance_to(DB.WILD_CENTER) > ring_r + 0.4:
+				damage_foe(f, f.max_hp * 0.06, null, Vector3.ZERO, 0.0)
+	if hero.alive and phase == "rise" and rivals_alive() == 0:
+		_wild_win()
+
+
+func _wild_win() -> void:
+	phase = "victory"
+	phase_t = 0.0
+	_end_time = time
+	Sfx.music("", 2.0)
+	Sfx.play("sting_victory", 0.0)
+	banner("Last band standing", Color(1.0, 0.85, 0.45), "The Wilderness is yours")
+	if hero.alive:
+		hero.act("Cheering", 1.6, true)
+	var at := hero.flat_pos()
+	for i in 24:
+		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
+	for i in 2:
+		_drop_item(at, Game.roll_item("boss", tier_i, "", "", loot_bonus))
+	for i in 8:
+		_drop("soul", at, 4)
+	for f in foes.duplicate():
+		if f.alive:
+			_kill(f)
+
+
+## A rival falls: they pay in gold and gear, and the feed counts the rest.
+func _rival_down(f: Enemy) -> void:
+	var at := f.flat_pos()
+	for i in 6:
+		_drop("gold", at, randi_range(3, 7) * int(tier["gold"]))
+	if randf() < 0.55:
+		_drop_item(at, _roll_good("elite", 1))
+	_drop("heart", at, 1)
+	Sfx.play("rare_chime", -4.0)
+	hud.event("%s down · %d left" % [f.def["name"], rivals_alive()], Color(1.0, 0.6, 0.45), "crossed-swords")
+
+
 # --- Endless Descent and Boss Rush ---------------------------------------
 
 ## The tier the foes of this moment are built from: the Descent makes
 ## everything tougher with depth, the second lap of the Rush hits harder.
 func scaled_tier() -> Dictionary:
 	var fh := pact_sum("foe_hp")
+	var fd := pact_sum("foe_dmg")
+	if fd != 0.0 and mode != "descent" and mode != "rush":
+		var td := tier.duplicate()
+		td["hp"] = float(tier["hp"]) * (1.0 + fh)
+		td["dmg"] = float(tier["dmg"]) * (1.0 + fd)
+		return td
 	if mode == "descent" and depth > 1:
 		var t := tier.duplicate()
 		t["hp"] = float(tier["hp"]) * (1.0 + DB.DESCENT_HP * (depth - 1)) * (1.0 + fh)
-		t["dmg"] = float(tier["dmg"]) * (1.0 + DB.DESCENT_DMG * (depth - 1))
+		t["dmg"] = float(tier["dmg"]) * (1.0 + DB.DESCENT_DMG * (depth - 1)) * (1.0 + fd)
 		return t
 	if fh > 0.0 and mode != "rush":
 		var tp := tier.duplicate()
@@ -956,7 +1095,7 @@ func scaled_tier() -> Dictionary:
 
 ## Total of one pact modifier over the pacts taken.
 func pact_sum(key: String) -> float:
-	var n := 0.0
+	var n := 0.0 if omen.is_empty() else float(omen["mod"].get(key, 0.0))
 	for id in pacts:
 		n += float(DB.PACTS[id]["mod"].get(key, 0.0))
 	return n
@@ -1220,6 +1359,8 @@ func _kill(f: Enemy) -> void:
 		hitstop(0.08)
 		banner("Grave Robber slain", Color(1.0, 0.85, 0.35), "His hoard spills out")
 		Sfx.play("rare_chime", -2.0)
+	if f.kind.begins_with("rival_"):
+		_rival_down(f)
 	if f.elite:
 		elites_killed += 1
 		hero.potion_cd -= float(DB.POTION["elite_cd"])
@@ -1254,6 +1395,7 @@ func _roll_good(source: String, min_idx: int) -> Dictionary:
 
 
 func _kill_boss() -> void:
+	boss_time = minf(boss_time, time - boss_at)
 	if mode == "descent" or (mode == "rush" and rush_i < DB.RUSH_ORDER.size() - 1):
 		_boss_down_midway()
 		return
@@ -1850,8 +1992,19 @@ func _end(win: bool) -> void:
 		"win": win, "tier": tier_i, "zone": zone_id, "mode": mode, "rooms_cleared": rooms_cleared, "rooms": trial_rooms,"hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
 		"items": items, "kills": kills, "elites": elites_killed, "time": spent,
 		"chest": tier["chest"] if win else "", "level": run_level, "souls": souls,
-		"depth": depth,
+		"depth": depth, "dashes": dashes, "boss_time": boss_time,
+		"rivals": rivals_total, "place": 1 if win else rivals_alive() + 1,
+		"omen": str(omen.get("id", "")),
 	}
+	# A won hunt under the weekly omen pays more, and its chest is a grade better.
+	if not omen.is_empty() and (win or mode == "descent"):
+		result["gold"] = int(round(gold * (1.0 + DB.OMEN_GOLD)))
+		var grades := ["silver", "gold", "crypt"]
+		var ch := str(result["chest"]) if win else ""
+		if ch != "":
+			result["chest"] = grades[mini(grades.find(ch) + 1, 2)]
+	if mode == "wild" and not win and rivals_total > 0 and int(result["place"]) <= 3:
+		result["chest"] = "silver"
 	if mode == "descent":
 		for pair in DB.DESCENT_CHESTS:
 			if depth >= int(pair[0]):

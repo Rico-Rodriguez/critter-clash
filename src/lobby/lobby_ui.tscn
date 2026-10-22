@@ -147,16 +147,69 @@ text = "1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="BountyText" type="Label" parent="Safe/V/Rail"]
-unique_name_in_owner = true
+[node name="Gap0" type="Control" parent="Safe/V/Rail"]
+custom_minimum_size = Vector2(12, 0)
 layout_mode = 2
-size_flags_vertical = 4
-theme_type_variation = &"Caption"
-text = "Bounties 0 / 3"
+mouse_filter = 2
 
-[node name="RailSpace" type="Control" parent="Safe/V/Rail"]
+[node name="Road" type="Button" parent="Safe/V/Rail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 4
+focus_mode = 0
+theme_type_variation = &"CardButton"
+
+[node name="M" type="MarginContainer" parent="Safe/V/Rail/Road"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="V" type="VBoxContainer" parent="Safe/V/Rail/Road/M"]
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 6
+
+[node name="RoadText" type="Label" parent="Safe/V/Rail/Road/M/V"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Caption"
+text = "RENOWN ROAD · NEXT: SILVER CHEST"
+clip_text = true
+
+[node name="RoadBar" type="ProgressBar" parent="Safe/V/Rail/Road/M/V"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"XPBar"
+show_percentage = false
+
+[node name="RoadBadge" type="PanelContainer" parent="Safe/V/Rail/Road"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 0
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 22.0
+offset_bottom = 22.0
+mouse_filter = 2
+theme_type_variation = &"Badge"
+
+[node name="Gap" type="Control" parent="Safe/V/Rail"]
+custom_minimum_size = Vector2(12, 0)
+layout_mode = 2
 mouse_filter = 2
 
 [node name="Chest" type="Button" parent="Safe/V/Rail"]

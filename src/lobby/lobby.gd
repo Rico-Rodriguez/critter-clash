@@ -301,13 +301,18 @@ func place_chest(kind: String) -> void:
 	Sfx.play("chest_land", 0.0)
 
 
-func open_chest_fx() -> void:
-	# Bring the chest to center stage, in front of the hero.
+## Brings the chest to center stage, in front of the hero, as the prompt appears.
+func center_chest() -> Tween:
 	var mv := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	mv.tween_property(chest, "position", Vector3(0.0, 0.0, 1.7), 0.35)
 	mv.tween_property(chest, "rotation:y", 0.0, 0.35)
 	mv.tween_property(chest, "scale", Vector3.ONE * 1.05, 0.35)
-	await mv.finished
+	return mv
+
+
+func open_chest_fx() -> void:
+	if chest.position.distance_to(Vector3(0.0, 0.0, 1.7)) > 0.05:
+		await center_chest().finished
 	if chest_lid:
 		var t := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		t.tween_property(chest_lid, "rotation:x", -1.9, 0.45)

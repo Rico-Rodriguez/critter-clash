@@ -195,6 +195,7 @@ const MODES := {
 	"horde": {"name": "Horde Hunt", "short": "Horde", "blurb": "Hold the graveyard against the rising dead."},
 	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "rooms": [5, 6, 7]},
 	"descent": {"name": "Endless Descent", "short": "Descent", "blurb": "The dead never stop. Each minute goes a level deeper; a boss every fifth. How deep can you go?", "unlock": "Win on Normal to open"},
+	"wild": {"name": "The Wilderness", "short": "Wilderness", "blurb": "A closing ring and rival bands hunting you. Be the last band standing.", "unlock": "Win on Normal to open"},
 	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Both bosses, twice, back to back. A card and a breath between each.", "unlock": "Win on Normal to open"},
 }
 ## Endless Descent: the horde never stops. Every DESCENT_TIME seconds the depth
@@ -208,7 +209,41 @@ const DESCENT_CHESTS := [[15, "crypt"], [10, "gold"], [5, "silver"]]
 ## Boss Rush: the zone's bosses in turn, each empowered on the second lap.
 const RUSH_ORDER := [["gravemaw", 1.0], ["hexer", 1.0], ["gravemaw", 1.5], ["hexer", 1.5]]
 const RUSH_GAP := 7.0
-const MODE_ORDER := ["horde", "trial", "descent", "rush"]
+## The Wilderness: a royale on a closing ring. Rival bands (hero-built foes)
+## hunt you while the dead rise; the last band standing wins. Ring radius by
+## time: [seconds, radius] keyframes, linear between. Rivals per tier.
+const WILD_CENTER := Vector3(0, 0, -5)
+const WILD_RING := [[0.0, 34.0], [35.0, 34.0], [60.0, 22.0], [95.0, 22.0], [120.0, 14.0], [150.0, 14.0], [170.0, 8.0], [200.0, 8.0], [225.0, 4.5]]
+const WILD_RIVALS := [5, 6, 7]
+const WILD_PVE := 0.5
+
+static func wild_ring(t: float) -> float:
+	for i in range(1, WILD_RING.size()):
+		var a: Array = WILD_RING[i - 1]
+		var b: Array = WILD_RING[i]
+		if t <= float(b[0]):
+			return lerpf(float(a[1]), float(b[1]), clampf((t - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.01), 0.0, 1.0))
+	return float(WILD_RING[WILD_RING.size() - 1][1])
+
+
+## A rival band member built from a hero: the same model and weapons, fought
+## with the foe AI that matches its style. Tuned a little under the player.
+static func rival_def(hero_id: String) -> Dictionary:
+	var h: Dictionary = HEROES[hero_id]
+	var anim: Dictionary = {"idle": h["anim"]["idle"], "run": h["anim"]["run"], "attack": h["anim"]["attack"][0], "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"}
+	var d: Dictionary = {"name": "Rival %s" % h["name"], "model": h["model"], "weapons": h["weapons"], "rival": true, "tint": Color(1.0, 0.35, 0.3, 0.22), "anim": anim, "radius": 0.5, "mass": 3.0, "xp": 14, "scale": 1.0}
+	match hero_id:
+		"knight":
+			d.merge({"ai": "melee", "hp": 560.0, "dmg": 22.0, "speed": 4.4, "reach": 2.3, "windup": 0.45, "cooldown": 1.0})
+		"barbarian":
+			d.merge({"ai": "melee", "hp": 700.0, "dmg": 32.0, "speed": 4.1, "reach": 2.7, "windup": 0.6, "cooldown": 1.4})
+		"ranger":
+			d.merge({"ai": "ranged", "hp": 400.0, "dmg": 18.0, "speed": 4.2, "reach": 9.0, "windup": 0.55, "cooldown": 1.5, "proj_speed": 15.0})
+		_:
+			d.merge({"ai": "caster", "hp": 360.0, "dmg": 28.0, "speed": 3.9, "reach": 8.5, "windup": 1.0, "cooldown": 3.0, "blast": 2.0})
+	return d
+
+const MODE_ORDER := ["horde", "trial", "descent", "rush", "wild"]
 
 static func zone(id: String) -> Dictionary:
 	return ZONES[id] if ZONES.has(id) else ZONES["barrow"]
@@ -288,6 +323,8 @@ const CARD_WEIGHT := {"common": 10.0, "rare": 6.0, "epic": 3.2, "legendary": 0.8
 
 ## All foe definitions, base and extra.
 static func enemy(kind: String) -> Dictionary:
+	if kind.begins_with("rival_"):
+		return rival_def(kind.substr(6))
 	return ENEMIES[kind] if ENEMIES.has(kind) else ENEMIES_EXTRA[kind]
 
 
@@ -335,6 +372,51 @@ const PACTS := {
 	"vow": {"name": "Iron Vow", "good": "+35% health, +8% armor", "bad": "-15% attack speed", "icon": "checked-shield", "mod": {"hp": 0.35, "armor": 0.08, "rate": -0.15}},
 	"moon": {"name": "Hunter's Moon", "good": "+30% souls", "bad": "Foes have 25% more health", "icon": "moon", "mod": {"xp": 0.3, "foe_hp": 0.25}},
 }
+
+## Renown road: every hunt earns renown; each step hands out a reward in order.
+## Step n (1-based) opens at road_threshold(n).
+static func road_threshold(n: int) -> int:
+	return 60 * n + 10 * n * (n - 1)
+
+
+## What step n pays: gold, a chest opened on the spot, or shards for the hero
+## in use. Every fourth step is a chest, better as the road goes on.
+static func road_reward(n: int) -> Dictionary:
+	match n % 4:
+		1:
+			return {"kind": "gold", "amount": 100 + 25 * n}
+		2:
+			return {"kind": "shards", "amount": 5 + n / 2}
+		3:
+			return {"kind": "gold", "amount": 160 + 30 * n}
+	return {"kind": "chest", "chest": "silver" if n < 12 else ("gold" if n < 24 else "crypt")}
+
+
+## Weekly omens: one rule twist for a week, with a bigger chest. `mod` keys are
+## the same as PACTS'; `no_dash` removes the dash.
+const WEEKLY_OMENS := [
+	{"id": "swarm", "name": "The Swarm", "desc": "Half again as many foes, each a little frailer.", "icon": "bone-gnawer", "mod": {"pack": 0.5, "foe_hp": -0.2}},
+	{"id": "still", "name": "Stillness", "desc": "No dash. Your super charges twice as fast.", "icon": "hourglass", "mod": {"super": 1.0}, "no_dash": true},
+	{"id": "swiftdead", "name": "The Swift Dead", "desc": "Every foe moves 20% faster.", "icon": "running-shoe", "mod": {"foe_speed": 0.2}},
+	{"id": "glass", "name": "Glass Hunt", "desc": "+60% damage, but you have 40% less health.", "icon": "broken-bone", "mod": {"dmg": 0.6, "hp": -0.4}},
+	{"id": "ironclad", "name": "Ironclad Dead", "desc": "Foes have 50% more health; you take 20% less damage.", "icon": "checked-shield", "mod": {"foe_hp": 0.5, "dmg_taken": -0.2}},
+	{"id": "frenzy", "name": "Blood Frenzy", "desc": "Foes hit 30% harder; you attack 30% faster.", "icon": "dripping-sword", "mod": {"rate": 0.3, "foe_dmg": 0.3}},
+]
+## A won omen hunt pays 25% more gold and its chest is one grade better.
+const OMEN_GOLD := 0.25
+
+## Treasure trails: a clue scroll is three goals in a row, then a casket.
+## `text` takes the number or hero name.
+const CLUE_GOALS := {
+	"elites": {"text": "Slay %d champions in one hunt", "n": 3},
+	"win_hero": {"text": "Win a hunt as the %s"},
+	"nodash": {"text": "Win a hunt using the dash %d times or fewer", "n": 10},
+	"depth": {"text": "Reach depth %d in the Endless Descent", "n": 4},
+	"veteran": {"text": "Win on Veteran or harder"},
+	"fast": {"text": "Slay a boss within %d seconds of it waking", "n": 100},
+	"gold": {"text": "Collect %d gold in one hunt", "n": 350},
+}
+const CLUE_STEPS := 3
 
 ## Kill-streak milestones ("Massacre"): reaching one pays bonus souls and gold.
 ## A streak ends after STREAK_WINDOW seconds without a kill.

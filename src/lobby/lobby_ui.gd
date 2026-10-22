@@ -9,6 +9,7 @@ var _shown_hero := ""
 var _sheet: Sheet
 var _sheet_name := ""
 var equipment: Equipment
+var _road_note: Array = []
 
 
 func setup(l: Node3D) -> void:
@@ -33,6 +34,7 @@ func setup(l: Node3D) -> void:
 		b.icon = Ui.icon(pair[2])
 		var sheet_name: String = pair[1]
 		b.pressed.connect(func(): open_sheet(sheet_name))
+	%Road.pressed.connect(func(): open_sheet("road"))
 	%Bounties.icon = Ui.icon("archery-target")
 	%Bounties.pressed.connect(func(): open_sheet("bounties"))
 	# Mode, place and difficulty change rarely, so the camp shows one summary
@@ -45,7 +47,7 @@ func setup(l: Node3D) -> void:
 	refresh()
 
 
-const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle", "descent": "hourglass", "rush": "crowned-skull"}
+const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle", "descent": "hourglass", "rush": "crowned-skull", "wild": "wolf-head"}
 
 
 func refresh() -> void:
@@ -65,13 +67,13 @@ func refresh() -> void:
 		%Hunt.text = "Locked"
 		%Lock.text = "Clear Veteran, or gather 20 shards (%d/20)" % int(h["shards"]) if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)" % int(h["shards"])
 	else:
-		%Hunt.text = {"horde": DB.zone(Game.zone_id())["enter"], "trial": "Take the Long Road", "descent": "Begin the Descent", "rush": "Start the Rush"}[Game.mode_id()]
+		%Hunt.text = {"horde": DB.zone(Game.zone_id())["enter"], "trial": "Take the Long Road", "descent": "Begin the Descent", "rush": "Start the Rush", "wild": "Enter the Wilderness"}[Game.mode_id()]
 	var mode: Dictionary = DB.MODES[Game.mode_id()]
 	var t: Dictionary = DB.TIERS[Game.tier()]
 	%ExpIcon.texture = Ui.icon(MODE_ICON.get(Game.mode_id(), "crossed-swords"))
 	%ExpMode.text = str(mode["name"]).to_upper()
 	%ExpPlace.text = DB.zone(Game.zone_id())["name"]
-	%ExpTier.text = str(t["name"]).to_upper()
+	%ExpTier.text = str(t["name"]).to_upper() + (" · OMEN" if not Game.active_omen(Game.mode_id()).is_empty() else "")
 	%ExpTier.add_theme_color_override("font_color", t["color"])
 	%NavHeroes.get_node("Dot").visible = _any_upgrade()
 	%NavBag.get_node("Dot").visible = Game.new_item_count() > 0
@@ -80,7 +82,11 @@ func refresh() -> void:
 	var ready_n := Game.bounty_claimable()
 	%BountyBadge.visible = ready_n > 0
 	%BountyCount.text = str(ready_n)
-	%BountyText.text = "Bounties %d / %d" % [done, list.size()]
+	var steps := Game.road_claimable()
+	var nxt := int(Game.data["road"]) + 1
+	%RoadText.text = ("READY: %s" if steps > 0 else "ROAD · NEXT: %s") % Game.road_reward_text(nxt).to_upper()
+	%RoadBar.value = 100.0 if steps > 0 else Game.road_fill() * 100.0
+	%RoadBadge.visible = steps > 0
 
 
 ## True while nothing sits over the camp (taps on the hero open the roster).
@@ -187,6 +193,8 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Skills", _build_skills)
 		"talents":
 			_sheet.open("Talents", _build_talents)
+		"road":
+			_sheet.open("Renown Road", _build_road)
 		"log":
 			_sheet.open("Collection Log", _build_log)
 		"bounties":
@@ -595,8 +603,61 @@ func _build_skills(s: Sheet) -> void:
 
 ## Mode, place and difficulty, each a short list of cards that say what the
 ## choice means (and, when locked, how to open it).
+## The renown road: the next steps with what each pays; claim in order.
+func _build_road(s: Sheet) -> void:
+	var b := s.body
+	var claimed := int(Game.data["road"])
+	var ready_n := Game.road_claimable()
+	b.add_child(_row([Ui.label("Renown %d" % Game.renown(), "Heading"), _spacer(), Ui.label("Every hunt earns renown", "Small")]))
+	if not _road_note.is_empty():
+		var nc := _card()
+		var nl := Ui.label("Claimed: " + ", ".join(_road_note), "Body")
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7))
+		nc.add_child(nl)
+		b.add_child(nc)
+		_road_note = []
+	for i in 8:
+		var n := claimed + 1 + i
+		var c := _card()
+		var reachable := i < ready_n
+		var row := _row([], 14)
+		var num := Ui.label("%d" % n, "Value")
+		num.add_theme_font_size_override("font_size", 30)
+		num.custom_minimum_size = Vector2(54, 0)
+		row.add_child(num)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_theme_constant_override("separation", 0)
+		v.add_child(Ui.label(Game.road_reward_text(n), "Body"))
+		v.add_child(Ui.label("%d renown" % DB.road_threshold(n), "Small"))
+		row.add_child(v)
+		if i == 0 and reachable:
+			var cb := Button.new()
+			cb.text = "Claim"
+			cb.theme_type_variation = &"GoldButton"
+			cb.custom_minimum_size = Vector2(150, 70)
+			cb.focus_mode = Control.FOCUS_NONE
+			cb.pressed.connect(func():
+				_road_note = Game.claim_road()
+				Sfx.play("coin", 0.0)
+				refresh()
+				s.rebuild())
+			row.add_child(cb)
+		elif not reachable:
+			c.modulate = Color(1, 1, 1, 0.55)
+		c.add_child(row)
+		b.add_child(c)
+
+
 func _build_expedition(s: Sheet) -> void:
 	var b := s.body
+	var om := Game.weekly_omen()
+	b.add_child(Ui.label("This week's omen", "Heading"))
+	var olock := "Not on the Long Road" if Game.mode_id() == "trial" else ""
+	b.add_child(_option(str(om["icon"]), str(om["name"]), "%s Pays 25%% more gold and a better chest." % om["desc"], bool(Game.data.get("omen_on", false)) and olock == "", olock, func():
+		Game.set_omen(not bool(Game.data.get("omen_on", false)))
+		_picked(s)))
 	b.add_child(Ui.label("Mode", "Heading"))
 	for mid: String in DB.MODE_ORDER:
 		var m: Dictionary = DB.MODES[mid]
@@ -741,6 +802,23 @@ func _build_log(s: Sheet) -> void:
 		if int(Game.data["log"].get(u, 0)) > 0:
 			got += 1
 	var st: Dictionary = Game.data["stats"]
+	var cl := Game.clue()
+	var cc0 := _card()
+	var cv := VBoxContainer.new()
+	cv.add_theme_constant_override("separation", 4)
+	cv.add_child(Ui.label("CLUE SCROLL", "Caption"))
+	if cl.is_empty():
+		var none := Ui.label("None yet. Hunts sometimes turn one up: three goals, then a casket.", "Body")
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cv.add_child(none)
+	else:
+		var step := int(cl["step"])
+		var gl := Ui.label("Step %d of %d: %s" % [step + 1, DB.CLUE_STEPS, Game.clue_goal_text(cl["goals"][step])], "Body")
+		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		gl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
+		cv.add_child(gl)
+	cc0.add_child(cv)
+	b.add_child(cc0)
 	var head := _row([Ui.label("Obtained %d / %d" % [got, DB.LOG_ORDER.size()], "Heading"), _spacer(), Ui.label("Boss kills: %d" % int(st["boss_kills"]), "Small")])
 	b.add_child(head)
 	var grid := GridContainer.new()

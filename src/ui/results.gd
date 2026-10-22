@@ -12,6 +12,7 @@ func open(r: Dictionary) -> void:
 	%Sub.text = "%s · %s · %s" % [DB.HEROES[r["hero"]]["name"], tier["name"], Ui.fmt_time(r["time"])]
 	var long_road := str(r.get("mode", "horde")) == "trial"
 	var descent := str(r.get("mode", "horde")) == "descent"
+	var wild := str(r.get("mode", "horde")) == "wild"
 	if long_road:
 		%Sub.text = "The Long Road · " + %Sub.text
 	elif descent:
@@ -20,11 +21,16 @@ func open(r: Dictionary) -> void:
 		%Sub.text = "Endless Descent · " + %Sub.text
 	elif str(r.get("mode", "horde")) == "rush":
 		%Sub.text = "Boss Rush · " + %Sub.text
+	elif wild:
+		%Sub.text = "The Wilderness · " + %Sub.text
+		%Title.text = "Last band standing" if win else "Placed %d of %d" % [int(r["place"]), int(r["rivals"]) + 1]
 	_count(_stat("Kills", "0", "skull-crossed-bones"), int(r["kills"]), "%d")
 	if long_road:
 		_count(_stat("Rooms", "0", "castle"), int(r.get("rooms_cleared", 0)), "%d / " + str(int(r.get("rooms", 0))))
 	elif descent:
 		_count(_stat("Depth", "0", "hourglass"), int(r["depth"]), "%d")
+	elif wild:
+		_count(_stat("Rivals", "0", "crossed-swords"), int(r["rivals"]) - (0 if win else maxi(int(r["place"]) - 1, 0)), "%d / " + str(int(r["rivals"])))
 	else:
 		_count(_stat("Champions", "0", "crowned-skull"), int(r["elites"]), "%d")
 	_count(_stat("Level", "0", "upgrade"), int(r["level"]), "%d")
@@ -50,7 +56,7 @@ func open(r: Dictionary) -> void:
 	# Rewards that wait in camp.
 	if descent and bool(s.get("record", false)):
 		_note("New deepest descent for the %s" % DB.HEROES[r["hero"]]["name"], Color(1.0, 0.85, 0.4), "trophy")
-	if (win or descent) and str(r.get("chest", "")) != "":
+	if (win or descent or wild) and str(r.get("chest", "")) != "":
 		var c: Dictionary = DB.CHESTS[r["chest"]]
 		_note("%s earned — open it in camp" % c["name"], c["color"], "locked-chest")
 	var ut := int(s.get("unlocked_tier", -1))
@@ -59,6 +65,19 @@ func open(r: Dictionary) -> void:
 	var uh := str(s.get("unlocked_hero", ""))
 	if uh != "":
 		_note("%s joins your band" % DB.HEROES[uh]["name"], DB.HEROES[uh]["color"], DB.HEROES[uh]["icon"])
+	var rn := int(s.get("renown", 0))
+	if rn > 0:
+		_note("+%d renown" % rn, Color(0.95, 0.8, 0.5), "trophy")
+	var cl: Dictionary = s.get("clue", {})
+	match str(cl.get("event", "")):
+		"found":
+			_note("You found a clue scroll (see the Log)", Color(1.0, 0.88, 0.5), "scroll-unfurled")
+		"step":
+			_note("Clue step done: %d of %d" % [int(cl["step"]), DB.CLUE_STEPS], Color(1.0, 0.88, 0.5), "scroll-unfurled")
+		"casket":
+			_note("Casket opened: %s" % ", ".join(cl["lines"]), Color(1.0, 0.85, 0.4), "open-treasure-chest")
+	if str(r.get("omen", "")) != "":
+		_note("Weekly omen: bonus paid", Color(0.8, 0.6, 1.0), "moon")
 	%Continue.pressed.connect(func():
 		Sfx.play("ui_press", -2.0)
 		closed.emit())

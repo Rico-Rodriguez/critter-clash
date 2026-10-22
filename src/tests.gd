@@ -59,6 +59,7 @@ func run() -> int:
 		_ok("zone %s boss exists" % z, DB.BOSSES.has(DB.ZONES[z]["boss"]))
 	for u in DB.LOG_ORDER:
 		_ok("unique %s defined" % u, DB.UNIQUES.has(u))
+	_depth_tests()
 	_gear_tests()
 	return _fails
 
@@ -135,3 +136,47 @@ func _same(a, b) -> bool:
 	if (a is int or a is float) and (b is int or b is float):
 		return is_equal_approx(float(a), float(b))
 	return typeof(a) == typeof(b) and a == b
+
+
+## Talents, the renown road, clue scrolls, modes.
+func _depth_tests() -> void:
+	Game.data = Game._fresh()
+	_ok("no points at level 1", Game.talent_points("knight") == 0 and not Game.can_learn("knight", 0, 0))
+	Game.hero("knight")["level"] = 4
+	_ok("three points at level 4", Game.talent_points("knight") == 3)
+	_ok("nodes need the one above", not Game.can_learn("knight", 0, 1) and Game.can_learn("knight", 0, 0))
+	var hp0: float = Game.hero_stats("knight")["hp"]
+	Game.learn_talent("knight", 0, 0)
+	_ok("talent adds health", float(Game.hero_stats("knight")["hp"]) > hp0 * 1.07)
+	Game.learn_talent("knight", 0, 1)
+	Game.learn_talent("knight", 0, 2)
+	_ok("stalwart sets second wind", float(Game.hero_stats("knight")["flags"].get("second_wind", 0.0)) > 0.0)
+	_ok("points spent", Game.talent_points("knight") == 0)
+	Game.respec("knight")
+	_ok("respec is free", Game.talent_points("knight") == 3 and absf(float(Game.hero_stats("knight")["hp"]) - hp0) < 0.01)
+	for hid in DB.HERO_ORDER:
+		for path in TalentDB.paths(hid):
+			_ok("%s %s has eight nodes" % [hid, path["name"]], path["nodes"].size() == 8)
+			for n in path["nodes"]:
+				for c in n.get("cards", []):
+					_ok("talent card %s exists" % c, DB.CARDS.has(c))
+	Game.data = Game._fresh()
+	_ok("road starts closed", Game.road_claimable() == 0)
+	Game.data["renown"] = DB.road_threshold(2)
+	_ok("two steps open", Game.road_claimable() == 2)
+	var gold_pre := Game.gold()
+	Game.claim_road()
+	_ok("claim pays and counts", int(Game.data["road"]) == 1 and Game.road_claimable() == 1 and Game.gold() > gold_pre)
+	_ok("modes locked until a win", not Game.mode_unlocked("descent") and Game.mode_unlocked("horde"))
+	Game.data["tier_unlocked"] = 1
+	_ok("modes open after a win", Game.mode_unlocked("descent") and Game.mode_unlocked("rush"))
+	Game.data["clue"] = {"step": 0, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
+	var r := {"win": true, "tier": 1, "hero": "knight", "gold": 400, "elites": 3, "kills": 10, "xp": {}, "items": [], "dashes": 3, "mode": "horde", "time": 100.0, "zone": "barrow"}
+	Game.finish_hunt(r)
+	_ok("clue step 1", int(Game.clue().get("step", -1)) == 1)
+	Game.finish_hunt(r)
+	Game.finish_hunt(r)
+	_ok("clue casket empties the scroll", Game.clue().is_empty() or Game.clue().has("goals"))
+	var depth_r := {"win": false, "tier": 0, "hero": "mage", "gold": 5, "kills": 5, "elites": 0, "xp": {}, "items": [], "mode": "descent", "depth": 6}
+	Game.finish_hunt(depth_r)
+	_ok("deepest descent kept", Game.best_depth("mage") == 6)

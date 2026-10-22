@@ -61,10 +61,10 @@ func _offer(id: String) -> Button:
 	v.add_theme_constant_override("separation", 2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(Ui.label(str(p["name"]), "Heading"))
-	var good := Ui.label("＋ " + str(p["good"]), "Body")
+	var good := Ui.label("▲ " + str(p["good"]), "Body")
 	good.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6))
 	v.add_child(good)
-	var bad := Ui.label("－ " + str(p["bad"]), "Body")
+	var bad := Ui.label("▼ " + str(p["bad"]), "Body")
 	bad.add_theme_color_override("font_color", Color(1.0, 0.5, 0.45))
 	v.add_child(bad)
 	row.add_child(v)

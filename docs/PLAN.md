@@ -833,7 +833,13 @@ the green squares. New capture shot: `expedition`.
 Bug: under a notch the kill-streak label covered the pause button and clock.
 The streak and shrine-buff labels now sit in a row inside `%Safe/Top`.
 
-### [ ] 9.3 HUD: one bar at the top, HP on the hero
+### [x] 9.3 HUD: one bar at the top, HP on the hero
+Done. The health bar is a HUD control that follows the hero's feet
+(`HeroBar`, projected each frame); XP is `XpRing` around the portrait; the top
+strip is portrait, one objective-or-boss bar, pause/clock/gold. The left-edge
+`Hud.event()` feed carries the kill streak and blessing timers (shrine and
+massacre banners became events). The stick ghost is hidden after the tutorial.
+Original spec, kept for reference:
 Files: `src/ui/hud.tscn` + `hud.gd`, `src/hunt/hero.gd`.
 - A world-space HP bar under the hero (a `Sprite3D` or `SubViewport`-free
   quad with a shader; one node, moved with the hero) with the run level as a
@@ -850,7 +856,12 @@ Files: `src/ui/hud.tscn` + `hud.gd`, `src/hunt/hero.gd`.
 Verify: shots `hunt,boss,shrine` at 720x1560 `--notch`. Nothing but the
 objective/boss bar and the event feed sits between the top strip and the hero.
 
-### [ ] 9.4 Gear screen: rarity is the only color, item power on every tile
+### [x] 9.4 Gear screen: rarity is the only color, item power on every tile
+Done, with two changes from the spec: the details panel is a fixed-height card
+under the hero (so the 3D hero never resizes) rather than a bottom sheet, and
+the layout is still code-built (moving it to a `.tscn` was left out).
+`Game.hero_stats(id, preview)` powers the before/after strip; `Game.item_power`
+is the tile number; "Requires Attack 20" wording. Original spec:
 Files: `src/lobby/equipment.gd` (move layout into a new `equipment.tscn`
 while here), `src/data/db.gd`, `src/data/gear_db.gd`.
 - Tile: frame + soft background in the rarity color; icon in one neutral
@@ -868,7 +879,8 @@ while here), `src/data/db.gd`, `src/data/gear_db.gd`.
 Verify: shots `equip,equipdetail`. Read them and check every tile's color
 matches its rarity and the selected item's stat deltas are visible.
 
-### [ ] 9.5 Heroes sheet and sheet sizes
+### [x] 9.5 Heroes sheet and sheet sizes
+Done (sheets size to content up to the cap, with a bottom fade hint). Spec:
 Files: `src/lobby/lobby_ui.gd`, `src/lobby/sheet.gd`.
 - Shard bar: "Ready" (gold fill) when shards ≥ cost; never "9 / 6".
 - Replace the gear circles with "Gear power N · 3 / 5 slots" and a link.
@@ -877,7 +889,9 @@ Files: `src/lobby/lobby_ui.gd`, `src/lobby/sheet.gd`.
 - Collection log: scroll hint (fade at the bottom edge) when content overflows.
 Verify: shots `heroes,bounties,skills,log`.
 
-### [ ] 9.6 Camp follow-ups
+### [x] 9.6 Camp follow-ups
+Done. The profile chip opens Skills, a quick tap on the hero opens the roster
+(swipe still turns the hero), the chest sits on the rail with a pulse. Spec:
 - Profile chip (portrait + combat level) top-left opens Skills and Log.
 - Tapping the hero (or swiping) opens the roster.
 - Pending chest: a chest slot on a right-side rail instead of a full-width
@@ -892,24 +906,48 @@ The reasoning and the details are in `docs/review-ux-and-depth.md`, Part 2.
 Each item needs its own short plan (files, data, save keys with defaults in
 `Game._fresh()`) before code. Recommended order:
 
-- [ ] 10.1 **Talent trees**: three paths per hero, a point per hero level
+- [x] 10.1 **Talent trees** (eight nodes per path, `HERO_MAX_LEVEL` 20, `TalentDB`): three paths per hero, a point per hero level
   (`HERO_MAX_LEVEL` 10 → 30), minor / notable / keystone nodes, free respec.
-- [ ] 10.2 **Endless Descent**: horde without end, depth rises every 60 s,
+- [x] 10.2 **Endless Descent**: horde without end, depth rises every 60 s,
   personal best per hero.
-- [ ] 10.3 **Boss Rush**: every boss in a row, card pick between fights,
+- [x] 10.3 **Boss Rush**: every boss in a row, card pick between fights,
   best time.
-- [ ] 10.4 **Prayer**: bury bones, unlock OSRS prayers, take 1–2 into a hunt.
-- [ ] 10.5 **Slayer**: tasks from a Slayer Master, points for unlocks and
+- [-] 10.4 **Prayer** (skipped on request): bury bones, unlock OSRS prayers, take 1–2 into a hunt.
+- [-] 10.5 **Slayer** (skipped on request): tasks from a Slayer Master, points for unlocks and
   superior foes.
-- [ ] 10.6 **Smithing**: smelt gear into bars, smith or reforge pieces.
-- [ ] 10.7 **Renown road**: one progression track on the camp screen that
+- [-] 10.6 **Smithing** (skipped on request): smelt gear into bars, smith or reforge pieces.
+- [x] 10.7 **Renown road**: one progression track on the camp screen that
   hands out today's scattered unlocks in order.
-- [ ] 10.8 **Weekly Omen**: one rule twist a week, better chest.
-- [ ] 10.9 **Treasure Trails**: clue scroll drops with multi-step goals.
-- [ ] 10.10 **The Wilderness**: Hunt Royale-style shared shrinking map with
+- [x] 10.8 **Weekly Omen**: one rule twist a week, better chest.
+- [x] 10.9 **Treasure Trails**: clue scroll drops with multi-step goals.
+- [x] 10.10 **The Wilderness** (rivals are hero-built foes; no boss): Hunt Royale-style shared shrinking map with
   bot heroes.
-- In-run variety (any time, small): cursed shrine, omen choice at 50% souls,
+- [x] In-run variety: cursed shrine, omen choice at 50% souls,
   five more elite affixes, a potion, one new boss pattern per tier.
+
+### How Phase 10 was built (where to tune)
+
+- **Talents:** `src/data/talent_db.gd` (nodes, effects), `Game._apply_talents`,
+  flags read in `hunt.gd` (`execute`, `mark`, `critdmg`, `bloodlust`,
+  `second_wind`). Save: `heroes[id].talents` = `["path.index", ...]`. Level
+  past 10 is worth `DB.LEVEL_POWER_LATE` per level.
+- **Modes:** `DB.MODES` / `MODE_ORDER`; `hunt.gd` has `_tick_depth`,
+  `_direct_rush`, `_boss_down_midway`, `_tick_wild`. Descent and Boss Rush open
+  after a Normal win (`Game.mode_unlocked`). Bests live in `stats.best`:
+  `descent_<hero>`, `rush<tier>_<hero>`, `wildplace_<hero>`.
+- **The Wilderness:** `DB.WILD_*` (ring keyframes, rival counts) and
+  `DB.rival_def(hero)`; rivals are `Enemy` kinds `rival_<hero>` built from the
+  hero model. The ring is a mesh plus a damage tick. No boss in this mode.
+- **Pacts, cursed shrine, potion, affixes:** `DB.PACTS`, `DB.CURSE`,
+  `DB.POTION`, `DB.ELITE_AFFIXES`; casts in `Enemy._tick_casts`, blasts and
+  lances in `Hunt.blast_at` / `beam_from`. Veteran and Nightmare bosses gain a
+  blast ring and a lance fan (`Boss._tick_tier_moves`).
+- **Meta:** renown road (`DB.road_*`, `Game.claim_road`), weekly omen
+  (`DB.WEEKLY_OMENS`, `Game.weekly_omen`, toggle in the Expedition sheet), clue
+  scrolls (`DB.CLUE_GOALS`, `Game._clue_progress`, shown in the Log). New save
+  keys: `renown`, `road`, `omen_on`, `clue`, per-hero `talents`.
+- Open: all of this was tuned with the autopilot only. Talent numbers, the
+  Wilderness rivals, Descent scaling and the potion need a playtest on a phone.
 
 ## Next up
 
@@ -929,7 +967,7 @@ real phone. Everything else is tuned by the autopilot and by eye.
 4. **Nightmare and Veteran balance.** The numbers in CHANGELOG 2026-10-22 came
    from autopilot runs only. Tune in `src/data/db.gd` `TIERS`. Watch Ranger on
    Trial: it has won on Normal but has not been tested on higher tiers.
-5. **UI polish pass.** Now Phase 9 above (9.1 and 9.2 done; 9.3–9.6 next).
+5. ~~**UI polish pass.**~~ Phase 9 is done; it needs a look on a real phone.
 6. **Difficulty and AI (task #13).** The complaint was that the hunt is brain
    dead. The autopilot still kites well. Ideas, in order of cost: foes that
    cut off retreat paths; a Nightmare-only fast hound pack; elites that

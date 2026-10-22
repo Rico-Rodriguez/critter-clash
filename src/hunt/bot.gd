@@ -54,6 +54,11 @@ func steer(dt: float) -> Vector2:
 	# fights the waypoint and parks the bot at the edge.)
 	if hunt.mode != "trial" and (absf(p.x) > 15.0 or p.z > 15.0 or p.z < -24.0):
 		want += mid.normalized() * 1.2
+	# The Wilderness: stay inside the closing ring.
+	if hunt.mode == "wild":
+		var to_c := DB.WILD_CENTER - p
+		if to_c.length() > hunt.ring_r - 3.5:
+			want += to_c.normalized() * 3.5
 	# Walk out of anything red on the ground.
 	for e in hunt.fx._live:
 		if str(e["kind"]) != "tele":
@@ -130,6 +135,8 @@ func steer(dt: float) -> Vector2:
 			want += _wander * 0.6
 	if h.super_ready() and (near >= 3 or hunt.boss and hunt.boss.alive and hunt.boss.state != "intro" and p.distance_to(hunt.boss.flat_pos()) < 7.0):
 		h.try_super()
+	if h.hp < h.max_hp * 0.45:
+		h.try_potion()
 	if (near >= 4 or h.hp < h.max_hp * 0.35 and near >= 1) and h.dash_cd <= 0.0 and want.length() > 0.2:
 		h.move_input = Vector2(want.x, want.z).normalized()
 		h.try_dash()

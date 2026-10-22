@@ -87,6 +87,19 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 		add_child(nameplate)
 	if def.has("tint") and not elite:
 		set_tint(def["tint"])
+	if def.has("rival"):
+		nameplate = Label3D.new()
+		nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		nameplate.no_depth_test = true
+		nameplate.pixel_size = 0.006
+		nameplate.font = hunt.fx.title_font
+		nameplate.font_size = 44
+		nameplate.outline_size = 14
+		nameplate.modulate = Color(1.0, 0.55, 0.45)
+		nameplate.outline_modulate = Color(0, 0, 0, 0.9)
+		nameplate.text = str(def["name"])
+		nameplate.position = Vector3(0, 2.6, 0)
+		add_child(nameplate)
 	if kind == "robber":
 		_wear_sack()
 	if elite and "warded" in affixes:

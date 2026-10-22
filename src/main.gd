@@ -69,7 +69,7 @@ func go(screen: String) -> void:
 
 
 func _on_hunt_finished(result: Dictionary) -> void:
-	if result.get("win", false) or (str(result.get("mode", "")) == "descent" and str(result.get("chest", "")) != ""):
+	if result.get("win", false) or (str(result.get("mode", "")) in ["descent", "wild"] and str(result.get("chest", "")) != ""):
 		pending_chest = str(result.get("chest", ""))
 	go("lobby")
 
@@ -201,7 +201,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road":
 				if shot == "chest" or shot == "lobbychest":
 					pending_chest = "gold"
 				if shot in ["bounties", "lobby"]:
@@ -209,6 +209,10 @@ func _capture(args: PackedStringArray) -> void:
 					var bl: Array = Game.data["bounties"]["list"]
 					bl[0]["progress"] = bl[0]["target"]
 					bl[1]["progress"] = int(bl[1]["target"]) / 2
+				if shot == "road":
+					Game.data["renown"] = DB.road_threshold(3) + 40
+					Game.data["road"] = 1
+					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 				if shot == "talents":
 					Game.hero(hid)["level"] = 12
 					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
@@ -322,7 +326,11 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "hexer", "powers":
+			"hunt", "levelup", "boss", "victory", "results", "death", "hexer", "powers", "descent", "pact", "wild":
+				if shot in ["descent", "pact"]:
+					Game.data["mode"] = "descent"
+				elif shot == "wild":
+					Game.data["mode"] = "wild"
 				_set_screen_now("hunt")
 				var h: Hunt = current
 				h.bot = true
@@ -330,6 +338,17 @@ func _capture(args: PackedStringArray) -> void:
 				h._bot.hunt = h
 				if shot == "hunt":
 					await _wait_sim(h, 16.0)
+				elif shot == "descent":
+					await _wait_sim(h, 70.0)
+					h.hero.hp = h.hero.max_hp * 0.4
+					await _wait(0.4)
+				elif shot == "wild":
+					await _wait_sim(h, 12.0)
+				elif shot == "pact":
+					await _wait_sim(h, 4.0)
+					h.bot = false
+					h.offer_pact()
+					await _wait(0.9)
 				elif shot == "levelup":
 					await _wait_sim(h, 6.0)
 					h.bot = false

@@ -51,6 +51,10 @@ func _fresh() -> Dictionary:
 		"bounties": {"day": "", "list": []},
 		"zone": "barrow",
 		"mode": "horde",
+		"renown": 0,
+		"road": 0,
+		"omen_on": false,
+		"clue": {},
 	}
 
 
@@ -714,13 +718,16 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 	st["elites"] = int(st["elites"]) + int(r.get("elites", 0))
 	if r.get("win", false):
 		st["wins"] = int(st["wins"]) + 1
-		st["boss_kills"] = int(st["boss_kills"]) + 1
+		if str(r.get("mode", "horde")) != "wild":
+			st["boss_kills"] = int(st["boss_kills"]) + 1
 		var t := int(r["tier"])
 		var key := str(t) if str(r.get("zone", "barrow")) == "barrow" else "%s%d" % [r["zone"], t]
 		if str(r.get("mode", "horde")) == "trial":
 			key = "t" + key
 		elif str(r.get("mode", "horde")) == "rush":
 			key = "rush%d_%s" % [t, r["hero"]]
+		elif str(r.get("mode", "horde")) == "wild":
+			key = "wild%d_%s" % [t, r["hero"]]
 		var best := float(st["best"].get(key, 0.0))
 		if best <= 0.0 or float(r["time"]) < best:
 			st["best"][key] = float(r["time"])
@@ -730,6 +737,14 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if t >= 1 and not hero("barbarian")["unlocked"]:
 			hero("barbarian")["unlocked"] = true
 			summary["unlocked_hero"] = "barbarian"
+	summary["renown"] = _earn_renown(r)
+	summary["clue"] = _clue_progress(r)
+	if str(r.get("mode", "horde")) == "wild" and int(r.get("rivals", 0)) > 0:
+		var wkey: String = "wildplace_" + str(r["hero"])
+		var place := int(r.get("place", 99))
+		if int(st["best"].get(wkey, 99)) > place:
+			st["best"][wkey] = place
+			summary["record"] = true
 	if str(r.get("mode", "horde")) == "descent":
 		var dkey: String = "descent_" + str(r["hero"])
 		var d := int(r.get("depth", 1))
@@ -742,6 +757,178 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		summary["unlocked_hero"] = opened
 	save()
 	return summary
+
+
+# --- Renown road -----------------------------------------------------------
+
+func renown() -> int:
+	return int(data.get("renown", 0))
+
+
+func _earn_renown(r: Dictionary) -> int:
+	var n := 12 + int(r.get("tier", 0)) * 10 + int(r.get("kills", 0)) / 20 + int(r.get("elites", 0)) * 3
+	if r.get("win", false):
+		n += 25
+	if str(r.get("mode", "horde")) == "descent":
+		n += int(r.get("depth", 1)) * 4
+	data["renown"] = renown() + n
+	return n
+
+
+## Steps reached but not yet claimed.
+func road_claimable() -> int:
+	var n := int(data.get("road", 0))
+	var open := 0
+	while DB.road_threshold(n + open + 1) <= renown():
+		open += 1
+	return open
+
+
+## 0..1 progress toward the next step.
+func road_fill() -> float:
+	var done := int(data.get("road", 0)) + road_claimable()
+	var lo := DB.road_threshold(done) if done > 0 else 0
+	var hi := DB.road_threshold(done + 1)
+	return clampf(float(renown() - lo) / float(hi - lo), 0.0, 1.0)
+
+
+func road_reward_text(n: int) -> String:
+	var rw := DB.road_reward(n)
+	match rw["kind"]:
+		"gold":
+			return "%d gold" % int(rw["amount"])
+		"shards":
+			return "%d %s shards" % [int(rw["amount"]), DB.HEROES[hero_id()]["name"]]
+	return DB.CHESTS[rw["chest"]]["name"]
+
+
+## Pays the next unclaimed step. Returns lines describing what came out.
+func claim_road() -> Array:
+	if road_claimable() <= 0:
+		return []
+	var n := int(data["road"]) + 1
+	data["road"] = n
+	var rw := DB.road_reward(n)
+	var lines := []
+	match rw["kind"]:
+		"gold":
+			data["gold"] = gold() + int(rw["amount"])
+			lines.append("+%d gold" % int(rw["amount"]))
+		"shards":
+			hero(hero_id())["shards"] = int(hero(hero_id())["shards"]) + int(rw["amount"])
+			lines.append("+%d %s shards" % [int(rw["amount"]), DB.HEROES[hero_id()]["name"]])
+		"chest":
+			for e in open_chest(str(rw["chest"])):
+				match e["type"]:
+					"gold":
+						lines.append("+%d gold" % int(e["amount"]))
+					"shards":
+						lines.append("+%d %s shards" % [int(e["amount"]), DB.HEROES[e["hero"]]["name"]])
+					"item":
+						lines.append(str(e["item"]["name"]))
+					"unlock":
+						lines.append("%s joins your band" % DB.HEROES[e["hero"]]["name"])
+	save()
+	return lines
+
+
+# --- Weekly omen -----------------------------------------------------------
+
+## This week's omen: the week number picks one in turn.
+func weekly_omen() -> Dictionary:
+	var week := int(Time.get_unix_time_from_system() / 604800.0)
+	return DB.WEEKLY_OMENS[week % DB.WEEKLY_OMENS.size()]
+
+
+## The omen a hunt in `mode` carries, or {} (the Long Road keeps its own rules).
+func active_omen(mode: String) -> Dictionary:
+	if bool(data.get("omen_on", false)) and mode != "trial":
+		return weekly_omen()
+	return {}
+
+
+func set_omen(on: bool) -> void:
+	data["omen_on"] = on
+	save()
+
+
+# --- Treasure trails -------------------------------------------------------
+
+func clue() -> Dictionary:
+	return data.get("clue", {})
+
+
+func clue_goal_text(g: Dictionary) -> String:
+	var def: Dictionary = DB.CLUE_GOALS[g["id"]]
+	var t: String = def["text"]
+	if g["id"] == "win_hero":
+		return t % DB.HEROES[g["hero"]]["name"]
+	return t % int(def["n"]) if t.contains("%d") else t
+
+
+func _clue_new() -> Dictionary:
+	var ids: Array = DB.CLUE_GOALS.keys()
+	ids.shuffle()
+	var goals := []
+	for i in DB.CLUE_STEPS:
+		var gid: String = ids[i]
+		var pool: Array = DB.HERO_ORDER.filter(func(h): return hero(h)["unlocked"])
+		goals.append({"id": gid, "hero": pool[rng.randi() % pool.size()]})
+	return {"step": 0, "goals": goals}
+
+
+func _goal_met(g: Dictionary, r: Dictionary) -> bool:
+	var win: bool = r.get("win", false)
+	var def: Dictionary = DB.CLUE_GOALS[g["id"]]
+	match g["id"]:
+		"elites":
+			return int(r.get("elites", 0)) >= int(def["n"])
+		"win_hero":
+			return win and r["hero"] == g["hero"]
+		"nodash":
+			return win and int(r.get("dashes", 99)) <= int(def["n"])
+		"depth":
+			return str(r.get("mode", "")) == "descent" and int(r.get("depth", 1)) >= int(def["n"])
+		"veteran":
+			return win and int(r.get("tier", 0)) >= 1
+		"fast":
+			return float(r.get("boss_time", 9999.0)) <= float(def["n"])
+		"gold":
+			return int(r.get("gold", 0)) >= int(def["n"])
+	return false
+
+
+## Advances the clue after a hunt. Returns {"event": "", "found", "step" or
+## "casket", "lines": [...]} for the results screen.
+func _clue_progress(r: Dictionary) -> Dictionary:
+	var c := clue()
+	if c.is_empty():
+		var odds := 0.35 if r.get("win", false) else 0.12
+		if rng.randf() < odds:
+			data["clue"] = _clue_new()
+			return {"event": "found"}
+		return {}
+	var step := int(c["step"])
+	if not _goal_met(c["goals"][step], r):
+		return {}
+	step += 1
+	if step < DB.CLUE_STEPS:
+		c["step"] = step
+		return {"event": "step", "step": step}
+	data["clue"] = {}
+	var lines := []
+	data["gold"] = gold() + 600
+	lines.append("+600 gold")
+	hero(hero_id())["shards"] = int(hero(hero_id())["shards"]) + 12
+	lines.append("+12 %s shards" % DB.HEROES[hero_id()]["name"])
+	var it := roll_item("boss", maxi(int(r.get("tier", 0)), 1), "", "", 1)
+	for i in 8:
+		if it["rarity"] == "legendary":
+			break
+		it = roll_item("boss", maxi(int(r.get("tier", 0)), 1), "", "", 1)
+	var stored := grant_item(it)
+	lines.append(str((stored if not stored.is_empty() else it)["name"]))
+	return {"event": "casket", "lines": lines}
 
 
 # --- Daily bounties --------------------------------------------------------

@@ -219,7 +219,7 @@ func recompute() -> void:
 	xp_mult = 1.0 + float(base.get("xp", 0.0)) + hunt.pact_sum("xp")
 	rate *= 1.0 + 0.05 * rage
 	dash_cd_max = 2.2 * (1.0 - 0.2 * lv.call("dash")) * (1.0 - float(base.get("dash", 0.0)))
-	super_rate = (1.0 + 0.25 * lv.call("wrath")) * (1.0 + float(base.get("super", 0.0)))
+	super_rate = (1.0 + 0.25 * lv.call("wrath")) * (1.0 + float(base.get("super", 0.0)) + hunt.pact_sum("super"))
 	gold_mult = base["gold"] * (1.0 + 0.3 * lv.call("greed"))
 	leech = 0.03 * lv.call("leech")
 	thorns = 0.6 * lv.call("thorns")
@@ -390,8 +390,9 @@ func _impact() -> void:
 # --- Dash and super ------------------------------------------------------
 
 func try_dash() -> bool:
-	if dash_cd > 0.0 or dash_t > 0.0 or super_t > 0.0 or not alive:
+	if dash_cd > 0.0 or dash_t > 0.0 or super_t > 0.0 or not alive or bool(hunt.omen.get("no_dash", false)):
 		return false
+	hunt.dashes += 1
 	var d := Vector3(move_input.x, 0, move_input.y)
 	if d.length() < 0.2:
 		d = dir_of(rotation.y)

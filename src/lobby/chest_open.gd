@@ -29,6 +29,7 @@ func open(u: LobbyUI, k: String) -> void:
 	add_child(_card_holder)
 	_hint = Ui.label("Tap to open your %s" % DB.CHESTS[kind]["name"], "HudTitle", HORIZONTAL_ALIGNMENT_CENTER)
 	_hint.add_theme_font_size_override("font_size", 34)
+	ui.lobby.center_chest()
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -260.0
 	_hint.offset_bottom = -200.0

@@ -10,6 +10,42 @@ version is 3.
 
 ---
 
+## 2026-10-23: UI pass, talents, new modes (Phase 9 and 10)
+
+On branch `claude/game-codebase-review-m1uchq`, not yet on `main`. Prayer,
+Slayer and Smithing were left out on request.
+
+### Added
+- **Talent trees:** three paths per hero, eight nodes each, a point per hero
+  level, free reset. Hero max level is now 20 (levels past 10 add less raw
+  power). Open it from the Heroes sheet.
+- **Endless Descent:** the horde never ends; every minute goes a level deeper
+  with a champion, every fifth depth a boss. Deepest depth is kept per hero;
+  chests by depth.
+- **Boss Rush:** Gravemaw and the Hexer Queen, twice, empowered on the second
+  lap, with a card and a breath between fights.
+- **The Wilderness:** a closing ring and five to seven rival bands (hero-built
+  foes) hunting you while the dead rise. Last band standing wins.
+- **Pacts** offered mid-hunt (a gain with a price), the **cursed shrine**,
+  five more champion affixes (Frozen, Jailer, Mortar, Plagued, Arcane), a
+  **health potion** button, and Veteran/Nightmare bosses that learn a blast ring
+  and a fan of lances.
+- **Renown road** on the camp screen, the **weekly omen** (a rule twist with a
+  better chest) and **clue scrolls** (three goals, then a casket) in the Log.
+
+### Changed
+- Hunt HUD: health bar under the hero, XP ring on the portrait, one objective
+  or boss bar, a left-edge event feed.
+- Gear screen: rarity-only colors, item power and tier on every tile, a
+  before/after stat strip, a fixed-height detail card, red "new" dots.
+- Heroes sheet, sheet sizing, camp follow-ups (profile chip, tap the hero,
+  chest on the rail).
+
+### Fixed
+- A foe-list index error when a foe's tick removed other foes (bomber blasts).
+
+---
+
 ## 2026-10-22: A cleaner camp (UI pass, part 1)
 
 On branch `claude/game-codebase-review-m1uchq`, not yet on `main`.

@@ -12,14 +12,54 @@ var _reroll: Button
 func open(h: Hunt, choices: Array, level: int) -> void:
 	_hunt = h
 	%Title.text = "Level %d" % level
+	_held_row(h)
 	_reroll = Button.new()
-	_reroll.theme_type_variation = "Ghost"
+	_reroll.theme_type_variation = "CardButton"
+	_reroll.add_theme_font_size_override("font_size", 26)
 	_reroll.focus_mode = Control.FOCUS_NONE
 	_reroll.custom_minimum_size = Vector2(0, 72)
 	_reroll.pressed.connect(_do_reroll)
 	$Box.add_child(_reroll)
 	_fill(choices)
 	Ui.pop_in(%Title, 0.0, 1.3)
+
+
+## The build so far: small icons for the cards already held, with their stacks.
+func _held_row(h: Hunt) -> void:
+	var held: Array = []
+	for id: String in h.cards:
+		if int(h.cards[id]) > 0 and DB.CARDS.has(id):
+			held.append(id)
+	if held.is_empty():
+		return
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for id: String in held:
+		var col := DB.rarity_color(str(DB.CARDS[id]["rarity"]))
+		var cell := HBoxContainer.new()
+		cell.add_theme_constant_override("separation", 2)
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.add_child(Ui.icon_rect(str(DB.CARDS[id]["icon"]), 34, col.lightened(0.3)))
+		cell.add_child(Ui.label("%d" % int(h.cards[id]), "Caption"))
+		row.add_child(cell)
+	$Box.add_child(row)
+	$Box.move_child(row, %Cards.get_index())
+
+
+## "With Bloodrush → Bladestorm" when this card finishes a pair you half hold.
+func _evo_hint(id: String) -> String:
+	for eid: String in DB.CARDS:
+		var c: Dictionary = DB.CARDS[eid]
+		if not c.has("evo") or int(_hunt.cards.get(eid, 0)) > 0:
+			continue
+		var pair: Array = c["evo"]
+		if id in pair:
+			var other: String = pair[1] if pair[0] == id else pair[0]
+			if int(_hunt.cards.get(other, 0)) > 0:
+				return "+ %s → %s" % [DB.CARDS[other]["name"], c["name"]]
+	return ""
 
 
 func _fill(choices: Array) -> void:
@@ -122,7 +162,14 @@ func _card(id: String) -> Control:
 		p.color = col if i < have else (Color(1, 1, 1, 0.9) if i == have else Color(1, 1, 1, 0.12))
 		pips.add_child(p)
 	v.add_child(pips)
-	if have == 0:
+	var hint := _evo_hint(id)
+	if hint != "":
+		var eh := Ui.label(hint, "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		eh.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35))
+		eh.add_theme_font_size_override("font_size", 14)
+		eh.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(eh)
+	elif have == 0:
 		var nw := Ui.label("NEW", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 		nw.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7))
 		nw.add_theme_font_size_override("font_size", 15)
