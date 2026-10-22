@@ -813,6 +813,51 @@ brutes, a champion, a shrine or guarded treasure; the way on is sealed until
 the room is clear; the boss waits at the end. The autopilot plays it
 (`--bot --mode=trial`).
 
+## Next up
+
+Ordered. Do the first item before the rest: it is the only one that needs a
+real phone. Everything else is tuned by the autopilot and by eye.
+
+1. **Device check (blocking).** Install the build from `main`. Check, on an
+   iPhone with a notch: the equipment screen top edge, the Heroes and Bag sheets
+   near the home bar, level-up cards on the first level-up of a hunt, and that
+   gear shows on the hero when equipped. Log what breaks as bugs under this item.
+2. **Long Road playtest.** Play Normal, Veteran and Nightmare on the Long Road.
+   Judge: room count, how long a room takes, whether the gates read clearly,
+   whether the boss hall feels like a finale, and whether the loot is worth the
+   walk. The autopilot only proves it can finish; it says nothing about fun.
+3. **Results screen: show the Long Road.** `rooms_cleared` is recorded on every
+   trial result (`hunt.gd` `_end`, `finish_hunt`) but results.gd does not show
+   it. Add a "Rooms cleared 4 / 6" line and a trial-specific title.
+4. **Nightmare and Veteran balance.** The numbers in CHANGELOG 2026-10-22 came
+   from autopilot runs only. Tune in `src/data/db.gd` `TIERS`. Watch Ranger on
+   Trial: it has won on Normal but has not been tested on higher tiers.
+5. **UI polish pass (task #12).** The user still finds some screens clunky
+   beyond the clipping fix. Open items: capture the hunt, level-up and boss
+   screens with `tools/dev/godot-gpu.sh --resolution 720x1560 -- --capture
+   --notch --shots=hunt,levelup,boss`; check every sheet's tap targets are at
+   least 56 px tall.
+6. **Difficulty and AI (task #13).** The complaint was that the hunt is brain
+   dead. The autopilot still kites well. Ideas, in order of cost: foes that
+   cut off retreat paths; a Nightmare-only fast hound pack; elites that
+   pick a corner to trap the hero; fewer safe pockets on the map.
+7. **Remove the debug print.** `src/hunt/hunt.gd` has a `TRIALDBG` env-gated
+   print in `_direct_trial`. Delete it once the Long Road is tuned.
+8. **Gear depth.** Set bonuses (two or three pieces of one class's line),
+   per-tier drop tuning on the Long Road, and a gear reveal when a piece is
+   first worn.
+9. **Modes after the Long Road.** Boss rush (every boss in a row, no soul
+   phase) first, then the Royale-style mode from Phase 7, which needs a bigger
+   arena and bot heroes.
+10. **Art (deferred).** A.2/A.3 (a different art pack) was skipped on purpose.
+   Options are in `docs/art-options.md`. Only revisit if the KayKit look is the
+   blocker after the device check.
+
+Release rule: merge to `main` only when asked. A push to `main` builds the
+IPA and ships an OTA content update to every installed copy.
+
+---
+
 ## Phase 7 — Where it goes next (ideas, not tasks yet)
 
 The Barrow and the Sunken Crypt are one mode: a timed horde hunt that ends in
@@ -859,4 +904,6 @@ great; it is the biggest bet on this list.
 
 ## Notes for the next task
 
-(Append here when a task leaves something unfinished.)
+- Next up is at the top of this section. The change history is in CHANGELOG.md.
+- Open: Long Road results line (Next up 3); Veteran/Nightmare tuning (4).
+- Known debt: the `TRIALDBG` print in `src/hunt/hunt.gd` (Next up 7).
