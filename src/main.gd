@@ -234,7 +234,13 @@ func _capture(args: PackedStringArray) -> void:
 		for sk in DB.SKILLS:
 			Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[mat])))
 		for slot in DB.SLOTS:
-			var it := Game.grant_item(Game.make_item(hid, slot, mat, "rare"))
+			var mk := Game.make_item(hid, slot, mat, "rare")
+			# --set=hexer: the boss set's look; --look=N: a stage's Nth alternative.
+			if _arg(args, "set", "") != "":
+				mk["set"] = _arg(args, "set", "")
+			mk["look"] = int(_arg(args, "look", "0"))
+			mk["name"] = GearDB.base_name(mk)
+			var it := Game.grant_item(mk)
 			Game.equip(hid, int(it["uid"]))
 	if _arg(args, "geared", "0") == "1":
 		for slot in DB.SLOTS:
@@ -293,7 +299,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
-			"parts", "weapons", "dress":
+			"parts", "weapons", "dress", "sets", "sets2":
 				await _contact_sheet(shot)
 				await _save(shot)
 			"icon":
@@ -523,24 +529,39 @@ func _contact_sheet(kind: String) -> void:
 	sun.rotation_degrees = Vector3(-40, -20, 0)
 	root.add_child(sun)
 	var names: Array = []
-	if kind == "dress":
+	if kind == "dress" or kind.begins_with("sets"):
 		var cam2 := Camera3D.new()
 		root.add_child(cam2)
 		cam2.fov = 30
+		# sets: plain T6, its alternative look, then the three boss sets.
+		# sets2: alternatives at T3 and T5 (look 1 and 2).
+		var cols: Array = [-1, 1, 3, 6]
+		if kind == "sets":
+			cols = ["a0", "a1", "gravemaw", "hexer", "thorn"]
+		elif kind == "sets2":
+			cols = ["b1", "b2", "c1", "c2", "a2"]
 		for r in DB.HERO_ORDER.size():
 			var hid: String = DB.HERO_ORDER[r]
-			for c in 4:
+			for c in cols.size():
 				var a := Actor.new()
 				root.add_child(a)
 				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
-				a.position = Vector3((c - 1.5) * 1.7, -r * 2.2, 0)
-				var mat: int = [-1, 1, 3, 6][c]
+				a.position = Vector3((c - (cols.size() - 1) * 0.5) * 1.7, -r * 2.2, 0)
 				var pre := {}
 				for slot in DB.SLOTS:
-					pre[slot] = {} if mat < 0 else Game.make_item(hid, slot, mat, "rare")
+					var spec = cols[c]
+					if spec is int:
+						pre[slot] = {} if spec < 0 else Game.make_item(hid, slot, spec, "rare")
+						continue
+					var mat: int = {"a": 6, "b": 3, "c": 5}.get(str(spec).left(1), 5)
+					var it := Game.make_item(hid, slot, mat, "rare")
+					it["look"] = int(str(spec).right(1)) if str(spec).length() == 2 else 0
+					if DB.SETS.has(str(spec)):
+						it["set"] = str(spec)
+					pre[slot] = it
 				GearLook.apply(a, hid, pre)
 				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
-		cam2.look_at_from_position(Vector3(0, -2.9, 21.0), Vector3(0, -2.9, 0), Vector3.UP)
+		cam2.look_at_from_position(Vector3(0, -2.9, 21.0 + (cols.size() - 4) * 4.0), Vector3(0, -2.9, 0), Vector3.UP)
 		await _wait(1.0)
 		return
 	if kind == "parts":
@@ -549,6 +570,8 @@ func _contact_sheet(kind: String) -> void:
 		for f in ResourceLoader.list_directory(KK.WEAPON_DIR):
 			if f.ends_with(".gltf"):
 				names.append(f)
+		for k in GearDB.KITS:
+			names.append("kit:" + k)
 	var cols := 4 if kind == "parts" else 8
 	var cam := Camera3D.new()
 	root.add_child(cam)
@@ -563,7 +586,7 @@ func _contact_sheet(kind: String) -> void:
 			a.position = pos
 			a.play("Idle_A", 0.0)
 		else:
-			var w := KK.prop(KK.WEAPON_DIR + names[i])
+			var w := GearLook.prop_for(names[i])
 			w.position = pos
 			root.add_child(w)
 			var lb := Label3D.new()

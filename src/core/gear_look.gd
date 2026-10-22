@@ -43,6 +43,9 @@ static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 	for mi in skel.get_children():
 		if mi is MeshInstance3D and mi.name != own_head:
 			mi.visible = false
+		elif mi is BoneAttachment3D and str(mi.name).begins_with("Part_"):
+			for c in mi.get_children():
+				(c as Node3D).visible = false
 	var head := skel.get_node_or_null(own_head) as MeshInstance3D
 	if head:
 		head.visible = true
@@ -51,7 +54,7 @@ static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 	_dress(actor, skel, hero_id, worn["chest"], "chest", ["T:" + own] if starter["chest"] else ["T:Rogue_Hooded"], Color(0, 0, 0, 0) if starter["chest"] else basic)
 	_dress(actor, skel, hero_id, worn["legs"], "legs", ["L:" + own] if starter["legs"] else ["L:Rogue_Hooded"], Color(0, 0, 0, 0) if starter["legs"] else basic)
 	_dress(actor, skel, hero_id, worn["helm"], "helm", [], Color(0, 0, 0, 0))
-	if not worn["trinket"].is_empty() and GearDB.stage(hero_id, "trinket", int(worn["trinket"].get("mat", 0))).has("parts"):
+	if not worn["trinket"].is_empty() and GearDB.piece(worn["trinket"]).has("parts"):
 		_dress(actor, skel, hero_id, worn["trinket"], "trinket", [], Color(0, 0, 0, 0))
 	if head and not _hood_on(worn["helm"], hero_id):
 		head.visible = true
@@ -107,10 +110,24 @@ static func _part(actor: Actor, skel: Skeleton3D, spec: String) -> MeshInstance3
 		if mi == null:
 			sc.free()
 			return null
+		# Hats, hoods and capes on the skeletons are rigid, pinned to a bone,
+		# not skinned: they go on a bone attachment of their own.
+		var bone := ""
+		if mi.get_parent() is BoneAttachment3D:
+			bone = (mi.get_parent() as BoneAttachment3D).bone_name
+		var xf := mi.transform
 		mi.get_parent().remove_child(mi)
 		sc.free()
-		skel.add_child(mi)
-		mi.skeleton = NodePath("..")
+		if bone != "":
+			var att := BoneAttachment3D.new()
+			att.name = "Part_" + nm
+			att.bone_name = bone
+			skel.add_child(att)
+			att.add_child(mi)
+			mi.transform = xf.translated(GearDB.PART_NUDGE.get(spec, Vector3.ZERO))
+		else:
+			skel.add_child(mi)
+			mi.skeleton = NodePath("..")
 		actor.restyle(skel)
 		found = mi
 	reg[spec] = found
@@ -142,7 +159,7 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	_sparks(skel, "GearMain", spark)
 	_aura(actor, GearDB.aura(worn, hero_id))
 	var off: Dictionary = worn["trinket"]
-	var st := GearDB.stage(hero_id, "trinket", int(off.get("mat", 0))) if not off.is_empty() else {}
+	var st := GearDB.piece(off) if not off.is_empty() else {}
 	var model := str(st.get("model", ""))
 	if model == "":
 		_hold(actor, skel, "GearOff", "handslot.l", "", 1.0, Color(0, 0, 0, 0), Color(0, 0, 0, 0), Transform3D.IDENTITY)
@@ -175,7 +192,7 @@ static func _hold(actor: Actor, skel: Skeleton3D, att_name: String, bone: String
 		for c in att.get_children():
 			actor.forget(c)
 			c.queue_free()
-		var prop := KK.prop(KK.WEAPON_DIR + file)
+		var prop := prop_for(file)
 		att.add_child(prop)
 		actor.restyle(prop)
 		att.set_meta("look", file)
@@ -188,6 +205,21 @@ static func _hold(actor: Actor, skel: Skeleton3D, att_name: String, bone: String
 		mi.set_instance_shader_parameter("tint", glow)
 		mi.set_instance_shader_parameter("grade", grade)
 		mi.set_instance_shader_parameter("accent", accent)
+
+
+## The model of a weapon or offhand: a KayKit weapon file, or "kit:name", put
+## together from several props (GearDB.KITS).
+static func prop_for(model: String) -> Node3D:
+	if not model.begins_with("kit:"):
+		return KK.prop(KK.WEAPON_DIR + model)
+	var root := Node3D.new()
+	for part: Array in GearDB.KITS[model.trim_prefix("kit:")]:
+		var n := KK.prop("res://assets/kaykit/" + str(part[0]))
+		var rot: Vector3 = part[2]
+		var sc: Vector3 = part[3] if part[3] is Vector3 else Vector3.ONE * float(part[3])
+		n.transform = Transform3D(Basis.from_euler(rot * PI / 180.0) * Basis.from_scale(sc), part[1])
+		root.add_child(n)
+	return root
 
 
 ## Sparks drifting off a fine weapon (one emitter per hand, made once, then

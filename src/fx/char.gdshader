@@ -57,20 +57,25 @@ void fragment() {
 	float fr = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	vec3 e = rim_color.rgb * fr * rim_strength;
 	// Sheen in the metal's own color, so mithril reads blue, not white.
+	// A tight edge only: a broad one washes dark metals out to pastel.
 	vec3 gc = accent.rgb * 0.85;
-	e += gc * fr * grade.x * 0.6;
+	float edge = fr * fr;
+	e += gc * edge * grade.x * 0.45;
 	if (grade.y > 0.0) {
 		float band = fract(lpos.y * 0.55 + lpos.x * 0.25 - TIME * 0.32);
-		e += gc * smoothstep(0.12, 0.0, abs(band - 0.5) - 0.02) * grade.y * (0.3 + 0.5 * luma);
+		e += gc * smoothstep(0.05, 0.0, abs(band - 0.5) - 0.01) * grade.y * (0.3 + 0.5 * luma);
 	}
 	if (grade.z > 0.0) {
-		// Broad molten seams: a low-frequency contour of the grime noise.
+		// Molten seams: a contour of the grime noise, kept to a few patches
+		// (a second, coarser noise) so it reads as cracks, not a net.
 		float v = texture(grime_tex, lpos.xy * 0.75 + vec2(lpos.z * 0.45, 0.0)).r;
-		float vein = smoothstep(0.05, 0.0, abs(v - 0.55));
+		float patch = texture(grime_tex, lpos.yz * 0.22 + vec2(0.37, lpos.x * 0.2)).r;
+		float vein = smoothstep(0.035, 0.0, abs(v - 0.55)) * smoothstep(0.5, 0.62, patch);
 		float pulse = 0.6 + 0.4 * sin(TIME * 2.2 + lpos.y * 2.5);
 		e += mix(accent.rgb * 1.6, vec3(1.0, 0.75, 0.4), grade.w) * vein * grade.z * pulse * 1.8;
 	}
-	e += tint.rgb * tint.a * (0.25 + fr * 2.2);
+	// Rarity glow on the edges only, so it never recolors black or bone.
+	e += tint.rgb * tint.a * (0.06 + fr * 1.4);
 	e += vec3(1.0, 0.95, 0.9) * flash * 1.6;
 	// KayKit skeleton eyes are the brightest warm texels: let them glow.
 	float hot = smoothstep(0.82, 0.95, c0.r) * smoothstep(0.55, 0.75, c0.g) * (1.0 - smoothstep(0.35, 0.6, c0.b));

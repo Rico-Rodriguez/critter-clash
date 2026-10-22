@@ -73,22 +73,55 @@ func _gear_tests() -> void:
 	# Every part a gear stage names exists in its KayKit file, every weapon model loads.
 	var missing := []
 	var scenes := {}
+	# Every look: stages, their alternatives, set looks and unique looks.
+	var looks: Array = []
 	for cls in GearDB.LINES:
 		for slot in DB.SLOTS:
 			for st: Dictionary in GearDB.LINES[cls][slot]:
-				for spec: String in GearDB.expand(st.get("parts", [])):
-					var src := spec.get_slice("/", 0)
-					if not scenes.has(src):
-						scenes[src] = load(KK.CHAR_DIR + src + ".glb").instantiate()
-					if (scenes[src] as Node).find_child(GearDB.mesh_name(spec), true, false) == null:
-						missing.append(spec)
-				if st.has("model") and not ResourceLoader.exists(KK.WEAPON_DIR + str(st["model"])):
-					missing.append(st["model"])
+				looks.append(st)
+				looks.append_array(st.get("alts", []))
+	for sid in GearDB.SET_LOOKS:
+		_ok("set look %s is a set" % sid, DB.SETS.has(sid))
+		for cls in GearDB.LINES:
+			for slot in DB.SLOTS:
+				looks.append(GearDB.SET_LOOKS[sid]["cls"][cls][slot])
+	for u in GearDB.UNIQUE_LOOKS:
+		_ok("unique look %s is a unique" % u, DB.UNIQUES.has(u))
+		looks.append(GearDB.UNIQUE_LOOKS[u])
+	for st: Dictionary in looks:
+		for spec: String in GearDB.expand(st.get("parts", [])):
+			var src := spec.get_slice("/", 0)
+			if not scenes.has(src):
+				scenes[src] = load(KK.CHAR_DIR + src + ".glb").instantiate()
+			if (scenes[src] as Node).find_child(GearDB.mesh_name(spec), true, false) == null:
+				missing.append(spec)
+		var model := str(st.get("model", ""))
+		if model.begins_with("kit:"):
+			if not GearDB.KITS.has(model.trim_prefix("kit:")):
+				missing.append(model)
+			else:
+				for part: Array in GearDB.KITS[model.trim_prefix("kit:")]:
+					if not ResourceLoader.exists("res://assets/kaykit/" + str(part[0])):
+						missing.append(part[0])
+		elif model != "" and not ResourceLoader.exists(KK.WEAPON_DIR + model):
+			missing.append(model)
+		if st.has("icon") and not ResourceLoader.exists("res://assets/icons/%s.svg" % st["icon"]):
+			missing.append(st["icon"])
 	for n: Node in scenes.values():
 		n.free()
 	_ok("gear parts exist %s" % str(missing), missing.is_empty())
 	var it := Game.make_item("mage", "chest", 3, "rare")
-	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and str(it["name"]).ends_with("Mystic Robe Top"))
+	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and (str(it["name"]).ends_with("Mystic Robe Top") or str(it["name"]).ends_with("Mystic Ragged Robe")))
+	# Alternatives and set looks change the model and the name, never the stats.
+	it["look"] = 0
+	_ok("look 0 is the stage", GearDB.base_name(it) == "Mystic Robe Top")
+	it["look"] = 1
+	_ok("look 1 is the alternative", GearDB.base_name(it) == "Mystic Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
+	it["set"] = "hexer"
+	_ok("a set piece wears the set", GearDB.base_name(it) == "Mystic Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	var kn := Game.make_item("knight", "helm", 0, "common")
+	kn["look"] = 1
+	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Bronze Med Helm")
 	Game.grant_item(it)
 	_ok("wrong class blocked", Game.wear_block("knight", it) != "")
 	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Requires Magic"))

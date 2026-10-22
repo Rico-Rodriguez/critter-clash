@@ -2055,9 +2055,7 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 	var own_model := ""
 	if it["slot"] in ["weapon", "trinket"] and it.has("cls") and GearDB.LINES.has(str(it["cls"])):
 		own_model = str(GearDB.look(it)["model"])
-	if own_model != "":
-		model_path = KK.WEAPON_DIR + own_model
-	var m := KK.prop(model_path)
+	var m := GearLook.prop_for(own_model) if own_model != "" else KK.prop(model_path)
 	m.scale = Vector3.ONE * (1.6 if own_model != "" else 1.3)
 	m.rotation = Vector3(0, randf() * TAU, PI * 0.5 if it["slot"] == "weapon" else 0.0)
 	m.position.y = 0.2

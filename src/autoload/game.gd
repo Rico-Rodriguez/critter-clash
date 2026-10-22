@@ -671,13 +671,14 @@ func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionar
 	for i in step:
 		if i < pool.size():
 			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
-	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat}
+	# `look` picks among a stage's alternative models (GearDB.piece).
+	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat, "look": rng.randi() % 1000}
 	it["name"] = _item_name(it, rarity)
 	return it
 
 
 func _item_name(it: Dictionary, rarity: String) -> String:
-	var base := GearDB.base_name(str(it["cls"]), str(it["slot"]), int(it.get("mat", 0)))
+	var base := GearDB.base_name(it)
 	if rarity == "common":
 		return base
 	var prefixes: Array = DB.ITEM_PREFIX[rarity] if DB.ITEM_PREFIX.has(rarity) else DB.ITEM_PREFIX["rare"]
@@ -1219,10 +1220,14 @@ func temper(uid: int) -> bool:
 	var k := (1.0 + 0.22 * (mat + 1)) / (1.0 + 0.22 * mat)
 	for key in it["stats"]:
 		it["stats"][key] = int(round(float(it["stats"][key]) * k))
+	var old_base := GearDB.base_name(it)
 	it["mat"] = mat + 1
-	var prefix := str(it["name"]).get_slice(" ", 0) if it["rarity"] != "common" else ""
-	var base := GearDB.base_name(str(it["cls"]), str(it["slot"]), mat + 1)
-	it["name"] = base if prefix == "" else "%s %s" % [prefix, base]
+	var base := GearDB.base_name(it)
+	if str(it["name"]).contains(old_base):
+		it["name"] = str(it["name"]).replace(old_base, base)
+	else:
+		var prefix := str(it["name"]).get_slice(" ", 0) if it["rarity"] != "common" else ""
+		it["name"] = base if prefix == "" else "%s %s" % [prefix, base]
 	# Tempering can lift a piece past what the hero may wear: unequip if so.
 	var owner := owner_of(uid)
 	if owner != "" and wear_block(owner, it) != "":
@@ -1296,7 +1301,8 @@ func roll_boss_item(boss_id: String, tier_i: int, bonus := 0) -> Dictionary:
 	var it := roll_item("boss", tier_i, "", "", bonus)
 	if str(it.get("unique", "")) == "" and it["rarity"] != "common" and DB.SETS.has(boss_id) and rng.randf() < DB.SET_CHANCE:
 		it["set"] = boss_id
-		it["name"] = "%s %s" % [DB.SETS[boss_id]["short"], GearDB.base_name(str(it["cls"]), str(it["slot"]), int(it["mat"]))]
+		# A set piece wears the set's own look, and is named for it.
+		it["name"] = GearDB.base_name(it)
 	return it
 
 
