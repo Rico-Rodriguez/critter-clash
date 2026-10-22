@@ -388,7 +388,8 @@ func _capture(args: PackedStringArray) -> void:
 					pc["look"] = 0
 					Game.equip(hid, int(Game.grant_item(pc)["uid"]))
 				_set_screen_now("lobby")
-				AppIcon.stage(current)
+				# By path: tools/ is not exported, and no new class_name may ship in a pack.
+				load("res://tools/app_icon.gd").stage(current)
 				await _wait(1.5)
 				await _save("appicon")
 			"depth":

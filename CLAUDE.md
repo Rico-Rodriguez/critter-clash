@@ -52,6 +52,12 @@ a visual result you have not looked at.
   ("Cannot infer the type"). Indexing returns Variant: write `var x: float = ...`
   or `var x: String = ...`. Same for values from untyped `for f in array:` loops
   (`var d: Vector3 = f.flat_pos() - p`).
+- No new `class_name`. Over-the-air packs cannot register global classes:
+  installed copies keep the IPA's class list, so a pack that names a class
+  the IPA lacks fails to compile and boots to a black screen. Give new
+  scripts no `class_name` and use them via
+  `const Foo := preload("res://path/foo.gd")`. The `-- --test` rule
+  "no class_name the IPA lacks" enforces this.
 - New `class_name` scripts are unknown until the class cache refreshes:
   `tools/dev/check.sh` re-imports first, so run it rather than a bare compile.
 - Typed arrays: assign with `.assign([...])`, not `=` with an untyped literal.

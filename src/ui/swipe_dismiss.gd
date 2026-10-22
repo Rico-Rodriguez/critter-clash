@@ -1,5 +1,8 @@
-class_name SwipeDismiss
 extends Node
+## Not a class_name: an over-the-air pack cannot register new global classes
+## (the baked IPA's class list is fixed), so users preload it by path.
+
+const DragScroll := preload("res://src/ui/drag_scroll.gd")
 ## Drag a panel down and let go to close it, like a phone sheet: it follows
 ## the finger, closes when pulled far enough or flicked, and springs back
 ## otherwise. Wire a handle with `attach`, or drive it from another gesture
@@ -27,8 +30,8 @@ var _done := false
 
 
 ## Swipes on `handle` (default: the panel itself) move `panel`.
-static func attach(panel_: Control, close: Callable, handle: Control = null, slide := false) -> SwipeDismiss:
-	var s := SwipeDismiss.new()
+static func attach(panel_: Control, close: Callable, handle: Control = null, slide := false) -> Node:
+	var s = load("res://src/ui/swipe_dismiss.gd").new()
 	s.panel = panel_
 	s.on_close = close
 	s.slide_out = slide

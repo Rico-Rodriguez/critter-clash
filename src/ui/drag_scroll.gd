@@ -1,5 +1,6 @@
-class_name DragScroll
 extends ScrollContainer
+## Not a class_name: an over-the-air pack cannot register new global classes
+## (the baked IPA's class list is fixed), so users preload it by path.
 ## A vertical list that scrolls when you drag anywhere on it, rows included,
 ## the way phone lists do. Godot's own touch scrolling only sees drags that
 ## reach the container, and every Button or PanelContainer in a row stops

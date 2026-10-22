@@ -1,4 +1,3 @@
-class_name AppIcon
 extends RefCounted
 ## Turns the camp into the app icon set: the hero alone in the dark, holding
 ## the light, graves behind. Used by `--capture --shots=appicon` (main.gd);

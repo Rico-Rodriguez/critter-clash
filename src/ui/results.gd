@@ -2,6 +2,8 @@ extends Control
 ## End of hunt: what you earned, what you levelled, what you found.
 
 ## `again`: straight into another hunt with the same setup.
+const ItemIcons := preload("res://src/ui/item_icons.gd")
+
 signal closed(again: bool)
 
 

@@ -2,6 +2,8 @@ extends Control
 ## Opening a chest in camp: tap, the lid flies, and the rewards come out one
 ## card at a time. Tap to advance; the last tap collects.
 
+const ItemIcons := preload("res://src/ui/item_icons.gd")
+
 var ui: LobbyUI
 var kind := ""
 var rewards: Array = []

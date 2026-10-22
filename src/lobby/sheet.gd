@@ -5,6 +5,9 @@ extends Control
 ## Tap outside, swipe the title down, or pull the list down from its top to
 ## close it.
 
+const DragScroll := preload("res://src/ui/drag_scroll.gd")
+const SwipeDismiss := preload("res://src/ui/swipe_dismiss.gd")
+
 signal closed
 
 var body: VBoxContainer

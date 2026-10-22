@@ -1,5 +1,6 @@
-class_name ItemIcons
 extends Node
+## Not a class_name: an over-the-air pack cannot register new global classes
+## (the baked IPA's class list is fixed), so users preload it by path.
 ## Gear icons rendered from the piece's own 3D model, so a Crystal Staff looks
 ## like that staff and not like every other staff. Each look is rendered once,
 ## off screen, one per frame, and cached for the session; until it is ready
@@ -8,7 +9,7 @@ extends Node
 const SIZE := 160
 
 static var _cache := {}
-static var _inst: ItemIcons
+static var _inst: Node
 
 var _vp: SubViewport
 var _queue: Array = []
@@ -39,9 +40,9 @@ static func _show(t: TextureRect, tex: Texture2D) -> void:
 	t.modulate = Color.WHITE
 
 
-static func _instance() -> ItemIcons:
+static func _instance():
 	if _inst == null or not is_instance_valid(_inst):
-		_inst = ItemIcons.new()
+		_inst = load("res://src/ui/item_icons.gd").new()
 		(Engine.get_main_loop() as SceneTree).root.add_child.call_deferred(_inst)
 	return _inst
 

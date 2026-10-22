@@ -5,6 +5,9 @@ extends Control
 ## the hero, wearing nothing else, with the camera on that part of the body.
 ## Swipe down on it to put it away.
 
+const DragScroll := preload("res://src/ui/drag_scroll.gd")
+const SwipeDismiss := preload("res://src/ui/swipe_dismiss.gd")
+
 var _pivot: Node3D
 var _yaw := 0.6
 var _spin := 0.7
