@@ -95,6 +95,9 @@ func open(r: Dictionary) -> void:
 			_note("Casket opened: %s" % ", ".join(cl["lines"]), Color(1.0, 0.85, 0.4), "open-treasure-chest")
 	if str(r.get("omen", "")) != "":
 		_note("Weekly omen: bonus paid", Color(0.8, 0.6, 1.0), "moon")
+	if not win and not descent and not wild:
+		_advice(r, tier)
+		%Again.text = "Try again"
 	%Continue.pressed.connect(func():
 		Sfx.play("ui_press", -2.0)
 		closed.emit(false))
@@ -185,21 +188,25 @@ func _level_frac(xp: int) -> float:
 var _road: ProgressBar
 
 
-## The chest, big: the thing a win is for.
+## The chest, big: the thing a win is for. Side by side with its name, so
+## the loot list above keeps room on a short phone.
 func _chest_card(kind: String) -> void:
 	var c: Dictionary = DB.CHESTS[kind]
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	var ic := Ui.icon_rect("locked-chest", 72, c["color"])
+	row.add_child(ic)
 	var v := VBoxContainer.new()
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 0)
-	var ic := Ui.icon_rect("locked-chest", 96, c["color"])
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(ic)
-	var l := Ui.label(str(c["name"]), "Heading", HORIZONTAL_ALIGNMENT_CENTER)
+	var l := Ui.label(str(c["name"]), "Heading")
 	l.add_theme_color_override("font_color", Color(c["color"]).lightened(0.2))
 	v.add_child(l)
-	v.add_child(Ui.label("Waiting in camp", "Caption", HORIZONTAL_ALIGNMENT_CENTER))
-	%Notes.add_child(v)
-	%Notes.move_child(v, 0)
+	v.add_child(Ui.label("Waiting in camp", "Caption"))
+	row.add_child(v)
+	%Notes.add_child(row)
+	%Notes.move_child(row, 0)
 	Ui.pop_in(ic, 0.9, 1.3)
 
 
@@ -321,6 +328,34 @@ func _skill_row(sk: String, gained: int, lv: Dictionary) -> Control:
 	col.add_child(bar)
 	_skill_labels[sk] = {"xp": xp, "gained": gained, "level": l, "leveled": not lv.is_empty(), "bar": bar, "from_xp": from_xp}
 	return col
+
+
+## After a loss, the one thing most likely to win the next try, so the
+## defeat screen points somewhere instead of just ending.
+func _advice(r: Dictionary, tier: Dictionary) -> void:
+	var id := str(r["hero"])
+	var col := Color(0.75, 0.88, 1.0)
+	for e in _rows:
+		if e["hero"] == id and Game.is_better(e["item"], id) and Game.owner_of(int(e["item"]["uid"])) != id:
+			_note("Equip the upgrades you found above", col, "breastplate")
+			return
+	if Game.can_upgrade(id):
+		_note("The %s can level up in Heroes: more health and damage" % DB.HEROES[id]["name"], col, "upgrade")
+		return
+	var pw := Game.power_score(id)
+	var rec := int(tier["power"])
+	if pw < rec:
+		_note("Power %s of %s suggested: better gear closes the gap" % [Ui.fmt_num(pw), Ui.fmt_num(rec)], col, "breastplate")
+		return
+	_note(TIPS[int(r["kills"]) % TIPS.size()], col, "round-star")
+
+
+const TIPS := [
+	"Dash through an attack, not away from it: a perfect dodge hits harder",
+	"Stand still to aim: planted feet deal 25% more",
+	"Champions drop better loot, but kill the crowd around them first",
+	"Keep moving: circle the horde instead of backing into a corner",
+]
 
 
 func _note(text: String, col: Color, ic: String) -> void:

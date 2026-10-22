@@ -16,6 +16,10 @@ var _music_a: AudioStreamPlayer
 var _music_b: AudioStreamPlayer
 var _music_name := ""
 var _music_tween: Tween
+## Track name -> its files: "hunt" is hunt.ogg plus hunt_2.ogg, hunt_3.ogg...
+var _tracks := {}
+## Track name -> the file it played last, so a variant doesn't repeat.
+var _track_last := {}
 ## True when default_bus_layout.tres is loaded (Music and SFX buses exist).
 ## Without it (an older install taking a content update) volume falls back to
 ## per-player levels and ducking does nothing.
@@ -34,6 +38,15 @@ func _ready() -> void:
 		if not _variants.has(key):
 			_variants[key] = []
 		_variants[key].append(SFX_DIR + f)
+	for f in ResourceLoader.list_directory(MUSIC_DIR):
+		if not f.ends_with(".ogg"):
+			continue
+		var base := f.get_basename()
+		var cut := base.rfind("_")
+		var key := base.substr(0, cut) if cut > 0 and base.substr(cut + 1).is_valid_int() else base
+		if not _tracks.has(key):
+			_tracks[key] = []
+		_tracks[key].append(MUSIC_DIR + f)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX" if _has_buses else "Master"
@@ -82,7 +95,9 @@ func has(event: String) -> bool:
 	return _variants.has(event)
 
 
-## Crossfades to a music track by file base name ("home", "hunt", "boss").
+## Crossfades to a music track by name ("home", "hunt", "boss"). A track with
+## numbered variants plays a different one than last time, so camp and hunt
+## don't loop the same two minutes all session.
 func music(track: String, fade := 1.2) -> void:
 	if track == _music_name:
 		return
@@ -93,7 +108,7 @@ func music(track: String, fade := 1.2) -> void:
 		_music_tween.kill()
 	_music_tween = create_tween().set_parallel(true)
 	if track != "":
-		var stream: AudioStream = load(MUSIC_DIR + track + ".ogg")
+		var stream: AudioStream = load(_pick_track(track))
 		if stream is AudioStreamOggVorbis:
 			stream.loop = true
 		incoming.stream = stream
@@ -103,6 +118,15 @@ func music(track: String, fade := 1.2) -> void:
 	if outgoing.playing:
 		_music_tween.tween_property(outgoing, "volume_db", -40.0, fade)
 		_music_tween.chain().tween_callback(outgoing.stop)
+
+
+func _pick_track(track: String) -> String:
+	var files: Array = _tracks.get(track, [MUSIC_DIR + track + ".ogg"]).duplicate()
+	if files.size() > 1:
+		files.erase(_track_last.get(track, ""))
+	var path: String = files[randi() % files.size()]
+	_track_last[track] = path
+	return path
 
 
 ## Applies the music and effects sliders to their buses.

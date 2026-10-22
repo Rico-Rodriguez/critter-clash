@@ -451,6 +451,18 @@ func _abandon() -> void:
 	_end(false)
 
 
+## A swept pickup flies to the hero and is gone, taking its beam and label
+## with it: left standing, the labels showed through the results screen.
+func _sweep(p: Node3D) -> void:
+	if p.beam:
+		fx.release_beam(p.beam)
+		p.beam = null
+	var t := p.create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	t.tween_property(p, "global_position", hero.global_position + Vector3(0, 0.8, 0), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.tween_property(p, "scale", Vector3.ONE * 0.1, 0.35)
+	t.chain().tween_callback(p.queue_free)
+
+
 func _end(win: bool) -> void:
 	if _ended:
 		return
@@ -465,6 +477,8 @@ func _end(win: bool) -> void:
 						gold += int(round(p.value * float(tier["gold"]) * hero.gold_mult))
 					"item":
 						items.append(p.item)
+				_sweep(p)
+		pickups.clear()
 	var spent := _end_time if _end_time > 0.0 else time
 	result = {
 		"win": win, "tier": tier_i, "zone": zone_id, "mode": mode, "rooms_cleared": rooms_cleared, "rooms": trial_rooms,"hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
