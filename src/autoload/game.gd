@@ -31,7 +31,7 @@ func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
 		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
-			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": []}
+			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "best_mat": -1}
 	var skills := {}
 	for s in DB.SKILLS:
 		skills[s] = DB.xp_for_level(10) if s == "hitpoints" else 0
@@ -351,7 +351,28 @@ func equip(hero_id_: String, uid: int) -> void:
 	if prev != "":
 		hero(prev)["gear"].erase(it["slot"])
 	hero(hero_id_)["gear"][it["slot"]] = uid
+	_note_tier(hero_id_, it)
 	save()
+
+
+## Set when a hero first puts on a higher material than it ever wore: the
+## equipment screen reads it (and resets it to -1) to celebrate the new tier.
+var new_tier := -1
+
+
+func _note_tier(id: String, it: Dictionary) -> void:
+	var h := hero(id)
+	if int(h.get("best_mat", -1)) < 0:
+		# An older save: what the hero already wears is not news.
+		var b := 0
+		for slot in DB.SLOTS:
+			if slot != it["slot"] and not equipped(id, slot).is_empty():
+				b = maxi(b, int(equipped(id, slot).get("mat", 0)))
+		h["best_mat"] = b
+	var mat := int(it.get("mat", 0))
+	if mat > int(h["best_mat"]):
+		h["best_mat"] = mat
+		new_tier = mat
 
 
 func unequip(hero_id_: String, slot: String) -> void:
@@ -425,6 +446,7 @@ func equip_best(hero_id_: String) -> int:
 				best_score = item_score(it)
 		if not best.is_empty() and int(hero(hero_id_)["gear"].get(slot, 0)) != int(best["uid"]):
 			hero(hero_id_)["gear"][slot] = int(best["uid"])
+			_note_tier(hero_id_, best)
 			changed_n += 1
 	if changed_n > 0:
 		save()
@@ -1262,12 +1284,7 @@ func set_glow(id: String, glow: String) -> void:
 
 ## The set a piece belongs to ("" for none): its tag, or its unique's boss.
 func item_set(it: Dictionary) -> String:
-	if it.has("set"):
-		return str(it["set"])
-	var u := str(it.get("unique", ""))
-	if u != "" and DB.UNIQUES.has(u):
-		return str(DB.SOURCE_BOSS.get(DB.UNIQUES[u]["source"], ""))
-	return ""
+	return GearDB.set_of(it)
 
 
 ## Pieces of each set a hero wears.

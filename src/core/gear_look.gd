@@ -235,7 +235,7 @@ static func _sparks(skel: Skeleton3D, att_name: String, col: Color) -> void:
 			p.visible = false
 		return
 	if p == null:
-		p = _emitter(32, 0.9, 0.09)
+		p = emitter(32, 0.9, 0.09)
 		p.name = "Sparks"
 		var pm := p.process_material as ParticleProcessMaterial
 		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
@@ -261,7 +261,7 @@ static func _aura(actor: Actor, col: Color) -> void:
 			p.visible = false
 		return
 	if p == null:
-		p = _emitter(56, 1.6, 0.075)
+		p = emitter(56, 1.6, 0.075)
 		p.name = "GearAura"
 		var pm := p.process_material as ParticleProcessMaterial
 		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
@@ -282,7 +282,7 @@ static func _aura(actor: Actor, col: Color) -> void:
 	(p.process_material as ParticleProcessMaterial).color = Color(col.r, col.g, col.b, 1.0)
 
 
-static func _emitter(amount: int, life: float, size: float) -> GPUParticles3D:
+static func emitter(amount: int, life: float, size: float) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
 	p.amount = amount
 	p.lifetime = life

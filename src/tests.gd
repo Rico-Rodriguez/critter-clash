@@ -122,6 +122,20 @@ func _gear_tests() -> void:
 	var kn := Game.make_item("knight", "helm", 0, "common")
 	kn["look"] = 1
 	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Bronze Med Helm")
+	# The first higher material a hero wears is news once; lower ones never are.
+	Game.data = Game._fresh()
+	for sk in DB.SKILLS:
+		Game.data["skills"][sk] = DB.xp_for_level(40)
+	Game.new_tier = -1
+	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "helm", 0, "common"))["uid"]))
+	_ok("bronze is not a new tier", Game.new_tier == -1)
+	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "chest", 3, "common"))["uid"]))
+	_ok("mithril is a new tier", Game.new_tier == 3)
+	Game.new_tier = -1
+	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "legs", 2, "common"))["uid"]))
+	_ok("steel after mithril is not", Game.new_tier == -1)
+	Game.new_tier = -1
+	Game.data = Game._fresh()
 	Game.grant_item(it)
 	_ok("wrong class blocked", Game.wear_block("knight", it) != "")
 	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Requires Magic"))

@@ -346,6 +346,27 @@ func _capture(args: PackedStringArray) -> void:
 						break
 				await _wait(0.8)
 				await _save("equipdetail")
+			"inspect", "inspecthelm", "reveal":
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				current.open_sheet("bag")
+				await _wait(0.8)
+				var eqi: Equipment = current.ui.equipment
+				var want_slot := "helm" if shot == "inspecthelm" else "weapon"
+				var pick := {}
+				for it in Game.data["items"]:
+					if it["slot"] == want_slot and str(it["cls"]) == hid and (pick.is_empty() or Game.item_power(it) > Game.item_power(pick)):
+						pick = it
+				if shot == "reveal":
+					Game.hero(hid)["best_mat"] = 0
+					for slot in DB.SLOTS:
+						Game.unequip(hid, slot)
+					eqi._equip(pick)
+					await _wait(0.45)
+				else:
+					eqi._inspect(pick)
+					await _wait(1.2)
+				await _save(shot)
 			"shrine":
 				_set_screen_now("hunt")
 				var hs: Hunt = current
