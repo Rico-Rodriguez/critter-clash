@@ -8,6 +8,10 @@ extends Control
 ## tries the piece on the model and slides up its card. Gear is class-specific,
 ## so other heroes' pieces sit folded at the bottom of the bag.
 
+const DragScroll := preload("res://src/ui/drag_scroll.gd")
+const SwipeDismiss := preload("res://src/ui/swipe_dismiss.gd")
+const ItemIcons := preload("res://src/ui/item_icons.gd")
+
 signal closed
 
 const SLOT_SIDE := {"helm": 0, "chest": 0, "legs": 0, "weapon": 1, "trinket": 1}

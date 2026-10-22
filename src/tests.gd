@@ -15,6 +15,15 @@ func _ok(name_: String, cond: bool) -> void:
 func run() -> int:
 	Game.memory_only = true
 	Game.data = Game._fresh()
+	# Content packs cannot add global classes: the installed IPA's class list
+	# is fixed, and a script naming a class it lacks fails to compile (black
+	# screen). New scripts are preloaded by path instead of using class_name.
+	var baked := "Actor Ally Arena BoneScaler Boss BossHexer BossThorn DB DepthsLayout DevPanel Enemy Equipment Fx GearDB GearInspect GearLook GearStage GroveLayout Hero Hud Hunt HuntBot HuntCam Joystick KK LobbyUI Pact Pickup Portraits Proj RadialButton SettingsBox Sheet TalentDB Tests TierReveal TrialLayout Ui XpRing".split(" ")
+	var extra := []
+	for c in ProjectSettings.get_global_class_list():
+		if not baked.has(str(c["class"])):
+			extra.append(str(c["class"]))
+	_ok("no class_name the IPA lacks %s" % str(extra), extra.is_empty())
 	_ok("xp level 2", DB.xp_for_level(2) == 83)
 	_ok("xp level 99", DB.xp_for_level(99) == 13034431)
 	_ok("level for xp", DB.level_for_xp(DB.xp_for_level(40)) == 40 and DB.level_for_xp(DB.xp_for_level(40) - 1) == 39)
@@ -170,7 +179,7 @@ func _gear_tests() -> void:
 	var n5: Array = v5["items"].map(func(i: Dictionary) -> String: return str(i["name"]))
 	_ok("v5 gear takes the new names %s" % str(n5), v5["version"] == Game.SAVE_VERSION and n5 == ["Moonlit Bloodiron Warden Shield", "Ancient Nightscale Chaps", "Worn Sage Robe", "Crown of the Barrow King"])
 	# The error log folds repeats into one line with a count.
-	var el := ErrorLog.new()
+	var el = load("res://src/autoload/error_log.gd").new()
 	el._enabled = false
 	el._add("script", "hunt.gd:10 _tick", "Invalid access")
 	el._add("script", "hunt.gd:10 _tick", "Invalid access")

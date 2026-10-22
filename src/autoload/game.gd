@@ -10,6 +10,7 @@ extends "res://src/autoload/game_goals.gd"
 ## season) < game (boot, save migrations, finish_hunt).
 
 ## Local error and crash log (Settings copies it as a report).
+const ErrorLog := preload("res://src/autoload/error_log.gd")
 var errors: ErrorLog
 
 

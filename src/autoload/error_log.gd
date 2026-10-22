@@ -1,5 +1,6 @@
-class_name ErrorLog
 extends Logger
+## Not a class_name: an over-the-air pack cannot register new global classes
+## (the baked IPA's class list is fixed), so users preload it by path.
 ## Local crash and error log, for playtests without a backend. Every engine and
 ## script error lands here (deduplicated by place), and a session that never
 ## closed cleanly counts as a crash. Settings copies it all as one report the
@@ -19,8 +20,8 @@ var _busy := false
 
 
 ## Installs the log for this run. Bots and captures stay out of the file.
-static func install(enabled: bool) -> ErrorLog:
-	var l := ErrorLog.new()
+static func install(enabled: bool) -> Logger:
+	var l = load("res://src/autoload/error_log.gd").new()
 	l._enabled = enabled
 	if enabled:
 		l._load()
