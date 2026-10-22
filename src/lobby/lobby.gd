@@ -16,6 +16,8 @@ var chest_lid: Node3D
 var fire_light: OmniLight3D
 var _drag := -1
 var _drag_x := 0.0
+var _tap_from := Vector2.ZERO
+var _tap_t := 0.0
 var _spin := 0.0
 var _t := 0.0
 const CAM_BASE := Vector3(0.0, 2.0, 5.6)
@@ -374,8 +376,16 @@ func _unhandled_input(e: InputEvent) -> void:
 		if t.pressed and _drag < 0 and t.position.y < get_viewport().get_visible_rect().size.y * 0.55:
 			_drag = t.index
 			_drag_x = t.position.x
+			_tap_from = t.position
+			_tap_t = Time.get_ticks_msec() / 1000.0
 		elif not t.pressed and t.index == _drag:
 			_drag = -1
+			# A quick tap on the hero opens the roster.
+			var vp := get_viewport().get_visible_rect().size
+			var held := Time.get_ticks_msec() / 1000.0 - _tap_t
+			if held < 0.35 and t.position.distance_to(_tap_from) < 14.0 and ui.camp_idle() \
+					and absf(t.position.x - vp.x * 0.5) < vp.x * 0.3 and t.position.y > vp.y * 0.2:
+				ui.open_sheet("heroes")
 	elif e is InputEventScreenDrag:
 		var d := e as InputEventScreenDrag
 		if d.index == _drag:

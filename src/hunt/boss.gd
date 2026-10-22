@@ -19,6 +19,8 @@ var charge_hit := false
 var graves_at: Array = []
 var last := ""
 var fight_t := 0.0
+var _ring_t := 9.0
+var _lanes_t := 12.0
 var berserk := false
 var cd_mult := 1.0
 var add_t := 14.0
@@ -108,6 +110,7 @@ func tick(dt: float) -> void:
 	if freeze_t > 0.0 or stun_t > 0.0:
 		return
 	fight_t += dt
+	_tick_tier_moves(dt)
 	if not berserk and fight_t > 150.0 - 40.0 * hunt.tier_i:
 		_berserk()
 	# The longer you kite, the more of his court arrives to cut you off.
@@ -297,6 +300,31 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 					hunt.spawn_foe("minion" if i % 3 != 0 else "warrior", hunt.arena.resolve(flat_pos() + Vector3(sin(a2), 0, cos(a2)) * 4.0, 0.6))
 				hunt.shake(0.3)
 				_finish(0.5)
+
+
+## Harder tiers teach every boss more: Veteran adds a ring of blasts closing
+## on the hero, Nightmare a fan of three lanes from the boss.
+func _tick_tier_moves(dt: float) -> void:
+	if hunt.tier_i < 1:
+		return
+	_ring_t -= dt
+	if _ring_t <= 0.0:
+		_ring_t = 14.0 - 2.0 * (hunt.tier_i - 1)
+		var col: Color = def["color"]
+		var at := hunt.hero.flat_pos()
+		hunt.hud.event("Ring of ruin", Color(col).lightened(0.2), "fire-ring")
+		for i in 6:
+			var a := TAU * i / 6.0
+			hunt.blast_at(hunt.arena.resolve(at + Vector3(sin(a), 0, cos(a)) * 4.0, 0.4), 2.0, 1.1 + i * 0.12, dmg * 0.6, "", col)
+	if hunt.tier_i < 2:
+		return
+	_lanes_t -= dt
+	if _lanes_t <= 0.0:
+		_lanes_t = 12.0
+		var yaw := yaw_to(position, hunt.hero.position)
+		hunt.hud.event("Lances", Color(1.0, 0.5, 0.4), "arrow-cluster")
+		for k in [-0.5, 0.0, 0.5]:
+			hunt.beam_from(flat_pos(), yaw + float(k), 1.3, dmg * 0.8, def["color"])
 
 
 ## A handful of the dead climb out around the hero: bigger and faster with the tier.

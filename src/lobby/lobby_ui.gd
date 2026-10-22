@@ -22,6 +22,12 @@ func setup(l: Node3D) -> void:
 	%Settings.icon = Ui.icon("cog")
 	%Settings.pressed.connect(func(): open_sheet("settings"))
 	%Chest.pressed.connect(_open_chest)
+	%Chest.icon = Ui.icon("locked-chest")
+	# The profile chip opens the skills sheet.
+	%CombatChip.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			Sfx.play("ui_tap", -4.0)
+			open_sheet("skills"))
 	for pair in [[%NavHeroes, "heroes", "visored-helm"], [%NavBag, "bag", "swap-bag"], [%NavSkills, "skills", "upgrade"], [%NavLog, "log", "scroll-unfurled"]]:
 		var b: Button = pair[0]
 		b.icon = Ui.icon(pair[2])
@@ -39,7 +45,7 @@ func setup(l: Node3D) -> void:
 	refresh()
 
 
-const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle"}
+const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle", "descent": "hourglass", "rush": "crowned-skull"}
 
 
 func refresh() -> void:
@@ -59,7 +65,7 @@ func refresh() -> void:
 		%Hunt.text = "Locked"
 		%Lock.text = "Clear Veteran, or gather 20 shards (%d/20)" % int(h["shards"]) if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)" % int(h["shards"])
 	else:
-		%Hunt.text = DB.zone(Game.zone_id())["enter"] if Game.mode_id() == "horde" else "Take the Long Road"
+		%Hunt.text = {"horde": DB.zone(Game.zone_id())["enter"], "trial": "Take the Long Road", "descent": "Begin the Descent", "rush": "Start the Rush"}[Game.mode_id()]
 	var mode: Dictionary = DB.MODES[Game.mode_id()]
 	var t: Dictionary = DB.TIERS[Game.tier()]
 	%ExpIcon.texture = Ui.icon(MODE_ICON.get(Game.mode_id(), "crossed-swords"))
@@ -75,6 +81,11 @@ func refresh() -> void:
 	%BountyBadge.visible = ready_n > 0
 	%BountyCount.text = str(ready_n)
 	%BountyText.text = "Bounties %d / %d" % [done, list.size()]
+
+
+## True while nothing sits over the camp (taps on the hero open the roster).
+func camp_idle() -> bool:
+	return %Safe.visible and not chest_opening and (_sheet == null or not is_instance_valid(_sheet)) and (equipment == null or not is_instance_valid(equipment))
 
 
 func _any_upgrade() -> bool:
@@ -109,9 +120,15 @@ func _on_hunt() -> void:
 func show_chest(kind: String) -> void:
 	var c: Dictionary = DB.CHESTS[kind]
 	%Chest.visible = true
-	%Chest.text = "Open your %s" % c["name"]
+	%Chest.tooltip_text = "Open your %s" % c["name"]
 	%Chest.icon = Ui.icon("locked-chest")
+	%Chest.self_modulate = c["color"] if c.has("color") else Color(1, 0.85, 0.5)
 	Ui.pop_in(%Chest, 0.4, 0.6)
+	# A slow pulse so the rail slot reads as "something is waiting".
+	var pulse := %Chest.create_tween().set_loops()
+	%Chest.pivot_offset = %Chest.custom_minimum_size * 0.5
+	pulse.tween_property(%Chest, "scale", Vector2.ONE * 1.08, 0.7).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(%Chest, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE)
 
 
 func _open_chest() -> void:
@@ -168,6 +185,8 @@ func open_sheet(name_: String) -> void:
 			return
 		"skills":
 			_sheet.open("Skills", _build_skills)
+		"talents":
+			_sheet.open("Talents", _build_talents)
 		"log":
 			_sheet.open("Collection Log", _build_log)
 		"bounties":
@@ -287,11 +306,12 @@ func _build_heroes(s: Sheet) -> void:
 			refresh()
 			s.rebuild())
 		if Game.can_upgrade(id):
-			var dot := ColorRect.new()
-			dot.color = Color(0.4, 1.0, 0.5)
-			dot.custom_minimum_size = Vector2(14, 14)
+			var dot := PanelContainer.new()
+			dot.theme_type_variation = &"Badge"
+			dot.custom_minimum_size = Vector2(20, 20)
+			dot.size = Vector2(20, 20)
 			dot.position = Vector2(8, 8)
-			dot.size = Vector2(14, 14)
+			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			t.add_child(dot)
 		roster.add_child(t)
 	b.add_child(roster)
@@ -351,12 +371,14 @@ func _build_heroes(s: Sheet) -> void:
 		else:
 			var top := _row([Ui.label("Level %d → %d" % [int(h2["level"]), int(h2["level"]) + 1], "Heading"), _spacer(), Ui.label("+%d%% health and damage" % int(DB.LEVEL_POWER * 100.0), "Small")])
 			uv.add_child(top)
+			var ready_up: bool = int(h2["shards"]) >= int(cost["shards"])
 			var pb := ProgressBar.new()
+			pb.theme_type_variation = &"ProgressBar" if ready_up else &"XPBar"
 			pb.custom_minimum_size = Vector2(0, 30)
 			pb.max_value = cost["shards"]
 			pb.value = mini(int(h2["shards"]), cost["shards"])
 			pb.show_percentage = false
-			var pl := Ui.label("%d / %d shards" % [int(h2["shards"]), cost["shards"]], "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
+			var pl := Ui.label("Ready" if ready_up else "%d / %d shards" % [int(h2["shards"]), cost["shards"]], "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
 			pl.add_theme_font_size_override("font_size", 19)
 			pl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -377,21 +399,29 @@ func _build_heroes(s: Sheet) -> void:
 			uv.add_child(ub)
 		uc.add_child(uv)
 		b.add_child(uc)
+		# Talents: a point per level, spent down three paths.
+		var pts := Game.talent_points(id2)
+		var tb := Button.new()
+		tb.text = "Talents · %d point%s" % [pts, "" if pts == 1 else "s"] if pts > 0 else "Talents"
+		tb.theme_type_variation = &"GoldButton" if pts > 0 else &"CardButton"
+		tb.icon = Ui.icon("round-star")
+		tb.custom_minimum_size = Vector2(0, 80)
+		tb.focus_mode = Control.FOCUS_NONE
+		tb.pressed.connect(func(): open_sheet("talents"))
+		b.add_child(tb)
 		# Gear: what this hero wears at a glance, and a way into the equipment screen.
 		b.add_child(Ui.label("GEAR", "Caption"))
 		var gear := _card()
 		var gv := VBoxContainer.new()
 		gv.add_theme_constant_override("separation", 12)
-		var strip := HBoxContainer.new()
-		strip.alignment = BoxContainer.ALIGNMENT_CENTER
-		strip.add_theme_constant_override("separation", 12)
+		var worn_n := 0
+		var gear_power := 0
 		for slot in DB.SLOTS:
 			var worn := Game.equipped(id2, slot)
-			var wc := GearDB.item_color(worn) if not worn.is_empty() else Color(0.4, 0.38, 0.36)
-			var d_ := _disc(GearDB.icon(id2, slot), wc, 80)
-			d_.modulate.a = 1.0 if not worn.is_empty() else 0.5
-			strip.add_child(d_)
-		gv.add_child(strip)
+			if not worn.is_empty():
+				worn_n += 1
+				gear_power += Game.item_power(worn)
+		gv.add_child(_row([Ui.icon_rect("breastplate", 40, Color(0.85, 0.72, 0.48)), Ui.label("Gear power %d" % gear_power, "Heading"), _spacer(), Ui.label("%d / %d slots" % [worn_n, DB.SLOTS.size()], "Small")], 12))
 		var open_eq := Button.new()
 		open_eq.text = "Equipment"
 		open_eq.theme_type_variation = "PrimaryButton"
@@ -410,6 +440,101 @@ func _build_heroes(s: Sheet) -> void:
 		ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lc.add_child(ll)
 		b.add_child(lc)
+
+
+## The talent tree: three columns, each a path read top to bottom.
+func _build_talents(s: Sheet) -> void:
+	var b := s.body
+	var id := _shown_hero
+	var d: Dictionary = DB.HEROES[id]
+	var pts := Game.talent_points(id)
+	var head := _row([Ui.label("%s · Level %d" % [d["name"], int(Game.hero(id)["level"])], "Heading"), _spacer()])
+	var chip := PanelContainer.new()
+	chip.theme_type_variation = &"Chip"
+	chip.add_child(Ui.label("%d point%s" % [pts, "" if pts == 1 else "s"], "Value"))
+	head.add_child(chip)
+	var reset := Button.new()
+	reset.text = "Reset"
+	reset.theme_type_variation = &"Ghost"
+	reset.focus_mode = Control.FOCUS_NONE
+	reset.disabled = Game.talents(id).is_empty()
+	reset.pressed.connect(func():
+		Game.respec(id)
+		Sfx.play("ui_back", -4.0)
+		refresh()
+		s.rebuild())
+	head.add_child(reset)
+	b.add_child(head)
+	var note := Ui.label("Each level gives a point. Every node needs the one above it. Reset is free.", "Small")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(note)
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 10)
+	var paths := TalentDB.paths(id)
+	for pi in paths.size():
+		var path: Dictionary = paths[pi]
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", 8)
+		var ph := VBoxContainer.new()
+		ph.add_theme_constant_override("separation", 0)
+		ph.add_child(Ui.icon_rect(path["icon"], 44, Color(d["color"]).lightened(0.3)))
+		ph.add_child(Ui.label(str(path["name"]).to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+		var bl := Ui.label(path["blurb"], "Small", HORIZONTAL_ALIGNMENT_CENTER)
+		bl.add_theme_font_size_override("font_size", 15)
+		bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		ph.add_child(bl)
+		col.add_child(ph)
+		var nodes: Array = path["nodes"]
+		for ni in nodes.size():
+			col.add_child(_talent_node(s, id, pi, ni, nodes[ni]))
+		cols.add_child(col)
+	b.add_child(cols)
+
+
+func _talent_node(s: Sheet, id: String, pi: int, ni: int, n: Dictionary) -> Button:
+	var owned := Game.has_talent(id, pi, ni)
+	var can := Game.can_learn(id, pi, ni)
+	var kind: String = n["k"]
+	var tint: Color = {"m": Color(0.7, 0.75, 0.85), "n": Color(0.95, 0.75, 0.35), "k": Color(1.0, 0.5, 0.25)}[kind]
+	var btn := Button.new()
+	btn.toggle_mode = true
+	btn.button_pressed = owned
+	btn.custom_minimum_size = Vector2(0, 118 if kind != "m" else 104)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.theme_type_variation = &"Choice"
+	if not owned and not can:
+		btn.modulate = Color(1, 1, 1, 0.5)
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 8
+	v.offset_right = -8
+	v.offset_top = 6
+	v.offset_bottom = -6
+	v.add_theme_constant_override("separation", 0)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var kl := Ui.label(str(TalentDB.KIND_NAME[kind]).to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	kl.add_theme_color_override("font_color", tint)
+	kl.add_theme_font_size_override("font_size", 13)
+	v.add_child(kl)
+	var nl := Ui.label(n["name"], "Body", HORIZONTAL_ALIGNMENT_CENTER)
+	nl.add_theme_font_size_override("font_size", 18)
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(nl)
+	var dl := Ui.label(TalentDB.describe(n), "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	dl.add_theme_font_size_override("font_size", 14)
+	dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(dl)
+	btn.add_child(v)
+	btn.pressed.connect(func():
+		if Game.learn_talent(id, pi, ni):
+			Sfx.play("levelup", -4.0)
+			refresh()
+		else:
+			Sfx.play("ui_error", -8.0)
+		s.rebuild())
+	return btn
 
 
 func _build_skills(s: Sheet) -> void:
@@ -478,7 +603,10 @@ func _build_expedition(s: Sheet) -> void:
 		var sub: String = m["blurb"]
 		if m.has("rooms"):
 			sub += " %d rooms on %s." % [int(m["rooms"][Game.tier()]), DB.TIERS[Game.tier()]["name"]]
-		b.add_child(_option(MODE_ICON.get(mid, "crossed-swords"), m["name"], sub, mid == Game.mode_id(), "", func():
+		if mid == "descent" and Game.best_depth(Game.hero_id()) > 0:
+			sub += " Your deepest: %d." % Game.best_depth(Game.hero_id())
+		var mlock := "" if Game.mode_unlocked(mid) else str(m["unlock"])
+		b.add_child(_option(MODE_ICON.get(mid, "crossed-swords"), m["name"], sub, mid == Game.mode_id(), mlock, func():
 			Game.set_mode(mid)
 			_picked(s)))
 	b.add_child(Ui.label("Location", "Heading"))

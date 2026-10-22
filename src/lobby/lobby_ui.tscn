@@ -39,9 +39,9 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="CombatChip" type="PanelContainer" parent="Safe/V/Top"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
-mouse_filter = 2
 theme_type_variation = &"Chip"
 
 [node name="H" type="HBoxContainer" parent="Safe/V/Top/CombatChip"]
@@ -154,6 +154,20 @@ size_flags_vertical = 4
 theme_type_variation = &"Caption"
 text = "Bounties 0 / 3"
 
+[node name="RailSpace" type="Control" parent="Safe/V/Rail"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Chest" type="Button" parent="Safe/V/Rail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"RoundButton"
+icon_alignment = 1
+expand_icon = true
+
 [node name="Space" type="Control" parent="Safe/V"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -255,14 +269,6 @@ theme_override_font_sizes/font_size = 20
 text = "Locked"
 horizontal_alignment = 1
 autowrap_mode = 3
-
-[node name="Chest" type="Button" parent="Safe/V"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 80)
-layout_mode = 2
-focus_mode = 0
-theme_type_variation = &"GoldButton"
-text = "Open your chest"
 
 [node name="Expedition" type="Button" parent="Safe/V"]
 unique_name_in_owner = true

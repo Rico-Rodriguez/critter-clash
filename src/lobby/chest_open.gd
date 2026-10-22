@@ -29,10 +29,9 @@ func open(u: LobbyUI, k: String) -> void:
 	add_child(_card_holder)
 	_hint = Ui.label("Tap to open your %s" % DB.CHESTS[kind]["name"], "HudTitle", HORIZONTAL_ALIGNMENT_CENTER)
 	_hint.add_theme_font_size_override("font_size", 34)
-	_hint.anchor_left = 0.0
-	_hint.anchor_right = 1.0
-	_hint.anchor_top = 0.86
-	_hint.anchor_bottom = 0.86
+	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_hint.offset_top = -260.0
+	_hint.offset_bottom = -200.0
 	add_child(_hint)
 	Sfx.play("chest_rattle", 0.0)
 

@@ -21,6 +21,8 @@ var strafe := 1.0
 var _hound_t := 0.0 # time spent chasing without closing in; harder tiers speed up
 var nameplate: Label3D
 var warded_t := 0.0
+var _cast_t := 3.0
+var _pool_t := 0.0
 var _sink := 0.0
 var _hit_cd := {}
 ## While > 0 the foe is reeling from a hit and does not move or start attacks.
@@ -105,6 +107,32 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 	atk_cd = randf_range(0.2, 0.8)
 
 
+## The champion affixes that throw something at the hero now and then.
+func _tick_casts(dt: float) -> void:
+	_cast_t -= dt
+	if _cast_t > 0.0:
+		return
+	var at := hunt.hero.flat_pos()
+	if "frozen" in affixes:
+		_cast_t = 5.0
+		hunt.blast_at(at, 2.6, 1.0, dmg * 0.7, "slow", DB.ELITE_AFFIXES["frozen"]["color"])
+	elif "jailer" in affixes:
+		_cast_t = 7.0
+		hunt.blast_at(at, 2.2, 0.9, dmg * 0.4, "root", DB.ELITE_AFFIXES["jailer"]["color"])
+	elif "mortar" in affixes:
+		_cast_t = 6.0
+		for i in 3:
+			var spot := at + Vector3(randf_range(-2.5, 2.5), 0, randf_range(-2.5, 2.5)) * (0.0 if i == 0 else 1.0)
+			hunt.blast_at(spot, 2.0, 1.0 + i * 0.4, dmg * 0.7, "", DB.ELITE_AFFIXES["mortar"]["color"])
+	elif "arcane" in affixes:
+		_cast_t = 6.5
+		var yaw0 := yaw_to(flat_pos(), at)
+		for i in 3:
+			hunt.beam_from(flat_pos(), yaw0 + TAU * i / 3.0, 1.3, dmg * 0.9, DB.ELITE_AFFIXES["arcane"]["color"])
+	else:
+		_cast_t = 99.0
+
+
 ## The Grave Robber carries his loot on his back.
 func _wear_sack() -> void:
 	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
@@ -148,6 +176,12 @@ func tick(dt: float) -> void:
 			if _fire_t <= 0.0:
 				_fire_t = 0.6
 				hunt.add_fire_patch(flat_pos(), 0.9, 3.0, dmg * 0.25)
+		if "plagued" in affixes:
+			_pool_t -= dt
+			if _pool_t <= 0.0:
+				_pool_t = 1.0
+				hunt.add_fire_patch(flat_pos(), 1.1, 4.0, dmg * 0.2)
+		_tick_casts(dt)
 	state_t -= dt
 	atk_cd -= dt
 	warded_t -= dt

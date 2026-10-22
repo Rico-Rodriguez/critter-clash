@@ -28,7 +28,7 @@ func _ready() -> void:
 func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
-		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}}
+		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": []}
 	var skills := {}
 	for s in DB.SKILLS:
 		skills[s] = DB.xp_for_level(10) if s == "hitpoints" else 0
@@ -157,7 +157,16 @@ func zone_id() -> String:
 
 func mode_id() -> String:
 	var m := str(data.get("mode", "horde"))
-	return m if DB.MODES.has(m) else "horde"
+	return m if DB.MODES.has(m) and mode_unlocked(m) else "horde"
+
+
+## Descent and Boss Rush open once you have won on Normal.
+func mode_unlocked(id: String) -> bool:
+	return not DB.MODES[id].has("unlock") or int(data["tier_unlocked"]) >= 1
+
+
+func best_depth(hero: String) -> int:
+	return int(data["stats"]["best"].get("descent_" + hero, 0))
 
 
 func set_mode(id: String) -> void:
@@ -237,7 +246,7 @@ func wear_block(hero_id_: String, it: Dictionary) -> String:
 	var skill := GearDB.skill_for(hero_id_, str(it["slot"]))
 	var need := GearDB.req_for(it)
 	if skill_level(skill) < need:
-		return "Needs %s %d" % [DB.SKILL_NAME[skill], need]
+		return "Requires %s %d" % [DB.SKILL_NAME[skill], need]
 	return ""
 
 
@@ -384,16 +393,18 @@ func upgrade(id: String) -> bool:
 # --- Hero stats ----------------------------------------------------------
 
 ## The hero's numbers before in-hunt cards: base, card level, skills, gear.
-func hero_stats(id: String) -> Dictionary:
+## `preview` maps a slot to a bag item to try there instead of what is worn
+## (the gear screen shows the change before you commit).
+func hero_stats(id: String, preview := {}) -> Dictionary:
 	var h: Dictionary = DB.HEROES[id]
 	var lvl := int(hero(id)["level"])
 	var sk := skill_levels()
-	var power := 1.0 + DB.LEVEL_POWER * (lvl - 1)
+	var power := 1.0 + DB.LEVEL_POWER * (mini(lvl, 10) - 1) + DB.LEVEL_POWER_LATE * maxi(lvl - 10, 0)
 	var s := {
 		"hp": h["hp"] * power, "dmg": h["dmg"] * power, "rate": h["rate"], "speed": h["speed"],
 		"range": h["range"], "crit": 0.05, "armor": h["armor"], "regen": 0.0, "gold": 1.0,
 		"arc": h.get("arc", 0.0), "splash": h.get("splash", 0.0), "proj_speed": h.get("proj_speed", 0.0),
-		"style": h["style"], "cards": [],
+		"style": h["style"], "cards": [], "dash": 0.0, "super": 0.0, "xp": 0.0, "flags": {},
 	}
 	# Skills: the Old School levels give small, steady edges.
 	s["rate"] *= 1.0 + 0.006 * (sk["attack"] - 1)
@@ -408,7 +419,7 @@ func hero_stats(id: String) -> Dictionary:
 			s["dmg"] *= 1.0 + 0.01 * (sk["magic"] - 1)
 	# Gear.
 	for slot in DB.SLOTS:
-		var it := equipped(id, slot)
+		var it: Dictionary = preview[slot] if preview.has(slot) else equipped(id, slot)
 		if it.is_empty():
 			continue
 		var st: Dictionary = it["stats"]
@@ -423,8 +434,70 @@ func hero_stats(id: String) -> Dictionary:
 		var u := str(it.get("unique", ""))
 		if u != "" and DB.UNIQUES[u].has("card"):
 			s["cards"].append(DB.UNIQUES[u]["card"])
+	_apply_talents(id, s)
 	s["armor"] = minf(s["armor"], 0.6)
 	return s
+
+
+# --- Talents -------------------------------------------------------------
+
+func talents(id: String) -> Array:
+	return hero(id).get("talents", [])
+
+
+func talent_points(id: String) -> int:
+	return int(hero(id)["level"]) - 1 - talents(id).size()
+
+
+func has_talent(id: String, path: int, idx: int) -> bool:
+	return TalentDB.key(path, idx) in talents(id)
+
+
+## A node can be learned with a point to spend and the node above it owned.
+func can_learn(id: String, path: int, idx: int) -> bool:
+	return talent_points(id) > 0 and not has_talent(id, path, idx) and (idx == 0 or has_talent(id, path, idx - 1))
+
+
+func learn_talent(id: String, path: int, idx: int) -> bool:
+	if not can_learn(id, path, idx):
+		return false
+	var h := hero(id)
+	if not h.has("talents"):
+		h["talents"] = []
+	h["talents"].append(TalentDB.key(path, idx))
+	save()
+	return true
+
+
+## Free: hands back every point.
+func respec(id: String) -> void:
+	hero(id)["talents"] = []
+	save()
+
+
+func _apply_talents(id: String, s: Dictionary) -> void:
+	for k: String in talents(id):
+		var parts := k.split(".")
+		var path := int(parts[0])
+		var idx := int(parts[1])
+		if path >= TalentDB.paths(id).size() or idx >= TalentDB.paths(id)[path]["nodes"].size():
+			continue
+		var n := TalentDB.node(id, path, idx)
+		s["dmg"] *= 1.0 + float(n.get("dmg", 0.0))
+		s["hp"] *= 1.0 + float(n.get("hp", 0.0))
+		s["rate"] *= 1.0 + float(n.get("rate", 0.0))
+		s["speed"] *= 1.0 + float(n.get("speed", 0.0))
+		s["gold"] += float(n.get("gold", 0.0))
+		s["crit"] += float(n.get("crit", 0.0))
+		s["armor"] += float(n.get("armor", 0.0))
+		s["regen"] += float(n.get("regen", 0.0)) * s["hp"]
+		s["dash"] += float(n.get("dash", 0.0))
+		s["super"] += float(n.get("super", 0.0))
+		s["xp"] += float(n.get("xp", 0.0))
+		for c in n.get("cards", []):
+			s["cards"].append(c)
+		for f: String in n.get("flags", {}):
+			s["flags"][f] = maxf(float(s["flags"].get(f, 0.0)), float(n["flags"][f]))
 
 
 ## One number for the roster: roughly damage per second times survivability.
@@ -561,6 +634,11 @@ func item_score(it: Dictionary) -> float:
 	return s + (60.0 if str(it.get("unique", "")) != "" else 0.0)
 
 
+## The number shown on gear tiles: the sum of its affixes (uniques get a bonus).
+func item_power(it: Dictionary) -> int:
+	return int(round(item_score(it)))
+
+
 func describe_stats(it: Dictionary) -> PackedStringArray:
 	var out := PackedStringArray()
 	for k in it["stats"]:
@@ -641,6 +719,8 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		var key := str(t) if str(r.get("zone", "barrow")) == "barrow" else "%s%d" % [r["zone"], t]
 		if str(r.get("mode", "horde")) == "trial":
 			key = "t" + key
+		elif str(r.get("mode", "horde")) == "rush":
+			key = "rush%d_%s" % [t, r["hero"]]
 		var best := float(st["best"].get(key, 0.0))
 		if best <= 0.0 or float(r["time"]) < best:
 			st["best"][key] = float(r["time"])
@@ -650,6 +730,12 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if t >= 1 and not hero("barbarian")["unlocked"]:
 			hero("barbarian")["unlocked"] = true
 			summary["unlocked_hero"] = "barbarian"
+	if str(r.get("mode", "horde")) == "descent":
+		var dkey: String = "descent_" + str(r["hero"])
+		var d := int(r.get("depth", 1))
+		if d > int(st["best"].get(dkey, 0)):
+			st["best"][dkey] = d
+			summary["record"] = true
 	_bounty_progress(r)
 	var opened := unlock_by_shards()
 	if opened != "":

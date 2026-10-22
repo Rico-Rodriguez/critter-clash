@@ -11,11 +11,20 @@ func open(r: Dictionary) -> void:
 	%Title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4) if win else Color(0.9, 0.3, 0.25))
 	%Sub.text = "%s · %s · %s" % [DB.HEROES[r["hero"]]["name"], tier["name"], Ui.fmt_time(r["time"])]
 	var long_road := str(r.get("mode", "horde")) == "trial"
+	var descent := str(r.get("mode", "horde")) == "descent"
 	if long_road:
 		%Sub.text = "The Long Road · " + %Sub.text
+	elif descent:
+		%Title.text = "Depth %d" % int(r["depth"])
+		%Title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
+		%Sub.text = "Endless Descent · " + %Sub.text
+	elif str(r.get("mode", "horde")) == "rush":
+		%Sub.text = "Boss Rush · " + %Sub.text
 	_count(_stat("Kills", "0", "skull-crossed-bones"), int(r["kills"]), "%d")
 	if long_road:
 		_count(_stat("Rooms", "0", "castle"), int(r.get("rooms_cleared", 0)), "%d / " + str(int(r.get("rooms", 0))))
+	elif descent:
+		_count(_stat("Depth", "0", "hourglass"), int(r["depth"]), "%d")
 	else:
 		_count(_stat("Champions", "0", "crowned-skull"), int(r["elites"]), "%d")
 	_count(_stat("Level", "0", "upgrade"), int(r["level"]), "%d")
@@ -39,7 +48,9 @@ func open(r: Dictionary) -> void:
 		%Loot.add_child(_loot_row(it, str(r["hero"])))
 	_refresh_upgrades()
 	# Rewards that wait in camp.
-	if win and str(r.get("chest", "")) != "":
+	if descent and bool(s.get("record", false)):
+		_note("New deepest descent for the %s" % DB.HEROES[r["hero"]]["name"], Color(1.0, 0.85, 0.4), "trophy")
+	if (win or descent) and str(r.get("chest", "")) != "":
 		var c: Dictionary = DB.CHESTS[r["chest"]]
 		_note("%s earned — open it in camp" % c["name"], c["color"], "locked-chest")
 	var ut := int(s.get("unlocked_tier", -1))

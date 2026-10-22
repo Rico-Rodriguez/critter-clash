@@ -15,6 +15,7 @@ var value := Vector2.ZERO
 var blockers: Array[Control] = []
 var home := Vector2.ZERO
 var home_frac := 0.27
+var idle_alpha := 0.3
 var _alpha := 0.35
 
 
@@ -84,7 +85,7 @@ func release() -> void:
 
 
 func _process(dt: float) -> void:
-	var want := 0.85 if finger >= 0 else 0.3
+	var want := 0.85 if finger >= 0 else idle_alpha
 	if absf(_alpha - want) > 0.01:
 		_alpha = lerpf(_alpha, want, 1.0 - exp(-12.0 * dt))
 		queue_redraw()

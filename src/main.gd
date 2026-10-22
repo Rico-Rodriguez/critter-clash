@@ -69,7 +69,7 @@ func go(screen: String) -> void:
 
 
 func _on_hunt_finished(result: Dictionary) -> void:
-	if result.get("win", false):
+	if result.get("win", false) or (str(result.get("mode", "")) == "descent" and str(result.get("chest", "")) != ""):
 		pending_chest = str(result.get("chest", ""))
 	go("lobby")
 
@@ -139,9 +139,17 @@ func _run_bot(args: PackedStringArray) -> void:
 			add_child(h)
 			if idle:
 				h._bot.idle = true
+			# --limit=N ends the hunt after N seconds of play (the Descent has no end).
+			var limit := float(_arg(args, "limit", "0"))
+			if limit > 0.0:
+				(func():
+					while is_instance_valid(h) and not h._ended:
+						await get_tree().process_frame
+						if is_instance_valid(h) and h.time > limit:
+							h._abandon()).call()
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
-			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f cards=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.cards])
+			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards])
 			if idle and res["win"]:
 				ok = false
 			h.queue_free()
@@ -193,17 +201,21 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition":
-				if shot == "chest":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest":
+				if shot == "chest" or shot == "lobbychest":
 					pending_chest = "gold"
 				if shot in ["bounties", "lobby"]:
 					Game.refresh_bounties()
 					var bl: Array = Game.data["bounties"]["list"]
 					bl[0]["progress"] = bl[0]["target"]
 					bl[1]["progress"] = int(bl[1]["target"]) / 2
+				if shot == "talents":
+					Game.hero(hid)["level"] = 12
+					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
+						Game.learn_talent(hid, n[0], n[1])
 				_set_screen_now("lobby")
 				await _wait(1.2)
-				if shot != "lobby":
+				if shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
 				await _save(shot)

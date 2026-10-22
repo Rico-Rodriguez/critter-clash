@@ -10,6 +10,8 @@ const DASH_TIME := 0.21
 
 ## Seconds left of a curse that cuts move speed (the Hexer Queen's lane).
 var slow_t := 0.0
+## Seconds left rooted in place (the Jailer affix).
+var root_t := 0.0
 var id := "knight"
 var def: Dictionary
 var base: Dictionary
@@ -40,6 +42,7 @@ var aim_yaw := 0.0
 var aim_hold := 0.0
 var swing_i := 0
 var dash_cd := 0.0
+var potion_cd := 0.0
 var dash_t := 0.0
 var dash_dir := Vector3.ZERO
 var invuln := 0.0
@@ -50,6 +53,13 @@ var leap_from := Vector3.ZERO
 var leap_to := Vector3.ZERO
 var whirl_tick := 0.0
 var revived := false
+## Talent rules (see TalentDB), the rage stacks from Bloodlust, and whether
+## Second Wind has fired this hunt.
+var flags := {}
+var xp_mult := 1.0
+var rage := 0
+var rage_t := 0.0
+var wind_used := false
 var ward_up := false
 var ward_t := 0.0
 var storm_t := 2.0
@@ -205,11 +215,19 @@ func recompute() -> void:
 	shots = int(def.get("shots", 1)) + lv.call("multishot")
 	pierce = int(def.get("pierce", 0)) + lv.call("pierce")
 	magnet = 4.2 * (1.0 + 0.5 * lv.call("magnet"))
-	dash_cd_max = 2.2 * (1.0 - 0.2 * lv.call("dash"))
-	super_rate = 1.0 + 0.25 * lv.call("wrath")
+	flags = base.get("flags", {})
+	xp_mult = 1.0 + float(base.get("xp", 0.0)) + hunt.pact_sum("xp")
+	rate *= 1.0 + 0.05 * rage
+	dash_cd_max = 2.2 * (1.0 - 0.2 * lv.call("dash")) * (1.0 - float(base.get("dash", 0.0)))
+	super_rate = (1.0 + 0.25 * lv.call("wrath")) * (1.0 + float(base.get("super", 0.0)))
 	gold_mult = base["gold"] * (1.0 + 0.3 * lv.call("greed"))
 	leech = 0.03 * lv.call("leech")
 	thorns = 0.6 * lv.call("thorns")
+	dmg *= 1.0 + hunt.pact_sum("dmg")
+	rate *= 1.0 + hunt.pact_sum("rate")
+	max_hp *= 1.0 + hunt.pact_sum("hp")
+	armor += hunt.pact_sum("armor")
+	gold_mult += hunt.pact_sum("gold")
 	for bid: String in buffs:
 		var b: Dictionary = DB.SHRINES[bid]
 		dmg *= float(b.get("dmg", 1.0))
@@ -229,7 +247,13 @@ func tick(dt: float) -> void:
 	invuln -= dt
 	atk_cd -= dt
 	dash_cd -= dt
+	potion_cd -= dt
 	aim_hold -= dt
+	if rage > 0:
+		rage_t -= dt
+		if rage_t <= 0.0:
+			rage = 0
+			recompute()
 	if regen > 0.0:
 		hp = minf(hp + regen * dt, max_hp)
 	super_charge = minf(super_charge + dt * 0.012 * super_rate, 1.0)
@@ -252,6 +276,9 @@ func tick(dt: float) -> void:
 	if slow_t > 0.0:
 		slow_t -= dt
 		swing_slow *= 0.6
+	if root_t > 0.0:
+		root_t -= dt
+		swing_slow = 0.0
 	var target_vel := want * speed * swing_slow
 	var accel := 60.0 if want.length() > 0.1 else 70.0
 	vel = vel.move_toward(target_vel, accel * dt)
@@ -379,6 +406,18 @@ func try_dash() -> bool:
 	hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.26, 0.55), 6, 0.5, 2.0)
 	Sfx.play("dodge", -3.0)
 	Ui.buzz(12, 0.3)
+	return true
+
+
+func try_potion() -> bool:
+	if potion_cd > 0.0 or not alive or hp >= max_hp:
+		return false
+	potion_cd = float(DB.POTION["cd"])
+	hp = minf(hp + max_hp * float(DB.POTION["heal"]), max_hp)
+	hunt.fx.ring(flat_pos(), 3.0, Color(0.4, 1.0, 0.55), 0.5)
+	hunt.fx.burst(flat_pos() + Vector3(0, 0.8, 0), Color(0.4, 1.0, 0.55), 16, 5.0, 1.2)
+	Sfx.play("levelup", -8.0, 1.3)
+	Ui.buzz(20, 0.4)
 	return true
 
 

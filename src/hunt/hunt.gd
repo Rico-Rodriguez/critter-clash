@@ -70,7 +70,19 @@ var calm_t := 0.0
 var _storming := false
 var robber_wanted := false
 var robber_spawned := false
+## Pacts taken this hunt (see DB.PACTS), and whether the mid-hunt offer is spent.
+var pacts: Array[String] = []
+var pact_offered := false
+var curse_t := 0.0
+var depth := 1
+var depth_t := 0.0
+## Boss Rush: which boss is next, and the breather before it.
+var rush_i := 0
+var rush_wait := 0.0
+var cur_boss := ""
+var cur_boss_power := 1.0
 var streak := 0
+var _xp_frac := 0.0
 var streak_t := 0.0
 
 
@@ -89,7 +101,12 @@ func _ready() -> void:
 		trial_seed = Game.rng.randi()
 		souls_goal = 100
 		loot_bonus += 1
-	robber_wanted = randf() < 0.35
+	if mode == "descent" or mode == "rush":
+		elite_marks.clear()
+		surge_marks.clear()
+		rush_wait = 3.0
+	cur_boss = str(zone["boss"])
+	robber_wanted = randf() < 0.35 and mode == "horde"
 	low = str(Game.setting("quality")) == "low" or OS.has_feature("mobile") and str(Game.setting("quality")) == "auto" and _weak_device()
 	bot = OS.get_cmdline_user_args().has("--bot")
 	world = Node3D.new()
@@ -138,8 +155,10 @@ func _ready() -> void:
 		await _warmup()
 	Sfx.music("hunt")
 	Sfx.play("hunt_start", -2.0)
-	if mode == "trial":
-		hud.banner(str(DB.MODES["trial"]["name"]), Color(0.85, 0.8, 0.7), "%s · %d rooms to the %s" % [tier["name"], trial_rooms, DB.boss_def(str(zone["boss"]))["name"]])
+	if mode == "descent" or mode == "rush":
+		hud.banner(str(DB.MODES[mode]["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], "Survive as deep as you can" if mode == "descent" else "%d bosses, no rest" % DB.RUSH_ORDER.size()])
+	elif mode == "trial":
+		hud.banner(str(DB.MODES["trial"]["name"]), Color(0.85, 0.8, 0.7), "%s · %d rooms to the %s" % [tier["name"], trial_rooms, DB.boss_def(cur_boss)["name"]])
 	else:
 		hud.banner(str(zone["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], str(zone["wake"]) % souls_goal])
 
@@ -225,11 +244,13 @@ func _warmup() -> void:
 func _setup_shrines() -> void:
 	var ids: Array = DB.SHRINES.keys()
 	ids.shuffle()
+	# One shrine in three hunts is cursed.
+	var cursed_i := randi() % arena.shrines.size() if (mode == "horde" or mode == "descent") and randf() < 0.45 and arena.shrines.size() > 0 else -1
 	var ring_shader := preload("res://src/fx/hero_ring.gdshader")
 	for i in arena.shrines.size():
 		var sd: Dictionary = arena.shrines[i]
-		var id: String = ids[i % ids.size()]
-		var col: Color = DB.SHRINES[id]["color"]
+		var id: String = ids[i % ids.size()] if i != cursed_i else "curse"
+		var col: Color = DB.SHRINES[id]["color"] if id != "curse" else DB.CURSE["color"]
 		(sd["light"] as OmniLight3D).light_color = col
 		var ring := MeshInstance3D.new()
 		var q := PlaneMesh.new()
@@ -269,17 +290,54 @@ func _tick_shrines(dt: float) -> void:
 
 func _activate_shrine(s: Dictionary) -> void:
 	s["used"] = true
+	if s["id"] == "curse":
+		_activate_curse(s)
+		return
 	var d: Dictionary = DB.SHRINES[s["id"]]
 	hero.buffs[s["id"]] = time + DB.SHRINE_TIME
 	hero.recompute()
 	(s["ring"] as MeshInstance3D).queue_free()
 	(s["light"] as OmniLight3D).light_energy = 0.4
-	banner(str(d["name"]), d["color"], "%d seconds" % int(DB.SHRINE_TIME))
 	fx.ring(hero.flat_pos(), 4.0, d["color"], 0.6)
 	fx.burst(hero.flat_pos(), d["color"], 24, 8.0, 1.0)
 	fx.flash_light(hero.flat_pos(), d["color"], 4.0, 8.0, 0.5)
 	Sfx.play("unlock_start", 0.0)
 	Ui.buzz(40, 0.5)
+
+
+## The cursed shrine wakes a champion pack. Outlast the curse for the prize.
+func _activate_curse(s: Dictionary) -> void:
+	var col: Color = DB.CURSE["color"]
+	(s["ring"] as MeshInstance3D).queue_free()
+	(s["light"] as OmniLight3D).light_energy = 0.4
+	curse_t = DB.CURSE_TIME
+	banner(str(DB.CURSE["name"]), col, "Survive %d seconds" % int(DB.CURSE_TIME))
+	fx.ring(hero.flat_pos(), 5.0, col, 0.6)
+	fx.burst(hero.flat_pos(), col, 28, 9.0, 1.0)
+	fx.flash_light(hero.flat_pos(), col, 5.0, 9.0, 0.6)
+	Sfx.play("boom", -2.0, 0.7)
+	Ui.buzz(70, 0.7)
+	shake(0.35)
+	var n := 2 + tier_i
+	for i in n:
+		var a := TAU * i / n
+		var at := arena.resolve(hero.position + Actor.dir_of(a) * 7.0, 0.8)
+		spawn_foe(["warrior", "minion", "rogue"][randi() % 3], at, true)
+
+
+func _tick_curse(dt: float) -> void:
+	if curse_t <= 0.0:
+		return
+	curse_t -= dt
+	if curse_t > 0.0 or not hero.alive:
+		return
+	banner("The curse lifts", Color(0.85, 0.5, 1.0), "Take your due")
+	Sfx.play("rare_chime", -2.0)
+	_drop_item(hero.flat_pos(), _roll_good("elite", 2))
+	run_level += 1
+	pending_levels += 1
+	if pending_levels == 1:
+		_offer_cards()
 
 
 func _weak_device() -> bool:
@@ -317,6 +375,7 @@ func tick(dt: float) -> void:
 	hero.move_input = mv
 	hero.tick(dt)
 	_tick_shrines(dt)
+	_tick_curse(dt)
 	_tick_foes(dt)
 	if boss:
 		boss.tick(dt)
@@ -376,6 +435,10 @@ func _frame_camera() -> void:
 func _tick_foes(dt: float) -> void:
 	var i := foes.size() - 1
 	while i >= 0:
+		# A foe's tick can remove others (a bomber's blast, a robber escaping).
+		if i >= foes.size():
+			i = foes.size() - 1
+			continue
 		var f := foes[i]
 		if not is_instance_valid(f):
 			foes.remove_at(i)
@@ -475,6 +538,39 @@ func on_screen(p: Vector3, margin := 0.0) -> bool:
 	return s.x > -margin * 40.0 and s.x < vp.size.x + margin * 40.0 and s.y > 80.0 and s.y < vp.size.y - 40.0
 
 
+## A telegraphed blast on the ground: after `delay` it hurts the hero if they
+## are still inside, and may slow or root them.
+func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: String, col: Color) -> void:
+	fx.telegraph(0, pos, 0.0, Vector2(r, 0), delay)
+	get_tree().create_timer(delay, false).timeout.connect(func():
+		if _ended or not is_instance_valid(hero):
+			return
+		fx.ring(pos, r, col, 0.35)
+		fx.burst(pos, col, 14, 7.0)
+		Sfx.play("boom", -10.0, 1.3)
+		if hero.alive and hero.flat_pos().distance_to(pos) < r + hero.radius * 0.5:
+			damage_hero(amount, null)
+			if effect == "slow":
+				hero.slow_t = 2.5
+			elif effect == "root":
+				hero.root_t = 1.2)
+
+
+## A lane across the ground from `from` along `yaw`: it flashes, then cuts.
+func beam_from(from: Vector3, yaw: float, delay: float, amount: float, col: Color) -> void:
+	fx.telegraph(2, from, yaw, Vector2(0.9, 14.0), delay)
+	get_tree().create_timer(delay, false).timeout.connect(func():
+		if _ended or not is_instance_valid(hero):
+			return
+		var fwd := Vector3(sin(yaw), 0, cos(yaw))
+		var rel := hero.flat_pos() - from
+		var along := rel.dot(fwd)
+		var across := (rel - fwd * along).length()
+		fx.ring(from + fwd * 6.0, 1.2, col, 0.3)
+		if hero.alive and along > 0.0 and along < 14.0 and across < 0.9 + hero.radius * 0.5:
+			damage_hero(amount, null))
+
+
 ## A burning patch of ground left by a molten champion. It telegraphs red; the
 ## hero takes `dps` a second while standing in it.
 func add_fire_patch(at: Vector3, r: float, dur: float, dps: float) -> void:
@@ -497,8 +593,23 @@ func _tick_patches(dt: float) -> void:
 		i -= 1
 
 
+## How far along the hunt is, 0 to 1: it paces what spawns and how tough foes
+## are. In the Descent it follows the depth; the soul bar shows `objective_fill`.
 func progress() -> float:
+	if mode == "descent":
+		return clampf(0.12 + (depth - 1) * 0.07, 0.0, 1.0)
+	if mode == "rush":
+		return 0.5
 	return clampf(float(souls) / float(souls_goal), 0.0, 1.0)
+
+
+## What the top bar shows.
+func objective_fill() -> float:
+	if mode == "descent":
+		return clampf(depth_t / DB.DESCENT_TIME, 0.0, 1.0)
+	if mode == "rush":
+		return float(rush_i) / DB.RUSH_ORDER.size()
+	return progress()
 
 
 func spawn_foe(kind: String, at: Vector3, elite := false, affix := "") -> Enemy:
@@ -506,7 +617,7 @@ func spawn_foe(kind: String, at: Vector3, elite := false, affix := "") -> Enemy:
 	world.add_child(e)
 	e.position = at
 	e.rotation.y = Actor.yaw_to(at, hero.position)
-	e.setup(self, kind, tier, elite, affix)
+	e.setup(self, kind, scaled_tier(), elite, affix)
 	foes.append(e)
 	fx.puff(at, Color(0.28, 0.23, 0.18, 0.75), 7, 0.7, 1.6)
 	if on_screen(at):
@@ -520,9 +631,16 @@ func _direct(dt: float) -> void:
 	if mode == "trial":
 		_direct_trial(dt)
 		return
+	if mode == "rush":
+		_direct_rush(dt)
+		return
+	if mode == "descent":
+		_tick_depth(dt)
 	var p := progress()
 	var target := int((lerpf(7.0, 30.0, p) + tier_i * 3) * float(tier.get("press", 1.0)))
-	target = mini(target, MAX_FOES)
+	target = mini(int(target * (1.0 + pact_sum("pack"))), MAX_FOES)
+	if mode == "horde" and not pact_offered and p >= 0.5:
+		offer_pact()
 	calm_t -= dt
 	if calm_t > 0.0:
 		target = int(target * 0.6)
@@ -633,10 +751,21 @@ var rooms_cleared := 0
 # --- The Long Road --------------------------------------------------------
 
 func objective_title() -> String:
-	return "THE LONG ROAD" if mode == "trial" else "SOULS"
+	match mode:
+		"trial":
+			return "THE LONG ROAD"
+		"descent":
+			return "DEPTH"
+		"rush":
+			return "BOSS RUSH"
+	return "SOULS"
 
 
 func objective_text() -> String:
+	if mode == "descent":
+		return "Depth %d" % depth
+	if mode == "rush":
+		return "Boss %d / %d" % [mini(rush_i + 1, DB.RUSH_ORDER.size()), DB.RUSH_ORDER.size()]
 	if mode != "trial":
 		return "%d / %d" % [souls, souls_goal]
 	if boss != null:
@@ -797,9 +926,157 @@ func _clear_room(r: Dictionary) -> void:
 
 
 func _make_boss() -> Boss:
-	var b: Boss = BossHexer.new() if zone["boss"] == "hexer" else Boss.new()
-	b.boss_id = zone["boss"]
+	var b: Boss = BossHexer.new() if cur_boss == "hexer" else Boss.new()
+	b.boss_id = cur_boss
 	return b
+
+
+# --- Endless Descent and Boss Rush ---------------------------------------
+
+## The tier the foes of this moment are built from: the Descent makes
+## everything tougher with depth, the second lap of the Rush hits harder.
+func scaled_tier() -> Dictionary:
+	var fh := pact_sum("foe_hp")
+	if mode == "descent" and depth > 1:
+		var t := tier.duplicate()
+		t["hp"] = float(tier["hp"]) * (1.0 + DB.DESCENT_HP * (depth - 1)) * (1.0 + fh)
+		t["dmg"] = float(tier["dmg"]) * (1.0 + DB.DESCENT_DMG * (depth - 1))
+		return t
+	if fh > 0.0 and mode != "rush":
+		var tp := tier.duplicate()
+		tp["hp"] = float(tier["hp"]) * (1.0 + fh)
+		return tp
+	if mode == "rush" and cur_boss_power > 1.0:
+		var t2 := tier.duplicate()
+		t2["hp"] = float(tier["hp"]) * cur_boss_power
+		t2["dmg"] = float(tier["dmg"]) * (1.0 + (cur_boss_power - 1.0) * 0.6)
+		return t2
+	return tier
+
+
+## Total of one pact modifier over the pacts taken.
+func pact_sum(key: String) -> float:
+	var n := 0.0
+	for id in pacts:
+		n += float(DB.PACTS[id]["mod"].get(key, 0.0))
+	return n
+
+
+## Two pacts you have not taken, or nothing if all are spent.
+func offer_pact() -> void:
+	pact_offered = true
+	var pool: Array = DB.PACTS.keys().filter(func(k): return not k in pacts)
+	pool.shuffle()
+	var choices := pool.slice(0, 2)
+	if choices.is_empty():
+		return
+	if bot:
+		pick_pact(choices[0])
+		return
+	get_tree().paused = true
+	hud.show_pact(choices)
+
+
+func pick_pact(id: String) -> void:
+	get_tree().paused = false
+	if id == "":
+		return
+	pacts.append(id)
+	foe_speed_mult *= 1.0 + float(DB.PACTS[id]["mod"].get("foe_speed", 0.0))
+	hero.recompute()
+	if id == "vow":
+		hero.hp = minf(hero.hp + hero.max_hp * 0.35, hero.max_hp)
+	banner(str(DB.PACTS[id]["name"]), Color(0.85, 0.5, 0.95), str(DB.PACTS[id]["good"]))
+	Sfx.play("unlock_start", -2.0, 0.8)
+
+
+func _tick_depth(dt: float) -> void:
+	depth_t += dt
+	if depth_t < DB.DESCENT_TIME:
+		return
+	depth_t = 0.0
+	depth += 1
+	banner("Depth %d" % depth, Color(0.95, 0.8, 0.5), "The dead grow bolder")
+	Sfx.play("boom", -4.0, 0.8)
+	shake(0.25)
+	for i in 2:
+		_drop("heart", hero.flat_pos() + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)), 1)
+	if depth % DB.DESCENT_BOSS_EVERY == 0:
+		var lap := depth / DB.DESCENT_BOSS_EVERY
+		cur_boss = "gravemaw" if lap % 2 == 1 else "hexer"
+		_begin_boss()
+		return
+	if depth % 4 == 0:
+		offer_pact()
+	for i in 1 + depth / 6:
+		var kinds := ["warrior", "minion", "rogue", "mage"]
+		var at := arena.spawn_point(hero.position, 7.0, 11.0)
+		var e := spawn_foe(kinds[randi() % kinds.size()], at, true)
+		banner(e.elite_name, DB.ELITE_AFFIXES[e.affixes[0]]["color"].lightened(0.3), "A champion rises!")
+	if depth % 3 == 0:
+		_start_surge(progress())
+
+
+func _direct_rush(dt: float) -> void:
+	rush_wait -= dt
+	if rush_wait > 0.0 or _warming or boss != null:
+		return
+	var entry: Array = DB.RUSH_ORDER[rush_i]
+	cur_boss = str(entry[0])
+	cur_boss_power = float(entry[1])
+	_begin_boss()
+
+
+## A boss other than the last falls: loot, a breath, a card, the next one.
+func _boss_down_midway() -> void:
+	var b := boss
+	b.die()
+	boss = null
+	phase = "rise"
+	phase_t = 0.0
+	hud.boss_mode(null)
+	Ui.buzz(80, 0.7)
+	var at := b.flat_pos()
+	var col: Color = DB.boss_def(b.boss_id)["color"]
+	fx.bone_burst(at, 16, 9.0)
+	fx.ring(at, 8.0, Color(col).lightened(0.2), 0.9)
+	fx.flash_light(at, Color(col).lightened(0.3), 9.0, 16.0, 1.2)
+	shake(0.8)
+	Sfx.play("boss_die", 0.0)
+	banner("%s falls" % b.display_name, Color(1.0, 0.85, 0.5))
+	for i in 12:
+		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
+	for i in 2 if mode == "rush" else 1:
+		_drop_item(at, Game.roll_item("boss", tier_i, "", "", loot_bonus))
+	for i in 5:
+		_drop("soul", at, 3)
+	_discard_boss(b)
+	for f in foes.duplicate():
+		if f.alive:
+			_kill(f)
+	hero.hp = minf(hero.hp + hero.max_hp * 0.5, hero.max_hp)
+	Sfx.music("hunt", 1.0)
+	if mode == "descent":
+		depth_t = 0.0
+		return
+	rush_i += 1
+	rush_wait = DB.RUSH_GAP
+	var nxt: Array = DB.RUSH_ORDER[rush_i]
+	banner("Next: %s" % DB.boss_def(str(nxt[0]))["name"], Color(0.85, 0.8, 0.7), "Take a card and a breath")
+	run_level += 1
+	pending_levels += 1
+	if pending_levels == 1:
+		_offer_cards()
+
+
+## The dead boss sinks away; free it and its occluder a moment later.
+func _discard_boss(b: Boss) -> void:
+	get_tree().create_timer(3.5, false).timeout.connect(func():
+		if is_instance_valid(b):
+			for o in arena.occluders.duplicate():
+				if o.get("node") == b:
+					arena.occluders.erase(o)
+			b.queue_free())
 
 
 func _begin_boss() -> void:
@@ -820,17 +1097,22 @@ func _begin_boss() -> void:
 	world.add_child(boss)
 	boss.position = arena.boss_spawn
 	boss.rotation.y = 0.0
-	boss.setup(self, tier)
+	var boss_tier := scaled_tier()
+	if mode == "descent":
+		# Each lap of bosses is bigger than the last.
+		boss_tier = boss_tier.duplicate()
+		boss_tier["hp"] = float(tier["hp"]) * (1.0 + 0.5 * (depth / DB.DESCENT_BOSS_EVERY - 1))
+	boss.setup(self, boss_tier)
 	cam.focus_override = arena.boss_spawn + Vector3(0, 0, 3.0)
 	fx.puff(arena.boss_spawn, Color(0.3, 0.27, 0.22, 0.85), 22, 3.0, 3.0)
 	fx.bone_burst(arena.boss_spawn, 10, 8.0)
-	var aura: Color = DB.boss_def(str(zone["boss"]))["color"]
+	var aura: Color = DB.boss_def(cur_boss)["color"]
 	fx.ring(arena.boss_spawn, 7.0, aura, 0.8)
 	fx.flash_light(arena.boss_spawn, aura, 8.0, 16.0, 1.2)
 	shake(0.8)
 	Sfx.music("boss", 0.6)
 	Sfx.play("boss_roar", 2.0)
-	var bd := DB.boss_def(str(zone["boss"]))
+	var bd := DB.boss_def(cur_boss)
 	banner(str(bd["name"]), Color(bd["color"]).lightened(0.25), str(bd["wake"]))
 
 
@@ -845,7 +1127,11 @@ func damage_foe(f: Actor, amount: float, _src: Node3D, dir: Vector3, force: floa
 		return
 	var crit := randf() < hero.crit
 	if crit:
-		amount *= 2.0
+		amount *= 2.0 + float(hero.flags.get("critdmg", 0.0))
+	if hero.flags.has("execute") and f.hp <= f.max_hp * 0.3:
+		amount *= 1.0 + float(hero.flags["execute"])
+	if hero.flags.has("mark") and f is Enemy and (f as Enemy).elite:
+		amount *= 1.0 + float(hero.flags["mark"])
 	amount = roundf(amount * randf_range(0.92, 1.08))
 	if f is Enemy and (f as Enemy).ward_hp > 0.0:
 		var e := f as Enemy
@@ -897,12 +1183,16 @@ func _kill(f: Enemy) -> void:
 	f.die()
 	foes.erase(f)
 	kills += 1
+	if hero.flags.has("bloodlust"):
+		hero.rage = mini(hero.rage + 1, int(hero.flags["bloodlust"]))
+		hero.rage_t = 1.5
+		hero.recompute()
 	streak += 1
 	streak_t = DB.STREAK_WINDOW
 	if streak in DB.STREAKS:
 		run_xp += streak / 3
 		gold += streak / 5
-		banner("Massacre ×%d" % streak, Color(1.0, 0.4, 0.3), "+%d souls  +%d gold" % [streak / 3, streak / 5])
+		hud.event("Massacre ×%d · +%d souls +%d gold" % [streak, streak / 3, streak / 5], Color(1.0, 0.45, 0.3), "skull-crossed-bones")
 		Sfx.play("rare_chime", -2.0, 0.8)
 		shake(0.25)
 		_check_level()
@@ -932,6 +1222,7 @@ func _kill(f: Enemy) -> void:
 		Sfx.play("rare_chime", -2.0)
 	if f.elite:
 		elites_killed += 1
+		hero.potion_cd -= float(DB.POTION["elite_cd"])
 		hitstop(0.09)
 		shake(0.5)
 		for i in 10:
@@ -963,6 +1254,9 @@ func _roll_good(source: String, min_idx: int) -> Dictionary:
 
 
 func _kill_boss() -> void:
+	if mode == "descent" or (mode == "rush" and rush_i < DB.RUSH_ORDER.size() - 1):
+		_boss_down_midway()
+		return
 	boss.die()
 	Ui.buzz(120, 0.9)
 	phase = "victory"
@@ -973,13 +1267,13 @@ func _kill_boss() -> void:
 	_real_hitstop = 1.4
 	var at := boss.flat_pos()
 	fx.bone_burst(at, 20, 10.0)
-	fx.ring(at, 9.0, Color(DB.boss_def(str(zone["boss"]))["color"]).lightened(0.2), 1.0)
-	fx.flash_light(at, Color(DB.boss_def(str(zone["boss"]))["color"]).lightened(0.3), 10.0, 18.0, 1.5)
+	fx.ring(at, 9.0, Color(DB.boss_def(cur_boss)["color"]).lightened(0.2), 1.0)
+	fx.flash_light(at, Color(DB.boss_def(cur_boss)["color"]).lightened(0.3), 10.0, 18.0, 1.5)
 	shake(1.0)
 	Sfx.play("boss_die", 2.0)
 	Sfx.music("", 2.0)
 	get_tree().create_timer(0.35 * 0.25, true).timeout.connect(func(): Sfx.play("sting_victory", 0.0))
-	banner("Victory", Color(1.0, 0.85, 0.45), str(DB.boss_def(str(zone["boss"]))["fall"]))
+	banner("Victory", Color(1.0, 0.85, 0.45), str(DB.boss_def(cur_boss)["fall"]))
 	if hero.alive:
 		hero.act("Cheering", 1.6, true)
 	# The hoard.
@@ -987,7 +1281,7 @@ func _kill_boss() -> void:
 		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
 	for i in randi_range(3, 4):
 		_drop_item(at, Game.roll_item("boss", tier_i, "", "", loot_bonus))
-	for u in Game.roll_uniques(str(DB.boss_def(str(zone["boss"]))["source"]), tier_i):
+	for u in Game.roll_uniques(str(DB.boss_def(cur_boss)["source"]), tier_i):
 		_drop_item(at, Game.make_unique(u))
 	for i in 10:
 		_drop("soul", at, 4)
@@ -1010,7 +1304,7 @@ func damage_hero(amount: float, src: Node3D) -> void:
 	if hero.ward_up:
 		hero.break_ward()
 		return
-	amount *= (1.0 - hero.armor)
+	amount *= (1.0 - hero.armor) * (1.0 + pact_sum("dmg_taken"))
 	amount = roundf(amount * randf_range(0.92, 1.08))
 	hero.hp -= amount
 	hero.hit_flash()
@@ -1028,6 +1322,12 @@ func damage_hero(amount: float, src: Node3D) -> void:
 		if hero.thorns > 0.0 and e.def["ai"] == "melee" and e.alive:
 			Sfx.play("thorns", -6.0)
 			damage_foe(e, amount * hero.thorns * 2.0, hero, (e.flat_pos() - hero.flat_pos()).normalized(), 3.0)
+	if hero.hp > 0.0 and hero.flags.has("second_wind") and not hero.wind_used and hero.hp < hero.max_hp * 0.3:
+		hero.wind_used = true
+		hero.hp = minf(hero.hp + hero.max_hp * float(hero.flags["second_wind"]), hero.max_hp)
+		hud.event("Second wind", Color(0.5, 1.0, 0.6), "heart-plus")
+		fx.ring(hero.flat_pos(), 4.0, Color(0.5, 1.0, 0.6), 0.5)
+		Sfx.play("levelup", -6.0)
 	if hero.hp <= 0.0:
 		hero.hp = 0.0
 		if int(cards.get("phoenix", 0)) > 0 and not hero.revived:
@@ -1314,7 +1614,9 @@ func _loot_left() -> int:
 func collect(p: Pickup) -> void:
 	match p.kind:
 		"soul":
-			run_xp += p.value
+			_xp_frac += p.value * hero.xp_mult
+			run_xp += int(_xp_frac)
+			_xp_frac -= int(_xp_frac)
 			Sfx.play("gem", -12.0, 1.0 + minf(run_xp % 7, 6) * 0.03)
 			fx.flare(hero.flat_pos() + Vector3(0, 0.3, 0), Color(0.3, 0.8, 1.0, 0.5))
 			_check_level()
@@ -1548,7 +1850,13 @@ func _end(win: bool) -> void:
 		"win": win, "tier": tier_i, "zone": zone_id, "mode": mode, "rooms_cleared": rooms_cleared, "rooms": trial_rooms,"hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
 		"items": items, "kills": kills, "elites": elites_killed, "time": spent,
 		"chest": tier["chest"] if win else "", "level": run_level, "souls": souls,
+		"depth": depth,
 	}
+	if mode == "descent":
+		for pair in DB.DESCENT_CHESTS:
+			if depth >= int(pair[0]):
+				result["chest"] = pair[1]
+				break
 	var summary := Game.finish_hunt(result)
 	result["summary"] = summary
 	if bot:

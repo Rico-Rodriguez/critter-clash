@@ -86,7 +86,7 @@ func _gear_tests() -> void:
 	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and str(it["name"]).ends_with("Mystic Robe Top"))
 	Game.grant_item(it)
 	_ok("wrong class blocked", Game.wear_block("knight", it) != "")
-	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Needs Magic"))
+	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Requires Magic"))
 	Game.data["skills"]["magic"] = DB.xp_for_level(40)
 	_ok("skill lets you wear", Game.wear_block("mage", it) == "")
 	Game.equip("mage", int(it["uid"]))

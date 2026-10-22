@@ -3,7 +3,8 @@
 #   1. re-import (also refreshes the class_name cache after new scripts)
 #   2. compile every script, scene and shader
 #   3. autopilot hunts: knight, mage, barbarian must mostly win
-#   4. an idle hero must lose
+#   4. Endless Descent runs 260 s without errors, Boss Rush can be won
+#   5. an idle hero must lose
 # Usage: tools/dev/check.sh [--quick]
 set -uo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
@@ -34,6 +35,15 @@ if [ "${1:-}" != "--quick" ]; then
 	grep -q "BOT DONE PASS" "$LOG/trial.log" || fail=1
 	grep -q "SCRIPT ERROR" "$LOG/trial.log" && fail=1
 	[ "$(grep -c 'win=true' "$LOG/trial.log")" -ge 1 ] || fail=1
+	timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --mode=descent --hero=knight --limit=260 > "$LOG/descent.log" 2>&1
+	grep -E "^BOT|SCRIPT ERROR" "$LOG/descent.log" | cut -c1-150
+	grep -q "BOT DONE PASS" "$LOG/descent.log" || fail=1
+	grep -q "SCRIPT ERROR" "$LOG/descent.log" && fail=1
+	timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --mode=rush --hero=mage > "$LOG/rush.log" 2>&1
+	grep -E "^BOT|SCRIPT ERROR" "$LOG/rush.log" | cut -c1-150
+	grep -q "BOT DONE PASS" "$LOG/rush.log" || fail=1
+	grep -q "SCRIPT ERROR" "$LOG/rush.log" && fail=1
+	[ "$(grep -c 'win=true' "$LOG/rush.log")" -ge 1 ] || fail=1
 	timeout 600 "$D/godot.sh" --fixed-fps 60 -- --bot --hero=knight --idle > "$LOG/idle.log" 2>&1
 	grep -E "^BOT" "$LOG/idle.log" | cut -c1-110
 	grep -q "BOT DONE PASS" "$LOG/idle.log" || fail=1

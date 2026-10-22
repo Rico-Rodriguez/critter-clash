@@ -10,10 +10,15 @@ var panel: PanelContainer
 var title_label: Label
 var builder: Callable
 var _scroll: ScrollContainer
+var _fade: TextureRect
+var _cap := 0.86
 
 
+## `height` is the most of the screen the sheet may take; it shrinks to fit
+## its content when that is less.
 func open(title: String, build: Callable, height := 0.86) -> void:
 	builder = build
+	_cap = height
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var scrim := ColorRect.new()
 	scrim.color = Color(0, 0, 0, 0.55)
@@ -53,10 +58,31 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	x.pressed.connect(close)
 	head.add_child(x)
 	v.add_child(head)
+	var wrap := Control.new()
+	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(wrap)
 	_scroll = ScrollContainer.new()
-	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	v.add_child(_scroll)
+	wrap.add_child(_scroll)
+	# A fade at the bottom edge says there is more to scroll to.
+	_fade = TextureRect.new()
+	var g := Gradient.new()
+	g.set_color(0, Color(0.075, 0.07, 0.09, 0.0))
+	g.set_color(1, Color(0.075, 0.07, 0.09, 1.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	gt.width = 4
+	gt.height = 64
+	_fade.texture = gt
+	_fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_fade.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_fade.offset_top = -64.0
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(_fade)
+	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): _update_fade())
 	var m := MarginContainer.new()
 	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	m.add_theme_constant_override("margin_bottom", 40)
@@ -67,6 +93,8 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	body.add_theme_constant_override("separation", 16)
 	m.add_child(body)
 	builder.call(self)
+	await get_tree().process_frame
+	_fit()
 	await get_tree().process_frame
 	var end_y := panel.position.y
 	panel.position.y = end_y + panel.size.y
@@ -82,7 +110,25 @@ func rebuild() -> void:
 	Ui.clear(body)
 	builder.call(self)
 	await get_tree().process_frame
+	_fit()
 	_scroll.scroll_vertical = keep
+	_update_fade()
+
+
+## Sizes the panel to its content, up to the cap.
+func _fit() -> void:
+	var vh := get_viewport_rect().size.y
+	var chrome := 22.0 + 68.0 + 14.0 + 14.0 + 40.0
+	var want: float = chrome + body.get_parent().get_combined_minimum_size().y
+	var frac := clampf(want / vh, 0.3, _cap)
+	panel.anchor_top = 1.0 - frac
+	panel.offset_top = 0.0
+	_update_fade()
+
+
+func _update_fade() -> void:
+	var bar := _scroll.get_v_scroll_bar()
+	_fade.visible = bar.max_value - bar.page - bar.value > 8.0
 
 
 func close() -> void:

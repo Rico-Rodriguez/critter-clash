@@ -78,11 +78,14 @@ const HEROES := {
 }
 const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
 
-const HERO_MAX_LEVEL := 10
+## Past level 10 a level is worth less raw power (LEVEL_POWER_LATE) but still
+## gives a talent point (see TalentDB).
+const HERO_MAX_LEVEL := 20
 ## Shards and gold to go from level n to n+1 (index = current level).
-const UPGRADE_SHARDS := [0, 6, 12, 20, 32, 48, 70, 100, 140, 200]
-const UPGRADE_GOLD := [0, 60, 140, 280, 500, 800, 1200, 1800, 2700, 4000]
+const UPGRADE_SHARDS := [0, 6, 12, 20, 32, 48, 70, 100, 140, 200, 240, 280, 330, 390, 460, 540, 630, 730, 840, 960]
+const UPGRADE_GOLD := [0, 60, 140, 280, 500, 800, 1200, 1800, 2700, 4000, 5500, 7000, 9000, 11500, 14500, 18000, 22000, 27000, 33000, 40000]
 const LEVEL_POWER := 0.09
+const LEVEL_POWER_LATE := 0.04
 
 # --- Enemies -------------------------------------------------------------
 # ai: melee (walk up, wind up, swing), ranged (keep distance, aimed bolt),
@@ -191,8 +194,21 @@ const ZONE_ORDER := ["barrow", "depths"]
 const MODES := {
 	"horde": {"name": "Horde Hunt", "short": "Horde", "blurb": "Hold the graveyard against the rising dead."},
 	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "rooms": [5, 6, 7]},
+	"descent": {"name": "Endless Descent", "short": "Descent", "blurb": "The dead never stop. Each minute goes a level deeper; a boss every fifth. How deep can you go?", "unlock": "Win on Normal to open"},
+	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Both bosses, twice, back to back. A card and a breath between each.", "unlock": "Win on Normal to open"},
 }
-const MODE_ORDER := ["horde", "trial"]
+## Endless Descent: the horde never stops. Every DESCENT_TIME seconds the depth
+## rises (foes grow tougher, a champion arrives); every fifth depth a boss.
+## Chests by depth reached; foes scale by DESCENT_HP / DESCENT_DMG per depth.
+const DESCENT_TIME := 60.0
+const DESCENT_BOSS_EVERY := 5
+const DESCENT_HP := 0.16
+const DESCENT_DMG := 0.08
+const DESCENT_CHESTS := [[15, "crypt"], [10, "gold"], [5, "silver"]]
+## Boss Rush: the zone's bosses in turn, each empowered on the second lap.
+const RUSH_ORDER := [["gravemaw", 1.0], ["hexer", 1.0], ["gravemaw", 1.5], ["hexer", 1.5]]
+const RUSH_GAP := 7.0
+const MODE_ORDER := ["horde", "trial", "descent", "rush"]
 
 static func zone(id: String) -> Dictionary:
 	return ZONES[id] if ZONES.has(id) else ZONES["barrow"]
@@ -207,6 +223,11 @@ const ELITE_AFFIXES := {
 	"swift": {"name": "Swift", "color": Color(0.3, 0.9, 1.0)},
 	"molten": {"name": "Molten", "color": Color(1.0, 0.45, 0.1)},
 	"warded": {"name": "Warded", "color": Color(0.55, 0.5, 1.0)},
+	"frozen": {"name": "Frozen", "color": Color(0.6, 0.88, 1.0)},
+	"jailer": {"name": "Jailer", "color": Color(0.8, 0.68, 0.4)},
+	"mortar": {"name": "Mortar", "color": Color(1.0, 0.82, 0.3)},
+	"plagued": {"name": "Plagued", "color": Color(0.55, 0.9, 0.3)},
+	"arcane": {"name": "Arcane", "color": Color(0.95, 0.45, 1.0)},
 }
 const ELITE_NAMES_A := ["Grim", "Hollow", "Rot", "Ash", "Marrow", "Pale", "Vile", "Dread", "Cairn", "Gloom"]
 const ELITE_NAMES_B := ["jaw", "bone", "shank", "skull", "rib", "grin", "maw", "knuckle", "spine", "tooth"]
@@ -297,6 +318,23 @@ const SHRINES := {
 	"bones": {"name": "Shrine of Bones", "short": "Bones", "color": Color(0.85, 0.85, 0.65), "armor": 0.35},
 }
 const SHRINE_TIME := 20.0
+## The cursed shrine: standing in it calls a champion pack; outlast CURSE_TIME
+## seconds with the hero alive and it pays out a card and a rare.
+const CURSE := {"name": "Cursed Shrine", "color": Color(0.85, 0.25, 0.95)}
+const CURSE_TIME := 20.0
+## The health potion: one button, a long recharge that champions' deaths shorten.
+const POTION := {"cd": 50.0, "heal": 0.45, "elite_cd": 10.0}
+
+## Pacts: offered once mid-hunt. Each is a gain and a price, or refuse both.
+## `mod` keys: dmg rate hp armor gold xp (hero), foe_speed foe_hp pack (foes),
+## dmg_taken (hero takes more).
+const PACTS := {
+	"blood": {"name": "Blood Pact", "good": "+40% damage", "bad": "Foes move 15% faster", "icon": "dripping-sword", "mod": {"dmg": 0.4, "foe_speed": 0.15}},
+	"glass": {"name": "Glass Soul", "good": "+35% attack speed", "bad": "You take 25% more damage", "icon": "lightning-tear", "mod": {"rate": 0.35, "dmg_taken": 0.25}},
+	"greed": {"name": "Gilded Hunger", "good": "+60% gold", "bad": "30% more foes", "icon": "two-coins", "mod": {"gold": 0.6, "pack": 0.3}},
+	"vow": {"name": "Iron Vow", "good": "+35% health, +8% armor", "bad": "-15% attack speed", "icon": "checked-shield", "mod": {"hp": 0.35, "armor": 0.08, "rate": -0.15}},
+	"moon": {"name": "Hunter's Moon", "good": "+30% souls", "bad": "Foes have 25% more health", "icon": "moon", "mod": {"xp": 0.3, "foe_hp": 0.25}},
+}
 
 ## Kill-streak milestones ("Massacre"): reaching one pays bonus souls and gold.
 ## A streak ends after STREAK_WINDOW seconds without a kill.
@@ -312,7 +350,7 @@ static func run_level_xp(level: int) -> int:
 
 const SLOTS := ["weapon", "helm", "chest", "legs", "trinket"]
 const SLOT_NAME := {"weapon": "Weapon", "helm": "Helm", "chest": "Chest", "legs": "Legs", "trinket": "Offhand"}
-const SLOT_ICON := {"weapon": "broadsword", "helm": "visored-helm", "chest": "breastplate", "legs": "leg-armor", "trinket": "gem-pendant"}
+const SLOT_ICON := {"weapon": "broadsword", "helm": "visored-helm", "chest": "breastplate", "legs": "leg-armor", "trinket": "shield"}
 const ITEM_BASES := {
 	"weapon": ["Brand", "Cleaver", "Edge", "Fang", "Reaver"],
 	"helm": ["Helm", "Sallet", "Cowl", "Crown", "Visage"],
