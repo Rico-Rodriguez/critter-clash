@@ -61,6 +61,18 @@ func load_save() -> void:
 		if int(parsed.get("version", 0)) == 5:
 			_migrate_v5(parsed)
 		_merge(data, parsed)
+		_refund_levels()
+
+
+## Bought hero levels are gone (skills are the power now): give back the shards
+## and gold each level cost. Shards rub XP lamps. Level 1 marks it done.
+func _refund_levels() -> void:
+	for id in DB.HERO_ORDER:
+		var lvl := clampi(int(hero(id)["level"]), 1, DB.HERO_MAX_LEVEL)
+		for l in range(1, lvl):
+			hero(id)["shards"] = int(hero(id)["shards"]) + int(DB.UPGRADE_SHARDS[l])
+			data["gold"] = gold() + int(DB.UPGRADE_GOLD[l])
+		hero(id)["level"] = 1
 
 
 ## v1 had three slots (weapon, armor, trinket); armor became chest.

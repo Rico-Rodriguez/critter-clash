@@ -399,15 +399,8 @@ func pact_sum(key: String) -> float:
 func skill_xp_gained() -> Dictionary:
 	var total := dmg_dealt * DB.XP_PER_DAMAGE * float(tier["xp"])
 	var out := {}
-	match str(hero.def["skill"]):
-		"melee":
-			for s in ["attack", "strength", "defence"]:
-				out[s] = int(total / 3.0)
-		"ranged":
-			out["ranged"] = int(total)
-		"magic":
-			out["magic"] = int(total)
-	out["hitpoints"] = int(total / 3.0)
+	for s in DB.STYLE_SKILLS[str(hero.def["skill"])]:
+		out[s] = int(total / 3.0)
 	return out
 
 

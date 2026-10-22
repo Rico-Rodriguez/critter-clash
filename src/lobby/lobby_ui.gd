@@ -56,7 +56,8 @@ func refresh() -> void:
 	var h := Game.hero(id)
 	%HeroName.text = d["name"]
 	%HeroTitle.text = "%s · %s · %s" % [Game.mastery_title(id), d["title"], d["role"]]
-	%HeroLevel.text = "Lv %d" % int(h["level"])
+	# The top chip shows this hero's combat level; bought levels are gone.
+	%HeroLevel.get_parent().visible = false
 	%Power.text = "Power %d · Rating %d" % [Game.power_score(id), int(h.get("rating", 0))]
 	var locked := not bool(h["unlocked"])
 	%Hunt.disabled = locked
@@ -192,7 +193,7 @@ func camp_idle() -> bool:
 
 func _any_upgrade() -> bool:
 	for id in DB.HERO_ORDER:
-		if Game.can_upgrade(id):
+		if Game.hero(id)["unlocked"] and Game.talent_points(id) > 0:
 			return true
 	return false
 

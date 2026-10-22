@@ -194,7 +194,7 @@ func _offer_cards() -> void:
 
 ## Three choices, four once the hero reaches DB.FOURTH_CARD_LEVEL.
 func card_choices() -> int:
-	return 4 if int(Game.hero(hero_id)["level"]) >= DB.FOURTH_CARD_LEVEL else 3
+	return 4 if Game.combat_level(hero_id) >= DB.FOURTH_CARD_COMBAT else 3
 
 
 ## Removes a card from this hunt's pool and returns a replacement for it (or

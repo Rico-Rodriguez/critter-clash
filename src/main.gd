@@ -137,7 +137,8 @@ func _run_bot(args: PackedStringArray) -> void:
 	var heroes := _arg(args, "hero", "knight").split(",")
 	var tier := int(_arg(args, "tier", "0"))
 	var idle := args.has("--idle")
-	var levels := int(_arg(args, "level", "1"))
+	# --skill=N: every skill the hero trains at level N.
+	var skill_lv := int(_arg(args, "skill", "1"))
 	var zone := _arg(args, "zone", "barrow")
 	var mode := _arg(args, "mode", "horde")
 	var ok := true
@@ -146,7 +147,8 @@ func _run_bot(args: PackedStringArray) -> void:
 	var gear := int(_arg(args, "gear", "-1"))
 	for hid in heroes:
 		Game.hero(hid)["unlocked"] = true
-		Game.hero(hid)["level"] = levels
+		for sk in DB.STYLE_SKILLS[DB.HEROES[hid]["skill"]]:
+			Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(skill_lv))
 		if gear >= 0:
 			for sk in DB.SKILLS:
 				Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(int(GearDB.REQ[gear])))
@@ -185,7 +187,7 @@ func _run_bot(args: PackedStringArray) -> void:
 							h._abandon()).call()
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
-			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards])
+			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s xp=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards, res["xp"]])
 			if idle and res["win"]:
 				ok = false
 			h.queue_free()
@@ -277,7 +279,6 @@ func _capture(args: PackedStringArray) -> void:
 					Game.data["road"] = 1
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 				if shot == "talents":
-					Game.hero(hid)["level"] = 12
 					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
 						Game.learn_talent(hid, n[0], n[1])
 				_set_screen_now("lobby")

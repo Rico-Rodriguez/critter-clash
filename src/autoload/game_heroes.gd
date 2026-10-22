@@ -3,58 +3,49 @@ extends "res://src/autoload/game_items.gd"
 ## talents and the power score.
 
 
-# --- Upgrades -----------------------------------------------------------------
+# --- XP lamps -----------------------------------------------------------------
 
-func upgrade_cost(id: String) -> Dictionary:
-	var lvl := int(hero(id)["level"])
-	if lvl >= DB.HERO_MAX_LEVEL:
-		return {}
-	return {"shards": DB.UPGRADE_SHARDS[lvl], "gold": DB.UPGRADE_GOLD[lvl]}
+## XP one lamp adds to skill `s` of hero `id` at its current level.
+func lamp_xp(id: String, s: String) -> int:
+	return DB.LAMP_SHARDS * DB.LAMP_XP * skill_level(s, id)
 
 
-func can_upgrade(id: String) -> bool:
-	var c := upgrade_cost(id)
-	return not c.is_empty() and hero(id)["unlocked"] and int(hero(id)["shards"]) >= c["shards"] and gold() >= c["gold"]
+func can_rub_lamp(id: String) -> bool:
+	return hero(id)["unlocked"] and int(hero(id)["shards"]) >= DB.LAMP_SHARDS
 
 
-func upgrade(id: String) -> bool:
-	if not can_upgrade(id):
+func rub_lamp(id: String, s: String) -> bool:
+	if not can_rub_lamp(id) or not s in DB.STYLE_SKILLS[DB.HEROES[id]["skill"]]:
 		return false
-	var c := upgrade_cost(id)
-	hero(id)["shards"] = int(hero(id)["shards"]) - c["shards"]
-	data["gold"] = gold() - c["gold"]
-	hero(id)["level"] = int(hero(id)["level"]) + 1
+	var xp := lamp_xp(id, s)
+	hero(id)["shards"] = int(hero(id)["shards"]) - DB.LAMP_SHARDS
+	skills(id)[s] = mini(skill_xp(s, id) + xp, 200000000)
 	save()
 	return true
 
 
 # --- Hero stats ----------------------------------------------------------
 
-## The hero's numbers before in-hunt cards: base, card level, skills, gear.
+## The hero's numbers before in-hunt cards: base, skills, gear.
 ## `preview` maps a slot to a bag item to try there instead of what is worn
 ## (the gear screen shows the change before you commit).
 func hero_stats(id: String, preview := {}) -> Dictionary:
 	var h: Dictionary = DB.HEROES[id]
-	var lvl := int(hero(id)["level"])
 	var sk := skill_levels(id)
-	var power := 1.0 + DB.LEVEL_POWER * (mini(lvl, 10) - 1) + DB.LEVEL_POWER_LATE * maxi(lvl - 10, 0)
 	var s := {
-		"hp": h["hp"] * power, "dmg": h["dmg"] * power, "rate": h["rate"], "speed": h["speed"],
+		"hp": h["hp"], "dmg": h["dmg"], "rate": h["rate"], "speed": h["speed"],
 		"range": h["range"], "crit": 0.05, "armor": h["armor"], "regen": 0.0, "gold": 1.0,
 		"arc": h.get("arc", 0.0), "splash": h.get("splash", 0.0), "proj_speed": h.get("proj_speed", 0.0),
 		"style": h["style"], "cards": [], "dash": 0.0, "super": 0.0, "xp": 0.0, "flags": {},
 	}
-	# Skills: the Old School levels give small, steady edges.
-	s["rate"] *= 1.0 + 0.006 * (sk["attack"] - 1)
-	s["hp"] *= 1.0 + 0.01 * (sk["hitpoints"] - 10)
-	s["armor"] += 0.004 * (sk["defence"] - 1)
-	match h["skill"]:
-		"melee":
-			s["dmg"] *= 1.0 + 0.01 * (sk["strength"] - 1)
-		"ranged":
-			s["dmg"] *= 1.0 + 0.01 * (sk["ranged"] - 1)
-		"magic":
-			s["dmg"] *= 1.0 + 0.01 * (sk["magic"] - 1)
+	# Skills are the hero's power. Ranged and Magic do Attack's and Strength's
+	# jobs both.
+	var dmg_sk: String = {"melee": "strength", "ranged": "ranged", "magic": "magic"}[h["skill"]]
+	var spd_sk: String = "attack" if h["skill"] == "melee" else dmg_sk
+	s["dmg"] *= DB.skill_mult(sk[dmg_sk])
+	s["rate"] *= 1.0 + DB.SKILL_SPEED * (sk[spd_sk] - 1)
+	s["hp"] *= DB.skill_mult(sk["hitpoints"], 10)
+	s["armor"] += DB.SKILL_ARMOR * (sk["defence"] - 1)
 	# Gear.
 	for slot in DB.SLOTS:
 		var it: Dictionary = preview[slot] if preview.has(slot) else equipped(id, slot)
@@ -85,8 +76,13 @@ func talents(id: String) -> Array:
 	return hero(id).get("talents", [])
 
 
+## Points earned: one per few combat levels.
+func talent_earned(id: String) -> int:
+	return mini(DB.TALENT_MAX, (combat_level(id) - 3) / DB.TALENT_COMBAT_STEP)
+
+
 func talent_points(id: String) -> int:
-	return int(hero(id)["level"]) - 1 - talents(id).size()
+	return talent_earned(id) - talents(id).size()
 
 
 func has_talent(id: String, path: int, idx: int) -> bool:
@@ -109,9 +105,9 @@ func learn_talent(id: String, path: int, idx: int) -> bool:
 	return true
 
 
-## The first reset per hero is free; after that it costs gold per level.
+## The first reset per hero is free; after that it costs gold per point earned.
 func respec_cost(id: String) -> int:
-	return 0 if bool(hero(id).get("free_respec", true)) else DB.RESPEC_GOLD * int(hero(id)["level"])
+	return 0 if bool(hero(id).get("free_respec", true)) else DB.RESPEC_GOLD * (talent_earned(id) + 1)
 
 
 func respec(id: String) -> bool:
