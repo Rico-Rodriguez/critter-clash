@@ -107,10 +107,10 @@ func _reward_card(r: Dictionary) -> Control:
 			sub = ("%d / %d to next level" % [int(h["shards"]), cost["shards"]]) if h["unlocked"] and not cost.is_empty() else ("%d / 20 to unlock" % int(h["shards"]) if not h["unlocked"] else "")
 		"item":
 			var it: Dictionary = r["item"]
-			col = DB.rarity_color(it["rarity"])
+			col = DB.gear_color(it)
 			icon = GearDB.item_icon(it)
 			title = str(it["name"])
-			sub = "%s %s · for the %s\n%s" % [DB.RARITY_NAME[it["rarity"]], DB.SLOT_NAME.get(it["slot"], ""), DB.HEROES[it["cls"]]["name"], "\n".join(Game.describe_stats(it))]
+			sub = "%s · for the %s\n%s" % [Game.item_tag(it), DB.HEROES[it["cls"]]["name"], "\n".join(Game.describe_stats(it))]
 		"unlock":
 			var d2: Dictionary = DB.HEROES[r["hero"]]
 			col = d2["color"]
@@ -174,7 +174,7 @@ func _summary() -> void:
 				col = DB.HEROES[r["hero"]]["color"].lightened(0.2)
 			"item":
 				line = str(r["item"]["name"])
-				col = DB.rarity_color(r["item"]["rarity"])
+				col = DB.gear_color(r["item"])
 			"unlock":
 				line = "%s unlocked" % DB.HEROES[r["hero"]]["name"]
 		var l := Ui.label(line, "Body", HORIZONTAL_ALIGNMENT_CENTER)

@@ -237,7 +237,7 @@ func _road_bar(gained: int) -> void:
 ## One loot line. Gear that beats what its hero wears says whose it is and
 ## gets an Equip button; `played` is the hero of this hunt.
 func _loot_row(it: Dictionary, hero_id: String, played := "") -> Control:
-	var col := DB.rarity_color(it["rarity"])
+	var col := DB.gear_color(it)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	if it["slot"] in DB.SLOTS:

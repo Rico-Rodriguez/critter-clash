@@ -409,9 +409,9 @@ const KITS := {
 ## Icon per hero and slot (game-icons names), tinted by the material's dye.
 const ICONS := {
 	"knight": {"weapon": "broadsword", "helm": "visored-helm", "chest": "breastplate", "legs": "leg-armor", "trinket": "shield"},
-	"barbarian": {"weapon": "battle-axe", "helm": "wolf-head", "chest": "breastplate", "legs": "leg-armor", "trinket": "checked-shield"},
-	"mage": {"weapon": "wizard-staff", "helm": "moon", "chest": "cloak-dagger", "legs": "boots", "trinket": "book-cover"},
-	"ranger": {"weapon": "pocket-bow", "helm": "arrow-scope", "chest": "cloak-dagger", "legs": "boots", "trinket": "arrow-flights"},
+	"barbarian": {"weapon": "battle-axe", "helm": "horned-helm", "chest": "leather-vest", "legs": "trousers", "trinket": "checked-shield"},
+	"mage": {"weapon": "wizard-staff", "helm": "pointy-hat", "chest": "robe", "legs": "boots", "trinket": "book-cover"},
+	"ranger": {"weapon": "pocket-bow", "helm": "hood", "chest": "leather-vest", "legs": "boots", "trinket": "arrow-flights"},
 }
 
 

@@ -18,6 +18,22 @@ const RARITY_COLOR := {
 static func rarity_color(r: String) -> Color:
 	return RARITY_COLOR.get(r, Color.WHITE)
 
+
+## Gear has one quality ladder you can see: its material tier, grey to red.
+## Rarity (how many bonus stats) shows as pips, never as a rival color.
+const TIER_COLOR := [
+	Color(0.66, 0.64, 0.6), Color(0.42, 0.8, 0.46), Color(0.36, 0.6, 1.0), Color(0.7, 0.46, 1.0),
+	Color(1.0, 0.8, 0.3), Color(1.0, 0.52, 0.2), Color(0.95, 0.24, 0.26),
+]
+
+
+## The color a piece shows everywhere (frame, drop beam, name): its tier.
+## Pets and trophies have no tier and keep their rarity's color.
+static func gear_color(it: Dictionary) -> Color:
+	if not str(it.get("slot", "")) in SLOTS:
+		return rarity_color(str(it.get("rarity", "common")))
+	return TIER_COLOR[clampi(int(it.get("mat", 0)), 0, TIER_COLOR.size() - 1)]
+
 # --- Heroes --------------------------------------------------------------
 # style: melee (arc swing), bow (projectile), magic (splash projectile).
 # super: the charged ability on the right thumb.
@@ -563,11 +579,6 @@ const ITEM_BASES := {
 const AFFIX_SHORT := {
 	"dmg": ["Damage", "%"], "hp": ["Health", "%"], "aspd": ["Attack speed", "%"], "crit": ["Crit chance", "%"],
 	"speed": ["Move speed", "%"], "armor": ["Armor", ""], "gold": ["Gold found", "%"], "regen": ["Regen", "/s"],
-}
-const ITEM_PREFIX := {
-	"common": ["Worn", "Plain", "Rusted", "Old"],
-	"magic": ["Gravewoven", "Moonlit", "Hallowed", "Ashen"],
-	"rare": ["Barrowborn", "Wraithbound", "Bloodsworn", "Nightfall"],
 }
 ## Affix pool: stat key -> [min, max] per rarity step, and its label.
 const AFFIXES := {
