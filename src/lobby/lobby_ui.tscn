@@ -114,6 +114,46 @@ theme_type_variation = &"RoundButton"
 icon_alignment = 1
 expand_icon = true
 
+[node name="Rail" type="HBoxContainer" parent="Safe/V"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Bounties" type="Button" parent="Safe/V/Rail"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(84, 84)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"RoundButton"
+icon_alignment = 1
+expand_icon = true
+
+[node name="BountyBadge" type="PanelContainer" parent="Safe/V/Rail/Bounties"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 0
+offset_left = 58.0
+offset_top = -6.0
+offset_right = 90.0
+offset_bottom = 24.0
+mouse_filter = 2
+theme_type_variation = &"Badge"
+
+[node name="BountyCount" type="Label" parent="Safe/V/Rail/Bounties/BountyBadge"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"BadgeLabel"
+text = "1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BountyText" type="Label" parent="Safe/V/Rail"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"Caption"
+text = "Bounties 0 / 3"
+
 [node name="Space" type="Control" parent="Safe/V"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -224,93 +264,69 @@ focus_mode = 0
 theme_type_variation = &"GoldButton"
 text = "Open your chest"
 
-[node name="Modes" type="HBoxContainer" parent="Safe/V"]
+[node name="Expedition" type="Button" parent="Safe/V"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"CardButton"
+
+[node name="M" type="MarginContainer" parent="Safe/V/Expedition"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_right = 18
+
+[node name="H" type="HBoxContainer" parent="Safe/V/Expedition/M"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="ExpIcon" type="TextureRect" parent="Safe/V/Expedition/M/H"]
+unique_name_in_owner = true
+self_modulate = Color(0.91, 0.71, 0.35, 1)
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Text" type="VBoxContainer" parent="Safe/V/Expedition/M/H"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="ExpMode" type="Label" parent="Safe/V/Expedition/M/H/Text"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
+theme_type_variation = &"Caption"
+text = "HORDE HUNT"
 
-[node name="M0" type="Button" parent="Safe/V/Modes"]
-custom_minimum_size = Vector2(0, 58)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Choice"
-theme_override_font_sizes/font_size = 22
-toggle_mode = true
-text = "Horde Hunt"
-
-[node name="M1" type="Button" parent="Safe/V/Modes"]
-custom_minimum_size = Vector2(0, 58)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Choice"
-theme_override_font_sizes/font_size = 22
-toggle_mode = true
-text = "The Long Road"
-
-[node name="Zones" type="HBoxContainer" parent="Safe/V"]
+[node name="ExpPlace" type="Label" parent="Safe/V/Expedition/M/H/Text"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
-
-[node name="Z0" type="Button" parent="Safe/V/Zones"]
-custom_minimum_size = Vector2(0, 58)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Choice"
-theme_override_font_sizes/font_size = 22
-toggle_mode = true
+theme_type_variation = &"Body"
 text = "The Barrow"
+clip_text = true
 
-[node name="Z1" type="Button" parent="Safe/V/Zones"]
-custom_minimum_size = Vector2(0, 58)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Choice"
-theme_override_font_sizes/font_size = 22
-toggle_mode = true
-text = "Sunken Crypt"
-
-[node name="Tiers" type="HBoxContainer" parent="Safe/V"]
+[node name="ExpTier" type="Label" parent="Safe/V/Expedition/M/H"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
+theme_type_variation = &"Caption"
+text = "NORMAL"
 
-[node name="T0" type="Button" parent="Safe/V/Tiers"]
-custom_minimum_size = Vector2(0, 58)
+[node name="Chevron" type="Label" parent="Safe/V/Expedition/M/H"]
 layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Choice"
-theme_override_font_sizes/font_size = 22
-toggle_mode = true
-text = "Normal"
-
-[node name="T1" type="Button" parent="Safe/V/Tiers"]
-custom_minimum_size = Vector2(0, 58)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Choice"
-theme_override_font_sizes/font_size = 22
-toggle_mode = true
-text = "Veteran"
-
-[node name="T2" type="Button" parent="Safe/V/Tiers"]
-custom_minimum_size = Vector2(0, 58)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Choice"
-theme_override_font_sizes/font_size = 22
-toggle_mode = true
-text = "Nightmare"
+theme_type_variation = &"Heading"
+text = "›"
 
 [node name="Hunt" type="Button" parent="Safe/V"]
 unique_name_in_owner = true
@@ -336,15 +352,16 @@ text = "Heroes"
 icon_alignment = 1
 vertical_icon_alignment = 0
 
-[node name="Dot" type="ColorRect" parent="Safe/V/Nav/NavHeroes"]
+[node name="Dot" type="PanelContainer" parent="Safe/V/Nav/NavHeroes"]
 visible = false
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 0
-offset_left = 108.0
-offset_top = 10.0
-offset_right = 124.0
-offset_bottom = 26.0
+offset_left = 104.0
+offset_top = 6.0
+offset_right = 128.0
+offset_bottom = 30.0
 mouse_filter = 2
-color = Color(0.4, 1, 0.5, 1)
+theme_type_variation = &"Badge"
 
 [node name="NavBag" type="Button" parent="Safe/V/Nav"]
 unique_name_in_owner = true
@@ -353,19 +370,20 @@ layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
 theme_type_variation = &"Ghost"
-text = "Bag"
+text = "Gear"
 icon_alignment = 1
 vertical_icon_alignment = 0
 
-[node name="Dot" type="ColorRect" parent="Safe/V/Nav/NavBag"]
+[node name="Dot" type="PanelContainer" parent="Safe/V/Nav/NavBag"]
 visible = false
+custom_minimum_size = Vector2(24, 24)
 layout_mode = 0
-offset_left = 108.0
-offset_top = 10.0
-offset_right = 124.0
-offset_bottom = 26.0
+offset_left = 104.0
+offset_top = 6.0
+offset_right = 128.0
+offset_bottom = 30.0
 mouse_filter = 2
-color = Color(0.4, 1, 0.5, 1)
+theme_type_variation = &"Badge"
 
 [node name="NavSkills" type="Button" parent="Safe/V/Nav"]
 unique_name_in_owner = true
@@ -388,27 +406,6 @@ theme_type_variation = &"Ghost"
 text = "Log"
 icon_alignment = 1
 vertical_icon_alignment = 0
-
-[node name="NavBounty" type="Button" parent="Safe/V/Nav"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 104)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"Ghost"
-text = "Bounties"
-icon_alignment = 1
-vertical_icon_alignment = 0
-
-[node name="Dot" type="ColorRect" parent="Safe/V/Nav/NavBounty"]
-visible = false
-layout_mode = 0
-offset_left = 108.0
-offset_top = 10.0
-offset_right = 124.0
-offset_bottom = 26.0
-mouse_filter = 2
-color = Color(0.4, 1, 0.5, 1)
 
 [node name="Overlay" type="Control" parent="."]
 unique_name_in_owner = true

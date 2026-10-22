@@ -22,40 +22,16 @@ func setup(l: Node3D) -> void:
 	%Settings.icon = Ui.icon("cog")
 	%Settings.pressed.connect(func(): open_sheet("settings"))
 	%Chest.pressed.connect(_open_chest)
-	for pair in [[%NavHeroes, "heroes", "visored-helm"], [%NavBag, "bag", "swap-bag"], [%NavSkills, "skills", "upgrade"], [%NavLog, "log", "scroll-unfurled"], [%NavBounty, "bounties", "archery-target"]]:
+	for pair in [[%NavHeroes, "heroes", "visored-helm"], [%NavBag, "bag", "swap-bag"], [%NavSkills, "skills", "upgrade"], [%NavLog, "log", "scroll-unfurled"]]:
 		var b: Button = pair[0]
 		b.icon = Ui.icon(pair[2])
 		var sheet_name: String = pair[1]
 		b.pressed.connect(func(): open_sheet(sheet_name))
-	# Name each row, and say in a line what the chosen mode is.
-	for pair in [[%Modes, "GAME MODE"], [%Zones, "LOCATION"], [%Tiers, "DIFFICULTY"]]:
-		var row: Control = pair[0]
-		var cap := Ui.label(pair[1], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-		row.get_parent().add_child(cap)
-		row.get_parent().move_child(cap, row.get_index())
-	_mode_blurb = Ui.label("", "Small", HORIZONTAL_ALIGNMENT_CENTER)
-	_mode_blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	%Modes.get_parent().add_child(_mode_blurb)
-	%Modes.get_parent().move_child(_mode_blurb, %Modes.get_index() + 1)
-	for i in DB.MODE_ORDER.size():
-		var mb: Button = %Modes.get_child(i)
-		var mid: String = DB.MODE_ORDER[i]
-		mb.text = DB.MODES[mid]["name"]
-		mb.pressed.connect(func():
-			Game.set_mode(mid)
-			Sfx.play("ui_press", -2.0)
-			refresh())
-	for i in DB.ZONE_ORDER.size():
-		var zb: Button = %Zones.get_child(i)
-		var zid: String = DB.ZONE_ORDER[i]
-		zb.pressed.connect(func():
-			Game.set_zone(zid)
-			Sfx.play("ui_press", -2.0)
-			refresh())
-	for i in DB.TIERS.size():
-		var b2: Button = %Tiers.get_child(i)
-		var ti := i
-		b2.pressed.connect(func(): _pick_tier(ti))
+	%Bounties.icon = Ui.icon("archery-target")
+	%Bounties.pressed.connect(func(): open_sheet("bounties"))
+	# Mode, place and difficulty change rarely, so the camp shows one summary
+	# card and the choices live in a sheet behind it.
+	%Expedition.pressed.connect(func(): open_sheet("expedition"))
 	%CombatIcon.texture = Ui.icon("crossed-swords")
 	%GoldIcon.texture = Ui.icon("two-coins")
 	%Chest.visible = false
@@ -63,11 +39,10 @@ func setup(l: Node3D) -> void:
 	refresh()
 
 
-var _mode_blurb: Label
+const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle"}
 
 
 func refresh() -> void:
-	_mode_blurb.text = str(DB.MODES[Game.mode_id()]["blurb"])
 	%Gold.text = Ui.fmt_num(Game.gold())
 	%Combat.text = "Combat %d" % Game.combat_level()
 	var id := _shown_hero
@@ -79,36 +54,27 @@ func refresh() -> void:
 	%Power.text = "Power %d" % Game.power_score(id)
 	var locked := not bool(h["unlocked"])
 	%Hunt.disabled = locked
+	%Lock.visible = locked
 	if locked:
 		%Hunt.text = "Locked"
-		%Lock.visible = true
 		%Lock.text = "Clear Veteran, or gather 20 shards (%d/20)" % int(h["shards"]) if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)" % int(h["shards"])
 	else:
 		%Hunt.text = DB.zone(Game.zone_id())["enter"] if Game.mode_id() == "horde" else "Take the Long Road"
-		var shut := Game.zone_unlocked("depths")
-		%Lock.visible = not shut
-		%Lock.text = "%s opens: %s" % [DB.ZONES["depths"]["name"], DB.ZONES["depths"]["unlock"]]
-	for i in DB.MODE_ORDER.size():
-		(%Modes.get_child(i) as Button).button_pressed = DB.MODE_ORDER[i] == Game.mode_id()
-	for i in DB.ZONE_ORDER.size():
-		var zb: Button = %Zones.get_child(i)
-		var z: Dictionary = DB.ZONES[DB.ZONE_ORDER[i]]
-		var zopen := Game.zone_unlocked(DB.ZONE_ORDER[i])
-		zb.disabled = not zopen
-		zb.text = z["name"] if zopen else "🔒 " + str(z["name"])
-		zb.button_pressed = DB.ZONE_ORDER[i] == Game.zone_id()
-	for i in DB.TIERS.size():
-		var b: Button = %Tiers.get_child(i)
-		var t: Dictionary = DB.TIERS[i]
-		var open := i <= int(Game.data["tier_unlocked"])
-		b.disabled = not open
-		b.text = t["name"] if open else "🔒 " + t["name"]
-		b.button_pressed = i == Game.tier()
-		b.add_theme_color_override("font_pressed_color", t["color"])
-		b.add_theme_color_override("font_hover_pressed_color", t["color"])
+	var mode: Dictionary = DB.MODES[Game.mode_id()]
+	var t: Dictionary = DB.TIERS[Game.tier()]
+	%ExpIcon.texture = Ui.icon(MODE_ICON.get(Game.mode_id(), "crossed-swords"))
+	%ExpMode.text = str(mode["name"]).to_upper()
+	%ExpPlace.text = DB.zone(Game.zone_id())["name"]
+	%ExpTier.text = str(t["name"]).to_upper()
+	%ExpTier.add_theme_color_override("font_color", t["color"])
 	%NavHeroes.get_node("Dot").visible = _any_upgrade()
 	%NavBag.get_node("Dot").visible = Game.new_item_count() > 0
-	%NavBounty.get_node("Dot").visible = Game.bounty_claimable() > 0
+	var list: Array = Game.data["bounties"]["list"]
+	var done := list.filter(func(e): return Game.bounty_done(e)).size()
+	var ready_n := Game.bounty_claimable()
+	%BountyBadge.visible = ready_n > 0
+	%BountyCount.text = str(ready_n)
+	%BountyText.text = "Bounties %d / %d" % [done, list.size()]
 
 
 func _any_upgrade() -> bool:
@@ -128,12 +94,6 @@ func _cycle(dir: int) -> void:
 	Sfx.play("ui_toggle", -4.0)
 	refresh()
 	Ui.pop_in(%HeroBox, 0.0, 0.95)
-
-
-func _pick_tier(i: int) -> void:
-	Game.set_tier(i)
-	Sfx.play("ui_tap", -4.0)
-	refresh()
 
 
 func _on_hunt() -> void:
@@ -212,6 +172,8 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Collection Log", _build_log)
 		"bounties":
 			_sheet.open("Daily Bounties", _build_bounties)
+		"expedition":
+			_sheet.open("Expedition", _build_expedition)
 		"settings":
 			_sheet.open("Settings", _build_settings, 0.7)
 	_sheet.closed.connect(refresh)
@@ -504,6 +466,95 @@ func _build_skills(s: Sheet) -> void:
 	var note := Ui.label("Damage you deal trains your skills: melee heroes train Attack, Strength and Defence; the Ranger trains Ranged; the Mage trains Magic. Hitpoints always trains.", "Small")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(note)
+
+
+## Mode, place and difficulty, each a short list of cards that say what the
+## choice means (and, when locked, how to open it).
+func _build_expedition(s: Sheet) -> void:
+	var b := s.body
+	b.add_child(Ui.label("Mode", "Heading"))
+	for mid: String in DB.MODE_ORDER:
+		var m: Dictionary = DB.MODES[mid]
+		var sub: String = m["blurb"]
+		if m.has("rooms"):
+			sub += " %d rooms on %s." % [int(m["rooms"][Game.tier()]), DB.TIERS[Game.tier()]["name"]]
+		b.add_child(_option(MODE_ICON.get(mid, "crossed-swords"), m["name"], sub, mid == Game.mode_id(), "", func():
+			Game.set_mode(mid)
+			_picked(s)))
+	b.add_child(Ui.label("Location", "Heading"))
+	for zid: String in DB.ZONE_ORDER:
+		var z: Dictionary = DB.ZONES[zid]
+		var boss: Dictionary = DB.boss_def(z["boss"])
+		var sub := "Boss: %s. %s" % [boss["name"], z["blurb"]]
+		var lock := "" if Game.zone_unlocked(zid) else str(z["unlock"])
+		b.add_child(_option("tombstone", z["name"], sub, zid == Game.zone_id(), lock, func():
+			Game.set_zone(zid)
+			_picked(s)))
+	b.add_child(Ui.label("Difficulty", "Heading"))
+	for i in DB.TIERS.size():
+		var t: Dictionary = DB.TIERS[i]
+		var sub := "Foes ×%s health, ×%s damage · loot ×%s · %s" % [_num(t["hp"]), _num(t["dmg"]), _num(t["loot"]), DB.CHESTS[t["chest"]]["name"]]
+		if i == 0:
+			sub = "The dead as they are · %s" % DB.CHESTS[t["chest"]]["name"]
+		var lock := "" if i <= int(Game.data["tier_unlocked"]) else "Win on %s to open" % DB.TIERS[i - 1]["name"]
+		var ti := i
+		var card := _option("crowned-skull", t["name"], sub, i == Game.tier(), lock, func():
+			Game.set_tier(ti)
+			_picked(s))
+		card.get_meta("title").add_theme_color_override("font_color", t["color"])
+		b.add_child(card)
+
+
+func _picked(s: Sheet) -> void:
+	Sfx.play("ui_tap", -4.0)
+	refresh()
+	s.rebuild()
+
+
+func _num(v: float) -> String:
+	return str(v).trim_suffix(".0")
+
+
+## One choice in a picker: icon, name, a line of what it means. Locked choices
+## are dimmed and say how to open them instead.
+func _option(icon: String, title: String, sub: String, chosen: bool, lock: String, cb: Callable) -> Button:
+	var btn := Button.new()
+	btn.theme_type_variation = "Choice"
+	btn.toggle_mode = true
+	btn.button_pressed = chosen
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.disabled = lock != ""
+	btn.custom_minimum_size = Vector2(0, 112)
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_theme_constant_override("margin_left", 18)
+	m.add_theme_constant_override("margin_right", 18)
+	btn.add_child(m)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 16)
+	m.add_child(h)
+	var ic := Ui.icon_rect("padlock" if lock != "" else icon, 48, Color(0.91, 0.71, 0.35) if chosen else Color(0.64, 0.6, 0.54))
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	v.add_theme_constant_override("separation", 2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	var tl := Ui.label(title, "Value")
+	tl.add_theme_font_size_override("font_size", 26)
+	if lock != "":
+		tl.modulate.a = 0.5
+	v.add_child(tl)
+	var sl := Ui.label(lock if lock != "" else sub, "Small")
+	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(sl)
+	btn.set_meta("title", tl)
+	btn.pressed.connect(cb)
+	return btn
 
 
 func _build_bounties(s: Sheet) -> void:

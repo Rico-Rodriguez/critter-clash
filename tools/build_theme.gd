@@ -118,6 +118,17 @@ func _panels() -> void:
 	chip.content_margin_left = 14
 	chip.content_margin_right = 18
 	theme.set_stylebox("panel", "Chip", chip)
+	# Notification badge: a red pill with a count (or empty, as a dot).
+	theme.set_type_variation("Badge", "PanelContainer")
+	var bd := box(RED, 20, 3, INK)
+	bd.content_margin_left = 7
+	bd.content_margin_right = 7
+	bd.content_margin_top = 0
+	bd.content_margin_bottom = 0
+	theme.set_stylebox("panel", "Badge", bd)
+	theme.set_type_variation("BadgeLabel", "Label")
+	theme.set_font_size("font_size", "BadgeLabel", 18)
+	theme.set_color("font_color", "BadgeLabel", TEXT)
 	theme.set_type_variation("Plaque", "PanelContainer")
 	var pl := box(Color(0.05, 0.045, 0.06, 0.82), 10, 2, Color(GOLD, 0.35))
 	pl.content_margin_top = 8
@@ -210,6 +221,14 @@ func _buttons() -> void:
 		theme.set_stylebox(k, "Choice", cn)
 	for k in ["pressed", "hover_pressed"]:
 		theme.set_stylebox(k, "Choice", cp)
+	# A tappable summary card (the camp's expedition card): opens a picker.
+	theme.set_type_variation("CardButton", "Ghost")
+	var cb := box(Color(0.05, 0.045, 0.06, 0.82), 14, 2, Color(GOLD, 0.4))
+	var cbp := box(Color(0.12, 0.1, 0.12, 0.9), 14, 2, Color(GOLD, 0.8))
+	for k in ["normal", "disabled"]:
+		theme.set_stylebox(k, "CardButton", cb)
+	for k in ["hover", "pressed", "hover_pressed"]:
+		theme.set_stylebox(k, "CardButton", cbp)
 	# Round icon buttons (pause, settings, arrows).
 	theme.set_type_variation("RoundButton", "Button")
 	var r := box(Color(0.06, 0.055, 0.07, 0.8), 60, 3, Color(GOLD, 0.45))

@@ -193,10 +193,10 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition":
 				if shot == "chest":
 					pending_chest = "gold"
-				if shot == "bounties":
+				if shot in ["bounties", "lobby"]:
 					Game.refresh_bounties()
 					var bl: Array = Game.data["bounties"]["list"]
 					bl[0]["progress"] = bl[0]["target"]
