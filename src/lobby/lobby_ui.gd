@@ -904,7 +904,7 @@ func _build_skills(s: Sheet) -> void:
 	hv.add_theme_constant_override("separation", 0)
 	var cl := Ui.label("Combat level %d" % Game.combat_level(), "Heading")
 	hv.add_child(cl)
-	hv.add_child(Ui.label("Total level %d · Old School rules: 99 is the top" % total, "Small"))
+	hv.add_child(Ui.label("Total level %d · 99 is the top" % total, "Small"))
 	hr.add_child(hv)
 	head.add_child(hr)
 	b.add_child(head)
@@ -1286,7 +1286,7 @@ func _build_settings(s: Sheet) -> void:
 	cr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(cr)
 	var ota := get_node_or_null("/root/Ota")
-	var ver := "Barrowfall v%s" % ProjectSettings.get_setting("application/config/version")
+	var ver := "Gravelight v%s" % ProjectSettings.get_setting("application/config/version")
 	if ota:
 		ver += " · build %d · content %d" % [int(ota.get("baked_build")), int(ota.get("build"))]
 	b.add_child(Ui.label(ver, "Small"))

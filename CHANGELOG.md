@@ -1,12 +1,31 @@
 # Changelog
 
-Patch notes for Barrowfall, newest first. Each entry lists the commits that
+Patch notes for Gravelight (formerly Barrowfall), newest first. Each entry lists the commits that
 shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 **Next up**.
 
 Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is still 2 (no
 autoloads, input map or project settings changed since the last IPA). Save
-version is 5.
+version is 6.
+
+---
+
+## 2026-10-28: Release cleanup
+
+Save version 6 (stored item names take the new gear words). `NATIVE_VERSION`
+unchanged.
+
+### Changed
+- **The game is called Gravelight.** Window title, Settings and the sideload
+  listing. The home-screen name changes with the next IPA; bundle id and save
+  file are unchanged, so nothing is lost.
+- **Original gear names.** Materials no longer borrow Old School RuneScape's:
+  metal is Bronze, Iron, Steel, Cobalt, Verdite, Skyiron, Bloodiron; hide is
+  Leather, Hard Leather, Studded, Fenscale, Tidescale, Emberscale, Nightscale;
+  cloth's Mystic and Infinity are now Sage and Sunwoven. Pieces: Helm, Visored
+  Helm, Hauberk, Cuirass, Chausses, Greaves, Warden Shield, Robe, Robe Skirt.
+  Gear already in a bag is renamed on load.
+- **Level-up scroll** reads "Strength rises! Your Strength is now level 12."
 
 ---
 

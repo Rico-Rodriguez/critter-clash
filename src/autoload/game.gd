@@ -6,7 +6,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 5
+const SAVE_VERSION := 6
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -86,7 +86,7 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, 5, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
 		if int(parsed.get("version", 0)) == 2:
@@ -95,6 +95,8 @@ func load_save() -> void:
 			_migrate_v3(parsed)
 		if int(parsed.get("version", 0)) == 4:
 			_migrate_v4(parsed)
+		if int(parsed.get("version", 0)) == 5:
+			_migrate_v5(parsed)
 		_merge(data, parsed)
 
 
@@ -177,6 +179,28 @@ func _migrate_v4(d: Dictionary) -> void:
 		mt[mode] = mini(maxi(int(mt.get(mode, 0)), int(m.get_string(2)) + 1), mini(cap, DB.TIERS.size() - 1))
 	mt["descent"] = int(mt.get("horde", 0))
 	d["mode_tiers"] = mt
+	d["version"] = 5
+
+
+## v6 renamed the gear materials and pieces. Item names are stored, so old
+## pieces get the new words. Order matters: "Dragon Shield" before "Dragon ".
+const _V6_NAMES := [
+	["Green Dragonhide", "Fenscale"], ["Blue Dragonhide", "Tidescale"], ["Red Dragonhide", "Emberscale"],
+	["Black Dragonhide", "Nightscale"], ["Dragon Shield", "Warden Shield"], ["Mithril ", "Cobalt "],
+	["Adamant ", "Verdite "], ["Rune ", "Skyiron "], ["Dragon ", "Bloodiron "], ["Mystic ", "Sage "],
+	["Infinity ", "Sunwoven "], ["Med Helm", "Helm"], ["Full Helm", "Visored Helm"], ["Chainbody", "Hauberk"],
+	["Platebody", "Cuirass"], ["Chainlegs", "Chausses"], ["Platelegs", "Greaves"], ["Robe Top", "Robe"],
+	["Robe Bottom", "Robe Skirt"],
+]
+
+
+func _migrate_v5(d: Dictionary) -> void:
+	for it in d.get("items", []):
+		if it is Dictionary and str(it.get("unique", "")) == "":
+			var nm := str(it.get("name", ""))
+			for pair in _V6_NAMES:
+				nm = nm.replace(pair[0], pair[1])
+			it["name"] = nm
 	d["version"] = SAVE_VERSION
 
 

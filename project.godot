@@ -1,11 +1,11 @@
 ; Engine configuration file.
-; Godot 4.7 — Barrowfall (repo: critter-clash)
+; Godot 4.7 — Gravelight (repo: critter-clash)
 
 config_version=5
 
 [application]
 
-config/name="Barrowfall"
+config/name="Gravelight"
 config/description="A portrait dark-fantasy hunt. Rise through the Barrow, break the dead, take their loot."
 config/version="2.0.0"
 run/main_scene="res://src/main.tscn"

@@ -235,12 +235,11 @@ func toast(bbcode: String, caption := "") -> void:
 	_toast_tween.tween_property(%Toast, "modulate:a", 0.0, 0.4)
 
 
-## The Old School level-up scroll.
+## The parchment level-up scroll.
 func skill_toast(skill: String, level: int) -> void:
 	var nm: String = DB.SKILL_NAME[skill]
-	%ScrollTitle.text = "Congratulations!"
-	var article := "an" if nm[0] in "AEIOU" else "a"
-	%ScrollText.text = "You've just advanced %s %s level.\nYou are now level %d." % [article, nm, level]
+	%ScrollTitle.text = "%s rises!" % nm
+	%ScrollText.text = "Your %s is now level %d." % [nm, level]
 	%ScrollIcon.texture = Ui.icon(DB.SKILL_ICON[skill])
 	if _scroll_tween:
 		_scroll_tween.kill()

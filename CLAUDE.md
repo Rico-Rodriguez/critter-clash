@@ -1,4 +1,4 @@
-# Barrowfall — working rules
+# Gravelight — working rules
 
 Godot 4.7.2, GDScript, portrait mobile (iOS). Read `README.md` for what the game
 is, and `docs/PLAN.md` for the work queue. Do tasks in plan order, one task per

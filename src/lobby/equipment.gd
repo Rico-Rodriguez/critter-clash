@@ -428,7 +428,7 @@ func _frame_color(it: Dictionary) -> Color:
 	return DB.rarity_color(it["rarity"])
 
 
-## "T5 Adamant · Rare · Regalia set": what a piece is, in words.
+## "T5 Verdite · Rare · Regalia set": what a piece is, in words.
 func _describe(it: Dictionary) -> String:
 	var parts := [_tier_tag(it), DB.RARITY_NAME[it["rarity"]]]
 	if it.get("ancient", false):

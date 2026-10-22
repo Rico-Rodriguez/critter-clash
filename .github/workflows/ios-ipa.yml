@@ -238,15 +238,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios-v1
-          name: Barrowfall ios-v1
+          name: Gravelight ios-v1
           prerelease: true
           files: build/ios/CritterClash.ipa
           # Same tag every build: the IPA asset is replaced in place.
           overwrite_files: true
           body: |
-            Unsigned Barrowfall build for sideloading.
+            Unsigned Gravelight build for sideloading.
             Built from ${{ github.sha }} (run ${{ github.run_id }}).
-            Bundle id `com.rico.critterclash`, display name Barrowfall.
+            Bundle id `com.rico.critterclash`, display name Gravelight.
             Re-sign with SideInstaller using your Apple ID. The export team id ABCDE12345 is a placeholder and is replaced when you re-sign.
             Godot 4.7.2, Mobile renderer, minimum iOS 15.
         env:

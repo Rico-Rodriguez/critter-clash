@@ -1,14 +1,16 @@
-# Barrowfall
+# Gravelight
 
-*Working title. The repo is still called critter-clash; the name lives in
-`project.godot` (`config/name`) and on the camp screen.*
+*Formerly Barrowfall. The repo is still called critter-clash, and the bundle id
+(`com.rico.critterclash`) and save file (`barrowfall_save.json`) keep their old
+names so installed copies carry on. The name lives in `project.godot`
+(`config/name`).*
 
 A portrait, one-thumb action game for phones, built in Godot 4.7.2.
 
 - **Feel (Diablo):** dark world, the hero carries the light, every kill crunches,
   loot drops in pillars of colored light, and champions have names.
 - **Soul (Old School RuneScape):** skills from 1 to 99 on the real OSRS XP curve,
-  a combat level, the parchment "Congratulations, you've just advanced a level"
+  a combat level, the parchment level-up
   scroll, and a collection log with 1/n drop rates and a boss pet.
 - **Play (Brawl Stars / Hunt Royale / Clash Royale):** 2–3 minute hunts, a floating
   stick, auto-attack, a dash, a charged Super, level-up cards mid-run, and a chest

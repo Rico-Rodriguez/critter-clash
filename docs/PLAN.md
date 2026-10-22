@@ -1,4 +1,4 @@
-# Barrowfall — next work plan
+# Gravelight — next work plan
 
 Written to be executed by a smaller model, one task at a time. Each task lists
 the files, the steps, and how to prove it works. Read `CLAUDE.md` first.
