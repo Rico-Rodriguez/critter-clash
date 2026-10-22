@@ -39,7 +39,13 @@ func _ready() -> void:
 	elif args.has("--capture"):
 		_capture.call_deferred(args)
 	else:
-		go("lobby")
+		# The launch update check holds the camp behind the splash; a connect,
+		# not an await, so an in-process update restart can free this node.
+		var ota := get_node_or_null("/root/Ota")
+		if ota and ota.get("checking") == true and ota.has_signal("boot_done"):
+			ota.connect("boot_done", go.bind("lobby"), CONNECT_ONE_SHOT)
+		else:
+			go("lobby")
 
 
 func go(screen: String) -> void:
@@ -379,19 +385,27 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
-			"appicon":
+			"appicon", "splash":
 				# The app icon: the hero with a lantern in the dark, in plain
 				# polished gear so no rarity glow muddies it at 60 px
 				# (tools/app_icon.gd; tools/dev/icon.sh writes assets/icon.png).
+				# The splash is the same scene, full length, with dark sky above
+				# for the title (tools/dev/splash.sh writes assets/splash.png).
 				for slot in DB.SLOTS:
 					var pc := Game.make_item(hid, slot, maxi(mat, 0), "common")
 					pc["look"] = 0
 					Game.equip(hid, int(Game.grant_item(pc)["uid"]))
 				_set_screen_now("lobby")
 				# By path: tools/ is not exported, and no new class_name may ship in a pack.
-				load("res://tools/app_icon.gd").stage(current)
+				var icam: Camera3D = load("res://tools/app_icon.gd").stage(current)
+				if shot == "splash":
+					icam.keep_aspect = Camera3D.KEEP_WIDTH
+					icam.fov = 46.0
+					icam.look_at_from_position(Vector3(0.3, 1.05, 4.3), Vector3(0.1, 1.85, 0), Vector3.UP)
+					# The ground runs out to the fog instead of ending in a hard horizon.
+					(current.get_node("IconStage").get_child(0).mesh as PlaneMesh).size = Vector2(400, 400)
 				await _wait(1.5)
-				await _save("appicon")
+				await _save(shot)
 			"depth":
 				# The Descent going a level deeper.
 				Game.data["mode"] = "descent"

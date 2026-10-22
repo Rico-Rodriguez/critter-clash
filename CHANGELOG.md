@@ -4,9 +4,25 @@ Patch notes for Gravelight (formerly Barrowfall), newest first. Each entry lists
 shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 **Next up**.
 
-Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is still 2 (no
-autoloads, input map or project settings changed since the last IPA). Save
+Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is 3 (the boot
+splash settings changed: reinstall the IPA). Save
 version is 6.
+
+---
+
+## Unreleased: Launch splash and in-game updates
+
+`NATIVE_VERSION` 3: needs a new IPA. Installs on shell 2 keep their current
+content until reinstalled.
+
+- The launch screen is a Gravelight splash (the app icon's lantern scene, full
+  length, with the title) instead of the Godot logo. iOS builds its launch
+  screen from `application/boot_splash/image`; with none set it used Godot's.
+  `tools/dev/splash.sh` re-renders `assets/splash.png`.
+- Boot holds on that splash while the update check runs, then fades into camp.
+- An update shows a progress bar over the splash, then restarts the game on the
+  new content in-process (scene freed, scripts and resources reloaded,
+  autoloads rebuilt), so it applies without closing the app.
 
 ---
 
