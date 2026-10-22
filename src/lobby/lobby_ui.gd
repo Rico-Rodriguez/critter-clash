@@ -146,7 +146,7 @@ func _coach() -> void:
 		["camp_hunt", not played, %Hunt, "Your first hunt", "Drag to move; you attack on your own. Survive the horde, pick a power each level, then beat the boss.", false],
 		["camp_chest", %Chest.visible, %Chest, "A chest!", "Your win earned it. Tap to open it.", true],
 		["camp_gear", played and Game.new_item_count() > 0, %NavBag, "New gear", "Put on what you found: better gear is the fastest way to grow.", false],
-		["camp_heroes", played and _any_upgrade(), %NavHeroes, "Level up", "A hero is ready to level up: more health and damage.", false],
+		["camp_heroes", played and _any_upgrade(), %NavHeroes, "Talent point", "Combat levels earn talent points. Spend them in Heroes.", false],
 	]:
 		if not bool(st[1]) or tips.has(st[0]):
 			continue
