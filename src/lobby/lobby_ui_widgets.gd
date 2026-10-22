@@ -7,6 +7,8 @@ var chest_opening := false
 var _shown_hero := ""
 ## Which tab of the Heroes sheet is showing.
 var _hero_tab := "stats"
+## Why a locked mode or place can't be picked, after a tap on it.
+var _exp_note := ""
 var _sheet: Sheet
 var _sheet_name := ""
 var equipment: Equipment
