@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write and validate the AltStore / SideStore source for Barrowfall.
+"""Write and validate the AltStore / SideStore source for Gravelight.
 
 CI runs this after every IPA build:
   python3 tools/altstore_source.py --ipa build/ios/CritterClash.ipa \
@@ -50,7 +50,7 @@ def build(args):
         "minOSVersion": "15.0",
     }
     app = {
-        "name": "Barrowfall",
+        "name": "Gravelight",
         "bundleIdentifier": bundle_id(),
         "developerName": "Rico Rodriguez",
         "subtitle": "Grimdark knights, one hunt at a time.",
@@ -69,10 +69,10 @@ def build(args):
         "size": size,
     }
     return {
-        "name": "Barrowfall",
+        "name": "Gravelight",
         "identifier": "com.rico.critterclash.source",
-        "subtitle": "Sideload builds of Barrowfall",
-        "description": "Unsigned Barrowfall builds from CI, for AltStore and SideStore.",
+        "subtitle": "Sideload builds of Gravelight",
+        "description": "Unsigned Gravelight builds from CI, for AltStore and SideStore.",
         "iconURL": ICON_URL,
         "website": f"https://github.com/{REPO}",
         "tintColor": TINT,

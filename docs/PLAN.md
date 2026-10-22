@@ -1,4 +1,4 @@
-# Barrowfall — next work plan
+# Gravelight — next work plan
 
 Written to be executed by a smaller model, one task at a time. Each task lists
 the files, the steps, and how to prove it works. Read `CLAUDE.md` first.
@@ -1027,6 +1027,15 @@ Where to tune:
 
 ## Next up
 
+**Feature freeze (since the release cleanup, CHANGELOG 2026-10-28).** No new
+modes, zones, currencies, meta systems or card pools until real players have
+played the build (items 1 and 2 below) and their feedback is written down
+here. Allowed: bug fixes, tuning numbers in `db.gd`/`gear_db.gd`, readability
+and feel, art that replaces existing art, performance, release work (signing,
+TestFlight, store listing) and refactors that change no behavior. If the user
+asks for a new system during the freeze, point at this note and ask once
+whether to lift it.
+
 Ordered. Do the first item before the rest: it is the only one that needs a
 real phone. Everything else is tuned by the autopilot and by eye.
 
@@ -1049,12 +1058,11 @@ real phone. Everything else is tuned by the autopilot and by eye.
    cut off retreat paths; a Nightmare-only fast hound pack; elites that
    pick a corner to trap the hero; fewer safe pockets on the map.
 7. ~~**Remove the debug print.**~~ Done.
-8. **Gear depth.** Set bonuses (two or three pieces of one class's line),
+8. **Gear depth** (frozen except the reveal, which shipped). Set bonuses (two or three pieces of one class's line),
    per-tier drop tuning on the Long Road, and a gear reveal when a piece is
    first worn.
-9. **Modes after the Long Road.** Boss rush (every boss in a row, no soul
-   phase) first, then the Royale-style mode from Phase 7, which needs a bigger
-   arena and bot heroes.
+9. ~~**Modes after the Long Road.**~~ Frozen. Boss Rush shipped; the
+   Royale-style mode from Phase 7 waits until after the freeze.
 10. **Art (deferred).** A.2/A.3 (a different art pack) was skipped on purpose.
    Options are in `docs/art-options.md`. Only revisit if the KayKit look is the
    blocker after the device check.

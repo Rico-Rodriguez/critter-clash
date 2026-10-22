@@ -1,12 +1,47 @@
 # Changelog
 
-Patch notes for Barrowfall, newest first. Each entry lists the commits that
+Patch notes for Gravelight (formerly Barrowfall), newest first. Each entry lists the commits that
 shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 **Next up**.
 
 Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is still 2 (no
 autoloads, input map or project settings changed since the last IPA). Save
-version is 5.
+version is 6.
+
+---
+
+## 2026-10-28: Release cleanup
+
+Save version 6 (stored item names take the new gear words). `NATIVE_VERSION`
+unchanged.
+
+### Changed
+- **The game is called Gravelight.** Window title, Settings and the sideload
+  listing. The home-screen name changes with the next IPA; bundle id and save
+  file are unchanged, so nothing is lost.
+- **Original gear names.** Materials no longer borrow Old School RuneScape's:
+  metal is Bronze, Iron, Steel, Cobalt, Verdite, Skyiron, Bloodiron; hide is
+  Leather, Hard Leather, Studded, Fenscale, Tidescale, Emberscale, Nightscale;
+  cloth's Mystic and Infinity are now Sage and Sunwoven. Pieces: Helm, Visored
+  Helm, Hauberk, Cuirass, Chausses, Greaves, Warden Shield, Robe, Robe Skirt.
+  Gear already in a bag is renamed on load.
+- **Level-up scroll** reads "Strength rises! Your Strength is now level 12."
+
+### Added
+- **A new app icon.** The Knight, lit from below by a lantern at his feet,
+  graves behind him in blue night. Rendered from the game's own models by
+  `tools/dev/icon.sh` (`tools/app_icon.gd`, shot `appicon`), so it can be
+  re-rendered when the art changes. Shows on the home screen with the next IPA.
+- **Error report for playtests.** Every engine and script error is logged
+  locally (`user://errors.json`, repeats folded into one line with a count),
+  and a run that never closed cleanly counts as a crash. Settings shows
+  "Errors N · crashes N" and a **Copy report** button that puts build,
+  device and the log on the clipboard, ready to paste into a message.
+  Bots and captures don't write it. No backend, nothing leaves the phone.
+
+### Process
+- **Feature freeze** until the first real playtest: see `docs/PLAN.md`,
+  Next up. Fixes, tuning, feel, art swaps and release work continue.
 
 ---
 

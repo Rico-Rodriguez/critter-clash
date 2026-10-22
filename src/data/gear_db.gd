@@ -1,8 +1,8 @@
 class_name GearDB
 extends RefCounted
 ## What every piece of gear looks like. Gear is class-specific (each hero has
-## its own line, like Diablo) and has seven material tiers (like Old School:
-## bronze to dragon). A piece is {slot, cls, mat, rarity, ...}; its look comes
+## its own line, like Diablo) and has seven material tiers (bronze
+## to bloodiron). A piece is {slot, cls, mat, rarity, ...}; its look comes
 ## from here, never from the save, so art changes never touch saves.
 ##
 ## Parts are meshes lifted from the KayKit characters. They all share one
@@ -51,9 +51,9 @@ const ACCENTS := {"cloth": {6: Color(0.72, 0.35, 1.0)}, "hide": {6: Color(0.3, 0
 ## wearing it in all five slots stands in an aura.
 const ENCHANT_FROM := 4
 
-const METAL_NAMES := ["Bronze", "Iron", "Steel", "Mithril", "Adamant", "Rune", "Dragon"]
-const HIDE_NAMES := ["Leather", "Hard Leather", "Studded", "Green Dragonhide", "Blue Dragonhide", "Red Dragonhide", "Black Dragonhide"]
-const CLOTH_NAMES := ["Novice", "Apprentice", "Adept", "Mystic", "Arcane", "Infinity", "Eldritch"]
+const METAL_NAMES := ["Bronze", "Iron", "Steel", "Cobalt", "Verdite", "Skyiron", "Bloodiron"]
+const HIDE_NAMES := ["Leather", "Hard Leather", "Studded", "Fenscale", "Tidescale", "Emberscale", "Nightscale"]
+const CLOTH_NAMES := ["Novice", "Apprentice", "Adept", "Sage", "Arcane", "Sunwoven", "Eldritch"]
 
 ## Per hero: material names and dyes, the skills that gate its gear, what is in
 ## the hand when nothing is equipped, and the look stages of every slot. A
@@ -79,22 +79,22 @@ const LINES := {
 			]},
 		],
 		"helm": [
-			{"from": 0, "name": "Med Helm", "parts": ["Knight/Helmet"]},
-			{"from": 2, "name": "Full Helm", "parts": ["Knight/Helmet", "Knight/HelmetVisor"], "alts": [
+			{"from": 0, "name": "Helm", "parts": ["Knight/Helmet"]},
+			{"from": 2, "name": "Visored Helm", "parts": ["Knight/Helmet", "Knight/HelmetVisor"], "alts": [
 				{"name": "Horned Helm", "parts": ["Skeleton_Warrior/Helmet"]},
 			]},
 		],
 		"chest": [
-			{"from": 0, "name": "Chainbody", "parts": ["T:Ranger"]},
-			{"from": 2, "name": "Platebody", "parts": ["T:Knight"]},
-			{"from": 4, "name": "Platebody", "parts": ["T:Knight", "Rogue_Hooded/Cape"], "alts": [
-				{"name": "Platebody", "parts": ["T:Knight", "Skeleton_Warrior/Cloak"]},
+			{"from": 0, "name": "Hauberk", "parts": ["T:Ranger"]},
+			{"from": 2, "name": "Cuirass", "parts": ["T:Knight"]},
+			{"from": 4, "name": "Cuirass", "parts": ["T:Knight", "Rogue_Hooded/Cape"], "alts": [
+				{"name": "Cuirass", "parts": ["T:Knight", "Skeleton_Warrior/Cloak"]},
 			]},
-			{"from": 5, "name": "Platebody", "parts": ["T:Knight", "Knight/Cape"]},
+			{"from": 5, "name": "Cuirass", "parts": ["T:Knight", "Knight/Cape"]},
 		],
 		"legs": [
-			{"from": 0, "name": "Chainlegs", "parts": ["L:Ranger"]},
-			{"from": 2, "name": "Platelegs", "parts": ["L:Knight"]},
+			{"from": 0, "name": "Chausses", "parts": ["L:Ranger"]},
+			{"from": 2, "name": "Greaves", "parts": ["L:Knight"]},
 		],
 		"trinket": [
 			{"from": 0, "name": "Buckler", "model": "shield_round.gltf", "alts": [
@@ -109,7 +109,7 @@ const LINES := {
 				{"name": "Heraldic Shield", "model": "shield_round_color.gltf"},
 				{"name": "Bulwark", "model": "shield_C.gltf"},
 			]},
-			{"from": 6, "name": "Dragon Shield", "model": "shield_square_color.gltf"},
+			{"from": 6, "name": "Warden Shield", "model": "shield_square_color.gltf"},
 		],
 	},
 	"barbarian": {
@@ -184,18 +184,18 @@ const LINES := {
 			]},
 		],
 		"chest": [
-			{"from": 0, "name": "Robe Top", "parts": ["T:Ranger"]},
-			{"from": 1, "name": "Robe Top", "parts": ["T:Mage"]},
-			{"from": 3, "name": "Robe Top", "parts": ["T:Mage"], "alts": [
+			{"from": 0, "name": "Robe", "parts": ["T:Ranger"]},
+			{"from": 1, "name": "Robe", "parts": ["T:Mage"]},
+			{"from": 3, "name": "Robe", "parts": ["T:Mage"], "alts": [
 				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight"]},
 			]},
-			{"from": 4, "name": "Robe Top", "parts": ["T:Mage", "Mage/Cape"], "alts": [
+			{"from": 4, "name": "Robe", "parts": ["T:Mage", "Mage/Cape"], "alts": [
 				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight", "Skeleton_Minion/Cloak"]},
 			]},
 		],
 		"legs": [
-			{"from": 0, "name": "Robe Bottom", "parts": ["L:Ranger"]},
-			{"from": 1, "name": "Robe Bottom", "parts": ["L:Mage"]},
+			{"from": 0, "name": "Robe Skirt", "parts": ["L:Ranger"]},
+			{"from": 1, "name": "Robe Skirt", "parts": ["L:Mage"]},
 		],
 		"trinket": [
 			{"from": 0, "name": "Tome", "model": "spellbook_closed.gltf"},
@@ -251,7 +251,7 @@ const LINES := {
 ## Boss sets wear their own look, whatever the metal: one per hero and slot.
 ## `dye` replaces the metal's color (alpha = how much), `accent` is what the
 ## grade glows in, `grade` the least finish a set piece shows, `icon` the tint
-## of its icon. Pieces name the look: "Mithril Blackguard Helm".
+## of its icon. Pieces name the look: "Cobalt Blackguard Helm".
 const SET_LOOKS := {
 	# The Barrow King's bones: bleached bone and grave-green fire.
 	"gravemaw": {"dye": Color(1.0, 0.97, 0.86, 0.85), "accent": Color(0.4, 1.0, 0.55), "icon": Color(0.85, 0.95, 0.8), "grade": Vector4(0.35, 0.3, 0.45, 0.0), "cls": {
@@ -443,7 +443,7 @@ static func item_color(it: Dictionary) -> Color:
 	return dye(str(it.get("cls", "knight")), int(it.get("mat", 0))).lightened(0.2)
 
 
-## The Old School skill that gates a slot for a hero.
+## The skill that gates a slot for a hero.
 static func skill_for(cls: String, slot: String) -> String:
 	var line: Dictionary = LINES[cls]
 	return line["weapon_skill"] if slot == "weapon" else line["armor_skill"]
@@ -578,8 +578,8 @@ static func dye(cls: String, mat: int) -> Color:
 	return LINES[cls]["dye"][clampi(mat, 0, TIERS - 1)]
 
 
-## "Mithril Platebody" for a hero's tier-3 chest; "Mithril Horned Helm" for
-## an alternative, "Mithril Blackguard Helm" for a set piece.
+## "Cobalt Cuirass" for a hero's tier-3 chest; "Cobalt Horned Helm" for
+## an alternative, "Cobalt Blackguard Helm" for a set piece.
 static func base_name(it: Dictionary) -> String:
 	var cls := str(it["cls"])
 	return "%s %s" % [material_name(cls, int(it.get("mat", 0))), piece(it)["name"]]

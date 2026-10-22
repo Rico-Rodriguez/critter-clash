@@ -1,14 +1,16 @@
-# Barrowfall
+# Gravelight
 
-*Working title. The repo is still called critter-clash; the name lives in
-`project.godot` (`config/name`) and on the camp screen.*
+*Formerly Barrowfall. The repo is still called critter-clash, and the bundle id
+(`com.rico.critterclash`) and save file (`barrowfall_save.json`) keep their old
+names so installed copies carry on. The name lives in `project.godot`
+(`config/name`).*
 
 A portrait, one-thumb action game for phones, built in Godot 4.7.2.
 
 - **Feel (Diablo):** dark world, the hero carries the light, every kill crunches,
   loot drops in pillars of colored light, and champions have names.
 - **Soul (Old School RuneScape):** skills from 1 to 99 on the real OSRS XP curve,
-  a combat level, the parchment "Congratulations, you've just advanced a level"
+  a combat level, the parchment level-up
   scroll, and a collection log with 1/n drop rates and a boss pet.
 - **Play (Brawl Stars / Hunt Royale / Clash Royale):** 2–3 minute hunts, a floating
   stick, auto-attack, a dash, a charged Super, level-up cards mid-run, and a chest
@@ -115,16 +117,23 @@ about 450 draw calls and 225k triangles.
 src/
   main.gd / main.tscn     app shell: camp <-> hunt, bot and capture modes
   autoload/
-    game.gd               the save, hero stats, loot rolls, chests, hunt rewards
+    game.gd               the save, hero stats, loot rolls, chests, hunt rewards;
+                          split into game_state < game_items < game_heroes <
+                          game_rewards < game_goals < game (each extends the last)
+    error_log.gd          local error and crash log (Settings > Copy report)
     sfx.gd                sound events (with variants) and music crossfades
     ota_boot.gd           over-the-air content updates (see below)
   data/db.gd              ALL tuning: heroes, enemies, boss, cards, items,
                           drop rates, tiers, skills — balance the game here
-  hunt/                   the hunt: hunt.gd (rules, director, damage, loot),
+  hunt/                   the hunt: hunt.gd (setup, frame tick, director) on
+                          top of hunt_state < hunt_loot < hunt_combat <
+                          hunt_events < hunt_modes,
                           hero.gd, enemy.gd, boss.gd, proj.gd, pickup.gd,
                           arena.gd (the graveyard), fx.gd (pooled effects),
                           cam.gd, bot.gd (autopilot for checks)
-  lobby/                  the camp: 3D scene, UI, sheets, chest opening
+  lobby/                  the camp: 3D scene, UI, sheets, chest opening;
+                          lobby_ui.gd sits on lobby_ui_widgets <
+                          lobby_ui_hero_sheets < lobby_ui_sheets
   ui/                     HUD, level-up, pause, results, theme.tres, widgets
   fx/                     shaders: characters, ground, slashes, rings,
                           telegraphs, loot beams, particles

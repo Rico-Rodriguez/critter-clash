@@ -111,17 +111,17 @@ func _gear_tests() -> void:
 		n.free()
 	_ok("gear parts exist %s" % str(missing), missing.is_empty())
 	var it := Game.make_item("mage", "chest", 3, "rare")
-	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and (str(it["name"]).ends_with("Mystic Robe Top") or str(it["name"]).ends_with("Mystic Ragged Robe")))
+	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and (str(it["name"]).ends_with("Sage Robe") or str(it["name"]).ends_with("Sage Ragged Robe")))
 	# Alternatives and set looks change the model and the name, never the stats.
 	it["look"] = 0
-	_ok("look 0 is the stage", GearDB.base_name(it) == "Mystic Robe Top")
+	_ok("look 0 is the stage", GearDB.base_name(it) == "Sage Robe")
 	it["look"] = 1
-	_ok("look 1 is the alternative", GearDB.base_name(it) == "Mystic Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
+	_ok("look 1 is the alternative", GearDB.base_name(it) == "Sage Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
 	it["set"] = "hexer"
-	_ok("a set piece wears the set", GearDB.base_name(it) == "Mystic Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	_ok("a set piece wears the set", GearDB.base_name(it) == "Sage Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
 	var kn := Game.make_item("knight", "helm", 0, "common")
 	kn["look"] = 1
-	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Bronze Med Helm")
+	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Bronze Helm")
 	# The first higher material a hero wears is news once; lower ones never are.
 	Game.data = Game._fresh()
 	for sk in DB.SKILLS:
@@ -156,7 +156,18 @@ func _gear_tests() -> void:
 	_ok("v3 best keys follow", b3.has("2") and b3.has("depths4") and b3.has("t2") and b3.has("rush4_mage") and b3.has("descent_mage") and b3.has("wildplace_knight"))
 	Game._migrate_v4(v3)
 	var mt3: Dictionary = v3["mode_tiers"]
-	_ok("v4 modes keep the tiers they won", v3["version"] == Game.SAVE_VERSION and int(mt3["horde"]) == 4 and int(mt3["trial"]) == 3 and int(mt3["rush"]) == 4 and int(mt3["descent"]) == 4 and not mt3.has("wild"))
+	_ok("v4 modes keep the tiers they won", v3["version"] == 5 and int(mt3["horde"]) == 4 and int(mt3["trial"]) == 3 and int(mt3["rush"]) == 4 and int(mt3["descent"]) == 4 and not mt3.has("wild"))
+	var v5 := {"version": 5, "items": [{"name": "Moonlit Dragon Dragon Shield", "unique": ""}, {"name": "Ancient Black Dragonhide Chaps", "unique": ""}, {"name": "Worn Mystic Robe Top", "unique": ""}, {"name": "Crown of the Barrow King", "unique": "crown"}]}
+	Game._migrate_v5(v5)
+	var n5: Array = v5["items"].map(func(i: Dictionary) -> String: return str(i["name"]))
+	_ok("v5 gear takes the new names %s" % str(n5), v5["version"] == Game.SAVE_VERSION and n5 == ["Moonlit Bloodiron Warden Shield", "Ancient Nightscale Chaps", "Worn Sage Robe", "Crown of the Barrow King"])
+	# The error log folds repeats into one line with a count.
+	var el := ErrorLog.new()
+	el._enabled = false
+	el._add("script", "hunt.gd:10 _tick", "Invalid access")
+	el._add("script", "hunt.gd:10 _tick", "Invalid access")
+	el._add("error", "fx.gd:3 burst", "Bad index")
+	_ok("error log dedupes", el.error_count() == 3 and el._d["errors"].size() == 2 and el.report("T").contains("x2"))
 	var sh0 := int(Game.hero(Game.hero_id())["shards"])
 	Game.open_chest("gold")
 	_ok("chest shards go to the hero played", int(Game.hero(Game.hero_id())["shards"]) - sh0 >= int(DB.CHESTS["gold"]["shards"] * DB.SHARDS_TO_PLAYED))
