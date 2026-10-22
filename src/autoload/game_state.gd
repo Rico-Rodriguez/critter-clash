@@ -61,6 +61,13 @@ func _fresh() -> Dictionary:
 		"pets": [],
 		"ally": "",
 		"tips": {},
+		# The player's name, shown on the camp plate, to friends and in clans.
+		"profile": {"name": ""},
+		# The online account. `key` is this install's secret sign-in id (made
+		# on first sign-in, carried to a new phone by a transfer code); the
+		# rest mirrors the server so the camp can draw without waiting for it.
+		"online": {"key": "", "user_id": "", "clan_id": "", "clan_name": "", "ref_code": "",
+			"referred": false, "synced": 0, "grants_seen": [], "chat_seen": 0, "off": false},
 	}
 
 
@@ -98,6 +105,12 @@ func save() -> void:
 
 func gold() -> int:
 	return int(data["gold"])
+
+
+## The name the player picked, or a stand-in until they pick one.
+func player_name() -> String:
+	var n := str(data["profile"]["name"])
+	return n if n != "" else "Hunter"
 
 
 func hero_id() -> String:

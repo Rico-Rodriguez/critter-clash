@@ -50,7 +50,7 @@ unchanged. Authors:
   sword-smithing, strong, muscle-up, fairy-wand, magic-swirl, archery-target,
   arrow-scope, lightning-tear, heart-organ, cloak-dagger, sun, moon, campfire,
   tombstone, glowing-hands, sword-spin, whirlwind, pointy-hat, hood, robe,
-  trousers, leather-vest, horned-helm)
+  trousers, leather-vest, horned-helm, conversation, two-shadows, magnifying-glass)
 - Delapouite — https://delapouite.com — two-coins, running-shoe, upgrade,
   round-star, house, padlock-open
 - Skoll — bullseye, open-treasure-chest

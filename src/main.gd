@@ -264,7 +264,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire", "journal", "clan", "profile":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -349,7 +349,7 @@ func _capture(args: PackedStringArray) -> void:
 					current.open_sheet("heroes")
 					await _wait(1.2)
 					await _save("heroes_" + tab)
-					current.ui._sheet.close()
+					current.ui.show_tab("hunt")
 					await _wait(0.6)
 			"swipe":
 				# Drag gestures through the real GUI: a drag that starts on a
@@ -378,7 +378,7 @@ func _capture(args: PackedStringArray) -> void:
 				print("SWIPE card closed=%s" % (eq._card == null))
 				eq._close()
 				await _wait(0.8)
-				current.open_sheet("skills")
+				current.open_sheet("settings")
 				await _wait(1.0)
 				var sh: Sheet = current.ui._sheet
 				var hd := sh.title_label.get_global_rect().get_center()

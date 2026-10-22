@@ -33,6 +33,8 @@ const SLOT_ORDER := ["weapon", "helm", "chest", "legs", "trinket"]
 
 var ui: LobbyUI
 var lobby: Node3D
+## Shown as the camp's Gear tab: no way back (the tab bar is the way out).
+var tab_mode := false
 var hero_id := "knight"
 var filter := ""
 var show_others := false
@@ -82,6 +84,8 @@ func open(u: LobbyUI) -> void:
 	safe.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	safe.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	Ui.apply_safe_area(safe, 14)
+	if tab_mode:
+		safe.add_theme_constant_override("margin_bottom", 10)
 	add_child(safe)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
@@ -121,7 +125,8 @@ func _build_header(col: VBoxContainer) -> void:
 	back.pressed.connect(func():
 		Sfx.play("ui_tap", -4.0)
 		_close())
-	row.add_child(back)
+	if not tab_mode:
+		row.add_child(back)
 	_title = Ui.label("", "Heading", HORIZONTAL_ALIGNMENT_CENTER)
 	_title.add_theme_font_size_override("font_size", 28)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1222,7 +1227,22 @@ func _close_popup() -> void:
 
 # --- Closing -------------------------------------------------------------------
 
+## The tab bar moved away from Gear.
+func leave() -> void:
+	Game.mark_items_seen()
+	lobby.refresh_gear()
+	queue_free()
+
+
+## True where a horizontal drag means "turn the hero", not "next tab".
+func blocks_swipe(at: Vector2) -> bool:
+	return _popup != null or (_stage != null and _stage.get_global_rect().has_point(at))
+
+
 func _close() -> void:
+	if tab_mode:
+		ui.show_tab("hunt")
+		return
 	Game.mark_items_seen()
 	lobby.refresh_gear()
 	var t := create_tween()

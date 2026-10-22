@@ -4,6 +4,26 @@ extends "res://src/lobby/lobby_ui_hero_sheets.gd"
 ## picker and Settings.
 
 
+## The Journal's first page: what can be done today. The daily reward when it
+## is ready, the three bounties, then the next steps on the renown road.
+func _build_today(s: Sheet) -> void:
+	var b := s.body
+	if bool(Game.login_status()["ready"]):
+		var dc := Button.new()
+		dc.theme_type_variation = &"GoldButton"
+		dc.text = "Daily reward ready"
+		dc.icon = Ui.icon("sun")
+		dc.custom_minimum_size = Vector2(0, 84)
+		dc.focus_mode = Control.FOCUS_NONE
+		dc.pressed.connect(func(): open_sheet("daily_sheet"))
+		b.add_child(dc)
+	var left := 86400 - int(Time.get_unix_time_from_system()) % 86400
+	b.add_child(_row([Ui.label("Daily bounties", "Heading"), _spacer(), Ui.label("New in %dh %02dm" % [left / 3600, (left % 3600) / 60], "Small")]))
+	_build_bounties(s)
+	b.add_child(HSeparator.new())
+	_build_road(s)
+
+
 func _build_daily(s: Sheet) -> void:
 	var b := s.body
 	var st := Game.login_status()

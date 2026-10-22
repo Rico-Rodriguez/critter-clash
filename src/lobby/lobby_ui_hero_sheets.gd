@@ -161,10 +161,7 @@ func _hero_stats(s: Sheet, id2: String) -> void:
 	open_eq.theme_type_variation = "PrimaryButton"
 	open_eq.custom_minimum_size = Vector2(0, 80)
 	open_eq.focus_mode = Control.FOCUS_NONE
-	open_eq.pressed.connect(func():
-		s.close()
-		await get_tree().create_timer(0.25).timeout
-		open_equipment())
+	open_eq.pressed.connect(open_equipment)
 	gv.add_child(open_eq)
 	gear.add_child(gv)
 	b.add_child(gear)
