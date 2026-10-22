@@ -24,6 +24,8 @@ func _ready() -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_fade)
 	var args := OS.get_cmdline_user_args()
+	if args.has("--notch"):
+		Ui.forced_inset = Vector4(0, 108, 0, 62)
 	if args.has("--check"):
 		_check.call_deferred()
 	elif args.has("--test"):
@@ -122,6 +124,7 @@ func _run_bot(args: PackedStringArray) -> void:
 	var idle := args.has("--idle")
 	var levels := int(_arg(args, "level", "1"))
 	var zone := _arg(args, "zone", "barrow")
+	var mode := _arg(args, "mode", "horde")
 	var ok := true
 	for hid in heroes:
 		Game.hero(hid)["unlocked"] = true
@@ -130,6 +133,7 @@ func _run_bot(args: PackedStringArray) -> void:
 			Game.data["hero"] = hid
 			Game.data["tier_unlocked"] = 2
 			Game.data["zone"] = zone
+			Game.data["mode"] = mode
 			Game.data["tier"] = tier
 			var h := Hunt.new()
 			add_child(h)
@@ -137,7 +141,7 @@ func _run_bot(args: PackedStringArray) -> void:
 				h._bot.idle = true
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
-			print("BOT zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f cards=%s" % [zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.cards])
+			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f cards=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.cards])
 			if idle and res["win"]:
 				ok = false
 			h.queue_free()
@@ -164,6 +168,7 @@ func _capture(args: PackedStringArray) -> void:
 	Game.data["hero"] = hid
 	Game.hero(hid)["shards"] = 9
 	Game.data["tier_unlocked"] = 1
+	Game.data["mode"] = _arg(args, "mode", "horde")
 	if _arg(args, "zone", "barrow") != "barrow":
 		Game.data["tier_unlocked"] = 2
 		Game.data["zone"] = _arg(args, "zone", "barrow")
@@ -305,7 +310,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "hexer":
+			"hunt", "levelup", "boss", "victory", "results", "death", "hexer", "powers":
 				_set_screen_now("hunt")
 				var h: Hunt = current
 				h.bot = true
@@ -319,6 +324,19 @@ func _capture(args: PackedStringArray) -> void:
 					h.run_xp = DB.run_level_xp(h.run_level)
 					h._check_level()
 					await _wait(0.9)
+				elif shot == "powers":
+					await _wait_sim(h, 7.0)
+					var kit: Dictionary = {"knight": {"smite": 3}, "mage": {"meteor": 3, "frost": 2}, "ranger": {"barrage": 3, "explosive": 2}, "barbarian": {"quake": 3, "axes": 3}}[hid]
+					for k in kit:
+						h.cards[k] = kit[k]
+					h.hero.recompute()
+					h.hero.smite_t = 0.05
+					h.hero.quake_t = 0.05
+					h.hero.axe_t = 0.05
+					h.hero.meteor_t = 0.05
+					h.hero.frost_t = 0.05
+					h.hero.barrage_t = 0.05
+					await _wait_sim(h, 0.5 if hid in ["mage", "ranger"] else 0.12)
 				elif shot == "hexer":
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal

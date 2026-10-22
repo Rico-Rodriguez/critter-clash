@@ -27,6 +27,14 @@ func setup(l: Node3D) -> void:
 		b.icon = Ui.icon(pair[2])
 		var sheet_name: String = pair[1]
 		b.pressed.connect(func(): open_sheet(sheet_name))
+	for i in DB.MODE_ORDER.size():
+		var mb: Button = %Modes.get_child(i)
+		var mid: String = DB.MODE_ORDER[i]
+		mb.text = DB.MODES[mid]["name"]
+		mb.pressed.connect(func():
+			Game.set_mode(mid)
+			Sfx.play("ui_press", -2.0)
+			refresh())
 	for i in DB.ZONE_ORDER.size():
 		var zb: Button = %Zones.get_child(i)
 		var zid: String = DB.ZONE_ORDER[i]
@@ -62,10 +70,12 @@ func refresh() -> void:
 		%Lock.visible = true
 		%Lock.text = "Clear Veteran, or gather 20 shards (%d/20)" % int(h["shards"]) if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)" % int(h["shards"])
 	else:
-		%Hunt.text = DB.zone(Game.zone_id())["enter"]
+		%Hunt.text = DB.zone(Game.zone_id())["enter"] if Game.mode_id() == "horde" else "Take the Long Road"
 		var shut := Game.zone_unlocked("depths")
 		%Lock.visible = not shut
 		%Lock.text = "%s opens: %s" % [DB.ZONES["depths"]["name"], DB.ZONES["depths"]["unlock"]]
+	for i in DB.MODE_ORDER.size():
+		(%Modes.get_child(i) as Button).button_pressed = DB.MODE_ORDER[i] == Game.mode_id()
 	for i in DB.ZONE_ORDER.size():
 		var zb: Button = %Zones.get_child(i)
 		var z: Dictionary = DB.ZONES[DB.ZONE_ORDER[i]]
@@ -344,7 +354,7 @@ func _build_heroes(s: Sheet) -> void:
 	b.add_child(card)
 	# Super.
 	var sc := _card()
-	var srow := _row([_disc({"slam": "meteor-impact", "whirlwind": "whirlwind", "volley": "arrow-cluster", "nova": "frozen-orb"}[d2["super"]], Color(1.0, 0.6, 0.25), 64)])
+	var srow := _row([_disc({"slam": "sun", "whirlwind": "whirlwind", "volley": "arrow-cluster", "meteor": "meteor-impact"}[d2["super"]], Color(1.0, 0.6, 0.25), 64)])
 	var sv := VBoxContainer.new()
 	sv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sv.add_theme_constant_override("separation", 0)

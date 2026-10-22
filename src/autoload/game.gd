@@ -50,6 +50,7 @@ func _fresh() -> Dictionary:
 		"seen_items": [],
 		"bounties": {"day": "", "list": []},
 		"zone": "barrow",
+		"mode": "horde",
 	}
 
 
@@ -152,6 +153,17 @@ func set_hero(id: String) -> void:
 func zone_id() -> String:
 	var z := str(data.get("zone", "barrow"))
 	return z if DB.ZONES.has(z) and zone_unlocked(z) else "barrow"
+
+
+func mode_id() -> String:
+	var m := str(data.get("mode", "horde"))
+	return m if DB.MODES.has(m) else "horde"
+
+
+func set_mode(id: String) -> void:
+	if DB.MODES.has(id):
+		data["mode"] = id
+		save()
 
 
 func zone_unlocked(id: String) -> bool:
@@ -627,6 +639,8 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		st["boss_kills"] = int(st["boss_kills"]) + 1
 		var t := int(r["tier"])
 		var key := str(t) if str(r.get("zone", "barrow")) == "barrow" else "%s%d" % [r["zone"], t]
+		if str(r.get("mode", "horde")) == "trial":
+			key = "t" + key
 		var best := float(st["best"].get(key, 0.0))
 		if best <= 0.0 or float(r["time"]) < best:
 			st["best"][key] = float(r["time"])

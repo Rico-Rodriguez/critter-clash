@@ -3,6 +3,9 @@ extends RefCounted
 ## Small UI helpers shared by every screen.
 
 static var _icons := {}
+## Extra insets (left, top, right, bottom) in virtual pixels, for screenshots
+## that pretend to be a phone with a notch (`--notch`).
+static var forced_inset := Vector4.ZERO
 
 
 static func icon(name_: String) -> Texture2D:
@@ -54,6 +57,10 @@ static func apply_safe_area(m: MarginContainer, base := 20) -> void:
 		bottom = maxi(base, int((win.y - safe.end.y) * sy) + 6)
 		left = maxi(base, int(safe.position.x * sx))
 		right = maxi(base, int((win.x - safe.end.x) * sx))
+	left = maxi(left, int(forced_inset.x))
+	top = maxi(top, int(forced_inset.y))
+	right = maxi(right, int(forced_inset.z))
+	bottom = maxi(bottom, int(forced_inset.w))
 	m.add_theme_constant_override("margin_top", top)
 	m.add_theme_constant_override("margin_bottom", bottom)
 	m.add_theme_constant_override("margin_left", left)

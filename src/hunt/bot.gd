@@ -7,6 +7,7 @@ extends RefCounted
 var hunt: Hunt
 var idle := false
 var _wander := Vector3.ZERO
+var _side := 1.0
 var _t := 0.0
 
 
@@ -49,7 +50,10 @@ func steer(dt: float) -> Vector2:
 			var away := (p - cen).normalized()
 			want += away * 1.5 + away.cross(Vector3.UP) * 0.8
 	var mid := Vector3(0, 0, -4) - p
-	if absf(p.x) > 15.0 or p.z > 15.0 or p.z < -24.0:
+	if hunt.mode == "trial":
+		if absf(p.x) > 16.0:
+			want += Vector3(-signf(p.x), 0, 0) * 1.2
+	elif absf(p.x) > 15.0 or p.z > 15.0 or p.z < -24.0:
 		want += mid.normalized() * 1.2
 	# Walk out of anything red on the ground.
 	for e in hunt.fx._live:
@@ -108,10 +112,17 @@ func steer(dt: float) -> Vector2:
 					goal = Vector3(pk.position.x, 0, pk.position.z)
 		if best > 8.0 and close:
 			goal = close.flat_pos()
-		if goal.distance_to(p) > (1.4 if melee else 5.0):
-			want += (goal - p).normalized() * (1.0 if near < 3 else 0.4)
+		var waypoint := best <= 8.0
+		if best > 8.0 and close == null and hunt.mode == "trial":
+			goal = hunt.trial_goal()
+			waypoint = true
+		if goal.distance_to(p) > (0.7 if waypoint else (1.4 if melee else 5.0)):
+			var heading := (goal - p).normalized()
+			if waypoint:
+				heading = _around_obstacles(p, heading)
+			want += heading * (1.0 if near < 3 else 0.4)
 		if want.length() < 0.2:
-			if _t <= 0.0:
+			if _t <= 0.0 and hunt.mode != "trial":
 				_t = 2.0
 				_wander = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized()
 				var center := Vector3(0, 0, -4) - p
@@ -126,3 +137,18 @@ func steer(dt: float) -> Vector2:
 	if want.length() > 1.0:
 		want = want.normalized()
 	return Vector2(want.x, want.z)
+
+
+## Turns `dir` away from pillars and crates: the first clear heading among a
+## fan of angles, keeping to one side so it does not dither.
+func _around_obstacles(p: Vector3, dir: Vector3) -> Vector3:
+	for a in [0.0, 35.0, 70.0, 105.0, 140.0]:
+		for sgn in [_side, -_side]:
+			var d := dir.rotated(Vector3.UP, deg_to_rad(a) * sgn)
+			if not hunt.arena.blocked(p + d * 1.8, 0.7) and not hunt.arena.blocked(p + d * 3.4, 0.7):
+				if a > 0.0:
+					_side = sgn
+				return d
+			if a == 0.0:
+				break
+	return dir

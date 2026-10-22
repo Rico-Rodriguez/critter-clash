@@ -55,6 +55,14 @@ jobs:
           ! grep -q "SCRIPT ERROR" depths.log
           test "$(grep -c 'win=true' depths.log)" -ge 1
 
+      - name: Autopilot hunts on the Long Road
+        run: |
+          set -euo pipefail
+          timeout 900 "$GODOT" --headless --path . --fixed-fps 60 -- --bot --mode=trial --hero=knight,mage --runs=1 2>&1 | tee trial.log
+          grep -q "BOT DONE PASS" trial.log
+          ! grep -q "SCRIPT ERROR" trial.log
+          test "$(grep -c 'win=true' trial.log)" -ge 1
+
       - name: Idle hero must lose
         run: |
           set -euo pipefail

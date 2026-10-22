@@ -49,7 +49,7 @@ func setup(h: Hunt) -> void:
 	else:
 		%HeroIcon.texture = Ui.icon(d["icon"])
 	%Medal.self_modulate = d["color"]
-	%Super.icon_name = {"slam": "meteor-impact", "whirlwind": "whirlwind", "volley": "arrow-cluster", "nova": "frozen-orb"}.get(d["super"], "explosion-rays")
+	%Super.icon_name = {"slam": "sun", "whirlwind": "whirlwind", "volley": "arrow-cluster", "meteor": "meteor-impact"}.get(d["super"], "explosion-rays")
 	%Super._icon = Ui.icon(%Super.icon_name)
 	%Super.caption = d["super_name"]
 	%Dash.cooldown_mode = true
@@ -57,7 +57,7 @@ func setup(h: Hunt) -> void:
 	%Banner.modulate.a = 0.0
 	%Toast.modulate.a = 0.0
 	%Scroll.modulate.a = 0.0
-	%ObjTitle.text = "SOULS"
+	%ObjTitle.text = h.objective_title()
 	_buffs = Ui.label("", "HudLabel")
 	_buffs.add_theme_font_size_override("font_size", 22)
 	_buffs.offset_left = 134.0
@@ -131,7 +131,7 @@ func refresh(dt: float) -> void:
 	%XP.value = float(hunt.run_xp) / DB.run_level_xp(hunt.run_level) * 100.0
 	%Clock.text = Ui.fmt_time(hunt.time)
 	%Souls.value = hunt.progress() * 100.0
-	%SoulText.text = "%d / %d" % [hunt.souls, hunt.souls_goal]
+	%SoulText.text = hunt.objective_text()
 	%Gold.text = Ui.fmt_num(hunt.gold)
 	# Active shrine blessings with their time left.
 	var parts: PackedStringArray = []

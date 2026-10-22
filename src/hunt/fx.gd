@@ -516,3 +516,143 @@ func lightning(points: PackedVector3Array, color := Color(0.6, 0.8, 1.0)) -> voi
 	tw.tween_callback(mi.queue_free)
 	for p in points:
 		flare(p - Vector3(0, 0.9, 0), color)
+
+
+# --- Sky effects: lightning strikes, meteors, falling arrows ---------------
+
+static var _bolt_mat: StandardMaterial3D
+static var _fall_cache := {}
+
+
+## A bolt of lightning from the sky onto `at`: jagged column, ground flash,
+## shockwave ring and sparks. Pass the strike color (gold for holy, blue for storm).
+func sky_bolt(at: Vector3, color := Color(1.0, 0.9, 0.55), width := 0.2, height := 15.0) -> void:
+	if _bolt_mat == null:
+		_bolt_mat = StandardMaterial3D.new()
+		_bolt_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_bolt_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_bolt_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_bolt_mat.vertex_color_use_as_albedo = true
+		_bolt_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var im := ImmediateMesh.new()
+	var mi := MeshInstance3D.new()
+	mi.mesh = im
+	mi.material_override = _bolt_mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	var hot := Color(color.r * 1.35, color.g * 1.35, color.b * 1.35, 1.0)
+	var steps := 9
+	var path: Array[Vector3] = []
+	for j in steps + 1:
+		var t := float(j) / steps
+		var p := at + Vector3(0, height * (1.0 - t), 0)
+		if j > 0 and j < steps:
+			p += Vector3(randf_range(-0.7, 0.7), 0, randf_range(-0.7, 0.7)) * (1.0 - t * 0.5)
+		path.append(p)
+	for side in [Vector3.RIGHT, Vector3.BACK]:
+		im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+		for j in path.size():
+			var w := width * (0.5 + 0.5 * float(j) / steps)
+			im.surface_set_color(hot)
+			im.surface_add_vertex(path[j] - side * w)
+			im.surface_set_color(hot)
+			im.surface_add_vertex(path[j] + side * w)
+		im.surface_end()
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "transparency", 1.0, 0.28).from(0.0).set_ease(Tween.EASE_IN)
+	tw.tween_callback(mi.queue_free)
+	flare(at, color)
+	flash_light(at, color, 5.0, 8.0, 0.3)
+	ring(at, 1.8, color, 0.3, 0.2)
+	burst(at, color, 12, 7.0, 1.0)
+
+
+## Something falling onto `to` after `delay`, taking `dur` to arrive: a "meteor"
+## or an "arrow". `land` runs on impact.
+func fall(kind: String, to: Vector3, delay: float, dur: float, land: Callable) -> void:
+	var n := _take("fall_" + kind, func(): return _make_faller(kind))
+	var from := to + (Vector3(-9.0, 16.0, -10.0) if kind == "meteor" else Vector3(0.4, 12.0, 0.8))
+	n.visible = false
+	n.position = from
+	n.look_at(to, Vector3.UP)
+	var tw := n.create_tween()
+	if delay > 0.0:
+		tw.tween_interval(delay)
+	tw.tween_callback(func():
+		n.visible = true)
+	tw.tween_property(n, "position", to, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		_release("fall_" + kind, n)
+		if land.is_valid():
+			land.call())
+
+
+func _make_faller(kind: String) -> Node3D:
+	var root := Node3D.new()
+	root.set_meta("pool", "fall_" + kind)
+	if kind == "meteor":
+		var rock := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.55
+		sm.height = 1.1
+		sm.radial_segments = 10
+		sm.rings = 6
+		rock.mesh = sm
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(1.0, 0.8, 0.45)
+		m.emission_enabled = true
+		m.emission = Color(1.0, 0.4, 0.08)
+		m.emission_energy_multiplier = 4.0
+		rock.material_override = m
+		rock.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(rock)
+		for rot in [0.0, PI * 0.5]:
+			var tr := MeshInstance3D.new()
+			var q := QuadMesh.new()
+			q.size = Vector2(0.9, 5.0)
+			q.orientation = PlaneMesh.FACE_Y
+			tr.mesh = q
+			tr.material_override = _trail_material(Color(1.0, 0.45, 0.12))
+			tr.position = Vector3(0, 0, 2.5)
+			tr.rotation.z = rot
+			tr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(tr)
+	else:
+		var a := KK.prop("res://assets/kaykit/weapons/arrow_bow.gltf")
+		a.scale = Vector3.ONE * 2.2
+		a.rotation = Vector3(0, 0, 0)
+		root.add_child(a)
+		var tr2 := MeshInstance3D.new()
+		var q2 := QuadMesh.new()
+		q2.size = Vector2(0.18, 2.2)
+		q2.orientation = PlaneMesh.FACE_Y
+		tr2.mesh = q2
+		tr2.material_override = _trail_material(Color(1.0, 0.9, 0.6))
+		tr2.position = Vector3(0, 0, 1.2)
+		root.add_child(tr2)
+	return root
+
+
+func _trail_material(color: Color) -> StandardMaterial3D:
+	var key := color.to_html()
+	if _fall_cache.has(key):
+		return _fall_cache[key]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = Color(color.r, color.g, color.b, 0.5)
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0.5, 1.0)
+	gt.fill_to = Vector2(0.5, 0.0)
+	gt.width = 8
+	gt.height = 64
+	m.albedo_texture = gt
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_fall_cache[key] = m
+	return m

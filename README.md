@@ -26,7 +26,8 @@ A portrait, one-thumb action game for phones, built in Godot 4.7.2.
 
 1. **Camp.** Your hero stands by the fire. Pick a hero, a place (the Barrow, or the
    **Sunken Crypt** once you clear Veteran), a difficulty (Normal → Veteran →
-   Nightmare; each clear opens the next) and go. Three **daily bounties** and the
+   Nightmare; each clear opens the next) and a mode (the Horde Hunt, or the **Long
+   Road**, a new dungeon every run, room by room to the boss) and go. Three **daily bounties** and the
    equipment screen live here too.
 2. **The rise.** The dead climb out of the graves around you. Every kill fills the
    **soul meter** and drops souls (XP) and sometimes gold. Each level-up pauses the
@@ -54,7 +55,7 @@ Dying keeps what you picked up but loses the chest.
 - **Super** (above the dash): charges as you deal damage. E on desktop.
   - Knight — *Judgement*: leap and slam, stunning everything nearby.
   - Ranger — *Hail of Arrows*: a wide fan of piercing arrows.
-  - Mage — *Frost Nova*: a ring of ice that freezes the horde.
+  - Mage — *Meteor Storm*: a barrage of meteors on the horde.
   - Barbarian — *Whirlwind*: spin through the crowd for three seconds.
 
 ## Heroes

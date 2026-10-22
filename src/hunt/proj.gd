@@ -31,7 +31,7 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 	splash = float(ex.get("splash", 0.0))
 	team = 1 if src is Enemy or src is Boss else 0
 	life = float(ex.get("life", 0.9 if kind == "arrow" else 1.6))
-	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5}.get(kind, 0.4)
+	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5, "axe": 0.7}.get(kind, 0.4)
 	rotation = Vector3(0, atan2(v.x, v.z), 0)
 	active = true
 	visible = true
@@ -41,6 +41,8 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 func tick(dt: float, h: Hunt) -> bool:
 	life -= dt
 	position += vel * dt
+	if kind == "axe":
+		body.rotation.y += dt * 22.0
 	if kind == "fireball" or kind == "orb":
 		_ember_t -= dt
 		if _ember_t <= 0.0:

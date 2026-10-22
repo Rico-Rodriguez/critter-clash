@@ -29,9 +29,15 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	panel.anchor_top = 1.0 - height
 	panel.anchor_bottom = 1.0
 	add_child(panel)
+	# Keep the content clear of the home bar.
+	var inset := MarginContainer.new()
+	Ui.apply_safe_area(inset, 0)
+	for side in ["margin_top", "margin_left", "margin_right"]:
+		inset.add_theme_constant_override(side, 0)
+	panel.add_child(inset)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
-	panel.add_child(v)
+	inset.add_child(v)
 	var head := HBoxContainer.new()
 	title_label = Ui.label(title, "Title")
 	title_label.add_theme_font_size_override("font_size", 40)

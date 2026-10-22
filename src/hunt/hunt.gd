@@ -11,6 +11,11 @@ const MAX_FOES := 44
 
 var tier_i := 0
 var zone_id := "barrow"
+## "horde" (fill the soul meter) or "trial" (the Long Road, room by room).
+var mode := "horde"
+var trial_rooms := 0
+var trial_seed := 1
+var _spawn_q: Array = []
 ## Tiers added to the metal of everything that drops (deeper zones, trial depth).
 var loot_bonus := 0
 var zone: Dictionary
@@ -73,11 +78,17 @@ func _ready() -> void:
 	zone_id = Game.zone_id()
 	zone = DB.zone(zone_id)
 	loot_bonus = int(zone.get("loot_bonus", 0))
+	mode = Game.mode_id()
 	tier_i = Game.tier()
 	rerolls_left = 2 if tier_i >= 2 else 1
 	tier = DB.TIERS[tier_i]
 	hero_id = Game.hero_id()
 	souls_goal = int(tier["souls"])
+	if mode == "trial":
+		trial_rooms = int(DB.MODES["trial"]["rooms"][tier_i])
+		trial_seed = Game.rng.randi()
+		souls_goal = 100
+		loot_bonus += 1
 	robber_wanted = randf() < 0.35
 	low = str(Game.setting("quality")) == "low" or OS.has_feature("mobile") and str(Game.setting("quality")) == "auto" and _weak_device()
 	bot = OS.get_cmdline_user_args().has("--bot")
@@ -86,13 +97,14 @@ func _ready() -> void:
 	add_child(world)
 	arena = Arena.new()
 	world.add_child(arena)
-	arena.build(low, zone_id)
+	arena.build(low, zone_id, trial_rooms, trial_seed)
 	fx = Fx.new()
 	fx.quality_low = low
 	world.add_child(fx)
 	hero = Hero.new()
 	world.add_child(hero)
 	hero.position = arena.start
+	arena.follow = hero
 	hero.rotation.y = PI
 	var stats := Game.hero_stats(hero_id)
 	for c in stats["cards"]:
@@ -126,7 +138,10 @@ func _ready() -> void:
 		await _warmup()
 	Sfx.music("hunt")
 	Sfx.play("hunt_start", -2.0)
-	hud.banner(str(zone["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], str(zone["wake"]) % souls_goal])
+	if mode == "trial":
+		hud.banner(str(DB.MODES["trial"]["name"]), Color(0.85, 0.8, 0.7), "%s · %d rooms to the %s" % [tier["name"], trial_rooms, DB.boss_def(str(zone["boss"]))["name"]])
+	else:
+		hud.banner(str(zone["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], str(zone["wake"]) % souls_goal])
 
 
 ## On a phone the first draw of every material, particle and effect compiles a
@@ -141,6 +156,11 @@ func _warmup() -> void:
 	curtain.color = Color(0.01, 0.01, 0.02, 1.0)
 	curtain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	curtain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The level-up cards use shadowed styleboxes and big icons: draw them once
+	# here so the first real level-up does not stall on a shader compile.
+	var lu := preload("res://src/ui/levelup.tscn").instantiate()
+	layer.add_child(lu)
+	lu.open(self, ["might", "crit", "blades", "bladestorm"], 1)
 	layer.add_child(curtain)
 	var at := hero.flat_pos() + Vector3(0, 0, -3.0)
 	var flat := Vector3.UP
@@ -159,7 +179,7 @@ func _warmup() -> void:
 	fx.flare(at, Color.WHITE)
 	fx.flash_light(at, Color.WHITE, 0.1, 3.0, 0.1)
 	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]))
-	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb"]:
+	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
 	var temp: Array[Enemy] = []
 	var x := -3.0
@@ -177,6 +197,7 @@ func _warmup() -> void:
 	_drop_item(at, Game.roll_item("chest", 0))
 	for i in 3:
 		await get_tree().process_frame
+	lu.queue_free()
 	for e in temp:
 		foes.erase(e)
 		e.queue_free()
@@ -496,8 +517,11 @@ func spawn_foe(kind: String, at: Vector3, elite := false, affix := "") -> Enemy:
 func _direct(dt: float) -> void:
 	if _warming:
 		return
+	if mode == "trial":
+		_direct_trial(dt)
+		return
 	var p := progress()
-	var target := int(lerpf(7.0, 30.0, p)) + tier_i * 3
+	var target := int((lerpf(7.0, 30.0, p) + tier_i * 3) * float(tier.get("press", 1.0)))
 	target = mini(target, MAX_FOES)
 	calm_t -= dt
 	if calm_t > 0.0:
@@ -508,9 +532,14 @@ func _direct(dt: float) -> void:
 	_tick_surge(dt)
 	spawn_t -= dt
 	if spawn_t <= 0.0 and foes.size() < target:
-		spawn_t = lerpf(1.7, 0.75, p) * (2.0 if calm_t > 0.0 else 1.0)
+		spawn_t = lerpf(1.7, 0.75, p) * (2.0 if calm_t > 0.0 else 1.0) / float(tier.get("press", 1.0))
 		var pack := randi_range(2, 3 + int(p * 4.0))
 		var center := arena.spawn_point(hero.position, 8.5, 14.0)
+		# Running in a straight line has a price: sometimes the pack is waiting ahead.
+		if hero.vel.length() > 2.5 and (tier_i >= 1 or p > 0.35) and randf() < 0.5:
+			var ahead := arena.spawn_point(hero.position + hero.vel.normalized() * 7.0, 2.5, 6.0)
+			if ahead.distance_to(hero.position) > 6.0:
+				center = ahead
 		for i in pack:
 			var at := arena.resolve(center + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.6, 1.6)), 0.5)
 			spawn_foe(_pick_kind(p), at)
@@ -557,6 +586,14 @@ func _tick_surge(dt: float) -> void:
 		i -= 1
 
 
+func brute_count() -> int:
+	var n := 0
+	for f in foes:
+		if f.alive and f.kind == "brute":
+			n += 1
+	return n
+
+
 func necro_count() -> int:
 	var n := 0
 	for f in foes:
@@ -571,6 +608,8 @@ func _pick_kind(p: float) -> String:
 		"warrior": 0.28 if p > 0.12 else 0.0,
 		"rogue": 0.3 if p > 0.22 else 0.0,
 		"mage": 0.2 if p > 0.42 else 0.0,
+		"hound": 0.2 if p > 0.2 else 0.0,
+		"brute": 0.07 if p > 0.4 and brute_count() < 2 else 0.0,
 		"bomber": 0.22 if p > 0.3 else 0.0,
 		"necro": 0.12 if p > 0.55 and necro_count() < 2 else 0.0,
 	}
@@ -588,6 +627,178 @@ func _pick_kind(p: float) -> String:
 
 
 var boss_at := 0.0
+var rooms_cleared := 0
+
+
+# --- The Long Road --------------------------------------------------------
+
+func objective_title() -> String:
+	return "THE LONG ROAD" if mode == "trial" else "SOULS"
+
+
+func objective_text() -> String:
+	if mode != "trial":
+		return "%d / %d" % [souls, souls_goal]
+	if boss != null:
+		return "The boss"
+	return "Room %d / %d" % [mini(rooms_cleared + 1, trial_rooms), trial_rooms]
+
+
+## Where the autopilot should walk next on the Long Road: the gap of the room
+## it stands in (once clear), else the middle of the room.
+func trial_goal() -> Vector3:
+	var rooms: Array = arena.trial["rooms"]
+	var i := arena.room_at(hero.position.z)
+	if i < 0 or i >= rooms.size():
+		return Vector3(0, 0, arena.boss_spawn.z + 10.0)
+	var r: Dictionary = rooms[i]
+	return Vector3(float(r["gap_x"]), 0, float(r["lo"]) - 4.0)
+
+
+func _direct_trial(dt: float) -> void:
+	_tick_spawn_queue(dt)
+	var tr: Dictionary = arena.trial
+	var z := hero.position.z
+	if OS.get_environment("TRIALDBG") != "" and int(time) % 5 == 0 and int(time * 10) % 10 == 0:
+		var st := []
+		for rr: Dictionary in tr["rooms"]:
+			st.append(str(rr["state"]).left(1))
+		print("TRIAL real=%d t=%d z=%.1f pos_x=%.1f foes=%d q=%d rooms=%s hp=%d" % [Time.get_ticks_msec() / 1000, int(time), z, hero.position.x, foes.size(), _spawn_q.size(), "".join(st), int(hero.hp)])
+	var frac := clampf((arena.start.z - z) / (arena.start.z - float(tr["boss_z"])), 0.0, 1.0)
+	souls = maxi(souls, int(frac * souls_goal))
+	for r: Dictionary in tr["rooms"]:
+		match str(r["state"]):
+			"idle":
+				if int(r["index"]) > 0 and z < float(r["hi"]) - 4.0:
+					_start_room(r)
+			"active":
+				if _spawn_q.is_empty() and _room_alive(r) == 0:
+					_clear_room(r)
+	# The dead left behind in earlier rooms fade away.
+	for f in foes.duplicate():
+		if f.alive and absf(f.position.z - z) > 42.0:
+			foes.erase(f)
+			f.queue_free()
+	if boss == null and z < float(tr["boss_z"]) and phase == "rise":
+		arena.set_gate(tr["boss_gate"], true)
+		_begin_boss()
+
+
+func _room_alive(r: Dictionary) -> int:
+	var n := 0
+	for f in r["foes"]:
+		if is_instance_valid(f) and f.alive:
+			n += 1
+	return n
+
+
+## A room wakes up as the hero walks in: the way on is sealed until it is clear.
+func _start_room(r: Dictionary) -> void:
+	r["state"] = "active"
+	var kind := str(r["kind"])
+	var d: float = r["depth"]
+	var press := float(tier.get("press", 1.0))
+	var base := int((14.0 + d * 26.0) * press)
+	var plan: Array = []
+	var title := "Ambush!"
+	var sub := "The dead rise around you"
+	match kind:
+		"ambush":
+			for i in base:
+				plan.append({"kind": _pick_kind(d)})
+		"horde":
+			title = "A horde!"
+			sub = "Too many to count"
+			for i in int(base * 1.5):
+				plan.append({"kind": ["minion", "minion", "minion", "hound", "bomber"][randi() % 5]})
+		"hunters":
+			title = "Crossbows!"
+			sub = "Close the distance or break their aim"
+			for i in 6 + int(d * 8):
+				plan.append({"kind": "rogue" if randf() < 0.65 else "mage"})
+			for i in base / 3:
+				plan.append({"kind": "minion"})
+		"brutes":
+			title = "Bone Brutes"
+			sub = "Stay out of the slam"
+			for i in (3 if d > 0.6 else 2):
+				plan.append({"kind": "brute"})
+			for i in base / 2:
+				plan.append({"kind": _pick_kind(d)})
+		"elite":
+			title = "A champion guards the way"
+			sub = "Cut him down"
+			plan.append({"kind": ["warrior", "minion", "rogue", "mage"][randi() % 4], "elite": true})
+			if d > 0.6:
+				plan.append({"kind": "warrior", "elite": true})
+			for i in base / 2:
+				plan.append({"kind": _pick_kind(d)})
+		"treasure":
+			title = "Guarded treasure"
+			sub = "The chest is yours if you win"
+			for i in base / 2:
+				plan.append({"kind": _pick_kind(d)})
+		"shrine":
+			title = "A quiet place"
+			sub = "Rest, and take the blessing"
+			for i in 3:
+				_drop("heart", hero.flat_pos() + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)), 1)
+	banner(title, Color(1.0, 0.82, 0.5) if kind != "shrine" else Color(0.7, 0.95, 0.7), sub)
+	Sfx.play("roar", -4.0, 1.2)
+	if plan.is_empty():
+		r["state"] = "clear"
+		rooms_cleared += 1
+		return
+	arena.set_gate(r["gate"], true)
+	# Packs of four from a point in the room, spaced out over a few seconds.
+	var center := Vector3.ZERO
+	for i in plan.size():
+		if i % 4 == 0:
+			center = arena.room_point(r, hero.position, 8.0)
+		var spot := arena.resolve(center + Vector3(randf_range(-1.8, 1.8), 0, randf_range(-1.8, 1.8)), 0.6)
+		_spawn_q.append({"t": 0.35 * i + (i / 4) * 0.8, "kind": plan[i]["kind"], "pos": spot, "elite": plan[i].get("elite", false), "room": r})
+
+
+func _tick_spawn_queue(dt: float) -> void:
+	var i := _spawn_q.size() - 1
+	while i >= 0:
+		var q: Dictionary = _spawn_q[i]
+		q["t"] -= dt
+		if q["t"] <= 0.0:
+			if foes.size() < MAX_FOES:
+				var e := spawn_foe(q["kind"], q["pos"], q["elite"])
+				(q["room"]["foes"] as Array).append(e)
+				if q["elite"]:
+					banner(e.elite_name, DB.ELITE_AFFIXES[e.affixes[0]]["color"].lightened(0.3), "A champion!")
+			_spawn_q.remove_at(i)
+		i -= 1
+
+
+func _clear_room(r: Dictionary) -> void:
+	r["state"] = "clear"
+	rooms_cleared += 1
+	arena.set_gate(r["gate"], false)
+	var at := hero.flat_pos()
+	banner("Room cleared", Color(0.6, 1.0, 0.7), "The way is open")
+	Sfx.play("rare_chime", -2.0)
+	var kind := str(r["kind"])
+	for i in randi_range(4, 7):
+		_drop("gold", at, randi_range(2, 5) * int(tier["gold"]))
+	for i in randi_range(1, 2):
+		_drop("heart", at + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 1)
+	var d: float = r["depth"]
+	if kind in ["elite", "brutes"]:
+		_drop_item(at, _roll_good("elite", 1))
+	elif kind == "treasure":
+		var cp: Vector3 = r.get("chest_at", at)
+		fx.puff(cp, Color(1.0, 0.85, 0.4, 0.6), 10, 1.0, 2.0)
+		Sfx.play("chest", -2.0)
+		for i in 2:
+			_drop_item(cp, _roll_good("chest", 1))
+		for i in 8:
+			_drop("gold", cp, randi_range(3, 7))
+	elif randf() < 0.3 + 0.2 * d:
+		_drop_item(at, Game.roll_item("trash", tier_i, "", "", loot_bonus))
 
 
 func _make_boss() -> Boss:
@@ -705,7 +916,7 @@ func _kill(f: Enemy) -> void:
 	fx.puff(at, Color(0.4, 0.38, 0.35, 0.5), 3, 0.4, 1.2)
 	Sfx.play("enemy_die", -5.0)
 	var soul_gain: int = f.xp_value
-	if phase == "rise":
+	if phase == "rise" and mode == "horde":
 		souls = mini(souls + (1 if not f.elite else 6), souls_goal)
 	# Souls for XP.
 	var orbs := clampi(int(ceil(soul_gain / 3.0)), 1, 8)
@@ -897,6 +1108,13 @@ func _proj_body(kind: String) -> Node3D:
 			s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(s)
 			root.add_child(_streak(Color(1.0, 0.5, 0.15), 1.4, 0.7))
+		"axe":
+			var ax := KK.prop("res://assets/kaykit/weapons/axe_1handed.gltf")
+			ax.scale = Vector3.ONE * 1.9
+			ax.rotation = Vector3(PI * 0.5, 0, 0)
+			ax.position = Vector3(0, 0, -0.55)
+			root.add_child(ax)
+			root.add_child(_streak(Color(1.0, 0.7, 0.4), 1.0, 0.5))
 		"orb":
 			var o := MeshInstance3D.new()
 			var om := SphereMesh.new()
@@ -1143,7 +1361,7 @@ func _offer_cards() -> void:
 	Ui.buzz(25, 0.4)
 	fx.ring(hero.flat_pos(), 3.0, Color(0.4, 0.9, 1.0), 0.6)
 	if bot:
-		var pref := ["bladestorm", "tempest", "inferno_heart", "rain", "judgement_day", "blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]
+		var pref := ["bladestorm", "tempest", "inferno_heart", "rain", "judgement_day", "armageddon", "heavens", "fault", "deluge", "meteor", "smite", "quake", "axes", "barrage", "frost", "explosive", "blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]
 		var best: String = choices[0]
 		for c in pref:
 			if c in choices:
@@ -1182,6 +1400,8 @@ func roll_cards(n: int, exclude := []) -> Array:
 			continue
 		if c.has("only") and not str(hero.def["style"]) in c["only"]:
 			continue
+		if c.has("hero") and not hero_id in c["hero"]:
+			continue
 		if c["rarity"] == "legendary" and run_level < 5:
 			continue
 		if c.has("evo") or id in exclude:
@@ -1216,6 +1436,8 @@ func eligible_evolutions() -> Array:
 		if not c.has("evo") or int(cards.get(id, 0)) > 0:
 			continue
 		if c.has("only") and not str(hero.def["style"]) in c["only"]:
+			continue
+		if c.has("hero") and not hero_id in c["hero"]:
 			continue
 		var a: String = c["evo"][0]
 		var b: String = c["evo"][1]
@@ -1328,7 +1550,7 @@ func _end(win: bool) -> void:
 						items.append(p.item)
 	var spent := _end_time if _end_time > 0.0 else time
 	result = {
-		"win": win, "tier": tier_i, "zone": zone_id, "hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
+		"win": win, "tier": tier_i, "zone": zone_id, "mode": mode, "rooms_cleared": rooms_cleared, "hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
 		"items": items, "kills": kills, "elites": elites_killed, "time": spent,
 		"chest": tier["chest"] if win else "", "level": run_level, "souls": souls,
 	}

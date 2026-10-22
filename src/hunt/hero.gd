@@ -343,6 +343,9 @@ func _impact() -> void:
 				var d := dir_of(a)
 				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * float(base["proj_speed"]), dmg, 1 + pierce, self)
 			volley_n += 1
+			var exl: int = hunt.cards.get("explosive", 0)
+			if exl > 0 and volley_n % maxi(5 - exl, 2) == 0:
+				hunt.spawn_proj("fireball", flat_pos() + fwd * 0.6, fwd * float(base["proj_speed"]) * 0.7, dmg * 1.6, 1, self, {"splash": 1.8 + 0.3 * exl})
 			if int(hunt.cards.get("rain", 0)) > 0 and volley_n % 3 == 0:
 				for i in 12:
 					var da := dir_of(TAU * i / 12.0)
@@ -423,20 +426,22 @@ func try_super() -> bool:
 				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * 30.0, dmg * 1.7, 99, self, {"super": true})
 			hunt.shake(0.25)
 			Sfx.play("volley", 0.0)
-		"nova":
-			super_t = 0.45
-			act(def["anim"]["super"], 0.5, true)
-			hunt.fx.ring(flat_pos(), 7.5, Color(0.5, 0.85, 1.0), 0.55, 0.08)
-			hunt.fx.ring(flat_pos(), 5.0, Color(0.8, 0.95, 1.0), 0.4, 0.15)
-			hunt.fx.burst(flat_pos(), Color(0.6, 0.9, 1.0), 40, 12.0, 0.4)
-			hunt.fx.flash_light(flat_pos(), Color(0.5, 0.8, 1.0), 6.0, 12.0, 0.5)
-			for f in hunt.foes_near(position, 7.5):
-				hunt.damage_foe(f, dmg * 2.4, self, (f.flat_pos() - flat_pos()).normalized(), 9.0)
-				if f.alive:
-					f.freeze(2.6)
-			hunt.shake(0.45)
-			hunt.hitstop(0.08)
-			Sfx.play("frost", 0.0)
+			# A second wave from above, onto the foes the fan runs through.
+			var rain := _foes_in(12.0, 5)
+			for k in rain.size():
+				var rp: Vector3 = (rain[k] as Actor).flat_pos()
+				for j in 5:
+					var ap := rp + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.6, 1.6))
+					hunt.fx.fall("arrow", ap, 0.25 + 0.05 * (k * 5 + j), 0.28, func(): _arrow_hit(ap, dmg * 0.9))
+		"meteor":
+			super_t = 0.5
+			act(def["anim"]["super"], 0.6, true)
+			hunt.fx.ring(flat_pos(), 3.0, Color(1.0, 0.55, 0.2), 0.5, 0.1)
+			hunt.fx.flash_light(flat_pos(), Color(1.0, 0.6, 0.3), 4.0, 8.0, 0.5)
+			var arm := int(hunt.cards.get("armageddon", 0)) > 0
+			meteor_shower(14 if arm else 9, dmg * 3.2, 2.9, 13.0)
+			hunt.shake(0.3)
+			Sfx.play("charge", -3.0, 0.7)
 	return true
 
 
@@ -487,21 +492,27 @@ func _slam_land() -> void:
 		hunt.damage_foe(f, dmg * 3.6, self, to.normalized(), 13.0)
 		if f.alive:
 			f.stun_t = 1.6
+	for f2 in _foes_in(6.5, 6):
+		hunt.fx.sky_bolt(f2.flat_pos(), Color(1.0, 0.88, 0.5), 0.22)
+		if f2.alive:
+			hunt.damage_foe(f2, dmg * 1.5, self, Vector3.ZERO, 3.0)
 	hunt.shake(0.7)
 	hunt.hitstop(0.09)
 	Ui.buzz(70, 0.8)
 	Sfx.play("charge_land", 0.0)
+	Sfx.play("thunder", -4.0)
 	Sfx.play("meteor", -3.0)
 
 
 # --- Cards that act on their own -----------------------------------------
 
 func _sync_blades(level: int) -> void:
+	var blade_model := "axe_1handed.gltf" if id == "barbarian" else "sword_1handed.gltf"
 	var want := 0 if level <= 0 else level + 1
 	if int(hunt.cards.get("bladestorm", 0)) > 0:
 		want *= 2
 	while blades.size() < want:
-		var b := KK.prop("res://assets/kaykit/weapons/sword_1handed.gltf")
+		var b := KK.prop(KK.WEAPON_DIR + blade_model)
 		var m := StandardMaterial3D.new()
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.albedo_color = Color(0.55, 0.85, 1.0)
@@ -557,6 +568,7 @@ func _tick_cards(dt: float) -> void:
 			if int(c.get("inferno_heart", 0)) > 0 and struck > 0:
 				hp = minf(hp + max_hp * minf(0.03 * struck, 0.10), max_hp)
 			Sfx.play("fire_trail", -4.0)
+	_tick_powers(dt, c)
 	# Bone ward.
 	var wl: int = c.get("ward", 0)
 	if wl > 0 and not ward_up:
@@ -566,6 +578,193 @@ func _tick_cards(dt: float) -> void:
 			ward_mesh.visible = true
 			Sfx.play("unlock_start", -8.0)
 	ward_mesh.visible = ward_up
+
+
+# --- Class powers: each hero's own signature cards ---------------------------
+
+var smite_t := 3.0
+var quake_t := 4.0
+var axe_t := 2.0
+var meteor_t := 4.0
+var frost_t := 5.0
+var barrage_t := 5.0
+
+
+func _tick_powers(dt: float, c: Dictionary) -> void:
+	var sm: int = c.get("smite", 0)
+	if sm > 0:
+		smite_t -= dt
+		if smite_t <= 0.0:
+			smite_t = maxf(3.4 - 0.5 * sm, 1.3)
+			_smite(1 + sm + (3 if int(c.get("heavens", 0)) > 0 else 0), dmg * (1.9 + 0.4 * sm), int(c.get("heavens", 0)) > 0)
+	var qk: int = c.get("quake", 0)
+	if qk > 0:
+		quake_t -= dt
+		if quake_t <= 0.0:
+			quake_t = maxf(4.6 - 0.6 * qk, 2.0)
+			_quake(3.8 + 0.5 * qk, dmg * (1.1 + 0.3 * qk), int(c.get("fault", 0)) > 0)
+	var ax: int = c.get("axes", 0)
+	if ax > 0:
+		axe_t -= dt
+		if axe_t <= 0.0:
+			axe_t = maxf(2.4 - 0.35 * ax, 0.9)
+			_throw_axes(1 + ax / 2, dmg * (0.9 + 0.2 * ax))
+	var mt: int = c.get("meteor", 0)
+	if mt > 0:
+		meteor_t -= dt
+		if meteor_t <= 0.0:
+			meteor_t = maxf(5.0 - 0.7 * mt, 2.2)
+			var arm := int(c.get("armageddon", 0)) > 0
+			meteor_shower((2 + mt) * (2 if arm else 1), dmg * (2.2 + 0.5 * mt) * (2.0 if arm else 1.0), 2.3 + 0.25 * mt, 11.0)
+	var fr: int = c.get("frost", 0)
+	if fr > 0:
+		frost_t -= dt
+		if frost_t <= 0.0:
+			frost_t = maxf(6.0 - 0.8 * fr, 3.0)
+			_frost_ring(4.0 + 0.6 * fr, dmg * 0.8)
+	var br: int = c.get("barrage", 0)
+	if br > 0:
+		barrage_t -= dt
+		if barrage_t <= 0.0:
+			barrage_t = maxf(5.5 - 0.8 * br, 2.5)
+			var dl := int(c.get("deluge", 0)) > 0
+			_arrow_storm(8 + 3 * br, dmg * 0.55, 3.2)
+			if dl:
+				get_tree().create_timer(0.9).timeout.connect(func():
+					if alive and is_instance_valid(hunt):
+						_arrow_storm(8 + 3 * br, dmg * 0.55, 3.2))
+
+
+## Random living foes near the hero, nearest first.
+func _foes_in(radius: float, n: int) -> Array:
+	var out := []
+	for f in hunt.foes_near(position, radius):
+		if f.alive and f.state != "spawn":
+			out.append(f)
+	out.sort_custom(func(a, b): return a.flat_pos().distance_squared_to(flat_pos()) < b.flat_pos().distance_squared_to(flat_pos()))
+	return out.slice(0, n)
+
+
+## Holy lightning from the heavens onto the nearest foes.
+func _smite(n: int, amount: float, stun: bool) -> void:
+	var targets := _foes_in(10.0, n)
+	if targets.is_empty():
+		return
+	Sfx.play("thunder", -4.0)
+	for f: Actor in targets:
+		var at := f.flat_pos()
+		hunt.fx.sky_bolt(at, Color(1.0, 0.88, 0.5), 0.22)
+		for o in hunt.foes_near(at, 1.8):
+			hunt.damage_foe(o, amount, self, Vector3.ZERO, 4.0)
+			if stun and o.alive:
+				o.stun_t = maxf(o.stun_t, 1.0)
+	hunt.shake(0.18)
+
+
+## The ground bursts outward: rocks, dust, and everything near flung back.
+func _quake(radius: float, amount: float, wide: bool) -> void:
+	var r := radius * (1.7 if wide else 1.0)
+	var at := flat_pos()
+	hunt.fx.ring(at, r, Color(0.85, 0.6, 0.35), 0.45, 0.16)
+	hunt.fx.ring(at, r * 0.6, Color(1.0, 0.85, 0.6), 0.3, 0.2)
+	hunt.fx.puff(at, Color(0.4, 0.32, 0.24, 0.8), 18, r * 0.6, 4.5)
+	hunt.fx.burst(at, Color(0.7, 0.5, 0.3), 24, 9.0, 0.9)
+	hunt.fx.bone_burst(at, 6, 8.0)
+	hunt.fx.flash_light(at, Color(1.0, 0.7, 0.4), 4.0, r * 1.5, 0.3)
+	for f in hunt.foes_near(position, r):
+		var to: Vector3 = f.flat_pos() - at
+		hunt.damage_foe(f, amount, self, to.normalized(), 12.0)
+		if f.alive:
+			f.stun_t = maxf(f.stun_t, 0.5)
+	hunt.shake(0.4)
+	Sfx.play("quake", -5.0)
+
+
+func _throw_axes(n: int, amount: float) -> void:
+	var targets := _foes_in(10.0, n)
+	if targets.is_empty():
+		return
+	for i in targets.size():
+		var d: Vector3 = (targets[i].flat_pos() - flat_pos()).normalized()
+		hunt.spawn_proj("axe", flat_pos() + d * 0.6, d * 14.0, amount, 3, self, {"life": 0.85})
+	Sfx.play("swing", -4.0, 0.8)
+
+
+## Meteors on the thickest part of the horde (or just ahead if it is empty).
+func meteor_shower(count: int, amount: float, radius: float, reach_: float) -> void:
+	var pool := _foes_in(reach_, 20)
+	Sfx.play("meteor", -6.0)
+	for i in count:
+		var at: Vector3
+		if pool.is_empty():
+			at = hunt.arena.resolve(flat_pos() + dir_of(aim_yaw + randf_range(-0.8, 0.8)) * randf_range(4.0, 8.0), 0.5)
+		else:
+			at = (pool[randi() % pool.size()] as Actor).flat_pos() + Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0))
+		var delay := 0.12 * i + randf() * 0.1
+		hunt.fx.ring(at, radius, Color(1.0, 0.5, 0.15), 0.55 + delay, 0.07)
+		hunt.fx.fall("meteor", at, delay, 0.55, func(): _meteor_hit(at, amount, radius))
+
+
+func _meteor_hit(at: Vector3, amount: float, radius: float) -> void:
+	if not is_instance_valid(hunt) or hunt.phase == "defeat":
+		return
+	hunt.fx.ring(at, radius * 1.25, Color(1.0, 0.5, 0.15), 0.4, 0.2)
+	hunt.fx.burst(at, Color(1.0, 0.6, 0.2), 20, 9.0, 0.9)
+	hunt.fx.embers_at(at, Color(1.0, 0.45, 0.1), 10, radius * 0.6)
+	hunt.fx.puff(at, Color(0.25, 0.2, 0.17, 0.7), 8, radius * 0.6, 3.0)
+	hunt.fx.flash_light(at, Color(1.0, 0.55, 0.25), 5.0, radius * 3.5, 0.3)
+	for f in hunt.foes_near(at, radius + 1.0):
+		if at.distance_to(f.flat_pos()) <= radius + f.radius:
+			hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 8.0)
+	if hunt.boss and hunt.boss.alive and at.distance_to(hunt.boss.flat_pos()) <= radius + hunt.boss.radius:
+		hunt.damage_foe(hunt.boss, amount, self, Vector3.ZERO, 0.0)
+	hunt.shake(0.14)
+	Sfx.play("boom", -9.0, 1.2)
+
+
+func _frost_ring(radius: float, amount: float) -> void:
+	var at := flat_pos()
+	hunt.fx.ring(at, radius, Color(0.55, 0.9, 1.0), 0.5, 0.1)
+	hunt.fx.ring(at, radius * 0.6, Color(0.85, 0.97, 1.0), 0.35, 0.18)
+	hunt.fx.burst(at, Color(0.7, 0.93, 1.0), 26, 10.0, 0.6)
+	hunt.fx.puff(at, Color(0.7, 0.9, 1.0, 0.5), 10, radius * 0.5, 3.0)
+	hunt.fx.flash_light(at, Color(0.5, 0.85, 1.0), 4.0, radius * 2.0, 0.35)
+	for f in hunt.foes_near(position, radius):
+		hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 4.0)
+		if f.alive and f.has_method("freeze"):
+			f.freeze(1.8)
+	Sfx.play("frost", -5.0)
+
+
+## A volley of arrows falling on the densest cluster of foes in range.
+func _arrow_storm(count: int, amount: float, radius: float) -> void:
+	var best: Actor = null
+	var best_n := 0
+	for f in _foes_in(11.0, 24):
+		var n := hunt.foes_near(f.flat_pos(), 2.6).size()
+		if n > best_n:
+			best_n = n
+			best = f
+	if best == null:
+		return
+	var center := best.flat_pos()
+	hunt.fx.ring(center, radius, Color(1.0, 0.92, 0.6), 0.6, 0.06)
+	Sfx.play("volley", -6.0, 1.2)
+	for i in count:
+		var a := randf() * TAU
+		var at := center + Vector3(sin(a), 0, cos(a)) * radius * sqrt(randf())
+		var delay := 0.04 * i
+		hunt.fx.fall("arrow", at, delay, 0.28, func(): _arrow_hit(at, amount))
+
+
+func _arrow_hit(at: Vector3, amount: float) -> void:
+	if not is_instance_valid(hunt):
+		return
+	hunt.fx.burst(at, Color(1.0, 0.9, 0.6), 3, 4.0)
+	hunt.fx.puff(at, Color(0.4, 0.34, 0.26, 0.5), 2, 0.4, 1.5)
+	for f in hunt.foes_near(at, 1.5):
+		if at.distance_to(f.flat_pos()) <= 1.2 + f.radius:
+			hunt.damage_foe(f, amount, self, Vector3.ZERO, 1.5)
 
 
 func _storm(jumps: int, amount: float) -> void:

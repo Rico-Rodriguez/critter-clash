@@ -30,7 +30,7 @@ const HEROES := {
 		"weapon_bone": "handslot.r", "weapon_looks": ["", "", "sword_2handed_color.gltf", "sword_2handed_color.gltf"],
 		"style": "melee", "hp": 430.0, "speed": 5.3, "dmg": 26.0, "rate": 1.15,
 		"range": 2.5, "arc": 130.0, "armor": 0.15,
-		"super": "slam", "super_name": "Judgement", "super_desc": "Leap and smash the ground, stunning everything nearby.",
+		"super": "slam", "super_name": "Judgement", "super_desc": "Leap and smash the ground as lightning falls around you.",
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": ["Melee_1H_Attack_Slice_Diagonal", "Melee_1H_Attack_Slice_Horizontal", "Melee_1H_Attack_Chop"], "super": "Melee_1H_Attack_Jump_Chop"},
 		"color": Color(0.36, 0.56, 0.95), "icon": "visored-helm",
 		"blurb": "Sword and shield. Stands in the crowd and does not fall.",
@@ -43,7 +43,7 @@ const HEROES := {
 		"weapon_bone": "handslot.l", "weapon_looks": [],
 		"style": "bow", "hp": 360.0, "speed": 5.8, "dmg": 16.0, "rate": 1.9, "pierce": 1, "shots": 2,
 		"range": 9.5, "proj_speed": 26.0, "armor": 0.0,
-		"super": "volley", "super_name": "Hail of Arrows", "super_desc": "A wide fan of piercing arrows.",
+		"super": "volley", "super_name": "Hail of Arrows", "super_desc": "A wide fan of piercing arrows, and a storm of arrows from above.",
 		"anim": {"idle": "Ranged_Bow_Idle", "run": "Running_HoldingBow", "attack": ["Ranged_Bow_Release"], "super": "Ranged_Bow_Release_Up"},
 		"color": Color(0.36, 0.78, 0.45), "icon": "pocket-bow",
 		"blurb": "Kites the dead and never stops shooting.",
@@ -56,7 +56,7 @@ const HEROES := {
 		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "magic", "hp": 300.0, "speed": 5.4, "dmg": 25.0, "rate": 1.15,
 		"range": 8.5, "proj_speed": 16.0, "splash": 2.2, "armor": 0.0,
-		"super": "nova", "super_name": "Frost Nova", "super_desc": "A ring of ice that freezes and shatters the horde.",
+		"super": "meteor", "super_name": "Meteor Storm", "super_desc": "Call down a barrage of meteors on the horde.",
 		"anim": {"idle": "Idle_B", "run": "Running_B", "attack": ["Ranged_Magic_Shoot"], "super": "Ranged_Magic_Summon"},
 		"color": Color(0.85, 0.42, 0.95), "icon": "wizard-staff",
 		"blurb": "Fireballs that burst through packs.",
@@ -130,6 +130,18 @@ const ENEMIES_EXTRA := {
 		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 1.18, "blast": 3.0, "tint": Color(0.7, 0.3, 1.0, 0.45),
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Summon", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
+	"hound": {
+		"name": "Grave Hound", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Blade.gltf"},
+		"ai": "charge", "hp": 58.0, "dmg": 17.0, "speed": 3.9, "radius": 0.45, "reach": 1.4,
+		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.95, "tint": Color(1.0, 0.3, 0.25, 0.4),
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"brute": {
+		"name": "Bone Brute", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf"},
+		"ai": "slam", "hp": 520.0, "dmg": 36.0, "speed": 2.2, "radius": 0.85, "reach": 2.8,
+		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.55, "blast": 3.2, "tint": Color(0.7, 0.45, 0.3, 0.3),
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
 	"robber": {
 		"name": "Grave Robber", "model": "Skeleton_Rogue", "weapons": {},
 		"ai": "flee", "hp": 260.0, "dmg": 0.0, "speed": 6.2, "radius": 0.45, "reach": 0.0,
@@ -166,12 +178,21 @@ const ZONES := {
 	"depths": {
 		"name": "The Sunken Crypt", "boss": "hexer", "blurb": "Torchlit halls under the barrow. The Queen's cult waits.",
 		"wake": "Gather %d souls to wake the Queen", "defeat": "The Crypt keeps you", "enter": "Descend into the Crypt",
-		"loot_bonus": 1, "weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5}, "souls_mult": 1.0, "unlock": "Clear Veteran in the Barrow",
+		"loot_bonus": 1, "weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5, "hound": 1.4, "brute": 1.6}, "souls_mult": 1.0, "unlock": "Clear Veteran in the Barrow",
 		"env": {"bg": Color(0.02, 0.012, 0.03), "ambient": Color(0.4, 0.3, 0.55), "ambient_e": 0.34, "fog": Color(0.1, 0.06, 0.14), "fog_d": 0.016,
 			"sun": Color(0.7, 0.62, 1.0), "sun_e": 0.28, "sun_rot": Vector3(-78, -20, 0), "mist": Color(0.6, 0.45, 0.8, 0.09), "motes": Color(1.0, 0.65, 0.35, 0.9)},
 	},
 }
 const ZONE_ORDER := ["barrow", "depths"]
+
+## How a hunt is played. horde: the soul meter fills, the boss wakes. trial:
+## the Long Road, a generated dungeon of rooms to fight through, boss at the
+## end. `rooms` is per difficulty tier.
+const MODES := {
+	"horde": {"name": "Horde Hunt", "short": "Horde", "blurb": "Hold the graveyard against the rising dead."},
+	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "rooms": [5, 6, 7]},
+}
+const MODE_ORDER := ["horde", "trial"]
 
 static func zone(id: String) -> Dictionary:
 	return ZONES[id] if ZONES.has(id) else ZONES["barrow"]
@@ -194,9 +215,9 @@ const ELITE_TITLES := ["the Restless", "the Unburied", "the Hungering", "the For
 # --- Difficulty tiers ----------------------------------------------------
 
 const TIERS := [
-	{"id": "normal", "name": "Normal", "hp": 1.0, "dmg": 1.0, "souls": 110, "loot": 1.0, "gold": 1.0, "xp": 1.0, "chest": "silver", "color": Color(0.8, 0.8, 0.8)},
-	{"id": "veteran", "name": "Veteran", "hp": 2.1, "dmg": 1.6, "souls": 140, "loot": 1.6, "gold": 1.8, "xp": 1.6, "chest": "gold", "color": Color(1.0, 0.75, 0.3)},
-	{"id": "nightmare", "name": "Nightmare", "hp": 4.2, "dmg": 2.4, "souls": 170, "loot": 2.6, "gold": 3.0, "xp": 2.4, "chest": "crypt", "color": Color(0.95, 0.25, 0.25)},
+	{"id": "normal", "name": "Normal", "hp": 1.0, "dmg": 1.0, "spd": 1.0, "press": 1.0, "souls": 110, "loot": 1.0, "gold": 1.0, "xp": 1.0, "chest": "silver", "color": Color(0.8, 0.8, 0.8)},
+	{"id": "veteran", "name": "Veteran", "hp": 2.6, "dmg": 2.1, "spd": 1.08, "press": 1.25, "souls": 140, "loot": 1.6, "gold": 1.8, "xp": 1.6, "chest": "gold", "color": Color(1.0, 0.75, 0.3)},
+	{"id": "nightmare", "name": "Nightmare", "hp": 6.5, "dmg": 4.6, "spd": 1.17, "press": 1.5, "souls": 170, "loot": 2.6, "gold": 3.0, "xp": 2.4, "chest": "crypt", "color": Color(0.95, 0.25, 0.25)},
 ]
 
 # --- Upgrade cards (in-hunt level ups) -----------------------------------
@@ -218,17 +239,28 @@ const CARDS := {
 	"inferno": {"name": "Inferno", "desc": "+35% blast radius", "icon": "fireball", "rarity": "rare", "max": 3, "only": ["magic"]},
 	"reach": {"name": "Long Reach", "desc": "+25% swing size", "icon": "sword-spin", "rarity": "rare", "max": 3, "only": ["melee"]},
 	"wave": {"name": "Sword Wave", "desc": "Swings launch a cutting wave", "icon": "crossed-swords", "rarity": "epic", "max": 3, "only": ["melee"]},
-	"blades": {"name": "Orbiting Blades", "desc": "Spectral blades circle you", "icon": "spinning-blades", "rarity": "epic", "max": 4},
-	"storm": {"name": "Storm Call", "desc": "Lightning strikes chained foes", "icon": "lightning-helix", "rarity": "epic", "max": 4},
-	"nova": {"name": "Fire Nova", "desc": "A ring of fire bursts around you", "icon": "fire-ring", "rarity": "epic", "max": 4},
+	"blades": {"name": "Orbiting Blades", "desc": "Spectral blades circle you", "icon": "spinning-blades", "rarity": "epic", "max": 4, "only": ["melee"]},
+	"storm": {"name": "Storm Call", "desc": "Lightning strikes chained foes", "icon": "lightning-helix", "rarity": "epic", "max": 4, "only": ["magic"]},
+	"nova": {"name": "Fire Nova", "desc": "A ring of fire bursts around you", "icon": "fire-ring", "rarity": "epic", "max": 4, "only": ["magic"]},
 	"ward": {"name": "Bone Ward", "desc": "A shield blocks one hit, recharging", "icon": "bolt-shield", "rarity": "rare", "max": 3},
-	"thorns": {"name": "Thorns", "desc": "Melee attackers take 60% of the hit", "icon": "slashed-shield", "rarity": "rare", "max": 3},
+	"thorns": {"name": "Thorns", "desc": "Melee attackers take 60% of the hit", "icon": "slashed-shield", "rarity": "rare", "max": 3, "only": ["melee"]},
+	"smite": {"name": "Holy Smite", "desc": "Lightning falls from the heavens on nearby foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["knight"]},
+	"quake": {"name": "Earthshaker", "desc": "The ground bursts around you, hurling foes back", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
+	"axes": {"name": "Thrown Axes", "desc": "Hurl spinning axes that cut through the horde", "icon": "crossed-axes", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
+	"meteor": {"name": "Meteor Shower", "desc": "Meteors rain down on your enemies", "icon": "meteor-impact", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"frost": {"name": "Frost Ring", "desc": "A ring of ice freezes everything near you", "icon": "frozen-orb", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"barrage": {"name": "Arrow Storm", "desc": "A hail of arrows falls on the thickest crowd", "icon": "arrow-cluster", "rarity": "epic", "max": 4, "hero": ["ranger"]},
+	"explosive": {"name": "Explosive Arrows", "desc": "Every few volleys one arrow bursts into flame", "icon": "fireball", "rarity": "rare", "max": 3, "hero": ["ranger"]},
 	"greed": {"name": "Grave Robber", "desc": "+30% gold", "icon": "two-coins", "rarity": "common", "max": 3},
 	"bladestorm": {"name": "Bladestorm", "desc": "Twice the blades, spinning faster", "icon": "spinning-sword", "rarity": "legendary", "max": 1, "evo": ["blades", "haste"]},
-	"tempest": {"name": "Tempest", "desc": "Storm Call strikes 3 more foes, and crits call lightning", "icon": "lightning-helix", "rarity": "legendary", "max": 1, "evo": ["storm", "crit"]},
-	"inferno_heart": {"name": "Inferno Heart", "desc": "Fire Nova is half again as wide and heals you", "icon": "flame", "rarity": "legendary", "max": 1, "evo": ["nova", "vigor"]},
+	"tempest": {"name": "Tempest", "desc": "Storm Call strikes 3 more foes, and crits call lightning", "icon": "lightning-helix", "rarity": "legendary", "max": 1, "evo": ["storm", "crit"], "only": ["magic"]},
+	"inferno_heart": {"name": "Inferno Heart", "desc": "Fire Nova is half again as wide and heals you", "icon": "flame", "rarity": "legendary", "max": 1, "evo": ["nova", "vigor"], "only": ["magic"]},
 	"rain": {"name": "Rain of Arrows", "desc": "Every third volley fires a full circle", "icon": "arrow-cluster", "rarity": "legendary", "max": 1, "evo": ["multishot", "pierce"], "only": ["bow"]},
 	"judgement_day": {"name": "Judgement Day", "desc": "Sword waves are twice as wide and stun", "icon": "crossed-swords", "rarity": "legendary", "max": 1, "evo": ["wave", "reach"], "only": ["melee"]},
+	"armageddon": {"name": "Armageddon", "desc": "Meteors fall twice as many and twice as hard", "icon": "meteor-impact", "rarity": "legendary", "max": 1, "evo": ["meteor", "inferno"], "hero": ["mage"]},
+	"heavens": {"name": "Wrath of Heaven", "desc": "Holy Smite strikes three more foes and stuns them", "icon": "sun", "rarity": "legendary", "max": 1, "evo": ["smite", "might"], "hero": ["knight"]},
+	"fault": {"name": "Faultline", "desc": "Earthshaker cracks the earth twice as wide", "icon": "fist", "rarity": "legendary", "max": 1, "evo": ["quake", "reach"], "hero": ["barbarian"]},
+	"deluge": {"name": "Deluge", "desc": "Arrow Storm falls twice, a second wave behind the first", "icon": "arrow-cluster", "rarity": "legendary", "max": 1, "evo": ["barrage", "multishot"], "hero": ["ranger"]},
 	"phoenix": {"name": "Undying", "desc": "Once per hunt, rise again at half health", "icon": "ghost", "rarity": "legendary", "max": 1},
 }
 const CARD_WEIGHT := {"common": 10.0, "rare": 6.0, "epic": 3.2, "legendary": 0.8}
@@ -323,10 +355,10 @@ const SLOT_POOL := {
 const UNIQUES := {
 	"cleaver": {"cls": "barbarian", "dye": Color(0.45, 0.95, 0.7), "name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
 	"shroud": {"cls": "ranger", "dye": Color(0.12, 0.28, 0.22), "name": "Shroud of the Barrow", "slot": "chest", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
-	"crown": {"cls": "knight", "dye": Color(0.95, 0.78, 0.3), "name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "storm", "power": "Start every hunt with Storm Call", "icon": "crowned-skull"},
+	"crown": {"cls": "knight", "dye": Color(0.95, 0.78, 0.3), "name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "smite", "power": "Start every hunt with Holy Smite", "icon": "crowned-skull"},
 	"emberheart": {"cls": "mage", "dye": Color(1.0, 0.4, 0.1), "name": "Emberheart", "slot": "trinket", "rarity": "legendary", "source": "elite", "rate": 60, "stats": {"dmg": 12, "regen": 4}, "card": "nova", "power": "Start every hunt with Fire Nova", "icon": "flame"},
 	"scepter": {"cls": "mage", "dye": Color(0.75, 0.4, 1.0), "name": "Hexer's Scepter", "slot": "weapon", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"dmg": 26, "crit": 8}, "card": "leech", "power": "Start every hunt with Bloodthirst", "icon": "wizard-staff"},
-	"gown": {"cls": "mage", "dye": Color(0.45, 0.2, 0.6), "name": "Gown of Thorns", "slot": "chest", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"hp": 24, "armor": 6}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
+	"gown": {"cls": "mage", "dye": Color(0.45, 0.2, 0.6), "name": "Gown of Thorns", "slot": "chest", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"hp": 24, "armor": 6}, "card": "frost", "power": "Start every hunt with Frost Ring", "icon": "breastplate"},
 	"greaves": {"cls": "knight", "dye": Color(0.5, 0.85, 1.0), "name": "Wraithstep Greaves", "slot": "legs", "rarity": "legendary", "source": "hexer", "rate": 30, "stats": {"speed": 8, "hp": 14}, "card": "regen", "power": "Start every hunt with Second Breath", "icon": "leg-armor"},
 	"charm": {"name": "Hex Charm", "slot": "trophy", "rarity": "magic", "source": "hexer", "rate": 4, "icon": "gems", "power": "A cultist's token. Sells for 90 gold.", "sell": 90},
 	"bonelet": {"name": "Bonelet", "slot": "pet", "rarity": "legendary", "source": "boss", "rate": 50, "icon": "skull-crossed-bones", "power": "A tiny skeleton that follows you everywhere."},

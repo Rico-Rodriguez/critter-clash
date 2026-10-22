@@ -24,6 +24,13 @@ var lights: Array[OmniLight3D] = []
 var env: Environment
 var sun: DirectionalLight3D
 var low := false
+## Set for the Long Road: {"rooms": [...], "boss_z", "boss_gate", "length"}.
+var trial: Dictionary = {}
+## The atmosphere (mist, motes) trails this node on a long map.
+var follow: Node3D
+var follow_radius := 0.0
+var _mist: GPUParticles3D
+var _motes: GPUParticles3D
 var zone := "barrow"
 var zone_env: Dictionary
 ## [{"pos": Vector3 (stand here), "light": OmniLight3D}] for the three shrines.
@@ -36,6 +43,7 @@ var occluders: Array = []
 var _obs: Array = [] # [Vector2 center, radius]
 var _grid := {}
 const CELL := 4.0
+const GATE_ALPHA := 0.55
 var _rng := RandomNumberGenerator.new()
 var _aabbs := {}
 var _path_img: Image
@@ -43,13 +51,15 @@ var _path_tex: ImageTexture
 const PATH_RECT := Rect2(-30, -40, 60, 70)
 
 
-func build(low_quality := false, zone_id := "barrow") -> void:
+func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_seed := 1) -> void:
 	low = low_quality
 	zone = zone_id
 	zone_env = DB.zone(zone_id)["env"]
 	_rng.seed = 7331
 	_environment()
-	if zone_id == "depths":
+	if trial_rooms > 0:
+		TrialLayout.build(self, trial_seed, trial_rooms)
+	elif zone_id == "depths":
 		DepthsLayout.build(self)
 	else:
 		_paths()
@@ -202,9 +212,9 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 
 
 ## A moving occluder (the boss): same fade, position read from the node.
-func add_dynamic_occluder(node: Node3D, r: float, h: float) -> void:
+func add_dynamic_occluder(node: Node3D, r: float, h: float, fade := 0.4) -> void:
 	var meshes: Array = node.find_children("*", "MeshInstance3D", true, false)
-	occluders.append({"meshes": meshes, "node": node, "x": 0.0, "z": 0.0, "r": r, "h": h, "t": 0.0})
+	occluders.append({"meshes": meshes, "node": node, "x": 0.0, "z": 0.0, "r": r, "h": h, "t": 0.0, "fade": fade})
 
 
 ## Fades props that sit between the camera (south, +Z) and any of `points`.
@@ -225,7 +235,7 @@ func update_occlusion(points: Array, pitch_deg: float, dt: float) -> void:
 			var dz: float = o["z"] - q.z
 			var dx: float = absf(o["x"] - q.x)
 			if dz > -float(o["r"]) * 0.6 and dz < float(o["h"]) * reach + float(o["r"]) and dx < float(o["r"]) + 0.6:
-				want = 0.72
+				want = float(o.get("fade", 0.72))
 				break
 		var t: float = o["t"]
 		var nt := move_toward(t, want, dt * 4.0)
@@ -496,7 +506,8 @@ func _atmosphere() -> void:
 	mist.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3((max_x - min_x) * 0.55, 0.2, (max_z - min_z) * 0.55)
+	var span_z := minf(max_z - min_z, follow_radius if follow_radius > 0.0 else 1e9)
+	pm.emission_box_extents = Vector3((max_x - min_x) * 0.55, 0.2, span_z * 0.55)
 	pm.direction = Vector3(1, 0, 0.2)
 	pm.spread = 15.0
 	pm.initial_velocity_min = 0.25
@@ -523,6 +534,7 @@ func _atmosphere() -> void:
 	mist.draw_pass_1 = q
 	mist.position = Vector3((min_x + max_x) * 0.5, 0.5, (min_z + max_z) * 0.5)
 	add_child(mist)
+	_mist = mist
 	# Fireflies and grave-wisps.
 	var ff := GPUParticles3D.new()
 	ff.amount = 40 if low else 90
@@ -533,7 +545,7 @@ func _atmosphere() -> void:
 	ff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var fm := ParticleProcessMaterial.new()
 	fm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	fm.emission_box_extents = Vector3((max_x - min_x) * 0.5, 1.0, (max_z - min_z) * 0.5)
+	fm.emission_box_extents = Vector3((max_x - min_x) * 0.5, 1.0, span_z * 0.5)
 	fm.direction = Vector3(0, 1, 0)
 	fm.spread = 180.0
 	fm.initial_velocity_min = 0.1
@@ -561,9 +573,14 @@ func _atmosphere() -> void:
 	ff.draw_pass_1 = fq
 	ff.position = Vector3((min_x + max_x) * 0.5, 1.2, (min_z + max_z) * 0.5)
 	add_child(ff)
+	_motes = ff
 
 
 func _process(_dt: float) -> void:
+	if follow and follow_radius > 0.0 and _mist:
+		var fz := follow.position.z
+		_mist.position.z = fz
+		_motes.position.z = fz
 	var t := Time.get_ticks_msec() / 1000.0
 	for o in lights:
 		var f: float = o.get_meta("flicker")
@@ -572,6 +589,80 @@ func _process(_dt: float) -> void:
 		var ph: float = o.get_meta("phase")
 		var n := sin(t * 9.0 + ph) * 0.5 + sin(t * 23.0 + ph * 2.0) * 0.3 + sin(t * 3.0 + ph) * 0.2
 		o.light_energy = float(o.get_meta("base")) * (1.0 + n * f)
+
+
+# --- Gates and rooms (the Long Road) -----------------------------------------
+
+## A glowing barrier across a gap in a divider. Starts open; `set_gate` closes it.
+func add_gate(x0: float, x1: float, z: float) -> Dictionary:
+	var ids: Array = []
+	var x := x0 + 0.6
+	while x <= x1 - 0.5:
+		ids.append(_obs.size())
+		add_obstacle(Vector2(x, z), 0.9)
+		x += 1.4
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(x1 - x0, 3.2)
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = Color(0.5, 1.0, 0.7, GATE_ALPHA)
+	var gg := Gradient.new()
+	gg.set_color(0, Color(1, 1, 1, 0.0))
+	gg.set_color(1, Color(1, 1, 1, 1.0))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = gg
+	gtex.fill_from = Vector2(0.5, 0.0)
+	gtex.fill_to = Vector2(0.5, 1.0)
+	gtex.width = 8
+	gtex.height = 32
+	m.albedo_texture = gtex
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.position = Vector3((x0 + x1) * 0.5, 1.6, z)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	var radii: Array = []
+	for id in ids:
+		radii.append(float(_obs[id][1]))
+	return {"ids": ids, "radii": radii, "node": mi, "closed": false}
+
+
+func set_gate(g: Dictionary, closed: bool, instant := false) -> void:
+	g["closed"] = closed
+	var ids: Array = g["ids"]
+	for i in ids.size():
+		_obs[ids[i]][1] = float(g["radii"][i]) if closed else -2.0
+	var mi: MeshInstance3D = g["node"]
+	if instant:
+		mi.visible = closed
+		return
+	mi.visible = true
+	var tw := mi.create_tween()
+	var m: StandardMaterial3D = mi.material_override
+	tw.tween_property(m, "albedo_color:a", GATE_ALPHA if closed else 0.0, 0.4)
+	if not closed:
+		tw.tween_callback(func(): mi.visible = false)
+
+
+## The room of a trial (its index) that contains this z, or -1.
+func room_at(z: float) -> int:
+	for r: Dictionary in trial.get("rooms", []):
+		if z <= float(r["hi"]) and z > float(r["lo"]):
+			return int(r["index"])
+	return trial.get("rooms", []).size() if z <= float(trial.get("boss_z", -1e9)) + 6.0 else -1
+
+
+## A free spot in a room, at least `min_hero` from `hero_pos`.
+func room_point(room: Dictionary, hero_pos: Vector3, min_hero := 8.0) -> Vector3:
+	for i in 24:
+		var p := Vector3(_rng.randf_range(min_x + 3.0, max_x - 3.0), 0, _rng.randf_range(float(room["lo"]) + 4.0, float(room["hi"]) - 3.0))
+		if not blocked(p, 0.8) and p.distance_to(hero_pos) >= min_hero:
+			return p
+	return resolve(Vector3(0, 0, (float(room["hi"]) + float(room["lo"])) * 0.5), 0.8)
 
 
 ## A random point the dead can rise at, near `around` but not on top of it.

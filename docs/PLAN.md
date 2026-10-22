@@ -765,6 +765,54 @@ line in `.github/workflows/checks.yml`.
 
 ---
 
+## Phase 8 — Gear that shows, a harder hunt, the Long Road (user feedback, round 3)
+
+Feedback: gear did not feel special or show on the model; the equipment screen
+made changes hard to see and could not be turned; the hunt was too easy to
+kite; some screens clipped at the top of an iPhone; level-up cards loaded
+slowly now and then; abilities should be unique per class (lightning, meteors,
+never spinning swords for a mage); and a second mode, a procedural trail to a
+boss.
+
+### [x] 8.1 Gear v2
+Class-specific gear with seven material tiers (Bronze..Dragon, Leather..Black
+Dragonhide, Novice..Eldritch). Every piece is {slot, cls, mat, rarity}; looks come
+from `src/data/gear_db.gd`, never from the save. Parts are lifted from other
+KayKit characters onto the hero (`src/core/gear_look.gd`) and dyed
+(`dye` instance uniform in `char.gdshader`). Heroes start as a plain man in a tunic
+with a starter weapon. Skill requirements gate tiers (Defence, Attack, Ranged,
+Magic). Drops are for the hero you play (65%), harder content drops better
+metal. Save version 3 migrates old items.
+
+### [x] 8.2 Equipment screen
+Big spinnable hero (drag), slots either side, the bag below, try-on preview,
+"Others" tab for other heroes' gear. Safe-area bug fixed in `Ui.apply_safe_area`
+(it read the viewport of a node not yet in the tree).
+
+### [x] 8.3 UI polish
+`--notch` capture flag simulates an iPhone's insets; menu sheets keep clear of
+the home bar; the level-up cards are drawn once behind the curtain at hunt
+start so the first level-up does not compile shaders.
+
+### [x] 8.4 A harder hunt
+Tier scaling (health, damage, speed, pressure), Grave Hounds (lunge) and Bone
+Brutes (slam), enemies lead their target and fan out, packs sometimes wait
+ahead of a running hero, bosses call a court of the dead and go berserk sooner.
+
+### [x] 8.5 Class powers and sky VFX
+Each hero has its own signature cards: Knight Holy Smite, Barbarian Earthshaker
+and Thrown Axes, Mage Meteor Shower and Frost Ring, Ranger Arrow Storm and
+Explosive Arrows, each with a legendary evolution. Mage super is Meteor Storm;
+Knight's Judgement calls lightning; Ranger's volley rains arrows. `Fx.sky_bolt`
+and `Fx.fall` are the shared sky effects.
+
+### [x] 8.6 The Long Road
+A mode picker in camp. A seed builds a long dungeon of rooms divided by walls
+with a gap (`src/hunt/arena_trial.gd`); rooms hold an ambush, horde, hunters,
+brutes, a champion, a shrine or guarded treasure; the way on is sealed until
+the room is clear; the boss waits at the end. The autopilot plays it
+(`--bot --mode=trial`).
+
 ## Phase 7 — Where it goes next (ideas, not tasks yet)
 
 The Barrow and the Sunken Crypt are one mode: a timed horde hunt that ends in

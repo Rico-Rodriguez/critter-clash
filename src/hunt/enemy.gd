@@ -28,6 +28,8 @@ const SPAWN_TIME := 0.95
 var age := 0.0
 var ward_hp := 0.0
 var ward_mesh: MeshInstance3D
+var dash_dir := Vector3.ZERO
+var _dash_hit := false
 var _trail_t := 0.0
 var _fire_t := 0.0
 
@@ -39,7 +41,7 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 	elite = elite_
 	max_hp = def["hp"] * tier["hp"] * (1.0 + hunt.progress() * 0.6)
 	dmg = def["dmg"] * tier["dmg"]
-	speed = def["speed"] * randf_range(0.92, 1.08)
+	speed = def["speed"] * randf_range(0.92, 1.08) * float(tier.get("spd", 1.0))
 	radius = def["radius"]
 	mass = def["mass"]
 	reach = def["reach"]
@@ -174,15 +176,47 @@ func tick(dt: float) -> void:
 			if def["ai"] == "ranged":
 				# Track the hero until most of the windup is spent, then lock.
 				if state_t > 0.3:
-					aim_yaw = yaw_to(position, hero.position)
+					aim_yaw = yaw_to(position, _lead_pos(0.3))
 					if tele:
 						tele.rotation.y = aim_yaw
 						tele.position = flat_pos() + dir_of(aim_yaw) * reach * 0.5 + Vector3(0, 0.04, 0)
+			elif def["ai"] == "charge" and state_t > 0.2:
+				aim_yaw = yaw_to(position, _lead_pos(0.3))
+				if tele:
+					tele.rotation.y = aim_yaw
+					tele.position = flat_pos() + Vector3(0, 0.04, 0)
 			if state_t <= 0.0:
 				_release()
+		"dash":
+			_tick_dash(dt, hero)
 		"recover":
 			if state_t <= 0.0:
 				state = "chase"
+
+
+## A hound's lunge: a short, fast run along the lane it showed.
+func _tick_dash(dt: float, hero: Hero) -> void:
+	position += dash_dir * 17.0 * dt
+	position = hunt.arena.resolve(position, radius)
+	if _trail_t <= 0.0:
+		_trail_t = 0.05
+		hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.26, 0.4), 1, 0.3, 0.8)
+	_trail_t -= dt
+	if not _dash_hit and flat_pos().distance_to(hero.flat_pos()) < radius + hero.radius + 0.25:
+		_dash_hit = true
+		hunt.damage_hero(dmg, self)
+		hero.push(dash_dir, 8.0)
+	if state_t <= 0.0:
+		state = "recover"
+		state_t = 0.7
+		atk_cd = float(def["cooldown"]) * randf_range(0.9, 1.2)
+
+
+## Where the hero will be in `t` seconds if they keep running: harder tiers
+## aim there instead of where they are.
+func _lead_pos(t: float) -> Vector3:
+	var h := hunt.hero
+	return h.position + h.vel * t * (0.0 if hunt.tier_i == 0 else 1.0)
 
 
 func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
@@ -192,9 +226,18 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	if ai == "flee":
 		_flee(dt, to_hero, dist)
 		return
-	if ai == "melee" or ai == "bomb":
-		want = to_hero / maxf(dist, 0.01)
-		if dist <= reach + hero.radius + 0.15 and atk_cd <= 0.0:
+	if ai == "melee" or ai == "bomb" or ai == "charge" or ai == "slam":
+		# Cut the corner: run to where the hero is going, and fan out so a pack
+		# surrounds instead of queueing behind itself.
+		var lead := hero.vel * clampf(dist / maxf(speed * hunt.foe_speed_mult, 1.0), 0.0, 1.0) * (0.4 + 0.2 * hunt.tier_i)
+		want = (to_hero + lead) / maxf((to_hero + lead).length(), 0.01)
+		if dist > 3.5 and ai != "slam":
+			want = (want + to_hero.cross(Vector3.UP).normalized() * strafe * 0.3).normalized()
+		if ai == "charge":
+			if dist < 8.5 and dist > 2.6 and atk_cd <= 0.0:
+				_windup()
+				return
+		elif dist <= reach + hero.radius + 0.15 and atk_cd <= 0.0:
 			_windup()
 			return
 	else:
@@ -255,9 +298,13 @@ func _windup() -> void:
 			var blast: float = def["blast"] * (1.25 if elite else 1.0)
 			tele = hunt.fx.telegraph(0, aim, 0.0, Vector2(blast, 0), w)
 			Sfx.play("enemy_windup", -6.0)
-		"bomb", "necro":
+		"bomb", "necro", "slam":
 			tele = hunt.fx.telegraph(0, flat_pos(), 0.0, Vector2(float(def["blast"]), 0), w)
 			Sfx.play("enemy_windup", -6.0, 1.3)
+		"charge":
+			aim_yaw = yaw_to(position, _lead_pos(0.3))
+			tele = hunt.fx.telegraph(2, flat_pos(), aim_yaw, Vector2(1.0, 7.5), w)
+			Sfx.play("enemy_windup", -6.0, 1.6)
 
 
 func _cancel_windup() -> void:
@@ -309,6 +356,25 @@ func _release() -> void:
 			hp = 0.0
 			hunt._kill(self)
 			return
+		"slam":
+			var sr: float = def["blast"]
+			var sat := flat_pos()
+			hunt.fx.ring(sat, sr * 1.1, Color(1.0, 0.6, 0.3), 0.4, 0.2)
+			hunt.fx.puff(sat, Color(0.3, 0.26, 0.2, 0.7), 10, 1.4, 3.5)
+			hunt.fx.bone_burst(sat, 5, 6.0)
+			hunt.shake(0.3)
+			Sfx.play("quake", -4.0, 1.2)
+			if hero.flat_pos().distance_to(sat) <= sr + hero.radius * 0.5:
+				hunt.damage_hero(dmg, self)
+				hero.push((hero.flat_pos() - sat).normalized(), 14.0)
+		"charge":
+			dash_dir = dir_of(aim_yaw)
+			_dash_hit = false
+			state = "dash"
+			state_t = 0.4
+			play(def["anim"]["run"], 0.05, 2.2)
+			Sfx.play("charge", -8.0, 1.6)
+			return
 		"necro":
 			for i in 3:
 				var a := TAU * i / 3.0 + randf() * 0.5
@@ -324,7 +390,7 @@ func _release() -> void:
 
 ## Light foes flinch when hit: a short stagger so blows read as blows.
 func stagger() -> void:
-	if elite or state != "chase" or kind in ["warrior", "mage", "necro", "robber", "bomber"]:
+	if elite or state != "chase" or kind in ["warrior", "mage", "necro", "robber", "bomber", "brute"]:
 		return
 	hit_t = 0.18
 	play(def["anim"]["hit"], 0.04, 1.6, true)

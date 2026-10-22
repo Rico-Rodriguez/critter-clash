@@ -21,6 +21,7 @@ var last := ""
 var fight_t := 0.0
 var berserk := false
 var cd_mult := 1.0
+var add_t := 14.0
 var display_name := ""
 var title := ""
 var boss_id := "gravemaw"
@@ -107,8 +108,14 @@ func tick(dt: float) -> void:
 	if freeze_t > 0.0 or stun_t > 0.0:
 		return
 	fight_t += dt
-	if not berserk and fight_t > 150.0:
+	if not berserk and fight_t > 150.0 - 40.0 * hunt.tier_i:
 		_berserk()
+	# The longer you kite, the more of his court arrives to cut you off.
+	if state == "chase" and fight_t > 10.0:
+		add_t -= dt
+		if add_t <= 0.0:
+			add_t = 20.0 - 4.0 * hunt.tier_i
+			_call_court()
 	if not enraged and hp < max_hp * 0.5:
 		_enrage()
 	if state == "chase" and (summons_done == 0 and hp < max_hp * 0.7 or summons_done == 1 and hp < max_hp * 0.35):
@@ -290,6 +297,17 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 					hunt.spawn_foe("minion" if i % 3 != 0 else "warrior", hunt.arena.resolve(flat_pos() + Vector3(sin(a2), 0, cos(a2)) * 4.0, 0.6))
 				hunt.shake(0.3)
 				_finish(0.5)
+
+
+## A handful of the dead climb out around the hero: bigger and faster with the tier.
+func _call_court() -> void:
+	var n := 3 + 2 * hunt.tier_i
+	for i in n:
+		var a := TAU * i / n + randf() * 0.4
+		var at := hunt.arena.resolve(hunt.hero.flat_pos() + Vector3(sin(a), 0, cos(a)) * randf_range(5.0, 8.0), 0.6)
+		if hunt.foes.size() < Hunt.MAX_FOES:
+			hunt.spawn_foe("hound" if (hunt.tier_i >= 1 and i % 3 == 0) else "minion", at)
+	Sfx.play("aggro", -8.0)
 
 
 func _finish(recover: float) -> void:

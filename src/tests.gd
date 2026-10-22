@@ -98,6 +98,17 @@ func _gear_tests() -> void:
 	Game._migrate_v2(old)
 	_ok("migrated to wearer", old["items"][0]["cls"] == "knight" and old["items"][0]["mat"] >= 2 and old["version"] == Game.SAVE_VERSION)
 	_ok("migrated unique", old["items"][1]["cls"] == "ranger" and old["items"][1]["mat"] == 6)
+	_ok("modes defined", Game.mode_id() == "horde" and (DB.MODES["trial"]["rooms"] as Array).size() == DB.TIERS.size())
+	Game.set_mode("trial")
+	_ok("mode saved", Game.mode_id() == "trial")
+	Game.set_mode("nonsense")
+	_ok("bad mode ignored", Game.mode_id() == "trial")
+	for t: Dictionary in DB.TIERS:
+		_ok("tier %s has scaling" % t["id"], t.has("spd") and t.has("press"))
+	for id in DB.HERO_ORDER:
+		for c in DB.CARDS:
+			if DB.CARDS[c].has("hero") and id in DB.CARDS[c]["hero"]:
+				_ok("%s power card %s has an icon" % [id, c], Ui.icon(str(DB.CARDS[c]["icon"])) != null)
 	var drops := {}
 	var rng := RandomNumberGenerator.new()
 	for i in 600:
