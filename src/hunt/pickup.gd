@@ -29,6 +29,11 @@ func tick(dt: float, h: Hunt) -> bool:
 		if position.y < 0.25:
 			position.y = 0.25
 			vel = Vector3(vel.x * 0.4, absf(vel.y) * 0.35, vel.z * 0.4)
+		if settle <= 0.0:
+			# Land where the hero can reach: not past a wall or inside a pillar.
+			var y := position.y
+			position = h.arena.resolve(position, 0.4)
+			position.y = y
 		if kind == "item":
 			return true
 	var reach := hero.magnet if kind != "item" else 1.4

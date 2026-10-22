@@ -9,6 +9,13 @@ var idle := false
 var _wander := Vector3.ZERO
 var _side := 1.0
 var _t := 0.0
+# Dead-end escape: a wall and a pillar can trap the waypoint walker, which
+# then dithers in place forever. Sample progress and sidestep out.
+var _check_t := 2.0
+var _check_p := Vector3.ZERO
+var _escape_t := 0.0
+var _escape := Vector3.ZERO
+var _skip_loot_t := 0.0
 
 
 func steer(dt: float) -> Vector2:
@@ -17,6 +24,21 @@ func steer(dt: float) -> Vector2:
 	_t -= dt
 	var h := hunt.hero
 	var p := h.flat_pos()
+	_check_t -= dt
+	_escape_t -= dt
+	_skip_loot_t -= dt
+	if _check_t <= 0.0:
+		_check_t = 2.5
+		var fighting := hunt.boss != null and hunt.boss.alive or hunt.nearest_foe(p, 9.0) != null
+		if not fighting and p.distance_to(_check_p) < 1.2:
+			# Toward the middle of the hall, with a random lean so a second
+			# try differs from the first.
+			_escape = Vector3(-signf(p.x) if absf(p.x) > 2.0 else randf_range(-1, 1), 0, randf_range(-0.8, 0.8)).normalized()
+			_escape_t = 1.4
+			_skip_loot_t = 6.0
+		_check_p = p
+	if _escape_t > 0.0:
+		return Vector2(_escape.x, _escape.z)
 	var melee: bool = h.def["style"] == "melee"
 	var want := Vector3.ZERO
 	var near := 0
@@ -109,7 +131,7 @@ func steer(dt: float) -> Vector2:
 		var goal: Vector3 = p
 		var best := 99.0
 		for pk in hunt.pickups:
-			if is_instance_valid(pk) and pk.kind in ["soul", "item", "heart"]:
+			if _skip_loot_t <= 0.0 and is_instance_valid(pk) and pk.kind in ["soul", "item", "heart"]:
 				var dd := p.distance_to(Vector3(pk.position.x, 0, pk.position.z))
 				if dd < best and dd < 9.0 and _clear_line(p, Vector3(pk.position.x, 0, pk.position.z)):
 					best = dd
