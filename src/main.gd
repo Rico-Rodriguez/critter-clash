@@ -311,6 +311,16 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
+			"depth":
+				# The Descent going a level deeper.
+				Game.data["mode"] = "descent"
+				_set_screen_now("hunt")
+				var hdp: Hunt = current
+				hdp.hero.invuln = 99.0
+				await _wait_sim(hdp, 4.0)
+				hdp.depth_t = DB.DESCENT_TIME
+				await _wait(float(_arg(args, "after", "0.4")))
+				await _save(shot)
 			"super", "legendary":
 				# The moment a super goes off, or a legendary falls.
 				_set_screen_now("hunt")
@@ -320,7 +330,7 @@ func _capture(args: PackedStringArray) -> void:
 				if shot == "super":
 					hs.hero.super_charge = 1.0
 					hs.hero.try_super()
-					await _wait(0.35)
+					await _wait(float(_arg(args, "after", "0.35")))
 				else:
 					hs._drop_item(hs.hero.flat_pos() + Vector3(2.0, 0, -1.5), Game.make_unique("crown"))
 					await _wait(1.0)

@@ -1002,6 +1002,28 @@ All in CHANGELOG 2026-10-25. Where to tune:
 - Moments: `Hunt.super_moment()`, `Hunt._legendary_moment()`; shots `super`,
   `legendary`, `campfire`.
 
+## Phase 13 — Gear variety, equipment screen, bigger supers (done)
+
+Feedback: "the gear equipment menu is confusing, even to me", "even cooler
+looking options: a bone staff, a different wizard outfit, a blacked-out
+knight set... we want a lot more variety". All in CHANGELOG 2026-10-26.
+Where to tune:
+- Looks: `GearDB.LINES` stages and their `alts` (rolled per drop through the
+  item's `look`), `GearDB.SET_LOOKS` (dye, accent, least grade, model per
+  hero and slot), `GearDB.UNIQUE_LOOKS`, `GearDB.KITS` (props put together into
+  one weapon), `GearDB.PART_NUDGE` (rigid parts that sit wrong on a living
+  head). `GearDB.piece(it)` resolves them in that order.
+- Shots: `--shots=sets` and `sets2` (contact sheets),
+  `--shots=equip --hero=H --mat=N --set=hexer` or `--look=1`, `weapons`
+  (now includes kits), `equipdetail`, `inspect`, `inspecthelm`, `reveal`,
+  `super --hero=H --after=S`, `depth`.
+- More models: the KayKit **Fantasy Weapons Bits** pack is free (CC0) and has
+  25+ weapons (hammers, spears, maces, fancier staffs and shields) in the same
+  style. Itch only hands out downloads through a browser, so drop its
+  `gltf` files into `assets/kaykit/weapons/` and add stages or alts that name
+  them. The paid Mystery Monthly series 5 has a Black Knight character whose
+  parts would slot straight into `GearDB` like any other KayKit character.
+
 ## Next up
 
 Ordered. Do the first item before the rest: it is the only one that needs a

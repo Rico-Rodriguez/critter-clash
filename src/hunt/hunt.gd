@@ -1408,6 +1408,7 @@ func _tick_depth(dt: float) -> void:
 	depth_t = 0.0
 	depth += 1
 	banner("Depth %d" % depth, Color(0.95, 0.8, 0.5), "The dead grow bolder")
+	_depth_moment()
 	# Deeper looks deeper: thicker fog, redder light, less of the moon.
 	var k := clampf((depth - 1) / 12.0, 0.0, 1.0)
 	var tw := create_tween().set_parallel()
@@ -1432,6 +1433,22 @@ func _tick_depth(dt: float) -> void:
 		banner(e.elite_name, DB.ELITE_AFFIXES[e.affixes[0]]["color"].lightened(0.3), "A champion rises!")
 	if depth % 3 == 0:
 		_start_surge(progress())
+
+
+## The ground gives way a little further: a red shockwave out from the hero,
+## embers bursting from the earth all around, the camera dropping back.
+func _depth_moment() -> void:
+	var at := hero.flat_pos()
+	var col := Color(1.0, 0.3, 0.15)
+	fx.ring(at, 14.0, col, 0.9, 0.3)
+	fx.ring(at, 7.0, Color(1.0, 0.6, 0.3), 0.6, 0.2)
+	fx.flash_light(at, col, 5.0, 14.0, 0.8)
+	for i in 14:
+		var p := at + Vector3(randf_range(-10.0, 10.0), 0, randf_range(-10.0, 10.0))
+		fx.embers_at(p, col.lerp(Color(1.0, 0.8, 0.4), randf()), 4, 0.8)
+	fx.puff(at, Color(0.3, 0.12, 0.08, 0.5), 10, 4.0, 3.0)
+	hud.dim(Color(0.25, 0.02, 0.02, 0.3), 0.1, 0.25, 0.8)
+	cam.punch = -0.12
 
 
 func _direct_rush(dt: float) -> void:
@@ -2342,11 +2359,11 @@ func shake(v: float) -> void:
 
 ## A super goes off: the camera pushes in, the screen washes in the hero's
 ## color, its name rises over the hero, and the world holds its breath.
-func super_moment() -> void:
+func super_moment(at: Vector3) -> void:
 	var col: Color = hero.def["color"]
 	cam.punch = 0.1
 	hud.flash(Color(col.lightened(0.3), 0.3), 0.35)
-	fx.text(hero.flat_pos() + Vector3(0, 2.6, 0), str(hero.def["super_name"]).to_upper(), col.lightened(0.35), 1.3, 1.0)
+	fx.text(at + Vector3(0, 2.6, 0), str(hero.def["super_name"]).to_upper(), col.lightened(0.35), 1.3, 1.0)
 	hitstop(0.06)
 
 

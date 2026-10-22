@@ -14,7 +14,7 @@ var follow_rate := 7.0
 var dist_mult := 1.0      # player preset: Close 0.86, Standard 1.0, Wide 1.16
 var zoom := 1.0           # dynamic, eased toward zoom_target
 var zoom_target := 1.0
-var punch := 0.0          # a quick push in that eases out (supers, big drops)
+var punch := 0.0          # a quick push in that eases out (supers, big drops); negative pulls back
 
 var target: Node3D
 var focus_override: Variant = null

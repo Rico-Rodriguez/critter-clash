@@ -433,7 +433,9 @@ func _forest() -> void:
 			continue
 		var k: String = kinds[_rng.randi() % kinds.size()]
 		var sc := _rng.randf_range(1.6, 2.6) if k.begins_with(G) else _rng.randf_range(1.3, 2.0)
-		var near := p.x > min_x - 4.0 and p.x < max_x + 4.0 and p.z > min_z - 4.0 and p.z < max_z + 4.0
+		# Trees by the wall, and every tree on the camera's side (south), fade
+		# while they cover the hero: tall pines there hide fights at the edge.
+		var near := p.x > min_x - 4.0 and p.x < max_x + 4.0 and p.z > min_z - 4.0 and (p.z < max_z + 4.0 or p.z > max_z)
 		put(k, p, _rng.randf() * TAU, sc, -1.0, absf(p.x) < max_x + 6.0 and p.z > min_z - 6.0, 1.2 if near else 0.0)
 		placed += 1
 	for i in (14 if low else 30):

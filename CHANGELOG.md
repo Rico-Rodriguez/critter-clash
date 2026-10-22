@@ -10,6 +10,50 @@ version is 5.
 
 ---
 
+## 2026-10-26: More gear looks, a clearer equipment screen, bigger supers
+
+Save version still 5 (one new per-hero key, `best_mat`, defaults in `_fresh()`;
+items gain an optional `look` roll, old items show their stage's base look).
+`NATIVE_VERSION` unchanged.
+
+### Added
+- **Many more gear looks, all KayKit.** Tier stages can roll an alternative
+  model: horned helms, war axes, tower and heraldic shields, witch hats, cowls,
+  ragged robes, bandit masks, lantern staffs, skull orbs, candelabras,
+  phylacteries, hooded cloaks. Each boss set has its own look per hero:
+  the Barrow King's **bone** set (horned bone helm, skull shield, ribcage
+  harness, bone staff), the Crypt Queen's **blackened** set (Blackguard plate,
+  Necromancer robes and Deathlight staff, Shade garb) and the Thornmother's
+  **bark** set (bear masks, druid cowls, the Grove Lantern). Uniques got models
+  of their own (the Crown is a horned gold helm, the Cleaver a bone axe).
+  New weapons are put together from several props (`GearDB.KITS`).
+- **Equipment screen, rebuilt.** The bag is a list grouped by what matters:
+  Upgrades (sorted by power gained), Wearing, In your bag, Needs more skill,
+  and other heroes' gear folded away. Each row says what the piece is in words
+  and shows one number: the power it adds. Slots show their material and a
+  green arrow when the bag holds an upgrade. Tapping a row tries it on and
+  slides up a card with what it replaces and every action.
+- **Inspect:** any piece alone, big and turning; weapons float with their
+  sparks, worn pieces are shown on the bare hero with the camera on them.
+- **New tier reveal:** the first time a hero wears a higher material, light
+  wheels out behind them and the material's name punches in.
+- **Supers:** the Knight's Judgement brings down a crown of lightning around the
+  landing; the Barbarian's Whirlwind becomes a column of fire; the Ranger's
+  Hail of Arrows darkens the sky and rains arrows all around.
+- **Descent:** each new depth sends a red shockwave out from the hero, embers
+  burst from the ground and the camera drops back.
+
+### Fixed
+- Hats, hoods and horned helms from the skeleton characters never showed (they
+  are pinned to a bone, not skinned). The Barbarian's starting Horned Cap was
+  invisible because of it.
+- The rarity glow and polish washed whole pieces in color; they stay on the
+  edges now, so black reads black and bone reads bone.
+- Tall pines on the camera's side of the arena hid fights near the south wall
+  (worse when a super pushes the camera in); they fade like the near trees.
+
+---
+
 ## 2026-10-25: Playtest fixes, gear that looks its tier, big moments
 
 Save version is now 5 (each mode keeps its own unlocked difficulty; old saves

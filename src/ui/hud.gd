@@ -282,6 +282,22 @@ func flash(color: Color, dur := 0.4) -> void:
 	t.tween_callback(f.queue_free)
 
 
+## The world darkens for a moment (under the HUD, which stays readable):
+## the sky full of arrows, the ground giving way.
+func dim(color: Color, rise: float, hold: float, fall: float) -> void:
+	var f := ColorRect.new()
+	f.color = Color(color, 0.0)
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	f.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(f)
+	move_child(f, 0)
+	var t := create_tween()
+	t.tween_property(f, "color:a", color.a, rise)
+	t.tween_interval(hold)
+	t.tween_property(f, "color:a", 0.0, fall)
+	t.tween_callback(f.queue_free)
+
+
 func show_levelup(choices: Array, level: int) -> void:
 	%Stick.release()
 	Sfx.duck(true)
