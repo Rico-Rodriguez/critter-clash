@@ -341,6 +341,8 @@ func _capture(args: PackedStringArray) -> void:
 				current.open_sheet("bag")
 				await _wait(1.0)
 				var eq: Equipment = current.ui.equipment
+				eq._bag_btn.pressed.emit()
+				await _wait(1.0)
 				var row: Control = eq._list.get_child(1)
 				var at := row.get_global_rect().get_center()
 				await _save("swipe_before")
