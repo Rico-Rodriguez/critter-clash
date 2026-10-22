@@ -39,7 +39,13 @@ func _ready() -> void:
 	elif args.has("--capture"):
 		_capture.call_deferred(args)
 	else:
-		go("lobby")
+		# The launch update check holds the camp behind the splash; a connect,
+		# not an await, so an in-process update restart can free this node.
+		var ota := get_node_or_null("/root/Ota")
+		if ota and ota.get("checking") == true and ota.has_signal("boot_done"):
+			ota.connect("boot_done", go.bind("lobby"), CONNECT_ONE_SHOT)
+		else:
+			go("lobby")
 
 
 func go(screen: String) -> void:
@@ -259,6 +265,9 @@ func _capture(args: PackedStringArray) -> void:
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
 				Game.season()["claimed"] = 2
 				Game.data["stats"]["wins"] = 3
+				Game.data["stats"]["hunts"] = 5
+				for k in ["camp_hunt", "camp_chest", "camp_gear", "camp_heroes"]:
+					Game.data["tips"][k] = true
 				Game.hero(hid)["mastery"] = 520
 				Game.hero(hid)["mastery_rank"] = 1
 				Game.hero(hid)["rating"] = 64
@@ -285,6 +294,11 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
+				await _save(shot)
+			"firstcamp":
+				# A new player's camp: no side column, a note on the hunt button.
+				_set_screen_now("lobby")
+				await _wait(2.0)
 				await _save(shot)
 			"flow":
 				# Exercise the real transitions: camp -> hunt -> camp.
@@ -378,19 +392,27 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
-			"appicon":
+			"appicon", "splash":
 				# The app icon: the hero with a lantern in the dark, in plain
 				# polished gear so no rarity glow muddies it at 60 px
 				# (tools/app_icon.gd; tools/dev/icon.sh writes assets/icon.png).
+				# The splash is the same scene, full length, with dark sky above
+				# for the title (tools/dev/splash.sh writes assets/splash.png).
 				for slot in DB.SLOTS:
 					var pc := Game.make_item(hid, slot, maxi(mat, 0), "common")
 					pc["look"] = 0
 					Game.equip(hid, int(Game.grant_item(pc)["uid"]))
 				_set_screen_now("lobby")
 				# By path: tools/ is not exported, and no new class_name may ship in a pack.
-				load("res://tools/app_icon.gd").stage(current)
+				var icam: Camera3D = load("res://tools/app_icon.gd").stage(current)
+				if shot == "splash":
+					icam.keep_aspect = Camera3D.KEEP_WIDTH
+					icam.fov = 46.0
+					icam.look_at_from_position(Vector3(0.3, 1.05, 4.3), Vector3(0.1, 1.85, 0), Vector3.UP)
+					# The ground runs out to the fog instead of ending in a hard horizon.
+					(current.get_node("IconStage").get_child(0).mesh as PlaneMesh).size = Vector2(400, 400)
 				await _wait(1.5)
-				await _save("appicon")
+				await _save(shot)
 			"depth":
 				# The Descent going a level deeper.
 				Game.data["mode"] = "descent"
@@ -514,7 +536,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "hexer", "powers", "descent", "pact", "wild":
+			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "powers", "descent", "pact", "wild":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -578,11 +600,13 @@ func _capture(args: PackedStringArray) -> void:
 							h.bot = false
 							h._end(true)
 							await _wait(2.2)
-				elif shot == "death":
+				elif shot == "death" or shot == "defeat":
 					await _wait_sim(h, 5.0)
+					if shot == "defeat":
+						h.bot = false
 					h.hero.invuln = 0.0
 					h.damage_hero(99999.0, null)
-					await _wait(1.6)
+					await _wait(1.6 if shot == "death" else 6.0)
 				await _save(shot)
 	get_tree().quit()
 

@@ -30,6 +30,16 @@ func _ready() -> void:
 	Sfx.refresh_volume.call_deferred()
 
 
+## Ota restarts the game in-process after an update: the logger is held by the
+## engine, so it must be let go before its script is reloaded.
+func _ota_unload() -> void:
+	if errors:
+		# A clean close, or the restarted log would count a crash.
+		errors.session_closed()
+		OS.remove_logger(errors)
+		errors = null
+
+
 func _notification(what: int) -> void:
 	if errors == null:
 		return

@@ -76,6 +76,12 @@ unchanged. Authors:
   Hollow Grove) and "Curse of the Scarab" (the Thornmother) by Kevin MacLeod
   (incompetech.com), same license. Trimmed to about 105 s, loudness-matched to
   the other tracks and re-encoded to OGG.
+- Second and third camp, hunt and boss tracks (`home_2`, `home_3`, `hunt_2`,
+  `hunt_3`, `boss_2`; one is picked per visit, never the same twice running):
+  "Teller of the Tales", "Lord of the Land", "Clash Defiant", "Crusade" and
+  "Final Battle of the Dark Wizards" by Kevin MacLeod (incompetech.com), same
+  license. Trimmed to 2–3 minutes with fades, loudness-matched (−16.5 LUFS)
+  and re-encoded to OGG.
 - Victory sting: "Victory Fanfare Short" by cynicmusic —
   https://opengameart.org/content/victory-fanfare-short — CC0 (trimmed).
 
