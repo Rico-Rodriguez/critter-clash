@@ -152,7 +152,10 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	var hg := str(Game.hero(hero_id).get("glow", ""))
 	if DB.GLOWS.has(hg):
 		glow = DB.GLOWS[hg]["color"]
-	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow, Transform3D.IDENTITY, GearDB.grade(w), GearDB.accent(w))
+	# KayKit bows face the string away from the hand that holds them; turned
+	# half round, the string comes back to the archer as in the aim pose.
+	var grip := Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO) if str(d["style"]) == "bow" else Transform3D.IDENTITY
+	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow, grip, GearDB.grade(w), GearDB.accent(w))
 	var spark := GearDB.enchant(w)
 	if DB.GLOWS.has(hg) and spark.a > 0.0:
 		spark = Color(Color(DB.GLOWS[hg]["color"]), spark.a)
