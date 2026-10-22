@@ -1,7 +1,7 @@
 class_name TalentDB
 extends RefCounted
 ## Talent trees: three paths per hero, eight nodes down each, one point per
-## hero level after the first. A node needs the one above it. Free respec.
+## five combat levels (Game.talent_earned). A node needs the one above it. Free respec.
 ##
 ## Node kinds: "m" minor (a small stat), "n" notable (changes a rule), "k"
 ## keystone (the end of a path). Effects sit on the node itself:

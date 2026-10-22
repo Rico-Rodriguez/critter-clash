@@ -10,6 +10,43 @@ version is 6.
 
 ---
 
+## Unreleased: Skills are a hero's power
+
+Save version unchanged (bought levels are refunded on load). `NATIVE_VERSION`
+unchanged.
+
+### Changed
+- **Each hero has their own skills and combat level.** Hunt XP trains only the
+  hero who played. Heroes start fresh at Combat 3.
+- **No more bought hero levels.** Damage and health come from skills (+4.5%
+  per level for 40 levels, then +1.5%). Every style trains three skills at the
+  same pace. Combat counts Ranged and Magic 2x so all heroes top out alike.
+- **Combat level earns talent points** (one per 5 levels), a fourth card
+  choice at 70 and a second potion at 95.
+- **Shards rub XP lamps** in Skills: 10 shards for XP in a trained skill.
+- Old saves get back the shards and gold their bought levels cost.
+
+---
+
+## Unreleased: Gear has one quality ladder
+
+Save version unchanged (old item names are rewritten on load). `NATIVE_VERSION`
+unchanged.
+
+### Changed
+- **Tier is the color.** A piece's frame, name and drop beam show its
+  material tier, grey to red, everywhere. Rarity is now pips under the icon
+  (how many bonus stats); uniques carry a star.
+- **Plain names.** "Barrowborn Steel Greaves" is now "Steel Greaves": the
+  random prefixes are gone, and gear already in a bag is renamed.
+- **Equipment screen.** The hero stands between the slots, with the stats
+  under them and the bag as a grid of tiles below. No power numbers on gear:
+  the card says what changes on the hero ("Health 516 → 634") if you wear it.
+- **Armor icons** for helms, chests and legs are flat outlines in place of
+  tiny renders of a whole hero.
+
+---
+
 ## 2026-10-29: First steps, more music, results
 
 No save version change (the new tutorial notes use the existing `tips` key).

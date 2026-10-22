@@ -49,7 +49,8 @@ unchanged. Authors:
   gem-pendant, breastplate, crossed-axes, slashed-shield, fist, wolf-head, anvil,
   sword-smithing, strong, muscle-up, fairy-wand, magic-swirl, archery-target,
   arrow-scope, lightning-tear, heart-organ, cloak-dagger, sun, moon, campfire,
-  tombstone, glowing-hands, sword-spin, whirlwind)
+  tombstone, glowing-hands, sword-spin, whirlwind, pointy-hat, hood, robe,
+  trousers, leather-vest, horned-helm)
 - Delapouite — https://delapouite.com — two-coins, running-shoe, upgrade,
   round-star, house, padlock-open
 - Skoll — bullseye, open-treasure-chest

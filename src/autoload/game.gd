@@ -71,7 +71,17 @@ func load_save() -> void:
 		if int(parsed.get("version", 0)) == 5:
 			_migrate_v5(parsed)
 		_merge(data, parsed)
+		_rename_gear()
 		_refund_levels()
+
+
+## Pieces once carried a random prefix ("Barrowborn Steel Greaves"). Names are
+## now just material and kind, so old pieces are renamed on every load (cheap,
+## and safe to repeat, so no save version is needed).
+func _rename_gear() -> void:
+	for it in data["items"]:
+		if it is Dictionary and it.has("cls") and str(it.get("slot", "")) in DB.SLOTS:
+			it["name"] = gear_name(it)
 
 
 ## Bought hero levels are gone (skills are the power now): give back the shards
@@ -120,7 +130,7 @@ func _migrate_v2(d: Dictionary) -> void:
 		if worn.has(uid) and worn[uid] != it["cls"]:
 			d["heroes"][worn[uid]]["gear"].erase(it["slot"])
 		if u == "":
-			it["name"] = _item_name(it, str(it.get("rarity", "common")))
+			it["name"] = gear_name(it)
 	d["version"] = 3
 
 

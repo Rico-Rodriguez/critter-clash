@@ -1025,6 +1025,32 @@ Where to tune:
   and offhand look in that hero's hands. The paid Mystery Monthly series 5 has a Black Knight character whose
   parts would slot straight into `GearDB` like any other KayKit character.
 
+## Phase 14 — One quality ladder on gear (user feedback, round 6)
+
+Feedback: "I like the heroes screen but I still don't like the equipment
+screen... it's just off." Diagnosis: every piece showed three rival quality
+signals (material tier, rarity color, summed power) plus a random prefix that
+meant nothing ("Barrowborn Steel Greaves · T3 Steel · Rare · +52 power").
+The user picked direction B of three.
+
+### [x] 14.1 Tier is the color; paper doll; compare in hero stats
+- `DB.TIER_COLOR` / `DB.gear_color(it)`: a piece's frame, name and drop beam
+  are its material tier, grey to red, on every screen (equipment, results,
+  chest, inspect, hunt drops). Rarity shows as pips (bonus stats, 0 to 2), a
+  unique as a star; ancient pips are orange, set pips take the set's color.
+- Names are material and kind only (`Game.gear_name`): no random prefix.
+  `Game._rename_gear` renames bag items on every load (no save version).
+- Equipment screen: armor slots left of the hero, weapon, offhand and Equip
+  best right, the stat strip under, the bag below as a 5-wide tile grid. A
+  slot filters the bag and opens its worn piece. The card says "If you wear
+  it" in the hero's own stats; power is no longer shown on gear (it still
+  decides the ▲ and Equip best through `Game.item_score`).
+- Helm, chest and legs icons are flat (`ItemIcons.rect`): the 3D render of a
+  hero wearing them read as a portrait. New icons: pointy-hat, hood, robe,
+  trousers, leather-vest, horned-helm.
+Verify: shots `gear,equipdetail,swipe` at 720x1560 `--notch`, with and
+without `--geared=1`.
+
 ## Next up
 
 **Feature freeze (since the release cleanup, CHANGELOG 2026-10-28).** No new

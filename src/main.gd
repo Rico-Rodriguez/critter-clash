@@ -321,8 +321,8 @@ func _capture(args: PackedStringArray) -> void:
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
 			"gear":
-				# The equipment screen's slots, bag, a piece's card and its
-				# Improve panel; then the Heroes sheet's other two tabs.
+				# The equipment screen, its bag filtered to one slot, a piece's
+				# card and its Improve panel; then the Heroes sheet's other tabs.
 				Game.data["gold"] = 14020
 				_set_screen_now("lobby")
 				await _wait(1.0)
@@ -330,7 +330,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(2.5)
 				await _save("gear_slots")
 				var eqg: Equipment = current.ui.equipment
-				eqg._bag_btn.pressed.emit()
+				eqg._on_slot("chest")
 				await _wait(2.0)
 				await _save("gear_bag")
 				for it in Game.data["items"]:
@@ -359,9 +359,8 @@ func _capture(args: PackedStringArray) -> void:
 				current.open_sheet("bag")
 				await _wait(1.0)
 				var eq: Equipment = current.ui.equipment
-				eq._bag_btn.pressed.emit()
 				await _wait(1.0)
-				var row: Control = eq._list.get_child(1)
+				var row: Control = eq._list.get_child(1).get_child(0)
 				var at := row.get_global_rect().get_center()
 				await _save("swipe_before")
 				await _finger(at, at + Vector2(0, -260), 8)

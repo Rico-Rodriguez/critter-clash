@@ -84,13 +84,13 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 	holder.add_child(m)
 	p.add_child(holder)
 	p.body = holder
-	var col := DB.rarity_color(it["rarity"])
+	var col := DB.gear_color(it)
 	get_tree().create_timer(0.7, false).timeout.connect(func():
 		if is_instance_valid(p) and p.is_inside_tree():
 			p.beam = fx.beam(Vector3(p.position.x, 0, p.position.z), col, 9.0 if it["rarity"] == "legendary" else 6.0)
 			var l := Label3D.new()
-			# Short and big ("Rare Helm"), stacked so neighbours do not overlap.
-			l.text = "%s %s" % [DB.RARITY_NAME[it["rarity"]], DB.SLOT_NAME.get(it["slot"], "Trophy")] if str(it.get("unique", "")) == "" else str(it["name"])
+			# Short and big ("Tier 3 Helm"), stacked so neighbours do not overlap.
+			l.text = "Tier %d %s" % [int(it.get("mat", 0)) + 1, DB.SLOT_NAME[it["slot"]]] if str(it.get("unique", "")) == "" and it["slot"] in DB.SLOTS else str(it["name"])
 			l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			l.no_depth_test = true
 			l.pixel_size = 0.013
@@ -150,7 +150,7 @@ func collect(p: Pickup) -> void:
 		"item":
 			items.append(p.item)
 			fx.release_beam(p.beam)
-			var col := DB.rarity_color(p.item["rarity"])
+			var col := DB.gear_color(p.item)
 			fx.burst(hero.flat_pos(), col, 12, 5.0)
 			var better: bool = p.item["slot"] in DB.SLOTS and Game.is_better(p.item, hero_id)
 			hud.toast("[color=#%s]%s[/color]" % [col.to_html(false), p.item["name"]], "▲ Upgrade for your %s" % DB.SLOT_NAME[p.item["slot"]].to_lower() if better else "Picked up")

@@ -1,10 +1,10 @@
 extends Node
 ## Not a class_name: an over-the-air pack cannot register new global classes
 ## (the baked IPA's class list is fixed), so users preload it by path.
-## Gear icons rendered from the piece's own 3D model, so a Crystal Staff looks
-## like that staff and not like every other staff. Each look is rendered once,
-## off screen, one per frame, and cached for the session; until it is ready
-## (and on headless runs) the flat icon stands in.
+## Weapon and offhand icons rendered from the piece's own 3D model, so a
+## Crystal Staff looks like that staff and not like every other staff. Each
+## look is rendered once, off screen, one per frame, and cached for the
+## session; until it is ready (and on headless runs) the flat icon stands in.
 
 const SIZE := 160
 
@@ -20,7 +20,9 @@ var _busy := false
 ## A TextureRect showing `it`: the flat icon now, its render when ready.
 static func rect(it: Dictionary, size_: float, flat_tint: Color) -> TextureRect:
 	var t := Ui.icon_rect(GearDB.item_icon(it), size_, flat_tint)
-	if DisplayServer.get_name() == "headless" or not it.has("cls") or not (str(it["slot"]) in DB.SLOTS):
+	# Worn armor renders as a whole hero in it, which reads as a portrait at
+	# tile size: helms, chests and legs keep the flat icon in the tier color.
+	if DisplayServer.get_name() == "headless" or not it.has("cls") or not (str(it["slot"]) in ["weapon", "trinket"]):
 		return t
 	var k := key(it)
 	if _cache.has(k):
