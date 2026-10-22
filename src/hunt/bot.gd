@@ -107,7 +107,7 @@ func steer(dt: float) -> Vector2:
 		for pk in hunt.pickups:
 			if is_instance_valid(pk) and pk.kind in ["soul", "item", "heart"]:
 				var dd := p.distance_to(Vector3(pk.position.x, 0, pk.position.z))
-				if dd < best and dd < 9.0:
+				if dd < best and dd < 9.0 and _clear_line(p, Vector3(pk.position.x, 0, pk.position.z)):
 					best = dd
 					goal = Vector3(pk.position.x, 0, pk.position.z)
 		if best > 8.0 and close:
@@ -152,3 +152,14 @@ func _around_obstacles(p: Vector3, dir: Vector3) -> Vector3:
 			if a == 0.0:
 				break
 	return dir
+
+
+## True when nothing solid sits between two points: a pickup behind a wall is
+## not worth walking into the wall for.
+func _clear_line(a: Vector3, b: Vector3) -> bool:
+	var d := b - a
+	var n := int(d.length() / 1.2)
+	for i in range(1, n + 1):
+		if hunt.arena.blocked(a + d * (float(i) / n), 0.4):
+			return false
+	return true
