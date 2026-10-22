@@ -149,7 +149,7 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	add_child(ring)
 	recompute()
 	hp = max_hp
-	potions_max = 2 if int(Game.hero(id)["level"]) >= DB.SECOND_POTION_LEVEL else 1
+	potions_max = 2 if Game.combat_level(id) >= DB.SECOND_POTION_COMBAT else 1
 	potions = potions_max
 
 

@@ -10,6 +10,24 @@ version is 6.
 
 ---
 
+## Unreleased: Skills are a hero's power
+
+Save version unchanged (bought levels are refunded on load). `NATIVE_VERSION`
+unchanged.
+
+### Changed
+- **Each hero has their own skills and combat level.** Hunt XP trains only the
+  hero who played. Heroes start fresh at Combat 3.
+- **No more bought hero levels.** Damage and health come from skills (+4.5%
+  per level for 40 levels, then +1.5%). Every style trains three skills at the
+  same pace. Combat counts Ranged and Magic 2x so all heroes top out alike.
+- **Combat level earns talent points** (one per 5 levels), a fourth card
+  choice at 70 and a second potion at 95.
+- **Shards rub XP lamps** in Skills: 10 shards for XP in a trained skill.
+- Old saves get back the shards and gold their bought levels cost.
+
+---
+
 ## Unreleased: Gear has one quality ladder
 
 Save version unchanged (old item names are rewritten on load). `NATIVE_VERSION`

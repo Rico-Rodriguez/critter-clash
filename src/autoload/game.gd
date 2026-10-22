@@ -72,6 +72,7 @@ func load_save() -> void:
 			_migrate_v5(parsed)
 		_merge(data, parsed)
 		_rename_gear()
+		_refund_levels()
 
 
 ## Pieces once carried a random prefix ("Barrowborn Steel Greaves"). Names are
@@ -81,6 +82,17 @@ func _rename_gear() -> void:
 	for it in data["items"]:
 		if it is Dictionary and it.has("cls") and str(it.get("slot", "")) in DB.SLOTS:
 			it["name"] = gear_name(it)
+
+
+## Bought hero levels are gone (skills are the power now): give back the shards
+## and gold each level cost. Shards rub XP lamps. Level 1 marks it done.
+func _refund_levels() -> void:
+	for id in DB.HERO_ORDER:
+		var lvl := clampi(int(hero(id)["level"]), 1, DB.HERO_MAX_LEVEL)
+		for l in range(1, lvl):
+			hero(id)["shards"] = int(hero(id)["shards"]) + int(DB.UPGRADE_SHARDS[l])
+			data["gold"] = gold() + int(DB.UPGRADE_GOLD[l])
+		hero(id)["level"] = 1
 
 
 ## v1 had three slots (weapon, armor, trinket); armor became chest.
@@ -202,10 +214,12 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			r["chest"] = grades[mini(grades.find(str(r["chest"])) + 1, 2)]
 		summary["first_win"] = true
 	data["gold"] = gold() + int(r.get("gold", 0))
-	var before := skill_levels()
+	# Skill XP goes to the hero who earned it.
+	var sk_hid := str(r.get("hero", hero_id()))
+	var before := skill_levels(sk_hid)
 	for s in r.get("xp", {}):
-		data["skills"][s] = mini(int(data["skills"][s]) + int(r["xp"][s]), 200000000)
-	var after := skill_levels()
+		skills(sk_hid)[s] = mini(skill_xp(s, sk_hid) + int(r["xp"][s]), 200000000)
+	var after := skill_levels(sk_hid)
 	for s in DB.SKILLS:
 		if after[s] > before[s]:
 			summary["levels"].append({"skill": s, "from": before[s], "to": after[s]})

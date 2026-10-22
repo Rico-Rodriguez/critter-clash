@@ -28,12 +28,33 @@ func run() -> int:
 	_ok("xp level 99", DB.xp_for_level(99) == 13034431)
 	_ok("level for xp", DB.level_for_xp(DB.xp_for_level(40)) == 40 and DB.level_for_xp(DB.xp_for_level(40) - 1) == 39)
 	_ok("fresh combat level", Game.combat_level() == 3)
+	# Skills are per hero: XP from a hunt goes to the hero who played it.
+	var keep_sk := Game.data.duplicate(true)
+	Game.finish_hunt({"hero": "ranger", "xp": {"ranged": DB.xp_for_level(40), "hitpoints": 0}})
+	_ok("hunt xp trains its hero", Game.skill_level("ranged", "ranger") == 40 and Game.combat_level("ranger") > 3)
+	_ok("other heroes keep their own skills", Game.skill_level("ranged", "knight") == 1 and Game.combat_level("knight") == 3)
+	Game.data = keep_sk
 
 	var base: float = Game.hero_stats("knight")["hp"]
-	Game.hero("knight")["level"] = 2
+	Game.skills("knight")["hitpoints"] = DB.xp_for_level(11)
 	var up: float = Game.hero_stats("knight")["hp"]
-	Game.hero("knight")["level"] = 1
-	_ok("hero level scales", absf(up / base - (1.0 + DB.LEVEL_POWER)) < 0.001)
+	Game.skills("knight")["hitpoints"] = DB.xp_for_level(10)
+	_ok("hitpoints scale health", absf(up / base - (1.0 + DB.SKILL_EARLY)) < 0.001)
+	# Bought levels are refunded in shards and gold, once.
+	var keep_lv := Game.data.duplicate(true)
+	Game.hero("knight")["level"] = 3
+	var g_lv := Game.gold()
+	var s_lv := int(Game.hero("knight")["shards"])
+	Game._refund_levels()
+	Game._refund_levels()
+	_ok("bought levels refunded once", Game.gold() == g_lv + DB.UPGRADE_GOLD[1] + DB.UPGRADE_GOLD[2] and int(Game.hero("knight")["shards"]) == s_lv + DB.UPGRADE_SHARDS[1] + DB.UPGRADE_SHARDS[2] and int(Game.hero("knight")["level"]) == 1)
+	# Lamps turn shards into XP for a skill the hero trains.
+	Game.hero("knight")["shards"] = DB.LAMP_SHARDS
+	var xp_lamp := Game.lamp_xp("knight", "strength")
+	_ok("a ranger skill takes no lamp", not Game.rub_lamp("knight", "ranged"))
+	_ok("lamp adds xp", Game.rub_lamp("knight", "strength") and Game.skill_xp("strength", "knight") == xp_lamp and int(Game.hero("knight")["shards"]) == 0)
+	_ok("no shards, no lamp", not Game.can_rub_lamp("knight"))
+	Game.data = keep_lv
 
 	var common_boss := 0
 	for i in 2000:
@@ -142,7 +163,7 @@ func _gear_tests() -> void:
 	# The first higher material a hero wears is news once; lower ones never are.
 	Game.data = Game._fresh()
 	for sk in DB.SKILLS:
-		Game.data["skills"][sk] = DB.xp_for_level(40)
+		Game.skills("knight")[sk] = DB.xp_for_level(40)
 	Game.new_tier = -1
 	Game.equip("knight", int(Game.grant_item(Game.make_item("knight", "helm", 0, "common"))["uid"]))
 	_ok("bronze is not a new tier", Game.new_tier == -1)
@@ -156,7 +177,7 @@ func _gear_tests() -> void:
 	Game.grant_item(it)
 	_ok("wrong class blocked", Game.wear_block("knight", it) != "")
 	_ok("low skill blocked", Game.wear_block("mage", it).begins_with("Requires Magic"))
-	Game.data["skills"]["magic"] = DB.xp_for_level(40)
+	Game.skills("mage")["magic"] = DB.xp_for_level(40)
 	_ok("skill lets you wear", Game.wear_block("mage", it) == "")
 	Game.equip("mage", int(it["uid"]))
 	_ok("equipped", Game.equipped("mage", "chest")["uid"] == it["uid"])
@@ -235,7 +256,7 @@ func _meta_tests() -> void:
 	var keep := Game.data.duplicate(true)
 	Game.data["gold"] = 100000
 	for s in DB.SKILLS:
-		Game.data["skills"][s] = DB.xp_for_level(60)
+		Game.skills("knight")[s] = DB.xp_for_level(60)
 	var it := Game.grant_item(Game.make_item("knight", "weapon", 2, "rare"))
 	var uid := int(it["uid"])
 	var main_v := int(it["stats"]["dmg"])
@@ -293,9 +314,10 @@ func _meta_tests() -> void:
 
 func _depth_tests() -> void:
 	Game.data = Game._fresh()
-	_ok("no points at level 1", Game.talent_points("knight") == 0 and not Game.can_learn("knight", 0, 0))
-	Game.hero("knight")["level"] = 4
-	_ok("three points at level 4", Game.talent_points("knight") == 3)
+	_ok("no points at combat 3", Game.talent_points("knight") == 0 and not Game.can_learn("knight", 0, 0))
+	for sk in DB.STYLE_SKILLS["melee"]:
+		Game.skills("knight")[sk] = DB.xp_for_level(16)
+	_ok("three points at combat 18", Game.combat_level("knight") == 18 and Game.talent_points("knight") == 3)
 	_ok("nodes need the one above", not Game.can_learn("knight", 0, 1) and Game.can_learn("knight", 0, 0))
 	var hp0: float = Game.hero_stats("knight")["hp"]
 	Game.learn_talent("knight", 0, 0)

@@ -30,7 +30,7 @@ func _build_heroes(s: Sheet) -> void:
 		var nm := Ui.label(d["name"], "Body", HORIZONTAL_ALIGNMENT_CENTER)
 		nm.add_theme_font_size_override("font_size", 21)
 		v.add_child(nm)
-		v.add_child(Ui.label(("Lv %d" % int(h["level"])) if h["unlocked"] else "Locked", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+		v.add_child(Ui.label(("Combat %d" % Game.combat_level(id)) if h["unlocked"] else "Locked", "Small", HORIZONTAL_ALIGNMENT_CENTER))
 		t.add_child(v)
 		var hid: String = id
 		t.pressed.connect(func():
@@ -40,7 +40,7 @@ func _build_heroes(s: Sheet) -> void:
 			lobby.show_hero(hid)
 			refresh()
 			s.rebuild())
-		if Game.can_upgrade(id):
+		if h["unlocked"] and Game.talent_points(id) > 0:
 			var dot := PanelContainer.new()
 			dot.theme_type_variation = &"Badge"
 			dot.custom_minimum_size = Vector2(20, 20)
@@ -77,7 +77,7 @@ func _build_heroes(s: Sheet) -> void:
 		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tb.custom_minimum_size = Vector2(0, 64)
 		tb.text = t[1]
-		if t[0] == "progress" and (Game.can_upgrade(id2) or Game.talent_points(id2) > 0):
+		if t[0] == "progress" and Game.talent_points(id2) > 0:
 			tb.text += " •"
 		var tid: String = t[0]
 		tb.pressed.connect(func():
@@ -174,50 +174,6 @@ func _hero_progress(s: Sheet, id2: String) -> void:
 	var b := s.body
 	var d2: Dictionary = DB.HEROES[id2]
 	var h2 := Game.hero(id2)
-	var uc := _card()
-	var uv := VBoxContainer.new()
-	var cost := Game.upgrade_cost(id2)
-	if cost.is_empty():
-		uv.add_child(Ui.label("Max level", "Heading", HORIZONTAL_ALIGNMENT_CENTER))
-	else:
-		var top := _row([Ui.label("Level %d → %d" % [int(h2["level"]), int(h2["level"]) + 1], "Heading"), _spacer(), Ui.label("+%d%% health and damage" % int(DB.LEVEL_POWER * 100.0), "Small")])
-		uv.add_child(top)
-		var ready_up: bool = int(h2["shards"]) >= int(cost["shards"])
-		var pb := ProgressBar.new()
-		pb.theme_type_variation = &"ProgressBar" if ready_up else &"XPBar"
-		pb.custom_minimum_size = Vector2(0, 30)
-		pb.max_value = cost["shards"]
-		pb.value = mini(int(h2["shards"]), cost["shards"])
-		pb.show_percentage = false
-		var pl := Ui.label("Ready" if ready_up else "%d / %d shards" % [int(h2["shards"]), cost["shards"]], "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
-		pl.add_theme_font_size_override("font_size", 19)
-		pl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		pb.add_child(pl)
-		uv.add_child(pb)
-		var ub := Button.new()
-		ub.theme_type_variation = "GoldButton"
-		ub.text = "Upgrade · %d gold" % cost["gold"]
-		# Say what is missing rather than showing a dead button.
-		if not ready_up:
-			ub.text = "Need %d more shards · win hunts as %s" % [int(cost["shards"]) - int(h2["shards"]), d2["name"]]
-			ub.theme_type_variation = "CardButton"
-			ub.icon = null
-		elif Game.gold() < int(cost["gold"]):
-			ub.text = "Need %s more gold" % Ui.fmt_num(int(cost["gold"]) - Game.gold())
-			ub.theme_type_variation = "CardButton"
-		ub.icon = Ui.icon("upgrade")
-		ub.custom_minimum_size = Vector2(0, 84)
-		ub.focus_mode = Control.FOCUS_NONE
-		ub.disabled = not Game.can_upgrade(id2)
-		ub.pressed.connect(func():
-			if Game.upgrade(id2):
-				Sfx.play("levelup", 0.0)
-				lobby.show_hero(id2)
-				s.rebuild())
-		uv.add_child(ub)
-	uc.add_child(uv)
-	b.add_child(uc)
 	# Mastery and rating: progress that every hunt with this hero moves.
 	var mc := _card()
 	var mv := VBoxContainer.new()
@@ -320,7 +276,7 @@ func _build_talents(s: Sheet) -> void:
 	var id := _shown_hero
 	var d: Dictionary = DB.HEROES[id]
 	var pts := Game.talent_points(id)
-	var head := _row([Ui.label("%s · Level %d" % [d["name"], int(Game.hero(id)["level"])], "Heading"), _spacer()])
+	var head := _row([Ui.label("%s · Combat %d" % [d["name"], Game.combat_level(id)], "Heading"), _spacer()])
 	var chip := PanelContainer.new()
 	chip.theme_type_variation = &"Chip"
 	chip.add_child(Ui.label("%d point%s" % [pts, "" if pts == 1 else "s"], "Value"))
@@ -340,7 +296,7 @@ func _build_talents(s: Sheet) -> void:
 		s.rebuild())
 	head.add_child(reset)
 	b.add_child(head)
-	var note := Ui.label("Each level gives a point. Every node needs the one above it. The first reset is free; after that it costs gold.", "Small")
+	var note := Ui.label("Every %d combat levels give a point. Every node needs the one above it. The first reset is free; after that it costs gold." % DB.TALENT_COMBAT_STEP, "Small")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(note)
 	var cols := HBoxContainer.new()
@@ -414,24 +370,28 @@ func _talent_node(s: Sheet, id: String, pi: int, ni: int, n: Dictionary) -> Butt
 
 func _build_skills(s: Sheet) -> void:
 	var b := s.body
-	var levels := Game.skill_levels()
+	var id := _shown_hero
+	var levels := Game.skill_levels(id)
+	# Only the skills this hero's style trains; the rest stay at their floor.
+	var trained: Array = DB.STYLE_SKILLS[DB.HEROES[id]["skill"]]
 	var total := 0
-	for k in levels:
+	for k in trained:
 		total += int(levels[k])
 	var head := _card()
 	var hr := _row([_disc("crossed-swords", Color(0.95, 0.75, 0.35), 84)], 18)
 	var hv := VBoxContainer.new()
 	hv.add_theme_constant_override("separation", 0)
-	var cl := Ui.label("Combat level %d" % Game.combat_level(), "Heading")
+	var cl := Ui.label("Combat level %d" % Game.combat_level(id), "Heading")
 	hv.add_child(cl)
 	hv.add_child(Ui.label("Total level %d · 99 is the top" % total, "Small"))
+	hv.add_child(Ui.label("%d shards · %d rub an XP lamp" % [int(Game.hero(id)["shards"]), DB.LAMP_SHARDS], "Small"))
 	hr.add_child(hv)
 	head.add_child(hr)
 	b.add_child(head)
 	var grid := GridContainer.new()
 	grid.columns = 2
-	for sk in DB.SKILLS:
-		var xp := int(Game.data["skills"][sk])
+	for sk in trained:
+		var xp := Game.skill_xp(sk, id)
 		var lvl := DB.level_for_xp(xp)
 		var c := _card()
 		var v := VBoxContainer.new()
@@ -459,10 +419,24 @@ func _build_skills(s: Sheet) -> void:
 		perk.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0))
 		perk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(perk)
+		# XP lamps: shards from chests and duplicates turn into skill XP.
+		var lamp := Button.new()
+		lamp.theme_type_variation = "CardButton"
+		lamp.text = "Lamp · +%s xp" % Ui.fmt_num(Game.lamp_xp(id, sk))
+		lamp.custom_minimum_size = Vector2(0, 56)
+		lamp.focus_mode = Control.FOCUS_NONE
+		lamp.disabled = not Game.can_rub_lamp(id)
+		var skn: String = sk
+		lamp.pressed.connect(func():
+			if Game.rub_lamp(id, skn):
+				Sfx.play("skill_level", -4.0)
+				refresh()
+				s.rebuild())
+		v.add_child(lamp)
 		c.add_child(v)
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(c)
 	b.add_child(grid)
-	var note := Ui.label("Damage you deal trains your skills: melee heroes train Attack, Strength and Defence; the Ranger trains Ranged; the Mage trains Magic. Hitpoints always trains.", "Small")
+	var note := Ui.label("Skills are a hero's power. Each hero trains their own with the damage they deal, and skills unlock better gear. Combat level earns talent points. Shards rub XP lamps.", "Small")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(note)

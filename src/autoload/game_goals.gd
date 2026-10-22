@@ -225,17 +225,13 @@ func claim_season() -> Dictionary:
 	return rw
 
 
-## The nearest goal worth chasing, for the camp ("12 shards to level 6").
+## The nearest goal worth chasing, for the camp ("An XP lamp is ready").
 func next_goal() -> String:
 	var id := hero_id()
-	var c := upgrade_cost(id)
-	if not c.is_empty():
-		var need_s := int(c["shards"]) - int(hero(id)["shards"])
-		var need_g := int(c["gold"]) - gold()
-		if need_s <= 0 and need_g <= 0:
-			return "Level %d is ready: upgrade in Heroes" % (int(hero(id)["level"]) + 1)
-		if need_s > 0 and need_s <= 30:
-			return "%d shards to level %d" % [need_s, int(hero(id)["level"]) + 1]
+	if can_rub_lamp(id):
+		return "An XP lamp is ready: rub it in Skills"
+	if talent_points(id) > 0:
+		return "A talent point to spend in Heroes"
 	var t := mode_tier_unlocked()
 	if t < DB.TIERS.size() - 1 and tier() == t:
 		return "%s on %s to open %s" % ["Fell a Descent boss" if mode_id() == "descent" else "Win", DB.TIERS[t]["name"], DB.TIERS[t + 1]["name"]]

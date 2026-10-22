@@ -143,7 +143,8 @@ func _run_bot(args: PackedStringArray) -> void:
 	var heroes := _arg(args, "hero", "knight").split(",")
 	var tier := int(_arg(args, "tier", "0"))
 	var idle := args.has("--idle")
-	var levels := int(_arg(args, "level", "1"))
+	# --skill=N: every skill the hero trains at level N.
+	var skill_lv := int(_arg(args, "skill", "1"))
 	var zone := _arg(args, "zone", "barrow")
 	var mode := _arg(args, "mode", "horde")
 	var ok := true
@@ -152,10 +153,11 @@ func _run_bot(args: PackedStringArray) -> void:
 	var gear := int(_arg(args, "gear", "-1"))
 	for hid in heroes:
 		Game.hero(hid)["unlocked"] = true
-		Game.hero(hid)["level"] = levels
+		for sk in DB.STYLE_SKILLS[DB.HEROES[hid]["skill"]]:
+			Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(skill_lv))
 		if gear >= 0:
 			for sk in DB.SKILLS:
-				Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[gear])))
+				Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(int(GearDB.REQ[gear])))
 			for slot in DB.SLOTS:
 				var it := Game.grant_item(Game.make_item(hid, slot, gear, "rare"))
 				Game.equip(hid, int(it["uid"]))
@@ -191,7 +193,7 @@ func _run_bot(args: PackedStringArray) -> void:
 							h._abandon()).call()
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
-			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards])
+			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s xp=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards, res["xp"]])
 			if idle and res["win"]:
 				ok = false
 			h.queue_free()
@@ -224,8 +226,11 @@ func _capture(args: PackedStringArray) -> void:
 		Game.data["tier_unlocked"] = DB.TIERS.size() - 1
 		Game.data["mode_tiers"][Game.data["mode"]] = DB.TIERS.size() - 1
 		Game.data["zone"] = _arg(args, "zone", "barrow")
-	for s in DB.SKILLS:
-		Game.data["skills"][s] = DB.xp_for_level({"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s])
+	# Each hero trained apart, so the shots show different combat levels.
+	for h2 in DB.HERO_ORDER:
+		for s in DB.SKILLS:
+			var base: int = {"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s]
+			Game.skills(h2)[s] = DB.xp_for_level(base - 7 * DB.HERO_ORDER.find(h2))
 	Game.data["log"] = {"tooth": 3, "sigil": 1, "cleaver": 1}
 	for i in 5:
 		Game.grant_item(Game.roll_item("chest", 1, "", hid))
@@ -238,7 +243,7 @@ func _capture(args: PackedStringArray) -> void:
 	var mat := int(_arg(args, "mat", "-1"))
 	if mat >= 0:
 		for sk in DB.SKILLS:
-			Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[mat])))
+			Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(int(GearDB.REQ[mat])))
 		for slot in DB.SLOTS:
 			var mk := Game.make_item(hid, slot, mat, "rare")
 			# --set=hexer: the boss set's look; --look=N: a stage's Nth alternative.
@@ -283,7 +288,6 @@ func _capture(args: PackedStringArray) -> void:
 					Game.data["road"] = 1
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 				if shot == "talents":
-					Game.hero(hid)["level"] = 12
 					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
 						Game.learn_talent(hid, n[0], n[1])
 				_set_screen_now("lobby")

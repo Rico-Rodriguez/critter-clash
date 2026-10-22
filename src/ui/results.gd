@@ -316,7 +316,7 @@ func _skill_row(sk: String, gained: int, lv: Dictionary) -> Control:
 	l.add_theme_font_size_override("font_size", 22)
 	row.add_child(l)
 	# A thin bar toward the next level, so the grind is visible.
-	var from_xp := int(Game.data["skills"][sk]) - gained
+	var from_xp := Game.skill_xp(sk) - gained
 	var bar := ProgressBar.new()
 	bar.theme_type_variation = "XPBar"
 	bar.show_percentage = false
@@ -339,8 +339,8 @@ func _advice(r: Dictionary, tier: Dictionary) -> void:
 		if e["hero"] == id and Game.is_better(e["item"], id) and Game.owner_of(int(e["item"]["uid"])) != id:
 			_note("Equip the upgrades you found above", col, "breastplate")
 			return
-	if Game.can_upgrade(id):
-		_note("The %s can level up in Heroes: more health and damage" % DB.HEROES[id]["name"], col, "upgrade")
+	if Game.can_rub_lamp(id):
+		_note("Rub an XP lamp in Skills: skills are the %s's health and damage" % DB.HEROES[id]["name"], col, "upgrade")
 		return
 	var pw := Game.power_score(id)
 	var rec := int(tier["power"])

@@ -94,14 +94,12 @@ const HEROES := {
 }
 const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
 
-## Past level 10 a level is worth less raw power (LEVEL_POWER_LATE) but still
-## gives a talent point (see TalentDB).
+## Hero levels bought with shards and gold are gone: skills are a hero's power
+## now. These tables only price the refund old saves get (Game._refund_levels).
 const HERO_MAX_LEVEL := 20
 ## Shards and gold to go from level n to n+1 (index = current level).
 const UPGRADE_SHARDS := [0, 6, 12, 20, 32, 48, 70, 100, 140, 200, 240, 280, 330, 390, 460, 540, 630, 730, 840, 960]
 const UPGRADE_GOLD := [0, 60, 140, 280, 500, 800, 1200, 1800, 2700, 4000, 5500, 7000, 9000, 11500, 14500, 18000, 22000, 27000, 33000, 40000]
-const LEVEL_POWER := 0.09
-const LEVEL_POWER_LATE := 0.04
 
 # --- Enemies -------------------------------------------------------------
 # ai: melee (walk up, wind up, swing), ranged (keep distance, aimed bolt),
@@ -450,10 +448,10 @@ const CARDS := {
 const ALLY_DMG := 0.45
 ## Card banishes per hunt: remove a card from this hunt's pool for good.
 const BANISHES := 3
-## Hero level that adds a fourth level-up choice, and one that adds a second
+## Combat level that adds a fourth level-up choice, and one that adds a second
 ## potion charge.
-const FOURTH_CARD_LEVEL := 15
-const SECOND_POTION_LEVEL := 20
+const FOURTH_CARD_COMBAT := 70
+const SECOND_POTION_COMBAT := 95
 const CARD_WEIGHT := {"common": 10.0, "rare": 6.0, "epic": 3.2, "legendary": 0.8}
 
 ## All foe definitions, base and extra.
@@ -649,12 +647,35 @@ const SKILL_NAME := {"attack": "Attack", "strength": "Strength", "defence": "Def
 const SKILL_ICON := {"attack": "crossed-swords", "strength": "strong", "defence": "checked-shield", "hitpoints": "heart-organ", "ranged": "high-shot", "magic": "magic-swirl"}
 const SKILL_PERK := {
 	"attack": "+0.6% attack speed per level",
-	"strength": "+1% melee damage per level",
+	"strength": "+4.5% melee damage per level (1.5% past 41)",
 	"defence": "+0.4% damage reduction per level",
-	"hitpoints": "+1% health per level",
-	"ranged": "+1% bow damage per level",
-	"magic": "+1% spell damage per level",
+	"hitpoints": "+4.5% health per level (1.5% past 50)",
+	"ranged": "+4.5% bow damage (1.5% past 41), +0.6% speed per level",
+	"magic": "+4.5% spell damage (1.5% past 41), +0.6% speed per level",
 }
+## The skills each style trains. Every one gets a third of the hunt's XP, so
+## all heroes level at the same pace: Ranged and Magic do the work of Attack
+## and Strength together.
+const STYLE_SKILLS := {
+	"melee": ["attack", "strength", "defence", "hitpoints"],
+	"ranged": ["ranged", "defence", "hitpoints"],
+	"magic": ["magic", "defence", "hitpoints"],
+}
+## The skills are the hero's whole power (OSRS: no character level). Damage
+## and health grow SKILL_EARLY per level for the first SKILL_KNEE levels (about
+## what bought levels used to give), then SKILL_LATE so 99 is not runaway.
+const SKILL_EARLY := 0.045
+const SKILL_LATE := 0.015
+const SKILL_KNEE := 40
+const SKILL_SPEED := 0.006
+const SKILL_ARMOR := 0.004
+## Talent points: one per this many combat levels above 3, up to the cap.
+const TALENT_COMBAT_STEP := 5
+const TALENT_MAX := 19
+## XP lamps: shards rubbed into a skill, worth this much XP per shard per
+## level of the skill (OSRS lamps scale with level too).
+const LAMP_SHARDS := 10
+const LAMP_XP := 5
 ## Skill XP per point of damage dealt.
 const XP_PER_DAMAGE := 0.16
 
@@ -679,11 +700,19 @@ static func level_for_xp(xp: int) -> int:
 	return lvl
 
 
+## Damage or health multiplier from a skill at `level`, counted from `floor`.
+static func skill_mult(level: int, floor_lv := 1) -> float:
+	var l := maxi(level - floor_lv, 0)
+	return 1.0 + SKILL_EARLY * mini(l, SKILL_KNEE) + SKILL_LATE * maxi(l - SKILL_KNEE, 0)
+
+
 static func combat_level(levels: Dictionary) -> int:
 	var base: float = 0.25 * (int(levels.get("defence", 1)) + int(levels.get("hitpoints", 10)))
 	var melee: float = 0.325 * (int(levels.get("attack", 1)) + int(levels.get("strength", 1)))
-	var rng: float = 0.325 * floor(1.5 * int(levels.get("ranged", 1)))
-	var mag: float = 0.325 * floor(1.5 * int(levels.get("magic", 1)))
+	# OSRS counts Ranged and Magic 1.5x; here one of them stands in for Attack
+	# and Strength together, so 2x keeps every hero's top combat level equal.
+	var rng: float = 0.325 * 2 * int(levels.get("ranged", 1))
+	var mag: float = 0.325 * 2 * int(levels.get("magic", 1))
 	return int(floor(base + maxf(melee, maxf(rng, mag))))
 
 
@@ -693,7 +722,7 @@ static func combat_level(levels: Dictionary) -> int:
 ## (stats scale with it). Costs grow with material and rarity.
 const REFORGE_GOLD := 60
 const TEMPER_GOLD := 220
-## Talent reset: the first is free, then this much per hero level.
+## Talent reset: the first is free, then this much per talent point earned.
 const RESPEC_GOLD := 90
 
 static func reforge_cost(it: Dictionary) -> int:

@@ -50,13 +50,14 @@ func setup(l: Node3D) -> void:
 
 func refresh() -> void:
 	%Gold.text = Ui.fmt_num(Game.gold())
-	%Combat.text = "Combat %d" % Game.combat_level()
 	var id := _shown_hero
+	%Combat.text = "Combat %d" % Game.combat_level(id)
 	var d: Dictionary = DB.HEROES[id]
 	var h := Game.hero(id)
 	%HeroName.text = d["name"]
 	%HeroTitle.text = "%s · %s · %s" % [Game.mastery_title(id), d["title"], d["role"]]
-	%HeroLevel.text = "Lv %d" % int(h["level"])
+	# The top chip shows this hero's combat level; bought levels are gone.
+	%HeroLevel.get_parent().visible = false
 	%Power.text = "Power %d · Rating %d" % [Game.power_score(id), int(h.get("rating", 0))]
 	var locked := not bool(h["unlocked"])
 	%Hunt.disabled = locked
@@ -145,7 +146,7 @@ func _coach() -> void:
 		["camp_hunt", not played, %Hunt, "Your first hunt", "Drag to move; you attack on your own. Survive the horde, pick a power each level, then beat the boss.", false],
 		["camp_chest", %Chest.visible, %Chest, "A chest!", "Your win earned it. Tap to open it.", true],
 		["camp_gear", played and Game.new_item_count() > 0, %NavBag, "New gear", "Put on what you found: better gear is the fastest way to grow.", false],
-		["camp_heroes", played and _any_upgrade(), %NavHeroes, "Level up", "A hero is ready to level up: more health and damage.", false],
+		["camp_heroes", played and _any_upgrade(), %NavHeroes, "Talent point", "Combat levels earn talent points. Spend them in Heroes.", false],
 	]:
 		if not bool(st[1]) or tips.has(st[0]):
 			continue
@@ -233,7 +234,7 @@ func camp_idle() -> bool:
 
 func _any_upgrade() -> bool:
 	for id in DB.HERO_ORDER:
-		if Game.can_upgrade(id):
+		if Game.hero(id)["unlocked"] and Game.talent_points(id) > 0:
 			return true
 	return false
 
@@ -327,7 +328,7 @@ func open_sheet(name_: String) -> void:
 			open_equipment()
 			return
 		"skills":
-			_sheet.open("Skills", _build_skills)
+			_sheet.open("%s · Skills" % DB.HEROES[_shown_hero]["name"], _build_skills)
 		"talents":
 			_sheet.open("Talents", _build_talents)
 		"road":

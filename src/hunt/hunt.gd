@@ -95,7 +95,7 @@ func _ready() -> void:
 		finished.emit(result))
 	hud.abandon_pressed.connect(_abandon)
 	for s in DB.SKILLS:
-		_skill_base[s] = int(Game.data["skills"][s])
+		_skill_base[s] = Game.skill_xp(s, hero_id)
 		_skill_shown[s] = DB.level_for_xp(_skill_base[s])
 	if bot:
 		_bot = HuntBot.new()

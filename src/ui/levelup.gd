@@ -93,7 +93,7 @@ func _card(id: String) -> Control:
 	var col := DB.rarity_color(rarity)
 	var have := int(_hunt.cards.get(id, 0))
 	var b := Button.new()
-	# Four choices (hero level 15+) need narrower cards to fit a phone.
+	# Four choices (combat 70+) need narrower cards to fit a phone.
 	b.custom_minimum_size = Vector2(212 if _choices.size() <= 3 else 160, 360)
 	b.focus_mode = Control.FOCUS_NONE
 	var n := StyleBoxFlat.new()
