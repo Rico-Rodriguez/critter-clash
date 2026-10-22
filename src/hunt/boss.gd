@@ -31,6 +31,8 @@ var def: Dictionary
 ## How close the boss wants to stand, and how near before it backs away.
 var keep_dist := 3.2
 var retreat_dist := 0.0
+## Seconds left stunned and open to extra damage (DB.EXPOSED).
+var exposed_t := 0.0
 
 
 func setup(h: Hunt, tier: Dictionary) -> void:
@@ -40,7 +42,7 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	var aura: Color = d["color"]
 	display_name = d["name"]
 	title = d["title"]
-	max_hp = d["hp"] * tier["hp"]
+	max_hp = d["hp"] * tier["hp"] * (1.0 + DB.RUN_BOSS_HP * (hunt.run_level - 1))
 	hp = max_hp
 	dmg = d["dmg"] * tier["dmg"]
 	speed = d["speed"]
@@ -101,6 +103,7 @@ func tick(dt: float) -> void:
 			position.y -= dt * 0.6
 		return
 	tick_common(dt)
+	exposed_t -= dt
 	state_t -= dt
 	if state == "intro":
 		if state_t <= 0.0:
@@ -111,13 +114,13 @@ func tick(dt: float) -> void:
 		return
 	fight_t += dt
 	_tick_tier_moves(dt)
-	if not berserk and fight_t > 150.0 - 40.0 * hunt.tier_i:
+	if not berserk and fight_t > 150.0 - 30.0 * hunt.ai():
 		_berserk()
 	# The longer you kite, the more of his court arrives to cut you off.
 	if state == "chase" and fight_t > 10.0:
 		add_t -= dt
 		if add_t <= 0.0:
-			add_t = 20.0 - 4.0 * hunt.tier_i
+			add_t = 20.0 - 4.0 * minf(hunt.ai(), 2.5)
 			_call_court()
 	if not enraged and hp < max_hp * 0.5:
 		_enrage()
@@ -216,7 +219,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 			if step == 0 and step_t <= 0.0:
 				var ang := absf(angle_difference(rotation.y, atan2(to.x, to.z)))
 				if dist < 5.0 + hero.radius and ang < 1.15:
-					hunt.damage_hero(dmg * 1.1, self)
+					hunt.damage_hero(dmg * 1.1, self, 1.0)
 				hunt.fx.slash(flat_pos(), rotation.y, 5.2, 130, Color(0.5, 1.0, 0.75), false, 0.25)
 				hunt.fx.puff(flat_pos() + dir_of(rotation.y) * 3.0, Color(0.3, 0.27, 0.23, 0.6), 10, 2.0, 3.0)
 				hunt.shake(0.35)
@@ -225,7 +228,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 		"quake":
 			if step == 0 and step_t <= 0.0:
 				if dist < 5.6 + hero.radius * 0.5:
-					hunt.damage_hero(dmg * 1.3, self)
+					hunt.damage_hero(dmg * 1.3, self, 1.0)
 					hero.push(to.normalized(), 22.0)
 				hunt.fx.ring(flat_pos(), 6.2, Color(0.45, 1.0, 0.75), 0.55, 0.12)
 				hunt.fx.puff(flat_pos(), Color(0.3, 0.27, 0.23, 0.7), 18, 4.5, 4.0)
@@ -250,13 +253,16 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				hunt.fx.puff(flat_pos(), Color(0.3, 0.27, 0.23, 0.5), 2, 0.6, 1.5)
 				if not charge_hit and hero.flat_pos().distance_to(flat_pos()) < radius + hero.radius + 0.3:
 					charge_hit = true
-					hunt.damage_hero(dmg * 1.25, self)
+					hunt.damage_hero(dmg * 1.25, self, 1.0)
 					hero.push(charge_dir.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0), 18.0)
 				if step_t <= 0.0 or before.distance_to(position) > 0.05:
 					hunt.shake(0.4)
 					hunt.fx.ring(flat_pos(), 3.0, Color(0.45, 1.0, 0.75), 0.35)
 					Sfx.play("charge_land", -2.0)
 					_finish(1.0)
+					# Into the wall: dazed. Baiting the charge is the opening.
+					if before.distance_to(position) > 0.05:
+						expose(float(DB.EXPOSED["time"]))
 		"spears":
 			if step_t <= 0.0:
 				var volleys := 3 if enraged else 2
@@ -283,7 +289,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				while step - 1 < graves_at.size() and step - 1 <= idx:
 					var p: Vector3 = graves_at[step - 1]
 					if hero.flat_pos().distance_to(p) < 1.7 + hero.radius * 0.5:
-						hunt.damage_hero(dmg * 0.9, self)
+						hunt.damage_hero(dmg * 0.9, self, 0.6)
 					hunt.fx.bone_burst(p, 5, 6.0)
 					hunt.fx.puff(p, Color(0.3, 0.27, 0.23, 0.6), 6, 1.0, 2.5)
 					hunt.fx.burst(p, Color(0.5, 1.0, 0.75), 8, 5.0, 1.2)
@@ -305,18 +311,18 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 ## Harder tiers teach every boss more: Veteran adds a ring of blasts closing
 ## on the hero, Nightmare a fan of three lanes from the boss.
 func _tick_tier_moves(dt: float) -> void:
-	if hunt.tier_i < 1:
+	if hunt.ai() < 1.0:
 		return
 	_ring_t -= dt
 	if _ring_t <= 0.0:
-		_ring_t = 14.0 - 2.0 * (hunt.tier_i - 1)
+		_ring_t = 14.0 - 2.0 * (hunt.ai() - 1.0)
 		var col: Color = def["color"]
 		var at := hunt.hero.flat_pos()
 		hunt.hud.event("Ring of ruin", Color(col).lightened(0.2), "fire-ring")
 		for i in 6:
 			var a := TAU * i / 6.0
 			hunt.blast_at(hunt.arena.resolve(at + Vector3(sin(a), 0, cos(a)) * 4.0, 0.4), 2.0, 1.1 + i * 0.12, dmg * 0.6, "", col)
-	if hunt.tier_i < 2:
+	if hunt.ai() < 2.0:
 		return
 	_lanes_t -= dt
 	if _lanes_t <= 0.0:
@@ -329,13 +335,27 @@ func _tick_tier_moves(dt: float) -> void:
 
 ## A handful of the dead climb out around the hero: bigger and faster with the tier.
 func _call_court() -> void:
-	var n := 3 + 2 * hunt.tier_i
+	var n := 3 + int(2.0 * hunt.ai())
 	for i in n:
 		var a := TAU * i / n + randf() * 0.4
 		var at := hunt.arena.resolve(hunt.hero.flat_pos() + Vector3(sin(a), 0, cos(a)) * randf_range(5.0, 8.0), 0.6)
 		if hunt.foes.size() < Hunt.MAX_FOES:
-			hunt.spawn_foe("hound" if (hunt.tier_i >= 1 and i % 3 == 0) else "minion", at)
+			hunt.spawn_foe("hound" if (hunt.ai() >= 1.0 and i % 3 == 0) else "minion", at)
 	Sfx.play("aggro", -8.0)
+
+
+## Stunned and taking extra damage for `t` seconds.
+func expose(t: float) -> void:
+	exposed_t = t
+	stun_t = maxf(stun_t, t)
+	_clear_tele()
+	state = "chase"
+	cd = t + 0.3
+	play("Hit_A", 0.1, 0.5, true)
+	hunt.fx.text(flat_pos() + Vector3(0, 2.5, 0), "Exposed!", Color(1.0, 0.85, 0.3), 1.4, 1.2)
+	hunt.fx.ring(flat_pos(), radius + 1.2, Color(1.0, 0.85, 0.3), t, 0.1)
+	hunt.hud.event("%s is exposed" % display_name, Color(1.0, 0.85, 0.3), "bullseye")
+	Sfx.play("shield_break", -2.0, 0.7)
 
 
 func _finish(recover: float) -> void:
@@ -365,7 +385,7 @@ func _berserk() -> void:
 func _enrage() -> void:
 	enraged = true
 	set_tint(Color(1.0, 0.25, 0.2, 0.45))
-	hunt.banner("%s is enraged!" % display_name, Color(1.0, 0.4, 0.3))
+	hunt.banner("%s is enraged!" % display_name, Color(1.0, 0.4, 0.3), str(def.get("enrage_line", "")))
 	hunt.shake(0.5)
 	Sfx.play("boss_roar", 0.0, 0.85)
 	hunt.fx.ring(flat_pos(), 6.0, Color(1.0, 0.3, 0.2), 0.6)

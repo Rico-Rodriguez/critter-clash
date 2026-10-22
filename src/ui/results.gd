@@ -1,7 +1,8 @@
 extends Control
 ## End of hunt: what you earned, what you levelled, what you found.
 
-signal closed
+## `again`: straight into another hunt with the same setup.
+signal closed(again: bool)
 
 
 func open(r: Dictionary) -> void:
@@ -21,6 +22,8 @@ func open(r: Dictionary) -> void:
 		%Sub.text = "Endless Descent · " + %Sub.text
 	elif str(r.get("mode", "horde")) == "rush":
 		%Sub.text = "Boss Rush · " + %Sub.text
+	elif str(r.get("mode", "horde")) == "rift":
+		%Sub.text = "Rift · " + %Sub.text
 	elif wild:
 		%Sub.text = "The Wilderness · " + %Sub.text
 		%Title.text = "Last band standing" if win else "Placed %d of %d" % [int(r["place"]), int(r["rivals"]) + 1]
@@ -51,14 +54,13 @@ func open(r: Dictionary) -> void:
 	if items.is_empty():
 		%LootTitle.text = "No loot this time"
 	for it in items:
-		%Loot.add_child(_loot_row(it, str(r["hero"])))
+		%Loot.add_child(_loot_row(it, str(it.get("cls", r["hero"])) if it["slot"] in DB.SLOTS else str(r["hero"]), str(r["hero"])))
 	_refresh_upgrades()
 	# Rewards that wait in camp.
 	if descent and bool(s.get("record", false)):
 		_note("New deepest descent for the %s" % DB.HEROES[r["hero"]]["name"], Color(1.0, 0.85, 0.4), "trophy")
 	if (win or descent or wild) and str(r.get("chest", "")) != "":
-		var c: Dictionary = DB.CHESTS[r["chest"]]
-		_note("%s earned — open it in camp" % c["name"], c["color"], "locked-chest")
+		_chest_card(str(r["chest"]))
 	var ut := int(s.get("unlocked_tier", -1))
 	if ut >= 0:
 		_note("%s difficulty unlocked" % DB.TIERS[ut]["name"], DB.TIERS[ut]["color"], "padlock-open")
@@ -67,7 +69,20 @@ func open(r: Dictionary) -> void:
 		_note("%s joins your band" % DB.HEROES[uh]["name"], DB.HEROES[uh]["color"], DB.HEROES[uh]["icon"])
 	var rn := int(s.get("renown", 0))
 	if rn > 0:
-		_note("+%d renown" % rn, Color(0.95, 0.8, 0.5), "trophy")
+		_road_bar(rn)
+	if bool(s.get("first_win", false)):
+		_note("First win of the day: double gold, better chest", Color(1.0, 0.85, 0.35), "sun")
+	var ms: Dictionary = s.get("mastery", {})
+	for title in ms.get("titles", []):
+		_note("Mastery rank: %s %s" % [DB.HEROES[r["hero"]]["name"], title], Color(1.0, 0.8, 0.35), "round-star")
+	var rt: Dictionary = s.get("rating", {})
+	if not rt.is_empty():
+		var d := int(rt["delta"])
+		_note("Rating %s%d → %d%s" % ["+" if d >= 0 else "", d, int(rt["rating"]), (" · milestone +%d gold" % int(rt["milestone_gold"])) if int(rt["milestone_gold"]) > 0 else ""], Color(0.6, 0.9, 1.0) if d >= 0 else Color(0.85, 0.6, 0.55), "trophy")
+	if bool(s.get("rift_key", false)):
+		_note("A rift key! Open it from the Expedition", Color(0.6, 0.85, 1.0), "crystal-shine")
+	if int(s.get("achievements", 0)) > 0:
+		_note("%d feat%s ready to claim in camp" % [int(s["achievements"]), "" if int(s["achievements"]) == 1 else "s"], Color(1.0, 0.82, 0.35), "trophy")
 	var cl: Dictionary = s.get("clue", {})
 	match str(cl.get("event", "")):
 		"found":
@@ -80,8 +95,12 @@ func open(r: Dictionary) -> void:
 		_note("Weekly omen: bonus paid", Color(0.8, 0.6, 1.0), "moon")
 	%Continue.pressed.connect(func():
 		Sfx.play("ui_press", -2.0)
-		closed.emit())
+		closed.emit(false))
+	%Again.pressed.connect(func():
+		Sfx.play("ui_press", 0.0)
+		closed.emit(true))
 	%Continue.disabled = true
+	%Again.disabled = true
 	Ui.pop_in(%Panel, 0.0, 0.9)
 	Ui.pop_in(%Title, 0.15, 1.4)
 	_run_counts()
@@ -114,6 +133,9 @@ func _apply_counts(t: float) -> void:
 	for sk in _skill_labels:
 		var e: Dictionary = _skill_labels[sk]
 		(e["xp"] as Label).text = "+%s xp" % Ui.fmt_num(int(round(float(e["gained"]) * k)))
+		(e["bar"] as ProgressBar).value = _level_frac(int(e["from_xp"]) + int(round(float(e["gained"]) * k))) * 100.0
+	if _road:
+		_road.value = lerpf(float(_road.get_meta("from")), float(_road.get_meta("to")), k) * 100.0
 	var now := Time.get_ticks_msec() / 1000.0
 	if t < 1.0 and now - _last_tick > 0.07 and _gold and int(_gold.text.trim_prefix("+")) > 0:
 		_last_tick = now
@@ -136,6 +158,7 @@ func _finish_counts() -> void:
 			Ui.pop_in(l, 0.0, 1.6)
 			Sfx.play("skill_level", -6.0)
 	%Continue.disabled = false
+	%Again.disabled = false
 
 
 func _input(e: InputEvent) -> void:
@@ -148,8 +171,70 @@ var _rows: Array = []
 var _skill_labels := {}
 
 
-## One loot line; gear that beats what the hero wears gets an Equip button.
-func _loot_row(it: Dictionary, hero_id: String) -> Control:
+## Fraction of the way through the current skill level at a total xp.
+func _level_frac(xp: int) -> float:
+	var lv := DB.level_for_xp(xp)
+	if lv >= 99:
+		return 1.0
+	var lo := DB.xp_for_level(lv)
+	return float(xp - lo) / float(DB.xp_for_level(lv + 1) - lo)
+
+
+var _road: ProgressBar
+
+
+## The chest, big: the thing a win is for.
+func _chest_card(kind: String) -> void:
+	var c: Dictionary = DB.CHESTS[kind]
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 0)
+	var ic := Ui.icon_rect("locked-chest", 96, c["color"])
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	var l := Ui.label(str(c["name"]), "Heading", HORIZONTAL_ALIGNMENT_CENTER)
+	l.add_theme_color_override("font_color", Color(c["color"]).lightened(0.2))
+	v.add_child(l)
+	v.add_child(Ui.label("Waiting in camp", "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+	%Notes.add_child(v)
+	%Notes.move_child(v, 0)
+	Ui.pop_in(ic, 0.9, 1.3)
+
+
+## Renown earned, as the road bar filling toward its next reward.
+func _road_bar(gained: int) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.add_child(Ui.icon_rect("trophy", 30, Color(0.95, 0.8, 0.5)))
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 2)
+	var steps := Game.road_claimable()
+	var t := "Renown +%d · %s" % [gained, "reward ready in camp" if steps > 0 else "next: " + Game.road_reward_text(int(Game.data["road"]) + 1)]
+	var l := Ui.label(t, "Body")
+	l.add_theme_color_override("font_color", Color(0.95, 0.82, 0.55))
+	v.add_child(l)
+	_road = ProgressBar.new()
+	_road.theme_type_variation = "XPBar"
+	_road.show_percentage = false
+	_road.custom_minimum_size = Vector2(0, 12)
+	var before := Game.renown() - gained
+	var from := Game.road_fill_for(before)
+	var to := Game.road_fill_for(Game.renown())
+	# Crossing a step: fill to the end; the reward waits in camp.
+	if to < from:
+		to = 1.0
+	_road.set_meta("from", from)
+	_road.set_meta("to", to)
+	_road.value = from * 100.0
+	v.add_child(_road)
+	row.add_child(v)
+	%Notes.add_child(row)
+
+
+## One loot line. Gear that beats what its hero wears says whose it is and
+## gets an Equip button; `played` is the hero of this hunt.
+func _loot_row(it: Dictionary, hero_id: String, played := "") -> Control:
 	var col := DB.rarity_color(it["rarity"])
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -161,7 +246,7 @@ func _loot_row(it: Dictionary, hero_id: String) -> Control:
 	row.add_child(l)
 	var is_gear: bool = it["slot"] in DB.SLOTS and int(it.get("uid", 0)) > 0
 	if is_gear:
-		var up := Ui.label("▲", "Value")
+		var up := Ui.label("▲" if hero_id == played else "▲ %s" % DB.HEROES[hero_id]["name"], "Value")
 		up.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5))
 		row.add_child(up)
 		var eq := Button.new()
@@ -219,8 +304,19 @@ func _skill_row(sk: String, gained: int, lv: Dictionary) -> Control:
 	var l := Ui.label("Lv %d" % (int(lv["from"]) if not lv.is_empty() else level), "Value")
 	l.add_theme_font_size_override("font_size", 22)
 	row.add_child(l)
-	_skill_labels[sk] = {"xp": xp, "gained": gained, "level": l, "leveled": not lv.is_empty()}
-	return row
+	# A thin bar toward the next level, so the grind is visible.
+	var from_xp := int(Game.data["skills"][sk]) - gained
+	var bar := ProgressBar.new()
+	bar.theme_type_variation = "XPBar"
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 8)
+	bar.value = _level_frac(from_xp) * 100.0
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 4)
+	col.add_child(row)
+	col.add_child(bar)
+	_skill_labels[sk] = {"xp": xp, "gained": gained, "level": l, "leveled": not lv.is_empty(), "bar": bar, "from_xp": from_xp}
+	return col
 
 
 func _note(text: String, col: Color, ic: String) -> void:

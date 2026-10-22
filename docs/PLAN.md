@@ -949,27 +949,41 @@ Each item needs its own short plan (files, data, save keys with defaults in
 - Open: all of this was tuned with the autopilot only. Talent numbers, the
   Wilderness rivals, Descent scaling and the potion need a playtest on a phone.
 
-## Phase 11 — Premium feel, difficulty ladder, retention (proposals; ask first)
+## Phase 11 — Premium feel, difficulty ladder, retention (done)
 
-From `docs/audit-2026-10.md` (autopilot balance matrix, screenshots, economy
-math). Do 11.1–11.5 first: small, and they are what a new player sees.
+From `docs/audit-2026-10.md`. All of it shipped on the branch, plus a skill
+pass the audit underrated: stacked gear and cards made every tier AFK-able.
+See CHANGELOG 2026-10-24.
 
-- [ ] 11.1 Normal retune: boss HP +25%, soul goal ~150, earlier first surge
-- [ ] 11.2 Shards go to the hero played; recommended power on the expedition card
-- [ ] 11.3 Results: Play again, skill XP bars, big chest, hero-named upgrades
-- [ ] 11.4 Victory set piece: hide combat buttons, slow-mo kill, loot vacuum, readable labels
-- [ ] 11.5 Class starter outfits; Renown Road bar readable on a new save
-- [ ] 11.6 Fade props between camera and hero/boss
-- [ ] 11.7 Six-step tier ladder; soul goal scales per tier
-- [ ] 11.8 Gold sinks: reforge, material upgrade, paid respec
-- [ ] 11.9 Hero mastery track; first win of the day
-- [ ] 11.10 Boss kill counts, Hexer pet, dry-streak counter
-- [ ] 11.11 Evolution guarantee; card banishes
-- [ ] 11.12 Gear sets for the boss unique lines
-- [ ] 11.13 Music: Descent track, low-HP filter, victory sting
-- [ ] 11.14 Third zone: new faction and boss
-- [ ] 11.15 Game Center leaderboards and achievements (native rebuild)
-- [ ] 11.16 Season track (decide monetization first)
+- [x] 11.0 Skill over stats: mechanics through armor (% of max health), grave
+      eruptions, perfect dodge, steady aim, exposed bosses, armor curve, regen
+      and leech caps, tier healing cuts, foes scale with the hunt's level
+- [x] 11.1 Normal retune: boss HP +25%, 150 souls, first surge at 15%
+- [x] 11.2 Shards go to the hero played (75%); recommended power on the card
+- [x] 11.3 Results: Play again, skill XP bars, big chest, road bar, hero-named upgrades
+- [x] 11.4 Victory set piece: buttons hide, flash, camera on the fall, loot vacuum, big labels
+- [x] 11.5 Class starter outfits; Renown Road bar reads "0 / 60"
+- [x] 11.6 Tall props fade; foreground band half-fades
+- [x] 11.7 Eight-step tier ladder (Normal to Abyss); souls scale per tier
+- [x] 11.8 Gold sinks: reforge, temper, paid respec, weapon glows
+- [x] 11.9 Hero mastery, rating, first win of the day, login calendar, campfire
+- [x] 11.10 Boss kill counts, dry streaks, Hexling pet
+- [x] 11.11 Evolution at three stacks, banishes, signature legendaries, 4th card at 15
+- [x] 11.12 Gear sets (Regalia, Raiment, Barkbound) and ancients
+- [x] 11.13 Music: Descent, rift, Grove tracks; low-HP muffle
+- [x] 11.14 Third zone: the Hollow Grove, the Grove Cult, the Thornmother
+- [ ] 11.15 Game Center: blocked. The IPA is unsigned (AltStore); Game Center
+      needs an App Store provisioned entitlement. Feats are local for now.
+- [x] 11.16 Season track: free (no monetization in the game)
+
+Also done: rifts (Descent keys), the ritual event, a mini-boss brute, Long Road
+dark rooms / timed vaults / cursed altars, a companion hero, first-time tips,
+gold count-up in camp, the Descent darkening with depth.
+
+**Needs a human:** play Expert and up on a phone. The autopilot dodges
+telegraphs perfectly but never perfect-dodges on purpose; real players will
+find the eruption rate and the mechanic share either fair or too much. Tune
+`DB.ERUPTION` and `TIERS[*].mech` first.
 
 ## Next up
 

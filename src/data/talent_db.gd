@@ -176,7 +176,7 @@ static func describe(n: Dictionary) -> String:
 	if n.has("crit"):
 		parts.append("+%d%% crit chance" % int(round(float(n["crit"]) * 100.0)))
 	if n.has("armor"):
-		parts.append("+%d%% armor" % int(round(float(n["armor"]) * 100.0)))
+		parts.append("+%d armor" % int(round(float(n["armor"]) * 100.0)))
 	if n.has("regen"):
 		parts.append("Regen %.1f%%/s" % (float(n["regen"]) * 100.0))
 	if n.has("dash"):

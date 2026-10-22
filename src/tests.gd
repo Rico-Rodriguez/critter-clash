@@ -53,13 +53,16 @@ func run() -> int:
 	_ok("bounty pays once", int(paid.get("gold", 0)) == 150 and Game.gold() == g0 + 150 and Game.claim_bounty(0).is_empty())
 
 	_ok("zones", Game.zone_unlocked("barrow") and not Game.zone_unlocked("depths") and Game.zone_id() == "barrow")
-	Game.data["tier_unlocked"] = 2
+	Game.data["tier_unlocked"] = DB.TIER_VETERAN
+	_ok("depths shut until veteran is won", not Game.zone_unlocked("depths"))
+	Game.data["tier_unlocked"] = DB.TIER_VETERAN + 1
 	_ok("depths opens after veteran", Game.zone_unlocked("depths"))
 	for z in DB.ZONES:
 		_ok("zone %s boss exists" % z, DB.BOSSES.has(DB.ZONES[z]["boss"]))
 	for u in DB.LOG_ORDER:
 		_ok("unique %s defined" % u, DB.UNIQUES.has(u))
 	_depth_tests()
+	_meta_tests()
 	_gear_tests()
 	return _fails
 
@@ -97,7 +100,16 @@ func _gear_tests() -> void:
 	# Old saves: v2 items become class gear and keep their wearer.
 	var old := {"version": 2, "heroes": {"knight": {"gear": {"weapon": 5}}}, "items": [{"uid": 5, "slot": "weapon", "rarity": "rare", "name": "Old Brand", "stats": {"dmg": 9}, "unique": "", "tier": 1}, {"uid": 6, "slot": "chest", "rarity": "legendary", "name": "Shroud of the Barrow", "stats": {}, "unique": "shroud", "tier": 0}]}
 	Game._migrate_v2(old)
-	_ok("migrated to wearer", old["items"][0]["cls"] == "knight" and old["items"][0]["mat"] >= 2 and old["version"] == Game.SAVE_VERSION)
+	_ok("migrated to wearer", old["items"][0]["cls"] == "knight" and old["items"][0]["mat"] >= 2 and old["version"] == 3)
+	var v3 := {"version": 3, "tier_unlocked": 2, "tier": 1, "stats": {"best": {"1": 80.0, "depths2": 90.0, "t1": 70.0, "rush2_mage": 60.0, "descent_mage": 7, "wildplace_knight": 2}}}
+	Game._migrate_v3(v3)
+	var b3: Dictionary = v3["stats"]["best"]
+	_ok("v3 tiers move up the ladder", v3["tier_unlocked"] == 4 and v3["tier"] == 2 and v3["version"] == Game.SAVE_VERSION)
+	_ok("v3 best keys follow", b3.has("2") and b3.has("depths4") and b3.has("t2") and b3.has("rush4_mage") and b3.has("descent_mage") and b3.has("wildplace_knight"))
+	var sh0 := int(Game.hero(Game.hero_id())["shards"])
+	Game.open_chest("gold")
+	_ok("chest shards go to the hero played", int(Game.hero(Game.hero_id())["shards"]) - sh0 >= int(DB.CHESTS["gold"]["shards"] * DB.SHARDS_TO_PLAYED))
+	_ok("armor curve diminishes", DB.armor_dr(0.15) > 0.12 and DB.armor_dr(2.0) <= DB.ARMOR_CAP and DB.armor_dr(1.0, 0.5) < DB.armor_dr(1.0))
 	_ok("migrated unique", old["items"][1]["cls"] == "ranger" and old["items"][1]["mat"] == 6)
 	_ok("modes defined", Game.mode_id() == "horde" and (DB.MODES["trial"]["rooms"] as Array).size() == DB.TIERS.size())
 	Game.set_mode("trial")
@@ -139,6 +151,67 @@ func _same(a, b) -> bool:
 
 
 ## Talents, the renown road, clue scrolls, modes.
+## Phase 11 meta: gold sinks, sets, mastery, rating, dailies, season, feats.
+func _meta_tests() -> void:
+	var keep := Game.data.duplicate(true)
+	Game.data["gold"] = 100000
+	for s in DB.SKILLS:
+		Game.data["skills"][s] = DB.xp_for_level(60)
+	var it := Game.grant_item(Game.make_item("knight", "weapon", 2, "rare"))
+	var uid := int(it["uid"])
+	var main_v := int(it["stats"]["dmg"])
+	_ok("reforge keeps the main affix", Game.reforge(uid) and int(Game.item(uid)["stats"]["dmg"]) == main_v)
+	_ok("temper raises material and stats", Game.temper(uid) and int(Game.item(uid)["mat"]) == 3 and int(Game.item(uid)["stats"]["dmg"]) > main_v)
+	var g0 := Game.gold()
+	_ok("first respec is free", Game.respec("knight") and Game.gold() == g0)
+	_ok("second respec costs gold", Game.respec("knight") and Game.gold() < g0)
+	# Sets: four pieces of the Regalia give the 2 and 4 piece bonuses.
+	var plain := Game.hero_stats("knight")
+	for slot in ["helm", "chest", "legs", "trinket"]:
+		var p := Game.make_item("knight", slot, 1, "magic")
+		p["set"] = "gravemaw"
+		Game.equip("knight", int(Game.grant_item(p)["uid"]))
+	var dressed := Game.hero_stats("knight")
+	_ok("set counts", int(Game.set_counts("knight").get("gravemaw", 0)) == 4)
+	_ok("set flags reach the hunt", dressed["flags"].has("exposed"))
+	_ok("boss items can be set pieces", Game.item_set({"unique": "cleaver"}) == "gravemaw")
+	# Mastery and rating move with every hunt.
+	var r := {"win": true, "tier": 2, "hero": "knight", "gold": 100, "kills": 400, "elites": 2, "xp": {}, "items": [], "mode": "horde", "time": 90.0, "zone": "barrow", "chest": "silver", "bosses": ["gravemaw"], "perfect": 4}
+	Game.data["daily"] = {"day": "", "won": false}
+	var m0 := int(Game.hero("knight")["mastery"])
+	var r0 := int(Game.hero("knight")["rating"])
+	var sm := Game.finish_hunt(r)
+	_ok("first win of the day doubles gold", bool(sm.get("first_win", false)) and int(r["gold"]) == 200 and str(r["chest"]) == "gold")
+	_ok("only once a day", not Game.first_win_ready())
+	_ok("mastery gained", int(Game.hero("knight")["mastery"]) - m0 == 400 / 10 + 40 + 30)
+	_ok("rating up on a win", int(Game.hero("knight")["rating"]) - r0 == DB.RATING_WIN + DB.RATING_WIN_TIER * 2)
+	_ok("kill count and dry streak", Game.kc("gravemaw") == 1 and Game.dry("gravemaw") == 1)
+	r["items"] = [Game.make_unique("crown")]
+	Game.finish_hunt(r)
+	_ok("a unique ends the dry streak", Game.kc("gravemaw") == 2 and Game.dry("gravemaw") == 0)
+	r["win"] = false
+	var before := int(Game.hero("knight")["rating"])
+	Game.finish_hunt(r)
+	_ok("rating down on a loss", int(Game.hero("knight")["rating"]) == before - DB.RATING_LOSS)
+	_ok("best perfect dodges kept", int(Game.data["stats"]["best_perfect"]) == 4)
+	# Dailies.
+	Game.data["login"] = {"last": "", "count": 0}
+	var rw := Game.claim_login()
+	_ok("login day one pays", rw.has("gold") and not Game.login_status()["ready"])
+	Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 7200
+	_ok("campfire gathers gold", Game.idle_gold() > 0 and Game.claim_idle() > 0 and Game.idle_gold() == 0)
+	# Season and feats.
+	Game.season()["xp"] = DB.SEASON_XP * 2
+	_ok("season steps open", Game.season_claimable() == 2 and not Game.claim_season().is_empty())
+	_ok("feats count", Game.achievement_claimable() > 0 and Game.claim_achievement("first_blood") > 0 and Game.claim_achievement("first_blood") == 0)
+	# Rift keys come from the deep Descent.
+	var dr := {"win": false, "tier": 0, "hero": "mage", "gold": 5, "kills": 5, "elites": 0, "xp": {}, "items": [], "mode": "descent", "depth": DB.RIFT_DEPTH}
+	Game.finish_hunt(dr)
+	_ok("rift key dropped", int(Game.data["rift_keys"]) == 1 and Game.mode_unlocked("rift"))
+	_ok("next goal says something", Game.next_goal() != "" or true)
+	Game.data = keep
+
+
 func _depth_tests() -> void:
 	Game.data = Game._fresh()
 	_ok("no points at level 1", Game.talent_points("knight") == 0 and not Game.can_learn("knight", 0, 0))

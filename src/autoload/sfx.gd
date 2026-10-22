@@ -116,8 +116,25 @@ func refresh_volume() -> void:
 			p.volume_db = _music_db()
 
 
+var _ducked := false
+var _muffled := false
+
+
 ## Muffles the music (a low-pass on the Music bus) while a menu is open.
 func duck(on: bool) -> void:
+	_ducked = on
+	_apply_lowpass()
+
+
+## The same low-pass while the hero is close to death: the world goes dull.
+func muffle(on: bool) -> void:
+	if on == _muffled:
+		return
+	_muffled = on
+	_apply_lowpass()
+
+
+func _apply_lowpass() -> void:
 	if not _has_buses:
 		return
-	AudioServer.set_bus_effect_enabled(AudioServer.get_bus_index("Music"), 0, on)
+	AudioServer.set_bus_effect_enabled(AudioServer.get_bus_index("Music"), 0, _ducked or _muffled)

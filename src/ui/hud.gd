@@ -6,7 +6,8 @@ extends CanvasLayer
 signal dash_pressed
 signal super_pressed
 signal card_picked(id: String)
-signal results_closed
+## `again`: the player chose Play again rather than camp.
+signal results_closed(again: bool)
 signal abandon_pressed
 
 const LEVELUP := preload("res://src/ui/levelup.tscn")
@@ -129,6 +130,8 @@ func refresh(dt: float) -> void:
 	_hp_shown = lerpf(_hp_shown, hp_k, 1.0 - exp(-10.0 * dt))
 	%HP.value = _hp_shown * 100.0
 	%HPText.text = "%d" % ceili(hero.hp)
+	# The bar is the read; the number is small, and only matters when it's low.
+	%HPText.modulate.a = 0.75 if hp_k > 0.35 else 1.0
 	# The health bar rides under the hero's feet, where the eyes already are.
 	if not hunt.cam.is_position_behind(hero.global_position):
 		var sp := hunt.cam.unproject_position(hero.global_position)
@@ -145,6 +148,16 @@ func refresh(dt: float) -> void:
 	for bid: String in hero.buffs:
 		parts.append("%s %ds" % [DB.SHRINES[bid]["short"], ceili(float(hero.buffs[bid]) - hunt.time)])
 		bcol = DB.SHRINES[bid]["color"]
+	# The skill buffs: what you earned by playing well.
+	if hero.riposte_t > 0.0:
+		parts.append("Riposte %ds" % ceili(hero.riposte_t))
+		bcol = Color(0.55, 0.95, 1.0)
+	if hero.steady():
+		parts.append("Steady")
+		bcol = Color(1.0, 0.8, 0.35)
+	if hero.rampage > 0:
+		parts.append("Rampage +%d%%" % (3 * hero.rampage))
+		bcol = Color(1.0, 0.45, 0.3)
 	_buffs.visible = not parts.is_empty()
 	_buffs.text = "  ".join(parts)
 	_buffs.add_theme_color_override("font_color", bcol)
@@ -157,8 +170,8 @@ func refresh(dt: float) -> void:
 	%Super.is_ready = hero.super_ready()
 	%Dash.fill = 1.0 - clampf(hero.dash_cd / hero.dash_cd_max, 0.0, 1.0)
 	%Dash.is_ready = hero.dash_cd <= 0.0
-	%Potion.fill = 1.0 - clampf(hero.potion_cd / float(DB.POTION["cd"]), 0.0, 1.0)
-	%Potion.is_ready = hero.potion_cd <= 0.0
+	%Potion.fill = 1.0 if hero.potions > 0 else 1.0 - clampf(hero.potion_cd / float(DB.POTION["cd"]), 0.0, 1.0)
+	%Potion.is_ready = hero.potions > 0
 	if _boss and is_instance_valid(_boss):
 		%BossBar.value = clampf(_boss.hp / _boss.max_hp, 0.0, 1.0) * 100.0
 	# Hurt vignette: a flash on hits, a slow pulse under 30% health.
@@ -166,6 +179,7 @@ func refresh(dt: float) -> void:
 	var low := 0.0
 	if hp_k < 0.3 and hero.alive:
 		low = (0.3 - hp_k) / 0.3 * (0.45 + 0.25 * sin(hunt.time * 6.0))
+	Sfx.muffle(hp_k < 0.25 and hero.alive and hunt.phase in ["rise", "boss"])
 	(%Hurt.material as ShaderMaterial).set_shader_parameter("strength", maxf(_hurt, low))
 
 
@@ -246,6 +260,23 @@ func boss_mode(b: Boss) -> void:
 		Ui.pop_in(%BossBox, 0.0, 0.9)
 
 
+## The boss is dead: a white flash, and the combat buttons step aside so the
+## loot fountain owns the screen.
+func victory_mode() -> void:
+	%Stick.release()
+	var t := create_tween().set_ignore_time_scale(true)
+	t.tween_property(%Controls, "modulate:a", 0.0, 0.4)
+	t.tween_callback(func(): %Controls.visible = false)
+	var flash := ColorRect.new()
+	flash.color = Color(1.0, 0.97, 0.9, 0.85)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(flash)
+	var t2 := create_tween().set_ignore_time_scale(true)
+	t2.tween_property(flash, "color:a", 0.0, 0.6).set_ease(Tween.EASE_OUT)
+	t2.tween_callback(flash.queue_free)
+
+
 func show_levelup(choices: Array, level: int) -> void:
 	%Stick.release()
 	Sfx.duck(true)
@@ -305,4 +336,4 @@ func show_results(result: Dictionary) -> void:
 	var m := RESULTS.instantiate()
 	add_child(m)
 	m.open(result)
-	m.closed.connect(func(): results_closed.emit())
+	m.closed.connect(func(again: bool): results_closed.emit(again))

@@ -61,6 +61,10 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 		TrialLayout.build(self, trial_seed, trial_rooms)
 	elif zone_id == "depths":
 		DepthsLayout.build(self)
+	elif zone_id == "grove":
+		_paths()
+		_ground()
+		GroveLayout.build(self)
 	else:
 		_paths()
 		_ground()
@@ -204,6 +208,10 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if block > 0.0:
 		add_obstacle(Vector2(pos.x, pos.z), block * scale_)
+	# Anything solid and taller than the hero's waist can hide the fight: it
+	# fades too, without every caller having to say so.
+	if occlude <= 0.0 and block > 0.0 and size_of(path).y * scale_ > 1.2:
+		occlude = block + 0.3
 	if occlude > 0.0:
 		var meshes: Array = n.find_children("*", "MeshInstance3D", true, false)
 		if not meshes.is_empty():
@@ -229,7 +237,8 @@ func update_occlusion(points: Array, pitch_deg: float, dt: float) -> void:
 				continue
 			o["x"] = self_node.position.x
 			o["z"] = self_node.position.z
-		for q: Vector3 in points:
+		for i in points.size():
+			var q: Vector3 = points[i]
 			if self_node != null and q.distance_squared_to(self_node.position) < 0.01:
 				continue
 			var dz: float = o["z"] - q.z
@@ -237,6 +246,10 @@ func update_occlusion(points: Array, pitch_deg: float, dt: float) -> void:
 			if dz > -float(o["r"]) * 0.6 and dz < float(o["h"]) * reach + float(o["r"]) and dx < float(o["r"]) + 0.6:
 				want = float(o.get("fade", 0.72))
 				break
+			# Props in the band between the hero and the camera fill the bottom
+			# of the screen: half-fade them so the ground around the hero shows.
+			if i == 0 and self_node == null and dz > 1.5 and dz < 10.0 and dx < 5.5 and float(o["h"]) > 1.2:
+				want = maxf(want, 0.5)
 		var t: float = o["t"]
 		var nt := move_toward(t, want, dt * 4.0)
 		if absf(nt - t) > 0.004:

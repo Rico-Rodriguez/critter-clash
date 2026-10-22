@@ -32,6 +32,20 @@ var super_rate := 1.0
 var gold_mult := 1.0
 var leech := 0.0
 var thorns := 0.0
+## Leech heals at most DB.LEECH_CAP of max health a second; this refills.
+var leech_pool := 0.0
+## Seconds standing still (steady aim), seconds left of a perfect-dodge
+## riposte, and whether this dash already earned one.
+var still_t := 0.0
+var riposte_t := 0.0
+var perfect_used := false
+## Rampage stacks (Barbarian signature) and the seconds they last.
+var rampage := 0
+var rampage_t := 0.0
+## Potion charges: a second one at DB.SECOND_POTION_LEVEL.
+var potions := 1
+var potions_max := 1
+var _foot_mat: ShaderMaterial
 
 var move_input := Vector2.ZERO
 var vel := Vector3.ZERO
@@ -129,11 +143,14 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	var rm := ShaderMaterial.new()
 	rm.shader = preload("res://src/fx/hero_ring.gdshader")
 	ring.material_override = rm
+	_foot_mat = rm
 	ring.position.y = 0.05
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(ring)
 	recompute()
 	hp = max_hp
+	potions_max = 2 if int(Game.hero(id)["level"]) >= DB.SECOND_POTION_LEVEL else 1
+	potions = potions_max
 
 
 func _build_tree() -> void:
@@ -233,7 +250,7 @@ func recompute() -> void:
 		dmg *= float(b.get("dmg", 1.0))
 		rate *= float(b.get("rate", 1.0))
 		speed *= float(b.get("speed", 1.0))
-		armor = minf(armor + float(b.get("armor", 0.0)), 0.7)
+		armor += float(b.get("armor", 0.0))
 	if old_max > 0.0 and max_hp > old_max:
 		hp += max_hp - old_max
 	hp = minf(hp, max_hp)
@@ -248,14 +265,29 @@ func tick(dt: float) -> void:
 	atk_cd -= dt
 	dash_cd -= dt
 	potion_cd -= dt
+	if potion_cd <= 0.0 and potions < potions_max:
+		potions += 1
+		if potions < potions_max:
+			potion_cd = float(DB.POTION["cd"])
 	aim_hold -= dt
+	riposte_t -= dt
+	rampage_t -= dt
+	if rampage_t <= 0.0:
+		rampage = 0
+	var was_steady := steady()
+	still_t = still_t + dt if vel.length() < 0.6 and dash_t <= 0.0 else 0.0
+	if steady() != was_steady:
+		# The ring under a planted archer burns gold: you are hitting harder.
+		_foot_mat.set_shader_parameter("color", Color(1.0, 0.78, 0.3) if steady() else Color(0.35, 0.75, 1.0))
+		_foot_mat.set_shader_parameter("intensity", 2.4 if steady() else 1.6)
 	if rage > 0:
 		rage_t -= dt
 		if rage_t <= 0.0:
 			rage = 0
 			recompute()
 	if regen > 0.0:
-		hp = minf(hp + regen * dt, max_hp)
+		hp = minf(hp + minf(regen, max_hp * DB.REGEN_CAP) * hunt.heal_mult() * dt, max_hp)
+	leech_pool = minf(leech_pool + max_hp * DB.LEECH_CAP * dt, max_hp * DB.LEECH_CAP)
 	super_charge = minf(super_charge + dt * 0.012 * super_rate, 1.0)
 	_tick_cards(dt)
 	if super_t > 0.0:
@@ -393,6 +425,7 @@ func try_dash() -> bool:
 	if dash_cd > 0.0 or dash_t > 0.0 or super_t > 0.0 or not alive or bool(hunt.omen.get("no_dash", false)):
 		return false
 	hunt.dashes += 1
+	perfect_used = false
 	var d := Vector3(move_input.x, 0, move_input.y)
 	if d.length() < 0.2:
 		d = dir_of(rotation.y)
@@ -405,15 +438,41 @@ func try_dash() -> bool:
 	vel = dash_dir * speed
 	act("Dodge_Forward", DASH_TIME + 0.15, true)
 	hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.26, 0.55), 6, 0.5, 2.0)
+	# Barkbound set: the dash leaves a trail of thorns.
+	if flags.has("thorn_dash"):
+		hunt.add_pyre(flat_pos(), 1.4, 2.5, dmg * float(flags["thorn_dash"]))
+	# Bow and staff dash out of a crowd: the dead at their heels are thrown back.
+	if def["style"] != "melee":
+		for f in hunt.foes_near(position, 2.6):
+			if f is Enemy:
+				f.push((f.flat_pos() - flat_pos()).normalized(), 9.0)
 	Sfx.play("dodge", -3.0)
 	Ui.buzz(12, 0.3)
 	return true
 
 
+## Bow and staff heroes standing still aim truer (DB.STEADY).
+func steady() -> bool:
+	return def["style"] != "melee" and still_t >= float(DB.STEADY["after"])
+
+
+## Damage multiplier from the hero's own state: riposte and steady aim.
+func hit_mult() -> float:
+	var m := 1.0
+	if riposte_t > 0.0:
+		m *= 1.0 + float(DB.PERFECT_DODGE["dmg"])
+	if steady():
+		m *= 1.0 + float(DB.STEADY["dmg"])
+	m *= 1.0 + 0.03 * rampage
+	return m
+
+
 func try_potion() -> bool:
-	if potion_cd > 0.0 or not alive or hp >= max_hp:
+	if potions <= 0 or not alive or hp >= max_hp:
 		return false
-	potion_cd = float(DB.POTION["cd"])
+	potions -= 1
+	if potion_cd <= 0.0:
+		potion_cd = float(DB.POTION["cd"])
 	hp = minf(hp + max_hp * float(DB.POTION["heal"]), max_hp)
 	hunt.fx.ring(flat_pos(), 3.0, Color(0.4, 1.0, 0.55), 0.5)
 	hunt.fx.burst(flat_pos() + Vector3(0, 0.8, 0), Color(0.4, 1.0, 0.55), 16, 5.0, 1.2)
@@ -606,7 +665,7 @@ func _tick_cards(dt: float) -> void:
 				hunt.damage_foe(f, dmg * (1.2 + 0.3 * nl), self, (f.flat_pos() - flat_pos()).normalized(), 7.0)
 				struck += 1
 			if int(c.get("inferno_heart", 0)) > 0 and struck > 0:
-				hp = minf(hp + max_hp * minf(0.03 * struck, 0.10), max_hp)
+				hp = minf(hp + max_hp * minf(0.03 * struck, 0.10) * hunt.heal_mult(), max_hp)
 			Sfx.play("fire_trail", -4.0)
 	_tick_powers(dt, c)
 	# Bone ward.

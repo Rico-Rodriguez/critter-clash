@@ -493,6 +493,11 @@ func _frame(col: Color, fill: float, radius: int, border: int) -> StyleBoxFlat:
 func _tile(it: Dictionary) -> Control:
 	var uid := int(it["uid"])
 	var col := DB.rarity_color(it["rarity"])
+	# Ancients get Diablo's orange frame; set pieces their set's colour.
+	if it.get("ancient", false):
+		col = Color(1.0, 0.55, 0.12)
+	elif Game.item_set(it) != "" and str(it.get("unique", "")) == "":
+		col = DB.SETS[Game.item_set(it)]["color"]
 	var owner := Game.owner_of(uid)
 	var mine: bool = str(it["cls"]) == hero_id
 	var blocked := Game.wear_block(hero_id, it)
@@ -620,7 +625,8 @@ func _build_info() -> void:
 	for line in Game.describe_stats(it):
 		var l := Ui.label(line, "Body")
 		l.add_theme_font_size_override("font_size", 20)
-		l.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3) if line.begins_with("Start") else Color(0.6, 0.78, 1.0))
+		l.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3) if line.begins_with("Start") else (Color(0.45, 1.0, 0.6) if line.begins_with("Set") else Color(0.6, 0.78, 1.0)))
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if line.begins_with("Set") else TextServer.AUTOWRAP_OFF
 		stats.add_child(l)
 	v.add_child(stats)
 	var row := HBoxContainer.new()
@@ -647,6 +653,37 @@ func _build_info() -> void:
 				_refresh())
 			row.add_child(sell)
 	v.add_child(row)
+	# Gold sinks: reroll the extra affixes, or raise the material a step.
+	if str(it.get("unique", "")) == "" and mine:
+		var row2 := HBoxContainer.new()
+		row2.add_theme_constant_override("separation", 10)
+		if it["rarity"] != "common":
+			var rf := _action("Reforge %s" % Ui.fmt_num(DB.reforge_cost(it)), "", func():
+				if Game.reforge(uid):
+					Sfx.play("gear_equip", 0.0, 1.2)
+					_say("Reforged")
+					selected = Game.item(uid)
+					_dress()
+					_refresh()
+				else:
+					Sfx.play("ui_error", -6.0))
+			rf.icon = Ui.icon("anvil")
+			rf.disabled = Game.gold() < DB.reforge_cost(it)
+			row2.add_child(rf)
+		if int(it.get("mat", 0)) < GearDB.TIERS - 1:
+			var tp := _action("Temper %s" % Ui.fmt_num(DB.temper_cost(it)), "", func():
+				if Game.temper(uid):
+					Sfx.play("levelup", -4.0)
+					_say("Tempered to %s" % GearDB.LINES[it["cls"]]["names"][int(Game.item(uid)["mat"])])
+					selected = Game.item(uid)
+					_dress()
+					_refresh()
+				else:
+					Sfx.play("ui_error", -6.0))
+			tp.icon = Ui.icon("sword-smithing")
+			tp.disabled = Game.gold() < DB.temper_cost(it)
+			row2.add_child(tp)
+		v.add_child(row2)
 
 
 ## Health, Damage, Armor and Attack speed, with `33 → 41 ▲` when `try_on`
@@ -660,8 +697,10 @@ func _stat_strip(try_on: Dictionary) -> Control:
 		var key: String = spec[1]
 		var k: float = spec[2]
 		var f: String = spec[3]
-		var a: String = f % (float(now[key]) * k)
-		var b: String = f % (float(then[key]) * k)
+		var nv := DB.armor_dr(float(now[key])) if key == "armor" else float(now[key])
+		var tv := DB.armor_dr(float(then[key])) if key == "armor" else float(then[key])
+		var a: String = f % (nv * k)
+		var b: String = f % (tv * k)
 		var cell := VBoxContainer.new()
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cell.add_theme_constant_override("separation", 0)
@@ -669,7 +708,7 @@ func _stat_strip(try_on: Dictionary) -> Control:
 		var val := Ui.label(a if a == b else "%s → %s" % [a, b], "Body", HORIZONTAL_ALIGNMENT_CENTER)
 		val.add_theme_font_size_override("font_size", 22 if a == b else 20)
 		if a != b:
-			var up := float(then[key]) > float(now[key])
+			var up := tv > nv
 			val.text += " ▲" if up else " ▼"
 			val.add_theme_color_override("font_color", GREEN if up else RED)
 		cell.add_child(val)

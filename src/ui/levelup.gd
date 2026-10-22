@@ -67,7 +67,7 @@ func _fill(choices: Array) -> void:
 	Ui.clear(%Cards)
 	for id in choices:
 		%Cards.add_child(_card(id))
-	_reroll.text = "Reroll (%d)" % _hunt.rerolls_left
+	_reroll.text = "Reroll (%d) · Banish ✕ (%d)" % [_hunt.rerolls_left, _hunt.banishes_left]
 	_reroll.disabled = _hunt.rerolls_left <= 0
 	_reroll.modulate.a = 0.4 if _hunt.rerolls_left <= 0 else 1.0
 	await get_tree().process_frame
@@ -93,7 +93,8 @@ func _card(id: String) -> Control:
 	var col := DB.rarity_color(rarity)
 	var have := int(_hunt.cards.get(id, 0))
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(212, 360)
+	# Four choices (hero level 15+) need narrower cards to fit a phone.
+	b.custom_minimum_size = Vector2(212 if _choices.size() <= 3 else 160, 360)
 	b.focus_mode = Control.FOCUS_NONE
 	var n := StyleBoxFlat.new()
 	n.bg_color = Color(0.1, 0.09, 0.12, 0.97)
@@ -175,7 +176,36 @@ func _card(id: String) -> Control:
 		nw.add_theme_font_size_override("font_size", 15)
 		v.add_child(nw)
 	b.pressed.connect(func(): _pick(id, b))
+	# Banish: this card leaves the hunt's pool for good, and another takes its place.
+	if _hunt.banishes_left > 0 and not c.has("evo"):
+		var x := Button.new()
+		x.text = "✕"
+		x.tooltip_text = "Banish for this hunt"
+		x.theme_type_variation = "RoundButton"
+		x.focus_mode = Control.FOCUS_NONE
+		x.custom_minimum_size = Vector2(48, 48)
+		x.size = Vector2(48, 48)
+		x.add_theme_font_size_override("font_size", 22)
+		x.position = Vector2(b.custom_minimum_size.x - 40, -14)
+		x.pressed.connect(func(): _banish(id))
+		b.add_child(x)
 	return b
+
+
+func _banish(id: String) -> void:
+	if _done:
+		return
+	var nxt := _hunt.banish(id, _choices)
+	var list := _choices.duplicate()
+	var i := list.find(id)
+	if nxt == "":
+		list.remove_at(i)
+	else:
+		list[i] = nxt
+	if list.is_empty():
+		return
+	Sfx.play("shield_break", -8.0, 1.4)
+	_fill(list)
 
 
 ## A second finger is not turned into a mouse click by the engine, so a card
@@ -190,6 +220,10 @@ func _input(e: InputEvent) -> void:
 	for c in %Cards.get_children():
 		if (c as Control).get_global_rect().has_point(e.position):
 			get_viewport().set_input_as_handled()
+			for x in c.get_children():
+				if x is Button and (x as Control).get_global_rect().has_point(e.position):
+					x.pressed.emit()
+					return
 			c.pressed.emit()
 			return
 

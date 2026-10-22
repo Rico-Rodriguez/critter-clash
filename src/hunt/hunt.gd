@@ -30,6 +30,7 @@ var world: Node3D
 var hero: Hero
 var boss: Boss
 var pet: Actor
+var ally: Ally
 var foes: Array[Enemy] = []
 var projs: Array[Proj] = []
 var pickups: Array[Pickup] = []
@@ -64,7 +65,8 @@ var _ended := false
 var _warming := false
 var patches: Array = []
 var shrines: Array = []
-var surge_marks := [0.25, 0.5, 0.75]
+## The first surge comes early so a new player meets the horde in the first minute.
+var surge_marks := [0.15, 0.45, 0.75]
 var surge_queue: Array = []
 var calm_t := 0.0
 var _storming := false
@@ -93,6 +95,21 @@ var rush_wait := 0.0
 var cur_boss := ""
 var cur_boss_power := 1.0
 var streak := 0
+var perfect_dodges := 0
+var banished: Array[String] = []
+## Bosses killed this hunt (kill counts and dry streaks), and the rift's boss.
+var bosses_killed: Array[String] = []
+var rift_boss := ""
+var banishes_left := DB.BANISHES
+## Burning ground from Pyre: {pos, r, t, dps, tick}.
+var pyres: Array = []
+var _erupt_t := 6.0
+## The ritual event: its callers, the sigil's center, seconds left (0 = none).
+var ritual_callers: Array = []
+var ritual_at := Vector3.ZERO
+var ritual_t := 0.0
+var ritual_done := false
+var _ritual_tele: MeshInstance3D
 var _xp_frac := 0.0
 var streak_t := 0.0
 
@@ -103,8 +120,8 @@ func _ready() -> void:
 	loot_bonus = int(zone.get("loot_bonus", 0))
 	mode = Game.mode_id()
 	tier_i = Game.tier()
-	rerolls_left = 2 if tier_i >= 2 else 1
 	tier = DB.TIERS[tier_i]
+	rerolls_left = 2 if ai() >= 2.0 else 1
 	hero_id = Game.hero_id()
 	souls_goal = int(tier["souls"])
 	if mode == "trial":
@@ -112,18 +129,28 @@ func _ready() -> void:
 		trial_seed = Game.rng.randi()
 		souls_goal = 100
 		loot_bonus += 1
-	if mode == "descent" or mode == "rush" or mode == "wild":
+	if mode == "rift":
+		# A rift key opens one empowered boss with a guaranteed unique.
+		Game.data["rift_keys"] = maxi(int(Game.data.get("rift_keys", 0)) - 1, 0)
+		Game.save()
+		rift_boss = "gravemaw" if randf() < 0.5 else "hexer"
+	if mode == "descent" or _rushlike() or mode == "wild":
 		elite_marks.clear()
 		surge_marks.clear()
 		rush_wait = 3.0
 	if mode == "wild":
 		souls_goal = 99999
 		elite_marks = [0.45, 0.8]
+	elif mode == "horde" and ai() >= 2.0:
+		# Nightmare and up: a second wave of champions.
+		elite_marks = [0.22, 0.42, 0.58, 0.72, 0.86]
 	cur_boss = str(zone["boss"])
 	omen = Game.active_omen(mode)
 	if not omen.is_empty():
 		foe_speed_mult *= 1.0 + float(omen["mod"].get("foe_speed", 0.0))
 	robber_wanted = randf() < 0.35 and mode == "horde"
+	ritual_done = not (mode == "horde" and randf() < float(DB.RITUAL["chance"]))
+	_erupt_t = 14.0 if ai() <= 0.0 else 7.0
 	low = str(Game.setting("quality")) == "low" or OS.has_feature("mobile") and str(Game.setting("quality")) == "auto" and _weak_device()
 	bot = OS.get_cmdline_user_args().has("--bot")
 	world = Node3D.new()
@@ -153,6 +180,12 @@ func _ready() -> void:
 	cam.current = true
 	if str(Game.data.get("pet", "")) != "":
 		_spawn_pet()
+	var aid := str(Game.data.get("ally", ""))
+	if aid != "" and aid != hero_id and DB.HEROES.has(aid) and Game.hero(aid)["unlocked"]:
+		ally = Ally.new()
+		world.add_child(ally)
+		ally.position = arena.resolve(hero.position + Vector3(2.0, 0, 1.0), 0.5)
+		ally.setup(self, aid)
 	_setup_shrines()
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
@@ -160,7 +193,9 @@ func _ready() -> void:
 	hud.dash_pressed.connect(func(): hero.try_dash())
 	hud.super_pressed.connect(func(): hero.try_super())
 	hud.card_picked.connect(pick_card)
-	hud.results_closed.connect(func(): finished.emit(result))
+	hud.results_closed.connect(func(again: bool):
+		result["again"] = again
+		finished.emit(result))
 	hud.abandon_pressed.connect(_abandon)
 	for s in DB.SKILLS:
 		_skill_base[s] = int(Game.data["skills"][s])
@@ -170,10 +205,12 @@ func _ready() -> void:
 		_bot.hunt = self
 	if not bot:
 		await _warmup()
-	Sfx.music("hunt")
+	Sfx.music(music_track())
 	Sfx.play("hunt_start", -2.0)
-	if mode == "descent" or mode == "rush":
-		hud.banner(str(DB.MODES[mode]["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], "Survive as deep as you can" if mode == "descent" else "%d bosses, no rest" % DB.RUSH_ORDER.size()])
+	if mode == "rift":
+		hud.banner("A rift opens", Color(0.6, 0.85, 1.0), "%s · %s waits beyond, twice as strong. A unique is yours if you win." % [tier["name"], DB.boss_def(rift_boss)["name"]])
+	elif mode == "descent" or _rushlike():
+		hud.banner(str(DB.MODES[mode]["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], "Survive as deep as you can" if mode == "descent" else "%d bosses, no rest" % rush_order().size()])
 	elif mode == "trial":
 		hud.banner(str(DB.MODES["trial"]["name"]), Color(0.85, 0.8, 0.7), "%s · %d rooms to the %s" % [tier["name"], trial_rooms, DB.boss_def(cur_boss)["name"]])
 	else:
@@ -335,7 +372,7 @@ func _activate_curse(s: Dictionary) -> void:
 	Sfx.play("boom", -2.0, 0.7)
 	Ui.buzz(70, 0.7)
 	shake(0.35)
-	var n := 2 + tier_i
+	var n := 2 + int(ai())
 	for i in n:
 		var a := TAU * i / n
 		var at := arena.resolve(hero.position + Actor.dir_of(a) * 7.0, 0.8)
@@ -393,6 +430,8 @@ func tick(dt: float) -> void:
 	hero.tick(dt)
 	_tick_shrines(dt)
 	_tick_curse(dt)
+	_tick_hazards(dt)
+	_tick_ritual(dt)
 	_tick_foes(dt)
 	if boss:
 		boss.tick(dt)
@@ -401,8 +440,11 @@ func tick(dt: float) -> void:
 	_tick_projs(dt)
 	_tick_pickups(dt)
 	_tick_patches(dt)
+	_tick_pyres(dt)
 	if pet:
 		_tick_pet(dt)
+	if ally and phase != "defeat":
+		ally.tick(dt)
 	match phase:
 		"rise":
 			_direct(dt)
@@ -411,6 +453,11 @@ func tick(dt: float) -> void:
 				phase = "boss"
 				hud.boss_mode(boss)
 		"victory":
+			# After the fountain settles the loot flies to the hero.
+			if phase_t > 1.6:
+				for pk in pickups:
+					if is_instance_valid(pk) and pk.settle <= 0.0:
+						pk.pulled = true
 			if phase_t > 7.0 or (phase_t > 3.0 and _loot_left() == 0):
 				_end(true)
 	if streak > 0:
@@ -441,8 +488,13 @@ func _frame_camera() -> void:
 			if boss and boss.alive:
 				cam.focus_override = hero.position.lerp(boss.position, 0.25)
 		"victory":
-			cam.zoom_target = 0.85
-			cam.focus_override = null
+			# First the fall, close on the boss, then back to the hero and the loot.
+			if phase_t < 0.6 and boss:
+				cam.zoom_target = 0.75
+				cam.focus_override = boss.position
+			else:
+				cam.zoom_target = 0.85
+				cam.focus_override = null
 		_:
 			cam.zoom_target = 1.0 + clampf((foes.size() - 15) / 60.0, 0.0, 0.12)
 
@@ -557,7 +609,7 @@ func on_screen(p: Vector3, margin := 0.0) -> bool:
 
 ## A telegraphed blast on the ground: after `delay` it hurts the hero if they
 ## are still inside, and may slow or root them.
-func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: String, col: Color) -> void:
+func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: String, col: Color, mech := 0.5) -> void:
 	fx.telegraph(0, pos, 0.0, Vector2(r, 0), delay)
 	get_tree().create_timer(delay, false).timeout.connect(func():
 		if _ended or not is_instance_valid(hero):
@@ -566,7 +618,7 @@ func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: Strin
 		fx.burst(pos, col, 14, 7.0)
 		Sfx.play("boom", -10.0, 1.3)
 		if hero.alive and hero.flat_pos().distance_to(pos) < r + hero.radius * 0.5:
-			damage_hero(amount, null)
+			damage_hero(amount, null, mech)
 			if effect == "slow":
 				hero.slow_t = 2.5
 			elif effect == "root":
@@ -574,7 +626,7 @@ func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: Strin
 
 
 ## A lane across the ground from `from` along `yaw`: it flashes, then cuts.
-func beam_from(from: Vector3, yaw: float, delay: float, amount: float, col: Color) -> void:
+func beam_from(from: Vector3, yaw: float, delay: float, amount: float, col: Color, mech := 0.6) -> void:
 	fx.telegraph(2, from, yaw, Vector2(0.9, 14.0), delay)
 	get_tree().create_timer(delay, false).timeout.connect(func():
 		if _ended or not is_instance_valid(hero):
@@ -585,13 +637,35 @@ func beam_from(from: Vector3, yaw: float, delay: float, amount: float, col: Colo
 		var across := (rel - fwd * along).length()
 		fx.ring(from + fwd * 6.0, 1.2, col, 0.3)
 		if hero.alive and along > 0.0 and along < 14.0 and across < 0.9 + hero.radius * 0.5:
-			damage_hero(amount, null))
+			damage_hero(amount, null, mech))
 
 
 ## A burning patch of ground left by a molten champion. It telegraphs red; the
 ## hero takes `dps` a second while standing in it.
 func add_fire_patch(at: Vector3, r: float, dur: float, dps: float) -> void:
 	patches.append({"pos": at, "r": r, "t": dur, "dps": dps, "tick": 0.5, "node": fx.telegraph(0, at, 0.0, Vector2(r, 0), dur)})
+
+
+## Pyre: burning ground that hurts the dead standing in it.
+func add_pyre(at: Vector3, r: float, dur: float, dps: float) -> void:
+	pyres.append({"pos": at, "r": r, "t": dur, "dps": dps, "tick": 0.0})
+	fx.embers_at(at, Color(1.0, 0.45, 0.1), 8, r * 0.7)
+
+
+func _tick_pyres(dt: float) -> void:
+	var i := pyres.size() - 1
+	while i >= 0:
+		var pr: Dictionary = pyres[i]
+		pr["t"] -= dt
+		pr["tick"] -= dt
+		if pr["tick"] <= 0.0:
+			pr["tick"] = 0.5
+			fx.embers_at(pr["pos"], Color(1.0, 0.45, 0.1), 3, float(pr["r"]) * 0.7)
+			for f in foes_near(pr["pos"], float(pr["r"])):
+				damage_foe(f, float(pr["dps"]) * 0.5, hero, Vector3.ZERO, 0.0)
+		if pr["t"] <= 0.0:
+			pyres.remove_at(i)
+		i -= 1
 
 
 func _tick_patches(dt: float) -> void:
@@ -604,7 +678,7 @@ func _tick_patches(dt: float) -> void:
 			pt["tick"] = 0.5
 			var d: float = hero.flat_pos().distance_to(pt["pos"])
 			if hero.alive and d < float(pt["r"]) + hero.radius * 0.5:
-				damage_hero(float(pt["dps"]) * 0.5, null)
+				damage_hero(float(pt["dps"]) * 0.5, null, 0.06)
 		if pt["t"] <= 0.0:
 			patches.remove_at(i)
 		i -= 1
@@ -615,7 +689,7 @@ func _tick_patches(dt: float) -> void:
 func progress() -> float:
 	if mode == "descent":
 		return clampf(0.12 + (depth - 1) * 0.07, 0.0, 1.0)
-	if mode == "rush":
+	if _rushlike():
 		return 0.5
 	if mode == "wild":
 		return clampf(time / 240.0, 0.05, 1.0)
@@ -626,14 +700,16 @@ func progress() -> float:
 func objective_fill() -> float:
 	if mode == "descent":
 		return clampf(depth_t / DB.DESCENT_TIME, 0.0, 1.0)
-	if mode == "rush":
-		return float(rush_i) / DB.RUSH_ORDER.size()
+	if _rushlike():
+		return float(rush_i) / rush_order().size()
 	if mode == "wild":
 		return float(rivals_alive()) / float(maxi(rivals_total, 1))
 	return progress()
 
 
 func spawn_foe(kind: String, at: Vector3, elite := false, affix := "") -> Enemy:
+	# A zone's own faction stands in for the skeletons of the same role.
+	kind = str(zone.get("faction", {}).get(kind, kind))
 	var e := Enemy.new()
 	world.add_child(e)
 	e.position = at
@@ -652,7 +728,7 @@ func _direct(dt: float) -> void:
 	if mode == "trial":
 		_direct_trial(dt)
 		return
-	if mode == "rush":
+	if _rushlike():
 		_direct_rush(dt)
 		return
 	if mode == "descent":
@@ -660,7 +736,7 @@ func _direct(dt: float) -> void:
 	if mode == "wild":
 		_tick_wild(dt)
 	var p := progress()
-	var target := int((lerpf(7.0, 30.0, p) + tier_i * 3) * float(tier.get("press", 1.0)))
+	var target := int((lerpf(7.0, 30.0, p) + ai() * 3.0) * float(tier.get("press", 1.0)))
 	if mode == "wild":
 		target = int(target * DB.WILD_PVE)
 	target = mini(int(target * (1.0 + pact_sum("pack"))), MAX_FOES)
@@ -679,26 +755,39 @@ func _direct(dt: float) -> void:
 		var pack := randi_range(2, 3 + int(p * 4.0))
 		var center := arena.spawn_point(hero.position, 8.5, 14.0)
 		# Running in a straight line has a price: sometimes the pack is waiting ahead.
-		if hero.vel.length() > 2.5 and (tier_i >= 1 or p > 0.35) and randf() < 0.5:
+		if hero.vel.length() > 2.5 and (ai() >= 0.5 or p > 0.35) and randf() < (0.5 if hero.hp > hero.max_hp * 0.3 else 0.15):
 			var ahead := arena.spawn_point(hero.position + hero.vel.normalized() * 7.0, 2.5, 6.0)
 			if ahead.distance_to(hero.position) > 6.0:
 				center = ahead
 		for i in pack:
 			var at := arena.resolve(center + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.6, 1.6)), 0.5)
-			spawn_foe(_pick_kind(p), at)
+			var kind := _pick_kind(p)
+			spawn_foe(kind, at)
+			# On Nightmare and up the hounds hunt in pairs.
+			if kind == "hound" and ai() >= 2.0:
+				spawn_foe("hound", arena.resolve(at + Vector3(1.0, 0, 0), 0.5))
 		Sfx.play("aggro", -14.0)
+	if time > 8.0 and hero.def["style"] != "melee":
+		tip("steady", "Plant your feet: standing still aims truer (+25% damage)", "bullseye")
+	if not ritual_done and p >= float(DB.RITUAL["at"]):
+		_start_ritual()
 	if robber_wanted and not robber_spawned and p >= 0.4:
 		robber_spawned = true
 		spawn_foe("robber", arena.spawn_point(hero.position, 9.0, 12.0))
 		banner("A Grave Robber!", Color(1.0, 0.85, 0.35), "Catch him before he gets away")
 		Sfx.play("roar", -2.0, 1.6)
 	if not elite_marks.is_empty() and p >= elite_marks[0]:
-		elite_marks.pop_front()
+		var mark: float = elite_marks.pop_front()
 		var kinds := ["warrior", "minion", "rogue", "mage"] if p > 0.5 else ["warrior", "minion"]
+		# The middle mark of a horde hunt is a mini-boss: a champion Bone Brute.
+		var mini_boss := mode == "horde" and absf(mark - 0.58) < 0.01
+		if mini_boss:
+			kinds = ["brute"]
 		var at2 := arena.spawn_point(hero.position, 7.0, 11.0)
 		var e := spawn_foe(kinds[randi() % kinds.size()], at2, true)
-		banner(e.elite_name, DB.ELITE_AFFIXES[e.affixes[0]]["color"].lightened(0.3), "A champion rises!")
+		banner(e.elite_name, DB.ELITE_AFFIXES[e.affixes[0]]["color"].lightened(0.3), "A brute of the barrow, crowned in bone" if mini_boss else "A champion rises!")
 		Sfx.play("roar", -4.0, 1.1)
+		tip("champion", "Champions carry curses and drop better loot", "crowned-skull")
 	if souls >= souls_goal:
 		_begin_boss()
 
@@ -709,7 +798,7 @@ func _start_surge(p: float) -> void:
 	banner("The graves open!", Color(0.7, 0.95, 0.6), "Hold your ground")
 	shake(0.3)
 	Sfx.play("boom", -4.0, 0.7)
-	var count := randi_range(10, 14) + tier_i * 2
+	var count := randi_range(10, 14) + int(ai() * 2.0)
 	for i in count:
 		var dir := Actor.dir_of(TAU * i / count + randf() * 0.2)
 		var at := arena.resolve(hero.position + dir * randf_range(8.0, 10.0), 0.6)
@@ -727,6 +816,93 @@ func _tick_surge(dt: float) -> void:
 				spawn_foe(q["kind"], q["pos"])
 			surge_queue.remove_at(i)
 		i -= 1
+
+
+## Grave eruptions: telegraphed bursts under and around the hero. Whoever
+## stands still is always hit; the cluster grows and quickens with the tier.
+func _tick_hazards(dt: float) -> void:
+	if _warming or not hero.alive or not (phase == "rise" or phase == "boss"):
+		return
+	if phase == "boss" and ai() < 1.0:
+		return
+	if mode == "trial" and not _room_active():
+		return
+	_erupt_t -= dt * (0.6 if phase == "boss" else 1.0)
+	if _erupt_t > 0.0:
+		return
+	var e: Dictionary = DB.ERUPTION
+	_erupt_t = maxf(float(e["every"]) - float(e["every_ai"]) * ai(), float(e["min"])) * randf_range(0.85, 1.15)
+	var n := int(float(e["count"]) + float(e["count_ai"]) * ai())
+	var lead := hero.vel * 0.35 * minf(ai(), 1.0)
+	for i in n:
+		var at := hero.flat_pos() + lead
+		if i > 0:
+			at = hero.flat_pos() + Actor.dir_of(randf() * TAU) * randf_range(2.2, 5.0)
+		blast_at(arena.resolve(at, 0.4), float(e["radius"]), float(e["delay"]) + 0.1 * i, float(e["dmg"]) * float(tier["dmg"]), "", Color(0.85, 0.8, 0.6), float(e["mech"]))
+	Sfx.play("quake", -12.0, 1.4)
+	tip("eruption", "The ground bursts where you stand: keep moving", "explosion-rays")
+
+
+func _room_active() -> bool:
+	for r: Dictionary in arena.trial.get("rooms", []):
+		if str(r["state"]) == "active":
+			return true
+	return false
+
+
+## The ritual: Grave Callers chant around a sigil on the ground. Kill them
+## before the chant ends.
+func _start_ritual() -> void:
+	ritual_done = true
+	var rd: Dictionary = DB.RITUAL
+	ritual_at = arena.spawn_point(hero.position, 9.0, 13.0)
+	ritual_t = float(rd["time"])
+	_ritual_tele = fx.telegraph(0, ritual_at, 0.0, Vector2(2.8, 0), ritual_t)
+	var n := int(rd["callers"])
+	for i in n:
+		var at := arena.resolve(ritual_at + Actor.dir_of(TAU * i / n) * 2.6, 0.6)
+		var e := spawn_foe("necro", at)
+		e.channel = true
+		e.max_hp *= 3.0
+		e.hp = e.max_hp
+		ritual_callers.append(e)
+	banner("A ritual begins", Color(0.8, 0.45, 1.0), "Slay the %d Grave Callers in %d seconds" % [n, int(rd["time"])])
+	tip("ritual", "Break the ritual for a prize, or face what it calls", "magic-swirl")
+	Sfx.play("roar", -4.0, 0.7)
+
+
+func _tick_ritual(dt: float) -> void:
+	if ritual_t <= 0.0:
+		return
+	ritual_t -= dt
+	var left: Array = ritual_callers.filter(func(c): return is_instance_valid(c) and c.alive)
+	if left.size() < ritual_callers.size():
+		hud.event("Caller slain · %d left" % left.size(), Color(0.8, 0.5, 1.0), "skull-crossed-bones")
+		ritual_callers = left
+	if fmod(ritual_t, 0.5) < dt:
+		for c in left:
+			fx.lightning(PackedVector3Array([(c as Enemy).position + Vector3(0, 1.6, 0), ritual_at + Vector3(0, 0.3, 0)]), Color(0.75, 0.4, 1.0))
+	if left.is_empty():
+		ritual_t = 0.0
+		if _ritual_tele:
+			fx.cancel(_ritual_tele)
+		banner("The ritual is broken", Color(0.75, 1.0, 0.7), "Take your due")
+		Sfx.play("rare_chime", -2.0)
+		_drop_item(ritual_at, _roll_good("elite", 2))
+		for i in 8:
+			_drop("soul", ritual_at, 3)
+		for i in 8:
+			_drop("gold", ritual_at, randi_range(2, 5))
+		return
+	if ritual_t <= 0.0:
+		for c in left:
+			(c as Enemy).channel = false
+		ritual_callers.clear()
+		foe_speed_mult *= 1.0 + float(DB.RITUAL["fail_speed"])
+		var e := spawn_foe("brute", ritual_at, true)
+		banner("The ritual is complete", Color(1.0, 0.35, 0.3), "%s climbs out. The dead quicken." % e.elite_name)
+		shake(0.5)
+		Sfx.play("boss_roar", -4.0, 1.3)
 
 
 func brute_count() -> int:
@@ -783,6 +959,8 @@ func objective_title() -> String:
 			return "DEPTH"
 		"rush":
 			return "BOSS RUSH"
+		"rift":
+			return "THE RIFT"
 		"wild":
 			return "THE WILDERNESS"
 	return "SOULS"
@@ -793,8 +971,8 @@ func objective_text() -> String:
 		return "Depth %d" % depth
 	if mode == "wild":
 		return "%d rivals · ring %dm" % [rivals_alive(), int(ring_r)]
-	if mode == "rush":
-		return "Boss %d / %d" % [mini(rush_i + 1, DB.RUSH_ORDER.size()), DB.RUSH_ORDER.size()]
+	if _rushlike():
+		return "Boss %d / %d" % [mini(rush_i + 1, rush_order().size()), rush_order().size()]
 	if mode != "trial":
 		return "%d / %d" % [souls, souls_goal]
 	if boss != null:
@@ -827,6 +1005,10 @@ func _direct_trial(dt: float) -> void:
 			"active":
 				if _spawn_q.is_empty() and _room_alive(r) == 0:
 					_clear_room(r)
+				elif r.has("deadline") and time > float(r["deadline"]) and not r.get("sealed", false):
+					r["sealed"] = true
+					banner("The vault seals", Color(0.9, 0.5, 0.4), "Too slow. The chest is lost.")
+					Sfx.play("shield_break", -2.0, 0.6)
 	# The dead left behind in earlier rooms fade away.
 	for f in foes.duplicate():
 		if f.alive and absf(f.position.z - z) > 42.0:
@@ -892,10 +1074,28 @@ func _start_room(r: Dictionary) -> void:
 			for i in base / 2:
 				plan.append({"kind": _pick_kind(d)})
 		"shrine":
-			title = "A quiet place"
-			sub = "Rest, and take the blessing"
-			for i in 3:
-				_drop("heart", hero.flat_pos() + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)), 1)
+			# Some quiet places are not quiet: a cursed altar and its keepers.
+			if randf() < 0.4:
+				r["altar"] = true
+				title = "A cursed altar"
+				sub = "Its keepers wake. Win, and it pays twice"
+				for i in 2 + int(ai() * 0.5):
+					plan.append({"kind": ["warrior", "rogue", "mage"][randi() % 3], "elite": true})
+				for i in base / 3:
+					plan.append({"kind": _pick_kind(d)})
+			else:
+				title = "A quiet place"
+				sub = "Rest, and take the blessing"
+				for i in 3:
+					_drop("heart", hero.flat_pos() + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3)), 1)
+	# Twists: some fights happen in the dark, and a vault must be won quickly.
+	if kind == "treasure":
+		r["deadline"] = time + 25.0
+		sub = "Win in 25 seconds or the vault seals"
+	elif kind != "shrine" and randf() < 0.15 + 0.12 * ai():
+		r["dark"] = true
+		_set_dark(true)
+		sub = "The torches gutter out. %s" % sub
 	banner(title, Color(1.0, 0.82, 0.5) if kind != "shrine" else Color(0.7, 0.95, 0.7), sub)
 	Sfx.play("roar", -4.0, 1.2)
 	if plan.is_empty():
@@ -910,6 +1110,13 @@ func _start_room(r: Dictionary) -> void:
 			center = arena.room_point(r, hero.position, 8.0)
 		var spot := arena.resolve(center + Vector3(randf_range(-1.8, 1.8), 0, randf_range(-1.8, 1.8)), 0.6)
 		_spawn_q.append({"t": 0.35 * i + (i / 4) * 0.8, "kind": plan[i]["kind"], "pos": spot, "elite": plan[i].get("elite", false), "room": r})
+
+
+## A dark room: the hero's lantern shrinks and the room loses its light.
+func _set_dark(on: bool) -> void:
+	var t := create_tween().set_parallel()
+	t.tween_property(hero.light, "omni_range", 6.0 if on else 11.0, 1.2)
+	t.tween_property(arena.env, "ambient_light_energy", float(zone["env"]["ambient_e"]) * (0.25 if on else 1.0), 1.2)
 
 
 func _tick_spawn_queue(dt: float) -> void:
@@ -931,6 +1138,8 @@ func _clear_room(r: Dictionary) -> void:
 	r["state"] = "clear"
 	rooms_cleared += 1
 	arena.set_gate(r["gate"], false)
+	if r.get("dark", false):
+		_set_dark(false)
 	var at := hero.flat_pos()
 	banner("Room cleared", Color(0.6, 1.0, 0.7), "The way is open")
 	Sfx.play("rare_chime", -2.0)
@@ -940,9 +1149,12 @@ func _clear_room(r: Dictionary) -> void:
 	for i in randi_range(1, 2):
 		_drop("heart", at + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 1)
 	var d: float = r["depth"]
-	if kind in ["elite", "brutes"]:
+	if r.get("altar", false):
+		for i in 2:
+			_drop_item(at, _roll_good("elite", 2))
+	elif kind in ["elite", "brutes"]:
 		_drop_item(at, _roll_good("elite", 1))
-	elif kind == "treasure":
+	elif kind == "treasure" and not r.get("sealed", false):
 		var cp: Vector3 = r.get("chest_at", at)
 		fx.puff(cp, Color(1.0, 0.85, 0.4, 0.6), 10, 1.0, 2.0)
 		Sfx.play("chest", -2.0)
@@ -955,7 +1167,7 @@ func _clear_room(r: Dictionary) -> void:
 
 
 func _make_boss() -> Boss:
-	var b: Boss = BossHexer.new() if cur_boss == "hexer" else Boss.new()
+	var b: Boss = BossHexer.new() if cur_boss == "hexer" else (BossThorn.new() if cur_boss == "thorn" else Boss.new())
 	b.boss_id = cur_boss
 	return b
 
@@ -1071,7 +1283,7 @@ func _rival_down(f: Enemy) -> void:
 func scaled_tier() -> Dictionary:
 	var fh := pact_sum("foe_hp")
 	var fd := pact_sum("foe_dmg")
-	if fd != 0.0 and mode != "descent" and mode != "rush":
+	if fd != 0.0 and mode != "descent" and not _rushlike():
 		var td := tier.duplicate()
 		td["hp"] = float(tier["hp"]) * (1.0 + fh)
 		td["dmg"] = float(tier["dmg"]) * (1.0 + fd)
@@ -1081,16 +1293,52 @@ func scaled_tier() -> Dictionary:
 		t["hp"] = float(tier["hp"]) * (1.0 + DB.DESCENT_HP * (depth - 1)) * (1.0 + fh)
 		t["dmg"] = float(tier["dmg"]) * (1.0 + DB.DESCENT_DMG * (depth - 1)) * (1.0 + fd)
 		return t
-	if fh > 0.0 and mode != "rush":
+	if fh > 0.0 and not _rushlike():
 		var tp := tier.duplicate()
 		tp["hp"] = float(tier["hp"]) * (1.0 + fh)
 		return tp
-	if mode == "rush" and cur_boss_power > 1.0:
+	if _rushlike() and cur_boss_power > 1.0:
 		var t2 := tier.duplicate()
 		t2["hp"] = float(tier["hp"]) * cur_boss_power
 		t2["dmg"] = float(tier["dmg"]) * (1.0 + (cur_boss_power - 1.0) * 0.6)
 		return t2
 	return tier
+
+
+## Boss Rush and the rift run the same rules: bosses in a row, no soul phase.
+func _rushlike() -> bool:
+	return mode == "rush" or mode == "rift"
+
+
+func rush_order() -> Array:
+	return [[rift_boss, DB.RIFT_POWER]] if mode == "rift" else DB.RUSH_ORDER
+
+
+## The music of the moment: the Descent and rifts have their own; zones may too.
+func music_track() -> String:
+	if mode == "descent":
+		return "descent"
+	if mode == "rift":
+		return "rift"
+	return str(zone.get("music", "hunt"))
+
+
+## A one-time callout the first time a player meets something (saved).
+func tip(key: String, text: String, icon_name := "round-star") -> void:
+	if bot or Game.data["tips"].has(key):
+		return
+	Game.data["tips"][key] = true
+	hud.event(text, Color(1.0, 0.92, 0.6), icon_name)
+
+
+## How cunning foes are on this tier: 0 Normal, 1 Veteran, 2 Nightmare, 3 Abyss.
+func ai() -> float:
+	return float(tier.get("ai", 0.0))
+
+
+## Multiplier on passive healing (regen, leech, heal-on-hit cards).
+func heal_mult() -> float:
+	return float(tier.get("heal", 1.0))
 
 
 ## Total of one pact modifier over the pacts taken.
@@ -1112,6 +1360,7 @@ func offer_pact() -> void:
 	if bot:
 		pick_pact(choices[0])
 		return
+	tip("pact", "A pact: power with a price. You may refuse both", "dripping-sword")
 	get_tree().paused = true
 	hud.show_pact(choices)
 
@@ -1136,6 +1385,12 @@ func _tick_depth(dt: float) -> void:
 	depth_t = 0.0
 	depth += 1
 	banner("Depth %d" % depth, Color(0.95, 0.8, 0.5), "The dead grow bolder")
+	# Deeper looks deeper: thicker fog, redder light, less of the moon.
+	var k := clampf((depth - 1) / 12.0, 0.0, 1.0)
+	var tw := create_tween().set_parallel()
+	tw.tween_property(arena.env, "fog_density", float(zone["env"]["fog_d"]) * (1.0 + 1.6 * k), 2.0)
+	tw.tween_property(arena.env, "fog_light_color", Color(zone["env"]["fog"]).lerp(Color(0.22, 0.04, 0.05), k), 2.0)
+	tw.tween_property(arena.sun, "light_energy", float(zone["env"]["sun_e"]) * (1.0 - 0.6 * k), 2.0)
 	Sfx.play("boom", -4.0, 0.8)
 	shake(0.25)
 	for i in 2:
@@ -1160,7 +1415,7 @@ func _direct_rush(dt: float) -> void:
 	rush_wait -= dt
 	if rush_wait > 0.0 or _warming or boss != null:
 		return
-	var entry: Array = DB.RUSH_ORDER[rush_i]
+	var entry: Array = rush_order()[rush_i]
 	cur_boss = str(entry[0])
 	cur_boss_power = float(entry[1])
 	_begin_boss()
@@ -1185,8 +1440,8 @@ func _boss_down_midway() -> void:
 	banner("%s falls" % b.display_name, Color(1.0, 0.85, 0.5))
 	for i in 12:
 		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
-	for i in 2 if mode == "rush" else 1:
-		_drop_item(at, Game.roll_item("boss", tier_i, "", "", loot_bonus))
+	for i in 2 if _rushlike() else 1:
+		_drop_item(at, Game.roll_boss_item(b.boss_id, tier_i, loot_bonus))
 	for i in 5:
 		_drop("soul", at, 3)
 	_discard_boss(b)
@@ -1194,13 +1449,13 @@ func _boss_down_midway() -> void:
 		if f.alive:
 			_kill(f)
 	hero.hp = minf(hero.hp + hero.max_hp * 0.5, hero.max_hp)
-	Sfx.music("hunt", 1.0)
+	Sfx.music(music_track(), 1.0)
 	if mode == "descent":
 		depth_t = 0.0
 		return
 	rush_i += 1
 	rush_wait = DB.RUSH_GAP
-	var nxt: Array = DB.RUSH_ORDER[rush_i]
+	var nxt: Array = rush_order()[rush_i]
 	banner("Next: %s" % DB.boss_def(str(nxt[0]))["name"], Color(0.85, 0.8, 0.7), "Take a card and a breath")
 	run_level += 1
 	pending_levels += 1
@@ -1249,21 +1504,29 @@ func _begin_boss() -> void:
 	fx.ring(arena.boss_spawn, 7.0, aura, 0.8)
 	fx.flash_light(arena.boss_spawn, aura, 8.0, 16.0, 1.2)
 	shake(0.8)
-	Sfx.music("boss", 0.6)
+	Sfx.music(str(zone.get("boss_music", "boss")) if mode != "rift" else "rift", 0.6)
 	Sfx.play("boss_roar", 2.0)
 	var bd := DB.boss_def(cur_boss)
 	banner(str(bd["name"]), Color(bd["color"]).lightened(0.25), str(bd["wake"]))
+	if cur_boss == "gravemaw":
+		tip("exposed", "Bait his charge into a wall: a dazed king takes 50% more", "bullseye")
+	else:
+		tip("exposed_q", "Close in when she casts: she reels and takes 50% more", "bullseye")
 
 
 # --- Damage --------------------------------------------------------------
 
-func damage_foe(f: Actor, amount: float, _src: Node3D, dir: Vector3, force: float) -> void:
+func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float) -> void:
 	if not f.alive:
 		return
 	if f is Enemy and (f as Enemy).state == "spawn":
 		return
 	if f is Boss and (f as Boss).state == "intro":
 		return
+	if src == hero:
+		amount *= hero.hit_mult()
+	if f is Boss and (f as Boss).exposed_t > 0.0:
+		amount *= 1.0 + float(DB.EXPOSED["dmg"]) + float(hero.flags.get("exposed", 0.0))
 	var crit := randf() < hero.crit
 	if crit:
 		amount *= 2.0 + float(hero.flags.get("critdmg", 0.0))
@@ -1296,7 +1559,7 @@ func damage_foe(f: Actor, amount: float, _src: Node3D, dir: Vector3, force: floa
 	if force > 0.0:
 		f.push(dir, force)
 	var big := f is Boss
-	fx.number(f.flat_pos() + Vector3(0, 0.6 if big else 0.0, 0), int(amount), Color(1.0, 0.72, 0.25) if crit else Color(1, 1, 1), 1.35 if crit else 1.0, null if crit else f)
+	fx.number(f.flat_pos() + Vector3(0, 0.6 if big else 0.0, 0), int(amount), Color(1.0, 0.72, 0.25) if crit else Color(1, 1, 1), 1.6 if crit else 1.0, null if crit else f)
 	fx.burst(f.flat_pos(), Color(1.0, 0.85, 0.6) if not crit else Color(1.0, 0.6, 0.2), 5 if not crit else 9, 6.0)
 	if crit:
 		Sfx.play("crit", -6.0)
@@ -1307,8 +1570,13 @@ func damage_foe(f: Actor, amount: float, _src: Node3D, dir: Vector3, force: floa
 	dmg_dealt += landed
 	hero.super_charge = minf(hero.super_charge + landed / (hero.dmg * 15.0) * hero.super_rate, 1.0)
 	if hero.leech > 0.0 and hero.alive:
-		hero.hp = minf(hero.hp + landed * hero.leech, hero.max_hp)
+		var heal := minf(landed * hero.leech * heal_mult(), hero.leech_pool)
+		hero.leech_pool -= heal
+		hero.hp = minf(hero.hp + heal, hero.max_hp)
 	if f.hp <= 0.0:
+		if src == hero and int(cards.get("rampage", 0)) > 0:
+			hero.rampage = mini(hero.rampage + 1, 15)
+			hero.rampage_t = 6.0
 		if f is Boss:
 			if phase == "defeat":
 				f.hp = 1.0
@@ -1366,8 +1634,12 @@ func _kill(f: Enemy) -> void:
 		hero.potion_cd -= float(DB.POTION["elite_cd"])
 		hitstop(0.09)
 		shake(0.5)
-		for i in 10:
+		# A fountain of coin every time, whatever else drops.
+		for i in 16:
 			_drop("gold", at, randi_range(2, 5))
+		fx.flash_light(at, Color(1.0, 0.82, 0.35), 4.0, 7.0, 0.4)
+		fx.burst(at + Vector3(0, 0.8, 0), Color(1.0, 0.82, 0.35), 20, 7.0, 1.8)
+		Sfx.play("coin", -2.0, 0.9)
 		_drop_item(at, Game.roll_item("elite", tier_i, "", "", loot_bonus))
 		for u in Game.roll_uniques("elite", tier_i):
 			_drop_item(at, Game.make_unique(u))
@@ -1377,7 +1649,7 @@ func _kill(f: Enemy) -> void:
 				fx.ring(at, 2.8, Color(1.0, 0.45, 0.1), 0.4)
 				fx.burst(at, Color(1.0, 0.5, 0.15), 18, 8.0)
 				if hero.flat_pos().distance_to(at) < 2.6:
-					damage_hero(f.dmg * 1.2, null))
+					damage_hero(f.dmg * 1.2, null, 0.5))
 		banner("%s slain" % f.elite_name, Color(1.0, 0.85, 0.5))
 		Sfx.play("rare_chime", -4.0)
 	elif randf() < 0.012:
@@ -1396,7 +1668,8 @@ func _roll_good(source: String, min_idx: int) -> Dictionary:
 
 func _kill_boss() -> void:
 	boss_time = minf(boss_time, time - boss_at)
-	if mode == "descent" or (mode == "rush" and rush_i < DB.RUSH_ORDER.size() - 1):
+	bosses_killed.append(boss.boss_id)
+	if mode == "descent" or (_rushlike() and rush_i < rush_order().size() - 1):
 		_boss_down_midway()
 		return
 	boss.die()
@@ -1405,6 +1678,7 @@ func _kill_boss() -> void:
 	phase_t = 0.0
 	_end_time = time
 	hud.boss_mode(null)
+	hud.victory_mode()
 	Engine.time_scale = 0.25
 	_real_hitstop = 1.4
 	var at := boss.flat_pos()
@@ -1422,7 +1696,9 @@ func _kill_boss() -> void:
 	for i in 26:
 		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
 	for i in randi_range(3, 4):
-		_drop_item(at, Game.roll_item("boss", tier_i, "", "", loot_bonus))
+		_drop_item(at, Game.roll_boss_item(cur_boss, tier_i, loot_bonus))
+	if mode == "rift":
+		_drop_item(at, Game.make_unique(_rift_unique()))
 	for u in Game.roll_uniques(str(DB.boss_def(cur_boss)["source"]), tier_i):
 		_drop_item(at, Game.make_unique(u))
 	for i in 10:
@@ -1436,17 +1712,47 @@ func _kill_boss() -> void:
 var _end_time := 0.0
 
 
-func damage_hero(amount: float, src: Node3D) -> void:
+## The rift's prize: a unique from the boss's table, for this hero if one fits.
+func _rift_unique() -> String:
+	var src := str(DB.boss_def(cur_boss)["source"])
+	var mine := []
+	var any := []
+	for u: String in DB.UNIQUES:
+		var ud: Dictionary = DB.UNIQUES[u]
+		if str(ud["source"]) != src or not ud["slot"] in DB.SLOTS:
+			continue
+		any.append(u)
+		if str(ud.get("cls", "")) == hero_id:
+			mine.append(u)
+	var pool := mine if not mine.is_empty() else any
+	return str(pool.pick_random()) if not pool.is_empty() else "tooth"
+
+
+## `mech` marks a telegraphed attack: it also takes that many shares of the
+## tier's `mech` fraction of max health, through armor (see DB.TIERS).
+func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 	if not hero.alive or phase == "victory" or phase == "boss_intro":
 		return
 	if hero.invuln > 0.0:
 		if hero.dash_t > 0.0 or hero.dash_cd > hero.dash_cd_max - 0.4:
-			fx.text(hero.flat_pos(), "Dodged", Color(0.7, 0.9, 1.0), 0.6, 0.6)
+			if not hero.perfect_used and amount > 0.0:
+				_perfect_dodge()
+			else:
+				fx.text(hero.flat_pos(), "Dodged", Color(0.7, 0.9, 1.0), 0.6, 0.6)
 		return
 	if hero.ward_up:
 		hero.break_ward()
 		return
-	amount *= (1.0 - hero.armor) * (1.0 + pact_sum("dmg_taken"))
+	# Bulwark: a planted knight takes blows from the front on the shield.
+	if int(cards.get("bulwark", 0)) > 0 and hero.still_t > 0.25 and src != null:
+		var to := (src as Node3D).global_position - hero.global_position
+		if absf(angle_difference(hero.rotation.y, atan2(to.x, to.z))) < deg_to_rad(75.0):
+			amount *= 0.4
+			fx.text(hero.flat_pos(), "Blocked", Color(0.75, 0.85, 1.0), 0.6, 0.5)
+			Sfx.play("shield_break", -12.0, 1.6)
+	amount *= 1.0 - DB.armor_dr(hero.armor, float(tier.get("pen", 0.0)))
+	amount += hero.max_hp * float(tier.get("mech", 0.0)) * mech
+	amount *= 1.0 + pact_sum("dmg_taken")
 	amount = roundf(amount * randf_range(0.92, 1.08))
 	hero.hp -= amount
 	hero.hit_flash()
@@ -1482,6 +1788,23 @@ func damage_hero(amount: float, src: Node3D) -> void:
 			Sfx.play("phoenix", 0.0)
 		else:
 			_hero_dies()
+
+
+## The hero dashed through a blow that would have landed: reward the read.
+func _perfect_dodge() -> void:
+	hero.perfect_used = true
+	hero.riposte_t = float(DB.PERFECT_DODGE["time"])
+	hero.super_charge = minf(hero.super_charge + float(DB.PERFECT_DODGE["super"]), 1.0)
+	perfect_dodges += 1
+	if hero.flags.has("dodge_heal"):
+		hero.hp = minf(hero.hp + hero.max_hp * float(hero.flags["dodge_heal"]), hero.max_hp)
+	fx.text(hero.flat_pos() + Vector3(0, 0.4, 0), "Perfect!", Color(0.55, 0.95, 1.0), 1.2, 0.9)
+	tip("perfect", "Perfect dodge: your next hits strike 35% harder", "sprint")
+	fx.ring(hero.flat_pos(), 2.6, Color(0.55, 0.9, 1.0), 0.35, 0.16)
+	fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 3.0, 6.0, 0.25)
+	Sfx.play("unlock_start", -4.0, 1.5)
+	Ui.buzz(30, 0.5)
+	hitstop(0.07)
 
 
 func _hero_dies() -> void:
@@ -1636,6 +1959,7 @@ func _release_proj(p: Proj) -> void:
 
 # --- Pickups -------------------------------------------------------------
 
+var _label_n := 0
 var _soul_mesh: Mesh
 var _soul_mat: Material
 var _heart_mat: Material
@@ -1715,16 +2039,18 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 		if is_instance_valid(p) and p.is_inside_tree():
 			p.beam = fx.beam(Vector3(p.position.x, 0, p.position.z), col, 9.0 if it["rarity"] == "legendary" else 6.0)
 			var l := Label3D.new()
-			l.text = str(it["name"])
+			# Short and big ("Rare Helm"), stacked so neighbours do not overlap.
+			l.text = "%s %s" % [DB.RARITY_NAME[it["rarity"]], DB.SLOT_NAME.get(it["slot"], "Trophy")] if str(it.get("unique", "")) == "" else str(it["name"])
 			l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			l.no_depth_test = true
-			l.pixel_size = 0.0065
+			l.pixel_size = 0.013
 			l.font = fx.title_font
 			l.font_size = 44
 			l.outline_size = 14
 			l.modulate = col.lightened(0.15)
 			l.outline_modulate = Color(0, 0, 0, 0.9)
-			l.position = Vector3(0, 1.6, 0)
+			l.position = Vector3(0, 1.6 + 0.55 * (_label_n % 3), 0)
+			_label_n += 1
 			p.add_child(l)
 			p.label = l
 			Sfx.play("gear_drop", -2.0)
@@ -1792,13 +2118,16 @@ func _check_level() -> void:
 
 
 func _offer_cards() -> void:
-	var choices := roll_cards(3)
+	var choices := roll_cards(card_choices())
 	if choices.is_empty():
 		pending_levels = 0
 		return
 	Sfx.play("levelup", 0.0)
 	Ui.buzz(25, 0.4)
 	fx.ring(hero.flat_pos(), 3.0, Color(0.4, 0.9, 1.0), 0.6)
+	fx.ring(hero.flat_pos(), 5.0, Color(0.7, 0.95, 1.0), 0.45, 0.2)
+	fx.burst(hero.flat_pos() + Vector3(0, 1.0, 0), Color(0.5, 0.9, 1.0), 26, 8.0, 1.6)
+	fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 4.0, 8.0, 0.35)
 	if bot:
 		var pref := ["bladestorm", "tempest", "inferno_heart", "rain", "judgement_day", "armageddon", "heavens", "fault", "deluge", "meteor", "smite", "quake", "axes", "barrage", "frost", "explosive", "blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]
 		var best: String = choices[0]
@@ -1812,6 +2141,22 @@ func _offer_cards() -> void:
 	hud.show_levelup(choices, run_level)
 
 
+## Three choices, four once the hero reaches DB.FOURTH_CARD_LEVEL.
+func card_choices() -> int:
+	return 4 if int(Game.hero(hero_id)["level"]) >= DB.FOURTH_CARD_LEVEL else 3
+
+
+## Removes a card from this hunt's pool and returns a replacement for it (or
+## "" when nothing is left to draw).
+func banish(id: String, shown: Array) -> String:
+	if banishes_left <= 0 or DB.CARDS[id].has("evo"):
+		return ""
+	banishes_left -= 1
+	banished.append(id)
+	var fresh := roll_cards(1, shown + banished)
+	return "" if fresh.is_empty() else str(fresh[0])
+
+
 ## Redraws the level-up cards, never repeating what was just shown. Evolutions
 ## stay on offer. Returns [] when no reroll is left.
 func reroll_cards(shown: Array) -> Array:
@@ -1822,7 +2167,7 @@ func reroll_cards(shown: Array) -> Array:
 	for id in shown:
 		if DB.CARDS[id].has("evo"):
 			out.append(id)
-	var fresh := roll_cards(3 - out.size(), shown)
+	var fresh := roll_cards(shown.size() - out.size(), shown)
 	out.append_array(fresh)
 	if fresh.is_empty() and out.size() < shown.size():
 		rerolls_left += 1
@@ -1843,7 +2188,7 @@ func roll_cards(n: int, exclude := []) -> Array:
 			continue
 		if c["rarity"] == "legendary" and run_level < 5:
 			continue
-		if c.has("evo") or id in exclude:
+		if c.has("evo") or id in exclude or id in banished:
 			continue # evolutions are offered by rule, below
 		pool.append(id)
 		weights.append(float(DB.CARD_WEIGHT[c["rarity"]]))
@@ -1880,7 +2225,9 @@ func eligible_evolutions() -> Array:
 			continue
 		var a: String = c["evo"][0]
 		var b: String = c["evo"][1]
-		if int(cards.get(a, 0)) >= int(DB.CARDS[a]["max"]) and int(cards.get(b, 0)) >= 1:
+		# Three stacks of the first card is enough: evolutions should be reachable
+		# in a normal hunt, not only in a lucky one.
+		if int(cards.get(a, 0)) >= mini(int(DB.CARDS[a]["max"]), 3) and int(cards.get(b, 0)) >= 1:
 			out.append(id)
 	return out
 
@@ -1931,7 +2278,8 @@ func _check_skill_levels() -> void:
 func _spawn_pet() -> void:
 	pet = Actor.new()
 	world.add_child(pet)
-	pet.build_model("Skeleton_Minion", {}, Color(0.5, 0.7, 1.0), 0.4, Color(1.0, 0.6, 0.2, 1.0))
+	var pid := str(Game.data["pet"])
+	pet.build_model(str(DB.UNIQUES.get(pid, {}).get("model", "Skeleton_Minion")), {}, Color(0.5, 0.7, 1.0), 0.4, Color(1.0, 0.6, 0.2, 1.0))
 	pet.model.scale = Vector3.ONE * 0.42
 	pet.position = hero.position + Vector3(1.2, 0, 1.0)
 	pet.play("Skeletons_Idle")
@@ -1995,6 +2343,7 @@ func _end(win: bool) -> void:
 		"depth": depth, "dashes": dashes, "boss_time": boss_time,
 		"rivals": rivals_total, "place": 1 if win else rivals_alive() + 1,
 		"omen": str(omen.get("id", "")),
+		"bosses": bosses_killed, "perfect": perfect_dodges,
 	}
 	# A won hunt under the weekly omen pays more, and its chest is a grade better.
 	if not omen.is_empty() and (win or mode == "descent"):

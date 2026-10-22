@@ -35,6 +35,8 @@ var dash_dir := Vector3.ZERO
 var _dash_hit := false
 var _trail_t := 0.0
 var _fire_t := 0.0
+## A ritual caller stands at the sigil and chants instead of fighting.
+var channel := false
 
 
 func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affix := "") -> void:
@@ -42,7 +44,7 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 	kind = kind_
 	def = DB.enemy(kind)
 	elite = elite_
-	max_hp = def["hp"] * tier["hp"] * (1.0 + hunt.progress() * 0.6)
+	max_hp = def["hp"] * tier["hp"] * (1.0 + hunt.progress() * 0.6) * (1.0 + DB.RUN_FOE_HP * (hunt.run_level - 1))
 	dmg = def["dmg"] * tier["dmg"]
 	speed = def["speed"] * randf_range(0.92, 1.08) * float(tier.get("spd", 1.0))
 	radius = def["radius"]
@@ -62,7 +64,7 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 		sc *= 1.38
 		var a: Array = DB.ELITE_AFFIXES.keys()
 		a.shuffle()
-		affixes = a.slice(0, 1 if tier["id"] == "normal" else 2)
+		affixes = a.slice(0, 1 if hunt.ai() <= 0.0 else (3 if hunt.ai() >= 2.5 else 2))
 		if force_affix != "":
 			affixes = [force_affix]
 		var c: Color = DB.ELITE_AFFIXES[affixes[0]]["color"]
@@ -128,10 +130,10 @@ func _tick_casts(dt: float) -> void:
 	var at := hunt.hero.flat_pos()
 	if "frozen" in affixes:
 		_cast_t = 5.0
-		hunt.blast_at(at, 2.6, 1.0, dmg * 0.7, "slow", DB.ELITE_AFFIXES["frozen"]["color"])
+		hunt.blast_at(at, 2.6, 1.0, dmg * 0.7, "slow", DB.ELITE_AFFIXES["frozen"]["color"], 0.4)
 	elif "jailer" in affixes:
 		_cast_t = 7.0
-		hunt.blast_at(at, 2.2, 0.9, dmg * 0.4, "root", DB.ELITE_AFFIXES["jailer"]["color"])
+		hunt.blast_at(at, 2.2, 0.9, dmg * 0.4, "root", DB.ELITE_AFFIXES["jailer"]["color"], 0.25)
 	elif "mortar" in affixes:
 		_cast_t = 6.0
 		for i in 3:
@@ -216,6 +218,12 @@ func tick(dt: float) -> void:
 	if hit_t > 0.0:
 		hit_t -= dt
 		return
+	if channel:
+		face(yaw_to(position, hunt.ritual_at), dt, 6.0)
+		if state_t <= 0.0:
+			state_t = 1.4
+			play(def["anim"]["attack"], 0.2, 0.8, true)
+		return
 	match state:
 		"chase":
 			_chase(dt, to_hero, dist)
@@ -252,7 +260,7 @@ func _tick_dash(dt: float, hero: Hero) -> void:
 	_trail_t -= dt
 	if not _dash_hit and flat_pos().distance_to(hero.flat_pos()) < radius + hero.radius + 0.25:
 		_dash_hit = true
-		hunt.damage_hero(dmg, self)
+		hunt.damage_hero(dmg, self, 0.3)
 		hero.push(dash_dir, 8.0)
 	if state_t <= 0.0:
 		state = "recover"
@@ -264,7 +272,7 @@ func _tick_dash(dt: float, hero: Hero) -> void:
 ## aim there instead of where they are.
 func _lead_pos(t: float) -> Vector3:
 	var h := hunt.hero
-	return h.position + h.vel * t * (0.0 if hunt.tier_i == 0 else 1.0)
+	return h.position + h.vel * t * minf(hunt.ai(), 1.0)
 
 
 func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
@@ -277,10 +285,10 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	if ai == "melee" or ai == "bomb" or ai == "charge" or ai == "slam":
 		# Cut the corner: run to where the hero is going, and fan out so a pack
 		# surrounds instead of queueing behind itself.
-		var lead := hero.vel * clampf(dist / maxf(speed * hunt.foe_speed_mult, 1.0), 0.0, 1.0) * (0.4 + 0.2 * hunt.tier_i)
+		var lead := hero.vel * clampf(dist / maxf(speed * hunt.foe_speed_mult, 1.0), 0.0, 1.0) * minf(0.4 + 0.2 * hunt.ai(), 1.0)
 		want = (to_hero + lead) / maxf((to_hero + lead).length(), 0.01)
 		if dist > 3.5 and ai != "slam":
-			want = (want + to_hero.cross(Vector3.UP).normalized() * strafe * (0.3 + 0.15 * hunt.tier_i)).normalized()
+			want = (want + to_hero.cross(Vector3.UP).normalized() * strafe * (0.3 + 0.15 * hunt.ai())).normalized()
 		if ai == "charge":
 			if dist < 8.5 and dist > 2.6 and atk_cd <= 0.0:
 				_windup()
@@ -302,9 +310,9 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 	var spd := speed * hunt.foe_speed_mult
 	# A long kite wears the pack's patience: on Veteran and up, foes that cannot
 	# close the gap run harder the longer it lasts.
-	if hunt.tier_i > 0 and (ai == "melee" or ai == "slam") and dist > 4.0:
+	if hunt.ai() > 0.0 and (ai == "melee" or ai == "slam") and dist > 4.0:
 		_hound_t = minf(_hound_t + dt, 5.0)
-		spd *= 1.0 + 0.05 * hunt.tier_i * _hound_t
+		spd *= 1.0 + 0.05 * hunt.ai() * _hound_t
 	elif dist < 3.0:
 		_hound_t = 0.0
 	position += want * spd * dt
@@ -383,8 +391,11 @@ func _release() -> void:
 				hunt.damage_hero(dmg, self)
 			Sfx.play("atk_enemy", -8.0)
 		"ranged":
-			var dir := dir_of(aim_yaw)
-			hunt.spawn_proj("bolt", flat_pos() + dir * 0.6, dir * float(def["proj_speed"]), dmg, 1, self)
+			# Expert and up: a spread of three, so a sidestep has to be a real one.
+			var n := 3 if hunt.ai() >= 1.5 and not def.has("rival") else 1
+			for i in n:
+				var dir := dir_of(aim_yaw + (i - (n - 1) * 0.5) * deg_to_rad(14.0))
+				hunt.spawn_proj("bolt", flat_pos() + dir * 0.6, dir * float(def["proj_speed"]), dmg, 1, self)
 			Sfx.play("atk_archer", -9.0, 0.8)
 		"caster":
 			var blast: float = def["blast"] * (1.25 if elite else 1.0)
@@ -393,7 +404,10 @@ func _release() -> void:
 			hunt.fx.flash_light(aim, Color(0.7, 0.3, 1.0), 4.0, 5.0, 0.3)
 			Sfx.play("boom", -8.0, 1.2)
 			if hero.flat_pos().distance_to(aim) <= blast + hero.radius * 0.5:
-				hunt.damage_hero(dmg, self)
+				hunt.damage_hero(dmg, self, 0.5)
+				# Thorn shamans' circles bind: a rooted hero is a target.
+				if def.get("root", false):
+					hero.root_t = maxf(hero.root_t, 0.9)
 		"bomb":
 			var blast_r: float = def["blast"]
 			var at := flat_pos()
@@ -404,7 +418,7 @@ func _release() -> void:
 			hunt.shake(0.3)
 			Sfx.play("boom", -3.0)
 			if hero.flat_pos().distance_to(at) <= blast_r + hero.radius * 0.5:
-				hunt.damage_hero(dmg, self)
+				hunt.damage_hero(dmg, self, 0.7)
 			for f in hunt.foes_near(position, blast_r + 1.0):
 				if f != self and not f is Boss and at.distance_to(f.flat_pos()) <= blast_r:
 					hunt.damage_foe(f, dmg * 0.8, self, (f.flat_pos() - at).normalized(), 9.0)
@@ -420,7 +434,7 @@ func _release() -> void:
 			hunt.shake(0.3)
 			Sfx.play("quake", -4.0, 1.2)
 			if hero.flat_pos().distance_to(sat) <= sr + hero.radius * 0.5:
-				hunt.damage_hero(dmg, self)
+				hunt.damage_hero(dmg, self, 0.8)
 				hero.push((hero.flat_pos() - sat).normalized(), 14.0)
 		"charge":
 			dash_dir = dir_of(aim_yaw)

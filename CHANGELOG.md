@@ -6,7 +6,84 @@ shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 
 Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is still 2 (no
 autoloads, input map or project settings changed since the last IPA). Save
-version is 3.
+version is 4.
+
+---
+
+## 2026-10-24: Skill over stats, the Hollow Grove, Phase 11
+
+On branch `claude/game-codebase-review-m1uchq`, not yet on `main`. Save version
+is now 4 (old saves migrate: Veteran becomes tier 3 of 8, Nightmare tier 5).
+`NATIVE_VERSION` is unchanged; no project settings changed.
+
+### Why
+Stacked gear and cards made every tier AFK-able: a level-12 Mage in material-4
+gear stood still for a whole Nightmare hunt and won at full health (armor at
+the 60% cap, 36 HP/s regen). The fix is to make *playing well* matter more than
+numbers, and to give strong accounts a ladder that keeps going.
+
+### Added
+- **Eight difficulty tiers** (Normal, Hard, Veteran, Expert, Nightmare, Hell,
+  Torment, Abyss), each about +65% foe health. Every tier lists its recommended
+  power; the camp card shows yours against it.
+- **Mechanics through armor:** telegraphed attacks also take a share of max
+  health (0% Normal to 35% Abyss). You cannot tank them; step out or dash.
+- **Grave eruptions:** the ground bursts under and around the hero every few
+  seconds (telegraphed). Standing still is always punished.
+- **Perfect dodge:** dash through a blow that would have hit for a riposte
+  (+35% damage for 3 s) and some super.
+- **Steady aim:** bow and staff heroes deal +25% after standing still a moment.
+  Moving is safety; standing is damage.
+- **Exposed bosses:** Gravemaw charging into a wall, the Hexer Queen blinking
+  away from a hero in her face, the Thornmother after her thorn ring: each is
+  dazed and takes +50% for a moment.
+- **The ritual** (Horde): Grave Callers chant at a sigil. Kill them in 18 s for
+  a rare, or a champion brute climbs out and the dead quicken.
+- **A mini-boss** (a champion Bone Brute) at the middle champion mark; a second
+  wave of champions on Nightmare and up.
+- **The Long Road:** dark rooms, timed vaults, cursed altar rooms.
+- **The Hollow Grove**, a third zone: an autumn forest, the Grove Cult (hooded
+  cutthroats, slingers, thorn shamans that root, brawlers), and **the
+  Thornmother**, a boss built around the dash (thorn rings, briar seeds that
+  stay, vine sweeps, roots). Three uniques, a pet and a set.
+- **Rifts:** reach depth 8 in the Descent for a key; a rift is one boss at 2.6×
+  strength with a guaranteed unique.
+- **Signature legendaries:** Bulwark (Knight blocks frontal blows standing still),
+  Ricochet (Ranger), Pyre (Mage), Rampage (Barbarian).
+- **Card banishes** (three a hunt), evolutions from three stacks instead of max,
+  a fourth card choice at hero level 15, a second potion at level 20.
+- **Gear sets** (Regalia, Raiment, Barkbound) and **ancient** items (+30%, Hell+).
+- **Gold sinks:** reforge (reroll extra affixes), temper (raise material),
+  paid talent resets after the first, weapon glows.
+- **Hero mastery** (titles, gold, shards, glows), **trophy rating** per hero,
+  **first win of the day**, a **7-day login calendar**, **campfire** idle gold,
+  **feats** (achievements), a free six-week **season** track, boss **kill counts**
+  and **dry streaks**, the **Hexling** pet, and a **companion** hero at your side.
+- **Results:** Play again, XP bars, the chest shown big, the road bar filling,
+  upgrades named by hero. Chests won while playing again wait in camp in order.
+- **Victory:** the combat buttons step aside, a white flash, the camera on the
+  fall, then the loot flies to the hero; loot labels are short and big.
+- Music for the Descent, rifts, the Grove and its boss; the music muffles below
+  25% health. Bigger crits, a level-up burst, a coin fountain from champions,
+  the Descent darkening with depth, first-time tips for each new mechanic.
+
+### Changed
+- Normal: boss health +25%, 150 souls, first surge at 15%.
+- Chest shards: 75% to the hero you played (was two random heroes).
+- Armor is now a rating with diminishing returns (DB.armor_dr), and foes on
+  higher tiers ignore some of it. Regen is capped at 2.5% of health a second and
+  leech at 4%; higher tiers cut passive healing.
+- Foes and bosses grow with the hunt's level, so a snowballing build still
+  meets a real boss.
+- Heroes wear their class outfit and starter gear when nothing is equipped.
+- Tall props fade while they hide the fight; foreground props half-fade.
+- Ranged foes fire a three-bolt spread on Expert and up; hounds hunt in pairs
+  on Nightmare and up; bow and staff dashes throw back the crowd.
+
+### Not done
+- **Game Center** leaderboards and achievements: the IPA is unsigned and
+  installed through AltStore, and Game Center needs an App Store provisioned
+  entitlement. Feats and records are kept locally instead.
 
 ---
 

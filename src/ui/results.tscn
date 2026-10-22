@@ -110,10 +110,25 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Continue" type="Button" parent="Panel/M/V"]
+[node name="Buttons" type="HBoxContainer" parent="Panel/M/V"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Continue" type="Button" parent="Panel/M/V/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"Ghost"
+text = "Camp"
+
+[node name="Again" type="Button" parent="Panel/M/V/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.6
 focus_mode = 0
 theme_type_variation = &"PrimaryButton"
-text = "Return to camp"
+text = "Play again"

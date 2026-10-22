@@ -4,8 +4,9 @@ extends RefCounted
 ## their body parts can be lifted from one character onto another: a Knight in
 ## the Mage's hat, a Barbarian in the Ranger's tunic. Which parts, which dye
 ## and which weapon model each piece shows is decided by GearDB; this file only
-## does the dressing. With nothing equipped a hero is a plain man in a tunic
-## holding a starter weapon.
+## does the dressing. With nothing equipped a hero wears its class's own
+## outfit and the first weapon, helm and offhand of its line, so a new Knight
+## looks like a knight; `preview` with an empty slot shows it truly bare.
 ##
 ## `apply` can take `preview` ({slot: item}) to show a piece the player has not
 ## equipped yet, which is how the equipment screen lets you try things on.
@@ -31,8 +32,12 @@ static func glow_of(item: Dictionary, boost := 1.0) -> Color:
 static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 	var skel: Skeleton3D = actor.model.find_child("Skeleton3D", true, false)
 	var worn := {}
+	var starter := {}
 	for slot in DB.SLOTS:
 		worn[slot] = preview[slot] if preview.has(slot) else Game.equipped(hero_id, slot)
+		starter[slot] = worn[slot].is_empty() and not preview.has(slot)
+		if starter[slot] and slot in ["weapon", "helm", "trinket"]:
+			worn[slot] = {"slot": slot, "cls": hero_id, "mat": 0, "rarity": "common", "unique": "", "stats": {}}
 	var own_head := "%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")
 	# Everything dressable goes away, then the wanted parts come back.
 	for mi in skel.get_children():
@@ -42,8 +47,9 @@ static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 	if head:
 		head.visible = true
 	var basic := Color(GearDB.BASIC_DYE)
-	_dress(actor, skel, hero_id, worn["chest"], "chest", ["T:Rogue_Hooded"], basic)
-	_dress(actor, skel, hero_id, worn["legs"], "legs", ["L:Rogue_Hooded"], basic)
+	var own: String = DB.HEROES[hero_id]["model"]
+	_dress(actor, skel, hero_id, worn["chest"], "chest", ["T:" + own] if starter["chest"] else ["T:Rogue_Hooded"], Color(0, 0, 0, 0) if starter["chest"] else basic)
+	_dress(actor, skel, hero_id, worn["legs"], "legs", ["L:" + own] if starter["legs"] else ["L:Rogue_Hooded"], Color(0, 0, 0, 0) if starter["legs"] else basic)
 	_dress(actor, skel, hero_id, worn["helm"], "helm", [], Color(0, 0, 0, 0))
 	if not worn["trinket"].is_empty() and GearDB.stage(hero_id, "trinket", int(worn["trinket"].get("mat", 0))).has("parts"):
 		_dress(actor, skel, hero_id, worn["trinket"], "trinket", [], Color(0, 0, 0, 0))
@@ -120,7 +126,12 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 		file = lk["model"]
 		scale_ = lk["scale"]
 		dye = lk["dye"]
-	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow_of(w, 1.2), Transform3D.IDENTITY)
+	var glow := glow_of(w, 1.2)
+	# A bought or earned weapon glow outshines the rarity glow.
+	var hg := str(Game.hero(hero_id).get("glow", ""))
+	if DB.GLOWS.has(hg):
+		glow = DB.GLOWS[hg]["color"]
+	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow, Transform3D.IDENTITY)
 	var off: Dictionary = worn["trinket"]
 	var st := GearDB.stage(hero_id, "trinket", int(off.get("mat", 0))) if not off.is_empty() else {}
 	var model := str(st.get("model", ""))

@@ -68,6 +68,10 @@ unchanged. Authors:
   MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 —
   https://creativecommons.org/licenses/by/4.0/ . Re-encoded to OGG and
   loudness-matched; otherwise unchanged.
+- "Volatile Reaction" (Endless Descent), "Crypto" (rifts), "Darkest Child" (the
+  Hollow Grove) and "Curse of the Scarab" (the Thornmother) by Kevin MacLeod
+  (incompetech.com), same license. Trimmed to about 105 s, loudness-matched to
+  the other tracks and re-encoded to OGG.
 - Victory sting: "Victory Fanfare Short" by cynicmusic —
   https://opengameart.org/content/victory-fanfare-short — CC0 (trimmed).
 

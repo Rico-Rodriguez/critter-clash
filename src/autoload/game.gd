@@ -6,7 +6,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -22,13 +22,16 @@ func _ready() -> void:
 		data = _fresh()
 	else:
 		load_save()
+	if int(data.get("idle_since", 0)) <= 0:
+		data["idle_since"] = int(Time.get_unix_time_from_system())
 	Sfx.refresh_volume.call_deferred()
 
 
 func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
-		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": []}
+		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
+			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": []}
 	var skills := {}
 	for s in DB.SKILLS:
 		skills[s] = DB.xp_for_level(10) if s == "hitpoints" else 0
@@ -44,7 +47,7 @@ func _fresh() -> Dictionary:
 		"tier_unlocked": 0,
 		"tier": 0,
 		"pet": "",
-		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}},
+		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}, "rifts": 0, "best_perfect": 0, "best_tier_won": 0},
 		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard", "buttons": "right", "haptics": true},
 		"seen_tutorial": false,
 		"seen_items": [],
@@ -55,6 +58,20 @@ func _fresh() -> Dictionary:
 		"road": 0,
 		"omen_on": false,
 		"clue": {},
+		# Retention: first win of the day, the login calendar, the campfire,
+		# boss kill counts and dry streaks, rift keys, achievements, the season.
+		"daily": {"day": "", "won": false},
+		"login": {"last": "", "count": 0},
+		"idle_since": 0,
+		"kc": {},
+		"dry": {},
+		"dry_best": {},
+		"rift_keys": 0,
+		"achievements": {},
+		"season": {"id": -1, "xp": 0, "claimed": 0},
+		"pets": [],
+		"ally": "",
+		"tips": {},
 	}
 
 
@@ -66,11 +83,13 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
 		if int(parsed.get("version", 0)) == 2:
 			_migrate_v2(parsed)
+		if int(parsed.get("version", 0)) == 3:
+			_migrate_v3(parsed)
 		_merge(data, parsed)
 
 
@@ -110,6 +129,26 @@ func _migrate_v2(d: Dictionary) -> void:
 			d["heroes"][worn[uid]]["gear"].erase(it["slot"])
 		if u == "":
 			it["name"] = _item_name(it, str(it.get("rarity", "common")))
+	d["version"] = 3
+
+
+## v4 split three difficulty tiers into eight. Old Veteran and Nightmare map
+## to their new places, and so do the tier digits in best-time keys.
+func _migrate_v3(d: Dictionary) -> void:
+	var m: Array = DB.TIER_FROM_V3
+	d["tier_unlocked"] = int(m[clampi(int(d.get("tier_unlocked", 0)), 0, 2)])
+	d["tier"] = int(m[clampi(int(d.get("tier", 0)), 0, 2)])
+	var best: Dictionary = d.get("stats", {}).get("best", {})
+	var out := {}
+	var re := RegEx.create_from_string("^(t|depths|tdepths|rush|wild)?([0-2])(_.*)?$")
+	for k: String in best:
+		var mt := re.search(k)
+		if mt and not k.begins_with("wildplace"):
+			out[mt.get_string(1) + str(m[int(mt.get_string(2))]) + mt.get_string(3)] = best[k]
+		else:
+			out[k] = best[k]
+	if d.has("stats"):
+		d["stats"]["best"] = out
 	d["version"] = SAVE_VERSION
 
 
@@ -164,8 +203,10 @@ func mode_id() -> String:
 	return m if DB.MODES.has(m) and mode_unlocked(m) else "horde"
 
 
-## Descent and Boss Rush open once you have won on Normal.
+## Descent and Boss Rush open once you have won on Normal; a rift needs a key.
 func mode_unlocked(id: String) -> bool:
+	if id == "rift":
+		return int(data.get("rift_keys", 0)) > 0
 	return not DB.MODES[id].has("unlock") or int(data["tier_unlocked"]) >= 1
 
 
@@ -180,7 +221,12 @@ func set_mode(id: String) -> void:
 
 
 func zone_unlocked(id: String) -> bool:
-	return id == "barrow" or (id == "depths" and int(data["tier_unlocked"]) >= 2)
+	match id:
+		"depths":
+			return int(data["tier_unlocked"]) > DB.TIER_VETERAN
+		"grove":
+			return int(data["tier_unlocked"]) > DB.TIER_VETERAN + 1
+	return id == "barrow"
 
 
 func set_zone(id: String) -> void:
@@ -439,7 +485,9 @@ func hero_stats(id: String, preview := {}) -> Dictionary:
 		if u != "" and DB.UNIQUES[u].has("card"):
 			s["cards"].append(DB.UNIQUES[u]["card"])
 	_apply_talents(id, s)
-	s["armor"] = minf(s["armor"], 0.6)
+	_apply_sets(id, s, preview)
+	# Armor is a rating; DB.armor_dr turns it into damage taken, on a curve.
+	s["armor"] = minf(s["armor"], 2.0)
 	return s
 
 
@@ -473,10 +521,20 @@ func learn_talent(id: String, path: int, idx: int) -> bool:
 	return true
 
 
-## Free: hands back every point.
-func respec(id: String) -> void:
+## The first reset per hero is free; after that it costs gold per level.
+func respec_cost(id: String) -> int:
+	return 0 if bool(hero(id).get("free_respec", true)) else DB.RESPEC_GOLD * int(hero(id)["level"])
+
+
+func respec(id: String) -> bool:
+	var c := respec_cost(id)
+	if gold() < c:
+		return false
+	data["gold"] = gold() - c
+	hero(id)["free_respec"] = false
 	hero(id)["talents"] = []
 	save()
+	return true
 
 
 func _apply_talents(id: String, s: Dictionary) -> void:
@@ -546,8 +604,15 @@ func roll_item(source: String, tier_i: int, slot := "", cls := "", bonus := 0) -
 		rarity = "rare"
 	if slot == "":
 		slot = DB.SLOTS[rng.randi() % DB.SLOTS.size()]
-	var mat := GearDB.roll_mat(tier_i, bonus + (1 if source == "boss" else 0), rng)
-	return make_item(cls, slot, mat, rarity)
+	var mat := GearDB.roll_mat(int(t["mat"]), bonus + (1 if source == "boss" else 0), rng)
+	var it := make_item(cls, slot, mat, rarity)
+	# Ancient: Diablo's rare orange-bordered roll, every number 30% higher.
+	if tier_i >= DB.ANCIENT_FROM_TIER and rarity == "rare" and rng.randf() < DB.ANCIENT_CHANCE * float(t["loot"]):
+		for k in it["stats"]:
+			it["stats"][k] = int(round(float(it["stats"][k]) * DB.ANCIENT_MULT))
+		it["ancient"] = true
+		it["name"] = "Ancient " + str(it["name"])
+	return it
 
 
 ## Builds a piece: stats scale with the material and the rarity.
@@ -596,6 +661,8 @@ func grant_item(it: Dictionary) -> Dictionary:
 		data["log"][u] = int(data["log"].get(u, 0)) + 1
 		var ud: Dictionary = DB.UNIQUES[u]
 		if ud["slot"] == "pet":
+			if not u in data["pets"]:
+				data["pets"].append(u)
 			if str(data["pet"]) == "":
 				data["pet"] = u
 			return {}
@@ -618,7 +685,7 @@ func roll_uniques(source: String, tier_i: int) -> Array:
 	for u in DB.LOG_ORDER:
 		var ud: Dictionary = DB.UNIQUES[u]
 		var src := str(ud["source"])
-		if src == source or (src == "nightmare" and source in ["boss", "hexer"] and tier_i == 2):
+		if src == source or (src == "nightmare" and source in ["boss", "hexer", "thorn"] and tier_i >= DB.TIER_NIGHTMARE):
 			if rng.randf() < mult / float(ud["rate"]):
 				hits.append(u)
 	return hits
@@ -650,6 +717,9 @@ func describe_stats(it: Dictionary) -> PackedStringArray:
 	var u := str(it.get("unique", ""))
 	if u != "":
 		out.append(str(DB.UNIQUES[u].get("power", "")))
+	var st := item_set(it)
+	if st != "":
+		out.append("Set: %s (2: %s · 4: %s)" % [DB.SETS[st]["name"], DB.SETS[st]["2"]["desc"], DB.SETS[st]["4"]["desc"]])
 	return out
 
 
@@ -662,13 +732,14 @@ func open_chest(kind: String) -> Array:
 	var g := rng.randi_range(c["gold"][0], c["gold"][1])
 	data["gold"] = gold() + g
 	out.append({"type": "gold", "amount": g})
-	# Shards: split between two heroes, favouring locked ones a little so the
-	# roster opens up.
-	var ids: Array = DB.HERO_ORDER.duplicate()
-	ids.shuffle()
+	# Shards: most go to the hero you play (Brawl Stars' power points), the
+	# rest to another, a locked one first so the roster still opens up.
+	var others: Array = DB.HERO_ORDER.filter(func(h): return h != hero_id())
+	others.shuffle()
+	others.sort_custom(func(x, y): return not hero(x)["unlocked"] and hero(y)["unlocked"])
 	var total: int = c["shards"]
-	var a := int(ceil(total * 0.6))
-	for pair in [[ids[0], a], [ids[1], total - a]]:
+	var a := int(ceil(total * DB.SHARDS_TO_PLAYED))
+	for pair in [[hero_id(), a], [others[0], total - a]]:
 		var hid: String = pair[0]
 		hero(hid)["shards"] = int(hero(hid)["shards"]) + int(pair[1])
 		out.append({"type": "shards", "hero": hid, "amount": int(pair[1])})
@@ -694,13 +765,21 @@ func unlock_by_shards() -> String:
 
 
 func tier_for_chest(kind: String) -> int:
-	return {"silver": 0, "gold": 1, "crypt": 2}.get(kind, 0)
+	return {"silver": 0, "gold": DB.TIER_VETERAN, "crypt": DB.TIER_NIGHTMARE}.get(kind, 0)
 
 
 ## Applies a finished hunt. `r`: win, tier, hero, gold, xp {skill: amount},
 ## items [], kills, elites, time. Returns a summary with level-ups.
 func finish_hunt(r: Dictionary) -> Dictionary:
 	var summary := {"levels": [], "unlocked_tier": -1, "unlocked_hero": "", "items": []}
+	# The first win of the day: double gold and a chest one grade better.
+	if r.get("win", false) and first_win_ready():
+		data["daily"] = {"day": today(), "won": true}
+		r["gold"] = int(round(int(r.get("gold", 0)) * (1.0 + DB.FIRST_WIN_GOLD)))
+		var grades := ["silver", "gold", "crypt"]
+		if str(r.get("chest", "")) in grades:
+			r["chest"] = grades[mini(grades.find(str(r["chest"])) + 1, 2)]
+		summary["first_win"] = true
 	data["gold"] = gold() + int(r.get("gold", 0))
 	var before := skill_levels()
 	for s in r.get("xp", {}):
@@ -726,6 +805,8 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			key = "t" + key
 		elif str(r.get("mode", "horde")) == "rush":
 			key = "rush%d_%s" % [t, r["hero"]]
+		elif str(r.get("mode", "horde")) == "rift":
+			key = "rift%d_%s" % [t, r["hero"]]
 		elif str(r.get("mode", "horde")) == "wild":
 			key = "wild%d_%s" % [t, r["hero"]]
 		var best := float(st["best"].get(key, 0.0))
@@ -734,10 +815,25 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if t >= int(data["tier_unlocked"]) and t < DB.TIERS.size() - 1:
 			data["tier_unlocked"] = t + 1
 			summary["unlocked_tier"] = t + 1
-		if t >= 1 and not hero("barbarian")["unlocked"]:
+		if t >= DB.TIER_VETERAN and not hero("barbarian")["unlocked"]:
 			hero("barbarian")["unlocked"] = true
 			summary["unlocked_hero"] = "barbarian"
 	summary["renown"] = _earn_renown(r)
+	season()["xp"] = int(season()["xp"]) + int(summary["renown"])
+	var hid := str(r.get("hero", hero_id()))
+	summary["mastery"] = _gain_mastery(hid, r)
+	if str(r.get("mode", "horde")) != "rift":
+		summary["rating"] = _gain_rating(hid, r)
+	_count_bosses(r)
+	st["best_perfect"] = maxi(int(st.get("best_perfect", 0)), int(r.get("perfect", 0)))
+	if r.get("win", false):
+		st["best_tier_won"] = maxi(int(st.get("best_tier_won", 0)), int(r["tier"]) + 1)
+		if str(r.get("mode", "")) == "rift":
+			st["rifts"] = int(st.get("rifts", 0)) + 1
+	if str(r.get("mode", "")) == "descent" and int(r.get("depth", 1)) >= DB.RIFT_DEPTH:
+		data["rift_keys"] = int(data.get("rift_keys", 0)) + 1
+		summary["rift_key"] = true
+	summary["achievements"] = achievement_claimable()
 	summary["clue"] = _clue_progress(r)
 	if str(r.get("mode", "horde")) == "wild" and int(r.get("rivals", 0)) > 0:
 		var wkey: String = "wildplace_" + str(r["hero"])
@@ -766,7 +862,7 @@ func renown() -> int:
 
 
 func _earn_renown(r: Dictionary) -> int:
-	var n := 12 + int(r.get("tier", 0)) * 10 + int(r.get("kills", 0)) / 20 + int(r.get("elites", 0)) * 3
+	var n := 12 + int(r.get("tier", 0)) * 6 + int(r.get("kills", 0)) / 20 + int(r.get("elites", 0)) * 3
 	if r.get("win", false):
 		n += 25
 	if str(r.get("mode", "horde")) == "descent":
@@ -786,10 +882,18 @@ func road_claimable() -> int:
 
 ## 0..1 progress toward the next step.
 func road_fill() -> float:
-	var done := int(data.get("road", 0)) + road_claimable()
+	return road_fill_for(renown())
+
+
+## 0..1 progress toward the next step at a given renown total (the results
+## screen fills the bar from the old total to the new).
+func road_fill_for(r: int) -> float:
+	var done := 0
+	while DB.road_threshold(done + 1) <= r:
+		done += 1
 	var lo := DB.road_threshold(done) if done > 0 else 0
 	var hi := DB.road_threshold(done + 1)
-	return clampf(float(renown() - lo) / float(hi - lo), 0.0, 1.0)
+	return clampf(float(r - lo) / float(hi - lo), 0.0, 1.0)
 
 
 func road_reward_text(n: int) -> String:
@@ -890,7 +994,7 @@ func _goal_met(g: Dictionary, r: Dictionary) -> bool:
 		"depth":
 			return str(r.get("mode", "")) == "descent" and int(r.get("depth", 1)) >= int(def["n"])
 		"veteran":
-			return win and int(r.get("tier", 0)) >= 1
+			return win and int(r.get("tier", 0)) >= DB.TIER_VETERAN
 		"fast":
 			return float(r.get("boss_time", 9999.0)) <= float(def["n"])
 		"gold":
@@ -944,7 +1048,7 @@ func refresh_bounties(today := "") -> bool:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(today)
 	var ids: Array = DB.BOUNTY_POOL.keys()
-	if int(data["tier_unlocked"]) < 1:
+	if int(data["tier_unlocked"]) < DB.TIER_VETERAN:
 		ids.erase("veteran")
 	var list := []
 	while list.size() < DB.BOUNTIES_PER_DAY and not ids.is_empty():
@@ -991,7 +1095,7 @@ func _bounty_progress(r: Dictionary) -> void:
 		var def: Dictionary = DB.BOUNTY_POOL[e["id"]]
 		if e["claimed"] or (def.has("win") and not won):
 			continue
-		if def.has("veteran") and int(r.get("tier", 0)) < 1:
+		if def.has("veteran") and int(r.get("tier", 0)) < DB.TIER_VETERAN:
 			continue
 		if def.has("hero") and str(r.get("hero", "")) != str(e["hero"]):
 			continue
@@ -1022,3 +1126,376 @@ func claim_bounty(i: int) -> Dictionary:
 	var opened := unlock_by_shards()
 	save()
 	return {"gold": int(e["gold"]), "shards": int(e["shards"]), "hero": sh, "unlocked": opened}
+
+
+
+# --- Gold sinks ----------------------------------------------------------------
+
+func can_reforge(it: Dictionary) -> bool:
+	return str(it.get("unique", "")) == "" and it["rarity"] != "common" and gold() >= DB.reforge_cost(it)
+
+
+## New extra affixes (the main one stays): gold for another roll at a build.
+func reforge(uid: int) -> bool:
+	var it := item(uid)
+	if it.is_empty() or not can_reforge(it):
+		return false
+	data["gold"] = gold() - DB.reforge_cost(it)
+	var step := DB.RARITIES.find(str(it["rarity"]))
+	var scale_ := (1.0 + 0.22 * int(it.get("mat", 0))) * (DB.ANCIENT_MULT if it.get("ancient", false) else 1.0)
+	var main: String = DB.SLOT_MAIN[it["slot"]]
+	var stats := {main: it["stats"][main]}
+	var pool: Array = DB.SLOT_POOL[it["slot"]].duplicate()
+	pool.erase(main)
+	pool.shuffle()
+	for i in step:
+		if i < pool.size():
+			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
+	it["stats"] = stats
+	save()
+	return true
+
+
+func can_temper(it: Dictionary) -> bool:
+	return str(it.get("unique", "")) == "" and int(it.get("mat", 0)) < GearDB.TIERS - 1 and gold() >= DB.temper_cost(it)
+
+
+## One material step up: every number grows with it, and so does the name.
+func temper(uid: int) -> bool:
+	var it := item(uid)
+	if it.is_empty() or not can_temper(it):
+		return false
+	data["gold"] = gold() - DB.temper_cost(it)
+	var mat := int(it.get("mat", 0))
+	var k := (1.0 + 0.22 * (mat + 1)) / (1.0 + 0.22 * mat)
+	for key in it["stats"]:
+		it["stats"][key] = int(round(float(it["stats"][key]) * k))
+	it["mat"] = mat + 1
+	var prefix := str(it["name"]).get_slice(" ", 0) if it["rarity"] != "common" else ""
+	var base := GearDB.base_name(str(it["cls"]), str(it["slot"]), mat + 1)
+	it["name"] = base if prefix == "" else "%s %s" % [prefix, base]
+	# Tempering can lift a piece past what the hero may wear: unequip if so.
+	var owner := owner_of(uid)
+	if owner != "" and wear_block(owner, it) != "":
+		hero(owner)["gear"].erase(it["slot"])
+	save()
+	return true
+
+
+func buy_glow(id: String, glow: String) -> bool:
+	var h := hero(id)
+	if glow in h["glows"]:
+		h["glow"] = glow
+		save()
+		return true
+	var cost := int(DB.GLOWS[glow]["gold"])
+	if gold() < cost:
+		return false
+	data["gold"] = gold() - cost
+	h["glows"].append(glow)
+	h["glow"] = glow
+	save()
+	return true
+
+
+func set_glow(id: String, glow: String) -> void:
+	if glow == "" or glow in hero(id)["glows"]:
+		hero(id)["glow"] = glow
+		save()
+
+
+# --- Sets and ancients -----------------------------------------------------------
+
+## The set a piece belongs to ("" for none): its tag, or its unique's boss.
+func item_set(it: Dictionary) -> String:
+	if it.has("set"):
+		return str(it["set"])
+	var u := str(it.get("unique", ""))
+	if u != "" and DB.UNIQUES.has(u):
+		return str(DB.SOURCE_BOSS.get(DB.UNIQUES[u]["source"], ""))
+	return ""
+
+
+## Pieces of each set a hero wears.
+func set_counts(id: String, preview := {}) -> Dictionary:
+	var n := {}
+	for slot in DB.SLOTS:
+		var it: Dictionary = preview[slot] if preview.has(slot) else equipped(id, slot)
+		var st := item_set(it) if not it.is_empty() else ""
+		if st != "":
+			n[st] = int(n.get(st, 0)) + 1
+	return n
+
+
+func _apply_sets(id: String, s: Dictionary, preview: Dictionary) -> void:
+	var counts := set_counts(id, preview)
+	for st: String in counts:
+		for need in ["2", "4"]:
+			if int(counts[st]) < int(need):
+				continue
+			var b: Dictionary = DB.SETS[st][need]
+			s["dmg"] *= 1.0 + float(b.get("dmg", 0.0))
+			s["hp"] *= 1.0 + float(b.get("hp", 0.0))
+			s["speed"] *= 1.0 + float(b.get("speed", 0.0))
+			s["crit"] += float(b.get("crit", 0.0))
+			for f: String in b.get("flags", {}):
+				s["flags"][f] = float(b["flags"][f])
+
+
+## A boss's hoard: like any boss drop, but a piece may belong to its set.
+func roll_boss_item(boss_id: String, tier_i: int, bonus := 0) -> Dictionary:
+	var it := roll_item("boss", tier_i, "", "", bonus)
+	if str(it.get("unique", "")) == "" and it["rarity"] != "common" and DB.SETS.has(boss_id) and rng.randf() < DB.SET_CHANCE:
+		it["set"] = boss_id
+		it["name"] = "%s %s" % [DB.SETS[boss_id]["short"], GearDB.base_name(str(it["cls"]), str(it["slot"]), int(it["mat"]))]
+	return it
+
+
+# --- Mastery, rating, dailies -----------------------------------------------------
+
+func today() -> String:
+	return Time.get_date_string_from_system()
+
+
+func _day_offset(days: int) -> String:
+	return Time.get_date_string_from_unix_time(int(Time.get_unix_time_from_system()) + days * 86400)
+
+
+func mastery_title(id: String) -> String:
+	return str(DB.MASTERY[int(hero(id).get("mastery_rank", 0))]["title"])
+
+
+## Points to the next rank, or -1 at the top.
+func mastery_next(id: String) -> int:
+	var r := int(hero(id).get("mastery_rank", 0))
+	return -1 if r >= DB.MASTERY.size() - 1 else int(DB.MASTERY[r + 1]["at"])
+
+
+func _gain_mastery(id: String, r: Dictionary) -> Dictionary:
+	var h := hero(id)
+	var pts := int(r.get("kills", 0)) / 10 + (40 if r.get("win", false) else 0) + 15 * int(r.get("tier", 0))
+	h["mastery"] = int(h.get("mastery", 0)) + pts
+	var out := {"gained": pts, "titles": []}
+	var rank := DB.mastery_rank(int(h["mastery"]))
+	while int(h.get("mastery_rank", 0)) < rank:
+		h["mastery_rank"] = int(h.get("mastery_rank", 0)) + 1
+		var m: Dictionary = DB.MASTERY[h["mastery_rank"]]
+		data["gold"] = gold() + int(m.get("gold", 0))
+		h["shards"] = int(h["shards"]) + int(m.get("shards", 0))
+		if m.has("glow") and not m["glow"] in h["glows"]:
+			h["glows"].append(m["glow"])
+		out["titles"].append(str(m["title"]))
+	return out
+
+
+func _gain_rating(id: String, r: Dictionary) -> Dictionary:
+	var h := hero(id)
+	var before := int(h.get("rating", 0))
+	var d := DB.RATING_WIN + DB.RATING_WIN_TIER * int(r.get("tier", 0)) if r.get("win", false) else -DB.RATING_LOSS
+	h["rating"] = maxi(before + d, 0)
+	var paid := 0
+	while int(h["rating"]) >= (int(h.get("rating_paid", 0)) + 1) * DB.RATING_STEP:
+		h["rating_paid"] = int(h.get("rating_paid", 0)) + 1
+		var g := 150 * int(h["rating_paid"])
+		data["gold"] = gold() + g
+		h["shards"] = int(h["shards"]) + 5 + int(h["rating_paid"]) * 2
+		paid += g
+	return {"delta": int(h["rating"]) - before, "rating": int(h["rating"]), "milestone_gold": paid}
+
+
+## The campfire's gold waiting since the last visit.
+func idle_gold() -> int:
+	var since := int(data.get("idle_since", 0))
+	if since <= 0:
+		return 0
+	var hours := minf((Time.get_unix_time_from_system() - since) / 3600.0, DB.IDLE_HOURS)
+	return int(hours * (DB.IDLE_GOLD_HOUR + DB.IDLE_GOLD_TIER * int(data["tier_unlocked"])))
+
+
+func claim_idle() -> int:
+	var g := idle_gold()
+	data["gold"] = gold() + g
+	data["idle_since"] = int(Time.get_unix_time_from_system())
+	save()
+	return g
+
+
+## The login calendar: {day 1..7 of the streak if claimed now, ready}.
+func login_status() -> Dictionary:
+	var l: Dictionary = data["login"]
+	if str(l["last"]) == today():
+		return {"day": (int(l["count"]) - 1) % DB.LOGIN_REWARDS.size() + 1, "ready": false}
+	var cont := str(l["last"]) == _day_offset(-1)
+	var n := int(l["count"]) + 1 if cont else 1
+	return {"day": (n - 1) % DB.LOGIN_REWARDS.size() + 1, "ready": true}
+
+
+## Pays today's login reward. Returns the reward and, for a chest, its kind.
+func claim_login() -> Dictionary:
+	var st := login_status()
+	if not st["ready"]:
+		return {}
+	var l: Dictionary = data["login"]
+	l["count"] = int(l["count"]) + 1 if str(l["last"]) == _day_offset(-1) else 1
+	l["last"] = today()
+	var rw: Dictionary = DB.LOGIN_REWARDS[int(st["day"]) - 1]
+	data["gold"] = gold() + int(rw.get("gold", 0))
+	if rw.has("shards"):
+		hero(hero_id())["shards"] = int(hero(hero_id())["shards"]) + int(rw["shards"])
+	save()
+	return rw
+
+
+func first_win_ready() -> bool:
+	var d: Dictionary = data["daily"]
+	return str(d["day"]) != today() or not bool(d["won"])
+
+
+# --- Kill counts and dry streaks ---------------------------------------------------
+
+func kc(boss_id: String) -> int:
+	return int(data["kc"].get(boss_id, 0))
+
+
+func dry(boss_id: String) -> int:
+	return int(data["dry"].get(boss_id, 0))
+
+
+func _count_bosses(r: Dictionary) -> void:
+	var got := {}
+	for it in r.get("items", []):
+		var u := str(it.get("unique", ""))
+		if u != "" and DB.UNIQUES.has(u):
+			got[str(DB.SOURCE_BOSS.get(DB.UNIQUES[u]["source"], ""))] = true
+	for b: String in r.get("bosses", []):
+		data["kc"][b] = kc(b) + 1
+		data["dry"][b] = 0 if got.has(b) else dry(b) + 1
+		data["dry_best"][b] = maxi(int(data["dry_best"].get(b, 0)), dry(b))
+
+
+# --- Achievements and the season ----------------------------------------------------
+
+func achievement_value(stat: String) -> int:
+	var st: Dictionary = data["stats"]
+	match stat:
+		"wins", "kills", "elites", "rifts":
+			return int(st.get(stat, 0))
+		"tier":
+			return int(st.get("best_tier_won", 0))
+		"depth":
+			var best := 0
+			for id in DB.HERO_ORDER:
+				best = maxi(best, best_depth(id))
+			return best
+		"perfect":
+			return int(st.get("best_perfect", 0))
+		"log":
+			return data["log"].keys().filter(func(k): return int(data["log"][k]) > 0).size()
+		"mastery":
+			var m := 0
+			for id in DB.HERO_ORDER:
+				m = maxi(m, int(hero(id).get("mastery_rank", 0)))
+			return m
+		"set":
+			var best_set := 0
+			for id in DB.HERO_ORDER:
+				for n in set_counts(id).values():
+					best_set = maxi(best_set, int(n))
+			return best_set
+	if stat.begins_with("kc_"):
+		return kc(stat.substr(3))
+	return 0
+
+
+func achievement_done(a: Dictionary) -> bool:
+	return achievement_value(str(a["stat"])) >= int(a["n"])
+
+
+func achievement_claimable() -> int:
+	var n := 0
+	for a: Dictionary in DB.ACHIEVEMENTS:
+		if achievement_done(a) and not data["achievements"].has(a["id"]):
+			n += 1
+	return n
+
+
+func claim_achievement(id: String) -> int:
+	for a: Dictionary in DB.ACHIEVEMENTS:
+		if a["id"] == id and achievement_done(a) and not data["achievements"].has(id):
+			data["achievements"][id] = true
+			data["gold"] = gold() + int(a["gold"])
+			save()
+			return int(a["gold"])
+	return 0
+
+
+func season_id() -> int:
+	return int(Time.get_unix_time_from_system() / (86400.0 * 7.0 * DB.SEASON_WEEKS))
+
+
+func season() -> Dictionary:
+	var s: Dictionary = data["season"]
+	if int(s["id"]) != season_id():
+		data["season"] = {"id": season_id(), "xp": 0, "claimed": 0}
+	return data["season"]
+
+
+func season_name() -> String:
+	return str(DB.SEASON_NAMES[season_id() % DB.SEASON_NAMES.size()])
+
+
+## Days left in the current season.
+func season_days_left() -> int:
+	var span := 86400.0 * 7.0 * DB.SEASON_WEEKS
+	var end := (season_id() + 1) * span
+	return int(ceil((end - Time.get_unix_time_from_system()) / 86400.0))
+
+
+func season_level() -> int:
+	return mini(int(season()["xp"]) / DB.SEASON_XP, DB.SEASON_TIERS)
+
+
+func season_claimable() -> int:
+	return season_level() - int(season()["claimed"])
+
+
+## Pays the next season step. Returns {kind, ...} or {} (a chest is opened).
+func claim_season() -> Dictionary:
+	if season_claimable() <= 0:
+		return {}
+	var s := season()
+	s["claimed"] = int(s["claimed"]) + 1
+	var rw := DB.season_reward(int(s["claimed"]))
+	match str(rw["kind"]):
+		"gold":
+			data["gold"] = gold() + int(rw["amount"])
+		"shards":
+			hero(hero_id())["shards"] = int(hero(hero_id())["shards"]) + int(rw["amount"])
+		"chest":
+			rw["opened"] = open_chest(str(rw["chest"]))
+		"glow":
+			for id in DB.HERO_ORDER:
+				if not rw["glow"] in hero(id)["glows"]:
+					hero(id)["glows"].append(rw["glow"])
+	save()
+	return rw
+
+
+## The nearest goal worth chasing, for the camp ("12 shards to level 6").
+func next_goal() -> String:
+	var id := hero_id()
+	var c := upgrade_cost(id)
+	if not c.is_empty():
+		var need_s := int(c["shards"]) - int(hero(id)["shards"])
+		var need_g := int(c["gold"]) - gold()
+		if need_s <= 0 and need_g <= 0:
+			return "Level %d is ready: upgrade in Heroes" % (int(hero(id)["level"]) + 1)
+		if need_s > 0 and need_s <= 30:
+			return "%d shards to level %d" % [need_s, int(hero(id)["level"]) + 1]
+	var t := int(data["tier_unlocked"])
+	if t < DB.TIERS.size() - 1 and tier() == t:
+		return "Win on %s to open %s" % [DB.TIERS[t]["name"], DB.TIERS[t + 1]["name"]]
+	var nxt := mastery_next(id)
+	if nxt > 0:
+		return "%d mastery to %s" % [nxt - int(hero(id)["mastery"]), DB.MASTERY[int(hero(id)["mastery_rank"]) + 1]["title"]]
+	return ""

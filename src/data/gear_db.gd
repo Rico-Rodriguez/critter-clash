@@ -246,8 +246,9 @@ static func mesh_name(part: String) -> String:
 
 ## Rolls the material tier of a drop: harder content drops better metal.
 ## `bonus` is zone/depth/boss shift in tiers.
-static func roll_mat(hunt_tier: int, bonus: int, rng: RandomNumberGenerator) -> int:
-	var base := hunt_tier * 2 + bonus
+## `base_mat` is the tier's material (DB.TIERS[i]["mat"]).
+static func roll_mat(base_mat: int, bonus: int, rng: RandomNumberGenerator) -> int:
+	var base := base_mat + bonus
 	var r := rng.randf()
 	var shift := -1 if r < 0.22 else (0 if r < 0.62 else (1 if r < 0.9 else 2))
 	return clampi(base + shift, 0, TIERS - 1)

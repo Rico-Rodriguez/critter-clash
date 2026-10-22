@@ -12,6 +12,10 @@ var _fade: ColorRect
 var _busy := false
 ## A chest won in the last hunt, waiting to be opened in camp.
 var pending_chest := ""
+## Gold when the last hunt began: the camp counts up from it on return.
+var gold_seen := -1
+## Chests won while playing again without visiting camp, opened in turn.
+var chest_queue: Array[String] = []
 
 
 func _ready() -> void:
@@ -70,8 +74,19 @@ func go(screen: String) -> void:
 
 func _on_hunt_finished(result: Dictionary) -> void:
 	if result.get("win", false) or (str(result.get("mode", "")) in ["descent", "wild"] and str(result.get("chest", "")) != ""):
-		pending_chest = str(result.get("chest", ""))
-	go("lobby")
+		var c := str(result.get("chest", ""))
+		if c != "":
+			if pending_chest == "":
+				pending_chest = c
+			else:
+				chest_queue.append(c)
+	go("hunt" if result.get("again", false) else "lobby")
+
+
+## The next waiting chest after one is opened, or "".
+func next_chest() -> String:
+	pending_chest = chest_queue.pop_front() if not chest_queue.is_empty() else ""
+	return pending_chest
 
 
 # --- Compile check ---------------------------------------------------------
@@ -126,12 +141,32 @@ func _run_bot(args: PackedStringArray) -> void:
 	var zone := _arg(args, "zone", "barrow")
 	var mode := _arg(args, "mode", "horde")
 	var ok := true
+	# --gear=M: a full set of rare material-M gear and every talent point spent,
+	# to test what a geared account sees (the bare bot is a floor, not the norm).
+	var gear := int(_arg(args, "gear", "-1"))
 	for hid in heroes:
 		Game.hero(hid)["unlocked"] = true
 		Game.hero(hid)["level"] = levels
+		if gear >= 0:
+			for sk in DB.SKILLS:
+				Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[gear])))
+			for slot in DB.SLOTS:
+				var it := Game.grant_item(Game.make_item(hid, slot, gear, "rare"))
+				Game.equip(hid, int(it["uid"]))
+			var path := 0
+			while Game.talent_points(hid) > 0 and path < 3:
+				var learned := false
+				for i in TalentDB.paths(hid)[path]["nodes"].size():
+					if Game.learn_talent(hid, path, i):
+						learned = true
+						break
+				if not learned:
+					path += 1
+			var s := Game.hero_stats(hid)
+			print("GEAR %s mat=%d power=%d hp=%.0f dmg=%.1f rate=%.2f armor=%.2f regen=%.1f" % [hid, gear, Game.power_score(hid), s["hp"], s["dmg"], s["rate"], s["armor"], s["regen"]])
 		for r in runs:
 			Game.data["hero"] = hid
-			Game.data["tier_unlocked"] = 2
+			Game.data["tier_unlocked"] = DB.TIERS.size() - 1
 			Game.data["zone"] = zone
 			Game.data["mode"] = mode
 			Game.data["tier"] = tier
@@ -178,7 +213,7 @@ func _capture(args: PackedStringArray) -> void:
 	Game.data["tier_unlocked"] = 1
 	Game.data["mode"] = _arg(args, "mode", "horde")
 	if _arg(args, "zone", "barrow") != "barrow":
-		Game.data["tier_unlocked"] = 2
+		Game.data["tier_unlocked"] = DB.TIERS.size() - 1
 		Game.data["zone"] = _arg(args, "zone", "barrow")
 	for s in DB.SKILLS:
 		Game.data["skills"][s] = DB.xp_for_level({"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s])
@@ -201,7 +236,15 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats":
+				# The new camp systems with something to show.
+				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
+				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
+				Game.season()["claimed"] = 2
+				Game.data["stats"]["wins"] = 3
+				Game.hero(hid)["mastery"] = 520
+				Game.hero(hid)["mastery_rank"] = 1
+				Game.hero(hid)["rating"] = 64
 				if shot == "chest" or shot == "lobbychest":
 					pending_chest = "gold"
 				if shot in ["bounties", "lobby"]:
@@ -232,7 +275,7 @@ func _capture(args: PackedStringArray) -> void:
 				var hh: Hunt = current
 				hh._abandon()
 				await _wait(0.5)
-				hh.hud.get_children().back().closed.emit()
+				hh.hud.get_children().back().closed.emit(false)
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
@@ -380,6 +423,10 @@ func _capture(args: PackedStringArray) -> void:
 					h.souls = h.souls_goal
 					await _wait_sim(h, 12.0 if shot == "boss" else 4.0)
 					if shot != "boss":
+						# Off autopilot first: the loot vacuum can end the win
+						# before the shot, and a bot hunt skips the results.
+						if shot == "results":
+							h.bot = false
 						h.damage_foe(h.boss, 999999.0, h.hero, Vector3.ZERO, 0.0)
 						await _wait(2.5 if shot == "victory" else 5.0)
 						if shot == "results":

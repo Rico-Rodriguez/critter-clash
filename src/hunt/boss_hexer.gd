@@ -68,6 +68,10 @@ func _begin(p: String) -> void:
 			play("Skeletons_Taunt", 0.1, 1.4, true)
 			Sfx.play("boss_roar", -5.0, 1.5)
 		"blink":
+			# Blinking out of a hero who closed the gap leaves her reeling.
+			if hero.flat_pos().distance_to(flat_pos()) < 3.5 and randf() < 0.5:
+				expose(float(DB.EXPOSED["time"]) * 0.7)
+				return
 			step_t = 0.35
 			hunt.fx.ring(flat_pos(), 2.5, VIOLET, 0.35)
 			hunt.fx.puff(flat_pos(), Color(0.45, 0.25, 0.6, 0.7), 12, 2.0, 3.0)
@@ -117,7 +121,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				step = 1
 				for at: Vector3 in circles_at:
 					if hero.flat_pos().distance_to(at) < 2.1 + hero.radius * 0.5:
-						hunt.damage_hero(dmg * 0.9, self)
+						hunt.damage_hero(dmg * 0.9, self, 0.7)
 					hunt.fx.bone_burst(at, 5, 6.0)
 					hunt.fx.burst(at, VIOLET, 10, 5.0, 1.2)
 					hunt.fx.puff(at, Color(0.35, 0.2, 0.45, 0.6), 6, 1.2, 2.5)
@@ -140,13 +144,16 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 					var lateral := absf(rel.x * d.z - rel.z * d.x)
 					if not cursed and along > 0.0 and along < 20.0 and lateral < 1.1 + hero.radius * 0.6:
 						cursed = true
-						hunt.damage_hero(dmg * 1.0, self)
+						hunt.damage_hero(dmg * 1.0, self, 0.8)
 						hero.slow_t = 3.0
 					hunt.fx.lightning(PackedVector3Array([flat_pos() + Vector3(0, 1.5, 0) + d * 1.5, flat_pos() + Vector3(0, 0.6, 0) + d * 20.0]))
 				hunt.fx.flash_light(flat_pos() + lane_dir * 3.0, VIOLET, 4.0, 9.0, 0.3)
 				Sfx.play("boss_slam", -3.0, 1.3)
 				hunt.shake(0.3)
 				_finish(0.8)
+				# Three lanes at once spend her: a short opening.
+				if enraged:
+					expose(float(DB.EXPOSED["time"]) * 0.6)
 		"blink":
 			if step == 0 and step_t <= 0.0:
 				step = 1

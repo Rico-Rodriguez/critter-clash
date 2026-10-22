@@ -73,6 +73,21 @@ func tick(dt: float, h: Hunt) -> bool:
 			h.damage_foe(f, dmg, source, vel.normalized(), force)
 			if float(extra.get("stun", 0.0)) > 0.0 and f.alive:
 				f.stun_t = maxf(f.stun_t, float(extra["stun"]))
+			# Ricochet: the arrow leaps once to the nearest other foe.
+			if kind == "arrow" and source is Hero and not extra.has("bounced") and int(h.cards.get("ricochet", 0)) > 0:
+				var nxt: Actor = null
+				var bd := 6.0
+				for o in h.foes_near(flat, 6.0):
+					if o != f and not hit_set.has(o) and o.state != "spawn" and flat.distance_to(o.flat_pos()) < bd:
+						bd = flat.distance_to(o.flat_pos())
+						nxt = o
+				if nxt:
+					extra["bounced"] = true
+					var d := (nxt.flat_pos() - flat).normalized()
+					vel = d * vel.length()
+					rotation.y = atan2(d.x, d.z)
+					life = maxf(life, 0.5)
+					continue
 			hits_left -= 1
 			if hits_left <= 0:
 				return false
@@ -88,7 +103,7 @@ func tick(dt: float, h: Hunt) -> bool:
 	else:
 		var hero := h.hero
 		if hero.alive and flat.distance_to(hero.flat_pos()) < radius + hero.radius * 0.8:
-			h.damage_hero(dmg, source)
+			h.damage_hero(dmg, source, 0.2 if source is Boss else 0.0)
 			h.fx.burst(flat, Color(1.0, 0.4, 0.3), 6, 4.0)
 			return false
 	return true
@@ -112,3 +127,5 @@ func _explode(h: Hunt) -> void:
 		any = true
 	if any:
 		h.shake(0.08)
+	if source is Hero and int(h.cards.get("pyre", 0)) > 0:
+		h.add_pyre(at, r * 0.8, 2.5, dmg * 0.45)

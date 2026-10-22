@@ -25,8 +25,9 @@ A portrait, one-thumb action game for phones, built in Godot 4.7.2.
 ## The loop
 
 1. **Camp.** Your hero stands by the fire. Pick a hero, a place (the Barrow, or the
-   **Sunken Crypt** once you clear Veteran), a difficulty (Normal → Veteran →
-   Nightmare; each clear opens the next) and a mode (the Horde Hunt, or the **Long
+   **Sunken Crypt** once you clear Veteran, the **Hollow Grove** after Expert),
+   a difficulty (eight steps from Normal to Abyss; each clear opens the next, and
+   the card shows the power it expects) and a mode (the Horde Hunt, or the **Long
    Road**, a new dungeon every run, room by room to the boss) and go. Three **daily bounties** and the
    equipment screen live here too.
 2. **The rise.** The dead climb out of the graves around you. Every kill fills the

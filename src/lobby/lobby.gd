@@ -148,6 +148,19 @@ func _build_world() -> void:
 	_put(G + "fence_broken.gltf", Vector3(-6.6, 0, -4.6), 0.2, 1.3)
 	_put(G + "fence.gltf", Vector3(5.0, 0, -5.0), -0.15, 1.3)
 	_put(G + "skull_candle.gltf", Vector3(-2.9, 0, -1.6), 0.4, 0.9)
+	# Foreground: grass, stones and a candle in front of the hero, so the bottom
+	# of the frame is ground to stand on rather than a dark band.
+	for spec in [["Grass_1_A_Color1.gltf", Vector3(-1.4, 0, 1.9)], ["Grass_2_B_Color1.gltf", Vector3(1.5, 0, 2.1)], ["Grass_1_C_Color1.gltf", Vector3(0.4, 0, 2.6)],
+			["Rock_1_H_Color1.gltf", Vector3(-2.3, 0, 1.6)], ["Rock_1_J_Color1.gltf", Vector3(2.4, 0, 1.4)], ["Grass_2_A_Color1.gltf", Vector3(-0.7, 0, 2.9)]]:
+		_put(F + str(spec[0]), spec[1], _rng.randf() * TAU, 0.9)
+	_put(G + "candle_triple.gltf", Vector3(1.1, 0, 1.8), 0.3, 1.0)
+	_put(G + "bone_B.gltf", Vector3(-0.9, 0, 1.7), 1.1, 1.0)
+	var fl := OmniLight3D.new()
+	fl.light_color = Color(1.0, 0.7, 0.4)
+	fl.light_energy = 0.9
+	fl.omni_range = 3.5
+	fl.position = Vector3(1.1, 0.6, 1.9)
+	add_child(fl)
 	# A big pale moon over the crypt.
 	var moon_disc := MeshInstance3D.new()
 	var q := QuadMesh.new()
@@ -334,14 +347,14 @@ func remove_chest() -> void:
 		var t := create_tween()
 		t.tween_property(c, "scale", Vector3.ONE * 0.01, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		t.tween_callback(c.queue_free)
-	if main:
-		main.pending_chest = ""
+	if main and main.next_chest() != "":
+		place_chest(main.pending_chest)
 
 
 func _spawn_pet() -> void:
 	pet = Actor.new()
 	add_child(pet)
-	pet.build_model("Skeleton_Minion", {}, Color(0.5, 0.7, 1.0), 0.4, Color(1.0, 0.6, 0.2, 1.0))
+	pet.build_model(str(DB.UNIQUES.get(str(Game.data["pet"]), {}).get("model", "Skeleton_Minion")), {}, Color(0.5, 0.7, 1.0), 0.4, Color(1.0, 0.6, 0.2, 1.0))
 	pet.model.scale = Vector3.ONE * 0.42
 	pet.position = Vector3(-0.85, 0, 0.6)
 	pet.rotation.y = 0.5
@@ -354,6 +367,7 @@ func open_sheet(name_: String) -> void:
 
 func start_hunt() -> void:
 	if main:
+		main.gold_seen = Game.gold()
 		main.go("hunt")
 
 
