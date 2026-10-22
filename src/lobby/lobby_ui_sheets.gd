@@ -380,52 +380,202 @@ func _build_log(s: Sheet) -> void:
 	b.add_child(stats)
 
 
+## Everything on one screen: mode and place as tiles, difficulty as a
+## stepper with your power against the recommended, the omen, and a way in.
 func _build_expedition(s: Sheet) -> void:
 	var b := s.body
-	var om := Game.weekly_omen()
-	b.add_child(Ui.label("This week's omen", "Heading"))
-	var olock := "Not on the Long Road" if Game.mode_id() == "trial" else ""
-	b.add_child(_option(str(om["icon"]), str(om["name"]), "%s Pays 25%% more gold and a better chest." % om["desc"], bool(Game.data.get("omen_on", false)) and olock == "", olock, func():
-		Game.set_omen(not bool(Game.data.get("omen_on", false)))
-		_picked(s)))
-	b.add_child(Ui.label("Mode", "Heading"))
+	var note := _exp_note
+	_exp_note = ""
+	b.add_child(Ui.label("MODE", "Caption"))
+	var modes := GridContainer.new()
+	modes.columns = 3
+	modes.add_theme_constant_override("h_separation", 10)
+	modes.add_theme_constant_override("v_separation", 10)
+	b.add_child(modes)
 	for mid: String in DB.MODE_ORDER:
 		var m: Dictionary = DB.MODES[mid]
-		var sub: String = m["blurb"]
-		if m.has("rooms"):
-			sub += " %d rooms on %s." % [int(m["rooms"][Game.tier()]), DB.TIERS[Game.tier()]["name"]]
-		if mid == "descent" and Game.best_depth(Game.hero_id()) > 0:
-			sub += " Your deepest: %d." % Game.best_depth(Game.hero_id())
 		var mlock := "" if Game.mode_unlocked(mid) else str(m["unlock"])
-		b.add_child(_option(MODE_ICON.get(mid, "crossed-swords"), m["name"], sub, mid == Game.mode_id(), mlock, func():
-			Game.set_mode(mid)
+		modes.add_child(_tile(MODE_ICON.get(mid, "crossed-swords"), _short_mode(str(m["name"])), "", mid == Game.mode_id(), mlock != "", func():
+			if mlock != "":
+				_exp_note = "%s: %s" % [m["name"], mlock]
+			else:
+				Game.set_mode(mid)
 			_picked(s)))
-	b.add_child(Ui.label("Location", "Heading"))
+	var mode: Dictionary = DB.MODES[Game.mode_id()]
+	var blurb: String = mode["blurb"]
+	if mode.has("rooms"):
+		blurb += " %d rooms on %s." % [int(mode["rooms"][Game.tier()]), DB.TIERS[Game.tier()]["name"]]
+	if Game.mode_id() == "descent" and Game.best_depth(Game.hero_id()) > 0:
+		blurb += " Your deepest: %d." % Game.best_depth(Game.hero_id())
+	var mode_note := note != "" and note in _mode_notes()
+	b.add_child(_exp_line(note if mode_note else blurb, mode_note))
+	b.add_child(Ui.label("LOCATION", "Caption"))
+	var zones := GridContainer.new()
+	zones.columns = 3
+	zones.add_theme_constant_override("h_separation", 10)
+	b.add_child(zones)
+	var zone_note := ""
 	for zid: String in DB.ZONE_ORDER:
 		var z: Dictionary = DB.ZONES[zid]
 		var boss: Dictionary = DB.boss_def(z["boss"])
-		var sub := "Boss: %s. %s" % [boss["name"], z["blurb"]]
 		var lock := "" if Game.zone_unlocked(zid) else str(z["unlock"])
-		b.add_child(_option("tombstone", z["name"], sub, zid == Game.zone_id(), lock, func():
-			Game.set_zone(zid)
+		var zn := "%s: %s" % [z["name"], lock]
+		if note == zn:
+			zone_note = zn
+		zones.add_child(_tile("", str(z["name"]), "Locked" if lock != "" else str(boss["name"]), zid == Game.zone_id(), lock != "", func():
+			if lock != "":
+				_exp_note = zn
+			else:
+				Game.set_zone(zid)
 			_picked(s)))
-	b.add_child(Ui.label("Difficulty", "Heading"))
-	for i in DB.TIERS.size():
-		var t: Dictionary = DB.TIERS[i]
-		var sub := "Foes ×%s health, ×%s damage · loot ×%s · %s" % [_num(t["hp"]), _num(t["dmg"]), _num(t["loot"]), DB.CHESTS[t["chest"]]["name"]]
-		if i == 0:
-			sub = "The dead as they are · %s" % DB.CHESTS[t["chest"]]["name"]
-		if float(t["mech"]) > 0.0:
-			sub += "\nTelegraphed blows take %d%% of your health · healing −%d%%" % [int(round(float(t["mech"]) * 100.0)), int(round((1.0 - float(t["heal"])) * 100.0))]
-		var pw := Game.power_score(Game.hero_id())
-		sub += "\nRecommended power %s · yours %s" % [Ui.fmt_num(int(t["power"])), Ui.fmt_num(pw)]
-		var lock := "" if i <= Game.mode_tier_unlocked() else "%s on %s to open" % ["Fell a boss" if Game.mode_id() == "descent" else "Win", DB.TIERS[i - 1]["name"]]
-		var ti := i
-		var card := _option("crowned-skull", t["name"], sub, i == Game.tier(), lock, func():
-			Game.set_tier(ti)
-			_picked(s))
-		card.get_meta("title").add_theme_color_override("font_color", t["color"])
-		b.add_child(card)
+	if zone_note != "":
+		b.add_child(_exp_line(zone_note, true))
+	b.add_child(Ui.label("DIFFICULTY", "Caption"))
+	_build_difficulty(b, s)
+	var om := Game.weekly_omen()
+	var olock := "Not on the Long Road" if Game.mode_id() == "trial" else ""
+	b.add_child(_option(str(om["icon"]), "Omen: %s" % om["name"], "%s Pays 25%% more gold and a better chest." % om["desc"], bool(Game.data.get("omen_on", false)) and olock == "", olock, func():
+		Game.set_omen(not bool(Game.data.get("omen_on", false)))
+		_picked(s)))
+	refresh()
+	var go := Button.new()
+	go.theme_type_variation = "PrimaryButton"
+	go.text = %Hunt.text
+	go.disabled = %Hunt.disabled
+	go.focus_mode = Control.FOCUS_NONE
+	go.custom_minimum_size = Vector2(0, 96)
+	go.pressed.connect(func():
+		s.close()
+		%Hunt.pressed.emit())
+	b.add_child(go)
+
+
+## The mode names that fit a tile a third of the sheet wide.
+func _short_mode(name_: String) -> String:
+	return name_.trim_prefix("The ").replace("Endless ", "")
+
+
+func _mode_notes() -> Array:
+	var out := []
+	for mid: String in DB.MODE_ORDER:
+		out.append("%s: %s" % [DB.MODES[mid]["name"], DB.MODES[mid]["unlock"]] if DB.MODES[mid].has("unlock") else "")
+	return out
+
+
+func _exp_line(text: String, warn: bool) -> Label:
+	var l := Ui.label(("Locked · " + text) if warn else text, "Small")
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if warn:
+		l.add_theme_color_override("font_color", Color(0.95, 0.72, 0.45))
+	return l
+
+
+## A square choice: an icon (or none) over a name and a small line.
+func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool, cb: Callable) -> Button:
+	var btn := Button.new()
+	btn.theme_type_variation = "Choice"
+	btn.toggle_mode = true
+	btn.button_pressed = chosen
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.custom_minimum_size = Vector2(0, 112 if icon != "" else 92)
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(v)
+	var tone := Color(0.91, 0.71, 0.35) if chosen else Color(0.64, 0.6, 0.54)
+	if icon != "" or locked:
+		var cc := CenterContainer.new()
+		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cc.add_child(Ui.icon_rect("padlock" if locked else icon, 40 if icon != "" else 26, tone))
+		v.add_child(cc)
+	var tl := Ui.label(title, "Body", HORIZONTAL_ALIGNMENT_CENTER)
+	tl.add_theme_font_size_override("font_size", 21)
+	if chosen:
+		tl.add_theme_color_override("font_color", Color(0.95, 0.8, 0.52))
+	v.add_child(tl)
+	if sub != "":
+		v.add_child(Ui.label(sub, "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+	if locked:
+		v.modulate.a = 0.45
+	btn.pressed.connect(cb)
+	return btn
+
+
+## ‹ Tier › with a pip per tier, your power against the recommended, and
+## what the tier does to the dead.
+func _build_difficulty(b: VBoxContainer, s: Sheet) -> void:
+	var i := Game.tier()
+	var top := Game.mode_tier_unlocked()
+	var t: Dictionary = DB.TIERS[i]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	b.add_child(row)
+	var prev := _step("‹", i > 0, func():
+		Game.set_tier(i - 1)
+		_picked(s))
+	row.add_child(prev)
+	var mid := VBoxContainer.new()
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.add_theme_constant_override("separation", 0)
+	row.add_child(mid)
+	var nm := Ui.label(str(t["name"]), "Title", HORIZONTAL_ALIGNMENT_CENTER)
+	nm.add_theme_font_size_override("font_size", 36)
+	nm.add_theme_color_override("font_color", t["color"])
+	mid.add_child(nm)
+	var loot := "loot ×%s · %s" % [_num(t["loot"]), DB.CHESTS[t["chest"]]["name"]]
+	mid.add_child(Ui.label("%d of %d · %s" % [i + 1, DB.TIERS.size(), loot], "Small", HORIZONTAL_ALIGNMENT_CENTER))
+	row.add_child(_step("›", i < top, func():
+		Game.set_tier(i + 1)
+		_picked(s)))
+	var pips := HBoxContainer.new()
+	pips.add_theme_constant_override("separation", 6)
+	b.add_child(pips)
+	for k in DB.TIERS.size():
+		var p := Panel.new()
+		p.custom_minimum_size = Vector2(0, 10)
+		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var st := StyleBoxFlat.new()
+		st.set_corner_radius_all(5)
+		st.bg_color = Color(DB.TIERS[k]["color"]) if k <= top else Color(0.17, 0.15, 0.19)
+		if k == i:
+			st.set_border_width_all(2)
+			st.border_color = Color(0.98, 0.85, 0.55)
+			st.expand_margin_top = 3
+			st.expand_margin_bottom = 3
+		elif k <= top:
+			st.bg_color = st.bg_color.darkened(0.35)
+		p.add_theme_stylebox_override("panel", st)
+		pips.add_child(p)
+	var pw := Game.power_score(Game.hero_id())
+	var need := int(t["power"])
+	var pr := _row([Ui.label("Your power %s" % Ui.fmt_num(pw), "Body"), _spacer()], 8)
+	var rec := Ui.label("Recommended %s" % Ui.fmt_num(need), "Body")
+	rec.add_theme_color_override("font_color", Color(0.5, 0.85, 0.55) if pw >= need else Color(0.9, 0.45, 0.38))
+	pr.add_child(rec)
+	b.add_child(pr)
+	var what := "The dead as they are" if i == 0 else "Foes ×%s health, ×%s damage" % [_num(t["hp"]), _num(t["dmg"])]
+	if float(t["mech"]) > 0.0:
+		what += " · telegraphed blows take %d%% of your health · healing −%d%%" % [int(round(float(t["mech"]) * 100.0)), int(round((1.0 - float(t["heal"])) * 100.0))]
+	if i == top and top < DB.TIERS.size() - 1:
+		what += "\n%s opens when you %s on %s." % [DB.TIERS[top + 1]["name"], "fell a boss" if Game.mode_id() == "descent" else "win", t["name"]]
+	var wl := Ui.label(what, "Small")
+	wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(wl)
+
+
+func _step(text: String, on: bool, cb: Callable) -> Button:
+	var btn := Button.new()
+	btn.theme_type_variation = "RoundButton"
+	btn.text = text
+	btn.disabled = not on
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(76, 76)
+	btn.add_theme_font_size_override("font_size", 34)
+	btn.pressed.connect(cb)
+	return btn
 
 
 func _picked(s: Sheet) -> void:
