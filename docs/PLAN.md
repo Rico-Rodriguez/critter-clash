@@ -826,9 +826,8 @@ real phone. Everything else is tuned by the autopilot and by eye.
    Judge: room count, how long a room takes, whether the gates read clearly,
    whether the boss hall feels like a finale, and whether the loot is worth the
    walk. The autopilot only proves it can finish; it says nothing about fun.
-3. **Results screen: show the Long Road.** `rooms_cleared` is recorded on every
-   trial result (`hunt.gd` `_end`, `finish_hunt`) but results.gd does not show
-   it. Add a "Rooms cleared 4 / 6" line and a trial-specific title.
+3. ~~**Results screen: show the Long Road.**~~ Done: results show "The Long
+   Road" and a Rooms 4 / 6 stat.
 4. **Nightmare and Veteran balance.** The numbers in CHANGELOG 2026-10-22 came
    from autopilot runs only. Tune in `src/data/db.gd` `TIERS`. Watch Ranger on
    Trial: it has won on Normal but has not been tested on higher tiers.
@@ -841,8 +840,7 @@ real phone. Everything else is tuned by the autopilot and by eye.
    dead. The autopilot still kites well. Ideas, in order of cost: foes that
    cut off retreat paths; a Nightmare-only fast hound pack; elites that
    pick a corner to trap the hero; fewer safe pockets on the map.
-7. **Remove the debug print.** `src/hunt/hunt.gd` has a `TRIALDBG` env-gated
-   print in `_direct_trial`. Delete it once the Long Road is tuned.
+7. ~~**Remove the debug print.**~~ Done.
 8. **Gear depth.** Set bonuses (two or three pieces of one class's line),
    per-tier drop tuning on the Long Road, and a gear reveal when a piece is
    first worn.
@@ -905,5 +903,4 @@ great; it is the biggest bet on this list.
 ## Notes for the next task
 
 - Next up is at the top of this section. The change history is in CHANGELOG.md.
-- Open: Long Road results line (Next up 3); Veteran/Nightmare tuning (4).
-- Known debt: the `TRIALDBG` print in `src/hunt/hunt.gd` (Next up 7).
+- Open: Veteran/Nightmare tuning (4).

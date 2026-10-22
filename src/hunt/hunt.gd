@@ -659,11 +659,6 @@ func _direct_trial(dt: float) -> void:
 	_tick_spawn_queue(dt)
 	var tr: Dictionary = arena.trial
 	var z := hero.position.z
-	if OS.get_environment("TRIALDBG") != "" and int(time) % 5 == 0 and int(time * 10) % 10 == 0:
-		var st := []
-		for rr: Dictionary in tr["rooms"]:
-			st.append(str(rr["state"]).left(1))
-		print("TRIAL real=%d t=%d z=%.1f pos_x=%.1f foes=%d q=%d rooms=%s hp=%d" % [Time.get_ticks_msec() / 1000, int(time), z, hero.position.x, foes.size(), _spawn_q.size(), "".join(st), int(hero.hp)])
 	var frac := clampf((arena.start.z - z) / (arena.start.z - float(tr["boss_z"])), 0.0, 1.0)
 	souls = maxi(souls, int(frac * souls_goal))
 	for r: Dictionary in tr["rooms"]:
@@ -1550,7 +1545,7 @@ func _end(win: bool) -> void:
 						items.append(p.item)
 	var spent := _end_time if _end_time > 0.0 else time
 	result = {
-		"win": win, "tier": tier_i, "zone": zone_id, "mode": mode, "rooms_cleared": rooms_cleared, "hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
+		"win": win, "tier": tier_i, "zone": zone_id, "mode": mode, "rooms_cleared": rooms_cleared, "rooms": trial_rooms,"hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
 		"items": items, "kills": kills, "elites": elites_killed, "time": spent,
 		"chest": tier["chest"] if win else "", "level": run_level, "souls": souls,
 	}
