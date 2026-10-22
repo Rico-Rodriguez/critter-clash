@@ -949,6 +949,28 @@ Each item needs its own short plan (files, data, save keys with defaults in
 - Open: all of this was tuned with the autopilot only. Talent numbers, the
   Wilderness rivals, Descent scaling and the potion need a playtest on a phone.
 
+## Phase 11 — Premium feel, difficulty ladder, retention (proposals; ask first)
+
+From `docs/audit-2026-10.md` (autopilot balance matrix, screenshots, economy
+math). Do 11.1–11.5 first: small, and they are what a new player sees.
+
+- [ ] 11.1 Normal retune: boss HP +25%, soul goal ~150, earlier first surge
+- [ ] 11.2 Shards go to the hero played; recommended power on the expedition card
+- [ ] 11.3 Results: Play again, skill XP bars, big chest, hero-named upgrades
+- [ ] 11.4 Victory set piece: hide combat buttons, slow-mo kill, loot vacuum, readable labels
+- [ ] 11.5 Class starter outfits; Renown Road bar readable on a new save
+- [ ] 11.6 Fade props between camera and hero/boss
+- [ ] 11.7 Six-step tier ladder; soul goal scales per tier
+- [ ] 11.8 Gold sinks: reforge, material upgrade, paid respec
+- [ ] 11.9 Hero mastery track; first win of the day
+- [ ] 11.10 Boss kill counts, Hexer pet, dry-streak counter
+- [ ] 11.11 Evolution guarantee; card banishes
+- [ ] 11.12 Gear sets for the boss unique lines
+- [ ] 11.13 Music: Descent track, low-HP filter, victory sting
+- [ ] 11.14 Third zone: new faction and boss
+- [ ] 11.15 Game Center leaderboards and achievements (native rebuild)
+- [ ] 11.16 Season track (decide monetization first)
+
 ## Next up
 
 Ordered. Do the first item before the rest: it is the only one that needs a
