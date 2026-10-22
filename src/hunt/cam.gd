@@ -14,6 +14,7 @@ var follow_rate := 7.0
 var dist_mult := 1.0      # player preset: Close 0.86, Standard 1.0, Wide 1.16
 var zoom := 1.0           # dynamic, eased toward zoom_target
 var zoom_target := 1.0
+var punch := 0.0          # a quick push in that eases out (supers, big drops)
 
 var target: Node3D
 var focus_override: Variant = null
@@ -51,6 +52,7 @@ func follow(dt: float, vel: Vector3) -> void:
 	_focus = _focus.lerp(f, 1.0 - exp(-follow_rate * dt))
 	zoom = lerpf(zoom, zoom_target, 1.0 - exp(-2.5 * dt))
 	trauma = maxf(trauma - dt * 1.6, 0.0)
+	punch = move_toward(punch, 0.0, dt * 0.45)
 	_apply(trauma * trauma if shake_enabled else 0.0)
 
 
@@ -58,7 +60,7 @@ func follow(dt: float, vel: Vector3) -> void:
 func _apply(shake: float) -> void:
 	fov = fov_w
 	var p := deg_to_rad(clampf(pitch_deg, 25.0, 80.0))
-	var d := distance * dist_mult * zoom
+	var d := distance * dist_mult * zoom * (1.0 - punch)
 	global_position = _focus + Vector3(0, sin(p), cos(p)) * d
 	look_at(_focus, Vector3.UP)
 	# Tilt so the focus sits at `anchor` instead of the center.

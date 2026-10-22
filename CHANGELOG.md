@@ -6,13 +6,48 @@ shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 
 Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is still 2 (no
 autoloads, input map or project settings changed since the last IPA). Save
-version is 4.
+version is 5.
+
+---
+
+## 2026-10-25: Playtest fixes, gear that looks its tier, big moments
+
+Save version is now 5 (each mode keeps its own unlocked difficulty; old saves
+rebuild them from the wins they already record). `NATIVE_VERSION` unchanged.
+
+### Fixed
+- Tapping the campfire crashed the app (a scene node was not marked unique).
+  A test now checks every `%Name` lookup against its scene.
+- After a boss fell mid-run in the Descent or Boss Rush, the camera stayed
+  pinned where the fight had been.
+- Winning a difficulty opened it in every mode. Each mode now opens its own;
+  the Descent opens its next tier when one of its bosses falls.
+- The fallen never left the ground (thousands of bodies deep in the Descent,
+  and a growing cost per frame). They now lie 20 s, at most 45 at once.
+- Long Road: foes walk through the gap to reach you in another room instead of
+  pressing against the wall; a shove can no longer push you through a sealed
+  gate past the fight. Loot no longer lands outside the walls.
+
+### Added
+- **Gear that looks its tier.** Every material has a finish: bronze and iron
+  dull and dirty, steel and mithril clean and gleaming, adamant and rune with
+  light running over them, dragon (and Eldritch, black dragonhide) glowing
+  from molten seams. Weapons and offhands from the fifth tier shed sparks, and
+  a full set from that tier wraps the hero in rising motes. Item icons take
+  their metal's color.
+- **Weapons in combat:** melee swings take the weapon's metal color, and
+  dropped weapons and offhands show their real model on the ground.
+- **Super moment:** the camera pushes in, the screen washes in the hero's
+  color and the super's name rises over the hero.
+- **Legendary moment:** a bolt of light on the drop, a brief slow-down and its
+  name in the feed.
+- The campfire answers every tap: what it paid, or its rate per hour.
 
 ---
 
 ## 2026-10-24: Skill over stats, the Hollow Grove, Phase 11
 
-On branch `claude/game-codebase-review-m1uchq`, not yet on `main`. Save version
+Merged to `main`. Save version
 is now 4 (old saves migrate: Veteran becomes tier 3 of 8, Nightmare tier 5).
 `NATIVE_VERSION` is unchanged; no project settings changed.
 

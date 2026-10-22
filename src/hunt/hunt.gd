@@ -2051,8 +2051,14 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 	p.vel = Vector3(sin(a) * spd, 7.0, cos(a) * spd)
 	p.settle = 0.75
 	var model_path: String = {"weapon": "res://assets/kaykit/weapons/sword_2handed_color.gltf", "helm": "res://assets/kaykit/graveyard/skull.gltf", "chest": "res://assets/kaykit/weapons/shield_badge_color.gltf", "legs": "res://assets/kaykit/weapons/shield_square_color.gltf", "trinket": "res://assets/kaykit/dungeon/key.gltf", "pet": "res://assets/kaykit/graveyard/skull.gltf", "trophy": "res://assets/kaykit/graveyard/skull_candle.gltf"}.get(it["slot"], "res://assets/kaykit/dungeon/coin_stack_small.gltf")
+	# A weapon or offhand shows itself; worn pieces keep a stand-in.
+	var own_model := ""
+	if it["slot"] in ["weapon", "trinket"] and it.has("cls") and GearDB.LINES.has(str(it["cls"])):
+		own_model = str(GearDB.look(it)["model"])
+	if own_model != "":
+		model_path = KK.WEAPON_DIR + own_model
 	var m := KK.prop(model_path)
-	m.scale = Vector3.ONE * 1.3
+	m.scale = Vector3.ONE * (1.6 if own_model != "" else 1.3)
 	m.rotation = Vector3(0, randf() * TAU, PI * 0.5 if it["slot"] == "weapon" else 0.0)
 	m.position.y = 0.2
 	var holder := Node3D.new()
@@ -2082,6 +2088,7 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 			if it["rarity"] == "legendary":
 				Sfx.play("sparkle", 0.0)
 				Ui.buzz(60, 0.6)
+				_legendary_moment(Vector3(p.position.x, 0, p.position.z), it)
 			if it["rarity"] in ["rare", "legendary"]:
 				Sfx.play("rare_chime", 0.0, 0.9 if it["rarity"] == "legendary" else 1.0))
 	pickups.append(p)
@@ -2333,6 +2340,31 @@ func hitstop(t: float) -> void:
 
 func shake(v: float) -> void:
 	cam.add_trauma(v)
+
+
+## A super goes off: the camera pushes in, the screen washes in the hero's
+## color, its name rises over the hero, and the world holds its breath.
+func super_moment() -> void:
+	var col: Color = hero.def["color"]
+	cam.punch = 0.1
+	hud.flash(Color(col.lightened(0.3), 0.3), 0.35)
+	fx.text(hero.flat_pos() + Vector3(0, 2.6, 0), str(hero.def["super_name"]).to_upper(), col.lightened(0.35), 1.3, 1.0)
+	hitstop(0.06)
+
+
+## A legendary falls: a pillar of light, the world slows a moment, its name.
+func _legendary_moment(at: Vector3, it: Dictionary) -> void:
+	var col := DB.rarity_color(it["rarity"])
+	fx.sky_bolt(at, col.lightened(0.3), 0.5, 18.0)
+	fx.ring(at, 4.0, col, 0.7, 0.15)
+	fx.burst(at + Vector3(0, 0.6, 0), col.lightened(0.2), 24, 7.0, 1.4)
+	fx.flash_light(at, col, 6.0, 10.0, 0.8)
+	hud.flash(Color(col, 0.18), 0.5)
+	cam.punch = maxf(cam.punch, 0.06)
+	if phase != "victory":
+		Engine.time_scale = 0.35
+		_real_hitstop = maxf(_real_hitstop, 0.35)
+	hud.event("%s!" % str(it["name"]), col.lightened(0.2), "crowned-skull")
 
 
 func banner(text: String, color := Color(1, 0.85, 0.5), sub := "") -> void:

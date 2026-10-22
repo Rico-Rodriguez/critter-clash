@@ -985,6 +985,23 @@ telegraphs perfectly but never perfect-dodges on purpose; real players will
 find the eruption rate and the mechanic share either fair or too much. Tune
 `DB.ERUPTION` and `TIERS[*].mech` first.
 
+## Phase 12 — Playtest round 5: fixes, gear that shows its tier (done)
+
+Feedback: "very fun now"; four bugs (campfire crash, Descent camera stuck after
+a boss, difficulty unlocks shared across modes, bodies never despawn) and
+"gear is so underwhelming; in OSRS gear looks so cool as you progress".
+All in CHANGELOG 2026-10-25. Where to tune:
+- Gear finish per material: `GearDB.GRADES` (polish, shimmer, veins, heat),
+  `GearDB.ACCENTS` for dark materials, `GearDB.ENCHANT_FROM` for sparks and
+  the full-set aura. The look itself is `src/fx/char.gdshader` (`grade`,
+  `accent`). Shots: `--shots=icon --mat=N --hero=H`, `--shots=equip --mat=6`.
+- Item icons now take their material's color (reverses 9.4's single neutral
+  tone: the frame still carries rarity, the icon carries the metal).
+- Bodies: `DB.CORPSE_LINGER`, `DB.CORPSE_MAX`. Per-mode tiers: save key
+  `mode_tiers`, `Game.mode_tier_unlocked()`.
+- Moments: `Hunt.super_moment()`, `Hunt._legendary_moment()`; shots `super`,
+  `legendary`, `campfire`.
+
 ## Next up
 
 Ordered. Do the first item before the rest: it is the only one that needs a

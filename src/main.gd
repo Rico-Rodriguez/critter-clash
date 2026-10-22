@@ -228,6 +228,14 @@ func _capture(args: PackedStringArray) -> void:
 	for slot in DB.SLOTS:
 		for t in 2:
 			Game.grant_item(Game.roll_item("boss", 1, slot, hid))
+	# --mat=N: a full rare set of material N, to look at what fine gear does.
+	var mat := int(_arg(args, "mat", "-1"))
+	if mat >= 0:
+		for sk in DB.SKILLS:
+			Game.data["skills"][sk] = maxi(int(Game.data["skills"][sk]), DB.xp_for_level(int(GearDB.REQ[mat])))
+		for slot in DB.SLOTS:
+			var it := Game.grant_item(Game.make_item(hid, slot, mat, "rare"))
+			Game.equip(hid, int(it["uid"]))
 	if _arg(args, "geared", "0") == "1":
 		for slot in DB.SLOTS:
 			var best := {}
@@ -297,6 +305,20 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
+			"super", "legendary":
+				# The moment a super goes off, or a legendary falls.
+				_set_screen_now("hunt")
+				var hs: Hunt = current
+				hs.hero.invuln = 99.0
+				await _wait_sim(hs, 4.0)
+				if shot == "super":
+					hs.hero.super_charge = 1.0
+					hs.hero.try_super()
+					await _wait(0.35)
+				else:
+					hs._drop_item(hs.hero.flat_pos() + Vector3(2.0, 0, -1.5), Game.make_unique("crown"))
+					await _wait(1.0)
+				await _save(shot)
 			"devpanel":
 				_set_screen_now("hunt")
 				var hd: Hunt = current

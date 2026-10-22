@@ -181,10 +181,14 @@ func _side_pressed(key: String) -> void:
 	Sfx.play("ui_tap", -4.0)
 	match key:
 		"idle":
+			var rate := DB.IDLE_GOLD_HOUR + DB.IDLE_GOLD_TIER * int(Game.data["tier_unlocked"])
 			var g := Game.claim_idle()
 			if g > 0:
 				Sfx.play("coin", 0.0)
 				Ui.pop_in(%GoldChip, 0.0, 1.2)
+				_float_text(_idle_label, "+%d gold" % g, Color(1.0, 0.85, 0.4))
+			else:
+				_float_text(_idle_label, "%d gold an hour" % rate, Color(0.85, 0.8, 0.7))
 			refresh()
 		"daily":
 			open_sheet("daily")
@@ -192,6 +196,20 @@ func _side_pressed(key: String) -> void:
 			open_sheet("season")
 		"feats":
 			open_sheet("feats")
+
+
+## A short line that rises off a control and fades: feedback for a tap.
+func _float_text(over: Control, text: String, color: Color) -> void:
+	var l := Ui.label(text, "HudLabel")
+	l.add_theme_font_size_override("font_size", 24)
+	l.add_theme_color_override("font_color", color)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(l)
+	l.global_position = over.global_position + Vector2(over.size.x + 8.0, -over.size.y * 2.0)
+	var t := l.create_tween().set_parallel(true)
+	t.tween_property(l, "position:y", l.position.y - 40.0, 1.2).set_ease(Tween.EASE_OUT)
+	t.tween_property(l, "modulate:a", 0.0, 1.2).set_delay(0.5)
+	t.chain().tween_callback(l.queue_free)
 
 
 func _build_daily(s: Sheet) -> void:

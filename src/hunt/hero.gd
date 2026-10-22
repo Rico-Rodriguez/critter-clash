@@ -384,6 +384,10 @@ func _impact() -> void:
 				hunt.damage_foe(f, dmg, self, to.normalized(), 5.5)
 				hit += 1
 			var col := Color(0.75, 0.88, 1.0) if id == "knight" else Color(1.0, 0.62, 0.3)
+			# Fine metal cuts in its own color.
+			var wpn := Game.equipped(id, "weapon")
+			if not wpn.is_empty() and int(wpn.get("mat", 0)) >= 2:
+				col = col.lerp(GearDB.item_color(wpn).lightened(0.25), 0.75)
 			hunt.fx.slash(flat_pos(), aim_yaw, reach * 1.05, arc, col, swing_i % 2 == 0, 0.2)
 			Sfx.play("atk_tank" if id == "knight" else "cleave", -4.0)
 			Sfx.play("swing", -8.0)
@@ -491,6 +495,7 @@ func try_super() -> bool:
 	super_charge = 0.0
 	Ui.buzz(50, 0.7)
 	super_kind = def["super"]
+	hunt.super_moment()
 	impact_t = -1.0
 	var fwd := Vector3(move_input.x, 0, move_input.y)
 	var t := hunt.nearest_foe(position, 9.0)
