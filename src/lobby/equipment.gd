@@ -35,7 +35,7 @@ var _strip: HBoxContainer
 var _tabs := {}
 var _tab_row: HBoxContainer
 var _list: VBoxContainer
-var _scroll: ScrollContainer
+var _scroll: DragScroll
 var _count: Label
 var _sell_btn: Button
 var _toast: Label
@@ -234,7 +234,7 @@ func _build_bag(col: VBoxContainer) -> void:
 		_tab_row.add_child(b)
 		_tabs[f] = b
 	col.add_child(_tab_row)
-	_scroll = ScrollContainer.new()
+	_scroll = DragScroll.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.custom_minimum_size = Vector2(0, 150)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -787,6 +787,7 @@ func _open_card(it: Dictionary) -> void:
 			row2.add_child(tp)
 		if row2.get_child_count() > 0:
 			v.add_child(row2)
+	SwipeDismiss.attach(_card, func(): _close_card(true), null, true)
 	_card.modulate.a = 0.0
 	_card.create_tween().tween_property(_card, "modulate:a", 1.0, 0.16)
 

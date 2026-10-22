@@ -2,6 +2,8 @@ class_name Sheet
 extends Control
 ## A slide-up panel over the camp with a title, a close button and a
 ## scrolling body. The camp fills `body`; `rebuild` refills it in place.
+## Tap outside, swipe the title down, or pull the list down from its top to
+## close it.
 
 signal closed
 
@@ -9,7 +11,7 @@ var body: VBoxContainer
 var panel: PanelContainer
 var title_label: Label
 var builder: Callable
-var _scroll: ScrollContainer
+var _scroll: DragScroll
 var _fade: TextureRect
 var _cap := 0.86
 
@@ -61,7 +63,7 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	var wrap := Control.new()
 	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(wrap)
-	_scroll = ScrollContainer.new()
+	_scroll = DragScroll.new()
 	_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	wrap.add_child(_scroll)
@@ -92,6 +94,9 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 16)
 	m.add_child(body)
+	var swipe := SwipeDismiss.attach(panel, close, head)
+	_scroll.pulled.connect(swipe.drag)
+	_scroll.pull_released.connect(swipe.release)
 	builder.call(self)
 	await get_tree().process_frame
 	_fit()

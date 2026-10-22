@@ -25,6 +25,11 @@ func open(h: Hunt) -> void:
 			Sfx.play("ui_error", -6.0)
 			return
 		abandoned.emit())
+	# Tapping the dimmed game around the menu resumes, like closing any sheet.
+	get_node("Scrim").gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed and _dev == null:
+			Sfx.play("ui_back", -4.0)
+			resumed.emit())
 	%Settings.add_child(SettingsBox.new())
 	Ui.pop_in(%Panel, 0.0, 0.92)
 
