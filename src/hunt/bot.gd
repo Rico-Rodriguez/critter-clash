@@ -142,9 +142,14 @@ func steer(dt: float) -> Vector2:
 		if best > 8.0 and close == null and hunt.mode == "trial":
 			goal = hunt.trial_goal()
 			waypoint = true
+		var via := hunt.arena.route(p, goal)
+		if via.distance_to(goal) > 0.01:
+			goal = via
+			waypoint = true
 		if goal.distance_to(p) > (0.7 if waypoint else (1.4 if melee else 5.0)):
 			var heading := (goal - p).normalized()
-			if waypoint:
+			# Waypoints, and any foe or loot behind a pillar, are walked around.
+			if waypoint or not _clear_line(p, goal):
 				heading = _around_obstacles(p, heading)
 			want += heading * (1.0 if near < 3 else 0.4)
 		if want.length() < 0.2:

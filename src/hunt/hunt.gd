@@ -32,6 +32,8 @@ var boss: Boss
 var pet: Actor
 var ally: Ally
 var foes: Array[Enemy] = []
+## The fallen, still lying where they died (see DB.CORPSE_MAX).
+var corpses: Array[Enemy] = []
 var projs: Array[Proj] = []
 var pickups: Array[Pickup] = []
 var cards := {}
@@ -487,6 +489,8 @@ func _frame_camera() -> void:
 			cam.zoom_target = 1.18
 			if boss and boss.alive:
 				cam.focus_override = hero.position.lerp(boss.position, 0.25)
+			else:
+				cam.focus_override = null
 		"victory":
 			# First the fall, close on the boss, then back to the hero and the loot.
 			if phase_t < 0.6 and boss:
@@ -497,6 +501,9 @@ func _frame_camera() -> void:
 				cam.focus_override = null
 		_:
 			cam.zoom_target = 1.0 + clampf((foes.size() - 15) / 60.0, 0.0, 0.12)
+			# Back to the hero: a boss that fell mid-run (Descent, Boss Rush)
+			# would otherwise leave the camera pinned where the fight was.
+			cam.focus_override = null
 
 
 # --- Foes ----------------------------------------------------------------
@@ -514,6 +521,18 @@ func _tick_foes(dt: float) -> void:
 		else:
 			f.tick(dt)
 		i -= 1
+	# The fallen lie a while and sink; the oldest go first past the cap.
+	var extra := corpses.size() - DB.CORPSE_MAX
+	var j := corpses.size() - 1
+	while j >= 0:
+		var c := corpses[j]
+		if not is_instance_valid(c):
+			corpses.remove_at(j)
+		else:
+			if j < extra:
+				c.linger = minf(c.linger, 0.0)
+			c.tick(dt)
+		j -= 1
 	# Separation: the dead push each other apart and off the hero.
 	var n := foes.size()
 	for a in n:
@@ -1003,6 +1022,10 @@ func _direct_trial(dt: float) -> void:
 				if int(r["index"]) > 0 and z < float(r["hi"]) - 4.0:
 					_start_room(r)
 			"active":
+				# The sealed way on holds: a shove into the gate must not pop the
+				# hero out on the far side, past the fight.
+				if hero.position.z < float(r["lo"]) + hero.radius and hero.position.z > float(r["lo"]) - 3.0:
+					hero.position.z = float(r["lo"]) + hero.radius + 0.9
 				if _spawn_q.is_empty() and _room_alive(r) == 0:
 					_clear_room(r)
 				elif r.has("deadline") and time > float(r["deadline"]) and not r.get("sealed", false):
@@ -1482,6 +1505,7 @@ func _begin_boss() -> void:
 	for f in foes.duplicate():
 		if f.alive:
 			f.die()
+			corpses.append(f)
 			fx.bone_burst(f.flat_pos(), 3, 4.0)
 	foes.clear()
 	for pr in projs:
@@ -1589,6 +1613,7 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 func _kill(f: Enemy) -> void:
 	f.die()
 	foes.erase(f)
+	corpses.append(f)
 	kills += 1
 	if hero.flags.has("bloodlust"):
 		hero.rage = mini(hero.rage + 1, int(hero.flags["bloodlust"]))

@@ -6,7 +6,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -45,6 +45,9 @@ func _fresh() -> Dictionary:
 		"skills": skills,
 		"log": {},
 		"tier_unlocked": 0,
+		## Each mode opens its own difficulties: {mode: highest open tier}.
+		## tier_unlocked stays the best across all modes (zones, campfire).
+		"mode_tiers": {},
 		"tier": 0,
 		"pet": "",
 		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}, "rifts": 0, "best_perfect": 0, "best_tier_won": 0},
@@ -83,13 +86,15 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
 		if int(parsed.get("version", 0)) == 2:
 			_migrate_v2(parsed)
 		if int(parsed.get("version", 0)) == 3:
 			_migrate_v3(parsed)
+		if int(parsed.get("version", 0)) == 4:
+			_migrate_v4(parsed)
 		_merge(data, parsed)
 
 
@@ -149,6 +154,29 @@ func _migrate_v3(d: Dictionary) -> void:
 			out[k] = best[k]
 	if d.has("stats"):
 		d["stats"]["best"] = out
+	d["version"] = 4
+
+
+## v5 gives each mode its own unlocked difficulty, rebuilt from the wins the
+## save already records (best-time keys carry mode and tier). The Descent
+## keeps no per-tier record, so it takes the Horde's.
+func _migrate_v4(d: Dictionary) -> void:
+	var cap := int(d.get("tier_unlocked", 0))
+	var mt := {}
+	var re := RegEx.create_from_string("^(t|tdepths|tgrove|depths|grove|rush|rift|wild)?([0-9])(_.*)?$")
+	for k: String in d.get("stats", {}).get("best", {}):
+		var m := re.search(k)
+		if m == null:
+			continue
+		var pre := m.get_string(1)
+		var mode := "horde"
+		if pre.begins_with("t"):
+			mode = "trial"
+		elif pre in ["rush", "rift", "wild"]:
+			mode = pre
+		mt[mode] = mini(maxi(int(mt.get(mode, 0)), int(m.get_string(2)) + 1), mini(cap, DB.TIERS.size() - 1))
+	mt["descent"] = int(mt.get("horde", 0))
+	d["mode_tiers"] = mt
 	d["version"] = SAVE_VERSION
 
 
@@ -236,11 +264,26 @@ func set_zone(id: String) -> void:
 
 
 func tier() -> int:
-	return int(data["tier"])
+	return clampi(int(data["tier"]), 0, mode_tier_unlocked())
+
+
+## The highest difficulty open in a mode (the chosen mode by default).
+func mode_tier_unlocked(mode := "") -> int:
+	var m := mode if mode != "" else mode_id()
+	return mini(int(data["mode_tiers"].get(m, 0)), DB.TIERS.size() - 1)
+
+
+## Opens the next difficulty in `mode` after tier `t` is beaten there.
+## Returns the newly opened tier, or -1.
+func _open_mode_tier(mode: String, t: int) -> int:
+	if t < mode_tier_unlocked(mode) or t >= DB.TIERS.size() - 1:
+		return -1
+	data["mode_tiers"][mode] = t + 1
+	return t + 1
 
 
 func set_tier(t: int) -> void:
-	data["tier"] = clampi(t, 0, int(data["tier_unlocked"]))
+	data["tier"] = clampi(t, 0, mode_tier_unlocked())
 	save()
 
 
@@ -814,7 +857,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			st["best"][key] = float(r["time"])
 		if t >= int(data["tier_unlocked"]) and t < DB.TIERS.size() - 1:
 			data["tier_unlocked"] = t + 1
-			summary["unlocked_tier"] = t + 1
+		summary["unlocked_tier"] = _open_mode_tier(str(r.get("mode", "horde")), t)
 		if t >= DB.TIER_VETERAN and not hero("barbarian")["unlocked"]:
 			hero("barbarian")["unlocked"] = true
 			summary["unlocked_hero"] = "barbarian"
@@ -842,6 +885,12 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			st["best"][wkey] = place
 			summary["record"] = true
 	if str(r.get("mode", "horde")) == "descent":
+		# The Descent never ends in a win: felling its first boss beats the tier.
+		if (r.get("bosses", []) as Array).size() > 0:
+			var tt := int(r["tier"])
+			summary["unlocked_tier"] = _open_mode_tier("descent", tt)
+			if tt >= int(data["tier_unlocked"]) and tt < DB.TIERS.size() - 1:
+				data["tier_unlocked"] = tt + 1
 		var dkey: String = "descent_" + str(r["hero"])
 		var d := int(r.get("depth", 1))
 		if d > int(st["best"].get(dkey, 0)):
@@ -1492,9 +1541,9 @@ func next_goal() -> String:
 			return "Level %d is ready: upgrade in Heroes" % (int(hero(id)["level"]) + 1)
 		if need_s > 0 and need_s <= 30:
 			return "%d shards to level %d" % [need_s, int(hero(id)["level"]) + 1]
-	var t := int(data["tier_unlocked"])
+	var t := mode_tier_unlocked()
 	if t < DB.TIERS.size() - 1 and tier() == t:
-		return "Win on %s to open %s" % [DB.TIERS[t]["name"], DB.TIERS[t + 1]["name"]]
+		return "%s on %s to open %s" % ["Fell a Descent boss" if mode_id() == "descent" else "Win", DB.TIERS[t]["name"], DB.TIERS[t + 1]["name"]]
 	var nxt := mastery_next(id)
 	if nxt > 0:
 		return "%d mastery to %s" % [nxt - int(hero(id)["mastery"]), DB.MASTERY[int(hero(id)["mastery_rank"]) + 1]["title"]]

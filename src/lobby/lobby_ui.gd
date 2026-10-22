@@ -1018,7 +1018,7 @@ func _build_expedition(s: Sheet) -> void:
 			sub += "\nTelegraphed blows take %d%% of your health · healing −%d%%" % [int(round(float(t["mech"]) * 100.0)), int(round((1.0 - float(t["heal"])) * 100.0))]
 		var pw := Game.power_score(Game.hero_id())
 		sub += "\nRecommended power %s · yours %s" % [Ui.fmt_num(int(t["power"])), Ui.fmt_num(pw)]
-		var lock := "" if i <= int(Game.data["tier_unlocked"]) else "Win on %s to open" % DB.TIERS[i - 1]["name"]
+		var lock := "" if i <= Game.mode_tier_unlocked() else "%s on %s to open" % ["Fell a boss" if Game.mode_id() == "descent" else "Win", DB.TIERS[i - 1]["name"]]
 		var ti := i
 		var card := _option("crowned-skull", t["name"], sub, i == Game.tier(), lock, func():
 			Game.set_tier(ti)

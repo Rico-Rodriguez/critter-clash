@@ -167,6 +167,7 @@ func _run_bot(args: PackedStringArray) -> void:
 		for r in runs:
 			Game.data["hero"] = hid
 			Game.data["tier_unlocked"] = DB.TIERS.size() - 1
+			Game.data["mode_tiers"][mode] = DB.TIERS.size() - 1
 			Game.data["zone"] = zone
 			Game.data["mode"] = mode
 			Game.data["tier"] = tier
@@ -212,8 +213,10 @@ func _capture(args: PackedStringArray) -> void:
 	Game.hero(hid)["shards"] = 9
 	Game.data["tier_unlocked"] = 1
 	Game.data["mode"] = _arg(args, "mode", "horde")
+	Game.data["mode_tiers"][Game.data["mode"]] = 1
 	if _arg(args, "zone", "barrow") != "barrow":
 		Game.data["tier_unlocked"] = DB.TIERS.size() - 1
+		Game.data["mode_tiers"][Game.data["mode"]] = DB.TIERS.size() - 1
 		Game.data["zone"] = _arg(args, "zone", "barrow")
 	for s in DB.SKILLS:
 		Game.data["skills"][s] = DB.xp_for_level({"attack": 32, "strength": 30, "defence": 31, "hitpoints": 30, "ranged": 32, "magic": 32}[s])
@@ -236,7 +239,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -262,7 +265,10 @@ func _capture(args: PackedStringArray) -> void:
 						Game.learn_talent(hid, n[0], n[1])
 				_set_screen_now("lobby")
 				await _wait(1.2)
-				if shot != "lobby" and shot != "lobbychest":
+				if shot == "campfire":
+					current.ui._side_pressed("idle")
+					await _wait(1.0)
+				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
 				await _save(shot)

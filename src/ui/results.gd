@@ -63,7 +63,7 @@ func open(r: Dictionary) -> void:
 		_chest_card(str(r["chest"]))
 	var ut := int(s.get("unlocked_tier", -1))
 	if ut >= 0:
-		_note("%s difficulty unlocked" % DB.TIERS[ut]["name"], DB.TIERS[ut]["color"], "padlock-open")
+		_note("%s unlocked in %s" % [DB.TIERS[ut]["name"], DB.MODES[str(r.get("mode", "horde"))]["short"]], DB.TIERS[ut]["color"], "padlock-open")
 	var uh := str(s.get("unlocked_hero", ""))
 	if uh != "":
 		_note("%s joins your band" % DB.HEROES[uh]["name"], DB.HEROES[uh]["color"], DB.HEROES[uh]["icon"])
