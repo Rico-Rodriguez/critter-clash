@@ -1,7 +1,14 @@
 class_name GearStage
 extends RefCounted
 ## The studio light the equipment screen and the inspect view share: a warm
-## key, a cool rim and a soft blue fill, on a transparent background.
+## key, a cool rim and a soft blue fill, on a transparent background. Also
+## how one piece is put on show (inspect view, rendered item icons).
+
+## Camera target and distance for a worn piece, by slot.
+const FRAME := {
+	"helm": [Vector3(0, 1.95, 0), 3.4], "chest": [Vector3(0, 1.25, 0), 4.6],
+	"legs": [Vector3(0, 0.6, 0), 4.2], "trinket": [Vector3(0, 1.2, 0), 5.0],
+}
 
 
 static func light(vp: SubViewport, with_floor := true) -> void:
@@ -37,3 +44,67 @@ static func light(vp: SubViewport, with_floor := true) -> void:
 	fm.roughness = 0.9
 	floor_m.material_override = fm
 	vp.add_child(floor_m)
+
+
+## Puts one piece under `pivot` and aims `cam` at it: a weapon or offhand
+## floats alone, a worn piece is shown on its hero wearing nothing else.
+## `zoom` < 1 frames it tighter (square icons).
+static func show_piece(pivot: Node3D, cam: Camera3D, it: Dictionary, sparks := true, zoom := 1.0) -> void:
+	var model := str(GearDB.piece(it).get("model", ""))
+	if model != "":
+		_show_prop(pivot, cam, it, model, sparks, zoom)
+	else:
+		_show_worn(pivot, cam, it, zoom)
+
+
+## A weapon or offhand on its own, centered and framed by its size.
+static func _show_prop(pivot: Node3D, cam: Camera3D, it: Dictionary, model: String, sparks: bool, zoom: float) -> void:
+	var holder := Actor.new()
+	pivot.add_child(holder)
+	var prop := GearLook.prop_for(model)
+	holder.add_child(prop)
+	holder.restyle(prop)
+	var lk := GearDB.look(it)
+	for mi in KK.meshes(prop):
+		mi.set_instance_shader_parameter("dye", lk["dye"])
+		mi.set_instance_shader_parameter("tint", GearLook.glow_of(it, 1.2))
+		mi.set_instance_shader_parameter("grade", GearDB.grade(it))
+		mi.set_instance_shader_parameter("accent", GearDB.accent(it))
+	var box := AABB()
+	var first := true
+	for mi in KK.meshes(prop):
+		var b: AABB = prop.transform.inverse() * mi.global_transform * mi.get_aabb() if mi.is_inside_tree() else mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	prop.position = -box.get_center()
+	var big := maxf(box.size.y, maxf(box.size.x, box.size.z))
+	cam.look_at_from_position(Vector3(0, big * 0.12, (big * 2.6 + 0.6) * zoom), Vector3.ZERO, Vector3.UP)
+	var spark := GearDB.enchant(it)
+	if sparks and spark.a > 0.0:
+		var p := GearLook.emitter(48, 1.2, 0.07 * maxf(big, 1.0))
+		var pm := p.process_material as ParticleProcessMaterial
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		pm.emission_box_extents = box.size * 0.45
+		pm.gravity = Vector3(0, 0.5, 0)
+		pm.initial_velocity_max = 0.3
+		pm.spread = 180.0
+		pm.color = Color(spark.r, spark.g, spark.b)
+		p.local_coords = true
+		pivot.add_child(p)
+
+
+## A worn piece on the hero, everything else bare.
+static func _show_worn(pivot: Node3D, cam: Camera3D, it: Dictionary, zoom: float) -> void:
+	var cls := str(it["cls"])
+	var a := Actor.new()
+	pivot.add_child(a)
+	a.build_model(DB.HEROES[cls]["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
+	var pre := {}
+	for slot in DB.SLOTS:
+		pre[slot] = {}
+	pre[it["slot"]] = it
+	GearLook.apply(a, cls, pre)
+	a.play(DB.HEROES[cls]["anim"]["idle"], 0.0)
+	var fr: Array = FRAME.get(str(it["slot"]), FRAME["chest"])
+	var at: Vector3 = fr[0]
+	cam.look_at_from_position(at + Vector3(0, 0.15 * zoom, float(fr[1]) * zoom), at, Vector3.UP)

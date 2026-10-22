@@ -302,6 +302,37 @@ func _capture(args: PackedStringArray) -> void:
 			"parts", "weapons", "dress", "sets", "sets2", "arms":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
+			"gear":
+				# The equipment screen's slots, bag, a piece's card and its
+				# Improve panel; then the Heroes sheet's other two tabs.
+				Game.data["gold"] = 14020
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				current.open_sheet("bag")
+				await _wait(2.5)
+				await _save("gear_slots")
+				var eqg: Equipment = current.ui.equipment
+				eqg._bag_btn.pressed.emit()
+				await _wait(2.0)
+				await _save("gear_bag")
+				for it in Game.data["items"]:
+					if str(it["cls"]) == eqg.hero_id and it["rarity"] == "rare" and Game.owner_of(int(it["uid"])) == "":
+						eqg._select(it)
+						break
+				await _wait(1.0)
+				await _save("gear_card")
+				eqg._open_forge(eqg.selected)
+				await _wait(0.6)
+				await _save("gear_forge")
+				eqg._close()
+				await _wait(0.8)
+				for tab in ["progress", "looks"]:
+					current.ui._hero_tab = tab
+					current.open_sheet("heroes")
+					await _wait(1.2)
+					await _save("heroes_" + tab)
+					current.ui._sheet.close()
+					await _wait(0.6)
 			"swipe":
 				# Drag gestures through the real GUI: a drag that starts on a
 				# row scrolls the list (and does not tap it), a card swipes away.

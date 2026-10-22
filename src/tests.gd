@@ -36,6 +36,14 @@ func run() -> int:
 	var got := Game.open_chest("silver")
 	_ok("chest pays gold", Game.gold() > gold_before and got.size() >= 3)
 
+	# An exact copy of a worn rare is junk; the worn one and a different rare are not.
+	var rare := Game.grant_item(Game.make_item("knight", "helm", 0, "rare"))
+	var twin: Dictionary = Game.grant_item(rare.duplicate(true))
+	var other := Game.grant_item(Game.make_item("knight", "chest", 0, "rare"))
+	Game.equip("knight", int(rare["uid"]))
+	var junk_uids := Game.junk_items().map(func(x): return int(x["uid"]))
+	_ok("spare copy is junk", junk_uids.has(int(twin["uid"])) and not junk_uids.has(int(rare["uid"])) and not junk_uids.has(int(other["uid"])))
+
 	var round_trip = JSON.parse_string(JSON.stringify(Game.data))
 	_ok("save round trip", _same(Game.data, round_trip))
 
