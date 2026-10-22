@@ -23,3 +23,7 @@ shots*/
 
 # capture output
 /shots/
+
+# game server secrets and dumps
+server/.env
+server/backups/

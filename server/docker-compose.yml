@@ -1,0 +1,93 @@
+# Gravelight's game server: Postgres + Nakama + Caddy (HTTPS).
+#
+#   cp .env.example .env    # then fill in every value
+#   docker compose up -d
+#
+# Caddy gets a free Let's Encrypt certificate for $DOMAIN, so the phone talks
+# to https://$DOMAIN and wss://$DOMAIN (iOS refuses plain http). Point the
+# domain's DNS A record at this machine first and open ports 80 and 443.
+# Nakama's admin console (7351) is bound to localhost only: reach it with
+#   ssh -L 7351:localhost:7351 you@server   then open http://localhost:7351
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nakama
+      POSTGRES_USER: nakama
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nakama"]
+      interval: 5s
+      retries: 20
+
+  nakama:
+    image: registry.heroiclabs.com/heroiclabs/nakama:3.30.0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -ecx
+      - >
+        /nakama/nakama migrate up --database.address nakama:${DB_PASSWORD}@postgres:5432/nakama &&
+        exec /nakama/nakama --config /nakama/data/gravelight.yml
+        --database.address nakama:${DB_PASSWORD}@postgres:5432/nakama
+        --socket.server_key ${SERVER_KEY}
+        --runtime.http_key ${HTTP_KEY}
+        --session.encryption_key ${SESSION_KEY}
+        --session.refresh_encryption_key ${REFRESH_KEY}
+        --console.signing_key ${CONSOLE_SIGNING_KEY}
+        --console.username admin
+        --console.password ${CONSOLE_PASSWORD}
+    volumes:
+      - ./nakama/gravelight.yml:/nakama/data/gravelight.yml:ro
+      - ./nakama/modules:/nakama/data/modules:ro
+    expose:
+      - "7350"
+    ports:
+      - "127.0.0.1:7351:7351"
+    healthcheck:
+      test: ["CMD", "/nakama/nakama", "healthcheck"]
+      interval: 10s
+      retries: 10
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - nakama
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+
+  # Nightly database dump kept for 14 days, so a bad day can be undone.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        while true; do
+        pg_dump -h postgres -U nakama nakama | gzip > /backups/nakama-$$(date +%F).sql.gz;
+        find /backups -name 'nakama-*.sql.gz' -mtime +14 -delete;
+        sleep 86400; done
+
+volumes:
+  pgdata:
+  caddy:

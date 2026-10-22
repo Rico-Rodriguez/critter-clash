@@ -1,0 +1,5 @@
+# HTTPS in front of Nakama: REST and the realtime socket on one port.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy nakama:7350
+}
