@@ -65,11 +65,18 @@ const LINES := {
 		"weapon": [
 			{"from": 0, "name": "Shortsword", "model": "sword_1handed.gltf", "alts": [
 				{"name": "War Axe", "model": "axe_1handed.gltf", "scale": 1.2, "icon": "battle-axe"},
+				{"name": "Arming Sword", "model": "sword_B.gltf"},
+				{"name": "Morning Star", "model": "hammer_B.gltf", "scale": 1.15, "icon": "round-star"},
 			]},
 			{"from": 3, "name": "Longsword", "model": "sword_2handed.gltf", "alts": [
 				{"name": "Battleaxe", "model": "axe_2handed.gltf", "scale": 0.9, "icon": "battle-axe"},
+				{"name": "Warhammer", "model": "hammer_A.gltf", "scale": 1.1, "icon": "anvil"},
+				{"name": "Rapier", "model": "sword_D.gltf", "scale": 0.95},
 			]},
-			{"from": 5, "name": "Greatsword", "model": "sword_2handed_color.gltf", "scale": 1.08},
+			{"from": 5, "name": "Greatsword", "model": "sword_2handed_color.gltf", "scale": 1.08, "alts": [
+				{"name": "Claymore", "model": "sword_E.gltf", "scale": 0.62},
+				{"name": "Halberd", "model": "halberd.gltf", "scale": 0.72, "icon": "battle-axe"},
+			]},
 		],
 		"helm": [
 			{"from": 0, "name": "Med Helm", "parts": ["Knight/Helmet"]},
@@ -90,13 +97,17 @@ const LINES := {
 			{"from": 2, "name": "Platelegs", "parts": ["L:Knight"]},
 		],
 		"trinket": [
-			{"from": 0, "name": "Buckler", "model": "shield_round.gltf"},
+			{"from": 0, "name": "Buckler", "model": "shield_round.gltf", "alts": [
+				{"name": "Plank Shield", "model": "shield_A.gltf"},
+			]},
 			{"from": 2, "name": "Kite Shield", "model": "shield_badge.gltf", "alts": [
 				{"name": "Heater Shield", "model": "shield_badge_color.gltf"},
 				{"name": "Tower Shield", "model": "shield_square.gltf"},
+				{"name": "Crest Shield", "model": "shield_B.gltf"},
 			]},
 			{"from": 4, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
 				{"name": "Heraldic Shield", "model": "shield_round_color.gltf"},
+				{"name": "Bulwark", "model": "shield_C.gltf"},
 			]},
 			{"from": 6, "name": "Dragon Shield", "model": "shield_square_color.gltf"},
 		],
@@ -107,11 +118,17 @@ const LINES := {
 		"weapon": [
 			{"from": 0, "name": "Hatchet", "model": "axe_1handed.gltf", "scale": 1.35, "alts": [
 				{"name": "Cudgel", "model": "kit:bone_club", "icon": "bone-gnawer"},
+				{"name": "Spiked Club", "model": "hammer_C.gltf", "scale": 1.1, "icon": "bone-gnawer"},
+				{"name": "Bearded Axe", "model": "axe_C.gltf", "scale": 1.2},
 			]},
 			{"from": 2, "name": "Battleaxe", "model": "axe_2handed.gltf", "alts": [
 				{"name": "Greatsword", "model": "sword_2handed.gltf", "scale": 1.1, "icon": "broadsword"},
+				{"name": "Double Axe", "model": "axe_A.gltf", "scale": 1.35, "icon": "crossed-axes"},
 			]},
-			{"from": 5, "name": "Great Axe", "model": "axe_2handed.gltf", "scale": 1.18},
+			{"from": 5, "name": "Great Axe", "model": "axe_2handed.gltf", "scale": 1.18, "alts": [
+				{"name": "Labrys", "model": "axe_B.gltf", "scale": 1.05, "icon": "crossed-axes"},
+				{"name": "Maul", "model": "hammer_A.gltf", "scale": 1.3, "icon": "anvil"},
+			]},
 		],
 		"helm": [
 			{"from": 0, "name": "Horned Cap", "parts": ["Skeleton_Warrior/Helmet"]},
@@ -134,9 +151,11 @@ const LINES := {
 		"trinket": [
 			{"from": 0, "name": "Round Shield", "model": "shield_round_barbarian.gltf", "alts": [
 				{"name": "Painted Shield", "model": "shield_round_color.gltf"},
+				{"name": "Plank Shield", "model": "shield_A.gltf"},
 			]},
 			{"from": 4, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
 				{"name": "Boss Shield", "model": "Skeleton_Shield_Small_B.gltf", "scale": 1.2},
+				{"name": "Bulwark", "model": "shield_C.gltf"},
 			]},
 		],
 	},
@@ -144,9 +163,12 @@ const LINES := {
 		"names": CLOTH_NAMES, "dye": CLOTH, "weapon_skill": "magic", "armor_skill": "magic",
 		"starter": "wand.gltf", "offhand_bone": "handslot.l",
 		"weapon": [
-			{"from": 0, "name": "Wand", "model": "wand.gltf", "scale": 1.15},
+			{"from": 0, "name": "Wand", "model": "wand.gltf", "scale": 1.15, "alts": [
+				{"name": "Crystal Wand", "model": "wand_A.gltf", "icon": "fairy-wand"},
+			]},
 			{"from": 2, "name": "Staff", "model": "staff.gltf", "alts": [
 				{"name": "Lantern Staff", "model": "kit:lantern_staff"},
+				{"name": "Crystal Staff", "model": "staff_B.gltf", "icon": "crystal-shine"},
 			]},
 			{"from": 4, "name": "Bone Staff", "model": "kit:bone_staff"},
 			{"from": 5, "name": "Skull Staff", "model": "Skeleton_Staff.gltf", "scale": 1.1, "alts": [
@@ -190,9 +212,15 @@ const LINES := {
 		"names": HIDE_NAMES, "dye": HIDE, "weapon_skill": "ranged", "armor_skill": "ranged",
 		"starter": "bow.gltf", "offhand_bone": "back",
 		"weapon": [
-			{"from": 0, "name": "Shortbow", "model": "bow.gltf"},
-			{"from": 3, "name": "Longbow", "model": "bow_withString.gltf"},
-			{"from": 5, "name": "Warbow", "model": "bow_withString.gltf", "scale": 1.15},
+			{"from": 0, "name": "Shortbow", "model": "bow.gltf", "alts": [
+				{"name": "Hunting Bow", "model": "kit:hunting_bow"},
+			]},
+			{"from": 3, "name": "Longbow", "model": "bow_withString.gltf", "alts": [
+				{"name": "Recurve Bow", "model": "kit:recurve"},
+			]},
+			{"from": 5, "name": "Warbow", "model": "bow_withString.gltf", "scale": 1.15, "alts": [
+				{"name": "Recurve Bow", "model": "kit:recurve", "scale": 1.15},
+			]},
 		],
 		"helm": [
 			{"from": 0, "name": "Mask", "parts": ["Rogue_Hooded/Mask"]},
@@ -259,18 +287,18 @@ const SET_LOOKS := {
 	# The Crypt Queen's: blackened plate and robes with violet fire in the seams.
 	"hexer": {"dye": Color(0.045, 0.04, 0.06, 1.0), "accent": Color(0.75, 0.35, 1.0), "icon": Color(0.78, 0.6, 1.0), "grade": Vector4(0.75, 0.25, 0.55, 0.0), "cls": {
 		"knight": {
-			"weapon": {"name": "Blackguard Blade", "model": "sword_2handed.gltf", "scale": 1.05},
+			"weapon": {"name": "Blackguard Blade", "model": "sword_E.gltf", "scale": 0.66, "icon": "dripping-sword"},
 			"helm": {"name": "Blackguard Helm", "parts": ["Knight/Helmet", "Knight/HelmetVisor"]},
 			"chest": {"name": "Blackguard Plate", "parts": ["T:Knight", "Knight/Cape"]},
 			"legs": {"name": "Blackguard Legs", "parts": ["L:Knight"]},
-			"trinket": {"name": "Blackguard Shield", "model": "shield_spikes.gltf"},
+			"trinket": {"name": "Blackguard Shield", "model": "shield_B.gltf"},
 		},
 		"barbarian": {
-			"weapon": {"name": "Dread Axe", "model": "axe_2handed.gltf", "scale": 1.12},
+			"weapon": {"name": "Dread Axe", "model": "axe_B.gltf", "scale": 1.1, "icon": "crossed-axes"},
 			"helm": {"name": "Dread Horns", "parts": ["Skeleton_Warrior/Helmet"]},
 			"chest": {"name": "Dread Hide", "parts": ["T:Barbarian", "Rogue_Hooded/Cape"]},
 			"legs": {"name": "Dread Legs", "parts": ["L:Barbarian"]},
-			"trinket": {"name": "Dread Shield", "model": "Skeleton_Shield_Large_B.gltf"},
+			"trinket": {"name": "Dread Shield", "model": "shield_C.gltf"},
 		},
 		"mage": {
 			"weapon": {"name": "Deathlight Staff", "model": "kit:deathlight"},
@@ -280,7 +308,7 @@ const SET_LOOKS := {
 			"trinket": {"name": "Phylactery", "model": "kit:phylactery", "icon": "gems"},
 		},
 		"ranger": {
-			"weapon": {"name": "Shade Bow", "model": "bow_withString.gltf", "scale": 1.2},
+			"weapon": {"name": "Shade Bow", "model": "kit:recurve", "scale": 1.15},
 			"helm": {"name": "Shade Hood", "parts": ["Skeleton_Rogue/Hood"]},
 			"chest": {"name": "Shade Garb", "parts": ["T:Rogue_Hooded", "Skeleton_Rogue/Cape"]},
 			"legs": {"name": "Shade Legs", "parts": ["L:Rogue_Hooded"]},
@@ -290,14 +318,14 @@ const SET_LOOKS := {
 	# The Thornmother's: living bark with green sap in the grain.
 	"thorn": {"dye": Color(0.36, 0.25, 0.14, 0.85), "accent": Color(0.55, 1.0, 0.3), "icon": Color(0.7, 0.95, 0.5), "grade": Vector4(0.1, 0.2, 0.6, 0.0), "cls": {
 		"knight": {
-			"weapon": {"name": "Thornblade", "model": "sword_1handed.gltf", "scale": 1.15},
+			"weapon": {"name": "Thornblade", "model": "sword_C.gltf", "scale": 1.0},
 			"helm": {"name": "Grove Helm", "parts": ["Knight/Helmet"]},
 			"chest": {"name": "Barkplate", "parts": ["T:Knight", "Ranger/Cape"]},
 			"legs": {"name": "Bark Greaves", "parts": ["L:Knight"]},
-			"trinket": {"name": "Grove Shield", "model": "shield_round.gltf", "scale": 1.1},
+			"trinket": {"name": "Grove Shield", "model": "shield_A.gltf", "scale": 1.1},
 		},
 		"barbarian": {
-			"weapon": {"name": "Root Club", "model": "kit:bone_club", "icon": "bone-gnawer"},
+			"weapon": {"name": "Root Club", "model": "hammer_C.gltf", "scale": 1.15, "icon": "bone-gnawer"},
 			"helm": {"name": "Bear Mask", "parts": ["Barbarian/BearHat"]},
 			"chest": {"name": "Bark Hide", "parts": ["T:Barbarian", "Ranger/Cape"]},
 			"legs": {"name": "Bark Legs", "parts": ["L:Barbarian"]},
@@ -311,7 +339,7 @@ const SET_LOOKS := {
 			"trinket": {"name": "Seed Tome", "model": "spellbook_closed.gltf"},
 		},
 		"ranger": {
-			"weapon": {"name": "Thornbow", "model": "bow_withString.gltf", "scale": 1.15},
+			"weapon": {"name": "Thornbow", "model": "kit:hunting_bow", "scale": 1.15},
 			"helm": {"name": "Grove Hood", "parts": ["Rogue_Hooded/Head"], "hood": true},
 			"chest": {"name": "Grove Garb", "parts": ["T:Ranger", "Ranger/Cape"]},
 			"legs": {"name": "Grove Chaps", "parts": ["L:Ranger"]},
@@ -368,6 +396,13 @@ const KITS := {
 	],
 	"phylactery": [
 		["dungeon/bottle_A_green.gltf", Vector3(0, -0.1, 0.04), Vector3.ZERO, 0.42],
+	],
+	# Weapons Bits bows lie along X; the hero's bow poses expect the old bows' Z.
+	"hunting_bow": [
+		["weapons/bow_A_withString.gltf", Vector3.ZERO, Vector3(0, 90, 0), 1.0],
+	],
+	"recurve": [
+		["weapons/bow_B_withString.gltf", Vector3.ZERO, Vector3(0, 90, 0), 1.0],
 	],
 }
 

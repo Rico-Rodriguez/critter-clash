@@ -10,6 +10,24 @@ version is 5.
 
 ---
 
+## 2026-10-27: Fantasy Weapons Bits
+
+No save, settings or native changes.
+
+### Added
+- **The KayKit Fantasy Weapons Bits pack (CC0)** and new drop looks built from
+  it. Knight: Arming Sword, Morning Star, Warhammer, Rapier, Claymore, Halberd,
+  Plank, Crest and Bulwark shields. Barbarian: Spiked Club, Bearded Axe,
+  Double Axe, Labrys, Maul, Plank Shield, Bulwark. Mage: Crystal Wand, Crystal
+  Staff. Ranger: Hunting Bow, Recurve Bow.
+- **Bigger boss-set pieces.** The Blackguard Blade is now a black claymore with
+  a crest shield, the Dread Axe a labrys with a bulwark, the Shade Bow a
+  recurve. The Thorn set gets a katana-thin Thornblade, a plank Grove Shield,
+  a spiked Root Club and a hunting-bow Thornbow.
+- `--shots=arms --hero=H`: every weapon and offhand look in one hero's hands.
+
+---
+
 ## 2026-10-26: More gear looks, a clearer equipment screen, bigger supers
 
 Save version still 5 (one new per-hero key, `best_mat`, defaults in `_fresh()`;

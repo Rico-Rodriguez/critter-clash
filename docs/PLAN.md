@@ -1017,11 +1017,12 @@ Where to tune:
   `--shots=equip --hero=H --mat=N --set=hexer` or `--look=1`, `weapons`
   (now includes kits), `equipdetail`, `inspect`, `inspecthelm`, `reveal`,
   `super --hero=H --after=S`, `depth`.
-- More models: the KayKit **Fantasy Weapons Bits** pack is free (CC0) and has
-  25+ weapons (hammers, spears, maces, fancier staffs and shields) in the same
-  style. Itch only hands out downloads through a browser, so drop its
-  `gltf` files into `assets/kaykit/weapons/` and add stages or alts that name
-  them. The paid Mystery Monthly series 5 has a Black Knight character whose
+- The KayKit **Fantasy Weapons Bits** pack is in `assets/kaykit/weapons/`
+  (its files have letter suffixes: `hammer_A`, `sword_E`, `shield_C`...). Its
+  bows lie along X, so they go through the `hunting_bow` and `recurve` kits,
+  which turn them. Unused so far: `spear_A`, `dagger_A`/`dagger_B`, `staff_A`,
+  the fist weapons and arrows. `--shots=arms --hero=H` lines up every weapon
+  and offhand look in that hero's hands. The paid Mystery Monthly series 5 has a Black Knight character whose
   parts would slot straight into `GearDB` like any other KayKit character.
 
 ## Next up

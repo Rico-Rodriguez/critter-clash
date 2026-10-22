@@ -299,8 +299,8 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
-			"parts", "weapons", "dress", "sets", "sets2":
-				await _contact_sheet(shot)
+			"parts", "weapons", "dress", "sets", "sets2", "arms":
+				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
 			"icon":
 				_set_screen_now("lobby")
@@ -540,7 +540,7 @@ func _wait_sim(h: Hunt, sec: float) -> void:
 
 
 ## A lineup of every character (or weapon) on a bare stage, for choosing parts.
-func _contact_sheet(kind: String) -> void:
+func _contact_sheet(kind: String, only := "") -> void:
 	if current:
 		current.queue_free()
 		current = null
@@ -593,6 +593,50 @@ func _contact_sheet(kind: String) -> void:
 				GearLook.apply(a, hid, pre)
 				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
 		cam2.look_at_from_position(Vector3(0, -2.9, 21.0 + (cols.size() - 4) * 4.0), Vector3(0, -2.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if kind == "arms":
+		# Every weapon and offhand look in each hero's hands, one hero a row.
+		var cam3 := Camera3D.new()
+		root.add_child(cam3)
+		cam3.fov = 30
+		var most := 0
+		var rows: Array = DB.HERO_ORDER if only == "" else [only]
+		for r in rows.size():
+			var hid: String = rows[r]
+			var looks := {}
+			for slot in ["weapon", "trinket"]:
+				looks[slot] = []
+				for st: Dictionary in GearDB.LINES[hid][slot]:
+					for k in st.get("alts", []).size() + 1:
+						looks[slot].append([int(st["from"]), k])
+			var n: int = max(looks["weapon"].size(), looks["trinket"].size())
+			most = max(most, n)
+			for c in n:
+				var a := Actor.new()
+				root.add_child(a)
+				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				a.position = Vector3(c * 1.5, -r * 2.4, 0)
+				a.rotation.y = 0.5
+				var pre := {}
+				for slot in DB.SLOTS:
+					pre[slot] = Game.make_item(hid, slot, 5, "rare")
+					pre[slot]["look"] = 0
+				for slot in ["weapon", "trinket"]:
+					var lk: Array = looks[slot][min(c, looks[slot].size() - 1)]
+					pre[slot] = Game.make_item(hid, slot, lk[0], "rare")
+					pre[slot]["look"] = lk[1]
+				GearLook.apply(a, hid, pre)
+				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+				var lb := Label3D.new()
+				lb.text = GearDB.base_name(pre["weapon"]) + "\n" + GearDB.base_name(pre["trinket"])
+				lb.font_size = 20
+				lb.pixel_size = 0.004
+				lb.position = a.position + Vector3(0, -0.25, 0.5)
+				lb.no_depth_test = true
+				root.add_child(lb)
+		var mid := Vector3((most - 1) * 0.75, -(rows.size() - 1) * 1.2, 0)
+		cam3.look_at_from_position(mid + Vector3(0, 0.9, 1.0 + most * 1.1 + (rows.size() - 1) * 2.5), mid + Vector3(0, 0.9, 0), Vector3.UP)
 		await _wait(1.0)
 		return
 	if kind == "parts":

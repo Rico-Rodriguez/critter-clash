@@ -27,6 +27,9 @@ files in `assets/kaykit/`.
   https://kaylousberg.itch.io/kaykit-forest
 - KayKit : Dungeon Pack Remastered 1.1 (Free) — chests, coins, barrels, camp
   props — https://kaylousberg.itch.io/kaykit-dungeon-pack
+- KayKit : Fantasy Weapons Bits 1.0 (Free) — hammers, maces, double axes, the
+  halberd, claymore, rapier, crystal staff and wand, recurve bows, the plank,
+  crest and bulwark shields — https://kaylousberg.itch.io/fantasy-weapons-bits
 
 ## Icons — game-icons.net (CC BY 3.0)
 
