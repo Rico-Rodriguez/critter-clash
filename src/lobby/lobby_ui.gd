@@ -21,10 +21,7 @@ const TAB_LOOK := {
 ## Which tab and sub-tab each old sheet name lands on.
 const SHEET_TAB := {
 	"heroes": ["heroes", 0],
-	"bag": ["gear", 0],
-	"bounties": ["journal", 0], "road": ["journal", 0], "daily": ["journal", 0],
-	"season": ["journal", 1], "feats": ["journal", 2], "log": ["journal", 3],
-	"journal": ["journal", 0], "clan": ["clan", 0], "friends": ["clan", 1],
+	"bag": ["gear", 0], "journal": ["journal", 0], "clan": ["clan", 0], "friends": ["clan", 1],
 }
 
 var _tab_btns := {}
@@ -386,8 +383,7 @@ func show_tab(name_: String, sub := 0) -> void:
 		"heroes":
 			_page = _make_page("Heroes", [["Heroes", _build_heroes]], sub)
 		"journal":
-			var dot_today := Game.bounty_claimable() > 0 or Game.road_claimable() > 0 or bool(Game.login_status()["ready"])
-			_page = _make_page("Journal", [["Today", _build_today, dot_today], ["Season", _build_season, Game.season_claimable() > 0], ["Feats", _build_feats, Game.achievement_claimable() > 0], ["Log", _build_log]], sub)
+			_page = _make_page("Journal", [["Journal", _build_journal]], sub)
 		"clan":
 			_page = _make_page("Clan", _social_segments(), sub)
 	if dir != 0.0:
@@ -533,8 +529,18 @@ func open_sheet(name_: String) -> void:
 	match name_:
 		"expedition":
 			_sheet.open("Expedition", _build_expedition)
-		"daily_sheet":
+		"daily_sheet", "daily":
 			_sheet.open("Daily", _build_daily)
+		"bounties":
+			_sheet.open("Bounties", _build_bounties)
+		"road":
+			_sheet.open("Road", _build_road)
+		"season":
+			_sheet.open("Season", _build_season)
+		"feats":
+			_sheet.open("Feats", _build_feats)
+		"log":
+			_sheet.open("Log", _build_log)
 		"settings":
 			_sheet.open("Settings", _build_settings, 0.8)
 		"profile":
@@ -552,7 +558,14 @@ func open_sheet(name_: String) -> void:
 				_sheet.queue_free()
 				_sheet = null
 				return
-	_sheet.closed.connect(refresh)
+	_sheet.closed.connect(_sheet_closed)
+
+
+## A claim or upgrade in a sheet changes the tiles and cards under it.
+func _sheet_closed() -> void:
+	refresh()
+	if tab in ["heroes", "journal"] and _page is Sheet and is_instance_valid(_page):
+		(_page as Sheet).rebuild()
 
 
 ## The portraits finished rendering after the Heroes page was already opened.
