@@ -7,6 +7,7 @@ extends Node
 
 const LOBBY := preload("res://src/lobby/lobby.tscn")
 const Online := preload("res://src/net/online.gd")
+const UiJuice := preload("res://src/ui/ui_juice.gd")
 
 var current: Node
 var _fade: ColorRect
@@ -28,6 +29,7 @@ func _ready() -> void:
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_fade)
+	add_child(UiJuice.new())
 	var args := OS.get_cmdline_user_args()
 	if args.has("--notch"):
 		Ui.forced_inset = Vector4(0, 108, 0, 62)
