@@ -338,7 +338,7 @@ func _social() -> void:
 	for k in ["pressed", "hover_pressed"]:
 		theme.set_stylebox(k, "NavTab", tp)
 	theme.set_font_size("font_size", "NavTab", 17)
-	theme.set_constant("icon_max_width", "NavTab", 52)
+	theme.set_constant("icon_max_width", "NavTab", 62)
 	theme.set_constant("h_separation", "NavTab", 2)
 	theme.set_color("font_pressed_color", "NavTab", TEXT)
 	theme.set_color("font_hover_pressed_color", "NavTab", TEXT)

@@ -6,28 +6,90 @@ extends "res://src/lobby/lobby_ui_hero_sheets.gd"
 
 ## The Journal's first page: what can be done today. The daily reward when it
 ## is ready, the three bounties, then the next steps on the renown road.
-func _build_today(s: Sheet) -> void:
-	var b := s.body
-	if bool(Game.login_status()["ready"]):
-		var dc := Button.new()
-		dc.theme_type_variation = &"GoldButton"
-		dc.text = "Daily reward ready"
-		dc.icon = Ui.icon("sun")
-		dc.custom_minimum_size = Vector2(0, 84)
-		dc.focus_mode = Control.FOCUS_NONE
-		dc.pressed.connect(func(): open_sheet("daily_sheet"))
-		b.add_child(dc)
-	var left := 86400 - int(Time.get_unix_time_from_system()) % 86400
-	b.add_child(_row([Ui.label("Daily bounties", "Heading"), _spacer(), Ui.label("New in %dh %02dm" % [left / 3600, (left % 3600) / 60], "Small")]))
-	_build_bounties(s)
-	b.add_child(HSeparator.new())
-	_build_road(s)
+## The Journal tab: one big tile per reward track, like Clash Royale's shop.
+## Each tile says where it stands in a word or two and opens its sheet.
+func _build_journal(s: Sheet) -> void:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	var st := Game.login_status()
+	var ready_d: bool = st["ready"]
+	grid.add_child(_reward_tile("sun", "Daily", "Ready!" if ready_d else "Day %d" % int(st["day"]), -1.0, 1 if ready_d else 0, "daily"))
+	var list: Array = Game.data["bounties"]["list"]
+	var done := list.filter(func(e): return Game.bounty_done(e)).size()
+	grid.add_child(_reward_tile("archery-target", "Bounties", "%d / %d" % [done, list.size()], float(done) / maxf(list.size(), 1.0), Game.bounty_claimable(), "bounties"))
+	var rn := int(Game.data["road"])
+	var lo := DB.road_threshold(rn)
+	var hi := DB.road_threshold(rn + 1)
+	grid.add_child(_reward_tile("flag-objective", "Road", "Renown %d" % Game.renown(), clampf(float(Game.renown() - lo) / float(maxi(hi - lo, 1)), 0.0, 1.0), Game.road_claimable(), "road"))
+	var lv := Game.season_level()
+	grid.add_child(_reward_tile("round-star", "Season", "Tier %d" % lv, 1.0 if lv >= DB.SEASON_TIERS else float(int(Game.season()["xp"]) % DB.SEASON_XP) / DB.SEASON_XP, Game.season_claimable(), "season"))
+	var got: int = Game.data["achievements"].size()
+	grid.add_child(_reward_tile("trophy", "Feats", "%d / %d" % [got, DB.ACHIEVEMENTS.size()], float(got) / DB.ACHIEVEMENTS.size(), Game.achievement_claimable(), "feats"))
+	grid.add_child(_reward_tile("scroll-unfurled", "Log", "%d wins" % int(Game.data["stats"]["wins"]), -1.0, 0, "log"))
+	s.body.add_child(grid)
+
+
+## A tile of the Journal grid. `frac` < 0 leaves out the bar; `ready_n` > 0
+## lights it gold and puts a count in the corner.
+func _reward_tile(icon: String, title: String, status: String, frac: float, ready_n: int, sheet: String) -> Button:
+	var btn := Button.new()
+	btn.theme_type_variation = &"Choice"
+	btn.toggle_mode = true
+	btn.button_pressed = ready_n > 0
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(0, 236)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 18
+	v.offset_right = -18
+	v.offset_top = 22
+	v.offset_bottom = -20
+	v.add_theme_constant_override("separation", 6)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(v)
+	var cc := CenterContainer.new()
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.add_child(Ui.icon_rect(icon, 84, Color(1.0, 0.82, 0.4) if ready_n > 0 else Color(0.85, 0.8, 0.7)))
+	v.add_child(cc)
+	var nm := Ui.label(title, "Value", HORIZONTAL_ALIGNMENT_CENTER)
+	nm.add_theme_font_size_override("font_size", 28)
+	v.add_child(nm)
+	var sl := Ui.label(status, "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	if ready_n > 0:
+		sl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	v.add_child(sl)
+	if frac >= 0.0:
+		var bar := ProgressBar.new()
+		bar.theme_type_variation = &"XPBar"
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 14)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bar.value = frac * 100.0
+		v.add_child(bar)
+	if ready_n > 0:
+		var dot := PanelContainer.new()
+		dot.theme_type_variation = &"Badge"
+		dot.position = Vector2(10, 10)
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var n := Ui.label(str(ready_n), "Small", HORIZONTAL_ALIGNMENT_CENTER)
+		n.add_theme_color_override("font_color", Color.WHITE)
+		dot.add_child(n)
+		btn.add_child(dot)
+	btn.pressed.connect(func():
+		btn.button_pressed = ready_n > 0
+		Sfx.play("ui_tap", -4.0)
+		open_sheet(sheet))
+	return btn
 
 
 func _build_daily(s: Sheet) -> void:
 	var b := s.body
 	var st := Game.login_status()
-	b.add_child(_row([Ui.label("Login streak", "Heading"), _spacer(), Ui.label("Miss a day and it starts over", "Small")]))
+	b.add_child(_row([Ui.label("Login streak", "Heading"), _spacer()]))
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 8)
@@ -97,7 +159,7 @@ func _build_season(s: Sheet) -> void:
 	pb.custom_minimum_size = Vector2(0, 14)
 	pb.value = 100.0 if lv >= DB.SEASON_TIERS else float(int(se["xp"]) % DB.SEASON_XP) / DB.SEASON_XP * 100.0
 	b.add_child(pb)
-	var note := Ui.label("Tier %d of %d · every hunt's renown counts · free for everyone" % [lv, DB.SEASON_TIERS], "Small")
+	var note := Ui.label("Tier %d of %d" % [lv, DB.SEASON_TIERS], "Small")
 	b.add_child(note)
 	var claimed := int(se["claimed"])
 	for n in range(maxi(claimed - 1, 1), mini(claimed + 9, DB.SEASON_TIERS) + 1):
@@ -178,7 +240,7 @@ func _build_road(s: Sheet) -> void:
 	var b := s.body
 	var claimed := int(Game.data["road"])
 	var ready_n := Game.road_claimable()
-	b.add_child(_row([Ui.label("Renown %d" % Game.renown(), "Heading"), _spacer(), Ui.label("Every hunt earns renown", "Small")]))
+	b.add_child(_row([Ui.label("Renown %d" % Game.renown(), "Heading"), _spacer()]))
 	if not _road_note.is_empty():
 		var nc := _card()
 		var nl := Ui.label("Claimed: " + ", ".join(_road_note), "Body")
@@ -222,7 +284,8 @@ func _build_road(s: Sheet) -> void:
 
 func _build_bounties(s: Sheet) -> void:
 	var b := s.body
-	b.add_child(Ui.label("Three new bounties every day. Progress counts from any hunt.", "Small"))
+	var left := 86400 - int(Time.get_unix_time_from_system()) % 86400
+	b.add_child(Ui.label("New in %dh %02dm" % [left / 3600, (left % 3600) / 60], "Small"))
 	var list: Array = Game.data["bounties"]["list"]
 	for i in list.size():
 		var e: Dictionary = list[i]

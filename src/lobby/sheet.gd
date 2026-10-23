@@ -26,6 +26,9 @@ var page := false
 var segments: Array = []
 var segment := 0
 var _seg_row: HBoxContainer
+## Buttons pinned under the scrolling body (Clash Royale's panel footer);
+## builders fill it like `body`.
+var footer: HBoxContainer
 signal segment_changed(i: int)
 
 
@@ -82,7 +85,8 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	if not page:
 		head.add_child(x)
 	v.add_child(head)
-	if not segments.is_empty():
+	# One segment needs no row of choices.
+	if segments.size() > 1:
 		_seg_row = HBoxContainer.new()
 		_seg_row.add_theme_constant_override("separation", 8)
 		v.add_child(_seg_row)
@@ -90,6 +94,9 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	var wrap := Control.new()
 	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(wrap)
+	footer = HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 12)
+	v.add_child(footer)
 	_scroll = DragScroll.new()
 	_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -122,12 +129,12 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	body.add_theme_constant_override("separation", 16)
 	m.add_child(body)
 	if page:
-		builder.call(self)
+		_call_builder()
 		return
 	var swipe := SwipeDismiss.attach(panel, close, head)
 	_scroll.pulled.connect(swipe.drag)
 	_scroll.pull_released.connect(swipe.release)
-	builder.call(self)
+	_call_builder()
 	await get_tree().process_frame
 	_fit()
 	await get_tree().process_frame
@@ -143,7 +150,7 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 func rebuild() -> void:
 	var keep := _scroll.scroll_vertical
 	Ui.clear(body)
-	builder.call(self)
+	_call_builder()
 	await get_tree().process_frame
 	if not page:
 		_fit()
@@ -155,6 +162,8 @@ func rebuild() -> void:
 func _fit() -> void:
 	var vh := get_viewport_rect().size.y
 	var chrome := 22.0 + 68.0 + 14.0 + 14.0 + 40.0
+	if footer.visible:
+		chrome += footer.get_combined_minimum_size().y + 14.0
 	var want: float = chrome + body.get_parent().get_combined_minimum_size().y
 	var frac := clampf(want / vh, 0.3, _cap)
 	panel.anchor_top = 1.0 - frac
@@ -175,12 +184,14 @@ func show_segment(i: int) -> void:
 	builder = segments[segment][1]
 	_build_segments()
 	Ui.clear(body)
-	builder.call(self)
+	_call_builder()
 	_scroll.scroll_vertical = 0
 	segment_changed.emit(segment)
 
 
 func _build_segments() -> void:
+	if _seg_row == null:
+		return
 	Ui.clear(_seg_row)
 	for i in segments.size():
 		var b := Button.new()
@@ -217,3 +228,9 @@ func close() -> void:
 	t.chain().tween_callback(func():
 		closed.emit()
 		queue_free())
+
+
+func _call_builder() -> void:
+	Ui.clear(footer)
+	builder.call(self)
+	footer.visible = footer.get_child_count() > 0

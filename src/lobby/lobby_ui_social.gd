@@ -69,16 +69,19 @@ func _social_dot() -> bool:
 	return o.unread() > 0 or _requests_n > 0 or o.can_redeem()
 
 
-func _social_segments() -> Array:
-	var o := _net()
-	var unread: bool = o != null and o.unread() > 0
-	return [["Clan", _build_clan, unread], ["Friends", _build_friends, _requests_n > 0],
-		["Invite", _build_invite, o != null and o.can_redeem()], ["Ranks", _build_ranks]]
-
-
 ## Sheets that belong to the social part; false when `name_` is not one.
 func _open_social_sheet(s: Sheet, name_: String) -> bool:
 	match name_:
+		"clans":
+			s.open("Clans", _build_find_clan)
+		"chat":
+			s.open(_clan_line(), _build_chat, 0.94)
+		"friends":
+			s.open("Add friends", _build_friends)
+		"invite":
+			s.open("Invite a friend", _build_invite)
+		"ranks":
+			s.open("Ranks", _build_ranks)
 		"clan_create":
 			s.open("New clan", _build_clan_create)
 		"clan_members":
@@ -95,12 +98,14 @@ func _open_social_sheet(s: Sheet, name_: String) -> bool:
 
 
 func _social_refresh() -> void:
+	if _net() == null or not is_inside_tree():
+		return
 	if _typing():
 		_dirty = true
 		return
 	if tab == "clan" and _page is Sheet and is_instance_valid(_page):
 		(_page as Sheet).rebuild()
-	if _sheet and is_instance_valid(_sheet) and _sheet_name in ["clan_members", "profile", "account"]:
+	if _sheet and is_instance_valid(_sheet) and _sheet_name in ["clan_members", "profile", "account", "friends"]:
 		_sheet.rebuild()
 	refresh()
 
@@ -280,32 +285,183 @@ func _net_gate(b: Control) -> bool:
 
 # --- Clan --------------------------------------------------------------------------
 
-func _build_clan(s: Sheet) -> void:
+## The Clan tab, after Clash Royale's Social panel: your clan (or a way into
+## one) on top, the people you play with below, two big buttons at the foot.
+func _build_social(s: Sheet) -> void:
 	var b := s.body
-	_chat_box = null
 	if not _net_gate(b):
 		return
-	if _net().in_clan():
+	var o := _net()
+	b.add_child(_row([Ui.label("Code %s" % o.my_code(), "Small"), _spacer(),
+		_icon_button("present", func(): open_sheet("invite"), o.can_redeem()),
+		_icon_button("podium-winner", func(): open_sheet("ranks"), false)], 10))
+	if o.in_clan():
 		_build_my_clan(s)
 	else:
-		_build_find_clan(s)
+		var c := _card()
+		var tv := VBoxContainer.new()
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tv.add_theme_constant_override("separation", 2)
+		tv.add_child(_wrap_label("Create or join a clan!", "Heading"))
+		tv.add_child(_wrap_label("Chat, co-op hunts, a weekly raid", "Small"))
+		var show := _button("Show", "GreenButton", func(): open_sheet("clans"), 72)
+		show.custom_minimum_size.x = 140
+		show.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		c.add_child(_row([Ui.icon_rect("checked-shield", 64, GOLD), tv, show], 14))
+		b.add_child(c)
+	if o.party.active():
+		_build_party(b)
+	var list := _card()
+	var lv := VBoxContainer.new()
+	lv.add_theme_constant_override("separation", 6)
+	list.add_child(lv)
+	lv.add_child(Ui.label("SOCIAL", "Caption"))
+	_fill_social(_slot(lv))
+	b.add_child(list)
+	var party := _button("Party up", "BlueButton", _party_up, 84)
+	party.icon = Ui.icon("shaking-hands")
+	party.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	party.visible = not o.party.active()
+	var add := _button("Add friends", "GreenButton", func(): open_sheet("friends"), 84)
+	add.icon = Ui.icon("person")
+	add.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if _requests_n > 0:
+		add.add_child(_count_badge(_requests_n))
+	s.footer.add_child(party)
+	s.footer.add_child(add)
+
+
+## A round icon button with an optional red dot (the header's gift and ranks).
+func _icon_button(icon: String, cb: Callable, dot: bool) -> Button:
+	var btn := Button.new()
+	btn.theme_type_variation = "RoundButton"
+	btn.icon = Ui.icon(icon)
+	btn.expand_icon = true
+	btn.custom_minimum_size = Vector2(72, 72)
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.pressed.connect(cb)
+	if dot:
+		var d := _count_badge(0)
+		d.position = Vector2(54, -4)
+		btn.add_child(d)
+	return btn
+
+
+## A red corner badge with a count (or a plain dot for 0).
+func _count_badge(n: int) -> PanelContainer:
+	var d := PanelContainer.new()
+	d.theme_type_variation = "Badge"
+	d.position = Vector2(-6, -6)
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := Ui.label(str(n) if n > 0 else "!", "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	d.add_child(l)
+	return d
+
+
+## Party up: open a party and post it in clan chat. Without a clan there is
+## no one to tell yet, so point the way.
+func _party_up() -> void:
+	var o := _net()
+	if not o.in_clan():
+		_toast("Join a clan to party up")
+		return
+	var e: String = await o.party.create()
+	if e != "":
+		_toast(e, Color(1, 0.6, 0.5))
+		return
+	var e2: String = await o.party.invite_clan()
+	_toast("Party posted in clan chat" if e2 == "" else e2)
+
+
+## Friends and clanmates in one list, online first, then by power.
+func _fill_social(slot: VBoxContainer) -> void:
+	var o := _net()
+	var people := {}
+	var fr: Dictionary = await o.friends()
+	if not is_instance_valid(slot):
+		return
+	var asks := 0
+	if fr["ok"]:
+		for f in fr["data"]:
+			if int(f["state"]) == 2:
+				asks += 1
+			elif int(f["state"]) == 0:
+				people[str(f["id"])] = {"id": str(f["id"]), "name": str(f["name"]), "online": bool(f["online"]), "line": ""}
+	if asks != _requests_n:
+		_requests_n = asks
+		refresh()
+	if o.in_clan():
+		var mr: Dictionary = await o.clan_members()
+		if not is_instance_valid(slot):
+			return
+		if mr["ok"]:
+			for m in mr["data"]:
+				var role := int(m["role"])
+				if role < 3:
+					people[str(m["id"])] = {"id": str(m["id"]), "name": str(m["name"]), "online": bool(m["online"]), "line": ROLE_NAME[role]}
+	people.erase(o.user_id)
+	var profs: Dictionary = await o.profiles(people.keys()) if not people.is_empty() else {}
+	if not _fill(slot):
+		return
+	if asks > 0:
+		slot.add_child(_button("%d friend request%s" % [asks, "" if asks == 1 else "s"], "GreenButton", func(): open_sheet("friends"), 64))
+	if people.is_empty():
+		slot.add_child(Ui.label("No one here yet", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+		return
+	var rows: Array = people.values()
+	for p in rows:
+		p["power"] = int(profs.get(p["id"], {}).get("power", 0))
+		var hid := str(profs.get(p["id"], {}).get("hero", ""))
+		if str(p["line"]) == "":
+			p["line"] = DB.HEROES[hid]["name"] if DB.HEROES.has(hid) else "Friend"
+	rows.sort_custom(func(a, c): return a["power"] > c["power"] if a["online"] == c["online"] else a["online"])
+	for p in rows:
+		slot.add_child(_person_row(p))
+
+
+func _person_row(p: Dictionary) -> Button:
+	var btn := Button.new()
+	btn.theme_type_variation = "CardButton"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(0, 84)
+	var h := HBoxContainer.new()
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 18
+	h.offset_right = -18
+	h.add_theme_constant_override("separation", 14)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(h)
+	var dot := _dot(bool(p["online"]))
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(dot)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 0)
+	v.add_child(Ui.label(str(p["name"]), "Value"))
+	v.add_child(Ui.label(str(p["line"]), "Small"))
+	h.add_child(v)
+	var pw := Ui.label(Ui.fmt_num(int(p["power"])), "Value")
+	pw.add_theme_color_override("font_color", GOLD)
+	pw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(pw)
+	for ch in h.get_children():
+		ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var who := {"id": str(p["id"]), "name": str(p["name"])}
+	btn.pressed.connect(func(): _open_player(who))
+	return btn
 
 
 func _build_find_clan(s: Sheet) -> void:
 	var b := s.body
-	var c := _card()
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
-	c.add_child(v)
-	v.add_child(_wrap_label("Join a clan", "Heading"))
-	v.add_child(_wrap_label("Chat, form parties for co-op hunts, and take down the weekly raid boss together for crypt chests.", "Small"))
-	b.add_child(c)
 	var search := _field("Search clans by name", "", 20)
 	var go := _button("Search", "PrimaryButton", func(): pass, 72)
 	go.custom_minimum_size.x = 150
 	b.add_child(_row([search, go]))
-	b.add_child(_button("Start a clan", "GoldButton", func(): open_sheet("clan_create")))
 	var results := _slot(b)
+	s.footer.add_child(_button("Start a clan", "GoldButton", func(): open_sheet("clan_create")))
+	s.footer.get_child(0).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	go.pressed.connect(func(): _fill_clans(results, search.text))
 	search.text_submitted.connect(func(t): _fill_clans(results, t))
 	_fill_clans(results, "")
@@ -315,12 +471,11 @@ func _fill_clans(slot: VBoxContainer, query: String) -> void:
 	var r: Dictionary = await _net().find_clans(query)
 	if not _fill(slot):
 		return
-	slot.add_child(Ui.label("OPEN CLANS" if query.strip_edges() == "" else "CLANS NAMED \"%s…\"" % query.strip_edges().to_upper(), "Caption"))
 	if not r["ok"]:
 		slot.add_child(_wrap_label(str(r["error"]), "Small"))
 		return
 	if r["data"].is_empty():
-		slot.add_child(_wrap_label("No clans yet. Start one and invite your friends!", "Small"))
+		slot.add_child(_wrap_label("No clans yet. Start one!", "Small"))
 	var my_combat: int = _net().best_combat()
 	for cl in r["data"]:
 		var card := _card()
@@ -333,12 +488,8 @@ func _fill_clans(slot: VBoxContainer, query: String) -> void:
 		v.add_theme_constant_override("separation", 2)
 		h.add_child(v)
 		v.add_child(Ui.label(str(cl["name"]), "Value"))
-		var line := "%d/%d members · %s" % [int(cl["members"]), int(cl["max"]), "open" if cl["open"] else "ask to join"]
-		if int(cl["min_combat"]) > 0:
-			line += " · combat %d+" % int(cl["min_combat"])
+		var line := "%d/%d members" % [int(cl["members"]), int(cl["max"])]
 		v.add_child(Ui.label(line, "Small"))
-		if str(cl["desc"]) != "":
-			v.add_child(_wrap_label(str(cl["desc"]), "Small"))
 		var too_low := my_combat < int(cl["min_combat"])
 		var full := int(cl["members"]) >= int(cl["max"])
 		var id := str(cl["id"])
@@ -353,6 +504,8 @@ func _fill_clans(slot: VBoxContainer, query: String) -> void:
 			jb.text = "Full"
 		h.add_child(jb)
 		slot.add_child(card)
+	if _sheet and is_instance_valid(_sheet) and _sheet_name == "clans":
+		_refit(_sheet)
 
 
 func _join_clan(id: String) -> void:
@@ -432,32 +585,45 @@ func _build_clan_create(s: Sheet) -> void:
 	b.add_child(make)
 
 
+## Your clan on the Clan tab: badge, name and Chat, with the raid under it.
+## Tapping the name opens the members.
 func _build_my_clan(s: Sheet) -> void:
-	var b := s.body
 	var o := _net()
-	var head := _card()
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 14)
-	head.add_child(h)
+	var card := _card()
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	card.add_child(v)
 	var badge_slot := Control.new()
 	badge_slot.custom_minimum_size = Vector2(84, 84)
-	h.add_child(badge_slot)
-	var v := VBoxContainer.new()
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_theme_constant_override("separation", 2)
-	h.add_child(v)
+	var head := Button.new()
+	head.flat = true
+	head.focus_mode = Control.FOCUS_NONE
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.custom_minimum_size = Vector2(0, 84)
+	for st_name in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		head.add_theme_stylebox_override(st_name, StyleBoxEmpty.new())
+	head.pressed.connect(func(): open_sheet("clan_members"))
+	var tv := VBoxContainer.new()
+	tv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tv.alignment = BoxContainer.ALIGNMENT_CENTER
+	tv.add_theme_constant_override("separation", 2)
+	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var cname := Ui.label(_clan_line(), "Heading")
-	v.add_child(cname)
-	var sub := Ui.label("%s · friend code %s" % [ROLE_NAME[clampi(o.my_role(), 0, 3)], o.my_code()], "Small")
-	v.add_child(sub)
-	var mb := _button("Members", "Ghost", func(): open_sheet("clan_members"), 64)
-	mb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(mb)
-	b.add_child(head)
+	cname.clip_text = true
+	tv.add_child(cname)
+	var sub := Ui.label("Members ›", "Small")
+	tv.add_child(sub)
+	head.add_child(tv)
+	var chat := _button("Chat", "BlueButton", func(): open_sheet("chat"), 72)
+	chat.icon = Ui.icon("conversation")
+	chat.custom_minimum_size.x = 150
+	chat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if o.unread() > 0:
+		chat.add_child(_count_badge(o.unread()))
+	v.add_child(_row([badge_slot, head, chat], 14))
+	s.body.add_child(card)
 	_fill_clan_head(badge_slot, sub)
-	_build_raid(b)
-	_build_party(b)
-	_build_chat(s)
+	_build_raid(v)
 
 
 func _fill_clan_head(badge_slot: Control, sub: Label) -> void:
@@ -465,13 +631,14 @@ func _fill_clan_head(badge_slot: Control, sub: Label) -> void:
 	if not r["ok"] or not is_instance_valid(badge_slot):
 		return
 	badge_slot.add_child(_badge(int(r["data"]["badge"]), 84))
-	sub.text = "%d/%d members · %s" % [int(r["data"]["members"]), int(r["data"]["max"]), ROLE_NAME[clampi(_net().my_role(), 0, 3)]]
+	sub.text = "%d/%d members ›" % [int(r["data"]["members"]), int(r["data"]["max"])]
 
 
 ## The weekly raid boss: everyone's hunts wear it down.
 func _build_raid(b: Control) -> void:
-	var c := _card()
+	var c := VBoxContainer.new()
 	var slot := _slot(c)
+	slot.add_theme_constant_override("separation", 6)
 	b.add_child(c)
 	var r: Dictionary = await _net().raid_status()
 	if not _fill(slot) or not r["ok"] or r["data"].has("none"):
@@ -480,30 +647,18 @@ func _build_raid(b: Control) -> void:
 		return
 	var d: Dictionary = r["data"]
 	var boss_id := str(d.get("boss", "gravemaw"))
-	var boss_name: String = DB.boss_def(boss_id)["name"] if DB.BOSSES.has(boss_id) else "The raid boss"
-	var hp := int(d.get("hp", 0))
+	var boss_name: String = DB.boss_def(boss_id)["name"] if DB.BOSSES.has(boss_id) else "Raid boss"
 	var mx := maxi(1, int(d.get("max", 1)))
+	var left := maxi(0, int(d.get("ends", 0)) - int(Time.get_unix_time_from_system()))
 	var fallen := int(d.get("fallen", 0)) > 0
-	slot.add_child(_row([Ui.icon_rect("crowned-skull", 48, Color(1, 0.5, 0.45)),
-		_wrap_label("WEEKLY RAID · %s" % boss_name.to_upper(), "Caption")]))
+	var t := Ui.label(_dur(left), "Small")
+	slot.add_child(_row([Ui.label(("RAID FELLED · " if fallen else "WEEKLY RAID · ") + boss_name.to_upper(), "Caption"), _spacer(), t]))
 	var bar := ProgressBar.new()
 	bar.theme_type_variation = "BossBar"
-	bar.custom_minimum_size = Vector2(0, 30)
+	bar.custom_minimum_size = Vector2(0, 26)
 	bar.show_percentage = false
-	bar.value = float(hp) / mx * 100.0
+	bar.value = float(int(d.get("hp", 0))) / mx * 100.0
 	slot.add_child(bar)
-	var left := maxi(0, int(d.get("ends", 0)) - int(Time.get_unix_time_from_system()))
-	if fallen:
-		slot.add_child(_wrap_label("Felled! Every clanmate who hit it got 1,500 gold and a Crypt Chest. A new boss rises in %s." % _dur(left), "Small"))
-	else:
-		slot.add_child(_wrap_label("%s / %s health · %s left. Every hunt you finish hits it; when it falls, every raider gets 1,500 gold and a Crypt Chest." % [Ui.fmt_num(hp), Ui.fmt_num(mx), _dur(left)], "Small"))
-	var mine := int(d.get("mine", 0))
-	var top: Array = Online._as_list(d.get("top"))
-	if mine > 0 or not top.is_empty():
-		var line := "Your damage: %s" % Ui.fmt_num(mine)
-		if not top.is_empty():
-			line += " · top: %s %s" % [str(top[0].get("name", "")), Ui.fmt_num(int(top[0].get("dmg", 0)))]
-		slot.add_child(Ui.label(line, "Small"))
 
 
 static func _dur(sec: int) -> String:
@@ -522,17 +677,7 @@ func _build_party(b: Control) -> void:
 	v.add_theme_constant_override("separation", 10)
 	c.add_child(v)
 	b.add_child(c)
-	v.add_child(_row([Ui.icon_rect("shaking-hands", 48, PARTY_BLUE.lightened(0.3)), _wrap_label("HUNT TOGETHER", "Caption")]))
-	if not p.active():
-		v.add_child(_wrap_label("Up to 3 clanmates in one hunt: partners fight beside you and every hunter earns %d%% more gold." % int(DB.PARTY_GOLD * 100), "Small"))
-		v.add_child(_button("Make a party", "BlueButton", func():
-			var e: String = await p.create()
-			if e != "":
-				_toast(e, Color(1, 0.6, 0.5))
-			else:
-				var e2: String = await p.invite_clan()
-				_toast("Party posted in clan chat" if e2 == "" else e2)))
-		return
+	v.add_child(_row([Ui.icon_rect("shaking-hands", 48, PARTY_BLUE.lightened(0.3)), _wrap_label("PARTY · +%d%% GOLD" % int(DB.PARTY_GOLD * 100), "Caption")]))
 	var plan: Dictionary = p.plan
 	if not plan.is_empty():
 		v.add_child(Ui.label("%s · %s" % [DB.zone(str(plan.get("zone", "barrow")))["name"], DB.TIERS[clampi(int(plan.get("tier", 0)), 0, DB.TIERS.size() - 1)]["name"]], "Value"))
@@ -563,8 +708,6 @@ func _build_party(b: Control) -> void:
 		row.add_child(rd)
 	row.add_child(_button("Leave", "Ghost", func(): p.leave()))
 	v.add_child(row)
-	if p.is_leader():
-		v.add_child(_wrap_label("The hunt uses your place and difficulty from the Hunt screen. Each hunter keeps their own loot.", "Small"))
 
 
 # --- Chat ---------------------------------------------------------------------------------
@@ -572,7 +715,6 @@ func _build_party(b: Control) -> void:
 func _build_chat(s: Sheet) -> void:
 	var b := s.body
 	var o := _net()
-	b.add_child(Ui.label("CLAN CHAT", "Caption"))
 	_chat_box = VBoxContainer.new()
 	_chat_box.add_theme_constant_override("separation", 10)
 	b.add_child(_chat_box)
@@ -599,7 +741,8 @@ func _build_chat(s: Sheet) -> void:
 		eb.add_theme_font_size_override("font_size", 20)
 		emotes.add_child(eb)
 	b.add_child(emotes)
-	var input := _field("Message your clan", "", 200)
+	var input := _field("Message", "", 200)
+	input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var send := _button("Send", "PrimaryButton", func(): pass, 72)
 	send.custom_minimum_size.x = 130
 	var do_send := func():
@@ -611,8 +754,8 @@ func _build_chat(s: Sheet) -> void:
 		_send({"t": "text", "body": t})
 	send.pressed.connect(do_send)
 	input.text_submitted.connect(func(_t): do_send.call())
-	b.add_child(_row([input, send]))
-	b.add_child(_wrap_label("Tap a name to see the player, report or block them.", "Caption"))
+	s.footer.add_child(input)
+	s.footer.add_child(send)
 	o.mark_chat_read()
 	_scroll_chat_end(s)
 
@@ -639,8 +782,8 @@ func _on_chat(msg: Dictionary) -> void:
 			_chat_box.get_child(0).queue_free()
 		_chat_box.add_child(_bubble(msg))
 		_net().mark_chat_read()
-		if _page is Sheet:
-			_scroll_chat_end(_page)
+		if _sheet and is_instance_valid(_sheet) and _sheet_name == "chat":
+			_scroll_chat_end(_sheet)
 	elif not bool(msg["mine"]):
 		refresh()
 
@@ -893,7 +1036,7 @@ func _fill_friends(slot: VBoxContainer, s: Sheet) -> void:
 					s.rebuild(), 60)]))
 	slot.add_child(Ui.label("FRIENDS · %d" % by_state[0].size(), "Caption"))
 	if by_state[0].is_empty():
-		slot.add_child(_wrap_label("Swap codes with a friend, or bring a new hunter in from the Invite tab for big rewards.", "Small"))
+		slot.add_child(_wrap_label("Swap codes with a friend", "Small"))
 	var friends: Array = by_state[0]
 	friends.sort_custom(func(a, b2): return bool(a["online"]) and not bool(b2["online"]))
 	for f in friends:
@@ -917,6 +1060,7 @@ func _fill_friends(slot: VBoxContainer, s: Sheet) -> void:
 				await o.remove_friend(fid4)
 				o.blocked.erase(fid4)
 				s.rebuild(), 60)]))
+	_refit(s)
 
 
 func _friend_row(f: Dictionary, pr: Dictionary, buttons: Array) -> PanelContainer:
@@ -953,13 +1097,13 @@ func _build_invite(s: Sheet) -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	hero.add_child(v)
-	v.add_child(_row([Ui.icon_rect("present", 64, GOLD), _wrap_label("Bring a friend, both of you win", "Heading")]))
-	v.add_child(_wrap_label("Your friend enters your code in their first 7 days and gets a welcome gift. You earn more every time they reach a milestone.", "Body"))
+	v.add_child(_row([Ui.icon_rect("present", 64, GOLD), _wrap_label("Both of you win", "Heading")]))
+	v.add_child(_wrap_label("They get a welcome gift. You earn at every milestone.", "Body"))
 	var code := Ui.label(o.my_code(), "Title", HORIZONTAL_ALIGNMENT_CENTER)
 	code.add_theme_font_size_override("font_size", 64)
 	v.add_child(code)
 	v.add_child(_button("Copy invite message", "GoldButton", func():
-		DisplayServer.clipboard_set("Hunt with me in Gravelight! Enter my code %s in Clan › Invite for a welcome gift: 2,000 gold, a Gold Chest and 10 hero shards." % o.my_code())
+		DisplayServer.clipboard_set("Hunt with me in Gravelight! Enter my code %s under Clan › gift for a welcome gift: 2,000 gold, a Gold Chest and 10 hero shards." % o.my_code())
 		_toast("Invite copied. Paste it to a friend!")))
 	b.add_child(hero)
 	if o.can_redeem():
@@ -975,7 +1119,7 @@ func _build_redeem(b: Control, s: Sheet) -> void:
 	v.add_theme_constant_override("separation", 10)
 	c.add_child(v)
 	v.add_child(_wrap_label("Did a friend invite you?", "Value"))
-	v.add_child(_wrap_label("Enter their code for 2,000 gold, a Gold Chest and 10 hero shards. You'll be friends right away.", "Small"))
+	v.add_child(_wrap_label("2,000 gold, a Gold Chest and 10 shards", "Small"))
 	var e := _field("Friend's code", "", 6)
 	var err := _wrap_label("", "Small")
 	err.add_theme_color_override("font_color", Color(1, 0.6, 0.5))
@@ -1059,6 +1203,8 @@ func _fill_recruits(slot: VBoxContainer) -> void:
 		var rcard := _card()
 		rcard.add_child(rv)
 		slot.add_child(rcard)
+	if _sheet and is_instance_valid(_sheet):
+		_refit(_sheet)
 
 
 func _reward_line(when: String, you: Array, them: Array) -> Control:
@@ -1082,7 +1228,6 @@ func _build_ranks(s: Sheet) -> void:
 	var b := s.body
 	if not _net_gate(b):
 		return
-	b.add_child(_wrap_label("The strongest hunters, by the power of their best hero.", "Small"))
 	var slot := _slot(b)
 	_fill_ranks(slot)
 
@@ -1123,6 +1268,8 @@ func _fill_ranks(slot: VBoxContainer) -> void:
 		btn.add_child(line)
 		btn.pressed.connect(func(): _open_player(who))
 		slot.add_child(btn)
+	if _sheet and is_instance_valid(_sheet):
+		_refit(_sheet)
 
 
 # --- Gifts -------------------------------------------------------------------------
