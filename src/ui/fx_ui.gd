@@ -6,6 +6,7 @@ extends RefCounted
 
 const GLOSS := preload("res://src/fx/ui_gloss.gdshader")
 const BACKDROP := preload("res://src/fx/ui_backdrop.gdshader")
+const RAYS := preload("res://src/fx/ui_rays.gdshader")
 
 static var _dot: Texture2D
 
@@ -31,6 +32,30 @@ static func gloss(c: Control, radius := 18.0, sweep := 0.5, period := 3.4, offse
 	m.set_shader_parameter("sweep", sweep)
 	m.set_shader_parameter("period", period)
 	m.set_shader_parameter("offset", offset)
+	return r
+
+
+## Turning light rays drawn on `host` under its content, centered on
+## `around` (a featured item inside it), `reach` times that item's size.
+static func rays(host: Control, around: Control, tint := Color(1.0, 0.8, 0.4), reach := 2.2, strength := 0.35) -> ColorRect:
+	var r := ColorRect.new()
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var m := ShaderMaterial.new()
+	m.shader = RAYS
+	m.set_shader_parameter("tint", tint)
+	m.set_shader_parameter("strength", strength)
+	r.material = m
+	host.add_child(r)
+	host.move_child(r, 0)
+	# Containers settle sizes over a frame or two, so it follows both.
+	var fit := func() -> void:
+		var side := maxf(around.size.x, around.size.y) * reach
+		r.size = Vector2(side, side)
+		r.global_position = around.get_global_rect().get_center() - r.size * 0.5
+	host.resized.connect(fit)
+	around.resized.connect(fit)
+	around.item_rect_changed.connect(fit)
+	fit.call_deferred()
 	return r
 
 

@@ -112,6 +112,13 @@ func _panels() -> void:
 	sh.shadow_color = Color(0, 0, 0, 0.6)
 	sh.shadow_size = 24
 	theme.set_stylebox("panel", "Sheet", sh)
+	# A tab page: the sheet's margins over a backdrop drawn behind it.
+	theme.set_type_variation("Page", "PanelContainer")
+	var pg := sh.duplicate() as StyleBoxFlat
+	pg.bg_color = Color(0, 0, 0, 0)
+	pg.border_width_top = 0
+	pg.shadow_size = 0
+	theme.set_stylebox("panel", "Page", pg)
 	theme.set_type_variation("Chip", "PanelContainer")
 	var chip := box(Color(0, 0, 0, 0.55), 40, 2, Color(1, 1, 1, 0.08))
 	chip.content_margin_top = 6
@@ -491,17 +498,46 @@ func _premium() -> void:
 	theme.set_color("font_color", "PillLabel", Color.WHITE)
 	theme.set_color("font_outline_color", "PillLabel", Color(0, 0, 0, 0.7))
 	theme.set_constant("outline_size", "PillLabel", 5)
-	# Shop tiles: a rarity's color, darker at the bevel, with a lit rim.
-	for v in [["TileSlate", "2a2633", "4a4458"], ["TileGreen", "2a5530", "5fc066"], ["TileBlue", "24467a", "4f9be8"],
+	# Shop tiles: a rarity's color with a lit rim and a deep bevel; they press
+	# down like the chunky buttons.
+	for v in [["TileSlate", "2c3446", "56607a"], ["TileGreen", "2f5a33", "6fd070"], ["TileBlue", "24467a", "4f9be8"],
 			["TilePurple", "4b2a7a", "a960f0"], ["TileGold", "5a4314", "f0b848"], ["TileRed", "5a1a26", "e0505e"]]:
-		theme.set_type_variation(v[0], "PanelContainer")
+		theme.set_type_variation(v[0], "Button")
 		var bg := Color(v[1])
-		var t := box(bg, 16, 3, Color(v[2]), 7)
-		t.shadow_color = Color(0, 0, 0, 0.45)
-		t.shadow_size = 6
-		t.shadow_offset = Vector2(0, 3)
-		t.content_margin_left = 10
-		t.content_margin_right = 10
-		t.content_margin_top = 10
-		t.content_margin_bottom = 12
-		theme.set_stylebox("panel", v[0], t)
+		var t := box(bg, 16, 3, Color(v[2]), 8)
+		t.set_content_margin_all(0)
+		var h := t.duplicate() as StyleBoxFlat
+		h.bg_color = bg.lightened(0.06)
+		var pr := t.duplicate() as StyleBoxFlat
+		pr.bg_color = bg.darkened(0.08)
+		pr.border_width_bottom = 3
+		pr.expand_margin_top = -5
+		for k in ["normal", "disabled"]:
+			theme.set_stylebox(k, v[0], t)
+		theme.set_stylebox("hover", v[0], h)
+		for k in ["pressed", "hover_pressed"]:
+			theme.set_stylebox(k, v[0], pr)
+		theme.set_stylebox("focus", v[0], StyleBoxEmpty.new())
+	# The price under a shop tile: a green plate, or slate once it's yours.
+	for v in [["PricePlate", "3aab40", "1d6a22"], ["OwnedPlate", "3a3646", "1c1a24"]]:
+		theme.set_type_variation(v[0], "PanelContainer")
+		var p := box(Color(v[1]), 12, 0, Color(v[2]), 5)
+		p.content_margin_top = 2
+		p.content_margin_bottom = 6
+		p.content_margin_left = 8
+		p.content_margin_right = 8
+		theme.set_stylebox("panel", v[0], p)
+	theme.set_type_variation("PriceLabel", "Label")
+	theme.set_font("font", "PriceLabel", title)
+	theme.set_font_size("font_size", "PriceLabel", 24)
+	theme.set_color("font_color", "PriceLabel", Color.WHITE)
+	theme.set_color("font_outline_color", "PriceLabel", Color(0, 0, 0, 0.55))
+	theme.set_constant("outline_size", "PriceLabel", 6)
+	# A corner ribbon on a tile: -25%, FREE.
+	theme.set_type_variation("Ribbon", "PanelContainer")
+	var rb := box(Color("d8352a"), 10, 0, Color("6a1612"), 3)
+	rb.content_margin_top = 0
+	rb.content_margin_bottom = 2
+	rb.content_margin_left = 10
+	rb.content_margin_right = 10
+	theme.set_stylebox("panel", "Ribbon", rb)
