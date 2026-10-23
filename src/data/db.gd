@@ -994,8 +994,22 @@ const WEAPON_SKINS := {
 	# Held one-handed and pointing forward, a scythe reads as a spear: the
 	# Knight's idle pose is why it is the Barbarian's alone.
 	"reaper": {"name": "Reaper's Scythe", "model": "reaper_scythe.gltf", "icon": "scythe", "scale": 0.85, "heroes": ["barbarian"], "gold": 8000},
+	# KayKit Fantasy Weapons models, unmodified: about four looks a hero.
+	"squire": {"name": "Squire's Pride", "model": "sword_A.gltf", "icon": "broadsword", "scale": 1.0, "heroes": ["knight"], "gold": 10000},
+	"warden": {"name": "Gravewarden", "model": "sword_D.gltf", "icon": "dripping-sword", "scale": 1.0, "heroes": ["knight"], "gold": 20000},
+	"dawn": {"name": "Dawnbreaker", "model": "hammer_B.gltf", "icon": "warhammer", "scale": 1.0, "heroes": ["knight"], "gold": 35000},
+	"willow": {"name": "Willowstring", "model": "bow_A_withString.gltf", "icon": "pocket-bow", "scale": 1.0, "heroes": ["ranger"], "gold": 8000},
+	"hawk": {"name": "Hawkeye Longbow", "model": "bow_B_withString.gltf", "icon": "bow-arrow", "scale": 1.0, "heroes": ["ranger"], "gold": 18000},
+	"bolt": {"name": "Boltcaster", "model": "crossbow_2handed.gltf", "icon": "crossbow", "scale": 1.0, "heroes": ["ranger"], "gold": 28000},
+	"elder": {"name": "Elder Bough", "model": "staff_A.gltf", "icon": "wizard-staff", "scale": 1.0, "heroes": ["mage"], "gold": 8000},
+	"sprite": {"name": "Spritewand", "model": "wand_A.gltf", "icon": "fairy-wand", "scale": 1.0, "heroes": ["mage"], "gold": 16000},
+	"grimoire": {"name": "Open Grimoire", "model": "spellbook_open.gltf", "icon": "spell-book", "scale": 1.0, "heroes": ["mage"], "gold": 26000},
+	"hexstaff": {"name": "Hexwood Staff", "model": "staff_B.gltf", "icon": "skull-staff", "scale": 1.0, "heroes": ["mage"], "gold": 40000},
+	"cleaver": {"name": "Raider's Cleaver", "model": "axe_A.gltf", "icon": "battle-axe", "scale": 1.0, "heroes": ["barbarian"], "gold": 12000},
+	"crusher": {"name": "Skullcrusher", "model": "hammer_A.gltf", "icon": "warhammer", "scale": 1.0, "heroes": ["barbarian"], "gold": 22000},
+	"twinfang": {"name": "Twinfang Axe", "model": "axe_C.gltf", "icon": "crossed-axes", "scale": 1.0, "heroes": ["barbarian"], "gold": 40000},
 }
-const WEAPON_SKIN_ORDER := ["oathbound", "reaper"]
+const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang"]
 
 # --- Online ---------------------------------------------------------------------
 
