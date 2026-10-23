@@ -58,9 +58,12 @@ func hero_stats(id: String, preview := {}) -> Dictionary:
 	s["hp"] *= DB.skill_mult(sk["hitpoints"], 10)
 	s["armor"] += DB.SKILL_ARMOR * (sk["defence"] - 1)
 	# Gear.
+	# A two-handed weapon tried on takes the shield off (Game.equip does the same).
+	var w: Dictionary = preview["weapon"] if preview.has("weapon") else equipped(id, "weapon")
+	var no_off := two_hands(id, w)
 	for slot in DB.SLOTS:
 		var it: Dictionary = preview[slot] if preview.has(slot) else equipped(id, slot)
-		if it.is_empty():
+		if it.is_empty() or slot == "trinket" and no_off:
 			continue
 		var st: Dictionary = it["stats"]
 		s["dmg"] *= 1.0 + st.get("dmg", 0) / 100.0

@@ -197,7 +197,8 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	if dual:
 		_sparks(skel, "GearDual", spark)
 	_aura(actor, GearDB.aura(worn, hero_id))
-	var off: Dictionary = worn["trinket"]
+	# A two-handed weapon leaves no hand for the offhand (Game.equip took it off).
+	var off: Dictionary = {} if Game.two_hands(hero_id, w) else worn["trinket"]
 	var st := GearDB.piece(off) if not off.is_empty() else {}
 	var model := str(st.get("model", ""))
 	if model == "":
@@ -205,7 +206,7 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 		_sparks(skel, "GearOff", Color(0, 0, 0, 0))
 		return
 	var olk := GearDB.look(off)
-	var oh := GearDB.offhand_hold(hero_id, model, fam)
+	var oh := GearDB.offhand_hold(hero_id, model)
 	_hold(actor, skel, "GearOff", oh["bone"], model, float(olk["scale"]) * float(oh["scale"]), olk["dye"], glow_of(off, 1.2), oh["xf"], GearDB.grade(off), GearDB.accent(off))
 	_sparks(skel, "GearOff", GearDB.enchant(off) * Color(1, 1, 1, 0.6))
 

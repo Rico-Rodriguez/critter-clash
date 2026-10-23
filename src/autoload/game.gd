@@ -79,6 +79,7 @@ func load_save() -> void:
 		_merge(data, parsed)
 		_rename_gear()
 		_refund_levels()
+		_free_hands()
 
 
 ## Pieces once carried a random prefix ("Barrowborn Steel Greaves"). Names are
@@ -88,6 +89,14 @@ func _rename_gear() -> void:
 	for it in data["items"]:
 		if it is Dictionary and it.has("cls") and str(it.get("slot", "")) in DB.SLOTS:
 			it["name"] = gear_name(it)
+
+
+## No shield with a two-handed weapon: one worn from before the rule goes
+## back to the bag (safe to repeat, so no save version is needed).
+func _free_hands() -> void:
+	for id in DB.HERO_ORDER:
+		if two_hands(id, equipped(id, "weapon")):
+			hero(id)["gear"].erase("trinket")
 
 
 ## Bought hero levels are gone (skills are the power now): give back the shards

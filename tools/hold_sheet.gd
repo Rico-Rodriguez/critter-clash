@@ -93,8 +93,8 @@ func _init() -> void:
 				_attach(skel, hold["bone"], str(lk["model"]), float(lk["scale"]), hold["xf"])
 				if hold["dual"]:
 					_attach(skel, "handslot.l", str(lk["model"]), float(lk["scale"]), hold["xf_l"])
-				elif off_model != "":
-					var oh := GearDB.offhand_hold(hero, off_model, fam)
+				elif off_model != "" and not (GearDB.two_handed(hero, fam) and GearDB.LINES[hero].get("shield", false)):
+					var oh := GearDB.offhand_hold(hero, off_model)
 					_attach(skel, oh["bone"], off_model, oh["scale"], oh["xf"])
 			else:
 				clip = str(anims["idle"])

@@ -59,7 +59,7 @@ const ENCHANT_FROM := 3
 const LINES := {
 	"knight": {
 		"dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
-		"starter": "dagger.gltf", "offhand_bone": "handslot.l",
+		"starter": "dagger.gltf", "offhand_bone": "handslot.l", "shield": true,
 		"weapon": [
 			{"from": 0, "name": "Shortsword", "model": "sword_1handed.gltf", "alts": [
 				{"name": "War Axe", "model": "axe_1handed.gltf", "scale": 1.2, "icon": "battle-axe"},
@@ -116,7 +116,7 @@ const LINES := {
 	},
 	"barbarian": {
 		"dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
-		"starter": "axe_1handed.gltf", "offhand_bone": "back",
+		"starter": "axe_1handed.gltf", "offhand_bone": "back", "shield": true,
 		"weapon": [
 			{"from": 0, "name": "Hatchet", "model": "axe_1handed.gltf", "scale": 1.35, "alts": [
 				{"name": "Cudgel", "model": "kit:bone_club", "icon": "bone-gnawer"},
@@ -701,8 +701,13 @@ const HOLDS := {
 	# KayKit crossbows point back down the arm.
 	"crossbow": {"rot": Vector3(0, 180, 0)},
 	"repeater": {"rot": Vector3(0, 180, 0), "rot_l": Vector3(0, 180, 0)},
-	# Two-handed: the shield goes on the back.
+	# Take both hands: no shield with them (Game.two_hands). Pairs (twin
+	# axes, repeaters) fill both hands too.
 	"warhammer": {"two_hand": true},
+	"axe": {"two_hand": true},
+	"maul": {"two_hand": true},
+	"scythe": {"two_hand": true},
+	"halberd": {"two_hand": true},
 }
 
 ## Offhands by model, where the line's own bone doesn't suit them: a book
@@ -746,21 +751,20 @@ static func _grip_xf(rot: Vector3, at: Vector3) -> Transform3D:
 	return Transform3D(b, b * at)
 
 
-## Whether family `fam` takes both hands, so the offhand goes on the back.
+## Whether family `fam` takes both hands, leaving none for a shield.
 static func two_handed(_hero_id: String, fam: String) -> bool:
-	return bool(HOLDS.get(fam, {}).get("two_hand", false))
+	return bool(HOLDS.get(fam, {}).get("two_hand", false)) or bool(DB.FAMILIES.get(fam, {}).get("dual", false))
 
 
-## Where a hero carries its offhand `model` (a shield, a book, a quiver)
-## while wielding family `fam`.
-static func offhand_hold(hero_id: String, model: String, fam := "") -> Dictionary:
+## Where a hero carries its offhand `model` (a shield, a book, a quiver).
+static func offhand_hold(hero_id: String, model: String) -> Dictionary:
 	var bone := str(LINES[hero_id]["offhand_bone"])
 	var xf := Transform3D.IDENTITY
 	var g: Dictionary = OFF_HOLDS.get(model, {})
 	if g.has("rot") or g.has("at"):
 		xf = _grip_xf(g.get("rot", Vector3.ZERO), g.get("at", Vector3.ZERO))
 	bone = str(g.get("bone", bone))
-	if bone == "back" or bone.begins_with("handslot") and two_handed(hero_id, fam):
+	if bone == "back":
 		bone = "chest"
 		xf = BACK_XF
 	return {"bone": bone, "xf": xf, "scale": float(g.get("scale", 1.0))}

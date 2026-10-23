@@ -901,6 +901,16 @@ func _open_card(it: Dictionary) -> void:
 			l.custom_minimum_size = Vector2(620, 0)
 		stats.add_child(l)
 	v.add_child(stats)
+	var two_hand := ""
+	if it["slot"] == "trinket" and not is_worn and Game.two_hands(hero_id, Game.equipped(hero_id, "weapon")):
+		two_hand = "Your weapon takes both hands: equipping this takes it off."
+	elif it["slot"] == "weapon" and Game.two_hands(hero_id, it):
+		two_hand = "Two-handed: no shield can be worn with it."
+	if two_hand != "":
+		var th := Ui.label(two_hand, "Small")
+		th.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3))
+		th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(th)
 	if not found:
 		var hint := Ui.label("Not found yet. " + Game.drop_hint(it) + ("." if block == "" else ", and needs %s." % block.trim_prefix("Requires ")), "Body")
 		hint.add_theme_color_override("font_color", DIM)
@@ -1062,6 +1072,9 @@ func _on_slot(slot: String) -> void:
 ## The piece the bag holds that beats the worn one by most in `slot`, or {}.
 func _best_for(slot: String) -> Dictionary:
 	var best := {}
+	# No shield is "better" while a two-handed weapon is in hand.
+	if slot == "trinket" and Game.two_hands(hero_id, Game.equipped(hero_id, "weapon")):
+		return best
 	for it in Game.data["items"]:
 		if it["slot"] != slot or str(it["cls"]) != hero_id or Game.owner_of(int(it["uid"])) != "" or Game.wear_block(hero_id, it) != "":
 			continue
@@ -1082,11 +1095,15 @@ func _redress() -> void:
 
 
 func _equip(it: Dictionary) -> void:
-	Game.equip(hero_id, int(it["uid"]))
+	var bumped := Game.equip(hero_id, int(it["uid"]))
 	Sfx.play("gear_equip", -2.0)
 	selected = {}
 	_close_card(false)
 	_redress()
+	if bumped == "trinket":
+		_say("Two-handed: your offhand went back to the bag", Color(1.0, 0.65, 0.3))
+	elif bumped == "weapon":
+		_say("Your two-handed weapon went back to the bag", Color(1.0, 0.65, 0.3))
 	_refresh()
 
 
