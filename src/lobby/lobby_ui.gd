@@ -69,19 +69,37 @@ func setup(l: Node3D) -> void:
 	%Season.pressed.connect(func(): open_sheet("season"))
 	%Road.pressed.connect(func(): open_sheet("road"))
 	%RoadIcon.texture = Ui.icon("trophy")
-	# Mode, place and difficulty change rarely, so the camp shows one summary
-	# card and the choices live in a sheet behind it.
+	%SeasonIcon.texture = Ui.icon("round-star")
+	# Mode, place and difficulty change rarely: the HUNT button says what they
+	# are and the Mode slot beside it opens the picker.
 	%Expedition.pressed.connect(func(): open_sheet("expedition"))
 	%GoldIcon.texture = Ui.icon("two-coins")
 	_build_tabs()
 	_build_side()
-	_goal = Ui.label("", "Small", HORIZONTAL_ALIGNMENT_CENTER)
-	_goal.add_theme_color_override("font_color", Color(0.95, 0.85, 0.6))
-	%HeroBox.add_child(_goal)
+	_dress_home()
 	Game.changed.connect(refresh)
 	_social_setup()
 	refresh()
 	_count_gold_in()
+
+
+## The home's motion: shine on the HUNT button and the pills, breathing
+## badges, embers drifting up past the hero.
+func _dress_home() -> void:
+	FxUi.gloss(%Hunt, 22.0, 0.6, 3.2)
+	FxUi.gloss(%Season, 16.0, 0.22, 6.0, 1.5)
+	FxUi.gloss(%Road, 16.0, 0.22, 6.0, 4.5)
+	FxUi.gloss(%Chest, 18.0, 0.0)
+	FxUi.gloss(%Expedition, 18.0, 0.0)
+	for b in [%SeasonBadge, %RoadBadge]:
+		FxUi.pulse(b, 1.18, 1.3)
+	for k in _side_badges:
+		FxUi.pulse(_side_badges[k], 1.18, 1.3)
+	var embers := Control.new()
+	embers.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	%Safe.add_child(embers)
+	%Safe.move_child(embers, 0)
+	FxUi.add_motes(embers, Color(1.0, 0.62, 0.3, 0.7), 18, 34.0)
 
 
 func refresh() -> void:
@@ -93,28 +111,29 @@ func refresh() -> void:
 	%PlayerName.text = Game.player_name()
 	%PlayerSub.text = "%s · Combat %d" % [_clan_line(), Game.combat_level(id)]
 	%HeroName.text = d["name"]
-	%HeroTitle.text = "%s · %s · %s" % [Game.mastery_title(id), d["title"], d["role"]]
-	# The top chip shows this hero's combat level; bought levels are gone.
-	%HeroLevel.get_parent().visible = false
-	%Power.text = "Power %d · Rating %d" % [Game.power_score(id), int(h.get("rating", 0))]
+	var pw := Game.power_score(id)
+	%HeroTitle.text = "Power %s · %s" % [Ui.fmt_num(pw), d["role"]]
 	var locked := not bool(h["unlocked"])
 	%Hunt.disabled = locked
 	%Lock.visible = locked
 	if locked:
-		%Hunt.text = "Locked"
+		_hunt_text = "Locked"
 		%Lock.text = Game.hero_lock_text(id)
 	else:
-		%Hunt.text = {"horde": DB.zone(Game.zone_id())["enter"], "trial": "Take the Long Road", "descent": "Begin the Descent", "rush": "Start the Rush", "rift": "Open the Rift", "wild": "Enter the Wilderness"}[Game.mode_id()]
+		_hunt_text = {"horde": DB.zone(Game.zone_id())["enter"], "trial": "Take the Long Road", "descent": "Begin the Descent", "rush": "Start the Rush", "rift": "Open the Rift", "wild": "Enter the Wilderness"}[Game.mode_id()]
 	var mode: Dictionary = DB.MODES[Game.mode_id()]
 	var t: Dictionary = DB.TIERS[Game.tier()]
 	%ExpIcon.texture = Ui.icon(MODE_ICON.get(Game.mode_id(), "crossed-swords"))
-	%ExpMode.text = str(mode["name"]).to_upper()
-	%ExpPlace.text = DB.zone(Game.zone_id())["name"]
-	# Recommended power: a loss under it reads as "I need gear", not "unfair".
-	var pw := Game.power_score(id)
+	%ExpMode.text = str(mode["name"]).split(" ")[0].to_upper()
+	%HuntLabel.text = "LOCKED" if locked else "HUNT"
+	# Recommended power: under it the line turns red, so a loss reads as
+	# "I need gear", not "unfair".
 	var rec := int(t["power"])
-	%ExpTier.text = str(t["name"]).to_upper() + (" · OMEN" if not Game.active_omen(Game.mode_id()).is_empty() else "") + " · %s / %s" % [Ui.fmt_num(pw), Ui.fmt_num(rec)]
-	%ExpTier.add_theme_color_override("font_color", t["color"] if pw >= rec else Color(1.0, 0.45, 0.4))
+	var omen := " · Omen" if not Game.active_omen(Game.mode_id()).is_empty() else ""
+	%HuntSub.text = "%s · %s · %s%s" % [str(mode["name"]).split(" ")[0], DB.zone(Game.zone_id())["name"], t["name"], omen]
+	%HuntSub.add_theme_color_override("font_color", Color("fff1cc") if pw >= rec else Color(1.0, 0.78, 0.72))
+	if pw < rec:
+		%HuntSub.text += " · needs %s" % Ui.fmt_num(rec)
 	# Season plaque.
 	var lv := Game.season_level()
 	%SeasonText.text = "%s · TIER %d" % [Game.season_name().to_upper(), lv]
@@ -131,10 +150,6 @@ func refresh() -> void:
 	_tab_dots["heroes"].visible = _any_upgrade() or Game.new_item_count() > 0
 	_tab_dots["clan"].visible = _social_dot()
 	_tab_dots["shop"].visible = Game.shop_free_ready() > 0
-	if _goal:
-		# The closest thing worth chasing: something is always about to happen.
-		_goal.text = Game.next_goal()
-		_goal.visible = _goal.text != ""
 	_refresh_side()
 	_first_steps()
 
@@ -234,7 +249,7 @@ func _build_side() -> void:
 	# A fixed width at the right edge, wide enough for the label under the button.
 	_rail_r.anchor_left = 1.0
 	_rail_r.anchor_right = 1.0
-	_rail_r.offset_left = -104.0
+	_rail_r.offset_left = -96.0
 	_rail_r.offset_top = 14.0
 	_rail_r.alignment = BoxContainer.ALIGNMENT_BEGIN
 	%Space.add_child(_rail_r)
@@ -261,7 +276,7 @@ func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
 	col.add_theme_constant_override("separation", 0)
 	var b := Button.new()
 	b.theme_type_variation = &"RoundButton"
-	b.custom_minimum_size = Vector2(80, 80)
+	b.custom_minimum_size = Vector2(66, 66)
 	b.icon = Ui.icon(icon)
 	b.expand_icon = true
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -270,7 +285,7 @@ func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
 	var badge := PanelContainer.new()
 	badge.theme_type_variation = &"Badge"
 	badge.custom_minimum_size = Vector2(24, 24)
-	badge.position = Vector2(58, -4)
+	badge.position = Vector2(46, -6)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.visible = false
 	b.add_child(badge)
@@ -518,11 +533,8 @@ func show_chest(kind: String) -> void:
 	%Chest.tooltip_text = "Open your %s" % c["name"]
 	_refresh_chest_slot()
 	Ui.pop_in(%Chest, 0.4, 0.6)
-	# A slow pulse so the slot reads as "something is waiting".
-	var pulse := %Chest.create_tween().set_loops()
-	%Chest.pivot_offset = %Chest.custom_minimum_size * 0.5
-	pulse.tween_property(%Chest, "scale", Vector2.ONE * 1.06, 0.7).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(%Chest, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE)
+	# A rattle every couple of seconds: something is waiting in there.
+	FxUi.shake(%Chest)
 
 
 func _on_chest_slot() -> void:
@@ -568,7 +580,7 @@ func chest_done() -> void:
 	chest_opening = false
 	%Safe.visible = true
 	%NavBar.visible = true
-	%Chest.scale = Vector2.ONE
+	FxUi.still(%Chest)
 	lobby.remove_chest()
 	refresh()
 	if _bought_deal != -2:

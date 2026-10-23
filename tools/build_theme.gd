@@ -37,6 +37,7 @@ func _init() -> void:
 	_buttons()
 	_bars()
 	_misc()
+	_premium()
 	var err := ResourceSaver.save(theme, "res://src/ui/theme.tres")
 	print("theme: ", error_string(err))
 	quit(0 if err == OK else 1)
@@ -456,3 +457,51 @@ func _social() -> void:
 	theme.set_color("selection_color", "LineEdit", Color(GOLD, 0.35))
 	theme.set_font("font", "LineEdit", body_med)
 	theme.set_font_size("font_size", "LineEdit", 26)
+
+
+## The camp's chunky, colored pieces: the gold HUNT button, the pills on the
+## top row, the chest and mode slots, green price buttons and shop tiles
+## tinted by rarity. Shine and motion come from src/ui/fx_ui.gd.
+func _premium() -> void:
+	_button_set("HuntButton", Color("f5a623"), Color("7a3d06"), Color.WHITE, 40, 22)
+	theme.set_type_variation("HuntLabel", "Label")
+	theme.set_font("font", "HuntLabel", title)
+	theme.set_font_size("font_size", "HuntLabel", 50)
+	theme.set_color("font_color", "HuntLabel", Color.WHITE)
+	theme.set_color("font_outline_color", "HuntLabel", Color("7a3d06"))
+	theme.set_constant("outline_size", "HuntLabel", 10)
+	theme.set_type_variation("HuntSub", "Label")
+	theme.set_font("font", "HuntSub", body)
+	theme.set_font_size("font_size", "HuntSub", 20)
+	theme.set_color("font_color", "HuntSub", Color("fff1cc"))
+	theme.set_color("font_outline_color", "HuntSub", Color("7a3d06"))
+	theme.set_constant("outline_size", "HuntSub", 6)
+	_button_set("PriceButton", Color("3aab40"), Color("1d6a22"), Color.WHITE, 26, 14)
+	theme.set_color("font_outline_color", "PriceButton", Color("12461a"))
+	theme.set_constant("outline_size", "PriceButton", 6)
+	_button_set("SeasonPill", Color("3b2459"), Color("1c1030"), TEXT, 20, 16)
+	_button_set("TrophyPill", Color("4a3413"), Color("221707"), TEXT, 20, 16)
+	_button_set("SlotButton", Color("2e2433"), Color("130e16"), TEXT, 18, 18)
+	_button_set("ModeButton", Color("27304d"), Color("10152a"), TEXT, 18, 18)
+	for t in ["SlotButton", "ModeButton"]:
+		theme.set_constant("icon_max_width", t, 64)
+	theme.set_type_variation("PillLabel", "Label")
+	theme.set_font("font", "PillLabel", title)
+	theme.set_font_size("font_size", "PillLabel", 17)
+	theme.set_color("font_color", "PillLabel", Color.WHITE)
+	theme.set_color("font_outline_color", "PillLabel", Color(0, 0, 0, 0.7))
+	theme.set_constant("outline_size", "PillLabel", 5)
+	# Shop tiles: a rarity's color, darker at the bevel, with a lit rim.
+	for v in [["TileSlate", "2a2633", "4a4458"], ["TileGreen", "2a5530", "5fc066"], ["TileBlue", "24467a", "4f9be8"],
+			["TilePurple", "4b2a7a", "a960f0"], ["TileGold", "5a4314", "f0b848"], ["TileRed", "5a1a26", "e0505e"]]:
+		theme.set_type_variation(v[0], "PanelContainer")
+		var bg := Color(v[1])
+		var t := box(bg, 16, 3, Color(v[2]), 7)
+		t.shadow_color = Color(0, 0, 0, 0.45)
+		t.shadow_size = 6
+		t.shadow_offset = Vector2(0, 3)
+		t.content_margin_left = 10
+		t.content_margin_right = 10
+		t.content_margin_top = 10
+		t.content_margin_bottom = 12
+		theme.set_stylebox("panel", v[0], t)

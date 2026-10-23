@@ -16,7 +16,8 @@ var equipment: Equipment
 var _side: VBoxContainer
 var _side_badges := {}
 var _idle_label: Label
-var _goal: Label
+## What the HUNT button would do ("Enter the Barrow"), for the mode sheet.
+var _hunt_text := ""
 var _note_lines: Array = []
 
 ## The tab bar's height; the open tab and its page (lobby_ui.gd runs them).

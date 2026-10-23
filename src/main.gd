@@ -317,7 +317,7 @@ func _capture(args: PackedStringArray) -> void:
 				Game.season()["claimed"] = 2
 				Game.data["stats"]["wins"] = 3
 				Game.data["stats"]["hunts"] = 5
-				for k in ["camp_hunt", "camp_chest", "camp_gear", "camp_heroes"]:
+				for k in ["camp_hunt", "camp_chest", "camp_gear", "camp_heroes", "camp_clan"]:
 					Game.data["tips"][k] = true
 				Game.hero(hid)["mastery"] = 520
 				Game.hero(hid)["mastery_rank"] = 1

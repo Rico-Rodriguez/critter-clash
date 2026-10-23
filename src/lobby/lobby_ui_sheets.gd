@@ -476,7 +476,7 @@ func _build_expedition(s: Sheet) -> void:
 	refresh()
 	var go := Button.new()
 	go.theme_type_variation = "PrimaryButton"
-	go.text = %Hunt.text
+	go.text = _hunt_text
 	go.disabled = %Hunt.disabled
 	go.focus_mode = Control.FOCUS_NONE
 	go.custom_minimum_size = Vector2(0, 96)
