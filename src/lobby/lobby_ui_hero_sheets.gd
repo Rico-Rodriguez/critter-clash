@@ -297,36 +297,49 @@ func _talent_node(s: Sheet, id: String, pi: int, ni: int, n: Dictionary) -> Butt
 func _build_skills(s: Sheet) -> void:
 	var b := s.body
 	var id := _shown_hero
-	var levels := Game.skill_levels(id)
 	# Only the skills this hero's style trains; the rest stay at their floor.
 	var trained: Array = DB.STYLE_SKILLS[DB.HEROES[id]["skill"]]
-	var total := 0
-	for k in trained:
-		total += int(levels[k])
+	var line: Dictionary = GearDB.LINES[id]
+	var shards := int(Game.hero(id)["shards"])
 	var head := _card()
 	var hr := _row([_disc("crossed-swords", Color(0.95, 0.75, 0.35), 84)], 18)
 	var hv := VBoxContainer.new()
-	hv.add_theme_constant_override("separation", 0)
-	var cl := Ui.label("Combat level %d" % Game.combat_level(id), "Heading")
-	hv.add_child(cl)
-	hv.add_child(Ui.label("Total level %d · %d shards" % [total, int(Game.hero(id)["shards"])], "Small"))
+	hv.add_theme_constant_override("separation", 2)
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hv.add_child(Ui.label("Combat level %d" % Game.combat_level(id), "Heading"))
+	var how := Ui.label("Skills rise as you fight in hunts. Each level makes the hero stronger, and gear asks for a level to wear it.", "Small")
+	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hv.add_child(how)
 	hr.add_child(hv)
 	head.add_child(hr)
 	b.add_child(head)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	for sk in trained:
+	# Lamps: the one way to buy skill xp, and what it costs.
+	var lamp_card := _card()
+	var lv := VBoxContainer.new()
+	lv.add_theme_constant_override("separation", 2)
+	var lt := Ui.label("%d shards" % shards, "Body")
+	lt.add_theme_font_size_override("font_size", 24)
+	lt.add_theme_color_override("font_color", Color(0.75, 0.6, 1.0))
+	lv.add_child(lt)
+	var ld := Ui.label("A lamp costs %d shards and pours xp into one skill. Shards come from chests and quests." % DB.LAMP_SHARDS, "Small")
+	ld.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lv.add_child(ld)
+	lamp_card.add_child(lv)
+	b.add_child(lamp_card)
+	for sk: String in trained:
 		var xp := Game.skill_xp(sk, id)
 		var lvl := DB.level_for_xp(xp)
 		var c := _card()
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 14)
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 4)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var top := _row([Ui.icon_rect(DB.SKILL_ICON[sk], 40, Color(0.95, 0.78, 0.45)), Ui.label(DB.SKILL_NAME[sk], "Body"), _spacer()], 8)
-		var lv := Ui.label("%d" % lvl, "Value")
-		lv.add_theme_font_size_override("font_size", 30)
-		lv.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-		top.add_child(lv)
+		var lvl_l := Ui.label("%d" % lvl, "Value")
+		lvl_l.add_theme_font_size_override("font_size", 30)
+		lvl_l.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		top.add_child(lvl_l)
 		v.add_child(top)
 		var pb := ProgressBar.new()
 		pb.theme_type_variation = "XPBar"
@@ -336,16 +349,25 @@ func _build_skills(s: Sheet) -> void:
 		var hi := DB.xp_for_level(mini(lvl + 1, 99))
 		pb.value = 100.0 if lvl >= 99 else float(xp - lo) / float(maxi(hi - lo, 1)) * 100.0
 		v.add_child(pb)
-		var perk := Ui.label(DB.SKILL_PERK[sk], "Small")
-		perk.add_theme_font_size_override("font_size", 17)
+		var nx := Ui.label("Max level" if lvl >= 99 else "%s xp to level %d" % [Ui.fmt_num(hi - xp), lvl + 1], "Small")
+		nx.add_theme_font_size_override("font_size", 16)
+		v.add_child(nx)
+		var does: String = DB.SKILL_PERK[sk]
+		if sk == str(line["weapon_skill"]):
+			does += ". Weapons up to level %d" % lvl
+		if sk == str(line["armor_skill"]):
+			does += ". Armor up to level %d" % lvl
+		var perk := Ui.label(does, "Small")
+		perk.add_theme_font_size_override("font_size", 16)
 		perk.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0))
 		perk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(perk)
-		# XP lamps: shards from chests and duplicates turn into skill XP.
+		row.add_child(v)
 		var lamp := Button.new()
 		lamp.theme_type_variation = "CardButton"
-		lamp.text = "Lamp · +%s xp" % Ui.fmt_num(Game.lamp_xp(id, sk))
-		lamp.custom_minimum_size = Vector2(0, 56)
+		lamp.text = "Lamp\n+%s xp\n%d shards" % [Ui.fmt_num(Game.lamp_xp(id, sk)), DB.LAMP_SHARDS]
+		lamp.custom_minimum_size = Vector2(150, 0)
+		lamp.add_theme_font_size_override("font_size", 17)
 		lamp.focus_mode = Control.FOCUS_NONE
 		lamp.disabled = not Game.can_rub_lamp(id)
 		var skn: String = sk
@@ -354,8 +376,6 @@ func _build_skills(s: Sheet) -> void:
 				Sfx.play("skill_level", -4.0)
 				refresh()
 				s.rebuild())
-		v.add_child(lamp)
-		c.add_child(v)
-		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(c)
-	b.add_child(grid)
+		row.add_child(lamp)
+		c.add_child(row)
+		b.add_child(c)

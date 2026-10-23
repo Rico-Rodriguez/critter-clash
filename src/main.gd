@@ -320,6 +320,10 @@ func _capture(args: PackedStringArray) -> void:
 	# --fam=scythe: the hero holds a weapon of that family.
 	if _arg(args, "fam", "") != "":
 		_give_family(hid, _arg(args, "fam", ""), maxi(mat, 0))
+	# --skin=oathbound: own and wear that weapon skin.
+	if _arg(args, "skin", "") != "":
+		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
+		Game.set_skin(hid, _arg(args, "skin", ""))
 	# --skin=reaper: the hero holds a weapon skin.
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
@@ -327,7 +331,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -387,6 +391,13 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot.begins_with("equip") else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
+					if shot == "equipskins":
+						# The Skins collection with a glow on trial.
+						var eqs: Node = current.ui.equipment
+						eqs._on_skins()
+						await _wait(0.3)
+						eqs._select_cos({"cos": "glow", "key": DB.GLOW_ORDER[1]})
+						await _wait(0.6)
 					if shot == "equipcard":
 						# The card of the weapon in hand (else the best owned), with a copy to level it.
 						var eq: Node = current.ui.equipment
