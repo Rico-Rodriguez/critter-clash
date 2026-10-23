@@ -31,6 +31,12 @@ files in `assets/kaykit/`.
   halberd, claymore, rapier, crystal staff and wand, recurve bows, the plank,
   crest and bulwark shields — https://kaylousberg.itch.io/fantasy-weapons-bits
 
+## 3D art — our own
+
+The weapon skins (Oathbound Blade, Reaper's Scythe) were modeled for this game
+by the scripts in `tools/art/`, run with Blender's Python module, and use the
+KayKit knight texture above for their colors.
+
 ## Icons — game-icons.net (CC BY 3.0)
 
 Interface and card icons in `assets/icons/` are from https://game-icons.net,
@@ -50,7 +56,8 @@ unchanged. Authors:
   sword-smithing, strong, muscle-up, fairy-wand, magic-swirl, archery-target,
   arrow-scope, lightning-tear, heart-organ, cloak-dagger, sun, moon, campfire,
   tombstone, glowing-hands, sword-spin, whirlwind, pointy-hat, hood, robe,
-  trousers, leather-vest, horned-helm, conversation, two-shadows, magnifying-glass)
+  trousers, leather-vest, horned-helm, conversation, two-shadows, magnifying-glass,
+  scythe)
 - Delapouite — https://delapouite.com — two-coins, running-shoe, upgrade,
   round-star, house, padlock-open
 - Skoll — bullseye, open-treasure-chest

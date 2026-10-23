@@ -797,6 +797,41 @@ const GLOWS := {
 }
 const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship"]
 
+# --- Shop -------------------------------------------------------------------------
+
+## Everything costs gold the game pays out; nothing is sold for money. Chests
+## cost about three times the gold inside them, so buying one trades gold for
+## shards and gear, never gold for more gold.
+const SHOP_CHESTS := {"silver": 400, "gold": 1100, "crypt": 2600}
+## Daily deals, drawn fresh each day: a free gift, shards for two heroes, two
+## pieces of gear for the hero in use and a chest at a discount. Each sells once.
+const SHOP_SHARD_GOLD := 30
+const SHOP_DEAL_OFF := 0.25
+const SHOP_CHEST_OFF := 0.3
+const SHOP_FREE_GOLD := 80
+const SHOP_FREE_GOLD_TIER := 25
+const SHOP_FREE_SHARDS := 5
+## Gear price by rarity, then +SHOP_GEAR_MAT for each material tier above the first.
+const SHOP_GEAR_GOLD := {"magic": 280, "rare": 700}
+const SHOP_GEAR_MAT := 0.5
+## One glow a week is on sale for every hero.
+const SHOP_GLOW_OFF := 0.3
+
+static func shop_gear_price(it: Dictionary) -> int:
+	return int(round(int(SHOP_GEAR_GOLD.get(str(it["rarity"]), 280)) * (1.0 + SHOP_GEAR_MAT * int(it.get("mat", 0))) / 10.0)) * 10
+
+
+## Weapon skins: a new model in the hand, whatever weapon is equipped (the
+## stats stay the item's). Bought with gold per hero. `model` is a file in
+## assets/kaykit/weapons/; ours are built by the scripts in tools/art/.
+const WEAPON_SKINS := {
+	"oathbound": {"name": "Oathbound Blade", "model": "oathbound_blade.gltf", "icon": "broadsword", "scale": 1.0, "heroes": ["knight"], "gold": 6000},
+	# Held one-handed and pointing forward, a scythe reads as a spear: the
+	# Knight's idle pose is why it is the Barbarian's alone.
+	"reaper": {"name": "Reaper's Scythe", "model": "reaper_scythe.gltf", "icon": "scythe", "scale": 0.85, "heroes": ["barbarian"], "gold": 8000},
+}
+const WEAPON_SKIN_ORDER := ["oathbound", "reaper"]
+
 # --- Online ---------------------------------------------------------------------
 
 ## What one hunt deals to the clan raid boss: per kill, elite, boss and win,

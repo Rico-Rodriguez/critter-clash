@@ -442,7 +442,7 @@ func buy_glow(id: String, glow: String) -> bool:
 		h["glow"] = glow
 		save()
 		return true
-	var cost := int(DB.GLOWS[glow]["gold"])
+	var cost := glow_price(glow)
 	if DB.GLOWS[glow].get("gift", false) or gold() < cost:
 		return false
 	data["gold"] = gold() - cost
@@ -450,6 +450,48 @@ func buy_glow(id: String, glow: String) -> bool:
 	h["glow"] = glow
 	save()
 	return true
+
+
+## The glow on sale this week (the shop's cosmetic deal), from the ones sold.
+func glow_of_week() -> String:
+	var sold: Array = DB.GLOW_ORDER.filter(func(g): return not DB.GLOWS[g].get("gift", false))
+	# Day 0 was a Thursday; +3 makes the week turn over on Monday.
+	return sold[((day_number(today()) + 3) / 7) % sold.size()]
+
+
+func glow_price(glow: String) -> int:
+	var cost := int(DB.GLOWS[glow]["gold"])
+	if glow == glow_of_week():
+		cost = int(round(cost * (1.0 - DB.SHOP_GLOW_OFF) / 10.0)) * 10
+	return cost
+
+
+## What a weapon skin costs now: one place, so a shop sale can change it.
+func skin_price(skin: String) -> int:
+	return int(DB.WEAPON_SKINS[skin]["gold"])
+
+
+func buy_skin(id: String, skin: String) -> bool:
+	var h := hero(id)
+	if skin in h["skins"]:
+		h["skin"] = skin
+		save()
+		return true
+	var d: Dictionary = DB.WEAPON_SKINS[skin]
+	var cost := skin_price(skin)
+	if not id in d["heroes"] or gold() < cost:
+		return false
+	data["gold"] = gold() - cost
+	h["skins"].append(skin)
+	h["skin"] = skin
+	save()
+	return true
+
+
+func set_skin(id: String, skin: String) -> void:
+	if skin == "" or skin in hero(id)["skins"]:
+		hero(id)["skin"] = skin
+		save()
 
 
 func set_glow(id: String, glow: String) -> void:

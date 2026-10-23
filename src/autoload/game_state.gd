@@ -18,7 +18,7 @@ func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
 		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
-			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "best_mat": -1, "skills": _fresh_skills()}
+			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "skin": "", "skins": [], "best_mat": -1, "skills": _fresh_skills()}
 	return {
 		"version": SAVE_VERSION,
 		"gold": 0,
@@ -66,6 +66,8 @@ func _fresh() -> Dictionary:
 		"pets": [],
 		"ally": "",
 		"tips": {},
+		# Today's shop deals, drawn once a day so a gear offer stays the same piece.
+		"shop": {"day": "", "deals": []},
 		# The player's name, shown on the camp plate, to friends and in clans.
 		"profile": {"name": ""},
 		# The online account. `key` is this install's secret sign-in id (made
@@ -231,6 +233,11 @@ func combat_level(id := "") -> int:
 
 func today() -> String:
 	return Time.get_date_string_from_system()
+
+
+## Days since 1970 for a "YYYY-MM-DD" date: a counter that ticks at local midnight.
+func day_number(day: String) -> int:
+	return int(Time.get_unix_time_from_datetime_string(day) / 86400)
 
 
 func _day_offset(days: int) -> String:

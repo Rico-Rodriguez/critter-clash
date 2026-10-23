@@ -301,10 +301,14 @@ func _capture(args: PackedStringArray) -> void:
 					best = it
 			if not best.is_empty():
 				Game.equip(hid, int(best["uid"]))
+	# --skin=reaper: the hero holds a weapon skin.
+	if _arg(args, "skin", "") != "":
+		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
+		Game.hero(hid)["skin"] = _arg(args, "skin", "")
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile":
+			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -333,6 +337,8 @@ func _capture(args: PackedStringArray) -> void:
 					for h0 in DB.START_HEROES:
 						Game.hero(h0)["unlocked"] = h0 == hid
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
+				if shot in ["shop", "shopbuy", "shoplooks"]:
+					Game.data["gold"] = 3240
 				if shot == "talents":
 					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
 						Game.learn_talent(hid, n[0], n[1])
@@ -340,6 +346,16 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.2)
 				if shot == "campfire":
 					current.ui._side_pressed("idle")
+					await _wait(1.0)
+				elif shot == "shoplooks":
+					current.open_sheet("shop")
+					await _wait(1.0)
+					current.ui._page._scroll.scroll_vertical = 100000
+					await _wait(0.6)
+				elif shot == "shopbuy":
+					current.open_sheet("shop")
+					await _wait(1.0)
+					current.ui.Shop._confirm(current.ui, current.ui._page, Game.shop_deals()[3], 3)
 					await _wait(1.0)
 				elif shot == "roadreveal":
 					current.open_sheet("road")
@@ -378,7 +394,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
-			"parts", "weapons", "dress", "sets", "sets2", "arms":
+			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
 			"gear":
@@ -850,6 +866,28 @@ func _contact_sheet(kind: String, only := "") -> void:
 				GearLook.apply(a, hid, pre)
 				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
 		cam2.look_at_from_position(Vector3(0, -2.9, 21.0 + (cols.size() - 4) * 4.0), Vector3(0, -2.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if kind == "skins":
+		# Each weapon skin in the hands of each hero that can buy it, turned
+		# three ways so the blade's shape shows, one hero a row.
+		var cam4 := Camera3D.new()
+		root.add_child(cam4)
+		cam4.fov = 30
+		var r := 0
+		for sk: String in DB.WEAPON_SKIN_ORDER:
+			for hid: String in DB.WEAPON_SKINS[sk]["heroes"]:
+				Game.hero(hid)["skin"] = sk
+				for c in 3:
+					var a := Actor.new()
+					root.add_child(a)
+					a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+					a.position = Vector3((c - 1) * 1.9, -r * 2.6, 0)
+					a.rotation_degrees.y = [0.0, -50.0, -100.0][c]
+					GearLook.apply(a, hid)
+					a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+				r += 1
+		cam4.look_at_from_position(Vector3(0, 1.0 - (r - 1) * 1.3, 10.0 + r * 4.0), Vector3(0, 1.0 - (r - 1) * 1.3, 0), Vector3.UP)
 		await _wait(1.0)
 		return
 	if kind == "arms":

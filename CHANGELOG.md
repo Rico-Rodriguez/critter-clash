@@ -33,6 +33,18 @@ new road, new keys `unlocks` and `start_picked` (`Game._migrate_v6`).
 
 ---
 
+## Unreleased: Weapon skins
+
+Two weapons modeled from scratch for the shop: the **Oathbound Blade**
+(Knight, 6,000 gold) and the **Reaper's Scythe** (Barbarian, 8,000 gold).
+A skin changes the model in the hero's hand; stats stay the equipped
+weapon's. Built by the Blender scripts in `tools/art/`, colored with the
+KayKit palette texture so they match the rest of the art. New per-hero save
+keys `skin` and `skins` have defaults; save version unchanged. Look at them
+with `--capture --shots=skins`.
+
+---
+
 ## Unreleased: Camp tabs and hunting together
 
 The feature freeze was lifted once for this, at the user's request (see
@@ -48,6 +60,13 @@ settings changed. Online features stay off until the server is deployed and
   name and clan, and a Journal button for the reward tracks, feats and log.
   Heroes is the gear screen with each hero's skills, talents, looks and ally;
   tap the name for the hero's card.
+- **Shop**, the leftmost tab, paid in gold only (nothing costs money). Six
+  daily deals that turn over at midnight: a free gift, discounted shards for
+  your hero and one other (a locked hero first), two pieces of gear for your
+  hero at the best material you've opened, and a chest at 30% off. A chest
+  shelf (Silver 400, Gold 1,100, Crypt 2,600 gold; a bought chest opens in
+  camp like a won one) and every weapon glow, one of them 30% off each week.
+  New save key `shop` has a default.
 - **Clans**: search, join or ask to join, start one (name, badge, open or
   closed, minimum combat), members with leader and elder tools, filtered clan
   chat with emotes, and tap any name to report or block.
