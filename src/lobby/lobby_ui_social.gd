@@ -342,7 +342,7 @@ func _icon_button(icon: String, cb: Callable, dot: bool) -> Button:
 	btn.pressed.connect(cb)
 	if dot:
 		var d := _count_badge(0)
-		d.position = Vector2(50, -2)
+		d.position = Vector2(54, -4)
 		btn.add_child(d)
 	return btn
 
@@ -353,7 +353,7 @@ func _count_badge(n: int) -> PanelContainer:
 	d.theme_type_variation = "Badge"
 	d.position = Vector2(-6, -6)
 	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := Ui.label(str(n) if n > 0 else " ", "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	var l := Ui.label(str(n) if n > 0 else "!", "Small", HORIZONTAL_ALIGNMENT_CENTER)
 	l.add_theme_color_override("font_color", Color.WHITE)
 	d.add_child(l)
 	return d
