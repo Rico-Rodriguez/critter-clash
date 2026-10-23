@@ -31,6 +31,44 @@ every online feature hides itself when the server can't be reached.
 Updating server logic: edit the Lua modules, copy them up, and
 `docker compose restart nakama`. The modules are read at start.
 
+## Test server on your own computer
+
+Free and quick to start, online only while the computer is on. Needs Docker.
+
+1. In this folder: `cp .env.example .env` and fill the keys (`DOMAIN` is
+   unused here). Then start everything but Caddy:
+   ```
+   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d postgres nakama backup
+   ```
+2. Tunnel it to a fixed HTTPS address. A free [ngrok](https://ngrok.com)
+   account includes one static domain, so the game's address never changes:
+   `ngrok http 7350 --url=<name>.ngrok-free.app`.
+3. Set `HOST` (the ngrok domain) and `SERVER_KEY` in `src/net/net_config.gd`.
+
+## Free test server (Oracle Cloud Always Free)
+
+Good for testing with friends at $0. Oracle's free ARM machine (2 CPUs and
+12 GB as of 2026) runs the same stack as production.
+
+1. Make an account at [cloud.oracle.com](https://cloud.oracle.com). It asks
+   for a card to verify you; Always Free resources are never charged.
+2. Compute › Instances › Create: image **Ubuntu 24.04**, shape
+   **VM.Standard.A1.Flex** (2 OCPU, 12 GB). Add your SSH key. If it says
+   "out of capacity", try another availability domain or try again later.
+3. Open the instance's subnet › Security List › Add Ingress Rules: source
+   `0.0.0.0/0`, TCP, destination ports `80,443`.
+4. Get a free name at [duckdns.org](https://www.duckdns.org) (for example
+   `gravelight-test.duckdns.org`) and set its IP to the instance's public IP.
+5. Copy this folder up and run the setup script:
+   ```
+   scp -r server ubuntu@<ip>:~/
+   ssh ubuntu@<ip> 'sh ~/server/setup_vm.sh gravelight-test.duckdns.org'
+   ```
+   It installs Docker, opens the VM's own firewall, writes `.env` with fresh
+   keys, starts everything, and prints the `SERVER_KEY`.
+6. In `src/net/net_config.gd` set `HOST` to the DuckDNS name and
+   `SERVER_KEY` to the printed key, then ship a build.
+
 ## Testing locally
 
 ```

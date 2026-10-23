@@ -1,7 +1,7 @@
 extends RefCounted
-## The Shop tab (paid in gold only), in three tabs: Deals (today's gift, the
-## deal of the day and the rest), Chests, and Skins (weapon skins and glows,
-## the one place cosmetics are bought and put on). No class_name (see CLAUDE.md); lobby_ui.gd
+## The Shop tab (paid in gold only), one scroll top to bottom: today's gift,
+## the deal of the day, the other deals, chests, then Skins (weapon skins and
+## glows, the one place cosmetics are bought and put on). No class_name (see CLAUDE.md); lobby_ui.gd
 ## preloads it and passes itself in, so the cards can open sheets and chests.
 
 const ItemIcons := preload("res://src/ui/item_icons.gd")
@@ -19,14 +19,28 @@ static var _spent_from := -1
 ## The hero whose skins the Skins tab shows ("" = the hero in use).
 static var skins_hero := ""
 
-## The tabs, as the page's segments.
-const TABS := ["Deals", "Chests", "Skins"]
+## Where the Skins section starts, so the hero screen's Skins button can land on it.
+static var _skins_at: Control
 
 
+## One page, no tabs: every section is a scroll away and nothing hides.
 static func segments(ui) -> Array:
-	return [["Deals", func(s: Sheet): build_deals(ui, s), Game.shop_free_ready() > 0],
-		["Chests", func(s: Sheet): build_chests(ui, s)],
-		["Skins", func(s: Sheet): build_skins(ui, s)]]
+	return [["Shop", func(s: Sheet): build(ui, s)]]
+
+
+static func build(ui, s: Sheet) -> void:
+	var gl := _gold_row(s.body, "")
+	build_deals(ui, s, gl)
+	build_chests(ui, s)
+	build_skins(ui, s)
+
+
+## Scrolls `page` so the Skins section sits at the top, once it has a layout.
+static func focus_skins(page: Sheet) -> void:
+	for i in 2:
+		await page.get_tree().process_frame
+	if is_instance_valid(page) and is_instance_valid(_skins_at):
+		page._scroll.scroll_vertical = int(_skins_at.global_position.y - page._scroll.global_position.y) + page._scroll.scroll_vertical - 8
 
 
 ## The gold you hold, top right; after a purchase it counts down.
@@ -49,10 +63,9 @@ static func _gold_row(b: VBoxContainer, note: String) -> Label:
 
 ## Deals: today's free gift, one spotlighted deal (the discounted chest), and
 ## the rest two to a row.
-static func build_deals(ui, s: Sheet) -> void:
+static func build_deals(ui, s: Sheet, gl: Label) -> void:
 	Game.refresh_shop()
 	var b := s.body
-	var gl := _gold_row(b, "New deals in %s" % _until_midnight())
 	var deals := Game.shop_deals()
 	var grid := _grid(2)
 	for i in deals.size():
@@ -63,7 +76,7 @@ static func build_deals(ui, s: Sheet) -> void:
 			b.add_child(_feature_card(ui, s, i, d))
 		else:
 			grid.add_child(_deal_card(ui, s, i, d, gl))
-	b.add_child(_heading("MORE DEALS", ""))
+	b.add_child(_heading("DAILY DEALS", "New in %s" % _until_midnight(), true))
 	b.add_child(grid)
 	FxUi.deal_in(grid, 0.06)
 
@@ -71,7 +84,7 @@ static func build_deals(ui, s: Sheet) -> void:
 ## Chests: each with what it holds, bought and opened on the spot.
 static func build_chests(ui, s: Sheet) -> void:
 	var b := s.body
-	_gold_row(b, "Opens right away")
+	b.add_child(_heading("CHESTS", "Opens right away", true))
 	var cg := _grid()
 	var n := 0
 	for k in DB.SHOP_CHESTS:
@@ -86,7 +99,8 @@ static func build_chests(ui, s: Sheet) -> void:
 static func build_skins(ui, s: Sheet) -> void:
 	var b := s.body
 	var hid := skins_hero if skins_hero != "" and Game.hero(skins_hero)["unlocked"] else Game.hero_id()
-	_gold_row(b, "Looks only, never stats")
+	_skins_at = _heading("SKINS", "Looks only, never stats", true)
+	b.add_child(_skins_at)
 	var heroes := HBoxContainer.new()
 	heroes.add_theme_constant_override("separation", 12)
 	for id in DB.HERO_ORDER:
@@ -132,15 +146,32 @@ static func build_skins(ui, s: Sheet) -> void:
 	FxUi.deal_in(gg, 0.05)
 
 
-static func _heading(text: String, note: String) -> HBoxContainer:
+## A row title; `big` marks the start of a section (Deals, Chests, Skins), with
+## a hairline above so the one long page still reads as parts.
+static func _heading(text: String, note: String, big := false) -> Control:
 	var h := HBoxContainer.new()
-	h.add_child(Ui.label(text, "Caption"))
+	var t := Ui.label(text, "Caption")
+	if big:
+		t.add_theme_font_size_override("font_size", 24)
+		t.add_theme_color_override("font_color", Color("f6e7c4"))
+	h.add_child(t)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(sp)
 	if note != "":
 		h.add_child(Ui.label(note, "Small"))
-	return h
+	if not big:
+		return h
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	var line := ColorRect.new()
+	line.color = Color(GOLD, 0.22)
+	line.custom_minimum_size = Vector2(0, 1)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(Control.new())
+	v.add_child(line)
+	v.add_child(h)
+	return v
 
 
 static func _grid(columns := 3) -> GridContainer:
