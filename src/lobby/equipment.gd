@@ -803,7 +803,7 @@ func _frame(col: Color, fill: float, radius: int, border: int) -> StyleBoxFlat:
 # --- The piece's card ----------------------------------------------------------
 
 ## The hero stats a piece changes, as rows: what each would be if it were
-## worn (or taken off, for a worn piece). Only the ones that move.
+## worn. Only the ones that move.
 const CARD_STATS := [
 	["Health", "hp", "%d"], ["Damage", "dmg", "%d"], ["Attack speed", "rate", "%.2f"], ["Critical", "crit", "%d%%"],
 	["Armor", "armor", "%d%%"], ["Move speed", "speed", "%.1f"], ["Regen", "regen", "%.1f/s"], ["Gold found", "gold", "%d%%"],
@@ -883,12 +883,30 @@ func _open_card(it: Dictionary) -> void:
 	x.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	head.add_child(x)
 	v.add_child(head)
-	# The change on the hero, in the numbers the Heroes sheet shows.
-	if mine and block == "":
+	# What the piece itself gives, in one place.
+	v.add_child(_card_caption("Gives"))
+	var gives := GridContainer.new()
+	gives.columns = 2
+	gives.add_theme_constant_override("h_separation", 24)
+	gives.add_theme_constant_override("v_separation", 2)
+	for k in it["stats"]:
+		var l := Ui.label(str(DB.AFFIXES[k]["label"]) % int(it["stats"][k]), "Body")
+		l.add_theme_font_size_override("font_size", 22)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gives.add_child(l)
+	v.add_child(gives)
+	var u := str(it.get("unique", ""))
+	if u != "":
+		v.add_child(_card_note(str(DB.UNIQUES[u].get("power", "")), GOLD))
+	var st := Game.item_set(it)
+	if st != "":
+		v.add_child(_card_note("%s set. 2 worn: %s. 4 worn: %s" % [DB.SETS[st]["name"], DB.SETS[st]["2"]["desc"], DB.SETS[st]["4"]["desc"]], Color(0.45, 1.0, 0.6)))
+	# Against what the hero wears now, in the numbers the Heroes sheet shows.
+	# A worn piece has nothing to compare with, so it skips this.
+	if mine and block == "" and not is_worn:
 		var now := Game.hero_stats(hero_id)
-		var then := Game.hero_stats(hero_id, {it["slot"]: {}} if is_worn else {it["slot"]: it})
+		var then := Game.hero_stats(hero_id, {it["slot"]: it})
 		var rows := GridContainer.new()
-		rows.columns = 2
 		rows.add_theme_constant_override("h_separation", 24)
 		rows.add_theme_constant_override("v_separation", 2)
 		for spec in CARD_STATS:
@@ -897,7 +915,6 @@ func _open_card(it: Dictionary) -> void:
 			if a == b:
 				continue
 			var up := float(then[spec[1]]) > float(now[spec[1]])
-			var good := up != is_worn
 			var row := HBoxContainer.new()
 			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var l := Ui.label(spec[0], "Body")
@@ -906,43 +923,21 @@ func _open_card(it: Dictionary) -> void:
 			row.add_child(l)
 			var val := Ui.label(("%s → %s " % [a, b]) + ("▲" if up else "▼"), "Body")
 			val.add_theme_font_size_override("font_size", 20)
-			val.add_theme_color_override("font_color", GREEN if good else RED)
+			val.add_theme_color_override("font_color", GREEN if up else RED)
 			row.add_child(val)
 			rows.add_child(row)
-		# Two columns only when a piece moves many numbers; a few read best
-		# as full-width rows.
+		# Two columns only when a piece moves many numbers.
 		rows.columns = 2 if rows.get_child_count() > 4 else 1
 		if rows.get_child_count() > 0:
-			var cap := Ui.label("If you take it off" if is_worn else ("If you wear it" if found else "Once found, worn"), "Caption")
-			cap.add_theme_font_size_override("font_size", 16)
-			v.add_child(cap)
+			var worn := Game.equipped(hero_id, it["slot"])
+			v.add_child(_card_caption("Instead of your %s" % str(worn["name"]) if not worn.is_empty() else "Wearing it"))
 			v.add_child(rows)
-	var stats := HFlowContainer.new()
-	stats.add_theme_constant_override("h_separation", 16)
-	stats.add_theme_constant_override("v_separation", 2)
-	for line in Game.describe_stats(it):
-		var l := Ui.label(line, "Small")
-		l.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3) if line.begins_with("Start") else (Color(0.45, 1.0, 0.6) if line.begins_with("Set") else Color(0.6, 0.78, 1.0)))
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if line.begins_with("Set") or line.begins_with("Start") else TextServer.AUTOWRAP_OFF
-		if l.autowrap_mode != TextServer.AUTOWRAP_OFF:
-			l.custom_minimum_size = Vector2(620, 0)
-		stats.add_child(l)
-	v.add_child(stats)
-	var two_hand := ""
 	if it["slot"] == "trinket" and not is_worn and Game.two_hands(hero_id, Game.equipped(hero_id, "weapon")):
-		two_hand = "Your weapon takes both hands: equipping this takes it off."
+		v.add_child(_card_note("Your weapon takes both hands: equipping this takes the weapon off.", Color(1.0, 0.65, 0.3)))
 	elif it["slot"] == "weapon" and Game.two_hands(hero_id, it):
-		two_hand = "Two-handed: no shield can be worn with it."
-	if two_hand != "":
-		var th := Ui.label(two_hand, "Small")
-		th.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3))
-		th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(th)
+		v.add_child(_card_note("Two-handed: no shield with it.", Color(1.0, 0.65, 0.3)))
 	if not found:
-		var hint := Ui.label("Not found yet. " + Game.drop_hint(it) + ("." if block == "" else ", and needs %s." % block.trim_prefix("Requires ")), "Body")
-		hint.add_theme_color_override("font_color", DIM)
-		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(hint)
+		v.add_child(_card_note("Not found yet. " + Game.drop_hint(it) + ("." if block == "" else ", and needs %s." % block.trim_prefix("Requires ")), DIM))
 	else:
 		v.add_child(_level_row(it))
 	var row2 := HBoxContainer.new()
@@ -950,7 +945,7 @@ func _open_card(it: Dictionary) -> void:
 	if is_worn:
 		row2.add_child(_action("Remove", "", func(): _unequip(it["slot"])))
 	elif found:
-		var eq := _action("Equip" if block == "" else block.trim_prefix("Requires "), "PrimaryButton", func(): _equip(it))
+		var eq := _action("Equip" if block == "" else "Needs " + block.trim_prefix("Requires "), "PrimaryButton", func(): _equip(it))
 		eq.disabled = block != ""
 		row2.add_child(eq)
 	if found:
@@ -979,6 +974,20 @@ func _open_card(it: Dictionary) -> void:
 	_card.create_tween().tween_property(_card, "modulate:a", 1.0, 0.16)
 
 
+func _card_caption(text: String) -> Label:
+	var cap := Ui.label(text, "Caption")
+	cap.add_theme_font_size_override("font_size", 16)
+	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return cap
+
+
+func _card_note(text: String, col: Color) -> Label:
+	var l := Ui.label(text, "Small")
+	l.add_theme_color_override("font_color", col)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return l
+
+
 ## Copies toward the next level, and what the level adds.
 func _level_row(it: Dictionary) -> Control:
 	var v := VBoxContainer.new()
@@ -1002,7 +1011,7 @@ func _level_row(it: Dictionary) -> Control:
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(bar)
-	var c := Ui.label("%d / %d copies" % [have, need], "Small")
+	var c := Ui.label("%d / %d copies to level up" % [have, need], "Small")
 	c.add_theme_color_override("font_color", GREEN if have >= need else DIM)
 	h.add_child(c)
 	v.add_child(h)
@@ -1013,8 +1022,8 @@ func _level_row(it: Dictionary) -> Control:
 	for k in after:
 		var a := int(it["stats"].get(k, 0))
 		if int(after[k]) != a:
-			parts.append(str(DB.AFFIXES[k]["label"]) % int(after[k]))
-	var g := Ui.label("Level %d: %s" % [lv + 1, ", ".join(parts)], "Small")
+			parts.append(str(DB.AFFIXES[k]["label"]) % (int(after[k]) - a))
+	var g := Ui.label("Next level adds %s" % ", ".join(parts), "Small")
 	g.add_theme_color_override("font_color", Color(0.6, 0.78, 1.0))
 	g.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(g)
