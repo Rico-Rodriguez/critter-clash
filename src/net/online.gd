@@ -30,6 +30,9 @@ var clan_channel := ""
 var clan_log: Array = []
 var blocked := {}
 var party: PartyLink
+## Rewards applied but not yet shown (the camp pops them up when idle; a
+## hunt may be running when they land).
+var gifts_pending: Array = []
 ## The raid boss after this player's last hit (the results screen shows it).
 var raid_last := {}
 
@@ -260,6 +263,7 @@ func fetch_grants() -> void:
 		seen.pop_front()
 	if not shown.is_empty():
 		Game.save()
+		gifts_pending.append_array(shown)
 		gifts_arrived.emit(shown)
 	if not ids.is_empty():
 		await rpc_call("ack_grants", {"ids": ids})
@@ -296,10 +300,20 @@ func apply_grant(g: Dictionary) -> void:
 
 
 ## A short line for one grant ("2,000 gold").
+## 25000 -> "25,000": rewards read better exact than as "25.0k".
+static func commas(n: int) -> String:
+	var t := str(absi(n))
+	var out := ""
+	while t.length() > 3:
+		out = "," + t.right(3) + out
+		t = t.left(t.length() - 3)
+	return ("-" if n < 0 else "") + t + out
+
+
 static func grant_text(g: Dictionary) -> String:
 	match str(g.get("kind", "")):
 		"gold":
-			return "%s gold" % Ui.fmt_num(int(g.get("amount", 0)))
+			return "%s gold" % commas(int(g.get("amount", 0)))
 		"shards":
 			return "%d hero shards" % int(g.get("amount", 0))
 		"chest":
@@ -667,7 +681,7 @@ func parse_message(m: Dictionary) -> Dictionary:
 	if int(m.get("code", 0)) != 0:
 		kind = "system"
 	return {"id": str(m.get("message_id", "")), "from": sender, "name": str(c.get("n", "Hunter")),
-		"kind": kind, "c": c, "mine": sender == str(online()["user_id"]),
+		"kind": kind, "code": int(m.get("code", 0)), "c": c, "mine": sender == str(online()["user_id"]),
 		"at": Time.get_unix_time_from_datetime_string(str(m.get("create_time", "")).get_slice(".", 0).trim_suffix("Z"))}
 
 
@@ -686,7 +700,11 @@ static func message_text(msg: Dictionary) -> String:
 		"raid":
 			return str(c.get("body", ""))
 		"system":
-			return "%s joined the clan" % msg["name"] if str(c.get("n", "")) != "" else "Clan news"
+			# Nakama's own lines: 3 joined, 4 added, 5 left, 6 kicked,
+			# 7 promoted, 8 banned, 9 demoted. They carry no display name.
+			return {3: "A new hunter joined the clan", 4: "A new hunter was let in", 5: "A hunter left the clan",
+				6: "A hunter was removed", 7: "A hunter became an Elder", 8: "A hunter was banned",
+				9: "An Elder stepped down"}.get(int(msg.get("code", 0)), "Clan news")
 	return ""
 
 

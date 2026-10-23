@@ -364,6 +364,12 @@ func _social() -> void:
 	theme.set_type_variation("InviteCard", "PanelContainer")
 	var ic := box(Color("1b1f2a"), 12, 3, Color("4f8de0"))
 	theme.set_stylebox("panel", "InviteCard", ic)
+	# A reward: a warm card with a gold edge (gifts, the invite screen).
+	theme.set_type_variation("GiftCard", "PanelContainer")
+	var gc := box(Color("2a2116"), 12, 3, GOLD)
+	gc.shadow_color = Color(GOLD, 0.18)
+	gc.shadow_size = 10
+	theme.set_stylebox("panel", "GiftCard", gc)
 	_button_set("BlueButton", Color("4f8de0"), Color("234a80"), Color("0b1020"), 24)
 	_button_set("GreenButton", Color("4fae6a"), Color("2a5e38"), Color("0c1a10"), 26)
 	# Text fields: dark wells with a gold caret.

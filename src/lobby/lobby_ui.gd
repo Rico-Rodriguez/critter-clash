@@ -26,10 +26,7 @@ const SHEET_TAB := {
 	"season": ["journal", 1], "feats": ["journal", 2], "log": ["journal", 3],
 	"journal": ["journal", 0], "clan": ["clan", 0], "friends": ["clan", 1],
 }
-const NAV_H := 128.0
 
-var tab := "hunt"
-var _page: Control
 var _tab_btns := {}
 var _tab_dots := {}
 var _rail_r: VBoxContainer

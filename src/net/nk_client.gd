@@ -179,7 +179,7 @@ func open_socket() -> bool:
 		_ws = null
 		return false
 	var waited := 0.0
-	while _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_CONNECTING and waited < Cfg.TIMEOUT:
+	while is_inside_tree() and _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_CONNECTING and waited < Cfg.TIMEOUT:
 		await get_tree().process_frame
 		waited += get_process_delta_time()
 	return _ws_open

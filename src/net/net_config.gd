@@ -12,3 +12,7 @@ const SERVER_KEY := "devkey"
 ## Every request gives up after this many seconds, so a dead network never
 ## holds a screen.
 const TIMEOUT := 8.0
+
+## Where players write about accounts and other players (Apple asks apps with
+## chat to show one). Shown under Profile › Account when set.
+const SUPPORT := ""
