@@ -1053,24 +1053,8 @@ without `--geared=1`.
 
 ## Next up
 
-**Feature freeze (since the release cleanup, CHANGELOG 2026-10-28).** No new
-modes, zones, currencies, meta systems or card pools until real players have
-played the build (items 1 and 2 below) and their feedback is written down
-here. Allowed: bug fixes, tuning numbers in `db.gd`/`gear_db.gd`, readability
-and feel, art that replaces existing art, performance, release work (signing,
-TestFlight, store listing) and refactors that change no behavior. If the user
-asks for a new system during the freeze, point at this note and ask once
-whether to lift it.
-
-**Lifted once, for social (2026-10-23).** The user asked for the camp
-navigation overhaul and the social features (clans, friends, chat, co-op,
-referrals) to be built now. That work is on the branch
-`claude/project-thread-0wfcji`; everything else above still holds.
-
-**Lifted once, for the Trophy Road (2026-10-23).** The user asked for a Clash
-Royale-style trophy road that opens arenas, modes and heroes, with a first
-hero chosen on a new save. Built on `claude/project-thread-vrxot2`. Tuning:
-`DB.TROPHY_ROAD` and the `TROPHY_*` constants in `src/data/db.gd`.
+**No feature freeze.** The user ended it on 2026-10-23: new systems are fine
+when the user asks for them.
 
 0. **Social go-live.** Deploy the game server (`server/README.md`), then set
    `HOST`, `SERVER_KEY` and `SUPPORT` in `src/net/net_config.gd`. Until then
@@ -1100,11 +1084,11 @@ real phone. Everything else is tuned by the autopilot and by eye.
    cut off retreat paths; a Nightmare-only fast hound pack; elites that
    pick a corner to trap the hero; fewer safe pockets on the map.
 7. ~~**Remove the debug print.**~~ Done.
-8. **Gear depth** (frozen except the reveal, which shipped). Set bonuses (two or three pieces of one class's line),
+8. **Gear depth** (the reveal shipped; weapon families and named sets are being rebuilt, see the Barbarian slice). Set bonuses (two or three pieces of one class's line),
    per-tier drop tuning on the Long Road, and a gear reveal when a piece is
    first worn.
-9. ~~**Modes after the Long Road.**~~ Frozen. Boss Rush shipped; the
-   Royale-style mode from Phase 7 waits until after the freeze.
+9. **Modes after the Long Road.** Boss Rush shipped; the Royale-style mode
+   from Phase 7 is open to pick up.
 10. **Art (deferred).** A.2/A.3 (a different art pack) was skipped on purpose.
    Options are in `docs/art-options.md`. Only revisit if the KayKit look is the
    blocker after the device check.

@@ -19,6 +19,8 @@ grep -q "CHECK .* OK" "$LOG/compile.log" || fail=1
 timeout 300 "$D/godot.sh" -- --test > "$LOG/test.log" 2>&1
 grep -E "FAIL|SCRIPT ERROR|TESTS" "$LOG/test.log" | head -20
 grep -q "TESTS PASSED" "$LOG/test.log" || fail=1
+# A script error stops a test function early, so its later checks never run.
+! grep -q "SCRIPT ERROR" "$LOG/test.log" || fail=1
 if [ "${1:-}" != "--quick" ]; then
 	timeout 1500 "$D/godot.sh" --fixed-fps 60 -- --bot --hero=knight,mage,barbarian,ranger > "$LOG/bot.log" 2>&1
 	grep -E "^BOT|SCRIPT ERROR" "$LOG/bot.log" | cut -c1-150

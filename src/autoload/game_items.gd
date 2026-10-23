@@ -1,9 +1,11 @@
 extends "res://src/autoload/game_state.gd"
-## Game, part 2: gear. The bag, equipping, item rolls, salvage, the gold
-## sinks that change a piece (reforge, temper, glows) and gear sets.
+## Game, part 2: gear. Gear is a collection: one copy of each piece (a set,
+## slot and weapon family), unlocked by its first drop. Later drops are
+## copies, and copies plus gold level a piece up. Equipping, rolls, glows
+## and skins, and gear sets.
 
 
-# --- Bag and equipping --------------------------------------------------------
+# --- Collection and equipping -------------------------------------------------
 
 func item(uid: int) -> Dictionary:
 	for it in data["items"]:
@@ -74,34 +76,6 @@ func unequip(hero_id_: String, slot: String) -> void:
 	save()
 
 
-func item_value(it: Dictionary) -> int:
-	return int({"common": 8, "magic": 25, "rare": 70, "legendary": 400}.get(it["rarity"], 5) * (1.0 + 0.5 * int(it.get("mat", 0))))
-
-
-func salvage(uid: int) -> int:
-	var it := item(uid)
-	if it.is_empty():
-		return 0
-	var owner := owner_of(uid)
-	if owner != "":
-		hero(owner)["gear"].erase(it["slot"])
-	data["items"].erase(it)
-	var v := item_value(it)
-	data["gold"] = gold() + v
-	save()
-	return v
-
-
-## Sells every unequipped item at or below `rarity`. Returns gold gained.
-func salvage_below(rarity: String) -> int:
-	var cap := DB.RARITIES.find(rarity)
-	var total := 0
-	for it in data["items"].duplicate():
-		if DB.RARITIES.find(it["rarity"]) <= cap and owner_of(int(it["uid"])) == "" and str(it.get("unique", "")) == "":
-			total += salvage(int(it["uid"]))
-	return total
-
-
 ## Items the player has not looked at yet (shown with a dot).
 func new_item_count() -> int:
 	var n := 0
@@ -145,43 +119,6 @@ func equip_best(hero_id_: String) -> int:
 	if changed_n > 0:
 		save()
 	return changed_n
-
-
-## Unequipped, non-unique common and magic items: safe to sell in one go.
-func junk_items() -> Array:
-	var out := []
-	var spare := spare_copies()
-	for it in data["items"]:
-		if owner_of(int(it["uid"])) != "":
-			continue
-		if (DB.RARITIES.find(it["rarity"]) <= 1 and str(it.get("unique", "")) == "") or spare.has(int(it["uid"])):
-			out.append(it)
-	return out
-
-
-## Two pieces that are the same in every way (name, material, stats) share
-## a key: the bag stacks them, and only one is worth keeping.
-func copy_key(it: Dictionary) -> String:
-	return "%s|%s|%s|%d|%s" % [it["cls"], it["slot"], it["name"], int(it.get("mat", 0)), JSON.stringify(it["stats"], "", true)]
-
-
-## uid -> true for every unworn piece that is an exact copy of another piece
-## kept (a worn copy is kept first).
-func spare_copies() -> Dictionary:
-	var kept := {}
-	for it in data["items"]:
-		if owner_of(int(it["uid"])) != "":
-			kept[copy_key(it)] = true
-	var spare := {}
-	for it in data["items"]:
-		if owner_of(int(it["uid"])) != "":
-			continue
-		var k := copy_key(it)
-		if kept.has(k):
-			spare[int(it["uid"])] = true
-		else:
-			kept[k] = true
-	return spare
 
 
 ## Stat-by-stat difference of `it` against `cur` (the equipped piece, or {}).
@@ -242,59 +179,86 @@ func roll_item(source: String, tier_i: int, slot := "", cls := "", bonus := 0) -
 		slot = DB.SLOTS[rng.randi() % DB.SLOTS.size()]
 	var mat := GearDB.roll_mat(int(t["mat"]), bonus + (1 if source == "boss" else 0), rng)
 	var it := make_item(cls, slot, mat, rarity)
-	# Ancient: Diablo's rare orange-bordered roll, every number 30% higher.
-	if tier_i >= DB.ANCIENT_FROM_TIER and rarity == "rare" and rng.randf() < DB.ANCIENT_CHANCE * float(t["loot"]):
-		for k in it["stats"]:
-			it["stats"][k] = int(round(float(it["stats"][k]) * DB.ANCIENT_MULT))
-		it["ancient"] = true
+	if it.has("fam") and source == "boss":
+		it["fam"] = roll_family(cls, mat, tier_i)
 		it["name"] = gear_name(it)
 	return it
 
 
-## Builds a piece: stats scale with the material and the rarity.
-func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionary:
-	var step := DB.RARITIES.find(rarity)
-	var scale_ := 1.0 + 0.22 * mat
-	var stats := {}
-	var main: String = DB.SLOT_MAIN[slot]
-	stats[main] = _roll_affix(main, step, scale_)
-	var pool: Array = DB.SLOT_POOL[slot].duplicate()
-	pool.erase(main)
-	pool.shuffle()
-	for i in step:
-		if i < pool.size():
-			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
-	# `look` picks among a stage's alternative models (GearDB.piece).
-	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat, "look": rng.randi() % 1000}
+## A piece of a hero's line at level 1. Rarity no longer shapes a piece (a
+## piece is the same whoever finds it); it only decides, on a roll, whether a
+## drop is a unique.
+func make_item(cls: String, slot: String, mat: int, _rarity := "rare") -> Dictionary:
+	var it := {"uid": 0, "slot": slot, "rarity": "rare", "name": "", "stats": {}, "unique": "", "cls": cls, "mat": mat, "look": 0, "lv": 1, "cards": 0}
+	if slot == "weapon" and DB.HERO_FAMILIES.has(cls):
+		it["fam"] = roll_family(cls, mat)
+	it["stats"] = piece_stats(it)
 	it["name"] = gear_name(it)
 	return it
 
 
-## What a piece is called: its material and kind ("Steel Greaves"). No random
-## prefix: the tier color and the bonus-stat pips already say how good it is,
-## so the name only says what it is. Uniques keep their own names.
+## A piece's stats at its level: its slot's main stat and its set's second
+## stat (DB.SET_STAT), at the middle of their rolls. A unique keeps its own
+## numbers; both grow DB.PIECE_LV_STAT a level.
+func piece_stats(it: Dictionary) -> Dictionary:
+	var lv := clampi(int(it.get("lv", 1)), 1, DB.PIECE_MAX_LV)
+	var u := str(it.get("unique", ""))
+	var out := {}
+	if u != "" and DB.UNIQUES.has(u):
+		var base: Dictionary = DB.UNIQUES[u].get("stats", {})
+		for k in base:
+			out[k] = _grown(int(base[k]), lv)
+		return out
+	var mat := clampi(int(it.get("mat", 0)), 0, GearDB.TIERS - 1)
+	var scale_ := 1.0 + DB.MAT_STAT * mat
+	var main: String = DB.SLOT_MAIN[str(it["slot"])]
+	out[main] = _grown(_mid_affix(main, scale_), lv)
+	var second: String = DB.SET_STAT[mat]
+	if second != "" and second != main:
+		out[second] = _grown(maxi(1, int(round(_mid_affix(second, scale_) * 0.6))), lv)
+	return out
+
+
+## A level-1 stat at `lv`: DB.PIECE_LV_STAT more a level, and never less
+## than +1 a level, so a small stat (armor 8) still moves every level.
+func _grown(v: int, lv: int) -> int:
+	return v + maxi(lv - 1, int(round(v * DB.PIECE_LV_STAT * (lv - 1))))
+
+
+func _mid_affix(key: String, mult: float) -> int:
+	var r: Array = DB.AFFIXES[key]["roll"]
+	# What a two-bonus (rare) roll used to average.
+	return int(round((float(r[0]) + float(r[1])) * 0.5 * 1.7 * mult))
+
+
+## A weapon family for a drop of set `mat`: one that comes in that set, and a
+## boss-only family only from a boss on a hard enough tier (`tier_i` -1 for
+## a drop that is not a boss's).
+func roll_family(cls: String, mat: int, tier_i := -1) -> String:
+	var pool := []
+	for f: String in DB.HERO_FAMILIES[cls]:
+		var fd: Dictionary = DB.FAMILIES[f]
+		if mat >= int(fd["min_set"]) and (not fd.has("boss_from") or tier_i >= int(fd["boss_from"])):
+			pool.append(f)
+	return str(pool[rng.randi() % pool.size()])
+
+
+## What a piece is called: its set and kind ("Bloodiron Scythe"). Uniques
+## keep their own names.
 func gear_name(it: Dictionary) -> String:
 	if str(it.get("unique", "")) != "":
 		return str(it["name"])
-	return ("Ancient " if it.get("ancient", false) else "") + GearDB.base_name(it)
+	return GearDB.base_name(it)
 
 
-## How many bonus stats a piece has beyond its slot's main one (0 to 2).
-func bonus_count(it: Dictionary) -> int:
-	return maxi(it["stats"].size() - 1, 0)
-
-
-## "Tier 3 · 2 bonus stats · Legs", plus Ancient, a set or Unique: what a
-## piece is, in words, without a power number.
+## "Bloodiron · Lv 3 · Weapon", plus a boss set or Unique: what a piece is,
+## in words, without a power number.
 func item_tag(it: Dictionary, with_slot := true) -> String:
-	var parts := ["Tier %d" % (int(it.get("mat", 0)) + 1)]
+	var parts := [GearDB.material_name(str(it.get("cls", "")), int(it.get("mat", 0))), "Lv %d" % int(it.get("lv", 1))]
+	if it.get("dupe", false):
+		parts.push_front("Copy")
 	if str(it.get("unique", "")) != "":
 		parts.append("Unique")
-	else:
-		var n := bonus_count(it)
-		parts.append("no bonus stats" if n == 0 else ("1 bonus stat" if n == 1 else "%d bonus stats" % n))
-	if it.get("ancient", false):
-		parts.append("Ancient")
 	var st := item_set(it)
 	if st != "":
 		parts.append("%s set" % DB.SETS[st]["short"])
@@ -303,20 +267,15 @@ func item_tag(it: Dictionary, with_slot := true) -> String:
 	return " · ".join(parts)
 
 
-func _roll_affix(key: String, step: int, mult: float) -> int:
-	var r: Array = DB.AFFIXES[key]["roll"]
-	var lo: float = r[0] * (1.0 + 0.35 * step) * mult
-	var hi: float = r[1] * (1.0 + 0.35 * step) * mult
-	return int(round(rng.randf_range(lo, hi)))
-
-
 func make_unique(u: String) -> Dictionary:
 	var ud: Dictionary = DB.UNIQUES[u]
-	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "cls": ud.get("cls", "knight"), "mat": 6}
+	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "cls": ud.get("cls", "knight"), "mat": GearDB.TIERS - 1, "fam": ud.get("fam", ""), "lv": 1, "cards": 0}
 
 
-## Adds an item to the bag (or the log / pet / sale for non-gear uniques).
-## Returns the stored item, or {} when it was turned into gold.
+## Adds a drop to the collection (or the log / pet / sale for non-gear
+## uniques). A piece already owned becomes a copy toward its next level: the
+## stored piece comes back with "dupe" set. Returns the stored piece, or {}
+## when the drop was not gear.
 func grant_item(it: Dictionary) -> Dictionary:
 	var u := str(it.get("unique", ""))
 	if u != "":
@@ -331,9 +290,17 @@ func grant_item(it: Dictionary) -> Dictionary:
 		if ud["slot"] == "trophy":
 			data["gold"] = gold() + int(ud.get("sell", 0))
 			return {}
-	if data["items"].size() >= INVENTORY_CAP:
-		data["gold"] = gold() + item_value(it)
-		return {}
+	var have := owned(it)
+	if not have.is_empty():
+		have["cards"] = int(have.get("cards", 0)) + 1
+		var back := have.duplicate(true)
+		back["dupe"] = true
+		return back
+	it["lv"] = 1
+	it["cards"] = 0
+	it["look"] = 0
+	it["stats"] = piece_stats(it)
+	it["name"] = gear_name(it)
 	it["uid"] = int(data["next_uid"])
 	data["next_uid"] = int(data["next_uid"]) + 1
 	data["items"].append(it)
@@ -387,53 +354,101 @@ func describe_stats(it: Dictionary) -> PackedStringArray:
 
 # --- Gold sinks ----------------------------------------------------------------
 
-func can_reforge(it: Dictionary) -> bool:
-	return str(it.get("unique", "")) == "" and it["rarity"] != "common" and gold() >= DB.reforge_cost(it)
+## What makes a piece the same piece: hero, slot, set, family, boss set
+## and unique. Two drops with one key are one piece and its copy.
+func piece_key(it: Dictionary) -> String:
+	return "%s|%s|%d|%s|%s|%s" % [it.get("cls", ""), it["slot"], int(it.get("mat", 0)), str(it.get("fam", "")), str(it.get("set", "")), str(it.get("unique", ""))]
 
 
-## New extra affixes (the main one stays): gold for another roll at a build.
-func reforge(uid: int) -> bool:
+## The owned piece that `it` is a copy of ({} if none).
+func owned(it: Dictionary) -> Dictionary:
+	var k := piece_key(it)
+	for p in data["items"]:
+		if piece_key(p) == k:
+			return p
+	return {}
+
+
+## Why a piece can't level up now ("" when it can).
+func level_block(it: Dictionary) -> String:
+	if int(it.get("lv", 1)) >= DB.PIECE_MAX_LV:
+		return "Max level"
+	var c := DB.level_cost(it)
+	if int(it.get("cards", 0)) < int(c["cards"]):
+		return "Needs %d copies" % int(c["cards"])
+	if gold() < int(c["gold"]):
+		return "Not enough gold"
+	return ""
+
+
+func level_up(uid: int) -> bool:
 	var it := item(uid)
-	if it.is_empty() or not can_reforge(it):
+	if it.is_empty() or level_block(it) != "":
 		return false
-	data["gold"] = gold() - DB.reforge_cost(it)
-	var step := DB.RARITIES.find(str(it["rarity"]))
-	var scale_ := (1.0 + 0.22 * int(it.get("mat", 0))) * (DB.ANCIENT_MULT if it.get("ancient", false) else 1.0)
-	var main: String = DB.SLOT_MAIN[it["slot"]]
-	var stats := {main: it["stats"][main]}
-	var pool: Array = DB.SLOT_POOL[it["slot"]].duplicate()
-	pool.erase(main)
-	pool.shuffle()
-	for i in step:
-		if i < pool.size():
-			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
-	it["stats"] = stats
+	var c := DB.level_cost(it)
+	it["cards"] = int(it["cards"]) - int(c["cards"])
+	data["gold"] = gold() - int(c["gold"])
+	it["lv"] = int(it.get("lv", 1)) + 1
+	it["stats"] = piece_stats(it)
 	save()
 	return true
 
 
-func can_temper(it: Dictionary) -> bool:
-	return str(it.get("unique", "")) == "" and int(it.get("mat", 0)) < GearDB.TIERS - 1 and gold() >= DB.temper_cost(it)
+## Pieces with copies and gold enough to level (the gear tab's dot).
+func levels_ready(hero_id_: String) -> int:
+	var n := 0
+	for it in data["items"]:
+		if str(it.get("cls", "")) == hero_id_ and level_block(it) == "":
+			n += 1
+	return n
 
 
-## One material step up: every number grows with it, and so does the name.
-func temper(uid: int) -> bool:
-	var it := item(uid)
-	if it.is_empty() or not can_temper(it):
-		return false
-	data["gold"] = gold() - DB.temper_cost(it)
+## Every piece a hero can collect in a slot, as rows for the armory: one row
+## per weapon family (or one row of sets), each set in its column (a {} where
+## a family has no piece of that set), then a row of the boss-set and unique
+## pieces owned. Owned pieces are the stored ones; the rest are level-1
+## stand-ins with uid 0.
+func catalog(cls: String, slot: String) -> Array:
+	var rows := []
+	var fams: Array = DB.HERO_FAMILIES.get(cls, []) if slot == "weapon" else []
+	for f in (fams if not fams.is_empty() else [""]):
+		var row := []
+		for mat in GearDB.TIERS:
+			var fd: Dictionary = DB.FAMILIES.get(f, {})
+			if mat < int(fd.get("min_set", 0)):
+				row.append({})
+				continue
+			var it := {"uid": 0, "slot": slot, "rarity": "rare", "name": "", "stats": {}, "unique": "", "cls": cls, "mat": mat, "look": 0, "lv": 1, "cards": 0}
+			if f != "":
+				it["fam"] = f
+			var have := owned(it)
+			if have.is_empty():
+				it["stats"] = piece_stats(it)
+				it["name"] = gear_name(it)
+				row.append(it)
+			else:
+				row.append(have)
+		rows.append(row)
+	var extra := []
+	for it in data["items"]:
+		if str(it.get("cls", "")) == cls and it["slot"] == slot and (str(it.get("unique", "")) != "" or str(it.get("set", "")) != ""):
+			extra.append(it)
+	if not extra.is_empty():
+		rows.append(extra)
+	return rows
+
+
+## Where a piece not yet found comes from, in words.
+func drop_hint(it: Dictionary) -> String:
+	var fd: Dictionary = DB.FAMILIES.get(str(it.get("fam", "")), {})
+	if fd.has("boss_from"):
+		return "Drops from %s bosses and up" % str(DB.TIERS[int(fd["boss_from"])]["name"])
 	var mat := int(it.get("mat", 0))
-	var k := (1.0 + 0.22 * (mat + 1)) / (1.0 + 0.22 * mat)
-	for key in it["stats"]:
-		it["stats"][key] = int(round(float(it["stats"][key]) * k))
-	it["mat"] = mat + 1
-	it["name"] = gear_name(it)
-	# Tempering can lift a piece past what the hero may wear: unequip if so.
-	var owner := owner_of(uid)
-	if owner != "" and wear_block(owner, it) != "":
-		hero(owner)["gear"].erase(it["slot"])
-	save()
-	return true
+	for i in DB.TIERS.size():
+		# A drop can land one set above its difficulty's.
+		if int(DB.TIERS[i]["mat"]) >= mat - 1:
+			return "Drops on %s and up" % str(DB.TIERS[i]["name"])
+	return ""
 
 
 func buy_glow(id: String, glow: String) -> bool:

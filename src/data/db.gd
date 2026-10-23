@@ -21,10 +21,13 @@ static func rarity_color(r: String) -> Color:
 
 ## Gear has one quality ladder you can see: its material tier, grey to red.
 ## Rarity (how many bonus stats) shows as pips, never as a rival color.
+## One color per set: Gravedigger grey, Warden blue, Barrowsteel violet,
+## Bloodiron red, Gravelight soul green.
 const TIER_COLOR := [
-	Color(0.66, 0.64, 0.6), Color(0.42, 0.8, 0.46), Color(0.36, 0.6, 1.0), Color(0.7, 0.46, 1.0),
-	Color(1.0, 0.8, 0.3), Color(1.0, 0.52, 0.2), Color(0.95, 0.24, 0.26),
+	Color(0.66, 0.64, 0.6), Color(0.36, 0.6, 1.0), Color(0.7, 0.46, 1.0), Color(0.95, 0.24, 0.26), Color(0.45, 1.0, 0.7),
 ]
+## Each set up adds this much to a piece's stats (the top set: 2.32x the first).
+const MAT_STAT := 0.33
 
 
 ## The color a piece shows everywhere (frame, drop beam, name): its tier.
@@ -93,6 +96,46 @@ const HEROES := {
 	},
 }
 const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
+
+## Weapon families: the weapon, not the hero, decides the basic attack. Each
+## has its own swing clips, hit shape, trail and sound; the hero keeps its
+## super, dash and cards. `dmg`, `rate` and `range` scale the hero's numbers;
+## `arc` replaces its swing arc. Attack kinds (Hero._impact):
+##   cleave  one swing hits everything in the arc
+##   slam    a smash a little ahead: a circle of `slam_r` that stuns and throws
+##   sweep   a wide arc; big foes (elites, bosses) take `echo` follow-up hits,
+##           the OSRS scythe's 100/50/25
+##   flurry  `hits` quick swings per attack, alternating hands
+##   thrust  a long line `width` wide that runs through everything in it
+##   throw   a thrown weapon that flies out to `range` and comes back, cutting
+##           everything on the way both ways
+## Like OSRS, the strong families are earned: `level` is the least weapon
+## skill to wield one (a set's own requirement can be higher), `min_set` the
+## first set it comes in, and `boss_from` (if any) the difficulty tier from
+## which a boss can drop it; nothing else does. The scythe is endgame.
+const FAMILIES := {
+	"axe": {"hero": "barbarian", "level": 1, "min_set": 0, "name": "Axe", "how": "Big chops that cleave a wide arc.", "attack": "cleave", "icon": "battle-axe",
+		"clips": ["Melee_2H_Attack_Slice", "Melee_2H_Attack_Chop"], "dmg": 1.0, "rate": 1.0, "range": 1.0, "arc": 190.0,
+		"trail": Color(1.0, 0.62, 0.3), "sfx": "cleave"},
+	"maul": {"hero": "barbarian", "level": 40, "min_set": 3, "name": "Maul", "how": "Slow smashes that stun and throw everything around the blow.", "attack": "slam", "icon": "anvil",
+		"clips": ["Melee_2H_Attack_Chop"], "dmg": 1.7, "rate": 0.6, "range": 0.85, "arc": 360.0, "slam_r": 2.5, "stun": 0.6, "knock": 11.0,
+		"trail": Color(1.0, 0.8, 0.5), "sfx": "quake"},
+	"scythe": {"hero": "barbarian", "level": 60, "min_set": 3, "boss_from": 4, "name": "Scythe", "how": "A huge reaping sweep. Elites and bosses are cut three times.", "attack": "sweep", "icon": "scythe",
+		"clips": ["Melee_2H_Attack_Slice"], "dmg": 0.85, "rate": 0.8, "range": 1.3, "arc": 270.0, "echo": [0.5, 0.25],
+		"trail": Color(0.7, 0.85, 1.0), "sfx": "cleave"},
+	"twin": {"hero": "barbarian", "level": 10, "min_set": 1, "name": "Twin Axes", "how": "Two axes, two quick cuts every swing. Short reach.", "attack": "flurry", "icon": "crossed-axes", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.5, "rate": 1.45, "range": 0.85, "arc": 150.0, "hits": 2,
+		"trail": Color(1.0, 0.45, 0.25), "sfx": "swing"},
+	"halberd": {"hero": "barbarian", "level": 25, "min_set": 2, "name": "Halberd", "how": "Long thrusts that run through a whole line of foes.", "attack": "thrust", "icon": "halberd",
+		"clips": ["Melee_2H_Attack_Stab"], "dmg": 1.15, "rate": 0.85, "range": 1.75, "arc": 30.0, "width": 1.3,
+		"trail": Color(0.85, 0.9, 1.0), "sfx": "atk_tank"},
+	"throwing": {"hero": "barbarian", "level": 1, "min_set": 0, "name": "Throwing Axe", "how": "Hurl the axe through the horde. It comes back to your hand.", "attack": "throw", "icon": "tomahawk", "one_hand": true,
+		"clips": ["Throw"], "dmg": 0.75, "rate": 1.0, "range": 2.6, "arc": 0.0, "speed": 18.0,
+		"trail": Color(1.0, 0.7, 0.4), "sfx": "swing"},
+}
+## Every hero's families, in the order its gear screen shows them. A hero not
+## listed fights the way its HEROES entry says, whatever it holds.
+const HERO_FAMILIES := {"barbarian": ["axe", "maul", "scythe", "twin", "halberd", "throwing"]}
 
 ## Hero levels bought with shards and gold are gone: skills are a hero's power
 ## now. These tables only price the refund old saves get (Game._refund_levels).
@@ -344,19 +387,19 @@ const TIERS := [
 	{"id": "normal", "name": "Normal", "hp": 1.0, "dmg": 1.0, "spd": 1.0, "press": 1.0, "souls": 150, "loot": 1.0, "gold": 1.0, "xp": 1.0, "chest": "silver",
 		"ai": 0.0, "mech": 0.0, "pen": 0.0, "heal": 1.0, "mat": 0, "power": 350, "color": Color(0.8, 0.8, 0.8)},
 	{"id": "hard", "name": "Hard", "hp": 1.7, "dmg": 1.45, "spd": 1.04, "press": 1.12, "souls": 160, "loot": 1.3, "gold": 1.4, "xp": 1.3, "chest": "silver",
-		"ai": 0.5, "mech": 0.04, "pen": 0.05, "heal": 0.95, "mat": 1, "power": 550, "color": Color(0.6, 0.85, 0.55)},
+		"ai": 0.5, "mech": 0.04, "pen": 0.05, "heal": 0.95, "mat": 0, "power": 550, "color": Color(0.6, 0.85, 0.55)},
 	{"id": "veteran", "name": "Veteran", "hp": 2.9, "dmg": 2.1, "spd": 1.08, "press": 1.25, "souls": 170, "loot": 1.6, "gold": 1.8, "xp": 1.6, "chest": "gold",
-		"ai": 1.0, "mech": 0.08, "pen": 0.1, "heal": 0.85, "mat": 2, "power": 850, "color": Color(1.0, 0.75, 0.3)},
+		"ai": 1.0, "mech": 0.08, "pen": 0.1, "heal": 0.85, "mat": 1, "power": 850, "color": Color(1.0, 0.75, 0.3)},
 	{"id": "expert", "name": "Expert", "hp": 4.8, "dmg": 3.0, "spd": 1.12, "press": 1.35, "souls": 180, "loot": 2.1, "gold": 2.4, "xp": 2.0, "chest": "gold",
-		"ai": 1.5, "mech": 0.12, "pen": 0.18, "heal": 0.75, "mat": 3, "power": 1300, "color": Color(1.0, 0.55, 0.25)},
+		"ai": 1.5, "mech": 0.12, "pen": 0.18, "heal": 0.75, "mat": 1, "power": 1300, "color": Color(1.0, 0.55, 0.25)},
 	{"id": "nightmare", "name": "Nightmare", "hp": 8.0, "dmg": 4.4, "spd": 1.17, "press": 1.5, "souls": 190, "loot": 2.6, "gold": 3.0, "xp": 2.4, "chest": "crypt",
-		"ai": 2.0, "mech": 0.16, "pen": 0.25, "heal": 0.65, "mat": 4, "power": 2000, "color": Color(0.95, 0.25, 0.25)},
+		"ai": 2.0, "mech": 0.16, "pen": 0.25, "heal": 0.65, "mat": 2, "power": 2000, "color": Color(0.95, 0.25, 0.25)},
 	{"id": "hell", "name": "Hell", "hp": 13.5, "dmg": 6.4, "spd": 1.21, "press": 1.6, "souls": 200, "loot": 3.2, "gold": 3.8, "xp": 2.9, "chest": "crypt",
-		"ai": 2.3, "mech": 0.22, "pen": 0.32, "heal": 0.55, "mat": 5, "power": 3100, "color": Color(0.85, 0.12, 0.35)},
+		"ai": 2.3, "mech": 0.22, "pen": 0.32, "heal": 0.55, "mat": 3, "power": 3100, "color": Color(0.85, 0.12, 0.35)},
 	{"id": "torment", "name": "Torment", "hp": 23.0, "dmg": 9.0, "spd": 1.25, "press": 1.7, "souls": 210, "loot": 3.9, "gold": 4.7, "xp": 3.4, "chest": "crypt",
-		"ai": 2.6, "mech": 0.28, "pen": 0.4, "heal": 0.45, "mat": 5, "power": 4700, "color": Color(0.7, 0.2, 0.85)},
+		"ai": 2.6, "mech": 0.28, "pen": 0.4, "heal": 0.45, "mat": 3, "power": 4700, "color": Color(0.7, 0.2, 0.85)},
 	{"id": "abyss", "name": "Abyss", "hp": 39.0, "dmg": 12.5, "spd": 1.3, "press": 1.8, "souls": 220, "loot": 4.8, "gold": 5.8, "xp": 4.0, "chest": "crypt",
-		"ai": 3.0, "mech": 0.35, "pen": 0.45, "heal": 0.35, "mat": 6, "power": 7000, "color": Color(0.35, 0.85, 1.0)},
+		"ai": 3.0, "mech": 0.35, "pen": 0.45, "heal": 0.35, "mat": 4, "power": 7000, "color": Color(0.35, 0.85, 1.0)},
 ]
 ## Old saves had three tiers: Normal, Veteran, Nightmare.
 const TIER_FROM_V3 := [0, 2, 4]
@@ -654,7 +697,7 @@ const SLOT_POOL := {
 ## Unique drops tracked by the collection log. `card` legendaries start the
 ## hunt holding that card. Rates are 1/n per roll on that source.
 const UNIQUES := {
-	"cleaver": {"cls": "barbarian", "dye": Color(0.45, 0.95, 0.7), "name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
+	"cleaver": {"cls": "barbarian", "fam": "axe", "dye": Color(0.45, 0.95, 0.7), "name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
 	"shroud": {"cls": "ranger", "dye": Color(0.12, 0.28, 0.22), "name": "Shroud of the Barrow", "slot": "chest", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
 	"crown": {"cls": "knight", "dye": Color(0.95, 0.78, 0.3), "name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "smite", "power": "Start every hunt with Holy Smite", "icon": "crowned-skull"},
 	"emberheart": {"cls": "mage", "dye": Color(1.0, 0.4, 0.1), "name": "Emberheart", "slot": "trinket", "rarity": "legendary", "source": "elite", "rate": 60, "stats": {"dmg": 12, "regen": 4}, "card": "nova", "power": "Start every hunt with Fire Nova", "icon": "flame"},
@@ -771,19 +814,27 @@ static func combat_level(levels: Dictionary) -> int:
 
 # --- Gold sinks -------------------------------------------------------------
 
-## Reforge rerolls an item's extra affixes; temper raises its material one step
-## (stats scale with it). Costs grow with material and rarity.
-const REFORGE_GOLD := 60
-const TEMPER_GOLD := 220
+## Gear is a collection: one copy of each piece. Later drops of a piece are
+## copies, and copies plus gold level it up (Clash Royale cards). A piece's
+## stats are fixed: its slot's main stat and, from Warden up, its set's own
+## second stat, times the set (MAT_STAT a step) and the level.
+const PIECE_MAX_LV := 10
+const PIECE_LV_STAT := 0.08
+## The second stat each set adds (Gravedigger has none).
+const SET_STAT := ["", "armor", "hp", "crit", "regen"]
+## Copies used up to go from level n to n + 1 (index n - 1), and the gold,
+## which also grows with the set: the long-term gold sink.
+const PIECE_CARDS := [1, 2, 3, 4, 6, 8, 11, 15, 20]
+const PIECE_GOLD := [60, 120, 220, 380, 600, 900, 1300, 1900, 2700]
+const PIECE_GOLD_SET := 0.6
 ## Talent reset: the first is free, then this much per talent point earned.
 const RESPEC_GOLD := 90
 
-static func reforge_cost(it: Dictionary) -> int:
-	return REFORGE_GOLD * (1 + int(it.get("mat", 0))) * (1 + RARITIES.find(str(it["rarity"])))
-
-
-static func temper_cost(it: Dictionary) -> int:
-	return TEMPER_GOLD * int(pow(int(it.get("mat", 0)) + 1, 2))
+## What taking a piece from level `lv` to the next costs: {cards, gold}.
+static func level_cost(it: Dictionary) -> Dictionary:
+	var lv := clampi(int(it.get("lv", 1)), 1, PIECE_MAX_LV - 1)
+	var g := float(PIECE_GOLD[lv - 1]) * (1.0 + PIECE_GOLD_SET * int(it.get("mat", 0)))
+	return {"cards": int(PIECE_CARDS[lv - 1]), "gold": int(round(g / 10.0)) * 10}
 
 ## Weapon glows bought with gold, per hero. "" is none.
 const GLOWS := {
@@ -803,22 +854,22 @@ const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship"]
 ## cost about three times the gold inside them, so buying one trades gold for
 ## shards and gear, never gold for more gold.
 const SHOP_CHESTS := {"silver": 400, "gold": 1100, "crypt": 2600}
-## Daily deals, drawn fresh each day: a free gift, shards for two heroes, two
-## pieces of gear for the hero in use and a chest at a discount. Each sells once.
+## Daily deals, drawn fresh each day: a free gift, shards for two heroes, copies
+## of two pieces for the hero in use and a chest at a discount. Each sells once.
 const SHOP_SHARD_GOLD := 30
 const SHOP_DEAL_OFF := 0.25
 const SHOP_CHEST_OFF := 0.3
 const SHOP_FREE_GOLD := 80
 const SHOP_FREE_GOLD_TIER := 25
 const SHOP_FREE_SHARDS := 5
-## Gear price by rarity, then +SHOP_GEAR_MAT for each material tier above the first.
-const SHOP_GEAR_GOLD := {"magic": 280, "rare": 700}
-const SHOP_GEAR_MAT := 0.5
+## A copy of a piece, then +SHOP_GEAR_MAT for each set above the first.
+const SHOP_GEAR_GOLD := 400
+const SHOP_GEAR_MAT := 0.6
 ## One glow a week is on sale for every hero.
 const SHOP_GLOW_OFF := 0.3
 
 static func shop_gear_price(it: Dictionary) -> int:
-	return int(round(int(SHOP_GEAR_GOLD.get(str(it["rarity"]), 280)) * (1.0 + SHOP_GEAR_MAT * int(it.get("mat", 0))) / 10.0)) * 10
+	return int(round(SHOP_GEAR_GOLD * (1.0 + SHOP_GEAR_MAT * int(it.get("mat", 0))) / 10.0)) * 10
 
 
 ## Weapon skins: a new model in the hand, whatever weapon is equipped (the
@@ -858,10 +909,6 @@ const SETS := {
 		"2": {"speed": 0.08, "crit": 0.05, "desc": "+8% move speed, +5% crit"}, "4": {"flags": {"dodge_heal": 0.12}, "desc": "Perfect dodges heal 12% health"}},
 }
 const SET_CHANCE := 0.3
-## Ancient: a rare roll on Hell and up, every number 30% higher.
-const ANCIENT_CHANCE := 0.03
-const ANCIENT_MULT := 1.3
-const ANCIENT_FROM_TIER := 5
 
 # --- Hero mastery and rating ---------------------------------------------------
 

@@ -21,12 +21,104 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SWATCH = {
     "steel": (3, 0), "steel_dark": (4, 0), "black": (2, 0), "gold": (4, 1),
     "red": (0, 1), "wood": (6, 1), "leather": (6, 0), "bone": (1, 1),
-    "copper": (5, 1), "skin": (0, 0),
+    "copper": (5, 1), "skin": (0, 0), "rust": (5, 0), "tan": (1, 0),
+    "slate": (7, 1), "stone": (1, 2), "white": (0, 2),
 }
 
-bpy.ops.wm.read_factory_settings(use_empty=True)
-bm = bmesh.new()
-uvl = bm.loops.layers.uv.new("UVMap")
+bm = None
+uvl = None
+
+
+def reset() -> None:
+    """Starts a new mesh (and an empty scene): one per exported model."""
+    global bm, uvl
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bm = bmesh.new()
+    uvl = bm.loops.layers.uv.new("UVMap")
+
+
+reset()
+
+
+def mark() -> int:
+    """The vertex count now: pass it to `place` to move what was built since."""
+    return len(bm.verts)
+
+
+def place(since: int, rot=(0.0, 0.0, 0.0), at=(0.0, 0.0, 0.0), scale=1.0) -> None:
+    """Scales, turns (degrees, X then Y then Z) and moves every vertex made
+    after `since`: build a part around the origin along Y, then put it."""
+    from mathutils import Euler
+    bm.verts.ensure_lookup_table()
+    e = Euler([math.radians(a) for a in rot], "XYZ")
+    sc = Vector(scale) if isinstance(scale, (tuple, list)) else Vector((scale, scale, scale))
+    for v in bm.verts[since:]:
+        p = Vector((v.co.x * sc.x, v.co.y * sc.y, v.co.z * sc.z))
+        p.rotate(e)
+        v.co = p + Vector(at)
+
+
+def plate(pts, half, sw, edges=(), edge_sw=None, edge_out=None, t=(0.3, 0.6)):
+    """A flat part: the outline `pts` [(x, y)], counter-clockwise seen from +z,
+    pushed `half` to each side in z. Segments listed in `edges` (segment i
+    runs from point i to i+1) are ground to a sharp edge that sticks out
+    `edge_out` and takes the light end of `edge_sw`."""
+    n = len(pts)
+    edges = set(edges)
+    edge_sw = edge_sw or sw
+    edge_out = half * 1.6 if edge_out is None else edge_out
+    front = [vert((x, y, half)) for x, y in pts]
+    back = [vert((x, y, -half)) for x, y in pts]
+
+    def outward(i):
+        (x0, y0), (x1, y1) = pts[i], pts[(i + 1) % n]
+        d = Vector((y1 - y0, -(x1 - x0), 0))
+        return d.normalized() if d.length > 0 else d
+
+    mids = {}
+    for i in range(n):
+        prev, nxt = (i - 1) % n in edges, i in edges
+        if prev or nxt:
+            o = Vector((0, 0, 0))
+            if prev and nxt:
+                o = (outward((i - 1) % n) + outward(i)).normalized() * edge_out
+            mids[i] = vert(Vector((pts[i][0], pts[i][1], 0)) + o)
+    face(front, sw, [t[0]] * n)
+    face(list(reversed(back)), sw, [t[1]] * n)
+    for i in range(n):
+        j = (i + 1) % n
+        if i in edges:
+            face([front[i], mids[i], mids[j], front[j]], edge_sw, [0.15, 0.0, 0.0, 0.15])
+            face([mids[i], back[i], back[j], mids[j]], edge_sw, [0.0, 0.3, 0.3, 0.0])
+        else:
+            face([front[i], back[i], back[j], front[j]], sw, [0.5, 0.75, 0.75, 0.5])
+
+
+def box(c, size, sw, t=(0.2, 0.7)):
+    """An axis-aligned block centered on `c`, lit from above."""
+    cx, cy, cz = c
+    hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
+    v = [vert((cx + sx * hx, cy + sy * hy, cz + sz * hz)) for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)]
+    # v index: (sx, sy, sz) -> 4*(sx>0) + 2*(sy>0) + (sz>0)
+    face([v[2], v[3], v[7], v[6]], sw, [t[0]] * 4)  # top
+    face([v[0], v[4], v[5], v[1]], sw, [t[1]] * 4)  # bottom
+    face([v[1], v[5], v[7], v[3]], sw, [0.35] * 4)  # +z
+    face([v[0], v[2], v[6], v[4]], sw, [0.55] * 4)  # -z
+    face([v[4], v[6], v[7], v[5]], sw, [0.4] * 4)  # +x
+    face([v[0], v[1], v[3], v[2]], sw, [0.5] * 4)  # -x
+
+
+def spike(base_c, base_r, tip, sw, sides=4):
+    """A cone from a ring of radius `base_r` around `base_c` (in the plane
+    across the spike) to the point `tip`."""
+    base_c, tip = Vector(base_c), Vector(tip)
+    axis = (tip - base_c).normalized()
+    a = axis.orthogonal().normalized()
+    b = axis.cross(a)
+    ring = [vert(base_c + (a * math.cos(k * 2 * math.pi / sides) + b * math.sin(k * 2 * math.pi / sides)) * base_r) for k in range(sides)]
+    tv = vert(tip)
+    for k in range(sides):
+        face([ring[k], ring[(k + 1) % sides], tv], sw, [0.25 + 0.1 * (k % 2), 0.25 + 0.1 * ((k + 1) % 2), 0.0])
 
 
 def uv(sw: str, t: float) -> tuple:
@@ -81,6 +173,9 @@ def gem(c, w, h, depth, sw="red", facing=1):
 
 def export(name: str, out: str) -> None:
     """Writes the mesh as name.gltf + .bin, textured by knight_texture.png."""
+    # The game's character shader culls back faces, so every face must look
+    # out: the builders above don't all wind them that way.
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.normal_update()
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)

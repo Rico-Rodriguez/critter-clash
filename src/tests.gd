@@ -66,13 +66,40 @@ func run() -> int:
 	var got := Game.open_chest("silver")
 	_ok("chest pays gold", Game.gold() > gold_before and got.size() >= 3)
 
-	# An exact copy of a worn rare is junk; the worn one and a different rare are not.
-	var rare := Game.grant_item(Game.make_item("knight", "helm", 0, "rare"))
-	var twin: Dictionary = Game.grant_item(rare.duplicate(true))
-	var other := Game.grant_item(Game.make_item("knight", "chest", 0, "rare"))
-	Game.equip("knight", int(rare["uid"]))
-	var junk_uids := Game.junk_items().map(func(x): return int(x["uid"]))
-	_ok("spare copy is junk", junk_uids.has(int(twin["uid"])) and not junk_uids.has(int(rare["uid"])) and not junk_uids.has(int(other["uid"])))
+	# Gear is a collection: a second drop of a piece is a copy toward its level.
+	# An empty collection first: the chest above may have dropped this helm.
+	Game.data["items"] = []
+	for hid in DB.HERO_ORDER:
+		Game.hero(hid)["gear"] = {}
+	var n0: int = Game.data["items"].size()
+	var helm := Game.grant_item(Game.make_item("knight", "helm", 0, "rare"))
+	var again := Game.grant_item(Game.make_item("knight", "helm", 0, "common"))
+	_ok("a second drop is a copy", again.get("dupe", false) and int(again["uid"]) == int(helm["uid"]) and Game.data["items"].size() == n0 + 1 and int(Game.item(int(helm["uid"]))["cards"]) == 1)
+	var other := Game.grant_item(Game.make_item("knight", "helm", 1, "rare"))
+	_ok("another set is another piece", not other.get("dupe", false) and Game.data["items"].size() == n0 + 2)
+	var hu := int(helm["uid"])
+	Game.item(hu)["cards"] = 0
+	_ok("no copies, no level", Game.level_block(Game.item(hu)) != "" and not Game.level_up(hu))
+	var cost := DB.level_cost(Game.item(hu))
+	Game.item(hu)["cards"] = int(cost["cards"])
+	Game.data["gold"] = int(cost["gold"]) + 5
+	var main_k: String = DB.SLOT_MAIN["helm"]
+	var hp1 := int(Game.item(hu)["stats"][main_k])
+	_ok("copies and gold level a piece", Game.level_up(hu) and int(Game.item(hu)["lv"]) == 2 and int(Game.item(hu)["cards"]) == 0 and Game.gold() == 5 and int(Game.item(hu)["stats"][main_k]) > hp1)
+	var cat := Game.catalog("barbarian", "weapon")
+	_ok("the armory has a row per family", cat.size() == DB.HERO_FAMILIES["barbarian"].size() and cat[0].size() == GearDB.TIERS)
+	# v8 saves: copies of a piece fold into the worn one as level copies.
+	var a := Game.make_item("knight", "chest", 2, "rare")
+	a["uid"] = 501
+	var b := a.duplicate(true)
+	b["uid"] = 502
+	b["ancient"] = true
+	var c := Game.make_item("knight", "chest", 3, "rare")
+	c["uid"] = 503
+	var v8 := {"version": 8, "items": [a, b, c], "heroes": {"knight": {"gear": {"chest": 502}}}}
+	Game._migrate_v8(v8)
+	var kept: Dictionary = v8["items"][0]
+	_ok("v8 folds copies into the worn piece", v8["items"].size() == 2 and int(kept["uid"]) == 502 and int(kept["cards"]) == 1 and not kept.has("ancient") and int(v8["heroes"]["knight"]["gear"]["chest"]) == 502)
 
 	var round_trip = JSON.parse_string(JSON.stringify(Game.data))
 	_ok("save round trip", _same(Game.data, round_trip))
@@ -150,6 +177,10 @@ func _gear_tests() -> void:
 		looks.append(GearDB.UNIQUE_LOOKS[u])
 	for st: Dictionary in looks:
 		for spec: String in GearDB.expand(st.get("parts", [])):
+			if spec.begins_with("P:"):
+				if not ResourceLoader.exists(GearDB.GEAR_DIR + spec.substr(2).get_slice("@", 0)):
+					missing.append(spec)
+				continue
 			var src := spec.get_slice("/", 0)
 			if not scenes.has(src):
 				scenes[src] = load(KK.CHAR_DIR + src + ".glb").instantiate()
@@ -170,18 +201,33 @@ func _gear_tests() -> void:
 	for n: Node in scenes.values():
 		n.free()
 	_ok("gear parts exist %s" % str(missing), missing.is_empty())
-	var it := Game.make_item("mage", "chest", 3, "rare")
-	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and (str(it["name"]).ends_with("Sage Robe") or str(it["name"]).ends_with("Sage Ragged Robe")))
+	var it := Game.make_item("mage", "chest", 2, "rare")
+	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 2 and (str(it["name"]).ends_with("Barrowsteel Robe") or str(it["name"]).ends_with("Barrowsteel Ragged Robe")))
 	# Alternatives and set looks change the model and the name, never the stats.
 	it["look"] = 0
-	_ok("look 0 is the stage", GearDB.base_name(it) == "Sage Robe")
+	_ok("look 0 is the stage", GearDB.base_name(it) == "Barrowsteel Robe")
 	it["look"] = 1
-	_ok("look 1 is the alternative", GearDB.base_name(it) == "Sage Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
+	_ok("look 1 is the alternative", GearDB.base_name(it) == "Barrowsteel Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
 	it["set"] = "hexer"
-	_ok("a set piece wears the set", GearDB.base_name(it) == "Sage Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	_ok("a set piece wears the set", GearDB.base_name(it) == "Barrowsteel Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	# Weapon families: the scythe is endgame, boss-only, and no Gravedigger.
+	var fams := {}
+	for i in 200:
+		fams[Game.roll_family("barbarian", 4)] = true
+	_ok("no scythe outside boss drops", not fams.has("scythe") and fams.has("maul"))
+	var low := {}
+	for i in 200:
+		low[Game.roll_family("barbarian", 0)] = true
+	_ok("only early families in Gravedigger", low.keys().all(func(f): return int(DB.FAMILIES[f]["min_set"]) == 0))
+	var boss_fams := {}
+	for i in 300:
+		boss_fams[Game.roll_family("barbarian", 4, DB.TIER_NIGHTMARE)] = true
+	_ok("a Nightmare boss can drop the scythe", boss_fams.has("scythe"))
+	_ok("the scythe needs level 60 in any set", GearDB.req_for({"slot": "weapon", "mat": 3, "fam": "scythe"}) == 60)
+	_ok("a family weapon wears its family's model", str(GearDB.look({"cls": "barbarian", "slot": "weapon", "mat": 2, "fam": "maul"})["model"]) == "barb_maul_2.gltf")
 	var kn := Game.make_item("knight", "helm", 0, "common")
 	kn["look"] = 1
-	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Bronze Helm")
+	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Gravedigger Helm")
 	# The first higher material a hero wears is news once; lower ones never are.
 	Game.data = Game._fresh()
 	for sk in DB.SKILLS:
@@ -280,11 +326,6 @@ func _meta_tests() -> void:
 	Game.data["gold"] = 100000
 	for s in DB.SKILLS:
 		Game.skills("knight")[s] = DB.xp_for_level(60)
-	var it := Game.grant_item(Game.make_item("knight", "weapon", 2, "rare"))
-	var uid := int(it["uid"])
-	var main_v := int(it["stats"]["dmg"])
-	_ok("reforge keeps the main affix", Game.reforge(uid) and int(Game.item(uid)["stats"]["dmg"]) == main_v)
-	_ok("temper raises material and stats", Game.temper(uid) and int(Game.item(uid)["mat"]) == 3 and int(Game.item(uid)["stats"]["dmg"]) > main_v)
 	var g0 := Game.gold()
 	_ok("first respec is free", Game.respec("knight") and Game.gold() == g0)
 	_ok("second respec costs gold", Game.respec("knight") and Game.gold() < g0)

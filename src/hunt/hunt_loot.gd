@@ -361,6 +361,16 @@ func _proj_body(kind: String) -> Node3D:
 			ax.position = Vector3(0, 0, -0.55)
 			root.add_child(ax)
 			root.add_child(_streak(Color(1.0, 0.7, 0.4), 1.0, 0.5))
+		"throwaxe":
+			# The hero's own weapon, spinning flat.
+			var w := Game.equipped(hero.id, "weapon")
+			var lk := GearDB.look(w) if not w.is_empty() else {"model": "axe_1handed.gltf", "scale": 1.2}
+			var ta := GearLook.prop_for(str(lk["model"]))
+			ta.scale = Vector3.ONE * float(lk["scale"]) * 1.4
+			ta.rotation = Vector3(PI * 0.5, 0, 0)
+			ta.position = Vector3(0, 0, -0.5)
+			root.add_child(ta)
+			root.add_child(_streak(Color(1.0, 0.7, 0.4), 1.2, 0.6))
 		"orb":
 			var o := MeshInstance3D.new()
 			var om := SphereMesh.new()

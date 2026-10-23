@@ -31,7 +31,7 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 	splash = float(ex.get("splash", 0.0))
 	team = 1 if src is Enemy or src is Boss else 0
 	life = float(ex.get("life", 0.9 if kind == "arrow" else 1.6))
-	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5, "axe": 0.7}.get(kind, 0.4)
+	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5, "axe": 0.7, "throwaxe": 0.75}.get(kind, 0.4)
 	rotation = Vector3(0, atan2(v.x, v.z), 0)
 	active = true
 	visible = true
@@ -41,8 +41,10 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 func tick(dt: float, h: Hunt) -> bool:
 	life -= dt
 	position += vel * dt
-	if kind == "axe":
+	if kind == "axe" or kind == "throwaxe":
 		body.rotation.y += dt * 22.0
+	if kind == "throwaxe":
+		return _tick_return(dt, h)
 	if kind == "fireball" or kind == "orb":
 		_ember_t -= dt
 		if _ember_t <= 0.0:
@@ -106,6 +108,37 @@ func tick(dt: float, h: Hunt) -> bool:
 			h.damage_hero(dmg, source, 0.2 if source is Boss else 0.0)
 			h.fx.burst(flat, Color(1.0, 0.4, 0.3), 6, 4.0)
 			return false
+	return true
+
+
+## A thrown weapon: out for `back` seconds (or until a wall), then home to the
+## thrower's hand, cutting everything on the way both ways.
+func _tick_return(dt: float, h: Hunt) -> bool:
+	var flat := Vector3(position.x, 0, position.z)
+	var src := source as Actor
+	var back := float(extra.get("back", 0.4))
+	var going := not extra.has("returning")
+	if going and (life <= float(extra.get("life", 1.0)) - back or h.arena.blocked(flat, 0.05)):
+		extra["returning"] = true
+		hit_set.clear()
+		going = false
+	if not going:
+		if src == null or not is_instance_valid(src) or not src.alive:
+			return false
+		var to := src.flat_pos() - flat
+		if to.length() < 0.7 or life <= 0.0:
+			return false
+		vel = to.normalized() * maxf(vel.length(), 18.0) * (1.0 + dt * 2.0)
+	for f in h.foes_near(flat, radius + 1.6):
+		if hit_set.has(f) or f.state == "spawn":
+			continue
+		if flat.distance_to(f.flat_pos()) > radius + f.radius:
+			continue
+		hit_set[f] = true
+		h.damage_foe(f, dmg, source, vel.normalized(), 4.0)
+		h.fx.burst(f.flat_pos(), Color(1.0, 0.7, 0.45), 4, 4.0)
+	if randf() < 0.5:
+		h.fx.embers_at(flat, Color(1.0, 0.6, 0.3), 1, 0.2)
 	return true
 
 

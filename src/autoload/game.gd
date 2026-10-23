@@ -59,7 +59,7 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, 5, 6, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, 5, 6, 7, 8, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
 		if int(parsed.get("version", 0)) == 2:
@@ -72,6 +72,10 @@ func load_save() -> void:
 			_migrate_v5(parsed)
 		if int(parsed.get("version", 0)) == 6:
 			_migrate_v6(parsed)
+		if int(parsed.get("version", 0)) == 7:
+			_migrate_v7(parsed)
+		if int(parsed.get("version", 0)) == 8:
+			_migrate_v8(parsed)
 		_merge(data, parsed)
 		_rename_gear()
 		_refund_levels()
@@ -226,6 +230,79 @@ func _migrate_v6(d: Dictionary) -> void:
 	d["unlocks"] = open
 	d["road"] = n
 	d["start_picked"] = true
+	d["version"] = 7
+
+
+## v8 folds the seven material tiers into five named sets. Each piece moves to
+## its set, and its stats are rescaled so it is exactly as strong as before
+## (stats grow DB.MAT_STAT a set now, 0.22 a tier then). Names are rebuilt on
+## load (`_rename_gear`).
+const _V8_SET := [0, 1, 1, 2, 3, 3, 4]
+
+
+func _migrate_v7(d: Dictionary) -> void:
+	for it in d.get("items", []):
+		if not (it is Dictionary) or not it.has("mat"):
+			continue
+		var old := clampi(int(it["mat"]), 0, _V8_SET.size() - 1)
+		var mat: int = _V8_SET[old]
+		it["mat"] = mat
+		if str(it.get("unique", "")) == "" and it.get("stats") is Dictionary:
+			var k := (1.0 + 0.22 * old) / (1.0 + DB.MAT_STAT * mat)
+			for key in it["stats"]:
+				it["stats"][key] = maxi(1, int(round(float(it["stats"][key]) * k)))
+	for hid in d.get("heroes", {}):
+		var h: Dictionary = d["heroes"][hid]
+		if int(h.get("best_mat", -1)) >= 0:
+			h["best_mat"] = _V8_SET[clampi(int(h["best_mat"]), 0, _V8_SET.size() - 1)]
+	d["version"] = 8
+
+
+## v9 makes gear a collection. Pieces that are the same piece (Game.piece_key)
+## fold into one: the worn one (or the first) is kept at level 1, every other
+## copy becomes a copy toward its next level, and stats become the piece's
+## fixed ones. A Barbarian weapon from before families is an Axe.
+func _migrate_v8(d: Dictionary) -> void:
+	var worn := {}
+	for hid in d.get("heroes", {}):
+		for slot in d["heroes"][hid].get("gear", {}):
+			worn[int(d["heroes"][hid]["gear"][slot])] = true
+	var items: Array = d.get("items", [])
+	for it in items:
+		if not (it is Dictionary) or not str(it.get("slot", "")) in DB.SLOTS:
+			continue
+		if str(it["slot"]) == "weapon" and DB.HERO_FAMILIES.has(str(it.get("cls", ""))) and str(it.get("fam", "")) == "":
+			it["fam"] = str(DB.UNIQUES.get(str(it.get("unique", "")), {}).get("fam", DB.HERO_FAMILIES[str(it["cls"])][0]))
+	# Worn pieces first, so they are the ones kept.
+	var order := items.duplicate()
+	order.sort_custom(func(a, b): return worn.has(int(a.get("uid", 0))) and not worn.has(int(b.get("uid", 0))))
+	var kept := {}
+	var remap := {}
+	var out := []
+	for it in order:
+		if not (it is Dictionary) or not str(it.get("slot", "")) in DB.SLOTS:
+			out.append(it)
+			continue
+		var k := piece_key(it)
+		if kept.has(k):
+			kept[k]["cards"] = int(kept[k]["cards"]) + 1
+			remap[int(it["uid"])] = int(kept[k]["uid"])
+			continue
+		it.erase("ancient")
+		it["rarity"] = "legendary" if str(it.get("unique", "")) != "" else "rare"
+		it["look"] = 0
+		it["lv"] = 1
+		it["cards"] = 0
+		it["stats"] = piece_stats(it)
+		it["name"] = gear_name(it)
+		kept[k] = it
+		out.append(it)
+	d["items"] = out
+	for hid in d.get("heroes", {}):
+		var g: Dictionary = d["heroes"][hid].get("gear", {})
+		for slot in g:
+			if remap.has(int(g[slot])):
+				g[slot] = remap[int(g[slot])]
 	d["version"] = SAVE_VERSION
 
 
