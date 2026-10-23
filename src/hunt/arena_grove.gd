@@ -95,5 +95,7 @@ static func _dressing(a: Arena) -> void:
 static func _spawn_spots(a: Arena) -> void:
 	for i in 16:
 		var p := a._free_spot(0.8)
-		a.put(G + "floor_dirt_small.gltf", p, a._rng.randf() * TAU, 1.3, -1.0, false)
+		# Round patches of soil, not KayKit's square dirt tile: its rim sat
+		# flush with the ground and flickered, and squares read as glitches.
+		a.earth_patch(p, a._rng.randf_range(1.1, 1.5))
 		a.graves.append(p)
