@@ -1,0 +1,130 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.2.41",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "mage_wand_1"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "knight",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 0
+    },
+    "metallicFactor": 0,
+    "roughnessFactor": 0.5
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "mage_wand_1",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 300,
+   "max": [
+    0.03983717039227486,
+    0.5460000038146973,
+    0.04600002244114876
+   ],
+   "min": [
+    -0.03983717039227486,
+    -0.23999999463558197,
+    -0.045999977737665176
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 300,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 300,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 480,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteLength": 3600,
+   "byteOffset": 0,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 3600,
+   "byteOffset": 3600,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 2400,
+   "byteOffset": 7200,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 960,
+   "byteOffset": 9600,
+   "target": 34963
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 10560,
+   "uri": "mage_wand_1.bin"
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/png",
+   "name": "knight_texture",
+   "uri": "knight_texture.png"
+  }
+ ],
+ "textures": [
+  {
+   "source": 0
+  }
+ ]
+}

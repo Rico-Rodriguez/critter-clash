@@ -227,7 +227,7 @@ func _gear_tests() -> void:
 	_ok("a family weapon wears its family's model", str(GearDB.look({"cls": "barbarian", "slot": "weapon", "mat": 2, "fam": "maul"})["model"]) == "barb_maul_2.gltf")
 	var kn := Game.make_item("knight", "helm", 0, "common")
 	kn["look"] = 1
-	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Gravedigger Helm")
+	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Gravedigger Kettle Hat")
 	# The first higher material a hero wears is news once; lower ones never are.
 	Game.data = Game._fresh()
 	for sk in DB.SKILLS:

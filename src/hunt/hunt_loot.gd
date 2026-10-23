@@ -393,6 +393,39 @@ func _proj_body(kind: String) -> Node3D:
 			bone.rotation = Vector3(0, PI * 0.5, 0)
 			root.add_child(bone)
 			root.add_child(_streak(Color(0.45, 1.0, 0.7), 1.6, 0.6))
+		"knife":
+			var kn := KK.prop("res://assets/kaykit/weapons/dagger.gltf")
+			kn.scale = Vector3.ONE * 1.5
+			kn.rotation = Vector3(PI * 0.5, 0, 0)
+			kn.position = Vector3(0, 0, -0.2)
+			root.add_child(kn)
+			root.add_child(_streak(Color(0.9, 0.95, 1.0), 0.9, 0.3))
+		"quarrel":
+			var q := KK.prop("res://assets/kaykit/weapons/arrow_crossbow.gltf")
+			q.scale = Vector3.ONE * 1.6
+			root.add_child(q)
+			root.add_child(_streak(Color(1.0, 0.8, 0.5), 2.2, 0.4))
+		"soularrow":
+			var sa := KK.prop("res://assets/kaykit/weapons/arrow_bow.gltf")
+			sa.scale = Vector3.ONE * 1.5
+			root.add_child(sa)
+			root.add_child(_streak(Color(0.5, 1.0, 0.7), 2.4, 0.5))
+		"spark":
+			var sp := MeshInstance3D.new()
+			var spm := SphereMesh.new()
+			spm.radius = 0.16
+			spm.height = 0.32
+			sp.mesh = spm
+			var spmat := StandardMaterial3D.new()
+			spmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			spmat.albedo_color = Color(1.0, 0.95, 0.6)
+			spmat.emission_enabled = true
+			spmat.emission = Color(1.0, 0.75, 0.2)
+			spmat.emission_energy_multiplier = 4.0
+			sp.material_override = spmat
+			sp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(sp)
+			root.add_child(_streak(Color(1.0, 0.8, 0.3), 1.0, 0.4))
 		"wave":
 			var w := MeshInstance3D.new()
 			w.mesh = fx._arc(100)

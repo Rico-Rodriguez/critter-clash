@@ -107,6 +107,7 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 		fdef = DB.FAMILIES[fam]
 		def = def.duplicate(true)
 		def["anim"]["attack"] = fdef["clips"]
+		def["anim"].merge(fdef.get("anims", {}), true)
 	radius = 0.5
 	mass = 4.0
 	build_model(def["model"], {}, Color(1.0, 0.78, 0.5), 0.35)
@@ -240,8 +241,8 @@ func recompute() -> void:
 	reach = base["range"] * (1.0 + 0.25 * lv.call("reach"))
 	arc = minf(base["arc"] * (1.0 + 0.25 * lv.call("reach")), 300.0)
 	splash = base["splash"] * (1.0 + 0.35 * lv.call("inferno"))
-	shots = int(def.get("shots", 1)) + lv.call("multishot")
-	pierce = int(def.get("pierce", 0)) + lv.call("pierce")
+	shots = maxi(1, int(def.get("shots", 1)) + int(fdef.get("shots", 0)) + lv.call("multishot"))
+	pierce = int(def.get("pierce", 0)) + int(fdef.get("pierce", 0)) + lv.call("pierce")
 	magnet = 4.2 * (1.0 + 0.5 * lv.call("magnet"))
 	flags = base.get("flags", {})
 	xp_mult = 1.0 + float(base.get("xp", 0.0)) + hunt.pact_sum("xp")
@@ -386,9 +387,12 @@ func _impact() -> void:
 		aim_yaw = yaw_to(position, target.position)
 	rotation.y = aim_yaw
 	var fwd := dir_of(aim_yaw)
-	if fam != "":
+	if fam != "" and style == "melee":
 		_family_impact(fwd)
 		_wave(fwd)
+		return
+	if fam != "" and str(fdef["attack"]) in ["chain", "lance"]:
+		_spell_impact(fwd)
 		return
 	match style:
 		"melee":
@@ -416,10 +420,15 @@ func _impact() -> void:
 			_wave(fwd)
 		"bow":
 			var n := shots
+			var spread := deg_to_rad(float(fdef.get("spread", 7.0)))
+			var kind := str(fdef.get("proj", "arrow"))
+			var ex := {"home": true} if fdef.get("home", false) else {}
+			if kind == "knife":
+				ex["life"] = reach / float(base["proj_speed"])
 			for i in n:
-				var a := aim_yaw + (i - (n - 1) * 0.5) * deg_to_rad(7.0)
+				var a := aim_yaw + (i - (n - 1) * 0.5) * spread
 				var d := dir_of(a)
-				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * float(base["proj_speed"]), dmg, 1 + pierce, self)
+				hunt.spawn_proj(kind, flat_pos() + d * 0.5, d * float(base["proj_speed"]), dmg, 1 + pierce, self, ex.duplicate())
 			volley_n += 1
 			var exl: int = hunt.cards.get("explosive", 0)
 			if exl > 0 and volley_n % maxi(5 - exl, 2) == 0:
@@ -428,14 +437,59 @@ func _impact() -> void:
 				for i in 12:
 					var da := dir_of(TAU * i / 12.0)
 					hunt.spawn_proj("arrow", flat_pos() + da * 0.5, da * float(base["proj_speed"]), dmg * 0.8, 1 + pierce, self)
-			Sfx.play("atk_archer", -5.0)
+			Sfx.play("atk_archer" if fam == "" else str(fdef["sfx"]), -5.0)
 		"magic":
 			var n2 := shots
+			var spread2 := deg_to_rad(float(fdef.get("spread", 11.0)))
+			var kind2 := str(fdef.get("proj", "fireball"))
 			for i in n2:
-				var a2 := aim_yaw + (i - (n2 - 1) * 0.5) * deg_to_rad(11.0)
+				var a2 := aim_yaw + (i - (n2 - 1) * 0.5) * spread2
 				var d2 := dir_of(a2)
-				hunt.spawn_proj("fireball", flat_pos() + d2 * 0.6, d2 * float(base["proj_speed"]), dmg, 1, self, {"splash": splash})
+				var ex2 := {"splash": splash, "home": fdef.get("home", false)}
+				hunt.spawn_proj(kind2, flat_pos() + d2 * 0.6, d2 * float(base["proj_speed"]), dmg, 1, self, ex2)
 			Sfx.play("atk_mage", -5.0)
+
+
+## The Scepter's chain lightning and the Soulstaff's lance.
+func _spell_impact(fwd: Vector3) -> void:
+	var col := _trail()
+	Sfx.play(str(fdef["sfx"]), -5.0)
+	match str(fdef["attack"]):
+		"chain":
+			# From the target (or the nearest foe), leaping to the next nearest
+			# it has not struck; each extra shot is one more leap.
+			var pts := PackedVector3Array([flat_pos() + fwd * 0.5 + Vector3(0, 1.2, 0)])
+			var hit := {}
+			var from := flat_pos()
+			var amount := dmg
+			for j in int(fdef["jumps"]) + shots:
+				var best: Actor = null
+				var bd := reach + 1.0 if j == 0 else 4.5
+				if j == 0 and target and is_instance_valid(target) and target.alive and from.distance_to(target.flat_pos()) < bd:
+					best = target
+				else:
+					for f in hunt.foes_near(from, bd):
+						if hit.has(f) or f.state == "spawn" or not f.alive:
+							continue
+						if from.distance_to(f.flat_pos()) < bd:
+							bd = from.distance_to(f.flat_pos())
+							best = f
+					if hunt.boss and hunt.boss.alive and not hit.has(hunt.boss) and from.distance_to(hunt.boss.flat_pos()) < bd:
+						best = hunt.boss
+				if best == null:
+					break
+				hit[best] = true
+				var to: Vector3 = best.flat_pos()
+				pts.append(to + Vector3(0, 1.0, 0))
+				hunt.damage_foe(best, amount, self, (to - from).normalized(), 2.0)
+				from = to
+				amount *= 0.85
+			if pts.size() > 1:
+				hunt.fx.lightning(pts, col)
+				Sfx.play("chain", -6.0)
+		"lance":
+			hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 24.0, dmg, 99, self, {"life": reach / 24.0, "width": float(fdef["width"])})
+			hunt.fx.slash(flat_pos(), aim_yaw, 1.6, 40, col, false, 0.15)
 
 
 ## The Shockwave card: every melee swing also sends a wave forward.
@@ -484,7 +538,7 @@ func _family_impact(fwd: Vector3) -> void:
 	var col := _trail()
 	Sfx.play(str(fdef["sfx"]), -4.0)
 	match str(fdef["attack"]):
-		"cleave":
+		"cleave", "rune":
 			var hit := 0
 			for f in _in_arc(reach, arc):
 				hunt.damage_foe(f, dmg, self, (f.flat_pos() - flat_pos()).normalized(), 5.5)
@@ -492,6 +546,9 @@ func _family_impact(fwd: Vector3) -> void:
 			hunt.fx.slash(flat_pos(), aim_yaw, reach * 1.05, arc, col, swing_i % 2 == 0, 0.2)
 			Sfx.play("swing", -8.0)
 			_hit_feel(hit)
+			if str(fdef["attack"]) == "rune":
+				# A blade of light flies on from every cut.
+				hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 16.0, dmg * 0.6, 99, self, {"life": 0.5, "width": 1.6})
 		"slam":
 			# The head lands a step ahead: everything around it is stunned and
 			# thrown outward from the blow.

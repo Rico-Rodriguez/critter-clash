@@ -35,7 +35,7 @@ func _init() -> void:
 	var fams: Array = DB.HERO_FAMILIES[hero]
 	var i := 0
 	for fam: String in fams:
-		var lk: Dictionary = GearDB.FAMILY_LOOKS[fam][mat]
+		var lk := GearDB.family_look(fam, mat)
 		var ch := KK.character(DB.HEROES[hero]["model"])
 		world.add_child(ch)
 		ch.position = Vector3((i % 3) * 2.2 - 2.2, 0, (i / 3) * -2.6)

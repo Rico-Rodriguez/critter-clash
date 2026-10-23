@@ -187,15 +187,18 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 		glow = DB.GLOWS[hg]["color"]
 	# KayKit bows face the string away from the hand that holds them; turned
 	# half round, the string comes back to the archer as in the aim pose.
-	var grip := Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO) if str(d["style"]) == "bow" else Transform3D.IDENTITY
-	_hold(actor, skel, "GearMain", str(d["weapon_bone"]), file, scale_, dye, glow, grip, GearDB.grade(w), GearDB.accent(w))
+	var fam := Game.weapon_family(hero_id, {"weapon": w})
+	var fd: Dictionary = DB.FAMILIES.get(fam, {})
+	# A family may hold its weapon in the other hand (a crossbow, knives).
+	var main_bone := str(fd.get("bone", d["weapon_bone"]))
+	var grip := Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO) if str(d["style"]) == "bow" and not fd.has("bone") else Transform3D.IDENTITY
+	_hold(actor, skel, "GearMain", main_bone, file, scale_, dye, glow, grip, GearDB.grade(w), GearDB.accent(w))
 	var spark := GearDB.enchant(w)
 	if DB.GLOWS.has(hg) and spark.a > 0.0:
 		spark = Color(Color(DB.GLOWS[hg]["color"]), spark.a)
 	_sparks(skel, "GearMain", spark)
 	# Twin weapons: the same one again in the other hand.
-	var fam := Game.weapon_family(hero_id)
-	var dual := fam != "" and bool(DB.FAMILIES[fam].get("dual", false))
+	var dual := bool(fd.get("dual", false))
 	_hold(actor, skel, "GearDual", "handslot.l", file if dual else "", scale_, dye, glow, Transform3D.IDENTITY, GearDB.grade(w), GearDB.accent(w))
 	if dual:
 		_sparks(skel, "GearDual", spark)
