@@ -4,10 +4,6 @@ Godot 4.7.2, GDScript, portrait mobile (iOS). Read `README.md` for what the game
 is, and `docs/PLAN.md` for the work queue. Do tasks in plan order, one task per
 commit.
 
-**Feature freeze:** no new modes, zones, currencies or meta systems until the
-playtest in `docs/PLAN.md` "Next up" is done. Fixes, tuning, feel, art swaps,
-release work and behavior-neutral refactors are fine.
-
 ## Every session
 
 ```
