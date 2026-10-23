@@ -1067,6 +1067,11 @@ navigation overhaul and the social features (clans, friends, chat, co-op,
 referrals) to be built now. That work is on the branch
 `claude/project-thread-0wfcji`; everything else above still holds.
 
+**Lifted once, for the Trophy Road (2026-10-23).** The user asked for a Clash
+Royale-style trophy road that opens arenas, modes and heroes, with a first
+hero chosen on a new save. Built on `claude/project-thread-vrxot2`. Tuning:
+`DB.TROPHY_ROAD` and the `TROPHY_*` constants in `src/data/db.gd`.
+
 0. **Social go-live.** Deploy the game server (`server/README.md`), then set
    `HOST`, `SERVER_KEY` and `SUPPORT` in `src/net/net_config.gd`. Until then
    the game stays offline and the Clan tab says the server isn't live yet.

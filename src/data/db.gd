@@ -63,7 +63,7 @@ const HEROES := {
 		"anim": {"idle": "Ranged_Bow_Idle", "run": "Running_HoldingBow", "attack": ["Ranged_Bow_Release"], "super": "Ranged_Bow_Release_Up"},
 		"color": Color(0.36, 0.78, 0.45), "icon": "pocket-bow",
 		"blurb": "Kites the dead and never stops shooting.",
-		"skill": "ranged", "unlock": "start",
+		"skill": "ranged", "unlock": "pick",
 	},
 	"mage": {
 		"name": "Mage", "title": "The Ember Witch", "role": "Caster",
@@ -76,7 +76,7 @@ const HEROES := {
 		"anim": {"idle": "Idle_B", "run": "Running_B", "attack": ["Ranged_Magic_Shoot"], "super": "Ranged_Magic_Summon"},
 		"color": Color(0.85, 0.42, 0.95), "icon": "wizard-staff",
 		"blurb": "Fireballs that burst through packs.",
-		"skill": "magic", "unlock": "start",
+		"skill": "magic", "unlock": "pick",
 	},
 	"barbarian": {
 		"name": "Barbarian", "title": "The Bonebreaker", "role": "Bruiser",
@@ -89,7 +89,7 @@ const HEROES := {
 		"anim": {"idle": "Melee_2H_Idle", "run": "Running_A", "attack": ["Melee_2H_Attack_Slice", "Melee_2H_Attack_Chop"], "super": "Melee_2H_Attack_Spinning"},
 		"color": Color(0.95, 0.45, 0.3), "icon": "battle-axe",
 		"blurb": "Huge swings. Clears a circle around him.",
-		"skill": "melee", "unlock": "veteran",
+		"skill": "melee", "unlock": "road",
 	},
 }
 const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
@@ -226,7 +226,7 @@ const ZONES := {
 	"depths": {
 		"name": "The Sunken Crypt", "boss": "hexer", "blurb": "Torchlit halls under the barrow. The Queen's cult waits.",
 		"wake": "Gather %d souls to wake the Queen", "defeat": "The Crypt keeps you", "enter": "Descend into the Crypt",
-		"loot_bonus": 1, "weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5, "hound": 1.4, "brute": 1.6}, "souls_mult": 1.0, "unlock": "Clear Veteran in the Barrow",
+		"loot_bonus": 1, "weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5, "hound": 1.4, "brute": 1.6}, "souls_mult": 1.0, "unlock": "Trophy Road: 800 trophies",
 		"env": {"bg": Color(0.02, 0.012, 0.03), "ambient": Color(0.4, 0.3, 0.55), "ambient_e": 0.34, "fog": Color(0.1, 0.06, 0.14), "fog_d": 0.016,
 			"sun": Color(0.7, 0.62, 1.0), "sun_e": 0.28, "sun_rot": Vector3(-78, -20, 0), "mist": Color(0.6, 0.45, 0.8, 0.09), "motes": Color(1.0, 0.65, 0.35, 0.9)},
 	},
@@ -235,7 +235,7 @@ const ZONES := {
 		"wake": "Gather %d souls to wake the Thornmother", "defeat": "The Grove keeps you", "enter": "Into the Grove",
 		"loot_bonus": 2, "weights": {"rogue": 1.3, "mage": 1.4, "hound": 1.5, "necro": 0.0, "brute": 0.8, "bomber": 1.6},
 		"faction": {"minion": "cutthroat", "rogue": "slinger", "mage": "shaman", "warrior": "brawler"},
-		"souls_mult": 1.0, "unlock": "Clear Expert in the Crypt", "music": "grove", "boss_music": "grove_boss",
+		"souls_mult": 1.0, "unlock": "Trophy Road: 2500 trophies", "music": "grove", "boss_music": "grove_boss",
 		"env": {"bg": Color(0.03, 0.025, 0.015), "ambient": Color(0.55, 0.42, 0.28), "ambient_e": 0.32, "fog": Color(0.16, 0.12, 0.06), "fog_d": 0.014,
 			"sun": Color(1.0, 0.72, 0.45), "sun_e": 0.42, "sun_rot": Vector3(-50, -40, 0), "mist": Color(0.75, 0.62, 0.4, 0.1), "motes": Color(0.85, 1.0, 0.45, 0.9)},
 	},
@@ -247,10 +247,10 @@ const ZONE_ORDER := ["barrow", "depths", "grove"]
 ## end. `rooms` is per difficulty tier.
 const MODES := {
 	"horde": {"name": "Horde Hunt", "short": "Horde", "blurb": "Hold the graveyard against the rising dead."},
-	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "rooms": [5, 5, 6, 6, 7, 7, 7, 8]},
-	"descent": {"name": "Endless Descent", "short": "Descent", "blurb": "The dead never stop. Each minute goes a level deeper; a boss every fifth. How deep can you go?", "unlock": "Win on Normal to open"},
-	"wild": {"name": "The Wilderness", "short": "Wilderness", "blurb": "A closing ring and rival bands hunting you. Be the last band standing.", "unlock": "Win on Normal to open"},
-	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Both bosses, twice, back to back. A card and a breath between each.", "unlock": "Win on Normal to open"},
+	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "unlock": "Trophy Road: 150 trophies", "rooms": [5, 5, 6, 6, 7, 7, 7, 8]},
+	"descent": {"name": "Endless Descent", "short": "Descent", "blurb": "The dead never stop. Each minute goes a level deeper; a boss every fifth. How deep can you go?", "unlock": "Trophy Road: 1200 trophies"},
+	"wild": {"name": "The Wilderness", "short": "Wilderness", "blurb": "A closing ring and rival bands hunting you. Be the last band standing.", "unlock": "Trophy Road: 2100 trophies"},
+	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Both bosses, twice, back to back. A card and a breath between each.", "unlock": "Trophy Road: 550 trophies"},
 	"rift": {"name": "Rift", "short": "Rift", "blurb": "Spend a rift key: one boss at more than twice its strength, and a unique drop if you win.", "unlock": "Reach depth 8 in the Descent for a rift key"},
 }
 ## Endless Descent: the horde never stops. Every DESCENT_TIME seconds the depth
@@ -506,23 +506,76 @@ const PACTS := {
 	"moon": {"name": "Hunter's Moon", "good": "+30% souls", "bad": "Foes have 25% more health", "icon": "moon", "mod": {"xp": 0.3, "foe_hp": 0.25}},
 }
 
-## Renown road: every hunt earns renown; each step hands out a reward in order.
-## Step n (1-based) opens at road_threshold(n).
+## The Trophy Road: every hunt earns trophies (they never go down) and each
+## step pays in order. Steps open arenas (zones), modes and heroes, with gold,
+## chests and shards between. `pick` lets the player choose one of the
+## START_HEROES they lack. Past the last step a Crypt chest every ROAD_EVERY.
+## The save keys are still `renown` (trophies) and `road` (steps claimed).
+const TROPHY_ROAD := [
+	{"t": 60, "kind": "gold", "amount": 300},
+	{"t": 150, "kind": "mode", "id": "trial"},
+	{"t": 250, "kind": "chest", "chest": "silver"},
+	{"t": 400, "kind": "pick"},
+	{"t": 550, "kind": "mode", "id": "rush"},
+	{"t": 650, "kind": "gold", "amount": 450},
+	{"t": 800, "kind": "zone", "id": "depths"},
+	{"t": 1000, "kind": "chest", "chest": "gold"},
+	{"t": 1200, "kind": "mode", "id": "descent"},
+	{"t": 1500, "kind": "pick"},
+	{"t": 1800, "kind": "shards", "amount": 30},
+	{"t": 2100, "kind": "mode", "id": "wild"},
+	{"t": 2500, "kind": "zone", "id": "grove"},
+	{"t": 3000, "kind": "hero", "id": "barbarian"},
+	{"t": 3500, "kind": "rift_key"},
+]
+const ROAD_EVERY := 500
+## Arenas are the zones, opened where their step sits on the road.
+const ARENAS := [
+	{"zone": "barrow", "t": 0, "color": Color(0.36, 0.45, 0.75)},
+	{"zone": "depths", "t": 800, "color": Color(0.6, 0.4, 0.8)},
+	{"zone": "grove", "t": 2500, "color": Color(0.8, 0.6, 0.28)},
+]
+## A new save picks one of these; the rest come from the road's `pick` steps.
+const START_HEROES := ["knight", "ranger", "mage"]
+## What a pick or hero step pays instead when there is no hero left to give.
+const ROAD_SPARE_GOLD := 500
+
+## Trophies for a hunt: a win, more per difficulty above Normal and per elite
+## (up to TROPHY_ELITE_CAP), the first win of the day, a difficulty cleared for
+## the first time. A loss pays for how far it got, up to TROPHY_LOSS_MAX; the
+## Descent pays per depth reached.
+const TROPHY_WIN := 30
+const TROPHY_TIER := 10
+const TROPHY_ELITE := 2
+const TROPHY_ELITE_CAP := 5
+const TROPHY_FIRST_WIN := 30
+const TROPHY_FIRST_CLEAR := 50
+const TROPHY_LOSS_MAX := 15
+const TROPHY_DEPTH := 4
+
+
+## Step n (1-based) opens at road_threshold(n); road_threshold(0) is 0.
 static func road_threshold(n: int) -> int:
-	return 60 * n + 10 * n * (n - 1)
+	if n <= 0:
+		return 0
+	if n <= TROPHY_ROAD.size():
+		return int(TROPHY_ROAD[n - 1]["t"])
+	return int(TROPHY_ROAD[-1]["t"]) + ROAD_EVERY * (n - TROPHY_ROAD.size())
 
 
-## What step n pays: gold, a chest opened on the spot, or shards for the hero
-## in use. Every fourth step is a chest, better as the road goes on.
+## What step n (1-based) pays.
 static func road_reward(n: int) -> Dictionary:
-	match n % 4:
-		1:
-			return {"kind": "gold", "amount": 100 + 25 * n}
-		2:
-			return {"kind": "shards", "amount": 5 + n / 2}
-		3:
-			return {"kind": "gold", "amount": 160 + 30 * n}
-	return {"kind": "chest", "chest": "silver" if n < 12 else ("gold" if n < 24 else "crypt")}
+	if n >= 1 and n <= TROPHY_ROAD.size():
+		return TROPHY_ROAD[n - 1]
+	return {"t": road_threshold(n), "kind": "chest", "chest": "crypt"}
+
+
+## The trophies at which a mode or zone opens, or -1 if the road never gates it.
+static func road_gate(id: String) -> int:
+	for st in TROPHY_ROAD:
+		if st.has("id") and str(st["id"]) == id and str(st["kind"]) in ["mode", "zone"]:
+			return int(st["t"])
+	return -1
 
 
 ## Weekly omens: one rule twist for a week, with a bigger chest. `mod` keys are

@@ -370,6 +370,65 @@ func _social() -> void:
 	gc.shadow_color = Color(GOLD, 0.18)
 	gc.shadow_size = 10
 	theme.set_stylebox("panel", "GiftCard", gc)
+	# The Trophy Road: a step still ahead, a step passed, a step that opens a
+	# mode, arena or hero (warm, gold edge), the step ready to claim (ember
+	# edge, glowing), an arena's banner, and the "you are here" pill.
+	theme.set_type_variation("RoadStep", "PanelContainer")
+	var rs := box(Color("1a171f"), 16, 2, Color(1, 1, 1, 0.07))
+	rs.content_margin_top = 14
+	rs.content_margin_bottom = 14
+	theme.set_stylebox("panel", "RoadStep", rs)
+	theme.set_type_variation("RoadDone", "PanelContainer")
+	var rd := rs.duplicate()
+	rd.bg_color = Color("141217")
+	rd.border_color = Color(GOLD, 0.16)
+	theme.set_stylebox("panel", "RoadDone", rd)
+	theme.set_type_variation("RoadUnlock", "PanelContainer")
+	var ru := rs.duplicate()
+	ru.bg_color = Color("241c18")
+	ru.border_color = Color(GOLD, 0.55)
+	ru.shadow_color = Color(GOLD, 0.08)
+	ru.shadow_size = 12
+	theme.set_stylebox("panel", "RoadUnlock", ru)
+	theme.set_type_variation("RoadReady", "PanelContainer")
+	var rr := rs.duplicate()
+	rr.bg_color = Color("3a2016")
+	rr.set_border_width_all(3)
+	rr.border_color = EMBER.lightened(0.15)
+	rr.shadow_color = Color(EMBER, 0.45)
+	rr.shadow_size = 22
+	theme.set_stylebox("panel", "RoadReady", rr)
+	theme.set_type_variation("RoadArena", "PanelContainer")
+	var ra := box(Color(0.06, 0.05, 0.08, 0.72), 22, 3, Color(GOLD, 0.6))
+	ra.shadow_color = Color(0, 0, 0, 0.55)
+	ra.shadow_size = 18
+	ra.content_margin_left = 26
+	ra.content_margin_right = 26
+	ra.content_margin_top = 22
+	ra.content_margin_bottom = 22
+	theme.set_stylebox("panel", "RoadArena", ra)
+	theme.set_type_variation("RoadHere", "PanelContainer")
+	var rh := box(GOLD, 30, 3, Color("fff0c8"))
+	rh.content_margin_top = 4
+	rh.content_margin_bottom = 4
+	rh.content_margin_left = 14
+	rh.content_margin_right = 14
+	rh.shadow_color = Color(GOLD, 0.5)
+	rh.shadow_size = 14
+	theme.set_stylebox("panel", "RoadHere", rh)
+	theme.set_type_variation("RoadHereLabel", "Label")
+	theme.set_font("font", "RoadHereLabel", title)
+	theme.set_font_size("font_size", "RoadHereLabel", 24)
+	theme.set_color("font_color", "RoadHereLabel", Color("2a1a06"))
+	theme.set_type_variation("RoadTag", "Label")
+	theme.set_font("font", "RoadTag", title)
+	theme.set_font_size("font_size", "RoadTag", 17)
+	theme.set_color("font_color", "RoadTag", GOLD)
+	theme.set_type_variation("RoadNum", "Label")
+	theme.set_font("font", "RoadNum", title)
+	theme.set_font_size("font_size", "RoadNum", 26)
+	theme.set_color("font_color", "RoadNum", Color("f5d38c"))
+	theme.set_constant("outline_size", "RoadNum", 6)
 	_button_set("BlueButton", Color("4f8de0"), Color("234a80"), Color("0b1020"), 24)
 	_button_set("GreenButton", Color("4fae6a"), Color("2a5e38"), Color("0c1a10"), 26)
 	# Text fields: dark wells with a gold caret.

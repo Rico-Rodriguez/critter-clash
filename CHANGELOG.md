@@ -6,7 +6,30 @@ shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 
 Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is 3 (the boot
 splash settings changed: reinstall the IPA). Save
-version is 6.
+version is 7.
+
+---
+
+## Unreleased: The Trophy Road
+
+The feature freeze was lifted once for this, at the user's request. Save
+version 7: `renown` is now trophies (same total), `road` counts steps on the
+new road, new keys `unlocks` and `start_picked` (`Game._migrate_v6`).
+`NATIVE_VERSION` unchanged.
+
+- Hunts earn trophies, which never go down: 30 for a win, +10 per difficulty
+  above Normal, +2 per elite (up to 5), +30 for the first win of the day, +50
+  for a first clear; a loss pays up to 15; the Descent +4 per depth.
+- The renown road becomes the Trophy Road (`src/lobby/trophy_road.gd`), a full
+  screen from the trophy button: arena banners, a glowing track that fills to
+  your trophies, claim bursts and a reveal for each unlock.
+- Unlocks move onto the road: Long Road 150, Boss Rush 550, the Crypt 800,
+  Descent 1200, Wilderness 2100, the Grove 2500, Barbarian 3000, a rift key
+  3500, then a Crypt chest every 500. Heroes no longer join from shards.
+- A new save chooses its first hero (Knight, Ranger or Mage,
+  `src/lobby/hero_pick.gd`); the other two are picks at 400 and 1500.
+- Old saves keep every hero, mode and zone they had; steps below their
+  trophies count as claimed.
 
 ---
 
