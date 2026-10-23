@@ -136,8 +136,10 @@ func refresh() -> void:
 	%RoadNext.texture = Ui.icon(_road_icon(rw))
 	%RoadNext.self_modulate = DB.CHESTS[rw["chest"]]["color"] if str(rw["kind"]) == "chest" else Color(1, 0.84, 0.45)
 	_refresh_chest_slot()
-	# Tab dots: something to do behind that tab.
-	_tab_dots["heroes"].visible = _any_upgrade() or Game.new_item_count() > 0 or Game.levels_ready(Game.hero_id()) > 0
+	# Tab dots: something to do behind that tab, marked there with the same
+	# dot (talent points to spend) or a gold one (new gear). Pieces ready to
+	# level have their own green ▲ inside and don't light the tab.
+	_tab_dots["heroes"].visible = _any_upgrade() or Game.new_item_count() > 0
 	_tab_dots["clan"].visible = _social_dot()
 	_tab_dots["shop"].visible = Game.shop_free_ready() > 0
 	_refresh_side()

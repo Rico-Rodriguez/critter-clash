@@ -25,7 +25,10 @@ const ICON_TONE := Color(0.88, 0.84, 0.76)
 const STAGE_H := 372.0
 const SLOT_TILE := 108.0
 const TILE := 118.0
+const LINE_TILE := 104.0
 const COLS := 5
+## The place under the stats that holds the skills or the piece's card.
+const REGION_H := 176.0
 ## Slots down the left of the hero, then down the right.
 const LEFT_SLOTS := ["helm", "chest", "legs"]
 const RIGHT_SLOTS := ["weapon", "trinket"]
@@ -55,6 +58,8 @@ var _popup: Control
 var _card: PanelContainer
 ## Where the card sits, in place of the hero buttons.
 var _card_box: VBoxContainer
+var _hero_panel: VBoxContainer
+var _skills_btn: Button
 var _slot_title: Label
 var _new_uids := {}
 
@@ -222,11 +227,29 @@ func _build_top(col: VBoxContainer) -> void:
 	_strip.columns = 4
 	_strip.add_theme_constant_override("h_separation", 6)
 	card.add_child(_strip)
+	# One fixed-height place under the stats: the hero's skills and buttons,
+	# or the card of the piece picked. Neither pushes the collection around.
+	var region := VBoxContainer.new()
+	region.custom_minimum_size = Vector2(0, REGION_H)
+	region.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(region)
+	_hero_panel = VBoxContainer.new()
+	_hero_panel.add_theme_constant_override("separation", 8)
+	region.add_child(_hero_panel)
+	_skills_btn = Button.new()
+	_skills_btn.theme_type_variation = "CardButton"
+	_skills_btn.focus_mode = Control.FOCUS_NONE
+	_skills_btn.custom_minimum_size = Vector2(0, 92)
+	_skills_btn.pressed.connect(func():
+		Sfx.play("ui_tap", -4.0)
+		ui._shown_hero = hero_id
+		ui.open_sheet("skills"))
+	_hero_panel.add_child(_skills_btn)
 	_hero_row = HBoxContainer.new()
 	_hero_row.add_theme_constant_override("separation", 8)
-	col.add_child(_hero_row)
+	_hero_panel.add_child(_hero_row)
 	_card_box = VBoxContainer.new()
-	col.add_child(_card_box)
+	region.add_child(_card_box)
 
 
 func _slot_column(slots: Array) -> VBoxContainer:
@@ -331,6 +354,15 @@ func _build_actor() -> void:
 ## Puts on what the hero wears, plus the selected piece as a try-on.
 func _dress() -> void:
 	var preview := {}
+	if selected.has("cos"):
+		# A skin or glow on trial: worn for the look, then put back.
+		var h := Game.hero(hero_id)
+		var was := [h.get("skin", ""), h.get("glow", "")]
+		h[selected["cos"]] = selected["key"]
+		GearLook.apply(_actor, hero_id, preview)
+		h["skin"] = was[0]
+		h["glow"] = was[1]
+		return
 	if not selected.is_empty() and str(selected["cls"]) == hero_id:
 		preview[selected["slot"]] = selected
 	GearLook.apply(_actor, hero_id, preview)
@@ -376,11 +408,14 @@ func _refresh() -> void:
 			ups += 1
 	_best_btn.text = "Equip\nbest" + ("\n▲ %d" % ups if ups > 0 else "")
 	_best_btn.modulate = Color.WHITE if ups > 0 else Color(1, 1, 1, 0.45)
-	_slot_title.text = "%s collection" % str(DB.SLOT_NAME[filter])
+	_slot_title.text = "Skins · looks only, never stats" if filter == "skins" else "%s collection" % str(DB.SLOT_NAME[filter])
 	_build_strip()
+	_build_skills()
 	_build_hero_row()
-	_hero_row.visible = _card == null
+	_hero_panel.visible = _card == null
+	var keep := _scroll.scroll_vertical
 	_build_list()
+	_keep_scroll(keep)
 	var have := 0
 	var all := 0
 	for slot in SLOT_ORDER:
@@ -393,40 +428,122 @@ func _refresh() -> void:
 	_count.text = "%s collection  ·  %d / %d found" % [str(d["name"]), have, all]
 
 
-## The slot's whole collection as a grid: a column per set, a row per weapon
-## family (one row for armor), then boss-set and unique pieces. What is not
-## found yet shows dark, with the skill it will need.
+## The slot's collection: one row per weapon family (one row for armor), its
+## best piece shown once with the ladder of sets it climbs beside it; then
+## the boss-set and unique pieces, each its own piece. What is not found yet
+## shows dark, with the skill it will need.
 func _build_list() -> void:
 	Ui.clear(_list)
+	if filter == "skins":
+		_build_skins_list()
+		return
 	var rows := Game.catalog(hero_id, filter)
-	var head := _grid()
-	for m in GearDB.TIERS:
-		var l := Ui.label(GearDB.material_name(hero_id, m), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-		l.add_theme_font_size_override("font_size", 15)
-		l.add_theme_color_override("font_color", DB.TIER_COLOR[m].lightened(0.2))
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		l.clip_text = true
-		head.add_child(l)
-	_list.add_child(head)
 	var fams: Array = DB.HERO_FAMILIES.get(hero_id, []) if filter == "weapon" else []
 	for i in rows.size():
 		var row: Array = rows[i]
-		var extra := i >= maxi(fams.size(), 1)
-		if extra:
+		if i >= maxi(fams.size(), 1):
 			_list.add_child(_section("Boss sets and uniques", row.size(), DB.rarity_color("legendary")))
-		elif not fams.is_empty():
-			var fd: Dictionary = DB.FAMILIES[fams[i]]
-			_list.add_child(_family_head(fd))
-		var grid := _grid()
-		for it in row:
-			if it.is_empty():
-				var gap := Control.new()
-				gap.custom_minimum_size = Vector2(TILE, TILE)
-				gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				grid.add_child(gap)
-			else:
-				grid.add_child(_tile(it))
-		_list.add_child(grid)
+			var grid := _grid()
+			for it in row:
+				if not it.is_empty():
+					grid.add_child(_tile(it))
+			_list.add_child(grid)
+		else:
+			_list.add_child(_line_row(row, str(fams[i]) if not fams.is_empty() else ""))
+
+
+## One family (or the armor line): the piece in view as one tile, and a
+## ladder of its sets, grey to green, filled where found. Tapping a rung
+## picks that set's piece.
+func _line_row(row: Array, fam: String) -> Control:
+	var pieces: Array = row.filter(func(x): return not x.is_empty())
+	# In view: the piece picked, else the one worn, else the best found.
+	var shown: Dictionary = pieces[0]
+	var found_n := 0
+	var worn := {}
+	var picked := {}
+	for it: Dictionary in pieces:
+		if int(it["uid"]) != 0:
+			found_n += 1
+			shown = it
+			if Game.owner_of(int(it["uid"])) == hero_id:
+				worn = it
+		if _same(selected, it):
+			picked = it
+	if not worn.is_empty():
+		shown = worn
+	if not picked.is_empty():
+		shown = picked
+	var panel := PanelContainer.new()
+	panel.theme_type_variation = "Card"
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	panel.add_child(h)
+	var tile := _tile(shown)
+	tile.custom_minimum_size = Vector2(LINE_TILE, LINE_TILE)
+	tile.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	h.add_child(tile)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 6)
+	h.add_child(v)
+	if fam != "":
+		v.add_child(_family_head(DB.FAMILIES[fam]))
+	else:
+		var n := Ui.label(str(DB.SLOT_NAME[filter]).to_upper(), "Caption")
+		n.add_theme_font_size_override("font_size", 18)
+		n.add_theme_color_override("font_color", GOLD)
+		v.add_child(n)
+	var ladder := HBoxContainer.new()
+	ladder.add_theme_constant_override("separation", 4)
+	for it: Dictionary in row:
+		if it.is_empty():
+			var gap := Control.new()
+			gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			ladder.add_child(gap)
+			continue
+		ladder.add_child(_rung(it, _same(it, shown)))
+	v.add_child(ladder)
+	var st := Ui.label("%d of %d found" % [found_n, pieces.size()] + ("  ·  wearing %s" % _tier_tag(shown) if Game.owner_of(int(shown["uid"])) == hero_id and int(shown["uid"]) != 0 else ""), "Small")
+	st.add_theme_color_override("font_color", DIM)
+	st.add_theme_font_size_override("font_size", 16)
+	v.add_child(st)
+	return panel
+
+
+## One set on a family's ladder: its name in its color, filled when found;
+## the skill it needs when the hero lacks it.
+func _rung(it: Dictionary, on: bool) -> Button:
+	var col := _frame_color(it)
+	var found := int(it["uid"]) != 0
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size = Vector2(0, 34)
+	var block := Game.wear_block(hero_id, it)
+	# The body font, not the button's wide capitals: set names fit the rung.
+	var l := Ui.label(_tier_tag(it) if block == "" or found else "%s %d" % [DB.SKILL_NAME[GearDB.skill_for(hero_id, str(it["slot"]))].left(3), GearDB.req_for(it)], "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	l.add_theme_font_size_override("font_size", 15)
+	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.clip_text = true
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(l)
+	var box := StyleBoxFlat.new()
+	box.set_corner_radius_all(8)
+	box.anti_aliasing = true
+	box.set_border_width_all(3 if on else 2)
+	box.border_color = col.lightened(0.4) if on else (col if found else col.darkened(0.5))
+	box.bg_color = Color(col.r, col.g, col.b, 0.55) if found else Color(0.06, 0.055, 0.07)
+	for k in ["normal", "hover", "pressed"]:
+		b.add_theme_stylebox_override(k, box)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	l.add_theme_color_override("font_color", Color(0.98, 0.95, 0.9) if found else (Color(1.0, 0.6, 0.55) if block != "" else Color(0.55, 0.53, 0.5)))
+	b.pressed.connect(func():
+		Sfx.play("ui_tap", -4.0)
+		_select(it, true))
+	return b
 
 
 ## A weapon family's name and how it fights, above its row.
@@ -457,6 +574,157 @@ func _grid() -> GridContainer:
 	return g
 
 
+## Skins as a collection of their own: weapon skins, then glows. Tapping one
+## puts it on the hero above to try.
+func _on_skins() -> void:
+	_close_card(false)
+	selected = {}
+	filter = "skins"
+	_scroll.scroll_vertical = 0
+	_dress()
+	_refresh()
+
+
+func _build_skins_list() -> void:
+	var skins: Array = DB.WEAPON_SKIN_ORDER.filter(func(k): return hero_id in DB.WEAPON_SKINS[k]["heroes"])
+	if not skins.is_empty():
+		_list.add_child(_section("Weapon skins", skins.size(), GOLD))
+		var sg := _grid()
+		for k: String in skins:
+			sg.add_child(_cos_tile({"cos": "skin", "key": k}))
+		_list.add_child(sg)
+	var glows: Array = DB.GLOW_ORDER.filter(func(g): return not DB.GLOWS[g].get("gift", false) or g in Game.hero(hero_id).get("glows", []))
+	_list.add_child(_section("Weapon glows", glows.size(), Color(0.75, 0.6, 1.0)))
+	var gg := _grid()
+	for g: String in glows:
+		gg.add_child(_cos_tile({"cos": "glow", "key": g}))
+	_list.add_child(gg)
+
+
+## A skin or glow's color, art, owned and worn state.
+func _cos_info(c: Dictionary) -> Dictionary:
+	var h := Game.hero(hero_id)
+	var k := str(c["key"])
+	if c["cos"] == "skin":
+		var sd: Dictionary = DB.WEAPON_SKINS[k]
+		return {"name": sd["name"], "kind": "Weapon skin", "icon": sd["icon"], "col": GOLD, "tint": Color("f6e3b4"),
+			"owned": k in h.get("skins", []), "worn": str(h.get("skin", "")) == k, "price": Game.skin_price(k)}
+	var gd: Dictionary = DB.GLOWS[k]
+	var gc := Color(gd["color"], 1.0)
+	return {"name": "%s glow" % gd["name"], "kind": "Weapon glow", "icon": "dripping-sword", "col": gc, "tint": gc.lerp(Color.WHITE, 0.2),
+		"owned": k in h.get("glows", []), "worn": str(h.get("glow", "")) == k, "price": Game.glow_price(k)}
+
+
+func _cos_tile(c: Dictionary) -> Button:
+	var info := _cos_info(c)
+	var col: Color = info["col"]
+	var on: bool = selected.get("key", "") == c["key"] and selected.get("cos", "") == c["cos"]
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(TILE, TILE)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_stylebox_override("normal", _tile_box(col, on, 0.0))
+	b.add_theme_stylebox_override("hover", _tile_box(col, on, 0.08))
+	b.add_theme_stylebox_override("pressed", _tile_box(col, true, 0.14))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon := Ui.icon_rect(str(info["icon"]), TILE * 0.55, info["tint"])
+	if not info["owned"]:
+		icon.modulate = Color(1, 1, 1, 0.55)
+	cc.add_child(icon)
+	b.add_child(cc)
+	if info["worn"]:
+		b.add_child(_badge("✓", GOLD, Control.PRESET_BOTTOM_RIGHT))
+	elif not info["owned"]:
+		b.add_child(_badge(Ui.fmt_num(int(info["price"])), Color(0.95, 0.85, 0.6), Control.PRESET_TOP_LEFT))
+	b.pressed.connect(func():
+		Sfx.play("ui_tap", -4.0)
+		if on:
+			_close_card(true)
+		else:
+			_select_cos(c))
+	return b
+
+
+func _select_cos(c: Dictionary) -> void:
+	selected = c
+	_dress()
+	_refresh()
+	_open_cos_card(c)
+
+
+## A skin or glow's card: it is on the hero above already; wear it, take it
+## off, or buy it (a second tap confirms a purchase).
+func _open_cos_card(c: Dictionary) -> void:
+	_close_card(false)
+	var info := _cos_info(c)
+	_card = PanelContainer.new()
+	_card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_card.add_theme_stylebox_override("panel", _card_box_style(info["col"]))
+	_card_box.add_child(_card)
+	_hero_panel.visible = false
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	_card.add_child(v)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 14)
+	var hv := VBoxContainer.new()
+	hv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var nm := Ui.label(str(info["name"]), "Heading")
+	nm.add_theme_font_size_override("font_size", 25)
+	nm.add_theme_color_override("font_color", Color(info["col"]).lightened(0.25))
+	hv.add_child(nm)
+	var sl := Ui.label("%s · looks only · %s" % [info["kind"], "worn" if info["worn"] else ("yours" if info["owned"] else "trying it on")], "Small")
+	sl.add_theme_color_override("font_color", DIM)
+	hv.add_child(sl)
+	head.add_child(hv)
+	var x := _round_button("✕", func(): _close_card(true))
+	x.custom_minimum_size = Vector2(56, 56)
+	head.add_child(x)
+	v.add_child(head)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var key := str(c["key"])
+	if info["owned"]:
+		row.add_child(_action("Take off" if info["worn"] else "Wear", "" if info["worn"] else "PrimaryButton", func():
+			if c["cos"] == "skin":
+				Game.set_skin(hero_id, "" if info["worn"] else key)
+			else:
+				Game.set_glow(hero_id, "" if info["worn"] else key)
+			Sfx.play("ui_toggle", -4.0)
+			_redress()
+			_select_cos(c)))
+	else:
+		var price := int(info["price"])
+		var buy := _action("Buy · %s" % Ui.fmt_num(price), "GoldButton", Callable())
+		buy.icon = Ui.icon("two-coins")
+		buy.pressed.connect(func():
+			if not buy.has_meta("sure"):
+				buy.set_meta("sure", true)
+				buy.text = "Tap again to buy · %s" % Ui.fmt_num(price)
+				Sfx.play("ui_tap", -4.0)
+				return
+			var ok := Game.buy_skin(hero_id, key) if c["cos"] == "skin" else Game.buy_glow(hero_id, key)
+			if not ok:
+				Sfx.play("ui_error", -6.0)
+				_say("Not enough gold", RED)
+				return
+			Sfx.play("coin", -2.0)
+			_say("%s is yours" % str(info["name"]), GREEN)
+			ui.refresh()
+			_redress()
+			_select_cos(c))
+		buy.disabled = Game.gold() < price
+		if buy.disabled:
+			buy.text = "Needs %s gold" % Ui.fmt_num(price)
+		row.add_child(buy)
+	v.add_child(row)
+	_card.modulate.a = 0.0
+	_card.create_tween().tween_property(_card, "modulate:a", 1.0, 0.16)
+
+
 func _section(title: String, n: int, col: Color) -> Control:
 	var l := Ui.label("%s  ·  %d" % [title.to_upper(), n], "Caption")
 	l.add_theme_color_override("font_color", col)
@@ -483,7 +751,7 @@ func _tier_tag(it: Dictionary) -> String:
 
 
 func _same(a: Dictionary, b: Dictionary) -> bool:
-	return not a.is_empty() and not b.is_empty() and Game.piece_key(a) == Game.piece_key(b)
+	return a.has("slot") and b.has("slot") and Game.piece_key(a) == Game.piece_key(b)
 
 
 ## One collection tile. Found: the icon in its set's frame, its level, a
@@ -628,15 +896,60 @@ func _build_strip() -> void:
 		_strip.add_child(cell)
 
 
-## The hero's own growth beside the gear: skills, talents, looks, and who
-## walks with them.
+## A rebuilt list comes back at the top; put the reader back where they were
+## once it has its height.
+func _keep_scroll(v: int) -> void:
+	await get_tree().process_frame
+	if is_instance_valid(_scroll):
+		_scroll.scroll_vertical = v
+
+
+## The hero's skill levels at a glance (what gear they can wear rests on
+## them); tapping opens the Skills sheet.
+func _build_skills() -> void:
+	Ui.clear(_skills_btn)
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 16.0
+	v.offset_right = -16.0
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_skills_btn.add_child(v)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var cl := Ui.label("Combat level %d" % Game.combat_level(hero_id), "Body")
+	cl.add_theme_font_size_override("font_size", 20)
+	cl.add_theme_color_override("font_color", GOLD)
+	cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(cl)
+	var more := Ui.label("Skills ›", "Caption")
+	more.add_theme_font_size_override("font_size", 16)
+	top.add_child(more)
+	v.add_child(top)
+	var chips := HBoxContainer.new()
+	chips.add_theme_constant_override("separation", 18)
+	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for sk: String in DB.STYLE_SKILLS[DB.HEROES[hero_id]["skill"]]:
+		var c := HBoxContainer.new()
+		c.add_theme_constant_override("separation", 6)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(Ui.icon_rect(DB.SKILL_ICON[sk], 28, Color(0.95, 0.78, 0.45)))
+		var l := Ui.label("%s %d" % [DB.SKILL_NAME[sk], Game.skill_level(sk, hero_id)], "Body")
+		l.add_theme_font_size_override("font_size", 19)
+		c.add_child(l)
+		chips.add_child(c)
+	v.add_child(chips)
+
+
+## Talents, skins, and who walks with the hero. A red dot on Talents is the
+## same red dot the Heroes tab and the faces show.
 func _build_hero_row() -> void:
 	Ui.clear(_hero_row)
 	var pts := Game.talent_points(hero_id)
 	var ally := str(Game.data.get("ally", ""))
-	for spec in [["Skills", "BlueButton", "skills"],
-			["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"],
-			["Skins", "BlueButton", "looks"],
+	for spec in [["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"],
+			["Skins", "BlueButton" if filter != "skins" else "GoldButton", "looks"],
 			["Ally: " + (str(DB.HEROES[ally]["name"]) if ally != "" else "none"), "Ghost", "ally"]]:
 		var b := Button.new()
 		b.theme_type_variation = spec[1]
@@ -647,9 +960,19 @@ func _build_hero_row() -> void:
 		b.add_theme_font_size_override("font_size", 19)
 		b.clip_text = true
 		var what: String = spec[2]
+		if what == "talents" and pts > 0:
+			var dot := PanelContainer.new()
+			dot.theme_type_variation = "Badge"
+			dot.custom_minimum_size = Vector2(20, 20)
+			dot.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+			dot.position += Vector2(-14, -6)
+			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			b.add_child(dot)
 		b.pressed.connect(func():
 			Sfx.play("ui_tap", -4.0)
-			if what == "ally":
+			if what == "looks":
+				_on_skins()
+			elif what == "ally":
 				var pool: Array = [""] + DB.HERO_ORDER.filter(func(x): return Game.hero(x)["unlocked"] and x != hero_id)
 				var i := pool.find(str(Game.data.get("ally", "")))
 				Game.data["ally"] = pool[(i + 1) % pool.size()]
@@ -670,7 +993,7 @@ func _open_hero(id: String) -> void:
 ## instead of what they have ({} otherwise).
 func _try_on() -> Dictionary:
 	var it := selected
-	if not it.is_empty() and str(it["cls"]) == hero_id and Game.owner_of(int(it["uid"])) != hero_id and Game.wear_block(hero_id, it) == "":
+	if it.has("slot") and str(it["cls"]) == hero_id and Game.owner_of(int(it["uid"])) != hero_id and Game.wear_block(hero_id, it) == "":
 		return {it["slot"]: it}
 	return {}
 
@@ -784,18 +1107,9 @@ func _open_card(it: Dictionary) -> void:
 	var block := Game.wear_block(hero_id, it)
 	_card = PanelContainer.new()
 	_card.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bs := StyleBoxFlat.new()
-	bs.bg_color = Color(0.1, 0.09, 0.11, 0.98)
-	bs.set_corner_radius_all(22)
-	bs.set_border_width_all(3)
-	bs.border_color = col
-	bs.content_margin_left = 16
-	bs.content_margin_right = 16
-	bs.content_margin_top = 12
-	bs.content_margin_bottom = 12
-	_card.add_theme_stylebox_override("panel", bs)
+	_card.add_theme_stylebox_override("panel", _card_box_style(col))
 	_card_box.add_child(_card)
-	_hero_row.visible = false
+	_hero_panel.visible = false
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	_card.add_child(v)
@@ -813,7 +1127,7 @@ func _open_card(it: Dictionary) -> void:
 	nm.add_theme_color_override("font_color", col.lightened(0.25))
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hv.add_child(nm)
-	var sl := Ui.label(Game.item_tag(it) + ("" if mine else " · %s" % DB.HEROES[it["cls"]]["name"]), "Small")
+	var sl := Ui.label(Game.item_tag(it) + ("" if mine else " · %s" % DB.HEROES[it["cls"]]["name"]) + _copies_text(it), "Small")
 	sl.add_theme_color_override("font_color", DIM)
 	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hv.add_child(sl)
@@ -844,8 +1158,6 @@ func _open_card(it: Dictionary) -> void:
 		v.add_child(_card_note("Two-handed: no shield with it.", Color(1.0, 0.65, 0.3)))
 	if not found:
 		v.add_child(_card_note("Not found yet. " + Game.drop_hint(it) + ("." if block == "" else ", and needs %s." % block.trim_prefix("Requires ")), DIM))
-	else:
-		v.add_child(_level_row(it))
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 10)
 	if is_worn:
@@ -879,6 +1191,19 @@ func _open_card(it: Dictionary) -> void:
 	_card.create_tween().tween_property(_card, "modulate:a", 1.0, 0.16)
 
 
+func _card_box_style(col: Color) -> StyleBoxFlat:
+	var bs := StyleBoxFlat.new()
+	bs.bg_color = Color(0.1, 0.09, 0.11, 0.98)
+	bs.set_corner_radius_all(22)
+	bs.set_border_width_all(3)
+	bs.border_color = col
+	bs.content_margin_left = 16
+	bs.content_margin_right = 16
+	bs.content_margin_top = 12
+	bs.content_margin_bottom = 12
+	return bs
+
+
 func _card_note(text: String, col: Color) -> Label:
 	var l := Ui.label(text, "Small")
 	l.add_theme_color_override("font_color", col)
@@ -886,42 +1211,21 @@ func _card_note(text: String, col: Color) -> Label:
 	return l
 
 
-## Copies toward the next level.
-func _level_row(it: Dictionary) -> Control:
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
-	var lv := int(it.get("lv", 1))
-	if lv >= DB.PIECE_MAX_LV:
-		var m := Ui.label("Level %d · max" % lv, "Body")
-		m.add_theme_color_override("font_color", GOLD)
-		v.add_child(m)
-		return v
-	var need := int(DB.level_cost(it)["cards"])
-	var have := int(it.get("cards", 0))
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 12)
-	var l := Ui.label("Level %d" % lv, "Body")
-	l.add_theme_font_size_override("font_size", 21)
-	h.add_child(l)
-	var bar := _copies_bar(it)
-	bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	bar.custom_minimum_size = Vector2(0, 14)
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(bar)
-	var c := Ui.label("%d / %d copies to level up" % [have, need], "Small")
-	c.add_theme_color_override("font_color", GREEN if have >= need else DIM)
-	h.add_child(c)
-	v.add_child(h)
-	return v
+## Copies toward the next level, for the card's second line.
+func _copies_text(it: Dictionary) -> String:
+	if int(it["uid"]) == 0:
+		return ""
+	if int(it.get("lv", 1)) >= DB.PIECE_MAX_LV:
+		return " · max level"
+	return " · %d/%d copies" % [int(it.get("cards", 0)), int(DB.level_cost(it)["cards"])]
 
 
 func _close_card(deselect: bool) -> void:
 	if _card and is_instance_valid(_card):
 		_card.queue_free()
 	_card = null
-	if _hero_row:
-		_hero_row.visible = true
+	if _hero_panel:
+		_hero_panel.visible = true
 	if deselect and not selected.is_empty():
 		selected = {}
 		_dress()
