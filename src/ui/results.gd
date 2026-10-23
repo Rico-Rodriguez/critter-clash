@@ -256,7 +256,12 @@ func _loot_row(it: Dictionary, hero_id: String, played := "") -> Control:
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(l)
 	var is_gear: bool = it["slot"] in DB.SLOTS and int(it.get("uid", 0)) > 0
-	if is_gear:
+	if is_gear and it.get("dupe", false):
+		# A piece already owned: a copy toward its next level.
+		var cp := Ui.label("+1 copy", "Value")
+		cp.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0))
+		row.add_child(cp)
+	elif is_gear:
 		var up := Ui.label("▲" if hero_id == played else "▲ %s" % DB.HEROES[hero_id]["name"], "Value")
 		up.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5))
 		row.add_child(up)

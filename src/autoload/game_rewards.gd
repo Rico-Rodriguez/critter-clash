@@ -455,8 +455,6 @@ func shop_block(i: int) -> String:
 		return "Sold"
 	if gold() < int(d["price"]):
 		return "Not enough gold"
-	if d["kind"] == "gear" and data["items"].size() >= INVENTORY_CAP:
-		return "Bag full"
 	return ""
 
 

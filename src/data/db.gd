@@ -814,19 +814,27 @@ static func combat_level(levels: Dictionary) -> int:
 
 # --- Gold sinks -------------------------------------------------------------
 
-## Reforge rerolls an item's extra affixes; temper raises its material one step
-## (stats scale with it). Costs grow with material and rarity.
-const REFORGE_GOLD := 60
-const TEMPER_GOLD := 220
+## Gear is a collection: one copy of each piece. Later drops of a piece are
+## copies, and copies plus gold level it up (Clash Royale cards). A piece's
+## stats are fixed: its slot's main stat and, from Warden up, its set's own
+## second stat, times the set (MAT_STAT a step) and the level.
+const PIECE_MAX_LV := 10
+const PIECE_LV_STAT := 0.08
+## The second stat each set adds (Gravedigger has none).
+const SET_STAT := ["", "armor", "hp", "crit", "regen"]
+## Copies used up to go from level n to n + 1 (index n - 1), and the gold,
+## which also grows with the set: the long-term gold sink.
+const PIECE_CARDS := [1, 2, 3, 4, 6, 8, 11, 15, 20]
+const PIECE_GOLD := [60, 120, 220, 380, 600, 900, 1300, 1900, 2700]
+const PIECE_GOLD_SET := 0.6
 ## Talent reset: the first is free, then this much per talent point earned.
 const RESPEC_GOLD := 90
 
-static func reforge_cost(it: Dictionary) -> int:
-	return REFORGE_GOLD * (1 + int(it.get("mat", 0))) * (1 + RARITIES.find(str(it["rarity"])))
-
-
-static func temper_cost(it: Dictionary) -> int:
-	return TEMPER_GOLD * int(pow(int(it.get("mat", 0)) + 1, 2))
+## What taking a piece from level `lv` to the next costs: {cards, gold}.
+static func level_cost(it: Dictionary) -> Dictionary:
+	var lv := clampi(int(it.get("lv", 1)), 1, PIECE_MAX_LV - 1)
+	var g := float(PIECE_GOLD[lv - 1]) * (1.0 + PIECE_GOLD_SET * int(it.get("mat", 0)))
+	return {"cards": int(PIECE_CARDS[lv - 1]), "gold": int(round(g / 10.0)) * 10}
 
 ## Weapon glows bought with gold, per hero. "" is none.
 const GLOWS := {
@@ -846,22 +854,22 @@ const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship"]
 ## cost about three times the gold inside them, so buying one trades gold for
 ## shards and gear, never gold for more gold.
 const SHOP_CHESTS := {"silver": 400, "gold": 1100, "crypt": 2600}
-## Daily deals, drawn fresh each day: a free gift, shards for two heroes, two
-## pieces of gear for the hero in use and a chest at a discount. Each sells once.
+## Daily deals, drawn fresh each day: a free gift, shards for two heroes, copies
+## of two pieces for the hero in use and a chest at a discount. Each sells once.
 const SHOP_SHARD_GOLD := 30
 const SHOP_DEAL_OFF := 0.25
 const SHOP_CHEST_OFF := 0.3
 const SHOP_FREE_GOLD := 80
 const SHOP_FREE_GOLD_TIER := 25
 const SHOP_FREE_SHARDS := 5
-## Gear price by rarity, then +SHOP_GEAR_MAT for each material tier above the first.
-const SHOP_GEAR_GOLD := {"magic": 280, "rare": 700}
-const SHOP_GEAR_MAT := 0.5
+## A copy of a piece, then +SHOP_GEAR_MAT for each set above the first.
+const SHOP_GEAR_GOLD := 400
+const SHOP_GEAR_MAT := 0.6
 ## One glow a week is on sale for every hero.
 const SHOP_GLOW_OFF := 0.3
 
 static func shop_gear_price(it: Dictionary) -> int:
-	return int(round(int(SHOP_GEAR_GOLD.get(str(it["rarity"]), 280)) * (1.0 + SHOP_GEAR_MAT * int(it.get("mat", 0))) / 10.0)) * 10
+	return int(round(SHOP_GEAR_GOLD * (1.0 + SHOP_GEAR_MAT * int(it.get("mat", 0))) / 10.0)) * 10
 
 
 ## Weapon skins: a new model in the hand, whatever weapon is equipped (the
@@ -901,10 +909,6 @@ const SETS := {
 		"2": {"speed": 0.08, "crit": 0.05, "desc": "+8% move speed, +5% crit"}, "4": {"flags": {"dodge_heal": 0.12}, "desc": "Perfect dodges heal 12% health"}},
 }
 const SET_CHANCE := 0.3
-## Ancient: a rare roll on Hell and up, every number 30% higher.
-const ANCIENT_CHANCE := 0.03
-const ANCIENT_MULT := 1.3
-const ANCIENT_FROM_TIER := 5
 
 # --- Hero mastery and rating ---------------------------------------------------
 

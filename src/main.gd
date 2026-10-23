@@ -325,7 +325,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -385,8 +385,19 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot == "pickhero":
 					await _wait(1.2)
 				elif shot != "lobby" and shot != "lobbychest":
-					current.open_sheet("bag" if shot == "equip" else shot)
+					current.open_sheet("bag" if shot.begins_with("equip") else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
+					if shot == "equipcard":
+						# The card of the best weapon owned, with a copy to level it.
+						var eq: Node = current.ui.equipment
+						var w: Dictionary = {}
+						for it2 in Game.data["items"]:
+							if it2["slot"] == "weapon" and str(it2["cls"]) == hid and (w.is_empty() or int(it2["mat"]) > int(w["mat"])):
+								w = it2
+						if not w.is_empty():
+							w["cards"] = int(DB.level_cost(w)["cards"])
+							eq._select(w)
+						await _wait(0.6)
 				await _save(shot)
 			"clanfind", "clans", "clancreate", "clanin", "chat", "members", "party", "friends", "invite", "ranks", "gifts", "account", "player":
 				# The social screens, signed in to a local test server filled by

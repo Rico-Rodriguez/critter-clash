@@ -66,13 +66,36 @@ func run() -> int:
 	var got := Game.open_chest("silver")
 	_ok("chest pays gold", Game.gold() > gold_before and got.size() >= 3)
 
-	# An exact copy of a worn rare is junk; the worn one and a different rare are not.
-	var rare := Game.grant_item(Game.make_item("knight", "helm", 0, "rare"))
-	var twin: Dictionary = Game.grant_item(rare.duplicate(true))
-	var other := Game.grant_item(Game.make_item("knight", "chest", 0, "rare"))
-	Game.equip("knight", int(rare["uid"]))
-	var junk_uids := Game.junk_items().map(func(x): return int(x["uid"]))
-	_ok("spare copy is junk", junk_uids.has(int(twin["uid"])) and not junk_uids.has(int(rare["uid"])) and not junk_uids.has(int(other["uid"])))
+	# Gear is a collection: a second drop of a piece is a copy toward its level.
+	var n0: int = Game.data["items"].size()
+	var helm := Game.grant_item(Game.make_item("knight", "helm", 0, "rare"))
+	var again := Game.grant_item(Game.make_item("knight", "helm", 0, "common"))
+	_ok("a second drop is a copy", again.get("dupe", false) and int(again["uid"]) == int(helm["uid"]) and Game.data["items"].size() == n0 + 1 and int(Game.item(int(helm["uid"]))["cards"]) == 1)
+	var other := Game.grant_item(Game.make_item("knight", "helm", 1, "rare"))
+	_ok("another set is another piece", not other.get("dupe", false) and Game.data["items"].size() == n0 + 2)
+	var hu := int(helm["uid"])
+	Game.item(hu)["cards"] = 0
+	_ok("no copies, no level", Game.level_block(Game.item(hu)) != "" and not Game.level_up(hu))
+	var cost := DB.level_cost(Game.item(hu))
+	Game.item(hu)["cards"] = int(cost["cards"])
+	Game.data["gold"] = int(cost["gold"]) + 5
+	var main_k: String = DB.SLOT_MAIN["helm"]
+	var hp1 := int(Game.item(hu)["stats"][main_k])
+	_ok("copies and gold level a piece", Game.level_up(hu) and int(Game.item(hu)["lv"]) == 2 and int(Game.item(hu)["cards"]) == 0 and Game.gold() == 5 and int(Game.item(hu)["stats"][main_k]) > hp1)
+	var cat := Game.catalog("barbarian", "weapon")
+	_ok("the armory has a row per family", cat.size() == DB.HERO_FAMILIES["barbarian"].size() and cat[0].size() == GearDB.TIERS)
+	# v8 saves: copies of a piece fold into the worn one as level copies.
+	var a := Game.make_item("knight", "chest", 2, "rare")
+	a["uid"] = 501
+	var b := a.duplicate(true)
+	b["uid"] = 502
+	b["ancient"] = true
+	var c := Game.make_item("knight", "chest", 3, "rare")
+	c["uid"] = 503
+	var v8 := {"version": 8, "items": [a, b, c], "heroes": {"knight": {"gear": {"chest": 502}}}}
+	Game._migrate_v8(v8)
+	var kept: Dictionary = v8["items"][0]
+	_ok("v8 folds copies into the worn piece", v8["items"].size() == 2 and int(kept["uid"]) == 502 and int(kept["cards"]) == 1 and not kept.has("ancient") and int(v8["heroes"]["knight"]["gear"]["chest"]) == 502)
 
 	var round_trip = JSON.parse_string(JSON.stringify(Game.data))
 	_ok("save round trip", _same(Game.data, round_trip))
@@ -295,11 +318,6 @@ func _meta_tests() -> void:
 	Game.data["gold"] = 100000
 	for s in DB.SKILLS:
 		Game.skills("knight")[s] = DB.xp_for_level(60)
-	var it := Game.grant_item(Game.make_item("knight", "weapon", 2, "rare"))
-	var uid := int(it["uid"])
-	var main_v := int(it["stats"]["dmg"])
-	_ok("reforge keeps the main affix", Game.reforge(uid) and int(Game.item(uid)["stats"]["dmg"]) == main_v)
-	_ok("temper raises material and stats", Game.temper(uid) and int(Game.item(uid)["mat"]) == 3 and int(Game.item(uid)["stats"]["dmg"]) > main_v)
 	var g0 := Game.gold()
 	_ok("first respec is free", Game.respec("knight") and Game.gold() == g0)
 	_ok("second respec costs gold", Game.respec("knight") and Game.gold() < g0)

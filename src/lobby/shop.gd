@@ -277,6 +277,9 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 			tag.add_theme_color_override("font_color", DB.gear_color(it))
 			b.add_child(tag)
 			lines.append_array(Game.describe_stats(it))
+			var have := Game.owned(it)
+			if not have.is_empty():
+				lines.append("You own it (Lv %d): this is a copy toward its next level." % int(have.get("lv", 1)))
 			var cur := Game.equipped(Game.hero_id(), str(it["slot"]))
 			if not cur.is_empty():
 				lines.append("Worn now: %s" % cur["name"])

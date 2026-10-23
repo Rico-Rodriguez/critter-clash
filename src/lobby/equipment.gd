@@ -36,8 +36,7 @@ var lobby: Node3D
 ## Shown as the camp's Gear tab: no way back (the tab bar is the way out).
 var tab_mode := false
 var hero_id := "knight"
-var filter := ""
-var show_others := false
+var filter := "weapon"
 var selected: Dictionary = {}
 
 var _title: Label
@@ -51,7 +50,6 @@ var _tab_row: HBoxContainer
 var _list: VBoxContainer
 var _scroll: DragScroll
 var _count: Label
-var _sell_btn: Button
 var _toast: Label
 var _hint: Label
 var _stage: Control
@@ -295,7 +293,7 @@ func _build_stage(col: Container) -> void:
 func _build_bag(col: VBoxContainer) -> void:
 	_tab_row = HBoxContainer.new()
 	_tab_row.add_theme_constant_override("separation", 4)
-	for f in ["", "weapon", "helm", "chest", "legs", "trinket"]:
+	for f in SLOT_ORDER:
 		var b := Button.new()
 		b.theme_type_variation = "Ghost"
 		b.toggle_mode = true
@@ -303,13 +301,10 @@ func _build_bag(col: VBoxContainer) -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 58)
 		b.add_theme_font_size_override("font_size", 17)
-		if f == "":
-			b.text = "All"
-		else:
-			b.icon = Ui.icon(DB.SLOT_ICON[f])
-			b.expand_icon = false
-			b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			b.add_theme_constant_override("icon_max_width", 34)
+		b.icon = Ui.icon(DB.SLOT_ICON[f])
+		b.expand_icon = false
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.add_theme_constant_override("icon_max_width", 34)
 		var ff: String = f
 		b.pressed.connect(func():
 			filter = ff
@@ -319,7 +314,11 @@ func _build_bag(col: VBoxContainer) -> void:
 			_refresh())
 		_tab_row.add_child(b)
 		_tabs[f] = b
-	col.add_child(_tab_row)
+	# The slot tabs sit in their own plate, apart from the set columns below.
+	var plate := PanelContainer.new()
+	plate.theme_type_variation = "Card"
+	plate.add_child(_tab_row)
+	col.add_child(plate)
 	_scroll = DragScroll.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.custom_minimum_size = Vector2(0, 150)
@@ -330,16 +329,9 @@ func _build_bag(col: VBoxContainer) -> void:
 	_list.add_theme_constant_override("separation", 6)
 	_scroll.add_child(_list)
 	var foot := HBoxContainer.new()
-	foot.add_theme_constant_override("separation", 14)
-	_sell_btn = Button.new()
-	_sell_btn.custom_minimum_size = Vector2(0, 64)
-	_sell_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_sell_btn.focus_mode = Control.FOCUS_NONE
-	_sell_btn.add_theme_font_size_override("font_size", 21)
-	_sell_btn.pressed.connect(_confirm_sell_junk)
-	foot.add_child(_sell_btn)
-	_count = Ui.label("", "Caption")
-	_count.modulate.a = 0.7
+	foot.alignment = BoxContainer.ALIGNMENT_CENTER
+	_count = Ui.label("", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	_count.modulate.a = 0.75
 	foot.add_child(_count)
 	col.add_child(foot)
 
@@ -408,98 +400,82 @@ func _refresh() -> void:
 	_best_btn.modulate = Color.WHITE if ups > 0 else Color(1, 1, 1, 0.45)
 	for f: String in _tabs:
 		_tabs[f].button_pressed = f == filter
+		var ready_n := 0
+		for it in Game.data["items"]:
+			if str(it.get("cls", "")) == hero_id and it["slot"] == f and Game.level_block(it) == "":
+				ready_n += 1
+		for c in _tabs[f].get_children():
+			c.queue_free()
+		if ready_n > 0:
+			_tabs[f].add_child(_badge("▲%d" % ready_n, GREEN, Control.PRESET_TOP_RIGHT))
 	_build_strip()
 	_build_hero_row()
 	_build_list()
-	var junk := Game.junk_items()
-	var gold := 0
-	for it in junk:
-		gold += Game.item_value(it)
-	_sell_btn.text = "Sell junk (%d) · %d gold" % [junk.size(), gold] if not junk.is_empty() else "No junk to sell"
-	_sell_btn.disabled = junk.is_empty()
-	_count.text = "Bag %d / %d" % [Game.data["items"].size(), Game.INVENTORY_CAP]
+	var have := 0
+	var all := 0
+	for slot in SLOT_ORDER:
+		for row in Game.catalog(hero_id, slot):
+			for it in row:
+				if not it.is_empty():
+					all += 1
+					if int(it["uid"]) != 0:
+						have += 1
+	_count.text = "%s collection  ·  %d / %d found" % [str(d["name"]), have, all]
 
 
-## The bag as tile grids, in groups: what would make you stronger, what you
-## wear, the rest you could wear, what needs more skill, other heroes' gear.
+## The slot's whole collection as a grid: a column per set, a row per weapon
+## family (one row for armor), then boss-set and unique pieces. What is not
+## found yet shows dark, with the skill it will need.
 func _build_list() -> void:
 	Ui.clear(_list)
-	var groups := {"up": [], "worn": [], "bag": [], "locked": [], "others": []}
-	for it in Game.data["items"]:
-		if filter != "" and it["slot"] != filter:
-			continue
-		if str(it["cls"]) != hero_id:
-			groups["others"].append(it)
-		elif Game.owner_of(int(it["uid"])) == hero_id:
-			groups["worn"].append(it)
-		elif Game.wear_block(hero_id, it) != "":
-			groups["locked"].append(it)
-		elif _gain(it) > 0:
-			groups["up"].append(it)
-		else:
-			groups["bag"].append(it)
-	for k: String in groups:
-		groups[k].sort_custom(_better_first)
-	groups["up"].sort_custom(func(a, b): return _gain(a) > _gain(b))
-	groups["worn"].sort_custom(func(a, b): return SLOT_ORDER.find(a["slot"]) < SLOT_ORDER.find(b["slot"]))
-	var any := false
-	for spec in [["up", "Upgrades", GREEN], ["worn", "Wearing", GOLD], ["bag", "In your bag", DIM], ["locked", "Needs more skill", RED]]:
-		var items: Array = groups[spec[0]]
-		if items.is_empty():
-			continue
-		any = true
-		# Exact copies stack into one tile with a count.
-		var stacks := {}
-		var order := []
-		for it in items:
-			var k := Game.copy_key(it)
-			if not stacks.has(k):
-				stacks[k] = 0
-				order.append(it)
-			stacks[k] += 1
-		_list.add_child(_section(spec[1], order.size(), spec[2]))
+	var rows := Game.catalog(hero_id, filter)
+	var head := _grid()
+	for m in GearDB.TIERS:
+		var l := Ui.label(GearDB.material_name(hero_id, m), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		l.add_theme_font_size_override("font_size", 15)
+		l.add_theme_color_override("font_color", DB.TIER_COLOR[m].lightened(0.2))
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.clip_text = true
+		head.add_child(l)
+	_list.add_child(head)
+	var fams: Array = DB.HERO_FAMILIES.get(hero_id, []) if filter == "weapon" else []
+	for i in rows.size():
+		var row: Array = rows[i]
+		var extra := i >= maxi(fams.size(), 1)
+		if extra:
+			_list.add_child(_section("Boss sets and uniques", row.size(), DB.rarity_color("legendary")))
+		elif not fams.is_empty():
+			var fd: Dictionary = DB.FAMILIES[fams[i]]
+			_list.add_child(_family_head(fd))
 		var grid := _grid()
-		for it in order:
-			grid.add_child(_tile(it, stacks[Game.copy_key(it)]))
+		for it in row:
+			if it.is_empty():
+				var gap := Control.new()
+				gap.custom_minimum_size = Vector2(TILE, TILE)
+				gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				grid.add_child(gap)
+			else:
+				grid.add_child(_tile(it))
 		_list.add_child(grid)
-	if not any:
-		var empty := Ui.label("Nothing here yet.\nKill things, open chests, beat the bosses.", "Body", HORIZONTAL_ALIGNMENT_CENTER)
-		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty.custom_minimum_size = Vector2(0, 110)
-		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		empty.modulate.a = 0.7
-		_list.add_child(empty)
-	var others: Array = groups["others"]
-	if not others.is_empty():
-		var tog := Button.new()
-		tog.theme_type_variation = "Ghost"
-		tog.focus_mode = Control.FOCUS_NONE
-		tog.custom_minimum_size = Vector2(0, 58)
-		tog.add_theme_font_size_override("font_size", 20)
-		tog.text = ("▾ " if show_others else "▸ ") + "Other heroes' gear (%d)" % others.size()
-		tog.pressed.connect(func():
-			show_others = not show_others
-			Sfx.play("ui_tap", -6.0)
-			_refresh())
-		_list.add_child(tog)
-		if show_others:
-			var grid2 := _grid()
-			for it in others:
-				grid2.add_child(_tile(it))
-			_list.add_child(grid2)
 
 
-## Higher tier first, then more bonus stats, then the bigger numbers.
-func _better_first(a: Dictionary, b: Dictionary) -> bool:
-	var ta := int(a.get("mat", 0))
-	var tb := int(b.get("mat", 0))
-	if ta != tb:
-		return ta > tb
-	var ra := Game.bonus_count(a)
-	var rb := Game.bonus_count(b)
-	if ra != rb:
-		return ra > rb
-	return Game.item_score(a) > Game.item_score(b)
+## A weapon family's name and how it fights, above its row.
+func _family_head(fd: Dictionary) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	h.custom_minimum_size = Vector2(0, 40)
+	h.add_child(Ui.icon_rect(str(fd["icon"]), 26, GOLD))
+	var n := Ui.label(str(fd["name"]).to_upper(), "Caption")
+	n.add_theme_font_size_override("font_size", 18)
+	n.add_theme_color_override("font_color", GOLD)
+	h.add_child(n)
+	var how := Ui.label(str(fd["how"]), "Small")
+	how.add_theme_color_override("font_color", DIM)
+	how.add_theme_font_size_override("font_size", 16)
+	how.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	how.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	h.add_child(how)
+	return h
 
 
 func _grid() -> GridContainer:
@@ -527,50 +503,58 @@ func _gain(it: Dictionary) -> int:
 	return Game.item_power(it) - (Game.item_power(cur) if not cur.is_empty() else 0)
 
 
-## The frame color: the material tier, the one quality ladder.
+## The frame color: the set, the one quality ladder.
 func _frame_color(it: Dictionary) -> Color:
 	return DB.gear_color(it)
 
 
 func _tier_tag(it: Dictionary) -> String:
-	return "Tier %d %s" % [int(it.get("mat", 0)) + 1, GearDB.material_name(str(it["cls"]), int(it.get("mat", 0)))]
+	return GearDB.material_name(str(it["cls"]), int(it.get("mat", 0)))
 
 
-## One bag tile: the icon in its tier's frame, bonus-stat pips under it, a
-## green ▲ when it beats what is worn, the skill it waits on when locked.
-func _tile(it: Dictionary, copies := 1) -> Button:
+func _same(a: Dictionary, b: Dictionary) -> bool:
+	return not a.is_empty() and not b.is_empty() and Game.piece_key(a) == Game.piece_key(b)
+
+
+## One collection tile. Found: the icon in its set's frame, its level, a
+## copies bar, a green ▲ when it can level up, a ✓ when worn. Not found: a
+## dark outline, and the skill it needs when the hero lacks it.
+func _tile(it: Dictionary) -> Button:
 	var uid := int(it["uid"])
-	var mine: bool = str(it["cls"]) == hero_id
-	var owner := Game.owner_of(uid)
-	var block := Game.wear_block(hero_id, it) if mine else ""
-	var is_sel: bool = not selected.is_empty() and int(selected["uid"]) == uid
-	var b := _tile_button(it, TILE, is_sel)
+	var found := uid != 0
+	var b := _tile_button(it, TILE, _same(selected, it))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if _new_uids.has(uid) and owner == "" and mine:
-		b.add_child(_dot(Vector2(-5, -5)))
-	if mine and owner == "" and block == "" and _gain(it) > 0:
-		b.add_child(_badge("▲", GREEN, Control.PRESET_TOP_RIGHT))
-	if copies > 1:
-		b.add_child(_badge("×%d" % copies, Color(0.93, 0.9, 0.85), Control.PRESET_BOTTOM_RIGHT))
-	if block != "":
-		b.modulate = Color(1, 1, 1, 0.55)
-		var lv := Ui.label("%s %d" % [DB.SKILL_NAME[GearDB.skill_for(hero_id, str(it["slot"]))], GearDB.req_for(it)], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-		lv.add_theme_font_size_override("font_size", 15)
-		lv.add_theme_color_override("font_color", RED)
-		lv.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-		lv.offset_top = 4.0
-		lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(lv)
-	elif not mine:
-		b.modulate = Color(1, 1, 1, 0.6)
+	if not found:
+		# Not found: the frame and icon fade, the skill it needs stays legible.
+		for c in b.get_children():
+			c.modulate = Color(0.45, 0.45, 0.5, 0.75)
+		for k in ["normal", "hover"]:
+			var st: StyleBoxFlat = b.get_theme_stylebox(k).duplicate()
+			st.border_color = st.border_color.darkened(0.55)
+			st.bg_color = Color(0.06, 0.055, 0.07)
+			b.add_theme_stylebox_override(k, st)
+		if Game.wear_block(hero_id, it) != "":
+			var lv := Ui.label("%s %d" % [DB.SKILL_NAME[GearDB.skill_for(hero_id, str(it["slot"]))].left(3), GearDB.req_for(it)], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+			lv.add_theme_font_size_override("font_size", 17)
+			lv.add_theme_color_override("font_color", Color(1.0, 0.6, 0.55))
+			lv.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+			lv.offset_top = 4.0
+			lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			b.add_child(lv)
+	else:
+		b.add_child(_badge("%d" % int(it.get("lv", 1)), Color(0.95, 0.92, 0.86), Control.PRESET_TOP_LEFT))
+		if Game.level_block(it) == "":
+			b.add_child(_badge("▲", GREEN, Control.PRESET_TOP_RIGHT))
+		if Game.owner_of(uid) == hero_id:
+			b.add_child(_badge("✓", GOLD, Control.PRESET_BOTTOM_RIGHT))
 	b.pressed.connect(func():
 		Sfx.play("ui_tap", -4.0)
 		_select(it))
 	return b
 
 
-## A framed tile with the piece's icon and its pips: shared by the bag and
-## the slots around the hero.
+## A framed tile with the piece's icon and its copies bar: shared by the
+## collection and the slots around the hero.
 func _tile_button(it: Dictionary, size_: float, sel: bool) -> Button:
 	var col := _frame_color(it)
 	var b := Button.new()
@@ -582,53 +566,40 @@ func _tile_button(it: Dictionary, size_: float, sel: bool) -> Button:
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	var cc := CenterContainer.new()
 	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cc.offset_bottom = -12.0
+	cc.offset_bottom = -10.0
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(ItemIcons.rect(it, size_ * 0.6, _icon_tone(it)))
 	b.add_child(cc)
-	b.add_child(_pips(it))
+	if int(it["uid"]) != 0:
+		b.add_child(_copies_bar(it))
 	return b
 
 
-## Under the icon: one pip per bonus stat (two at most), filled or hollow;
-## a star for a unique. Ancient pips are orange, a set's carry its color.
-func _pips(it: Dictionary) -> Control:
-	var h := HBoxContainer.new()
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.add_theme_constant_override("separation", 6)
-	h.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	h.offset_top = -20.0
-	h.offset_bottom = -8.0
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if str(it.get("unique", "")) != "":
-		var star := Ui.label("★", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-		star.add_theme_font_size_override("font_size", 18)
-		star.add_theme_color_override("font_color", DB.rarity_color("legendary"))
-		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.offset_top = -26.0
-		h.add_child(star)
-		return h
-	var on := Color(0.95, 0.92, 0.86)
-	if it.get("ancient", false):
-		on = Color(1.0, 0.55, 0.12)
-	elif Game.item_set(it) != "":
-		on = DB.SETS[Game.item_set(it)]["color"]
-	var n := Game.bonus_count(it)
-	for i in 2:
-		var p := Panel.new()
-		p.custom_minimum_size = Vector2(12, 12)
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var st := StyleBoxFlat.new()
-		st.set_corner_radius_all(6)
-		if i < n:
-			st.bg_color = on
-		else:
-			st.bg_color = Color(0, 0, 0, 0.0)
-			st.set_border_width_all(2)
-			st.border_color = Color(1, 1, 1, 0.25)
-		p.add_theme_stylebox_override("panel", st)
-		h.add_child(p)
-	return h
+## Under the icon: copies toward the next level, green once there are
+## enough; a full gold bar at max level. A unique's bar is gold too.
+func _copies_bar(it: Dictionary) -> Control:
+	var maxed := int(it.get("lv", 1)) >= DB.PIECE_MAX_LV
+	var need := int(DB.level_cost(it)["cards"]) if not maxed else 1
+	var have := int(it.get("cards", 0)) if not maxed else 1
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.max_value = need
+	bar.value = mini(have, need)
+	bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	bar.offset_left = 12.0
+	bar.offset_right = -12.0
+	bar.offset_top = -17.0
+	bar.offset_bottom = -9.0
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.55)
+	bg.set_corner_radius_all(4)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = GOLD if maxed else (GREEN if have >= need else Color(0.55, 0.75, 1.0))
+	fill.set_corner_radius_all(4)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.add_theme_stylebox_override("fill", fill)
+	return bar
 
 
 func _badge(text: String, col: Color, corner: Control.LayoutPreset) -> Label:
@@ -829,9 +800,9 @@ func _stat_text(key: String, f: String, s: Dictionary) -> String:
 func _open_card(it: Dictionary) -> void:
 	_close_card(false)
 	var uid := int(it["uid"])
+	var found := uid != 0
 	var col := _frame_color(it)
-	var owner := Game.owner_of(uid)
-	var is_worn := owner == hero_id
+	var is_worn := found and Game.owner_of(uid) == hero_id
 	var mine: bool = str(it["cls"]) == hero_id
 	var block := Game.wear_block(hero_id, it)
 	_card = PanelContainer.new()
@@ -915,7 +886,7 @@ func _open_card(it: Dictionary) -> void:
 		# as full-width rows.
 		rows.columns = 2 if rows.get_child_count() > 4 else 1
 		if rows.get_child_count() > 0:
-			var cap := Ui.label("If you take it off" if is_worn else "If you wear it", "Caption")
+			var cap := Ui.label("If you take it off" if is_worn else ("If you wear it" if found else "Once found, worn"), "Caption")
 			cap.add_theme_font_size_override("font_size", 16)
 			v.add_child(cap)
 			v.add_child(rows)
@@ -930,132 +901,86 @@ func _open_card(it: Dictionary) -> void:
 			l.custom_minimum_size = Vector2(620, 0)
 		stats.add_child(l)
 	v.add_child(stats)
+	if not found:
+		var hint := Ui.label("Not found yet. " + Game.drop_hint(it) + ("." if block == "" else ", and needs %s." % block.trim_prefix("Requires ")), "Body")
+		hint.add_theme_color_override("font_color", DIM)
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(hint)
+	else:
+		v.add_child(_level_row(it))
 	var row2 := HBoxContainer.new()
 	row2.add_theme_constant_override("separation", 10)
 	if is_worn:
 		row2.add_child(_action("Remove", "", func(): _unequip(it["slot"])))
-	elif mine:
+	elif found:
 		var eq := _action("Equip" if block == "" else block.trim_prefix("Requires "), "PrimaryButton", func(): _equip(it))
 		eq.disabled = block != ""
 		row2.add_child(eq)
-	var insp := _action("Inspect", "", func(): _inspect(it))
+	if found:
+		var lb := Game.level_block(it)
+		var cost := DB.level_cost(it)
+		var up := _action("Level up · %s" % Ui.fmt_num(int(cost["gold"])) if lb == "" else lb, "GoldButton", func():
+			if Game.level_up(uid):
+				Sfx.play("levelup", -4.0)
+				_say("%s is level %d" % [str(it["name"]), int(Game.item(uid)["lv"])], GREEN)
+				_redress()
+				_select(Game.item(uid), true)
+			else:
+				Sfx.play("ui_error", -6.0))
+		if lb == "":
+			up.icon = Ui.icon("two-coins")
+		up.disabled = lb != ""
+		row2.add_child(up)
+	var insp := _action("", "", func(): _inspect(it))
 	insp.icon = Ui.icon("magic-swirl")
+	insp.size_flags_horizontal = Control.SIZE_SHRINK_END
+	insp.custom_minimum_size = Vector2(76, 70)
 	row2.add_child(insp)
-	if owner == "":
-		var sell := _action("Sell %d" % Game.item_value(it), "", Callable())
-		sell.icon = Ui.icon("two-coins")
-		var needs_confirm := DB.RARITIES.find(it["rarity"]) >= 2 or int(it.get("mat", 0)) >= 3
-		sell.pressed.connect(func():
-			if needs_confirm and sell.text != "Tap to sell":
-				sell.text = "Tap to sell"
-				Sfx.play("ui_error", -8.0)
-				return
-			Game.salvage(uid)
-			Sfx.play("coin", -2.0)
-			_close_card(true))
-		row2.add_child(sell)
 	v.add_child(row2)
-	# Gold sinks live behind one button, on a panel that says what they do.
-	var can_temper: bool = int(it.get("mat", 0)) < GearDB.TIERS - 1
-	if str(it.get("unique", "")) == "" and mine and (can_temper or it["rarity"] != "common"):
-		var imp := _action("Improve  ·  Temper / Reforge", "", func(): _open_forge(it))
-		imp.icon = Ui.icon("anvil")
-		v.add_child(imp)
 	SwipeDismiss.attach(_card, func(): _close_card(true), null, true)
 	_card.modulate.a = 0.0
 	_card.create_tween().tween_property(_card, "modulate:a", 1.0, 0.16)
 
 
-## Temper and Reforge, each with what it does, what it costs and the gold
-## you have, so neither is a mystery button.
-func _open_forge(it: Dictionary) -> void:
-	var uid := int(it["uid"])
-	var box := _modal()
-	var head := HBoxContainer.new()
-	var title := Ui.label("Improve", "Heading")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
-	var purse := Ui.label("%s gold" % Ui.fmt_num(Game.gold()), "Value")
-	purse.add_theme_color_override("font_color", GOLD)
-	purse.add_theme_font_size_override("font_size", 24)
-	head.add_child(Ui.icon_rect("two-coins", 30, GOLD))
-	head.add_child(purse)
-	box.add_child(head)
-	var nm := Ui.label("%s · %s" % [str(it["name"]), Game.item_tag(it, false)], "Small")
-	nm.add_theme_color_override("font_color", _frame_color(it).lightened(0.25))
-	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(nm)
-	var mat := int(it.get("mat", 0))
-	if mat < GearDB.TIERS - 1:
-		var next := it.duplicate(true)
-		var k := (1.0 + 0.22 * (mat + 1)) / (1.0 + 0.22 * mat)
-		for key in next["stats"]:
-			next["stats"][key] = int(round(float(next["stats"][key]) * k))
-		next["mat"] = mat + 1
-		var cost := DB.temper_cost(it)
-		var c := _forge_card(box, "sword-smithing", "Temper", "Raise it one material tier. Every stat on it grows, and it takes the new material's look.")
-		var tl := Ui.label("%s  →  %s" % [_tier_tag(it), _tier_tag(next)], "Body")
-		tl.add_theme_color_override("font_color", _frame_color(next).lightened(0.2))
-		c.add_child(tl)
-		var block := Game.wear_block(hero_id, next)
-		if block != "":
-			var bl := Ui.label("To wear it after: %s" % block.trim_prefix("Requires "), "Small")
-			bl.add_theme_color_override("font_color", RED)
-			c.add_child(bl)
-		var tb := _action("Temper · %s gold" % Ui.fmt_num(cost), "GoldButton", func():
-			if Game.temper(uid):
-				Sfx.play("levelup", -4.0)
-				_close_popup()
-				_say("Tempered to %s" % GearDB.material_name(str(it["cls"]), int(Game.item(uid)["mat"])))
-				_select(Game.item(uid), true)
-			else:
-				Sfx.play("ui_error", -6.0))
-		if Game.gold() < cost:
-			tb.text = "Need %s more gold" % Ui.fmt_num(cost - Game.gold())
-			tb.disabled = true
-		c.add_child(tb)
-	if it["rarity"] != "common":
-		var main: String = DB.SLOT_MAIN[it["slot"]]
-		var cost2 := DB.reforge_cost(it)
-		var c2 := _forge_card(box, "anvil", "Reforge", "Reroll the bonus stats for a new mix. %s stays." % (DB.AFFIXES[main]["label"] % int(it["stats"][main])))
-		var extra := PackedStringArray()
-		for key in it["stats"]:
-			if key != main:
-				extra.append(DB.AFFIXES[key]["label"] % int(it["stats"][key]))
-		if not extra.is_empty():
-			var el := Ui.label("Rerolled: " + ", ".join(extra), "Small")
-			el.add_theme_color_override("font_color", Color(0.6, 0.78, 1.0))
-			el.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			c2.add_child(el)
-		var rb := _action("Reforge · %s gold" % Ui.fmt_num(cost2), "", func():
-			if Game.reforge(uid):
-				Sfx.play("gear_equip", 0.0, 1.2)
-				_close_popup()
-				_say("Reforged")
-				_select(Game.item(uid), true)
-			else:
-				Sfx.play("ui_error", -6.0))
-		if Game.gold() < cost2:
-			rb.text = "Need %s more gold" % Ui.fmt_num(cost2 - Game.gold())
-			rb.disabled = true
-		c2.add_child(rb)
-
-
-func _forge_card(box: VBoxContainer, icon: String, title: String, what: String) -> VBoxContainer:
-	var card := PanelContainer.new()
-	card.theme_type_variation = "Card"
-	box.add_child(card)
+## Copies toward the next level, and what the level adds.
+func _level_row(it: Dictionary) -> Control:
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
-	card.add_child(v)
+	v.add_theme_constant_override("separation", 4)
+	var lv := int(it.get("lv", 1))
+	if lv >= DB.PIECE_MAX_LV:
+		var m := Ui.label("Level %d · max" % lv, "Body")
+		m.add_theme_color_override("font_color", GOLD)
+		v.add_child(m)
+		return v
+	var need := int(DB.level_cost(it)["cards"])
+	var have := int(it.get("cards", 0))
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 10)
-	h.add_child(Ui.icon_rect(icon, 32, GOLD))
-	h.add_child(Ui.label(title, "Heading"))
+	h.add_theme_constant_override("separation", 12)
+	var l := Ui.label("Level %d" % lv, "Body")
+	l.add_theme_font_size_override("font_size", 21)
+	h.add_child(l)
+	var bar := _copies_bar(it)
+	bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	bar.custom_minimum_size = Vector2(0, 14)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(bar)
+	var c := Ui.label("%d / %d copies" % [have, need], "Small")
+	c.add_theme_color_override("font_color", GREEN if have >= need else DIM)
+	h.add_child(c)
 	v.add_child(h)
-	var w := Ui.label(what, "Body")
-	w.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(w)
+	var next := it.duplicate(true)
+	next["lv"] = lv + 1
+	var after := Game.piece_stats(next)
+	var parts := PackedStringArray()
+	for k in after:
+		var a := int(it["stats"].get(k, 0))
+		if int(after[k]) != a:
+			parts.append(str(DB.AFFIXES[k]["label"]) % int(after[k]))
+	var g := Ui.label("Level %d: %s" % [lv + 1, ", ".join(parts)], "Small")
+	g.add_theme_color_override("font_color", Color(0.6, 0.78, 1.0))
+	g.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(g)
 	return v
 
 
@@ -1097,7 +1022,7 @@ func _say(text: String, col := Color(1.0, 0.85, 0.5)) -> void:
 
 ## Tapping a piece tries it on and opens its card; tapping it again closes it.
 func _select(it: Dictionary, keep := false) -> void:
-	if not keep and not selected.is_empty() and int(selected["uid"]) == int(it["uid"]):
+	if not keep and _same(selected, it):
 		_close_card(true)
 		return
 	selected = it
@@ -1113,24 +1038,15 @@ func _show_hero(id: String) -> void:
 	ui._shown_hero = hero_id
 	lobby.show_hero(hero_id, false)
 	selected = {}
-	show_others = false
 	_close_card(false)
 	_build_actor()
 	_refresh()
 
 
-## A slot filters the bag to it (tap again for all) and opens the card of
-## what is worn there.
+## A slot shows its collection and opens the card of what is worn there.
 func _on_slot(slot: String) -> void:
 	Sfx.play("ui_tap", -4.0)
-	show_others = false
 	_close_card(false)
-	if filter == slot:
-		filter = ""
-		selected = {}
-		_dress()
-		_refresh()
-		return
 	filter = slot
 	_clear_new(slot)
 	_scroll.scroll_vertical = 0
@@ -1215,36 +1131,6 @@ func _reveal_tier(mat: int) -> void:
 	var t := create_tween()
 	t.tween_method(_actor.set_flash, 1.0, 0.0, 0.6)
 	_spin = 9.0
-
-
-func _confirm_sell_junk() -> void:
-	var junk := Game.junk_items()
-	if junk.is_empty():
-		return
-	var gold := 0
-	for it in junk:
-		gold += Game.item_value(it)
-	var box := _modal()
-	box.add_child(Ui.label("Sell %d items?" % junk.size(), "Heading", HORIZONTAL_ALIGNMENT_CENTER))
-	var msg := Ui.label("Common and magic gear nobody is wearing, and spare copies of pieces you have twice.\nYou get %d gold." % gold, "Body", HORIZONTAL_ALIGNMENT_CENTER)
-	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(msg)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.add_child(_action("Keep", "", _close_popup))
-	row.add_child(_action("Sell", "GoldButton", func():
-		var got := 0
-		for it in Game.junk_items():
-			got += Game.salvage(int(it["uid"]))
-		Sfx.play("coin", 0.0)
-		_close_popup()
-		_say("+%d gold" % got)
-		if not selected.is_empty() and Game.item(int(selected["uid"])).is_empty():
-			selected = {}
-			_close_card(false)
-			_dress()
-		_refresh()))
-	box.add_child(row)
 
 
 func _modal() -> VBoxContainer:
