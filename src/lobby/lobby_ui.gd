@@ -98,7 +98,7 @@ func refresh() -> void:
 	%Lock.visible = locked
 	if locked:
 		%Hunt.text = "Locked"
-		%Lock.text = "Clear Veteran, or gather 20 shards (%d/20)" % int(h["shards"]) if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)" % int(h["shards"])
+		%Lock.text = Game.hero_lock_text(id)
 	else:
 		%Hunt.text = {"horde": DB.zone(Game.zone_id())["enter"], "trial": "Take the Long Road", "descent": "Begin the Descent", "rush": "Start the Rush", "rift": "Open the Rift", "wild": "Enter the Wilderness"}[Game.mode_id()]
 	var mode: Dictionary = DB.MODES[Game.mode_id()]
@@ -155,12 +155,17 @@ func _count_gold_in() -> void:
 # --- First steps: a new player sees less and is pointed at the next thing --
 
 const CampGuide := preload("res://src/lobby/camp_guide.gd")
+const HeroPick := preload("res://src/lobby/hero_pick.gd")
+const TrophyRoad := preload("res://src/lobby/trophy_road.gd")
 var _guide: Control
+var _pick: Control
 
 
 ## The first visit shows the hero, the hunt and the tabs; the side rails,
 ## season and road join after the first hunt, when they mean something.
 func _first_steps() -> void:
+	if not Game.data["start_picked"] and not is_instance_valid(_pick):
+		_open_pick.call_deferred()
 	var fresh := int(Game.data["stats"]["hunts"]) == 0
 	if _side:
 		_side.visible = not fresh
@@ -171,9 +176,25 @@ func _first_steps() -> void:
 	_coach.call_deferred()
 
 
+## A new save picks its first hero before anything else.
+func _open_pick() -> void:
+	if is_instance_valid(_pick) or Game.data["start_picked"]:
+		return
+	_pick = HeroPick.new()
+	%Overlay.add_child(_pick)
+	_pick.open()
+	_pick.picked.connect(func(id: String):
+		_shown_hero = id
+		lobby.show_hero(id)
+		refresh()
+		_coach.call_deferred())
+
+
 ## Points at the first thing a new player hasn't been shown yet. Each note
 ## shows once per save.
 func _coach() -> void:
+	if is_instance_valid(_pick):
+		return
 	if is_instance_valid(_guide) or not camp_idle() or not is_inside_tree():
 		return
 	var tips: Dictionary = Game.data["tips"]
@@ -554,6 +575,12 @@ func open_sheet(name_: String) -> void:
 	if name_ == "chest":
 		_open_chest()
 		return
+	if name_ == "road":
+		var road := TrophyRoad.new()
+		%Overlay.add_child(road)
+		road.open(self)
+		road.closed.connect(_sheet_closed)
+		return
 	_sheet = Sheet.new()
 	_sheet_name = name_
 	%Overlay.add_child(_sheet)
@@ -566,8 +593,6 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Journal", _build_journal)
 		"bounties":
 			_sheet.open("Bounties", _build_bounties)
-		"road":
-			_sheet.open("Road", _build_road)
 		"season":
 			_sheet.open("Season", _build_season)
 		"feats":

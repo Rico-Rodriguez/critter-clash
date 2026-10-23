@@ -210,7 +210,7 @@ func _chest_card(kind: String) -> void:
 	Ui.pop_in(ic, 0.9, 1.3)
 
 
-## Renown earned, as the road bar filling toward its next reward.
+## Trophies earned, as the Trophy Road bar filling toward its next step.
 func _road_bar(gained: int) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -219,7 +219,7 @@ func _road_bar(gained: int) -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 2)
 	var steps := Game.road_claimable()
-	var t := "Renown +%d · %s" % [gained, "reward ready in camp" if steps > 0 else "next: " + Game.road_reward_text(int(Game.data["road"]) + 1)]
+	var t := "Trophies +%d · %s" % [gained, "Trophy Road reward ready" if steps > 0 else "next: " + Game.road_reward_text(int(Game.data["road"]) + 1)]
 	var l := Ui.label(t, "Body")
 	l.add_theme_color_override("font_color", Color(0.95, 0.82, 0.55))
 	v.add_child(l)

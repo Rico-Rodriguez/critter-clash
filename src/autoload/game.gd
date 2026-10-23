@@ -59,7 +59,7 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, 5, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, 5, 6, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
 		if int(parsed.get("version", 0)) == 2:
@@ -70,6 +70,8 @@ func load_save() -> void:
 			_migrate_v4(parsed)
 		if int(parsed.get("version", 0)) == 5:
 			_migrate_v5(parsed)
+		if int(parsed.get("version", 0)) == 6:
+			_migrate_v6(parsed)
 		_merge(data, parsed)
 		_rename_gear()
 		_refund_levels()
@@ -196,6 +198,34 @@ func _migrate_v5(d: Dictionary) -> void:
 			for pair in _V6_NAMES:
 				nm = nm.replace(pair[0], pair[1])
 			it["name"] = nm
+	d["version"] = 6
+
+
+## v7 brings the Trophy Road. Renown becomes trophies and keeps its total; the
+## old road's step count is replaced by the new road's. Steps already passed
+## count as claimed (the old road paid for that renown) but still open what
+## they gate, and whatever the old rules had opened stays open.
+func _migrate_v6(d: Dictionary) -> void:
+	var tu := int(d.get("tier_unlocked", 0))
+	var open := ["trial"]
+	if tu >= 1:
+		open.append_array(["descent", "wild", "rush"])
+	if tu > DB.TIER_VETERAN:
+		open.append("depths")
+	if tu > DB.TIER_VETERAN + 1:
+		open.append("grove")
+	var trophies := int(d.get("renown", 0))
+	var n := 0
+	while DB.road_threshold(n + 1) <= trophies:
+		n += 1
+		var st := DB.road_reward(n)
+		if str(st["kind"]) in ["mode", "zone"] and not str(st["id"]) in open:
+			open.append(str(st["id"]))
+		elif str(st["kind"]) == "hero" and d.get("heroes", {}).has(str(st["id"])):
+			d["heroes"][str(st["id"])]["unlocked"] = true
+	d["unlocks"] = open
+	d["road"] = n
+	d["start_picked"] = true
 	d["version"] = SAVE_VERSION
 
 
@@ -250,10 +280,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if t >= int(data["tier_unlocked"]) and t < DB.TIERS.size() - 1:
 			data["tier_unlocked"] = t + 1
 		summary["unlocked_tier"] = _open_mode_tier(str(r.get("mode", "horde")), t)
-		if t >= DB.TIER_VETERAN and not hero("barbarian")["unlocked"]:
-			hero("barbarian")["unlocked"] = true
-			summary["unlocked_hero"] = "barbarian"
-	summary["renown"] = _earn_renown(r)
+	summary["renown"] = _earn_renown(r, summary)
 	season()["xp"] = int(season()["xp"]) + int(summary["renown"])
 	var hid := str(r.get("hero", hero_id()))
 	summary["mastery"] = _gain_mastery(hid, r)

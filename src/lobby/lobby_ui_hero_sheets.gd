@@ -51,7 +51,7 @@ func _build_hero_sheet(s: Sheet) -> void:
 	sup.add_child(sl)
 	b.add_child(sup)
 	if not open:
-		var lk := Ui.label(("Win on Veteran or gather 20 shards (%d/20)" if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)") % int(h["shards"]), "Body", HORIZONTAL_ALIGNMENT_CENTER)
+		var lk := Ui.label(Game.hero_lock_text(id), "Body", HORIZONTAL_ALIGNMENT_CENTER)
 		lk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.add_child(lk)
 		return
@@ -236,9 +236,8 @@ func _hero_looks(s: Sheet, id2: String) -> void:
 
 func _hero_locked(s: Sheet, id2: String) -> void:
 	var b := s.body
-	var d2: Dictionary = DB.HEROES[id2]
 	var lc := _card()
-	var ll := Ui.label("Locked — " + ("clear Veteran, or gather 20 shards from chests." if d2["unlock"] == "veteran" else "gather 20 shards from chests."), "Body")
+	var ll := Ui.label("Locked. " + Game.hero_lock_text(id2), "Body")
 	ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lc.add_child(ll)
 	b.add_child(lc)

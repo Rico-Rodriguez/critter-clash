@@ -5,7 +5,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 6
+const SAVE_VERSION := 7
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}
@@ -43,8 +43,13 @@ func _fresh() -> Dictionary:
 		"bounties": {"day": "", "list": []},
 		"zone": "barrow",
 		"mode": "horde",
+		# Trophies (the name is from before the Trophy Road) and road steps claimed.
 		"renown": 0,
 		"road": 0,
+		# Modes and zones opened on the Trophy Road.
+		"unlocks": [],
+		# A new save chooses its first hero once, before the first hunt.
+		"start_picked": false,
 		"omen_on": false,
 		"clue": {},
 		# Retention: first win of the day, the login calendar, the campfire,
@@ -139,11 +144,11 @@ func mode_id() -> String:
 	return m if DB.MODES.has(m) and mode_unlocked(m) else "horde"
 
 
-## Descent and Boss Rush open once you have won on Normal; a rift needs a key.
+## Modes open on the Trophy Road; a rift needs a key.
 func mode_unlocked(id: String) -> bool:
 	if id == "rift":
 		return int(data.get("rift_keys", 0)) > 0
-	return not DB.MODES[id].has("unlock") or int(data["tier_unlocked"]) >= 1
+	return DB.road_gate(id) < 0 or id in data["unlocks"]
 
 
 func best_depth(hero: String) -> int:
@@ -156,13 +161,9 @@ func set_mode(id: String) -> void:
 		save()
 
 
+## Zones (the arenas) open on the Trophy Road.
 func zone_unlocked(id: String) -> bool:
-	match id:
-		"depths":
-			return int(data["tier_unlocked"]) > DB.TIER_VETERAN
-		"grove":
-			return int(data["tier_unlocked"]) > DB.TIER_VETERAN + 1
-	return id == "barrow"
+	return DB.road_gate(id) < 0 or id in data["unlocks"]
 
 
 func set_zone(id: String) -> void:

@@ -12,7 +12,6 @@ var _exp_note := ""
 var _sheet: Sheet
 var _sheet_name := ""
 var equipment: Equipment
-var _road_note: Array = []
 ## The side column (daily, campfire, season, feats) and its badges.
 var _side: VBoxContainer
 var _side_badges := {}

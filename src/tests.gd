@@ -112,10 +112,10 @@ func run() -> int:
 	_ok("glow of the week on sale", Game.glow_price(Game.glow_of_week()) < int(DB.GLOWS[Game.glow_of_week()]["gold"]))
 
 	_ok("zones", Game.zone_unlocked("barrow") and not Game.zone_unlocked("depths") and Game.zone_id() == "barrow")
-	Game.data["tier_unlocked"] = DB.TIER_VETERAN
-	_ok("depths shut until veteran is won", not Game.zone_unlocked("depths"))
 	Game.data["tier_unlocked"] = DB.TIER_VETERAN + 1
-	_ok("depths opens after veteran", Game.zone_unlocked("depths"))
+	_ok("depths waits for the road, not a tier", not Game.zone_unlocked("depths"))
+	Game.data["unlocks"].append("depths")
+	_ok("depths opens from the road", Game.zone_unlocked("depths"))
 	for z in DB.ZONES:
 		_ok("zone %s boss exists" % z, DB.BOSSES.has(DB.ZONES[z]["boss"]))
 	for u in DB.LOG_ORDER:
@@ -220,7 +220,7 @@ func _gear_tests() -> void:
 	var v5 := {"version": 5, "items": [{"name": "Moonlit Dragon Dragon Shield", "unique": ""}, {"name": "Ancient Black Dragonhide Chaps", "unique": ""}, {"name": "Worn Mystic Robe Top", "unique": ""}, {"name": "Crown of the Barrow King", "unique": "crown"}]}
 	Game._migrate_v5(v5)
 	var n5: Array = v5["items"].map(func(i: Dictionary) -> String: return str(i["name"]))
-	_ok("v5 gear takes the new names %s" % str(n5), v5["version"] == Game.SAVE_VERSION and n5 == ["Moonlit Bloodiron Warden Shield", "Ancient Nightscale Chaps", "Worn Sage Robe", "Crown of the Barrow King"])
+	_ok("v5 gear takes the new names %s" % str(n5), v5["version"] == 6 and n5 == ["Moonlit Bloodiron Warden Shield", "Ancient Nightscale Chaps", "Worn Sage Robe", "Crown of the Barrow King"])
 	# The error log folds repeats into one line with a count.
 	var el = load("res://src/autoload/error_log.gd").new()
 	el._enabled = false
@@ -234,6 +234,7 @@ func _gear_tests() -> void:
 	_ok("armor curve diminishes", DB.armor_dr(0.15) > 0.12 and DB.armor_dr(2.0) <= DB.ARMOR_CAP and DB.armor_dr(1.0, 0.5) < DB.armor_dr(1.0))
 	_ok("migrated unique", old["items"][1]["cls"] == "ranger" and old["items"][1]["mat"] == 6)
 	_ok("modes defined", Game.mode_id() == "horde" and (DB.MODES["trial"]["rooms"] as Array).size() == DB.TIERS.size())
+	Game.open_whole_road()
 	Game.set_mode("trial")
 	_ok("mode saved", Game.mode_id() == "trial")
 	Game.set_mode("nonsense")
@@ -357,15 +358,34 @@ func _depth_tests() -> void:
 				for c in n.get("cards", []):
 					_ok("talent card %s exists" % c, DB.CARDS.has(c))
 	Game.data = Game._fresh()
+	_ok("a new save starts with one hero", Game.hero("knight")["unlocked"] and not Game.hero("ranger")["unlocked"] and not Game.hero("barbarian")["unlocked"] and not Game.data["start_picked"])
+	Game.pick_start_hero("mage")
+	_ok("the first pick is the only starter", Game.hero("mage")["unlocked"] and not Game.hero("knight")["unlocked"] and Game.hero_id() == "mage" and Game.data["start_picked"])
 	_ok("road starts closed", Game.road_claimable() == 0)
+	_ok("modes wait for the road", not Game.mode_unlocked("trial") and not Game.mode_unlocked("descent") and Game.mode_unlocked("horde"))
 	Game.data["renown"] = DB.road_threshold(2)
 	_ok("two steps open", Game.road_claimable() == 2)
 	var gold_pre := Game.gold()
 	Game.claim_road()
 	_ok("claim pays and counts", int(Game.data["road"]) == 1 and Game.road_claimable() == 1 and Game.gold() > gold_pre)
-	_ok("modes locked until a win", not Game.mode_unlocked("descent") and Game.mode_unlocked("horde"))
-	Game.data["tier_unlocked"] = 1
-	_ok("modes open after a win", Game.mode_unlocked("descent") and Game.mode_unlocked("rush"))
+	Game.claim_road()
+	_ok("a mode step opens the mode", Game.mode_unlocked("trial") and not Game.mode_unlocked("rush"))
+	Game.data["renown"] = DB.road_threshold(4)
+	Game.claim_road()
+	Game.claim_road("ranger")
+	_ok("a pick step adds the chosen hero", Game.hero("ranger")["unlocked"] and not Game.hero("knight")["unlocked"] and Game.road_pickable() == ["knight"])
+	for i in DB.TROPHY_ROAD.size() + 1:
+		_ok("road step %d has a name" % (i + 1), Game.road_reward_text(i + 1) != "")
+	var tr0 := Game.renown()
+	Game.finish_hunt({"win": false, "tier": 0, "hero": "mage", "gold": 1, "kills": 0, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 50.0, "zone": "barrow"})
+	_ok("a loss never takes trophies", Game.renown() >= tr0)
+	# Old saves keep what the old rules opened and skip the steps they passed.
+	var v6 := {"version": 6, "tier_unlocked": DB.TIER_VETERAN + 1, "renown": 900, "road": 14, "heroes": {"barbarian": {"unlocked": false}}}
+	Game._migrate_v6(v6)
+	_ok("v6 keeps its modes and zones", v6["version"] == 7 and "descent" in v6["unlocks"] and "depths" in v6["unlocks"] and not "grove" in v6["unlocks"])
+	_ok("v6 road counts the new steps", int(v6["road"]) == 7 and v6["start_picked"])
+	Game.open_whole_road()
+	_ok("modes open after the road", Game.mode_unlocked("descent") and Game.mode_unlocked("rush"))
 	# Difficulties open per mode: a Horde win does not open Hard in Boss Rush.
 	Game.data["mode_tiers"] = {}
 	Game.set_mode("horde")

@@ -1,5 +1,5 @@
 extends "res://src/autoload/game_heroes.gd"
-## Game, part 4: rewards outside the hunt. Chests, the renown road, the
+## Game, part 4: rewards outside the hunt. Chests, the Trophy Road, the
 ## weekly omen, treasure trails, daily bounties and the shop.
 
 
@@ -13,7 +13,7 @@ func open_chest(kind: String) -> Array:
 	data["gold"] = gold() + g
 	out.append({"type": "gold", "amount": g})
 	# Shards: most go to the hero you play (Brawl Stars' power points), the
-	# rest to another, a locked one first so the roster still opens up.
+	# rest to another, a locked one first: a head start for when it joins.
 	var others: Array = DB.HERO_ORDER.filter(func(h): return h != hero_id())
 	others.shuffle()
 	others.sort_custom(func(x, y): return not hero(x)["unlocked"] and hero(y)["unlocked"])
@@ -34,13 +34,9 @@ func open_chest(kind: String) -> Array:
 	return out
 
 
-## A locked hero with enough shards joins the roster. Returns its id or "".
+## Heroes join on the Trophy Road now; shards a locked hero gathers wait
+## for it (XP lamps). Kept, returning "", for the callers that still ask.
 func unlock_by_shards() -> String:
-	for id in DB.HERO_ORDER:
-		if not hero(id)["unlocked"] and int(hero(id)["shards"]) >= 20:
-			hero(id)["unlocked"] = true
-			hero(id)["shards"] = int(hero(id)["shards"]) - 20
-			return id
 	return ""
 
 
@@ -48,18 +44,28 @@ func tier_for_chest(kind: String) -> int:
 	return {"silver": 0, "gold": DB.TIER_VETERAN, "crypt": DB.TIER_NIGHTMARE}.get(kind, 0)
 
 
-# --- Renown road -----------------------------------------------------------
+# --- Trophy Road -----------------------------------------------------------
 
+## Trophies (saved as `renown`, the road's old name). They never go down.
 func renown() -> int:
 	return int(data.get("renown", 0))
 
 
-func _earn_renown(r: Dictionary) -> int:
-	var n := 12 + int(r.get("tier", 0)) * 6 + int(r.get("kills", 0)) / 20 + int(r.get("elites", 0)) * 3
+## Trophies for a finished hunt (see DB.TROPHY_*). `summary` says whether it
+## was the first win of the day or opened a new difficulty.
+func _earn_renown(r: Dictionary, summary := {}) -> int:
+	var n := 0
 	if r.get("win", false):
-		n += 25
+		n = DB.TROPHY_WIN + int(r.get("tier", 0)) * DB.TROPHY_TIER
+		n += mini(int(r.get("elites", 0)), DB.TROPHY_ELITE_CAP) * DB.TROPHY_ELITE
+		if summary.get("first_win", false):
+			n += DB.TROPHY_FIRST_WIN
+		if int(summary.get("unlocked_tier", -1)) >= 0:
+			n += DB.TROPHY_FIRST_CLEAR
+	else:
+		n = mini(int(r.get("kills", 0)) / 15 + int(r.get("elites", 0)) * 2, DB.TROPHY_LOSS_MAX)
 	if str(r.get("mode", "horde")) == "descent":
-		n += int(r.get("depth", 1)) * 4
+		n += int(r.get("depth", 1)) * DB.TROPHY_DEPTH
 	data["renown"] = renown() + n
 	return n
 
@@ -78,42 +84,84 @@ func road_fill() -> float:
 	return road_fill_for(renown())
 
 
-## 0..1 progress toward the next step at a given renown total (the results
+## 0..1 progress toward the next step at a given trophy total (the results
 ## screen fills the bar from the old total to the new).
 func road_fill_for(r: int) -> float:
 	var done := 0
 	while DB.road_threshold(done + 1) <= r:
 		done += 1
-	var lo := DB.road_threshold(done) if done > 0 else 0
+	var lo := DB.road_threshold(done)
 	var hi := DB.road_threshold(done + 1)
 	return clampf(float(r - lo) / float(hi - lo), 0.0, 1.0)
 
 
+## The next step that opens something (a mode, zone or hero), 1-based, or 0.
+func road_next_unlock() -> int:
+	for i in DB.TROPHY_ROAD.size():
+		if DB.road_threshold(i + 1) > renown() and not str(DB.TROPHY_ROAD[i]["kind"]) in ["gold", "chest", "shards"]:
+			return i + 1
+	return 0
+
+
+## Starting heroes not yet in the roster: what a `pick` step offers.
+func road_pickable() -> Array:
+	return DB.START_HEROES.filter(func(h): return not hero(h)["unlocked"])
+
+
+## A short name for step n: "300 gold", "Boss Rush", "A new hero".
 func road_reward_text(n: int) -> String:
 	var rw := DB.road_reward(n)
-	match rw["kind"]:
+	match str(rw["kind"]):
 		"gold":
 			return "%d gold" % int(rw["amount"])
 		"shards":
-			return "%d %s shards" % [int(rw["amount"]), DB.HEROES[hero_id()]["name"]]
+			return "%d shards" % int(rw["amount"])
+		"mode":
+			return str(DB.MODES[rw["id"]]["name"])
+		"zone":
+			return str(DB.ZONES[rw["id"]]["name"])
+		"hero":
+			return str(DB.HEROES[rw["id"]]["name"])
+		"pick":
+			return "A new hero"
+		"rift_key":
+			return "A rift key"
 	return DB.CHESTS[rw["chest"]]["name"]
 
 
-## Pays the next unclaimed step. Returns lines describing what came out.
-func claim_road() -> Array:
+## Pays the next unclaimed step. A `pick` step takes the hero chosen (one of
+## road_pickable()). Returns lines describing what came out.
+func claim_road(pick := "") -> Array:
 	if road_claimable() <= 0:
 		return []
 	var n := int(data["road"]) + 1
-	data["road"] = n
 	var rw := DB.road_reward(n)
 	var lines := []
-	match rw["kind"]:
+	match str(rw["kind"]):
 		"gold":
 			data["gold"] = gold() + int(rw["amount"])
 			lines.append("+%d gold" % int(rw["amount"]))
 		"shards":
 			hero(hero_id())["shards"] = int(hero(hero_id())["shards"]) + int(rw["amount"])
 			lines.append("+%d %s shards" % [int(rw["amount"]), DB.HEROES[hero_id()]["name"]])
+		"mode", "zone":
+			if not str(rw["id"]) in data["unlocks"]:
+				data["unlocks"].append(str(rw["id"]))
+			lines.append("%s is open" % road_reward_text(n))
+		"rift_key":
+			data["rift_keys"] = int(data.get("rift_keys", 0)) + 1
+			lines.append("A rift key: the Rift is open")
+		"pick", "hero":
+			var hid := str(rw.get("id", pick))
+			var pickable := road_pickable()
+			if str(rw["kind"]) == "pick" and not hid in pickable:
+				hid = str(pickable[0]) if not pickable.is_empty() else ""
+			if hid == "" or hero(hid)["unlocked"]:
+				data["gold"] = gold() + DB.ROAD_SPARE_GOLD
+				lines.append("+%d gold" % DB.ROAD_SPARE_GOLD)
+			else:
+				hero(hid)["unlocked"] = true
+				lines.append("%s joins your band" % DB.HEROES[hid]["name"])
 		"chest":
 			for e in open_chest(str(rw["chest"])):
 				match e["type"]:
@@ -125,8 +173,38 @@ func claim_road() -> Array:
 						lines.append(str(e["item"]["name"]))
 					"unlock":
 						lines.append("%s joins your band" % DB.HEROES[e["hero"]]["name"])
+	data["road"] = n
 	save()
 	return lines
+
+
+## Where a locked hero comes from, for its card.
+func hero_lock_text(id: String) -> String:
+	for i in range(int(data["road"]), DB.TROPHY_ROAD.size()):
+		var st: Dictionary = DB.TROPHY_ROAD[i]
+		if str(st["kind"]) == "hero" and str(st["id"]) == id:
+			return "Joins on the Trophy Road at %d trophies" % int(st["t"])
+		if str(st["kind"]) == "pick" and id in DB.START_HEROES:
+			return "Choose on the Trophy Road at %d trophies" % int(st["t"])
+	return "Joins on the Trophy Road"
+
+
+## A new save's first hero: it joins, the other starting heroes wait on the road.
+func pick_start_hero(id: String) -> void:
+	if not id in DB.START_HEROES:
+		return
+	for h in DB.START_HEROES:
+		hero(h)["unlocked"] = h == id
+	data["hero"] = id
+	data["start_picked"] = true
+	save()
+
+
+## Opens every mode and zone the road gates (bots, captures, tests).
+func open_whole_road() -> void:
+	for st in DB.TROPHY_ROAD:
+		if st.has("id") and str(st["kind"]) in ["mode", "zone"] and not str(st["id"]) in data["unlocks"]:
+			data["unlocks"].append(str(st["id"]))
 
 
 # --- Weekly omen -----------------------------------------------------------

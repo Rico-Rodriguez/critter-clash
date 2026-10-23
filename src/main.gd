@@ -184,6 +184,8 @@ func _run_bot(args: PackedStringArray) -> void:
 	# --gear=M: a full set of rare material-M gear and every talent point spent,
 	# to test what a geared account sees (the bare bot is a floor, not the norm).
 	var gear := int(_arg(args, "gear", "-1"))
+	Game.open_whole_road()
+	Game.data["start_picked"] = true
 	for hid in heroes:
 		Game.hero(hid)["unlocked"] = true
 		for sk in DB.STYLE_SKILLS[DB.HEROES[hid]["skill"]]:
@@ -249,6 +251,11 @@ func _capture(args: PackedStringArray) -> void:
 	DirAccess.make_dir_recursive_absolute(_shots_dir)
 	var want := _arg(args, "shots", "lobby").split(",")
 	var hid := _arg(args, "hero", "knight")
+	# Shots show an account that has walked the road: every mode and hero open.
+	Game.open_whole_road()
+	Game.data["start_picked"] = true
+	for h0 in DB.START_HEROES:
+		Game.hero(h0)["unlocked"] = true
 	Game.data["gold"] = 1240
 	Game.data["hero"] = hid
 	Game.hero(hid)["shards"] = 9
@@ -301,7 +308,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -320,9 +327,15 @@ func _capture(args: PackedStringArray) -> void:
 					var bl: Array = Game.data["bounties"]["list"]
 					bl[0]["progress"] = bl[0]["target"]
 					bl[1]["progress"] = int(bl[1]["target"]) / 2
-				if shot == "road":
-					Game.data["renown"] = DB.road_threshold(3) + 40
-					Game.data["road"] = 1
+				if shot == "pickhero":
+					Game.data["start_picked"] = false
+				if shot in ["road", "roadreveal"]:
+					# Partway down the road: a hero pick waiting, Boss Rush next.
+					Game.data["renown"] = 412
+					Game.data["road"] = 3
+					Game.data["unlocks"] = ["trial"]
+					for h0 in DB.START_HEROES:
+						Game.hero(h0)["unlocked"] = h0 == hid
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 				if shot in ["shop", "shopbuy", "shoplooks"]:
 					Game.data["gold"] = 3240
@@ -344,6 +357,16 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(1.0)
 					current.ui.Shop._confirm(current.ui, current.ui._page, Game.shop_deals()[3], 3)
 					await _wait(1.0)
+				elif shot == "roadreveal":
+					current.open_sheet("road")
+					await _wait(1.6)
+					get_tree().get_first_node_in_group("trophy_road")._reveal(DB.road_reward(5), [])
+					await _wait(1.0)
+				elif shot == "road":
+					current.open_sheet("road")
+					await _wait(2.2)
+				elif shot == "pickhero":
+					await _wait(1.2)
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)

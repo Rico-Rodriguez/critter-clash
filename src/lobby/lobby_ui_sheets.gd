@@ -1,11 +1,11 @@
 extends "res://src/lobby/lobby_ui_hero_sheets.gd"
 ## The camp screen, part 3: the other sheets. Daily rewards, the season,
-## feats, the renown road, bounties, the collection log, the expedition
+## feats, bounties, the collection log, the expedition
 ## picker and Settings.
 
 
 ## The Journal's first page: what can be done today. The daily reward when it
-## is ready, the three bounties, then the next steps on the renown road.
+## is ready, the three bounties, then the next steps on the Trophy Road.
 ## The Journal tab: one big tile per reward track, like Clash Royale's shop.
 ## Each tile says where it stands in a word or two and opens its sheet.
 func _build_journal(s: Sheet) -> void:
@@ -22,7 +22,7 @@ func _build_journal(s: Sheet) -> void:
 	var rn := int(Game.data["road"])
 	var lo := DB.road_threshold(rn)
 	var hi := DB.road_threshold(rn + 1)
-	grid.add_child(_reward_tile("flag-objective", "Road", "Renown %d" % Game.renown(), clampf(float(Game.renown() - lo) / float(maxi(hi - lo, 1)), 0.0, 1.0), Game.road_claimable(), "road"))
+	grid.add_child(_reward_tile("trophy", "Road", "%s trophies" % Ui.fmt_num(Game.renown()), clampf(float(Game.renown() - lo) / float(maxi(hi - lo, 1)), 0.0, 1.0), Game.road_claimable(), "road"))
 	var lv := Game.season_level()
 	grid.add_child(_reward_tile("round-star", "Season", "Tier %d" % lv, 1.0 if lv >= DB.SEASON_TIERS else float(int(Game.season()["xp"]) % DB.SEASON_XP) / DB.SEASON_XP, Game.season_claimable(), "season"))
 	var got: int = Game.data["achievements"].size()
@@ -235,53 +235,6 @@ func _build_feats(s: Sheet) -> void:
 
 ## Mode, place and difficulty, each a short list of cards that say what the
 ## choice means (and, when locked, how to open it).
-## The renown road: the next steps with what each pays; claim in order.
-func _build_road(s: Sheet) -> void:
-	var b := s.body
-	var claimed := int(Game.data["road"])
-	var ready_n := Game.road_claimable()
-	b.add_child(_row([Ui.label("Renown %d" % Game.renown(), "Heading"), _spacer()]))
-	if not _road_note.is_empty():
-		var nc := _card()
-		var nl := Ui.label("Claimed: " + ", ".join(_road_note), "Body")
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7))
-		nc.add_child(nl)
-		b.add_child(nc)
-		_road_note = []
-	for i in 8:
-		var n := claimed + 1 + i
-		var c := _card()
-		var reachable := i < ready_n
-		var row := _row([], 14)
-		var num := Ui.label("%d" % n, "Value")
-		num.add_theme_font_size_override("font_size", 30)
-		num.custom_minimum_size = Vector2(54, 0)
-		row.add_child(num)
-		var v := VBoxContainer.new()
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.add_theme_constant_override("separation", 0)
-		v.add_child(Ui.label(Game.road_reward_text(n), "Body"))
-		v.add_child(Ui.label("%d renown" % DB.road_threshold(n), "Small"))
-		row.add_child(v)
-		if i == 0 and reachable:
-			var cb := Button.new()
-			cb.text = "Claim"
-			cb.theme_type_variation = &"GoldButton"
-			cb.custom_minimum_size = Vector2(150, 70)
-			cb.focus_mode = Control.FOCUS_NONE
-			cb.pressed.connect(func():
-				_road_note = Game.claim_road()
-				Sfx.play("coin", 0.0)
-				refresh()
-				s.rebuild())
-			row.add_child(cb)
-		elif not reachable:
-			c.modulate = Color(1, 1, 1, 0.55)
-		c.add_child(row)
-		b.add_child(c)
-
-
 func _build_bounties(s: Sheet) -> void:
 	var b := s.body
 	var left := 86400 - int(Time.get_unix_time_from_system()) % 86400
