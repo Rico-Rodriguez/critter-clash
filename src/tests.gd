@@ -468,6 +468,8 @@ func _depth_tests() -> void:
 	_ok("weekly worse run is not kept", not Game.record_weekly({"win": false}) and Game.weekly_best() == 1150)
 	_ok("weekly entry carries this week's seed", int(Game.weekly_entry()["seed"]) == Game.weekly_seed())
 	Game.data["weekly"] = wb_keep
+	_ok("the Vault is the fourth zone", DB.ZONE_ORDER.size() == 4 and DB.ZONES.has("vault") and DB.ARENAS.any(func(z): return z["zone"] == "vault"))
+	_ok("the Vault opens on the road", DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "zone" and str(st.get("id", "")) == "vault"))
 	_ok("the Rogue is a hero", DB.HEROES.has("rogue") and "rogue" in DB.HERO_ORDER and GearDB.LINES.has("rogue") and TalentDB.PATHS.has("rogue"))
 	_ok("the Rogue is on the road", DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "hero" and str(st.get("id", "")) == "rogue"))
 	_ok("the Rogue has a signature", DB.CARDS.has(DB.SIGNATURES["rogue"]))

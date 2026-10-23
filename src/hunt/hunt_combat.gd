@@ -508,6 +508,9 @@ func _end(win: bool) -> void:
 	if not partners.is_empty():
 		result["party"] = partners.size()
 		result["gold"] = int(round(int(result["gold"]) * (1.0 + DB.PARTY_GOLD)))
+	# The Vault pays more gold.
+	if float(zone.get("gold_bonus", 0.0)) > 0.0:
+		result["gold"] = int(round(int(result["gold"]) * (1.0 + float(zone["gold_bonus"]))))
 	if mode == "wild" and not win and rivals_total > 0 and int(result["place"]) <= 3:
 		result["chest"] = "silver"
 	if mode == "descent":
