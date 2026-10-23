@@ -416,6 +416,8 @@ func _style_tabs() -> void:
 		var dot: Control = _tab_dots[k]
 		dot.offset_left = 44.0 if on else 18.0
 		dot.offset_top = -30.0 if on else 4.0
+		dot.offset_right = dot.offset_left + 24.0
+		dot.offset_bottom = dot.offset_top + 24.0
 		var g := b.get_node_or_null("Gloss")
 		if on and g == null:
 			# Covers the part of the block that rises above the button too.
