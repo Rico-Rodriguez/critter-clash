@@ -24,7 +24,8 @@ services:
       retries: 20
 
   nakama:
-    image: registry.heroiclabs.com/heroiclabs/nakama:3.30.0
+    # Docker Hub tag: has both amd64 and arm64 builds (Oracle free VMs are ARM).
+    image: heroiclabs/nakama:3.30.0
     restart: unless-stopped
     depends_on:
       postgres:
