@@ -29,9 +29,7 @@ const SHEET_TAB := {
 var _tab_btns := {}
 var _tab_dots := {}
 var _rail_r: VBoxContainer
-var _bounty_badge: PanelContainer
-var _bounty_count: Label
-var _bounty_time: Label
+var _season_label: Label
 ## A horizontal swipe in progress: where and when the finger went down.
 var _sw_from := Vector2.ZERO
 var _sw_t := -1.0
@@ -66,12 +64,10 @@ func setup(l: Node3D) -> void:
 	%PlayerChip.pressed.connect(func():
 		Sfx.play("ui_tap", -4.0)
 		open_sheet("profile"))
-	%Season.pressed.connect(func(): open_sheet("season"))
+	# The Trophy Road is the goal to chase, so it gets the top of the screen.
 	%Road.pressed.connect(func(): open_sheet("road"))
 	%RoadIcon.texture = Ui.icon("trophy")
-	%SeasonIcon.texture = Ui.icon("round-star")
-	# Mode, place and difficulty change rarely: the HUNT button says what they
-	# are and the Mode slot beside it opens the picker.
+	# The mode card right above HUNT says what you'll play and changes it.
 	%Expedition.pressed.connect(func(): open_sheet("expedition"))
 	%GoldIcon.texture = Ui.icon("two-coins")
 	_build_tabs()
@@ -86,13 +82,9 @@ func setup(l: Node3D) -> void:
 ## The home's motion: shine on the HUNT button and the pills, breathing
 ## badges, embers drifting up past the hero.
 func _dress_home() -> void:
-	FxUi.gloss(%Hunt, 22.0, 0.6, 3.2)
-	FxUi.gloss(%Season, 16.0, 0.22, 6.0, 1.5)
-	FxUi.gloss(%Road, 16.0, 0.22, 6.0, 4.5)
-	FxUi.gloss(%Chest, 18.0, 0.0)
-	FxUi.gloss(%Expedition, 18.0, 0.0)
-	for b in [%SeasonBadge, %RoadBadge]:
-		FxUi.pulse(b, 1.18, 1.3)
+	FxUi.gloss(%Hunt, 12.0, 0.5, 3.6)
+	FxUi.gloss(%Road, 12.0, 0.18, 6.0, 2.0)
+	FxUi.pulse(%RoadBadge, 1.18, 1.3)
 	for k in _side_badges:
 		FxUi.pulse(_side_badges[k], 1.18, 1.3)
 	var embers := Control.new()
@@ -110,9 +102,9 @@ func refresh() -> void:
 	%Combat.text = str(Game.combat_level(id))
 	%PlayerName.text = Game.player_name()
 	%PlayerSub.text = "%s · Combat %d" % [_clan_line(), Game.combat_level(id)]
-	%HeroName.text = d["name"]
 	var pw := Game.power_score(id)
-	%HeroTitle.text = "Power %s · %s" % [Ui.fmt_num(pw), d["role"]]
+	%HeroName.text = str(d["name"]).to_upper()
+	%HeroTitle.text = "Power %s" % Ui.fmt_num(pw)
 	var locked := not bool(h["unlocked"])
 	%Hunt.disabled = locked
 	%Lock.visible = locked
@@ -124,27 +116,25 @@ func refresh() -> void:
 	var mode: Dictionary = DB.MODES[Game.mode_id()]
 	var t: Dictionary = DB.TIERS[Game.tier()]
 	%ExpIcon.texture = Ui.icon(MODE_ICON.get(Game.mode_id(), "crossed-swords"))
-	%ExpMode.text = str(mode["name"]).split(" ")[0].to_upper()
+	%ExpMode.text = str(mode["name"])
 	%HuntLabel.text = "LOCKED" if locked else "HUNT"
-	# Recommended power: under it the line turns red, so a loss reads as
-	# "I need gear", not "unfair".
+	# Under the recommended power the line turns red, so a loss reads as "I
+	# need gear", not "unfair".
 	var rec := int(t["power"])
 	var omen := " · Omen" if not Game.active_omen(Game.mode_id()).is_empty() else ""
-	%HuntSub.text = "%s · %s · %s%s" % [str(mode["name"]).split(" ")[0], DB.zone(Game.zone_id())["name"], t["name"], omen]
-	%HuntSub.add_theme_color_override("font_color", Color("fff1cc") if pw >= rec else Color(1.0, 0.78, 0.72))
+	%ExpPlace.text = "%s · %s%s" % [DB.zone(Game.zone_id())["name"], t["name"], omen]
 	if pw < rec:
-		%HuntSub.text += " · needs %s" % Ui.fmt_num(rec)
-	# Season plaque.
-	var lv := Game.season_level()
-	%SeasonText.text = "%s · TIER %d" % [Game.season_name().to_upper(), lv]
-	%SeasonBar.value = 100.0 if lv >= DB.SEASON_TIERS else float(int(Game.season()["xp"]) % DB.SEASON_XP) / DB.SEASON_XP * 100.0
-	%SeasonBadge.visible = Game.season_claimable() > 0
-	# The road: a trophy with a bar, like the trophy road beside Battle.
+		%ExpPlace.text += " · needs %s power" % Ui.fmt_num(rec)
+	%ExpPlace.add_theme_color_override("font_color", Color(1.0, 0.55, 0.5) if pw < rec else Color(0.64, 0.6, 0.54))
+	# The road: trophies toward the next step, and what that step gives.
 	var steps := Game.road_claimable()
 	var nxt := int(Game.data["road"]) + 1
-	%RoadText.text = "READY" if steps > 0 else "%d / %d" % [Game.renown(), DB.road_threshold(nxt)]
+	%RoadText.text = "READY" if steps > 0 else "%s / %s" % [Ui.fmt_num(Game.renown()), Ui.fmt_num(DB.road_threshold(nxt))]
 	%RoadBar.value = 100.0 if steps > 0 else maxf(Game.road_fill() * 100.0, 3.0)
 	%RoadBadge.visible = steps > 0
+	var rw := DB.road_reward(nxt)
+	%RoadNext.texture = Ui.icon(_road_icon(rw))
+	%RoadNext.self_modulate = DB.CHESTS[rw["chest"]]["color"] if str(rw["kind"]) == "chest" else Color(1, 0.84, 0.45)
 	_refresh_chest_slot()
 	# Tab dots: something to do behind that tab.
 	_tab_dots["heroes"].visible = _any_upgrade() or Game.new_item_count() > 0 or Game.levels_ready(Game.hero_id()) > 0
@@ -191,7 +181,6 @@ func _first_steps() -> void:
 	if _rail_r:
 		_rail_r.visible = not fresh
 	%Road.modulate.a = 0.45 if fresh else 1.0
-	%Season.get_parent().visible = not fresh
 	_coach.call_deferred()
 
 
@@ -235,67 +224,75 @@ func _coach() -> void:
 		return
 
 
-# --- Side rails: daily and campfire left, bounties right ---------------------
+# --- Side rails: quests and season left, the campfire right ---------------
+
+## The icon for a road step's reward, as the road itself shows it.
+func _road_icon(rw: Dictionary) -> String:
+	match str(rw["kind"]):
+		"chest":
+			return "locked-chest"
+		"gold":
+			return "two-coins"
+		"shards":
+			return "gems"
+		"mode":
+			return MODE_ICON.get(str(rw["id"]), "crossed-swords")
+		"zone":
+			return "tombstone"
+		"hero":
+			return str(DB.HEROES[rw["id"]]["icon"])
+		"rift_key":
+			return "crystal-shine"
+	return "visored-helm"
+
 
 func _build_side() -> void:
 	_side = VBoxContainer.new()
-	_side.add_theme_constant_override("separation", 12)
-	_side.position = Vector2(0, 14)
+	_side.add_theme_constant_override("separation", 18)
+	_side.position = Vector2(0, 18)
 	%Space.add_child(_side)
-	for spec in [["daily", "sun", "Daily"], ["idle", "campfire", "Campfire"]]:
+	# Daily, bounties and feats are one place (Quests); the road has the top bar.
+	for spec in [["quests", "archery-target", "Quests"], ["season", "round-star", "Season"]]:
 		_side.add_child(_rail_button(spec[0], spec[1], spec[2]))
 	_rail_r = VBoxContainer.new()
 	_rail_r.add_theme_constant_override("separation", 0)
-	# A fixed width at the right edge, wide enough for the label under the button.
 	_rail_r.anchor_left = 1.0
 	_rail_r.anchor_right = 1.0
-	_rail_r.offset_left = -96.0
-	_rail_r.offset_top = 14.0
-	_rail_r.alignment = BoxContainer.ALIGNMENT_BEGIN
+	_rail_r.offset_left = -84.0
+	_rail_r.offset_top = 18.0
 	%Space.add_child(_rail_r)
-	var bc := _rail_button("bounties", "archery-target", "Bounties")
-	bc.get_child(0).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_rail_r.add_child(bc)
-	_bounty_badge = _side_badges["bounties"]
-	_bounty_count = Ui.label("", "BadgeLabel", HORIZONTAL_ALIGNMENT_CENTER)
-	_bounty_badge.add_child(_bounty_count)
-	_bounty_time = Ui.label("", "Small", HORIZONTAL_ALIGNMENT_CENTER)
-	_bounty_time.add_theme_font_size_override("font_size", 14)
-	bc.add_child(_bounty_time)
-	# Feats, the log and the other reward tracks, in one place.
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 14)
-	_rail_r.add_child(gap)
-	var jc := _rail_button("journal", "book-cover", "Journal")
-	jc.get_child(0).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_rail_r.add_child(jc)
+	_rail_r.add_child(_rail_button("idle", "campfire", "Campfire"))
 
 
 func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 0)
+	col.add_theme_constant_override("separation", 6)
 	var b := Button.new()
 	b.theme_type_variation = &"RoundButton"
-	b.custom_minimum_size = Vector2(66, 66)
+	b.custom_minimum_size = Vector2(76, 76)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.icon = Ui.icon(icon)
 	b.expand_icon = true
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.focus_mode = Control.FOCUS_NONE
 	b.pressed.connect(func(): _side_pressed(key))
+	# A small glowing dot: something to claim in there.
 	var badge := PanelContainer.new()
 	badge.theme_type_variation = &"Badge"
-	badge.custom_minimum_size = Vector2(24, 24)
-	badge.position = Vector2(46, -6)
+	badge.custom_minimum_size = Vector2(18, 18)
+	badge.position = Vector2(56, 2)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.visible = false
 	b.add_child(badge)
 	_side_badges[key] = badge
 	col.add_child(b)
-	var l := Ui.label(text, "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-	l.add_theme_font_size_override("font_size", 15)
+	var l := Ui.label(text.to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	l.add_theme_font_size_override("font_size", 14)
 	col.add_child(l)
 	if key == "idle":
 		_idle_label = l
+	if key == "season":
+		_season_label = l
 	return col
 
 
@@ -303,16 +300,13 @@ func _refresh_side() -> void:
 	if _side == null:
 		return
 	var login := Game.login_status()
-	_side_badges["daily"].visible = bool(login["ready"])
+	_side_badges["quests"].visible = bool(login["ready"]) or Game.bounty_claimable() > 0 or Game.achievement_claimable() > 0
+	_side_badges["season"].visible = Game.season_claimable() > 0
+	_season_label.text = "TIER %d" % Game.season_level()
 	var g := Game.idle_gold()
 	_side_badges["idle"].visible = g >= 50
-	_idle_label.text = "+%d" % g if g >= 50 else "Campfire"
-	_side_badges["journal"].visible = Game.achievement_claimable() > 0
-	var ready_n := Game.bounty_claimable()
-	_bounty_badge.visible = ready_n > 0
-	_bounty_count.text = str(ready_n)
-	var left := 86400 - int(Time.get_unix_time_from_system()) % 86400
-	_bounty_time.text = "%dh %02dm" % [left / 3600, (left % 3600) / 60]
+	_idle_label.text = "+%d" % g if g >= 50 else "CAMPFIRE"
+	_idle_label.add_theme_color_override("font_color", Color("f3d58f") if g >= 50 else Color("b9a27a"))
 
 
 func _side_pressed(key: String) -> void:
@@ -323,17 +317,15 @@ func _side_pressed(key: String) -> void:
 			var g := Game.claim_idle()
 			if g > 0:
 				Sfx.play("coin", 0.0)
-				Ui.pop_in(%GoldChip, 0.0, 1.2)
+				FxUi.coin_fly(%Overlay, _idle_label.get_global_rect().get_center(), %GoldChip, 8)
 				_float_text(_idle_label, "+%d gold" % g, Color(1.0, 0.85, 0.4))
 			else:
 				_float_text(_idle_label, "%d gold an hour" % rate, Color(0.85, 0.8, 0.7))
 			refresh()
-		"daily":
-			open_sheet("daily_sheet")
-		"bounties":
-			open_sheet("bounties")
-		"journal":
+		"quests":
 			open_sheet("journal")
+		"season":
+			open_sheet("season")
 
 
 ## True while the home is showing with nothing over it (taps on the hero open
@@ -386,11 +378,13 @@ func _build_tabs() -> void:
 		b.pressed.connect(func(): show_tab(k))
 		var dot := PanelContainer.new()
 		dot.theme_type_variation = &"Badge"
-		dot.custom_minimum_size = Vector2(24, 24)
+		dot.custom_minimum_size = Vector2(16, 16)
 		dot.anchor_left = 0.5
 		dot.anchor_right = 0.5
-		dot.offset_left = 18.0
-		dot.offset_top = 4.0
+		dot.offset_left = 16.0
+		dot.offset_top = 8.0
+		dot.offset_right = 32.0
+		dot.offset_bottom = 24.0
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.visible = false
 		b.add_child(dot)
@@ -401,29 +395,14 @@ func _build_tabs() -> void:
 	_style_tabs()
 
 
-## Icons only; the open tab is wider, rises as a gold block and names itself
-## (Clash Royale's bar).
+## Each tab is an icon over its name; the open one is gold with a glowing
+## line along the bar's top.
 func _style_tabs() -> void:
 	for k in TABS:
 		var b: Button = _tab_btns[k]
-		var on: bool = k == tab
-		b.button_pressed = on
-		b.size_flags_stretch_ratio = 1.5 if on else 1.0
-		b.text = str(TAB_LOOK[k][0]).to_upper() if on else ""
-		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if on else VERTICAL_ALIGNMENT_CENTER
-		b.add_theme_constant_override("icon_max_width", 50 if on else 46)
-		# On the raised block the dot rides its top corner, clear of the icon.
-		var dot: Control = _tab_dots[k]
-		dot.offset_left = 44.0 if on else 18.0
-		dot.offset_top = -30.0 if on else 4.0
-		dot.offset_right = dot.offset_left + 24.0
-		dot.offset_bottom = dot.offset_top + 24.0
-		var g := b.get_node_or_null("Gloss")
-		if on and g == null:
-			# Covers the part of the block that rises above the button too.
-			FxUi.gloss(b, 14.0, 0.35, 4.0).offset_top = -22.0
-		elif not on and g:
-			g.queue_free()
+		b.button_pressed = k == tab
+		b.text = str(TAB_LOOK[k][0]).to_upper()
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 
 
 ## Opens tab `name_`, on sub-tab `sub` when it has them. The new page slides in
@@ -627,7 +606,7 @@ func open_sheet(name_: String) -> void:
 		"daily_sheet", "daily":
 			_sheet.open("Daily", _build_daily)
 		"journal":
-			_sheet.open("Journal", _build_journal)
+			_sheet.open("Quests", _build_journal)
 		"bounties":
 			_sheet.open("Bounties", _build_bounties)
 		"season":

@@ -175,95 +175,14 @@ theme_type_variation = &"RoundButton"
 icon_alignment = 1
 expand_icon = true
 
-[node name="SeasonRow" type="HBoxContainer" parent="Safe/V"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 10
-
-[node name="Season" type="Button" parent="Safe/V/SeasonRow"]
+[node name="Road" type="Button" parent="Safe/V"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.7
-focus_mode = 0
-theme_type_variation = &"SeasonPill"
-
-[node name="M" type="MarginContainer" parent="Safe/V/SeasonRow/Season"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 12
-
-[node name="H" type="HBoxContainer" parent="Safe/V/SeasonRow/Season/M"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 10
-
-[node name="SeasonIcon" type="TextureRect" parent="Safe/V/SeasonRow/Season/M/H"]
-unique_name_in_owner = true
-self_modulate = Color(1, 0.85, 0.45, 1)
-custom_minimum_size = Vector2(36, 36)
-layout_mode = 2
-size_flags_vertical = 4
-mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="V" type="VBoxContainer" parent="Safe/V/SeasonRow/Season/M/H"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-alignment = 1
-theme_override_constants/separation = 4
-
-[node name="SeasonText" type="Label" parent="Safe/V/SeasonRow/Season/M/H/V"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"PillLabel"
-text = "SEASON · TIER 1"
-clip_text = true
-text_overrun_behavior = 3
-
-[node name="SeasonBar" type="ProgressBar" parent="Safe/V/SeasonRow/Season/M/H/V"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 10)
-layout_mode = 2
-mouse_filter = 2
-theme_type_variation = &"XPBar"
-show_percentage = false
-
-[node name="SeasonBadge" type="PanelContainer" parent="Safe/V/SeasonRow/Season"]
-unique_name_in_owner = true
-visible = false
-custom_minimum_size = Vector2(26, 26)
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -18.0
-offset_top = -8.0
-offset_right = 8.0
-offset_bottom = 18.0
-mouse_filter = 2
-theme_type_variation = &"Badge"
-
-[node name="Road" type="Button" parent="Safe/V/SeasonRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
-layout_mode = 2
-size_flags_horizontal = 3
 focus_mode = 0
 theme_type_variation = &"TrophyPill"
 
-[node name="M" type="MarginContainer" parent="Safe/V/SeasonRow/Road"]
+[node name="M" type="MarginContainer" parent="Safe/V/Road"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -271,60 +190,89 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 12
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 10
 
-[node name="H" type="HBoxContainer" parent="Safe/V/SeasonRow/Road/M"]
+[node name="H" type="HBoxContainer" parent="Safe/V/Road/M"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 16
 
-[node name="RoadIcon" type="TextureRect" parent="Safe/V/SeasonRow/Road/M/H"]
+[node name="RoadIcon" type="TextureRect" parent="Safe/V/Road/M/H"]
 unique_name_in_owner = true
-self_modulate = Color(1, 0.85, 0.45, 1)
-custom_minimum_size = Vector2(36, 36)
+self_modulate = Color(0.96, 0.82, 0.5, 1)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="V" type="VBoxContainer" parent="Safe/V/SeasonRow/Road/M/H"]
+[node name="V" type="VBoxContainer" parent="Safe/V/Road/M/H"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 alignment = 1
-theme_override_constants/separation = 4
+theme_override_constants/separation = 8
 
-[node name="RoadText" type="Label" parent="Safe/V/SeasonRow/Road/M/H/V"]
+[node name="Top" type="HBoxContainer" parent="Safe/V/Road/M/H/V"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RoadTitle" type="Label" parent="Safe/V/Road/M/H/V/Top"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"Caption"
+theme_override_font_sizes/font_size = 16
+text = "TROPHY ROAD"
+
+[node name="RoadText" type="Label" parent="Safe/V/Road/M/H/V/Top"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"PillLabel"
+theme_override_colors/font_color = Color(0.95, 0.86, 0.65, 1)
+theme_override_font_sizes/font_size = 20
 text = "0 / 60"
-clip_text = true
 
-[node name="RoadBar" type="ProgressBar" parent="Safe/V/SeasonRow/Road/M/H/V"]
+[node name="RoadBar" type="ProgressBar" parent="Safe/V/Road/M/H/V"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 10)
+custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
 mouse_filter = 2
-theme_type_variation = &"XPBar"
+theme_type_variation = &"RoadBar"
 show_percentage = false
 
-[node name="RoadBadge" type="PanelContainer" parent="Safe/V/SeasonRow/Road"]
+[node name="Sep" type="ColorRect" parent="Safe/V/Road/M/H"]
+custom_minimum_size = Vector2(1, 48)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+color = Color(0.84, 0.68, 0.38, 0.3)
+
+[node name="RoadNext" type="TextureRect" parent="Safe/V/Road/M/H"]
+unique_name_in_owner = true
+self_modulate = Color(1, 0.84, 0.45, 1)
+custom_minimum_size = Vector2(42, 42)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RoadBadge" type="PanelContainer" parent="Safe/V/Road"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(26, 26)
+custom_minimum_size = Vector2(22, 22)
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -18.0
-offset_top = -8.0
+offset_left = -14.0
+offset_top = -6.0
 offset_right = 8.0
-offset_bottom = 18.0
+offset_bottom = 16.0
 mouse_filter = 2
 theme_type_variation = &"Badge"
 
@@ -348,13 +296,13 @@ theme_override_constants/separation = 14
 
 [node name="Prev" type="Button" parent="Safe/V/HeroBox/Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
 size_flags_vertical = 4
 focus_mode = 0
-theme_type_variation = &"RoundButton"
-theme_override_colors/font_color = Color(0.91, 0.71, 0.35, 1)
-theme_override_font_sizes/font_size = 36
+theme_type_variation = &"Ghost"
+theme_override_colors/font_color = Color(0.84, 0.68, 0.38, 1)
+theme_override_font_sizes/font_size = 44
 text = "‹"
 
 [node name="Mid" type="VBoxContainer" parent="Safe/V/HeroBox/Row"]
@@ -365,30 +313,28 @@ theme_override_constants/separation = -6
 [node name="HeroName" type="Label" parent="Safe/V/HeroBox/Row/Mid"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"Title"
-theme_override_constants/outline_size = 12
-theme_override_font_sizes/font_size = 50
-text = "Knight"
+theme_type_variation = &"HeroTitle"
+text = "KNIGHT"
 horizontal_alignment = 1
 
 [node name="HeroTitle" type="Label" parent="Safe/V/HeroBox/Row/Mid"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"HudLabel"
-theme_override_colors/font_color = Color(1, 0.86, 0.55, 1)
+theme_override_colors/font_color = Color(0.8, 0.73, 0.59, 1)
 theme_override_font_sizes/font_size = 22
-text = "Power 400 · Tank"
+text = "Power 400"
 horizontal_alignment = 1
 
 [node name="Next" type="Button" parent="Safe/V/HeroBox/Row"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(56, 56)
+custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
 size_flags_vertical = 4
 focus_mode = 0
-theme_type_variation = &"RoundButton"
-theme_override_colors/font_color = Color(0.91, 0.71, 0.35, 1)
-theme_override_font_sizes/font_size = 36
+theme_type_variation = &"Ghost"
+theme_override_colors/font_color = Color(0.84, 0.68, 0.38, 1)
+theme_override_font_sizes/font_size = 44
 text = "›"
 
 [node name="Lock" type="Label" parent="Safe/V/HeroBox"]
@@ -402,107 +348,124 @@ text = "Locked"
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="Action" type="HBoxContainer" parent="Safe/V"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Chest" type="Button" parent="Safe/V/Action"]
+[node name="Expedition" type="Button" parent="Safe/V"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(112, 116)
-layout_mode = 2
-focus_mode = 0
-theme_type_variation = &"SlotButton"
-icon_alignment = 1
-vertical_icon_alignment = 0
-expand_icon = true
-
-[node name="ChestLabel" type="Label" parent="Safe/V/Action/Chest"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = -38.0
-offset_bottom = -10.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_type_variation = &"PillLabel"
-theme_override_font_sizes/font_size = 15
-text = "NO CHEST"
-horizontal_alignment = 1
-
-[node name="Hunt" type="Button" parent="Safe/V/Action"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 116)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-theme_type_variation = &"HuntButton"
-
-[node name="V" type="VBoxContainer" parent="Safe/V/Action/Hunt"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_bottom = -6.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-alignment = 1
-theme_override_constants/separation = -4
-
-[node name="HuntLabel" type="Label" parent="Safe/V/Action/Hunt/V"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"HuntLabel"
-text = "HUNT"
-horizontal_alignment = 1
-
-[node name="HuntSub" type="Label" parent="Safe/V/Action/Hunt/V"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"HuntSub"
-text = "Horde · The Barrow · Normal"
-horizontal_alignment = 1
-clip_text = true
-text_overrun_behavior = 3
-
-[node name="Expedition" type="Button" parent="Safe/V/Action"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(112, 116)
+custom_minimum_size = Vector2(0, 104)
 layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"ModeButton"
 
-[node name="V" type="VBoxContainer" parent="Safe/V/Action/Expedition"]
+[node name="M" type="MarginContainer" parent="Safe/V/Expedition"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_bottom = -6.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-alignment = 1
-theme_override_constants/separation = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_right = 22
 
-[node name="ExpIcon" type="TextureRect" parent="Safe/V/Action/Expedition/V"]
+[node name="H" type="HBoxContainer" parent="Safe/V/Expedition/M"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 18
+
+[node name="Well" type="PanelContainer" parent="Safe/V/Expedition/M/H"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_type_variation = &"ModeWell"
+
+[node name="ExpIcon" type="TextureRect" parent="Safe/V/Expedition/M/H/Well"]
 unique_name_in_owner = true
-self_modulate = Color(1, 0.85, 0.5, 1)
-custom_minimum_size = Vector2(0, 52)
+self_modulate = Color(0.94, 0.86, 1, 1)
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ExpMode" type="Label" parent="Safe/V/Action/Expedition/V"]
+[node name="Text" type="VBoxContainer" parent="Safe/V/Expedition/M/H"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="ExpMode" type="Label" parent="Safe/V/Expedition/M/H/Text"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_type_variation = &"Value"
+theme_override_font_sizes/font_size = 26
+text = "Horde Hunt"
+
+[node name="ExpPlace" type="Label" parent="Safe/V/Expedition/M/H/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Small"
+text = "The Barrow · Normal"
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="Change" type="Label" parent="Safe/V/Expedition/M/H"]
+layout_mode = 2
+theme_type_variation = &"Caption"
+theme_override_colors/font_color = Color(0.88, 0.78, 0.56, 1)
+theme_override_font_sizes/font_size = 17
+text = "CHANGE  ›"
+
+[node name="Action" type="HBoxContainer" parent="Safe/V"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Chest" type="Button" parent="Safe/V/Action"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"SlotButton"
+icon_alignment = 1
+expand_icon = true
+
+[node name="ChestLabel" type="Label" parent="Safe/V/Action/Chest"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -26.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 0
 theme_type_variation = &"PillLabel"
-theme_override_font_sizes/font_size = 15
-text = "MODE"
+theme_override_font_sizes/font_size = 13
+text = "OPEN"
 horizontal_alignment = 1
+
+[node name="Hunt" type="Button" parent="Safe/V/Action"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"HuntButton"
+
+[node name="HuntLabel" type="Label" parent="Safe/V/Action/Hunt"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"HuntLabel"
+text = "HUNT"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Pages" type="Control" parent="."]
 unique_name_in_owner = true
