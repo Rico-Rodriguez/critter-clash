@@ -98,7 +98,14 @@ godot --headless --path . --fixed-fps 60 -- --bot --hero=knight,ranger,mage,barb
 godot --headless --path . --fixed-fps 60 -- --bot --hero=knight --idle
 # Compile every script, scene and shader.
 godot --headless --path . -- --check
+# The online layer against a local game server (server/test/run_local.sh).
+godot --headless --path . -- --nettest --server=http://127.0.0.1:7350
 ```
+
+Social screens (Clan tab, friends, invites) are captured signed in to a local
+server filled by `server/test/seed_demo.py`: add `--server=http://127.0.0.1:7350
+--ref=<code it prints> --clan=<clan it prints>` and shots like
+`clanfind,clanin,members,party,friends,invite,ranks,gifts,account`.
 
 ### Screenshots
 
@@ -133,10 +140,16 @@ src/
                           cam.gd, bot.gd (autopilot for checks)
   lobby/                  the camp: 3D scene, UI, sheets, chest opening;
                           lobby_ui.gd sits on lobby_ui_widgets <
-                          lobby_ui_hero_sheets < lobby_ui_sheets
+                          lobby_ui_hero_sheets < lobby_ui_sheets <
+                          lobby_ui_social (Clan tab, friends, invites, profile)
+  net/                    online play: nk_client.gd (Nakama REST + socket),
+                          online.gd (account, rewards, clans, chat, cloud save),
+                          party_link.gd (parties), net_config.gd (server address)
   ui/                     HUD, level-up, pause, results, theme.tres, widgets
   fx/                     shaders: characters, ground, slashes, rings,
                           telegraphs, loot beams, particles
+server/                   the game server (Nakama + our Lua rules), see
+                          server/README.md
 assets/
   kaykit/                 KayKit models and animations (CC0)
   icons/                  game-icons.net SVGs (CC BY 3.0)

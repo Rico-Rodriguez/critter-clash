@@ -443,7 +443,7 @@ func buy_glow(id: String, glow: String) -> bool:
 		save()
 		return true
 	var cost := int(DB.GLOWS[glow]["gold"])
-	if gold() < cost:
+	if DB.GLOWS[glow].get("gift", false) or gold() < cost:
 		return false
 	data["gold"] = gold() - cost
 	h["glows"].append(glow)

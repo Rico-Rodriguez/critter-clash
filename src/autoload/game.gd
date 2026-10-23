@@ -16,7 +16,7 @@ var errors: ErrorLog
 
 func _ready() -> void:
 	rng.randomize()
-	if OS.get_cmdline_user_args().has("--fresh") or OS.get_cmdline_user_args().has("--capture") or OS.get_cmdline_user_args().has("--bot"):
+	if OS.get_cmdline_user_args().has("--fresh") or OS.get_cmdline_user_args().has("--capture") or OS.get_cmdline_user_args().has("--bot") or OS.get_cmdline_user_args().has("--nettest"):
 		memory_only = true
 		data = _fresh()
 	errors = ErrorLog.install(not memory_only)

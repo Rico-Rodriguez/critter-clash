@@ -102,6 +102,7 @@ func run() -> int:
 	_depth_tests()
 	_meta_tests()
 	_unique_names()
+	_net_tests()
 	_gear_tests()
 	return _fails
 
@@ -395,3 +396,25 @@ func _unique_names() -> void:
 	if not missing.is_empty():
 		print("missing unique names: ", missing)
 	_ok("scene unique names", missing.is_empty())
+
+
+## The online layer's offline parts: what never needs a server.
+func _net_tests() -> void:
+	var Online := preload("res://src/net/online.gd")
+	var Nk := preload("res://src/net/nk_client.gd")
+	_ok("commas", Online.commas(25000) == "25,000" and Online.commas(999) == "999" and Online.commas(1234567) == "1,234,567")
+	_ok("grant text", Online.grant_text({"kind": "gold", "amount": 2000}) == "2,000 gold" and Online.grant_text({"kind": "chest", "chest": "gold"}) == DB.CHESTS["gold"]["name"])
+	var win := {"win": true, "tier": 0, "kills": 100, "elites": 2, "bosses": ["gravemaw"]}
+	var t: Dictionary = DB.RAID_HIT
+	_ok("raid damage", Online.raid_damage(win) == 100 * int(t["kill"]) + 2 * int(t["elite"]) + int(t["boss"]) + int(t["win"]))
+	win["tier"] = 2
+	_ok("raid damage grows with tier", Online.raid_damage(win) > Online.raid_damage({"win": true, "tier": 0, "kills": 100, "elites": 2, "bosses": ["gravemaw"]}))
+	_ok("empty lists from the server", Online._as_list({}).is_empty() and Online._as_list([1]).size() == 1)
+	_ok("lua errors trimmed", Nk._clean_error("/nakama/data/modules/gravelight.lua:236: That's your own code!\nstack traceback:\n...") == "That's your own code!")
+	var claims := {"uid": "abc", "exp": 99}
+	var mid := Marshalls.utf8_to_base64(JSON.stringify(claims)).replace("+", "-").replace("/", "_").trim_suffix("=").trim_suffix("=")
+	_ok("session claims", Nk.jwt_claims("x." + mid + ".y").get("uid", "") == "abc")
+	# Gift glows are earned, never bought.
+	Game.data["gold"] = 999999
+	_ok("kinship glow not for sale", not Game.buy_glow("knight", "kinship") and not "kinship" in Game.hero("knight")["glows"])
+	Game.data = Game._fresh()

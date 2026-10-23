@@ -6,6 +6,7 @@ extends Node
 ##   -- --check                                                 compile every script and scene
 
 const LOBBY := preload("res://src/lobby/lobby.tscn")
+const Online := preload("res://src/net/online.gd")
 
 var current: Node
 var _fade: ColorRect
@@ -36,9 +37,15 @@ func _ready() -> void:
 		_test.call_deferred()
 	elif args.has("--bot"):
 		_run_bot.call_deferred(args)
+	elif args.has("--nettest"):
+		_nettest.call_deferred()
 	elif args.has("--capture"):
+		# Captures of the social screens sign in to a local test server.
+		if not _arg(args, "server", "").is_empty():
+			_start_online()
 		_capture.call_deferred(args)
 	else:
+		_start_online()
 		# The launch update check holds the camp behind the splash; a connect,
 		# not an await, so an in-process update restart can free this node.
 		var ota := get_node_or_null("/root/Ota")
@@ -46,6 +53,23 @@ func _ready() -> void:
 			ota.connect("boot_done", go.bind("lobby"), CONNECT_ONE_SHOT)
 		else:
 			go("lobby")
+
+
+func _start_online() -> void:
+	var o := Online.start(self)
+	o.party.start.connect(_on_party_start)
+
+
+## The party leader started a hunt: follow, if in camp.
+func _on_party_start(plan: Dictionary) -> void:
+	if _busy or current == null or current is Hunt:
+		Online.inst.party.in_hunt = false
+		return
+	Game.set_mode("horde")
+	Game.set_zone(str(plan.get("zone", "barrow")))
+	Game.set_tier(int(plan.get("tier", 0)))
+	gold_seen = Game.gold()
+	go("hunt")
 
 
 func go(screen: String) -> void:
@@ -79,6 +103,8 @@ func go(screen: String) -> void:
 
 
 func _on_hunt_finished(result: Dictionary) -> void:
+	if Online.inst:
+		Online.inst.after_hunt(result)
 	if result.get("win", false) or (str(result.get("mode", "")) in ["descent", "wild"] and str(result.get("chest", "")) != ""):
 		var c := str(result.get("chest", ""))
 		if c != "":
@@ -115,6 +141,13 @@ func _check() -> void:
 func _test() -> void:
 	var fails := Tests.new().run()
 	print("TESTS ", "PASSED" if fails == 0 else "%d FAILED" % fails)
+	get_tree().quit(0 if fails == 0 else 1)
+
+
+func _nettest() -> void:
+	var t: Node = load("res://src/net/net_test.gd").new()
+	add_child(t)
+	var fails: int = await t.run(self)
 	get_tree().quit(0 if fails == 0 else 1)
 
 
@@ -264,7 +297,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire":
+			"lobby", "heroes", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire", "journal", "clan", "profile":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -298,6 +331,11 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
+				await _save(shot)
+			"clanfind", "clancreate", "clanin", "members", "party", "friends", "invite", "ranks", "gifts", "account", "player":
+				# The social screens, signed in to a local test server filled by
+				# server/test/seed_demo.py (pass its code as --ref= and --clan=).
+				await _social_shot(shot, args)
 				await _save(shot)
 			"firstcamp":
 				# A new player's camp: no side column, a note on the hunt button.
@@ -349,7 +387,7 @@ func _capture(args: PackedStringArray) -> void:
 					current.open_sheet("heroes")
 					await _wait(1.2)
 					await _save("heroes_" + tab)
-					current.ui._sheet.close()
+					current.ui.show_tab("hunt")
 					await _wait(0.6)
 			"swipe":
 				# Drag gestures through the real GUI: a drag that starts on a
@@ -378,7 +416,7 @@ func _capture(args: PackedStringArray) -> void:
 				print("SWIPE card closed=%s" % (eq._card == null))
 				eq._close()
 				await _wait(0.8)
-				current.open_sheet("skills")
+				current.open_sheet("settings")
 				await _wait(1.0)
 				var sh: Sheet = current.ui._sheet
 				var hd := sh.title_label.get_global_rect().get_center()
@@ -666,6 +704,66 @@ func _finger_up(at: Vector2) -> void:
 	up.global_position = at
 	get_viewport().push_input(up)
 	await get_tree().process_frame
+
+
+func _social_shot(shot: String, args: PackedStringArray) -> void:
+	Game.data["stats"]["hunts"] = 5
+	Game.data["profile"]["name"] = "Ashkin"
+	for k in ["camp_hunt", "camp_chest", "camp_gear", "camp_heroes", "camp_clan"]:
+		Game.data["tips"][k] = true
+	_set_screen_now("lobby")
+	var o := Online.inst
+	var guard := Time.get_ticks_msec() + 15000
+	while o and o.state != "on" and Time.get_ticks_msec() < guard:
+		await get_tree().process_frame
+	await _wait(0.5)
+	var ui: LobbyUI = current.ui
+	var clan := _arg(args, "clan", "")
+	if o and shot in ["clanin", "members", "party", "player"] and not o.in_clan() and clan != "":
+		var found: Dictionary = await o.find_clans(clan)
+		if found["ok"] and not found["data"].is_empty():
+			await o.join_clan(str(found["data"][0]["id"]))
+		guard = Time.get_ticks_msec() + 5000
+		while o.clan_log.is_empty() and Time.get_ticks_msec() < guard:
+			await get_tree().process_frame
+	if o and shot in ["gifts", "friends", "invite"] and _arg(args, "ref", "") != "" and not bool(Game.data["online"]["referred"]):
+		await o.redeem(_arg(args, "ref", ""))
+		await _wait(1.5)
+		if shot != "gifts" and ui._sheet:
+			ui._sheet.queue_free()
+	if o and shot == "party":
+		await o.party.create()
+	match shot:
+		"clanfind", "clanin", "party":
+			ui.show_tab("clan", 0)
+		"friends":
+			ui.show_tab("clan", 1)
+		"invite":
+			ui.show_tab("clan", 2)
+		"ranks":
+			ui.show_tab("clan", 3)
+		"clancreate":
+			ui.show_tab("clan", 0)
+			await _wait(0.5)
+			ui._clan_form["name"] = "Ember Wardens"
+			ui._clan_form["badge"] = 4
+			ui.open_sheet("clan_create")
+		"members":
+			ui.show_tab("clan", 0)
+			await _wait(0.5)
+			ui.open_sheet("clan_members")
+		"account":
+			ui.open_sheet("account")
+		"player":
+			ui.show_tab("clan", 0)
+			var said: Array = o.clan_log.filter(func(m): return m["kind"] == "text") if o else []
+			ui._player = {"id": str(said[0]["from"]) if not said.is_empty() else "", "name": str(said[0]["name"]) if not said.is_empty() else ""}
+			ui.open_sheet("player")
+	await _wait(2.5)
+	if shot in ["clanin", "party"] and ui._page is Sheet:
+		var sc: ScrollContainer = ui._page._scroll
+		sc.scroll_vertical = 0 if shot == "party" else 100000
+		await _wait(0.4)
 
 
 func _wait(sec: float) -> void:

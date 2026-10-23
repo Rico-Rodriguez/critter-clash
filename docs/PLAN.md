@@ -1062,6 +1062,17 @@ TestFlight, store listing) and refactors that change no behavior. If the user
 asks for a new system during the freeze, point at this note and ask once
 whether to lift it.
 
+**Lifted once, for social (2026-10-23).** The user asked for the camp
+navigation overhaul and the social features (clans, friends, chat, co-op,
+referrals) to be built now. That work is on the branch
+`claude/project-thread-0wfcji`; everything else above still holds.
+
+0. **Social go-live.** Deploy the game server (`server/README.md`), then set
+   `HOST`, `SERVER_KEY` and `SUPPORT` in `src/net/net_config.gd`. Until then
+   the game stays offline and the Clan tab says the server isn't live yet.
+   On a phone, check: chat with the keyboard up, a two-phone party hunt, the
+   invite flow from a fresh install, and moving to a new phone.
+
 Ordered. Do the first item before the rest: it is the only one that needs a
 real phone. Everything else is tuned by the autopilot and by eye.
 

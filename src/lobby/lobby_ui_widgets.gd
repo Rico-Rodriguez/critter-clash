@@ -20,6 +20,11 @@ var _idle_label: Label
 var _goal: Label
 var _note_lines: Array = []
 
+## The tab bar's height; the open tab and its page (lobby_ui.gd runs them).
+const NAV_H := 128.0
+var tab := "hunt"
+var _page: Control
+
 const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle", "descent": "hourglass", "rush": "crowned-skull", "rift": "crystal-shine", "wild": "wolf-head"}
 
 
@@ -35,6 +40,22 @@ func open_sheet(_name: String) -> void:
 
 
 func open_equipment() -> void:
+	pass
+
+
+func show_tab(_name: String, _sub := 0) -> void:
+	pass
+
+
+func camp_idle() -> bool:
+	return false
+
+
+func _chest_ready() -> bool:
+	return false
+
+
+func show_chest(_kind: String) -> void:
 	pass
 
 

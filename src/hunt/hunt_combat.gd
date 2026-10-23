@@ -496,6 +496,9 @@ func _end(win: bool) -> void:
 		var ch := str(result["chest"]) if win else ""
 		if ch != "":
 			result["chest"] = grades[mini(grades.find(ch) + 1, 2)]
+	if not partners.is_empty():
+		result["party"] = partners.size()
+		result["gold"] = int(round(int(result["gold"]) * (1.0 + DB.PARTY_GOLD)))
 	if mode == "wild" and not win and rivals_total > 0 and int(result["place"]) <= 3:
 		result["chest"] = "silver"
 	if mode == "descent":

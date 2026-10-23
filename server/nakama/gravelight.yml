@@ -1,0 +1,31 @@
+# Nakama settings for Gravelight. Secrets (keys, passwords) are passed on the
+# command line from server/.env by docker-compose.yml, never kept here.
+name: gravelight
+logger:
+  level: "INFO"
+session:
+  # Sign-in lasts a day; the game refreshes it silently with the refresh token.
+  token_expiry_sec: 86400
+  refresh_token_expiry_sec: 2592000
+socket:
+  max_message_size_bytes: 8192
+  max_request_size_bytes: 1048576
+  # Phones on mobile data drop and come back; give them a moment.
+  pong_wait_ms: 25000
+  ping_period_ms: 15000
+runtime:
+  path: "/nakama/data/modules"
+  lua_min_count: 8
+  lua_max_count: 48
+  lua_call_stack_size: 128
+  read_only_globals: true
+match:
+  input_queue_size: 128
+tracker:
+  event_queue_size: 1024
+party:
+  # Hunts are up to three heroes.
+  max_size: 3
+  label_update_interval_ms: 1000
+leaderboard:
+  blacklist_rank_cache: []

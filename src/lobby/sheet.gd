@@ -4,6 +4,10 @@ extends Control
 ## scrolling body. The camp fills `body`; `rebuild` refills it in place.
 ## Tap outside, swipe the title down, or pull the list down from its top to
 ## close it.
+##
+## As a tab page (`page = true`, set before `open`) it fills its parent instead:
+## no scrim, no close button, nothing to swipe away, and optional segments
+## (sub-tabs) under the title that swap the builder.
 
 const DragScroll := preload("res://src/ui/drag_scroll.gd")
 const SwipeDismiss := preload("res://src/ui/swipe_dismiss.gd")
@@ -17,6 +21,12 @@ var builder: Callable
 var _scroll: DragScroll
 var _fade: TextureRect
 var _cap := 0.86
+var page := false
+## [[label, builder], ...] for a page's sub-tabs; `segment` is the one shown.
+var segments: Array = []
+var segment := 0
+var _seg_row: HBoxContainer
+signal segment_changed(i: int)
 
 
 ## `height` is the most of the screen the sheet may take; it shrinks to fit
@@ -31,19 +41,27 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	scrim.gui_input.connect(func(e: InputEvent):
 		if e is InputEventMouseButton and e.pressed:
 			close())
-	add_child(scrim)
+	if not page:
+		add_child(scrim)
 	panel = PanelContainer.new()
 	panel.theme_type_variation = "Sheet"
 	panel.anchor_left = 0.0
 	panel.anchor_right = 1.0
-	panel.anchor_top = 1.0 - height
+	panel.anchor_top = 0.0 if page else 1.0 - height
 	panel.anchor_bottom = 1.0
 	add_child(panel)
-	# Keep the content clear of the home bar.
 	var inset := MarginContainer.new()
-	Ui.apply_safe_area(inset, 0)
-	for side in ["margin_top", "margin_left", "margin_right"]:
-		inset.add_theme_constant_override(side, 0)
+	if page:
+		# A page sits above the tab bar, so only the notch needs clearing.
+		var ins := Ui.safe_insets(0)
+		inset.add_theme_constant_override("margin_top", int(ins.y) + 30)
+		for side in ["margin_left", "margin_right", "margin_bottom"]:
+			inset.add_theme_constant_override(side, 0)
+	else:
+		# Keep the content clear of the home bar.
+		Ui.apply_safe_area(inset, 0)
+		for side in ["margin_top", "margin_left", "margin_right"]:
+			inset.add_theme_constant_override(side, 0)
 	panel.add_child(inset)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
@@ -61,8 +79,14 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	x.add_theme_font_size_override("font_size", 28)
 	x.add_theme_color_override("font_color", Color(0.91, 0.71, 0.35))
 	x.pressed.connect(close)
-	head.add_child(x)
+	if not page:
+		head.add_child(x)
 	v.add_child(head)
+	if not segments.is_empty():
+		_seg_row = HBoxContainer.new()
+		_seg_row.add_theme_constant_override("separation", 8)
+		v.add_child(_seg_row)
+		_build_segments()
 	var wrap := Control.new()
 	wrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(wrap)
@@ -97,6 +121,9 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 16)
 	m.add_child(body)
+	if page:
+		builder.call(self)
+		return
 	var swipe := SwipeDismiss.attach(panel, close, head)
 	_scroll.pulled.connect(swipe.drag)
 	_scroll.pull_released.connect(swipe.release)
@@ -118,7 +145,8 @@ func rebuild() -> void:
 	Ui.clear(body)
 	builder.call(self)
 	await get_tree().process_frame
-	_fit()
+	if not page:
+		_fit()
 	_scroll.scroll_vertical = keep
 	_update_fade()
 
@@ -139,8 +167,48 @@ func _update_fade() -> void:
 	_fade.visible = bar.max_value - bar.page - bar.value > 8.0
 
 
+## Shows a page's sub-tab `i`, from the top.
+func show_segment(i: int) -> void:
+	if segments.is_empty():
+		return
+	segment = clampi(i, 0, segments.size() - 1)
+	builder = segments[segment][1]
+	_build_segments()
+	Ui.clear(body)
+	builder.call(self)
+	_scroll.scroll_vertical = 0
+	segment_changed.emit(segment)
+
+
+func _build_segments() -> void:
+	Ui.clear(_seg_row)
+	for i in segments.size():
+		var b := Button.new()
+		b.theme_type_variation = &"Choice"
+		b.toggle_mode = true
+		b.button_pressed = i == segment
+		b.text = str(segments[i][0])
+		b.custom_minimum_size = Vector2(0, 66)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 22)
+		var n := i
+		b.pressed.connect(func():
+			Sfx.play("ui_toggle", -6.0)
+			show_segment(n))
+		_seg_row.add_child(b)
+		if segments[i].size() > 2 and bool(segments[i][2]):
+			var dot := PanelContainer.new()
+			dot.theme_type_variation = &"Badge"
+			dot.custom_minimum_size = Vector2(20, 20)
+			dot.position = Vector2(10, 8)
+			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			b.add_child(dot)
+
+
 func close() -> void:
-	if not is_inside_tree():
+	# A tab page stays until another tab replaces it.
+	if page or not is_inside_tree():
 		return
 	Sfx.play("ui_back", -6.0)
 	var t := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)

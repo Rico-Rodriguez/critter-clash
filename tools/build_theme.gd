@@ -310,3 +310,79 @@ func _misc() -> void:
 	theme.set_stylebox("focus", "CheckButton", StyleBoxEmpty.new())
 	# Tooltip-ish panel for the item card.
 	theme.set_color("font_color", "LineEdit", TEXT)
+	_social()
+
+
+## The camp's bottom tab bar, chat bubbles and text fields (names, codes, chat).
+func _social() -> void:
+	theme.set_type_variation("NavBar", "PanelContainer")
+	var nb := box(Color("0a090c"), 0, 0)
+	nb.border_width_top = 3
+	nb.border_color = LINE
+	nb.set_content_margin_all(0)
+	nb.shadow_color = Color(0, 0, 0, 0.5)
+	nb.shadow_size = 14
+	theme.set_stylebox("panel", "NavBar", nb)
+	# A tab: dim when idle; the open one is lit, raised and capped in gold.
+	theme.set_type_variation("NavTab", "Ghost")
+	var tn := box(Color(0, 0, 0, 0), 0, 0)
+	tn.set_content_margin_all(4)
+	var tp := box(PANEL_HI, 0, 0)
+	tp.set_content_margin_all(4)
+	tp.border_width_top = 5
+	tp.border_width_left = 2
+	tp.border_width_right = 2
+	tp.border_color = GOLD
+	for k in ["normal", "hover", "disabled"]:
+		theme.set_stylebox(k, "NavTab", tn)
+	for k in ["pressed", "hover_pressed"]:
+		theme.set_stylebox(k, "NavTab", tp)
+	theme.set_font_size("font_size", "NavTab", 17)
+	theme.set_constant("icon_max_width", "NavTab", 52)
+	theme.set_constant("h_separation", "NavTab", 2)
+	theme.set_color("font_pressed_color", "NavTab", TEXT)
+	theme.set_color("font_hover_pressed_color", "NavTab", TEXT)
+	theme.set_color("icon_pressed_color", "NavTab", GOLD)
+	theme.set_color("icon_hover_pressed_color", "NavTab", GOLD)
+	# Chat: others on the left in slate, yours on the right in warm brown;
+	# system lines (drops, joins, raid hits) sit centered without a bubble.
+	theme.set_type_variation("Bubble", "PanelContainer")
+	var bo := box(PANEL_HI, 14, 0)
+	bo.corner_radius_bottom_left = 3
+	bo.content_margin_top = 8
+	bo.content_margin_bottom = 8
+	bo.content_margin_left = 14
+	bo.content_margin_right = 14
+	theme.set_stylebox("panel", "Bubble", bo)
+	theme.set_type_variation("BubbleMine", "PanelContainer")
+	var bm := bo.duplicate()
+	bm.bg_color = Color("3a2f1f")
+	bm.corner_radius_bottom_left = 14
+	bm.corner_radius_bottom_right = 3
+	theme.set_stylebox("panel", "BubbleMine", bm)
+	# An invite or raid card inside the chat: outlined in the party blue.
+	theme.set_type_variation("InviteCard", "PanelContainer")
+	var ic := box(Color("1b1f2a"), 12, 3, Color("4f8de0"))
+	theme.set_stylebox("panel", "InviteCard", ic)
+	# A reward: a warm card with a gold edge (gifts, the invite screen).
+	theme.set_type_variation("GiftCard", "PanelContainer")
+	var gc := box(Color("2a2116"), 12, 3, GOLD)
+	gc.shadow_color = Color(GOLD, 0.18)
+	gc.shadow_size = 10
+	theme.set_stylebox("panel", "GiftCard", gc)
+	_button_set("BlueButton", Color("4f8de0"), Color("234a80"), Color("0b1020"), 24)
+	_button_set("GreenButton", Color("4fae6a"), Color("2a5e38"), Color("0c1a10"), 26)
+	# Text fields: dark wells with a gold caret.
+	var le := box(Color(0, 0, 0, 0.5), 12, 2, Color(1, 1, 1, 0.1))
+	le.content_margin_top = 14
+	le.content_margin_bottom = 14
+	var lf := le.duplicate()
+	lf.border_color = Color(GOLD, 0.7)
+	theme.set_stylebox("normal", "LineEdit", le)
+	theme.set_stylebox("focus", "LineEdit", lf)
+	theme.set_stylebox("read_only", "LineEdit", le)
+	theme.set_color("font_placeholder_color", "LineEdit", Color(DIM, 0.8))
+	theme.set_color("caret_color", "LineEdit", GOLD)
+	theme.set_color("selection_color", "LineEdit", Color(GOLD, 0.35))
+	theme.set_font("font", "LineEdit", body_med)
+	theme.set_font_size("font_size", "LineEdit", 26)

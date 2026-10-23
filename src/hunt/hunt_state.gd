@@ -30,6 +30,8 @@ var hero: Hero
 var boss: Boss
 var pet: Actor
 var ally: Ally
+## Party partners (partner.gd), one per other player in a party hunt.
+var partners: Array = []
 var foes: Array[Enemy] = []
 ## The fallen, still lying where they died (see DB.CORPSE_MAX).
 var corpses: Array[Enemy] = []
