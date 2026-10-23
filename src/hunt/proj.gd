@@ -30,8 +30,9 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 	hit_set.clear()
 	splash = float(ex.get("splash", 0.0))
 	team = 1 if src is Enemy or src is Boss else 0
-	life = float(ex.get("life", 0.9 if kind == "arrow" else 1.6))
-	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5, "axe": 0.7, "throwaxe": 0.75}.get(kind, 0.4)
+	life = float(ex.get("life", 0.9 if kind in ["arrow", "quarrel", "soularrow", "knife"] else 1.6))
+	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5, "axe": 0.7, "throwaxe": 0.75,
+		"knife": 0.45, "quarrel": 0.4, "soularrow": 0.45, "spark": 0.35}.get(kind, 0.4)
 	rotation = Vector3(0, atan2(v.x, v.z), 0)
 	active = true
 	visible = true
@@ -41,22 +42,25 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 func tick(dt: float, h: Hunt) -> bool:
 	life -= dt
 	position += vel * dt
-	if kind == "axe" or kind == "throwaxe":
+	if kind == "axe" or kind == "throwaxe" or kind == "knife":
 		body.rotation.y += dt * 22.0
+	if extra.get("home", false) and team == 0:
+		_steer(dt, h)
 	if kind == "throwaxe":
 		return _tick_return(dt, h)
-	if kind == "fireball" or kind == "orb":
+	if kind in ["fireball", "orb", "spark", "soularrow"]:
 		_ember_t -= dt
 		if _ember_t <= 0.0:
 			_ember_t = 0.03
-			h.fx.embers_at(position - Vector3(0, 1.0, 0) - vel.normalized() * 0.3, Color(1.0, 0.45, 0.12) if kind == "fireball" else Color(0.7, 0.35, 1.0), 1, 0.1)
+			var ec: Color = {"fireball": Color(1.0, 0.45, 0.12), "orb": Color(0.7, 0.35, 1.0), "spark": Color(1.0, 0.8, 0.3), "soularrow": Color(0.5, 1.0, 0.7)}[kind]
+			h.fx.embers_at(position - Vector3(0, 1.0, 0) - vel.normalized() * 0.3, ec, 1, 0.1)
 	if life <= 0.0:
-		if kind == "fireball":
+		if _bursts():
 			_explode(h)
 		return false
 	var flat := Vector3(position.x, 0, position.z)
 	if h.arena.blocked(flat, 0.05) and kind != "wave":
-		if kind == "fireball":
+		if _bursts():
 			_explode(h)
 		else:
 			h.fx.burst(flat, Color(0.8, 0.75, 0.6), 4, 3.0)
@@ -68,7 +72,7 @@ func tick(dt: float, h: Hunt) -> bool:
 			if flat.distance_to(f.flat_pos()) > radius + f.radius:
 				continue
 			hit_set[f] = true
-			if kind == "fireball":
+			if _bursts():
 				_explode(h)
 				return false
 			var force := 3.5 if kind == "arrow" else 6.0
@@ -95,7 +99,7 @@ func tick(dt: float, h: Hunt) -> bool:
 				return false
 		if h.boss and h.boss.alive and not hit_set.has(h.boss) and flat.distance_to(h.boss.flat_pos()) < radius + h.boss.radius:
 			hit_set[h.boss] = true
-			if kind == "fireball":
+			if _bursts():
 				_explode(h)
 				return false
 			h.damage_foe(h.boss, dmg, source, vel.normalized(), 0.0)
@@ -140,6 +144,35 @@ func _tick_return(dt: float, h: Hunt) -> bool:
 	if randf() < 0.5:
 		h.fx.embers_at(flat, Color(1.0, 0.6, 0.3), 1, 0.2)
 	return true
+
+
+## Fire bursts where it lands; so do the hero's sparks and splashing orbs.
+func _bursts() -> bool:
+	return kind == "fireball" or kind == "spark" or (kind == "orb" and splash > 0.0 and team == 0)
+
+
+## A seeking shot turns toward the nearest foe ahead of it.
+func _steer(dt: float, h: Hunt) -> void:
+	var flat := Vector3(position.x, 0, position.z)
+	var best: Actor = null
+	var bd := 8.0
+	for f in h.foes_near(flat, 8.0):
+		if hit_set.has(f) or f.state == "spawn" or not f.alive:
+			continue
+		var d := flat.distance_to(f.flat_pos())
+		if d < bd:
+			bd = d
+			best = f
+	if h.boss and h.boss.alive and not hit_set.has(h.boss) and flat.distance_to(h.boss.flat_pos()) < bd:
+		best = h.boss
+	if best == null:
+		return
+	var want: Vector3 = (best.flat_pos() - flat).normalized()
+	var cur := vel.normalized()
+	var spd := vel.length()
+	var turn := clampf(cur.signed_angle_to(want, Vector3.UP), -7.0 * dt, 7.0 * dt)
+	vel = cur.rotated(Vector3.UP, turn) * spd
+	rotation.y = atan2(vel.x, vel.z)
 
 
 func _explode(h: Hunt) -> void:

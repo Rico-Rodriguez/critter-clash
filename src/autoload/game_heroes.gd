@@ -47,6 +47,8 @@ func hero_stats(id: String, preview := {}) -> Dictionary:
 		s["rate"] *= float(fd["rate"])
 		s["range"] *= float(fd["range"])
 		s["arc"] = float(fd["arc"])
+		s["splash"] *= float(fd.get("splash", 1.0))
+		s["proj_speed"] *= float(fd.get("pspeed", 1.0))
 	# Skills are the hero's power. Ranged and Magic do Attack's and Strength's
 	# jobs both.
 	var dmg_sk: String = {"melee": "strength", "ranged": "ranged", "magic": "magic"}[h["skill"]]

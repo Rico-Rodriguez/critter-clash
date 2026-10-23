@@ -76,19 +76,23 @@ const LINES := {
 				{"name": "Halberd", "model": "halberd.gltf", "scale": 0.72, "icon": "battle-axe"},
 			]},
 		],
+		# Helms and pauldrons are our own props, one per set
+		# (tools/art/make_hero_armor.py).
 		"helm": [
-			{"from": 0, "name": "Helm", "parts": ["Knight/Helmet"]},
-			{"from": 1, "name": "Visored Helm", "parts": ["Knight/Helmet", "Knight/HelmetVisor"], "alts": [
-				{"name": "Horned Helm", "parts": ["Skeleton_Warrior/Helmet"]},
-			]},
+			{"from": 0, "name": "Kettle Hat", "parts": ["P:knight_helm_0.gltf@head"]},
+			{"from": 1, "name": "Bascinet", "parts": ["P:knight_helm_1.gltf@head"]},
+			{"from": 2, "name": "Crested Helm", "parts": ["P:knight_helm_2.gltf@head"]},
+			{"from": 3, "name": "Dread Helm", "parts": ["P:knight_helm_3.gltf@head"]},
+			{"from": 4, "name": "Seraph Helm", "parts": ["P:knight_helm_4.gltf@head"]},
 		],
 		"chest": [
-			{"from": 0, "name": "Hauberk", "parts": ["T:Ranger"]},
-			{"from": 1, "name": "Cuirass", "parts": ["T:Knight"]},
-			{"from": 2, "name": "Cuirass", "parts": ["T:Knight", "Rogue_Hooded/Cape"], "alts": [
-				{"name": "Cuirass", "parts": ["T:Knight", "Skeleton_Warrior/Cloak"]},
+			{"from": 0, "name": "Hauberk", "parts": ["T:Ranger", "P:knight_pauldron_0.gltf@upperarm.l"]},
+			{"from": 1, "name": "Cuirass", "parts": ["T:Knight", "P:knight_pauldron_1.gltf@upperarm.l", "P:knight_pauldron_1.gltf@upperarm.r"]},
+			{"from": 2, "name": "Plated Cuirass", "parts": ["T:Knight", "Rogue_Hooded/Cape", "P:knight_pauldron_2.gltf@upperarm.l", "P:knight_pauldron_2.gltf@upperarm.r"], "alts": [
+				{"name": "Plated Cuirass", "parts": ["T:Knight", "Skeleton_Warrior/Cloak", "P:knight_pauldron_2.gltf@upperarm.l", "P:knight_pauldron_2.gltf@upperarm.r"]},
 			]},
-			{"from": 3, "name": "Cuirass", "parts": ["T:Knight", "Knight/Cape"]},
+			{"from": 3, "name": "Dread Cuirass", "parts": ["T:Knight", "Knight/Cape", "P:knight_pauldron_3.gltf@upperarm.l", "P:knight_pauldron_3.gltf@upperarm.r"]},
+			{"from": 4, "name": "Seraph Cuirass", "parts": ["T:Knight", "Knight/Cape", "P:knight_pauldron_4.gltf@upperarm.l", "P:knight_pauldron_4.gltf@upperarm.r"]},
 		],
 		"legs": [
 			{"from": 0, "name": "Chausses", "parts": ["L:Ranger"]},
@@ -176,22 +180,24 @@ const LINES := {
 			]},
 		],
 		"helm": [
-			{"from": 0, "name": "Hat", "parts": ["Mage/Hat"], "alts": [
+			{"from": 0, "name": "Wide Hat", "parts": ["P:mage_helm_0.gltf@head"], "alts": [
 				{"name": "Cowl", "parts": ["Rogue_Hooded/Head"], "hood": true},
 			]},
-			{"from": 2, "name": "Hat", "parts": ["Mage/Hat"], "alts": [
-				{"name": "Witch Hat", "parts": ["Skeleton_Mage/Hat"]},
-			]},
+			{"from": 1, "name": "Pointed Hat", "parts": ["P:mage_helm_1.gltf@head"]},
+			{"from": 2, "name": "Star Hat", "parts": ["P:mage_helm_2.gltf@head"]},
+			{"from": 3, "name": "Horned Hat", "parts": ["P:mage_helm_3.gltf@head"]},
+			{"from": 4, "name": "Crowned Hat", "parts": ["P:mage_helm_4.gltf@head"]},
 		],
 		"chest": [
-			{"from": 0, "name": "Robe", "parts": ["T:Ranger"]},
-			{"from": 1, "name": "Robe", "parts": ["T:Mage"]},
-			{"from": 2, "name": "Robe", "parts": ["T:Mage"], "alts": [
-				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight"]},
+			{"from": 0, "name": "Robe", "parts": ["T:Ranger", "P:mage_pauldron_0.gltf@upperarm.l", "P:mage_pauldron_0.gltf@upperarm.r"]},
+			{"from": 1, "name": "Robe", "parts": ["T:Mage", "P:mage_pauldron_1.gltf@upperarm.l", "P:mage_pauldron_1.gltf@upperarm.r"]},
+			{"from": 2, "name": "Robe", "parts": ["T:Mage", "P:mage_pauldron_2.gltf@upperarm.l", "P:mage_pauldron_2.gltf@upperarm.r"], "alts": [
+				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight", "P:mage_pauldron_2.gltf@upperarm.l", "P:mage_pauldron_2.gltf@upperarm.r"]},
 			]},
-			{"from": 3, "name": "Robe", "parts": ["T:Mage", "Mage/Cape"], "alts": [
-				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight", "Skeleton_Minion/Cloak"]},
+			{"from": 3, "name": "Robe", "parts": ["T:Mage", "Mage/Cape", "P:mage_pauldron_3.gltf@upperarm.l", "P:mage_pauldron_3.gltf@upperarm.r"], "alts": [
+				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight", "Skeleton_Minion/Cloak", "P:mage_pauldron_3.gltf@upperarm.l", "P:mage_pauldron_3.gltf@upperarm.r"]},
 			]},
+			{"from": 4, "name": "Archmage Robe", "parts": ["T:Mage", "Mage/Cape", "P:mage_pauldron_4.gltf@upperarm.l", "P:mage_pauldron_4.gltf@upperarm.r"]},
 		],
 		"legs": [
 			{"from": 0, "name": "Robe Skirt", "parts": ["L:Ranger"]},
@@ -222,18 +228,25 @@ const LINES := {
 				{"name": "Recurve Bow", "model": "kit:recurve", "scale": 1.15},
 			]},
 		],
+		# From the third set the helm is a circlet (then antlers) worn over
+		# the KayKit hood.
 		"helm": [
-			{"from": 0, "name": "Mask", "parts": ["Rogue_Hooded/Mask"]},
-			{"from": 2, "name": "Hood", "parts": ["Rogue_Hooded/Head"], "hood": true, "alts": [
-				{"name": "Mask", "parts": ["Rogue_Hooded/Mask", "Mage/Hat"]},
+			{"from": 0, "name": "Leather Cap", "parts": ["P:ranger_helm_0.gltf@head"], "alts": [
+				{"name": "Mask", "parts": ["Rogue_Hooded/Mask"]},
 			]},
+			{"from": 1, "name": "Feathered Cap", "parts": ["P:ranger_helm_1.gltf@head"]},
+			{"from": 2, "name": "Circlet Hood", "parts": ["Rogue_Hooded/Head", "P:ranger_helm_2.gltf@head"], "hood": true},
+			{"from": 3, "name": "Antler Hood", "parts": ["Rogue_Hooded/Head", "P:ranger_helm_3.gltf@head"], "hood": true},
+			{"from": 4, "name": "Stag Crown", "parts": ["Rogue_Hooded/Head", "P:ranger_helm_4.gltf@head"], "hood": true},
 		],
 		"chest": [
-			{"from": 0, "name": "Body", "parts": ["T:Ranger"]},
-			{"from": 2, "name": "Body", "parts": ["T:Rogue_Hooded"]},
-			{"from": 3, "name": "Body", "parts": ["T:Rogue_Hooded", "Ranger/Cape"], "alts": [
-				{"name": "Body", "parts": ["T:Rogue_Hooded", "Rogue_Hooded/Cape"]},
+			{"from": 0, "name": "Jerkin", "parts": ["T:Ranger", "P:ranger_pauldron_0.gltf@upperarm.l", "P:ranger_pauldron_0.gltf@upperarm.r"]},
+			{"from": 1, "name": "Jerkin", "parts": ["T:Ranger", "P:ranger_pauldron_1.gltf@upperarm.l", "P:ranger_pauldron_1.gltf@upperarm.r"]},
+			{"from": 2, "name": "Body", "parts": ["T:Rogue_Hooded", "P:ranger_pauldron_2.gltf@upperarm.l", "P:ranger_pauldron_2.gltf@upperarm.r"]},
+			{"from": 3, "name": "Body", "parts": ["T:Rogue_Hooded", "Ranger/Cape", "P:ranger_pauldron_3.gltf@upperarm.l", "P:ranger_pauldron_3.gltf@upperarm.r"], "alts": [
+				{"name": "Body", "parts": ["T:Rogue_Hooded", "Rogue_Hooded/Cape", "P:ranger_pauldron_3.gltf@upperarm.l", "P:ranger_pauldron_3.gltf@upperarm.r"]},
 			]},
+			{"from": 4, "name": "Stalker Body", "parts": ["T:Rogue_Hooded", "Ranger/Cape", "P:ranger_pauldron_4.gltf@upperarm.l", "P:ranger_pauldron_4.gltf@upperarm.r"]},
 		],
 		"legs": [
 			{"from": 0, "name": "Chaps", "parts": ["L:Ranger"]},
@@ -351,54 +364,19 @@ const SET_LOOKS := {
 ## Weapons by family (DB.FAMILIES): one model per set, Gravedigger first,
 ## built by tools/art/make_barbarian_arms.py. They carry their own colors, so
 ## no dye goes over them; a boss set's piece keeps its family's shape.
-const FAMILY_LOOKS := {
-	"axe": [
-		{"name": "Axe", "model": "barb_axe_0.gltf", "scale": 1.0},
-		{"name": "Axe", "model": "barb_axe_1.gltf", "scale": 1.0},
-		{"name": "Axe", "model": "barb_axe_2.gltf", "scale": 1.0},
-		{"name": "Axe", "model": "barb_axe_3.gltf", "scale": 1.0},
-		{"name": "Axe", "model": "barb_axe_4.gltf", "scale": 1.0},
-	],
-	"maul": [
-		{"name": "Maul", "model": "barb_maul_0.gltf", "scale": 1.0},
-		{"name": "Maul", "model": "barb_maul_1.gltf", "scale": 1.0},
-		{"name": "Maul", "model": "barb_maul_2.gltf", "scale": 1.0},
-		{"name": "Maul", "model": "barb_maul_3.gltf", "scale": 1.0},
-		{"name": "Maul", "model": "barb_maul_4.gltf", "scale": 1.0},
-	],
-	"scythe": [
-		{"name": "Scythe", "model": "barb_scythe_0.gltf", "scale": 1.0},
-		{"name": "Scythe", "model": "barb_scythe_1.gltf", "scale": 1.0},
-		{"name": "Scythe", "model": "barb_scythe_2.gltf", "scale": 1.0},
-		{"name": "Scythe", "model": "barb_scythe_3.gltf", "scale": 1.0},
-		{"name": "Scythe", "model": "barb_scythe_4.gltf", "scale": 1.0},
-	],
-	"twin": [
-		{"name": "Twin Axes", "model": "barb_twin_0.gltf", "scale": 1.1},
-		{"name": "Twin Axes", "model": "barb_twin_1.gltf", "scale": 1.1},
-		{"name": "Twin Axes", "model": "barb_twin_2.gltf", "scale": 1.1},
-		{"name": "Twin Axes", "model": "barb_twin_3.gltf", "scale": 1.1},
-		{"name": "Twin Axes", "model": "barb_twin_4.gltf", "scale": 1.1},
-	],
-	"halberd": [
-		{"name": "Halberd", "model": "barb_halberd_0.gltf", "scale": 0.72},
-		{"name": "Halberd", "model": "barb_halberd_1.gltf", "scale": 0.72},
-		{"name": "Halberd", "model": "barb_halberd_2.gltf", "scale": 0.72},
-		{"name": "Halberd", "model": "barb_halberd_3.gltf", "scale": 0.72},
-		{"name": "Halberd", "model": "barb_halberd_4.gltf", "scale": 0.72},
-	],
-	"throwing": [
-		{"name": "Throwing Axe", "model": "barb_throwing_0.gltf", "scale": 1.1},
-		{"name": "Throwing Axe", "model": "barb_throwing_1.gltf", "scale": 1.1},
-		{"name": "Throwing Axe", "model": "barb_throwing_2.gltf", "scale": 1.1},
-		{"name": "Throwing Axe", "model": "barb_throwing_3.gltf", "scale": 1.1},
-		{"name": "Throwing Axe", "model": "barb_throwing_4.gltf", "scale": 1.1},
-	],
-}
+const FAMILY_PREFIX := {"barbarian": "barb", "knight": "knight", "ranger": "ranger", "mage": "mage"}
+## How big a family sits in the hand (1 when not listed).
+const FAMILY_SCALE := {"twin": 1.1, "halberd": 0.72, "throwing": 1.1}
 
-## Rigid parts made for the skeletons' taller skulls sit lower on a living head.
+
+## A family weapon's look in a set: <prefix>_<family>_<set>.gltf.
+static func family_look(fam: String, mat: int) -> Dictionary:
+	var fd: Dictionary = DB.FAMILIES[fam]
+	return {"name": fd["name"], "model": "%s_%s_%d.gltf" % [FAMILY_PREFIX[fd["hero"]], fam, clampi(mat, 0, TIERS - 1)], "scale": float(FAMILY_SCALE.get(fam, 1.0))}
+
 ## Where "P:" props live (built by tools/art/make_barbarian_armor.py).
 const GEAR_DIR := "res://assets/kaykit/gear/"
+## Rigid parts made for the skeletons' taller skulls sit lower on a living head.
 const PART_NUDGE := {"Skeleton_Mage/Hat": Vector3(0, -0.13, 0)}
 
 ## Uniques with a model of their own (the rest wear their set's look).
@@ -542,8 +520,8 @@ static func piece(it: Dictionary) -> Dictionary:
 	var cls := str(it.get("cls", "knight"))
 	var slot := str(it["slot"])
 	var fam := str(it.get("fam", ""))
-	if slot == "weapon" and FAMILY_LOOKS.has(fam):
-		var fl: Dictionary = FAMILY_LOOKS[fam][clampi(int(it.get("mat", 0)), 0, TIERS - 1)].duplicate()
+	if slot == "weapon" and DB.FAMILIES.has(fam):
+		var fl := family_look(fam, int(it.get("mat", 0)))
 		fl["icon"] = DB.FAMILIES[fam]["icon"]
 		if UNIQUE_LOOKS.has(str(it.get("unique", ""))):
 			_over(fl, UNIQUE_LOOKS[str(it["unique"])])
@@ -662,7 +640,7 @@ static func look(it: Dictionary) -> Dictionary:
 	if not sl.is_empty():
 		c = sl["dye"]
 		amount = c.a
-	if slot == "weapon" and FAMILY_LOOKS.has(str(it.get("fam", ""))):
+	if slot == "weapon" and DB.FAMILIES.has(str(it.get("fam", ""))):
 		amount = 0.0
 	if u != "" and DB.UNIQUES[u].has("dye"):
 		c = DB.UNIQUES[u]["dye"]

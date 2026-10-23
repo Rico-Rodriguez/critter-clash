@@ -1,11 +1,12 @@
 extends SceneTree
 ## Contact sheet of weapon models: one row per name, one column per set.
-## tools/dev/godot-gpu.sh -s res://tools/weapon_sheet.gd -- --rows=axe,maul --prefix=barb_ --out=/abs/path.png
+## tools/dev/godot-gpu.sh -s res://tools/weapon_sheet.gd -- --rows=axe,maul --prefix=barb_ --out=/abs/path.png [--flat=shortbow,...]
 
 func _init() -> void:
 	var out := "/tmp/weapons.png"
 	var rows := ["axe", "maul", "scythe", "twin", "halberd", "throwing"]
 	var prefix := "barb_"
+	var flat: Array[String] = []
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			out = a.substr(6)
@@ -13,6 +14,9 @@ func _init() -> void:
 			rows.assign(a.substr(7).split(","))
 		elif a.begins_with("--prefix="):
 			prefix = a.substr(9)
+		elif a.begins_with("--flat="):
+			# Bows and crossbows lie in x-z: turn them up to face the camera.
+			flat.assign(a.substr(7).split(","))
 	var world := Node3D.new()
 	root.add_child(world)
 	var env := WorldEnvironment.new()
@@ -37,6 +41,8 @@ func _init() -> void:
 			var p: Node3D = load(path).instantiate()
 			world.add_child(p)
 			p.position = Vector3(k * 2.2 - 4.4, -i * 2.9 + (rows.size() - 1) * 1.45 - 0.6, 0)
+			if r in flat:
+				p.rotation_degrees = Vector3(90, 0, 0)
 		i += 1
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
