@@ -7,6 +7,7 @@ extends Node
 
 const LOBBY := preload("res://src/lobby/lobby.tscn")
 const Online := preload("res://src/net/online.gd")
+const UiJuice := preload("res://src/ui/ui_juice.gd")
 
 var current: Node
 var _fade: ColorRect
@@ -28,6 +29,7 @@ func _ready() -> void:
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_fade)
+	add_child(UiJuice.new())
 	var args := OS.get_cmdline_user_args()
 	if args.has("--notch"):
 		Ui.forced_inset = Vector4(0, 108, 0, 62)
@@ -315,7 +317,7 @@ func _capture(args: PackedStringArray) -> void:
 				Game.season()["claimed"] = 2
 				Game.data["stats"]["wins"] = 3
 				Game.data["stats"]["hunts"] = 5
-				for k in ["camp_hunt", "camp_chest", "camp_gear", "camp_heroes"]:
+				for k in ["camp_hunt", "camp_chest", "camp_gear", "camp_heroes", "camp_clan"]:
 					Game.data["tips"][k] = true
 				Game.hero(hid)["mastery"] = 520
 				Game.hero(hid)["mastery_rank"] = 1

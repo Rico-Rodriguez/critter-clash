@@ -20,8 +20,10 @@ var _tap_from := Vector2.ZERO
 var _tap_t := 0.0
 var _spin := 0.0
 var _t := 0.0
-const CAM_BASE := Vector3(0.0, 2.0, 5.6)
-const CAM_LOOK := Vector3(0.0, 0.05, -0.4)
+const CAM_BASE := Vector3(0.0, 1.85, 4.7)
+const CAM_LOOK := Vector3(0.0, 0.8, -0.4)
+## Where an opening chest stands: in front of the hero, clear of the camera.
+const CHEST_STAGE := Vector3(0.0, 0.0, 0.9)
 ## 0..1 push-in toward the hero, tweened on a hero change.
 var push := 0.0
 var _push_tween: Tween
@@ -317,14 +319,14 @@ func place_chest(kind: String) -> void:
 ## Brings the chest to center stage, in front of the hero, as the prompt appears.
 func center_chest() -> Tween:
 	var mv := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	mv.tween_property(chest, "position", Vector3(0.0, 0.0, 1.7), 0.35)
+	mv.tween_property(chest, "position", CHEST_STAGE, 0.35)
 	mv.tween_property(chest, "rotation:y", 0.0, 0.35)
-	mv.tween_property(chest, "scale", Vector3.ONE * 1.05, 0.35)
+	mv.tween_property(chest, "scale", Vector3.ONE * 0.95, 0.35)
 	return mv
 
 
 func open_chest_fx() -> void:
-	if chest.position.distance_to(Vector3(0.0, 0.0, 1.7)) > 0.05:
+	if chest.position.distance_to(CHEST_STAGE) > 0.05:
 		await center_chest().finished
 	if chest_lid:
 		var t := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
