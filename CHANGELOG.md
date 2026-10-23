@@ -10,6 +10,37 @@ version is 6.
 
 ---
 
+## Unreleased: Camp tabs and hunting together
+
+The feature freeze was lifted once for this, at the user's request (see
+docs/PLAN.md "Next up"). Save version unchanged: new keys `profile` and
+`online` have defaults. `NATIVE_VERSION` unchanged: no autoloads or project
+settings changed. Online features stay off until the server is deployed and
+`src/net/net_config.gd` points at it.
+
+### Added
+- **Five tabs along the bottom**: Heroes, Gear, Hunt, Clan, Journal, tapped
+  or swiped like the big mobile games. Hunt is home, with a fixed chest slot
+  beside the Hunt button and a player plate with your name and clan.
+- **Clans**: search, join or ask to join, start one (name, badge, open or
+  closed, minimum combat), members with leader and elder tools, filtered clan
+  chat with emotes, and tap any name to report or block.
+- **Friends** by 6-letter friend code, with online status, requests and blocks.
+- **Bring a friend**: a new player who enters your code in their first week
+  gets 2,000 gold, a Gold Chest and 10 shards. You get 500 gold at once and
+  more as they play (5 hunts, combat 25, a Veteran win), plus a Kinship weapon
+  glow for the first friend, two Crypt Chests at three, 10,000 gold at five
+  and 25,000 gold and a Crypt Chest at ten. Rewards are paid by the server as
+  the friend really plays, capped at 20 friends.
+- **Weekly clan raid boss**: every hunt you finish hits it; when it falls,
+  every raider gets 1,500 gold and a Crypt Chest, the top three 20 shards.
+- **Parties and co-op hunts**: up to three clanmates; partners walk where
+  their player walks and fight beside you, and a party hunt pays 20% more gold.
+- **Rankings** by power, **cloud save**, **moving to a new phone** with a
+  transfer code, and **account deletion** under Profile › Account.
+- `server/`: the game server (Nakama with our rules, Docker, HTTPS, nightly
+  backups), its smoke test, and `-- --nettest` for the game's side.
+
 ## Unreleased: Skills are a hero's power
 
 Save version unchanged (bought levels are refunded on load). `NATIVE_VERSION`
