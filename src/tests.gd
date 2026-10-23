@@ -67,6 +67,10 @@ func run() -> int:
 	_ok("chest pays gold", Game.gold() > gold_before and got.size() >= 3)
 
 	# Gear is a collection: a second drop of a piece is a copy toward its level.
+	# An empty collection first: the chest above may have dropped this helm.
+	Game.data["items"] = []
+	for hid in DB.HERO_ORDER:
+		Game.hero(hid)["gear"] = {}
 	var n0: int = Game.data["items"].size()
 	var helm := Game.grant_item(Game.make_item("knight", "helm", 0, "rare"))
 	var again := Game.grant_item(Game.make_item("knight", "helm", 0, "common"))
