@@ -345,7 +345,7 @@ func _build_actor() -> void:
 	_actor = Actor.new()
 	_vp.add_child(_actor)
 	_actor.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
-	_actor.play(d["anim"]["idle"], 0.0)
+	_actor.play(GearDB.anims(hero_id, Game.weapon_family(hero_id))["idle"], 0.0)
 	_actor.rotation.y = _yaw
 	_dress()
 

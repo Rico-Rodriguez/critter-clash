@@ -271,10 +271,10 @@ func show_hero(id: String, cheer := true) -> void:
 		_push_tween.tween_property(self, "push", 0.0, 0.34).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	if cheer and Game.hero(id)["unlocked"]:
 		hero.play("Cheering", 0.0)
-		hero.anim.queue(d["anim"]["idle"])
+		hero.anim.queue(GearDB.anims(id, Game.weapon_family(id))["idle"])
 		hero.cur_anim = ""
 	else:
-		hero.play(d["anim"]["idle"], 0.0)
+		hero.play(GearDB.anims(id, Game.weapon_family(id))["idle"], 0.0)
 
 
 ## Renders the hero portraits (first visit) and rebuilds the roster when ready.

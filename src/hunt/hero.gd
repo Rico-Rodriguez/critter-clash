@@ -106,8 +106,7 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	if fam != "":
 		fdef = DB.FAMILIES[fam]
 		def = def.duplicate(true)
-		def["anim"]["attack"] = fdef["clips"]
-		def["anim"].merge(fdef.get("anims", {}), true)
+		def["anim"] = GearDB.anims(id, fam)
 	radius = 0.5
 	mass = 4.0
 	build_model(def["model"], {}, Color(1.0, 0.78, 0.5), 0.35)

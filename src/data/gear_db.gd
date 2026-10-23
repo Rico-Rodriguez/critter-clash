@@ -683,3 +683,94 @@ static func roll_mat(base_mat: int, bonus: int, rng: RandomNumberGenerator) -> i
 	var r := rng.randf()
 	var shift := -1 if r < 0.22 else (0 if r < 0.72 else 1)
 	return clampi(base + shift, 0, TIERS - 1)
+
+
+# --- How it is held ------------------------------------------------------
+
+## How each family's weapon sits in the hand, where KayKit's own grip (the
+## model's origin on the hand slot, its length along +Y) doesn't suit it.
+## `rot` turns the model in the hand (degrees), `at` moves it (model units)
+## so the hand closes on the right spot; `rot_l` is the left of a pair.
+const HOLDS := {
+	# Staves stand up beside the mage, foot near the ground, head overhead.
+	"staff": {"rot": Vector3(15, 0, 70), "at": Vector3(0, 0.35, 0)},
+	"skullstaff": {"rot": Vector3(15, 0, 70), "at": Vector3(0, 0.35, 0)},
+	"soulstaff": {"rot": Vector3(15, 0, 70), "at": Vector3(0, 0.35, 0)},
+	# The tome floats open at the mage's right shoulder; the hand casts from it.
+	"tome": {"bone": "chest", "rot": Vector3(-20, -35, 0), "at": Vector3(-0.62, 0.05, 0.3)},
+	# KayKit crossbows point back down the arm.
+	"crossbow": {"rot": Vector3(0, 180, 0)},
+	"repeater": {"rot": Vector3(0, 180, 0), "rot_l": Vector3(0, 180, 0)},
+	# Two-handed: the shield goes on the back.
+	"warhammer": {"two_hand": true},
+}
+
+## Offhands by model, where the line's own bone doesn't suit them: a book
+## floats at the mage's left shoulder rather than through the hand.
+const OFF_HOLDS := {
+	"spellbook_open.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4), "scale": 0.8},
+	"spellbook_closed.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4)},
+	# These shields face the arm, and the plank one hangs low off the hand.
+	"shield_A.gltf": {"rot": Vector3(0, 180, 0), "at": Vector3(0, 0.3, 0)},
+	"shield_B.gltf": {"rot": Vector3(0, 180, 0)},
+}
+
+## A shield carried on the back: flat to the shoulders, face out.
+const BACK_XF := Transform3D(Basis(Vector3.UP, PI), Vector3(0, -0.05, -0.3))
+
+
+## How a hero holds a weapon of family `fam`: the hand bone, and where the
+## model sits in it (`xf`, and `xf_l` for the second of a pair).
+static func weapon_hold(hero_id: String, fam: String) -> Dictionary:
+	var d: Dictionary = DB.HEROES[hero_id]
+	var fd: Dictionary = DB.FAMILIES.get(fam, {})
+	# A family may hold its weapon in the other hand (a crossbow, knives).
+	var bone := str(fd.get("bone", d["weapon_bone"]))
+	# KayKit bows face the string away from the hand that holds them; turned
+	# half round, the string comes back to the archer as in the aim pose.
+	var xf := Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO) if str(d["style"]) == "bow" and not fd.has("bone") else Transform3D.IDENTITY
+	var g: Dictionary = HOLDS.get(fam, {})
+	bone = str(g.get("bone", bone))
+	if g.has("rot") or g.has("at"):
+		xf = _grip_xf(g.get("rot", Vector3.ZERO), g.get("at", Vector3.ZERO))
+	var xf_l := xf
+	if g.has("rot_l"):
+		xf_l = _grip_xf(g["rot_l"], g.get("at", Vector3.ZERO))
+	return {"bone": bone, "xf": xf, "xf_l": xf_l, "dual": bool(fd.get("dual", false))}
+
+
+## A grip as rotation (degrees, applied X then Y then Z) and an offset of the
+## model in the hand, so the hand holds it where it should (a staff mid-shaft).
+static func _grip_xf(rot: Vector3, at: Vector3) -> Transform3D:
+	var b := Basis.from_euler(rot * PI / 180.0)
+	return Transform3D(b, b * at)
+
+
+## Whether family `fam` takes both hands, so the offhand goes on the back.
+static func two_handed(_hero_id: String, fam: String) -> bool:
+	return bool(HOLDS.get(fam, {}).get("two_hand", false))
+
+
+## Where a hero carries its offhand `model` (a shield, a book, a quiver)
+## while wielding family `fam`.
+static func offhand_hold(hero_id: String, model: String, fam := "") -> Dictionary:
+	var bone := str(LINES[hero_id]["offhand_bone"])
+	var xf := Transform3D.IDENTITY
+	var g: Dictionary = OFF_HOLDS.get(model, {})
+	if g.has("rot") or g.has("at"):
+		xf = _grip_xf(g.get("rot", Vector3.ZERO), g.get("at", Vector3.ZERO))
+	bone = str(g.get("bone", bone))
+	if bone == "back" or bone.begins_with("handslot") and two_handed(hero_id, fam):
+		bone = "chest"
+		xf = BACK_XF
+	return {"bone": bone, "xf": xf, "scale": float(g.get("scale", 1.0))}
+
+
+## The hero's idle, run, attack and super clips with weapon family `fam`.
+static func anims(hero_id: String, fam: String) -> Dictionary:
+	var a: Dictionary = DB.HEROES[hero_id]["anim"].duplicate(true)
+	var fd: Dictionary = DB.FAMILIES.get(fam, {})
+	if not fd.is_empty():
+		a["attack"] = fd["clips"]
+		a.merge(fd.get("anims", {}), true)
+	return a
