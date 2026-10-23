@@ -911,8 +911,12 @@ const GLOWS := {
 	"gold": {"name": "Kingsgold", "color": Color(1.0, 0.85, 0.3, 0.55), "gold": 12000},
 	# Not for sale: earned when a friend you invited plays their first hunts.
 	"kinship": {"name": "Kinship", "color": Color(0.35, 0.75, 1.0, 0.55), "gold": 0, "gift": true},
+	# Not for sale: hero mastery ranks pay these, so the shop's glows stay worth buying.
+	"bloodmoon": {"name": "Bloodmoon", "color": Color(0.85, 0.12, 0.18, 0.5), "gold": 0, "gift": true},
+	"wraith": {"name": "Wraith", "color": Color(0.8, 0.95, 0.9, 0.5), "gold": 0, "gift": true},
+	"sunsteel": {"name": "Sunsteel", "color": Color(1.0, 0.95, 0.7, 0.6), "gold": 0, "gift": true},
 }
-const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship"]
+const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship", "bloodmoon", "wraith", "sunsteel"]
 
 # --- Shop -------------------------------------------------------------------------
 
@@ -982,13 +986,13 @@ const SET_CHANCE := 0.3
 ## once and give a title shown under the hero's name.
 const MASTERY := [
 	{"at": 0, "title": "Recruit"},
-	{"at": 300, "title": "Blooded", "gold": 300},
-	{"at": 900, "title": "Veteran", "gold": 600, "shards": 20},
-	{"at": 2000, "title": "Champion", "gold": 1200, "shards": 40, "glow": "ember"},
-	{"at": 4000, "title": "Warlord", "gold": 2500, "shards": 80},
-	{"at": 7500, "title": "Master", "gold": 5000, "shards": 140, "glow": "frost"},
-	{"at": 13000, "title": "Grandmaster", "gold": 9000, "shards": 220},
-	{"at": 21000, "title": "Legend", "gold": 15000, "shards": 320, "glow": "gold"},
+	{"at": 300, "title": "Blooded", "gold": 150},
+	{"at": 900, "title": "Veteran", "gold": 300, "shards": 20},
+	{"at": 2000, "title": "Champion", "gold": 600, "shards": 40, "glow": "bloodmoon"},
+	{"at": 4000, "title": "Warlord", "gold": 1250, "shards": 80},
+	{"at": 7500, "title": "Master", "gold": 2500, "shards": 140, "glow": "wraith"},
+	{"at": 13000, "title": "Grandmaster", "gold": 4500, "shards": 220},
+	{"at": 21000, "title": "Legend", "gold": 7500, "shards": 320, "glow": "sunsteel"},
 ]
 
 ## Trophy rating (Brawl Stars): wins add, losses take away, a milestone every

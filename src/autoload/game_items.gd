@@ -341,7 +341,8 @@ func grant_item(it: Dictionary) -> Dictionary:
 ## Rolls a source's unique table (collection log). Returns unique ids hit.
 func roll_uniques(source: String, tier_i: int) -> Array:
 	var hits := []
-	var mult: float = DB.TIERS[tier_i]["loot"]
+	# Square root keeps high tiers better without making uniques trivial there.
+	var mult: float = sqrt(float(DB.TIERS[tier_i]["loot"]))
 	for u in DB.LOG_ORDER:
 		var ud: Dictionary = DB.UNIQUES[u]
 		var src := str(ud["source"])
