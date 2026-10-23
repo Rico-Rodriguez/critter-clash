@@ -10,18 +10,17 @@ extends "res://src/lobby/lobby_ui_social.gd"
 ## lobby_ui_hero_sheets < lobby_ui_sheets < lobby_ui_social < lobby_ui
 ## (setup, home, tabs, chest, opening sheets).
 
-const TABS := ["heroes", "gear", "hunt", "clan", "journal"]
+## Left to right in the bar (a Shop tab joins at the far left).
+const TABS := ["heroes", "hunt", "clan"]
 const TAB_LOOK := {
 	"heroes": ["Heroes", "visored-helm"],
-	"gear": ["Gear", "swap-bag"],
 	"hunt": ["Hunt", "crossed-swords"],
 	"clan": ["Clan", "checked-shield"],
-	"journal": ["Journal", "book-cover"],
 }
 ## Which tab and sub-tab each old sheet name lands on.
 const SHEET_TAB := {
 	"heroes": ["heroes", 0],
-	"bag": ["gear", 0], "journal": ["journal", 0], "clan": ["clan", 0],
+	"bag": ["heroes", 0], "clan": ["clan", 0],
 }
 
 var _tab_btns := {}
@@ -119,9 +118,7 @@ func refresh() -> void:
 	%RoadBadge.visible = steps > 0
 	_refresh_chest_slot()
 	# Tab dots: something to do behind that tab.
-	_tab_dots["heroes"].visible = _any_upgrade()
-	_tab_dots["gear"].visible = Game.new_item_count() > 0
-	_tab_dots["journal"].visible = Game.bounty_claimable() > 0 or steps > 0 or Game.season_claimable() > 0 or Game.achievement_claimable() > 0
+	_tab_dots["heroes"].visible = _any_upgrade() or Game.new_item_count() > 0
 	_tab_dots["clan"].visible = _social_dot()
 	if _goal:
 		# The closest thing worth chasing: something is always about to happen.
@@ -177,7 +174,7 @@ func _coach() -> void:
 	for st in [
 		["camp_hunt", not played, %Hunt, "Your first hunt", "Drag to move; you attack on your own. Survive the horde, pick a power each level, then beat the boss.", false],
 		["camp_chest", _chest_ready(), %Chest, "A chest!", "Your win earned it. Tap to open it.", false],
-		["camp_gear", played and Game.new_item_count() > 0, _tab_btns["gear"], "New gear", "Put on what you found: better gear is the fastest way to grow.", false],
+		["camp_gear", played and Game.new_item_count() > 0, _tab_btns["heroes"], "New gear", "Put on what you found: better gear is the fastest way to grow.", false],
 		["camp_heroes", played and _any_upgrade(), _tab_btns["heroes"], "Talent point", "Combat levels earn talent points. Spend them in Heroes.", false],
 		["camp_clan", played and int(Game.data["stats"]["hunts"]) >= 3, _tab_btns["clan"], "Hunt together", "Join a clan, add friends, and bring a friend in for a big welcome gift.", false],
 	]:
@@ -218,6 +215,13 @@ func _build_side() -> void:
 	_bounty_time = Ui.label("", "Small", HORIZONTAL_ALIGNMENT_CENTER)
 	_bounty_time.add_theme_font_size_override("font_size", 14)
 	bc.add_child(_bounty_time)
+	# Feats, the log and the other reward tracks, in one place.
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 14)
+	_rail_r.add_child(gap)
+	var jc := _rail_button("journal", "book-cover", "Journal")
+	jc.get_child(0).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_rail_r.add_child(jc)
 
 
 func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
@@ -256,6 +260,7 @@ func _refresh_side() -> void:
 	var g := Game.idle_gold()
 	_side_badges["idle"].visible = g >= 50
 	_idle_label.text = "+%d" % g if g >= 50 else "Campfire"
+	_side_badges["journal"].visible = Game.achievement_claimable() > 0
 	var ready_n := Game.bounty_claimable()
 	_bounty_badge.visible = ready_n > 0
 	_bounty_count.text = str(ready_n)
@@ -280,6 +285,8 @@ func _side_pressed(key: String) -> void:
 			open_sheet("daily_sheet")
 		"bounties":
 			open_sheet("bounties")
+		"journal":
+			open_sheet("journal")
 
 
 ## True while the home is showing with nothing over it (taps on the hero open
@@ -373,17 +380,13 @@ func show_tab(name_: String, sub := 0) -> void:
 		refresh()
 		return
 	match tab:
-		"gear":
+		"heroes":
 			var eq := Equipment.new()
 			eq.tab_mode = true
 			equipment = eq
 			_page = eq
 			%Pages.add_child(eq)
 			eq.open(self)
-		"heroes":
-			_page = _make_page("Heroes", [["Heroes", _build_heroes]], sub)
-		"journal":
-			_page = _make_page("Journal", [["Journal", _build_journal]], sub)
 		"clan":
 			_page = _make_page("Clan", [["Clan", _build_social]], sub)
 	if dir != 0.0:
@@ -508,7 +511,7 @@ func chest_done() -> void:
 # --- Sheets --------------------------------------------------------------
 
 func open_equipment() -> void:
-	show_tab("gear")
+	show_tab("heroes")
 
 
 ## Opens a sheet by its old name: the ones that became tabs open their tab on
@@ -531,6 +534,8 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Expedition", _build_expedition)
 		"daily_sheet", "daily":
 			_sheet.open("Daily", _build_daily)
+		"journal":
+			_sheet.open("Journal", _build_journal)
 		"bounties":
 			_sheet.open("Bounties", _build_bounties)
 		"road":
@@ -564,11 +569,17 @@ func open_sheet(name_: String) -> void:
 ## A claim or upgrade in a sheet changes the tiles and cards under it.
 func _sheet_closed() -> void:
 	refresh()
-	if tab in ["heroes", "journal", "clan"] and _page is Sheet and is_instance_valid(_page):
+	# Use (in the hero card) may have switched heroes under the gear screen.
+	if equipment and is_instance_valid(equipment):
+		if equipment.hero_id != Game.hero_id():
+			equipment._show_hero(Game.hero_id())
+		else:
+			equipment._refresh()
+	if tab == "clan" and _page is Sheet and is_instance_valid(_page):
 		(_page as Sheet).rebuild()
 
 
 ## The portraits finished rendering after the Heroes page was already opened.
 func portraits_ready() -> void:
-	if tab == "heroes" and _page is Sheet and is_instance_valid(_page):
-		(_page as Sheet).rebuild()
+	if equipment and is_instance_valid(equipment):
+		equipment._refresh()

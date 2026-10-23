@@ -19,9 +19,12 @@ settings changed. Online features stay off until the server is deployed and
 `src/net/net_config.gd` points at it.
 
 ### Added
-- **Five tabs along the bottom**: Heroes, Gear, Hunt, Clan, Journal, tapped
-  or swiped like the big mobile games. Hunt is home, with a fixed chest slot
-  beside the Hunt button and a player plate with your name and clan.
+- **Tabs along the bottom**: Heroes, Hunt and Clan, tapped or swiped like
+  the big mobile games, icons only with the open tab named. Hunt is home,
+  with a fixed chest slot beside the Hunt button, a player plate with your
+  name and clan, and a Journal button for the reward tracks, feats and log.
+  Heroes is the gear screen with each hero's skills, talents, looks and ally;
+  tap the name for the hero's card.
 - **Clans**: search, join or ask to join, start one (name, badge, open or
   closed, minimum combat), members with leader and elder tools, filtered clan
   chat with emotes, and tap any name to report or block.

@@ -45,6 +45,7 @@ var _faces: HBoxContainer
 var _slots := {}
 var _best_btn: Button
 var _strip: GridContainer
+var _hero_row: HBoxContainer
 var _tabs := {}
 var _tab_row: HBoxContainer
 var _list: VBoxContainer
@@ -132,19 +133,24 @@ func _build_header(col: VBoxContainer) -> void:
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.clip_text = true
 	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# The name opens the hero's card (power, Super, unlock).
+	_title.mouse_filter = Control.MOUSE_FILTER_STOP
+	_title.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_open_hero(hero_id))
 	row.add_child(_title)
 	_faces = HBoxContainer.new()
 	_faces.add_theme_constant_override("separation", 8)
 	row.add_child(_faces)
 
 
-## One face per unlocked hero; the one shown is lit and ringed in its color.
+## One face per hero; the one shown is lit and ringed in its color. A locked
+## hero's face is dark and opens its card (how to unlock it).
 func _build_faces() -> void:
 	Ui.clear(_faces)
-	var owned: Array = DB.HERO_ORDER.filter(func(id): return Game.hero(id)["unlocked"])
-	_faces.visible = owned.size() > 1
-	for id: String in owned:
+	for id: String in DB.HERO_ORDER:
 		var on := id == hero_id
+		var open: bool = Game.hero(id)["unlocked"]
 		var d: Dictionary = DB.HEROES[id]
 		var f := Button.new()
 		f.flat = true
@@ -155,11 +161,21 @@ func _build_faces() -> void:
 		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var p := ui._portrait(id, d["color"] if on else Color(0.45, 0.42, 0.4), 60)
 		if not on:
-			p.modulate = Color(0.6, 0.6, 0.65)
+			p.modulate = Color(0.6, 0.6, 0.65) if open else Color(0.25, 0.25, 0.3)
 		cc.add_child(p)
 		f.add_child(cc)
+		if open and Game.talent_points(id) > 0:
+			var dot := PanelContainer.new()
+			dot.theme_type_variation = "Badge"
+			dot.custom_minimum_size = Vector2(20, 20)
+			dot.position = Vector2(46, -2)
+			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			f.add_child(dot)
 		f.pressed.connect(func():
-			if id != hero_id:
+			if not open:
+				Sfx.play("ui_tap", -4.0)
+				_open_hero(id)
+			elif id != hero_id:
 				Sfx.play("ui_tap", -4.0)
 				_show_hero(id))
 		_faces.add_child(f)
@@ -207,6 +223,9 @@ func _build_top(col: VBoxContainer) -> void:
 	_strip.columns = 4
 	_strip.add_theme_constant_override("h_separation", 6)
 	card.add_child(_strip)
+	_hero_row = HBoxContainer.new()
+	_hero_row.add_theme_constant_override("separation", 8)
+	col.add_child(_hero_row)
 
 
 func _slot_column(slots: Array) -> VBoxContainer:
@@ -390,6 +409,7 @@ func _refresh() -> void:
 	for f: String in _tabs:
 		_tabs[f].button_pressed = f == filter
 	_build_strip()
+	_build_hero_row()
 	_build_list()
 	var junk := Game.junk_items()
 	var gold := 0
@@ -665,6 +685,44 @@ func _build_strip() -> void:
 			val.add_theme_color_override("font_color", GREEN if up else RED)
 		cell.add_child(val)
 		_strip.add_child(cell)
+
+
+## The hero's own growth beside the gear: skills, talents, looks, and who
+## walks with them.
+func _build_hero_row() -> void:
+	Ui.clear(_hero_row)
+	var pts := Game.talent_points(hero_id)
+	var ally := str(Game.data.get("ally", ""))
+	for spec in [["Skills", "BlueButton", "skills"],
+			["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"],
+			["Looks", "BlueButton", "looks"],
+			["Ally: " + (str(DB.HEROES[ally]["name"]) if ally != "" else "none"), "Ghost", "ally"]]:
+		var b := Button.new()
+		b.theme_type_variation = spec[1]
+		b.text = spec[0]
+		b.custom_minimum_size = Vector2(0, 60)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 19)
+		b.clip_text = true
+		var what: String = spec[2]
+		b.pressed.connect(func():
+			Sfx.play("ui_tap", -4.0)
+			if what == "ally":
+				var pool: Array = [""] + DB.HERO_ORDER.filter(func(x): return Game.hero(x)["unlocked"] and x != hero_id)
+				var i := pool.find(str(Game.data.get("ally", "")))
+				Game.data["ally"] = pool[(i + 1) % pool.size()]
+				Game.save()
+				_build_hero_row()
+			else:
+				ui._shown_hero = hero_id
+				ui.open_sheet(what))
+		_hero_row.add_child(b)
+
+
+func _open_hero(id: String) -> void:
+	ui._shown_hero = id
+	ui.open_sheet("hero")
 
 
 ## The selected piece as a try-on {slot: piece}, when this hero could wear it
