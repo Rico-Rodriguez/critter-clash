@@ -927,6 +927,7 @@ func _tick_cards(dt: float) -> void:
 			Sfx.play("nova", -3.0)
 	_tick_wisp(dt, int(c.get("wisp", 0)))
 	_tick_powers(dt, c)
+	_tick_road_cards(dt, c)
 	# Bone ward.
 	var wl: int = c.get("ward", 0)
 	if wl > 0 and not ward_up:
@@ -998,6 +999,34 @@ var axe_t := 2.0
 var meteor_t := 4.0
 var frost_t := 5.0
 var barrage_t := 5.0
+var road_t := {}
+
+
+## The road epics: each fires one of the class powers above on its own timer.
+func _tick_road_cards(dt: float, c: Dictionary) -> void:
+	for id: String in ["oath_storm", "shockwave", "rime_trap", "storm_arrows", "skybolt", "rift_quake", "thunder_cry", "skyfall"]:
+		var lv: int = c.get(id, 0)
+		if lv <= 0:
+			continue
+		road_t[id] = float(road_t.get(id, 3.0)) - dt
+		if float(road_t[id]) > 0.0:
+			continue
+		match id:
+			"oath_storm", "storm_arrows":
+				road_t[id] = maxf(3.4 - 0.45 * lv, 1.4)
+				_storm(2 + lv, dmg * (0.9 + 0.25 * lv))
+			"shockwave", "rift_quake":
+				road_t[id] = maxf(4.8 - 0.6 * lv, 2.2)
+				_quake(3.4 + 0.5 * lv, dmg * (1.0 + 0.3 * lv), false)
+			"rime_trap":
+				road_t[id] = maxf(6.0 - 0.8 * lv, 3.0)
+				_frost_ring(3.6 + 0.6 * lv, dmg * 0.7)
+			"skybolt", "thunder_cry":
+				road_t[id] = maxf(3.6 - 0.5 * lv, 1.4)
+				_smite(1 + lv, dmg * (1.7 + 0.4 * lv), false)
+			"skyfall":
+				road_t[id] = maxf(5.2 - 0.7 * lv, 2.4)
+				meteor_shower(2 + lv, dmg * (2.0 + 0.45 * lv), 2.2 + 0.2 * lv, 10.0)
 
 
 func _tick_powers(dt: float, c: Dictionary) -> void:

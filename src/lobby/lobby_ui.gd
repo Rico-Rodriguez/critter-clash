@@ -245,6 +245,8 @@ func _road_icon(rw: Dictionary) -> String:
 			return str(DB.HEROES[rw["id"]]["icon"])
 		"rift_key":
 			return "crystal-shine"
+		"cards":
+			return str(DB.CARDS[rw["ids"][0]]["icon"])
 	return "visored-helm"
 
 

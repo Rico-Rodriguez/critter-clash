@@ -552,6 +552,15 @@ const CARDS := {
 	"ricochet": {"name": "Ricochet", "desc": "Arrows that hit leap on to another foe", "icon": "high-shot", "rarity": "legendary", "max": 1, "hero": ["ranger"], "sig": true},
 	"pyre": {"name": "Pyre", "desc": "Fireballs leave the ground burning", "icon": "flame", "rarity": "legendary", "max": 1, "hero": ["mage"], "sig": true},
 	"rampage": {"name": "Rampage", "desc": "Every kill: +3% damage for 6 seconds, up to +45%", "icon": "muscle-up", "rarity": "legendary", "max": 1, "hero": ["barbarian"], "sig": true},
+	# Road cards: locked until their Trophy Road step (CARD_ROAD), two new epics a hero.
+	"oath_storm": {"name": "Storm Oath", "desc": "Your oath calls chain lightning through nearby foes", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["knight"]},
+	"shockwave": {"name": "Shockwave", "desc": "Every few seconds the ground bursts around you", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["knight"]},
+	"rime_trap": {"name": "Rime Trap", "desc": "A ring of frost bursts around you and slows the pack", "icon": "frozen-orb", "rarity": "epic", "max": 4, "hero": ["ranger"]},
+	"storm_arrows": {"name": "Storm Arrows", "desc": "Lightning leaps between the foes you shoot", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["ranger"]},
+	"skybolt": {"name": "Skybolt", "desc": "Bolts fall from the sky on the nearest foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"rift_quake": {"name": "Rift Quake", "desc": "The earth splits around you and hurls foes back", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"thunder_cry": {"name": "Thunder Cry", "desc": "Your war cry calls lightning on nearby foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
+	"skyfall": {"name": "Skyfall", "desc": "Burning rocks crash down on the horde", "icon": "meteor-impact", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
 }
 ## A companion hero hits at this share of its own damage.
 const ALLY_DMG := 0.45
@@ -637,14 +646,14 @@ const TROPHY_ROAD := [
 	{"t": 3000, "kind": "hero", "id": "barbarian"},
 	{"t": 3500, "kind": "rift_key"},
 	# The long road: steps past 3,500 so the ladder lasts weeks, not an afternoon.
-	{"t": 3800, "kind": "gold", "amount": 1500},
+	{"t": 3800, "kind": "cards", "ids": ["oath_storm", "rime_trap", "skybolt", "thunder_cry"]},
 	{"t": 4100, "kind": "shards", "amount": 60},
 	{"t": 4400, "kind": "chest", "chest": "gold"},
-	{"t": 4700, "kind": "gold", "amount": 2000},
+	{"t": 4700, "kind": "cards", "ids": ["wisp", "thorns"]},
 	{"t": 5000, "kind": "chest", "chest": "crypt"},
 	{"t": 5300, "kind": "shards", "amount": 80},
 	{"t": 5600, "kind": "gold", "amount": 2500},
-	{"t": 5900, "kind": "rift_key"},
+	{"t": 5900, "kind": "cards", "ids": ["shockwave", "storm_arrows", "rift_quake", "skyfall"]},
 	{"t": 6200, "kind": "chest", "chest": "crypt"},
 	{"t": 6500, "kind": "shards", "amount": 100},
 	{"t": 6800, "kind": "gold", "amount": 3000},
@@ -652,13 +661,21 @@ const TROPHY_ROAD := [
 	{"t": 7500, "kind": "chest", "chest": "crypt"},
 	{"t": 7900, "kind": "shards", "amount": 120},
 	{"t": 8300, "kind": "gold", "amount": 4000},
-	{"t": 8700, "kind": "rift_key"},
+	{"t": 8700, "kind": "cards", "ids": ["explosive", "greed"]},
 	{"t": 9100, "kind": "chest", "chest": "crypt"},
 	{"t": 9500, "kind": "shards", "amount": 150},
 	{"t": 9800, "kind": "gold", "amount": 5000},
 	{"t": 10000, "kind": "chest", "chest": "crypt"},
 ]
 const ROAD_EVERY := 500
+
+## Cards that join the level-up draws only once their road step is claimed.
+static func card_road_step(id: String) -> int:
+	for i in TROPHY_ROAD.size():
+		var st: Dictionary = TROPHY_ROAD[i]
+		if str(st["kind"]) == "cards" and id in st["ids"]:
+			return i + 1
+	return 0
 ## Arenas are the zones, opened where their step sits on the road.
 const ARENAS := [
 	{"zone": "barrow", "t": 0, "color": Color(0.36, 0.45, 0.75)},
