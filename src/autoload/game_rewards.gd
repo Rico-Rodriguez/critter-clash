@@ -225,8 +225,47 @@ func open_whole_road() -> void:
 
 ## This week's omen: the week number picks one in turn.
 func weekly_omen() -> Dictionary:
-	var week := int(Time.get_unix_time_from_system() / 604800.0)
-	return DB.WEEKLY_OMENS[week % DB.WEEKLY_OMENS.size()]
+	return DB.WEEKLY_OMENS[week_number() % DB.WEEKLY_OMENS.size()]
+
+
+# --- Weekly challenge (client groundwork; no server yet) -------------------
+
+## Weeks since the Unix epoch. Every player sees the same number.
+func week_number() -> int:
+	return int(Time.get_unix_time_from_system() / 604800.0)
+
+
+## The shared seed for this week's challenge hunt: the same on every device.
+func weekly_seed(week: int = -1) -> int:
+	var w := week_number() if week < 0 else week
+	return hash("gravelight-weekly-%d" % w) & 0x7fffffff
+
+
+## One number for a hunt under the omen, so runs can be ranked.
+func weekly_score(r: Dictionary) -> int:
+	return (1000 if r.get("win", false) else 0) + int(r.get("level", 0)) * 50 \
+		+ int(r.get("souls", 0)) + int(r.get("bosses", 0)) * 250 \
+		+ int(r.get("depth", 0)) * 100 + int(r.get("perfect", 0)) * 10
+
+
+## This week's local best, or 0. Last week's best is dropped on the first new run.
+func weekly_best() -> int:
+	var wb: Dictionary = data.get("weekly", {})
+	return int(wb.get("best", 0)) if int(wb.get("week", -1)) == week_number() else 0
+
+
+## Keeps the hunt if it beats this week's best. True on a new best.
+func record_weekly(r: Dictionary) -> bool:
+	var sc := weekly_score(r)
+	if sc <= weekly_best():
+		return false
+	data["weekly"] = {"week": week_number(), "best": sc, "omen": str(weekly_omen()["id"]), "hero": str(r.get("hero", ""))}
+	return true
+
+
+## What a future leaderboard upload would send. Nothing reads it yet.
+func weekly_entry() -> Dictionary:
+	return {"week": week_number(), "seed": weekly_seed(), "omen": str(weekly_omen()["id"]), "best": weekly_best()}
 
 
 ## The omen a hunt in `mode` carries, or {} (the Long Road keeps its own rules).
