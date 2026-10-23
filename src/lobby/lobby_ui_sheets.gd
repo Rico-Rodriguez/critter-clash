@@ -4,13 +4,12 @@ extends "res://src/lobby/lobby_ui_hero_sheets.gd"
 ## picker and Settings.
 
 
-## The Journal's first page: what can be done today. The daily reward when it
-## is ready, the three bounties, then the next steps on the Trophy Road.
-## The Journal tab: one big tile per reward track, like Clash Royale's shop.
-## Each tile says where it stands in a word or two and opens its sheet.
+## Quests: what there is to do and claim, one tile each: the daily reward,
+## the day's bounties and the feats. Each says where it stands and opens its
+## sheet. (The road and the season have their own buttons on the home.)
 func _build_journal(s: Sheet) -> void:
 	var grid := GridContainer.new()
-	grid.columns = 2
+	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
 	var st := Game.login_status()
@@ -19,15 +18,8 @@ func _build_journal(s: Sheet) -> void:
 	var list: Array = Game.data["bounties"]["list"]
 	var done := list.filter(func(e): return Game.bounty_done(e)).size()
 	grid.add_child(_reward_tile("archery-target", "Bounties", "%d / %d" % [done, list.size()], float(done) / maxf(list.size(), 1.0), Game.bounty_claimable(), "bounties"))
-	var rn := int(Game.data["road"])
-	var lo := DB.road_threshold(rn)
-	var hi := DB.road_threshold(rn + 1)
-	grid.add_child(_reward_tile("trophy", "Road", "%s trophies" % Ui.fmt_num(Game.renown()), clampf(float(Game.renown() - lo) / float(maxi(hi - lo, 1)), 0.0, 1.0), Game.road_claimable(), "road"))
-	var lv := Game.season_level()
-	grid.add_child(_reward_tile("round-star", "Season", "Tier %d" % lv, 1.0 if lv >= DB.SEASON_TIERS else float(int(Game.season()["xp"]) % DB.SEASON_XP) / DB.SEASON_XP, Game.season_claimable(), "season"))
 	var got: int = Game.data["achievements"].size()
 	grid.add_child(_reward_tile("trophy", "Feats", "%d / %d" % [got, DB.ACHIEVEMENTS.size()], float(got) / DB.ACHIEVEMENTS.size(), Game.achievement_claimable(), "feats"))
-	grid.add_child(_reward_tile("scroll-unfurled", "Log", "%d wins" % int(Game.data["stats"]["wins"]), -1.0, 0, "log"))
 	s.body.add_child(grid)
 	FxUi.deal_in(grid, 0.06)
 
@@ -46,8 +38,8 @@ func _reward_tile(icon: String, title: String, status: String, frac: float, read
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 18
-	v.offset_right = -18
+	v.offset_left = 10
+	v.offset_right = -10
 	v.offset_top = 22
 	v.offset_bottom = -20
 	v.add_theme_constant_override("separation", 6)

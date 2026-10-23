@@ -1340,6 +1340,8 @@ func _build_profile(s: Sheet) -> void:
 	b.add_child(Ui.label("Hunts %d · wins %d · kills %s · bosses %d" % [int(st["hunts"]), int(st["wins"]), Ui.fmt_num(int(st["kills"])), int(st["boss_kills"])], "Body"))
 	if o and o.my_code() != "":
 		b.add_child(Ui.label("Friend code %s · %s" % [o.my_code(), _clan_line()], "Small"))
+	# The battle log lives with the rest of your record.
+	b.add_child(_button("Battle log", "Button", func(): open_sheet("log")))
 	b.add_child(_button("Account, cloud save and new phone", "Ghost", func(): open_sheet("account")))
 
 

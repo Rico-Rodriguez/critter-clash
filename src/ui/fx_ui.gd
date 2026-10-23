@@ -59,6 +59,27 @@ static func rays(host: Control, around: Control, tint := Color(1.0, 0.8, 0.4), r
 	return r
 
 
+## A soft glow in `tint` behind `around` (an item on a card), drawn on `host`
+## under its content.
+static func halo(host: Control, around: Control, tint: Color, reach := 1.8) -> TextureRect:
+	var r := TextureRect.new()
+	r.texture = _dot_texture()
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.modulate = Color(tint, 0.38)
+	host.add_child(r)
+	host.move_child(r, 0)
+	var fit := func() -> void:
+		var side := maxf(around.size.x, around.size.y) * reach
+		r.size = Vector2(side, side)
+		r.global_position = around.get_global_rect().get_center() - r.size * 0.5
+	host.resized.connect(fit)
+	around.resized.connect(fit)
+	around.item_rect_changed.connect(fit)
+	fit.call_deferred()
+	return r
+
+
 ## A slow misty gradient with motes drifting up, behind everything in `c`.
 static func backdrop(c: Control, top := Color(0.11, 0.08, 0.14), bottom := Color(0.04, 0.03, 0.06),
 		mist := Color(0.5, 0.32, 0.6), motes := Color(1.0, 0.78, 0.45, 0.55)) -> Control:
@@ -265,8 +286,8 @@ static func press_bounce(b: BaseButton) -> void:
 	b.button_down.connect(func() -> void:
 		b.pivot_offset = b.size * 0.5
 		var t := b.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		t.tween_property(b, "scale", Vector2(0.94, 0.9), 0.06))
+		t.tween_property(b, "scale", Vector2(0.97, 0.96), 0.06))
 	b.button_up.connect(func() -> void:
 		var t := b.create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		t.tween_property(b, "scale", Vector2(1.05, 1.06), 0.08)
-		t.tween_property(b, "scale", Vector2.ONE, 0.18))
+		t.tween_property(b, "scale", Vector2(1.015, 1.015), 0.08)
+		t.tween_property(b, "scale", Vector2.ONE, 0.16))
