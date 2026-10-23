@@ -1,7 +1,7 @@
 class_name LobbyUI
 extends "res://src/lobby/lobby_ui_social.gd"
-## The camp's interface: a bar of five tabs along the bottom (Heroes, Gear,
-## Hunt, Clan, Journal), swiped or tapped like Clash Royale's. Hunt is home:
+## The camp's interface: a bar of four tabs along the bottom (Shop, Heroes,
+## Hunt, Clan), swiped or tapped like Clash Royale's. Hunt is home:
 ## the player plate, the season, the side rails, the hero by the fire and the
 ## chest · hunt · road row. The other tabs are full pages above the bar;
 ## Expedition, Settings and the profile still slide up as sheets.
@@ -10,9 +10,12 @@ extends "res://src/lobby/lobby_ui_social.gd"
 ## lobby_ui_hero_sheets < lobby_ui_sheets < lobby_ui_social < lobby_ui
 ## (setup, home, tabs, chest, opening sheets).
 
-## Left to right in the bar (a Shop tab joins at the far left).
-const TABS := ["heroes", "hunt", "clan"]
+const Shop := preload("res://src/lobby/shop.gd")
+
+## Left to right in the bar.
+const TABS := ["shop", "heroes", "hunt", "clan"]
 const TAB_LOOK := {
+	"shop": ["Shop", "two-coins"],
 	"heroes": ["Heroes", "visored-helm"],
 	"hunt": ["Hunt", "crossed-swords"],
 	"clan": ["Clan", "checked-shield"],
@@ -20,7 +23,7 @@ const TAB_LOOK := {
 ## Which tab and sub-tab each old sheet name lands on.
 const SHEET_TAB := {
 	"heroes": ["heroes", 0],
-	"bag": ["heroes", 0], "clan": ["clan", 0],
+	"bag": ["heroes", 0], "clan": ["clan", 0], "shop": ["shop", 0],
 }
 
 var _tab_btns := {}
@@ -33,6 +36,8 @@ var _bounty_time: Label
 var _sw_from := Vector2.ZERO
 var _sw_t := -1.0
 var _sw_index := -1
+## The chest being opened was bought in the Shop: -1 off the shelf, else the deal.
+var _bought_deal := -2
 
 
 func setup(l: Node3D) -> void:
@@ -46,6 +51,7 @@ func setup(l: Node3D) -> void:
 	%Pages.offset_bottom = -(NAV_H + ins.w)
 	_shown_hero = Game.hero_id()
 	Game.refresh_bounties()
+	Game.refresh_shop()
 	%Prev.pressed.connect(func(): _cycle(-1))
 	%Next.pressed.connect(func(): _cycle(1))
 	%Hunt.pressed.connect(_on_hunt)
@@ -120,6 +126,7 @@ func refresh() -> void:
 	# Tab dots: something to do behind that tab.
 	_tab_dots["heroes"].visible = _any_upgrade() or Game.new_item_count() > 0
 	_tab_dots["clan"].visible = _social_dot()
+	_tab_dots["shop"].visible = Game.shop_free_ready() > 0
 	if _goal:
 		# The closest thing worth chasing: something is always about to happen.
 		_goal.text = Game.next_goal()
@@ -389,6 +396,8 @@ func show_tab(name_: String, sub := 0) -> void:
 			eq.open(self)
 		"clan":
 			_page = _make_page("Clan", [["Clan", _build_social]], sub)
+		"shop":
+			_page = _make_page("Shop", [["Shop", func(s: Sheet): Shop.build(self, s)]], sub)
 	if dir != 0.0:
 		var w := get_viewport().get_visible_rect().size.x
 		_page.position.x = dir * w * 0.35
@@ -495,8 +504,24 @@ func _open_chest() -> void:
 	%Safe.visible = false
 	%NavBar.visible = false
 	var ov := preload("res://src/lobby/chest_open.gd").new()
+	ov.deal = _bought_deal
 	%Overlay.add_child(ov)
 	ov.open(self, kind)
+
+
+## A chest bought in the Shop opens like a won one: it goes ahead of any chest
+## waiting in the slot (which comes back after), and it is paid for when the
+## lid opens, so closing the app first costs nothing.
+func open_bought_chest(kind: String, deal := -1) -> void:
+	if chest_opening or lobby.main == null:
+		return
+	var m = lobby.main
+	if str(m.pending_chest) != "":
+		m.chest_queue.push_front(m.pending_chest)
+	m.pending_chest = kind
+	lobby.place_chest(kind)
+	_bought_deal = deal
+	_open_chest()
 
 
 func chest_done() -> void:
@@ -506,6 +531,9 @@ func chest_done() -> void:
 	%Chest.scale = Vector2.ONE
 	lobby.remove_chest()
 	refresh()
+	if _bought_deal != -2:
+		_bought_deal = -2
+		show_tab("shop")
 
 
 # --- Sheets --------------------------------------------------------------
@@ -575,7 +603,7 @@ func _sheet_closed() -> void:
 			equipment._show_hero(Game.hero_id())
 		else:
 			equipment._refresh()
-	if tab == "clan" and _page is Sheet and is_instance_valid(_page):
+	if tab in ["clan", "shop"] and _page is Sheet and is_instance_valid(_page):
 		(_page as Sheet).rebuild()
 
 

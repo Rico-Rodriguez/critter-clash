@@ -744,6 +744,29 @@ const GLOWS := {
 }
 const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship"]
 
+# --- Shop -------------------------------------------------------------------------
+
+## Everything costs gold the game pays out; nothing is sold for money. Chests
+## cost about three times the gold inside them, so buying one trades gold for
+## shards and gear, never gold for more gold.
+const SHOP_CHESTS := {"silver": 400, "gold": 1100, "crypt": 2600}
+## Daily deals, drawn fresh each day: a free gift, shards for two heroes, two
+## pieces of gear for the hero in use and a chest at a discount. Each sells once.
+const SHOP_SHARD_GOLD := 30
+const SHOP_DEAL_OFF := 0.25
+const SHOP_CHEST_OFF := 0.3
+const SHOP_FREE_GOLD := 80
+const SHOP_FREE_GOLD_TIER := 25
+const SHOP_FREE_SHARDS := 5
+## Gear price by rarity, then +SHOP_GEAR_MAT for each material tier above the first.
+const SHOP_GEAR_GOLD := {"magic": 280, "rare": 700}
+const SHOP_GEAR_MAT := 0.5
+## One glow a week is on sale for every hero.
+const SHOP_GLOW_OFF := 0.3
+
+static func shop_gear_price(it: Dictionary) -> int:
+	return int(round(int(SHOP_GEAR_GOLD.get(str(it["rarity"]), 280)) * (1.0 + SHOP_GEAR_MAT * int(it.get("mat", 0))) / 10.0)) * 10
+
 # --- Online ---------------------------------------------------------------------
 
 ## What one hunt deals to the clan raid boss: per kill, elite, boss and win,

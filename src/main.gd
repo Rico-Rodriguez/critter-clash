@@ -297,7 +297,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire", "journal", "clan", "profile":
+			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -320,6 +320,8 @@ func _capture(args: PackedStringArray) -> void:
 					Game.data["renown"] = DB.road_threshold(3) + 40
 					Game.data["road"] = 1
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
+				if shot in ["shop", "shopbuy", "shoplooks"]:
+					Game.data["gold"] = 3240
 				if shot == "talents":
 					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
 						Game.learn_talent(hid, n[0], n[1])
@@ -327,6 +329,16 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.2)
 				if shot == "campfire":
 					current.ui._side_pressed("idle")
+					await _wait(1.0)
+				elif shot == "shoplooks":
+					current.open_sheet("shop")
+					await _wait(1.0)
+					current.ui._page._scroll.scroll_vertical = 100000
+					await _wait(0.6)
+				elif shot == "shopbuy":
+					current.open_sheet("shop")
+					await _wait(1.0)
+					current.ui.Shop._confirm(current.ui, current.ui._page, Game.shop_deals()[3], 3)
 					await _wait(1.0)
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot == "equip" else shot)
