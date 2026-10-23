@@ -2,100 +2,193 @@ extends "res://src/lobby/lobby_ui_widgets.gd"
 ## The camp screen, part 2: the Heroes sheet, talents and Skills.
 
 
+## The Heroes tab: a grid of hero cards, like Clash Royale's collection.
+## A card shows who, how strong and what's next; tapping it opens the hero.
 func _build_heroes(s: Sheet) -> void:
-	var b := s.body
-	var roster := HBoxContainer.new()
-	roster.add_theme_constant_override("separation", 10)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
 	for id in DB.HERO_ORDER:
-		var d: Dictionary = DB.HEROES[id]
-		var h := Game.hero(id)
-		var t := Button.new()
-		t.toggle_mode = true
-		t.button_pressed = id == _shown_hero
-		t.custom_minimum_size = Vector2(0, 184)
-		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		t.focus_mode = Control.FOCUS_NONE
-		var v := VBoxContainer.new()
-		v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		v.offset_top = 14
-		v.alignment = BoxContainer.ALIGNMENT_BEGIN
-		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var cc := CenterContainer.new()
-		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var pc := _portrait(id, d["color"] if h["unlocked"] else Color(0.4, 0.4, 0.42), 88)
-		if not h["unlocked"]:
-			pc.modulate = Color(0.35, 0.35, 0.4)
-		cc.add_child(pc)
-		v.add_child(cc)
-		var nm := Ui.label(d["name"], "Body", HORIZONTAL_ALIGNMENT_CENTER)
-		nm.add_theme_font_size_override("font_size", 21)
-		v.add_child(nm)
-		v.add_child(Ui.label(("Combat %d" % Game.combat_level(id)) if h["unlocked"] else "Locked", "Small", HORIZONTAL_ALIGNMENT_CENTER))
-		t.add_child(v)
-		var hid: String = id
-		t.pressed.connect(func():
-			_shown_hero = hid
-			if Game.hero(hid)["unlocked"]:
-				Game.set_hero(hid)
-			lobby.show_hero(hid)
-			refresh()
-			s.rebuild())
-		if h["unlocked"] and Game.talent_points(id) > 0:
-			var dot := PanelContainer.new()
-			dot.theme_type_variation = &"Badge"
-			dot.custom_minimum_size = Vector2(20, 20)
-			dot.size = Vector2(20, 20)
-			dot.position = Vector2(8, 8)
-			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			t.add_child(dot)
-		roster.add_child(t)
-	b.add_child(roster)
-	var id2 := _shown_hero
-	var d2: Dictionary = DB.HEROES[id2]
-	var h2 := Game.hero(id2)
-	# Who they are.
-	var head := VBoxContainer.new()
-	head.add_theme_constant_override("separation", 0)
-	var nm2 := Ui.label(d2["name"], "Title")
-	nm2.add_theme_font_size_override("font_size", 40)
-	nm2.add_theme_color_override("font_color", d2["color"].lightened(0.3))
-	head.add_child(nm2)
-	var bl := Ui.label("%s · %s" % [d2["title"], d2["blurb"]], "Body")
-	bl.add_theme_color_override("font_color", Color(0.66, 0.63, 0.58))
-	bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	head.add_child(bl)
+		grid.add_child(_hero_card(id))
+	s.body.add_child(grid)
+	# The companion who walks beside you: one tap cycles through the band.
+	var ally := str(Game.data.get("ally", ""))
+	var ab := Button.new()
+	ab.theme_type_variation = &"CardButton"
+	ab.focus_mode = Control.FOCUS_NONE
+	ab.custom_minimum_size = Vector2(0, 76)
+	ab.icon = Ui.icon("crossed-swords")
+	ab.text = "Companion: %s" % (DB.HEROES[ally]["name"] if ally != "" else "none")
+	ab.pressed.connect(func():
+		var pool: Array = [""] + DB.HERO_ORDER.filter(func(x): return Game.hero(x)["unlocked"])
+		var i := pool.find(str(Game.data.get("ally", "")))
+		Game.data["ally"] = pool[(i + 1) % pool.size()]
+		Game.save()
+		Sfx.play("ui_toggle", -4.0)
+		s.rebuild())
+	s.body.add_child(ab)
+
+
+func _hero_card(id: String) -> Button:
+	var d: Dictionary = DB.HEROES[id]
+	var h := Game.hero(id)
+	var open: bool = h["unlocked"]
+	var col: Color = d["color"] if open else Color(0.4, 0.4, 0.42)
+	var btn := Button.new()
+	btn.theme_type_variation = &"Choice"
+	btn.toggle_mode = true
+	btn.button_pressed = id == Game.hero_id()
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(0, 300)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 14
+	v.offset_right = -14
+	v.offset_top = 16
+	v.offset_bottom = -16
+	v.add_theme_constant_override("separation", 8)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(v)
+	var cc := CenterContainer.new()
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pc := _portrait(id, col, 150)
+	if not open:
+		pc.modulate = Color(0.35, 0.35, 0.4)
+	cc.add_child(pc)
+	v.add_child(cc)
+	var nm := Ui.label(d["name"], "Value", HORIZONTAL_ALIGNMENT_CENTER)
+	nm.add_theme_font_size_override("font_size", 28)
+	v.add_child(nm)
+	var lv := Ui.label(("Combat %d" % Game.combat_level(id)) if open else "Locked", "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	lv.add_theme_color_override("font_color", Color(0.75, 0.9, 0.5) if open else Color(0.7, 0.68, 0.62))
+	v.add_child(lv)
+	# What's next: mastery to the next rank, or shards to unlock.
+	var bar := ProgressBar.new()
+	bar.theme_type_variation = &"XPBar"
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 14)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if open:
+		var nxt := Game.mastery_next(id)
+		var lo := int(DB.MASTERY[int(h.get("mastery_rank", 0))]["at"])
+		bar.value = 100.0 if nxt < 0 else float(int(h.get("mastery", 0)) - lo) / float(maxi(nxt - lo, 1)) * 100.0
+	else:
+		bar.value = minf(float(h["shards"]) / 20.0, 1.0) * 100.0
+	v.add_child(bar)
+	var pts := Game.talent_points(id) if open else 0
+	if pts > 0:
+		var dot := PanelContainer.new()
+		dot.theme_type_variation = &"Badge"
+		dot.position = Vector2(10, 10)
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var n := Ui.label(str(pts), "Small", HORIZONTAL_ALIGNMENT_CENTER)
+		n.add_theme_color_override("font_color", Color.WHITE)
+		dot.add_child(n)
+		btn.add_child(dot)
+	if id == Game.hero_id():
+		var used := Ui.label("IN USE", "Caption", HORIZONTAL_ALIGNMENT_RIGHT)
+		used.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		used.offset_left = -110
+		used.offset_right = -14
+		used.offset_top = 12
+		used.add_theme_color_override("font_color", Color(0.91, 0.71, 0.35))
+		used.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		btn.add_child(used)
+	btn.pressed.connect(func():
+		btn.button_pressed = id == Game.hero_id()
+		_shown_hero = id
+		lobby.show_hero(id)
+		Sfx.play("ui_tap", -4.0)
+		open_sheet("hero"))
+	return btn
+
+
+## A hero's card, opened from the grid: stats at a glance, then the way into
+## skills, talents and looks, and Use.
+func _build_hero_sheet(s: Sheet) -> void:
+	var b := s.body
+	var id := _shown_hero
+	var d: Dictionary = DB.HEROES[id]
+	var h := Game.hero(id)
+	var open: bool = h["unlocked"]
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 18)
+	head.add_child(_portrait(id, d["color"] if open else Color(0.4, 0.4, 0.42), 132))
+	var hv := VBoxContainer.new()
+	hv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hv.add_theme_constant_override("separation", 2)
+	var role := Ui.label("%s · %s" % [d["title"], d["role"]], "Small")
+	hv.add_child(role)
+	var cl := Ui.label(("Combat %d" % Game.combat_level(id)) if open else "Locked", "Heading")
+	cl.add_theme_color_override("font_color", Color(0.75, 0.9, 0.5) if open else Color(0.7, 0.68, 0.62))
+	hv.add_child(cl)
+	if open:
+		hv.add_child(Ui.label("Power %s · %s" % [Ui.fmt_num(Game.power_score(id)), Game.mastery_title(id)], "Small"))
+	head.add_child(hv)
 	b.add_child(head)
-	# One sheet, three tabs: everything about a hero used to be one long scroll.
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 8)
-	for t in [["stats", "Stats"], ["progress", "Progress"], ["looks", "Looks"]]:
-		var tb := Button.new()
-		tb.theme_type_variation = &"Choice"
-		tb.toggle_mode = true
-		tb.button_pressed = _hero_tab == t[0]
-		tb.focus_mode = Control.FOCUS_NONE
-		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tb.custom_minimum_size = Vector2(0, 64)
-		tb.text = t[1]
-		if t[0] == "progress" and Game.talent_points(id2) > 0:
-			tb.text += " •"
-		var tid: String = t[0]
-		tb.pressed.connect(func():
-			_hero_tab = tid
-			Sfx.play("ui_tap", -6.0)
-			s.rebuild())
-		tabs.add_child(tb)
-	b.add_child(tabs)
-	if not h2["unlocked"] and _hero_tab != "stats":
-		_hero_locked(s, id2)
+	# Six numbers in chips, not a table.
+	var st := Game.hero_stats(id)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	for pair in [["heart-organ", "%d" % int(st["hp"]), "Health"], ["sword-wound", "%d" % int(st["dmg"]), "Damage"],
+			["lightning-tear", "%.2f" % st["rate"], "Hits/s"], ["bullseye", "%d%%" % int(st["crit"] * 100.0), "Crit"],
+			["checked-shield", "%d%%" % int(DB.armor_dr(st["armor"]) * 100.0), "Armor"], ["running-shoe", "%.1f" % st["speed"], "Speed"]]:
+		var c := _card()
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cv := VBoxContainer.new()
+		cv.add_theme_constant_override("separation", 0)
+		var top := _row([Ui.icon_rect(pair[0], 30, Color(0.85, 0.72, 0.48)), Ui.label(pair[1], "Value")], 8)
+		top.alignment = BoxContainer.ALIGNMENT_CENTER
+		cv.add_child(top)
+		cv.add_child(Ui.label(pair[2], "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+		c.add_child(cv)
+		grid.add_child(c)
+	b.add_child(grid)
+	var sup := _row([_disc({"slam": "sun", "whirlwind": "whirlwind", "volley": "arrow-cluster", "meteor": "meteor-impact"}[d["super"]], Color(1.0, 0.6, 0.25), 56)], 14)
+	var sl := Ui.label("Super: %s" % d["super_name"], "Value")
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sup.add_child(sl)
+	b.add_child(sup)
+	if not open:
+		var lk := Ui.label(("Win on Veteran or gather 20 shards (%d/20)" if d["unlock"] == "veteran" else "Gather 20 shards (%d/20)") % int(h["shards"]), "Body", HORIZONTAL_ALIGNMENT_CENTER)
+		lk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.add_child(lk)
 		return
-	match _hero_tab:
-		"progress":
-			_hero_progress(s, id2)
-		"looks":
-			_hero_looks(s, id2)
-		_:
-			_hero_stats(s, id2)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var pts := Game.talent_points(id)
+	for t in [["Skills", "BlueButton", "skills"], ["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"], ["Looks", "BlueButton", "looks"]]:
+		var tb := Button.new()
+		tb.text = t[0]
+		tb.theme_type_variation = t[1]
+		tb.focus_mode = Control.FOCUS_NONE
+		tb.custom_minimum_size = Vector2(0, 80)
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var to: String = t[2]
+		tb.pressed.connect(func(): open_sheet(to))
+		row.add_child(tb)
+	b.add_child(row)
+	var use := Button.new()
+	use.theme_type_variation = &"GoldButton"
+	use.focus_mode = Control.FOCUS_NONE
+	use.custom_minimum_size = Vector2(0, 92)
+	use.text = "In use" if id == Game.hero_id() else "Use"
+	use.disabled = id == Game.hero_id()
+	use.pressed.connect(func():
+		Game.set_hero(id)
+		Sfx.play("ui_press", 0.0)
+		refresh()
+		s.close())
+	b.add_child(use)
+
+
+## Weapon glows, opened from a hero's card.
+func _build_looks(s: Sheet) -> void:
+	_hero_looks(s, _shown_hero)
 
 
 func _hero_stats(s: Sheet, id2: String) -> void:
@@ -242,22 +335,6 @@ func _hero_looks(s: Sheet, id2: String) -> void:
 			s.rebuild())
 		gl.add_child(gb)
 	b.add_child(gl)
-	# Companion: another hero of the band fights at your side.
-	var ally := str(Game.data.get("ally", ""))
-	var ab := Button.new()
-	ab.theme_type_variation = &"CardButton"
-	ab.focus_mode = Control.FOCUS_NONE
-	ab.custom_minimum_size = Vector2(0, 72)
-	ab.icon = Ui.icon("crossed-swords")
-	ab.text = "Companion: %s (tap to change)" % (DB.HEROES[ally]["name"] if ally != "" else "none")
-	ab.pressed.connect(func():
-		var pool: Array = [""] + DB.HERO_ORDER.filter(func(x): return Game.hero(x)["unlocked"])
-		var i := pool.find(str(Game.data.get("ally", "")))
-		Game.data["ally"] = pool[(i + 1) % pool.size()]
-		Game.save()
-		Sfx.play("ui_toggle", -4.0)
-		s.rebuild())
-	b.add_child(ab)
 
 
 func _hero_locked(s: Sheet, id2: String) -> void:
@@ -296,9 +373,6 @@ func _build_talents(s: Sheet) -> void:
 		s.rebuild())
 	head.add_child(reset)
 	b.add_child(head)
-	var note := Ui.label("Every %d combat levels give a point. Every node needs the one above it. The first reset is free; after that it costs gold." % DB.TALENT_COMBAT_STEP, "Small")
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.add_child(note)
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 10)
 	var paths := TalentDB.paths(id)
@@ -383,8 +457,7 @@ func _build_skills(s: Sheet) -> void:
 	hv.add_theme_constant_override("separation", 0)
 	var cl := Ui.label("Combat level %d" % Game.combat_level(id), "Heading")
 	hv.add_child(cl)
-	hv.add_child(Ui.label("Total level %d · 99 is the top" % total, "Small"))
-	hv.add_child(Ui.label("%d shards · %d rub an XP lamp" % [int(Game.hero(id)["shards"]), DB.LAMP_SHARDS], "Small"))
+	hv.add_child(Ui.label("Total level %d · %d shards" % [total, int(Game.hero(id)["shards"])], "Small"))
 	hr.add_child(hv)
 	head.add_child(hr)
 	b.add_child(head)
@@ -411,9 +484,6 @@ func _build_skills(s: Sheet) -> void:
 		var hi := DB.xp_for_level(mini(lvl + 1, 99))
 		pb.value = 100.0 if lvl >= 99 else float(xp - lo) / float(maxi(hi - lo, 1)) * 100.0
 		v.add_child(pb)
-		var xl := Ui.label("%s xp · %s to %d" % [Ui.fmt_num(xp), Ui.fmt_num(maxi(hi - xp, 0)), mini(lvl + 1, 99)], "Small")
-		xl.add_theme_font_size_override("font_size", 17)
-		v.add_child(xl)
 		var perk := Ui.label(DB.SKILL_PERK[sk], "Small")
 		perk.add_theme_font_size_override("font_size", 17)
 		perk.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0))
@@ -437,6 +507,3 @@ func _build_skills(s: Sheet) -> void:
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(c)
 	b.add_child(grid)
-	var note := Ui.label("Skills are a hero's power. Each hero trains their own with the damage they deal, and skills unlock better gear. Combat level earns talent points. Shards rub XP lamps.", "Small")
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.add_child(note)

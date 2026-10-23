@@ -82,7 +82,8 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	if not page:
 		head.add_child(x)
 	v.add_child(head)
-	if not segments.is_empty():
+	# One segment needs no row of choices.
+	if segments.size() > 1:
 		_seg_row = HBoxContainer.new()
 		_seg_row.add_theme_constant_override("separation", 8)
 		v.add_child(_seg_row)
@@ -181,6 +182,8 @@ func show_segment(i: int) -> void:
 
 
 func _build_segments() -> void:
+	if _seg_row == null:
+		return
 	Ui.clear(_seg_row)
 	for i in segments.size():
 		var b := Button.new()

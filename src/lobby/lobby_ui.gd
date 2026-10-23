@@ -20,7 +20,7 @@ const TAB_LOOK := {
 }
 ## Which tab and sub-tab each old sheet name lands on.
 const SHEET_TAB := {
-	"heroes": ["heroes", 0], "skills": ["heroes", 1], "talents": ["heroes", 2],
+	"heroes": ["heroes", 0],
 	"bag": ["gear", 0],
 	"bounties": ["journal", 0], "road": ["journal", 0], "daily": ["journal", 0],
 	"season": ["journal", 1], "feats": ["journal", 2], "log": ["journal", 3],
@@ -326,7 +326,8 @@ func _build_tabs() -> void:
 		b.theme_type_variation = &"NavTab"
 		b.toggle_mode = true
 		b.button_pressed = key == tab
-		b.text = str(TAB_LOOK[key][0]).to_upper()
+		# Icons only; the open tab is wider and names itself (Clash Royale's bar).
+		b.text = str(TAB_LOOK[key][0]).to_upper() if key == tab else ""
 		b.icon = Ui.icon(TAB_LOOK[key][1])
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
@@ -367,6 +368,7 @@ func show_tab(name_: String, sub := 0) -> void:
 	for k in TABS:
 		_tab_btns[k].button_pressed = k == tab
 		_tab_btns[k].size_flags_stretch_ratio = 1.45 if k == tab else 1.0
+		_tab_btns[k].text = str(TAB_LOOK[k][0]).to_upper() if k == tab else ""
 	Sfx.play("ui_toggle", -6.0)
 	%Safe.visible = tab == "hunt"
 	%Shade.visible = tab == "hunt"
@@ -382,7 +384,7 @@ func show_tab(name_: String, sub := 0) -> void:
 			%Pages.add_child(eq)
 			eq.open(self)
 		"heroes":
-			_page = _make_page("Heroes", [["Heroes", _build_heroes], ["Skills", _hero_picked.bind(_build_skills)], ["Talents", _hero_picked.bind(_build_talents), _any_upgrade()]], sub)
+			_page = _make_page("Heroes", [["Heroes", _build_heroes]], sub)
 		"journal":
 			var dot_today := Game.bounty_claimable() > 0 or Game.road_claimable() > 0 or bool(Game.login_status()["ready"])
 			_page = _make_page("Journal", [["Today", _build_today, dot_today], ["Season", _build_season, Game.season_claimable() > 0], ["Feats", _build_feats, Game.achievement_claimable() > 0], ["Log", _build_log]], sub)
@@ -415,34 +417,6 @@ func _leave_page() -> void:
 			_page.queue_free()
 	_page = null
 	equipment = null
-
-
-## Skills and talents belong to one hero: a row of names on top picks which.
-func _hero_picked(s: Sheet, build: Callable) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	for id in DB.HERO_ORDER:
-		if not Game.hero(id)["unlocked"]:
-			continue
-		var b := Button.new()
-		b.theme_type_variation = &"Choice"
-		b.toggle_mode = true
-		b.button_pressed = id == _shown_hero
-		b.text = DB.HEROES[id]["name"]
-		b.custom_minimum_size = Vector2(0, 60)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 20)
-		var hid: String = id
-		b.pressed.connect(func():
-			_shown_hero = hid
-			Game.set_hero(hid)
-			lobby.show_hero(hid)
-			refresh()
-			s.rebuild())
-		row.add_child(b)
-	s.body.add_child(row)
-	build.call(s)
 
 
 ## A quick swipe left or right moves one tab over, anywhere but the open 3D
@@ -565,6 +539,14 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Settings", _build_settings, 0.8)
 		"profile":
 			_sheet.open("Profile", _build_profile)
+		"hero":
+			_sheet.open(str(DB.HEROES[_shown_hero]["name"]), _build_hero_sheet)
+		"skills":
+			_sheet.open("Skills", _build_skills)
+		"talents":
+			_sheet.open("Talents", _build_talents)
+		"looks":
+			_sheet.open("Looks", _build_looks)
 		_:
 			if not _open_social_sheet(_sheet, name_):
 				_sheet.queue_free()
