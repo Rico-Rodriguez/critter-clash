@@ -93,6 +93,21 @@ func run() -> int:
 	var main_k: String = DB.SLOT_MAIN["helm"]
 	var hp1 := int(Game.item(hu)["stats"][main_k])
 	_ok("copies and gold level a piece", Game.level_up(hu) and int(Game.item(hu)["lv"]) == 2 and int(Game.item(hu)["cards"]) == 0 and Game.gold() == 5 and int(Game.item(hu)["stats"][main_k]) > hp1)
+	var ta := Game.make_item("knight", "weapon", 1)
+	var tb := Game.make_item("knight", "weapon", 1)
+	for _k in 40:
+		if str(tb.get("fam", "")) != str(ta.get("fam", "")):
+			break
+		tb = Game.make_item("knight", "weapon", 1)
+	ta = Game.grant_item(ta)
+	tb = Game.grant_item(tb)
+	ta["cards"] = DB.TRADE_COPIES
+	Game.data["gold"] = 100000
+	var tb_cards := int(tb["cards"])
+	_ok("trade test has two pieces", int(ta["uid"]) != int(tb["uid"]))
+	if Game.can_trade(ta, tb):
+		_ok("copies trade into a sibling piece", Game.trade_copies(int(ta["uid"]), int(tb["uid"])) and int(ta["cards"]) == 0 and int(tb["cards"]) == tb_cards + 1 and Game.gold() == 100000 - Game.trade_fee(tb))
+	_ok("too few copies never trade", not Game.can_trade(ta, tb))
 	var cat := Game.catalog("barbarian", "weapon")
 	_ok("the armory has a row per family", cat.size() == DB.HERO_FAMILIES["barbarian"].size() and cat[0].size() == GearDB.TIERS)
 	# v8 saves: copies of a piece fold into the worn one as level copies.

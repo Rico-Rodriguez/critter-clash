@@ -933,6 +933,10 @@ const SET_STAT := ["", "armor", "hp", "crit", "regen"]
 const PIECE_CARDS := [1, 2, 3, 4, 6, 8, 11, 15, 20]
 const PIECE_GOLD := [60, 120, 220, 380, 600, 900, 1300, 1900, 2700]
 const PIECE_GOLD_SET := 0.6
+## Copy trading: TRADE_COPIES spare copies of a piece become one copy of another
+## piece in the same slot and set, for TRADE_GOLD x the set's gold factor.
+const TRADE_COPIES := 3
+const TRADE_GOLD := 200
 ## Talent reset: the first is free, then this much per talent point earned.
 const RESPEC_GOLD := 90
 
