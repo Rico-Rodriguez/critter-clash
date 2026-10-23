@@ -224,6 +224,26 @@ func _gear_tests() -> void:
 		boss_fams[Game.roll_family("barbarian", 4, DB.TIER_NIGHTMARE)] = true
 	_ok("a Nightmare boss can drop the scythe", boss_fams.has("scythe"))
 	_ok("the scythe needs level 60 in any set", GearDB.req_for({"slot": "weapon", "mat": 3, "fam": "scythe"}) == 60)
+	var shield := Game.make_item("knight", "trinket", 2, "rare")
+	shield["stats"] = {"armor": 20}
+	var hammer := Game.make_item("knight", "weapon", 3, "common")
+	hammer["fam"] = "warhammer"
+	var blade := Game.make_item("knight", "weapon", 3, "common")
+	blade["fam"] = "sword"
+	_ok("a two-handed weapon takes both hands", Game.two_hands("knight", hammer) and not Game.two_hands("knight", blade))
+	_ok("no shield counts with a two-handed weapon", Game.hero_stats("knight", {"weapon": hammer, "trinket": shield})["armor"] < Game.hero_stats("knight", {"weapon": blade, "trinket": shield})["armor"])
+	_ok("a Barbarian's shield goes only with throwing axes", Game.two_hands("barbarian", {"slot": "weapon", "fam": "maul"}) and Game.two_hands("barbarian", {"slot": "weapon", "fam": "twin"}) and not Game.two_hands("barbarian", {"slot": "weapon", "fam": "throwing"}))
+	_ok("a quiver needs no hand", not Game.two_hands("ranger", {"slot": "weapon", "fam": "longbow"}))
+	var kg: Dictionary = Game.hero("knight")["gear"].duplicate()
+	var ks: Dictionary = Game.skills("knight").duplicate()
+	for sk2 in ["attack", "defence"]:
+		Game.skills("knight")[sk2] = DB.xp_for_level(70)
+	var su := int(Game.grant_item(shield)["uid"])
+	Game.equip("knight", su)
+	_ok("equipping a two-hander takes the shield off", Game.equip("knight", int(Game.grant_item(hammer)["uid"])) == "trinket" and Game.equipped("knight", "trinket").is_empty())
+	_ok("equipping a shield takes the two-hander off", Game.equip("knight", su) == "weapon" and Game.equipped("knight", "weapon").is_empty())
+	Game.hero("knight")["gear"] = kg
+	Game.skills("knight").merge(ks, true)
 	_ok("a family weapon wears its family's model", str(GearDB.look({"cls": "barbarian", "slot": "weapon", "mat": 2, "fam": "maul"})["model"]) == "barb_maul_2.gltf")
 	var kn := Game.make_item("knight", "helm", 0, "common")
 	kn["look"] = 1

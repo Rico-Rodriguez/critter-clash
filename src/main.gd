@@ -388,9 +388,9 @@ func _capture(args: PackedStringArray) -> void:
 					current.open_sheet("bag" if shot.begins_with("equip") else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
 					if shot == "equipcard":
-						# The card of the best weapon owned, with a copy to level it.
+						# The card of the weapon in hand (else the best owned), with a copy to level it.
 						var eq: Node = current.ui.equipment
-						var w: Dictionary = {}
+						var w: Dictionary = Game.equipped(hid, "weapon") if _arg(args, "fam", "") != "" else {}
 						for it2 in Game.data["items"]:
 							if it2["slot"] == "weapon" and str(it2["cls"]) == hid and (w.is_empty() or int(it2["mat"]) > int(w["mat"])):
 								w = it2

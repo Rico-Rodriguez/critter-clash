@@ -39,16 +39,39 @@ func wear_block(hero_id_: String, it: Dictionary) -> String:
 	return ""
 
 
-func equip(hero_id_: String, uid: int) -> void:
+## Returns the slot it had to empty ("trinket" when a two-handed weapon
+## goes on, "weapon" when a shield goes on over one), or "".
+func equip(hero_id_: String, uid: int) -> String:
 	var it := item(uid)
 	if it.is_empty() or wear_block(hero_id_, it) != "":
-		return
+		return ""
 	var prev := owner_of(uid)
 	if prev != "":
 		hero(prev)["gear"].erase(it["slot"])
-	hero(hero_id_)["gear"][it["slot"]] = uid
+	var gear: Dictionary = hero(hero_id_)["gear"]
+	gear[it["slot"]] = uid
+	var bumped := ""
+	if it["slot"] == "weapon" and two_hands(hero_id_, it) and gear.has("trinket"):
+		bumped = "trinket"
+	elif it["slot"] == "trinket" and two_hands(hero_id_, equipped(hero_id_, "weapon")):
+		bumped = "weapon"
+	if bumped != "":
+		gear.erase(bumped)
 	_note_tier(hero_id_, it)
 	save()
+	return bumped
+
+
+## Whether weapon `w` takes both of the hero's hands, as in OSRS: no shield
+## can be worn with it. Only shields are barred; a quiver or a floating
+## grimoire needs no hand. A weapon from before families fights as the
+## hero's first family (Game.weapon_family).
+func two_hands(id: String, w: Dictionary) -> bool:
+	if w.is_empty() or w.get("slot", "weapon") != "weapon" or not bool(GearDB.LINES[id].get("shield", false)):
+		return false
+	var fams: Array = DB.HERO_FAMILIES.get(id, [])
+	var f := str(w.get("fam", ""))
+	return GearDB.two_handed(id, f if f in fams else (str(fams[0]) if not fams.is_empty() else ""))
 
 
 ## Set when a hero first puts on a higher material than it ever wore: the
@@ -109,9 +132,17 @@ func equip_best(hero_id_: String) -> int:
 			var owner := owner_of(int(it["uid"]))
 			if (owner != "" and owner != hero_id_) or wear_block(hero_id_, it) != "":
 				continue
+			# Weapons go on first: a two-handed one leaves the offhand empty.
+			if slot == "trinket" and two_hands(hero_id_, equipped(hero_id_, "weapon")):
+				continue
 			if item_score(it) > best_score:
 				best = it
 				best_score = item_score(it)
+		if slot == "trinket" and two_hands(hero_id_, equipped(hero_id_, "weapon")):
+			if hero(hero_id_)["gear"].has("trinket"):
+				hero(hero_id_)["gear"].erase("trinket")
+				changed_n += 1
+			continue
 		if not best.is_empty() and int(hero(hero_id_)["gear"].get(slot, 0)) != int(best["uid"]):
 			hero(hero_id_)["gear"][slot] = int(best["uid"])
 			_note_tier(hero_id_, best)

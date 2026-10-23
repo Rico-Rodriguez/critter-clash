@@ -345,7 +345,7 @@ func _build_actor() -> void:
 	_actor = Actor.new()
 	_vp.add_child(_actor)
 	_actor.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
-	_actor.play(d["anim"]["idle"], 0.0)
+	_actor.play(GearDB.anims(hero_id, Game.weapon_family(hero_id))["idle"], 0.0)
 	_actor.rotation.y = _yaw
 	_dress()
 
@@ -733,8 +733,35 @@ func _style_slot(b: Button, slot: String) -> void:
 			t.remove_child(c)
 			b.add_child(c)
 		t.free()
-	if not _best_for(slot).is_empty():
+	if _hands_full(slot):
+		b.add_child(_strike())
+	elif not _best_for(slot).is_empty():
 		b.add_child(_badge("▲", GREEN, Control.PRESET_TOP_RIGHT))
+
+
+## The shield slot while the weapon in hand (worn or tried on) takes both hands.
+func _hands_full(slot: String) -> bool:
+	if slot != "trinket":
+		return false
+	var w: Dictionary = _try_on().get("weapon", Game.equipped(hero_id, "weapon"))
+	return Game.two_hands(hero_id, w)
+
+
+## A red slash across a slot that can't be used.
+func _strike() -> Control:
+	var c := Control.new()
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bar := ColorRect.new()
+	bar.color = Color(0.85, 0.25, 0.2, 0.9)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var len_ := SLOT_TILE * 1.1
+	bar.size = Vector2(len_, 6)
+	bar.pivot_offset = bar.size / 2.0
+	bar.position = Vector2(SLOT_TILE, SLOT_TILE) / 2.0 - bar.size / 2.0
+	bar.rotation = -PI / 4.0
+	c.add_child(bar)
+	return c
 
 
 ## A small gold dot for "new": quieter than the camp's red one, since a
@@ -901,6 +928,16 @@ func _open_card(it: Dictionary) -> void:
 			l.custom_minimum_size = Vector2(620, 0)
 		stats.add_child(l)
 	v.add_child(stats)
+	var two_hand := ""
+	if it["slot"] == "trinket" and not is_worn and Game.two_hands(hero_id, Game.equipped(hero_id, "weapon")):
+		two_hand = "Your weapon takes both hands: equipping this takes it off."
+	elif it["slot"] == "weapon" and Game.two_hands(hero_id, it):
+		two_hand = "Two-handed: no shield can be worn with it."
+	if two_hand != "":
+		var th := Ui.label(two_hand, "Small")
+		th.add_theme_color_override("font_color", Color(1.0, 0.65, 0.3))
+		th.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(th)
 	if not found:
 		var hint := Ui.label("Not found yet. " + Game.drop_hint(it) + ("." if block == "" else ", and needs %s." % block.trim_prefix("Requires ")), "Body")
 		hint.add_theme_color_override("font_color", DIM)
@@ -1051,6 +1088,8 @@ func _on_slot(slot: String) -> void:
 	_clear_new(slot)
 	_scroll.scroll_vertical = 0
 	var worn := Game.equipped(hero_id, slot)
+	if _hands_full(slot):
+		_say("Your weapon takes both hands: no shield.")
 	if worn.is_empty():
 		selected = {}
 		_dress()
@@ -1062,6 +1101,9 @@ func _on_slot(slot: String) -> void:
 ## The piece the bag holds that beats the worn one by most in `slot`, or {}.
 func _best_for(slot: String) -> Dictionary:
 	var best := {}
+	# No shield is "better" while a two-handed weapon is in hand.
+	if slot == "trinket" and Game.two_hands(hero_id, Game.equipped(hero_id, "weapon")):
+		return best
 	for it in Game.data["items"]:
 		if it["slot"] != slot or str(it["cls"]) != hero_id or Game.owner_of(int(it["uid"])) != "" or Game.wear_block(hero_id, it) != "":
 			continue
@@ -1082,11 +1124,15 @@ func _redress() -> void:
 
 
 func _equip(it: Dictionary) -> void:
-	Game.equip(hero_id, int(it["uid"]))
+	var bumped := Game.equip(hero_id, int(it["uid"]))
 	Sfx.play("gear_equip", -2.0)
 	selected = {}
 	_close_card(false)
 	_redress()
+	if bumped == "trinket":
+		_say("Two-handed: your offhand went back to the bag", Color(1.0, 0.65, 0.3))
+	elif bumped == "weapon":
+		_say("Your two-handed weapon went back to the bag", Color(1.0, 0.65, 0.3))
 	_refresh()
 
 

@@ -164,7 +164,6 @@ static func _prop_part(actor: Actor, skel: Skeleton3D, spec: String) -> MeshInst
 
 ## Weapon in the main hand, offhand piece in the other (or on the back).
 static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictionary) -> void:
-	var d: Dictionary = DB.HEROES[hero_id]
 	var line: Dictionary = GearDB.LINES[hero_id]
 	var w: Dictionary = worn["weapon"]
 	var file: String = line["starter"]
@@ -185,25 +184,21 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	var hg := str(Game.hero(hero_id).get("glow", ""))
 	if DB.GLOWS.has(hg):
 		glow = DB.GLOWS[hg]["color"]
-	# KayKit bows face the string away from the hand that holds them; turned
-	# half round, the string comes back to the archer as in the aim pose.
 	var fam := Game.weapon_family(hero_id, {"weapon": w})
-	var fd: Dictionary = DB.FAMILIES.get(fam, {})
-	# A family may hold its weapon in the other hand (a crossbow, knives).
-	var main_bone := str(fd.get("bone", d["weapon_bone"]))
-	var grip := Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO) if str(d["style"]) == "bow" and not fd.has("bone") else Transform3D.IDENTITY
-	_hold(actor, skel, "GearMain", main_bone, file, scale_, dye, glow, grip, GearDB.grade(w), GearDB.accent(w))
+	var hold := GearDB.weapon_hold(hero_id, fam)
+	_hold(actor, skel, "GearMain", hold["bone"], file, scale_, dye, glow, hold["xf"], GearDB.grade(w), GearDB.accent(w))
 	var spark := GearDB.enchant(w)
 	if DB.GLOWS.has(hg) and spark.a > 0.0:
 		spark = Color(Color(DB.GLOWS[hg]["color"]), spark.a)
 	_sparks(skel, "GearMain", spark)
 	# Twin weapons: the same one again in the other hand.
-	var dual := bool(fd.get("dual", false))
-	_hold(actor, skel, "GearDual", "handslot.l", file if dual else "", scale_, dye, glow, Transform3D.IDENTITY, GearDB.grade(w), GearDB.accent(w))
+	var dual := bool(hold["dual"])
+	_hold(actor, skel, "GearDual", "handslot.l", file if dual else "", scale_, dye, glow, hold["xf_l"], GearDB.grade(w), GearDB.accent(w))
 	if dual:
 		_sparks(skel, "GearDual", spark)
 	_aura(actor, GearDB.aura(worn, hero_id))
-	var off: Dictionary = worn["trinket"]
+	# A two-handed weapon leaves no hand for the offhand (Game.equip took it off).
+	var off: Dictionary = {} if Game.two_hands(hero_id, w) else worn["trinket"]
 	var st := GearDB.piece(off) if not off.is_empty() else {}
 	var model := str(st.get("model", ""))
 	if model == "":
@@ -211,12 +206,8 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 		_sparks(skel, "GearOff", Color(0, 0, 0, 0))
 		return
 	var olk := GearDB.look(off)
-	var bone := str(line["offhand_bone"])
-	var xf := Transform3D.IDENTITY
-	if bone == "back":
-		bone = "chest"
-		xf = Transform3D(Basis(Vector3.UP, PI) * Basis(Vector3.RIGHT, deg_to_rad(-90)), Vector3(0, -0.05, -0.28))
-	_hold(actor, skel, "GearOff", bone, model, olk["scale"], olk["dye"], glow_of(off, 1.2), xf, GearDB.grade(off), GearDB.accent(off))
+	var oh := GearDB.offhand_hold(hero_id, model)
+	_hold(actor, skel, "GearOff", oh["bone"], model, float(olk["scale"]) * float(oh["scale"]), olk["dye"], glow_of(off, 1.2), oh["xf"], GearDB.grade(off), GearDB.accent(off))
 	_sparks(skel, "GearOff", GearDB.enchant(off) * Color(1, 1, 1, 0.6))
 
 

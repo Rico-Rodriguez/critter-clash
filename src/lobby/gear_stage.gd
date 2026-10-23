@@ -104,7 +104,7 @@ static func _show_worn(pivot: Node3D, cam: Camera3D, it: Dictionary, zoom: float
 		pre[slot] = {}
 	pre[it["slot"]] = it
 	GearLook.apply(a, cls, pre)
-	a.play(DB.HEROES[cls]["anim"]["idle"], 0.0)
+	a.play(GearDB.anims(cls, Game.weapon_family(cls, {"weapon": it} if it["slot"] == "weapon" else {}))["idle"], 0.0)
 	var fr: Array = FRAME.get(str(it["slot"]), FRAME["chest"])
 	var at: Vector3 = fr[0]
 	cam.look_at_from_position(at + Vector3(0, 0.15 * zoom, float(fr[1]) * zoom), at, Vector3.UP)
