@@ -16,14 +16,16 @@ var equipment: Equipment
 var _side: VBoxContainer
 var _side_badges := {}
 var _idle_label: Label
-var _goal: Label
+## What the HUNT button would do ("Enter the Barrow"), for the mode sheet.
+var _hunt_text := ""
 var _note_lines: Array = []
 
 ## The tab bar's height; the open tab and its page (lobby_ui.gd runs them).
-const NAV_H := 128.0
+const NAV_H := 100.0
 var tab := "hunt"
 var _page: Control
 
+const FxUi := preload("res://src/ui/fx_ui.gd")
 const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle", "descent": "hourglass", "rush": "crowned-skull", "rift": "crystal-shine", "wild": "wolf-head"}
 
 

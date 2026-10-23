@@ -37,6 +37,7 @@ func _init() -> void:
 	_buttons()
 	_bars()
 	_misc()
+	_premium()
 	var err := ResourceSaver.save(theme, "res://src/ui/theme.tres")
 	print("theme: ", error_string(err))
 	quit(0 if err == OK else 1)
@@ -111,6 +112,13 @@ func _panels() -> void:
 	sh.shadow_color = Color(0, 0, 0, 0.6)
 	sh.shadow_size = 24
 	theme.set_stylebox("panel", "Sheet", sh)
+	# A tab page: the sheet's margins over a backdrop drawn behind it.
+	theme.set_type_variation("Page", "PanelContainer")
+	var pg := sh.duplicate() as StyleBoxFlat
+	pg.bg_color = Color(0, 0, 0, 0)
+	pg.border_width_top = 0
+	pg.shadow_size = 0
+	theme.set_stylebox("panel", "Page", pg)
 	theme.set_type_variation("Chip", "PanelContainer")
 	var chip := box(Color(0, 0, 0, 0.55), 40, 2, Color(1, 1, 1, 0.08))
 	chip.content_margin_top = 6
@@ -315,35 +323,46 @@ func _misc() -> void:
 
 ## The camp's bottom tab bar, chat bubbles and text fields (names, codes, chat).
 func _social() -> void:
+	# The bar sits flush with the bottom edge; a warm hairline caps it.
 	theme.set_type_variation("NavBar", "PanelContainer")
-	var nb := box(Color("0a090c"), 0, 0)
-	nb.border_width_top = 3
-	nb.border_color = LINE
+	var nb := box(Color("17121d"), 0, 0)
+	nb.border_width_top = 2
+	nb.border_color = Color("4a3a26")
 	nb.set_content_margin_all(0)
-	nb.shadow_color = Color(0, 0, 0, 0.5)
-	nb.shadow_size = 14
+	nb.shadow_color = Color(0, 0, 0, 0.6)
+	nb.shadow_size = 18
 	theme.set_stylebox("panel", "NavBar", nb)
-	# A tab: dim when idle; the open one is lit, raised and capped in gold.
+	# A tab: a dim icon when idle; the open one rises out of the bar as a gold
+	# block (its stylebox draws above the bar) and names itself.
 	theme.set_type_variation("NavTab", "Ghost")
 	var tn := box(Color(0, 0, 0, 0), 0, 0)
 	tn.set_content_margin_all(4)
-	var tp := box(PANEL_HI, 0, 0)
+	var tp := box(Color("f0aa3c"), 16, 0, Color("6a3606"), 5)
+	tp.corner_radius_bottom_left = 10
+	tp.corner_radius_bottom_right = 10
 	tp.set_content_margin_all(4)
-	tp.border_width_top = 5
-	tp.border_width_left = 2
-	tp.border_width_right = 2
-	tp.border_color = GOLD
-	for k in ["normal", "hover", "disabled"]:
+	tp.content_margin_top = 0
+	tp.expand_margin_top = 22
+	tp.expand_margin_left = 2
+	tp.expand_margin_right = 2
+	tp.shadow_color = Color(1.0, 0.72, 0.3, 0.35)
+	tp.shadow_size = 14
+	for k in ["normal", "hover", "disabled", "focus"]:
 		theme.set_stylebox(k, "NavTab", tn)
 	for k in ["pressed", "hover_pressed"]:
 		theme.set_stylebox(k, "NavTab", tp)
-	theme.set_font_size("font_size", "NavTab", 17)
-	theme.set_constant("icon_max_width", "NavTab", 62)
-	theme.set_constant("h_separation", "NavTab", 2)
-	theme.set_color("font_pressed_color", "NavTab", TEXT)
-	theme.set_color("font_hover_pressed_color", "NavTab", TEXT)
-	theme.set_color("icon_pressed_color", "NavTab", GOLD)
-	theme.set_color("icon_hover_pressed_color", "NavTab", GOLD)
+	theme.set_font("font", "NavTab", title)
+	theme.set_font_size("font_size", "NavTab", 19)
+	theme.set_constant("outline_size", "NavTab", 6)
+	theme.set_color("font_outline_color", "NavTab", Color("7a3d06"))
+	theme.set_constant("icon_max_width", "NavTab", 58)
+	theme.set_constant("h_separation", "NavTab", 0)
+	theme.set_color("font_pressed_color", "NavTab", Color.WHITE)
+	theme.set_color("font_hover_pressed_color", "NavTab", Color.WHITE)
+	theme.set_color("icon_normal_color", "NavTab", Color("8d8478"))
+	theme.set_color("icon_hover_color", "NavTab", Color("b3a998"))
+	theme.set_color("icon_pressed_color", "NavTab", Color.WHITE)
+	theme.set_color("icon_hover_pressed_color", "NavTab", Color.WHITE)
 	# Chat: others on the left in slate, yours on the right in warm brown;
 	# system lines (drops, joins, raid hits) sit centered without a bubble.
 	theme.set_type_variation("Bubble", "PanelContainer")
@@ -445,3 +464,80 @@ func _social() -> void:
 	theme.set_color("selection_color", "LineEdit", Color(GOLD, 0.35))
 	theme.set_font("font", "LineEdit", body_med)
 	theme.set_font_size("font_size", "LineEdit", 26)
+
+
+## The camp's chunky, colored pieces: the gold HUNT button, the pills on the
+## top row, the chest and mode slots, green price buttons and shop tiles
+## tinted by rarity. Shine and motion come from src/ui/fx_ui.gd.
+func _premium() -> void:
+	_button_set("HuntButton", Color("f5a623"), Color("7a3d06"), Color.WHITE, 40, 22)
+	theme.set_type_variation("HuntLabel", "Label")
+	theme.set_font("font", "HuntLabel", title)
+	theme.set_font_size("font_size", "HuntLabel", 50)
+	theme.set_color("font_color", "HuntLabel", Color.WHITE)
+	theme.set_color("font_outline_color", "HuntLabel", Color("7a3d06"))
+	theme.set_constant("outline_size", "HuntLabel", 10)
+	theme.set_type_variation("HuntSub", "Label")
+	theme.set_font("font", "HuntSub", body)
+	theme.set_font_size("font_size", "HuntSub", 20)
+	theme.set_color("font_color", "HuntSub", Color("fff1cc"))
+	theme.set_color("font_outline_color", "HuntSub", Color("7a3d06"))
+	theme.set_constant("outline_size", "HuntSub", 6)
+	_button_set("PriceButton", Color("3aab40"), Color("1d6a22"), Color.WHITE, 26, 14)
+	theme.set_color("font_outline_color", "PriceButton", Color("12461a"))
+	theme.set_constant("outline_size", "PriceButton", 6)
+	_button_set("SeasonPill", Color("3b2459"), Color("1c1030"), TEXT, 20, 16)
+	_button_set("TrophyPill", Color("4a3413"), Color("221707"), TEXT, 20, 16)
+	_button_set("SlotButton", Color("2e2433"), Color("130e16"), TEXT, 18, 18)
+	_button_set("ModeButton", Color("27304d"), Color("10152a"), TEXT, 18, 18)
+	for t in ["SlotButton", "ModeButton"]:
+		theme.set_constant("icon_max_width", t, 64)
+	theme.set_type_variation("PillLabel", "Label")
+	theme.set_font("font", "PillLabel", title)
+	theme.set_font_size("font_size", "PillLabel", 17)
+	theme.set_color("font_color", "PillLabel", Color.WHITE)
+	theme.set_color("font_outline_color", "PillLabel", Color(0, 0, 0, 0.7))
+	theme.set_constant("outline_size", "PillLabel", 5)
+	# Shop tiles: a rarity's color with a lit rim and a deep bevel; they press
+	# down like the chunky buttons.
+	for v in [["TileSlate", "2c3446", "56607a"], ["TileGreen", "2f5a33", "6fd070"], ["TileBlue", "24467a", "4f9be8"],
+			["TilePurple", "4b2a7a", "a960f0"], ["TileGold", "5a4314", "f0b848"], ["TileRed", "5a1a26", "e0505e"]]:
+		theme.set_type_variation(v[0], "Button")
+		var bg := Color(v[1])
+		var t := box(bg, 16, 3, Color(v[2]), 8)
+		t.set_content_margin_all(0)
+		var h := t.duplicate() as StyleBoxFlat
+		h.bg_color = bg.lightened(0.06)
+		var pr := t.duplicate() as StyleBoxFlat
+		pr.bg_color = bg.darkened(0.08)
+		pr.border_width_bottom = 3
+		pr.expand_margin_top = -5
+		for k in ["normal", "disabled"]:
+			theme.set_stylebox(k, v[0], t)
+		theme.set_stylebox("hover", v[0], h)
+		for k in ["pressed", "hover_pressed"]:
+			theme.set_stylebox(k, v[0], pr)
+		theme.set_stylebox("focus", v[0], StyleBoxEmpty.new())
+	# The price under a shop tile: a green plate, or slate once it's yours.
+	for v in [["PricePlate", "3aab40", "1d6a22"], ["OwnedPlate", "3a3646", "1c1a24"]]:
+		theme.set_type_variation(v[0], "PanelContainer")
+		var p := box(Color(v[1]), 12, 0, Color(v[2]), 5)
+		p.content_margin_top = 2
+		p.content_margin_bottom = 6
+		p.content_margin_left = 8
+		p.content_margin_right = 8
+		theme.set_stylebox("panel", v[0], p)
+	theme.set_type_variation("PriceLabel", "Label")
+	theme.set_font("font", "PriceLabel", title)
+	theme.set_font_size("font_size", "PriceLabel", 24)
+	theme.set_color("font_color", "PriceLabel", Color.WHITE)
+	theme.set_color("font_outline_color", "PriceLabel", Color(0, 0, 0, 0.55))
+	theme.set_constant("outline_size", "PriceLabel", 6)
+	# A corner ribbon on a tile: -25%, FREE.
+	theme.set_type_variation("Ribbon", "PanelContainer")
+	var rb := box(Color("d8352a"), 10, 0, Color("6a1612"), 3)
+	rb.content_margin_top = 0
+	rb.content_margin_bottom = 2
+	rb.content_margin_left = 10
+	rb.content_margin_right = 10
+	theme.set_stylebox("panel", "Ribbon", rb)
