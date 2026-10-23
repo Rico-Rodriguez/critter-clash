@@ -259,7 +259,7 @@ func _kill_boss() -> void:
 		hero.act("Cheering", 1.6, true)
 	# The hoard.
 	for i in 26:
-		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
+		_drop("gold", at, randi_range(3, 8))
 	for i in randi_range(3, 4):
 		_drop_item(at, Game.roll_boss_item(cur_boss, tier_i, loot_bonus))
 	if mode == "rift":
@@ -390,7 +390,7 @@ func _hero_dies() -> void:
 func _rival_down(f: Enemy) -> void:
 	var at := f.flat_pos()
 	for i in 6:
-		_drop("gold", at, randi_range(3, 7) * int(tier["gold"]))
+		_drop("gold", at, randi_range(3, 7))
 	if randf() < 0.55:
 		_drop_item(at, _roll_good("elite", 1))
 	_drop("heart", at, 1)
@@ -416,7 +416,7 @@ func _boss_down_midway() -> void:
 	Sfx.play("boss_die", 0.0)
 	banner("%s falls" % b.display_name, Color(1.0, 0.85, 0.5))
 	for i in 12:
-		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
+		_drop("gold", at, randi_range(3, 8))
 	for i in 2 if _rushlike() else 1:
 		_drop_item(at, Game.roll_boss_item(b.boss_id, tier_i, loot_bonus))
 	for i in 5:
