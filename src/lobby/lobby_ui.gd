@@ -589,9 +589,10 @@ func open_sheet(name_: String) -> void:
 			_sheet.queue_free()
 			_sheet = null
 		if tab == "shop":
-			_leave_page()
-			tab = ""
-		show_tab("shop", 2)
+			(_page as Sheet).rebuild()
+		else:
+			show_tab("shop")
+		Shop.focus_skins(_page)
 		return
 	if SHEET_TAB.has(name_):
 		var to: Array = SHEET_TAB[name_]
