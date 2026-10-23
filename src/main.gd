@@ -172,9 +172,11 @@ func _arg(args: PackedStringArray, key: String, def: String) -> String:
 
 ## Equips `hid` with a rare weapon of family `fam` from set `mat`.
 func _give_family(hid: String, fam: String, mat: int) -> void:
-	var w := Game.make_item(hid, "weapon", mat, "rare")
+	var w := Game.make_item(hid, "weapon", maxi(mat, int(DB.FAMILIES[fam]["min_set"])), "rare")
 	w["fam"] = fam
 	w["name"] = GearDB.base_name(w)
+	var sk := GearDB.skill_for(hid, "weapon")
+	Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(GearDB.req_for(w)))
 	Game.equip(hid, int(Game.grant_item(w)["uid"]))
 
 
@@ -622,6 +624,22 @@ func _capture(args: PackedStringArray) -> void:
 					hf2.spawn_foe(lineup[i][0], at, lineup[i][1] != "", lineup[i][1])
 				await _wait(2.4)
 				await _save("foes")
+			"swing":
+				# Close in on one attack, frame by frame: how a weapon family
+				# swings, hits and trails.
+				_set_screen_now("hunt")
+				var hs: Hunt = current
+				hs.bot = true
+				hs._bot = HuntBot.new()
+				hs._bot.hunt = hs
+				hs.cam.dist_mult = 0.55
+				await _wait_sim(hs, 10.0)
+				var guard := hs.time + 6.0
+				while hs.hero.impact_t <= 0.0 and hs.time < guard:
+					await get_tree().process_frame
+				for i in 6:
+					await _save("swing%d" % i)
+					await _wait_sim(hs, 0.07)
 			"film":
 				_set_screen_now("hunt")
 				var hf: Hunt = current

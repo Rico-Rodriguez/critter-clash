@@ -179,6 +179,21 @@ func _gear_tests() -> void:
 	_ok("look 1 is the alternative", GearDB.base_name(it) == "Barrowsteel Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
 	it["set"] = "hexer"
 	_ok("a set piece wears the set", GearDB.base_name(it) == "Barrowsteel Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	# Weapon families: the scythe is endgame, boss-only, and no Gravedigger.
+	var fams := {}
+	for i in 200:
+		fams[Game.roll_family("barbarian", 4)] = true
+	_ok("no scythe outside boss drops", not fams.has("scythe") and fams.has("maul"))
+	var low := {}
+	for i in 200:
+		low[Game.roll_family("barbarian", 0)] = true
+	_ok("only early families in Gravedigger", low.keys().all(func(f): return int(DB.FAMILIES[f]["min_set"]) == 0))
+	var boss_fams := {}
+	for i in 300:
+		boss_fams[Game.roll_family("barbarian", 4, DB.TIER_NIGHTMARE)] = true
+	_ok("a Nightmare boss can drop the scythe", boss_fams.has("scythe"))
+	_ok("the scythe needs level 60 in any set", GearDB.req_for({"slot": "weapon", "mat": 3, "fam": "scythe"}) == 60)
+	_ok("a family weapon wears its family's model", str(GearDB.look({"cls": "barbarian", "slot": "weapon", "mat": 2, "fam": "maul"})["model"]) == "barb_maul_2.gltf")
 	var kn := Game.make_item("knight", "helm", 0, "common")
 	kn["look"] = 1
 	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Gravedigger Helm")

@@ -242,6 +242,9 @@ func roll_item(source: String, tier_i: int, slot := "", cls := "", bonus := 0) -
 		slot = DB.SLOTS[rng.randi() % DB.SLOTS.size()]
 	var mat := GearDB.roll_mat(int(t["mat"]), bonus + (1 if source == "boss" else 0), rng)
 	var it := make_item(cls, slot, mat, rarity)
+	if it.has("fam") and source == "boss":
+		it["fam"] = roll_family(cls, mat, tier_i)
+		it["name"] = gear_name(it)
 	# Ancient: Diablo's rare orange-bordered roll, every number 30% higher.
 	if tier_i >= DB.ANCIENT_FROM_TIER and rarity == "rare" and rng.randf() < DB.ANCIENT_CHANCE * float(t["loot"]):
 		for k in it["stats"]:
@@ -266,11 +269,22 @@ func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionar
 			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
 	# `look` picks among a stage's alternative models (GearDB.piece).
 	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat, "look": rng.randi() % 1000}
-	var fams: Array = DB.HERO_FAMILIES.get(cls, [])
-	if slot == "weapon" and not fams.is_empty():
-		it["fam"] = fams[rng.randi() % fams.size()]
+	if slot == "weapon" and DB.HERO_FAMILIES.has(cls):
+		it["fam"] = roll_family(cls, mat)
 	it["name"] = gear_name(it)
 	return it
+
+
+## A weapon family for a drop of set `mat`: one that comes in that set, and a
+## boss-only family only from a boss on a hard enough tier (`tier_i` -1 for
+## a drop that is not a boss's).
+func roll_family(cls: String, mat: int, tier_i := -1) -> String:
+	var pool := []
+	for f: String in DB.HERO_FAMILIES[cls]:
+		var fd: Dictionary = DB.FAMILIES[f]
+		if mat >= int(fd["min_set"]) and (not fd.has("boss_from") or tier_i >= int(fd["boss_from"])):
+			pool.append(f)
+	return str(pool[rng.randi() % pool.size()])
 
 
 ## What a piece is called: its material and kind ("Steel Greaves"). No random

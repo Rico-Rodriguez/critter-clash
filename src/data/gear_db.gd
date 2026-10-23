@@ -346,38 +346,51 @@ const SET_LOOKS := {
 	}},
 }
 
-## Weapons by family (DB.FAMILIES): one look per set, Gravedigger first. A
-## family weapon keeps its own shape in a boss set, wearing the set's colors.
+## Weapons by family (DB.FAMILIES): one model per set, Gravedigger first,
+## built by tools/art/make_barbarian_arms.py. They carry their own colors, so
+## no dye goes over them; a boss set's piece keeps its family's shape.
 const FAMILY_LOOKS := {
 	"axe": [
-		{"name": "Axe", "model": "axe_2handed.gltf"}, {"name": "Axe", "model": "axe_2handed.gltf", "scale": 1.05},
-		{"name": "Axe", "model": "axe_B.gltf", "scale": 1.05}, {"name": "Axe", "model": "axe_2handed.gltf", "scale": 1.15},
-		{"name": "Axe", "model": "axe_B.gltf", "scale": 1.15},
+		{"name": "Axe", "model": "barb_axe_0.gltf", "scale": 1.0},
+		{"name": "Axe", "model": "barb_axe_1.gltf", "scale": 1.0},
+		{"name": "Axe", "model": "barb_axe_2.gltf", "scale": 1.0},
+		{"name": "Axe", "model": "barb_axe_3.gltf", "scale": 1.0},
+		{"name": "Axe", "model": "barb_axe_4.gltf", "scale": 1.0},
 	],
 	"maul": [
-		{"name": "Maul", "model": "hammer_C.gltf", "scale": 1.25}, {"name": "Maul", "model": "hammer_A.gltf", "scale": 1.25},
-		{"name": "Maul", "model": "hammer_A.gltf", "scale": 1.3}, {"name": "Maul", "model": "hammer_B.gltf", "scale": 1.35},
-		{"name": "Maul", "model": "hammer_A.gltf", "scale": 1.4},
+		{"name": "Maul", "model": "barb_maul_0.gltf", "scale": 1.0},
+		{"name": "Maul", "model": "barb_maul_1.gltf", "scale": 1.0},
+		{"name": "Maul", "model": "barb_maul_2.gltf", "scale": 1.0},
+		{"name": "Maul", "model": "barb_maul_3.gltf", "scale": 1.0},
+		{"name": "Maul", "model": "barb_maul_4.gltf", "scale": 1.0},
 	],
 	"scythe": [
-		{"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.8}, {"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.82},
-		{"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.85}, {"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.88},
-		{"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.92},
+		{"name": "Scythe", "model": "barb_scythe_0.gltf", "scale": 1.0},
+		{"name": "Scythe", "model": "barb_scythe_1.gltf", "scale": 1.0},
+		{"name": "Scythe", "model": "barb_scythe_2.gltf", "scale": 1.0},
+		{"name": "Scythe", "model": "barb_scythe_3.gltf", "scale": 1.0},
+		{"name": "Scythe", "model": "barb_scythe_4.gltf", "scale": 1.0},
 	],
 	"twin": [
-		{"name": "Twin Axes", "model": "axe_1handed.gltf", "scale": 1.2}, {"name": "Twin Axes", "model": "axe_1handed.gltf", "scale": 1.25},
-		{"name": "Twin Axes", "model": "axe_C.gltf", "scale": 1.15}, {"name": "Twin Axes", "model": "axe_C.gltf", "scale": 1.2},
-		{"name": "Twin Axes", "model": "axe_A.gltf", "scale": 1.2},
+		{"name": "Twin Axes", "model": "barb_twin_0.gltf", "scale": 1.1},
+		{"name": "Twin Axes", "model": "barb_twin_1.gltf", "scale": 1.1},
+		{"name": "Twin Axes", "model": "barb_twin_2.gltf", "scale": 1.1},
+		{"name": "Twin Axes", "model": "barb_twin_3.gltf", "scale": 1.1},
+		{"name": "Twin Axes", "model": "barb_twin_4.gltf", "scale": 1.1},
 	],
 	"halberd": [
-		{"name": "Halberd", "model": "halberd.gltf", "scale": 0.68}, {"name": "Halberd", "model": "halberd.gltf", "scale": 0.7},
-		{"name": "Halberd", "model": "halberd.gltf", "scale": 0.72}, {"name": "Halberd", "model": "halberd.gltf", "scale": 0.75},
-		{"name": "Halberd", "model": "halberd.gltf", "scale": 0.78},
+		{"name": "Halberd", "model": "barb_halberd_0.gltf", "scale": 0.72},
+		{"name": "Halberd", "model": "barb_halberd_1.gltf", "scale": 0.72},
+		{"name": "Halberd", "model": "barb_halberd_2.gltf", "scale": 0.72},
+		{"name": "Halberd", "model": "barb_halberd_3.gltf", "scale": 0.72},
+		{"name": "Halberd", "model": "barb_halberd_4.gltf", "scale": 0.72},
 	],
 	"throwing": [
-		{"name": "Throwing Axe", "model": "axe_1handed.gltf", "scale": 1.2}, {"name": "Throwing Axe", "model": "axe_C.gltf", "scale": 1.1},
-		{"name": "Throwing Axe", "model": "axe_C.gltf", "scale": 1.15}, {"name": "Throwing Axe", "model": "axe_A.gltf", "scale": 1.15},
-		{"name": "Throwing Axe", "model": "axe_A.gltf", "scale": 1.2},
+		{"name": "Throwing Axe", "model": "barb_throwing_0.gltf", "scale": 1.1},
+		{"name": "Throwing Axe", "model": "barb_throwing_1.gltf", "scale": 1.1},
+		{"name": "Throwing Axe", "model": "barb_throwing_2.gltf", "scale": 1.1},
+		{"name": "Throwing Axe", "model": "barb_throwing_3.gltf", "scale": 1.1},
+		{"name": "Throwing Axe", "model": "barb_throwing_4.gltf", "scale": 1.1},
 	],
 }
 
@@ -482,8 +495,13 @@ static func skill_for(cls: String, slot: String) -> String:
 	return line["weapon_skill"] if slot == "weapon" else line["armor_skill"]
 
 
+## The skill level a piece needs: its set's, or its weapon family's if higher.
 static func req_for(it: Dictionary) -> int:
-	return int(REQ[clampi(int(it.get("mat", 0)), 0, TIERS - 1)])
+	var need := int(REQ[clampi(int(it.get("mat", 0)), 0, TIERS - 1)])
+	var fam := str(it.get("fam", ""))
+	if str(it.get("slot", "")) == "weapon" and DB.FAMILIES.has(fam):
+		need = maxi(need, int(DB.FAMILIES[fam]["level"]))
+	return need
 
 
 ## The stage of `slot` for material tier `mat`.
@@ -640,6 +658,8 @@ static func look(it: Dictionary) -> Dictionary:
 	if not sl.is_empty():
 		c = sl["dye"]
 		amount = c.a
+	if slot == "weapon" and FAMILY_LOOKS.has(str(it.get("fam", ""))):
+		amount = 0.0
 	if u != "" and DB.UNIQUES[u].has("dye"):
 		c = DB.UNIQUES[u]["dye"]
 		amount = 0.8

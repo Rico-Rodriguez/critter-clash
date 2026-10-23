@@ -109,23 +109,27 @@ const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
 ##   thrust  a long line `width` wide that runs through everything in it
 ##   throw   a thrown weapon that flies out to `range` and comes back, cutting
 ##           everything on the way both ways
+## Like OSRS, the strong families are earned: `level` is the least weapon
+## skill to wield one (a set's own requirement can be higher), `min_set` the
+## first set it comes in, and `boss_from` (if any) the difficulty tier from
+## which a boss can drop it; nothing else does. The scythe is endgame.
 const FAMILIES := {
-	"axe": {"hero": "barbarian", "name": "Axe", "how": "Big chops that cleave a wide arc.", "attack": "cleave", "icon": "battle-axe",
+	"axe": {"hero": "barbarian", "level": 1, "min_set": 0, "name": "Axe", "how": "Big chops that cleave a wide arc.", "attack": "cleave", "icon": "battle-axe",
 		"clips": ["Melee_2H_Attack_Slice", "Melee_2H_Attack_Chop"], "dmg": 1.0, "rate": 1.0, "range": 1.0, "arc": 190.0,
 		"trail": Color(1.0, 0.62, 0.3), "sfx": "cleave"},
-	"maul": {"hero": "barbarian", "name": "Maul", "how": "Slow smashes that stun and throw everything around the blow.", "attack": "slam", "icon": "anvil",
+	"maul": {"hero": "barbarian", "level": 40, "min_set": 3, "name": "Maul", "how": "Slow smashes that stun and throw everything around the blow.", "attack": "slam", "icon": "anvil",
 		"clips": ["Melee_2H_Attack_Chop"], "dmg": 1.7, "rate": 0.6, "range": 0.85, "arc": 360.0, "slam_r": 2.5, "stun": 0.6, "knock": 11.0,
 		"trail": Color(1.0, 0.8, 0.5), "sfx": "quake"},
-	"scythe": {"hero": "barbarian", "name": "Scythe", "how": "A huge reaping sweep. Elites and bosses are cut three times.", "attack": "sweep", "icon": "scythe",
+	"scythe": {"hero": "barbarian", "level": 60, "min_set": 3, "boss_from": 4, "name": "Scythe", "how": "A huge reaping sweep. Elites and bosses are cut three times.", "attack": "sweep", "icon": "scythe",
 		"clips": ["Melee_2H_Attack_Slice"], "dmg": 0.85, "rate": 0.8, "range": 1.3, "arc": 270.0, "echo": [0.5, 0.25],
 		"trail": Color(0.7, 0.85, 1.0), "sfx": "cleave"},
-	"twin": {"hero": "barbarian", "name": "Twin Axes", "how": "Two axes, two quick cuts every swing. Short reach.", "attack": "flurry", "icon": "crossed-axes", "dual": true,
+	"twin": {"hero": "barbarian", "level": 10, "min_set": 1, "name": "Twin Axes", "how": "Two axes, two quick cuts every swing. Short reach.", "attack": "flurry", "icon": "crossed-axes", "dual": true,
 		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.5, "rate": 1.45, "range": 0.85, "arc": 150.0, "hits": 2,
 		"trail": Color(1.0, 0.45, 0.25), "sfx": "swing"},
-	"halberd": {"hero": "barbarian", "name": "Halberd", "how": "Long thrusts that run through a whole line of foes.", "attack": "thrust", "icon": "halberd",
+	"halberd": {"hero": "barbarian", "level": 25, "min_set": 2, "name": "Halberd", "how": "Long thrusts that run through a whole line of foes.", "attack": "thrust", "icon": "halberd",
 		"clips": ["Melee_2H_Attack_Stab"], "dmg": 1.15, "rate": 0.85, "range": 1.75, "arc": 30.0, "width": 1.3,
 		"trail": Color(0.85, 0.9, 1.0), "sfx": "atk_tank"},
-	"throwing": {"hero": "barbarian", "name": "Throwing Axe", "how": "Hurl the axe through the horde. It comes back to your hand.", "attack": "throw", "icon": "tomahawk", "one_hand": true,
+	"throwing": {"hero": "barbarian", "level": 1, "min_set": 0, "name": "Throwing Axe", "how": "Hurl the axe through the horde. It comes back to your hand.", "attack": "throw", "icon": "tomahawk", "one_hand": true,
 		"clips": ["Throw"], "dmg": 0.75, "rate": 1.0, "range": 2.6, "arc": 0.0, "speed": 18.0,
 		"trail": Color(1.0, 0.7, 0.4), "sfx": "swing"},
 }
