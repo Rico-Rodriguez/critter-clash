@@ -394,6 +394,11 @@ func _capture(args: PackedStringArray) -> void:
 						for it2 in Game.data["items"]:
 							if it2["slot"] == "weapon" and str(it2["cls"]) == hid and (w.is_empty() or int(it2["mat"]) > int(w["mat"])):
 								w = it2
+						# --card=spare: a weapon they could wear instead, to show the comparison.
+						if _arg(args, "card", "") == "spare":
+							for it2 in Game.data["items"]:
+								if it2["slot"] == "weapon" and str(it2["cls"]) == hid and Game.owner_of(int(it2["uid"])) != hid and Game.wear_block(hid, it2) == "":
+									w = it2
 						if not w.is_empty():
 							w["cards"] = int(DB.level_cost(w)["cards"])
 							eq._select(w)
