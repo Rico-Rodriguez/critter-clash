@@ -346,6 +346,41 @@ const SET_LOOKS := {
 	}},
 }
 
+## Weapons by family (DB.FAMILIES): one look per set, Gravedigger first. A
+## family weapon keeps its own shape in a boss set, wearing the set's colors.
+const FAMILY_LOOKS := {
+	"axe": [
+		{"name": "Axe", "model": "axe_2handed.gltf"}, {"name": "Axe", "model": "axe_2handed.gltf", "scale": 1.05},
+		{"name": "Axe", "model": "axe_B.gltf", "scale": 1.05}, {"name": "Axe", "model": "axe_2handed.gltf", "scale": 1.15},
+		{"name": "Axe", "model": "axe_B.gltf", "scale": 1.15},
+	],
+	"maul": [
+		{"name": "Maul", "model": "hammer_C.gltf", "scale": 1.25}, {"name": "Maul", "model": "hammer_A.gltf", "scale": 1.25},
+		{"name": "Maul", "model": "hammer_A.gltf", "scale": 1.3}, {"name": "Maul", "model": "hammer_B.gltf", "scale": 1.35},
+		{"name": "Maul", "model": "hammer_A.gltf", "scale": 1.4},
+	],
+	"scythe": [
+		{"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.8}, {"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.82},
+		{"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.85}, {"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.88},
+		{"name": "Scythe", "model": "reaper_scythe.gltf", "scale": 0.92},
+	],
+	"twin": [
+		{"name": "Twin Axes", "model": "axe_1handed.gltf", "scale": 1.2}, {"name": "Twin Axes", "model": "axe_1handed.gltf", "scale": 1.25},
+		{"name": "Twin Axes", "model": "axe_C.gltf", "scale": 1.15}, {"name": "Twin Axes", "model": "axe_C.gltf", "scale": 1.2},
+		{"name": "Twin Axes", "model": "axe_A.gltf", "scale": 1.2},
+	],
+	"halberd": [
+		{"name": "Halberd", "model": "halberd.gltf", "scale": 0.68}, {"name": "Halberd", "model": "halberd.gltf", "scale": 0.7},
+		{"name": "Halberd", "model": "halberd.gltf", "scale": 0.72}, {"name": "Halberd", "model": "halberd.gltf", "scale": 0.75},
+		{"name": "Halberd", "model": "halberd.gltf", "scale": 0.78},
+	],
+	"throwing": [
+		{"name": "Throwing Axe", "model": "axe_1handed.gltf", "scale": 1.2}, {"name": "Throwing Axe", "model": "axe_C.gltf", "scale": 1.1},
+		{"name": "Throwing Axe", "model": "axe_C.gltf", "scale": 1.15}, {"name": "Throwing Axe", "model": "axe_A.gltf", "scale": 1.15},
+		{"name": "Throwing Axe", "model": "axe_A.gltf", "scale": 1.2},
+	],
+}
+
 ## Rigid parts made for the skeletons' taller skulls sit lower on a living head.
 const PART_NUDGE := {"Skeleton_Mage/Hat": Vector3(0, -0.13, 0)}
 
@@ -479,10 +514,18 @@ static func set_look(it: Dictionary) -> Dictionary:
 
 
 ## What a piece is: its stage, then its rolled alternative, then its set's
-## look, then its unique's own model. Every later one replaces the shape.
+## look, then its unique's own model. Every later one replaces the shape. A
+## family weapon is its family's look for its set, whatever else it is.
 static func piece(it: Dictionary) -> Dictionary:
 	var cls := str(it.get("cls", "knight"))
 	var slot := str(it["slot"])
+	var fam := str(it.get("fam", ""))
+	if slot == "weapon" and FAMILY_LOOKS.has(fam):
+		var fl: Dictionary = FAMILY_LOOKS[fam][clampi(int(it.get("mat", 0)), 0, TIERS - 1)].duplicate()
+		fl["icon"] = DB.FAMILIES[fam]["icon"]
+		if UNIQUE_LOOKS.has(str(it.get("unique", ""))):
+			_over(fl, UNIQUE_LOOKS[str(it["unique"])])
+		return fl
 	var st := stage(cls, slot, int(it.get("mat", 0))).duplicate()
 	var alts: Array = st.get("alts", [])
 	var pick := posmod(int(it.get("look", 0)), alts.size() + 1)

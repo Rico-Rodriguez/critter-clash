@@ -97,6 +97,42 @@ const HEROES := {
 }
 const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
 
+## Weapon families: the weapon, not the hero, decides the basic attack. Each
+## has its own swing clips, hit shape, trail and sound; the hero keeps its
+## super, dash and cards. `dmg`, `rate` and `range` scale the hero's numbers;
+## `arc` replaces its swing arc. Attack kinds (Hero._impact):
+##   cleave  one swing hits everything in the arc
+##   slam    a smash a little ahead: a circle of `slam_r` that stuns and throws
+##   sweep   a wide arc; big foes (elites, bosses) take `echo` follow-up hits,
+##           the OSRS scythe's 100/50/25
+##   flurry  `hits` quick swings per attack, alternating hands
+##   thrust  a long line `width` wide that runs through everything in it
+##   throw   a thrown weapon that flies out to `range` and comes back, cutting
+##           everything on the way both ways
+const FAMILIES := {
+	"axe": {"hero": "barbarian", "name": "Axe", "how": "Big chops that cleave a wide arc.", "attack": "cleave", "icon": "battle-axe",
+		"clips": ["Melee_2H_Attack_Slice", "Melee_2H_Attack_Chop"], "dmg": 1.0, "rate": 1.0, "range": 1.0, "arc": 190.0,
+		"trail": Color(1.0, 0.62, 0.3), "sfx": "cleave"},
+	"maul": {"hero": "barbarian", "name": "Maul", "how": "Slow smashes that stun and throw everything around the blow.", "attack": "slam", "icon": "anvil",
+		"clips": ["Melee_2H_Attack_Chop"], "dmg": 1.7, "rate": 0.6, "range": 0.85, "arc": 360.0, "slam_r": 2.5, "stun": 0.6, "knock": 11.0,
+		"trail": Color(1.0, 0.8, 0.5), "sfx": "quake"},
+	"scythe": {"hero": "barbarian", "name": "Scythe", "how": "A huge reaping sweep. Elites and bosses are cut three times.", "attack": "sweep", "icon": "scythe",
+		"clips": ["Melee_2H_Attack_Slice"], "dmg": 0.85, "rate": 0.8, "range": 1.3, "arc": 270.0, "echo": [0.5, 0.25],
+		"trail": Color(0.7, 0.85, 1.0), "sfx": "cleave"},
+	"twin": {"hero": "barbarian", "name": "Twin Axes", "how": "Two axes, two quick cuts every swing. Short reach.", "attack": "flurry", "icon": "crossed-axes", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.5, "rate": 1.45, "range": 0.85, "arc": 150.0, "hits": 2,
+		"trail": Color(1.0, 0.45, 0.25), "sfx": "swing"},
+	"halberd": {"hero": "barbarian", "name": "Halberd", "how": "Long thrusts that run through a whole line of foes.", "attack": "thrust", "icon": "halberd",
+		"clips": ["Melee_2H_Attack_Stab"], "dmg": 1.15, "rate": 0.85, "range": 1.75, "arc": 30.0, "width": 1.3,
+		"trail": Color(0.85, 0.9, 1.0), "sfx": "atk_tank"},
+	"throwing": {"hero": "barbarian", "name": "Throwing Axe", "how": "Hurl the axe through the horde. It comes back to your hand.", "attack": "throw", "icon": "tomahawk", "one_hand": true,
+		"clips": ["Throw"], "dmg": 0.75, "rate": 1.0, "range": 2.6, "arc": 0.0, "speed": 18.0,
+		"trail": Color(1.0, 0.7, 0.4), "sfx": "swing"},
+}
+## Every hero's families, in the order its gear screen shows them. A hero not
+## listed fights the way its HEROES entry says, whatever it holds.
+const HERO_FAMILIES := {"barbarian": ["axe", "maul", "scythe", "twin", "halberd", "throwing"]}
+
 ## Hero levels bought with shards and gold are gone: skills are a hero's power
 ## now. These tables only price the refund old saves get (Game._refund_levels).
 const HERO_MAX_LEVEL := 20
@@ -657,7 +693,7 @@ const SLOT_POOL := {
 ## Unique drops tracked by the collection log. `card` legendaries start the
 ## hunt holding that card. Rates are 1/n per roll on that source.
 const UNIQUES := {
-	"cleaver": {"cls": "barbarian", "dye": Color(0.45, 0.95, 0.7), "name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
+	"cleaver": {"cls": "barbarian", "fam": "axe", "dye": Color(0.45, 0.95, 0.7), "name": "Gravemaw's Cleaver", "slot": "weapon", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"dmg": 30, "aspd": 10}, "card": "blades", "power": "Start every hunt with Orbiting Blades", "icon": "battle-axe"},
 	"shroud": {"cls": "ranger", "dye": Color(0.12, 0.28, 0.22), "name": "Shroud of the Barrow", "slot": "chest", "rarity": "legendary", "source": "boss", "rate": 25, "stats": {"hp": 30, "armor": 8}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
 	"crown": {"cls": "knight", "dye": Color(0.95, 0.78, 0.3), "name": "Crown of the Barrow King", "slot": "helm", "rarity": "legendary", "source": "boss", "rate": 40, "stats": {"crit": 10, "gold": 25}, "card": "smite", "power": "Start every hunt with Holy Smite", "icon": "crowned-skull"},
 	"emberheart": {"cls": "mage", "dye": Color(1.0, 0.4, 0.1), "name": "Emberheart", "slot": "trinket", "rarity": "legendary", "source": "elite", "rate": 60, "stats": {"dmg": 12, "regen": 4}, "card": "nova", "power": "Start every hunt with Fire Nova", "icon": "flame"},

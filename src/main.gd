@@ -170,6 +170,14 @@ func _arg(args: PackedStringArray, key: String, def: String) -> String:
 	return def
 
 
+## Equips `hid` with a rare weapon of family `fam` from set `mat`.
+func _give_family(hid: String, fam: String, mat: int) -> void:
+	var w := Game.make_item(hid, "weapon", mat, "rare")
+	w["fam"] = fam
+	w["name"] = GearDB.base_name(w)
+	Game.equip(hid, int(Game.grant_item(w)["uid"]))
+
+
 func _run_bot(args: PackedStringArray) -> void:
 	_fade.visible = false
 	var runs := int(_arg(args, "runs", "1"))
@@ -184,6 +192,8 @@ func _run_bot(args: PackedStringArray) -> void:
 	# --gear=M: a full set of rare material-M gear and every talent point spent,
 	# to test what a geared account sees (the bare bot is a floor, not the norm).
 	var gear := int(_arg(args, "gear", "-1"))
+	# --fam=maul: barbarians fight with that weapon family.
+	var bot_fam := _arg(args, "fam", "")
 	Game.open_whole_road()
 	Game.data["start_picked"] = true
 	for hid in heroes:
@@ -207,6 +217,8 @@ func _run_bot(args: PackedStringArray) -> void:
 					path += 1
 			var s := Game.hero_stats(hid)
 			print("GEAR %s mat=%d power=%d hp=%.0f dmg=%.1f rate=%.2f armor=%.2f regen=%.1f" % [hid, gear, Game.power_score(hid), s["hp"], s["dmg"], s["rate"], s["armor"], s["regen"]])
+		if bot_fam != "" and DB.HERO_FAMILIES.get(hid, []).has(bot_fam):
+			_give_family(hid, bot_fam, maxi(gear, 0))
 		for r in runs:
 			Game.data["hero"] = hid
 			Game.data["tier_unlocked"] = DB.TIERS.size() - 1
@@ -301,6 +313,9 @@ func _capture(args: PackedStringArray) -> void:
 					best = it
 			if not best.is_empty():
 				Game.equip(hid, int(best["uid"]))
+	# --fam=scythe: the hero holds a weapon of that family.
+	if _arg(args, "fam", "") != "":
+		_give_family(hid, _arg(args, "fam", ""), maxi(mat, 0))
 	# --skin=reaper: the hero holds a weapon skin.
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))

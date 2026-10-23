@@ -266,6 +266,9 @@ func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionar
 			stats[pool[i]] = _roll_affix(pool[i], step, scale_)
 	# `look` picks among a stage's alternative models (GearDB.piece).
 	var it := {"uid": 0, "slot": slot, "rarity": rarity, "name": "", "stats": stats, "unique": "", "cls": cls, "mat": mat, "look": rng.randi() % 1000}
+	var fams: Array = DB.HERO_FAMILIES.get(cls, [])
+	if slot == "weapon" and not fams.is_empty():
+		it["fam"] = fams[rng.randi() % fams.size()]
 	it["name"] = gear_name(it)
 	return it
 
@@ -312,7 +315,7 @@ func _roll_affix(key: String, step: int, mult: float) -> int:
 
 func make_unique(u: String) -> Dictionary:
 	var ud: Dictionary = DB.UNIQUES[u]
-	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "cls": ud.get("cls", "knight"), "mat": GearDB.TIERS - 1}
+	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "cls": ud.get("cls", "knight"), "mat": GearDB.TIERS - 1, "fam": ud.get("fam", "")}
 
 
 ## Adds an item to the bag (or the log / pet / sale for non-gear uniques).

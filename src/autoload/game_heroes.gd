@@ -38,6 +38,15 @@ func hero_stats(id: String, preview := {}) -> Dictionary:
 		"arc": h.get("arc", 0.0), "splash": h.get("splash", 0.0), "proj_speed": h.get("proj_speed", 0.0),
 		"style": h["style"], "cards": [], "dash": 0.0, "super": 0.0, "xp": 0.0, "flags": {},
 	}
+	# The weapon's family decides how the hero swings.
+	var fam := weapon_family(id, preview)
+	s["family"] = fam
+	if fam != "":
+		var fd: Dictionary = DB.FAMILIES[fam]
+		s["dmg"] *= float(fd["dmg"])
+		s["rate"] *= float(fd["rate"])
+		s["range"] *= float(fd["range"])
+		s["arc"] = float(fd["arc"])
 	# Skills are the hero's power. Ranged and Magic do Attack's and Strength's
 	# jobs both.
 	var dmg_sk: String = {"melee": "strength", "ranged": "ranged", "magic": "magic"}[h["skill"]]
@@ -68,6 +77,17 @@ func hero_stats(id: String, preview := {}) -> Dictionary:
 	# Armor is a rating; DB.armor_dr turns it into damage taken, on a curve.
 	s["armor"] = minf(s["armor"], 2.0)
 	return s
+
+
+## The family of the weapon a hero holds, or "" for a hero without families.
+## A weapon from before families fights as the hero's first.
+func weapon_family(id: String, preview := {}) -> String:
+	var fams: Array = DB.HERO_FAMILIES.get(id, [])
+	if fams.is_empty():
+		return ""
+	var w: Dictionary = preview["weapon"] if preview.has("weapon") else equipped(id, "weapon")
+	var f := str(w.get("fam", ""))
+	return f if f in fams else str(fams[0])
 
 
 # --- Talents -------------------------------------------------------------

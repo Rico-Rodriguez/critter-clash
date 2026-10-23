@@ -165,6 +165,12 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	if DB.GLOWS.has(hg) and spark.a > 0.0:
 		spark = Color(Color(DB.GLOWS[hg]["color"]), spark.a)
 	_sparks(skel, "GearMain", spark)
+	# Twin weapons: the same one again in the other hand.
+	var fam := Game.weapon_family(hero_id)
+	var dual := fam != "" and bool(DB.FAMILIES[fam].get("dual", false))
+	_hold(actor, skel, "GearDual", "handslot.l", file if dual else "", scale_, dye, glow, Transform3D.IDENTITY, GearDB.grade(w), GearDB.accent(w))
+	if dual:
+		_sparks(skel, "GearDual", spark)
 	_aura(actor, GearDB.aura(worn, hero_id))
 	var off: Dictionary = worn["trinket"]
 	var st := GearDB.piece(off) if not off.is_empty() else {}

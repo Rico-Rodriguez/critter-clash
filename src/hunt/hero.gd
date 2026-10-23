@@ -87,6 +87,12 @@ var buffs := {}
 var volley_n := 0
 var ward_mesh: MeshInstance3D
 var tree: AnimationTree
+## The weapon family that decides the basic attack ("" = the hero's own), its
+## DB.FAMILIES entry, and follow-up hits waiting to land: {t, foe, amount}, or
+## {t, swing} for a second swing of a flurry.
+var fam := ""
+var fdef: Dictionary = {}
+var _later: Array = []
 var _up_anim: AnimationNodeAnimation
 var _full_anim: AnimationNodeAnimation
 
@@ -96,6 +102,11 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	id = hero_id
 	def = DB.HEROES[id]
 	base = stats
+	fam = str(stats.get("family", ""))
+	if fam != "":
+		fdef = DB.FAMILIES[fam]
+		def = def.duplicate(true)
+		def["anim"]["attack"] = fdef["clips"]
 	radius = 0.5
 	mass = 4.0
 	build_model(def["model"], {}, Color(1.0, 0.78, 0.5), 0.35)
@@ -326,6 +337,7 @@ func tick(dt: float) -> void:
 	elif moving > 0.5:
 		face(atan2(vel.x, vel.z), dt, 14.0)
 	_tick_attack(dt)
+	_tick_later(dt)
 	_tick_target_ring()
 
 
@@ -361,6 +373,8 @@ func _tick_attack(dt: float) -> void:
 	swing_i += 1
 	var style: String = def["style"]
 	var lead := 0.16 if style == "melee" else 0.1
+	if fam != "":
+		lead = float(fdef.get("lead", 0.2 if fdef["attack"] in ["slam", "throw"] else 0.16))
 	lead = minf(lead, atk_cd * 0.6)
 	impact_t = lead
 	act(clip, lead / 0.45)
@@ -372,6 +386,10 @@ func _impact() -> void:
 		aim_yaw = yaw_to(position, target.position)
 	rotation.y = aim_yaw
 	var fwd := dir_of(aim_yaw)
+	if fam != "":
+		_family_impact(fwd)
+		_wave(fwd)
+		return
 	match style:
 		"melee":
 			var hit := 0
@@ -395,10 +413,7 @@ func _impact() -> void:
 				Sfx.play("hit", -2.0)
 				hunt.hitstop(0.035 if hit < 4 else 0.06)
 				hunt.shake(0.12 + 0.03 * mini(hit, 5))
-			if hunt.cards.get("wave", 0) > 0:
-				var wl: int = hunt.cards["wave"]
-				var jd := int(hunt.cards.get("judgement_day", 0)) > 0
-				hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 15.0, dmg * (0.45 + 0.15 * wl), 99, self, {"life": 0.35 + 0.08 * wl, "width": (1.2 + 0.2 * wl) * (2.0 if jd else 1.0), "stun": 0.5 if jd else 0.0})
+			_wave(fwd)
 		"bow":
 			var n := shots
 			for i in n:
@@ -421,6 +436,150 @@ func _impact() -> void:
 				var d2 := dir_of(a2)
 				hunt.spawn_proj("fireball", flat_pos() + d2 * 0.6, d2 * float(base["proj_speed"]), dmg, 1, self, {"splash": splash})
 			Sfx.play("atk_mage", -5.0)
+
+
+## The Shockwave card: every melee swing also sends a wave forward.
+func _wave(fwd: Vector3) -> void:
+	if hunt.cards.get("wave", 0) <= 0:
+		return
+	var wl: int = hunt.cards["wave"]
+	var jd := int(hunt.cards.get("judgement_day", 0)) > 0
+	hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 15.0, dmg * (0.45 + 0.15 * wl), 99, self, {"life": 0.35 + 0.08 * wl, "width": (1.2 + 0.2 * wl) * (2.0 if jd else 1.0), "stun": 0.5 if jd else 0.0})
+
+
+# --- Weapon families ------------------------------------------------------
+
+## The trail a swing leaves: the family's color, pulled toward fine metal's.
+func _trail() -> Color:
+	var col: Color = fdef["trail"]
+	var wpn := Game.equipped(id, "weapon")
+	if not wpn.is_empty() and int(wpn.get("mat", 0)) >= 1:
+		col = col.lerp(GearDB.item_color(wpn).lightened(0.3), 0.55)
+	return col
+
+
+## Foes in a swing: within `r` and inside `deg` degrees of the aim (close ones
+## always count, so nothing hugging the hero is missed).
+func _in_arc(r: float, deg: float) -> Array:
+	var out := []
+	for f in hunt.foes_near(position, r + 1.5):
+		var to: Vector3 = f.flat_pos() - flat_pos()
+		if to.length() > r + f.radius:
+			continue
+		if deg < 360.0 and absf(angle_difference(aim_yaw, atan2(to.x, to.z))) > deg_to_rad(deg) * 0.5 + 0.2 and to.length() > 0.9:
+			continue
+		out.append(f)
+	return out
+
+
+func _hit_feel(hit: int, heavy := false) -> void:
+	if hit <= 0:
+		return
+	Sfx.play("hit", -2.0)
+	hunt.hitstop((0.06 if heavy else 0.035) if hit < 4 else (0.08 if heavy else 0.06))
+	hunt.shake((0.2 if heavy else 0.12) + 0.03 * mini(hit, 5))
+
+
+func _family_impact(fwd: Vector3) -> void:
+	var col := _trail()
+	Sfx.play(str(fdef["sfx"]), -4.0)
+	match str(fdef["attack"]):
+		"cleave":
+			var hit := 0
+			for f in _in_arc(reach, arc):
+				hunt.damage_foe(f, dmg, self, (f.flat_pos() - flat_pos()).normalized(), 5.5)
+				hit += 1
+			hunt.fx.slash(flat_pos(), aim_yaw, reach * 1.05, arc, col, swing_i % 2 == 0, 0.2)
+			Sfx.play("swing", -8.0)
+			_hit_feel(hit)
+		"slam":
+			# The head lands a step ahead: everything around it is stunned and
+			# thrown outward from the blow.
+			var at := flat_pos() + fwd * minf(reach * 0.6, 1.6)
+			var r := float(fdef["slam_r"]) * reach / maxf(float(DB.HEROES[id]["range"]) * float(fdef["range"]), 0.1)
+			var hit := 0
+			for f in hunt.foes_near(at, r + 1.5):
+				var to: Vector3 = f.flat_pos() - at
+				if to.length() > r + f.radius:
+					continue
+				hunt.damage_foe(f, dmg, self, to.normalized(), float(fdef["knock"]))
+				if f.alive:
+					f.stun_t = maxf(f.stun_t, float(fdef["stun"]))
+				hit += 1
+			hunt.fx.ring(at, r * 1.1, col, 0.4, 0.22)
+			hunt.fx.ring(at, r * 0.6, Color(1, 1, 1), 0.25, 0.12)
+			hunt.fx.puff(at, Color(0.4, 0.34, 0.28, 0.6), 10, r * 0.6, 2.2)
+			hunt.fx.burst(at, Color(0.55, 0.48, 0.4), 8, 5.0, 1.2)
+			Sfx.play("impact", -4.0)
+			hunt.shake(0.22)
+			_hit_feel(hit, true)
+		"sweep":
+			# The OSRS scythe: one wide reap, and anything big takes the
+			# blade's follow-through twice more.
+			var hit := 0
+			var echo: Array = fdef["echo"]
+			for f in _in_arc(reach, arc):
+				hunt.damage_foe(f, dmg, self, (f.flat_pos() - flat_pos()).normalized(), 4.5)
+				hit += 1
+				if f is Boss or bool(f.get("elite")):
+					for k in echo.size():
+						_later.append({"t": 0.12 * (k + 1), "foe": f, "amount": dmg * float(echo[k])})
+			hunt.fx.slash(flat_pos(), aim_yaw, reach * 1.08, arc, col, false, 0.34)
+			hunt.fx.slash(flat_pos(), aim_yaw, reach * 0.8, arc * 0.85, col.lightened(0.3), false, 0.26)
+			Sfx.play("swing", -6.0, 0.8)
+			_hit_feel(hit)
+		"flurry":
+			_flurry_swing(swing_i % 2 == 0)
+			for k in int(fdef["hits"]) - 1:
+				_later.append({"t": 0.11 * (k + 1), "swing": swing_i % 2 != (k % 2)})
+		"thrust":
+			# A line straight ahead, through everything in it.
+			var half := float(fdef["width"]) * 0.5
+			var hit := 0
+			for f in hunt.foes_near(position, reach + 1.5):
+				var to: Vector3 = f.flat_pos() - flat_pos()
+				var along := to.dot(fwd)
+				if along < -0.4 or along > reach + f.radius:
+					continue
+				if absf(to.cross(fwd).y) > half + f.radius:
+					continue
+				hunt.damage_foe(f, dmg, self, fwd, 6.5)
+				hit += 1
+			hunt.fx.slash(flat_pos() - fwd * 0.4, aim_yaw, reach * 1.1, 30, col, false, 0.18)
+			hunt.fx.slash(flat_pos() - fwd * 0.4, aim_yaw, reach * 1.18, 30, Color(1, 1, 1), true, 0.12)
+			Sfx.play("swing", -7.0, 1.2)
+			_hit_feel(hit)
+		"throw":
+			var spd := float(fdef["speed"])
+			hunt.spawn_proj("throwaxe", flat_pos() + fwd * 0.6, fwd * spd, dmg, 99, self, {"life": reach / spd * 2.0, "back": reach / spd})
+
+
+func _flurry_swing(left: bool) -> void:
+	var hit := 0
+	for f in _in_arc(reach, arc):
+		hunt.damage_foe(f, dmg, self, (f.flat_pos() - flat_pos()).normalized(), 3.0)
+		hit += 1
+	hunt.fx.slash(flat_pos(), aim_yaw + (0.25 if left else -0.25), reach * 1.0, arc, _trail(), left, 0.14)
+	Sfx.play("swing", -9.0, 1.15 if left else 1.0)
+	_hit_feel(hit)
+
+
+func _tick_later(dt: float) -> void:
+	var i := 0
+	while i < _later.size():
+		var l: Dictionary = _later[i]
+		l["t"] = float(l["t"]) - dt
+		if float(l["t"]) > 0.0:
+			i += 1
+			continue
+		_later.remove_at(i)
+		if l.has("swing"):
+			_flurry_swing(bool(l["swing"]))
+			continue
+		var f: Actor = l["foe"]
+		if is_instance_valid(f) and f.alive:
+			hunt.damage_foe(f, float(l["amount"]), self, Vector3.ZERO, 0.0)
+			hunt.fx.slash(f.flat_pos() - dir_of(aim_yaw) * 1.2, aim_yaw, 1.8, 120, _trail(), randf() < 0.5, 0.16)
 
 
 # --- Dash and super ------------------------------------------------------
