@@ -317,6 +317,8 @@ func grant_item(it: Dictionary) -> Dictionary:
 				data["pets"].append(u)
 			if str(data["pet"]) == "":
 				data["pet"] = u
+			# Boss pets are sidekicks now.
+			SK.check_unlocks(data)
 			return {}
 		if ud["slot"] == "trophy":
 			data["gold"] = gold() + int(ud.get("sell", 0))
