@@ -466,6 +466,34 @@ func glow_price(glow: String) -> int:
 	return cost
 
 
+## What a weapon skin costs now: one place, so a shop sale can change it.
+func skin_price(skin: String) -> int:
+	return int(DB.WEAPON_SKINS[skin]["gold"])
+
+
+func buy_skin(id: String, skin: String) -> bool:
+	var h := hero(id)
+	if skin in h["skins"]:
+		h["skin"] = skin
+		save()
+		return true
+	var d: Dictionary = DB.WEAPON_SKINS[skin]
+	var cost := skin_price(skin)
+	if not id in d["heroes"] or gold() < cost:
+		return false
+	data["gold"] = gold() - cost
+	h["skins"].append(skin)
+	h["skin"] = skin
+	save()
+	return true
+
+
+func set_skin(id: String, skin: String) -> void:
+	if skin == "" or skin in hero(id)["skins"]:
+		hero(id)["skin"] = skin
+		save()
+
+
 func set_glow(id: String, glow: String) -> void:
 	if glow == "" or glow in hero(id)["glows"]:
 		hero(id)["glow"] = glow

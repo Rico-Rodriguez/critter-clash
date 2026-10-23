@@ -18,7 +18,7 @@ func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
 		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
-			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "best_mat": -1, "skills": _fresh_skills()}
+			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "skin": "", "skins": [], "best_mat": -1, "skills": _fresh_skills()}
 	return {
 		"version": SAVE_VERSION,
 		"gold": 0,

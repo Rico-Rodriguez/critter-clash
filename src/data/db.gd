@@ -767,6 +767,18 @@ const SHOP_GLOW_OFF := 0.3
 static func shop_gear_price(it: Dictionary) -> int:
 	return int(round(int(SHOP_GEAR_GOLD.get(str(it["rarity"]), 280)) * (1.0 + SHOP_GEAR_MAT * int(it.get("mat", 0))) / 10.0)) * 10
 
+
+## Weapon skins: a new model in the hand, whatever weapon is equipped (the
+## stats stay the item's). Bought with gold per hero. `model` is a file in
+## assets/kaykit/weapons/; ours are built by the scripts in tools/art/.
+const WEAPON_SKINS := {
+	"oathbound": {"name": "Oathbound Blade", "model": "oathbound_blade.gltf", "scale": 1.0, "heroes": ["knight"], "gold": 6000},
+	# Held one-handed and pointing forward, a scythe reads as a spear: the
+	# Knight's idle pose is why it is the Barbarian's alone.
+	"reaper": {"name": "Reaper's Scythe", "model": "reaper_scythe.gltf", "scale": 0.85, "heroes": ["barbarian"], "gold": 8000},
+}
+const WEAPON_SKIN_ORDER := ["oathbound", "reaper"]
+
 # --- Online ---------------------------------------------------------------------
 
 ## What one hunt deals to the clan raid boss: per kill, elite, boss and win,
