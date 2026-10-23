@@ -6,6 +6,8 @@ signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
 const SAVE_VERSION := 9
+## Sidekick rules (owning, bond, eggs, migration), shared by every part.
+const SK := preload("res://src/autoload/sidekicks.gd")
 
 var data: Dictionary = {}
 var rng := RandomNumberGenerator.new()
@@ -63,7 +65,9 @@ func _fresh() -> Dictionary:
 		"achievements": {},
 		"season": {"id": -1, "xp": 0, "claimed": 0},
 		"pets": [],
+		# Unused since sidekicks replaced the hero ally (kept so old saves load).
 		"ally": "",
+		"sidekicks": SK.fresh(),
 		"tips": {},
 		# Today's shop deals, drawn once a day so a gear offer stays the same piece.
 		"shop": {"day": "", "deals": []},
