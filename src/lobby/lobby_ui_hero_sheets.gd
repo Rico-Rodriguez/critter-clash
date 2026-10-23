@@ -58,7 +58,7 @@ func _build_hero_sheet(s: Sheet) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var pts := Game.talent_points(id)
-	for t in [["Skills", "BlueButton", "skills"], ["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"], ["Looks", "BlueButton", "looks"]]:
+	for t in [["Skills", "BlueButton", "skills"], ["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"], ["Skins", "BlueButton", "looks"]]:
 		var tb := Button.new()
 		tb.text = t[0]
 		tb.theme_type_variation = t[1]
@@ -81,11 +81,6 @@ func _build_hero_sheet(s: Sheet) -> void:
 		refresh()
 		s.close())
 	b.add_child(use)
-
-
-## Weapon glows, opened from a hero's card.
-func _build_looks(s: Sheet) -> void:
-	_hero_looks(s, _shown_hero)
 
 
 func _hero_stats(s: Sheet, id2: String) -> void:
@@ -193,45 +188,6 @@ func _hero_progress(s: Sheet, id2: String) -> void:
 	tb.focus_mode = Control.FOCUS_NONE
 	tb.pressed.connect(func(): open_sheet("talents"))
 	b.add_child(tb)
-
-
-func _hero_looks(s: Sheet, id2: String) -> void:
-	var b := s.body
-	var d2: Dictionary = DB.HEROES[id2]
-	var h2 := Game.hero(id2)
-	# Weapon glows: cosmetics bought with gold (or earned by mastery).
-	b.add_child(Ui.label("WEAPON GLOW", "Caption"))
-	var gl := HFlowContainer.new()
-	gl.add_theme_constant_override("h_separation", 8)
-	gl.add_theme_constant_override("v_separation", 8)
-	for g in [""] + DB.GLOW_ORDER:
-		# Gift glows show only once earned.
-		if g != "" and DB.GLOWS[g].get("gift", false) and not g in h2.get("glows", []):
-			continue
-		var gb := Button.new()
-		gb.toggle_mode = true
-		gb.focus_mode = Control.FOCUS_NONE
-		gb.button_pressed = str(h2.get("glow", "")) == g
-		gb.custom_minimum_size = Vector2(0, 60)
-		var owned: bool = g == "" or g in h2.get("glows", [])
-		gb.text = "None" if g == "" else (str(DB.GLOWS[g]["name"]) if owned else "%s · %s" % [DB.GLOWS[g]["name"], Ui.fmt_num(int(DB.GLOWS[g]["gold"]))])
-		if g != "":
-			gb.add_theme_color_override("font_color", Color(DB.GLOWS[g]["color"], 1.0).lightened(0.3))
-		var gid: String = g
-		gb.pressed.connect(func():
-			if gid == "" or gid in Game.hero(id2)["glows"]:
-				Game.set_glow(id2, gid)
-			elif not Game.buy_glow(id2, gid):
-				Sfx.play("ui_error", -6.0)
-				s.rebuild()
-				return
-			else:
-				Sfx.play("coin", 0.0)
-			lobby.show_hero(id2)
-			refresh()
-			s.rebuild())
-		gl.add_child(gb)
-	b.add_child(gl)
 
 
 func _hero_locked(s: Sheet, id2: String) -> void:

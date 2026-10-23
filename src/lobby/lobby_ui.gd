@@ -437,7 +437,7 @@ func show_tab(name_: String, sub := 0) -> void:
 		"clan":
 			_page = _make_page("Clan", [["Clan", _build_social]], sub)
 		"shop":
-			_page = _make_page("Shop", [["Shop", func(s: Sheet): Shop.build(self, s)]], sub)
+			_page = _make_page("Shop", Shop.segments(self), sub)
 	if dir != 0.0:
 		var w := get_viewport().get_visible_rect().size.x
 		_page.position.x = dir * w * 0.35
@@ -582,6 +582,17 @@ func open_equipment() -> void:
 ## Opens a sheet by its old name: the ones that became tabs open their tab on
 ## the right sub-tab; the rest slide up over whatever is showing.
 func open_sheet(name_: String) -> void:
+	# Skins are sold in one place: the Shop's Skins tab, on the hero shown.
+	if name_ == "looks":
+		Shop.skins_hero = _shown_hero
+		if _sheet and is_instance_valid(_sheet):
+			_sheet.queue_free()
+			_sheet = null
+		if tab == "shop":
+			_leave_page()
+			tab = ""
+		show_tab("shop", 2)
+		return
 	if SHEET_TAB.has(name_):
 		var to: Array = SHEET_TAB[name_]
 		show_tab(str(to[0]), int(to[1]))
@@ -625,8 +636,6 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Skills", _build_skills)
 		"talents":
 			_sheet.open("Talents", _build_talents)
-		"looks":
-			_sheet.open("Looks", _build_looks)
 		_:
 			if not _open_social_sheet(_sheet, name_):
 				_sheet.queue_free()
