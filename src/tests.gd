@@ -173,6 +173,10 @@ func _gear_tests() -> void:
 		looks.append(GearDB.UNIQUE_LOOKS[u])
 	for st: Dictionary in looks:
 		for spec: String in GearDB.expand(st.get("parts", [])):
+			if spec.begins_with("P:"):
+				if not ResourceLoader.exists(GearDB.GEAR_DIR + spec.substr(2).get_slice("@", 0)):
+					missing.append(spec)
+				continue
 			var src := spec.get_slice("/", 0)
 			if not scenes.has(src):
 				scenes[src] = load(KK.CHAR_DIR + src + ".glb").instantiate()

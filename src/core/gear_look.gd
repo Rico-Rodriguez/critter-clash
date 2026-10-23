@@ -84,7 +84,9 @@ static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictio
 		if mi == null:
 			continue
 		mi.visible = true
-		mi.set_instance_shader_parameter("dye", Color(dye, dye.a * (0.4 if hood else 1.0)))
+		# Our own props carry their colors; only lifted KayKit parts take the dye.
+		var da := 0.0 if spec.begins_with("P:") else dye.a * (0.4 if hood else 1.0)
+		mi.set_instance_shader_parameter("dye", Color(dye, da))
 		mi.set_instance_shader_parameter("tint", glow)
 		mi.set_instance_shader_parameter("grade", gr)
 		mi.set_instance_shader_parameter("accent", acc)
@@ -100,6 +102,9 @@ static func _part(actor: Actor, skel: Skeleton3D, spec: String) -> MeshInstance3
 	var reg: Dictionary = actor.get_meta("gl_parts", {})
 	actor.set_meta("gl_parts", reg)
 	if reg.has(spec) and is_instance_valid(reg[spec]):
+		return reg[spec]
+	if spec.begins_with("P:"):
+		reg[spec] = _prop_part(actor, skel, spec)
 		return reg[spec]
 	var nm := GearDB.mesh_name(spec)
 	var found := skel.get_node_or_null(nm) as MeshInstance3D
@@ -132,6 +137,29 @@ static func _part(actor: Actor, skel: Skeleton3D, spec: String) -> MeshInstance3
 		found = mi
 	reg[spec] = found
 	return found
+
+
+## A "P:file@bone" part: one of our rigid props (assets/kaykit/gear/),
+## pinned to a bone on an attachment of its own.
+static func _prop_part(actor: Actor, skel: Skeleton3D, spec: String) -> MeshInstance3D:
+	var file := spec.substr(2).get_slice("@", 0)
+	var bone := spec.get_slice("@", 1)
+	var sc := KK.prop(GearDB.GEAR_DIR + file)
+	var mi: MeshInstance3D = KK.meshes(sc)[0] if not KK.meshes(sc).is_empty() else null
+	if mi == null:
+		sc.free()
+		return null
+	var xf := mi.transform
+	mi.get_parent().remove_child(mi)
+	sc.free()
+	var att := BoneAttachment3D.new()
+	att.name = "Part_%s_%s" % [file.get_basename(), bone.replace(".", "_")]
+	att.bone_name = bone
+	skel.add_child(att)
+	att.add_child(mi)
+	mi.transform = xf
+	actor.restyle(att)
+	return mi
 
 
 ## Weapon in the main hand, offhand piece in the other (or on the back).

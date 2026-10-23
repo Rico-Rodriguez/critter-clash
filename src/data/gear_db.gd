@@ -128,19 +128,21 @@ const LINES := {
 				{"name": "Maul", "model": "hammer_A.gltf", "scale": 1.3, "icon": "anvil"},
 			]},
 		],
+		# Helms and pauldrons are our own props, one per set
+		# (tools/art/make_barbarian_armor.py); the torso stays the Barbarian's.
 		"helm": [
-			{"from": 0, "name": "Horned Cap", "parts": ["Skeleton_Warrior/Helmet"]},
-			{"from": 2, "name": "Bear Helm", "parts": ["Barbarian/BearHat"], "alts": [
-				{"name": "Great Helm", "parts": ["Knight/Helmet"]},
-			]},
+			{"from": 0, "name": "Skullcap", "parts": ["P:barb_helm_0.gltf@head"]},
+			{"from": 1, "name": "Horned Helm", "parts": ["P:barb_helm_1.gltf@head"]},
+			{"from": 2, "name": "Crested Helm", "parts": ["P:barb_helm_2.gltf@head"]},
+			{"from": 3, "name": "Spiked Helm", "parts": ["P:barb_helm_3.gltf@head"]},
+			{"from": 4, "name": "Soul Crown", "parts": ["P:barb_helm_4.gltf@head"]},
 		],
 		"chest": [
-			{"from": 0, "name": "Hide Vest", "parts": ["T:Ranger"]},
-			{"from": 1, "name": "Fur Armour", "parts": ["T:Barbarian"]},
-			{"from": 2, "name": "Fur Armour", "parts": ["T:Barbarian", "Ranger/Cape"]},
-			{"from": 3, "name": "Warlord Armour", "parts": ["T:Barbarian", "Knight/Cape"], "alts": [
-				{"name": "Warlord Armour", "parts": ["T:Barbarian", "Skeleton_Warrior/Cloak"]},
-			]},
+			{"from": 0, "name": "Hide Vest", "parts": ["T:Ranger", "P:barb_pauldron_0.gltf@upperarm.l"]},
+			{"from": 1, "name": "War Harness", "parts": ["T:Barbarian", "P:barb_pauldron_1.gltf@upperarm.l", "P:barb_pauldron_1.gltf@upperarm.r"]},
+			{"from": 2, "name": "Plated Harness", "parts": ["T:Barbarian", "Ranger/Cape", "P:barb_pauldron_2.gltf@upperarm.l", "P:barb_pauldron_2.gltf@upperarm.r"]},
+			{"from": 3, "name": "Warlord Harness", "parts": ["T:Barbarian", "Knight/Cape", "P:barb_pauldron_3.gltf@upperarm.l", "P:barb_pauldron_3.gltf@upperarm.r"]},
+			{"from": 4, "name": "Soul Harness", "parts": ["T:Barbarian", "Knight/Cape", "P:barb_pauldron_4.gltf@upperarm.l", "P:barb_pauldron_4.gltf@upperarm.r"]},
 		],
 		"legs": [
 			{"from": 0, "name": "Hide Chaps", "parts": ["L:Ranger"]},
@@ -395,6 +397,8 @@ const FAMILY_LOOKS := {
 }
 
 ## Rigid parts made for the skeletons' taller skulls sit lower on a living head.
+## Where "P:" props live (built by tools/art/make_barbarian_armor.py).
+const GEAR_DIR := "res://assets/kaykit/gear/"
 const PART_NUDGE := {"Skeleton_Mage/Hat": Vector3(0, -0.13, 0)}
 
 ## Uniques with a model of their own (the rest wear their set's look).

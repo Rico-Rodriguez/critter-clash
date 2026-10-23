@@ -173,6 +173,9 @@ def gem(c, w, h, depth, sw="red", facing=1):
 
 def export(name: str, out: str) -> None:
     """Writes the mesh as name.gltf + .bin, textured by knight_texture.png."""
+    # The game's character shader culls back faces, so every face must look
+    # out: the builders above don't all wind them that way.
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.normal_update()
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
