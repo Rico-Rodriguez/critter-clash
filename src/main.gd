@@ -336,10 +336,23 @@ func _capture(args: PackedStringArray) -> void:
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
 		Game.hero(hid)["skin"] = _arg(args, "skin", "")
+	# A stable like the mockup: the Drake at your side (Bond 4), a Grove Egg warming.
+	const SKC := preload("res://src/autoload/sidekicks.gd")
+	for pair in [["drake", 1240], ["wisp", 5600], ["bonelet", 250], ["hexling", 0]]:
+		SKC.own(Game.data, pair[0])
+		Game.data["sidekicks"]["owned"][pair[0]]["kills"] = pair[1]
+	Game.data["sidekicks"]["eggs"]["grove"] = {"kills": 312}
+	Game.data["sidekicks"]["chests"] = 37
+	SKC.set_active(Game.data, _arg(args, "sidekick", "drake").get_slice(":", 0))
+	if _arg(args, "sidekick", "").contains(":"):
+		var sid0 := _arg(args, "sidekick", "").get_slice(":", 0)
+		SKC.own(Game.data, sid0)
+		SKC.set_active(Game.data, sid0)
+		Game.data["sidekicks"]["owned"][sid0]["kills"] = int(_arg(args, "sidekick", "").get_slice(":", 1))
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"sidekicks", "sidekick", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -396,6 +409,13 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(2.2)
 				elif shot == "pickhero":
 					await _wait(1.2)
+				elif shot == "sidekicks" or shot == "sidekick":
+					current.open_sheet("sidekicks")
+					await _wait(1.0)
+					if shot == "sidekick":
+						current.ui._sk_detail = SKC.active(Game.data)
+						current.ui._sheet.rebuild()
+						await _wait(0.8)
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot.begins_with("equip") else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)

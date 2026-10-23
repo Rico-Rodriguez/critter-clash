@@ -26,6 +26,9 @@ var _hint: Label
 var _streak: Label
 var _buffs: Label
 var _feed: VBoxContainer
+## The sidekick read-out: a cooldown ring round its icon, its ability, kills.
+var _sk_ring: XpRing
+var _sk_text: Label
 
 
 func setup(h: Hunt) -> void:
@@ -78,6 +81,7 @@ func setup(h: Hunt) -> void:
 	_streak.add_theme_color_override("font_color", Color(1.0, 0.55, 0.35))
 	_streak.visible = false
 	_feed.add_child(_streak)
+	_build_sidekick_box()
 	%Stick.idle_alpha = 0.0 if bool(Game.data.get("seen_tutorial", false)) else 0.3
 	if not bool(Game.data.get("seen_tutorial", false)):
 		_hint = Ui.label("Drag anywhere to move\nYou attack on your own · tap the buttons to dash and unleash", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
@@ -88,6 +92,30 @@ func setup(h: Hunt) -> void:
 		_hint.anchor_bottom = 0.72
 		_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		add_child(_hint)
+
+
+
+func _build_sidekick_box() -> void:
+	if hunt.sidekick == null:
+		return
+	const SDB := preload("res://src/data/sidekick_db.gd")
+	var d: Dictionary = SDB.ROSTER[str(hunt.sidekick.id)]
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	_sk_ring = XpRing.new()
+	_sk_ring.custom_minimum_size = Vector2(64, 64)
+	_sk_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := Ui.icon_rect(str(d["icon"]), 34, Color(d["color"]))
+	ic.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sk_ring.add_child(ic)
+	row.add_child(_sk_ring)
+	_sk_text = Ui.label("", "HudLabel")
+	_sk_text.add_theme_font_size_override("font_size", 20)
+	row.add_child(_sk_text)
+	_feed.add_child(row)
+	_feed.move_child(row, 0)
 
 
 ## Dash and Super tuck into the bottom corner on the thumb's side (setting
@@ -166,6 +194,10 @@ func refresh(dt: float) -> void:
 	if _streak.visible:
 		_streak.text = "%d kills" % hunt.streak
 		_streak.modulate.a = clampf(hunt.streak_t / 0.6, 0.0, 1.0)
+	if _sk_ring and hunt.sidekick:
+		var sk = hunt.sidekick
+		_sk_ring.value = 1.0 - clampf(sk.cd / maxf(sk.cooldown(), 0.01), 0.0, 1.0)
+		_sk_text.text = "%s · %d slain\n%s" % [sk.ability_name(), sk.slain, "ready" if sk.cd <= 0.0 else "ready in %ds" % ceili(sk.cd)]
 	%Super.fill = hero.super_charge
 	%Super.is_ready = hero.super_ready()
 	%Dash.fill = 1.0 - clampf(hero.dash_cd / hero.dash_cd_max, 0.0, 1.0)
