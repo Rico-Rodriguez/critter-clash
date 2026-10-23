@@ -1,0 +1,9 @@
+# Test server on your own computer, reached through a tunnel (ngrok or
+# Cloudflare) instead of Caddy: the tunnel gives the HTTPS address iOS needs.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d postgres nakama backup
+#   ngrok http 7350 --url=<your-free-static-domain>.ngrok-free.app
+services:
+  nakama:
+    ports:
+      - "127.0.0.1:7350:7350"
