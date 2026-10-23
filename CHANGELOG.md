@@ -25,6 +25,13 @@ settings changed. Online features stay off until the server is deployed and
   name and clan, and a Journal button for the reward tracks, feats and log.
   Heroes is the gear screen with each hero's skills, talents, looks and ally;
   tap the name for the hero's card.
+- **Shop**, the leftmost tab, paid in gold only (nothing costs money). Six
+  daily deals that turn over at midnight: a free gift, discounted shards for
+  your hero and one other (a locked hero first), two pieces of gear for your
+  hero at the best material you've opened, and a chest at 30% off. A chest
+  shelf (Silver 400, Gold 1,100, Crypt 2,600 gold; a bought chest opens in
+  camp like a won one) and every weapon glow, one of them 30% off each week.
+  New save key `shop` has a default.
 - **Clans**: search, join or ask to join, start one (name, badge, open or
   closed, minimum combat), members with leader and elder tools, filtered clan
   chat with emotes, and tap any name to report or block.

@@ -90,6 +90,27 @@ func run() -> int:
 	var paid := Game.claim_bounty(0)
 	_ok("bounty pays once", int(paid.get("gold", 0)) == 150 and Game.gold() == g0 + 150 and Game.claim_bounty(0).is_empty())
 
+	# Shop: one draw a day, a free gift, deals sell once, gold only leaves when paid.
+	Game.data = Game._fresh()
+	_ok("shop drawn", Game.refresh_shop("2030-01-01") and Game.shop_deals().size() == 6 and not Game.refresh_shop("2030-01-01"))
+	_ok("shop free gift", int(Game.shop_deals()[0]["price"]) == 0 and Game.shop_free_ready() == 1)
+	var sg := Game.gold()
+	_ok("shop gift is free", not Game.buy_deal(0).is_empty() and Game.gold() >= sg and Game.shop_free_ready() == 0 and Game.buy_deal(0).is_empty())
+	Game.data["gold"] = 0
+	_ok("shop needs gold", Game.shop_block(1) == "Not enough gold" and Game.buy_deal(1).is_empty())
+	Game.data["gold"] = 100000
+	var sh_hero := str(Game.shop_deals()[1]["hero"])
+	var sh0 := int(Game.hero(sh_hero)["shards"])
+	var sh_price := int(Game.shop_deals()[1]["price"])
+	_ok("shop shards", not Game.buy_deal(1).is_empty() and int(Game.hero(sh_hero)["shards"]) == sh0 + 20 and Game.gold() == 100000 - sh_price)
+	var bag: int = Game.data["items"].size()
+	_ok("shop gear", not Game.buy_deal(3).is_empty() and Game.data["items"].size() == bag + 1 and Game.shop_block(3) == "Sold")
+	var g_chest := Game.gold()
+	_ok("shop chest deal", not Game.buy_chest(str(Game.shop_deals()[5]["chest"]), 5).is_empty() and Game.gold() < g_chest and Game.buy_chest(str(Game.shop_deals()[5]["chest"]), 5).is_empty())
+	_ok("shop chests cost more than their gold", DB.SHOP_CHESTS.keys().all(func(k): return int(DB.SHOP_CHESTS[k]) * (1.0 - DB.SHOP_CHEST_OFF) > int(DB.CHESTS[k]["gold"][1])))
+	_ok("shop next day", Game.refresh_shop("2030-01-02") and Game.shop_free_ready() == 1)
+	_ok("glow of the week on sale", Game.glow_price(Game.glow_of_week()) < int(DB.GLOWS[Game.glow_of_week()]["gold"]))
+
 	_ok("zones", Game.zone_unlocked("barrow") and not Game.zone_unlocked("depths") and Game.zone_id() == "barrow")
 	Game.data["tier_unlocked"] = DB.TIER_VETERAN
 	_ok("depths shut until veteran is won", not Game.zone_unlocked("depths"))

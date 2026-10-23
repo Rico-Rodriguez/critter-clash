@@ -61,6 +61,8 @@ func _fresh() -> Dictionary:
 		"pets": [],
 		"ally": "",
 		"tips": {},
+		# Today's shop deals, drawn once a day so a gear offer stays the same piece.
+		"shop": {"day": "", "deals": []},
 		# The player's name, shown on the camp plate, to friends and in clans.
 		"profile": {"name": ""},
 		# The online account. `key` is this install's secret sign-in id (made
@@ -230,6 +232,11 @@ func combat_level(id := "") -> int:
 
 func today() -> String:
 	return Time.get_date_string_from_system()
+
+
+## Days since 1970 for a "YYYY-MM-DD" date: a counter that ticks at local midnight.
+func day_number(day: String) -> int:
+	return int(Time.get_unix_time_from_datetime_string(day) / 86400)
 
 
 func _day_offset(days: int) -> String:

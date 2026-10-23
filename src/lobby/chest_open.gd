@@ -6,6 +6,8 @@ const ItemIcons := preload("res://src/ui/item_icons.gd")
 
 var ui: LobbyUI
 var kind := ""
+## -2 for a chest won in a hunt; else bought in the Shop (Game.buy_chest's deal).
+var deal := -2
 var rewards: Array = []
 var idx := -1
 var stage := "closed"
@@ -48,7 +50,7 @@ func _advance() -> void:
 	match stage:
 		"closed":
 			stage = "rewards"
-			rewards = Game.open_chest(kind)
+			rewards = Game.open_chest(kind) if deal == -2 else Game.buy_chest(kind, deal)
 			ui.lobby.open_chest_fx()
 			Sfx.play("chest_open", 0.0)
 			var t := create_tween()

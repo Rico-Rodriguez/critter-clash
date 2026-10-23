@@ -1,6 +1,6 @@
 extends "res://src/autoload/game_heroes.gd"
 ## Game, part 4: rewards outside the hunt. Chests, the renown road, the
-## weekly omen, treasure trails and daily bounties.
+## weekly omen, treasure trails, daily bounties and the shop.
 
 
 # --- Rewards -------------------------------------------------------------
@@ -319,3 +319,115 @@ func claim_bounty(i: int) -> Dictionary:
 	var opened := unlock_by_shards()
 	save()
 	return {"gold": int(e["gold"]), "shards": int(e["shards"]), "hero": sh, "unlocked": opened}
+
+
+# --- Shop ----------------------------------------------------------------------
+
+## Draws the day's deals once (a new day, or a fresh save). Returns true when
+## it drew. Slot 0 is always the free gift.
+func refresh_shop(today_ := "") -> bool:
+	if today_ == "":
+		today_ = today()
+	var s: Dictionary = data["shop"]
+	if str(s["day"]) == today_ and not (s["deals"] as Array).is_empty():
+		return false
+	var top := clampi(int(data["tier_unlocked"]), 0, DB.TIERS.size() - 1)
+	var deals := []
+	if day_number(today_) % 2 == 0:
+		deals.append({"kind": "gold", "amount": DB.SHOP_FREE_GOLD + DB.SHOP_FREE_GOLD_TIER * top, "price": 0})
+	else:
+		deals.append({"kind": "shards", "hero": hero_id(), "amount": DB.SHOP_FREE_SHARDS, "price": 0})
+	# Shards for the hero in use, and for another (a locked one first, like chests).
+	var others: Array = DB.HERO_ORDER.filter(func(h): return h != hero_id())
+	others.shuffle()
+	others.sort_custom(func(x, y): return not hero(x)["unlocked"] and hero(y)["unlocked"])
+	for pair in [[hero_id(), 20], [others[0], 15]]:
+		var n: int = pair[1]
+		deals.append({"kind": "shards", "hero": pair[0], "amount": n, "price": _shop_round(n * DB.SHOP_SHARD_GOLD * (1.0 - DB.SHOP_DEAL_OFF))})
+	# Two pieces for the hero in use, in different slots, at the best material
+	# opened so far: useful today, never better than what the hunt can drop.
+	var slots: Array = DB.SLOTS.duplicate()
+	slots.shuffle()
+	for r in ["rare", "magic"]:
+		var mat := GearDB.roll_mat(int(DB.TIERS[top]["mat"]), 0, rng)
+		var it := make_item(hero_id(), str(slots.pop_back()), mat, r)
+		deals.append({"kind": "gear", "item": it, "price": DB.shop_gear_price(it)})
+	var kinds := ["silver", "gold"] + (["crypt"] if top >= DB.TIER_NIGHTMARE else [])
+	var ck: String = kinds[rng.randi() % kinds.size()]
+	deals.append({"kind": "chest", "chest": ck, "price": _shop_round(int(DB.SHOP_CHESTS[ck]) * (1.0 - DB.SHOP_CHEST_OFF))})
+	for d in deals:
+		d["bought"] = false
+	data["shop"] = {"day": today_, "deals": deals}
+	save()
+	return true
+
+
+func _shop_round(v: float) -> int:
+	return int(round(v / 10.0)) * 10
+
+
+func shop_deals() -> Array:
+	return data["shop"]["deals"]
+
+
+## Why deal `i` can't be bought right now, or "" when it can.
+func shop_block(i: int) -> String:
+	var d: Dictionary = shop_deals()[i]
+	if d["bought"]:
+		return "Sold"
+	if gold() < int(d["price"]):
+		return "Not enough gold"
+	if d["kind"] == "gear" and data["items"].size() >= INVENTORY_CAP:
+		return "Bag full"
+	return ""
+
+
+## Free gifts not yet taken today (the Shop tab's dot).
+func shop_free_ready() -> int:
+	var n := 0
+	for d in shop_deals():
+		if int(d["price"]) == 0 and not d["bought"]:
+			n += 1
+	return n
+
+
+## Buys deal `i` (not a chest: those go through buy_chest so the gold leaves
+## when the lid opens). Returns the deal, or {} when it can't be bought.
+func buy_deal(i: int) -> Dictionary:
+	if shop_block(i) != "":
+		return {}
+	var d: Dictionary = shop_deals()[i]
+	match str(d["kind"]):
+		"gold":
+			data["gold"] = gold() + int(d["amount"])
+		"shards":
+			hero(str(d["hero"]))["shards"] = int(hero(str(d["hero"]))["shards"]) + int(d["amount"])
+			unlock_by_shards()
+		"gear":
+			var it := grant_item((d["item"] as Dictionary).duplicate(true))
+			if not it.is_empty():
+				d["uid"] = int(it["uid"])
+		_:
+			return {}
+	data["gold"] = gold() - int(d["price"])
+	d["bought"] = true
+	save()
+	return d
+
+
+func shop_chest_price(kind: String, deal := -1) -> int:
+	return int(shop_deals()[deal]["price"]) if deal >= 0 else int(DB.SHOP_CHESTS[kind])
+
+
+## Pays for a chest and opens it: from the chest shelf (deal -1) or today's
+## chest deal. Returns the rewards, or [] when it can't be paid for.
+func buy_chest(kind: String, deal := -1) -> Array:
+	if deal >= 0 and (shop_block(deal) != "" or shop_deals()[deal]["kind"] != "chest"):
+		return []
+	var price := shop_chest_price(kind, deal)
+	if gold() < price:
+		return []
+	data["gold"] = gold() - price
+	if deal >= 0:
+		shop_deals()[deal]["bought"] = true
+	return open_chest(kind)
