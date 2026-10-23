@@ -21,7 +21,7 @@ const TAB_LOOK := {
 ## Which tab and sub-tab each old sheet name lands on.
 const SHEET_TAB := {
 	"heroes": ["heroes", 0],
-	"bag": ["gear", 0], "journal": ["journal", 0], "clan": ["clan", 0], "friends": ["clan", 1],
+	"bag": ["gear", 0], "journal": ["journal", 0], "clan": ["clan", 0],
 }
 
 var _tab_btns := {}
@@ -385,7 +385,7 @@ func show_tab(name_: String, sub := 0) -> void:
 		"journal":
 			_page = _make_page("Journal", [["Journal", _build_journal]], sub)
 		"clan":
-			_page = _make_page("Clan", _social_segments(), sub)
+			_page = _make_page("Clan", [["Clan", _build_social]], sub)
 	if dir != 0.0:
 		var w := get_viewport().get_visible_rect().size.x
 		_page.position.x = dir * w * 0.35
@@ -564,7 +564,7 @@ func open_sheet(name_: String) -> void:
 ## A claim or upgrade in a sheet changes the tiles and cards under it.
 func _sheet_closed() -> void:
 	refresh()
-	if tab in ["heroes", "journal"] and _page is Sheet and is_instance_valid(_page):
+	if tab in ["heroes", "journal", "clan"] and _page is Sheet and is_instance_valid(_page):
 		(_page as Sheet).rebuild()
 
 

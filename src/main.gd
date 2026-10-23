@@ -332,7 +332,7 @@ func _capture(args: PackedStringArray) -> void:
 					current.open_sheet("bag" if shot == "equip" else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
 				await _save(shot)
-			"clanfind", "clancreate", "clanin", "members", "party", "friends", "invite", "ranks", "gifts", "account", "player":
+			"clanfind", "clans", "clancreate", "clanin", "chat", "members", "party", "friends", "invite", "ranks", "gifts", "account", "player":
 				# The social screens, signed in to a local test server filled by
 				# server/test/seed_demo.py (pass its code as --ref= and --clan=).
 				await _social_shot(shot, args)
@@ -719,7 +719,7 @@ func _social_shot(shot: String, args: PackedStringArray) -> void:
 	await _wait(0.5)
 	var ui: LobbyUI = current.ui
 	var clan := _arg(args, "clan", "")
-	if o and shot in ["clanin", "members", "party", "player"] and not o.in_clan() and clan != "":
+	if o and shot in ["clanin", "chat", "members", "party", "player"] and not o.in_clan() and clan != "":
 		var found: Dictionary = await o.find_clans(clan)
 		if found["ok"] and not found["data"].is_empty():
 			await o.join_clan(str(found["data"][0]["id"]))
@@ -736,12 +736,10 @@ func _social_shot(shot: String, args: PackedStringArray) -> void:
 	match shot:
 		"clanfind", "clanin", "party":
 			ui.show_tab("clan", 0)
-		"friends":
-			ui.show_tab("clan", 1)
-		"invite":
-			ui.show_tab("clan", 2)
-		"ranks":
-			ui.show_tab("clan", 3)
+		"friends", "invite", "ranks", "clans", "chat":
+			ui.show_tab("clan", 0)
+			await _wait(0.5)
+			ui.open_sheet(shot)
 		"clancreate":
 			ui.show_tab("clan", 0)
 			await _wait(0.5)
@@ -760,10 +758,6 @@ func _social_shot(shot: String, args: PackedStringArray) -> void:
 			ui._player = {"id": str(said[0]["from"]) if not said.is_empty() else "", "name": str(said[0]["name"]) if not said.is_empty() else ""}
 			ui.open_sheet("player")
 	await _wait(2.5)
-	if shot in ["clanin", "party"] and ui._page is Sheet:
-		var sc: ScrollContainer = ui._page._scroll
-		sc.scroll_vertical = 0 if shot == "party" else 100000
-		await _wait(0.4)
 
 
 func _wait(sec: float) -> void:
