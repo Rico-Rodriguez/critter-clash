@@ -455,13 +455,15 @@ local function recruits(context, _)
 	end
 	local steps = {}
 	for _, m in ipairs(rewards.MILESTONES) do
-		table.insert(steps, { id = m.id, text = m.text })
+		table.insert(steps, { id = m.id, text = m.text, you = m.recruiter, them = m.recruit })
 	end
 	local tiers = {}
 	for _, t in ipairs(rewards.RECRUITER_TIERS) do
-		table.insert(tiers, { count = t.count, text = t.text, paid = (v.paid or {})["tier" .. t.count] == true })
+		table.insert(tiers, { count = t.count, text = t.text, grants = t.grants, paid = (v.paid or {})["tier" .. t.count] == true })
 	end
-	return encode({ list = out, steps = steps, tiers = tiers, max = rewards.MAX_RECRUITS })
+	-- The invite screen shows every reward from here, so tuning stays in one place.
+	return encode({ list = out, steps = steps, tiers = tiers, max = rewards.MAX_RECRUITS,
+		welcome = rewards.WELCOME, on_redeem = rewards.RECRUITER_ON_REDEEM })
 end
 
 -- --- Cloud save, new phone, deletion ------------------------------------------
@@ -666,7 +668,8 @@ local function before_chat(context, envelope)
 	if not ok or type(c) ~= "table" or not MSG_KINDS[c.t] then
 		error("That message can't be sent.")
 	end
-	local out = { t = c.t }
+	-- The sender's name rides on the message, set here so it can't be faked.
+	local out = { t = c.t, n = display(uid, "Hunter") }
 	if c.t == "text" then
 		local body = filter.clean(c.body)
 		if #body == 0 or #body > 200 then

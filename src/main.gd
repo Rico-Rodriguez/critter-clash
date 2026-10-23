@@ -6,6 +6,7 @@ extends Node
 ##   -- --check                                                 compile every script and scene
 
 const LOBBY := preload("res://src/lobby/lobby.tscn")
+const Online := preload("res://src/net/online.gd")
 
 var current: Node
 var _fade: ColorRect
@@ -36,9 +37,15 @@ func _ready() -> void:
 		_test.call_deferred()
 	elif args.has("--bot"):
 		_run_bot.call_deferred(args)
+	elif args.has("--nettest"):
+		_nettest.call_deferred()
 	elif args.has("--capture"):
+		# Captures of the social screens sign in to a local test server.
+		if not _arg(args, "server", "").is_empty():
+			_start_online()
 		_capture.call_deferred(args)
 	else:
+		_start_online()
 		# The launch update check holds the camp behind the splash; a connect,
 		# not an await, so an in-process update restart can free this node.
 		var ota := get_node_or_null("/root/Ota")
@@ -46,6 +53,23 @@ func _ready() -> void:
 			ota.connect("boot_done", go.bind("lobby"), CONNECT_ONE_SHOT)
 		else:
 			go("lobby")
+
+
+func _start_online() -> void:
+	var o := Online.start(self)
+	o.party.start.connect(_on_party_start)
+
+
+## The party leader started a hunt: follow, if in camp.
+func _on_party_start(plan: Dictionary) -> void:
+	if _busy or current == null or current is Hunt:
+		Online.inst.party.in_hunt = false
+		return
+	Game.set_mode("horde")
+	Game.set_zone(str(plan.get("zone", "barrow")))
+	Game.set_tier(int(plan.get("tier", 0)))
+	gold_seen = Game.gold()
+	go("hunt")
 
 
 func go(screen: String) -> void:
@@ -79,6 +103,8 @@ func go(screen: String) -> void:
 
 
 func _on_hunt_finished(result: Dictionary) -> void:
+	if Online.inst:
+		Online.inst.after_hunt(result)
 	if result.get("win", false) or (str(result.get("mode", "")) in ["descent", "wild"] and str(result.get("chest", "")) != ""):
 		var c := str(result.get("chest", ""))
 		if c != "":
@@ -115,6 +141,13 @@ func _check() -> void:
 func _test() -> void:
 	var fails := Tests.new().run()
 	print("TESTS ", "PASSED" if fails == 0 else "%d FAILED" % fails)
+	get_tree().quit(0 if fails == 0 else 1)
+
+
+func _nettest() -> void:
+	var t: Node = load("res://src/net/net_test.gd").new()
+	add_child(t)
+	var fails: int = await t.run(self)
 	get_tree().quit(0 if fails == 0 else 1)
 
 

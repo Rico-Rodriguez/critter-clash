@@ -1,5 +1,8 @@
 class_name Hunt
 extends "res://src/hunt/hunt_modes.gd"
+
+const Online := preload("res://src/net/online.gd")
+const Partner := preload("res://src/hunt/partner.gd")
 ## One hunt in the Barrow: the dead rise, the soul meter fills, the King
 ## wakes, and the hunt ends in victory or death. Owns every actor and runs
 ## the rules; the HUD only reads from here and sends input back.
@@ -10,6 +13,21 @@ extends "res://src/hunt/hunt_modes.gd"
 
 
 # --- Setup and the frame ------------------------------------------------------
+
+## Party partners join a party hunt (see src/net/party_link.gd).
+func _spawn_partners() -> void:
+	if bot or Online.inst == null or not Online.inst.party.in_hunt:
+		return
+	var link = Online.inst.party
+	var side := 1.0
+	for uid in link.mates():
+		var p := Partner.new()
+		world.add_child(p)
+		p.position = arena.resolve(hero.position + Vector3(2.0 * side, 0, -1.0), 0.5)
+		p.setup_partner(self, uid, link.members[uid], link.moves)
+		partners.append(p)
+		side = -side
+
 
 func _ready() -> void:
 	zone_id = Game.zone_id()
@@ -83,6 +101,7 @@ func _ready() -> void:
 		world.add_child(ally)
 		ally.position = arena.resolve(hero.position + Vector3(2.0, 0, 1.0), 0.5)
 		ally.setup(self, aid)
+	_spawn_partners()
 	_setup_shrines()
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
@@ -237,6 +256,9 @@ func tick(dt: float) -> void:
 		_tick_pet(dt)
 	if ally and phase != "defeat":
 		ally.tick(dt)
+	if phase != "defeat":
+		for p in partners:
+			p.tick(dt)
 	match phase:
 		"rise":
 			_direct(dt)

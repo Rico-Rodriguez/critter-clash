@@ -215,6 +215,9 @@ func _hero_looks(s: Sheet, id2: String) -> void:
 	gl.add_theme_constant_override("h_separation", 8)
 	gl.add_theme_constant_override("v_separation", 8)
 	for g in [""] + DB.GLOW_ORDER:
+		# Gift glows show only once earned.
+		if g != "" and DB.GLOWS[g].get("gift", false) and not g in h2.get("glows", []):
+			continue
 		var gb := Button.new()
 		gb.toggle_mode = true
 		gb.focus_mode = Control.FOCUS_NONE

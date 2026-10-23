@@ -739,8 +739,22 @@ const GLOWS := {
 	"venom": {"name": "Venom", "color": Color(0.45, 1.0, 0.35, 0.45), "gold": 4000},
 	"void": {"name": "Void", "color": Color(0.7, 0.3, 1.0, 0.5), "gold": 6000},
 	"gold": {"name": "Kingsgold", "color": Color(1.0, 0.85, 0.3, 0.55), "gold": 12000},
+	# Not for sale: earned when a friend you invited plays their first hunts.
+	"kinship": {"name": "Kinship", "color": Color(0.35, 0.75, 1.0, 0.55), "gold": 0, "gift": true},
 }
-const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold"]
+const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship"]
+
+# --- Online ---------------------------------------------------------------------
+
+## What one hunt deals to the clan raid boss: per kill, elite, boss and win,
+## then +per_tier for each difficulty step. A won Normal hunt is about 9,000;
+## the boss has 30,000 per clan member (server/nakama/modules/gl_rewards.lua),
+## so it falls when about half the clan plays a few hunts in its week.
+const RAID_HIT := {"kill": 25, "elite": 250, "boss": 2500, "win": 2500, "per_tier": 0.25}
+## A party partner fights at this share of their hero's damage (they are
+## fighting their own horde too), and a party hunt pays this much more gold.
+const PARTNER_DMG := 0.6
+const PARTY_GOLD := 0.2
 
 # --- Sets and ancients --------------------------------------------------------
 
