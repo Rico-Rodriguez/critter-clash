@@ -772,10 +772,10 @@ static func shop_gear_price(it: Dictionary) -> int:
 ## stats stay the item's). Bought with gold per hero. `model` is a file in
 ## assets/kaykit/weapons/; ours are built by the scripts in tools/art/.
 const WEAPON_SKINS := {
-	"oathbound": {"name": "Oathbound Blade", "model": "oathbound_blade.gltf", "scale": 1.0, "heroes": ["knight"], "gold": 6000},
+	"oathbound": {"name": "Oathbound Blade", "model": "oathbound_blade.gltf", "icon": "broadsword", "scale": 1.0, "heroes": ["knight"], "gold": 6000},
 	# Held one-handed and pointing forward, a scythe reads as a spear: the
 	# Knight's idle pose is why it is the Barbarian's alone.
-	"reaper": {"name": "Reaper's Scythe", "model": "reaper_scythe.gltf", "scale": 0.85, "heroes": ["barbarian"], "gold": 8000},
+	"reaper": {"name": "Reaper's Scythe", "model": "reaper_scythe.gltf", "icon": "scythe", "scale": 0.85, "heroes": ["barbarian"], "gold": 8000},
 }
 const WEAPON_SKIN_ORDER := ["oathbound", "reaper"]
 

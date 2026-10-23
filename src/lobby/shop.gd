@@ -1,6 +1,6 @@
 extends RefCounted
 ## The Shop tab (Clash Royale's shop, paid in gold only): today's deals, the
-## chest shelf and weapon glows. No class_name (see CLAUDE.md); lobby_ui.gd
+## chest shelf, weapon glows and weapon skins. No class_name (see CLAUDE.md); lobby_ui.gd
 ## preloads it and passes itself in, so the cards can open sheets and chests.
 
 const ItemIcons := preload("res://src/ui/item_icons.gd")
@@ -41,6 +41,14 @@ static func build(ui, s: Sheet) -> void:
 			continue
 		gg.add_child(_glow_card(ui, s, hid, g))
 	b.add_child(gg)
+
+	var skins: Array = DB.WEAPON_SKIN_ORDER.filter(func(k): return hid in DB.WEAPON_SKINS[k]["heroes"])
+	if not skins.is_empty():
+		b.add_child(_heading("WEAPON SKINS", "For the %s" % DB.HEROES[hid]["name"]))
+		var sg := _grid()
+		for k: String in skins:
+			sg.add_child(_skin_card(ui, s, hid, k))
+		b.add_child(sg)
 
 
 static func _heading(text: String, note: String) -> HBoxContainer:
@@ -211,6 +219,27 @@ static func _glow_card(ui, s: Sheet, hid: String, g: String) -> Button:
 	return btn
 
 
+static func _skin_card(ui, s: Sheet, hid: String, k: String) -> Button:
+	var sd: Dictionary = DB.WEAPON_SKINS[k]
+	var h := Game.hero(hid)
+	var owned: bool = k in h.get("skins", [])
+	var worn: bool = str(h.get("skin", "")) == k
+	var price := Game.skin_price(k)
+	var art: Control = ui._disc(str(sd["icon"]), GOLD, 92)
+	var ptxt := "WORN" if worn else ("OWNED" if owned else Ui.fmt_num(price))
+	var btn := _card(art, str(sd["name"]), "Weapon skin", ptxt, GREEN if owned else GOLD, "", worn, false)
+	btn.pressed.connect(func():
+		btn.button_pressed = worn
+		if owned:
+			Game.set_skin(hid, "" if worn else k)
+			Sfx.play("ui_toggle", -4.0)
+			ui.lobby.show_hero(hid)
+			s.rebuild()
+			return
+		_confirm(ui, s, {"kind": "skin", "skin": k, "hero": hid, "price": price}, -1))
+	return btn
+
+
 ## The are-you-sure sheet: what you get, what it costs, and Buy.
 static func _confirm(ui, page: Sheet, d: Dictionary, i: int) -> void:
 	Sfx.play("ui_tap", -4.0)
@@ -226,6 +255,8 @@ static func _confirm(ui, page: Sheet, d: Dictionary, i: int) -> void:
 			title = str(DB.CHESTS[d["chest"]]["name"])
 		"glow":
 			title = "%s glow" % DB.GLOWS[d["glow"]]["name"]
+		"skin":
+			title = str(DB.WEAPON_SKINS[d["skin"]]["name"])
 	sh.open(title, func(cs: Sheet): _confirm_body(ui, page, cs, d, i), 0.6)
 
 
@@ -256,6 +287,9 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 		"glow":
 			lines.append("Your %s's weapon glows %s in every hunt." % [DB.HEROES[d["hero"]]["name"], str(DB.GLOWS[d["glow"]]["name"]).to_lower()])
 			lines.append("Looks only: it changes no stats.")
+		"skin":
+			lines.append("Your %s carries the %s in camp and in every hunt." % [DB.HEROES[d["hero"]]["name"], DB.WEAPON_SKINS[d["skin"]]["name"]])
+			lines.append("Looks only: your equipped weapon's stats still count.")
 	for ln in lines:
 		var l := Ui.label(ln, "Body", HORIZONTAL_ALIGNMENT_CENTER)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -278,6 +312,11 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 				return
 			"glow":
 				if not Game.buy_glow(str(d["hero"]), str(d["glow"])):
+					Sfx.play("ui_error", -6.0)
+					return
+				ui.lobby.show_hero(str(d["hero"]))
+			"skin":
+				if not Game.buy_skin(str(d["hero"]), str(d["skin"])):
 					Sfx.play("ui_error", -6.0)
 					return
 				ui.lobby.show_hero(str(d["hero"]))

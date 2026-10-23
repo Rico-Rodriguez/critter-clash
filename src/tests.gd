@@ -441,6 +441,7 @@ func _net_tests() -> void:
 	# Weapon skins: a model that loads, sold only to the heroes listed.
 	for sk: String in DB.WEAPON_SKIN_ORDER:
 		_ok("skin %s model" % sk, ResourceLoader.exists(KK.WEAPON_DIR + str(DB.WEAPON_SKINS[sk]["model"])))
+		_ok("skin %s icon" % sk, ResourceLoader.exists("res://assets/icons/%s.svg" % DB.WEAPON_SKINS[sk]["icon"]))
 	_ok("skin not for the ranger", not Game.buy_skin("ranger", "reaper") and Game.hero("ranger")["skins"].is_empty())
 	var g0 := Game.gold()
 	_ok("skin bought", Game.buy_skin("barbarian", "reaper") and Game.gold() == g0 - Game.skin_price("reaper") and Game.hero("barbarian")["skin"] == "reaper")
