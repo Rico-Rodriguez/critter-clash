@@ -315,35 +315,46 @@ func _misc() -> void:
 
 ## The camp's bottom tab bar, chat bubbles and text fields (names, codes, chat).
 func _social() -> void:
+	# The bar sits flush with the bottom edge; a warm hairline caps it.
 	theme.set_type_variation("NavBar", "PanelContainer")
-	var nb := box(Color("0a090c"), 0, 0)
-	nb.border_width_top = 3
-	nb.border_color = LINE
+	var nb := box(Color("17121d"), 0, 0)
+	nb.border_width_top = 2
+	nb.border_color = Color("4a3a26")
 	nb.set_content_margin_all(0)
-	nb.shadow_color = Color(0, 0, 0, 0.5)
-	nb.shadow_size = 14
+	nb.shadow_color = Color(0, 0, 0, 0.6)
+	nb.shadow_size = 18
 	theme.set_stylebox("panel", "NavBar", nb)
-	# A tab: dim when idle; the open one is lit, raised and capped in gold.
+	# A tab: a dim icon when idle; the open one rises out of the bar as a gold
+	# block (its stylebox draws above the bar) and names itself.
 	theme.set_type_variation("NavTab", "Ghost")
 	var tn := box(Color(0, 0, 0, 0), 0, 0)
 	tn.set_content_margin_all(4)
-	var tp := box(PANEL_HI, 0, 0)
+	var tp := box(Color("f0aa3c"), 16, 0, Color("6a3606"), 5)
+	tp.corner_radius_bottom_left = 10
+	tp.corner_radius_bottom_right = 10
 	tp.set_content_margin_all(4)
-	tp.border_width_top = 5
-	tp.border_width_left = 2
-	tp.border_width_right = 2
-	tp.border_color = GOLD
-	for k in ["normal", "hover", "disabled"]:
+	tp.content_margin_top = 0
+	tp.expand_margin_top = 22
+	tp.expand_margin_left = 2
+	tp.expand_margin_right = 2
+	tp.shadow_color = Color(1.0, 0.72, 0.3, 0.35)
+	tp.shadow_size = 14
+	for k in ["normal", "hover", "disabled", "focus"]:
 		theme.set_stylebox(k, "NavTab", tn)
 	for k in ["pressed", "hover_pressed"]:
 		theme.set_stylebox(k, "NavTab", tp)
-	theme.set_font_size("font_size", "NavTab", 17)
-	theme.set_constant("icon_max_width", "NavTab", 62)
-	theme.set_constant("h_separation", "NavTab", 2)
-	theme.set_color("font_pressed_color", "NavTab", TEXT)
-	theme.set_color("font_hover_pressed_color", "NavTab", TEXT)
-	theme.set_color("icon_pressed_color", "NavTab", GOLD)
-	theme.set_color("icon_hover_pressed_color", "NavTab", GOLD)
+	theme.set_font("font", "NavTab", title)
+	theme.set_font_size("font_size", "NavTab", 19)
+	theme.set_constant("outline_size", "NavTab", 6)
+	theme.set_color("font_outline_color", "NavTab", Color("7a3d06"))
+	theme.set_constant("icon_max_width", "NavTab", 58)
+	theme.set_constant("h_separation", "NavTab", 0)
+	theme.set_color("font_pressed_color", "NavTab", Color.WHITE)
+	theme.set_color("font_hover_pressed_color", "NavTab", Color.WHITE)
+	theme.set_color("icon_normal_color", "NavTab", Color("8d8478"))
+	theme.set_color("icon_hover_color", "NavTab", Color("b3a998"))
+	theme.set_color("icon_pressed_color", "NavTab", Color.WHITE)
+	theme.set_color("icon_hover_pressed_color", "NavTab", Color.WHITE)
 	# Chat: others on the left in slate, yours on the right in warm brown;
 	# system lines (drops, joins, raid hits) sit centered without a bubble.
 	theme.set_type_variation("Bubble", "PanelContainer")

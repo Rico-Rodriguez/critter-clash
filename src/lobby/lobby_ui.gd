@@ -43,12 +43,16 @@ var _bought_deal := -2
 func setup(l: Node3D) -> void:
 	lobby = l
 	Ui.apply_safe_area(%Safe)
-	var ins := Ui.safe_insets(0)
-	# The home stops above the tab bar; the bar itself clears the home bar.
-	%Safe.add_theme_constant_override("margin_bottom", int(NAV_H + ins.w) + 14)
-	%NavBar.offset_top = -(NAV_H + ins.w)
-	%M.add_theme_constant_override("margin_bottom", int(ins.w))
-	%Pages.offset_bottom = -(NAV_H + ins.w)
+	# The bar sits flush with the bottom edge. The home indicator floats over
+	# its lower part, so only half the inset is added: the icons still clear it.
+	var bar := NAV_H + roundf(Ui.safe_insets(0).w * 0.5)
+	%Safe.add_theme_constant_override("margin_bottom", int(bar) + 30)
+	%NavBar.offset_top = -bar
+	%M.add_theme_constant_override("margin_bottom", int(bar - NAV_H))
+	%M.add_theme_constant_override("margin_top", 6)
+	%M.add_theme_constant_override("margin_left", 8)
+	%M.add_theme_constant_override("margin_right", 8)
+	%Pages.offset_bottom = -bar
 	_shown_hero = Game.hero_id()
 	Game.refresh_bounties()
 	Game.refresh_shop()
@@ -353,20 +357,16 @@ func _on_hunt() -> void:
 # --- Tabs ----------------------------------------------------------------------
 
 func _build_tabs() -> void:
+	%Tabs.add_theme_constant_override("separation", 6)
 	for key in TABS:
 		var b := Button.new()
 		b.theme_type_variation = &"NavTab"
 		b.toggle_mode = true
-		b.button_pressed = key == tab
-		# Icons only; the open tab is wider and names itself (Clash Royale's bar).
-		b.text = str(TAB_LOOK[key][0]).to_upper() if key == tab else ""
 		b.icon = Ui.icon(TAB_LOOK[key][1])
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		b.expand_icon = true
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.size_flags_stretch_ratio = 1.45 if key == tab else 1.0
 		var k: String = key
 		b.pressed.connect(func(): show_tab(k))
 		var dot := PanelContainer.new()
@@ -375,13 +375,34 @@ func _build_tabs() -> void:
 		dot.anchor_left = 0.5
 		dot.anchor_right = 0.5
 		dot.offset_left = 18.0
-		dot.offset_top = 10.0
+		dot.offset_top = 4.0
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.visible = false
 		b.add_child(dot)
 		_tab_btns[key] = b
 		_tab_dots[key] = dot
 		%Tabs.add_child(b)
+		FxUi.pulse(dot, 1.18, 1.3)
+	_style_tabs()
+
+
+## Icons only; the open tab is wider, rises as a gold block and names itself
+## (Clash Royale's bar).
+func _style_tabs() -> void:
+	for k in TABS:
+		var b: Button = _tab_btns[k]
+		var on: bool = k == tab
+		b.button_pressed = on
+		b.size_flags_stretch_ratio = 1.5 if on else 1.0
+		b.text = str(TAB_LOOK[k][0]).to_upper() if on else ""
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if on else VERTICAL_ALIGNMENT_CENTER
+		b.add_theme_constant_override("icon_max_width", 50 if on else 46)
+		var g := b.get_node_or_null("Gloss")
+		if on and g == null:
+			# Covers the part of the block that rises above the button too.
+			FxUi.gloss(b, 14.0, 0.35, 4.0).offset_top = -22.0
+		elif not on and g:
+			g.queue_free()
 
 
 ## Opens tab `name_`, on sub-tab `sub` when it has them. The new page slides in
@@ -397,10 +418,8 @@ func show_tab(name_: String, sub := 0) -> void:
 	var dir := signf(TABS.find(name_) - TABS.find(tab))
 	_leave_page()
 	tab = name_
-	for k in TABS:
-		_tab_btns[k].button_pressed = k == tab
-		_tab_btns[k].size_flags_stretch_ratio = 1.45 if k == tab else 1.0
-		_tab_btns[k].text = str(TAB_LOOK[k][0]).to_upper() if k == tab else ""
+	_style_tabs()
+	FxUi.pop(_tab_btns[tab], 1.12)
 	Sfx.play("ui_toggle", -6.0)
 	%Safe.visible = tab == "hunt"
 	%Shade.visible = tab == "hunt"
