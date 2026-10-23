@@ -497,7 +497,7 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 	match str(d["kind"]):
 		"shards":
 			var h := Game.hero(str(d["hero"]))
-			lines.append("Shards upgrade %s and rub XP lamps." % DB.HEROES[d["hero"]]["name"] if h["unlocked"] else "20 shards unlock %s (you have %d)." % [DB.HEROES[d["hero"]]["name"], int(h["shards"])])
+			lines.append("Shards buy %s's Super ranks." % DB.HEROES[d["hero"]]["name"] if h["unlocked"] else "20 shards unlock %s (you have %d)." % [DB.HEROES[d["hero"]]["name"], int(h["shards"])])
 		"gear":
 			var it: Dictionary = d["item"]
 			var cc := CenterContainer.new()

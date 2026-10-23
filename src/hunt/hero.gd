@@ -29,6 +29,8 @@ var pierce := 0
 var magnet := 3.0
 var dash_cd_max := 2.2
 var super_rate := 1.0
+## Super ranks bought with shards scale every Super's damage.
+var super_dmg := 1.0
 var gold_mult := 1.0
 var leech := 0.0
 var thorns := 0.0
@@ -249,6 +251,9 @@ func recompute() -> void:
 	rate *= 1.0 + 0.05 * rage
 	dash_cd_max = 2.2 * (1.0 - 0.2 * lv.call("dash")) * (1.0 - float(base.get("dash", 0.0)))
 	super_rate = (1.0 + 0.25 * lv.call("wrath")) * (1.0 + float(base.get("super", 0.0)) + hunt.pact_sum("super"))
+	var sm := DB.super_mults(Game.super_rank(id))
+	super_dmg = sm.x
+	super_rate *= sm.y
 	gold_mult = base["gold"] * (1.0 + 0.3 * lv.call("greed"))
 	leech = 0.03 * lv.call("leech")
 	thorns = 0.6 * lv.call("thorns")
@@ -749,7 +754,7 @@ func try_super() -> bool:
 			for i in n:
 				var a := rotation.y + (i - (n - 1) * 0.5) * deg_to_rad(6.0)
 				var d := dir_of(a)
-				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * 30.0, dmg * 1.7, 99, self, {"super": true})
+				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * 30.0, dmg * 1.7 * super_dmg, 99, self, {"super": true})
 			hunt.shake(0.25)
 			Sfx.play("volley", 0.0)
 			# The sky goes dark with arrows: a dim, and a rain that falls
@@ -764,14 +769,14 @@ func try_super() -> bool:
 				var rp: Vector3 = (rain[k] as Actor).flat_pos()
 				for j in 5:
 					var ap := rp + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.6, 1.6))
-					hunt.fx.fall("arrow", ap, 0.25 + 0.05 * (k * 5 + j), 0.28, func(): _arrow_hit(ap, dmg * 0.9))
+					hunt.fx.fall("arrow", ap, 0.25 + 0.05 * (k * 5 + j), 0.28, func(): _arrow_hit(ap, dmg * 0.9 * super_dmg))
 		"meteor":
 			super_t = 0.5
 			act(def["anim"]["super"], 0.6, true)
 			hunt.fx.ring(flat_pos(), 3.0, Color(1.0, 0.55, 0.2), 0.5, 0.1)
 			hunt.fx.flash_light(flat_pos(), Color(1.0, 0.6, 0.3), 4.0, 8.0, 0.5)
 			var arm := int(hunt.cards.get("armageddon", 0)) > 0
-			meteor_shower(14 if arm else 9, dmg * 3.2, 2.9, 13.0)
+			meteor_shower(14 if arm else 9, dmg * 3.2 * super_dmg, 2.9, 13.0)
 			hunt.shake(0.3)
 			Sfx.play("charge", -3.0, 0.7)
 	# The name goes up where the hero will be (the Knight's leap lands away).
@@ -802,7 +807,7 @@ func _tick_super(dt: float) -> void:
 				var any := false
 				for f in hunt.foes_near(position, 3.2):
 					var to: Vector3 = f.flat_pos() - flat_pos()
-					hunt.damage_foe(f, dmg * 0.75, self, to.normalized(), 3.0)
+					hunt.damage_foe(f, dmg * 0.75 * super_dmg, self, to.normalized(), 3.0)
 					any = true
 				hunt.fx.slash(flat_pos(), randf() * TAU, 3.2, 360, Color(1.0, 0.55, 0.25), false, 0.22)
 				hunt.fx.embers_at(flat_pos(), Color(1.0, 0.6, 0.2), 5, 2.4)
@@ -829,13 +834,13 @@ func _slam_land() -> void:
 	hunt.fx.flash_light(at, Color(1.0, 0.8, 0.5), 7.0, 10.0, 0.4)
 	for f in hunt.foes_near(position, 4.6):
 		var to: Vector3 = f.flat_pos() - at
-		hunt.damage_foe(f, dmg * 3.6, self, to.normalized(), 13.0)
+		hunt.damage_foe(f, dmg * 3.6 * super_dmg, self, to.normalized(), 13.0)
 		if f.alive:
 			f.stun_t = 1.6
 	for f2 in _foes_in(6.5, 6):
 		hunt.fx.sky_bolt(f2.flat_pos(), Color(1.0, 0.88, 0.5), 0.22)
 		if f2.alive:
-			hunt.damage_foe(f2, dmg * 1.5, self, Vector3.ZERO, 3.0)
+			hunt.damage_foe(f2, dmg * 1.5 * super_dmg, self, Vector3.ZERO, 3.0)
 	# Judgement: a crown of lightning comes down around the knight.
 	for i in 8:
 		var bp := at + Vector3.FORWARD.rotated(Vector3.UP, TAU * i / 8.0) * 3.6

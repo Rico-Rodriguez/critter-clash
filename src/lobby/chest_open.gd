@@ -105,7 +105,7 @@ func _reward_card(r: Dictionary) -> Control:
 			icon = d["icon"]
 			title = "+%d %s shards" % [int(r["amount"]), d["name"]]
 			var h := Game.hero(r["hero"])
-			sub = ("%d shards · %d per XP lamp" % [int(h["shards"]), DB.LAMP_SHARDS]) if h["unlocked"] else "%d / 20 to unlock" % int(h["shards"])
+			sub = ("%d shards · buy Super ranks" % int(h["shards"])) if h["unlocked"] else "%d / 20 to unlock" % int(h["shards"])
 		"item":
 			var it: Dictionary = r["item"]
 			col = DB.gear_color(it)
