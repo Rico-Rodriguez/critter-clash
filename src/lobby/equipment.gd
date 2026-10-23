@@ -944,7 +944,7 @@ func _open_card(it: Dictionary) -> void:
 	if owner == "":
 		var sell := _action("Sell %d" % Game.item_value(it), "", Callable())
 		sell.icon = Ui.icon("two-coins")
-		var needs_confirm := DB.RARITIES.find(it["rarity"]) >= 2 or int(it.get("mat", 0)) >= 4
+		var needs_confirm := DB.RARITIES.find(it["rarity"]) >= 2 or int(it.get("mat", 0)) >= 3
 		sell.pressed.connect(func():
 			if needs_confirm and sell.text != "Tap to sell":
 				sell.text = "Tap to sell"

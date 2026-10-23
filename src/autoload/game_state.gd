@@ -5,7 +5,7 @@ extends Node
 signal changed
 
 const SAVE_PATH := "user://barrowfall_save.json"
-const SAVE_VERSION := 7
+const SAVE_VERSION := 8
 const INVENTORY_CAP := 48
 
 var data: Dictionary = {}

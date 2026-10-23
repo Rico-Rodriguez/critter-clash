@@ -59,7 +59,7 @@ func load_save() -> void:
 	if f == null:
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
-	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, 5, 6, SAVE_VERSION]:
+	if parsed is Dictionary and int(parsed.get("version", 0)) in [1, 2, 3, 4, 5, 6, 7, SAVE_VERSION]:
 		if int(parsed.get("version", 0)) == 1:
 			_migrate_v1(parsed)
 		if int(parsed.get("version", 0)) == 2:
@@ -72,6 +72,8 @@ func load_save() -> void:
 			_migrate_v5(parsed)
 		if int(parsed.get("version", 0)) == 6:
 			_migrate_v6(parsed)
+		if int(parsed.get("version", 0)) == 7:
+			_migrate_v7(parsed)
 		_merge(data, parsed)
 		_rename_gear()
 		_refund_levels()
@@ -226,6 +228,31 @@ func _migrate_v6(d: Dictionary) -> void:
 	d["unlocks"] = open
 	d["road"] = n
 	d["start_picked"] = true
+	d["version"] = 7
+
+
+## v8 folds the seven material tiers into five named sets. Each piece moves to
+## its set, and its stats are rescaled so it is exactly as strong as before
+## (stats grow DB.MAT_STAT a set now, 0.22 a tier then). Names are rebuilt on
+## load (`_rename_gear`).
+const _V8_SET := [0, 1, 1, 2, 3, 3, 4]
+
+
+func _migrate_v7(d: Dictionary) -> void:
+	for it in d.get("items", []):
+		if not (it is Dictionary) or not it.has("mat"):
+			continue
+		var old := clampi(int(it["mat"]), 0, _V8_SET.size() - 1)
+		var mat: int = _V8_SET[old]
+		it["mat"] = mat
+		if str(it.get("unique", "")) == "" and it.get("stats") is Dictionary:
+			var k := (1.0 + 0.22 * old) / (1.0 + DB.MAT_STAT * mat)
+			for key in it["stats"]:
+				it["stats"][key] = maxi(1, int(round(float(it["stats"][key]) * k)))
+	for hid in d.get("heroes", {}):
+		var h: Dictionary = d["heroes"][hid]
+		if int(h.get("best_mat", -1)) >= 0:
+			h["best_mat"] = _V8_SET[clampi(int(h["best_mat"]), 0, _V8_SET.size() - 1)]
 	d["version"] = SAVE_VERSION
 
 

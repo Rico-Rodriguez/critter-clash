@@ -170,18 +170,18 @@ func _gear_tests() -> void:
 	for n: Node in scenes.values():
 		n.free()
 	_ok("gear parts exist %s" % str(missing), missing.is_empty())
-	var it := Game.make_item("mage", "chest", 3, "rare")
-	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 3 and (str(it["name"]).ends_with("Sage Robe") or str(it["name"]).ends_with("Sage Ragged Robe")))
+	var it := Game.make_item("mage", "chest", 2, "rare")
+	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 2 and (str(it["name"]).ends_with("Barrowsteel Robe") or str(it["name"]).ends_with("Barrowsteel Ragged Robe")))
 	# Alternatives and set looks change the model and the name, never the stats.
 	it["look"] = 0
-	_ok("look 0 is the stage", GearDB.base_name(it) == "Sage Robe")
+	_ok("look 0 is the stage", GearDB.base_name(it) == "Barrowsteel Robe")
 	it["look"] = 1
-	_ok("look 1 is the alternative", GearDB.base_name(it) == "Sage Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
+	_ok("look 1 is the alternative", GearDB.base_name(it) == "Barrowsteel Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
 	it["set"] = "hexer"
-	_ok("a set piece wears the set", GearDB.base_name(it) == "Sage Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	_ok("a set piece wears the set", GearDB.base_name(it) == "Barrowsteel Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
 	var kn := Game.make_item("knight", "helm", 0, "common")
 	kn["look"] = 1
-	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Bronze Helm")
+	_ok("a stage without alternatives ignores look", GearDB.base_name(kn) == "Gravedigger Helm")
 	# The first higher material a hero wears is news once; lower ones never are.
 	Game.data = Game._fresh()
 	for sk in DB.SKILLS:

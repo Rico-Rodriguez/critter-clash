@@ -1,66 +1,64 @@
 class_name GearDB
 extends RefCounted
 ## What every piece of gear looks like. Gear is class-specific (each hero has
-## its own line, like Diablo) and has seven material tiers (bronze
-## to bloodiron). A piece is {slot, cls, mat, rarity, ...}; its look comes
-## from here, never from the save, so art changes never touch saves.
+## its own line, like Diablo) and comes in five named sets, Gravedigger to
+## Gravelight, that every hero has its own cut of. A piece is {slot, cls, mat,
+## rarity, ...} (`mat` is the set's index); its look comes from here, never
+## from the save, so art changes never touch saves.
 ##
 ## Parts are meshes lifted from the KayKit characters. They all share one
 ## skeleton, so a Knight can wear the Mage's hat: "Mage/Hat". A "T:Knight" is
-## that character's torso set (body + both arms), "L:Knight" its legs.
+## that character's torso set (body + both arms), "L:Knight" its legs. A
+## "P:file@bone" is a rigid prop of ours (assets/kaykit/gear/) pinned to a bone.
 
-const TIERS := 7
-## Skill level needed to wear a tier (skill depends on the hero and the slot).
-const REQ := [1, 5, 12, 20, 30, 40, 55]
+const TIERS := 5
+## Skill level needed to wear a set (skill depends on the hero and the slot).
+const REQ := [1, 10, 25, 40, 60]
 ## What a hero wears with nothing equipped: a plain man in a tunic.
 const BASIC_DYE := Color(0.72, 0.62, 0.48, 0.92)
 
+## The five sets, shared by every hero. Each step adds a new kind of flash:
+## scavenged scraps, a matching kit, a heavy engraved silhouette, glowing
+## veins and embers, then pale soul fire and a full-set aura.
+const SET_NAMES := ["Gravedigger", "Warden", "Barrowsteel", "Bloodiron", "Gravelight"]
+
 const METAL := [
-	Color(0.78, 0.5, 0.26), Color(0.56, 0.57, 0.62), Color(0.8, 0.84, 0.9), Color(0.28, 0.4, 0.9),
-	Color(0.2, 0.62, 0.34), Color(0.25, 0.82, 0.92), Color(0.82, 0.14, 0.12),
+	Color(0.62, 0.42, 0.26), Color(0.6, 0.64, 0.72), Color(0.34, 0.36, 0.42), Color(0.2, 0.06, 0.07), Color(0.86, 0.95, 0.9),
 ]
 const HIDE := [
-	Color(0.55, 0.38, 0.22), Color(0.4, 0.27, 0.16), Color(0.58, 0.55, 0.5), Color(0.25, 0.6, 0.28),
-	Color(0.22, 0.4, 0.85), Color(0.8, 0.2, 0.16), Color(0.14, 0.13, 0.15),
+	Color(0.5, 0.36, 0.22), Color(0.3, 0.42, 0.26), Color(0.2, 0.2, 0.24), Color(0.3, 0.07, 0.08), Color(0.8, 0.9, 0.84),
 ]
 const CLOTH := [
-	Color(0.55, 0.52, 0.48), Color(0.28, 0.4, 0.8), Color(0.2, 0.62, 0.62), Color(0.5, 0.28, 0.8),
-	Color(0.78, 0.22, 0.5), Color(0.95, 0.75, 0.25), Color(0.16, 0.1, 0.28),
+	Color(0.52, 0.48, 0.42), Color(0.28, 0.38, 0.72), Color(0.32, 0.18, 0.5), Color(0.42, 0.06, 0.1), Color(0.82, 0.94, 0.88),
 ]
-## How fine each material tier looks, per kind of line (char.gdshader `grade`):
-## polish, shimmer, veins, vein heat. Low tiers are dull and dirty; from the
-## fourth up a band of light runs over the piece; the top tier glows from
-## within. Metal gleams most, hide takes a sheen, cloth carries the light.
+## How fine each set looks, per kind of line (char.gdshader `grade`): polish,
+## shimmer, veins, vein heat. Gravedigger is dull and dirty; Barrowsteel takes
+## a band of light; Bloodiron glows in its seams; Gravelight burns from within.
+## Metal gleams most, hide takes a sheen, cloth carries the light.
 const GRADES := {
 	"metal": [
-		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.2, 0.0, 0.0, 0.0), Vector4(0.5, 0.0, 0.0, 0.0), Vector4(0.7, 0.3, 0.0, 0.0),
-		Vector4(0.8, 0.6, 0.0, 0.0), Vector4(0.9, 0.9, 0.35, 0.0), Vector4(0.9, 0.6, 1.0, 0.25),
+		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.45, 0.0, 0.0, 0.0), Vector4(0.75, 0.35, 0.0, 0.0), Vector4(0.8, 0.3, 1.0, 0.3), Vector4(0.9, 0.8, 1.0, 0.45),
 	],
 	"hide": [
-		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.05, 0.0, 0.0, 0.0), Vector4(0.2, 0.0, 0.0, 0.0), Vector4(0.35, 0.25, 0.0, 0.0),
-		Vector4(0.45, 0.5, 0.0, 0.0), Vector4(0.5, 0.75, 0.3, 0.0), Vector4(0.55, 0.5, 0.9, 0.1),
+		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.15, 0.0, 0.0, 0.0), Vector4(0.35, 0.3, 0.0, 0.0), Vector4(0.45, 0.3, 0.9, 0.2), Vector4(0.55, 0.7, 1.0, 0.35),
 	],
 	"cloth": [
-		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.05, 0.15, 0.0, 0.0), Vector4(0.1, 0.35, 0.0, 0.0),
-		Vector4(0.15, 0.55, 0.3, 0.0), Vector4(0.2, 0.8, 0.6, 0.0), Vector4(0.25, 0.6, 1.0, 0.3),
+		Vector4(0.0, 0.0, 0.0, 0.0), Vector4(0.05, 0.1, 0.0, 0.0), Vector4(0.1, 0.35, 0.0, 0.0), Vector4(0.15, 0.4, 0.9, 0.25), Vector4(0.25, 0.8, 1.0, 0.4),
 	],
 }
-## Glow colors where a material's dye is too dark to glow in its own color.
-const ACCENTS := {"cloth": {6: Color(0.72, 0.35, 1.0)}, "hide": {6: Color(0.3, 0.85, 0.55)}}
-## From this material tier a weapon or offhand gives off sparks, and a hero
-## wearing it in all five slots stands in an aura.
-const ENCHANT_FROM := 4
-
-const METAL_NAMES := ["Bronze", "Iron", "Steel", "Cobalt", "Verdite", "Skyiron", "Bloodiron"]
-const HIDE_NAMES := ["Leather", "Hard Leather", "Studded", "Fenscale", "Tidescale", "Emberscale", "Nightscale"]
-const CLOTH_NAMES := ["Novice", "Apprentice", "Adept", "Sage", "Arcane", "Sunwoven", "Eldritch"]
+## What the top sets glow in, whatever the dye: Bloodiron's embers and
+## Gravelight's soul fire.
+const SET_ACCENT := {3: Color(1.0, 0.22, 0.1), 4: Color(0.55, 1.0, 0.75)}
+## From this set a weapon or offhand gives off sparks, and a hero wearing it
+## in all five slots stands in an aura.
+const ENCHANT_FROM := 3
 
 ## Per hero: material names and dyes, the skills that gate its gear, what is in
 ## the hand when nothing is equipped, and the look stages of every slot. A
 ## stage applies from its `from` tier upward (the last matching one wins).
 const LINES := {
 	"knight": {
-		"names": METAL_NAMES, "dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
+		"dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
 		"starter": "dagger.gltf", "offhand_bone": "handslot.l",
 		"weapon": [
 			{"from": 0, "name": "Shortsword", "model": "sword_1handed.gltf", "alts": [
@@ -68,52 +66,52 @@ const LINES := {
 				{"name": "Arming Sword", "model": "sword_B.gltf"},
 				{"name": "Morning Star", "model": "hammer_B.gltf", "scale": 1.15, "icon": "round-star"},
 			]},
-			{"from": 3, "name": "Longsword", "model": "sword_2handed.gltf", "alts": [
+			{"from": 2, "name": "Longsword", "model": "sword_2handed.gltf", "alts": [
 				{"name": "Battleaxe", "model": "axe_2handed.gltf", "scale": 0.9, "icon": "battle-axe"},
 				{"name": "Warhammer", "model": "hammer_A.gltf", "scale": 1.1, "icon": "anvil"},
 				{"name": "Rapier", "model": "sword_D.gltf", "scale": 0.95},
 			]},
-			{"from": 5, "name": "Greatsword", "model": "sword_2handed_color.gltf", "scale": 1.08, "alts": [
+			{"from": 3, "name": "Greatsword", "model": "sword_2handed_color.gltf", "scale": 1.08, "alts": [
 				{"name": "Claymore", "model": "sword_E.gltf", "scale": 0.62},
 				{"name": "Halberd", "model": "halberd.gltf", "scale": 0.72, "icon": "battle-axe"},
 			]},
 		],
 		"helm": [
 			{"from": 0, "name": "Helm", "parts": ["Knight/Helmet"]},
-			{"from": 2, "name": "Visored Helm", "parts": ["Knight/Helmet", "Knight/HelmetVisor"], "alts": [
+			{"from": 1, "name": "Visored Helm", "parts": ["Knight/Helmet", "Knight/HelmetVisor"], "alts": [
 				{"name": "Horned Helm", "parts": ["Skeleton_Warrior/Helmet"]},
 			]},
 		],
 		"chest": [
 			{"from": 0, "name": "Hauberk", "parts": ["T:Ranger"]},
-			{"from": 2, "name": "Cuirass", "parts": ["T:Knight"]},
-			{"from": 4, "name": "Cuirass", "parts": ["T:Knight", "Rogue_Hooded/Cape"], "alts": [
+			{"from": 1, "name": "Cuirass", "parts": ["T:Knight"]},
+			{"from": 2, "name": "Cuirass", "parts": ["T:Knight", "Rogue_Hooded/Cape"], "alts": [
 				{"name": "Cuirass", "parts": ["T:Knight", "Skeleton_Warrior/Cloak"]},
 			]},
-			{"from": 5, "name": "Cuirass", "parts": ["T:Knight", "Knight/Cape"]},
+			{"from": 3, "name": "Cuirass", "parts": ["T:Knight", "Knight/Cape"]},
 		],
 		"legs": [
 			{"from": 0, "name": "Chausses", "parts": ["L:Ranger"]},
-			{"from": 2, "name": "Greaves", "parts": ["L:Knight"]},
+			{"from": 1, "name": "Greaves", "parts": ["L:Knight"]},
 		],
 		"trinket": [
 			{"from": 0, "name": "Buckler", "model": "shield_round.gltf", "alts": [
 				{"name": "Plank Shield", "model": "shield_A.gltf"},
 			]},
-			{"from": 2, "name": "Kite Shield", "model": "shield_badge.gltf", "alts": [
+			{"from": 1, "name": "Kite Shield", "model": "shield_badge.gltf", "alts": [
 				{"name": "Heater Shield", "model": "shield_badge_color.gltf"},
 				{"name": "Tower Shield", "model": "shield_square.gltf"},
 				{"name": "Crest Shield", "model": "shield_B.gltf"},
 			]},
-			{"from": 4, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
+			{"from": 3, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
 				{"name": "Heraldic Shield", "model": "shield_round_color.gltf"},
 				{"name": "Bulwark", "model": "shield_C.gltf"},
 			]},
-			{"from": 6, "name": "Warden Shield", "model": "shield_square_color.gltf"},
+			{"from": 4, "name": "Warden Shield", "model": "shield_square_color.gltf"},
 		],
 	},
 	"barbarian": {
-		"names": METAL_NAMES, "dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
+		"dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
 		"starter": "axe_1handed.gltf", "offhand_bone": "back",
 		"weapon": [
 			{"from": 0, "name": "Hatchet", "model": "axe_1handed.gltf", "scale": 1.35, "alts": [
@@ -121,26 +119,26 @@ const LINES := {
 				{"name": "Spiked Club", "model": "hammer_C.gltf", "scale": 1.1, "icon": "bone-gnawer"},
 				{"name": "Bearded Axe", "model": "axe_C.gltf", "scale": 1.2},
 			]},
-			{"from": 2, "name": "Battleaxe", "model": "axe_2handed.gltf", "alts": [
+			{"from": 1, "name": "Battleaxe", "model": "axe_2handed.gltf", "alts": [
 				{"name": "Greatsword", "model": "sword_2handed.gltf", "scale": 1.1, "icon": "broadsword"},
 				{"name": "Double Axe", "model": "axe_A.gltf", "scale": 1.35, "icon": "crossed-axes"},
 			]},
-			{"from": 5, "name": "Great Axe", "model": "axe_2handed.gltf", "scale": 1.18, "alts": [
+			{"from": 3, "name": "Great Axe", "model": "axe_2handed.gltf", "scale": 1.18, "alts": [
 				{"name": "Labrys", "model": "axe_B.gltf", "scale": 1.05, "icon": "crossed-axes"},
 				{"name": "Maul", "model": "hammer_A.gltf", "scale": 1.3, "icon": "anvil"},
 			]},
 		],
 		"helm": [
 			{"from": 0, "name": "Horned Cap", "parts": ["Skeleton_Warrior/Helmet"]},
-			{"from": 3, "name": "Bear Helm", "parts": ["Barbarian/BearHat"], "alts": [
+			{"from": 2, "name": "Bear Helm", "parts": ["Barbarian/BearHat"], "alts": [
 				{"name": "Great Helm", "parts": ["Knight/Helmet"]},
 			]},
 		],
 		"chest": [
 			{"from": 0, "name": "Hide Vest", "parts": ["T:Ranger"]},
 			{"from": 1, "name": "Fur Armour", "parts": ["T:Barbarian"]},
-			{"from": 4, "name": "Fur Armour", "parts": ["T:Barbarian", "Ranger/Cape"]},
-			{"from": 5, "name": "Warlord Armour", "parts": ["T:Barbarian", "Knight/Cape"], "alts": [
+			{"from": 2, "name": "Fur Armour", "parts": ["T:Barbarian", "Ranger/Cape"]},
+			{"from": 3, "name": "Warlord Armour", "parts": ["T:Barbarian", "Knight/Cape"], "alts": [
 				{"name": "Warlord Armour", "parts": ["T:Barbarian", "Skeleton_Warrior/Cloak"]},
 			]},
 		],
@@ -153,25 +151,25 @@ const LINES := {
 				{"name": "Painted Shield", "model": "shield_round_color.gltf"},
 				{"name": "Plank Shield", "model": "shield_A.gltf"},
 			]},
-			{"from": 4, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
+			{"from": 3, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
 				{"name": "Boss Shield", "model": "Skeleton_Shield_Small_B.gltf", "scale": 1.2},
 				{"name": "Bulwark", "model": "shield_C.gltf"},
 			]},
 		],
 	},
 	"mage": {
-		"names": CLOTH_NAMES, "dye": CLOTH, "weapon_skill": "magic", "armor_skill": "magic",
+		"dye": CLOTH, "weapon_skill": "magic", "armor_skill": "magic",
 		"starter": "wand.gltf", "offhand_bone": "handslot.l",
 		"weapon": [
 			{"from": 0, "name": "Wand", "model": "wand.gltf", "scale": 1.15, "alts": [
 				{"name": "Crystal Wand", "model": "wand_A.gltf", "icon": "fairy-wand"},
 			]},
-			{"from": 2, "name": "Staff", "model": "staff.gltf", "alts": [
+			{"from": 1, "name": "Staff", "model": "staff.gltf", "alts": [
 				{"name": "Lantern Staff", "model": "kit:lantern_staff"},
 				{"name": "Crystal Staff", "model": "staff_B.gltf", "icon": "crystal-shine"},
 			]},
-			{"from": 4, "name": "Bone Staff", "model": "kit:bone_staff"},
-			{"from": 5, "name": "Skull Staff", "model": "Skeleton_Staff.gltf", "scale": 1.1, "alts": [
+			{"from": 2, "name": "Bone Staff", "model": "kit:bone_staff"},
+			{"from": 3, "name": "Skull Staff", "model": "Skeleton_Staff.gltf", "scale": 1.1, "alts": [
 				{"name": "Deathlight Staff", "model": "kit:deathlight"},
 			]},
 		],
@@ -179,17 +177,17 @@ const LINES := {
 			{"from": 0, "name": "Hat", "parts": ["Mage/Hat"], "alts": [
 				{"name": "Cowl", "parts": ["Rogue_Hooded/Head"], "hood": true},
 			]},
-			{"from": 3, "name": "Hat", "parts": ["Mage/Hat"], "alts": [
+			{"from": 2, "name": "Hat", "parts": ["Mage/Hat"], "alts": [
 				{"name": "Witch Hat", "parts": ["Skeleton_Mage/Hat"]},
 			]},
 		],
 		"chest": [
 			{"from": 0, "name": "Robe", "parts": ["T:Ranger"]},
 			{"from": 1, "name": "Robe", "parts": ["T:Mage"]},
-			{"from": 3, "name": "Robe", "parts": ["T:Mage"], "alts": [
+			{"from": 2, "name": "Robe", "parts": ["T:Mage"], "alts": [
 				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight"]},
 			]},
-			{"from": 4, "name": "Robe", "parts": ["T:Mage", "Mage/Cape"], "alts": [
+			{"from": 3, "name": "Robe", "parts": ["T:Mage", "Mage/Cape"], "alts": [
 				{"name": "Ragged Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight", "Skeleton_Minion/Cloak"]},
 			]},
 		],
@@ -199,49 +197,49 @@ const LINES := {
 		],
 		"trinket": [
 			{"from": 0, "name": "Tome", "model": "spellbook_closed.gltf"},
-			{"from": 3, "name": "Grimoire", "model": "spellbook_open.gltf", "alts": [
+			{"from": 2, "name": "Grimoire", "model": "spellbook_open.gltf", "alts": [
 				{"name": "Skull Orb", "model": "kit:skull_orb", "icon": "crowned-skull"},
 			]},
-			{"from": 5, "name": "Grimoire", "model": "spellbook_open.gltf", "alts": [
+			{"from": 3, "name": "Grimoire", "model": "spellbook_open.gltf", "alts": [
 				{"name": "Candelabra", "model": "kit:candelabra", "icon": "flame"},
 				{"name": "Phylactery", "model": "kit:phylactery", "icon": "gems"},
 			]},
 		],
 	},
 	"ranger": {
-		"names": HIDE_NAMES, "dye": HIDE, "weapon_skill": "ranged", "armor_skill": "ranged",
+		"dye": HIDE, "weapon_skill": "ranged", "armor_skill": "ranged",
 		"starter": "bow.gltf", "offhand_bone": "back",
 		"weapon": [
 			{"from": 0, "name": "Shortbow", "model": "bow.gltf", "alts": [
 				{"name": "Hunting Bow", "model": "kit:hunting_bow"},
 			]},
-			{"from": 3, "name": "Longbow", "model": "bow_withString.gltf", "alts": [
+			{"from": 2, "name": "Longbow", "model": "bow_withString.gltf", "alts": [
 				{"name": "Recurve Bow", "model": "kit:recurve"},
 			]},
-			{"from": 5, "name": "Warbow", "model": "bow_withString.gltf", "scale": 1.15, "alts": [
+			{"from": 3, "name": "Warbow", "model": "bow_withString.gltf", "scale": 1.15, "alts": [
 				{"name": "Recurve Bow", "model": "kit:recurve", "scale": 1.15},
 			]},
 		],
 		"helm": [
 			{"from": 0, "name": "Mask", "parts": ["Rogue_Hooded/Mask"]},
-			{"from": 3, "name": "Hood", "parts": ["Rogue_Hooded/Head"], "hood": true, "alts": [
+			{"from": 2, "name": "Hood", "parts": ["Rogue_Hooded/Head"], "hood": true, "alts": [
 				{"name": "Mask", "parts": ["Rogue_Hooded/Mask", "Mage/Hat"]},
 			]},
 		],
 		"chest": [
 			{"from": 0, "name": "Body", "parts": ["T:Ranger"]},
-			{"from": 3, "name": "Body", "parts": ["T:Rogue_Hooded"]},
-			{"from": 5, "name": "Body", "parts": ["T:Rogue_Hooded", "Ranger/Cape"], "alts": [
+			{"from": 2, "name": "Body", "parts": ["T:Rogue_Hooded"]},
+			{"from": 3, "name": "Body", "parts": ["T:Rogue_Hooded", "Ranger/Cape"], "alts": [
 				{"name": "Body", "parts": ["T:Rogue_Hooded", "Rogue_Hooded/Cape"]},
 			]},
 		],
 		"legs": [
 			{"from": 0, "name": "Chaps", "parts": ["L:Ranger"]},
-			{"from": 3, "name": "Chaps", "parts": ["L:Rogue_Hooded"]},
+			{"from": 2, "name": "Chaps", "parts": ["L:Rogue_Hooded"]},
 		],
 		"trinket": [
 			{"from": 0, "name": "Quiver", "parts": ["Ranger/Quiver"]},
-			{"from": 4, "name": "Quiver", "parts": ["Ranger/Quiver"], "alts": [
+			{"from": 3, "name": "Quiver", "parts": ["Ranger/Quiver"], "alts": [
 				{"name": "Bone Quiver", "model": "Skeleton_Quiver.gltf"},
 			]},
 		],
@@ -537,8 +535,8 @@ static func accent(it: Dictionary) -> Color:
 	var sl := set_look(it)
 	if u == "" and not sl.is_empty():
 		return sl["accent"]
-	if u == "" and ACCENTS.get(kind(cls), {}).has(mat):
-		return ACCENTS[kind(cls)][mat]
+	if u == "" and SET_ACCENT.has(mat):
+		return SET_ACCENT[mat]
 	var c := item_color(it)
 	var m := maxf(maxf(c.r, c.g), maxf(c.b, 0.05))
 	return Color(c.r / m, c.g / m, c.b / m)
@@ -570,16 +568,16 @@ static func aura(worn: Dictionary, cls: String) -> Color:
 	return Color(accent({"cls": cls, "mat": low}), (low - ENCHANT_FROM + 1) / float(TIERS - ENCHANT_FROM))
 
 
-static func material_name(cls: String, mat: int) -> String:
-	return LINES[cls]["names"][clampi(mat, 0, TIERS - 1)]
+static func material_name(_cls: String, mat: int) -> String:
+	return SET_NAMES[clampi(mat, 0, TIERS - 1)]
 
 
 static func dye(cls: String, mat: int) -> Color:
 	return LINES[cls]["dye"][clampi(mat, 0, TIERS - 1)]
 
 
-## "Cobalt Cuirass" for a hero's tier-3 chest; "Cobalt Horned Helm" for
-## an alternative, "Cobalt Blackguard Helm" for a set piece.
+## "Bloodiron Cuirass" for a hero's fourth-set chest; "Bloodiron Horned Helm"
+## for an alternative, "Bloodiron Blackguard Helm" for a boss set piece.
 static func base_name(it: Dictionary) -> String:
 	var cls := str(it["cls"])
 	return "%s %s" % [material_name(cls, int(it.get("mat", 0))), piece(it)["name"]]
@@ -631,11 +629,12 @@ static func mesh_name(part: String) -> String:
 	return "%s_%s" % [src.replace("Rogue_Hooded", "RogueHooded"), what]
 
 
-## Rolls the material tier of a drop: harder content drops better metal.
-## `bonus` is zone/depth/boss shift in tiers.
-## `base_mat` is the tier's material (DB.TIERS[i]["mat"]).
+## Rolls the set of a drop: harder content drops better sets. Sets are wide
+## steps, so a drop is at most one set above its base.
+## `bonus` is zone/depth/boss shift in sets.
+## `base_mat` is the tier's set (DB.TIERS[i]["mat"]).
 static func roll_mat(base_mat: int, bonus: int, rng: RandomNumberGenerator) -> int:
 	var base := base_mat + bonus
 	var r := rng.randf()
-	var shift := -1 if r < 0.22 else (0 if r < 0.62 else (1 if r < 0.9 else 2))
+	var shift := -1 if r < 0.22 else (0 if r < 0.72 else 1)
 	return clampi(base + shift, 0, TIERS - 1)

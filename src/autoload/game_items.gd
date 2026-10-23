@@ -254,7 +254,7 @@ func roll_item(source: String, tier_i: int, slot := "", cls := "", bonus := 0) -
 ## Builds a piece: stats scale with the material and the rarity.
 func make_item(cls: String, slot: String, mat: int, rarity: String) -> Dictionary:
 	var step := DB.RARITIES.find(rarity)
-	var scale_ := 1.0 + 0.22 * mat
+	var scale_ := 1.0 + DB.MAT_STAT * mat
 	var stats := {}
 	var main: String = DB.SLOT_MAIN[slot]
 	stats[main] = _roll_affix(main, step, scale_)
@@ -312,7 +312,7 @@ func _roll_affix(key: String, step: int, mult: float) -> int:
 
 func make_unique(u: String) -> Dictionary:
 	var ud: Dictionary = DB.UNIQUES[u]
-	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "cls": ud.get("cls", "knight"), "mat": 6}
+	return {"uid": 0, "slot": ud["slot"], "rarity": ud["rarity"], "name": ud["name"], "stats": ud.get("stats", {}).duplicate(), "unique": u, "cls": ud.get("cls", "knight"), "mat": GearDB.TIERS - 1}
 
 
 ## Adds an item to the bag (or the log / pet / sale for non-gear uniques).
@@ -398,7 +398,7 @@ func reforge(uid: int) -> bool:
 		return false
 	data["gold"] = gold() - DB.reforge_cost(it)
 	var step := DB.RARITIES.find(str(it["rarity"]))
-	var scale_ := (1.0 + 0.22 * int(it.get("mat", 0))) * (DB.ANCIENT_MULT if it.get("ancient", false) else 1.0)
+	var scale_ := (1.0 + DB.MAT_STAT * int(it.get("mat", 0))) * (DB.ANCIENT_MULT if it.get("ancient", false) else 1.0)
 	var main: String = DB.SLOT_MAIN[it["slot"]]
 	var stats := {main: it["stats"][main]}
 	var pool: Array = DB.SLOT_POOL[it["slot"]].duplicate()
@@ -423,7 +423,7 @@ func temper(uid: int) -> bool:
 		return false
 	data["gold"] = gold() - DB.temper_cost(it)
 	var mat := int(it.get("mat", 0))
-	var k := (1.0 + 0.22 * (mat + 1)) / (1.0 + 0.22 * mat)
+	var k := (1.0 + DB.MAT_STAT * (mat + 1)) / (1.0 + DB.MAT_STAT * mat)
 	for key in it["stats"]:
 		it["stats"][key] = int(round(float(it["stats"][key]) * k))
 	it["mat"] = mat + 1

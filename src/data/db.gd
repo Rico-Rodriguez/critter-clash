@@ -21,10 +21,13 @@ static func rarity_color(r: String) -> Color:
 
 ## Gear has one quality ladder you can see: its material tier, grey to red.
 ## Rarity (how many bonus stats) shows as pips, never as a rival color.
+## One color per set: Gravedigger grey, Warden blue, Barrowsteel violet,
+## Bloodiron red, Gravelight soul green.
 const TIER_COLOR := [
-	Color(0.66, 0.64, 0.6), Color(0.42, 0.8, 0.46), Color(0.36, 0.6, 1.0), Color(0.7, 0.46, 1.0),
-	Color(1.0, 0.8, 0.3), Color(1.0, 0.52, 0.2), Color(0.95, 0.24, 0.26),
+	Color(0.66, 0.64, 0.6), Color(0.36, 0.6, 1.0), Color(0.7, 0.46, 1.0), Color(0.95, 0.24, 0.26), Color(0.45, 1.0, 0.7),
 ]
+## Each set up adds this much to a piece's stats (the top set: 2.32x the first).
+const MAT_STAT := 0.33
 
 
 ## The color a piece shows everywhere (frame, drop beam, name): its tier.
@@ -344,19 +347,19 @@ const TIERS := [
 	{"id": "normal", "name": "Normal", "hp": 1.0, "dmg": 1.0, "spd": 1.0, "press": 1.0, "souls": 150, "loot": 1.0, "gold": 1.0, "xp": 1.0, "chest": "silver",
 		"ai": 0.0, "mech": 0.0, "pen": 0.0, "heal": 1.0, "mat": 0, "power": 350, "color": Color(0.8, 0.8, 0.8)},
 	{"id": "hard", "name": "Hard", "hp": 1.7, "dmg": 1.45, "spd": 1.04, "press": 1.12, "souls": 160, "loot": 1.3, "gold": 1.4, "xp": 1.3, "chest": "silver",
-		"ai": 0.5, "mech": 0.04, "pen": 0.05, "heal": 0.95, "mat": 1, "power": 550, "color": Color(0.6, 0.85, 0.55)},
+		"ai": 0.5, "mech": 0.04, "pen": 0.05, "heal": 0.95, "mat": 0, "power": 550, "color": Color(0.6, 0.85, 0.55)},
 	{"id": "veteran", "name": "Veteran", "hp": 2.9, "dmg": 2.1, "spd": 1.08, "press": 1.25, "souls": 170, "loot": 1.6, "gold": 1.8, "xp": 1.6, "chest": "gold",
-		"ai": 1.0, "mech": 0.08, "pen": 0.1, "heal": 0.85, "mat": 2, "power": 850, "color": Color(1.0, 0.75, 0.3)},
+		"ai": 1.0, "mech": 0.08, "pen": 0.1, "heal": 0.85, "mat": 1, "power": 850, "color": Color(1.0, 0.75, 0.3)},
 	{"id": "expert", "name": "Expert", "hp": 4.8, "dmg": 3.0, "spd": 1.12, "press": 1.35, "souls": 180, "loot": 2.1, "gold": 2.4, "xp": 2.0, "chest": "gold",
-		"ai": 1.5, "mech": 0.12, "pen": 0.18, "heal": 0.75, "mat": 3, "power": 1300, "color": Color(1.0, 0.55, 0.25)},
+		"ai": 1.5, "mech": 0.12, "pen": 0.18, "heal": 0.75, "mat": 1, "power": 1300, "color": Color(1.0, 0.55, 0.25)},
 	{"id": "nightmare", "name": "Nightmare", "hp": 8.0, "dmg": 4.4, "spd": 1.17, "press": 1.5, "souls": 190, "loot": 2.6, "gold": 3.0, "xp": 2.4, "chest": "crypt",
-		"ai": 2.0, "mech": 0.16, "pen": 0.25, "heal": 0.65, "mat": 4, "power": 2000, "color": Color(0.95, 0.25, 0.25)},
+		"ai": 2.0, "mech": 0.16, "pen": 0.25, "heal": 0.65, "mat": 2, "power": 2000, "color": Color(0.95, 0.25, 0.25)},
 	{"id": "hell", "name": "Hell", "hp": 13.5, "dmg": 6.4, "spd": 1.21, "press": 1.6, "souls": 200, "loot": 3.2, "gold": 3.8, "xp": 2.9, "chest": "crypt",
-		"ai": 2.3, "mech": 0.22, "pen": 0.32, "heal": 0.55, "mat": 5, "power": 3100, "color": Color(0.85, 0.12, 0.35)},
+		"ai": 2.3, "mech": 0.22, "pen": 0.32, "heal": 0.55, "mat": 3, "power": 3100, "color": Color(0.85, 0.12, 0.35)},
 	{"id": "torment", "name": "Torment", "hp": 23.0, "dmg": 9.0, "spd": 1.25, "press": 1.7, "souls": 210, "loot": 3.9, "gold": 4.7, "xp": 3.4, "chest": "crypt",
-		"ai": 2.6, "mech": 0.28, "pen": 0.4, "heal": 0.45, "mat": 5, "power": 4700, "color": Color(0.7, 0.2, 0.85)},
+		"ai": 2.6, "mech": 0.28, "pen": 0.4, "heal": 0.45, "mat": 3, "power": 4700, "color": Color(0.7, 0.2, 0.85)},
 	{"id": "abyss", "name": "Abyss", "hp": 39.0, "dmg": 12.5, "spd": 1.3, "press": 1.8, "souls": 220, "loot": 4.8, "gold": 5.8, "xp": 4.0, "chest": "crypt",
-		"ai": 3.0, "mech": 0.35, "pen": 0.45, "heal": 0.35, "mat": 6, "power": 7000, "color": Color(0.35, 0.85, 1.0)},
+		"ai": 3.0, "mech": 0.35, "pen": 0.45, "heal": 0.35, "mat": 4, "power": 7000, "color": Color(0.35, 0.85, 1.0)},
 ]
 ## Old saves had three tiers: Normal, Veteran, Nightmare.
 const TIER_FROM_V3 := [0, 2, 4]
