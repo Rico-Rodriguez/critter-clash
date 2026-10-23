@@ -186,6 +186,13 @@ func mode_tier_unlocked(mode := "") -> int:
 func _open_mode_tier(mode: String, t: int) -> int:
 	if t < mode_tier_unlocked(mode) or t >= DB.TIERS.size() - 1:
 		return -1
+	# A tier opens after TIER_WINS wins on the one below it, not the first.
+	if not data.has("tier_wins"):
+		data["tier_wins"] = {}
+	var key := "%s:%d" % [mode, t]
+	data["tier_wins"][key] = int(data["tier_wins"].get(key, 0)) + 1
+	if int(data["tier_wins"][key]) < DB.TIER_WINS:
+		return -1
 	data["mode_tiers"][mode] = t + 1
 	return t + 1
 
