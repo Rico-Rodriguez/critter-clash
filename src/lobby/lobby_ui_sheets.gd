@@ -29,15 +29,18 @@ func _build_journal(s: Sheet) -> void:
 	grid.add_child(_reward_tile("trophy", "Feats", "%d / %d" % [got, DB.ACHIEVEMENTS.size()], float(got) / DB.ACHIEVEMENTS.size(), Game.achievement_claimable(), "feats"))
 	grid.add_child(_reward_tile("scroll-unfurled", "Log", "%d wins" % int(Game.data["stats"]["wins"]), -1.0, 0, "log"))
 	s.body.add_child(grid)
+	FxUi.deal_in(grid, 0.06)
 
 
-## A tile of the Journal grid. `frac` < 0 leaves out the bar; `ready_n` > 0
-## lights it gold and puts a count in the corner.
+const JOURNAL_TILE := {"daily": &"TileGold", "bounties": &"TileBlue", "road": &"TileRed", "season": &"TilePurple", "feats": &"TileGreen", "log": &"TileSlate"}
+
+
+## A tile of the Journal grid, in its track's color. `frac` < 0 leaves out the
+## bar; `ready_n` > 0 sets a shine across it, sways its icon and puts a
+## breathing count in the corner.
 func _reward_tile(icon: String, title: String, status: String, frac: float, ready_n: int, sheet: String) -> Button:
 	var btn := Button.new()
-	btn.theme_type_variation = &"Choice"
-	btn.toggle_mode = true
-	btn.button_pressed = ready_n > 0
+	btn.theme_type_variation = JOURNAL_TILE.get(sheet, &"TileSlate")
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.custom_minimum_size = Vector2(0, 236)
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -53,14 +56,15 @@ func _reward_tile(icon: String, title: String, status: String, frac: float, read
 	btn.add_child(v)
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cc.add_child(Ui.icon_rect(icon, 84, Color(1.0, 0.82, 0.4) if ready_n > 0 else Color(0.85, 0.8, 0.7)))
+	var ic := Ui.icon_rect(icon, 84, Color(1.0, 0.86, 0.45) if ready_n > 0 else Color(1, 1, 1, 0.85))
+	cc.add_child(ic)
 	v.add_child(cc)
 	var nm := Ui.label(title, "Value", HORIZONTAL_ALIGNMENT_CENTER)
 	nm.add_theme_font_size_override("font_size", 28)
+	nm.add_theme_constant_override("outline_size", 6)
 	v.add_child(nm)
 	var sl := Ui.label(status, "Small", HORIZONTAL_ALIGNMENT_CENTER)
-	if ready_n > 0:
-		sl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	sl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5) if ready_n > 0 else Color(1, 1, 1, 0.72))
 	v.add_child(sl)
 	if frac >= 0.0:
 		var bar := ProgressBar.new()
@@ -79,8 +83,10 @@ func _reward_tile(icon: String, title: String, status: String, frac: float, read
 		n.add_theme_color_override("font_color", Color.WHITE)
 		dot.add_child(n)
 		btn.add_child(dot)
+		FxUi.pulse(dot, 1.18, 1.3)
+		FxUi.bob(ic, 5.0, 2.2)
+	FxUi.gloss(btn, 16.0, 0.5 if ready_n > 0 else 0.0, 3.2, randf() * 2.0)
 	btn.pressed.connect(func():
-		btn.button_pressed = ready_n > 0
 		Sfx.play("ui_tap", -4.0)
 		open_sheet(sheet))
 	return btn

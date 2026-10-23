@@ -412,6 +412,10 @@ func _style_tabs() -> void:
 		b.text = str(TAB_LOOK[k][0]).to_upper() if on else ""
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if on else VERTICAL_ALIGNMENT_CENTER
 		b.add_theme_constant_override("icon_max_width", 50 if on else 46)
+		# On the raised block the dot rides its top corner, clear of the icon.
+		var dot: Control = _tab_dots[k]
+		dot.offset_left = 44.0 if on else 18.0
+		dot.offset_top = -30.0 if on else 4.0
 		var g := b.get_node_or_null("Gloss")
 		if on and g == null:
 			# Covers the part of the block that rises above the button too.

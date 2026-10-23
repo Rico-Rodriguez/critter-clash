@@ -11,6 +11,9 @@ extends Control
 
 const DragScroll := preload("res://src/ui/drag_scroll.gd")
 const SwipeDismiss := preload("res://src/ui/swipe_dismiss.gd")
+const FxUi := preload("res://src/ui/fx_ui.gd")
+## A page's backdrop runs from this down to near-black.
+const PAGE_BOTTOM := Color(0.04, 0.03, 0.06)
 
 signal closed
 
@@ -47,12 +50,20 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	if not page:
 		add_child(scrim)
 	panel = PanelContainer.new()
-	panel.theme_type_variation = "Sheet"
+	# A page is see-through over a slow misty backdrop with motes rising.
+	panel.theme_type_variation = "Page" if page else "Sheet"
 	panel.anchor_left = 0.0
 	panel.anchor_right = 1.0
 	panel.anchor_top = 0.0 if page else 1.0 - height
 	panel.anchor_bottom = 1.0
 	add_child(panel)
+	if page:
+		FxUi.backdrop(self, Color(0.11, 0.08, 0.14), PAGE_BOTTOM)
+	else:
+		var motes := Control.new()
+		motes.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(motes)
+		FxUi.add_motes(motes, Color(1.0, 0.8, 0.5, 0.35), 10, 18.0)
 	var inset := MarginContainer.new()
 	if page:
 		# A page sits above the tab bar, so only the notch needs clearing.
@@ -104,8 +115,9 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	# A fade at the bottom edge says there is more to scroll to.
 	_fade = TextureRect.new()
 	var g := Gradient.new()
-	g.set_color(0, Color(0.075, 0.07, 0.09, 0.0))
-	g.set_color(1, Color(0.075, 0.07, 0.09, 1.0))
+	var under := PAGE_BOTTOM if page else Color(0.075, 0.07, 0.09)
+	g.set_color(0, Color(under, 0.0))
+	g.set_color(1, under)
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill_from = Vector2(0, 0)
@@ -130,6 +142,7 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	m.add_child(body)
 	if page:
 		_call_builder()
+		FxUi.deal_in(body, 0.05)
 		return
 	var swipe := SwipeDismiss.attach(panel, close, head)
 	_scroll.pulled.connect(swipe.drag)
@@ -185,6 +198,7 @@ func show_segment(i: int) -> void:
 	_build_segments()
 	Ui.clear(body)
 	_call_builder()
+	FxUi.deal_in(body, 0.05)
 	_scroll.scroll_vertical = 0
 	segment_changed.emit(segment)
 
