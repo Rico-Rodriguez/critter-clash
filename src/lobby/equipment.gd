@@ -666,7 +666,7 @@ func _build_hero_row() -> void:
 	var ally := str(Game.data.get("ally", ""))
 	for spec in [["Skills", "BlueButton", "skills"],
 			["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"],
-			["Looks", "BlueButton", "looks"],
+			["Skins", "BlueButton", "looks"],
 			["Ally: " + (str(DB.HEROES[ally]["name"]) if ally != "" else "none"), "Ghost", "ally"]]:
 		var b := Button.new()
 		b.theme_type_variation = spec[1]

@@ -367,10 +367,8 @@ func _capture(args: PackedStringArray) -> void:
 					current.ui._side_pressed("idle")
 					await _wait(1.0)
 				elif shot == "shoplooks":
-					current.open_sheet("shop")
-					await _wait(1.0)
-					current.ui._page._scroll.scroll_vertical = 100000
-					await _wait(0.6)
+					current.open_sheet("looks")
+					await _wait(1.2)
 				elif shot == "shopbuy":
 					current.open_sheet("shop")
 					await _wait(1.0)

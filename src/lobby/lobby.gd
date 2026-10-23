@@ -153,7 +153,7 @@ func _build_world() -> void:
 	# Foreground: grass, stones and a candle in front of the hero, so the bottom
 	# of the frame is ground to stand on rather than a dark band.
 	for spec in [["Grass_1_A_Color1.gltf", Vector3(-1.4, 0, 1.9)], ["Grass_2_B_Color1.gltf", Vector3(1.5, 0, 2.1)], ["Grass_1_C_Color1.gltf", Vector3(0.4, 0, 2.6)],
-			["Rock_1_H_Color1.gltf", Vector3(-2.3, 0, 1.6)], ["Rock_1_J_Color1.gltf", Vector3(2.4, 0, 1.4)], ["Grass_2_A_Color1.gltf", Vector3(-0.7, 0, 2.9)]]:
+			["Rock_1_H_Color1.gltf", Vector3(-3.0, 0, 0.9)], ["Rock_1_J_Color1.gltf", Vector3(3.4, 0, 0.2)], ["Grass_2_A_Color1.gltf", Vector3(-0.7, 0, 2.9)]]:
 		_put(F + str(spec[0]), spec[1], _rng.randf() * TAU, 0.9)
 	_put(G + "candle_triple.gltf", Vector3(1.1, 0, 1.8), 0.3, 1.0)
 	_put(G + "bone_B.gltf", Vector3(-0.9, 0, 1.7), 1.1, 1.0)
