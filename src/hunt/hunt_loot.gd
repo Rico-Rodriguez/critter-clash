@@ -354,6 +354,26 @@ func _proj_body(kind: String) -> Node3D:
 			s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(s)
 			root.add_child(_streak(Color(1.0, 0.5, 0.15), 1.4, 0.7))
+		"firebolt":
+			# The wisp's bolt: a white-hot core in a ball of flame, long tail.
+			for layer in [[0.16, Color(1.0, 0.95, 0.75), 1.0], [0.34, Color(1.0, 0.45, 0.1), 3.5]]:
+				var fb := MeshInstance3D.new()
+				var fm := SphereMesh.new()
+				fm.radius = layer[0]
+				fm.height = layer[0] * 2.0
+				fm.radial_segments = 10
+				fm.rings = 5
+				fb.mesh = fm
+				var fmat := StandardMaterial3D.new()
+				fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				fmat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+				fmat.albedo_color = Color(layer[1].r * layer[2], layer[1].g * layer[2], layer[1].b * layer[2], 0.9 if layer[0] < 0.2 else 0.45)
+				fb.material_override = fmat
+				fb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				root.add_child(fb)
+			root.add_child(_streak(Color(1.0, 0.55, 0.15), 2.2, 0.75))
+			root.add_child(_streak(Color(1.0, 0.85, 0.5), 1.2, 0.3))
 		"axe":
 			var ax := KK.prop("res://assets/kaykit/weapons/axe_1handed.gltf")
 			ax.scale = Vector3.ONE * 1.9

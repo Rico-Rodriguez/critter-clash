@@ -11,6 +11,9 @@ const BEAM := preload("res://src/fx/beam.gdshader")
 const SOFT := preload("res://src/fx/soft.gdshader")
 const SMOKE := preload("res://src/fx/smoke.gdshader")
 const TORNADO := preload("res://src/fx/tornado.gdshader")
+const FLAME_RING := preload("res://src/fx/flame_ring.gdshader")
+const FLAME_WALL := preload("res://src/fx/flame_wall.gdshader")
+const SCORCH := preload("res://src/fx/scorch.gdshader")
 
 const FLAGS := GPUParticles3D.EMIT_FLAG_POSITION | GPUParticles3D.EMIT_FLAG_VELOCITY | GPUParticles3D.EMIT_FLAG_COLOR | GPUParticles3D.EMIT_FLAG_CUSTOM
 
@@ -21,6 +24,10 @@ var _slash_mat: ShaderMaterial
 var _ring_mat: ShaderMaterial
 var _tele_mat: ShaderMaterial
 var _beam_mat: ShaderMaterial
+var _flame_mat: ShaderMaterial
+var _wall_mat: ShaderMaterial
+var _scorch_mat: ShaderMaterial
+var _wall_mesh: CylinderMesh
 var _quad: PlaneMesh
 var sparks: GPUParticles3D
 var embers: GPUParticles3D
@@ -51,6 +58,21 @@ func _ready() -> void:
 	_tele_mat.render_priority = -1
 	_beam_mat = ShaderMaterial.new()
 	_beam_mat.shader = BEAM
+	_flame_mat = ShaderMaterial.new()
+	_flame_mat.shader = FLAME_RING
+	_wall_mat = ShaderMaterial.new()
+	_wall_mat.shader = FLAME_WALL
+	_scorch_mat = ShaderMaterial.new()
+	_scorch_mat.shader = SCORCH
+	_scorch_mat.render_priority = -1
+	_wall_mesh = CylinderMesh.new()
+	_wall_mesh.top_radius = 1.0
+	_wall_mesh.bottom_radius = 1.0
+	_wall_mesh.height = 1.0
+	_wall_mesh.cap_top = false
+	_wall_mesh.cap_bottom = false
+	_wall_mesh.radial_segments = 28
+	_wall_mesh.rings = 1
 	_quad = PlaneMesh.new()
 	_quad.size = Vector2(2, 2)
 	title_font = FontVariation.new()
@@ -207,7 +229,15 @@ func _process(delta: float) -> void:
 			i -= 1
 			continue
 		match str(e["kind"]):
-			"slash", "ring":
+			"slash", "ring", "flame", "scorch":
+				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
+			"wall":
+				# The wall rides the flame front out, shrinking as it goes.
+				var grow := 1.0 - pow(1.0 - k, 2.4)
+				var rr: float = float(e["r"]) * lerpf(0.15, 0.9, grow)
+				var hh: float = float(e["h"]) * (1.0 - 0.5 * k)
+				n.scale = Vector3(rr, hh, rr)
+				n.position.y = hh * 0.5
 				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
 			"tele":
 				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
@@ -322,6 +352,107 @@ func ring(pos: Vector3, radius: float, color: Color, dur := 0.45, width := 0.12)
 	(n as GeometryInstance3D).set_instance_shader_parameter("tint", color)
 	(n as GeometryInstance3D).set_instance_shader_parameter("progress", 0.0)
 	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "ring"})
+
+
+## A burst of fire: a torn ring of flame racing out over the ground, a wall
+## of flame tongues riding it (skip with `wall` false for small, frequent
+## bursts), sparks, embers, smoke, a flash, and a scorch left behind.
+func flame_burst(pos: Vector3, radius: float, wall := true, color := Color(1.0, 0.45, 0.12)) -> void:
+	var dur := clampf(0.38 + radius * 0.06, 0.42, 0.8)
+	var f := _take("flame", func():
+		var mi := MeshInstance3D.new()
+		mi.mesh = _quad
+		mi.material_override = _flame_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_meta("pool", "flame")
+		return mi)
+	f.position = pos + Vector3(0, 0.09, 0)
+	f.rotation = Vector3(0, randf() * TAU, 0)
+	f.scale = Vector3(radius * 1.15, 1, radius * 1.15)
+	var gf := f as GeometryInstance3D
+	gf.set_instance_shader_parameter("tint", color)
+	gf.set_instance_shader_parameter("seed", randf() * 40.0)
+	gf.set_instance_shader_parameter("progress", 0.0)
+	_live.append({"node": f, "t": 0.0, "dur": dur, "kind": "flame"})
+	if wall and not quality_low:
+		var w := _take("wall", func():
+			var mi := MeshInstance3D.new()
+			mi.mesh = _wall_mesh
+			mi.material_override = _wall_mat
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.set_meta("pool", "wall")
+			return mi)
+		w.position = pos
+		w.scale = Vector3(0.1, 0.1, 0.1)
+		var gw := w as GeometryInstance3D
+		gw.set_instance_shader_parameter("tint", color)
+		gw.set_instance_shader_parameter("seed", randf() * 40.0)
+		gw.set_instance_shader_parameter("progress", 0.0)
+		_live.append({"node": w, "t": 0.0, "dur": dur * 1.15, "kind": "wall", "r": radius * 1.05, "h": clampf(radius * 0.6, 1.0, 2.6)})
+	scorch(pos, radius * 0.85)
+	burst(pos, Color(1.0, 0.72, 0.3), int(clampf(radius * 5.0, 6.0, 22.0)), 6.0 + radius * 1.5, 0.9)
+	embers_at(pos, color, int(clampf(radius * 4.0, 4.0, 16.0)), radius * 0.6)
+	if not quality_low:
+		puff(pos, Color(0.12, 0.1, 0.09, 0.5), 4, radius * 0.4, 1.6)
+	flash_light(pos, Color(1.0, 0.55, 0.25), 3.5, radius * 3.0, 0.3)
+
+
+## Burnt ground that glows, cools and fades over `dur` seconds.
+func scorch(pos: Vector3, radius: float, dur := 2.6) -> void:
+	var n := _take("scorch", func():
+		var mi := MeshInstance3D.new()
+		mi.mesh = _quad
+		mi.material_override = _scorch_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.set_meta("pool", "scorch")
+		return mi)
+	n.position = pos + Vector3(0, 0.05, 0)
+	n.rotation = Vector3(0, randf() * TAU, 0)
+	n.scale = Vector3(radius, 1, radius)
+	(n as GeometryInstance3D).set_instance_shader_parameter("seed", randf() * 40.0)
+	(n as GeometryInstance3D).set_instance_shader_parameter("progress", 0.0)
+	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "scorch"})
+
+
+## The Hellfire Wisp: a white-hot core in a flickering shell of fire, lit.
+## The caller owns the node (adds it to the world, moves it, frees it).
+func make_wisp() -> Node3D:
+	var root := Node3D.new()
+	var core := MeshInstance3D.new()
+	var cs := SphereMesh.new()
+	cs.radius = 0.17
+	cs.height = 0.34
+	cs.radial_segments = 12
+	cs.rings = 6
+	core.mesh = cs
+	var cm := StandardMaterial3D.new()
+	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cm.albedo_color = Color(1.0, 0.95, 0.75)
+	core.material_override = cm
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(core)
+	var shell := MeshInstance3D.new()
+	var ss := SphereMesh.new()
+	ss.radius = 0.42
+	ss.height = 0.95
+	ss.radial_segments = 16
+	ss.rings = 8
+	shell.mesh = ss
+	shell.position.y = 0.12
+	var sh := Shader.new()
+	sh.code = "shader_type spatial;\nrender_mode blend_add, unshaded, cull_back, depth_draw_never, shadows_disabled;\nvoid fragment(){ float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.4); float lick = 0.6 + 0.4 * sin(UV.x * 37.7 + UV.y * 9.0 - TIME * 11.0); ALBEDO = mix(vec3(1.0, 0.75, 0.3), vec3(1.0, 0.3, 0.06), rim) * 2.4; ALPHA = clamp((1.0 - rim) * 0.55 * lick + rim * 0.25, 0.0, 1.0) * smoothstep(0.0, 0.35, UV.y); }"
+	var sm := ShaderMaterial.new()
+	sm.shader = sh
+	shell.material_override = sm
+	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(shell)
+	var o := OmniLight3D.new()
+	o.light_color = Color(1.0, 0.55, 0.2)
+	o.light_energy = 1.4
+	o.omni_range = 4.5
+	o.shadow_enabled = false
+	root.add_child(o)
+	return root
 
 
 ## Ground warning. shape: 0 circle (size = radius), 1 cone (size = radius,

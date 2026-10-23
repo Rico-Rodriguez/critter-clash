@@ -526,6 +526,7 @@ const CARDS := {
 	"blades": {"name": "Orbiting Blades", "desc": "Spectral blades circle you", "icon": "spinning-blades", "rarity": "epic", "max": 4, "only": ["melee"]},
 	"storm": {"name": "Storm Call", "desc": "Lightning strikes chained foes", "icon": "lightning-helix", "rarity": "epic", "max": 4, "only": ["magic"]},
 	"nova": {"name": "Fire Nova", "desc": "A ring of fire bursts around you", "icon": "fire-ring", "rarity": "epic", "max": 4, "only": ["magic"]},
+	"wisp": {"name": "Hellfire Wisp", "desc": "A fire spirit at your side spits fireballs at random foes", "icon": "fireball", "rarity": "epic", "max": 4},
 	"ward": {"name": "Bone Ward", "desc": "A shield blocks one hit, recharging", "icon": "bolt-shield", "rarity": "rare", "max": 3},
 	"thorns": {"name": "Thorns", "desc": "Melee attackers take 60% of the hit", "icon": "slashed-shield", "rarity": "rare", "max": 3, "only": ["melee"]},
 	"smite": {"name": "Holy Smite", "desc": "Lightning falls from the heavens on nearby foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["knight"]},

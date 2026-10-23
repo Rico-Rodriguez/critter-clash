@@ -127,6 +127,12 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 	if force > 0.0:
 		f.push(dir, force)
 	var big := f is Boss
+	# Every blow lands with a sound of its own (rate limited in Sfx, so a
+	# crowd of hits in one frame is one crunch): bigger foes knock deeper.
+	if big:
+		Sfx.play("boss_hit", -9.0, 1.15)
+	else:
+		Sfx.play("contact", -7.0 if amount < hero.dmg * 1.5 else -3.0, 1.12 - minf(f.radius, 1.0) * 0.2)
 	fx.number(f.flat_pos() + Vector3(0, 0.6 if big else 0.0, 0), int(amount), Color(1.0, 0.72, 0.25) if crit else Color(1, 1, 1), 1.6 if crit else 1.0, null if crit else f)
 	fx.burst(f.flat_pos(), Color(1.0, 0.85, 0.6) if not crit else Color(1.0, 0.6, 0.2), 5 if not crit else 9, 6.0)
 	if crit:
