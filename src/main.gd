@@ -294,6 +294,10 @@ func _capture(args: PackedStringArray) -> void:
 					best = it
 			if not best.is_empty():
 				Game.equip(hid, int(best["uid"]))
+	# --skin=reaper: the hero holds a weapon skin.
+	if _arg(args, "skin", "") != "":
+		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
+		Game.hero(hid)["skin"] = _arg(args, "skin", "")
 	_fade.visible = false
 	for shot in want:
 		match shot:
@@ -367,7 +371,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
-			"parts", "weapons", "dress", "sets", "sets2", "arms":
+			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
 			"gear":
@@ -839,6 +843,28 @@ func _contact_sheet(kind: String, only := "") -> void:
 				GearLook.apply(a, hid, pre)
 				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
 		cam2.look_at_from_position(Vector3(0, -2.9, 21.0 + (cols.size() - 4) * 4.0), Vector3(0, -2.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if kind == "skins":
+		# Each weapon skin in the hands of each hero that can buy it, turned
+		# three ways so the blade's shape shows, one hero a row.
+		var cam4 := Camera3D.new()
+		root.add_child(cam4)
+		cam4.fov = 30
+		var r := 0
+		for sk: String in DB.WEAPON_SKIN_ORDER:
+			for hid: String in DB.WEAPON_SKINS[sk]["heroes"]:
+				Game.hero(hid)["skin"] = sk
+				for c in 3:
+					var a := Actor.new()
+					root.add_child(a)
+					a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+					a.position = Vector3((c - 1) * 1.9, -r * 2.6, 0)
+					a.rotation_degrees.y = [0.0, -50.0, -100.0][c]
+					GearLook.apply(a, hid)
+					a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+				r += 1
+		cam4.look_at_from_position(Vector3(0, 1.0 - (r - 1) * 1.3, 10.0 + r * 4.0), Vector3(0, 1.0 - (r - 1) * 1.3, 0), Vector3.UP)
 		await _wait(1.0)
 		return
 	if kind == "arms":

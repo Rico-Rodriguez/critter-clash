@@ -10,6 +10,18 @@ version is 6.
 
 ---
 
+## Unreleased: Weapon skins
+
+Two weapons modeled from scratch for the shop: the **Oathbound Blade**
+(Knight, 6,000 gold) and the **Reaper's Scythe** (Barbarian, 8,000 gold).
+A skin changes the model in the hero's hand; stats stay the equipped
+weapon's. Built by the Blender scripts in `tools/art/`, colored with the
+KayKit palette texture so they match the rest of the art. New per-hero save
+keys `skin` and `skins` have defaults; save version unchanged. Look at them
+with `--capture --shots=skins`.
+
+---
+
 ## Unreleased: Camp tabs and hunting together
 
 The feature freeze was lifted once for this, at the user's request (see

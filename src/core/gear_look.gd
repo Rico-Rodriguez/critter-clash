@@ -147,6 +147,11 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 		file = lk["model"]
 		scale_ = lk["scale"]
 		dye = lk["dye"]
+	var sk := str(Game.hero(hero_id).get("skin", ""))
+	if DB.WEAPON_SKINS.has(sk):
+		file = DB.WEAPON_SKINS[sk]["model"]
+		scale_ = DB.WEAPON_SKINS[sk]["scale"]
+		dye = Color(0, 0, 0, 0)
 	var glow := glow_of(w, 1.2)
 	# A bought or earned weapon glow outshines the rarity glow.
 	var hg := str(Game.hero(hero_id).get("glow", ""))

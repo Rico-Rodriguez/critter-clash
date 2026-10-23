@@ -438,4 +438,13 @@ func _net_tests() -> void:
 	# Gift glows are earned, never bought.
 	Game.data["gold"] = 999999
 	_ok("kinship glow not for sale", not Game.buy_glow("knight", "kinship") and not "kinship" in Game.hero("knight")["glows"])
+	# Weapon skins: a model that loads, sold only to the heroes listed.
+	for sk: String in DB.WEAPON_SKIN_ORDER:
+		_ok("skin %s model" % sk, ResourceLoader.exists(KK.WEAPON_DIR + str(DB.WEAPON_SKINS[sk]["model"])))
+		_ok("skin %s icon" % sk, ResourceLoader.exists("res://assets/icons/%s.svg" % DB.WEAPON_SKINS[sk]["icon"]))
+	_ok("skin not for the ranger", not Game.buy_skin("ranger", "reaper") and Game.hero("ranger")["skins"].is_empty())
+	var g0 := Game.gold()
+	_ok("skin bought", Game.buy_skin("barbarian", "reaper") and Game.gold() == g0 - Game.skin_price("reaper") and Game.hero("barbarian")["skin"] == "reaper")
+	Game.set_skin("barbarian", "")
+	_ok("skin put away, kept", Game.hero("barbarian")["skin"] == "" and Game.buy_skin("barbarian", "reaper") and Game.gold() == g0 - Game.skin_price("reaper"))
 	Game.data = Game._fresh()
