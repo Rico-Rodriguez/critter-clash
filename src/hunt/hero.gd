@@ -66,6 +66,7 @@ var super_kind := ""
 var leap_from := Vector3.ZERO
 var leap_to := Vector3.ZERO
 var whirl_tick := 0.0
+var whirl_n := 0
 var revived := false
 ## Talent rules (see TalentDB), the rage stacks from Bloodlust, and whether
 ## Second Wind has fired this hunt.
@@ -497,6 +498,7 @@ func _wave(fwd: Vector3) -> void:
 		return
 	var wl: int = hunt.cards["wave"]
 	var jd := int(hunt.cards.get("judgement_day", 0)) > 0
+	Sfx.play("wave", -7.0, 0.85 if jd else 1.0)
 	hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 15.0, dmg * (0.45 + 0.15 * wl), 99, self, {"life": 0.35 + 0.08 * wl, "width": (1.2 + 0.2 * wl) * (2.0 if jd else 1.0), "stun": 0.5 if jd else 0.0})
 
 
@@ -665,7 +667,8 @@ func try_dash() -> bool:
 		for f in hunt.foes_near(position, 2.6):
 			if f is Enemy:
 				f.push((f.flat_pos() - flat_pos()).normalized(), 9.0)
-	Sfx.play("dodge", -3.0)
+	Sfx.play("dash", -4.0)
+	Sfx.play("dodge", -8.0)
 	Ui.buzz(12, 0.3)
 	return true
 
@@ -731,6 +734,7 @@ func try_super() -> bool:
 		"whirlwind":
 			super_t = 3.2
 			whirl_tick = 0.0
+			whirl_n = 0
 			tree.active = false
 			play(def["anim"]["super"], 0.1, 1.6)
 			Sfx.play("blades", -2.0)
@@ -802,6 +806,11 @@ func _tick_super(dt: float) -> void:
 					any = true
 				hunt.fx.slash(flat_pos(), randf() * TAU, 3.2, 360, Color(1.0, 0.55, 0.25), false, 0.22)
 				hunt.fx.embers_at(flat_pos(), Color(1.0, 0.6, 0.2), 5, 2.4)
+				# Each turn of the spin whooshes past, rising as it winds up.
+				whirl_n += 1
+				Sfx.play("whirl", -5.0, 0.9 + 0.04 * mini(whirl_n, 6))
+				if whirl_n % 3 == 0:
+					Sfx.play("fire_trail", -9.0, 0.9)
 				if any:
 					Sfx.play("hit", -6.0)
 			if super_t <= 0.0:
@@ -879,10 +888,15 @@ func _tick_cards(dt: float) -> void:
 			var b := blades[i]
 			b.position = p + Vector3(0, 0.9, 0)
 			b.rotation = Vector3(0, a + PI * 0.5, PI * 0.5)
+			# A spectral wake behind each blade.
+			if randf() < 0.25:
+				hunt.fx.embers_at(p - Vector3(0, 0.3, 0), Color(0.45, 0.8, 1.0), 1, 0.15)
 			for f in hunt.foes_near(p, 0.9):
 				if f.has_method("can_hit") and f.can_hit(1000 + i, 0.45):
 					hunt.damage_foe(f, dmg * (0.4 + 0.1 * bl), self, (f.flat_pos() - flat_pos()).normalized(), 4.0)
-					hunt.fx.burst(p, Color(0.5, 0.8, 1.0), 4, 4.0)
+					hunt.fx.burst(p, Color(0.5, 0.8, 1.0), 6, 5.0)
+					hunt.fx.flare(p, Color(0.45, 0.75, 1.0))
+					Sfx.play("blade_hit", -8.0, randf_range(0.9, 1.2))
 	# Storm call: chain lightning.
 	var sl: int = c.get("storm", 0)
 	if sl > 0:
@@ -897,16 +911,16 @@ func _tick_cards(dt: float) -> void:
 		if nova_t <= 0.0:
 			nova_t = maxf(5.0 - 0.7 * nl, 2.0)
 			var r2 := (3.4 + 0.5 * nl) * (1.5 if int(c.get("inferno_heart", 0)) > 0 else 1.0)
-			hunt.fx.ring(flat_pos(), r2, Color(1.0, 0.5, 0.15), 0.4, 0.12)
-			hunt.fx.embers_at(flat_pos(), Color(1.0, 0.5, 0.15), 16, r2 * 0.7)
-			hunt.fx.flash_light(flat_pos(), Color(1.0, 0.5, 0.2), 3.0, r2 * 1.6, 0.3)
+			hunt.fx.flame_burst(flat_pos(), r2)
+			hunt.shake(0.15)
 			var struck := 0
 			for f in hunt.foes_near(position, r2):
 				hunt.damage_foe(f, dmg * (1.2 + 0.3 * nl), self, (f.flat_pos() - flat_pos()).normalized(), 7.0)
 				struck += 1
 			if int(c.get("inferno_heart", 0)) > 0 and struck > 0:
 				hp = minf(hp + max_hp * minf(0.03 * struck, 0.10) * hunt.heal_mult(), max_hp)
-			Sfx.play("fire_trail", -4.0)
+			Sfx.play("nova", -3.0)
+	_tick_wisp(dt, int(c.get("wisp", 0)))
 	_tick_powers(dt, c)
 	# Bone ward.
 	var wl: int = c.get("ward", 0)
@@ -917,6 +931,58 @@ func _tick_cards(dt: float) -> void:
 			ward_mesh.visible = true
 			Sfx.play("unlock_start", -8.0)
 	ward_mesh.visible = ward_up
+
+
+# --- Hellfire Wisp: a fire spirit at the shoulder, spitting fire bolts --------
+
+var wisp: Node3D
+var wisp_t := 1.2
+var wisp_angle := 0.0
+
+
+func _tick_wisp(dt: float, level: int) -> void:
+	if level <= 0:
+		return
+	if wisp == null:
+		wisp = hunt.fx.make_wisp()
+		hunt.world.add_child(wisp)
+		wisp.position = flat_pos() + Vector3(0, 2.3, 0)
+		hunt.fx.flame_burst(flat_pos(), 1.6, false)
+	wisp.visible = alive
+	wisp_angle += dt * 1.4
+	var want := flat_pos() + Vector3(sin(wisp_angle) * 1.1, 2.3 + sin(wisp_angle * 2.3) * 0.2, cos(wisp_angle) * 1.1)
+	wisp.position = wisp.position.lerp(want, minf(dt * 8.0, 1.0))
+	if randf() < 0.45:
+		hunt.fx.embers_at(wisp.position - Vector3(0, 0.6, 0), Color(1.0, 0.5, 0.15), 1, 0.12)
+	wisp_t -= dt
+	if wisp_t > 0.0:
+		return
+	wisp_t = maxf(2.0 - 0.3 * level, 0.8)
+	# Random foes in reach, not the nearest: the fire goes where it likes.
+	var pool := _foes_in(11.0, 14)
+	if pool.is_empty():
+		wisp_t = 0.4
+		return
+	pool.shuffle()
+	var n := mini(1 + level / 2, pool.size())
+	for i in n:
+		# By id, not by reference: the foe may be freed before the timer fires.
+		var fid: int = (pool[i] as Actor).get_instance_id()
+		get_tree().create_timer(0.14 * i, false).timeout.connect(func():
+			var foe := instance_from_id(fid) as Actor
+			if alive and is_instance_valid(wisp) and foe != null and foe.alive:
+				_wisp_bolt(foe, dmg * (0.8 + 0.25 * level), 1.3 + 0.2 * level))
+
+
+func _wisp_bolt(foe: Actor, amount: float, splash_r: float) -> void:
+	var from := Vector3(wisp.position.x, 0, wisp.position.z)
+	var d := (foe.flat_pos() - from).normalized()
+	hunt.spawn_proj("firebolt", from + d * 0.3, d * 15.0, amount, 1, self, {"splash": splash_r, "home": true, "life": 1.4})
+	hunt.fx.flare(wisp.position - Vector3(0, 0.9, 0), Color(1.0, 0.6, 0.2))
+	hunt.fx.burst(wisp.position - Vector3(0, 0.9, 0), Color(1.0, 0.6, 0.25), 5, 4.0)
+	wisp.scale = Vector3.ONE * 1.35
+	wisp.create_tween().tween_property(wisp, "scale", Vector3.ONE, 0.18)
+	Sfx.play("firebolt", -5.0)
 
 
 # --- Class powers: each hero's own signature cards ---------------------------
@@ -1047,11 +1113,8 @@ func meteor_shower(count: int, amount: float, radius: float, reach_: float) -> v
 func _meteor_hit(at: Vector3, amount: float, radius: float) -> void:
 	if not is_instance_valid(hunt) or hunt.phase == "defeat":
 		return
-	hunt.fx.ring(at, radius * 1.25, Color(1.0, 0.5, 0.15), 0.4, 0.2)
-	hunt.fx.burst(at, Color(1.0, 0.6, 0.2), 20, 9.0, 0.9)
-	hunt.fx.embers_at(at, Color(1.0, 0.45, 0.1), 10, radius * 0.6)
+	hunt.fx.flame_burst(at, radius * 1.2)
 	hunt.fx.puff(at, Color(0.25, 0.2, 0.17, 0.7), 8, radius * 0.6, 3.0)
-	hunt.fx.flash_light(at, Color(1.0, 0.55, 0.25), 5.0, radius * 3.5, 0.3)
 	for f in hunt.foes_near(at, radius + 1.0):
 		if at.distance_to(f.flat_pos()) <= radius + f.radius:
 			hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 8.0)
@@ -1059,6 +1122,7 @@ func _meteor_hit(at: Vector3, amount: float, radius: float) -> void:
 		hunt.damage_foe(hunt.boss, amount, self, Vector3.ZERO, 0.0)
 	hunt.shake(0.14)
 	Sfx.play("boom", -9.0, 1.2)
+	Sfx.play("fire_hit", -8.0, 0.85)
 
 
 func _frost_ring(radius: float, amount: float) -> void:
@@ -1150,6 +1214,8 @@ func die_anim() -> void:
 	play("Death_A", 0.1)
 	for b in blades:
 		b.visible = false
+	if wisp:
+		wisp.visible = false
 
 
 func revive() -> void:

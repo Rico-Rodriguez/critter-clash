@@ -103,6 +103,7 @@ Licensed (CC0), trimmed and layered:
 - trazzz123 — "CC0 Deep Monster Roar" — https://opengameart.org/content/cc0-deep-monster-roar
 - Darsycho — "Monster snarls" — https://opengameart.org/content/monster-snarls
 
-Some effects (swings, dashes, novas, chain lightning, thorns and similar) were
+Some effects (swings, dashes, novas, chain lightning, thorns, hit contacts,
+the Barbarian's spin, fire bolts and similar) were
 synthesized from oscillators and noise for this project and are original work.
 The scripts that built the audio are are kept in `tools/audio/`.

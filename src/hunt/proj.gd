@@ -32,7 +32,7 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 	team = 1 if src is Enemy or src is Boss else 0
 	life = float(ex.get("life", 0.9 if kind in ["arrow", "quarrel", "soularrow", "knife"] else 1.6))
 	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5, "axe": 0.7, "throwaxe": 0.75,
-		"knife": 0.45, "quarrel": 0.4, "soularrow": 0.45, "spark": 0.35}.get(kind, 0.4)
+		"knife": 0.45, "quarrel": 0.4, "soularrow": 0.45, "spark": 0.35, "firebolt": 0.45}.get(kind, 0.4)
 	rotation = Vector3(0, atan2(v.x, v.z), 0)
 	active = true
 	visible = true
@@ -48,11 +48,11 @@ func tick(dt: float, h: Hunt) -> bool:
 		_steer(dt, h)
 	if kind == "throwaxe":
 		return _tick_return(dt, h)
-	if kind in ["fireball", "orb", "spark", "soularrow"]:
+	if kind in ["fireball", "orb", "spark", "soularrow", "firebolt"]:
 		_ember_t -= dt
 		if _ember_t <= 0.0:
 			_ember_t = 0.03
-			var ec: Color = {"fireball": Color(1.0, 0.45, 0.12), "orb": Color(0.7, 0.35, 1.0), "spark": Color(1.0, 0.8, 0.3), "soularrow": Color(0.5, 1.0, 0.7)}[kind]
+			var ec: Color = {"fireball": Color(1.0, 0.45, 0.12), "orb": Color(0.7, 0.35, 1.0), "spark": Color(1.0, 0.8, 0.3), "soularrow": Color(0.5, 1.0, 0.7), "firebolt": Color(1.0, 0.5, 0.12)}[kind]
 			h.fx.embers_at(position - Vector3(0, 1.0, 0) - vel.normalized() * 0.3, ec, 1, 0.1)
 	if life <= 0.0:
 		if _bursts():
@@ -77,6 +77,8 @@ func tick(dt: float, h: Hunt) -> bool:
 				return false
 			var force := 3.5 if kind == "arrow" else 6.0
 			h.damage_foe(f, dmg, source, vel.normalized(), force)
+			if kind in ["arrow", "quarrel", "soularrow", "knife", "axe"]:
+				Sfx.play("pierce", -5.0)
 			if float(extra.get("stun", 0.0)) > 0.0 and f.alive:
 				f.stun_t = maxf(f.stun_t, float(extra["stun"]))
 			# Ricochet: the arrow leaps once to the nearest other foe.
@@ -148,7 +150,7 @@ func _tick_return(dt: float, h: Hunt) -> bool:
 
 ## Fire bursts where it lands; so do the hero's sparks and splashing orbs.
 func _bursts() -> bool:
-	return kind == "fireball" or kind == "spark" or (kind == "orb" and splash > 0.0 and team == 0)
+	return kind == "fireball" or kind == "spark" or kind == "firebolt" or (kind == "orb" and splash > 0.0 and team == 0)
 
 
 ## A seeking shot turns toward the nearest foe ahead of it.
@@ -178,11 +180,16 @@ func _steer(dt: float, h: Hunt) -> void:
 func _explode(h: Hunt) -> void:
 	var at := Vector3(position.x, 0, position.z)
 	var r := maxf(splash, 1.2)
-	h.fx.ring(at, r * 1.15, Color(1.0, 0.5, 0.15), 0.32, 0.18)
-	h.fx.burst(at, Color(1.0, 0.55, 0.2), 14, 7.0, 0.8)
-	h.fx.embers_at(at, Color(1.0, 0.45, 0.1), 6, r * 0.5)
-	h.fx.flash_light(at, Color(1.0, 0.55, 0.25), 3.0, r * 3.0, 0.2)
-	Sfx.play("impact", -8.0)
+	if kind == "orb":
+		h.fx.ring(at, r * 1.15, Color(0.7, 0.4, 1.0), 0.32, 0.18)
+		h.fx.burst(at, Color(0.75, 0.5, 1.0), 14, 7.0, 0.8)
+		h.fx.flash_light(at, Color(0.7, 0.4, 1.0), 3.0, r * 3.0, 0.2)
+		Sfx.play("impact", -8.0)
+	else:
+		# Fire lands as fire: a torn ring of flame and a scorch, with a wall
+		# of flame on the wisp's bolts.
+		h.fx.flame_burst(at, r, kind == "firebolt")
+		Sfx.play("fire_hit", -6.0)
 	var any := false
 	for f in h.foes_near(at, r + 1.0):
 		if at.distance_to(f.flat_pos()) <= r + f.radius:

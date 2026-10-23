@@ -677,7 +677,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "powers", "descent", "pact", "wild":
+			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "powers", "fire", "descent", "pact", "wild":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -719,6 +719,18 @@ func _capture(args: PackedStringArray) -> void:
 					h.hero.frost_t = 0.05
 					h.hero.barrage_t = 0.05
 					await _wait_sim(h, 0.5 if hid in ["mage", "ranger"] else 0.12)
+				elif shot == "fire":
+					# The fire powers going off together: the Hellfire Wisp's
+					# bolts landing, and (on the mage) a Fire Nova rolling out.
+					await _wait_sim(h, 7.0)
+					h.cards["wisp"] = 4
+					if hid == "mage":
+						h.cards["nova"] = 3
+					h.hero.recompute()
+					await _wait_sim(h, 1.0)
+					h.hero.wisp_t = 0.02
+					h.hero.nova_t = 0.5
+					await _wait_sim(h, float(_arg(args, "after", "0.55")))
 				elif shot == "hexer":
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal

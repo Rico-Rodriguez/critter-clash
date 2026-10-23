@@ -168,7 +168,7 @@ func _clear_room(r: Dictionary) -> void:
 	elif kind == "treasure" and not r.get("sealed", false):
 		var cp: Vector3 = r.get("chest_at", at)
 		fx.puff(cp, Color(1.0, 0.85, 0.4, 0.6), 10, 1.0, 2.0)
-		Sfx.play("chest", -2.0)
+		Sfx.play("chest_land", -2.0)
 		for i in 2:
 			_drop_item(cp, _roll_good("chest", 1))
 		for i in 8:

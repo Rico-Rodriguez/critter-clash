@@ -10,6 +10,7 @@ const D := "res://assets/kaykit/dungeon/"
 const GROUND_SHADER := preload("res://src/fx/ground.gdshader")
 const SMOKE := preload("res://src/fx/smoke.gdshader")
 const SOFT := preload("res://src/fx/soft.gdshader")
+const EARTH := preload("res://src/fx/earth.gdshader")
 
 ## Playfield bounds on XZ.
 var min_x := -21.0
@@ -235,6 +236,28 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 		if not meshes.is_empty():
 			occluders.append({"meshes": meshes, "x": pos.x, "z": pos.z, "r": occlude * scale_, "h": size_of(path).y * scale_, "t": 0.0})
 	return n
+
+
+var _earth_mat: ShaderMaterial
+
+
+## A ragged round patch of turned soil lying on the ground.
+func earth_patch(pos: Vector3, radius: float) -> void:
+	if _earth_mat == null:
+		_earth_mat = ShaderMaterial.new()
+		_earth_mat.shader = EARTH
+		_earth_mat.render_priority = -2
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(2, 2)
+	mi.mesh = pm
+	mi.material_override = _earth_mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = pos + Vector3(0, 0.03, 0)
+	mi.rotation.y = _rng.randf() * TAU
+	mi.scale = Vector3(radius, 1, radius)
+	mi.set_instance_shader_parameter("seed", _rng.randf() * 40.0)
+	add_child(mi)
 
 
 ## A moving occluder (the boss): same fade, position read from the node.
@@ -523,7 +546,7 @@ func _plot(center: Vector3, cols: int, rows: int, yaw: float) -> void:
 			p += Vector3(_rng.randf_range(-0.3, 0.3), 0, _rng.randf_range(-0.2, 0.2))
 			if _rng.randf() < 0.3:
 				# An open grave: dirt mound, and a place the dead rise from.
-				put(G + "floor_dirt_grave.gltf", p + Vector3(0, 0.0, 0.5), yaw, 1.05, -1.0, false)
+				put(G + "floor_dirt_grave.gltf", p + Vector3(0, 0.04, 0.5), yaw, 1.05, -1.0, false)
 				graves.append(p + Vector3(0, 0, 0.9))
 				put(G + "gravemarker_A.gltf", p + Vector3(0, 0, -0.6), yaw + _rng.randf_range(-0.2, 0.2), 1.0, 0.3)
 			else:
