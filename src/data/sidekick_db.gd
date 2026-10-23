@@ -6,13 +6,15 @@ extends RefCounted
 
 ## Launch roster in sheet order. `model`: a KayKit Rig_Medium character
 ## ("kk:"), a KayKit prop ("prop:") or a Quaternius CC0 glb ("q:").
+## `scale`: the KayKit model's scale, or for others its height in metres.
+## `fly`: hover height (0 walks).
 ## `unlock`: how it is earned (see sidekicks.gd unlock rules).
 ## `ability`: kind (the code path in hunt/sidekick.gd), cd seconds, dmg (share
 ## of hero damage), plus kind-specific numbers.
 const ROSTER := {
 	"wisp": {
 		"name": "Grave Wisp", "element": "Spirit", "icon": "ghost", "color": Color(0.6, 0.95, 0.85),
-		"model": "q:ghost", "fly": 1.4, "scale": 0.32,
+		"model": "q:ghost", "fly": 1.2, "scale": 0.9,
 		"unlock": {"kind": "boss_kills", "n": 1}, "how": "Free after your first boss kill",
 		"origin": "Drifted out of the first grave you robbed of its king",
 		"ability": {"kind": "mend", "name": "Mending Light", "cd": 6.0, "dmg": 0.3, "heal": 0.05, "radius": 3.0},
@@ -20,7 +22,7 @@ const ROSTER := {
 	},
 	"drake": {
 		"name": "Ember Drake", "element": "Fire", "icon": "dragon-head", "color": Color(1.0, 0.5, 0.15),
-		"model": "q:dragon", "evolved_model": "q:wyrm", "evolved_name": "Ash Wyrm", "fly": 1.6, "scale": 0.36,
+		"model": "q:dragon", "evolved_model": "q:wyrm", "evolved_name": "Ash Wyrm", "fly": 1.4, "scale": 1.1,
 		"unlock": {"kind": "egg", "egg": "ember"}, "how": "Hatches from an Ember Egg that Gravemaw drops",
 		"origin": "Hatched from an egg Gravemaw dropped",
 		"ability": {"kind": "breath", "name": "Fire Breath", "cd": 5.0, "dmg": 0.6, "range": 5.0, "cone": 0.55, "burn": 3.0},
@@ -56,7 +58,7 @@ const ROSTER := {
 	},
 	"crow": {
 		"name": "Storm Crow", "element": "Storm", "icon": "raven", "color": Color(0.55, 0.8, 1.0),
-		"model": "q:birb", "fly": 1.7, "scale": 0.34,
+		"model": "q:birb", "fly": 0.0, "scale": 0.75,
 		"unlock": {"kind": "renown", "n": 4000}, "how": "Trophy Road: 4,000 trophies",
 		"origin": "Rides the thunder that follows a champion",
 		"ability": {"kind": "storm", "name": "Chain Lightning", "cd": 4.0, "dmg": 0.4, "chain": 4, "range": 7.0},
@@ -65,7 +67,7 @@ const ROSTER := {
 	},
 	"mimic": {
 		"name": "Gilded Mimic", "element": "Gold", "icon": "open-treasure-chest", "color": Color(1.0, 0.82, 0.3),
-		"model": "prop:res://assets/kaykit/dungeon/chest_gold.gltf", "fly": 0.0, "scale": 0.55,
+		"model": "prop:res://assets/kaykit/dungeon/chest_gold.gltf", "fly": 0.0, "scale": 0.6,
 		"unlock": {"kind": "chests", "n": 100}, "how": "Open 100 chests",
 		"origin": "It was the hundredth chest. It bit back.",
 		"ability": {"kind": "snap", "name": "Gold Snap", "cd": 3.0, "dmg": 0.7, "gold": 2},
@@ -74,7 +76,7 @@ const ROSTER := {
 	},
 	"bat": {
 		"name": "Night Bat", "element": "Blood", "icon": "bat-wing", "color": Color(0.85, 0.3, 0.35),
-		"model": "q:bat", "fly": 1.5, "scale": 0.3, "hidden": true,
+		"model": "q:bat", "fly": 1.5, "scale": 0.6, "hidden": true,
 		"unlock": {"kind": "egg", "egg": "grove"}, "how": "Hatches from a Grove Egg",
 		"origin": "Hatched from an egg found under the Hollow Grove",
 		"ability": {"kind": "leech", "name": "Blood Dive", "cd": 4.0, "dmg": 0.3, "bites": 3, "heal": 0.01},

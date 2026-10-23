@@ -239,6 +239,8 @@ func roll_cards(n: int, exclude := []) -> Array:
 			continue
 		if c["rarity"] == "legendary" and run_level < 5:
 			continue
+		if not sidekick_card_open(c):
+			continue
 		if c.has("evo") or id in exclude or id in banished:
 			continue # evolutions are offered by rule, below
 		pool.append(id)
