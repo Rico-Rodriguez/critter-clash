@@ -733,8 +733,35 @@ func _style_slot(b: Button, slot: String) -> void:
 			t.remove_child(c)
 			b.add_child(c)
 		t.free()
-	if not _best_for(slot).is_empty():
+	if _hands_full(slot):
+		b.add_child(_strike())
+	elif not _best_for(slot).is_empty():
 		b.add_child(_badge("▲", GREEN, Control.PRESET_TOP_RIGHT))
+
+
+## The shield slot while the weapon in hand (worn or tried on) takes both hands.
+func _hands_full(slot: String) -> bool:
+	if slot != "trinket":
+		return false
+	var w: Dictionary = _try_on().get("weapon", Game.equipped(hero_id, "weapon"))
+	return Game.two_hands(hero_id, w)
+
+
+## A red slash across a slot that can't be used.
+func _strike() -> Control:
+	var c := Control.new()
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bar := ColorRect.new()
+	bar.color = Color(0.85, 0.25, 0.2, 0.9)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var len_ := SLOT_TILE * 1.1
+	bar.size = Vector2(len_, 6)
+	bar.pivot_offset = bar.size / 2.0
+	bar.position = Vector2(SLOT_TILE, SLOT_TILE) / 2.0 - bar.size / 2.0
+	bar.rotation = -PI / 4.0
+	c.add_child(bar)
+	return c
 
 
 ## A small gold dot for "new": quieter than the camp's red one, since a
@@ -1061,6 +1088,8 @@ func _on_slot(slot: String) -> void:
 	_clear_new(slot)
 	_scroll.scroll_vertical = 0
 	var worn := Game.equipped(hero_id, slot)
+	if _hands_full(slot):
+		_say("Your weapon takes both hands: no shield.")
 	if worn.is_empty():
 		selected = {}
 		_dress()
