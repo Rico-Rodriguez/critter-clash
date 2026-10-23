@@ -97,7 +97,7 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 		amount *= 1.0 + float(DB.EXPOSED["dmg"]) + float(hero.flags.get("exposed", 0.0))
 	var crit := randf() < hero.crit
 	if crit:
-		amount *= 2.0 + float(hero.flags.get("critdmg", 0.0))
+		amount *= 2.0 + float(hero.flags.get("critdmg", 0.0)) + (0.6 if int(cards.get("backstab", 0)) > 0 else 0.0)
 	if hero.flags.has("execute") and f.hp <= f.max_hp * 0.3:
 		amount *= 1.0 + float(hero.flags["execute"])
 	if hero.flags.has("mark") and f is Enemy and (f as Enemy).elite:

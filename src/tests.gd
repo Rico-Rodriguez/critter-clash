@@ -468,6 +468,11 @@ func _depth_tests() -> void:
 	_ok("weekly worse run is not kept", not Game.record_weekly({"win": false}) and Game.weekly_best() == 1150)
 	_ok("weekly entry carries this week's seed", int(Game.weekly_entry()["seed"]) == Game.weekly_seed())
 	Game.data["weekly"] = wb_keep
+	_ok("the Rogue is a hero", DB.HEROES.has("rogue") and "rogue" in DB.HERO_ORDER and GearDB.LINES.has("rogue") and TalentDB.PATHS.has("rogue"))
+	_ok("the Rogue is on the road", DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "hero" and str(st.get("id", "")) == "rogue"))
+	_ok("the Rogue has a signature", DB.CARDS.has(DB.SIGNATURES["rogue"]))
+	_ok("a new save has the Rogue locked", not Game._fresh()["heroes"]["rogue"]["unlocked"])
+	_ok("the Rogue has four weapon skins", DB.WEAPON_SKIN_ORDER.filter(func(k): return "rogue" in DB.WEAPON_SKINS[k]["heroes"]).size() == 4)
 	for u in ["barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]:
 		_ok("ancient unique %s" % u, DB.UNIQUES.has(u) and u in DB.LOG_ORDER and str(DB.UNIQUES[u]["source"]).begins_with("ancient_"))
 	_ok("ancient uniques never roll below Torment", Game.roll_uniques("ancient_boss", 0).size() >= 0 and DB.TIER_ANCIENT == 6)

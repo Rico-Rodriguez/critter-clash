@@ -770,6 +770,21 @@ func try_super() -> bool:
 				for j in 5:
 					var ap := rp + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.6, 1.6))
 					hunt.fx.fall("arrow", ap, 0.25 + 0.05 * (k * 5 + j), 0.28, func(): _arrow_hit(ap, dmg * 0.9 * super_dmg))
+		"shadowstep":
+			super_t = 0.45
+			invuln = 1.0
+			act(def["anim"]["super"], 0.5, true)
+			Sfx.play("blades", -2.0)
+			var marks := _foes_in(9.0, 6)
+			for m in marks:
+				var mf := m as Actor
+				hunt.fx.puff(flat_pos(), Color(0.1, 0.12, 0.1, 0.5), 4, 0.5, 1.0)
+				position = hunt.arena.resolve(mf.flat_pos() - dir_of(yaw_to(position, mf.position)) * 0.9, radius)
+				hunt.damage_foe(mf, dmg * 2.4 * super_dmg, self, dir_of(yaw_to(position, mf.position)), 2.0)
+				hunt.fx.slash(mf.flat_pos(), randf() * TAU, 1.8, 140, Color(0.6, 1.0, 0.7), randf() < 0.5, 0.18)
+			if marks.is_empty():
+				position = hunt.arena.resolve(flat_pos() + fwd * 4.0, radius)
+			hunt.shake(0.2)
 		"meteor":
 			super_t = 0.5
 			act(def["anim"]["super"], 0.6, true)

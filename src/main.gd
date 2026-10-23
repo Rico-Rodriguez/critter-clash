@@ -290,7 +290,7 @@ func _capture(args: PackedStringArray) -> void:
 	Game.data["log"] = {"tooth": 3, "sigil": 1, "cleaver": 1}
 	for i in 5:
 		Game.grant_item(Game.roll_item("chest", 1, "", hid))
-	Game.grant_item(Game.make_unique({"knight": "crown", "ranger": "shroud", "mage": "gown", "barbarian": "cleaver"}[hid]))
+	Game.grant_item(Game.make_unique({"knight": "crown", "ranger": "shroud", "mage": "gown", "barbarian": "cleaver", "rogue": "shroud"}.get(hid, "crown")))
 	# Two good pieces per slot so the equipment screen has something to compare.
 	for slot in DB.SLOTS:
 		for t in 2:
@@ -708,7 +708,7 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(0.9)
 				elif shot == "powers":
 					await _wait_sim(h, 7.0)
-					var kit: Dictionary = {"knight": {"smite": 3}, "mage": {"meteor": 3, "frost": 2}, "ranger": {"barrage": 3, "explosive": 2}, "barbarian": {"quake": 3, "axes": 3}}[hid]
+					var kit: Dictionary = {"knight": {"smite": 3}, "mage": {"meteor": 3, "frost": 2}, "ranger": {"barrage": 3, "explosive": 2}, "barbarian": {"quake": 3, "axes": 3}, "rogue": {"shockwave": 3, "rime_trap": 2}}[hid]
 					for k in kit:
 						h.cards[k] = kit[k]
 					h.hero.recompute()

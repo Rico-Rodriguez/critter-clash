@@ -94,8 +94,21 @@ const HEROES := {
 		"blurb": "Huge swings. Clears a circle around him.",
 		"skill": "melee", "unlock": "road",
 	},
+	"rogue": {
+		"name": "Rogue", "title": "The Unseen", "role": "Assassin",
+		"model": "Rogue_Hooded",
+		"weapons": {"handslot.r": "dagger.gltf", "handslot.l": "dagger.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": [],
+		"style": "melee", "hp": 360.0, "speed": 5.9, "dmg": 21.0, "rate": 1.7,
+		"range": 2.2, "arc": 120.0, "armor": 0.05,
+		"super": "shadowstep", "super_name": "Shadowstep", "super_desc": "Blink from foe to foe, stabbing each one as you pass.",
+		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "super": "Melee_Dualwield_Attack_Chop"},
+		"color": Color(0.55, 0.9, 0.6), "icon": "hood",
+		"blurb": "Two daggers, fast hands. Gets in, gets out.",
+		"skill": "melee", "unlock": "road",
+	},
 }
-const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
+const HERO_ORDER := ["knight", "ranger", "mage", "barbarian", "rogue"]
 
 ## Weapon families: the weapon, not the hero, decides the basic attack. Each
 ## has its own swing clips, hit shape, trail and sound; the hero keeps its
@@ -400,6 +413,8 @@ static func rival_def(hero_id: String) -> Dictionary:
 			d.merge({"ai": "melee", "hp": 560.0, "dmg": 22.0, "speed": 4.4, "reach": 2.3, "windup": 0.45, "cooldown": 1.0})
 		"barbarian":
 			d.merge({"ai": "melee", "hp": 700.0, "dmg": 32.0, "speed": 4.1, "reach": 2.7, "windup": 0.6, "cooldown": 1.4})
+		"rogue":
+			d.merge({"ai": "melee", "hp": 460.0, "dmg": 20.0, "speed": 4.8, "reach": 2.1, "windup": 0.35, "cooldown": 0.8})
 		"ranger":
 			d.merge({"ai": "ranged", "hp": 400.0, "dmg": 18.0, "speed": 4.2, "reach": 9.0, "windup": 0.55, "cooldown": 1.5, "proj_speed": 15.0})
 		_:
@@ -554,10 +569,11 @@ const CARDS := {
 	"ricochet": {"name": "Ricochet", "desc": "Arrows that hit leap on to another foe", "icon": "high-shot", "rarity": "legendary", "max": 1, "hero": ["ranger"], "sig": true},
 	"pyre": {"name": "Pyre", "desc": "Fireballs leave the ground burning", "icon": "flame", "rarity": "legendary", "max": 1, "hero": ["mage"], "sig": true},
 	"rampage": {"name": "Rampage", "desc": "Every kill: +3% damage for 6 seconds, up to +45%", "icon": "muscle-up", "rarity": "legendary", "max": 1, "hero": ["barbarian"], "sig": true},
+	"backstab": {"name": "Backstab", "desc": "Your crits hit 60% harder", "icon": "dripping-sword", "rarity": "legendary", "max": 1, "hero": ["rogue"], "sig": true},
 	# Road cards: locked until their Trophy Road step (CARD_ROAD), two new epics a hero.
 	"oath_storm": {"name": "Storm Oath", "desc": "Your oath calls chain lightning through nearby foes", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["knight"]},
-	"shockwave": {"name": "Shockwave", "desc": "Every few seconds the ground bursts around you", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["knight"]},
-	"rime_trap": {"name": "Rime Trap", "desc": "A ring of frost bursts around you and slows the pack", "icon": "frozen-orb", "rarity": "epic", "max": 4, "hero": ["ranger"]},
+	"shockwave": {"name": "Shockwave", "desc": "Every few seconds the ground bursts around you", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["knight", "rogue"]},
+	"rime_trap": {"name": "Rime Trap", "desc": "A ring of frost bursts around you and slows the pack", "icon": "frozen-orb", "rarity": "epic", "max": 4, "hero": ["ranger", "rogue"]},
 	"storm_arrows": {"name": "Storm Arrows", "desc": "Lightning leaps between the foes you shoot", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["ranger"]},
 	"skybolt": {"name": "Skybolt", "desc": "Bolts fall from the sky on the nearest foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["mage"]},
 	"rift_quake": {"name": "Rift Quake", "desc": "The earth splits around you and hurls foes back", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["mage"]},
@@ -658,7 +674,7 @@ const TROPHY_ROAD := [
 	{"t": 5900, "kind": "cards", "ids": ["shockwave", "storm_arrows", "rift_quake", "skyfall"]},
 	{"t": 6200, "kind": "chest", "chest": "crypt"},
 	{"t": 6500, "kind": "shards", "amount": 100},
-	{"t": 6800, "kind": "gold", "amount": 3000},
+	{"t": 6800, "kind": "hero", "id": "rogue"},
 	{"t": 7100, "kind": "chest", "chest": "gold"},
 	{"t": 7500, "kind": "chest", "chest": "crypt"},
 	{"t": 7900, "kind": "shards", "amount": 120},
@@ -1034,8 +1050,12 @@ const WEAPON_SKINS := {
 	"cleaver": {"name": "Raider's Cleaver", "model": "axe_A.gltf", "icon": "battle-axe", "scale": 1.0, "heroes": ["barbarian"], "gold": 12000},
 	"crusher": {"name": "Skullcrusher", "model": "hammer_A.gltf", "icon": "warhammer", "scale": 1.0, "heroes": ["barbarian"], "gold": 22000},
 	"twinfang": {"name": "Twinfang Axe", "model": "axe_C.gltf", "icon": "crossed-axes", "scale": 1.0, "heroes": ["barbarian"], "gold": 40000},
+	"kris": {"name": "Wavy Kris", "model": "dagger_A.gltf", "icon": "cloak-dagger", "scale": 1.0, "heroes": ["rogue"], "gold": 8000},
+	"stiletto": {"name": "Night Stiletto", "model": "dagger_B.gltf", "icon": "cloak-dagger", "scale": 1.0, "heroes": ["rogue"], "gold": 16000},
+	"duelblade": {"name": "Duelist's Blade", "model": "sword_B.gltf", "icon": "crossed-swords", "scale": 0.8, "heroes": ["rogue"], "gold": 26000},
+	"boneshiv": {"name": "Bone Shiv", "model": "Skeleton_Blade.gltf", "icon": "dripping-sword", "scale": 0.8, "heroes": ["rogue"], "gold": 40000},
 }
-const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang"]
+const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang", "kris", "stiletto", "duelblade", "boneshiv"]
 
 # --- Online ---------------------------------------------------------------------
 
@@ -1163,4 +1183,4 @@ static func season_reward(n: int) -> Dictionary:
 
 ## Rule-changing cards, one per hero, offered as legendaries from run level 6.
 ## (Defined in CARDS; listed here for the Log.)
-const SIGNATURES := {"knight": "bulwark", "ranger": "ricochet", "mage": "pyre", "barbarian": "rampage"}
+const SIGNATURES := {"knight": "bulwark", "ranger": "ricochet", "mage": "pyre", "barbarian": "rampage", "rogue": "backstab"}
