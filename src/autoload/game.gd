@@ -25,6 +25,7 @@ func _ready() -> void:
 		errors.set_build(int(ota.get("build")))
 	if not memory_only:
 		load_save()
+	SK.migrate(data)
 	if int(data.get("idle_since", 0)) <= 0:
 		data["idle_since"] = int(Time.get_unix_time_from_system())
 	Sfx.refresh_volume.call_deferred()
@@ -401,6 +402,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if d > int(st["best"].get(dkey, 0)):
 			st["best"][dkey] = d
 			summary["record"] = true
+	summary["sidekick"] = SK.after_hunt(data, r, rng)
 	_bounty_progress(r)
 	var opened := unlock_by_shards()
 	if opened != "":
