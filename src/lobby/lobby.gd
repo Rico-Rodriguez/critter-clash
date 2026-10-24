@@ -366,9 +366,10 @@ func refresh_sidekick() -> void:
 	pet = Node3D.new()
 	pet.add_child(look["root"])
 	add_child(pet)
-	pet.position = Vector3(-1.25, float(SKL.SDB.ROSTER[sid]["fly"]) * 0.5, -0.45)
+	# On the hero's right, away from the fire and its glow, so nothing hides it.
+	pet.position = Vector3(1.2, float(SKL.SDB.ROSTER[sid]["fly"]) * 0.5, 0.45)
 	pet.scale = Vector3.ONE * 0.75
-	pet.rotation.y = 0.5
+	pet.rotation.y = -0.5
 	Look.play(look, "idle")
 
 
