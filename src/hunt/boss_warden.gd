@@ -87,8 +87,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 					var p: Vector3 = _coins[step - 1]
 					if hero.flat_pos().distance_to(p) < 1.5 + hero.radius * 0.5:
 						hunt.damage_hero(dmg * 0.85, self, 0.6)
-					hunt.fx.burst(p, GOLD, 12, 6.0, 1.5)
-					hunt.fx.ring(p, 1.5, GOLD, 0.3)
+					hunt.fx.vfx.impact(&"holy", p, 1.5, GOLD)
 					Sfx.play("boss_hit", -6.0, 1.5)
 					step += 1
 				if step - 1 >= _coins.size():

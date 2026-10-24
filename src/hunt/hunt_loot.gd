@@ -175,9 +175,9 @@ func _offer_cards() -> void:
 		return
 	Sfx.play("levelup", 0.0)
 	Ui.buzz(25, 0.4)
-	fx.ring(hero.flat_pos(), 3.0, Color(0.4, 0.9, 1.0), 0.6)
-	fx.ring(hero.flat_pos(), 5.0, Color(0.7, 0.95, 1.0), 0.45, 0.2)
-	fx.burst(hero.flat_pos() + Vector3(0, 1.0, 0), Color(0.5, 0.9, 1.0), 26, 8.0, 1.6)
+	# Level up: a column of sharp rays, chevrons rising and gold motes.
+	fx.vfx.impact(&"level", hero.flat_pos(), 1.8)
+	fx.vfx.cast(&"buff", hero.flat_pos(), 1.0, Color(1.0, 0.85, 0.4))
 	fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 4.0, 8.0, 0.35)
 	if bot:
 		var pref := ["bladestorm", "tempest", "inferno_heart", "rain", "judgement_day", "armageddon", "heavens", "fault", "deluge", "meteor", "smite", "quake", "axes", "barrage", "frost", "explosive", "blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]

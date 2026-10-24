@@ -84,7 +84,9 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				_ring2_r = -3.5 if enraged else -1.0
 				_ring_hit = false
 				_clear_tele()
-				hunt.fx.ring(flat_pos(), RING_REACH, GREEN, RING_REACH / RING_SPEED, 0.35)
+				# The thorn wave is a dodge-it gameplay front: leaves and spores
+				# torn up along it, moving at exactly RING_SPEED.
+				hunt.fx.vfx.nova(&"nature", flat_pos(), RING_REACH, RING_REACH / RING_SPEED)
 				Sfx.play("quake", -2.0, 0.8)
 				hunt.shake(0.3)
 			elif step == 1:
@@ -97,7 +99,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 						hunt.damage_hero(dmg * 1.1, self, 1.0)
 						hero.slow_t = maxf(hero.slow_t, 1.5)
 				if _ring2_r > 0.0 and _ring2_r < 0.5:
-					hunt.fx.ring(flat_pos(), RING_REACH, GREEN.lightened(0.3), RING_REACH / RING_SPEED, 0.3)
+					hunt.fx.vfx.nova(&"nature", flat_pos(), RING_REACH, RING_REACH / RING_SPEED, GREEN.lightened(0.3))
 					_ring_hit = false
 				if maxf(_ring_r, _ring2_r) > RING_REACH:
 					_finish(0.6)

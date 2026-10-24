@@ -447,8 +447,7 @@ func _release() -> void:
 			Sfx.play("atk_archer", -9.0, 0.8)
 		"caster":
 			var blast: float = def["blast"] * (1.25 if elite else 1.0)
-			hunt.fx.ring(aim, blast * 1.1, Color(0.7, 0.3, 1.0), 0.4)
-			hunt.fx.burst(aim, Color(0.75, 0.35, 1.0), 14, 7.0, 1.0)
+			hunt.fx.vfx.impact(&"nature" if def.get("root", false) else &"shadow", aim, blast)
 			hunt.fx.flash_light(aim, Color(0.7, 0.3, 1.0), 4.0, 5.0, 0.3)
 			Sfx.play("boom", -8.0, 1.2)
 			if hero.flat_pos().distance_to(aim) <= blast + hero.radius * 0.5:
@@ -459,8 +458,7 @@ func _release() -> void:
 		"bomb":
 			var blast_r: float = def["blast"]
 			var at := flat_pos()
-			hunt.fx.ring(at, blast_r * 1.15, Color(1.0, 0.5, 0.15), 0.35, 0.18)
-			hunt.fx.burst(at, Color(1.0, 0.55, 0.2), 20, 8.0, 0.8)
+			hunt.fx.flame_burst(at, blast_r)
 			hunt.fx.puff(at, Color(0.3, 0.25, 0.2, 0.7), 8, 1.2, 3.0)
 			hunt.fx.flash_light(at, Color(1.0, 0.55, 0.25), 5.0, 8.0, 0.3)
 			hunt.shake(0.3)
@@ -476,7 +474,7 @@ func _release() -> void:
 		"slam":
 			var sr: float = def["blast"]
 			var sat := flat_pos()
-			hunt.fx.ring(sat, sr * 1.1, Color(1.0, 0.6, 0.3), 0.4, 0.2)
+			hunt.fx.vfx.nova(&"physical", sat, sr * 1.1, 0.35)
 			hunt.fx.puff(sat, Color(0.3, 0.26, 0.2, 0.7), 10, 1.4, 3.5)
 			hunt.fx.bone_burst(sat, 5, 6.0)
 			hunt.shake(0.3)
@@ -498,7 +496,7 @@ func _release() -> void:
 				var sp := hunt.arena.resolve(flat_pos() + Vector3(sin(a), 0, cos(a)) * 2.2, 0.5)
 				if hunt.foes.size() < Hunt.MAX_FOES:
 					hunt.spawn_foe("minion", sp)
-			hunt.fx.ring(flat_pos(), 3.2, Color(0.7, 0.3, 1.0), 0.5)
+			hunt.fx.vfx.nova(&"shadow", flat_pos(), 3.2, 0.5)
 			Sfx.play("unlock_start", -4.0)
 	state = "recover"
 	state_t = 0.35

@@ -43,7 +43,8 @@ func _begin(p: String) -> void:
 	match p:
 		"orbs":
 			step_t = 0.9 * fast
-			hunt.fx.ring(flat_pos(), 3.2, VIOLET, step_t, 0.3)
+			hunt.fx.vfx.linger(&"shadow", flat_pos(), 2.4, step_t)
+			hunt.fx.vfx.cast(&"shadow", flat_pos(), 2.0)
 			hunt.fx.flash_light(flat_pos(), VIOLET, 3.0, 8.0, step_t)
 			play("Ranged_Magic_Spellcasting", 0.1, 1.0, true)
 			Sfx.play("boss_windup", -3.0, 1.2)
@@ -73,7 +74,7 @@ func _begin(p: String) -> void:
 				expose(float(DB.EXPOSED["time"]) * 0.7)
 				return
 			step_t = 0.35
-			hunt.fx.ring(flat_pos(), 2.5, VIOLET, 0.35)
+			hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.0)
 			hunt.fx.puff(flat_pos(), Color(0.45, 0.25, 0.6, 0.7), 12, 2.0, 3.0)
 			blink_to = _blink_spot()
 			Sfx.play("dash", -2.0, 0.7)
@@ -110,7 +111,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				for i in n:
 					var d := dir_of(phase + TAU * i / n)
 					hunt.spawn_proj("orb", flat_pos() + d * 1.5, d * 9.0, dmg * 0.6, 1, self, {"life": 2.4})
-				hunt.fx.ring(flat_pos(), 4.5, VIOLET, 0.3, 0.2)
+				hunt.fx.vfx.nova(&"shadow", flat_pos(), 4.5, 0.3)
 				Sfx.play("atk_mage", -3.0, 0.7)
 				step += 1
 				step_t = 0.55
@@ -165,7 +166,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				model.visible = true
 				var yaw := yaw_to(position, hero.position)
 				rotation.y = yaw
-				hunt.fx.ring(flat_pos(), 3.0, VIOLET, 0.35)
+				hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.2)
 				hunt.fx.puff(flat_pos(), Color(0.45, 0.25, 0.6, 0.7), 12, 2.0, 3.0)
 				var n := 5 if enraged else 3
 				for i in n:

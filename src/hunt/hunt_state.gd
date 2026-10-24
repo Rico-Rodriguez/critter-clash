@@ -457,12 +457,11 @@ func shake(v: float) -> void:
 	cam.add_trauma(v)
 
 
-## A super goes off: the camera pushes in, the screen washes in the hero's
+## A super goes off: the camera pushes in, the hero's
 ## color, its name rises over the hero, and the world holds its breath.
 func super_moment(at: Vector3) -> void:
 	var col: Color = hero.def["color"]
 	cam.punch = 0.1
-	hud.flash(Color(col.lightened(0.3), 0.3), 0.35)
 	fx.text(at + Vector3(0, 2.6, 0), str(hero.def["super_name"]).to_upper(), col.lightened(0.35), 1.3, 1.0)
 	hitstop(0.06)
 
@@ -471,10 +470,8 @@ func super_moment(at: Vector3) -> void:
 func _legendary_moment(at: Vector3, it: Dictionary) -> void:
 	var col := DB.rarity_color(it["rarity"])
 	fx.sky_bolt(at, col.lightened(0.3), 0.5, 18.0)
-	fx.ring(at, 4.0, col, 0.7, 0.15)
-	fx.burst(at + Vector3(0, 0.6, 0), col.lightened(0.2), 24, 7.0, 1.4)
+	fx.vfx.impact(&"level", at, 2.4, col.lightened(0.3))
 	fx.flash_light(at, col, 6.0, 10.0, 0.8)
-	hud.flash(Color(col, 0.18), 0.5)
 	cam.punch = maxf(cam.punch, 0.06)
 	if phase != "victory":
 		Engine.time_scale = 0.35

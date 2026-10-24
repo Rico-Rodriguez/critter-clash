@@ -37,6 +37,15 @@ The weapon skins (Oathbound Blade, Reaper's Scythe) were modeled for this game
 by the scripts in `tools/art/`, run with Blender's Python module, and use the
 KayKit knight texture above for their colors.
 
+## VFX textures — our own (CC0)
+
+Every sprite, decal and telegraph edge under `assets/vfx/` (flame flipbook,
+embers, sparks, ice shards, snowflakes, bubbles, spores, leaves, light rays,
+shadow wisps, bone chips, debris, dust, blood, crosses, chevrons, the six
+ground decals and the eight telegraph edge strips) is drawn from code by
+`tools/art/vfx_textures.py` for this game. No third-party art is used; we
+release them under CC0 1.0.
+
 ## Icons — game-icons.net (CC BY 3.0)
 
 Interface and card icons in `assets/icons/` are from https://game-icons.net,
