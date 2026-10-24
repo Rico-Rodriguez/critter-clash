@@ -86,3 +86,18 @@ game, and repeated reports mute a player automatically (3 reporters: 1 day,
 `reports` storage collection: look at them in the Nakama console
 (`ssh -L 7351:localhost:7351 you@server`, then http://localhost:7351).
 Account deletion is in Settings › Account, as Apple requires.
+
+## Box-hosted test server (current)
+
+The dev builds point at a test server run on the bot's box through a free
+wormhole.bar tunnel. Its address changes when the tunnel reconnects, so the box
+republishes it to `server.json` on the `test-server` branch and the game reads
+that file at every sign-in (`CONFIG_URL` in `src/net/net_config.gd`, cached in
+`user://server_url.txt`). `HOST` is only the fallback. `--server=` still pins
+an address for dev runs.
+
+## Weekly challenge board
+
+`weekly_submit` takes `Game.weekly_entry()` after an omen hunt and writes the
+`weekly` leaderboard, which resets Thursday 00:00 UTC (the same boundary as
+`Game.week_number()`). Scores from another week are refused (`stale`).
