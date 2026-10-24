@@ -25,3 +25,13 @@ Before/after per model: `drake.jpg`, `drake_evolved.jpg`, `crow.jpg`,
 `sapling.jpg`, `bat.jpg`, `mimic.jpg`, `wisp.jpg`, `bonelet.jpg`, `hexling.jpg`,
 `acolyte.jpg`, `barrow_squire.jpg`, `shade.jpg` (before | after idle | after move).
 In game: `ingame_hexling_hunt.jpg` / `ingame_hexling_crop.jpg` (1179x2556 hunt capture, Hexling following the hero).
+
+## Round 3 (lead review)
+
+- Materials: the loader (`sidekick_look.gd` `_lit_opaque`) puts every `sf:` material on the lit, opaque path: unshaded becomes per-pixel lit, alpha blend / depth prepass becomes an alpha cut-out (opaque pass, edges kept), white emission off. Textures are untouched; one shared copy per source material. Fixes the wisp and hexling (unshaded, blended), the acolyte (emission) and the shade (blended, emission: it glowed in camp). Kept: the artists' small emission maps on the bat's eyes, mimic and treant (`KEEP_EMISSION`). Test: "sf: sidekick materials lit, opaque, no emission".
+- Camp: the thin undead (bonelet, hexling, acolyte, barrow squire, shade) stand x1.7 by the fire (`camp_scale`), feet on the ground.
+- Crow: hunt scale 0.9 -> 1.2 and fill 2.6 -> 3.4. It is a black-feathered crow; with no tint allowed it still reads dark on the night ground, but now larger with a clear silhouette.
+- Ring: rides at the companion's feet (flyers too), so it no longer sits on the ground apart from the bat. Test now builds the hunt sidekick (ring present, hunt scale) against the camp model (none).
+- Wisp: kept Spinnee's Mawko. Sketchfab CC BY candidates ("Wisp soul", "Inktober2020 Wisp", Mehrus "Wraith") are either emissive-only stylised shapes that go muddy lit and opaque, a duplicate of the shade's wraith, or a game rip ("Wisp Mother").
+
+`r3_lobby_before_after.jpg` (camp, 1179x2556 gl_compatibility, crops), `r3_hunt_before_after.jpg` (hunt crops, `--cam=0.6 --sidekick=X:500`).
