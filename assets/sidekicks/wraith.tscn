@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/wraith_src.glb" id="1_s2syy"]
+
+[node name="wraith" type="Node3D" unique_id=2081501808]
+metadata/cull_aabbs = {
+"Sketchfab_model/4b38b379bcce4808bb548921ffdb5ff6_fbx/Object_2/RootNode/Armature/Object_5/Skeleton3D/Object_84": AABB(-3.993121, -3.5064254, -2.8037612, 7.9862423, 6.782683, 10.86637)
+}
+metadata/posed_aabb = AABB(-0.22011764, 0, -0.103159346, 0.4402353, 1, 0.20631869)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=418157906 instance=ExtResource("1_s2syy")]
+transform = Transform3D(0.001943541, 0, 0, 0, 0.001943541, 0, 0, 0, 0.001943541, -5.9312164e-08, -0.011039336, -0.022366995)

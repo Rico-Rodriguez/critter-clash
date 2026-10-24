@@ -110,12 +110,9 @@ The scripts that built the audio are are kept in `tools/audio/`.
 
 ## Sidekicks
 
-- Ghost model (Grave Wisp) by Quaternius
-  (Ultimate Monsters / animal packs via poly.pizza), CC0 1.0. See
-  `assets/quaternius/LICENSE-Quaternius.txt`.
 - Sidekick models, Creative Commons Attribution 4.0
-  (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified meshes
-  and materials; clips renamed or cut by time, scaled to size in
+  (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
+  one draw per material (`tools/art/merge_skinned.py`), clips renamed or cut by time, scaled to size in
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`):
   - Ember Drake / Ash Wyrm — "Animated Dragon Three Motion Loops" by LasquetiSpice —
     https://sketchfab.com/3d-models/animated-dragon-three-motion-loops-eca98cf6cd084c1596cecf716e110c29
@@ -128,5 +125,17 @@ The scripts that built the audio are are kept in `tools/audio/`.
     https://sketchfab.com/3d-models/bat-28af38de4d2c401d809148c7f63a73f9
   - Gilded Mimic — "Mimic_Chest" by Joseph Payeur (joseph.payeur) —
     https://sketchfab.com/3d-models/mimic-chest-a3489678d43a44a194f10f7b2cb929ce
+  - Grave Wisp — "Soulthirsty Mawko" by Spinnee —
+    https://sketchfab.com/3d-models/soulthirsty-mawko-832701d0918b4e5bb15408d1097b6f13
+  - Bonelet — "Skeleton animated" by danielmclogan —
+    https://sketchfab.com/3d-models/skeleton-animated-9210377c7a514cf6b48a31b9d3991ff3
+  - Hexling — "Lich" by Spinnee —
+    https://sketchfab.com/3d-models/lich-4ad4ece50273473ba1d843797b8f4fa6
+  - Acolyte — "Plague Doctor" by BeardenInc (display base removed) —
+    https://sketchfab.com/3d-models/plague-doctor-41f7a1dfd6984135b876f334908e3ca4
+  - Barrow Squire — "Skelet_warrior" by EvgeshQa (uchaikineugene) —
+    https://sketchfab.com/3d-models/skelet-warrior-1337edb8b567486aa22f15b519e60c4d
+  - Hexbound Shade — "Wraith" by Mateus Schwaab (Mehrus) —
+    https://sketchfab.com/3d-models/wraith-37fb72ef0c0642f68c968589fbda60d4
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
   Lorc, from game-icons.net, CC BY 3.0.

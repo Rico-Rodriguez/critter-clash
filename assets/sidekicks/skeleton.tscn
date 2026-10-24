@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/skeleton_src.glb" id="1_x7cvk"]
+
+[node name="skeleton" type="Node3D" unique_id=525578338]
+metadata/cull_aabbs = {
+"Sketchfab_model/f0356766e0e94761aa548edea20aad34_fbx/Object_2/RootNode/Bip01/Object_5/Skeleton3D/Object_74": AABB(-48.904682, -75.03429, -43.348457, 98.38094, 145.7906, 97.072586)
+}
+metadata/posed_aabb = AABB(-0.15824595, 0, -0.16638286, 0.3164919, 1, 0.33276573)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1589383706 instance=ExtResource("1_x7cvk")]
+transform = Transform3D(0.5593589, 0, 0, 0, 0.5593589, 0, 0, 0, 0.5593589, -0.0040518907, 0.32671124, -0.069309235)

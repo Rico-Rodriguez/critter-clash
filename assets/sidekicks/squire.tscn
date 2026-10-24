@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/squire_src.glb" id="1_o215q"]
+
+[node name="squire" type="Node3D" unique_id=742125699]
+metadata/cull_aabbs = {
+"Sketchfab_model/eb16ca1b089b4117ac9622f8faaf7ec0_fbx/Object_2/RootNode/rig/Object_8/Skeleton3D/Object_11": AABB(-1.4885273, -1.7086322, -1.153204, 2.9657464, 3.2211034, 4.315161)
+}
+metadata/posed_aabb = AABB(-0.16430123, 0, -0.22782734, 0.32860246, 0.99999994, 0.45565468)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1681936277 instance=ExtResource("1_o215q")]
+transform = Transform3D(0.6231837, 0, 0, 0, 0.6231837, 0, 0, 0, 0.6231837, 0.0028131497, 0.00027523018, -0.048799634)

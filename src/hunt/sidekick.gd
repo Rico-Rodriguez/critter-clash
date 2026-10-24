@@ -22,6 +22,13 @@ var slain := 0
 var _side := 1.0
 var _bob := 0.0
 var _act_t := 0.0
+## Hunt-only readability: the companion is drawn a bit bigger than in camp,
+## over a thin ground ring in the hero's team colour (one shared, unlit,
+## crisp-alpha draw: no glow, no falloff).
+const HUNT_SCALE := 1.2
+const RING_COLOR := Color(0.35, 0.75, 1.0, 0.4)
+static var _ring_mesh: TorusMesh
+var ring: MeshInstance3D
 
 
 func setup(h: Node, sid: String, kills: int) -> void:
@@ -33,12 +40,37 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	evolved = bond >= SDB.BOND_EVOLVE
 	look = Look.build(id, evolved)
 	add_child(look["root"])
-	(look["root"] as Node3D).scale *= float(def.get("hunt_scale", 1.0))
+	(look["root"] as Node3D).scale *= HUNT_SCALE * float(def.get("hunt_scale", 1.0))
+	_add_ring()
 	Look.play(look, "idle")
 	cd_max = float(ab["cd"])
 	cd = minf(2.0, cd_max)
 	_side = -1.0
 	position = hunt.hero.position + Vector3(-1.2, 0, 0.8)
+
+
+func _add_ring() -> void:
+	if _ring_mesh == null:
+		_ring_mesh = TorusMesh.new()
+		_ring_mesh.inner_radius = 0.5
+		_ring_mesh.outer_radius = 0.56
+		_ring_mesh.rings = 40
+		_ring_mesh.ring_segments = 3
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = RING_COLOR
+		m.disable_receive_shadows = true
+		_ring_mesh.material = m
+	ring = MeshInstance3D.new()
+	ring.name = "CompanionRing"
+	ring.mesh = _ring_mesh
+	ring.scale = Vector3(1.0, 0.05, 1.0)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Rides at the companion's feet (also for flyers), so it never sits on
+	# the ground apart from it as an empty ring.
+	ring.position.y = 0.04
+	add_child(ring)
 
 
 func display_name() -> String:
