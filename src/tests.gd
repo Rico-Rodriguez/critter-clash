@@ -152,6 +152,7 @@ func run() -> int:
 	_unique_names()
 	_net_tests()
 	_gear_tests()
+	_sidekick_tests()
 	return _fails
 
 
@@ -533,3 +534,75 @@ func _net_tests() -> void:
 	Game.set_skin("barbarian", "")
 	_ok("skin put away, kept", Game.hero("barbarian")["skin"] == "" and Game.buy_skin("barbarian", "reaper") and Game.gold() == g0 - Game.skin_price("reaper"))
 	Game.data = Game._fresh()
+
+
+## Sidekicks: the save migration from pets and the ally, bond, eggs, unlocks.
+func _sidekick_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	const SDB := preload("res://src/data/sidekick_db.gd")
+	var keep := Game.data.duplicate(true)
+	_ok("sidekick roster 6-8", SDB.ORDER.size() >= 6 and SDB.ORDER.size() <= 8 and SDB.ORDER.size() == SDB.ROSTER.size())
+	for id: String in SDB.ORDER:
+		for cid in SDB.ROSTER[id].get("cards", []):
+			_ok("sidekick card %s defined" % cid, DB.CARDS.has(cid) and str(DB.CARDS[cid]["sidekick"]) == id)
+	# An old save (v9, before sidekicks): two boss pets, one followed, a hero ally.
+	var old := Game._fresh()
+	old.erase("sidekicks")
+	old["pets"] = ["bonelet", "hexling"]
+	old["pet"] = "hexling"
+	old["ally"] = "ranger"
+	old["stats"]["boss_kills"] = 3
+	var d := Game._fresh()
+	Game._merge(d, old)
+	SK.migrate(d)
+	_ok("migration: boss pets become sidekicks", SK.is_owned(d, "bonelet") and SK.is_owned(d, "hexling") and not SK.is_owned(d, "acolyte"))
+	_ok("migration: followed pet is at your side", SK.active(d) == "hexling")
+	_ok("migration: hero ally gone", str(d["ally"]) == "")
+	_ok("migration: first boss kill gives the Wisp", SK.is_owned(d, "wisp"))
+	SK.set_active(d, "bonelet")
+	d["pets"].append("acolyte")
+	SK.migrate(d)
+	_ok("migration runs once", SK.active(d) == "bonelet" and bool(d["sidekicks"]["migrated"]))
+	# A save from a build with no sidekicks key at all.
+	var bare := {"pets": ["acolyte"], "pet": "acolyte", "ally": "mage", "stats": {"boss_kills": 0}}
+	SK.migrate(bare)
+	_ok("migration: bare save", SK.active(bare) == "acolyte" and not SK.is_owned(bare, "wisp") and str(bare["ally"]) == "")
+	var fresh := Game._fresh()
+	SK.migrate(fresh)
+	_ok("fresh save: no sidekick", SK.active(fresh) == "" and (fresh["sidekicks"]["owned"] as Dictionary).is_empty())
+	# Bond levels.
+	_ok("bond 1 at 0", SDB.bond_level(0) == 1)
+	_ok("bond 4 at 1240, next 2000", SDB.bond_level(1240) == 4 and SDB.bond_next(1240) == 2000)
+	_ok("bond caps at 10", SDB.bond_level(10000000) == 10)
+	# A hunt's kills go to the sidekick at your side.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var s := SK.after_hunt(d, {"kills": 250, "win": false}, rng)
+	_ok("hunt kills grow bond", SK.kills(d, "bonelet") == 250 and int(s["bond_to"]) == 2 and SK.kills(d, "hexling") == 0)
+	# Ember Egg: pity guarantees it, kills hatch the Drake.
+	var got_egg := false
+	for i in 20:
+		var r := SK.after_hunt(d, {"kills": 0, "win": true, "bosses": ["gravemaw"], "zone": "barrow"}, rng)
+		if str(r["egg"]) == "ember":
+			got_egg = true
+			break
+	_ok("ember egg drops within pity", got_egg and d["sidekicks"]["eggs"].has("ember"))
+	var h := SK.after_hunt(d, {"kills": 600}, rng)
+	_ok("egg hatches the drake", (h["hatched"] as Array).has("drake") and SK.is_owned(d, "drake") and not d["sidekicks"]["eggs"].has("ember"))
+	_ok("night bat hidden until its egg", SK.hidden(d, "bat"))
+	# Mimic after 100 chests; Storm Crow on the road.
+	for i in 99:
+		SK.note_chest(d)
+	_ok("99 chests: no mimic", not SK.is_owned(d, "mimic"))
+	SK.note_chest(d)
+	_ok("100 chests: mimic", SK.is_owned(d, "mimic"))
+	d["renown"] = 4000
+	_ok("trophies give the crow", SK.check_unlocks(d).has("crow"))
+	# Through the Game: a pet drop is a sidekick, a hunt reports bond.
+	Game.data = Game._fresh()
+	SK.migrate(Game.data)
+	Game.grant_item(Game.make_unique("bonelet"))
+	_ok("pet drop is a sidekick at your side", SK.active(Game.data) == "bonelet")
+	var sum := Game.finish_hunt({"hero": "knight", "kills": 120, "win": false, "tier": 0, "time": 60.0})
+	_ok("finish_hunt reports sidekick bond", str(sum["sidekick"]["id"]) == "bonelet" and SK.kills(Game.data, "bonelet") == 120)
+	Game.data = keep
