@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/bat_src.glb" id="1_phei8"]
+
+[node name="bat" type="Node3D" unique_id=1294394320]
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1368348467 instance=ExtResource("1_phei8")]
+transform = Transform3D(1.8332078, 0, 0, 0, 1.8332078, 0, 0, 0, 1.8332078, -0.25915182, -0.43887746, -0.000146528)

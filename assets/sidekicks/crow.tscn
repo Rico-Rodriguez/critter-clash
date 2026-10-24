@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/crow_src.glb" id="1_l61y6"]
+
+[node name="crow" type="Node3D" unique_id=1851928929]
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=593304176 instance=ExtResource("1_l61y6")]
+transform = Transform3D(0.05377922, 0, 0, 0, 0.05377922, 0, 0, 0, 0.05377922, -0.0009787775, 3.4703577, -1.045991)

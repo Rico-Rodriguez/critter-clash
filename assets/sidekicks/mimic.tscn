@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/mimic_src.glb" id="1_dtpw1"]
+
+[node name="mimic" type="Node3D" unique_id=1250226981]
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=324627392 instance=ExtResource("1_dtpw1")]
+transform = Transform3D(0.002794736, 0, 0, 0, 0.002794736, 0, 0, 0, 0.002794736, -1.1178944, 0.42688602, -0.6367986)

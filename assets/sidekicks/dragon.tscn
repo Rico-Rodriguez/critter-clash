@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/dragon_src.glb" id="1_e67hh"]
+
+[node name="dragon" type="Node3D" unique_id=940860524]
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=21154453 instance=ExtResource("1_e67hh")]
+transform = Transform3D(0.5325908, 0, 0, 0, 0.5325908, 0, 0, 0, 0.5325908, -0.03373491, -1.4386052, 0.44405028)
