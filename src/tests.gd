@@ -110,6 +110,27 @@ func run() -> int:
 	_ok("too few copies never trade", not Game.can_trade(ta, tb))
 	var cat := Game.catalog("barbarian", "weapon")
 	_ok("the armory has a row per family", cat.size() == DB.HERO_FAMILIES["barbarian"].size() and cat[0].size() == GearDB.TIERS)
+	# The Vault has its own boss, the Gilded Warden, with his own table and arms.
+	_ok("the vault's boss is the warden", str(DB.ZONES["vault"]["boss"]) == "warden" and DB.BOSSES.has("warden"))
+	_ok("the warden's arms exist", ResourceLoader.exists("res://assets/kaykit/weapons/warden_key.gltf") and ResourceLoader.exists("res://assets/kaykit/weapons/warden_door.gltf"))
+	var wsrc := []
+	for u: String in DB.UNIQUES:
+		if str(DB.UNIQUES[u]["source"]) == "warden":
+			wsrc.append(u)
+	_ok("the warden has a unique table, all in the log", wsrc.size() == 3 and wsrc.all(func(u): return u in DB.LOG_ORDER))
+	var wb: Node = load("res://src/hunt/boss_warden.gd").new()
+	_ok("the warden's script is a Boss", wb is Boss)
+	wb.free()
+	# The Rogue's families: six, each with a model in every set, and a drop picks one.
+	_ok("the rogue has six weapon families", DB.HERO_FAMILIES.get("rogue", []).size() == 6)
+	var fam_models := true
+	for hid: String in DB.HERO_FAMILIES:
+		for f: String in DB.HERO_FAMILIES[hid]:
+			fam_models = fam_models and str(DB.FAMILIES[f]["hero"]) == hid
+			for m in GearDB.TIERS:
+				fam_models = fam_models and ResourceLoader.exists("res://assets/kaykit/weapons/" + str(GearDB.family_look(f, m)["model"]))
+	_ok("every family has a model in every set", fam_models)
+	_ok("a rogue weapon drop rolls a rogue family", DB.HERO_FAMILIES["rogue"].has(str(Game.make_item("rogue", "weapon", 2).get("fam", ""))))
 	# v8 saves: copies of a piece fold into the worn one as level copies.
 	var a := Game.make_item("knight", "chest", 2, "rare")
 	a["uid"] = 501
@@ -184,6 +205,7 @@ func run() -> int:
 	var rh := ra.model.find_child("RogueHooded_Head", true, false) as MeshInstance3D
 	_ok("hooded rogue keeps her head", GearDB.look(hood_pre["helm"])["hood"] and rh != null and rh.visible)
 	ra.free()
+	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
 	return _fails
 

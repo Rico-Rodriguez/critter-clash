@@ -341,7 +341,7 @@ func _build_log(s: Sheet) -> void:
 		nm.add_theme_font_size_override("font_size", 20)
 		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(nm)
-		var src: String = {"boss": "Gravemaw", "hexer": "Hexer Queen", "thorn": "Thornmother", "elite": "Champions", "nightmare": "Bosses (Nightmare)", "ancient_boss": "Ancient Gravemaw", "ancient_hexer": "Ancient Hexer Queen", "ancient_thorn": "Ancient Thornmother"}[ud["source"]]
+		var src: String = {"boss": "Gravemaw", "hexer": "Hexer Queen", "thorn": "Thornmother", "warden": "Gilded Warden", "elite": "Champions", "nightmare": "Bosses (Nightmare)", "ancient_boss": "Ancient Gravemaw", "ancient_hexer": "Ancient Hexer Queen", "ancient_thorn": "Ancient Thornmother"}[ud["source"]]
 		var rl := Ui.label("1/%d · %s" % [int(ud["rate"]), src], "Small", HORIZONTAL_ALIGNMENT_CENTER)
 		rl.add_theme_font_size_override("font_size", 16)
 		v.add_child(rl)

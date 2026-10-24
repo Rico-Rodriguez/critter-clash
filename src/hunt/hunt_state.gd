@@ -308,8 +308,15 @@ func _room_alive(r: Dictionary) -> int:
 	return n
 
 
+## No class_name for new scripts (the IPA bakes the list): preloaded by path.
+const BossWarden := preload("res://src/hunt/boss_warden.gd")
+
 func _make_boss() -> Boss:
-	var b: Boss = BossHexer.new() if cur_boss == "hexer" else (BossThorn.new() if cur_boss == "thorn" else Boss.new())
+	var b: Boss
+	if cur_boss == "warden":
+		b = BossWarden.new()
+	else:
+		b = BossHexer.new() if cur_boss == "hexer" else (BossThorn.new() if cur_boss == "thorn" else Boss.new())
 	b.boss_id = cur_boss
 	return b
 

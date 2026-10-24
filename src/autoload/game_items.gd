@@ -348,7 +348,7 @@ func roll_uniques(source: String, tier_i: int) -> Array:
 	for u in DB.LOG_ORDER:
 		var ud: Dictionary = DB.UNIQUES[u]
 		var src := str(ud["source"])
-		if src == source or (src == "nightmare" and source in ["boss", "hexer", "thorn"] and tier_i >= DB.TIER_NIGHTMARE):
+		if src == source or (src == "nightmare" and source in ["boss", "hexer", "thorn", "warden"] and tier_i >= DB.TIER_NIGHTMARE):
 			if rng.randf() < mult / float(ud["rate"]):
 				hits.append(u)
 	return hits
