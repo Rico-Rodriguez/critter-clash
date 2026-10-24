@@ -175,6 +175,12 @@ func run() -> int:
 	_net_tests()
 	_gear_tests()
 	_sidekick_tests()
+	# The Thorn Sapling is its own little treant on the shared rig, not a reused Rogue.
+	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
+	var sap := KK.character("Sapling") if ResourceLoader.exists(KK.CHAR_DIR + "Sapling.glb") else null
+	_ok("sapling has its own rigged model", sap_m == "kk:Sapling" and sap != null and sap.find_child("Skeleton3D", true, false) != null)
+	if sap:
+		sap.free()
 	return _fails
 
 
