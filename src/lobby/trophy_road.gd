@@ -14,6 +14,8 @@ const STEP_H := 150.0
 const BIG_H := 176.0
 const ARENA_H := 262.0
 const GAP := 16.0
+const SKDB := preload("res://src/data/sidekick_db.gd")
+const SKR := preload("res://src/autoload/sidekicks.gd")
 const ZONE_ICON := {"barrow": "tombstone", "depths": "ghost", "grove": "wolf-head", "vault": "locked-chest"}
 const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle", "descent": "hourglass", "rush": "crowned-skull", "rift": "crystal-shine", "wild": "wolf-head"}
 const GOLD := Color("e8b65a")
@@ -197,6 +199,9 @@ func _build(first := false) -> void:
 	var ready_n := Game.road_claimable()
 	var last := maxi(DB.TROPHY_ROAD.size() + 2, claimed + ready_n + 3)
 	var arena_i := 0
+	# Sidekicks that trophies earn sit on the road where they join.
+	var marks := SKDB.road_marks()
+	var mark_i := 0
 	# Arena 1 and what a new save starts with.
 	y = _add_arena(0, y, w)
 	arena_i = 1
@@ -208,6 +213,9 @@ func _build(first := false) -> void:
 			y = _add_arena(arena_i, y, w)
 			arena_i += 1
 		y = _add_step(n, y, w, claimed, ready_n)
+		while mark_i < marks.size() and int(marks[mark_i]["t"]) <= t:
+			y = _add_sidekick(marks[mark_i], y, w)
+			mark_i += 1
 	_content.custom_minimum_size = Vector2(0, y + 80.0)
 	_here = PanelContainer.new()
 	_here.theme_type_variation = &"RoadHere"
@@ -283,6 +291,28 @@ func _add_arena(i: int, y: float, w: float) -> float:
 	_content.add_child(p)
 	_items.append({"kind": "arena", "y": y, "h": ARENA_H, "node": p, "color": col, "open": open})
 	return y + ARENA_H + GAP * 2.0
+
+
+## A sidekick milestone: no claim button; it joins after the next hunt
+## past its trophies (Sidekicks.check_unlocks).
+func _add_sidekick(m: Dictionary, y: float, w: float) -> float:
+	var id := str(m["id"])
+	var sd: Dictionary = SKDB.ROSTER[id]
+	var t := int(m["t"])
+	var owned := SKR.is_owned(Game.data, id)
+	var reached := owned or Game.renown() >= t
+	var sub := str(sd["desc"]) if reached else "Joins at %d trophies" % t
+	var c := _card(y, w, BIG_H, "RoadDone" if owned else "RoadUnlock", str(sd["icon"]), "NEW SIDEKICK", str(sd["name"]), sub, reached)
+	if owned:
+		c.modulate.a = 0.8
+		_add_check(c)
+	elif not reached:
+		var lk := Ui.icon_rect("padlock", 40, Color(0.55, 0.5, 0.45))
+		lk.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		(c.get_child(0) as HBoxContainer).add_child(lk)
+	_items.append({"kind": "step", "t": t, "y": y, "h": BIG_H, "node": c, "state": "done" if owned else ("reached" if reached else "locked"), "big": true})
+	_num(t, y, BIG_H)
+	return y + BIG_H + GAP
 
 
 func _add_start(y: float, w: float, icon: String, tag: String, title: String, sub: String) -> float:
