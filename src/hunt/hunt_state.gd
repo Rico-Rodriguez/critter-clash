@@ -1,7 +1,7 @@
 extends Node3D
 ## The hunt, part 1 (see hunt.gd): every field of a running hunt, and the
 ## small queries and helpers the other parts share (foes near a point,
-## objective text, scaling, feel, the pet, live skill level-ups).
+## objective text, scaling, feel, the sidekick, live skill level-ups).
 
 signal finished(result: Dictionary)
 
@@ -28,7 +28,8 @@ var hud: Hud
 var world: Node3D
 var hero: Hero
 var boss: Boss
-var pet: Actor
+## The sidekick at your side (sidekick.gd), or null.
+var sidekick: Node3D
 var ally: Ally
 ## Party partners (partner.gd), one per other player in a party hunt.
 var partners: Array = []
@@ -416,31 +417,27 @@ func _check_skill_levels() -> void:
 			Sfx.play("skill_level", -2.0)
 
 
-# --- Pet -----------------------------------------------------------------
+# --- Sidekick --------------------------------------------------------------
 
-func _spawn_pet() -> void:
-	pet = Actor.new()
-	world.add_child(pet)
-	var pid := str(Game.data["pet"])
-	pet.build_model(str(DB.UNIQUES.get(pid, {}).get("model", "Skeleton_Minion")), {}, Color(0.5, 0.7, 1.0), 0.4, Color(1.0, 0.6, 0.2, 1.0))
-	pet.model.scale = Vector3.ONE * 0.42
-	pet.position = hero.position + Vector3(1.2, 0, 1.0)
-	pet.play("Skeletons_Idle")
+const SidekickNode := preload("res://src/hunt/sidekick.gd")
+const SK := preload("res://src/autoload/sidekicks.gd")
 
 
-func _tick_pet(dt: float) -> void:
-	var want := hero.position + Vector3(1.1, 0, 0.9).rotated(Vector3.UP, hero.rotation.y)
-	var d := want - pet.position
-	d.y = 0.0
-	if d.length() > 0.4:
-		pet.position += d.normalized() * minf(d.length(), (hero.speed + 1.0) * dt * clampf(d.length(), 0.6, 2.0))
-		pet.face(atan2(d.x, d.z), dt)
-		pet.play("Running_A", 0.15, 1.3)
-	else:
-		pet.play("Skeletons_Idle", 0.2)
+func _spawn_sidekick() -> void:
+	var sid := SK.active(Game.data)
+	if sid == "":
+		return
+	sidekick = SidekickNode.new()
+	world.add_child(sidekick)
+	sidekick.setup(self, sid, SK.kills(Game.data, sid))
 
 
-# --- Feel ----------------------------------------------------------------
+## Sidekick cards are in the pool only with that sidekick at Bond 5+.
+func sidekick_card_open(c: Dictionary) -> bool:
+	if not c.has("sidekick"):
+		return true
+	return sidekick != null and str(sidekick.id) == str(c["sidekick"]) and int(sidekick.bond) >= SK.SDB.BOND_CARDS
+
 
 func hitstop(t: float) -> void:
 	if phase == "victory" or phase == "defeat":

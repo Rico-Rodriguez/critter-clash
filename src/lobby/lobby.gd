@@ -10,7 +10,7 @@ var main: Node
 var ui: LobbyUI
 var cam: Camera3D
 var hero: Actor
-var pet: Actor
+var pet: Node3D
 var chest: Node3D
 var chest_lid: Node3D
 var fire_light: OmniLight3D
@@ -38,8 +38,7 @@ func _ready() -> void:
 	ui.setup(self)
 	show_hero(Game.hero_id(), false)
 	_make_portraits()
-	if str(Game.data.get("pet", "")) != "":
-		_spawn_pet()
+	refresh_sidekick()
 	Sfx.music("home")
 	if main and str(main.pending_chest) != "":
 		place_chest(main.pending_chest)
@@ -353,14 +352,24 @@ func remove_chest() -> void:
 		place_chest(main.pending_chest)
 
 
-func _spawn_pet() -> void:
-	pet = Actor.new()
+## The sidekick at your side waits by the hero in camp (unmodified model).
+func refresh_sidekick() -> void:
+	if pet and is_instance_valid(pet):
+		pet.queue_free()
+	pet = null
+	const SKL := preload("res://src/autoload/sidekicks.gd")
+	const Look := preload("res://src/core/sidekick_look.gd")
+	var sid := SKL.active(Game.data)
+	if sid == "":
+		return
+	var look := Look.build(sid, SKL.evolved(Game.data, sid))
+	pet = Node3D.new()
+	pet.add_child(look["root"])
 	add_child(pet)
-	pet.build_model(str(DB.UNIQUES.get(str(Game.data["pet"]), {}).get("model", "Skeleton_Minion")), {}, Color(0.5, 0.7, 1.0), 0.4, Color(1.0, 0.6, 0.2, 1.0))
-	pet.model.scale = Vector3.ONE * 0.42
-	pet.position = Vector3(-0.85, 0, 0.6)
+	pet.position = Vector3(-1.25, float(SKL.SDB.ROSTER[sid]["fly"]) * 0.5, -0.45)
+	pet.scale = Vector3.ONE * 0.75
 	pet.rotation.y = 0.5
-	pet.play("Skeletons_Idle")
+	Look.play(look, "idle")
 
 
 func open_sheet(name_: String) -> void:
