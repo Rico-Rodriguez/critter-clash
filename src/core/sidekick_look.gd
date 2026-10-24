@@ -1,7 +1,8 @@
 extends RefCounted
 ## Builds a sidekick's model, unmodified (art lock: the pack's own PBR
 ## materials, no tint, rim or glow). Returns {"root": Node3D, "anim":
-## AnimationPlayer or null, "idle": clip, "move": clip, "attack": clip}.
+## AnimationPlayer or null, one clip name per state (idle, move, run, attack, hit, special;
+## "" when the model lacks it)}.
 
 const SDB := preload("res://src/data/sidekick_db.gd")
 const Q_DIR := "res://assets/quaternius/"
@@ -18,7 +19,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 	var d: Dictionary = SDB.ROSTER[id]
 	var spec := str(d["evolved_model"]) if evolved and d.has("evolved_model") else str(d["model"])
 	var grow := SDB.EVOLVE_SCALE if evolved else 1.0
-	var out := {"root": null, "anim": null, "idle": "", "move": "", "attack": ""}
+	var out := {"root": null, "anim": null, "idle": "", "move": "", "run": "", "attack": "", "hit": "", "special": ""}
 	var root := Node3D.new()
 	root.name = "SidekickModel"
 	var model: Node3D
@@ -28,7 +29,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 		out["anim"] = KK.anim_player(model)
 		out["idle"] = "Skeletons_Idle"
 		out["move"] = "Running_A"
-		out["attack"] = "Skeletons_Idle"
+		out["attack"] = ""
 	elif spec.begins_with("prop:"):
 		model = KK.prop(spec.substr(5))
 		_fit(model, float(d["scale"]) * grow)
@@ -57,10 +58,13 @@ static func build(id: String, evolved := false) -> Dictionary:
 		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
 		if ap:
 			out["anim"] = ap
-			out["idle"] = _clip(ap, ["Flying_Idle", "Bat_Flying", "Idle"])
-			out["move"] = _clip(ap, ["Fast_Flying", "Bat_Flying", "Walk"])
-			out["attack"] = _clip(ap, ["Punch", "Headbutt", "Bat_Attack", "Bite_Front"])
-			for n in [out["idle"], out["move"]]:
+			var map: Dictionary = SDB.CLIPS.get(id, {})
+			for k in ["idle", "move", "run", "attack", "hit", "special"]:
+				out[k] = _clip(ap, [str(map[k])]) if map.has(k) else ""
+			if out["idle"] == "" and map.is_empty():
+				out["idle"] = _clip(ap, ["Flying_Idle", "Bat_Flying", "Idle"])
+				out["move"] = _clip(ap, ["Fast_Flying", "Bat_Flying", "Walk"])
+			for n in [out["idle"], out["move"], out["run"]]:
 				if n != "":
 					ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
 	if evolved and str(d.get("evolved_look", "")) == "ash":
@@ -158,7 +162,7 @@ static func _placeholder(out: Dictionary, root: Node3D, h: float) -> Dictionary:
 	out["anim"] = KK.anim_player(model)
 	out["idle"] = "Skeletons_Idle"
 	out["move"] = "Running_A"
-	out["attack"] = "Skeletons_Idle"
+	out["attack"] = ""
 	root.add_child(model)
 	out["root"] = root
 	return out
@@ -211,11 +215,25 @@ static func _fit(model: Node3D, h: float) -> void:
 	model.position.y = -box.position.y * k
 
 
-static func play(look: Dictionary, which: String, blend := 0.15, speed := 1.0) -> void:
+## True when the model has its own clip for `which` (else the caller fakes it).
+static func has(look: Dictionary, which: String) -> bool:
 	var ap: AnimationPlayer = look.get("anim")
 	var clip := str(look.get(which, ""))
-	if ap == null or clip == "" or not ap.has_animation(clip):
+	return ap != null and clip != "" and ap.has_animation(clip)
+
+
+## Plays a state's clip. Looping clips keep running; one-shots (attack, hit,
+## special) restart, sped up to fit `fit` seconds when given.
+static func play(look: Dictionary, which: String, blend := 0.15, speed := 1.0, fit := 0.0) -> void:
+	if not has(look, which):
 		return
-	if ap.current_animation == clip and which != "attack":
+	var ap: AnimationPlayer = look["anim"]
+	var clip := str(look[which])
+	var once := which in ["attack", "hit", "special"]
+	if fit > 0.0:
+		speed = maxf(ap.get_animation(clip).length / fit, 0.5)
+	if ap.current_animation == clip and not once:
+		ap.speed_scale = speed
 		return
-	ap.play(clip, blend, speed)
+	ap.speed_scale = 1.0 if once else speed
+	ap.play(clip, blend, speed if once else 1.0)

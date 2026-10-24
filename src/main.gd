@@ -696,6 +696,39 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("swing%d" % i)
 					await _wait_sim(hs, 0.07)
+			"skfilm":
+				# Sidekick behaviour reel (frames, for ffmpeg): the hero stands
+				# still (it wanders), then hunts (it follows, attacks, specials).
+				Game.data["seen_tutorial"] = true
+				_set_screen_now("hunt")
+				var hk: Hunt = current
+				hk.cam.dist_mult = float(_arg(args, "cam", "1.0"))
+				# Walk in off the gate first (the near wall fills the frame there).
+				hk.bot = true
+				hk._bot = HuntBot.new()
+				hk._bot.hunt = hk
+				await _wait_sim(hk, float(_arg(args, "lead", "2.5")))
+				hk.bot = false
+				hk._bot = null
+				var every := int(_arg(args, "every", "2"))
+				var fi := 0
+				for i in int(float(_arg(args, "still", "4.5")) * 30.0):
+					await get_tree().process_frame
+					if i % every == 0:
+						await _save("skfilm_%04d" % fi)
+						fi += 1
+				if hk.sidekick:
+					print("SKSTATE still-phase end %s" % hk.sidekick.motor.NAMES[hk.sidekick.motor.state])
+				hk.bot = true
+				hk._bot = HuntBot.new()
+				hk._bot.hunt = hk
+				for i in int(float(_arg(args, "fight", "9.0")) * 30.0):
+					await get_tree().process_frame
+					if i % every == 0:
+						await _save("skfilm_%04d" % fi)
+						fi += 1
+					if hk.sidekick and i % 15 == 0:
+						print("SKSTATE t=%.1f %s cd=%.1f teleports=%d" % [hk.time, hk.sidekick.motor.NAMES[hk.sidekick.motor.state], hk.sidekick.cd, hk.sidekick.motor.teleports])
 			"film":
 				_set_screen_now("hunt")
 				var hf: Hunt = current

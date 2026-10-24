@@ -207,6 +207,7 @@ func run() -> int:
 	ra.free()
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
+	_sidekick_motor_tests()
 	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
 	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
 	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
@@ -221,7 +222,7 @@ func run() -> int:
 	var hsk: Node3D = preload("res://src/hunt/sidekick.gd").new()
 	hsk.setup(fake_hunt, "bat", 0)
 	var hring := hsk.find_child("CompanionRing", false, false) as MeshInstance3D
-	var hroot := hsk.find_child("SidekickModel", false, false) as Node3D
+	var hroot := hsk.find_child("SidekickModel", true, false) as Node3D
 	_ok("hunt sidekick has its ring at its feet, camp model has none", hring != null and absf(hring.position.y - 0.04) < 0.001 and hroot != null and hroot.scale.x > 1.0 and sap.find_child("CompanionRing", true, false) == null and sap.scale.is_equal_approx(Vector3.ONE))
 	hsk.free()
 	(fake_hunt.get("hero") as Node3D).free()
@@ -758,3 +759,119 @@ func _sidekick_tests() -> void:
 	var sum := Game.finish_hunt({"hero": "knight", "kills": 120, "win": false, "tier": 0, "time": 60.0})
 	_ok("finish_hunt reports sidekick bond", str(sum["sidekick"]["id"]) == "bonelet" and SK.kills(Game.data, "bonelet") == 120)
 	Game.data = keep
+
+
+# Sidekick movement and state machine (hunt/sidekick_motor.gd), no scene.
+func _sidekick_motor_tests() -> void:
+	const M := preload("res://src/hunt/sidekick_motor.gd")
+	const SKN := preload("res://src/hunt/sidekick.gd")
+	var dt := 1.0 / 60.0
+	var m := M.new()
+	m.rng.seed = 7
+	var hero := Vector3.ZERO
+	m.pos = m.slot(hero, 0.0)
+	# The hero walks 6 m/s along +z for 3 s: it keeps up near its slot, lagging.
+	var max_lag := 0.0
+	for i in 180:
+		hero.z += 6.0 * dt
+		m.step(dt, hero, 0.0, 6.0)
+		max_lag = maxf(max_lag, M.flat_dist(m.pos, m.slot(hero, 0.0)))
+	var lag := M.flat_dist(m.pos, m.slot(hero, 0.0))
+	_ok("sidekick follows with lag but keeps up", lag > 0.2 and lag < M.SPRINT_DIST and m.teleports == 0)
+	_ok("sidekick faces where it walks", absf(angle_difference(m.yaw, 0.0)) < 0.2)
+	# The hero stops: it settles within a short distance of the hero.
+	for i in 120:
+		m.step(dt, hero, 0.0, 6.0)
+	_ok("sidekick settles near a stopped hero", M.flat_dist(m.pos, hero) < M.SLOT.length() + 0.8)
+	# Standing still a while: it wanders, but stays near the hero.
+	var wandered := false
+	var far := 0.0
+	for i in 600:
+		m.step(dt, hero, 0.0, 6.0)
+		wandered = wandered or m.state == M.S.WANDER
+		far = maxf(far, M.flat_dist(m.pos, hero))
+	_ok("sidekick wanders near an idle hero", wandered and far < M.WANDER_R + 1.0)
+	# Falling behind: sprint past SPRINT_DIST, blink back past TELEPORT_DIST.
+	_ok("state: sprint when far", M.pick_state(M.SPRINT_DIST + 0.5, true, 0.0) == M.S.SPRINT)
+	_ok("state: follow when the hero moves", M.pick_state(1.0, true, 0.0) == M.S.FOLLOW)
+	_ok("state: idle at the slot", M.pick_state(0.1, false, 0.0) == M.S.IDLE)
+	_ok("state: wander after standing still", M.pick_state(0.3, false, M.STILL_BEFORE_WANDER + 0.1) == M.S.WANDER)
+	var tp := false
+	for i in int(M.FAR_BEFORE_BLINK * 60.0) + 2:
+		tp = m.step(dt, hero + Vector3(0, 0, M.TELEPORT_DIST + 15.0), 0.0, 6.0) or tp
+	_ok("sidekick teleports when too far", tp and m.teleports == 1 and M.flat_dist(m.pos, m.slot(hero + Vector3(0, 0, M.TELEPORT_DIST + 15.0), 0.0)) < 0.01)
+	var m2 := M.new()
+	m2.pos = Vector3(M.SPRINT_DIST + 2.0, 0, 0)
+	m2.step(dt, Vector3.ZERO, 0.0, 6.0)
+	m2.step(dt, Vector3(0, 0, 0.1), 0.0, 6.0)
+	_ok("sidekick sprints to catch up", m2.state == M.S.SPRINT and m2.teleports == 0)
+	# Actions: wind-up, one hit frame, then back to moving; a flinch never
+	# cuts an attack short.
+	var m3 := M.new()
+	m3.act(M.S.ATTACK, 0.2, 0.5, Vector3(0, 0, 5))
+	_ok("hit reaction can't interrupt an attack", not m3.act(M.S.HIT, 0.0, 0.3))
+	var hits := 0
+	var first := -1.0
+	for i in 40:
+		m3.step(dt, m3.slot(Vector3.ZERO, 0.0), 0.0, 6.0)
+		if m3.take_hit():
+			hits += 1
+			first = m3.state_t
+	_ok("attack lands once on its hit frame", hits == 1 and first >= 0.2 and first < 0.25)
+	_ok("attack ends back in locomotion", not m3.is_action())
+	# Walls: it steps round a blocker instead of stopping dead.
+	var m4 := M.new()
+	m4.pos = Vector3(-1.4, 0, -4.0)
+	var wall := func(p: Vector3) -> bool: return absf(p.x + 1.4) < 0.6 and absf(p.z + 1.5) < 0.4
+	var inside := false
+	var h4 := Vector3.ZERO
+	for i in 300:
+		h4.z += 0.5 * dt
+		m4.step(dt, h4, 0.0, 6.0, wall)
+		inside = inside or wall.call(m4.pos)
+	_ok("sidekick steers round a wall", not inside and M.flat_dist(m4.pos, m4.slot(h4, 0.0)) < 1.2)
+	# Regression (#62 feedback): an attack on a far target walks/runs there,
+	# never teleports, and lands only after arriving; no blink in combat.
+	var m5 := M.new()
+	m5.pos = Vector3(-1.4, 0, 0.9)
+	var foe := Vector3(-1.4, 0, 7.5)
+	m5.act(M.S.ATTACK, 0.22, 0.55, foe, foe - Vector3(0, 0, 0.8))
+	var jump := 0.0
+	var landed := Vector3.INF
+	for i in 180:
+		var before := m5.pos
+		m5.step(dt, Vector3.ZERO, 0.0, 6.0)
+		jump = maxf(jump, M.flat_dist(before, m5.pos))
+		if m5.take_hit() and landed == Vector3.INF:
+			landed = m5.pos
+	_ok("attack runs to its target, no teleport", m5.teleports == 0 and jump < 0.25 and landed != Vector3.INF and M.flat_dist(landed, foe) < 1.8)
+	# Far behind right after an attack, and on screen: it sprints, no blink.
+	var m6 := M.new()
+	m6.act(M.S.ATTACK, 0.1, 0.2)
+	var hero6 := Vector3(0, 0, M.TELEPORT_DIST + 2.0)
+	for i in 60:
+		m6.step(dt, hero6, 0.0, 6.0, Callable(), Callable(), Callable(), func(_p): return true)
+	_ok("no teleport during or right after combat", m6.teleports == 0)
+	var m7 := M.new()
+	for i in 600:
+		m7.step(dt, Vector3(0, 0, M.TELEPORT_DIST + 2.0 + i * 0.4), 0.0, 6.0, Callable(), Callable(), Callable(), func(_p): return true)
+	_ok("on screen it only blinks when hopelessly far", m7.teleports >= 1)
+	var m8 := M.new()
+	var seen_far := false
+	for i in 120:
+		m8.step(dt, Vector3(0, 0, M.TELEPORT_DIST + 4.0), 0.0, 0.0, Callable(), Callable(), Callable(), func(_p): return true)
+	_ok("no blink while on screen and merely far", m8.teleports == 0)
+	# Procedural fallbacks move the pose when a clip is missing.
+	var lunge: Dictionary = SKN.pose(M.S.ATTACK, 0.3, 0.0, 0.22, 0.55, false, 0.0)
+	var hop: Dictionary = SKN.pose(M.S.SPECIAL, 0.55, 0.0, 0.32, 0.8, false, 0.0)
+	_ok("fallback attack lunges, special hops", float(lunge["z"]) > 0.2 and float(hop["y"]) > 0.3)
+	# Every clip in the map exists on its model.
+	var bad := []
+	const SDB2 := preload("res://src/data/sidekick_db.gd")
+	for sid in SDB2.ORDER:
+		var lk := preload("res://src/core/sidekick_look.gd").build(sid)
+		for key in SDB2.CLIPS.get(sid, {}):
+			if not preload("res://src/core/sidekick_look.gd").has(lk, key):
+				bad.append("%s.%s" % [sid, key])
+		(lk["root"] as Node).free()
+	_ok("sidekick clip map matches the rigs %s" % str(bad), bad.is_empty())
