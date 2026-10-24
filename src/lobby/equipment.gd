@@ -1176,6 +1176,17 @@ func _open_card(it: Dictionary) -> void:
 			up.icon = Ui.icon("two-coins")
 		up.disabled = lb != ""
 		row2.add_child(up)
+	if found:
+		var src := Game.trade_source(it)
+		if not src.is_empty():
+			var tr := _action("Trade %d copies of %s for 1 · %s" % [DB.TRADE_COPIES, str(src["name"]), Ui.fmt_num(Game.trade_fee(it))], "", func():
+				if Game.trade_copies(int(src["uid"]), uid):
+					Sfx.play("coin", -6.0)
+					_say("+1 copy of %s" % str(it["name"]), GREEN)
+					_select(Game.item(uid), true)
+				else:
+					Sfx.play("ui_error", -6.0))
+			v.add_child(tr)
 	var insp := _action("", "", func(): _inspect(it))
 	insp.icon = Ui.icon("magic-swirl")
 	insp.size_flags_horizontal = Control.SIZE_SHRINK_END

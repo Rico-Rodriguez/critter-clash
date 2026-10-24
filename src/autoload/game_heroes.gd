@@ -3,6 +3,34 @@ extends "res://src/autoload/game_items.gd"
 ## talents and the power score.
 
 
+# --- Super ranks --------------------------------------------------------------
+
+func super_rank(id: String) -> int:
+	return int(hero(id).get("super_rank", 0))
+
+
+## The next rank's price, or {} at max rank.
+func super_rank_cost(id: String) -> Dictionary:
+	var r := super_rank(id)
+	return {} if r >= DB.SUPER_RANKS.size() else DB.SUPER_RANKS[r]
+
+
+func can_buy_super_rank(id: String) -> bool:
+	var c := super_rank_cost(id)
+	return hero(id)["unlocked"] and not c.is_empty() and int(hero(id)["shards"]) >= int(c["shards"]) and gold() >= int(c["gold"])
+
+
+func buy_super_rank(id: String) -> bool:
+	if not can_buy_super_rank(id):
+		return false
+	var c := super_rank_cost(id)
+	hero(id)["shards"] = int(hero(id)["shards"]) - int(c["shards"])
+	data["gold"] = gold() - int(c["gold"])
+	hero(id)["super_rank"] = super_rank(id) + 1
+	save()
+	return true
+
+
 # --- XP lamps -----------------------------------------------------------------
 
 ## XP one lamp adds to skill `s` of hero `id` at its current level.

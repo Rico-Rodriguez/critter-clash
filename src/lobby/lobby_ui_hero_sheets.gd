@@ -313,19 +313,40 @@ func _build_skills(s: Sheet) -> void:
 	hr.add_child(hv)
 	head.add_child(hr)
 	b.add_child(head)
-	# Lamps: the one way to buy skill xp, and what it costs.
-	var lamp_card := _card()
-	var lv := VBoxContainer.new()
-	lv.add_theme_constant_override("separation", 2)
-	var lt := Ui.label("%d shards" % shards, "Body")
-	lt.add_theme_font_size_override("font_size", 24)
-	lt.add_theme_color_override("font_color", Color(0.75, 0.6, 1.0))
-	lv.add_child(lt)
-	var ld := Ui.label("A lamp costs %d shards and pours xp into one skill. Shards come from chests and quests." % DB.LAMP_SHARDS, "Small")
-	ld.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lv.add_child(ld)
-	lamp_card.add_child(lv)
-	b.add_child(lamp_card)
+	# Super ranks: what shards buy, with the price and the change on every rank.
+	var sup_card := _card()
+	var sv := VBoxContainer.new()
+	sv.add_theme_constant_override("separation", 6)
+	var rank := Game.super_rank(id)
+	var st := Ui.label("%s · rank %d of %d" % [DB.HEROES[id]["super_name"], rank, DB.SUPER_RANKS.size()], "Body")
+	st.add_theme_font_size_override("font_size", 24)
+	st.add_theme_color_override("font_color", Color(0.75, 0.6, 1.0))
+	sv.add_child(st)
+	for i in DB.SUPER_RANKS.size():
+		var rk: Dictionary = DB.SUPER_RANKS[i]
+		var rl := Ui.label("%s %d. %s" % ["✓" if i < rank else "·", i + 1, rk["text"]], "Small")
+		rl.add_theme_font_size_override("font_size", 20)
+		rl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4) if i < rank else Color(0.7, 0.68, 0.64))
+		sv.add_child(rl)
+	var cost := Game.super_rank_cost(id)
+	var buy := Button.new()
+	buy.theme_type_variation = "CardButton"
+	buy.focus_mode = Control.FOCUS_NONE
+	buy.add_theme_font_size_override("font_size", 18)
+	if cost.is_empty():
+		buy.text = "Max rank"
+		buy.disabled = true
+	else:
+		buy.text = "Rank %d: %d shards + %s gold  (you have %d shards)" % [rank + 1, int(cost["shards"]), Ui.fmt_num(int(cost["gold"])), shards]
+		buy.disabled = not Game.can_buy_super_rank(id)
+	buy.pressed.connect(func():
+		if Game.buy_super_rank(id):
+			Sfx.play("skill_level", -4.0)
+			refresh()
+			s.rebuild())
+	sv.add_child(buy)
+	sup_card.add_child(sv)
+	b.add_child(sup_card)
 	for sk: String in trained:
 		var xp := Game.skill_xp(sk, id)
 		var lvl := DB.level_for_xp(xp)
@@ -363,19 +384,5 @@ func _build_skills(s: Sheet) -> void:
 		perk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(perk)
 		row.add_child(v)
-		var lamp := Button.new()
-		lamp.theme_type_variation = "CardButton"
-		lamp.text = "Lamp\n+%s xp\n%d shards" % [Ui.fmt_num(Game.lamp_xp(id, sk)), DB.LAMP_SHARDS]
-		lamp.custom_minimum_size = Vector2(150, 0)
-		lamp.add_theme_font_size_override("font_size", 17)
-		lamp.focus_mode = Control.FOCUS_NONE
-		lamp.disabled = not Game.can_rub_lamp(id)
-		var skn: String = sk
-		lamp.pressed.connect(func():
-			if Game.rub_lamp(id, skn):
-				Sfx.play("skill_level", -4.0)
-				refresh()
-				s.rebuild())
-		row.add_child(lamp)
 		c.add_child(row)
 		b.add_child(c)

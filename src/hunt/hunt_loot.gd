@@ -237,6 +237,8 @@ func roll_cards(n: int, exclude := []) -> Array:
 			continue
 		if c.has("hero") and not hero_id in c["hero"]:
 			continue
+		if not Game.card_open(id):
+			continue
 		if c["rarity"] == "legendary" and run_level < 5:
 			continue
 		if not sidekick_card_open(c):

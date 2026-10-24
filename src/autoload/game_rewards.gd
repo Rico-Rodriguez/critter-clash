@@ -61,7 +61,10 @@ func _earn_renown(r: Dictionary, summary := {}) -> int:
 		n += mini(int(r.get("elites", 0)), DB.TROPHY_ELITE_CAP) * DB.TROPHY_ELITE
 		if summary.get("first_win", false):
 			n += DB.TROPHY_FIRST_WIN
-		if int(summary.get("unlocked_tier", -1)) >= 0:
+		# The first win on a difficulty pays the first-clear bonus, even though
+		# the next one only opens after DB.TIER_WINS wins.
+		var wkey := "%s:%d" % [str(r.get("mode", "horde")), int(r.get("tier", 0))]
+		if int(summary.get("unlocked_tier", -1)) >= 0 or int(data.get("tier_wins", {}).get(wkey, 0)) == 1:
 			n += DB.TROPHY_FIRST_CLEAR
 	else:
 		n = mini(int(r.get("kills", 0)) / 15 + int(r.get("elites", 0)) * 2, DB.TROPHY_LOSS_MAX)
@@ -110,6 +113,13 @@ func road_pickable() -> Array:
 
 
 ## A short name for step n: "300 gold", "Boss Rush", "A new hero".
+## A road card is in the draws once its step is claimed (derived from the
+## claimed count, so old saves need no new key).
+func card_open(id: String) -> bool:
+	var st := DB.card_road_step(id)
+	return st == 0 or int(data.get("road", 0)) >= st
+
+
 func road_reward_text(n: int) -> String:
 	var rw := DB.road_reward(n)
 	match str(rw["kind"]):
@@ -127,6 +137,8 @@ func road_reward_text(n: int) -> String:
 			return "A new hero"
 		"rift_key":
 			return "A rift key"
+		"cards":
+			return "New cards: %s" % ", ".join(PackedStringArray((rw["ids"] as Array).map(func(c): return str(DB.CARDS[c]["name"]))))
 	return DB.CHESTS[rw["chest"]]["name"]
 
 
@@ -152,6 +164,8 @@ func claim_road(pick := "") -> Array:
 		"rift_key":
 			data["rift_keys"] = int(data.get("rift_keys", 0)) + 1
 			lines.append("A rift key: the Rift is open")
+		"cards":
+			lines.append("%s join your level-up draws" % road_reward_text(n).trim_prefix("New cards: "))
 		"pick", "hero":
 			var hid := str(rw.get("id", pick))
 			var pickable := road_pickable()

@@ -228,8 +228,8 @@ func claim_season() -> Dictionary:
 ## The nearest goal worth chasing, for the camp ("An XP lamp is ready").
 func next_goal() -> String:
 	var id := hero_id()
-	if can_rub_lamp(id):
-		return "An XP lamp is ready: rub it in Skills"
+	if can_buy_super_rank(id):
+		return "A Super rank is ready: buy it in Skills"
 	if talent_points(id) > 0:
 		return "A talent point to spend in Heroes"
 	var t := mode_tier_unlocked()
