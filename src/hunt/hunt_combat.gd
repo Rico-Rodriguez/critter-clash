@@ -266,6 +266,9 @@ func _kill_boss() -> void:
 		_drop_item(at, Game.make_unique(_rift_unique()))
 	for u in Game.roll_uniques(str(DB.boss_def(cur_boss)["source"]), tier_i):
 		_drop_item(at, Game.make_unique(u))
+	if tier_i >= DB.TIER_ANCIENT:
+		for u in Game.roll_uniques("ancient_" + str(DB.boss_def(cur_boss)["source"]), tier_i):
+			_drop_item(at, Game.make_unique(u))
 	for i in 10:
 		_drop("soul", at, 4)
 	# Everything left standing crumbles.

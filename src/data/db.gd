@@ -471,6 +471,8 @@ const TIER_FROM_V3 := [0, 2, 4]
 ## Named tier indices other rules depend on.
 const TIER_VETERAN := 2
 const TIER_NIGHTMARE := 4
+## From Torment up every boss wakes in its Ancient form (Boss.ancient).
+const TIER_ANCIENT := 6
 ## Hero armor turns into damage reduction on a curve (1 - e^-k·armor): the
 ## first points count fully, stacking past ~60 armor gives little.
 const ARMOR_K := 0.95
@@ -831,11 +833,18 @@ const UNIQUES := {
 	"thornbow": {"cls": "ranger", "fam": "longbow", "dye": Color(0.45, 0.85, 0.3), "name": "Thornwood Longbow", "slot": "weapon", "rarity": "legendary", "source": "thorn", "rate": 25, "stats": {"dmg": 28, "crit": 9}, "card": "barrage", "power": "Start every hunt with Arrow Storm", "icon": "pocket-bow"},
 	"barkplate": {"cls": "barbarian", "dye": Color(0.4, 0.3, 0.18), "name": "Barkhide Plate", "slot": "chest", "rarity": "legendary", "source": "thorn", "rate": 25, "stats": {"hp": 32, "armor": 9}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
 	"seedheart": {"cls": "knight", "dye": Color(0.6, 1.0, 0.4), "name": "Seedheart Aegis", "slot": "trinket", "rarity": "legendary", "source": "thorn", "rate": 30, "stats": {"aspd": 12, "regen": 5}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "shield"},
+	# Ancient forms (Torment and up): a relic and a pet each.
+	"barrow_relic": {"name": "Ancient Barrow Crown", "slot": "trophy", "rarity": "legendary", "source": "ancient_boss", "rate": 30, "icon": "crowned-skull", "power": "Cold iron from the first king. Sells for 5000 gold.", "sell": 5000},
+	"barrow_squire": {"name": "Barrow Squire", "slot": "pet", "rarity": "legendary", "source": "ancient_boss", "rate": 60, "icon": "skull-crossed-bones", "power": "A small, very loyal skeleton knight.", "model": "Skeleton_Warrior"},
+	"hex_relic": {"name": "Ancient Hex Spindle", "slot": "trophy", "rarity": "legendary", "source": "ancient_hexer", "rate": 30, "icon": "magic-swirl", "power": "Still spinning. Sells for 5000 gold.", "sell": 5000},
+	"shade": {"name": "Hexbound Shade", "slot": "pet", "rarity": "legendary", "source": "ancient_hexer", "rate": 60, "icon": "ghost", "power": "A quiet shade that keeps to your heels.", "model": "Skeleton_Rogue"},
+	"thorn_relic": {"name": "Ancient Heartwood", "slot": "trophy", "rarity": "legendary", "source": "ancient_thorn", "rate": 30, "icon": "crystal-shine", "power": "Warm to the touch. Sells for 5000 gold.", "sell": 5000},
+	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "A tiny hooded grove-keeper.", "model": "Rogue_Hooded"},
 	"acolyte": {"name": "Acolyte", "slot": "pet", "rarity": "legendary", "source": "thorn", "rate": 50, "icon": "ghost", "power": "Sidekick: Thorn Ward throws foes back.", "model": "Rogue_Hooded"},
 	"seed": {"name": "Thorn Seed", "slot": "trophy", "rarity": "magic", "source": "thorn", "rate": 4, "icon": "gems", "power": "It wriggles. Sells for 80 gold.", "sell": 80},
 	"abyssal": {"name": "Abyssal Gem", "slot": "trophy", "rarity": "legendary", "source": "nightmare", "rate": 80, "icon": "crystal-shine", "power": "It hums. Sells for 2000 gold.", "sell": 2000},
 }
-const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal"]
+const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]
 ## Unique sources and the boss whose kill count and dry streak they follow.
 const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn"}
 

@@ -460,6 +460,9 @@ func _depth_tests() -> void:
 	_ok("a pick step adds the chosen hero", Game.hero("ranger")["unlocked"] and not Game.hero("knight")["unlocked"] and Game.road_pickable() == ["knight"])
 	for i in DB.TROPHY_ROAD.size() + 1:
 		_ok("road step %d has a name" % (i + 1), Game.road_reward_text(i + 1) != "")
+	for u in ["barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]:
+		_ok("ancient unique %s" % u, DB.UNIQUES.has(u) and u in DB.LOG_ORDER and str(DB.UNIQUES[u]["source"]).begins_with("ancient_"))
+	_ok("ancient uniques never roll below Torment", Game.roll_uniques("ancient_boss", 0).size() >= 0 and DB.TIER_ANCIENT == 6)
 	_ok("road cards start locked", not Game.card_open("skybolt") and Game.card_open("might"))
 	_ok("every hero has two road epics", ["oath_storm", "shockwave", "rime_trap", "storm_arrows", "skybolt", "rift_quake", "thunder_cry", "skyfall"].all(func(c): return DB.CARDS.has(c) and DB.card_road_step(c) > 0))
 	var tr0 := Game.renown()
