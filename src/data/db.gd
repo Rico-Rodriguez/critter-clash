@@ -651,6 +651,27 @@ const TROPHY_ROAD := [
 	{"t": 2500, "kind": "zone", "id": "grove"},
 	{"t": 3000, "kind": "hero", "id": "barbarian"},
 	{"t": 3500, "kind": "rift_key"},
+	# The long road: steps past 3,500 so the ladder lasts weeks, not an afternoon.
+	{"t": 3800, "kind": "gold", "amount": 1500},
+	{"t": 4100, "kind": "shards", "amount": 60},
+	{"t": 4400, "kind": "chest", "chest": "gold"},
+	{"t": 4700, "kind": "gold", "amount": 2000},
+	{"t": 5000, "kind": "chest", "chest": "crypt"},
+	{"t": 5300, "kind": "shards", "amount": 80},
+	{"t": 5600, "kind": "gold", "amount": 2500},
+	{"t": 5900, "kind": "rift_key"},
+	{"t": 6200, "kind": "chest", "chest": "crypt"},
+	{"t": 6500, "kind": "shards", "amount": 100},
+	{"t": 6800, "kind": "gold", "amount": 3000},
+	{"t": 7100, "kind": "chest", "chest": "gold"},
+	{"t": 7500, "kind": "chest", "chest": "crypt"},
+	{"t": 7900, "kind": "shards", "amount": 120},
+	{"t": 8300, "kind": "gold", "amount": 4000},
+	{"t": 8700, "kind": "rift_key"},
+	{"t": 9100, "kind": "chest", "chest": "crypt"},
+	{"t": 9500, "kind": "shards", "amount": 150},
+	{"t": 9800, "kind": "gold", "amount": 5000},
+	{"t": 10000, "kind": "chest", "chest": "crypt"},
 ]
 const ROAD_EVERY := 500
 ## Arenas are the zones, opened where their step sits on the road.
@@ -669,7 +690,7 @@ const ROAD_SPARE_GOLD := 500
 ## the first time. A loss pays for how far it got, up to TROPHY_LOSS_MAX; the
 ## Descent pays per depth reached.
 const TROPHY_WIN := 30
-const TROPHY_TIER := 10
+const TROPHY_TIER := 6
 const TROPHY_ELITE := 2
 const TROPHY_ELITE_CAP := 5
 const TROPHY_FIRST_WIN := 30
@@ -1075,8 +1096,10 @@ const ACHIEVEMENTS := [
 ## SEASON_TIERS steps pays a reward; the last a weapon glow and a title. Free:
 ## the game charges nothing.
 const SEASON_WEEKS := 6
+## Wins on a difficulty before the next one opens (the first still pays the first-clear trophies).
+const TIER_WINS := 3
 const SEASON_TIERS := 30
-const SEASON_XP := 120
+const SEASON_XP := 400
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
 
 static func season_reward(n: int) -> Dictionary:
@@ -1085,8 +1108,8 @@ static func season_reward(n: int) -> Dictionary:
 	if n % 5 == 0:
 		return {"kind": "chest", "chest": "gold" if n < 20 else "crypt"}
 	if n % 2 == 0:
-		return {"kind": "shards", "amount": 6 + n / 2}
-	return {"kind": "gold", "amount": 120 + 20 * n}
+		return {"kind": "shards", "amount": 15 + n}
+	return {"kind": "gold", "amount": 300 + 50 * n}
 
 # --- Hero-defining legendaries ------------------------------------------------
 

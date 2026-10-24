@@ -452,12 +452,16 @@ func _depth_tests() -> void:
 	Game.data["mode_tiers"] = {}
 	Game.set_mode("horde")
 	Game.finish_hunt({"win": true, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"})
-	_ok("a win opens the next tier in its mode", Game.mode_tier_unlocked("horde") == 1 and Game.mode_tier_unlocked("rush") == 0)
+	_ok("one win is not enough", Game.mode_tier_unlocked("horde") == 0)
+	for _i in DB.TIER_WINS - 1:
+		Game.finish_hunt({"win": true, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"})
+	_ok("three wins open the next tier in its mode", Game.mode_tier_unlocked("horde") == 1 and Game.mode_tier_unlocked("rush") == 0)
 	Game.set_mode("rush")
 	Game.set_tier(1)
 	_ok("other modes stay shut", Game.tier() == 0)
-	Game.finish_hunt({"win": false, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
-	_ok("a Descent boss opens the Descent's next tier", Game.mode_tier_unlocked("descent") == 1)
+	for _i in DB.TIER_WINS:
+		Game.finish_hunt({"win": false, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
+	_ok("Descent bosses open the Descent's next tier", Game.mode_tier_unlocked("descent") == 1)
 	Game.set_mode("horde")
 	Game.data["clue"] = {"step": 0, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 	var r := {"win": true, "tier": 1, "hero": "knight", "gold": 400, "elites": 3, "kills": 10, "xp": {}, "items": [], "dashes": 3, "mode": "horde", "time": 100.0, "zone": "barrow"}

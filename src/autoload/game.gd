@@ -364,9 +364,9 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		var best := float(st["best"].get(key, 0.0))
 		if best <= 0.0 or float(r["time"]) < best:
 			st["best"][key] = float(r["time"])
-		if t >= int(data["tier_unlocked"]) and t < DB.TIERS.size() - 1:
-			data["tier_unlocked"] = t + 1
 		summary["unlocked_tier"] = _open_mode_tier(str(r.get("mode", "horde")), t)
+		if summary["unlocked_tier"] > 0 and t >= int(data["tier_unlocked"]) and t < DB.TIERS.size() - 1:
+			data["tier_unlocked"] = t + 1
 	summary["renown"] = _earn_renown(r, summary)
 	season()["xp"] = int(season()["xp"]) + int(summary["renown"])
 	var hid := str(r.get("hero", hero_id()))
@@ -395,7 +395,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if (r.get("bosses", []) as Array).size() > 0:
 			var tt := int(r["tier"])
 			summary["unlocked_tier"] = _open_mode_tier("descent", tt)
-			if tt >= int(data["tier_unlocked"]) and tt < DB.TIERS.size() - 1:
+			if summary["unlocked_tier"] > 0 and tt >= int(data["tier_unlocked"]) and tt < DB.TIERS.size() - 1:
 				data["tier_unlocked"] = tt + 1
 		var dkey: String = "descent_" + str(r["hero"])
 		var d := int(r.get("depth", 1))

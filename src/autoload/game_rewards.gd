@@ -61,7 +61,10 @@ func _earn_renown(r: Dictionary, summary := {}) -> int:
 		n += mini(int(r.get("elites", 0)), DB.TROPHY_ELITE_CAP) * DB.TROPHY_ELITE
 		if summary.get("first_win", false):
 			n += DB.TROPHY_FIRST_WIN
-		if int(summary.get("unlocked_tier", -1)) >= 0:
+		# The first win on a difficulty pays the first-clear bonus, even though
+		# the next one only opens after DB.TIER_WINS wins.
+		var wkey := "%s:%d" % [str(r.get("mode", "horde")), int(r.get("tier", 0))]
+		if int(summary.get("unlocked_tier", -1)) >= 0 or int(data.get("tier_wins", {}).get(wkey, 0)) == 1:
 			n += DB.TROPHY_FIRST_CLEAR
 	else:
 		n = mini(int(r.get("kills", 0)) / 15 + int(r.get("elites", 0)) * 2, DB.TROPHY_LOSS_MAX)
