@@ -360,8 +360,17 @@ const ZONES := {
 		"env": {"bg": Color(0.03, 0.025, 0.015), "ambient": Color(0.55, 0.42, 0.28), "ambient_e": 0.32, "fog": Color(0.16, 0.12, 0.06), "fog_d": 0.014,
 			"sun": Color(1.0, 0.72, 0.45), "sun_e": 0.42, "sun_rot": Vector3(-50, -40, 0), "mist": Color(0.75, 0.62, 0.4, 0.1), "motes": Color(0.85, 1.0, 0.45, 0.9)},
 	},
+	# The fourth zone: the Barrow King's treasury, built from the KayKit
+	# dungeon pack. Warm and bright, light fog, so the gold reads crisp.
+	"vault": {
+		"name": "The Gilded Vault", "boss": "gravemaw", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
+		"wake": "Gather %d souls to wake the King", "defeat": "The Vault keeps you", "enter": "Break into the Vault",
+		"loot_bonus": 3, "gold_bonus": 0.25, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 7500 trophies",
+		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
+			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
+	},
 }
-const ZONE_ORDER := ["barrow", "depths", "grove"]
+const ZONE_ORDER := ["barrow", "depths", "grove", "vault"]
 
 ## How a hunt is played. horde: the soul meter fills, the boss wakes. trial:
 ## the Long Road, a generated dungeon of rooms to fight through, boss at the
@@ -691,7 +700,7 @@ const TROPHY_ROAD := [
 	{"t": 6500, "kind": "shards", "amount": 100},
 	{"t": 6800, "kind": "hero", "id": "rogue"},
 	{"t": 7100, "kind": "chest", "chest": "gold"},
-	{"t": 7500, "kind": "chest", "chest": "crypt"},
+	{"t": 7500, "kind": "zone", "id": "vault"},
 	{"t": 7900, "kind": "shards", "amount": 120},
 	{"t": 8300, "kind": "gold", "amount": 4000},
 	{"t": 8700, "kind": "cards", "ids": ["explosive", "greed"]},
@@ -714,6 +723,7 @@ const ARENAS := [
 	{"zone": "barrow", "t": 0, "color": Color(0.36, 0.45, 0.75)},
 	{"zone": "depths", "t": 800, "color": Color(0.6, 0.4, 0.8)},
 	{"zone": "grove", "t": 2500, "color": Color(0.8, 0.6, 0.28)},
+	{"zone": "vault", "t": 7500, "color": Color(0.95, 0.78, 0.35)},
 ]
 ## A new save picks one of these; the rest come from the road's `pick` steps.
 const START_HEROES := ["knight", "ranger", "mage"]
