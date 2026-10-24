@@ -5,6 +5,8 @@ extends RefCounted
 
 const SDB := preload("res://src/data/sidekick_db.gd")
 const Q_DIR := "res://assets/quaternius/"
+## Licensed hero-quality replacements (CC0 / CC-BY, see CREDITS.md): "sf:name".
+const SF_DIR := "res://assets/sidekicks/"
 
 
 static func build(id: String, evolved := false) -> Dictionary:
@@ -26,9 +28,15 @@ static func build(id: String, evolved := false) -> Dictionary:
 		model = KK.prop(spec.substr(5))
 		_fit(model, float(d["scale"]) * grow)
 	else:
-		var ps: PackedScene = KK.scene(Q_DIR + spec.substr(2) + ".glb")
+		# "sf:" scenes wrap a licensed glb pre-scaled to 1 m (tools/art/wrap_sidekicks.gd).
+		var path := SF_DIR + spec.substr(3) + ".tscn" if spec.begins_with("sf:") else Q_DIR + spec.substr(2) + ".glb"
+		var ps: PackedScene = KK.scene(path)
 		model = ps.instantiate()
-		_fit(model, float(d["scale"]) * grow)
+		if spec.begins_with("sf:"):
+			# Skinned imports carry bind-space mesh bounds that _fit can't read.
+			model.scale = Vector3.ONE * float(d["scale"]) * grow
+		else:
+			_fit(model, float(d["scale"]) * grow)
 		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
 		if ap:
 			out["anim"] = ap

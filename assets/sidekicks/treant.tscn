@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/treant_src.glb" id="1_ck07u"]
+
+[node name="treant" type="Node3D" unique_id=758239117]
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2055979928 instance=ExtResource("1_ck07u")]
+transform = Transform3D(0.13682637, 0, 0, 0, 0.13682637, 0, 0, 0, 0.13682637, 0.13345456, -0.0029082736, 0.012435029)

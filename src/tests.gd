@@ -207,12 +207,12 @@ func run() -> int:
 	ra.free()
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
-	# The Thorn Sapling is its own little treant on the shared rig, not a reused Rogue.
+	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
 	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
-	var sap := KK.character("Sapling") if ResourceLoader.exists(KK.CHAR_DIR + "Sapling.glb") else null
-	_ok("sapling has its own rigged model", sap_m == "kk:Sapling" and sap != null and sap.find_child("Skeleton3D", true, false) != null)
-	if sap:
-		sap.free()
+	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
+	var sap: Node3D = sap_look["root"]
+	_ok("sapling has its own rigged model", sap_m == "sf:treant" and sap.find_child("Skeleton3D", true, false) != null and str(sap_look["idle"]) != "")
+	sap.free()
 	return _fails
 
 

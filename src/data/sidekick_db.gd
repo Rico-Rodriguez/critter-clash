@@ -104,7 +104,7 @@ const ROSTER := {
 	},
 	"sapling": {
 		"name": "Thorn Sapling", "element": "Thorn", "icon": "lightning-tree", "color": Color(0.7, 1.0, 0.45),
-		"model": "kk:Sapling", "fly": 0.0, "scale": 0.5,
+		"model": "sf:treant", "fly": 0.0, "scale": 0.5,
 		"unlock": {"kind": "pet", "unique": "sapling"}, "how": "The Ancient Thornmother's rare drop (1/60, Torment+)",
 		"origin": "A tiny treant grown from Ancient heartwood",
 		"ability": {"kind": "snare", "name": "Rootsnare", "cd": 7.0, "dmg": 0.35, "radius": 3.0, "pulses": 3, "hold": 1.2},

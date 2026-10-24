@@ -605,7 +605,7 @@ func _build_settings(s: Sheet) -> void:
 	var b := s.body
 	b.add_child(SettingsBox.new())
 	b.add_child(HSeparator.new())
-	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Icons: game-icons.net (CC BY 3.0). Music: Kevin MacLeod (CC BY 4.0). Effects: Kenney, rubberduck and others (CC0). Full list in CREDITS.md.", "Small")
+	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Sidekicks: Batuhan13 (CC BY 4.0, Sketchfab). Icons: game-icons.net (CC BY 3.0). Music: Kevin MacLeod (CC BY 4.0). Effects: Kenney, rubberduck and others (CC0). Full list in CREDITS.md.", "Small")
 	cr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(cr)
 	var ota := get_node_or_null("/root/Ota")
