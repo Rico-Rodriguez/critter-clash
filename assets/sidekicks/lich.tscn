@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/lich_src.glb" id="1_xmyfm"]
+
+[node name="lich" type="Node3D" unique_id=340097554]
+metadata/cull_aabbs = {
+"Sketchfab_model/3abddaa0bc4d4f59a8e11f478c6b659b_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-16.041039, -27.99529, -17.171127, 36.091587, 44.28425, 39.466488)
+}
+metadata/posed_aabb = AABB(-0.28109342, 0, -0.37127015, 0.56218684, 1, 0.7425403)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=686312085 instance=ExtResource("1_xmyfm")]
+transform = Transform3D(5.3439674, 0, 0, 0, 5.3439674, 0, 0, 0, 5.3439674, -0.10713345, 0.8127913, -0.13691859)
