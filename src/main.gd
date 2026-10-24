@@ -298,7 +298,7 @@ func _capture(args: PackedStringArray) -> void:
 	Game.data["log"] = {"tooth": 3, "sigil": 1, "cleaver": 1}
 	for i in 5:
 		Game.grant_item(Game.roll_item("chest", 1, "", hid))
-	Game.grant_item(Game.make_unique({"knight": "crown", "ranger": "shroud", "mage": "gown", "barbarian": "cleaver"}[hid]))
+	Game.grant_item(Game.make_unique({"knight": "crown", "ranger": "shroud", "mage": "gown", "barbarian": "cleaver", "rogue": "shroud"}.get(hid, "crown")))
 	# Two good pieces per slot so the equipment screen has something to compare.
 	for slot in DB.SLOTS:
 		for t in 2:
@@ -703,7 +703,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "powers", "fire", "descent", "pact", "wild":
+			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -736,7 +736,7 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(0.9)
 				elif shot == "powers":
 					await _wait_sim(h, 7.0)
-					var kit: Dictionary = {"knight": {"smite": 3}, "mage": {"meteor": 3, "frost": 2}, "ranger": {"barrage": 3, "explosive": 2}, "barbarian": {"quake": 3, "axes": 3}}[hid]
+					var kit: Dictionary = {"knight": {"smite": 3}, "mage": {"meteor": 3, "frost": 2}, "ranger": {"barrage": 3, "explosive": 2}, "barbarian": {"quake": 3, "axes": 3}, "rogue": {"shockwave": 3, "rime_trap": 2}}[hid]
 					for k in kit:
 						h.cards[k] = kit[k]
 					h.hero.recompute()
@@ -766,6 +766,17 @@ func _capture(args: PackedStringArray) -> void:
 					h.bot = false
 					h.boss._begin("circles")
 					await _wait_sim(h, 0.8)
+				elif shot == "warden":
+					# The Gilded Warden mid-Lockdown (run with --zone=vault).
+					await _wait_sim(h, 4.0)
+					h.souls = h.souls_goal
+					await _wait_sim(h, 9.0)
+					h.bot = false
+					h.boss._begin("lockdown")
+					await _wait_sim(h, 0.7)
+					# The shot shows his plate, not a hit flash.
+					h.boss.set_flash(0.0)
+					await get_tree().process_frame
 				elif shot in ["boss", "victory", "results"]:
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal

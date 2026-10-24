@@ -92,7 +92,8 @@ static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictio
 		mi.set_instance_shader_parameter("accent", acc)
 	if hood:
 		var own := skel.get_node_or_null("%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")) as MeshInstance3D
-		if own:
+		# The Rogue's hood IS her own head mesh: hiding it would leave her headless.
+		if own and not (parts as Array).any(func(sp): return _part(actor, skel, sp) == own):
 			own.visible = false
 
 
@@ -201,6 +202,10 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 	var off: Dictionary = {} if Game.two_hands(hero_id, w) else worn["trinket"]
 	var st := GearDB.piece(off) if not off.is_empty() else {}
 	var model := str(st.get("model", ""))
+	# A pair already fills the off hand: an offhand held there (the Rogue's
+	# parrying dagger) is still worn, just not drawn over the twin.
+	if dual and model != "" and str(GearDB.offhand_hold(hero_id, model)["bone"]) == "handslot.l":
+		model = ""
 	if model == "":
 		_hold(actor, skel, "GearOff", "handslot.l", "", 1.0, Color(0, 0, 0, 0), Color(0, 0, 0, 0), Transform3D.IDENTITY)
 		_sparks(skel, "GearOff", Color(0, 0, 0, 0))

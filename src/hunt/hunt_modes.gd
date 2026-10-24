@@ -182,7 +182,7 @@ func _clear_room(r: Dictionary) -> void:
 func _spawn_rivals() -> void:
 	rivals_spawned = true
 	rivals_total = int(DB.WILD_RIVALS[tier_i])
-	var order := ["knight", "ranger", "mage", "barbarian"]
+	var order := ["knight", "ranger", "mage", "barbarian", "rogue"]
 	order.shuffle()
 	for i in rivals_total:
 		var a := TAU * (i + randf() * 0.4) / rivals_total

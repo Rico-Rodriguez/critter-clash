@@ -97,7 +97,7 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 		amount *= 1.0 + float(DB.EXPOSED["dmg"]) + float(hero.flags.get("exposed", 0.0))
 	var crit := randf() < hero.crit
 	if crit:
-		amount *= 2.0 + float(hero.flags.get("critdmg", 0.0))
+		amount *= 2.0 + float(hero.flags.get("critdmg", 0.0)) + (0.6 if int(cards.get("backstab", 0)) > 0 else 0.0)
 	if hero.flags.has("execute") and f.hp <= f.max_hp * 0.3:
 		amount *= 1.0 + float(hero.flags["execute"])
 	if hero.flags.has("mark") and f is Enemy and (f as Enemy).elite:
@@ -508,6 +508,9 @@ func _end(win: bool) -> void:
 	if not partners.is_empty():
 		result["party"] = partners.size()
 		result["gold"] = int(round(int(result["gold"]) * (1.0 + DB.PARTY_GOLD)))
+	# The Vault pays more gold.
+	if float(zone.get("gold_bonus", 0.0)) > 0.0:
+		result["gold"] = int(round(int(result["gold"]) * (1.0 + float(zone["gold_bonus"]))))
 	if mode == "wild" and not win and rivals_total > 0 and int(result["place"]) <= 3:
 		result["chest"] = "silver"
 	if mode == "descent":

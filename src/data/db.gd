@@ -94,8 +94,21 @@ const HEROES := {
 		"blurb": "Huge swings. Clears a circle around him.",
 		"skill": "melee", "unlock": "road",
 	},
+	"rogue": {
+		"name": "Rogue", "title": "The Unseen", "role": "Assassin",
+		"model": "Rogue_Hooded",
+		"weapons": {"handslot.r": "dagger.gltf", "handslot.l": "dagger.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": [],
+		"style": "melee", "hp": 360.0, "speed": 5.9, "dmg": 21.0, "rate": 1.7,
+		"range": 2.2, "arc": 120.0, "armor": 0.05,
+		"super": "shadowstep", "super_name": "Shadowstep", "super_desc": "Blink from foe to foe, stabbing each one as you pass.",
+		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "super": "Melee_Dualwield_Attack_Chop"},
+		"color": Color(0.55, 0.9, 0.6), "icon": "hood",
+		"blurb": "Two daggers, fast hands. Gets in, gets out.",
+		"skill": "melee", "unlock": "road",
+	},
 }
-const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
+const HERO_ORDER := ["knight", "ranger", "mage", "barbarian", "rogue"]
 
 ## Weapon families: the weapon, not the hero, decides the basic attack. Each
 ## has its own swing clips, hit shape, trail and sound; the hero keeps its
@@ -132,6 +145,25 @@ const FAMILIES := {
 	"throwing": {"hero": "barbarian", "level": 1, "min_set": 0, "name": "Throwing Axe", "how": "Hurl the axe through the horde. It comes back to your hand.", "attack": "throw", "icon": "tomahawk", "one_hand": true,
 		"clips": ["Throw"], "dmg": 0.75, "rate": 1.0, "range": 2.6, "arc": 0.0, "speed": 18.0,
 		"trail": Color(1.0, 0.7, 0.4), "sfx": "swing"},
+	# The Rogue: light blades, mostly one in each hand (tools/art/make_rogue_arms.py).
+	"daggers": {"hero": "rogue", "level": 1, "min_set": 0, "name": "Daggers", "how": "Two daggers, two quick cuts every swing.", "attack": "flurry", "icon": "cloak-dagger", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.55, "rate": 1.4, "range": 0.85, "arc": 140.0, "hits": 2,
+		"trail": Color(0.55, 0.9, 0.6), "sfx": "swing"},
+	"chakram": {"hero": "rogue", "level": 1, "min_set": 0, "name": "Chakram", "how": "A bladed ring flung through the horde. It spins back to your hand.", "attack": "throw", "icon": "spinning-blades", "one_hand": true,
+		"clips": ["Throw"], "dmg": 0.7, "rate": 1.1, "range": 2.4, "arc": 0.0, "speed": 20.0,
+		"trail": Color(0.7, 1.0, 0.75), "sfx": "swing"},
+	"rapier": {"hero": "rogue", "level": 10, "min_set": 1, "name": "Rapier", "how": "A lunge that runs a needle through a whole line of foes.", "attack": "thrust", "icon": "spear-feather",
+		"clips": ["Melee_1H_Attack_Stab"], "dmg": 1.0, "rate": 1.15, "range": 1.6, "arc": 30.0, "width": 0.9,
+		"trail": Color(0.85, 0.95, 1.0), "sfx": "atk_tank"},
+	"sickles": {"hero": "rogue", "level": 25, "min_set": 2, "name": "Sickles", "how": "Two reaping hooks, three fast cuts every swing.", "attack": "flurry", "icon": "sword-wound", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.42, "rate": 1.35, "range": 0.9, "arc": 170.0, "hits": 3,
+		"trail": Color(0.5, 1.0, 0.55), "sfx": "swing"},
+	"katars": {"hero": "rogue", "level": 40, "min_set": 3, "name": "Katars", "how": "Punch daggers driven down together: the ground bursts, foes stagger.", "attack": "slam", "icon": "fist", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Chop"], "dmg": 1.4, "rate": 0.85, "range": 0.8, "arc": 360.0, "slam_r": 2.0, "stun": 0.4, "knock": 7.0,
+		"trail": Color(0.6, 1.0, 0.7), "sfx": "quake"},
+	"nightblade": {"hero": "rogue", "level": 60, "min_set": 3, "boss_from": 4, "name": "Nightblade", "how": "A long curved edge. Elites and bosses are cut three times.", "attack": "sweep", "icon": "dripping-sword",
+		"clips": ["Melee_1H_Attack_Slice_Horizontal", "Melee_1H_Attack_Slice_Diagonal"], "dmg": 0.8, "rate": 0.95, "range": 1.2, "arc": 220.0, "echo": [0.5, 0.25],
+		"trail": Color(0.4, 0.9, 0.6), "sfx": "cleave"},
 	# The Knight: one-handed, the shield always up.
 	"sword": {"hero": "knight", "level": 1, "min_set": 0, "name": "Sword", "how": "Quick, sure cuts across the front.", "attack": "cleave", "icon": "broadsword",
 		"clips": ["Melee_1H_Attack_Slice_Diagonal", "Melee_1H_Attack_Slice_Horizontal"], "dmg": 1.0, "rate": 1.0, "range": 1.0, "arc": 140.0,
@@ -200,6 +232,7 @@ const HERO_FAMILIES := {
 	"ranger": ["shortbow", "knives", "crossbow", "longbow", "repeater", "soulbow"],
 	"mage": ["staff", "wand", "tome", "scepter", "skullstaff", "soulstaff"],
 	"barbarian": ["axe", "maul", "scythe", "twin", "halberd", "throwing"],
+	"rogue": ["daggers", "chakram", "rapier", "sickles", "katars", "nightblade"],
 }
 
 ## Hero levels bought with shards and gold are gone: skills are a hero's power
@@ -319,6 +352,12 @@ const BOSSES := {
 		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.3, "mass": 30.0,
 		"color": Color(0.75, 0.4, 1.0), "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
 	},
+	"warden": {
+		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
+		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
+		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
+		"color": Color(1.0, 0.82, 0.35), "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
+	},
 }
 
 ## The places a hunt can happen. `weights` scale how often each foe is drawn.
@@ -347,8 +386,17 @@ const ZONES := {
 		"env": {"bg": Color(0.03, 0.025, 0.015), "ambient": Color(0.55, 0.42, 0.28), "ambient_e": 0.32, "fog": Color(0.16, 0.12, 0.06), "fog_d": 0.014,
 			"sun": Color(1.0, 0.72, 0.45), "sun_e": 0.42, "sun_rot": Vector3(-50, -40, 0), "mist": Color(0.75, 0.62, 0.4, 0.1), "motes": Color(0.85, 1.0, 0.45, 0.9)},
 	},
+	# The fourth zone: the Barrow King's treasury, built from the KayKit
+	# dungeon pack. Warm and bright, light fog, so the gold reads crisp.
+	"vault": {
+		"name": "The Gilded Vault", "boss": "warden", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
+		"wake": "Gather %d souls to wake the King", "defeat": "The Vault keeps you", "enter": "Break into the Vault",
+		"loot_bonus": 3, "gold_bonus": 0.25, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 7500 trophies",
+		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
+			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
+	},
 }
-const ZONE_ORDER := ["barrow", "depths", "grove"]
+const ZONE_ORDER := ["barrow", "depths", "grove", "vault"]
 
 ## How a hunt is played. horde: the soul meter fills, the boss wakes. trial:
 ## the Long Road, a generated dungeon of rooms to fight through, boss at the
@@ -400,6 +448,8 @@ static func rival_def(hero_id: String) -> Dictionary:
 			d.merge({"ai": "melee", "hp": 560.0, "dmg": 22.0, "speed": 4.4, "reach": 2.3, "windup": 0.45, "cooldown": 1.0})
 		"barbarian":
 			d.merge({"ai": "melee", "hp": 700.0, "dmg": 32.0, "speed": 4.1, "reach": 2.7, "windup": 0.6, "cooldown": 1.4})
+		"rogue":
+			d.merge({"ai": "melee", "hp": 460.0, "dmg": 20.0, "speed": 4.8, "reach": 2.1, "windup": 0.35, "cooldown": 0.8})
 		"ranger":
 			d.merge({"ai": "ranged", "hp": 400.0, "dmg": 18.0, "speed": 4.2, "reach": 9.0, "windup": 0.55, "cooldown": 1.5, "proj_speed": 15.0})
 		_:
@@ -554,6 +604,16 @@ const CARDS := {
 	"ricochet": {"name": "Ricochet", "desc": "Arrows that hit leap on to another foe", "icon": "high-shot", "rarity": "legendary", "max": 1, "hero": ["ranger"], "sig": true},
 	"pyre": {"name": "Pyre", "desc": "Fireballs leave the ground burning", "icon": "flame", "rarity": "legendary", "max": 1, "hero": ["mage"], "sig": true},
 	"rampage": {"name": "Rampage", "desc": "Every kill: +3% damage for 6 seconds, up to +45%", "icon": "muscle-up", "rarity": "legendary", "max": 1, "hero": ["barbarian"], "sig": true},
+	"backstab": {"name": "Backstab", "desc": "Your crits hit 60% harder", "icon": "dripping-sword", "rarity": "legendary", "max": 1, "hero": ["rogue"], "sig": true},
+	# Road cards: locked until their Trophy Road step (CARD_ROAD), two new epics a hero.
+	"oath_storm": {"name": "Storm Oath", "desc": "Your oath calls chain lightning through nearby foes", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["knight"]},
+	"shockwave": {"name": "Shockwave", "desc": "Every few seconds the ground bursts around you", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["knight", "rogue"]},
+	"rime_trap": {"name": "Rime Trap", "desc": "A ring of frost bursts around you and slows the pack", "icon": "frozen-orb", "rarity": "epic", "max": 4, "hero": ["ranger", "rogue"]},
+	"storm_arrows": {"name": "Storm Arrows", "desc": "Lightning leaps between the foes you shoot", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["ranger"]},
+	"skybolt": {"name": "Skybolt", "desc": "Bolts fall from the sky on the nearest foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"rift_quake": {"name": "Rift Quake", "desc": "The earth splits around you and hurls foes back", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"thunder_cry": {"name": "Thunder Cry", "desc": "Your war cry calls lightning on nearby foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
+	"skyfall": {"name": "Skyfall", "desc": "Burning rocks crash down on the horde", "icon": "meteor-impact", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
 	# Sidekick cards: in the pool only with that sidekick at Bond 5+ (see sidekick_db.gd).
 	"drake_inferno": {"name": "Drake's Inferno", "desc": "Fire Breath +30% damage", "icon": "fire-breath", "rarity": "rare", "max": 3, "sidekick": "drake", "effect": "power"},
 	"drake_nova": {"name": "Dragonfire Nova", "desc": "Fire Breath 20% more often, and each breath bursts a ring of fire", "icon": "dragon-head", "rarity": "epic", "max": 2, "sidekick": "drake", "effect": "haste"},
@@ -575,15 +635,6 @@ const CARDS := {
 	"shade_dusk": {"name": "Endless Dusk", "desc": "Shadow Strike 20% more often", "icon": "two-shadows", "rarity": "epic", "max": 2, "sidekick": "shade", "effect": "haste"},
 	"sapling_bloom": {"name": "Heartwood Bloom", "desc": "Rootsnare +30% damage", "icon": "lightning-tree", "rarity": "rare", "max": 3, "sidekick": "sapling", "effect": "power"},
 	"sapling_deep": {"name": "Deep Roots", "desc": "Rootsnare 20% more often", "icon": "lightning-tree", "rarity": "epic", "max": 2, "sidekick": "sapling", "effect": "haste"},
-	# Road cards: locked until their Trophy Road step (CARD_ROAD), two new epics a hero.
-	"oath_storm": {"name": "Storm Oath", "desc": "Your oath calls chain lightning through nearby foes", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["knight"]},
-	"shockwave": {"name": "Shockwave", "desc": "Every few seconds the ground bursts around you", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["knight"]},
-	"rime_trap": {"name": "Rime Trap", "desc": "A ring of frost bursts around you and slows the pack", "icon": "frozen-orb", "rarity": "epic", "max": 4, "hero": ["ranger"]},
-	"storm_arrows": {"name": "Storm Arrows", "desc": "Lightning leaps between the foes you shoot", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["ranger"]},
-	"skybolt": {"name": "Skybolt", "desc": "Bolts fall from the sky on the nearest foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["mage"]},
-	"rift_quake": {"name": "Rift Quake", "desc": "The earth splits around you and hurls foes back", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["mage"]},
-	"thunder_cry": {"name": "Thunder Cry", "desc": "Your war cry calls lightning on nearby foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
-	"skyfall": {"name": "Skyfall", "desc": "Burning rocks crash down on the horde", "icon": "meteor-impact", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
 }
 ## A companion hero hits at this share of its own damage.
 const ALLY_DMG := 0.45
@@ -679,9 +730,9 @@ const TROPHY_ROAD := [
 	{"t": 5900, "kind": "cards", "ids": ["shockwave", "storm_arrows", "rift_quake", "skyfall"]},
 	{"t": 6200, "kind": "chest", "chest": "crypt"},
 	{"t": 6500, "kind": "shards", "amount": 100},
-	{"t": 6800, "kind": "gold", "amount": 3000},
+	{"t": 6800, "kind": "hero", "id": "rogue"},
 	{"t": 7100, "kind": "chest", "chest": "gold"},
-	{"t": 7500, "kind": "chest", "chest": "crypt"},
+	{"t": 7500, "kind": "zone", "id": "vault"},
 	{"t": 7900, "kind": "shards", "amount": 120},
 	{"t": 8300, "kind": "gold", "amount": 4000},
 	{"t": 8700, "kind": "cards", "ids": ["explosive", "greed"]},
@@ -704,6 +755,7 @@ const ARENAS := [
 	{"zone": "barrow", "t": 0, "color": Color(0.36, 0.45, 0.75)},
 	{"zone": "depths", "t": 800, "color": Color(0.6, 0.4, 0.8)},
 	{"zone": "grove", "t": 2500, "color": Color(0.8, 0.6, 0.28)},
+	{"zone": "vault", "t": 7500, "color": Color(0.95, 0.78, 0.35)},
 ]
 ## A new save picks one of these; the rest come from the road's `pick` steps.
 const START_HEROES := ["knight", "ranger", "mage"]
@@ -848,11 +900,15 @@ const UNIQUES := {
 	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "Sidekick: Rootsnare holds the pack.", "model": "Sapling"},
 	"acolyte": {"name": "Acolyte", "slot": "pet", "rarity": "legendary", "source": "thorn", "rate": 50, "icon": "ghost", "power": "Sidekick: Thorn Ward throws foes back.", "model": "Rogue_Hooded"},
 	"seed": {"name": "Thorn Seed", "slot": "trophy", "rarity": "magic", "source": "thorn", "rate": 4, "icon": "gems", "power": "It wriggles. Sells for 80 gold.", "sell": 80},
+	# The Gilded Warden (the Vault).
+	"gilded_fang": {"cls": "rogue", "fam": "daggers", "dye": Color(1.0, 0.82, 0.35), "name": "Gilded Fangs", "slot": "weapon", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"dmg": 27, "crit": 10}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "cloak-dagger"},
+	"hoardplate": {"cls": "knight", "dye": Color(1.0, 0.8, 0.35), "name": "Hoardplate", "slot": "chest", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"hp": 32, "armor": 9}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
+	"vault_coin": {"name": "Vault Sovereign", "slot": "trophy", "rarity": "magic", "source": "warden", "rate": 4, "icon": "two-coins", "power": "Heavier than it looks. Sells for 120 gold.", "sell": 120},
 	"abyssal": {"name": "Abyssal Gem", "slot": "trophy", "rarity": "legendary", "source": "nightmare", "rate": 80, "icon": "crystal-shine", "power": "It hums. Sells for 2000 gold.", "sell": 2000},
 }
-const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]
+const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling", "gilded_fang", "hoardplate", "vault_coin"]
 ## Unique sources and the boss whose kill count and dry streak they follow.
-const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn"}
+const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn", "warden": "warden"}
 
 ## Rarity weights by source; tier loot multiplier shifts weight upward.
 const DROP_RARITY := {
@@ -1055,8 +1111,12 @@ const WEAPON_SKINS := {
 	"cleaver": {"name": "Raider's Cleaver", "model": "axe_A.gltf", "icon": "battle-axe", "scale": 1.0, "heroes": ["barbarian"], "gold": 12000},
 	"crusher": {"name": "Skullcrusher", "model": "hammer_A.gltf", "icon": "warhammer", "scale": 1.0, "heroes": ["barbarian"], "gold": 22000},
 	"twinfang": {"name": "Twinfang Axe", "model": "axe_C.gltf", "icon": "crossed-axes", "scale": 1.0, "heroes": ["barbarian"], "gold": 40000},
+	"kris": {"name": "Wavy Kris", "model": "dagger_A.gltf", "icon": "cloak-dagger", "scale": 1.0, "heroes": ["rogue"], "gold": 8000},
+	"stiletto": {"name": "Night Stiletto", "model": "dagger_B.gltf", "icon": "cloak-dagger", "scale": 1.0, "heroes": ["rogue"], "gold": 16000},
+	"duelblade": {"name": "Duelist's Blade", "model": "sword_B.gltf", "icon": "crossed-swords", "scale": 0.8, "heroes": ["rogue"], "gold": 26000},
+	"boneshiv": {"name": "Bone Shiv", "model": "Skeleton_Blade.gltf", "icon": "dripping-sword", "scale": 0.8, "heroes": ["rogue"], "gold": 40000},
 }
-const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang"]
+const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang", "kris", "stiletto", "duelblade", "boneshiv"]
 
 # --- Online ---------------------------------------------------------------------
 
@@ -1184,4 +1244,4 @@ static func season_reward(n: int) -> Dictionary:
 
 ## Rule-changing cards, one per hero, offered as legendaries from run level 6.
 ## (Defined in CARDS; listed here for the Log.)
-const SIGNATURES := {"knight": "bulwark", "ranger": "ricochet", "mage": "pyre", "barbarian": "rampage"}
+const SIGNATURES := {"knight": "bulwark", "ranger": "ricochet", "mage": "pyre", "barbarian": "rampage", "rogue": "backstab"}

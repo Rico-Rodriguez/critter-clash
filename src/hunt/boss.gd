@@ -54,6 +54,8 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	radius = d["radius"]
 	mass = d["mass"]
 	build_model(d["model"], d["weapons"], aura, 0.55, Color(aura, 1.0))
+	if d.has("skin"):
+		_gild(load(KK.CHAR_DIR + str(d["skin"])) as Texture2D)
 	model.scale = Vector3.ONE * float(d["scale"])
 	var occ: Vector2 = d["occluder"]
 	hunt.arena.add_dynamic_occluder(self, occ.x, occ.y)
@@ -412,3 +414,24 @@ func die() -> void:
 	set_flash(0.0)
 	play("Skeletons_Death", 0.1, 0.7)
 	state_t = 2.5
+
+
+## A boss with its own skin (the Gilded Warden's gold plate): the body's
+## texture is swapped for it and the mesh is shaded as fine, clean metal
+## with a gold sheen. The texture carries the color, so nothing is tinted.
+func _gild(tex: Texture2D) -> void:
+	for mi in mesh_list():
+		for i in mi.mesh.get_surface_count():
+			var m := mi.get_surface_override_material(i) as ShaderMaterial
+			if m == null:
+				continue
+			m = m.duplicate()
+			# Gold texels read as "hot" skeleton eyes to the shader: no eye glow,
+			# or the plate and the key blow out to white.
+			m.set_shader_parameter("eye_glow", Color(0, 0, 0, 0))
+			if str((m.get_shader_parameter("albedo_tex") as Texture2D).resource_path).begins_with(KK.CHAR_DIR):
+				m.set_shader_parameter("albedo_tex", tex)
+				m.set_shader_parameter("roughness", 0.5)
+			mi.set_surface_override_material(i, m)
+		mi.set_instance_shader_parameter("grade", Vector4(0.6, 0.0, 0.0, 0.0))
+		mi.set_instance_shader_parameter("accent", Color(1.0, 0.82, 0.4))

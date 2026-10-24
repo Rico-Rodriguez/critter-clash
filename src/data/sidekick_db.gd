@@ -176,3 +176,14 @@ static func display_name(id: String, kills: int) -> String:
 ## ability damage per stack, "haste": the ability comes 20% more often.
 const POWER_PER := 0.3
 const HASTE_PER := 0.2
+
+
+## Sidekicks earned by trophies, for the Trophy Road: [{id, t}] by trophies.
+static func road_marks() -> Array:
+	var out := []
+	for id in ORDER:
+		var u: Dictionary = ROSTER[id]["unlock"]
+		if str(u["kind"]) == "renown":
+			out.append({"id": id, "t": int(u["n"])})
+	out.sort_custom(func(a, b): return int(a["t"]) < int(b["t"]))
+	return out
