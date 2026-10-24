@@ -411,9 +411,9 @@ const SET_LOOKS := {
 ## Weapons by family (DB.FAMILIES): one model per set, Gravedigger first,
 ## built by tools/art/make_barbarian_arms.py. They carry their own colors, so
 ## no dye goes over them; a boss set's piece keeps its family's shape.
-const FAMILY_PREFIX := {"barbarian": "barb", "knight": "knight", "ranger": "ranger", "mage": "mage"}
+const FAMILY_PREFIX := {"barbarian": "barb", "knight": "knight", "ranger": "ranger", "mage": "mage", "rogue": "rogue"}
 ## How big a family sits in the hand (1 when not listed).
-const FAMILY_SCALE := {"twin": 1.1, "halberd": 0.72, "throwing": 1.1}
+const FAMILY_SCALE := {"twin": 1.1, "halberd": 0.72, "throwing": 1.1, "rapier": 0.9, "nightblade": 0.9}
 
 
 ## A family weapon's look in a set: <prefix>_<family>_<set>.gltf.
