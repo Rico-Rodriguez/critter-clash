@@ -52,6 +52,13 @@ func run() -> int:
 	Game.hero("knight")["shards"] = DB.LAMP_SHARDS
 	var xp_lamp := Game.lamp_xp("knight", "strength")
 	_ok("a ranger skill takes no lamp", not Game.rub_lamp("knight", "ranged"))
+	Game.hero("knight")["shards"] = 60
+	Game.data["gold"] = 999
+	_ok("super rank needs its gold", not Game.buy_super_rank("knight") and Game.super_rank("knight") == 0)
+	Game.data["gold"] = 1000
+	_ok("super rank pays shards and gold", Game.buy_super_rank("knight") and Game.super_rank("knight") == 1 and int(Game.hero("knight")["shards"]) == 10 and Game.gold() == 0)
+	_ok("super ranks scale the super", DB.super_mults(1).x > 1.0 and DB.super_mults(DB.SUPER_RANKS.size()).y > 1.0)
+	Game.hero("knight")["super_rank"] = 0
 	_ok("lamp adds xp", Game.rub_lamp("knight", "strength") and Game.skill_xp("strength", "knight") == xp_lamp and int(Game.hero("knight")["shards"]) == 0)
 	_ok("no shards, no lamp", not Game.can_rub_lamp("knight"))
 	Game.data = keep_lv

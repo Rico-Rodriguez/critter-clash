@@ -873,6 +873,25 @@ const TALENT_MAX := 19
 ## XP lamps: shards rubbed into a skill, worth this much XP per shard per
 ## level of the skill (OSRS lamps scale with level too).
 const LAMP_SHARDS := 10
+
+## Super ranks: the job for shards. Each rank costs shards plus gold and adds
+## the change its line says, so the price and payoff are always readable.
+const SUPER_RANKS := [
+	{"shards": 50, "gold": 1000, "dmg": 0.15, "charge": 0.0, "text": "+15% Super damage"},
+	{"shards": 100, "gold": 3000, "dmg": 0.0, "charge": 0.15, "text": "Super charges 15% faster"},
+	{"shards": 200, "gold": 7000, "dmg": 0.2, "charge": 0.0, "text": "+20% Super damage"},
+	{"shards": 350, "gold": 15000, "dmg": 0.0, "charge": 0.2, "text": "Super charges 20% faster"},
+	{"shards": 500, "gold": 30000, "dmg": 0.3, "charge": 0.0, "text": "+30% Super damage"},
+]
+
+## Super damage and charge-rate multipliers at `rank` (0 to SUPER_RANKS.size()).
+static func super_mults(rank: int) -> Vector2:
+	var d := 1.0
+	var c := 1.0
+	for i in clampi(rank, 0, SUPER_RANKS.size()):
+		d += float(SUPER_RANKS[i]["dmg"])
+		c += float(SUPER_RANKS[i]["charge"])
+	return Vector2(d, c)
 const LAMP_XP := 5
 ## Skill XP per point of damage dealt.
 const XP_PER_DAMAGE := 0.16
