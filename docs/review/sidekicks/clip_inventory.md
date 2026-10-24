@@ -1,49 +1,54 @@
 # Sidekick clip inventory and gaps
 
-For Critter Clash Art. Read from each wrapped scene's `AnimationPlayer` on
-main @ e8f9909 (after #58-#60). The game maps clips in
-`src/data/sidekick_db.gd` `CLIPS` (keys: `idle`, `move`, `run`, `attack`,
-`hit`, `special`). Any state without a clip falls back to a procedural pose
-in `src/hunt/sidekick.gd` `pose()`: a lunge for attacks, a hop and spin for
-specials, a recoil for hits, and a step bounce or breathing for movement and
-rest. Nothing is blocked on these clips.
+This reflects **#63** (`art/sidekick-clips` @ 4c76c2e), which Critter Clash
+Art stacked on this branch. I read the clips from each wrapped scene's
+`AnimationPlayer` with #63 merged locally. The game maps clips in
+`src/data/sidekick_db.gd` `CLIPS`. A state with no clip falls back to a
+procedural pose in `src/hunt/sidekick.gd` `pose()`. Where a clip exists, the
+game adds a lighter accent (35%) on top of it.
 
-| Sidekick | Scene | Rig | Clips present (length) | Mapped now | Missing |
-|---|---|---|---|---|---|
-| Grave Wisp (`wisp`) | `sf:mawko` | 34 bones | Idle 7.67s, Walk 7.67s | idle, move | attack, hit, special (cast) |
-| Ember Drake / Ash Wyrm (`drake`) | `sf:dragon` | 220 bones | Flying_Idle 13.12s, Fast_Flying 13.12s | idle, move | attack (bite or claw), hit, special (fire-breath pose) |
-| Bonelet (`bonelet`) | `sf:skeleton` | 67 bones | Idle 3.33s, Walk 3.33s | idle, move | attack (throw), hit, special, run |
-| Hexling (`hexling`) | `sf:lich` | 57 bones | Idle 5.00s, Walk 5.00s | idle, move | attack, hit, special (staff cast) |
-| Acolyte (`acolyte`) | `sf:plague` | 46 bones | Idle 3.33s, Walk 3.33s | idle, move | attack, hit, special (ground slam/ward) |
-| Storm Crow (`crow`) | `sf:crow` | 92 bones | Idle 7.00s, Fast_Flying 1.62s | idle, move | attack (peck/screech), hit, special |
-| Gilded Mimic (`mimic`) | `sf:mimic` | none (node animation) | Bite_Front 3.00s, Idle 2.40s, Walk 0.80s | idle, move, attack | hit, special |
-| Night Bat (`bat`) | `sf:bat` | 29 bones | Bat_Flying 2.25s | idle, move (same clip) | separate idle/hover, attack (dive bite), hit, special |
-| Barrow Squire (`barrow_squire`) | `sf:squire` | 384 bones | Dead 1.00s, Idle 1.54s, Punch 1.21s, Run 0.83s, Walk 1.29s | idle, move, run, attack | hit, special (shield bash). `Dead` is not used. |
-| Hexbound Shade (`shade`) | `sf:wraith` | 77 bones | Idle 2.08s, Walk 3.33s | idle, move | attack (strike), hit, special (blink) |
-| Thorn Sapling (`sapling`) | `sf:treant` | 64 bones | Idle 2.36s, Walk 2.36s | idle, move | attack, hit, special (root slam) |
+Game timing: attacks are fitted to 0.55 s and land at 0.22 s (40%). Specials
+are fitted to 0.8 s and land at 0.32 s (40%). Hits are fitted to 0.32 s. The
+#63 clips are 0.6 s for attacks (strike at 0.24 s), 0.9 s for specials
+(landing at 0.36 s) and 0.35 s for hits, so their 40% points line up.
 
-## Requests, in priority order
+| Sidekick | Scene | idle | move | run | attack | hit | special |
+|---|---|---|---|---|---|---|---|
+| Grave Wisp | `sf:mawko` | Idle_Loop 3.0s | Walk 7.67s (slow) | none | Attack 0.6 | Hit 0.35 (subtle) | Special 0.9 |
+| Ember Drake / Ash Wyrm | `sf:dragon` | Flying_Idle 13.1s (**long**) | Fast_Flying 13.1s | none | Attack 0.6 | Hit 0.35 | Special 0.9 |
+| Bonelet | `sf:skeleton` | Idle_Loop 1.6s | Walk_Loop 1.0s | Run 0.6s | Attack 0.6 | Hit 0.35 | Special 0.9 |
+| Hexling | `sf:lich` | Idle 5.0s | Walk 5.0s (**no clean walk**) | none | Attack 0.6 | Hit 0.35 | Special 0.9 |
+| Acolyte | `sf:plague` | Idle 3.33s | Walk_Loop 1.1s | Run 0.66s | Attack 0.6 | Hit 0.35 | Special 0.9 |
+| Storm Crow | `sf:crow` | Idle 7.0s | Fast_Flying 1.62s | none | Attack 0.6 | Hit 0.35 | Special 0.9 |
+| Gilded Mimic | `sf:mimic` (node anim) | Idle 2.4s | Walk 0.8s | none | Bite_Front 3.0s (original, fitted 5.5x) | Hit 0.35 (subtle) | Special 0.9 |
+| Night Bat | `sf:bat` | Hover 3.21s | Bat_Flying 2.25s | none | Attack 0.6 (busy) | Hit 0.35 | Special 0.9 |
+| Barrow Squire | `sf:squire` | Idle 1.54s | Walk 1.29s | Run 0.83s | Punch 1.21s (original, fitted 2.2x) | Hit 0.35 (subtle) | Special 0.9 |
+| Hexbound Shade | `sf:wraith` | Idle 2.08s | Walk 3.33s | Run 1.85s | Attack 0.6 | Hit 0.35 | Special 0.9 |
+| Thorn Sapling | `sf:treant` | Idle 2.36s | Walk_Loop 1.0s | none | Attack 0.6 | Hit 0.35 | Special 0.9 |
 
-1. **attack** for every model except the mimic and the squire. About 0.4 to
-   0.7 s, with the hit frame about 40% in. The game fits one-shot clips to
-   0.55 s and lands damage at 0.22 s.
-2. **special** for the five area abilities: wisp (Mending Light), drake (Fire
-   Breath), hexling (Hex), acolyte (Thorn Ward) and sapling (Rootsnare). The
-   game fits it to 0.8 s and lands it at 0.32 s.
-3. **hit** (a short flinch, about 0.3 s) for every model. It plays when the
-   hero is struck.
-4. **run** for the fast walkers (bonelet, shade, acolyte). It plays while
-   sprinting to catch up.
-5. Bat: a separate hover idle, so standing still doesn't look like full
-   flapping.
-6. Wisp and drake: their Idle and Walk clips are 7.7 s and 13.1 s, so they
-   loop slowly. Shorter loops (1 to 3 s) read better at phone size.
+Every state now has its own clip, so the procedural fallback only covers
+`run` on walkers without one, which then use `move`.
+
+## Remaining gaps
+
+1. **Hexling:** a clean `Walk_Loop`. The current walk is a 5 s take.
+2. **Drake:** a short `Idle_Loop` (1 to 3 s). Flying_Idle and Fast_Flying are
+   13 s takes.
+3. **Hit readability:** the squire, wisp and mimic hits barely read at phone
+   size. They need a larger recoil (more spine and head angle) in the first
+   0.07 s.
+4. **Bat:** the Attack has too many wing beats for 0.55 s. One clean dive
+   and bite would read better.
+5. **Mimic and squire attacks** still use the original Bite_Front (3.0 s)
+   and Punch (1.21 s) takes, squeezed into 0.55 s. Their contact isn't
+   authored at 40%. Make 0.6 s `Attack` takes that strike at 0.24 s, like the
+   other models.
+6. Nice to have: `Run` for the wisp, hexling and sapling, and `Walk_Loop` for
+   the wisp (Walk is 7.7 s).
 
 ## Delivery notes
 
-- Keep clip names as listed (`Idle`, `Walk`, `Run`, `Attack`, `Hit`,
-  `Special`), or tell me the names and I'll update `CLIPS`. The test
-  `sidekick clip map matches the rigs` fails if a mapped clip is missing.
-- In-place clips only, with no root motion. The game moves the node.
-- Keep the triangle counts and draw counts as they are. There's no new
-  shadow caster, and the companion casts one shadow as before.
+- In-place clips only, with no root motion. The game moves the node. #63's
+  small root offsets (up to 0.3 m forward on the strike) are fine.
+- The test `every sidekick has real attack, hit and special clips` (#63)
+  and `sidekick clip map matches the rigs` (#62) catch a missing mapping.
