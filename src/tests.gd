@@ -842,3 +842,16 @@ func _sidekick_motor_tests() -> void:
 				bad.append("%s.%s" % [sid, key])
 		(lk["root"] as Node).free()
 	_ok("sidekick clip map matches the rigs %s" % str(bad), bad.is_empty())
+	# Every sidekick has its own idle, move, attack, hit and special clip (no
+	# procedural fallback), and the fast walkers a run.
+	var gaps := []
+	for sid in SDB2.ORDER:
+		var want := ["idle", "move", "attack", "hit", "special"]
+		if sid in ["bonelet", "acolyte", "shade", "barrow_squire"]:
+			want.append("run")
+		var lk2 := preload("res://src/core/sidekick_look.gd").build(sid)
+		for key in want:
+			if not preload("res://src/core/sidekick_look.gd").has(lk2, key):
+				gaps.append("%s.%s" % [sid, key])
+		(lk2["root"] as Node).free()
+	_ok("every sidekick has real attack, hit and special clips %s" % str(gaps), gaps.is_empty())

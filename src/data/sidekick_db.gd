@@ -119,17 +119,17 @@ const ROSTER := {
 ## hit, special. A missing key falls back to a procedural move in
 ## hunt/sidekick.gd (lunge, hop-spin, recoil, bob), so a model never stalls.
 const CLIPS := {
-	"wisp": {"idle": "Idle", "move": "Walk"},
-	"drake": {"idle": "Flying_Idle", "move": "Fast_Flying"},
-	"bonelet": {"idle": "Idle", "move": "Walk"},
-	"hexling": {"idle": "Idle", "move": "Walk"},
-	"acolyte": {"idle": "Idle", "move": "Walk"},
-	"crow": {"idle": "Idle", "move": "Fast_Flying"},
-	"mimic": {"idle": "Idle", "move": "Walk", "attack": "Bite_Front"},
-	"bat": {"idle": "Bat_Flying", "move": "Bat_Flying"},
-	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Punch"},
-	"shade": {"idle": "Idle", "move": "Walk"},
-	"sapling": {"idle": "Idle", "move": "Walk"},
+	"wisp": {"idle": "Idle_Loop", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"drake": {"idle": "Flying_Idle", "move": "Fast_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"bonelet": {"idle": "Idle_Loop", "move": "Walk_Loop", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"hexling": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"acolyte": {"idle": "Idle", "move": "Walk_Loop", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"crow": {"idle": "Idle", "move": "Fast_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"mimic": {"idle": "Idle", "move": "Walk", "attack": "Bite_Front", "hit": "Hit", "special": "Special"},
+	"bat": {"idle": "Hover", "move": "Bat_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Punch", "hit": "Hit", "special": "Special"},
+	"shade": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"sapling": {"idle": "Idle", "move": "Walk_Loop", "attack": "Attack", "hit": "Hit", "special": "Special"},
 }
 ## Abilities shown with the "special" animation (bigger, area or support
 ## moves); the rest use "attack".
