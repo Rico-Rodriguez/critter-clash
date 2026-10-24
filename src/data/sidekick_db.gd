@@ -22,7 +22,7 @@ const ROSTER := {
 	},
 	"drake": {
 		"name": "Ember Drake", "element": "Fire", "icon": "dragon-head", "color": Color(1.0, 0.5, 0.15),
-		"model": "sf:dragon", "evolved_model": "sf:dragon", "evolved_name": "Ash Wyrm", "evolved_look": "ash", "fly": 1.4, "scale": 0.8,
+		"model": "sf:dragon", "evolved_model": "sf:dragon", "evolved_name": "Ash Wyrm", "evolved_look": "ash", "camp_offset": Vector3(0.7, 0.0, 0.6), "fly": 1.4, "scale": 0.8,
 		"unlock": {"kind": "egg", "egg": "ember"}, "how": "Hatches from an Ember Egg that Gravemaw drops",
 		"origin": "Hatched from an egg Gravemaw dropped",
 		"ability": {"kind": "breath", "name": "Fire Breath", "cd": 5.0, "dmg": 0.6, "range": 5.0, "cone": 0.55, "burn": 3.0},
@@ -58,7 +58,7 @@ const ROSTER := {
 	},
 	"crow": {
 		"name": "Storm Crow", "element": "Storm", "icon": "raven", "color": Color(0.55, 0.8, 1.0),
-		"model": "sf:crow", "fly": 0.0, "scale": 1.0,
+		"model": "sf:crow", "fly": 0.0, "scale": 1.0, "hunt_scale": 0.75, "fill": 2.6,
 		"unlock": {"kind": "renown", "n": 4000}, "how": "Trophy Road: 4,000 trophies",
 		"origin": "Rides the thunder that follows a champion",
 		"ability": {"kind": "storm", "name": "Chain Lightning", "cd": 4.0, "dmg": 0.4, "chain": 4, "range": 7.0},

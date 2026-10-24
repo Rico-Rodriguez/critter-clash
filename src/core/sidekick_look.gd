@@ -50,7 +50,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 				var mi := inner.get_node_or_null(mp) as MeshInstance3D
 				if mi:
 					mi.custom_aabb = culls[mp]
-			_add_fill(root, float(d["scale"]) * grow)
+			_add_fill(root, float(d["scale"]) * grow, float(d.get("fill", 1.6)))
 		else:
 			_fit(model, float(d["scale"]) * grow)
 		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
@@ -72,21 +72,26 @@ static func build(id: String, evolved := false) -> Dictionary:
 	return out
 
 
-## The Ash Wyrm: the drake's own textures, cooled to ash with ember-lit
-## scales (the texture drives the glow, so the detail stays crisp).
+## The Ash Wyrm: the drake's own textures baked to ash grey, with embers
+## glowing in the crevices (both baked by tools/art/ash_textures.py, so no
+## colour multiply and the detail stays crisp).
+const ASH_ALBEDO := preload("res://assets/sidekicks/dragon_ash_albedo.png")
+const ASH_EMBERS := preload("res://assets/sidekicks/dragon_ash_emission.png")
 static func _ash(model: Node3D) -> void:
 	for node in model.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
+		if mi.mesh == null:
+			continue
 		for i in mi.mesh.get_surface_count():
 			var src := mi.get_active_material(i) as BaseMaterial3D
 			if src == null:
 				continue
 			var m := src.duplicate() as BaseMaterial3D
-			m.albedo_color = Color(0.55, 0.52, 0.52)
+			m.albedo_texture = ASH_ALBEDO
 			m.emission_enabled = true
-			m.emission = Color(1.0, 0.38, 0.1)
-			m.emission_energy_multiplier = 0.7
-			m.emission_texture = src.albedo_texture
+			m.emission = Color.WHITE
+			m.emission_energy_multiplier = 1.0
+			m.emission_texture = ASH_EMBERS
 			mi.set_surface_override_material(i, m)
 
 
@@ -105,11 +110,11 @@ static func _placeholder(out: Dictionary, root: Node3D, h: float) -> Dictionary:
 
 ## A soft white fill light that rides with the companion so its unmodified
 ## PBR reads in dark zones (lights the model, never tints its materials).
-static func _add_fill(root: Node3D, h: float) -> void:
+static func _add_fill(root: Node3D, h: float, energy := 1.6) -> void:
 	var l := OmniLight3D.new()
 	l.name = "SidekickFill"
 	l.light_color = Color.WHITE
-	l.light_energy = 1.6
+	l.light_energy = energy
 	l.omni_range = 2.2 * maxf(h, 0.6)
 	l.light_specular = 0.3
 	l.shadow_enabled = false

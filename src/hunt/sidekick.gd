@@ -33,6 +33,7 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	evolved = bond >= SDB.BOND_EVOLVE
 	look = Look.build(id, evolved)
 	add_child(look["root"])
+	(look["root"] as Node3D).scale *= float(def.get("hunt_scale", 1.0))
 	Look.play(look, "idle")
 	cd_max = float(ab["cd"])
 	cd = minf(2.0, cd_max)
