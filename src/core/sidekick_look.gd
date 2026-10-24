@@ -50,7 +50,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 				var mi := inner.get_node_or_null(mp) as MeshInstance3D
 				if mi:
 					mi.custom_aabb = culls[mp]
-			_add_fill(root, float(d["scale"]) * grow)
+			_add_fill(root, float(d["scale"]) * grow, float(d.get("fill", 1.6)))
 		else:
 			_fit(model, float(d["scale"]) * grow)
 		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
@@ -62,12 +62,43 @@ static func build(id: String, evolved := false) -> Dictionary:
 			for n in [out["idle"], out["move"]]:
 				if n != "":
 					ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+	if evolved and str(d.get("evolved_look", "")) == "ash":
+		_ash(model)
 	root.add_child(model)
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		(mi as MeshInstance3D).layers = 1 | FILL_LAYER
 	out["root"] = root
 	return out
+
+
+## The Ash Wyrm: the drake's own textures baked to ash grey, with embers
+## glowing in the crevices (both baked by tools/art/ash_textures.py, so no
+## colour multiply and the detail stays crisp).
+const ASH_ALBEDO := preload("res://assets/sidekicks/dragon_ash_albedo.png")
+const ASH_EMBERS := preload("res://assets/sidekicks/dragon_ash_emission.png")
+static func _ash(model: Node3D) -> void:
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			var src := mi.get_active_material(i) as BaseMaterial3D
+			if src == null:
+				continue
+			var m := src.duplicate() as BaseMaterial3D
+			m.albedo_texture = ASH_ALBEDO
+			m.emission_enabled = true
+			m.emission = Color.WHITE
+			m.emission_energy_multiplier = 1.0
+			m.emission_texture = ASH_EMBERS
+			# One-surface meshes take it as material_override: a surface override on
+			# the cached scene's mesh logs "Parameter material is null" when freed
+			# under the headless renderer.
+			if mi.mesh.get_surface_count() == 1:
+				mi.material_override = m
+			else:
+				mi.set_surface_override_material(i, m)
 
 
 ## Stand-in when a model scene is missing.
@@ -85,11 +116,11 @@ static func _placeholder(out: Dictionary, root: Node3D, h: float) -> Dictionary:
 
 ## A soft white fill light that rides with the companion so its unmodified
 ## PBR reads in dark zones (lights the model, never tints its materials).
-static func _add_fill(root: Node3D, h: float) -> void:
+static func _add_fill(root: Node3D, h: float, energy := 1.6) -> void:
 	var l := OmniLight3D.new()
 	l.name = "SidekickFill"
 	l.light_color = Color.WHITE
-	l.light_energy = 1.6
+	l.light_energy = energy
 	l.omni_range = 2.2 * maxf(h, 0.6)
 	l.light_specular = 0.3
 	l.shadow_enabled = false

@@ -225,7 +225,8 @@ func run() -> int:
 			continue
 		var wrap: Node3D = (load("res://assets/sidekicks/" + f) as PackedScene).instantiate()
 		var pa: AABB = wrap.get_meta("posed_aabb", AABB())
-		if absf(pa.size.y - 1.0) > 0.03 or absf(pa.position.y) > 0.03 or wrap.get_meta("cull_aabbs", {}).is_empty():
+		var skinned := wrap.find_children("*", "MeshInstance3D", true, false).any(func(m): return (m as MeshInstance3D).skin != null)
+		if absf(pa.size.y - 1.0) > 0.03 or absf(pa.position.y) > 0.03 or (skinned and wrap.get_meta("cull_aabbs", {}).is_empty()):
 			sk_bad.append(f)
 		wrap.free()
 	for sid: String in SDB0.ROSTER:

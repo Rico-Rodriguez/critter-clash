@@ -110,14 +110,23 @@ The scripts that built the audio are are kept in `tools/audio/`.
 
 ## Sidekicks
 
-- Dragon, Dragon Evolved, Ghost, Birb and Bat models by Quaternius
+- Ghost model (Grave Wisp) by Quaternius
   (Ultimate Monsters / animal packs via poly.pizza), CC0 1.0. See
   `assets/quaternius/LICENSE-Quaternius.txt`.
 - Sidekick models, Creative Commons Attribution 4.0
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified meshes
   and materials; clips renamed or cut by time, scaled to size in
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`):
+  - Ember Drake / Ash Wyrm — "Animated Dragon Three Motion Loops" by LasquetiSpice —
+    https://sketchfab.com/3d-models/animated-dragon-three-motion-loops-eca98cf6cd084c1596cecf716e110c29
+    (decimated to 7.8k tris for mobile; Ash Wyrm textures baked from its base colour)
+  - Storm Crow — "Crow" by Alexei Ostapenko (alexanders823) —
+    https://sketchfab.com/3d-models/crow-d5a9b0df4da3493688b63ce42c8a83e2
   - Thorn Sapling — "Treant - Week 2" by Batuhan13 —
     https://sketchfab.com/3d-models/treant-week-2-aa60f5de1ed94b2e96e46ad08cde4d5a
+  - Night Bat — "Bat" by matisosanimation —
+    https://sketchfab.com/3d-models/bat-28af38de4d2c401d809148c7f63a73f9
+  - Gilded Mimic — "Mimic_Chest" by Joseph Payeur (joseph.payeur) —
+    https://sketchfab.com/3d-models/mimic-chest-a3489678d43a44a194f10f7b2cb929ce
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
   Lorc, from game-icons.net, CC BY 3.0.

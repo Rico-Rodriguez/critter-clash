@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/sidekicks/bat_src.glb" id="1_phei8"]
+
+[node name="bat" type="Node3D" unique_id=1372416600]
+metadata/cull_aabbs = {
+"Sketchfab_model/d4c0156f0d97461e954c2844e0cab6c3_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-4.5082507, -2.819923, -7.9695654, 10.673692, 11.643658, 15.940068)
+}
+metadata/posed_aabb = AABB(-0.34831652, 0, -1.1718736, 0.69663304, 1, 2.3437471)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1368348467 instance=ExtResource("1_phei8")]
+transform = Transform3D(1.8332078, 0, 0, 0, 1.8332078, 0, 0, 0, 1.8332078, -0.25915182, -0.43887746, -0.000146528)
