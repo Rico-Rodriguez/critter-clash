@@ -83,8 +83,36 @@ const ROSTER := {
 		"desc": "Every 4s it dives through 3 foes, 30% of your damage each, healing you 1% of your health per bite.",
 		"cards": ["bat_frenzy", "bat_thirst"],
 	},
+	# The Ancient pets (Torment and up): one from each boss's Ancient form.
+	"barrow_squire": {
+		"name": "Barrow Squire", "element": "Iron", "icon": "checked-shield", "color": Color(1.0, 0.86, 0.5),
+		"model": "kk:Skeleton_Warrior", "fly": 0.0, "scale": 0.45,
+		"unlock": {"kind": "pet", "unique": "barrow_squire"}, "how": "Ancient Gravemaw's rare drop (1/60, Torment+)",
+		"origin": "A small, very loyal skeleton knight from the first king's barrow",
+		"ability": {"kind": "bash", "name": "Shield Bash", "cd": 6.0, "dmg": 0.55, "radius": 2.2, "stun": 0.8},
+		"desc": "Every 6s it charges the nearest pack and slams its shield down: 55% of your damage, and foes are stunned for 0.8s.",
+		"cards": ["squire_iron", "squire_drill"],
+	},
+	"shade": {
+		"name": "Hexbound Shade", "element": "Shadow", "icon": "two-shadows", "color": Color(0.6, 0.5, 0.95),
+		"model": "kk:Skeleton_Rogue", "fly": 0.0, "scale": 0.45,
+		"unlock": {"kind": "pet", "unique": "shade"}, "how": "The Ancient Hexer Queen's rare drop (1/60, Torment+)",
+		"origin": "A quiet shade the Queen bound to her spindle",
+		"ability": {"kind": "shadowstrike", "name": "Shadow Strike", "cd": 5.0, "dmg": 0.5, "strikes": 3},
+		"desc": "Every 5s it steps from shadow to shadow behind the 3 toughest foes near you, 50% of your damage each (double on champions and bosses).",
+		"cards": ["shade_veil", "shade_dusk"],
+	},
+	"sapling": {
+		"name": "Thorn Sapling", "element": "Thorn", "icon": "lightning-tree", "color": Color(0.7, 1.0, 0.45),
+		"model": "kk:Rogue_Hooded", "fly": 0.0, "scale": 0.36,
+		"unlock": {"kind": "pet", "unique": "sapling"}, "how": "The Ancient Thornmother's rare drop (1/60, Torment+)",
+		"origin": "A tiny hooded grove-keeper grown from Ancient heartwood",
+		"ability": {"kind": "snare", "name": "Rootsnare", "cd": 7.0, "dmg": 0.35, "radius": 3.0, "pulses": 3, "hold": 1.2},
+		"desc": "Every 7s roots burst under the thickest pack and hold it for 1.2s, then squeeze 3 times for 35% of your damage.",
+		"cards": ["sapling_bloom", "sapling_deep"],
+	},
 }
-const ORDER := ["drake", "wisp", "bonelet", "hexling", "crow", "acolyte", "mimic", "bat"]
+const ORDER := ["drake", "wisp", "bonelet", "hexling", "crow", "acolyte", "mimic", "bat", "barrow_squire", "shade", "sapling"]
 
 ## Eggs: found, then warmed by kills (any hero, any sidekick) until they hatch.
 ## `boss`: dropped by that boss; `zone`: by any won hunt in that zone.
@@ -107,7 +135,7 @@ const EVOLVE_DMG := 1.5
 const EVOLVE_SCALE := 1.25
 
 ## Pets from before sidekicks: the boss pets become these sidekicks.
-const PET_TO_SIDEKICK := {"bonelet": "bonelet", "hexling": "hexling", "acolyte": "acolyte"}
+const PET_TO_SIDEKICK := {"bonelet": "bonelet", "hexling": "hexling", "acolyte": "acolyte", "barrow_squire": "barrow_squire", "shade": "shade", "sapling": "sapling"}
 
 
 static func bond_level(kills: int) -> int:

@@ -568,7 +568,7 @@ func _sidekick_tests() -> void:
 	const SK := preload("res://src/autoload/sidekicks.gd")
 	const SDB := preload("res://src/data/sidekick_db.gd")
 	var keep := Game.data.duplicate(true)
-	_ok("sidekick roster 6-8", SDB.ORDER.size() >= 6 and SDB.ORDER.size() <= 8 and SDB.ORDER.size() == SDB.ROSTER.size())
+	_ok("sidekick roster: 8 at launch + 3 Ancient", SDB.ORDER.size() == 11 and SDB.ORDER.size() == SDB.ROSTER.size())
 	for id: String in SDB.ORDER:
 		for cid in SDB.ROSTER[id].get("cards", []):
 			_ok("sidekick card %s defined" % cid, DB.CARDS.has(cid) and str(DB.CARDS[cid]["sidekick"]) == id)
@@ -630,6 +630,13 @@ func _sidekick_tests() -> void:
 	SK.migrate(Game.data)
 	Game.grant_item(Game.make_unique("bonelet"))
 	_ok("pet drop is a sidekick at your side", SK.active(Game.data) == "bonelet")
+	# The Ancient pets (Torment+ boss drops) are sidekicks with their own abilities.
+	for pid in ["barrow_squire", "shade", "sapling"]:
+		_ok("ancient pet %s is a sidekick" % pid, SDB.ROSTER.has(pid) and str(SDB.ROSTER[pid]["unlock"]["unique"]) == pid and str(SDB.PET_TO_SIDEKICK[pid]) == pid and str(DB.UNIQUES[pid]["source"]).begins_with("ancient_"))
+		_ok("ancient pet %s is not owned before its drop" % pid, not SK.is_owned(Game.data, pid))
+		Game.grant_item(Game.make_unique(pid))
+		_ok("ancient pet %s drop unlocks it" % pid, SK.is_owned(Game.data, pid))
+	_ok("ancient sidekick abilities are distinct", ["bash", "shadowstrike", "snare"] == ["barrow_squire", "shade", "sapling"].map(func(i): return str(SDB.ROSTER[i]["ability"]["kind"])))
 	var sum := Game.finish_hunt({"hero": "knight", "kills": 120, "win": false, "tier": 0, "time": 60.0})
 	_ok("finish_hunt reports sidekick bond", str(sum["sidekick"]["id"]) == "bonelet" and SK.kills(Game.data, "bonelet") == 120)
 	Game.data = keep
