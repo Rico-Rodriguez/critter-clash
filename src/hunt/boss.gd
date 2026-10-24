@@ -44,8 +44,9 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	def = d
 	ancient = hunt.tier_i >= DB.TIER_ANCIENT
 	var aura: Color = Color(1.0, 0.86, 0.5) if ancient else d["color"]
-	display_name = ("Ancient " + str(d["name"]).trim_prefix("The ")) if ancient else d["name"]
-	title = d["title"]
+	display_name = d["name"]
+	# "Ancient" goes in the title so the HUD's name line still fits.
+	title = "the Ancient" if ancient else d["title"]
 	max_hp = d["hp"] * tier["hp"] * (1.0 + DB.RUN_BOSS_HP * (hunt.run_level - 1))
 	hp = max_hp
 	dmg = d["dmg"] * tier["dmg"]
