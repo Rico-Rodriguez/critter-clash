@@ -113,6 +113,13 @@ func road_pickable() -> Array:
 
 
 ## A short name for step n: "300 gold", "Boss Rush", "A new hero".
+## A road card is in the draws once its step is claimed (derived from the
+## claimed count, so old saves need no new key).
+func card_open(id: String) -> bool:
+	var st := DB.card_road_step(id)
+	return st == 0 or int(data.get("road", 0)) >= st
+
+
 func road_reward_text(n: int) -> String:
 	var rw := DB.road_reward(n)
 	match str(rw["kind"]):
@@ -130,6 +137,8 @@ func road_reward_text(n: int) -> String:
 			return "A new hero"
 		"rift_key":
 			return "A rift key"
+		"cards":
+			return "New cards: %s" % ", ".join(PackedStringArray((rw["ids"] as Array).map(func(c): return str(DB.CARDS[c]["name"]))))
 	return DB.CHESTS[rw["chest"]]["name"]
 
 
@@ -155,6 +164,8 @@ func claim_road(pick := "") -> Array:
 		"rift_key":
 			data["rift_keys"] = int(data.get("rift_keys", 0)) + 1
 			lines.append("A rift key: the Rift is open")
+		"cards":
+			lines.append("%s join your level-up draws" % road_reward_text(n).trim_prefix("New cards: "))
 		"pick", "hero":
 			var hid := str(rw.get("id", pick))
 			var pickable := road_pickable()

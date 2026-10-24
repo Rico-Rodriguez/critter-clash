@@ -460,6 +460,8 @@ func _depth_tests() -> void:
 	_ok("a pick step adds the chosen hero", Game.hero("ranger")["unlocked"] and not Game.hero("knight")["unlocked"] and Game.road_pickable() == ["knight"])
 	for i in DB.TROPHY_ROAD.size() + 1:
 		_ok("road step %d has a name" % (i + 1), Game.road_reward_text(i + 1) != "")
+	_ok("road cards start locked", not Game.card_open("skybolt") and Game.card_open("might"))
+	_ok("every hero has two road epics", ["oath_storm", "shockwave", "rime_trap", "storm_arrows", "skybolt", "rift_quake", "thunder_cry", "skyfall"].all(func(c): return DB.CARDS.has(c) and DB.card_road_step(c) > 0))
 	var tr0 := Game.renown()
 	Game.finish_hunt({"win": false, "tier": 0, "hero": "mage", "gold": 1, "kills": 0, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 50.0, "zone": "barrow"})
 	_ok("a loss never takes trophies", Game.renown() >= tr0)
