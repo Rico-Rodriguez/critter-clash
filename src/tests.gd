@@ -212,6 +212,7 @@ func run() -> int:
 	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
 	var sap: Node3D = sap_look["root"]
 	_ok("sapling has its own rigged model", sap_m == "sf:treant" and sap.find_child("Skeleton3D", true, false) != null and str(sap_look["idle"]) != "")
+	_ok("camp sidekick model has no hunt ring", sap.find_child("CompanionRing", true, false) == null and preload("res://src/hunt/sidekick.gd").HUNT_SCALE > 1.0)
 	var fill := sap.find_child("SidekickFill", true, false) as OmniLight3D
 	var LK := preload("res://src/core/sidekick_look.gd")
 	_ok("sidekick fill light only lights the companion layer", fill != null and fill.light_cull_mask == LK.FILL_LAYER and sap.find_children("*", "MeshInstance3D", true, false).all(func(m): return (m as MeshInstance3D).layers & LK.FILL_LAYER))
