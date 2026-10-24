@@ -1228,18 +1228,31 @@ func _build_ranks(s: Sheet) -> void:
 	var b := s.body
 	if not _net_gate(b):
 		return
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 12)
+	b.add_child(tabs)
 	var slot := _slot(b)
+	for t in [["power", "Power"], ["weekly", "This week"]]:
+		var board: String = t[0]
+		var tb := _button(t[1], "Ghost", func(): _fill_ranks(slot, board), 56)
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tabs.add_child(tb)
 	_fill_ranks(slot)
 
 
-func _fill_ranks(slot: VBoxContainer) -> void:
+func _fill_ranks(slot: VBoxContainer, board := "power") -> void:
 	var o := _net()
-	var r: Dictionary = await o.leaderboard("power")
+	var r: Dictionary = await o.leaderboard(board)
 	if not _fill(slot):
 		return
 	if not r["ok"]:
 		slot.add_child(_wrap_label(str(r["error"]), "Small"))
 		return
+	if board == "weekly":
+		var om := Game.weekly_omen()
+		slot.add_child(_wrap_label("Omen: %s. Best omen hunt this week; resets Thursday." % om["name"], "Small"))
+		if (r["data"] as Array).is_empty():
+			slot.add_child(_wrap_label("No scores yet this week. Turn on the omen and hunt.", "Small"))
 	var mine: Dictionary = r["mine"]
 	if not mine.is_empty():
 		var me := _card()

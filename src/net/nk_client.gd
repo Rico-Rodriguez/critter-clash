@@ -30,23 +30,67 @@ class Reply extends RefCounted:
 
 
 func _init() -> void:
-	var host := Cfg.HOST
-	var port := Cfg.PORT
-	var ssl := Cfg.SSL
+	set_server(("https://" if Cfg.SSL else "http://") + Cfg.HOST + ":" + str(Cfg.PORT) if Cfg.HOST != "" else "")
+	# The last address the config file gave, so a moved test server is found offline-first.
+	var cached := _read_cached()
+	if cached != "":
+		set_server(cached)
 	# `-- --server=http://127.0.0.1:7350` points a dev build at a local server.
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--server="):
-			var u := a.substr(9)
-			ssl = u.begins_with("https")
-			u = u.trim_prefix("https://").trim_prefix("http://")
-			host = u.get_slice(":", 0)
-			port = int(u.get_slice(":", 1)) if u.contains(":") else (443 if ssl else 80)
+			_pinned = true
+			set_server(a.substr(9))
 		elif a.begins_with("--server-key="):
 			server_key = a.substr(13)
-	if host == "":
+
+
+var _pinned := false
+const CACHE := "user://server_url.txt"
+
+
+## Points the client at `url` ("https://host[:port]"); "" goes offline.
+func set_server(url: String) -> void:
+	if url == "":
+		base = ""
+		ws_base = ""
 		return
+	var ssl := url.begins_with("https")
+	var u := url.trim_prefix("https://").trim_prefix("http://").trim_suffix("/")
+	var host := u.get_slice(":", 0)
+	var port := int(u.get_slice(":", 1)) if u.contains(":") else (443 if ssl else 80)
 	base = "%s://%s:%d" % ["https" if ssl else "http", host, port]
 	ws_base = "%s://%s:%d" % ["wss" if ssl else "ws", host, port]
+
+
+static func _read_cached() -> String:
+	var f := FileAccess.open(CACHE, FileAccess.READ)
+	return f.get_as_text().strip_edges() if f else ""
+
+
+## Reads Cfg.CONFIG_URL ({"url": "https://…", "key": "…"}) so the test server
+## can move without a new build. Keeps the current address on any failure.
+func fetch_config() -> void:
+	if Cfg.CONFIG_URL == "" or _pinned:
+		return
+	var req := HTTPRequest.new()
+	req.timeout = Cfg.TIMEOUT
+	add_child(req)
+	if req.request(Cfg.CONFIG_URL + "?t=%d" % Time.get_unix_time_from_system()) != OK:
+		req.queue_free()
+		return
+	var res: Array = await req.request_completed
+	req.queue_free()
+	if int(res[0]) != HTTPRequest.RESULT_SUCCESS or int(res[1]) != 200:
+		return
+	var d = JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8())
+	if not d is Dictionary or not str(d.get("url", "")).begins_with("http"):
+		return
+	set_server(str(d["url"]))
+	if str(d.get("key", "")) != "":
+		server_key = str(d["key"])
+	var f := FileAccess.open(CACHE, FileAccess.WRITE)
+	if f:
+		f.store_string(str(d["url"]))
 
 
 func configured() -> bool:

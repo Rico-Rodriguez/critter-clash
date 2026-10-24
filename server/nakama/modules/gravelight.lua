@@ -347,6 +347,38 @@ local function report_progress(context, payload)
 	return encode({ ok = true })
 end
 
+-- Weekly challenge: the game sends its best omen-hunt score for this week.
+-- Weeks are counted from the Unix epoch (Thursday 00:00 UTC), the same as the
+-- game's Game.week_number(), and the board resets on that boundary.
+local WEEKLY_MAX = 100000
+
+local function weekly_submit(context, payload)
+	local uid = need_user(context)
+	local p = decode(payload)
+	local week = math.floor(now() / 604800)
+	if math.floor(tonumber(p.week) or -1) ~= week then
+		return encode({ ok = false, stale = true, week = week })
+	end
+	if nk.localcache_get("wk:" .. uid) then
+		return encode({ ok = true, throttled = true })
+	end
+	nk.localcache_put("wk:" .. uid, "1", 5)
+	local score = math.max(0, math.min(math.floor(tonumber(p.best) or 0), WEEKLY_MAX))
+	if score <= 0 then
+		return encode({ ok = true })
+	end
+	local meta = { week = week }
+	if type(p.hero) == "string" and #p.hero <= 16 then
+		meta.hero = p.hero
+	end
+	if type(p.omen) == "string" and #p.omen <= 24 then
+		meta.omen = p.omen
+	end
+	local acc = nk.account_get_id(uid)
+	local rec = nk.leaderboard_record_write("weekly", uid, acc.user.display_name or acc.user.username, score, 0, meta)
+	return encode({ ok = true, score = rec.score, rank = rec.rank })
+end
+
 local function profiles(context, payload)
 	need_user(context)
 	local p = decode(payload)
@@ -536,6 +568,7 @@ local function delete_account(context, _)
 	end
 	pcall(nk.leaderboard_record_delete, "power", uid)
 	pcall(nk.leaderboard_record_delete, "combat", uid)
+	pcall(nk.leaderboard_record_delete, "weekly", uid)
 	nk.account_delete_id(uid, false)
 	return encode({ ok = true })
 end
@@ -872,11 +905,14 @@ end
 
 pcall(nk.leaderboard_create, "power", true, "desc", "best", nil, {}, false)
 pcall(nk.leaderboard_create, "combat", true, "desc", "best", nil, {}, false)
+-- Resets every Thursday 00:00 UTC, when Game.week_number() ticks over.
+pcall(nk.leaderboard_create, "weekly", true, "desc", "best", "0 0 * * 4", {}, false)
 
 nk.register_rpc(bootstrap, "bootstrap")
 nk.register_rpc(set_name, "set_name")
 nk.register_rpc(report_progress, "report_progress")
 nk.register_rpc(profiles, "profiles")
+nk.register_rpc(weekly_submit, "weekly_submit")
 nk.register_rpc(list_grants, "list_grants")
 nk.register_rpc(ack_grants, "ack_grants")
 nk.register_rpc(redeem, "redeem")

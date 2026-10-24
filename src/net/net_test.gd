@@ -92,6 +92,14 @@ func run(main: Node) -> int:
 	_ok("hunt hits the raid boss", int(rs["data"].get("hp", 0)) == hp0 - Online.raid_damage({"win": true, "tier": 0, "kills": 100, "elites": 2, "bosses": ["gravemaw"]}), [hp0, rs])
 	var lb: Dictionary = await o.leaderboard("power")
 	_ok("leaderboard", lb["ok"], lb)
+	# Weekly challenge: a best omen hunt reaches the weekly board.
+	Game.data["weekly"] = {"week": Game.week_number(), "best": 4321, "omen": "test", "hero": Game.hero_id()}
+	var ws: Dictionary = await o.submit_weekly()
+	_ok("weekly submit", ws["ok"] and int(ws["data"].get("score", 0)) == 4321, ws)
+	var wl: Dictionary = await o.leaderboard("weekly")
+	_ok("weekly board has my score", wl["ok"] and int(wl["mine"].get("score", 0)) == 4321 and int(wl["mine"].get("rank", 0)) >= 1, wl)
+	var stale: Dictionary = await o.rpc_call("weekly_submit", {"week": Game.week_number() - 1, "best": 99})
+	_ok("last week's score refused", stale["ok"] and bool(stale["data"].get("stale", false)), stale)
 
 	# Parties: the friend joins over their own socket.
 	var perr: String = await o.party.create()

@@ -124,6 +124,7 @@ func connect_now() -> void:
 		return
 	_busy = true
 	_set_state("connecting")
+	await fetch_config()
 	var a := await authenticate(_ensure_key())
 	if a["ok"]:
 		a = await refresh_me()
@@ -332,6 +333,8 @@ func after_hunt(r: Dictionary) -> void:
 		return
 	party.hunt_over(r)
 	await report_progress()
+	if str(r.get("omen", "")) != "":
+		await submit_weekly()
 	if in_clan() and not bool(r.get("abandoned", false)):
 		var dmg := raid_damage(r)
 		if dmg > 0:
@@ -370,6 +373,17 @@ func report_progress() -> void:
 	await rpc_call("report_progress", {"hunts": int(st["hunts"]), "wins": int(st["wins"]),
 		"combat": best_combat(), "power": Game.power_score(Game.hero_id()), "hero": Game.hero_id(),
 		"best_tier_won": int(st.get("best_tier_won", 0))})
+
+
+## Sends this week's best omen-hunt score to the weekly board.
+func submit_weekly() -> Dictionary:
+	if not is_on():
+		return {"ok": false, "error": "offline"}
+	var e := Game.weekly_entry()
+	if int(e["best"]) <= 0:
+		return {"ok": true, "data": {}}
+	e["hero"] = str(Game.data.get("weekly", {}).get("hero", ""))
+	return await rpc_call("weekly_submit", e)
 
 
 # --- Cloud save, new phone, deletion ---------------------------------------------------
@@ -538,9 +552,10 @@ func profiles(ids: Array) -> Dictionary:
 	return p if p is Dictionary else {}
 
 
-## The top of a leaderboard ("power" or "combat"), plus the player's own row.
+## The top of a leaderboard ("power", "combat" or "weekly"), plus the player's own row.
 func leaderboard(id: String) -> Dictionary:
-	var r := await get_api("/v2/leaderboard/%s?limit=50" % id)
+	var me := str(online()["user_id"])
+	var r := await get_api("/v2/leaderboard/%s?limit=50%s" % [id, ("&owner_ids=" + me.uri_encode()) if me != "" else ""])
 	if not r["ok"]:
 		return r
 	var rows := []
@@ -552,6 +567,10 @@ func leaderboard(id: String) -> Dictionary:
 	var ow: Array = _as_list(r["data"].get("owner_records"))
 	if not ow.is_empty():
 		mine = {"rank": int(ow[0].get("rank", 0)), "score": int(ow[0].get("score", 0))}
+		# Nakama leaves the rank off owner rows on some boards: take it from the top list.
+		for row in rows:
+			if int(mine["rank"]) == 0 and row["id"] == str(ow[0].get("owner_id", "")):
+				mine["rank"] = row["rank"]
 	return {"ok": true, "data": rows, "mine": mine}
 
 
