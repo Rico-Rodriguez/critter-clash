@@ -535,6 +535,8 @@ func _net_tests() -> void:
 ## Sidekicks: the save migration from pets and the ally, bond, eggs, unlocks.
 func _sidekick_tests() -> void:
 	const SK := preload("res://src/autoload/sidekicks.gd")
+	var marks: Array = preload("res://src/data/sidekick_db.gd").road_marks()
+	_ok("trophy sidekicks are marked on the road", not marks.is_empty() and marks.all(func(m): return int(m["t"]) > 0) and str(marks[0]["id"]) == "crow")
 	const SDB := preload("res://src/data/sidekick_db.gd")
 	var keep := Game.data.duplicate(true)
 	_ok("sidekick roster 6-8", SDB.ORDER.size() >= 6 and SDB.ORDER.size() <= 8 and SDB.ORDER.size() == SDB.ROSTER.size())
