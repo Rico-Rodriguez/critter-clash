@@ -145,6 +145,25 @@ const FAMILIES := {
 	"throwing": {"hero": "barbarian", "level": 1, "min_set": 0, "name": "Throwing Axe", "how": "Hurl the axe through the horde. It comes back to your hand.", "attack": "throw", "icon": "tomahawk", "one_hand": true,
 		"clips": ["Throw"], "dmg": 0.75, "rate": 1.0, "range": 2.6, "arc": 0.0, "speed": 18.0,
 		"trail": Color(1.0, 0.7, 0.4), "sfx": "swing"},
+	# The Rogue: light blades, mostly one in each hand (tools/art/make_rogue_arms.py).
+	"daggers": {"hero": "rogue", "level": 1, "min_set": 0, "name": "Daggers", "how": "Two daggers, two quick cuts every swing.", "attack": "flurry", "icon": "cloak-dagger", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.55, "rate": 1.4, "range": 0.85, "arc": 140.0, "hits": 2,
+		"trail": Color(0.55, 0.9, 0.6), "sfx": "swing"},
+	"chakram": {"hero": "rogue", "level": 1, "min_set": 0, "name": "Chakram", "how": "A bladed ring flung through the horde. It spins back to your hand.", "attack": "throw", "icon": "spinning-blades", "one_hand": true,
+		"clips": ["Throw"], "dmg": 0.7, "rate": 1.1, "range": 2.4, "arc": 0.0, "speed": 20.0,
+		"trail": Color(0.7, 1.0, 0.75), "sfx": "swing"},
+	"rapier": {"hero": "rogue", "level": 10, "min_set": 1, "name": "Rapier", "how": "A lunge that runs a needle through a whole line of foes.", "attack": "thrust", "icon": "spear-feather",
+		"clips": ["Melee_1H_Attack_Stab"], "dmg": 1.0, "rate": 1.15, "range": 1.6, "arc": 30.0, "width": 0.9,
+		"trail": Color(0.85, 0.95, 1.0), "sfx": "atk_tank"},
+	"sickles": {"hero": "rogue", "level": 25, "min_set": 2, "name": "Sickles", "how": "Two reaping hooks, three fast cuts every swing.", "attack": "flurry", "icon": "sword-wound", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.42, "rate": 1.35, "range": 0.9, "arc": 170.0, "hits": 3,
+		"trail": Color(0.5, 1.0, 0.55), "sfx": "swing"},
+	"katars": {"hero": "rogue", "level": 40, "min_set": 3, "name": "Katars", "how": "Punch daggers driven down together: the ground bursts, foes stagger.", "attack": "slam", "icon": "fist", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Chop"], "dmg": 1.4, "rate": 0.85, "range": 0.8, "arc": 360.0, "slam_r": 2.0, "stun": 0.4, "knock": 7.0,
+		"trail": Color(0.6, 1.0, 0.7), "sfx": "quake"},
+	"nightblade": {"hero": "rogue", "level": 60, "min_set": 3, "boss_from": 4, "name": "Nightblade", "how": "A long curved edge. Elites and bosses are cut three times.", "attack": "sweep", "icon": "dripping-sword",
+		"clips": ["Melee_1H_Attack_Slice_Horizontal", "Melee_1H_Attack_Slice_Diagonal"], "dmg": 0.8, "rate": 0.95, "range": 1.2, "arc": 220.0, "echo": [0.5, 0.25],
+		"trail": Color(0.4, 0.9, 0.6), "sfx": "cleave"},
 	# The Knight: one-handed, the shield always up.
 	"sword": {"hero": "knight", "level": 1, "min_set": 0, "name": "Sword", "how": "Quick, sure cuts across the front.", "attack": "cleave", "icon": "broadsword",
 		"clips": ["Melee_1H_Attack_Slice_Diagonal", "Melee_1H_Attack_Slice_Horizontal"], "dmg": 1.0, "rate": 1.0, "range": 1.0, "arc": 140.0,
@@ -213,6 +232,7 @@ const HERO_FAMILIES := {
 	"ranger": ["shortbow", "knives", "crossbow", "longbow", "repeater", "soulbow"],
 	"mage": ["staff", "wand", "tome", "scepter", "skullstaff", "soulstaff"],
 	"barbarian": ["axe", "maul", "scythe", "twin", "halberd", "throwing"],
+	"rogue": ["daggers", "chakram", "rapier", "sickles", "katars", "nightblade"],
 }
 
 ## Hero levels bought with shards and gold are gone: skills are a hero's power
