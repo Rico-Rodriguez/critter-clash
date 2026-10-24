@@ -677,7 +677,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "powers", "fire", "descent", "pact", "wild":
+			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -738,6 +738,14 @@ func _capture(args: PackedStringArray) -> void:
 					h.bot = false
 					h.boss._begin("circles")
 					await _wait_sim(h, 0.8)
+				elif shot == "warden":
+					# The Gilded Warden mid-Lockdown (run with --zone=vault).
+					await _wait_sim(h, 4.0)
+					h.souls = h.souls_goal
+					await _wait_sim(h, 9.0)
+					h.bot = false
+					h.boss._begin("lockdown")
+					await _wait_sim(h, 0.7)
 				elif shot in ["boss", "victory", "results"]:
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal
