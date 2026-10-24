@@ -321,24 +321,7 @@ func _build_log(s: Sheet) -> void:
 	kv.add_child(Ui.label("Rift keys: %d · rifts closed: %d" % [int(Game.data.get("rift_keys", 0)), int(st.get("rifts", 0))], "Small"))
 	kcc.add_child(kv)
 	b.add_child(kcc)
-	# Pets: pick which one follows you.
-	var pets: Array = Game.data.get("pets", [])
-	if pets.size() > 1:
-		var pr := HBoxContainer.new()
-		pr.add_theme_constant_override("separation", 8)
-		pr.add_child(Ui.label("Pet", "Body"))
-		for pid: String in pets:
-			var pb := Button.new()
-			pb.toggle_mode = true
-			pb.focus_mode = Control.FOCUS_NONE
-			pb.button_pressed = str(Game.data["pet"]) == pid
-			pb.text = str(DB.UNIQUES[pid]["name"])
-			pb.pressed.connect(func():
-				Game.data["pet"] = pid
-				Game.save()
-				s.rebuild())
-			pr.add_child(pb)
-		b.add_child(pr)
+	# Boss pets are sidekicks now: picked on the Sidekicks sheet.
 	var grid := GridContainer.new()
 	grid.columns = 2
 	for u in DB.LOG_ORDER:
@@ -648,3 +631,192 @@ func _error_report_row(b: Control, ver: String) -> void:
 		copy.text = "Copied")
 	row.add_child(copy)
 	b.add_child(row)
+
+
+# --- Sidekicks ----------------------------------------------------------------
+
+const SKS := preload("res://src/autoload/sidekicks.gd")
+const SKDB := preload("res://src/data/sidekick_db.gd")
+## The sidekick whose detail page is open in the sheet ("" = the stable).
+var _sk_detail := ""
+
+
+## The Sidekicks sheet: who is at your side, the stable (owned, locked, eggs
+## hatching), and a detail page per sidekick with its ability and bond road.
+func _build_sidekicks(s: Sheet) -> void:
+	if _sk_detail != "" and SKS.is_owned(Game.data, _sk_detail):
+		_build_sidekick_detail(s, _sk_detail)
+		return
+	_sk_detail = ""
+	var b := s.body
+	var intro := Ui.label("One walks (or flies) with you. Shared by all heroes.", "Small")
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(intro)
+	var a := SKS.active(Game.data)
+	var side := _card()
+	var sv := VBoxContainer.new()
+	sv.add_theme_constant_override("separation", 6)
+	sv.add_child(Ui.label("AT YOUR SIDE", "Caption"))
+	if a == "":
+		var none := Ui.label("No one yet. Slay your first boss: the Grave Wisp follows the victor." if (Game.data["sidekicks"]["owned"] as Dictionary).is_empty() else "No one. Pick a sidekick from your stable.", "Body")
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sv.add_child(none)
+	else:
+		var d: Dictionary = SKDB.ROSTER[a]
+		var k := SKS.kills(Game.data, a)
+		var line := Ui.label("%s · %s" % [d["ability"]["name"], d["desc"]], "Small")
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var head := _row([Ui.icon_rect(str(d["icon"]), 48, Color(d["color"])), Ui.label(SKDB.display_name(a, k), "Heading"), _spacer(), Ui.label("Bond %d" % SKDB.bond_level(k), "Body")], 10)
+		sv.add_child(head)
+		sv.add_child(line)
+	side.add_child(sv)
+	b.add_child(side)
+	var owned: int = (Game.data["sidekicks"]["owned"] as Dictionary).size()
+	b.add_child(Ui.label("STABLE · %d / %d" % [owned, SKDB.ORDER.size()], "Caption"))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	for id: String in SKDB.ORDER:
+		grid.add_child(_sidekick_tile(s, id))
+	# Eggs warming up, each its own tile.
+	for eid: String in Game.data["sidekicks"]["eggs"]:
+		var e: Dictionary = SKDB.EGGS[eid]
+		var k := int(Game.data["sidekicks"]["eggs"][eid]["kills"])
+		grid.add_child(_sk_tile_box("egg-clutch", Color(1.0, 0.85, 0.55), str(e["name"]), "Hatching %d / %d" % [k, int(e["kills"])], float(k) / float(e["kills"]), false, Callable()))
+	b.add_child(grid)
+	FxUi.deal_in(grid, 0.04)
+
+
+func _sidekick_tile(s: Sheet, id: String) -> Control:
+	var d: Dictionary = SKDB.ROSTER[id]
+	if SKS.hidden(Game.data, id):
+		return _sk_tile_box("egg-clutch", Color(0.5, 0.5, 0.55), "???", "Hidden", 0.0, true, Callable())
+	if SKS.is_owned(Game.data, id):
+		var k := SKS.kills(Game.data, id)
+		var here := SKS.active(Game.data) == id
+		return _sk_tile_box(str(d["icon"]), Color(d["color"]), SKDB.display_name(id, k), ("At your side · " if here else "") + "Bond %d" % SKDB.bond_level(k), -1.0, false, func():
+			_sk_detail = id
+			s.rebuild())
+	var pr: Array = SKS.progress(Game.data, id)
+	return _sk_tile_box(str(d["icon"]), Color(d["color"]), str(d["name"]), str(pr[0]), float(pr[1]), true, Callable())
+
+
+## One stable tile: icon, name, a status line, and a bar when `frac` >= 0.
+func _sk_tile_box(icon: String, col: Color, title: String, status: String, frac: float, locked: bool, cb: Callable) -> Control:
+	var btn := Button.new()
+	btn.theme_type_variation = &"Card"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(0, 132)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.disabled = not cb.is_valid()
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 12)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	var ic := Ui.icon_rect(icon if Ui.icon(icon) else "ghost", 40, col if not locked else col.darkened(0.45))
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(ic)
+	var t := Ui.label(title, "Body")
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if locked:
+		t.add_theme_color_override("font_color", Color(0.7, 0.7, 0.72))
+	v.add_child(t)
+	var st := Ui.label(status, "Small")
+	st.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(st)
+	if frac >= 0.0 and locked or frac > 0.0:
+		var bar := ProgressBar.new()
+		bar.theme_type_variation = &"XPBar"
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 10)
+		bar.value = clampf(frac, 0.0, 1.0) * 100.0
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(bar)
+	btn.add_child(v)
+	if cb.is_valid():
+		btn.pressed.connect(func():
+			Sfx.play("ui_tap", -4.0)
+			cb.call())
+	return btn
+
+
+func _build_sidekick_detail(s: Sheet, id: String) -> void:
+	var b := s.body
+	var d: Dictionary = SKDB.ROSTER[id]
+	var k := SKS.kills(Game.data, id)
+	var lv := SKDB.bond_level(k)
+	var back := Button.new()
+	back.theme_type_variation = &"Ghost"
+	back.text = "‹ Stable"
+	back.focus_mode = Control.FOCUS_NONE
+	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	back.pressed.connect(func():
+		Sfx.play("ui_back", -4.0)
+		_sk_detail = ""
+		s.rebuild())
+	b.add_child(back)
+	b.add_child(_row([Ui.icon_rect(str(d["icon"]), 64, Color(d["color"])), Ui.label(SKDB.display_name(id, k), "Title")], 12))
+	var origin := Ui.label("%s · %s" % [d["origin"], d["element"]], "Small")
+	origin.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(origin)
+	var bc := _card()
+	var bv := VBoxContainer.new()
+	bv.add_theme_constant_override("separation", 4)
+	var nxt := SKDB.bond_next(k)
+	bv.add_child(_row([Ui.label("Bond %d" % lv, "Heading"), _spacer(), Ui.label(("%s / %s kills" % [Ui.fmt_num(k), Ui.fmt_num(nxt)]) if lv < SKDB.BOND_MAX else "Max bond", "Small")]))
+	var bar := ProgressBar.new()
+	bar.theme_type_variation = &"XPBar"
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 12)
+	var lo := int(SKDB.BOND_KILLS[lv - 1])
+	bar.value = 100.0 if lv >= SKDB.BOND_MAX else clampf(float(k - lo) / float(maxi(nxt - lo, 1)), 0.0, 1.0) * 100.0
+	bv.add_child(bar)
+	bc.add_child(bv)
+	b.add_child(bc)
+	var ac := _card()
+	var av := VBoxContainer.new()
+	av.add_theme_constant_override("separation", 4)
+	av.add_child(Ui.label("ABILITY · %s" % str(d["ability"]["name"]).to_upper(), "Caption"))
+	var desc := Ui.label(str(d["desc"]), "Body")
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	av.add_child(desc)
+	ac.add_child(av)
+	b.add_child(ac)
+	var rc := _card()
+	var rv := VBoxContainer.new()
+	rv.add_theme_constant_override("separation", 4)
+	rv.add_child(Ui.label("BOND REWARDS", "Caption"))
+	for pair in SKDB.bond_rewards(id):
+		var got := lv >= int(pair[0])
+		var rl := Ui.label("%d · %s%s" % [int(pair[0]), pair[1], "  ✓" if got else ""], "Body")
+		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5) if got else Color(0.78, 0.78, 0.8))
+		rv.add_child(rl)
+	rc.add_child(rv)
+	b.add_child(rc)
+	var here := SKS.active(Game.data) == id
+	var go := Button.new()
+	go.theme_type_variation = &"GoldButton" if not here else &"Ghost"
+	go.text = "AT YOUR SIDE" if here else "TAKE ALONG"
+	go.focus_mode = Control.FOCUS_NONE
+	go.custom_minimum_size = Vector2(0, 72)
+	go.pressed.connect(func():
+		if here:
+			SKS.set_active(Game.data, "")
+		else:
+			SKS.set_active(Game.data, id)
+			Sfx.play("gear_equip", -3.0)
+		Game.save()
+		_refresh_camp_sidekick()
+		s.rebuild())
+	b.add_child(go)
+	if here:
+		b.add_child(Ui.label("Tap again to send it home.", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+
+
+## The camp shows the sidekick at your side by the fire.
+func _refresh_camp_sidekick() -> void:
+	if lobby and is_instance_valid(lobby) and lobby.has_method("refresh_sidekick"):
+		lobby.refresh_sidekick()
