@@ -947,10 +947,11 @@ func _build_skills() -> void:
 func _build_hero_row() -> void:
 	Ui.clear(_hero_row)
 	var pts := Game.talent_points(hero_id)
-	var ally := str(Game.data.get("ally", ""))
+	const SKE := preload("res://src/autoload/sidekicks.gd")
+	var sk := SKE.active(Game.data)
 	for spec in [["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"],
 			["Skins", "BlueButton" if filter != "skins" else "GoldButton", "looks"],
-			["Ally: " + (str(DB.HEROES[ally]["name"]) if ally != "" else "none"), "Ghost", "ally"]]:
+			["Sidekick: " + (SKE.SDB.display_name(sk, SKE.kills(Game.data, sk)) if sk != "" else "none"), "Ghost", "sidekicks"]]:
 		var b := Button.new()
 		b.theme_type_variation = spec[1]
 		b.text = spec[0]
@@ -972,12 +973,6 @@ func _build_hero_row() -> void:
 			Sfx.play("ui_tap", -4.0)
 			if what == "looks":
 				_on_skins()
-			elif what == "ally":
-				var pool: Array = [""] + DB.HERO_ORDER.filter(func(x): return Game.hero(x)["unlocked"] and x != hero_id)
-				var i := pool.find(str(Game.data.get("ally", "")))
-				Game.data["ally"] = pool[(i + 1) % pool.size()]
-				Game.save()
-				_build_hero_row()
 			else:
 				ui._shown_hero = hero_id
 				ui.open_sheet(what))

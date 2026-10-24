@@ -107,3 +107,11 @@ Some effects (swings, dashes, novas, chain lightning, thorns, hit contacts,
 the Barbarian's spin, fire bolts and similar) were
 synthesized from oscillators and noise for this project and are original work.
 The scripts that built the audio are are kept in `tools/audio/`.
+
+## Sidekicks
+
+- Dragon, Dragon Evolved, Ghost, Birb and Bat models by Quaternius
+  (Ultimate Monsters / animal packs via poly.pizza), CC0 1.0. See
+  `assets/quaternius/LICENSE-Quaternius.txt`.
+- Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
+  Lorc, from game-icons.net, CC BY 3.0.
