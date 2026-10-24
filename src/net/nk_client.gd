@@ -67,22 +67,31 @@ static func _read_cached() -> String:
 	return f.get_as_text().strip_edges() if f else ""
 
 
+func _get_json(url: String, headers: Array):
+	if url == "":
+		return null
+	var req := HTTPRequest.new()
+	req.timeout = Cfg.TIMEOUT
+	add_child(req)
+	if req.request(url, PackedStringArray(headers)) != OK:
+		req.queue_free()
+		return null
+	var res: Array = await req.request_completed
+	req.queue_free()
+	if int(res[0]) != HTTPRequest.RESULT_SUCCESS or int(res[1]) != 200:
+		return null
+	return JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8())
+
+
 ## Reads Cfg.CONFIG_URL ({"url": "https://…", "key": "…"}) so the test server
 ## can move without a new build. Keeps the current address on any failure.
 func fetch_config() -> void:
 	if Cfg.CONFIG_URL == "" or _pinned:
 		return
-	var req := HTTPRequest.new()
-	req.timeout = Cfg.TIMEOUT
-	add_child(req)
-	if req.request(Cfg.CONFIG_URL + "?t=%d" % Time.get_unix_time_from_system()) != OK:
-		req.queue_free()
-		return
-	var res: Array = await req.request_completed
-	req.queue_free()
-	if int(res[0]) != HTTPRequest.RESULT_SUCCESS or int(res[1]) != 200:
-		return
-	var d = JSON.parse_string((res[3] as PackedByteArray).get_string_from_utf8())
+	# The GitHub contents API first: raw.githubusercontent.com caches for minutes.
+	var d = await _get_json(Cfg.CONFIG_API, ["Accept: application/vnd.github.raw+json", "User-Agent: gravelight"])
+	if not d is Dictionary:
+		d = await _get_json(Cfg.CONFIG_URL + "?t=%d" % Time.get_unix_time_from_system(), [])
 	if not d is Dictionary or not str(d.get("url", "")).begins_with("http"):
 		return
 	set_server(str(d["url"]))
