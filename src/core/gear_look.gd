@@ -92,7 +92,8 @@ static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictio
 		mi.set_instance_shader_parameter("accent", acc)
 	if hood:
 		var own := skel.get_node_or_null("%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")) as MeshInstance3D
-		if own:
+		# The Rogue's hood IS her own head mesh: hiding it would leave her headless.
+		if own and not (parts as Array).any(func(sp): return _part(actor, skel, sp) == own):
 			own.visible = false
 
 

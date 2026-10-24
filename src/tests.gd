@@ -184,6 +184,16 @@ func run() -> int:
 	_unique_names()
 	_net_tests()
 	_gear_tests()
+	# The Rogue's Hood helm is her own head mesh, so wearing it must not hide it.
+	var ra := Actor.new()
+	ra.build_model(DB.HEROES["rogue"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+	var hood_pre := {}
+	for slot in DB.SLOTS:
+		hood_pre[slot] = Game.make_item("rogue", slot, 4, "rare")
+	GearLook.apply(ra, "rogue", hood_pre)
+	var rh := ra.model.find_child("RogueHooded_Head", true, false) as MeshInstance3D
+	_ok("hooded rogue keeps her head", GearDB.look(hood_pre["helm"])["hood"] and rh != null and rh.visible)
+	ra.free()
 	return _fails
 
 
