@@ -9,6 +9,7 @@ extends "res://src/autoload/game_heroes.gd"
 func open_chest(kind: String) -> Array:
 	var c: Dictionary = DB.CHESTS[kind]
 	var out := []
+	SK.note_chest(data)
 	var g := rng.randi_range(c["gold"][0], c["gold"][1])
 	data["gold"] = gold() + g
 	out.append({"type": "gold", "amount": g})
