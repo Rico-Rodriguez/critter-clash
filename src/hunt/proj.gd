@@ -181,8 +181,7 @@ func _explode(h: Hunt) -> void:
 	var at := Vector3(position.x, 0, position.z)
 	var r := maxf(splash, 1.2)
 	if kind == "orb":
-		h.fx.ring(at, r * 1.15, Color(0.7, 0.4, 1.0), 0.32, 0.18)
-		h.fx.burst(at, Color(0.75, 0.5, 1.0), 14, 7.0, 0.8)
+		h.fx.vfx.impact(&"shadow", at, r)
 		h.fx.flash_light(at, Color(0.7, 0.4, 1.0), 3.0, r * 3.0, 0.2)
 		Sfx.play("impact", -8.0)
 	else:

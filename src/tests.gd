@@ -268,6 +268,7 @@ func run() -> int:
 					mat_bad.append("%s/%s:%d" % [sid, m3.name, i])
 		(lk["root"] as Node).free()
 	_ok("sf: sidekick materials lit, opaque, no emission %s" % [mat_bad], mat_bad.is_empty())
+	preload("res://src/vfx/vfx_tests.gd").run(_ok)
 	return _fails
 
 

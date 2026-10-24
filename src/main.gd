@@ -739,7 +739,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild":
+			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -783,6 +783,8 @@ func _capture(args: PackedStringArray) -> void:
 					h.hero.frost_t = 0.05
 					h.hero.barrage_t = 0.05
 					await _wait_sim(h, 0.5 if hid in ["mage", "ranger"] else 0.12)
+				elif shot == "vfx":
+					await preload("res://src/vfx/vfx_capture.gd").shoot(self, h, int(_arg(args, "frames", "24")))
 				elif shot == "fire":
 					# The fire powers going off together: the Hellfire Wisp's
 					# bolts landing, and (on the mage) a Fire Nova rolling out.

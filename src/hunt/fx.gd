@@ -1,39 +1,30 @@
 class_name Fx
 extends Node3D
 ## Pooled visual effects for the hunt. Everything here is cosmetic: gameplay
-## never waits on an effect. Particle bursts go through a handful of shared
-## GPUParticles3D emitters (emit_particle), so a hundred hits cost nothing.
+## never waits on an effect. Particle bursts go through the pooled sprite
+## layers in `vfx` (one MultiMesh draw each), so a hundred hits cost nothing.
+## Element effects (fire, frost, storm, poison, nature, holy, shadow, physical,
+## blood, heal, buff, level) live in the shared library `vfx`
+## (src/vfx/vfx_lib.gd); the old colour-only helpers below route into it.
 
 const SLASH := preload("res://src/fx/slash.gdshader")
-const RING := preload("res://src/fx/ring.gdshader")
 const TELE := preload("res://src/fx/telegraph.gdshader")
 const BEAM := preload("res://src/fx/beam.gdshader")
-const SOFT := preload("res://src/fx/soft.gdshader")
-const SMOKE := preload("res://src/fx/smoke.gdshader")
 const TORNADO := preload("res://src/fx/tornado.gdshader")
-const FLAME_RING := preload("res://src/fx/flame_ring.gdshader")
-const FLAME_WALL := preload("res://src/fx/flame_wall.gdshader")
-const SCORCH := preload("res://src/fx/scorch.gdshader")
+const SOFT := preload("res://src/fx/soft.gdshader")
+const VfxLib := preload("res://src/vfx/vfx_lib.gd")
 
-const FLAGS := GPUParticles3D.EMIT_FLAG_POSITION | GPUParticles3D.EMIT_FLAG_VELOCITY | GPUParticles3D.EMIT_FLAG_COLOR | GPUParticles3D.EMIT_FLAG_CUSTOM
 
 var _live: Array = []
 var _pools := {}
 var _arc_meshes := {}
 var _slash_mat: ShaderMaterial
-var _ring_mat: ShaderMaterial
-var _tele_mat: ShaderMaterial
+var _tele_mats := {}
 var _beam_mat: ShaderMaterial
-var _flame_mat: ShaderMaterial
-var _wall_mat: ShaderMaterial
-var _scorch_mat: ShaderMaterial
-var _wall_mesh: CylinderMesh
 var _quad: PlaneMesh
-var sparks: GPUParticles3D
-var embers: GPUParticles3D
-var dust: GPUParticles3D
-var bones: GPUParticles3D
-var glow: GPUParticles3D
+## The element effect library (src/vfx/vfx_lib.gd). Sidekicks, skills and
+## enemies call it directly: fx.vfx.impact(&"frost", pos, 2.0).
+var vfx: Node3D
 var _numbers: Array[Label3D] = []
 var _num_i := 0
 var _lights: Array[OmniLight3D] = []
@@ -51,39 +42,16 @@ func _init() -> void:
 func _ready() -> void:
 	_slash_mat = ShaderMaterial.new()
 	_slash_mat.shader = SLASH
-	_ring_mat = ShaderMaterial.new()
-	_ring_mat.shader = RING
-	_tele_mat = ShaderMaterial.new()
-	_tele_mat.shader = TELE
-	_tele_mat.render_priority = -1
 	_beam_mat = ShaderMaterial.new()
 	_beam_mat.shader = BEAM
-	_flame_mat = ShaderMaterial.new()
-	_flame_mat.shader = FLAME_RING
-	_wall_mat = ShaderMaterial.new()
-	_wall_mat.shader = FLAME_WALL
-	_scorch_mat = ShaderMaterial.new()
-	_scorch_mat.shader = SCORCH
-	_scorch_mat.render_priority = -1
-	_wall_mesh = CylinderMesh.new()
-	_wall_mesh.top_radius = 1.0
-	_wall_mesh.bottom_radius = 1.0
-	_wall_mesh.height = 1.0
-	_wall_mesh.cap_top = false
-	_wall_mesh.cap_bottom = false
-	_wall_mesh.radial_segments = 28
-	_wall_mesh.rings = 1
+	vfx = VfxLib.new()
+	vfx.quality_low = quality_low
+	add_child(vfx)
 	_quad = PlaneMesh.new()
 	_quad.size = Vector2(2, 2)
 	title_font = FontVariation.new()
 	title_font.base_font = load("res://assets/fonts/Cinzel-Variable.ttf")
 	title_font.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 900}
-	sparks = _emitter(220, 0.45, _soft_mesh(0.16), Vector3(0, -14, 0), 2.5)
-	embers = _emitter(160, 1.4, _soft_mesh(0.12), Vector3(0, 1.5, 0), 1.2)
-	glow = _emitter(60, 0.35, _soft_mesh(1.4), Vector3.ZERO, 0.0)
-	dust = _emitter(140, 0.9, _smoke_mesh(1.1), Vector3(0, 0.8, 0), 2.2)
-	var bone_mesh := _first_mesh("res://assets/kaykit/graveyard/bone_A.gltf")
-	bones = _emitter(150, 1.1, bone_mesh, Vector3(0, -16, 0), 0.6, true)
 	for i in 36:
 		var l := Label3D.new()
 		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -123,100 +91,6 @@ static func make_ward(radius: float) -> MeshInstance3D:
 	return mi
 
 
-func _first_mesh(path: String) -> Mesh:
-	var n: Node = load(path).instantiate()
-	var mi: MeshInstance3D = n as MeshInstance3D
-	if mi == null:
-		for c in n.find_children("*", "MeshInstance3D", true, false):
-			mi = c
-			break
-	var m: Mesh = mi.mesh
-	n.free()
-	return m
-
-
-func _soft_mesh(size: float) -> QuadMesh:
-	var q := QuadMesh.new()
-	q.size = Vector2(size, size)
-	var m := ShaderMaterial.new()
-	m.shader = SOFT
-	q.material = m
-	return q
-
-
-func _smoke_mesh(size: float) -> QuadMesh:
-	var q := QuadMesh.new()
-	q.size = Vector2(size, size)
-	var m := ShaderMaterial.new()
-	m.shader = SMOKE
-	var nt := NoiseTexture2D.new()
-	nt.width = 128
-	nt.height = 128
-	nt.seamless = true
-	var fn := FastNoiseLite.new()
-	fn.frequency = 0.03
-	nt.noise = fn
-	m.set_shader_parameter("noise", nt)
-	q.material = m
-	return q
-
-
-func _emitter(amount: int, life: float, mesh: Mesh, gravity: Vector3, damping: float, spin := false) -> GPUParticles3D:
-	var p := GPUParticles3D.new()
-	p.amount = amount
-	p.lifetime = life
-	p.explosiveness = 0.0
-	p.local_coords = false
-	p.emitting = true
-	p.amount_ratio = 0.0
-	p.visibility_aabb = AABB(Vector3(-80, -10, -80), Vector3(160, 40, 160))
-	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if not spin else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-	var pm := ParticleProcessMaterial.new()
-	pm.gravity = gravity
-	pm.damping_min = damping
-	pm.damping_max = damping
-	pm.initial_velocity_min = 0.0
-	pm.initial_velocity_max = 0.0
-	pm.direction = Vector3.ZERO
-	pm.spread = 0.0
-	var curve := CurveTexture.new()
-	var c := Curve.new()
-	c.add_point(Vector2(0, 1))
-	c.add_point(Vector2(0.6, 0.8))
-	c.add_point(Vector2(1, 0))
-	curve.curve = c
-	pm.scale_curve = curve
-	if spin:
-		pm.angular_velocity_min = -720.0
-		pm.angular_velocity_max = 720.0
-		pm.particle_flag_rotate_y = true
-		pm.scale_min = 0.8
-		pm.scale_max = 1.3
-		var sc := Curve.new()
-		sc.add_point(Vector2(0, 1))
-		sc.add_point(Vector2(0.8, 1))
-		sc.add_point(Vector2(1, 0))
-		var sct := CurveTexture.new()
-		sct.curve = sc
-		pm.scale_curve = sct
-	else:
-		var alpha := Gradient.new()
-		alpha.set_color(0, Color(1, 1, 1, 1))
-		alpha.set_color(1, Color(1, 1, 1, 0))
-		var gt := GradientTexture1D.new()
-		gt.gradient = alpha
-		pm.color_ramp = gt
-	p.process_material = pm
-	p.draw_pass_1 = mesh
-	if spin:
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(0.93, 0.88, 0.78)
-		m.roughness = 0.8
-		p.material_override = m
-	add_child(p)
-	return p
-
-
 func _process(delta: float) -> void:
 	var i := _live.size() - 1
 	while i >= 0:
@@ -229,15 +103,7 @@ func _process(delta: float) -> void:
 			i -= 1
 			continue
 		match str(e["kind"]):
-			"slash", "ring", "flame", "scorch":
-				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
-			"wall":
-				# The wall rides the flame front out, shrinking as it goes.
-				var grow := 1.0 - pow(1.0 - k, 2.4)
-				var rr: float = float(e["r"]) * lerpf(0.15, 0.9, grow)
-				var hh: float = float(e["h"]) * (1.0 - 0.5 * k)
-				n.scale = Vector3(rr, hh, rr)
-				n.position.y = hh * 0.5
+			"slash":
 				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
 			"tele":
 				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
@@ -337,81 +203,27 @@ func slash(pos: Vector3, yaw: float, radius: float, deg: float, color: Color, mi
 	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "slash"})
 
 
-## Expanding ground ring (shockwaves, novas, landings).
-func ring(pos: Vector3, radius: float, color: Color, dur := 0.45, width := 0.12) -> void:
-	var n := _take("ring", func():
-		var mi := MeshInstance3D.new()
-		mi.mesh = _quad
-		mi.material_override = _ring_mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.set_meta("pool", "ring")
-		return mi)
-	n.position = pos + Vector3(0, 0.06, 0)
-	n.rotation = Vector3.ZERO
-	n.scale = Vector3(radius, 1, radius)
-	(n as GeometryInstance3D).set_instance_shader_parameter("tint", color)
-	(n as GeometryInstance3D).set_instance_shader_parameter("progress", 0.0)
-	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "ring"})
+## Legacy shockwave call. There is no plain ring any more: the colour picks
+## the element (VfxLib.element_for) and its nova races out instead: flames,
+## ice spikes, leaves, motes. New code calls fx.vfx.nova(&"frost", ...) with
+## the element by name; this stays so open branches keep working.
+func ring(pos: Vector3, radius: float, color: Color, dur := 0.45, _width := 0.12) -> void:
+	vfx.nova(VfxLib.element_for(color), pos, radius, dur, color)
 
 
-## A burst of fire: a torn ring of flame racing out over the ground, a wall
-## of flame tongues riding it (skip with `wall` false for small, frequent
-## bursts), sparks, embers, smoke, a flash, and a scorch left behind.
-func flame_burst(pos: Vector3, radius: float, wall := true, color := Color(1.0, 0.45, 0.12)) -> void:
-	var dur := clampf(0.38 + radius * 0.06, 0.42, 0.8)
-	var f := _take("flame", func():
-		var mi := MeshInstance3D.new()
-		mi.mesh = _quad
-		mi.material_override = _flame_mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.set_meta("pool", "flame")
-		return mi)
-	f.position = pos + Vector3(0, 0.09, 0)
-	f.rotation = Vector3(0, randf() * TAU, 0)
-	f.scale = Vector3(radius * 1.15, 1, radius * 1.15)
-	var gf := f as GeometryInstance3D
-	gf.set_instance_shader_parameter("tint", color)
-	gf.set_instance_shader_parameter("seed", randf() * 40.0)
-	gf.set_instance_shader_parameter("progress", 0.0)
-	_live.append({"node": f, "t": 0.0, "dur": dur, "kind": "flame"})
+## A burst of fire: a front of flame tongues racing out over the ground,
+## a cluster of flames, sparks and embers, and a scorch decal left behind.
+## `wall` false (small, frequent bursts) skips the racing front.
+func flame_burst(pos: Vector3, radius: float, wall := true, color := Color(1.0, 0.55, 0.18)) -> void:
 	if wall and not quality_low:
-		var w := _take("wall", func():
-			var mi := MeshInstance3D.new()
-			mi.mesh = _wall_mesh
-			mi.material_override = _wall_mat
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			mi.set_meta("pool", "wall")
-			return mi)
-		w.position = pos
-		w.scale = Vector3(0.1, 0.1, 0.1)
-		var gw := w as GeometryInstance3D
-		gw.set_instance_shader_parameter("tint", color)
-		gw.set_instance_shader_parameter("seed", randf() * 40.0)
-		gw.set_instance_shader_parameter("progress", 0.0)
-		_live.append({"node": w, "t": 0.0, "dur": dur * 1.15, "kind": "wall", "r": radius * 1.05, "h": clampf(radius * 0.6, 1.0, 2.6)})
-	scorch(pos, radius * 0.85)
-	burst(pos, Color(1.0, 0.72, 0.3), int(clampf(radius * 5.0, 6.0, 22.0)), 6.0 + radius * 1.5, 0.9)
-	embers_at(pos, color, int(clampf(radius * 4.0, 4.0, 16.0)), radius * 0.6)
-	if not quality_low:
-		puff(pos, Color(0.12, 0.1, 0.09, 0.5), 4, radius * 0.4, 1.6)
-	flash_light(pos, Color(1.0, 0.55, 0.25), 3.5, radius * 3.0, 0.3)
+		vfx.nova(&"fire", pos, radius, clampf(0.3 + radius * 0.05, 0.32, 0.6), color)
+	vfx.impact(&"fire", pos, radius * 0.6, color)
+	flash_light(pos, Color(1.0, 0.55, 0.25), 2.0, radius * 2.0, 0.2)
 
 
-## Burnt ground that glows, cools and fades over `dur` seconds.
+## Burnt ground that fades over `dur` seconds.
 func scorch(pos: Vector3, radius: float, dur := 2.6) -> void:
-	var n := _take("scorch", func():
-		var mi := MeshInstance3D.new()
-		mi.mesh = _quad
-		mi.material_override = _scorch_mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.set_meta("pool", "scorch")
-		return mi)
-	n.position = pos + Vector3(0, 0.05, 0)
-	n.rotation = Vector3(0, randf() * TAU, 0)
-	n.scale = Vector3(radius, 1, radius)
-	(n as GeometryInstance3D).set_instance_shader_parameter("seed", randf() * 40.0)
-	(n as GeometryInstance3D).set_instance_shader_parameter("progress", 0.0)
-	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "scorch"})
+	vfx.decal(&"fire", pos, radius, dur)
 
 
 ## The Hellfire Wisp: a white-hot core in a flickering shell of fire, lit.
@@ -458,13 +270,16 @@ func make_wisp() -> Node3D:
 ## Ground warning. shape: 0 circle (size = radius), 1 cone (size = radius,
 ## cone = half angle), 2 lane (size = Vector2 half width, length). The fill
 ## completes after `dur`. Returns the node so the caller can cancel it.
-func telegraph(shape: int, pos: Vector3, yaw: float, size: Vector2, dur: float, cone := 0.6) -> MeshInstance3D:
-	var n := _take("tele", func():
+## `element` themes the rim (cracked fire edge, frost rime, thorns, stone...):
+## leave it empty for the plain red danger edge of enemy attacks.
+func telegraph(shape: int, pos: Vector3, yaw: float, size: Vector2, dur: float, cone := 0.6, element: StringName = &"") -> MeshInstance3D:
+	var edge: String = VfxLib.EDGES.get(element, "danger")
+	var n := _take("tele_" + edge, func():
 		var mi := MeshInstance3D.new()
 		mi.mesh = _quad
-		mi.material_override = _tele_mat
+		mi.material_override = _tele_mat(edge, element)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.set_meta("pool", "tele")
+		mi.set_meta("pool", "tele_" + edge)
 		return mi)
 	n.rotation = Vector3(0, yaw, 0)
 	if shape == 2:
@@ -477,11 +292,25 @@ func telegraph(shape: int, pos: Vector3, yaw: float, size: Vector2, dur: float, 
 		n.scale = Vector3(size.x, 1, size.x)
 	var gi := n as GeometryInstance3D
 	gi.set_instance_shader_parameter("shape", float(shape))
+	gi.set_instance_shader_parameter("size", size.y if shape == 2 else size.x)
 	gi.set_instance_shader_parameter("cone", cone)
 	gi.set_instance_shader_parameter("progress", 0.0)
 	gi.set_instance_shader_parameter("fade", 0.0)
 	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "tele"})
 	return n
+
+
+func _tele_mat(edge: String, element: StringName) -> ShaderMaterial:
+	if not _tele_mats.has(edge):
+		var m := ShaderMaterial.new()
+		m.shader = TELE
+		m.render_priority = -1
+		m.set_shader_parameter("edge", load(VfxLib.TEX % ("edge_" + edge)))
+		if edge != "danger":
+			var c: Color = VfxLib.COLORS.get(element, Color(1.0, 0.18, 0.1))
+			m.set_shader_parameter("color", c)
+		_tele_mats[edge] = m
+	return _tele_mats[edge]
 
 
 func cancel(n: Node3D) -> void:
@@ -491,7 +320,7 @@ func cancel(n: Node3D) -> void:
 		if _live[i]["node"] == n:
 			_live.remove_at(i)
 			break
-	_release("tele", n)
+	_release("tele_danger", n)
 
 
 ## Loot pillar. Lives until the caller frees it with release_beam.
@@ -615,77 +444,46 @@ func flash_light(pos: Vector3, color: Color, energy := 3.0, radius := 6.0, dur :
 	o.visible = true
 	o.position = pos + Vector3(0, 1.2, 0)
 	o.light_color = color
-	o.omni_range = radius
+	# Art lock: a tiny, short accent, never a wash over the arena.
+	energy = minf(energy, 2.5)
+	o.omni_range = minf(radius, 6.0)
 	o.light_energy = energy
-	_live.append({"node": o, "t": 0.0, "dur": dur, "kind": "light", "energy": energy})
+	_live.append({"node": o, "t": 0.0, "dur": minf(dur, 0.3), "kind": "light", "energy": energy})
 
 
 # --- Particle bursts -----------------------------------------------------
 
+## Crisp four-point sparks thrown out of `pos` (hits, pickups, procs).
 func burst(pos: Vector3, color: Color, count := 10, speed := 6.0, up := 0.5) -> void:
-	for i in count:
-		var dir := Vector3(randf_range(-1, 1), randf_range(0.2, 1.0) * up + 0.15, randf_range(-1, 1)).normalized()
-		sparks.emit_particle(Transform3D(Basis(), pos + Vector3(0, 0.9, 0)), dir * speed * randf_range(0.4, 1.0), color, Color(randf(), randf(), 0, 0), FLAGS)
+	vfx._burst("spark", pos + Vector3(0, 0.9, 0), count, speed, color, up)
 
 
 func embers_at(pos: Vector3, color: Color, count := 6, radius := 0.6) -> void:
-	for i in count:
-		var off := Vector3(randf_range(-radius, radius), randf_range(0.2, 1.4), randf_range(-radius, radius))
-		embers.emit_particle(Transform3D(Basis(), pos + off), Vector3(randf_range(-0.4, 0.4), randf_range(0.5, 1.8), randf_range(-0.4, 0.4)), color, Color(randf(), randf(), 0, 0), FLAGS)
+	vfx._cloud("ember", pos + Vector3(0, 0.6, 0), radius, count, Vector3(0, 1.2, 0), color, 0.4)
 
 
+## Ground dust: flat, hard-edged lobes (no smoke shader, no blur).
 func puff(pos: Vector3, color := Color(0.32, 0.27, 0.22, 0.55), count := 6, spread := 0.8, speed := 1.4) -> void:
-	for i in count:
+	var c := Color(color.r * 2.2, color.g * 2.2, color.b * 2.2, minf(color.a * 1.4, 1.0))
+	for i in mini(count, VfxLib.MAX_PER_CALL):
 		var dir := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).normalized()
-		dust.emit_particle(Transform3D(Basis(), pos + dir * randf() * spread + Vector3(0, 0.25, 0)), dir * speed * randf_range(0.5, 1.0) + Vector3(0, randf_range(0.2, 0.8), 0), color, Color(randf(), randf(), 0, 0), FLAGS)
+		vfx._emit("dust", pos + dir * randf() * spread + Vector3(0, 0.25, 0), dir * speed * randf_range(0.5, 1.0) + Vector3(0, randf_range(0.2, 0.6), 0), c)
 
 
+## A small star glint (it used to be a big soft glow blob).
 func flare(pos: Vector3, color: Color) -> void:
-	glow.emit_particle(Transform3D(Basis(), pos + Vector3(0, 0.9, 0)), Vector3.ZERO, color, Color(), FLAGS)
+	vfx._cloud("mote", pos + Vector3(0, 0.9, 0), 0.15, 2, Vector3.ZERO, color, 0.3)
 
 
 func bone_burst(pos: Vector3, count := 6, force := 5.0) -> void:
 	if quality_low:
 		count = mini(count, 3)
-	for i in count:
-		var dir := Vector3(randf_range(-1, 1), randf_range(0.8, 1.6), randf_range(-1, 1)).normalized()
-		var b := Basis(Vector3(randf(), randf(), randf()).normalized(), randf() * TAU)
-		bones.emit_particle(Transform3D(b, pos + Vector3(0, 0.8, 0)), dir * force * randf_range(0.6, 1.1), Color.WHITE, Color(), FLAGS)
+	vfx._burst("bone", pos + Vector3(0, 0.8, 0), count * 2, force, Color(0.93, 0.9, 0.82), 1.4)
 
 
-## Chain lightning: a jagged additive ribbon between points that flickers out.
+## Chain lightning: forked, flickering bolts between the points (pooled).
 func lightning(points: PackedVector3Array, color := Color(0.6, 0.8, 1.0)) -> void:
-	var im := ImmediateMesh.new()
-	var mi := MeshInstance3D.new()
-	mi.mesh = im
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.albedo_color = Color(color.r * 2.5, color.g * 2.5, color.b * 2.5)
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-	for s in points.size() - 1:
-		var a := points[s]
-		var b := points[s + 1]
-		var steps := 6
-		for j in steps + 1:
-			var t := float(j) / steps
-			var p := a.lerp(b, t)
-			if j > 0 and j < steps:
-				p += Vector3(randf_range(-0.35, 0.35), randf_range(-0.2, 0.3), randf_range(-0.35, 0.35))
-			var side := (b - a).cross(Vector3.UP).normalized() * 0.07
-			im.surface_add_vertex(p - side)
-			im.surface_add_vertex(p + side)
-	im.surface_end()
-	var tw := mi.create_tween()
-	tw.tween_property(m, "albedo_color:a", 0.0, 0.22).from(1.0)
-	tw.tween_callback(mi.queue_free)
-	for p in points:
-		flare(p - Vector3(0, 0.9, 0), color)
+	vfx.bolt(points, color)
 
 
 # --- Sky effects: lightning strikes, meteors, falling arrows ---------------
@@ -733,8 +531,7 @@ func sky_bolt(at: Vector3, color := Color(1.0, 0.9, 0.55), width := 0.2, height 
 	tw.tween_callback(mi.queue_free)
 	flare(at, color)
 	flash_light(at, color, 5.0, 8.0, 0.3)
-	ring(at, 1.8, color, 0.3, 0.2)
-	burst(at, color, 12, 7.0, 1.0)
+	vfx.impact(VfxLib.element_for(color) if VfxLib.element_for(color) == &"holy" else &"storm", at, 1.6, color)
 
 
 ## Something falling onto `to` after `delay`, taking `dur` to arrive: a "meteor"

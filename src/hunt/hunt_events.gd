@@ -63,8 +63,8 @@ func _activate_shrine(s: Dictionary) -> void:
 	hero.recompute()
 	(s["ring"] as MeshInstance3D).queue_free()
 	(s["light"] as OmniLight3D).light_energy = 0.4
-	fx.ring(hero.flat_pos(), 4.0, d["color"], 0.6)
-	fx.burst(hero.flat_pos(), d["color"], 24, 8.0, 1.0)
+	fx.vfx.nova(&"buff", hero.flat_pos(), 3.5, 0.5, d["color"])
+	fx.vfx.cast(&"buff", hero.flat_pos(), 1.2, d["color"])
 	fx.flash_light(hero.flat_pos(), d["color"], 4.0, 8.0, 0.5)
 	Sfx.play("unlock_start", 0.0)
 	Ui.buzz(40, 0.5)
@@ -77,8 +77,8 @@ func _activate_curse(s: Dictionary) -> void:
 	(s["light"] as OmniLight3D).light_energy = 0.4
 	curse_t = DB.CURSE_TIME
 	banner(str(DB.CURSE["name"]), col, "Survive %d seconds" % int(DB.CURSE_TIME))
-	fx.ring(hero.flat_pos(), 5.0, col, 0.6)
-	fx.burst(hero.flat_pos(), col, 28, 9.0, 1.0)
+	fx.vfx.nova(&"shadow", hero.flat_pos(), 5.0, 0.6)
+	fx.vfx.impact(&"shadow", hero.flat_pos(), 1.6)
 	fx.flash_light(hero.flat_pos(), col, 5.0, 9.0, 0.6)
 	Sfx.play("boom", -2.0, 0.7)
 	Ui.buzz(70, 0.7)
@@ -165,7 +165,7 @@ func _start_ritual() -> void:
 	var rd: Dictionary = DB.RITUAL
 	ritual_at = arena.spawn_point(hero.position, 9.0, 13.0)
 	ritual_t = float(rd["time"])
-	_ritual_tele = fx.telegraph(0, ritual_at, 0.0, Vector2(2.8, 0), ritual_t)
+	_ritual_tele = fx.telegraph(0, ritual_at, 0.0, Vector2(2.8, 0), ritual_t, 0.6, &"shadow")
 	var n := int(rd["callers"])
 	for i in n:
 		var at := arena.resolve(ritual_at + Actor.dir_of(TAU * i / n) * 2.6, 0.6)

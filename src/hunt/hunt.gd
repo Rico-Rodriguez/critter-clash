@@ -149,7 +149,7 @@ func _warmup() -> void:
 	var flat := Vector3.UP
 	for deg in [60, 120, 180, 360]:
 		fx.slash(at, 0.0, 2.0, deg, Color.WHITE)
-	fx.ring(at, 2.0, Color.WHITE, 0.3)
+	fx.vfx.warmup(at)
 	for shape in 3:
 		fx.telegraph(shape, at, 0.0, Vector2(2.0, 5.0), 0.4)
 	var beam := fx.beam(at, Color.WHITE, 3.0)

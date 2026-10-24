@@ -237,7 +237,8 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				if dist < 5.6 + hero.radius * 0.5:
 					hunt.damage_hero(dmg * 1.3, self, 1.0)
 					hero.push(to.normalized(), 22.0)
-				hunt.fx.ring(flat_pos(), 6.2, Color(0.45, 1.0, 0.75), 0.55, 0.12)
+				hunt.fx.vfx.nova(&"physical", flat_pos(), 6.2, 0.5)
+				hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.5)
 				hunt.fx.puff(flat_pos(), Color(0.3, 0.27, 0.23, 0.7), 18, 4.5, 4.0)
 				hunt.fx.bone_burst(flat_pos(), 8, 7.0)
 				hunt.fx.flash_light(flat_pos(), Color(0.4, 1.0, 0.7), 5.0, 10.0, 0.4)
@@ -264,7 +265,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 					hero.push(charge_dir.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0), 18.0)
 				if step_t <= 0.0 or before.distance_to(position) > 0.05:
 					hunt.shake(0.4)
-					hunt.fx.ring(flat_pos(), 3.0, Color(0.45, 1.0, 0.75), 0.35)
+					hunt.fx.vfx.impact(&"physical", flat_pos(), 2.4)
 					Sfx.play("charge_land", -2.0)
 					_finish(1.0)
 					# Into the wall: dazed. Baiting the charge is the opening.
@@ -370,7 +371,8 @@ func expose(t: float) -> void:
 	cd = t + 0.3
 	play("Hit_A", 0.1, 0.5, true)
 	hunt.fx.text(flat_pos() + Vector3(0, 2.5, 0), "Exposed!", Color(1.0, 0.85, 0.3), 1.4, 1.2)
-	hunt.fx.ring(flat_pos(), radius + 1.2, Color(1.0, 0.85, 0.3), t, 0.1)
+	hunt.fx.telegraph(0, flat_pos(), 0.0, Vector2(radius + 1.2, 0), t, 0.6, &"holy")
+	hunt.fx.vfx.impact(&"holy", flat_pos(), radius)
 	hunt.hud.event("%s is exposed" % display_name, Color(1.0, 0.85, 0.3), "bullseye")
 	Sfx.play("shield_break", -2.0, 0.7)
 
@@ -405,7 +407,7 @@ func _enrage() -> void:
 	hunt.banner("%s is enraged!" % display_name, Color(1.0, 0.4, 0.3), str(def.get("enrage_line", "")))
 	hunt.shake(0.5)
 	Sfx.play("boss_roar", 0.0, 0.85)
-	hunt.fx.ring(flat_pos(), 6.0, Color(1.0, 0.3, 0.2), 0.6)
+	hunt.fx.vfx.nova(&"fire", flat_pos(), 6.0, 0.6)
 
 
 func die() -> void:
