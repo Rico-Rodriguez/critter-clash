@@ -51,6 +51,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 				if mi:
 					mi.custom_aabb = culls[mp]
 			_add_fill(root, float(d["scale"]) * grow, float(d.get("fill", 1.6)))
+			_lit_opaque(model, spec.substr(3) in KEEP_EMISSION)
 		else:
 			_fit(model, float(d["scale"]) * grow)
 		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
@@ -99,6 +100,55 @@ static func _ash(model: Node3D) -> void:
 				mi.material_override = m
 			else:
 				mi.set_surface_override_material(i, m)
+
+
+## Art lock: companions are lit, opaque PBR without glow. Some Sketchfab
+## imports arrive unshaded, alpha-blended (with a depth prepass) or with a
+## white emission map; this keeps every texture as the artist made it and only
+## puts the material back on the lit, opaque path. Blended surfaces become an
+## alpha cut-out (still the opaque pass), so feathers and tatters keep their
+## edges. One copy per source material, shared by every instance.
+## Kept emission: the bat's eyes, the mimic's gold and the treant's sap are
+## small emission maps painted by their artists (no white wash).
+const KEEP_EMISSION := ["bat", "mimic", "treant"]
+static var _lit_cache := {}
+static func _lit_opaque(model: Node3D, keep_emission: bool) -> void:
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var n := mi.mesh.get_surface_count()
+		for i in n:
+			var src := mi.get_active_material(i) as BaseMaterial3D
+			if src == null:
+				continue
+			var m := lit_material(src, keep_emission)
+			if m == src:
+				continue
+			# One surface: material_override (see _ash).
+			if n == 1:
+				mi.material_override = m
+			else:
+				mi.set_surface_override_material(i, m)
+
+
+static func lit_material(src: BaseMaterial3D, keep_emission := false) -> BaseMaterial3D:
+	var blended := src.transparency in [BaseMaterial3D.TRANSPARENCY_ALPHA, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS]
+	var unlit := src.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED
+	var glow := src.emission_enabled and not keep_emission
+	if not (blended or unlit or glow):
+		return src
+	var key := [src.get_instance_id(), keep_emission]
+	if not _lit_cache.has(key):
+		var m := src.duplicate() as BaseMaterial3D
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+		if blended:
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+			m.alpha_scissor_threshold = 0.5
+		if glow:
+			m.emission_enabled = false
+		_lit_cache[key] = m
+	return _lit_cache[key]
 
 
 ## Stand-in when a model scene is missing.

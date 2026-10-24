@@ -212,6 +212,20 @@ func run() -> int:
 	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
 	var sap: Node3D = sap_look["root"]
 	_ok("sapling has its own rigged model", sap_m == "sf:treant" and sap.find_child("Skeleton3D", true, false) != null and str(sap_look["idle"]) != "")
+	# The hunt sidekick (hunt/sidekick.gd) gets the team ring at its feet and the
+	# hunt scale; the camp pet (lobby.gd builds Look.build straight) gets neither.
+	var fake_src := GDScript.new()
+	fake_src.source_code = "extends Node\nvar hero := Node3D.new()\n"
+	fake_src.reload()
+	var fake_hunt: Node = fake_src.new()
+	var hsk: Node3D = preload("res://src/hunt/sidekick.gd").new()
+	hsk.setup(fake_hunt, "bat", 0)
+	var hring := hsk.find_child("CompanionRing", false, false) as MeshInstance3D
+	var hroot := hsk.find_child("SidekickModel", false, false) as Node3D
+	_ok("hunt sidekick has its ring at its feet, camp model has none", hring != null and absf(hring.position.y - 0.04) < 0.001 and hroot != null and hroot.scale.x > 1.0 and sap.find_child("CompanionRing", true, false) == null and sap.scale.is_equal_approx(Vector3.ONE))
+	hsk.free()
+	(fake_hunt.get("hero") as Node3D).free()
+	fake_hunt.free()
 	var fill := sap.find_child("SidekickFill", true, false) as OmniLight3D
 	var LK := preload("res://src/core/sidekick_look.gd")
 	_ok("sidekick fill light only lights the companion layer", fill != null and fill.light_cull_mask == LK.FILL_LAYER and sap.find_children("*", "MeshInstance3D", true, false).all(func(m): return (m as MeshInstance3D).layers & LK.FILL_LAYER))
@@ -235,6 +249,24 @@ func run() -> int:
 			if spec.begins_with("sf:") and not ResourceLoader.exists("res://assets/sidekicks/%s.tscn" % spec.substr(3)):
 				sk_bad.append(spec)
 	_ok("sf: sidekick scenes 1 m tall, feet at 0, posed bounds %s" % [sk_bad], sk_bad.is_empty())
+	# Art lock: every sf: companion (camp and hunt, unevolved) draws lit and
+	# opaque, with no emission except the artists' small maps in KEEP_EMISSION.
+	var mat_bad := []
+	for sid: String in SDB0.ROSTER:
+		var spec := str(SDB0.ROSTER[sid]["model"])
+		if not spec.begins_with("sf:"):
+			continue
+		var lk: Dictionary = LK.build(sid)
+		for mi in (lk["root"] as Node).find_children("*", "MeshInstance3D", true, false):
+			var m3 := mi as MeshInstance3D
+			for i in m3.mesh.get_surface_count():
+				var bm := m3.get_active_material(i) as BaseMaterial3D
+				if bm == null:
+					continue
+				if bm.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED or not bm.transparency in [BaseMaterial3D.TRANSPARENCY_DISABLED, BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR] or (bm.emission_enabled and not spec.substr(3) in LK.KEEP_EMISSION):
+					mat_bad.append("%s/%s:%d" % [sid, m3.name, i])
+		(lk["root"] as Node).free()
+	_ok("sf: sidekick materials lit, opaque, no emission %s" % [mat_bad], mat_bad.is_empty())
 	return _fails
 
 
