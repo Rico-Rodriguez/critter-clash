@@ -92,7 +92,13 @@ static func _ash(model: Node3D) -> void:
 			m.emission = Color.WHITE
 			m.emission_energy_multiplier = 1.0
 			m.emission_texture = ASH_EMBERS
-			mi.set_surface_override_material(i, m)
+			# One-surface meshes take it as material_override: a surface override on
+			# the cached scene's mesh logs "Parameter material is null" when freed
+			# under the headless renderer.
+			if mi.mesh.get_surface_count() == 1:
+				mi.material_override = m
+			else:
+				mi.set_surface_override_material(i, m)
 
 
 ## Stand-in when a model scene is missing.
