@@ -207,12 +207,33 @@ func run() -> int:
 	ra.free()
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
-	# The Thorn Sapling is its own little treant on the shared rig, not a reused Rogue.
+	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
 	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
-	var sap := KK.character("Sapling") if ResourceLoader.exists(KK.CHAR_DIR + "Sapling.glb") else null
-	_ok("sapling has its own rigged model", sap_m == "kk:Sapling" and sap != null and sap.find_child("Skeleton3D", true, false) != null)
-	if sap:
-		sap.free()
+	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
+	var sap: Node3D = sap_look["root"]
+	_ok("sapling has its own rigged model", sap_m == "sf:treant" and sap.find_child("Skeleton3D", true, false) != null and str(sap_look["idle"]) != "")
+	var fill := sap.find_child("SidekickFill", true, false) as OmniLight3D
+	var LK := preload("res://src/core/sidekick_look.gd")
+	_ok("sidekick fill light only lights the companion layer", fill != null and fill.light_cull_mask == LK.FILL_LAYER and sap.find_children("*", "MeshInstance3D", true, false).all(func(m): return (m as MeshInstance3D).layers & LK.FILL_LAYER))
+	sap.free()
+	# sf: scenes skip _fit, so each must be wrapped to 1 m tall with feet at 0
+	# (tools/art/wrap_sidekicks.gd), loaded with posed cull bounds.
+	var sk_bad := []
+	var SDB0 := preload("res://src/data/sidekick_db.gd")
+	for f: String in DirAccess.get_files_at("res://assets/sidekicks/"):
+		if not f.ends_with(".tscn"):
+			continue
+		var wrap: Node3D = (load("res://assets/sidekicks/" + f) as PackedScene).instantiate()
+		var pa: AABB = wrap.get_meta("posed_aabb", AABB())
+		if absf(pa.size.y - 1.0) > 0.03 or absf(pa.position.y) > 0.03 or wrap.get_meta("cull_aabbs", {}).is_empty():
+			sk_bad.append(f)
+		wrap.free()
+	for sid: String in SDB0.ROSTER:
+		for key in ["model", "evolved_model"]:
+			var spec := str(SDB0.ROSTER[sid].get(key, ""))
+			if spec.begins_with("sf:") and not ResourceLoader.exists("res://assets/sidekicks/%s.tscn" % spec.substr(3)):
+				sk_bad.append(spec)
+	_ok("sf: sidekick scenes 1 m tall, feet at 0, posed bounds %s" % [sk_bad], sk_bad.is_empty())
 	return _fails
 
 

@@ -113,5 +113,11 @@ The scripts that built the audio are are kept in `tools/audio/`.
 - Dragon, Dragon Evolved, Ghost, Birb and Bat models by Quaternius
   (Ultimate Monsters / animal packs via poly.pizza), CC0 1.0. See
   `assets/quaternius/LICENSE-Quaternius.txt`.
+- Sidekick models, Creative Commons Attribution 4.0
+  (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified meshes
+  and materials; clips renamed or cut by time, scaled to size in
+  `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`):
+  - Thorn Sapling — "Treant - Week 2" by Batuhan13 —
+    https://sketchfab.com/3d-models/treant-week-2-aa60f5de1ed94b2e96e46ad08cde4d5a
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
   Lorc, from game-icons.net, CC BY 3.0.
