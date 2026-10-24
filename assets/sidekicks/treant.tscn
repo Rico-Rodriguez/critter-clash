@@ -2,7 +2,13 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/treant_src.glb" id="1_ck07u"]
 
-[node name="treant" type="Node3D" unique_id=758239117]
+[node name="treant" type="Node3D" unique_id=1554528928]
+metadata/cull_aabbs = {
+"Sketchfab_model/300ebd3ce7d4496884f5e673d7527578_fbx/Object_2/RootNode/Armature/Object_6/Skeleton3D/Object_10": AABB(-6.248951, -5.7036476, -1.2575414, 11.384773, 12.103798, 12.384148),
+"Sketchfab_model/300ebd3ce7d4496884f5e673d7527578_fbx/Object_2/RootNode/Armature/Object_6/Skeleton3D/Object_11": AABB(-7.3640804, -4.20487, -1.8577633, 8.786968, 8.744366, 11.182781),
+"Sketchfab_model/300ebd3ce7d4496884f5e673d7527578_fbx/Object_2/RootNode/Armature/Object_6/Skeleton3D/Object_9": AABB(-7.5270543, -7.1519628, -4.7091374, 14.577638, 14.218455, 15.83957)
+}
+metadata/posed_aabb = AABB(-0.45091778, 0, -0.34376964, 0.90183556, 1, 0.6875393)
 
 [node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2055979928 instance=ExtResource("1_ck07u")]
 transform = Transform3D(0.13682637, 0, 0, 0, 0.13682637, 0, 0, 0, 0.13682637, 0.13345456, -0.0029082736, 0.012435029)

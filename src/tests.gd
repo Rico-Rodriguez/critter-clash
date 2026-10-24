@@ -213,6 +213,24 @@ func run() -> int:
 	var sap: Node3D = sap_look["root"]
 	_ok("sapling has its own rigged model", sap_m == "sf:treant" and sap.find_child("Skeleton3D", true, false) != null and str(sap_look["idle"]) != "")
 	sap.free()
+	# sf: scenes skip _fit, so each must be wrapped to 1 m tall with feet at 0
+	# (tools/art/wrap_sidekicks.gd), loaded with posed cull bounds.
+	var sk_bad := []
+	var SDB0 := preload("res://src/data/sidekick_db.gd")
+	for f: String in DirAccess.get_files_at("res://assets/sidekicks/"):
+		if not f.ends_with(".tscn"):
+			continue
+		var wrap: Node3D = (load("res://assets/sidekicks/" + f) as PackedScene).instantiate()
+		var pa: AABB = wrap.get_meta("posed_aabb", AABB())
+		if absf(pa.size.y - 1.0) > 0.03 or absf(pa.position.y) > 0.03 or wrap.get_meta("cull_aabbs", {}).is_empty():
+			sk_bad.append(f)
+		wrap.free()
+	for sid: String in SDB0.ROSTER:
+		for key in ["model", "evolved_model"]:
+			var spec := str(SDB0.ROSTER[sid].get(key, ""))
+			if spec.begins_with("sf:") and not ResourceLoader.exists("res://assets/sidekicks/%s.tscn" % spec.substr(3)):
+				sk_bad.append(spec)
+	_ok("sf: sidekick scenes 1 m tall, feet at 0, posed bounds %s" % [sk_bad], sk_bad.is_empty())
 	return _fails
 
 

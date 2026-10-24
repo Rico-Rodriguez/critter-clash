@@ -21,18 +21,32 @@ func _init() -> void:
 		await process_frame
 		var box := AABB()
 		var first := true
+		# Skinned meshes are culled by their bind-space AABB, which can sit far
+		# from the posed mesh; keep the posed bounds so sidekick_look can set them.
+		var culls := {}
 		for mi in model.find_children("*", "MeshInstance3D", true, false):
 			var m := mi as MeshInstance3D
 			var mesh: Mesh = m.bake_mesh_from_current_skeleton_pose() if m.skin else m.mesh
 			if mesh == null:
 				continue
 			var b: AABB = m.global_transform * mesh.get_aabb()
+			if m.skin:
+				var local: AABB = mesh.get_aabb()
+				culls[str(model.get_path_to(m))] = local.grow(local.size.length() * 0.5)
 			box = b if first else box.merge(b)
 			first = false
 		root.remove_child(model)
+		if first or box.size.y <= 0.0001:
+			push_error("WRAP skipped %s: no mesh with height" % f)
+			model.free()
+			continue
 		var k := 1.0 / box.size.y
 		var wrap := Node3D.new()
 		wrap.name = f.get_basename().trim_suffix("_src")
+		wrap.set_meta("cull_aabbs", culls)
+		# Posed bounds after wrapping (1 m tall, feet at 0); src/tests.gd checks them.
+		var c := Vector3(box.get_center().x, box.position.y, box.get_center().z)
+		wrap.set_meta("posed_aabb", AABB((box.position - c) * k, box.size * k))
 		wrap.add_child(model)
 		model.owner = wrap
 		model.scale = Vector3.ONE * k
