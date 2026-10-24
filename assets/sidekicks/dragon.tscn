@@ -2,7 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/dragon_src.glb" id="1_e67hh"]
 
-[node name="dragon" type="Node3D" unique_id=940860524]
+[node name="dragon" type="Node3D" unique_id=205034100]
+metadata/cull_aabbs = {
+"Sketchfab_model/root/GLTF_SceneRootNode/RootNode_0_0/skeletal_3_3/GLTF_created_0/Skeleton3D/Object_228": AABB(-86.82016, -12.069351, -87.73062, 175.30023, 123.55945, 152.66852)
+}
+metadata/posed_aabb = AABB(-1.5131947, 0, -1.0700173, 3.0263894, 1, 2.1400347)
 
 [node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=21154453 instance=ExtResource("1_e67hh")]
-transform = Transform3D(0.5325908, 0, 0, 0, 0.5325908, 0, 0, 0, 0.5325908, -0.03373491, -1.4386052, 0.44405028)
+transform = Transform3D(0.53511757, 0, 0, 0, 0.53511757, 0, 0, 0, 0.53511757, -0.032504953, -1.4468691, 0.44632995)
