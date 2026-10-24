@@ -685,6 +685,8 @@ func _capture(args: PackedStringArray) -> void:
 				h.bot = true
 				h._bot = HuntBot.new()
 				h._bot.hunt = h
+				# --cam=0.6 pulls the camera in (1.0 = the game's own distance).
+				h.cam.dist_mult = float(_arg(args, "cam", "1.0"))
 				if shot == "hunt":
 					await _wait_sim(h, 16.0)
 				elif shot == "descent":
