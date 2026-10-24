@@ -67,6 +67,9 @@ func _add_ring() -> void:
 	ring.mesh = _ring_mesh
 	ring.scale = Vector3(1.0, 0.05, 1.0)
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Rides at the companion's feet (also for flyers), so it never sits on
+	# the ground apart from it as an empty ring.
+	ring.position.y = 0.04
 	add_child(ring)
 
 
@@ -114,7 +117,6 @@ func tick(dt: float) -> void:
 		rotation.y = lerp_angle(rotation.y, atan2(d.x, d.z), 1.0 - exp(-10.0 * dt))
 	var fly := float(def["fly"])
 	position.y = fly + (sin(_bob * 2.6) * 0.12 if fly > 0.0 else 0.0)
-	ring.position.y = 0.04 - position.y
 	if _act_t <= 0.0:
 		Look.play(look, "move" if moving else "idle")
 	cd -= dt

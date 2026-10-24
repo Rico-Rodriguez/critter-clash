@@ -6,6 +6,8 @@ extends RefCounted
 
 ## Launch roster in sheet order. `model`: a KayKit Rig_Medium character
 ## ("kk:"), a KayKit prop ("prop:") or a Quaternius CC0 glb ("q:").
+## `camp_scale`: extra size by the camp fire (the thin undead read small
+## beside the hero; feet stay on the ground).
 ## `scale`: the KayKit model's scale, or for others its height in metres.
 ## `fly`: hover height (0 walks).
 ## `unlock`: how it is earned (see sidekicks.gd unlock rules).
@@ -31,7 +33,7 @@ const ROSTER := {
 	},
 	"bonelet": {
 		"name": "Bonelet", "element": "Bone", "icon": "skull-crossed-bones", "color": Color(0.92, 0.88, 0.78),
-		"model": "sf:skeleton", "fly": 0.0, "scale": 1.0,
+		"model": "sf:skeleton", "camp_scale": 1.7, "fly": 0.0, "scale": 1.0,
 		"unlock": {"kind": "pet", "unique": "bonelet"}, "how": "Gravemaw's rare drop (1/50)",
 		"origin": "A tiny skeleton that follows you everywhere",
 		"ability": {"kind": "bone_toss", "name": "Bone Toss", "cd": 4.0, "dmg": 0.45, "bounces": 3},
@@ -40,7 +42,7 @@ const ROSTER := {
 	},
 	"hexling": {
 		"name": "Hexling", "element": "Shadow", "icon": "magic-swirl", "color": Color(0.7, 0.45, 1.0),
-		"model": "sf:lich", "fly": 0.3, "scale": 1.0,
+		"model": "sf:lich", "camp_scale": 1.7, "fly": 0.3, "scale": 1.0,
 		"unlock": {"kind": "pet", "unique": "hexling"}, "how": "The Hexer's rare drop (1/50)",
 		"origin": "A tiny cultist with a tinier staff",
 		"ability": {"kind": "hex", "name": "Hex", "cd": 6.0, "dmg": 0.35, "burst": 0.6, "delay": 1.5, "radius": 2.5},
@@ -49,7 +51,7 @@ const ROSTER := {
 	},
 	"acolyte": {
 		"name": "Acolyte", "element": "Thorn", "icon": "thorny-vine", "color": Color(0.55, 0.85, 0.35),
-		"model": "sf:plague", "fly": 0.0, "scale": 1.0,
+		"model": "sf:plague", "camp_scale": 1.7, "fly": 0.0, "scale": 1.0,
 		"unlock": {"kind": "pet", "unique": "acolyte"}, "how": "The Thornmother's rare drop (1/50)",
 		"origin": "A very small cultist who means well",
 		"ability": {"kind": "thorns", "name": "Thorn Ward", "cd": 7.0, "dmg": 0.5, "radius": 3.5, "push": 7.0},
@@ -58,7 +60,7 @@ const ROSTER := {
 	},
 	"crow": {
 		"name": "Storm Crow", "element": "Storm", "icon": "raven", "color": Color(0.55, 0.8, 1.0),
-		"model": "sf:crow", "fly": 0.0, "scale": 1.0, "hunt_scale": 0.75, "fill": 2.6,
+		"model": "sf:crow", "fly": 0.0, "scale": 1.0, "hunt_scale": 1.0, "fill": 3.4,
 		"unlock": {"kind": "renown", "n": 4000}, "how": "Trophy Road: 4,000 trophies",
 		"origin": "Rides the thunder that follows a champion",
 		"ability": {"kind": "storm", "name": "Chain Lightning", "cd": 4.0, "dmg": 0.4, "chain": 4, "range": 7.0},
@@ -86,7 +88,7 @@ const ROSTER := {
 	# The Ancient pets (Torment and up): one from each boss's Ancient form.
 	"barrow_squire": {
 		"name": "Barrow Squire", "element": "Iron", "icon": "checked-shield", "color": Color(1.0, 0.86, 0.5),
-		"model": "sf:squire", "fly": 0.0, "scale": 1.0,
+		"model": "sf:squire", "camp_scale": 1.7, "fly": 0.0, "scale": 1.0,
 		"unlock": {"kind": "pet", "unique": "barrow_squire"}, "how": "Ancient Gravemaw's rare drop (1/60, Torment+)",
 		"origin": "A small, very loyal skeleton knight from the first king's barrow",
 		"ability": {"kind": "bash", "name": "Shield Bash", "cd": 6.0, "dmg": 0.55, "radius": 2.2, "stun": 0.8},
@@ -95,7 +97,7 @@ const ROSTER := {
 	},
 	"shade": {
 		"name": "Hexbound Shade", "element": "Shadow", "icon": "two-shadows", "color": Color(0.6, 0.5, 0.95),
-		"model": "sf:wraith", "fly": 0.2, "scale": 1.0,
+		"model": "sf:wraith", "camp_scale": 1.7, "fly": 0.2, "scale": 1.0,
 		"unlock": {"kind": "pet", "unique": "shade"}, "how": "The Ancient Hexer Queen's rare drop (1/60, Torment+)",
 		"origin": "A quiet shade the Queen bound to her spindle",
 		"ability": {"kind": "shadowstrike", "name": "Shadow Strike", "cd": 5.0, "dmg": 0.5, "strikes": 3},
