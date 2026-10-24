@@ -115,6 +115,38 @@ const PATHS := {
 			{"name": "Lich", "k": "k", "cards": ["leech", "ward"], "flags": {"second_wind": 0.4}, "desc": "Start with Bloodthirst and Bone Ward; once a hunt heal 40% when low"},
 		]},
 	],
+	"rogue": [
+		{"name": "Assassin", "icon": "cloak-dagger", "blurb": "Crits and executions", "nodes": [
+			{"name": "Keen Edge", "k": "m", "crit": 0.03},
+			{"name": "Light Feet", "k": "m", "speed": 0.04},
+			{"name": "Cut Throat", "k": "n", "flags": {"execute": 0.3}, "desc": "+30% damage to foes under 30% health"},
+			{"name": "Poisoned Blades", "k": "m", "dmg": 0.05},
+			{"name": "Vital Spots", "k": "m", "crit": 0.03},
+			{"name": "Killer Instinct", "k": "n", "flags": {"critdmg": 0.4}, "desc": "Crits hit 40% harder"},
+			{"name": "Quick Hands", "k": "m", "rate": 0.05},
+			{"name": "Death Mark", "k": "k", "cards": ["crit"], "flags": {"critdmg": 0.4}, "desc": "Start with Deathmark, crits hit 40% harder"},
+		]},
+		{"name": "Shadow", "icon": "hood", "blurb": "Dashes and Shadowstep", "nodes": [
+			{"name": "Slip Away", "k": "m", "dash": 0.1},
+			{"name": "Thin Shadow", "k": "m", "hp": 0.06},
+			{"name": "Shadow Hunger", "k": "n", "super": 0.15, "desc": "Super charges 15% faster"},
+			{"name": "Footwork", "k": "m", "speed": 0.04},
+			{"name": "Nimble", "k": "m", "dash": 0.1},
+			{"name": "Escape Artist", "k": "n", "flags": {"second_wind": 0.3}, "desc": "Once a hunt, heal 30% when you drop low"},
+			{"name": "Darkness", "k": "m", "super": 0.1},
+			{"name": "Nightfall", "k": "k", "super": 0.2, "dash": 0.15, "desc": "Super +20%, dash recharges 15% faster"},
+		]},
+		{"name": "Duelist", "icon": "crossed-swords", "blurb": "Champions and bosses", "nodes": [
+			{"name": "Steady Hand", "k": "m", "dmg": 0.05},
+			{"name": "Leather Guard", "k": "m", "armor": 0.03},
+			{"name": "Champion Hunter", "k": "n", "flags": {"mark": 0.25}, "desc": "+25% damage to champions"},
+			{"name": "Riposte", "k": "m", "rate": 0.05},
+			{"name": "Toughness", "k": "m", "hp": 0.08},
+			{"name": "Flurry", "k": "n", "flags": {"bloodlust": 8}, "desc": "Each kill within a second adds 5% attack speed, up to 8 stacks"},
+			{"name": "Precision", "k": "m", "dmg": 0.06},
+			{"name": "Bladedance", "k": "k", "cards": ["shockwave"], "rate": 0.08, "desc": "Start with Shockwave and +8% attack speed"},
+		]},
+	],
 	"barbarian": [
 		{"name": "Berserker", "icon": "muscle-up", "blurb": "Attack speed and rage", "nodes": [
 			{"name": "Rage", "k": "m", "rate": 0.05},
