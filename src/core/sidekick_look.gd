@@ -9,6 +9,11 @@ const Q_DIR := "res://assets/quaternius/"
 const SF_DIR := "res://assets/sidekicks/"
 
 
+## Companion meshes also sit on this render layer, and the fill light only
+## lights that layer, so it never brightens the hero or the ground.
+const FILL_LAYER := 1 << 19
+
+
 static func build(id: String, evolved := false) -> Dictionary:
 	var d: Dictionary = SDB.ROSTER[id]
 	var spec := str(d["evolved_model"]) if evolved and d.has("evolved_model") else str(d["model"])
@@ -60,6 +65,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 	root.add_child(model)
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		(mi as MeshInstance3D).layers = 1 | FILL_LAYER
 	out["root"] = root
 	return out
 
@@ -88,6 +94,7 @@ static func _add_fill(root: Node3D, h: float) -> void:
 	l.light_specular = 0.3
 	l.shadow_enabled = false
 	l.position = Vector3(0, h * 1.1, h * 0.9)
+	l.light_cull_mask = FILL_LAYER
 	root.add_child(l)
 
 
