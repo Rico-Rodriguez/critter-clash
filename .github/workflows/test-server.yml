@@ -1,0 +1,85 @@
+# Hosts the Gravelight test server on a GitHub Actions runner, reached through a
+# Cloudflare quick tunnel. Each run serves for ~5h40m, saves the database to
+# the Actions cache, publishes its URL to server.json on the test-server branch
+# (the game follows that file, see src/net/net_config.gd), then starts the next run.
+name: test-server
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"   # backstop: queues if a run is already serving
+concurrency:
+  group: test-server
+  cancel-in-progress: false
+permissions:
+  contents: write
+  actions: write
+jobs:
+  serve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+        with: { lfs: false }
+      - name: Write .env
+        working-directory: server
+        env:
+          DB_PASSWORD: ${{ secrets.TS_DB_PASSWORD }}
+          HTTP_KEY: ${{ secrets.TS_HTTP_KEY }}
+          SESSION_KEY: ${{ secrets.TS_SESSION_KEY }}
+          REFRESH_KEY: ${{ secrets.TS_REFRESH_KEY }}
+          CONSOLE_SIGNING_KEY: ${{ secrets.TS_CONSOLE_SIGNING_KEY }}
+          CONSOLE_PASSWORD: ${{ secrets.TS_CONSOLE_PASSWORD }}
+        run: |
+          umask 077
+          for k in DB_PASSWORD HTTP_KEY SESSION_KEY REFRESH_KEY CONSOLE_SIGNING_KEY CONSOLE_PASSWORD; do echo "$k=${!k}"; done > .env
+          echo "SERVER_KEY=devkey" >> .env
+          echo "DOMAIN=unused" >> .env
+      - name: Restore database
+        uses: actions/cache/restore@v4
+        with:
+          path: server/db.sql.gz
+          key: test-server-db-${{ github.run_id }}
+          restore-keys: test-server-db-
+      - name: Start Postgres + Nakama
+        working-directory: server
+        run: |
+          C="docker compose -f docker-compose.yml -f docker-compose.tunnel.yml"
+          $C up -d postgres
+          until $C exec -T postgres pg_isready -U nakama >/dev/null 2>&1; do sleep 1; done
+          sleep 2
+          if [ -s db.sql.gz ]; then gunzip -c db.sql.gz | $C exec -T postgres psql -q -U nakama nakama >/dev/null && echo "database restored"; fi
+          $C up -d nakama
+          for i in $(seq 120); do curl -sf http://127.0.0.1:7350/healthcheck >/dev/null && break; sleep 2; done
+          curl -sf http://127.0.0.1:7350/healthcheck
+      - name: Tunnel, publish, serve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -sL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          ./cloudflared tunnel --no-autoupdate --url http://127.0.0.1:7350 > tunnel.log 2>&1 &
+          for i in $(seq 60); do U=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -1); [ -n "$U" ] && break; sleep 2; done
+          for i in $(seq 60); do curl -sf -m 10 "$U/healthcheck" >/dev/null && break; sleep 3; done
+          curl -sf "$U/healthcheck"
+          echo "Serving at $U"
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/contents/server.json?ref=test-server" -q .sha || true)
+          gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/server.json" -f message="test server: $U" -f branch=test-server \
+            -f content="$(printf '{"url": "%s", "key": "devkey"}\n' "$U" | base64 -w0)" ${sha:+-f sha=$sha} >/dev/null
+          end=$(( $(date +%s) + 340*60 ))
+          while [ $(date +%s) -lt $end ]; do sleep 60; done
+      - name: Save database
+        if: always()
+        working-directory: server
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.tunnel.yml exec -T postgres pg_dump -U nakama --clean --if-exists nakama | gzip > db.sql.gz
+          ls -l db.sql.gz
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: server/db.sql.gz
+          key: test-server-db-${{ github.run_id }}
+      - name: Start the next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run test-server.yml --ref "$GITHUB_REF_NAME"
