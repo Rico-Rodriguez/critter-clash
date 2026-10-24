@@ -1,0 +1,8 @@
+Quaternius models (CC0 1.0 Universal, public domain) — https://quaternius.com
+Downloaded from Poly Pizza (https://poly.pizza/u/Quaternius):
+- dragon.glb  "Dragon"          (Ultimate Monsters Bundle) https://poly.pizza/m/3rUm1cN3yp
+- wyrm.glb    "Dragon Evolved"  (Ultimate Monsters Bundle) https://poly.pizza/m/LlwD0QNUPj
+- ghost.glb   "Ghost"           (Ultimate Monsters Bundle) https://poly.pizza/m/Iip30bDHmu
+- birb.glb    "Birb"            (Ultimate Monsters Bundle) https://poly.pizza/m/gZ2ExU9OAB
+- bat.glb     "Bat"             https://poly.pizza/m/hNO9XvjlKa
+Used unmodified (sidekicks).

@@ -93,14 +93,8 @@ func _ready() -> void:
 	cam.dist_mult = {"close": 0.86, "wide": 1.16}.get(str(Game.setting("camera")), 1.0)
 	cam.snap()
 	cam.current = true
-	if str(Game.data.get("pet", "")) != "":
-		_spawn_pet()
-	var aid := str(Game.data.get("ally", ""))
-	if aid != "" and aid != hero_id and DB.HEROES.has(aid) and Game.hero(aid)["unlocked"]:
-		ally = Ally.new()
-		world.add_child(ally)
-		ally.position = arena.resolve(hero.position + Vector3(2.0, 0, 1.0), 0.5)
-		ally.setup(self, aid)
+	# Sidekicks replaced the hero ally and the cosmetic pet.
+	_spawn_sidekick()
 	_spawn_partners()
 	_setup_shrines()
 	hud = HUD_SCENE.instantiate()
@@ -252,10 +246,8 @@ func tick(dt: float) -> void:
 	_tick_pickups(dt)
 	_tick_patches(dt)
 	_tick_pyres(dt)
-	if pet:
-		_tick_pet(dt)
-	if ally and phase != "defeat":
-		ally.tick(dt)
+	if sidekick:
+		sidekick.tick(dt)
 	if phase != "defeat":
 		for p in partners:
 			p.tick(dt)

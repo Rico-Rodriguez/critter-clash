@@ -88,6 +88,7 @@ func open(r: Dictionary) -> void:
 	if not rt.is_empty():
 		var d := int(rt["delta"])
 		_note("Rating %s%d → %d%s" % ["+" if d >= 0 else "", d, int(rt["rating"]), (" · milestone +%d gold" % int(rt["milestone_gold"])) if int(rt["milestone_gold"]) > 0 else ""], Color(0.6, 0.9, 1.0) if d >= 0 else Color(0.85, 0.6, 0.55), "trophy")
+	_sidekick_notes(s.get("sidekick", {}))
 	if bool(s.get("rift_key", false)):
 		_note("A rift key! Open it from the Expedition", Color(0.6, 0.85, 1.0), "crystal-shine")
 	if int(s.get("achievements", 0)) > 0:
@@ -378,3 +379,27 @@ func _note(text: String, col: Color, ic: String) -> void:
 	l.add_theme_color_override("font_color", col.lightened(0.2))
 	row.add_child(l)
 	%Notes.add_child(row)
+
+
+## Sidekick news: bond gained (and levels), evolution, eggs, hatches, unlocks.
+func _sidekick_notes(sk: Dictionary) -> void:
+	if sk.is_empty():
+		return
+	const SDB := preload("res://src/data/sidekick_db.gd")
+	var id := str(sk.get("id", ""))
+	if id != "":
+		var d: Dictionary = SDB.ROSTER[id]
+		var col: Color = d["color"]
+		if bool(sk.get("evolved", false)):
+			_note("%s evolves into the %s!" % [d["name"], d.get("evolved_name", d["name"])], col, str(d["icon"]))
+		elif int(sk["bond_to"]) > int(sk["bond_from"]):
+			_note("%s reached Bond %d" % [d["name"], int(sk["bond_to"])], col, str(d["icon"]))
+		else:
+			_note("%s · +%d bond kills" % [d["name"], int(sk["kills"])], col, str(d["icon"]))
+	var egg := str(sk.get("egg", ""))
+	if egg != "":
+		_note("You found an %s! Kills warm it until it hatches" % SDB.EGGS[egg]["name"], Color(1.0, 0.85, 0.55), "egg-clutch")
+	for h in sk.get("hatched", []):
+		_note("The egg hatched: %s joins you" % SDB.ROSTER[str(h)]["name"], Color(SDB.ROSTER[str(h)]["color"]), str(SDB.ROSTER[str(h)]["icon"]))
+	for u in sk.get("unlocked", []):
+		_note("New sidekick: %s (see Sidekicks)" % SDB.ROSTER[str(u)]["name"], Color(SDB.ROSTER[str(u)]["color"]), str(SDB.ROSTER[str(u)]["icon"]))
