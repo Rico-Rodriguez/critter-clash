@@ -113,7 +113,9 @@ The scripts that built the audio are are kept in `tools/audio/`.
 - Sidekick models, Creative Commons Attribution 4.0
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
   one draw per material (`tools/art/merge_skinned.py`), clips renamed or cut by time, scaled to size in
-  `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`):
+  `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`). The Attack, Hit, Special, Run, Hover,
+  Idle_Loop and Walk_Loop clips are original keyframes made for this project on the authors' own rigs
+  (`tools/art/sidekick_clips.py`); the shipped clips are kept as they were:
   - Ember Drake / Ash Wyrm — "Animated Dragon Three Motion Loops" by LasquetiSpice —
     https://sketchfab.com/3d-models/animated-dragon-three-motion-loops-eca98cf6cd084c1596cecf716e110c29
     (decimated to 7.8k tris for mobile; Ash Wyrm textures baked from its base colour)
