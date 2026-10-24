@@ -1,7 +1,7 @@
 extends Node
 ## App shell: switches between the camp (lobby) and a hunt with a fade.
 ## Also hosts two command-line modes used for checks:
-##   -- --bot [--hero=knight] [--tier=0] [--zone=barrow|depths] [--runs=1] [--idle]   headless autopilot hunts
+##   -- --bot [--hero=knight] [--tier=0] [--zone=barrow|depths] [--runs=1] [--idle] [--sidekick=drake[:kills]]   headless autopilot hunts
 ##   -- --capture --shots=lobby,hunt,... --out=/abs/dir         screenshots
 ##   -- --check                                                 compile every script and scene
 
@@ -200,6 +200,14 @@ func _run_bot(args: PackedStringArray) -> void:
 	var bot_fam := _arg(args, "fam", "")
 	Game.open_whole_road()
 	Game.data["start_picked"] = true
+	# --sidekick=drake[:kills]: that sidekick at your side, with that many bond kills.
+	var sk_arg := _arg(args, "sidekick", "")
+	if sk_arg != "":
+		const SKR := preload("res://src/autoload/sidekicks.gd")
+		var sid := sk_arg.get_slice(":", 0)
+		SKR.own(Game.data, sid)
+		SKR.set_active(Game.data, sid)
+		Game.data["sidekicks"]["owned"][sid]["kills"] = int(sk_arg.get_slice(":", 1)) if sk_arg.contains(":") else 0
 	for hid in heroes:
 		Game.hero(hid)["unlocked"] = true
 		for sk in DB.STYLE_SKILLS[DB.HEROES[hid]["skill"]]:
@@ -244,7 +252,7 @@ func _run_bot(args: PackedStringArray) -> void:
 							h._abandon()).call()
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
-			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s xp=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards, res["xp"]])
+			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s xp=%s sidekick=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards, res["xp"], ("%s bond=%d slain=%d" % [h.sidekick.id, h.sidekick.bond, h.sidekick.slain]) if h.sidekick else "none"])
 			if idle and res["win"]:
 				ok = false
 			h.queue_free()
@@ -328,10 +336,23 @@ func _capture(args: PackedStringArray) -> void:
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
 		Game.hero(hid)["skin"] = _arg(args, "skin", "")
+	# A stable like the mockup: the Drake at your side (Bond 4), a Grove Egg warming.
+	const SKC := preload("res://src/autoload/sidekicks.gd")
+	for pair in [["drake", 1240], ["wisp", 5600], ["bonelet", 250], ["hexling", 0]]:
+		SKC.own(Game.data, pair[0])
+		Game.data["sidekicks"]["owned"][pair[0]]["kills"] = pair[1]
+	Game.data["sidekicks"]["eggs"]["grove"] = {"kills": 312}
+	Game.data["sidekicks"]["chests"] = 37
+	SKC.set_active(Game.data, _arg(args, "sidekick", "drake").get_slice(":", 0))
+	if _arg(args, "sidekick", "").contains(":"):
+		var sid0 := _arg(args, "sidekick", "").get_slice(":", 0)
+		SKC.own(Game.data, sid0)
+		SKC.set_active(Game.data, sid0)
+		Game.data["sidekicks"]["owned"][sid0]["kills"] = int(_arg(args, "sidekick", "").get_slice(":", 1))
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"sidekicks", "sidekick", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -388,6 +409,13 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(2.2)
 				elif shot == "pickhero":
 					await _wait(1.2)
+				elif shot == "sidekicks" or shot == "sidekick":
+					current.open_sheet("sidekicks")
+					await _wait(1.0)
+					if shot == "sidekick":
+						current.ui._sk_detail = SKC.active(Game.data)
+						current.ui._sheet.rebuild()
+						await _wait(0.8)
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot.begins_with("equip") else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
@@ -460,9 +488,7 @@ func _capture(args: PackedStringArray) -> void:
 						break
 				await _wait(1.0)
 				await _save("gear_card")
-				eqg._open_forge(eqg.selected)
-				await _wait(0.6)
-				await _save("gear_forge")
+				# The forge sheet is gone (upgrades live on the gear card now).
 				eqg._close()
 				await _wait(0.8)
 				for tab in ["progress", "looks"]:
@@ -687,6 +713,8 @@ func _capture(args: PackedStringArray) -> void:
 				h.bot = true
 				h._bot = HuntBot.new()
 				h._bot.hunt = h
+				# --cam=0.6 pulls the camera in (1.0 = the game's own distance).
+				h.cam.dist_mult = float(_arg(args, "cam", "1.0"))
 				if shot == "hunt":
 					await _wait_sim(h, 16.0)
 				elif shot == "descent":

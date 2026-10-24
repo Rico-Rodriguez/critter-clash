@@ -641,6 +641,9 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Skills", _build_skills)
 		"talents":
 			_sheet.open("Talents", _build_talents)
+		"sidekicks":
+			_sk_detail = ""
+			_sheet.open("Sidekicks", _build_sidekicks)
 		_:
 			if not _open_social_sheet(_sheet, name_):
 				_sheet.queue_free()
