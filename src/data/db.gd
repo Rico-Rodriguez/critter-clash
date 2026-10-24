@@ -352,6 +352,12 @@ const BOSSES := {
 		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.3, "mass": 30.0,
 		"color": Color(0.75, 0.4, 1.0), "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
 	},
+	"warden": {
+		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
+		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
+		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
+		"color": Color(1.0, 0.82, 0.35), "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
+	},
 }
 
 ## The places a hunt can happen. `weights` scale how often each foe is drawn.
@@ -383,7 +389,7 @@ const ZONES := {
 	# The fourth zone: the Barrow King's treasury, built from the KayKit
 	# dungeon pack. Warm and bright, light fog, so the gold reads crisp.
 	"vault": {
-		"name": "The Gilded Vault", "boss": "gravemaw", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
+		"name": "The Gilded Vault", "boss": "warden", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
 		"wake": "Gather %d souls to wake the King", "defeat": "The Vault keeps you", "enter": "Break into the Vault",
 		"loot_bonus": 3, "gold_bonus": 0.25, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 7500 trophies",
 		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
@@ -873,11 +879,15 @@ const UNIQUES := {
 	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "A tiny hooded grove-keeper.", "model": "Rogue_Hooded"},
 	"acolyte": {"name": "Acolyte", "slot": "pet", "rarity": "legendary", "source": "thorn", "rate": 50, "icon": "ghost", "power": "A very small cultist who means well.", "model": "Rogue_Hooded"},
 	"seed": {"name": "Thorn Seed", "slot": "trophy", "rarity": "magic", "source": "thorn", "rate": 4, "icon": "gems", "power": "It wriggles. Sells for 80 gold.", "sell": 80},
+	# The Gilded Warden (the Vault).
+	"gilded_fang": {"cls": "rogue", "fam": "daggers", "dye": Color(1.0, 0.82, 0.35), "name": "Gilded Fangs", "slot": "weapon", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"dmg": 27, "crit": 10}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "cloak-dagger"},
+	"hoardplate": {"cls": "knight", "dye": Color(1.0, 0.8, 0.35), "name": "Hoardplate", "slot": "chest", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"hp": 32, "armor": 9}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
+	"vault_coin": {"name": "Vault Sovereign", "slot": "trophy", "rarity": "magic", "source": "warden", "rate": 4, "icon": "two-coins", "power": "Heavier than it looks. Sells for 120 gold.", "sell": 120},
 	"abyssal": {"name": "Abyssal Gem", "slot": "trophy", "rarity": "legendary", "source": "nightmare", "rate": 80, "icon": "crystal-shine", "power": "It hums. Sells for 2000 gold.", "sell": 2000},
 }
-const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]
+const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling", "gilded_fang", "hoardplate", "vault_coin"]
 ## Unique sources and the boss whose kill count and dry streak they follow.
-const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn"}
+const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn", "warden": "warden"}
 
 ## Rarity weights by source; tier loot multiplier shifts weight upward.
 const DROP_RARITY := {
