@@ -796,8 +796,10 @@ func _sidekick_motor_tests() -> void:
 	_ok("state: follow when the hero moves", M.pick_state(1.0, true, 0.0) == M.S.FOLLOW)
 	_ok("state: idle at the slot", M.pick_state(0.1, false, 0.0) == M.S.IDLE)
 	_ok("state: wander after standing still", M.pick_state(0.3, false, M.STILL_BEFORE_WANDER + 0.1) == M.S.WANDER)
-	var tp := m.step(dt, hero + Vector3(0, 0, M.TELEPORT_DIST + 3.0), 0.0, 6.0)
-	_ok("sidekick teleports when too far", tp and m.teleports == 1 and M.flat_dist(m.pos, m.slot(hero + Vector3(0, 0, M.TELEPORT_DIST + 3.0), 0.0)) < 0.01)
+	var tp := false
+	for i in int(M.FAR_BEFORE_BLINK * 60.0) + 2:
+		tp = m.step(dt, hero + Vector3(0, 0, M.TELEPORT_DIST + 15.0), 0.0, 6.0) or tp
+	_ok("sidekick teleports when too far", tp and m.teleports == 1 and M.flat_dist(m.pos, m.slot(hero + Vector3(0, 0, M.TELEPORT_DIST + 15.0), 0.0)) < 0.01)
 	var m2 := M.new()
 	m2.pos = Vector3(M.SPRINT_DIST + 2.0, 0, 0)
 	m2.step(dt, Vector3.ZERO, 0.0, 6.0)
@@ -828,6 +830,37 @@ func _sidekick_motor_tests() -> void:
 		m4.step(dt, h4, 0.0, 6.0, wall)
 		inside = inside or wall.call(m4.pos)
 	_ok("sidekick steers round a wall", not inside and M.flat_dist(m4.pos, m4.slot(h4, 0.0)) < 1.2)
+	# Regression (#62 feedback): an attack on a far target walks/runs there,
+	# never teleports, and lands only after arriving; no blink in combat.
+	var m5 := M.new()
+	m5.pos = Vector3(-1.4, 0, 0.9)
+	var foe := Vector3(-1.4, 0, 7.5)
+	m5.act(M.S.ATTACK, 0.22, 0.55, foe, foe - Vector3(0, 0, 0.8))
+	var jump := 0.0
+	var landed := Vector3.INF
+	for i in 180:
+		var before := m5.pos
+		m5.step(dt, Vector3.ZERO, 0.0, 6.0)
+		jump = maxf(jump, M.flat_dist(before, m5.pos))
+		if m5.take_hit() and landed == Vector3.INF:
+			landed = m5.pos
+	_ok("attack runs to its target, no teleport", m5.teleports == 0 and jump < 0.25 and landed != Vector3.INF and M.flat_dist(landed, foe) < 1.8)
+	# Far behind right after an attack, and on screen: it sprints, no blink.
+	var m6 := M.new()
+	m6.act(M.S.ATTACK, 0.1, 0.2)
+	var hero6 := Vector3(0, 0, M.TELEPORT_DIST + 2.0)
+	for i in 60:
+		m6.step(dt, hero6, 0.0, 6.0, Callable(), Callable(), Callable(), func(_p): return true)
+	_ok("no teleport during or right after combat", m6.teleports == 0)
+	var m7 := M.new()
+	for i in 600:
+		m7.step(dt, Vector3(0, 0, M.TELEPORT_DIST + 2.0 + i * 0.4), 0.0, 6.0, Callable(), Callable(), Callable(), func(_p): return true)
+	_ok("on screen it only blinks when hopelessly far", m7.teleports >= 1)
+	var m8 := M.new()
+	var seen_far := false
+	for i in 120:
+		m8.step(dt, Vector3(0, 0, M.TELEPORT_DIST + 4.0), 0.0, 0.0, Callable(), Callable(), Callable(), func(_p): return true)
+	_ok("no blink while on screen and merely far", m8.teleports == 0)
 	# Procedural fallbacks move the pose when a clip is missing.
 	var lunge: Dictionary = SKN.pose(M.S.ATTACK, 0.3, 0.0, 0.22, 0.55, false, 0.0)
 	var hop: Dictionary = SKN.pose(M.S.SPECIAL, 0.55, 0.0, 0.32, 0.8, false, 0.0)

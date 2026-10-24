@@ -142,8 +142,17 @@ func tick(dt: float) -> void:
 		blk = func(p: Vector3) -> bool: return arena.blocked(p, 0.35)
 		flow = func(p: Vector3) -> Vector3: return arena.flow_dir(p)
 		res = func(p: Vector3) -> Vector3: return arena.resolve(p, 0.3)
-	if motor.step(dt, hero.position, hero.rotation.y, float(hero.speed), blk, flow, res):
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var seen := Callable()
+	if cam:
+		seen = func(p: Vector3) -> bool: return cam.is_position_in_frustum(p + Vector3(0, 0.5, 0))
+	if motor.step(dt, hero.position, hero.rotation.y, float(hero.speed), blk, flow, res, seen):
 		_blink(was)
+	if motor.aborted:
+		# Its target got away before it arrived: try again shortly.
+		motor.aborted = false
+		_pending = false
+		cd = 0.3
 	var fly := float(def["fly"])
 	position = Vector3(motor.pos.x, fly + (sin(_bob * 2.6) * 0.12 if fly > 0.0 else 0.0), motor.pos.z)
 	rotation.y = motor.yaw
@@ -187,6 +196,25 @@ func _wants_to_act():
 	return f.position if f != null else null
 
 
+## Melee moves walk or run up to the target before the wind-up (no snapping
+## onto it); ranged and hero-centred moves cast from where it stands.
+const MELEE_KINDS := {"snap": 0.8, "bash": 0.9, "leech": 0.9, "shadowstrike": 0.9}
+func _approach_point(at: Vector3) -> Vector3:
+	var k := str(ab["kind"])
+	var from := Vector3(motor.pos.x, 0, motor.pos.z)
+	var to := Vector3(at.x, 0, at.z)
+	var gap := 0.0
+	if MELEE_KINDS.has(k):
+		gap = MELEE_KINDS[k]
+	elif k == "breath":
+		gap = float(ab["range"]) * reach_mult() * 0.45
+	else:
+		return Vector3.INF
+	if from.distance_to(to) <= gap + Motor.APPROACH_REACH:
+		return Vector3.INF
+	return to + (from - to).normalized() * gap
+
+
 func is_special() -> bool:
 	return str(ab["kind"]) in SDB.SPECIAL_KINDS
 
@@ -195,7 +223,7 @@ func _wind_up(at: Vector3) -> void:
 	var t := SPECIAL_TIME if is_special() else ATTACK_TIME
 	_windup = t.x
 	_dur = t.y
-	motor.act(Motor.S.SPECIAL if is_special() else Motor.S.ATTACK, t.x, t.y, at)
+	motor.act(Motor.S.SPECIAL if is_special() else Motor.S.ATTACK, t.x, t.y, at, _approach_point(at))
 	_pending = true
 	cd = 0.3
 	var fx = hunt.fx
@@ -207,9 +235,9 @@ func _wind_up(at: Vector3) -> void:
 
 ## The hit frame: the ability lands (its own VFX/SFX), plus a small spark.
 func _fire() -> void:
+	# No ability moves the node any more (they used to snap it onto the
+	# target, which read as a teleport); the motor walked it there instead.
 	var ok := _use()
-	# Abilities that dash (snap, dive, shadowstrike, breath) moved the node.
-	motor.pos = Vector3(position.x, 0.0, position.z)
 	if ok:
 		cd = cooldown()
 		if hunt.fx:
@@ -374,7 +402,6 @@ func _use() -> bool:
 			var flame := Color(0.35, 0.6, 1.0) if evolved else Color(1.0, 0.45, 0.12)
 			# Swoop toward the pack, then breathe along the cone.
 			var start := to - fwd * minf(rng * 0.45, from.distance_to(to))
-			position = Vector3(start.x, position.y, start.z)
 			for i in 4:
 				var p := start + fwd * rng * (0.2 + 0.24 * i)
 				fx.flame_burst(p, 0.8 + 0.25 * i, false, flame)
@@ -467,7 +494,6 @@ func _use() -> bool:
 			if t == null:
 				return false
 			var p: Vector3 = t.flat_pos()
-			position = Vector3(p.x, position.y, p.z) - (p - Vector3(position.x, 0, position.z)).normalized() * 0.8
 			fx.burst(p, Color(1.0, 0.82, 0.3), 8, 5.0)
 			_strike(t, hit_dmg(float(ab["dmg"])), 3.0)
 			_attack_anim()
@@ -487,9 +513,6 @@ func _use() -> bool:
 				_strike(at, hit_dmg(float(ab["dmg"])), 1.0)
 				hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * hunt.heal_mult(), hero.max_hp)
 				at = _next_foe(at.position, 4.0 * reach_mult(), hit)
-			if not hit.is_empty():
-				var last: Node3D = hit[hit.size() - 1]
-				position = Vector3(last.position.x, position.y, last.position.z)
 			_attack_anim()
 			Sfx.play("lifesteal", -6.0)
 		"bash":
@@ -497,7 +520,6 @@ func _use() -> bool:
 			if t == null:
 				return false
 			var p: Vector3 = t.flat_pos()
-			position = Vector3(p.x, position.y, p.z) - (p - Vector3(position.x, 0, position.z)).normalized() * 0.9
 			var r := float(ab["radius"]) * reach_mult()
 			fx.ring(p, r, col, 0.4, 0.18)
 			fx.puff(p, Color(0.3, 0.27, 0.23, 0.6), 8, 1.5, 2.0)
@@ -518,9 +540,6 @@ func _use() -> bool:
 				fx.puff(f.flat_pos(), Color(0.15, 0.1, 0.25, 0.7), 6, 0.8, 1.5)
 				fx.burst(f.flat_pos() + Vector3(0, 0.7, 0), col, 6, 4.0)
 				_strike(f, hit_dmg(float(ab["dmg"])) * (2.0 if tough else 1.0), 1.0)
-			var last: Node3D = near[mini(int(ab["strikes"]), near.size()) - 1]
-			if is_instance_valid(last):
-				position = Vector3(last.position.x, position.y, last.position.z)
 			_attack_anim()
 			Sfx.play("swing", -4.0, 1.4)
 		"snare":

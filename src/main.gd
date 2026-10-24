@@ -725,7 +725,7 @@ func _capture(args: PackedStringArray) -> void:
 						await _save("skfilm_%04d" % fi)
 						fi += 1
 					if hk.sidekick and i % 15 == 0:
-						print("SKSTATE t=%.1f %s cd=%.1f" % [hk.time, hk.sidekick.motor.NAMES[hk.sidekick.motor.state], hk.sidekick.cd])
+						print("SKSTATE t=%.1f %s cd=%.1f teleports=%d" % [hk.time, hk.sidekick.motor.NAMES[hk.sidekick.motor.state], hk.sidekick.cd, hk.sidekick.motor.teleports])
 			"film":
 				_set_screen_now("hunt")
 				var hf: Hunt = current

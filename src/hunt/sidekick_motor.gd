@@ -40,6 +40,19 @@ var still_t := 0.0
 var wander_to := Vector3.INF
 var wander_wait := 0.0
 var teleports := 0
+## Melee moves walk/run to `approach` first; the wind-up starts on arrival.
+var approach := Vector3.INF
+var approach_t := 0.0
+## Set when an approach gave up (target out of reach): the caller cancels.
+var aborted := false
+## Seconds since the last action (combat), and how long it has been too far.
+var since_action := 99.0
+var far_t := 0.0
+## Teleport needs this long out of combat and this long too far.
+const CALM_BEFORE_BLINK := 2.5
+const FAR_BEFORE_BLINK := 0.8
+const APPROACH_REACH := 0.9
+const APPROACH_GIVE_UP := 1.8
 var rng := RandomNumberGenerator.new()
 var _last_hero := Vector3.INF
 
@@ -73,14 +86,22 @@ func is_action() -> bool:
 
 ## Starts an attack, special or hit reaction: `windup` until its hit lands,
 ## `dur` in all. A hit reaction never cuts an attack short.
-func act(kind: int, windup: float, dur: float, at := Vector3.INF) -> bool:
+func act(kind: int, windup: float, dur: float, at := Vector3.INF, go_to := Vector3.INF) -> bool:
 	if kind == S.HIT and state in [S.ATTACK, S.SPECIAL]:
 		return false
 	_enter(kind)
 	action_t = dur
 	hit_at = windup
 	face_to = at
+	approach = Vector3(go_to.x, 0, go_to.z) if go_to != Vector3.INF else Vector3.INF
+	approach_t = 0.0
+	aborted = false
+	since_action = 0.0
 	return true
+
+
+func approaching() -> bool:
+	return approach != Vector3.INF and flat_dist(pos, approach) > APPROACH_REACH
 
 
 ## True once, on the frame an action's hit lands.
@@ -100,22 +121,41 @@ func _enter(s: int) -> void:
 ## One step. `hero_speed` in m/s. `blocked(p)` and `flow(p)` come from the
 ## arena (null in tests): flow points round walls toward the hero. Returns
 ## true when it teleported this step.
-func step(dt: float, hero_pos: Vector3, hero_yaw: float, hero_speed: float, blocked := Callable(), flow := Callable(), resolve := Callable()) -> bool:
-	state_t += dt
+func step(dt: float, hero_pos: Vector3, hero_yaw: float, hero_speed: float, blocked := Callable(), flow := Callable(), resolve := Callable(), on_screen := Callable()) -> bool:
+	var closing := is_action() and approaching()
+	# The wind-up clock only runs once it has reached its target.
+	if not closing:
+		state_t += dt
+	else:
+		approach_t += dt
+		if approach_t > APPROACH_GIVE_UP:
+			aborted = true
+			hit_at = -1.0
+			approach = Vector3.INF
+			closing = false
+			_enter(S.IDLE)
+	since_action = 0.0 if is_action() else since_action + dt
 	var hero_moving := _last_hero != Vector3.INF and flat_dist(hero_pos, _last_hero) > 0.25 * dt
 	_last_hero = hero_pos
 	still_t = 0.0 if hero_moving else still_t + dt
 	var want_at := slot(hero_pos, hero_yaw)
 	var dist := flat_dist(pos, want_at)
-	if dist > TELEPORT_DIST:
+	# Blink back only when genuinely left behind out of combat: never during
+	# or right after an action, only after being too far for a while, and
+	# only from off-screen unless it is hopelessly far.
+	far_t = far_t + dt if dist > TELEPORT_DIST else 0.0
+	var seen: bool = on_screen.is_valid() and on_screen.call(pos)
+	if far_t >= FAR_BEFORE_BLINK and not is_action() and since_action >= CALM_BEFORE_BLINK and (not seen or dist > TELEPORT_DIST * 2.0):
+		far_t = 0.0
 		pos = Vector3(want_at.x, pos.y, want_at.z)
 		vel = Vector3.ZERO
 		teleports += 1
 		_enter(S.IDLE)
 		return true
-	if is_action():
+	if is_action() and not closing:
 		action_t -= dt
 		if action_t <= 0.0:
+			approach = Vector3.INF
 			_enter(S.IDLE)
 	if not is_action():
 		var s := pick_state(dist, hero_moving, still_t)
@@ -149,7 +189,11 @@ func step(dt: float, hero_pos: Vector3, hero_yaw: float, hero_speed: float, bloc
 		S.WANDER:
 			spd = minf(1.3, hero_speed * 0.35 + 0.4) * clampf(d / 0.6, 0.2, 1.0)
 		S.ATTACK, S.SPECIAL:
-			spd = 0.0
+			if closing:
+				to = approach - pos
+				to.y = 0.0
+				d = to.length()
+				spd = hero_speed * 2.1 + 1.0
 		S.HIT:
 			spd = 0.0
 	var dir := to / d if d > 0.001 else Vector3.ZERO
@@ -179,7 +223,7 @@ func step(dt: float, hero_pos: Vector3, hero_yaw: float, hero_speed: float, bloc
 		pos = resolve.call(pos)
 	# Face where it goes, or its target while acting.
 	var look := vel
-	if is_action() and face_to != Vector3.INF:
+	if is_action() and face_to != Vector3.INF and not closing:
 		look = face_to - pos
 	look.y = 0.0
 	if look.length() > 0.15:
