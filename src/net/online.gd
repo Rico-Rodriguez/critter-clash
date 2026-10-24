@@ -132,7 +132,7 @@ func connect_now() -> void:
 	if not a["ok"]:
 		_set_state("down")
 		_retries += 1
-		_retry_at = Time.get_ticks_msec() / 1000.0 + minf(15.0 * _retries, 300.0)
+		_retry_at = Time.get_ticks_msec() / 1000.0 + minf(10.0 * _retries, 30.0)
 		return
 	_retries = 0
 	_set_state("on")
@@ -224,7 +224,12 @@ func _reopen() -> void:
 			return
 	await open_socket()
 	_busy = false
-	if socket_up() and in_clan():
+	if not socket_up():
+		# The test server's tunnel moves: go down so the retry re-reads the config.
+		_set_state("down")
+		_retry_at = Time.get_ticks_msec() / 1000.0 + 3.0
+		return
+	if in_clan():
 		join_clan_chat()
 
 
