@@ -205,6 +205,7 @@ func run() -> int:
 	var rh := ra.model.find_child("RogueHooded_Head", true, false) as MeshInstance3D
 	_ok("hooded rogue keeps her head", GearDB.look(hood_pre["helm"])["hood"] and rh != null and rh.visible)
 	ra.free()
+	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	return _fails
 
 

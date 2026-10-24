@@ -746,6 +746,9 @@ func _capture(args: PackedStringArray) -> void:
 					h.bot = false
 					h.boss._begin("lockdown")
 					await _wait_sim(h, 0.7)
+					# The shot shows his plate, not a hit flash.
+					h.boss.set_flash(0.0)
+					await get_tree().process_frame
 				elif shot in ["boss", "victory", "results"]:
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal

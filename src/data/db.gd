@@ -354,7 +354,7 @@ const BOSSES := {
 	},
 	"warden": {
 		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
-		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"},
+		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
 		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
 		"color": Color(1.0, 0.82, 0.35), "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
 	},
