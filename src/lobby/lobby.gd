@@ -368,6 +368,8 @@ func refresh_sidekick() -> void:
 	add_child(pet)
 	# On the hero's right, away from the fire and its glow, so nothing hides it.
 	pet.position = Vector3(1.2, float(SKL.SDB.ROSTER[sid]["fly"]) * 0.5, 0.45)
+	# Wide flyers (the drake) sit further out so the hero's shield can't hide them.
+	pet.position += SKL.SDB.ROSTER[sid].get("camp_offset", Vector3.ZERO)
 	pet.scale = Vector3.ONE * 0.75
 	pet.rotation.y = -0.5
 	Look.play(look, "idle")
