@@ -21,6 +21,9 @@ var last := ""
 var fight_t := 0.0
 var _ring_t := 9.0
 var _lanes_t := 12.0
+var _ancient_t := 8.0
+## Torment and up: the Ancient form, with a new name, a pale-gold aura and the Ancient cross.
+var ancient := false
 var berserk := false
 var cd_mult := 1.0
 var add_t := 14.0
@@ -39,9 +42,11 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	hunt = h
 	var d: Dictionary = DB.boss_def(boss_id)
 	def = d
-	var aura: Color = d["color"]
+	ancient = hunt.tier_i >= DB.TIER_ANCIENT
+	var aura: Color = Color(1.0, 0.86, 0.5) if ancient else d["color"]
 	display_name = d["name"]
-	title = d["title"]
+	# "Ancient" goes in the title so the HUD's name line still fits.
+	title = "the Ancient" if ancient else d["title"]
 	max_hp = d["hp"] * tier["hp"] * (1.0 + DB.RUN_BOSS_HP * (hunt.run_level - 1))
 	hp = max_hp
 	dmg = d["dmg"] * tier["dmg"]
@@ -49,6 +54,8 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	radius = d["radius"]
 	mass = d["mass"]
 	build_model(d["model"], d["weapons"], aura, 0.55, Color(aura, 1.0))
+	if d.has("skin"):
+		_gild(load(KK.CHAR_DIR + str(d["skin"])) as Texture2D)
 	model.scale = Vector3.ONE * float(d["scale"])
 	var occ: Vector2 = d["occluder"]
 	hunt.arena.add_dynamic_occluder(self, occ.x, occ.y)
@@ -331,6 +338,16 @@ func _tick_tier_moves(dt: float) -> void:
 		hunt.hud.event("Lances", Color(1.0, 0.5, 0.4), "arrow-cluster")
 		for k in [-0.5, 0.0, 0.5]:
 			hunt.beam_from(flat_pos(), yaw + float(k), 1.3, dmg * 0.8, def["color"])
+	if not ancient:
+		return
+	# The Ancient cross: four beams that turn a little each time.
+	_ancient_t -= dt
+	if _ancient_t <= 0.0:
+		_ancient_t = 10.0
+		hunt.hud.event("Ancient wrath", Color(1.0, 0.86, 0.5), "sun")
+		var base_yaw := fight_t * 0.7
+		for k in 4:
+			hunt.beam_from(flat_pos(), base_yaw + k * PI / 2.0, 1.1, dmg * 0.7, Color(1.0, 0.86, 0.5))
 
 
 ## A handful of the dead climb out around the hero: bigger and faster with the tier.
@@ -397,3 +414,24 @@ func die() -> void:
 	set_flash(0.0)
 	play("Skeletons_Death", 0.1, 0.7)
 	state_t = 2.5
+
+
+## A boss with its own skin (the Gilded Warden's gold plate): the body's
+## texture is swapped for it and the mesh is shaded as fine, clean metal
+## with a gold sheen. The texture carries the color, so nothing is tinted.
+func _gild(tex: Texture2D) -> void:
+	for mi in mesh_list():
+		for i in mi.mesh.get_surface_count():
+			var m := mi.get_surface_override_material(i) as ShaderMaterial
+			if m == null:
+				continue
+			m = m.duplicate()
+			# Gold texels read as "hot" skeleton eyes to the shader: no eye glow,
+			# or the plate and the key blow out to white.
+			m.set_shader_parameter("eye_glow", Color(0, 0, 0, 0))
+			if str((m.get_shader_parameter("albedo_tex") as Texture2D).resource_path).begins_with(KK.CHAR_DIR):
+				m.set_shader_parameter("albedo_tex", tex)
+				m.set_shader_parameter("roughness", 0.5)
+			mi.set_surface_override_material(i, m)
+		mi.set_instance_shader_parameter("grade", Vector4(0.6, 0.0, 0.0, 0.0))
+		mi.set_instance_shader_parameter("accent", Color(1.0, 0.82, 0.4))

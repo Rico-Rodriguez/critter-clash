@@ -52,6 +52,13 @@ func run() -> int:
 	Game.hero("knight")["shards"] = DB.LAMP_SHARDS
 	var xp_lamp := Game.lamp_xp("knight", "strength")
 	_ok("a ranger skill takes no lamp", not Game.rub_lamp("knight", "ranged"))
+	Game.hero("knight")["shards"] = 60
+	Game.data["gold"] = 999
+	_ok("super rank needs its gold", not Game.buy_super_rank("knight") and Game.super_rank("knight") == 0)
+	Game.data["gold"] = 1000
+	_ok("super rank pays shards and gold", Game.buy_super_rank("knight") and Game.super_rank("knight") == 1 and int(Game.hero("knight")["shards"]) == 10 and Game.gold() == 0)
+	_ok("super ranks scale the super", DB.super_mults(1).x > 1.0 and DB.super_mults(DB.SUPER_RANKS.size()).y > 1.0)
+	Game.hero("knight")["super_rank"] = 0
 	_ok("lamp adds xp", Game.rub_lamp("knight", "strength") and Game.skill_xp("strength", "knight") == xp_lamp and int(Game.hero("knight")["shards"]) == 0)
 	_ok("no shards, no lamp", not Game.can_rub_lamp("knight"))
 	Game.data = keep_lv
@@ -86,8 +93,44 @@ func run() -> int:
 	var main_k: String = DB.SLOT_MAIN["helm"]
 	var hp1 := int(Game.item(hu)["stats"][main_k])
 	_ok("copies and gold level a piece", Game.level_up(hu) and int(Game.item(hu)["lv"]) == 2 and int(Game.item(hu)["cards"]) == 0 and Game.gold() == 5 and int(Game.item(hu)["stats"][main_k]) > hp1)
+	var ta := Game.make_item("knight", "weapon", 1)
+	var tb := Game.make_item("knight", "weapon", 1)
+	for _k in 40:
+		if str(tb.get("fam", "")) != str(ta.get("fam", "")):
+			break
+		tb = Game.make_item("knight", "weapon", 1)
+	ta = Game.grant_item(ta)
+	tb = Game.grant_item(tb)
+	ta["cards"] = DB.TRADE_COPIES
+	Game.data["gold"] = 100000
+	var tb_cards := int(tb["cards"])
+	_ok("trade test has two pieces", int(ta["uid"]) != int(tb["uid"]))
+	if Game.can_trade(ta, tb):
+		_ok("copies trade into a sibling piece", Game.trade_copies(int(ta["uid"]), int(tb["uid"])) and int(ta["cards"]) == 0 and int(tb["cards"]) == tb_cards + 1 and Game.gold() == 100000 - Game.trade_fee(tb))
+	_ok("too few copies never trade", not Game.can_trade(ta, tb))
 	var cat := Game.catalog("barbarian", "weapon")
 	_ok("the armory has a row per family", cat.size() == DB.HERO_FAMILIES["barbarian"].size() and cat[0].size() == GearDB.TIERS)
+	# The Vault has its own boss, the Gilded Warden, with his own table and arms.
+	_ok("the vault's boss is the warden", str(DB.ZONES["vault"]["boss"]) == "warden" and DB.BOSSES.has("warden"))
+	_ok("the warden's arms exist", ResourceLoader.exists("res://assets/kaykit/weapons/warden_key.gltf") and ResourceLoader.exists("res://assets/kaykit/weapons/warden_door.gltf"))
+	var wsrc := []
+	for u: String in DB.UNIQUES:
+		if str(DB.UNIQUES[u]["source"]) == "warden":
+			wsrc.append(u)
+	_ok("the warden has a unique table, all in the log", wsrc.size() == 3 and wsrc.all(func(u): return u in DB.LOG_ORDER))
+	var wb: Node = load("res://src/hunt/boss_warden.gd").new()
+	_ok("the warden's script is a Boss", wb is Boss)
+	wb.free()
+	# The Rogue's families: six, each with a model in every set, and a drop picks one.
+	_ok("the rogue has six weapon families", DB.HERO_FAMILIES.get("rogue", []).size() == 6)
+	var fam_models := true
+	for hid: String in DB.HERO_FAMILIES:
+		for f: String in DB.HERO_FAMILIES[hid]:
+			fam_models = fam_models and str(DB.FAMILIES[f]["hero"]) == hid
+			for m in GearDB.TIERS:
+				fam_models = fam_models and ResourceLoader.exists("res://assets/kaykit/weapons/" + str(GearDB.family_look(f, m)["model"]))
+	_ok("every family has a model in every set", fam_models)
+	_ok("a rogue weapon drop rolls a rogue family", DB.HERO_FAMILIES["rogue"].has(str(Game.make_item("rogue", "weapon", 2).get("fam", ""))))
 	# v8 saves: copies of a piece fold into the worn one as level copies.
 	var a := Game.make_item("knight", "chest", 2, "rare")
 	a["uid"] = 501
@@ -152,6 +195,17 @@ func run() -> int:
 	_unique_names()
 	_net_tests()
 	_gear_tests()
+	# The Rogue's Hood helm is her own head mesh, so wearing it must not hide it.
+	var ra := Actor.new()
+	ra.build_model(DB.HEROES["rogue"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+	var hood_pre := {}
+	for slot in DB.SLOTS:
+		hood_pre[slot] = Game.make_item("rogue", slot, 4, "rare")
+	GearLook.apply(ra, "rogue", hood_pre)
+	var rh := ra.model.find_child("RogueHooded_Head", true, false) as MeshInstance3D
+	_ok("hooded rogue keeps her head", GearDB.look(hood_pre["helm"])["hood"] and rh != null and rh.visible)
+	ra.free()
+	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
 	return _fails
 
@@ -438,6 +492,27 @@ func _depth_tests() -> void:
 	_ok("a pick step adds the chosen hero", Game.hero("ranger")["unlocked"] and not Game.hero("knight")["unlocked"] and Game.road_pickable() == ["knight"])
 	for i in DB.TROPHY_ROAD.size() + 1:
 		_ok("road step %d has a name" % (i + 1), Game.road_reward_text(i + 1) != "")
+	_ok("weekly seed is stable per week", Game.weekly_seed(100) == Game.weekly_seed(100) and Game.weekly_seed(100) != Game.weekly_seed(101))
+	_ok("weekly score ranks a win above a loss", Game.weekly_score({"win": true, "level": 5}) > Game.weekly_score({"win": false, "level": 5}))
+	var wb_keep: Variant = Game.data.get("weekly", {})
+	Game.data.erase("weekly")
+	_ok("weekly best starts at zero", Game.weekly_best() == 0)
+	_ok("weekly best records", Game.record_weekly({"win": true, "level": 3}) and Game.weekly_best() == 1150)
+	_ok("weekly worse run is not kept", not Game.record_weekly({"win": false}) and Game.weekly_best() == 1150)
+	_ok("weekly entry carries this week's seed", int(Game.weekly_entry()["seed"]) == Game.weekly_seed())
+	Game.data["weekly"] = wb_keep
+	_ok("the Vault is the fourth zone", DB.ZONE_ORDER.size() == 4 and DB.ZONES.has("vault") and DB.ARENAS.any(func(z): return z["zone"] == "vault"))
+	_ok("the Vault opens on the road", DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "zone" and str(st.get("id", "")) == "vault"))
+	_ok("the Rogue is a hero", DB.HEROES.has("rogue") and "rogue" in DB.HERO_ORDER and GearDB.LINES.has("rogue") and TalentDB.PATHS.has("rogue"))
+	_ok("the Rogue is on the road", DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "hero" and str(st.get("id", "")) == "rogue"))
+	_ok("the Rogue has a signature", DB.CARDS.has(DB.SIGNATURES["rogue"]))
+	_ok("a new save has the Rogue locked", not Game._fresh()["heroes"]["rogue"]["unlocked"])
+	_ok("the Rogue has four weapon skins", DB.WEAPON_SKIN_ORDER.filter(func(k): return "rogue" in DB.WEAPON_SKINS[k]["heroes"]).size() == 4)
+	for u in ["barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]:
+		_ok("ancient unique %s" % u, DB.UNIQUES.has(u) and u in DB.LOG_ORDER and str(DB.UNIQUES[u]["source"]).begins_with("ancient_"))
+	_ok("ancient uniques never roll below Torment", Game.roll_uniques("ancient_boss", 0).size() >= 0 and DB.TIER_ANCIENT == 6)
+	_ok("road cards start locked", not Game.card_open("skybolt") and Game.card_open("might"))
+	_ok("every hero has two road epics", ["oath_storm", "shockwave", "rime_trap", "storm_arrows", "skybolt", "rift_quake", "thunder_cry", "skyfall"].all(func(c): return DB.CARDS.has(c) and DB.card_road_step(c) > 0))
 	var tr0 := Game.renown()
 	Game.finish_hunt({"win": false, "tier": 0, "hero": "mage", "gold": 1, "kills": 0, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 50.0, "zone": "barrow"})
 	_ok("a loss never takes trophies", Game.renown() >= tr0)
@@ -452,12 +527,16 @@ func _depth_tests() -> void:
 	Game.data["mode_tiers"] = {}
 	Game.set_mode("horde")
 	Game.finish_hunt({"win": true, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"})
-	_ok("a win opens the next tier in its mode", Game.mode_tier_unlocked("horde") == 1 and Game.mode_tier_unlocked("rush") == 0)
+	_ok("one win is not enough", Game.mode_tier_unlocked("horde") == 0)
+	for _i in DB.TIER_WINS - 1:
+		Game.finish_hunt({"win": true, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"})
+	_ok("three wins open the next tier in its mode", Game.mode_tier_unlocked("horde") == 1 and Game.mode_tier_unlocked("rush") == 0)
 	Game.set_mode("rush")
 	Game.set_tier(1)
 	_ok("other modes stay shut", Game.tier() == 0)
-	Game.finish_hunt({"win": false, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
-	_ok("a Descent boss opens the Descent's next tier", Game.mode_tier_unlocked("descent") == 1)
+	for _i in DB.TIER_WINS:
+		Game.finish_hunt({"win": false, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
+	_ok("Descent bosses open the Descent's next tier", Game.mode_tier_unlocked("descent") == 1)
 	Game.set_mode("horde")
 	Game.data["clue"] = {"step": 0, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 	var r := {"win": true, "tier": 1, "hero": "knight", "gold": 400, "elites": 3, "kills": 10, "xp": {}, "items": [], "dashes": 3, "mode": "horde", "time": 100.0, "zone": "barrow"}

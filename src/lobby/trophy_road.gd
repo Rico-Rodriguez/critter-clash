@@ -16,7 +16,7 @@ const ARENA_H := 262.0
 const GAP := 16.0
 const SKDB := preload("res://src/data/sidekick_db.gd")
 const SKR := preload("res://src/autoload/sidekicks.gd")
-const ZONE_ICON := {"barrow": "tombstone", "depths": "ghost", "grove": "wolf-head"}
+const ZONE_ICON := {"barrow": "tombstone", "depths": "ghost", "grove": "wolf-head", "vault": "locked-chest"}
 const MODE_ICON := {"horde": "skull-crossed-bones", "trial": "castle", "descent": "hourglass", "rush": "crowned-skull", "rift": "crystal-shine", "wild": "wolf-head"}
 const GOLD := Color("e8b65a")
 const EMBER := Color("d9622b")
@@ -364,6 +364,10 @@ func _add_step(n: int, y: float, w: float, claimed: int, ready_n: int) -> float:
 			tag = "NEW MODE"
 			title = "Rift"
 			sub = "Your first rift key"
+		"cards":
+			icon = str(DB.CARDS[rw["ids"][0]]["icon"])
+			tag = "NEW CARDS"
+			sub = "They join your level-up draws"
 	var style := "RoadReady" if state == "ready" else ("RoadDone" if state == "done" else ("RoadUnlock" if big else "RoadStep"))
 	var c := _card(y, w, h, style, icon, tag, title, sub, state != "locked")
 	if state == "done":
@@ -666,6 +670,11 @@ func _reveal(rw: Dictionary, lines: Array) -> void:
 			tag = "NEW MODE UNLOCKED"
 			title = "Rift"
 			sub = str(DB.MODES["rift"]["blurb"])
+		"cards":
+			icon = str(DB.CARDS[rw["ids"][0]]["icon"])
+			tag = "NEW CARDS UNLOCKED"
+			title = Game.road_reward_text(int(DB.TROPHY_ROAD.find(rw)) + 1).trim_prefix("New cards: ")
+			sub = "They join your level-up draws"
 		"hero", "pick":
 			var hid := str(rw.get("id", ""))
 			for l in lines:

@@ -343,11 +343,12 @@ func grant_item(it: Dictionary) -> Dictionary:
 ## Rolls a source's unique table (collection log). Returns unique ids hit.
 func roll_uniques(source: String, tier_i: int) -> Array:
 	var hits := []
-	var mult: float = DB.TIERS[tier_i]["loot"]
+	# Square root keeps high tiers better without making uniques trivial there.
+	var mult: float = sqrt(float(DB.TIERS[tier_i]["loot"]))
 	for u in DB.LOG_ORDER:
 		var ud: Dictionary = DB.UNIQUES[u]
 		var src := str(ud["source"])
-		if src == source or (src == "nightmare" and source in ["boss", "hexer", "thorn"] and tier_i >= DB.TIER_NIGHTMARE):
+		if src == source or (src == "nightmare" and source in ["boss", "hexer", "thorn", "warden"] and tier_i >= DB.TIER_NIGHTMARE):
 			if rng.randf() < mult / float(ud["rate"]):
 				hits.append(u)
 	return hits
@@ -423,6 +424,43 @@ func level_up(uid: int) -> bool:
 	data["gold"] = gold() - int(c["gold"])
 	it["lv"] = int(it.get("lv", 1)) + 1
 	it["stats"] = piece_stats(it)
+	save()
+	return true
+
+
+# --- Copy trading ---------------------------------------------------------------
+
+func trade_fee(it: Dictionary) -> int:
+	return int(round(DB.TRADE_GOLD * (1.0 + DB.PIECE_GOLD_SET * int(it.get("mat", 0))) / 10.0)) * 10
+
+
+## True when spare copies of `from` can become a copy of `to`: same hero, same
+## slot, same material set (a boss-set or family variant may differ), neither a unique, and enough copies to trade.
+func can_trade(from: Dictionary, to: Dictionary) -> bool:
+	if from.is_empty() or to.is_empty() or int(from["uid"]) == int(to["uid"]):
+		return false
+	if str(from.get("unique", "")) != "" or str(to.get("unique", "")) != "":
+		return false
+	return str(from.get("cls", "")) == str(to.get("cls", "")) and from["slot"] == to["slot"] and int(from.get("mat", 0)) == int(to.get("mat", 0)) and int(from.get("cards", 0)) >= DB.TRADE_COPIES and gold() >= trade_fee(to)
+
+
+## The owned piece with the most spare copies that can trade into `to`, or {}.
+func trade_source(to: Dictionary) -> Dictionary:
+	var best := {}
+	for p: Dictionary in data["items"]:
+		if can_trade(p, to) and (best.is_empty() or int(p["cards"]) > int(best["cards"])):
+			best = p
+	return best
+
+
+func trade_copies(from_uid: int, to_uid: int) -> bool:
+	var from := item(from_uid)
+	var to := item(to_uid)
+	if not can_trade(from, to):
+		return false
+	from["cards"] = int(from["cards"]) - DB.TRADE_COPIES
+	to["cards"] = int(to.get("cards", 0)) + 1
+	data["gold"] = gold() - trade_fee(to)
 	save()
 	return true
 

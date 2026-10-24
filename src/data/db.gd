@@ -94,8 +94,21 @@ const HEROES := {
 		"blurb": "Huge swings. Clears a circle around him.",
 		"skill": "melee", "unlock": "road",
 	},
+	"rogue": {
+		"name": "Rogue", "title": "The Unseen", "role": "Assassin",
+		"model": "Rogue_Hooded",
+		"weapons": {"handslot.r": "dagger.gltf", "handslot.l": "dagger.gltf"},
+		"weapon_bone": "handslot.r", "weapon_looks": [],
+		"style": "melee", "hp": 360.0, "speed": 5.9, "dmg": 21.0, "rate": 1.7,
+		"range": 2.2, "arc": 120.0, "armor": 0.05,
+		"super": "shadowstep", "super_name": "Shadowstep", "super_desc": "Blink from foe to foe, stabbing each one as you pass.",
+		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "super": "Melee_Dualwield_Attack_Chop"},
+		"color": Color(0.55, 0.9, 0.6), "icon": "hood",
+		"blurb": "Two daggers, fast hands. Gets in, gets out.",
+		"skill": "melee", "unlock": "road",
+	},
 }
-const HERO_ORDER := ["knight", "ranger", "mage", "barbarian"]
+const HERO_ORDER := ["knight", "ranger", "mage", "barbarian", "rogue"]
 
 ## Weapon families: the weapon, not the hero, decides the basic attack. Each
 ## has its own swing clips, hit shape, trail and sound; the hero keeps its
@@ -132,6 +145,25 @@ const FAMILIES := {
 	"throwing": {"hero": "barbarian", "level": 1, "min_set": 0, "name": "Throwing Axe", "how": "Hurl the axe through the horde. It comes back to your hand.", "attack": "throw", "icon": "tomahawk", "one_hand": true,
 		"clips": ["Throw"], "dmg": 0.75, "rate": 1.0, "range": 2.6, "arc": 0.0, "speed": 18.0,
 		"trail": Color(1.0, 0.7, 0.4), "sfx": "swing"},
+	# The Rogue: light blades, mostly one in each hand (tools/art/make_rogue_arms.py).
+	"daggers": {"hero": "rogue", "level": 1, "min_set": 0, "name": "Daggers", "how": "Two daggers, two quick cuts every swing.", "attack": "flurry", "icon": "cloak-dagger", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.55, "rate": 1.4, "range": 0.85, "arc": 140.0, "hits": 2,
+		"trail": Color(0.55, 0.9, 0.6), "sfx": "swing"},
+	"chakram": {"hero": "rogue", "level": 1, "min_set": 0, "name": "Chakram", "how": "A bladed ring flung through the horde. It spins back to your hand.", "attack": "throw", "icon": "spinning-blades", "one_hand": true,
+		"clips": ["Throw"], "dmg": 0.7, "rate": 1.1, "range": 2.4, "arc": 0.0, "speed": 20.0,
+		"trail": Color(0.7, 1.0, 0.75), "sfx": "swing"},
+	"rapier": {"hero": "rogue", "level": 10, "min_set": 1, "name": "Rapier", "how": "A lunge that runs a needle through a whole line of foes.", "attack": "thrust", "icon": "spear-feather",
+		"clips": ["Melee_1H_Attack_Stab"], "dmg": 1.0, "rate": 1.15, "range": 1.6, "arc": 30.0, "width": 0.9,
+		"trail": Color(0.85, 0.95, 1.0), "sfx": "atk_tank"},
+	"sickles": {"hero": "rogue", "level": 25, "min_set": 2, "name": "Sickles", "how": "Two reaping hooks, three fast cuts every swing.", "attack": "flurry", "icon": "sword-wound", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"], "dmg": 0.42, "rate": 1.35, "range": 0.9, "arc": 170.0, "hits": 3,
+		"trail": Color(0.5, 1.0, 0.55), "sfx": "swing"},
+	"katars": {"hero": "rogue", "level": 40, "min_set": 3, "name": "Katars", "how": "Punch daggers driven down together: the ground bursts, foes stagger.", "attack": "slam", "icon": "fist", "dual": true,
+		"clips": ["Melee_Dualwield_Attack_Chop"], "dmg": 1.4, "rate": 0.85, "range": 0.8, "arc": 360.0, "slam_r": 2.0, "stun": 0.4, "knock": 7.0,
+		"trail": Color(0.6, 1.0, 0.7), "sfx": "quake"},
+	"nightblade": {"hero": "rogue", "level": 60, "min_set": 3, "boss_from": 4, "name": "Nightblade", "how": "A long curved edge. Elites and bosses are cut three times.", "attack": "sweep", "icon": "dripping-sword",
+		"clips": ["Melee_1H_Attack_Slice_Horizontal", "Melee_1H_Attack_Slice_Diagonal"], "dmg": 0.8, "rate": 0.95, "range": 1.2, "arc": 220.0, "echo": [0.5, 0.25],
+		"trail": Color(0.4, 0.9, 0.6), "sfx": "cleave"},
 	# The Knight: one-handed, the shield always up.
 	"sword": {"hero": "knight", "level": 1, "min_set": 0, "name": "Sword", "how": "Quick, sure cuts across the front.", "attack": "cleave", "icon": "broadsword",
 		"clips": ["Melee_1H_Attack_Slice_Diagonal", "Melee_1H_Attack_Slice_Horizontal"], "dmg": 1.0, "rate": 1.0, "range": 1.0, "arc": 140.0,
@@ -200,6 +232,7 @@ const HERO_FAMILIES := {
 	"ranger": ["shortbow", "knives", "crossbow", "longbow", "repeater", "soulbow"],
 	"mage": ["staff", "wand", "tome", "scepter", "skullstaff", "soulstaff"],
 	"barbarian": ["axe", "maul", "scythe", "twin", "halberd", "throwing"],
+	"rogue": ["daggers", "chakram", "rapier", "sickles", "katars", "nightblade"],
 }
 
 ## Hero levels bought with shards and gold are gone: skills are a hero's power
@@ -319,6 +352,12 @@ const BOSSES := {
 		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.3, "mass": 30.0,
 		"color": Color(0.75, 0.4, 1.0), "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
 	},
+	"warden": {
+		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
+		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
+		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
+		"color": Color(1.0, 0.82, 0.35), "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
+	},
 }
 
 ## The places a hunt can happen. `weights` scale how often each foe is drawn.
@@ -347,8 +386,17 @@ const ZONES := {
 		"env": {"bg": Color(0.03, 0.025, 0.015), "ambient": Color(0.55, 0.42, 0.28), "ambient_e": 0.32, "fog": Color(0.16, 0.12, 0.06), "fog_d": 0.014,
 			"sun": Color(1.0, 0.72, 0.45), "sun_e": 0.42, "sun_rot": Vector3(-50, -40, 0), "mist": Color(0.75, 0.62, 0.4, 0.1), "motes": Color(0.85, 1.0, 0.45, 0.9)},
 	},
+	# The fourth zone: the Barrow King's treasury, built from the KayKit
+	# dungeon pack. Warm and bright, light fog, so the gold reads crisp.
+	"vault": {
+		"name": "The Gilded Vault", "boss": "warden", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
+		"wake": "Gather %d souls to wake the King", "defeat": "The Vault keeps you", "enter": "Break into the Vault",
+		"loot_bonus": 3, "gold_bonus": 0.25, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 7500 trophies",
+		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
+			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
+	},
 }
-const ZONE_ORDER := ["barrow", "depths", "grove"]
+const ZONE_ORDER := ["barrow", "depths", "grove", "vault"]
 
 ## How a hunt is played. horde: the soul meter fills, the boss wakes. trial:
 ## the Long Road, a generated dungeon of rooms to fight through, boss at the
@@ -400,6 +448,8 @@ static func rival_def(hero_id: String) -> Dictionary:
 			d.merge({"ai": "melee", "hp": 560.0, "dmg": 22.0, "speed": 4.4, "reach": 2.3, "windup": 0.45, "cooldown": 1.0})
 		"barbarian":
 			d.merge({"ai": "melee", "hp": 700.0, "dmg": 32.0, "speed": 4.1, "reach": 2.7, "windup": 0.6, "cooldown": 1.4})
+		"rogue":
+			d.merge({"ai": "melee", "hp": 460.0, "dmg": 20.0, "speed": 4.8, "reach": 2.1, "windup": 0.35, "cooldown": 0.8})
 		"ranger":
 			d.merge({"ai": "ranged", "hp": 400.0, "dmg": 18.0, "speed": 4.2, "reach": 9.0, "windup": 0.55, "cooldown": 1.5, "proj_speed": 15.0})
 		_:
@@ -451,19 +501,19 @@ const ELITE_TITLES := ["the Restless", "the Unburied", "the Hungering", "the For
 const TIERS := [
 	{"id": "normal", "name": "Normal", "hp": 1.0, "dmg": 1.0, "spd": 1.0, "press": 1.0, "souls": 150, "loot": 1.0, "gold": 1.0, "xp": 1.0, "chest": "silver",
 		"ai": 0.0, "mech": 0.0, "pen": 0.0, "heal": 1.0, "mat": 0, "power": 350, "color": Color(0.8, 0.8, 0.8)},
-	{"id": "hard", "name": "Hard", "hp": 1.7, "dmg": 1.45, "spd": 1.04, "press": 1.12, "souls": 160, "loot": 1.3, "gold": 1.4, "xp": 1.3, "chest": "silver",
+	{"id": "hard", "name": "Hard", "hp": 1.7, "dmg": 1.45, "spd": 1.04, "press": 1.12, "souls": 160, "loot": 1.3, "gold": 1.25, "xp": 1.3, "chest": "silver",
 		"ai": 0.5, "mech": 0.04, "pen": 0.05, "heal": 0.95, "mat": 0, "power": 550, "color": Color(0.6, 0.85, 0.55)},
-	{"id": "veteran", "name": "Veteran", "hp": 2.9, "dmg": 2.1, "spd": 1.08, "press": 1.25, "souls": 170, "loot": 1.6, "gold": 1.8, "xp": 1.6, "chest": "gold",
+	{"id": "veteran", "name": "Veteran", "hp": 2.9, "dmg": 2.1, "spd": 1.08, "press": 1.25, "souls": 170, "loot": 1.6, "gold": 1.5, "xp": 1.6, "chest": "gold",
 		"ai": 1.0, "mech": 0.08, "pen": 0.1, "heal": 0.85, "mat": 1, "power": 850, "color": Color(1.0, 0.75, 0.3)},
-	{"id": "expert", "name": "Expert", "hp": 4.8, "dmg": 3.0, "spd": 1.12, "press": 1.35, "souls": 180, "loot": 2.1, "gold": 2.4, "xp": 2.0, "chest": "gold",
+	{"id": "expert", "name": "Expert", "hp": 4.8, "dmg": 3.0, "spd": 1.12, "press": 1.35, "souls": 180, "loot": 2.1, "gold": 1.8, "xp": 2.0, "chest": "gold",
 		"ai": 1.5, "mech": 0.12, "pen": 0.18, "heal": 0.75, "mat": 1, "power": 1300, "color": Color(1.0, 0.55, 0.25)},
-	{"id": "nightmare", "name": "Nightmare", "hp": 8.0, "dmg": 4.4, "spd": 1.17, "press": 1.5, "souls": 190, "loot": 2.6, "gold": 3.0, "xp": 2.4, "chest": "crypt",
+	{"id": "nightmare", "name": "Nightmare", "hp": 8.0, "dmg": 4.4, "spd": 1.17, "press": 1.5, "souls": 190, "loot": 2.6, "gold": 2.1, "xp": 2.4, "chest": "crypt",
 		"ai": 2.0, "mech": 0.16, "pen": 0.25, "heal": 0.65, "mat": 2, "power": 2000, "color": Color(0.95, 0.25, 0.25)},
-	{"id": "hell", "name": "Hell", "hp": 13.5, "dmg": 6.4, "spd": 1.21, "press": 1.6, "souls": 200, "loot": 3.2, "gold": 3.8, "xp": 2.9, "chest": "crypt",
+	{"id": "hell", "name": "Hell", "hp": 13.5, "dmg": 6.4, "spd": 1.21, "press": 1.6, "souls": 200, "loot": 3.2, "gold": 2.4, "xp": 2.9, "chest": "crypt",
 		"ai": 2.3, "mech": 0.22, "pen": 0.32, "heal": 0.55, "mat": 3, "power": 3100, "color": Color(0.85, 0.12, 0.35)},
-	{"id": "torment", "name": "Torment", "hp": 23.0, "dmg": 9.0, "spd": 1.25, "press": 1.7, "souls": 210, "loot": 3.9, "gold": 4.7, "xp": 3.4, "chest": "crypt",
+	{"id": "torment", "name": "Torment", "hp": 23.0, "dmg": 9.0, "spd": 1.25, "press": 1.7, "souls": 210, "loot": 3.9, "gold": 2.7, "xp": 3.4, "chest": "crypt",
 		"ai": 2.6, "mech": 0.28, "pen": 0.4, "heal": 0.45, "mat": 3, "power": 4700, "color": Color(0.7, 0.2, 0.85)},
-	{"id": "abyss", "name": "Abyss", "hp": 39.0, "dmg": 12.5, "spd": 1.3, "press": 1.8, "souls": 220, "loot": 4.8, "gold": 5.8, "xp": 4.0, "chest": "crypt",
+	{"id": "abyss", "name": "Abyss", "hp": 39.0, "dmg": 12.5, "spd": 1.3, "press": 1.8, "souls": 220, "loot": 4.8, "gold": 3.0, "xp": 4.0, "chest": "crypt",
 		"ai": 3.0, "mech": 0.35, "pen": 0.45, "heal": 0.35, "mat": 4, "power": 7000, "color": Color(0.35, 0.85, 1.0)},
 ]
 ## Old saves had three tiers: Normal, Veteran, Nightmare.
@@ -471,6 +521,8 @@ const TIER_FROM_V3 := [0, 2, 4]
 ## Named tier indices other rules depend on.
 const TIER_VETERAN := 2
 const TIER_NIGHTMARE := 4
+## From Torment up every boss wakes in its Ancient form (Boss.ancient).
+const TIER_ANCIENT := 6
 ## Hero armor turns into damage reduction on a curve (1 - e^-k·armor): the
 ## first points count fully, stacking past ~60 armor gives little.
 const ARMOR_K := 0.95
@@ -552,6 +604,16 @@ const CARDS := {
 	"ricochet": {"name": "Ricochet", "desc": "Arrows that hit leap on to another foe", "icon": "high-shot", "rarity": "legendary", "max": 1, "hero": ["ranger"], "sig": true},
 	"pyre": {"name": "Pyre", "desc": "Fireballs leave the ground burning", "icon": "flame", "rarity": "legendary", "max": 1, "hero": ["mage"], "sig": true},
 	"rampage": {"name": "Rampage", "desc": "Every kill: +3% damage for 6 seconds, up to +45%", "icon": "muscle-up", "rarity": "legendary", "max": 1, "hero": ["barbarian"], "sig": true},
+	"backstab": {"name": "Backstab", "desc": "Your crits hit 60% harder", "icon": "dripping-sword", "rarity": "legendary", "max": 1, "hero": ["rogue"], "sig": true},
+	# Road cards: locked until their Trophy Road step (CARD_ROAD), two new epics a hero.
+	"oath_storm": {"name": "Storm Oath", "desc": "Your oath calls chain lightning through nearby foes", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["knight"]},
+	"shockwave": {"name": "Shockwave", "desc": "Every few seconds the ground bursts around you", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["knight", "rogue"]},
+	"rime_trap": {"name": "Rime Trap", "desc": "A ring of frost bursts around you and slows the pack", "icon": "frozen-orb", "rarity": "epic", "max": 4, "hero": ["ranger", "rogue"]},
+	"storm_arrows": {"name": "Storm Arrows", "desc": "Lightning leaps between the foes you shoot", "icon": "lightning-helix", "rarity": "epic", "max": 4, "hero": ["ranger"]},
+	"skybolt": {"name": "Skybolt", "desc": "Bolts fall from the sky on the nearest foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"rift_quake": {"name": "Rift Quake", "desc": "The earth splits around you and hurls foes back", "icon": "fist", "rarity": "epic", "max": 4, "hero": ["mage"]},
+	"thunder_cry": {"name": "Thunder Cry", "desc": "Your war cry calls lightning on nearby foes", "icon": "sun", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
+	"skyfall": {"name": "Skyfall", "desc": "Burning rocks crash down on the horde", "icon": "meteor-impact", "rarity": "epic", "max": 4, "hero": ["barbarian"]},
 	# Sidekick cards: in the pool only with that sidekick at Bond 5+ (see sidekick_db.gd).
 	"drake_inferno": {"name": "Drake's Inferno", "desc": "Fire Breath +30% damage", "icon": "fire-breath", "rarity": "rare", "max": 3, "sidekick": "drake", "effect": "power"},
 	"drake_nova": {"name": "Dragonfire Nova", "desc": "Fire Breath 20% more often, and each breath bursts a ring of fire", "icon": "dragon-head", "rarity": "epic", "max": 2, "sidekick": "drake", "effect": "haste"},
@@ -651,13 +713,43 @@ const TROPHY_ROAD := [
 	{"t": 2500, "kind": "zone", "id": "grove"},
 	{"t": 3000, "kind": "hero", "id": "barbarian"},
 	{"t": 3500, "kind": "rift_key"},
+	# The long road: steps past 3,500 so the ladder lasts weeks, not an afternoon.
+	{"t": 3800, "kind": "cards", "ids": ["oath_storm", "rime_trap", "skybolt", "thunder_cry"]},
+	{"t": 4100, "kind": "shards", "amount": 60},
+	{"t": 4400, "kind": "chest", "chest": "gold"},
+	{"t": 4700, "kind": "cards", "ids": ["wisp", "thorns"]},
+	{"t": 5000, "kind": "chest", "chest": "crypt"},
+	{"t": 5300, "kind": "shards", "amount": 80},
+	{"t": 5600, "kind": "gold", "amount": 2500},
+	{"t": 5900, "kind": "cards", "ids": ["shockwave", "storm_arrows", "rift_quake", "skyfall"]},
+	{"t": 6200, "kind": "chest", "chest": "crypt"},
+	{"t": 6500, "kind": "shards", "amount": 100},
+	{"t": 6800, "kind": "hero", "id": "rogue"},
+	{"t": 7100, "kind": "chest", "chest": "gold"},
+	{"t": 7500, "kind": "zone", "id": "vault"},
+	{"t": 7900, "kind": "shards", "amount": 120},
+	{"t": 8300, "kind": "gold", "amount": 4000},
+	{"t": 8700, "kind": "cards", "ids": ["explosive", "greed"]},
+	{"t": 9100, "kind": "chest", "chest": "crypt"},
+	{"t": 9500, "kind": "shards", "amount": 150},
+	{"t": 9800, "kind": "gold", "amount": 5000},
+	{"t": 10000, "kind": "chest", "chest": "crypt"},
 ]
 const ROAD_EVERY := 500
+
+## Cards that join the level-up draws only once their road step is claimed.
+static func card_road_step(id: String) -> int:
+	for i in TROPHY_ROAD.size():
+		var st: Dictionary = TROPHY_ROAD[i]
+		if str(st["kind"]) == "cards" and id in st["ids"]:
+			return i + 1
+	return 0
 ## Arenas are the zones, opened where their step sits on the road.
 const ARENAS := [
 	{"zone": "barrow", "t": 0, "color": Color(0.36, 0.45, 0.75)},
 	{"zone": "depths", "t": 800, "color": Color(0.6, 0.4, 0.8)},
 	{"zone": "grove", "t": 2500, "color": Color(0.8, 0.6, 0.28)},
+	{"zone": "vault", "t": 7500, "color": Color(0.95, 0.78, 0.35)},
 ]
 ## A new save picks one of these; the rest come from the road's `pick` steps.
 const START_HEROES := ["knight", "ranger", "mage"]
@@ -669,7 +761,7 @@ const ROAD_SPARE_GOLD := 500
 ## the first time. A loss pays for how far it got, up to TROPHY_LOSS_MAX; the
 ## Descent pays per depth reached.
 const TROPHY_WIN := 30
-const TROPHY_TIER := 10
+const TROPHY_TIER := 6
 const TROPHY_ELITE := 2
 const TROPHY_ELITE_CAP := 5
 const TROPHY_FIRST_WIN := 30
@@ -793,13 +885,24 @@ const UNIQUES := {
 	"thornbow": {"cls": "ranger", "fam": "longbow", "dye": Color(0.45, 0.85, 0.3), "name": "Thornwood Longbow", "slot": "weapon", "rarity": "legendary", "source": "thorn", "rate": 25, "stats": {"dmg": 28, "crit": 9}, "card": "barrage", "power": "Start every hunt with Arrow Storm", "icon": "pocket-bow"},
 	"barkplate": {"cls": "barbarian", "dye": Color(0.4, 0.3, 0.18), "name": "Barkhide Plate", "slot": "chest", "rarity": "legendary", "source": "thorn", "rate": 25, "stats": {"hp": 32, "armor": 9}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
 	"seedheart": {"cls": "knight", "dye": Color(0.6, 1.0, 0.4), "name": "Seedheart Aegis", "slot": "trinket", "rarity": "legendary", "source": "thorn", "rate": 30, "stats": {"aspd": 12, "regen": 5}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "shield"},
+	# Ancient forms (Torment and up): a relic and a pet each.
+	"barrow_relic": {"name": "Ancient Barrow Crown", "slot": "trophy", "rarity": "legendary", "source": "ancient_boss", "rate": 30, "icon": "crowned-skull", "power": "Cold iron from the first king. Sells for 5000 gold.", "sell": 5000},
+	"barrow_squire": {"name": "Barrow Squire", "slot": "pet", "rarity": "legendary", "source": "ancient_boss", "rate": 60, "icon": "skull-crossed-bones", "power": "A small, very loyal skeleton knight.", "model": "Skeleton_Warrior"},
+	"hex_relic": {"name": "Ancient Hex Spindle", "slot": "trophy", "rarity": "legendary", "source": "ancient_hexer", "rate": 30, "icon": "magic-swirl", "power": "Still spinning. Sells for 5000 gold.", "sell": 5000},
+	"shade": {"name": "Hexbound Shade", "slot": "pet", "rarity": "legendary", "source": "ancient_hexer", "rate": 60, "icon": "ghost", "power": "A quiet shade that keeps to your heels.", "model": "Skeleton_Rogue"},
+	"thorn_relic": {"name": "Ancient Heartwood", "slot": "trophy", "rarity": "legendary", "source": "ancient_thorn", "rate": 30, "icon": "crystal-shine", "power": "Warm to the touch. Sells for 5000 gold.", "sell": 5000},
+	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "A tiny hooded grove-keeper.", "model": "Rogue_Hooded"},
 	"acolyte": {"name": "Acolyte", "slot": "pet", "rarity": "legendary", "source": "thorn", "rate": 50, "icon": "ghost", "power": "Sidekick: Thorn Ward throws foes back.", "model": "Rogue_Hooded"},
 	"seed": {"name": "Thorn Seed", "slot": "trophy", "rarity": "magic", "source": "thorn", "rate": 4, "icon": "gems", "power": "It wriggles. Sells for 80 gold.", "sell": 80},
+	# The Gilded Warden (the Vault).
+	"gilded_fang": {"cls": "rogue", "fam": "daggers", "dye": Color(1.0, 0.82, 0.35), "name": "Gilded Fangs", "slot": "weapon", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"dmg": 27, "crit": 10}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "cloak-dagger"},
+	"hoardplate": {"cls": "knight", "dye": Color(1.0, 0.8, 0.35), "name": "Hoardplate", "slot": "chest", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"hp": 32, "armor": 9}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
+	"vault_coin": {"name": "Vault Sovereign", "slot": "trophy", "rarity": "magic", "source": "warden", "rate": 4, "icon": "two-coins", "power": "Heavier than it looks. Sells for 120 gold.", "sell": 120},
 	"abyssal": {"name": "Abyssal Gem", "slot": "trophy", "rarity": "legendary", "source": "nightmare", "rate": 80, "icon": "crystal-shine", "power": "It hums. Sells for 2000 gold.", "sell": 2000},
 }
-const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal"]
+const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling", "gilded_fang", "hoardplate", "vault_coin"]
 ## Unique sources and the boss whose kill count and dry streak they follow.
-const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn"}
+const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn", "warden": "warden"}
 
 ## Rarity weights by source; tier loot multiplier shifts weight upward.
 const DROP_RARITY := {
@@ -852,6 +955,25 @@ const TALENT_MAX := 19
 ## XP lamps: shards rubbed into a skill, worth this much XP per shard per
 ## level of the skill (OSRS lamps scale with level too).
 const LAMP_SHARDS := 10
+
+## Super ranks: the job for shards. Each rank costs shards plus gold and adds
+## the change its line says, so the price and payoff are always readable.
+const SUPER_RANKS := [
+	{"shards": 50, "gold": 1000, "dmg": 0.15, "charge": 0.0, "text": "+15% Super damage"},
+	{"shards": 100, "gold": 3000, "dmg": 0.0, "charge": 0.15, "text": "Super charges 15% faster"},
+	{"shards": 200, "gold": 7000, "dmg": 0.2, "charge": 0.0, "text": "+20% Super damage"},
+	{"shards": 350, "gold": 15000, "dmg": 0.0, "charge": 0.2, "text": "Super charges 20% faster"},
+	{"shards": 500, "gold": 30000, "dmg": 0.3, "charge": 0.0, "text": "+30% Super damage"},
+]
+
+## Super damage and charge-rate multipliers at `rank` (0 to SUPER_RANKS.size()).
+static func super_mults(rank: int) -> Vector2:
+	var d := 1.0
+	var c := 1.0
+	for i in clampi(rank, 0, SUPER_RANKS.size()):
+		d += float(SUPER_RANKS[i]["dmg"])
+		c += float(SUPER_RANKS[i]["charge"])
+	return Vector2(d, c)
 const LAMP_XP := 5
 ## Skill XP per point of damage dealt.
 const XP_PER_DAMAGE := 0.16
@@ -908,6 +1030,10 @@ const SET_STAT := ["", "armor", "hp", "crit", "regen"]
 const PIECE_CARDS := [1, 2, 3, 4, 6, 8, 11, 15, 20]
 const PIECE_GOLD := [60, 120, 220, 380, 600, 900, 1300, 1900, 2700]
 const PIECE_GOLD_SET := 0.6
+## Copy trading: TRADE_COPIES spare copies of a piece become one copy of another
+## piece in the same slot and set, for TRADE_GOLD x the set's gold factor.
+const TRADE_COPIES := 3
+const TRADE_GOLD := 200
 ## Talent reset: the first is free, then this much per talent point earned.
 const RESPEC_GOLD := 90
 
@@ -926,8 +1052,12 @@ const GLOWS := {
 	"gold": {"name": "Kingsgold", "color": Color(1.0, 0.85, 0.3, 0.55), "gold": 12000},
 	# Not for sale: earned when a friend you invited plays their first hunts.
 	"kinship": {"name": "Kinship", "color": Color(0.35, 0.75, 1.0, 0.55), "gold": 0, "gift": true},
+	# Not for sale: hero mastery ranks pay these, so the shop's glows stay worth buying.
+	"bloodmoon": {"name": "Bloodmoon", "color": Color(0.85, 0.12, 0.18, 0.5), "gold": 0, "gift": true},
+	"wraith": {"name": "Wraith", "color": Color(0.8, 0.95, 0.9, 0.5), "gold": 0, "gift": true},
+	"sunsteel": {"name": "Sunsteel", "color": Color(1.0, 0.95, 0.7, 0.6), "gold": 0, "gift": true},
 }
-const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship"]
+const GLOW_ORDER := ["ember", "frost", "venom", "void", "gold", "kinship", "bloodmoon", "wraith", "sunsteel"]
 
 # --- Shop -------------------------------------------------------------------------
 
@@ -961,8 +1091,26 @@ const WEAPON_SKINS := {
 	# Held one-handed and pointing forward, a scythe reads as a spear: the
 	# Knight's idle pose is why it is the Barbarian's alone.
 	"reaper": {"name": "Reaper's Scythe", "model": "reaper_scythe.gltf", "icon": "scythe", "scale": 0.85, "heroes": ["barbarian"], "gold": 8000},
+	# KayKit Fantasy Weapons models, unmodified: about four looks a hero.
+	"squire": {"name": "Squire's Pride", "model": "sword_A.gltf", "icon": "broadsword", "scale": 1.0, "heroes": ["knight"], "gold": 10000},
+	"warden": {"name": "Gravewarden", "model": "sword_D.gltf", "icon": "dripping-sword", "scale": 1.0, "heroes": ["knight"], "gold": 20000},
+	"dawn": {"name": "Dawnbreaker", "model": "hammer_B.gltf", "icon": "warhammer", "scale": 1.0, "heroes": ["knight"], "gold": 35000},
+	"willow": {"name": "Willowstring", "model": "bow_A_withString.gltf", "icon": "pocket-bow", "scale": 1.0, "heroes": ["ranger"], "gold": 8000},
+	"hawk": {"name": "Hawkeye Longbow", "model": "bow_B_withString.gltf", "icon": "bow-arrow", "scale": 1.0, "heroes": ["ranger"], "gold": 18000},
+	"bolt": {"name": "Boltcaster", "model": "crossbow_2handed.gltf", "icon": "crossbow", "scale": 1.0, "heroes": ["ranger"], "gold": 28000},
+	"elder": {"name": "Elder Bough", "model": "staff_A.gltf", "icon": "wizard-staff", "scale": 1.0, "heroes": ["mage"], "gold": 8000},
+	"sprite": {"name": "Spritewand", "model": "wand_A.gltf", "icon": "fairy-wand", "scale": 1.0, "heroes": ["mage"], "gold": 16000},
+	"grimoire": {"name": "Open Grimoire", "model": "spellbook_open.gltf", "icon": "spell-book", "scale": 1.0, "heroes": ["mage"], "gold": 26000},
+	"hexstaff": {"name": "Hexwood Staff", "model": "staff_B.gltf", "icon": "skull-staff", "scale": 1.0, "heroes": ["mage"], "gold": 40000},
+	"cleaver": {"name": "Raider's Cleaver", "model": "axe_A.gltf", "icon": "battle-axe", "scale": 1.0, "heroes": ["barbarian"], "gold": 12000},
+	"crusher": {"name": "Skullcrusher", "model": "hammer_A.gltf", "icon": "warhammer", "scale": 1.0, "heroes": ["barbarian"], "gold": 22000},
+	"twinfang": {"name": "Twinfang Axe", "model": "axe_C.gltf", "icon": "crossed-axes", "scale": 1.0, "heroes": ["barbarian"], "gold": 40000},
+	"kris": {"name": "Wavy Kris", "model": "dagger_A.gltf", "icon": "cloak-dagger", "scale": 1.0, "heroes": ["rogue"], "gold": 8000},
+	"stiletto": {"name": "Night Stiletto", "model": "dagger_B.gltf", "icon": "cloak-dagger", "scale": 1.0, "heroes": ["rogue"], "gold": 16000},
+	"duelblade": {"name": "Duelist's Blade", "model": "sword_B.gltf", "icon": "crossed-swords", "scale": 0.8, "heroes": ["rogue"], "gold": 26000},
+	"boneshiv": {"name": "Bone Shiv", "model": "Skeleton_Blade.gltf", "icon": "dripping-sword", "scale": 0.8, "heroes": ["rogue"], "gold": 40000},
 }
-const WEAPON_SKIN_ORDER := ["oathbound", "reaper"]
+const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang", "kris", "stiletto", "duelblade", "boneshiv"]
 
 # --- Online ---------------------------------------------------------------------
 
@@ -997,13 +1145,13 @@ const SET_CHANCE := 0.3
 ## once and give a title shown under the hero's name.
 const MASTERY := [
 	{"at": 0, "title": "Recruit"},
-	{"at": 300, "title": "Blooded", "gold": 300},
-	{"at": 900, "title": "Veteran", "gold": 600, "shards": 20},
-	{"at": 2000, "title": "Champion", "gold": 1200, "shards": 40, "glow": "ember"},
-	{"at": 4000, "title": "Warlord", "gold": 2500, "shards": 80},
-	{"at": 7500, "title": "Master", "gold": 5000, "shards": 140, "glow": "frost"},
-	{"at": 13000, "title": "Grandmaster", "gold": 9000, "shards": 220},
-	{"at": 21000, "title": "Legend", "gold": 15000, "shards": 320, "glow": "gold"},
+	{"at": 300, "title": "Blooded", "gold": 150},
+	{"at": 900, "title": "Veteran", "gold": 300, "shards": 20},
+	{"at": 2000, "title": "Champion", "gold": 600, "shards": 40, "glow": "bloodmoon"},
+	{"at": 4000, "title": "Warlord", "gold": 1250, "shards": 80},
+	{"at": 7500, "title": "Master", "gold": 2500, "shards": 140, "glow": "wraith"},
+	{"at": 13000, "title": "Grandmaster", "gold": 4500, "shards": 220},
+	{"at": 21000, "title": "Legend", "gold": 7500, "shards": 320, "glow": "sunsteel"},
 ]
 
 ## Trophy rating (Brawl Stars): wins add, losses take away, a milestone every
@@ -1031,7 +1179,7 @@ const LOGIN_REWARDS := [
 ## The campfire: gold accrues while away, up to IDLE_HOURS, faster with the
 ## highest tier opened.
 const IDLE_GOLD_HOUR := 30
-const IDLE_GOLD_TIER := 20
+const IDLE_GOLD_TIER := 10
 const IDLE_HOURS := 12.0
 
 # --- Rifts ---------------------------------------------------------------------
@@ -1071,8 +1219,10 @@ const ACHIEVEMENTS := [
 ## SEASON_TIERS steps pays a reward; the last a weapon glow and a title. Free:
 ## the game charges nothing.
 const SEASON_WEEKS := 6
+## Wins on a difficulty before the next one opens (the first still pays the first-clear trophies).
+const TIER_WINS := 3
 const SEASON_TIERS := 30
-const SEASON_XP := 120
+const SEASON_XP := 400
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
 
 static func season_reward(n: int) -> Dictionary:
@@ -1081,11 +1231,11 @@ static func season_reward(n: int) -> Dictionary:
 	if n % 5 == 0:
 		return {"kind": "chest", "chest": "gold" if n < 20 else "crypt"}
 	if n % 2 == 0:
-		return {"kind": "shards", "amount": 6 + n / 2}
-	return {"kind": "gold", "amount": 120 + 20 * n}
+		return {"kind": "shards", "amount": 15 + n}
+	return {"kind": "gold", "amount": 300 + 50 * n}
 
 # --- Hero-defining legendaries ------------------------------------------------
 
 ## Rule-changing cards, one per hero, offered as legendaries from run level 6.
 ## (Defined in CARDS; listed here for the Log.)
-const SIGNATURES := {"knight": "bulwark", "ranger": "ricochet", "mage": "pyre", "barbarian": "rampage"}
+const SIGNATURES := {"knight": "bulwark", "ranger": "ricochet", "mage": "pyre", "barbarian": "rampage", "rogue": "backstab"}

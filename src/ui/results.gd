@@ -66,6 +66,13 @@ func open(r: Dictionary) -> void:
 	var ut := int(s.get("unlocked_tier", -1))
 	if ut >= 0:
 		_note("%s unlocked in %s" % [DB.TIERS[ut]["name"], DB.MODES[str(r.get("mode", "horde"))]["short"]], DB.TIERS[ut]["color"], "padlock-open")
+	elif win or descent:
+		# Say how many more wins open the next difficulty.
+		var t_i := int(r.get("tier", 0))
+		var md := "descent" if descent else str(r.get("mode", "horde"))
+		var got := int(Game.data.get("tier_wins", {}).get("%s:%d" % [md, t_i], 0))
+		if got > 0 and got < DB.TIER_WINS and t_i + 1 < DB.TIERS.size() and t_i >= Game.mode_tier_unlocked(md):
+			_note("%d of %d wins to open %s" % [got, DB.TIER_WINS, DB.TIERS[t_i + 1]["name"]], DB.TIERS[t_i + 1]["color"], "padlock")
 	var uh := str(s.get("unlocked_hero", ""))
 	if uh != "":
 		_note("%s joins your band" % DB.HEROES[uh]["name"], DB.HEROES[uh]["color"], DB.HEROES[uh]["icon"])

@@ -61,7 +61,10 @@ func _earn_renown(r: Dictionary, summary := {}) -> int:
 		n += mini(int(r.get("elites", 0)), DB.TROPHY_ELITE_CAP) * DB.TROPHY_ELITE
 		if summary.get("first_win", false):
 			n += DB.TROPHY_FIRST_WIN
-		if int(summary.get("unlocked_tier", -1)) >= 0:
+		# The first win on a difficulty pays the first-clear bonus, even though
+		# the next one only opens after DB.TIER_WINS wins.
+		var wkey := "%s:%d" % [str(r.get("mode", "horde")), int(r.get("tier", 0))]
+		if int(summary.get("unlocked_tier", -1)) >= 0 or int(data.get("tier_wins", {}).get(wkey, 0)) == 1:
 			n += DB.TROPHY_FIRST_CLEAR
 	else:
 		n = mini(int(r.get("kills", 0)) / 15 + int(r.get("elites", 0)) * 2, DB.TROPHY_LOSS_MAX)
@@ -110,6 +113,13 @@ func road_pickable() -> Array:
 
 
 ## A short name for step n: "300 gold", "Boss Rush", "A new hero".
+## A road card is in the draws once its step is claimed (derived from the
+## claimed count, so old saves need no new key).
+func card_open(id: String) -> bool:
+	var st := DB.card_road_step(id)
+	return st == 0 or int(data.get("road", 0)) >= st
+
+
 func road_reward_text(n: int) -> String:
 	var rw := DB.road_reward(n)
 	match str(rw["kind"]):
@@ -127,6 +137,8 @@ func road_reward_text(n: int) -> String:
 			return "A new hero"
 		"rift_key":
 			return "A rift key"
+		"cards":
+			return "New cards: %s" % ", ".join(PackedStringArray((rw["ids"] as Array).map(func(c): return str(DB.CARDS[c]["name"]))))
 	return DB.CHESTS[rw["chest"]]["name"]
 
 
@@ -152,6 +164,8 @@ func claim_road(pick := "") -> Array:
 		"rift_key":
 			data["rift_keys"] = int(data.get("rift_keys", 0)) + 1
 			lines.append("A rift key: the Rift is open")
+		"cards":
+			lines.append("%s join your level-up draws" % road_reward_text(n).trim_prefix("New cards: "))
 		"pick", "hero":
 			var hid := str(rw.get("id", pick))
 			var pickable := road_pickable()
@@ -212,8 +226,47 @@ func open_whole_road() -> void:
 
 ## This week's omen: the week number picks one in turn.
 func weekly_omen() -> Dictionary:
-	var week := int(Time.get_unix_time_from_system() / 604800.0)
-	return DB.WEEKLY_OMENS[week % DB.WEEKLY_OMENS.size()]
+	return DB.WEEKLY_OMENS[week_number() % DB.WEEKLY_OMENS.size()]
+
+
+# --- Weekly challenge (client groundwork; no server yet) -------------------
+
+## Weeks since the Unix epoch. Every player sees the same number.
+func week_number() -> int:
+	return int(Time.get_unix_time_from_system() / 604800.0)
+
+
+## The shared seed for this week's challenge hunt: the same on every device.
+func weekly_seed(week: int = -1) -> int:
+	var w := week_number() if week < 0 else week
+	return hash("gravelight-weekly-%d" % w) & 0x7fffffff
+
+
+## One number for a hunt under the omen, so runs can be ranked.
+func weekly_score(r: Dictionary) -> int:
+	return (1000 if r.get("win", false) else 0) + int(r.get("level", 0)) * 50 \
+		+ int(r.get("souls", 0)) + int(r.get("bosses", 0)) * 250 \
+		+ int(r.get("depth", 0)) * 100 + int(r.get("perfect", 0)) * 10
+
+
+## This week's local best, or 0. Last week's best is dropped on the first new run.
+func weekly_best() -> int:
+	var wb: Dictionary = data.get("weekly", {})
+	return int(wb.get("best", 0)) if int(wb.get("week", -1)) == week_number() else 0
+
+
+## Keeps the hunt if it beats this week's best. True on a new best.
+func record_weekly(r: Dictionary) -> bool:
+	var sc := weekly_score(r)
+	if sc <= weekly_best():
+		return false
+	data["weekly"] = {"week": week_number(), "best": sc, "omen": str(weekly_omen()["id"]), "hero": str(r.get("hero", ""))}
+	return true
+
+
+## What a future leaderboard upload would send. Nothing reads it yet.
+func weekly_entry() -> Dictionary:
+	return {"week": week_number(), "seed": weekly_seed(), "omen": str(weekly_omen()["id"]), "best": weekly_best()}
 
 
 ## The omen a hunt in `mode` carries, or {} (the Long Road keeps its own rules).

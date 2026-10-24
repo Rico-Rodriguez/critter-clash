@@ -1,0 +1,130 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v4.5.48",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "rogue_chakram_1"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "knight",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 0
+    },
+    "metallicFactor": 0,
+    "roughnessFactor": 0.5
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "rogue_chakram_1",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 430,
+   "max": [
+    0.3313680589199066,
+    0.5292792320251465,
+    0.03500000014901161
+   ],
+   "min": [
+    -0.3313680589199066,
+    -0.129279226064682,
+    -0.03500000014901161
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 430,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 430,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 714,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteLength": 5160,
+   "byteOffset": 0,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 5160,
+   "byteOffset": 5160,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 3440,
+   "byteOffset": 10320,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 1428,
+   "byteOffset": 13760,
+   "target": 34963
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 15188,
+   "uri": "rogue_chakram_1.bin"
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/png",
+   "name": "knight_texture",
+   "uri": "knight_texture.png"
+  }
+ ],
+ "textures": [
+  {
+   "source": 0
+  }
+ ]
+}

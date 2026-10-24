@@ -70,6 +70,10 @@ var _path_tex: ImageTexture
 const PATH_RECT := Rect2(-30, -40, 60, 70)
 
 
+## Content-pack layouts are preloaded by path (no class_name; see tests).
+const VaultLayout := preload("res://src/hunt/arena_vault.gd")
+
+
 func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_seed := 1) -> void:
 	low = low_quality
 	zone = zone_id
@@ -80,6 +84,8 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 		TrialLayout.build(self, trial_seed, trial_rooms)
 	elif zone_id == "depths":
 		DepthsLayout.build(self)
+	elif zone_id == "vault":
+		VaultLayout.build(self)
 	elif zone_id == "grove":
 		_paths()
 		_ground()

@@ -156,7 +156,7 @@ func _clear_room(r: Dictionary) -> void:
 	Sfx.play("rare_chime", -2.0)
 	var kind := str(r["kind"])
 	for i in randi_range(4, 7):
-		_drop("gold", at, randi_range(2, 5) * int(tier["gold"]))
+		_drop("gold", at, randi_range(2, 5))
 	for i in randi_range(1, 2):
 		_drop("heart", at + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 1)
 	var d: float = r["depth"]
@@ -182,7 +182,7 @@ func _clear_room(r: Dictionary) -> void:
 func _spawn_rivals() -> void:
 	rivals_spawned = true
 	rivals_total = int(DB.WILD_RIVALS[tier_i])
-	var order := ["knight", "ranger", "mage", "barbarian"]
+	var order := ["knight", "ranger", "mage", "barbarian", "rogue"]
 	order.shuffle()
 	for i in rivals_total:
 		var a := TAU * (i + randf() * 0.4) / rivals_total
@@ -251,7 +251,7 @@ func _wild_win() -> void:
 		hero.act("Cheering", 1.6, true)
 	var at := hero.flat_pos()
 	for i in 24:
-		_drop("gold", at, randi_range(3, 8) * int(tier["gold"]))
+		_drop("gold", at, randi_range(3, 8))
 	for i in 2:
 		_drop_item(at, Game.roll_item("boss", tier_i, "", "", loot_bonus))
 	for i in 8:

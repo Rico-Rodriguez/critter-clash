@@ -163,6 +163,32 @@ const LINES := {
 			]},
 		],
 	},
+	# The Rogue: KayKit's hooded rogue, daggers in both hands.
+	"rogue": {
+		"dye": HIDE, "weapon_skill": "attack", "armor_skill": "defence",
+		"starter": "dagger.gltf", "offhand_bone": "handslot.l",
+		"weapon": [
+			{"from": 0, "name": "Dagger", "model": "dagger.gltf"},
+			{"from": 2, "name": "Kris", "model": "dagger_A.gltf", "alts": [
+				{"name": "Stiletto", "model": "dagger_B.gltf"},
+			]},
+		],
+		"helm": [
+			{"from": 0, "name": "Mask", "parts": ["Rogue_Hooded/Mask"]},
+			{"from": 1, "name": "Hood", "parts": ["Rogue_Hooded/Head"], "hood": true},
+		],
+		"chest": [
+			{"from": 0, "name": "Jerkin", "parts": ["T:Rogue_Hooded"]},
+			{"from": 2, "name": "Cloaked Jerkin", "parts": ["T:Rogue_Hooded", "Rogue_Hooded/Cape"]},
+		],
+		"legs": [
+			{"from": 0, "name": "Leggings", "parts": ["L:Rogue_Hooded"]},
+		],
+		"trinket": [
+			{"from": 0, "name": "Parrying Dagger", "model": "dagger.gltf"},
+			{"from": 3, "name": "Shadow Dagger", "model": "dagger_B.gltf"},
+		],
+	},
 	"mage": {
 		"dye": CLOTH, "weapon_skill": "magic", "armor_skill": "magic",
 		"starter": "wand.gltf", "offhand_bone": "handslot.l",
@@ -289,6 +315,13 @@ const SET_LOOKS := {
 			"legs": {"name": "Gravecaller Skirt", "parts": ["L:Mage"]},
 			"trinket": {"name": "Skull Orb", "model": "kit:skull_orb", "icon": "crowned-skull"},
 		},
+		"rogue": {
+			"weapon": {"name": "Barrow Shiv", "model": "Skeleton_Blade.gltf"},
+			"helm": {"name": "Barrow Cowl", "parts": ["Skeleton_Rogue/Hood"]},
+			"chest": {"name": "Barrow Garb", "parts": ["T:Rogue_Hooded", "Skeleton_Rogue/Cape"]},
+			"legs": {"name": "Barrow Shiv Legs", "parts": ["L:Rogue_Hooded"]},
+			"trinket": {"name": "Barrow Shiv Offhand", "model": "Skeleton_Blade.gltf"},
+		},
 		"ranger": {
 			"weapon": {"name": "Bone Bow", "model": "bow_withString.gltf", "scale": 1.15},
 			"helm": {"name": "Barrow Hood", "parts": ["Skeleton_Rogue/Hood"]},
@@ -319,6 +352,13 @@ const SET_LOOKS := {
 			"chest": {"name": "Necromancer Robe", "parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight", "Mage/Cape"]},
 			"legs": {"name": "Necromancer Skirt", "parts": ["L:Mage"]},
 			"trinket": {"name": "Phylactery", "model": "kit:phylactery", "icon": "gems"},
+		},
+		"rogue": {
+			"weapon": {"name": "Hexfang", "model": "dagger_B.gltf"},
+			"helm": {"name": "Hex Cowl", "parts": ["Skeleton_Rogue/Hood"]},
+			"chest": {"name": "Hex Garb", "parts": ["T:Rogue_Hooded", "Rogue_Hooded/Cape"]},
+			"legs": {"name": "Hexfang Legs", "parts": ["L:Rogue_Hooded"]},
+			"trinket": {"name": "Hexfang Offhand", "model": "dagger_B.gltf"},
 		},
 		"ranger": {
 			"weapon": {"name": "Shade Bow", "model": "kit:recurve", "scale": 1.15},
@@ -351,6 +391,13 @@ const SET_LOOKS := {
 			"legs": {"name": "Druid Skirt", "parts": ["L:Mage"]},
 			"trinket": {"name": "Seed Tome", "model": "spellbook_closed.gltf"},
 		},
+		"rogue": {
+			"weapon": {"name": "Thorn Shiv", "model": "dagger_A.gltf"},
+			"helm": {"name": "Grove Cowl", "parts": ["Rogue_Hooded/Head"], "hood": true},
+			"chest": {"name": "Grove Garb", "parts": ["T:Rogue_Hooded", "Ranger/Cape"]},
+			"legs": {"name": "Thorn Shiv Legs", "parts": ["L:Rogue_Hooded"]},
+			"trinket": {"name": "Thorn Shiv Offhand", "model": "dagger_A.gltf"},
+		},
 		"ranger": {
 			"weapon": {"name": "Thornbow", "model": "kit:hunting_bow", "scale": 1.15},
 			"helm": {"name": "Grove Hood", "parts": ["Rogue_Hooded/Head"], "hood": true},
@@ -364,9 +411,9 @@ const SET_LOOKS := {
 ## Weapons by family (DB.FAMILIES): one model per set, Gravedigger first,
 ## built by tools/art/make_barbarian_arms.py. They carry their own colors, so
 ## no dye goes over them; a boss set's piece keeps its family's shape.
-const FAMILY_PREFIX := {"barbarian": "barb", "knight": "knight", "ranger": "ranger", "mage": "mage"}
+const FAMILY_PREFIX := {"barbarian": "barb", "knight": "knight", "ranger": "ranger", "mage": "mage", "rogue": "rogue"}
 ## How big a family sits in the hand (1 when not listed).
-const FAMILY_SCALE := {"twin": 1.1, "halberd": 0.72, "throwing": 1.1}
+const FAMILY_SCALE := {"twin": 1.1, "halberd": 0.72, "throwing": 1.1, "rapier": 0.9, "nightblade": 0.9}
 
 
 ## A family weapon's look in a set: <prefix>_<family>_<set>.gltf.
@@ -439,6 +486,7 @@ const ICONS := {
 	"knight": {"weapon": "broadsword", "helm": "visored-helm", "chest": "breastplate", "legs": "leg-armor", "trinket": "shield"},
 	"barbarian": {"weapon": "battle-axe", "helm": "horned-helm", "chest": "leather-vest", "legs": "trousers", "trinket": "checked-shield"},
 	"mage": {"weapon": "wizard-staff", "helm": "pointy-hat", "chest": "robe", "legs": "boots", "trinket": "book-cover"},
+	"rogue": {"weapon": "cloak-dagger", "helm": "hood", "chest": "leather-vest", "legs": "boots", "trinket": "cloak-dagger"},
 	"ranger": {"weapon": "pocket-bow", "helm": "hood", "chest": "leather-vest", "legs": "boots", "trinket": "arrow-flights"},
 }
 
