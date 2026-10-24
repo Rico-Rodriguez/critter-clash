@@ -33,6 +33,7 @@ var _windup := 0.25
 var _dur := 0.6
 var _last_hp := -1.0
 var _flinch_cd := 0.0
+var _was_closing := false
 var _last_state := -1
 ## Timings (s): wind-up to the hit frame, and the whole move.
 const ATTACK_TIME := Vector2(0.22, 0.55)
@@ -252,9 +253,15 @@ func _fire() -> void:
 func _animate() -> void:
 	var st := motor.state
 	var t := motor.state_t
-	var fresh := st != _last_state
+	# While a melee move is still closing in, it runs; the clip starts on
+	# arrival so its contact frame lines up with the hit.
+	var closing := motor.approaching()
+	var fresh := st != _last_state or (_was_closing and not closing)
 	_last_state = st
+	_was_closing = closing
 	var spd := motor.speed()
+	if closing:
+		st = Motor.S.SPRINT
 	match st:
 		Motor.S.ATTACK, Motor.S.SPECIAL, Motor.S.HIT:
 			var which: String = ["attack", "special", "hit"][[Motor.S.ATTACK, Motor.S.SPECIAL, Motor.S.HIT].find(st)]
