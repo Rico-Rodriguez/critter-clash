@@ -451,7 +451,7 @@ func _build_expedition(s: Sheet) -> void:
 	_build_difficulty(b, s)
 	var om := Game.weekly_omen()
 	var olock := "Not on the Long Road" if Game.mode_id() == "trial" else ""
-	b.add_child(_option(str(om["icon"]), "Omen: %s" % om["name"], "%s Pays 25%% more gold and a better chest." % om["desc"], bool(Game.data.get("omen_on", false)) and olock == "", olock, func():
+	b.add_child(_option(str(om["icon"]), "Omen: %s" % om["name"], ("%s Pays 25%% more gold and a better chest." % om["desc"]) + ((" Week best: %d." % Game.weekly_best()) if Game.weekly_best() > 0 else ""), bool(Game.data.get("omen_on", false)) and olock == "", olock, func():
 		Game.set_omen(not bool(Game.data.get("omen_on", false)))
 		_picked(s)))
 	refresh()

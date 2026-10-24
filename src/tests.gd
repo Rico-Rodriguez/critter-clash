@@ -460,6 +460,15 @@ func _depth_tests() -> void:
 	_ok("a pick step adds the chosen hero", Game.hero("ranger")["unlocked"] and not Game.hero("knight")["unlocked"] and Game.road_pickable() == ["knight"])
 	for i in DB.TROPHY_ROAD.size() + 1:
 		_ok("road step %d has a name" % (i + 1), Game.road_reward_text(i + 1) != "")
+	_ok("weekly seed is stable per week", Game.weekly_seed(100) == Game.weekly_seed(100) and Game.weekly_seed(100) != Game.weekly_seed(101))
+	_ok("weekly score ranks a win above a loss", Game.weekly_score({"win": true, "level": 5}) > Game.weekly_score({"win": false, "level": 5}))
+	var wb_keep: Variant = Game.data.get("weekly", {})
+	Game.data.erase("weekly")
+	_ok("weekly best starts at zero", Game.weekly_best() == 0)
+	_ok("weekly best records", Game.record_weekly({"win": true, "level": 3}) and Game.weekly_best() == 1150)
+	_ok("weekly worse run is not kept", not Game.record_weekly({"win": false}) and Game.weekly_best() == 1150)
+	_ok("weekly entry carries this week's seed", int(Game.weekly_entry()["seed"]) == Game.weekly_seed())
+	Game.data["weekly"] = wb_keep
 	for u in ["barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]:
 		_ok("ancient unique %s" % u, DB.UNIQUES.has(u) and u in DB.LOG_ORDER and str(DB.UNIQUES[u]["source"]).begins_with("ancient_"))
 	_ok("ancient uniques never roll below Torment", Game.roll_uniques("ancient_boss", 0).size() >= 0 and DB.TIER_ANCIENT == 6)
