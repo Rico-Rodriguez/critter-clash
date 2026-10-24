@@ -352,7 +352,7 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"sidekicks", "sidekick", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"sidekicks", "sidekick", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -418,6 +418,9 @@ func _capture(args: PackedStringArray) -> void:
 						await _wait(0.8)
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot.begins_with("equip") else shot)
+					if shot == "equipsidekick":
+						await _wait(1.2)
+						current.ui.equipment._sk_btn.pressed.emit()
 					await _wait(1.0 if shot != "chest" else 2.8)
 					if shot == "equipskins":
 						# The Skins collection with a glow on trial.
