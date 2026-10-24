@@ -1,11 +1,14 @@
 extends Node3D
-## The sidekick at the hero's side in a hunt: follows (walking or flying),
-## and every few seconds uses its one ability. Damage is a share of the
+## The sidekick at the hero's side in a hunt: moves on its own
+## (sidekick_motor.gd: lagged follow, wander, sprint, blink back), turns to
+## face where it goes, animates from its own rig with procedural fallbacks,
+## and every few seconds winds up and uses its one ability on the hit frame. Damage is a share of the
 ## hero's damage (sidekick_db.gd), so it never outclasses the hero. It cannot
 ## be hurt. Preloaded by hunt_state.gd (no class_name: OTA packs).
 
 const SDB := preload("res://src/data/sidekick_db.gd")
 const Look := preload("res://src/core/sidekick_look.gd")
+const Motor := preload("res://src/hunt/sidekick_motor.gd")
 
 var hunt: Node
 var id := ""
@@ -19,9 +22,22 @@ var cd := 2.0
 var cd_max := 5.0
 ## Foes this sidekick finished off this hunt (the HUD shows it).
 var slain := 0
-var _side := 1.0
 var _bob := 0.0
-var _act_t := 0.0
+var motor := Motor.new()
+## Procedural pose layer between the node and the model (lunge, hop, recoil,
+## bank), so the rig's clips and the fallbacks stack.
+var pivot := Node3D.new()
+## A wound-up ability waiting for its hit frame.
+var _pending := false
+var _windup := 0.25
+var _dur := 0.6
+var _last_hp := -1.0
+var _flinch_cd := 0.0
+var _last_state := -1
+## Timings (s): wind-up to the hit frame, and the whole move.
+const ATTACK_TIME := Vector2(0.22, 0.55)
+const SPECIAL_TIME := Vector2(0.32, 0.8)
+const HIT_TIME := 0.32
 ## Hunt-only readability: the companion is drawn a bit bigger than in camp,
 ## over a thin ground ring in the hero's team colour (one shared, unlit,
 ## crisp-alpha draw: no glow, no falloff).
@@ -39,14 +55,19 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	bond = SDB.bond_level(kills)
 	evolved = bond >= SDB.BOND_EVOLVE
 	look = Look.build(id, evolved)
-	add_child(look["root"])
+	pivot.name = "Pose"
+	add_child(pivot)
+	pivot.add_child(look["root"])
 	(look["root"] as Node3D).scale *= HUNT_SCALE * float(def.get("hunt_scale", 1.0))
 	_add_ring()
 	Look.play(look, "idle")
 	cd_max = float(ab["cd"])
 	cd = minf(2.0, cd_max)
-	_side = -1.0
-	position = hunt.hero.position + Vector3(-1.2, 0, 0.8)
+	motor.fly = float(def["fly"])
+	motor.rng.seed = hash(id)
+	motor.pos = motor.slot(hunt.hero.position, hunt.hero.rotation.y)
+	motor.yaw = hunt.hero.rotation.y
+	position = motor.pos
 
 
 func _add_ring() -> void:
@@ -106,25 +127,179 @@ func cooldown() -> float:
 func tick(dt: float) -> void:
 	var hero: Node3D = hunt.hero
 	_bob += dt
-	_act_t = maxf(_act_t - dt, 0.0)
-	var want: Vector3 = hero.position + Vector3(_side * 1.4, 0, 0.9).rotated(Vector3.UP, hero.rotation.y)
-	var d := want - position
-	d.y = 0.0
-	var moving := d.length() > 0.4
-	if moving:
-		var spd := (float(hero.speed) + 1.0) * clampf(d.length() / 1.5, 0.6, 2.2)
-		position += d.normalized() * minf(spd * dt, d.length())
-		rotation.y = lerp_angle(rotation.y, atan2(d.x, d.z), 1.0 - exp(-10.0 * dt))
+	_flinch_cd = maxf(_flinch_cd - dt, 0.0)
+	# Flinch when the hero is struck (it can't be hurt itself).
+	if _last_hp >= 0.0 and float(hero.hp) < _last_hp - 0.5 and _flinch_cd <= 0.0 and not _pending:
+		if motor.act(Motor.S.HIT, 0.0, HIT_TIME, hero.position):
+			_flinch_cd = 1.5
+	_last_hp = float(hero.hp)
+	var arena = hunt.get("arena")
+	var was := position
+	var blk := Callable()
+	var flow := Callable()
+	var res := Callable()
+	if arena != null:
+		blk = func(p: Vector3) -> bool: return arena.blocked(p, 0.35)
+		flow = func(p: Vector3) -> Vector3: return arena.flow_dir(p)
+		res = func(p: Vector3) -> Vector3: return arena.resolve(p, 0.3)
+	if motor.step(dt, hero.position, hero.rotation.y, float(hero.speed), blk, flow, res):
+		_blink(was)
 	var fly := float(def["fly"])
-	position.y = fly + (sin(_bob * 2.6) * 0.12 if fly > 0.0 else 0.0)
-	if _act_t <= 0.0:
-		Look.play(look, "move" if moving else "idle")
+	position = Vector3(motor.pos.x, fly + (sin(_bob * 2.6) * 0.12 if fly > 0.0 else 0.0), motor.pos.z)
+	rotation.y = motor.yaw
+	_animate()
 	cd -= dt
-	if cd <= 0.0 and hunt.phase != "defeat":
-		if _use():
-			cd = cooldown()
-		else:
+	if _pending:
+		if motor.take_hit():
+			_pending = false
+			_fire()
+	elif cd <= 0.0 and hunt.phase != "defeat":
+		var at = _wants_to_act()
+		if at == null:
 			cd = 0.3
+		else:
+			_wind_up(at)
+
+
+## Blinked back after falling far behind: a puff where it was and a crisp
+## spark where it lands.
+func _blink(from: Vector3) -> void:
+	var fx = hunt.fx
+	if fx == null:
+		return
+	fx.puff(Vector3(from.x, 0, from.z), Color(0.5, 0.5, 0.55, 0.5), 5, 0.5, 1.0)
+	fx.burst(Vector3(motor.pos.x, 0, motor.pos.z), def["color"], 6, 3.0, 0.6)
+	Sfx.play("dodge", -10.0, 1.3)
+
+
+## Where it would aim its ability now, or null when there's nothing to use it
+## on (the ability itself still decides; this only starts the wind-up).
+func _wants_to_act():
+	var hero = hunt.hero
+	var k := str(ab["kind"])
+	if k == "mend":
+		if hero.hp < hero.max_hp or not hunt.foes_near(hero.position, float(ab["radius"]) * reach_mult()).is_empty():
+			return hero.position
+		return null
+	if k == "thorns":
+		return hero.position if not hunt.foes_near(hero.position, float(ab["radius"]) * reach_mult()).is_empty() else null
+	var f: Node3D = hunt.nearest_foe(hero.position, 8.0 * reach_mult())
+	return f.position if f != null else null
+
+
+func is_special() -> bool:
+	return str(ab["kind"]) in SDB.SPECIAL_KINDS
+
+
+func _wind_up(at: Vector3) -> void:
+	var t := SPECIAL_TIME if is_special() else ATTACK_TIME
+	_windup = t.x
+	_dur = t.y
+	motor.act(Motor.S.SPECIAL if is_special() else Motor.S.ATTACK, t.x, t.y, at)
+	_pending = true
+	cd = 0.3
+	var fx = hunt.fx
+	if fx:
+		# A thin, hard-edged tell at its feet in its colour (no glow).
+		fx.ring(Vector3(motor.pos.x, 0.05, motor.pos.z), 0.55 if not is_special() else 0.8, def["color"], t.x + 0.05, 0.05)
+	Sfx.play("charge" if is_special() else "swing", -14.0, 1.35)
+
+
+## The hit frame: the ability lands (its own VFX/SFX), plus a small spark.
+func _fire() -> void:
+	var ok := _use()
+	# Abilities that dash (snap, dive, shadowstrike, breath) moved the node.
+	motor.pos = Vector3(position.x, 0.0, position.z)
+	if ok:
+		cd = cooldown()
+		if hunt.fx:
+			hunt.fx.burst(Vector3(position.x, maxf(position.y - 0.6, 0.0), position.z), def["color"], 5, 2.5, 0.8)
+	else:
+		cd = 0.3
+		motor.action_t = minf(motor.action_t, 0.1)
+
+
+## Clips from the rig where it has them; a procedural pose where it doesn't
+## (and a lighter accent on top where it does).
+func _animate() -> void:
+	var st := motor.state
+	var t := motor.state_t
+	var fresh := st != _last_state
+	_last_state = st
+	var spd := motor.speed()
+	match st:
+		Motor.S.ATTACK, Motor.S.SPECIAL, Motor.S.HIT:
+			var which: String = ["attack", "special", "hit"][[Motor.S.ATTACK, Motor.S.SPECIAL, Motor.S.HIT].find(st)]
+			if which == "special" and not Look.has(look, "special") and Look.has(look, "attack"):
+				which = "attack"
+			if fresh:
+				Look.play(look, which, 0.06, 1.0, _dur if st != Motor.S.HIT else HIT_TIME)
+		_:
+			if spd > 0.3:
+				var run := st == Motor.S.SPRINT and Look.has(look, "run")
+				var ref := 2.6 if run else 1.8
+				Look.play(look, "run" if run else "move", 0.2, clampf(spd / ref, 0.7, 1.9))
+			else:
+				Look.play(look, "idle", 0.25, 1.0)
+	var p := pose(st, t, spd, _windup, _dur, Look.has(look, _clip_key(st)), _bob)
+	pivot.position = Vector3(0, p["y"], p["z"])
+	pivot.rotation = Vector3(p["pitch"], p["spin"], motor.bank)
+	var sy: float = p["sy"]
+	pivot.scale = Vector3(1.0 / sqrt(sy), sy, 1.0 / sqrt(sy))
+
+
+static func _clip_key(st: int) -> String:
+	match st:
+		Motor.S.ATTACK:
+			return "attack"
+		Motor.S.SPECIAL:
+			return "special"
+		Motor.S.HIT:
+			return "hit"
+	return "move"
+
+
+## The procedural pose for a state at time t: lift y, forward z, pitch, spin
+## and squash (sy). With a clip, the accent is scaled down so it only adds
+## weight. Pure, so tests can read it.
+static func pose(st: int, t: float, spd: float, windup: float, dur: float, has_clip: bool, bob: float) -> Dictionary:
+	var o := {"y": 0.0, "z": 0.0, "pitch": 0.0, "spin": 0.0, "sy": 1.0}
+	var k := 0.35 if has_clip else 1.0
+	match st:
+		Motor.S.ATTACK:
+			if t < windup:
+				var e := t / windup
+				o["z"] = -0.12 * e * k
+				o["pitch"] = -0.22 * e * k
+				o["sy"] = 1.0 - 0.1 * e * k
+			else:
+				var u := clampf((t - windup) / maxf(dur - windup, 0.01), 0.0, 1.0)
+				var lunge := sin(minf(u * 3.0, 1.0) * PI * 0.5) * (1.0 - u)
+				o["z"] = 0.45 * lunge * k
+				o["pitch"] = 0.3 * lunge * k
+				o["sy"] = 1.0 + 0.12 * lunge * k
+		Motor.S.SPECIAL:
+			if t < windup:
+				var e := t / windup
+				o["sy"] = 1.0 - 0.18 * e * k
+			else:
+				var u := clampf((t - windup) / maxf(dur - windup, 0.01), 0.0, 1.0)
+				o["y"] = 0.55 * sin(u * PI) * k
+				o["spin"] = TAU * ease(u, -2.0) * (1.0 if not has_clip else 0.0)
+				o["sy"] = 1.0 + 0.15 * sin(u * PI) * k - (0.12 * (1.0 - u) * 4.0 * maxf(u - 0.75, 0.0) * k)
+		Motor.S.HIT:
+			var u := clampf(t / HIT_TIME, 0.0, 1.0)
+			o["z"] = -0.25 * (1.0 - u) * k
+			o["pitch"] = -0.35 * (1.0 - u) * k
+			o["sy"] = 0.85 + 0.15 * u
+		_:
+			# A step bounce and forward lean while moving; breathing at rest.
+			if spd > 0.3:
+				o["y"] = absf(sin(bob * 9.0)) * 0.05 * minf(spd / 3.0, 1.0) * k
+				o["pitch"] = clampf(spd * 0.035, 0.0, 0.2)
+			else:
+				o["sy"] = 1.0 + 0.02 * sin(bob * 2.2)
+	return o
 
 
 ## Picks a target near the hero. From Bond 8, champions and bosses first;
@@ -163,9 +338,10 @@ func _strike(f: Node3D, amount: float, force := 0.0) -> void:
 				hunt._drop("gold", f.flat_pos(), randi_range(1, 3))
 
 
+## The attack pose now comes from the wind-up (_wind_up/_animate); kept so
+## every ability path reads the same.
 func _attack_anim() -> void:
-	Look.play(look, "attack", 0.05, 1.3)
-	_act_t = 0.5
+	pass
 
 
 ## Uses the ability. False when there was nothing to use it on.

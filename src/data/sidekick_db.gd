@@ -114,6 +114,27 @@ const ROSTER := {
 		"cards": ["sapling_bloom", "sapling_deep"],
 	},
 }
+## Which of each model's own clips plays for each state (see
+## docs/review/sidekicks/clip_inventory.md). Keys: idle, move, run, attack,
+## hit, special. A missing key falls back to a procedural move in
+## hunt/sidekick.gd (lunge, hop-spin, recoil, bob), so a model never stalls.
+const CLIPS := {
+	"wisp": {"idle": "Idle", "move": "Walk"},
+	"drake": {"idle": "Flying_Idle", "move": "Fast_Flying"},
+	"bonelet": {"idle": "Idle", "move": "Walk"},
+	"hexling": {"idle": "Idle", "move": "Walk"},
+	"acolyte": {"idle": "Idle", "move": "Walk"},
+	"crow": {"idle": "Idle", "move": "Fast_Flying"},
+	"mimic": {"idle": "Idle", "move": "Walk", "attack": "Bite_Front"},
+	"bat": {"idle": "Bat_Flying", "move": "Bat_Flying"},
+	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Punch"},
+	"shade": {"idle": "Idle", "move": "Walk"},
+	"sapling": {"idle": "Idle", "move": "Walk"},
+}
+## Abilities shown with the "special" animation (bigger, area or support
+## moves); the rest use "attack".
+const SPECIAL_KINDS := ["mend", "breath", "hex", "thorns", "snare"]
+
 const ORDER := ["drake", "wisp", "bonelet", "hexling", "crow", "acolyte", "mimic", "bat", "barrow_squire", "shade", "sapling"]
 
 ## Eggs: found, then warmed by kills (any hero, any sidekick) until they hatch.
