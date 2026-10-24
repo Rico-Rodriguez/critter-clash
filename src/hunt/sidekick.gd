@@ -283,6 +283,59 @@ func _use() -> bool:
 				position = Vector3(last.position.x, position.y, last.position.z)
 			_attack_anim()
 			Sfx.play("lifesteal", -6.0)
+		"bash":
+			var t := _target(6.0 * reach_mult(), true)
+			if t == null:
+				return false
+			var p: Vector3 = t.flat_pos()
+			position = Vector3(p.x, position.y, p.z) - (p - Vector3(position.x, 0, position.z)).normalized() * 0.9
+			var r := float(ab["radius"]) * reach_mult()
+			fx.ring(p, r, col, 0.4, 0.18)
+			fx.puff(p, Color(0.3, 0.27, 0.23, 0.6), 8, 1.5, 2.0)
+			for f in hunt.foes_near(p, r):
+				_strike(f, hit_dmg(float(ab["dmg"])), 4.0)
+				if f.alive and not f is Boss:
+					f.stun_t = maxf(f.stun_t, float(ab["stun"]))
+			_attack_anim()
+			Sfx.play("impact", -4.0, 0.8)
+		"shadowstrike":
+			var near: Array = hunt.foes_near(hunt.hero.position, 7.0 * reach_mult())
+			if near.is_empty():
+				return false
+			near.sort_custom(func(a, b): return a.hp > b.hp)
+			for i in mini(int(ab["strikes"]), near.size()):
+				var f: Node3D = near[i]
+				var tough: bool = f is Boss or (f is Enemy and (f as Enemy).elite)
+				fx.puff(f.flat_pos(), Color(0.15, 0.1, 0.25, 0.7), 6, 0.8, 1.5)
+				fx.burst(f.flat_pos() + Vector3(0, 0.7, 0), col, 6, 4.0)
+				_strike(f, hit_dmg(float(ab["dmg"])) * (2.0 if tough else 1.0), 1.0)
+			var last: Node3D = near[mini(int(ab["strikes"]), near.size()) - 1]
+			if is_instance_valid(last):
+				position = Vector3(last.position.x, position.y, last.position.z)
+			_attack_anim()
+			Sfx.play("swing", -4.0, 1.4)
+		"snare":
+			var t := _target(7.0 * reach_mult(), true)
+			if t == null:
+				return false
+			var at: Vector3 = t.flat_pos()
+			var r := float(ab["radius"]) * reach_mult()
+			fx.ring(at, r, col, 0.5, 0.2)
+			fx.burst(at, col, 14, 5.0, 0.4)
+			for f in hunt.foes_near(at, r):
+				if not f is Boss:
+					f.stun_t = maxf(f.stun_t, float(ab["hold"]))
+			var me := self
+			var amount := hit_dmg(float(ab["dmg"]))
+			for k in int(ab["pulses"]):
+				get_tree().create_timer(0.4 * (k + 1), false).timeout.connect(func():
+					if not is_instance_valid(me) or not is_instance_valid(hunt):
+						return
+					fx.ring(at, r * 0.8, col, 0.3)
+					for f in hunt.foes_near(at, r):
+						_strike(f, amount))
+			_attack_anim()
+			Sfx.play("thorns", -4.0, 0.8)
 		_:
 			return false
 	return true

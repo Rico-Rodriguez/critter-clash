@@ -629,6 +629,12 @@ const CARDS := {
 	"mimic_jaws": {"name": "Hungry Jaws", "desc": "Gold Snap 20% more often", "icon": "open-treasure-chest", "rarity": "epic", "max": 2, "sidekick": "mimic", "effect": "haste"},
 	"bat_frenzy": {"name": "Frenzy", "desc": "Blood Dive +30% damage", "icon": "bat-wing", "rarity": "rare", "max": 3, "sidekick": "bat", "effect": "power"},
 	"bat_thirst": {"name": "Thirst", "desc": "Blood Dive 20% more often", "icon": "bat-wing", "rarity": "epic", "max": 2, "sidekick": "bat", "effect": "haste"},
+	"squire_iron": {"name": "Iron Oath", "desc": "Shield Bash +30% damage", "icon": "checked-shield", "rarity": "rare", "max": 3, "sidekick": "barrow_squire", "effect": "power"},
+	"squire_drill": {"name": "Shield Drill", "desc": "Shield Bash 20% more often", "icon": "checked-shield", "rarity": "epic", "max": 2, "sidekick": "barrow_squire", "effect": "haste"},
+	"shade_veil": {"name": "Veil of Night", "desc": "Shadow Strike +30% damage", "icon": "two-shadows", "rarity": "rare", "max": 3, "sidekick": "shade", "effect": "power"},
+	"shade_dusk": {"name": "Endless Dusk", "desc": "Shadow Strike 20% more often", "icon": "two-shadows", "rarity": "epic", "max": 2, "sidekick": "shade", "effect": "haste"},
+	"sapling_bloom": {"name": "Heartwood Bloom", "desc": "Rootsnare +30% damage", "icon": "lightning-tree", "rarity": "rare", "max": 3, "sidekick": "sapling", "effect": "power"},
+	"sapling_deep": {"name": "Deep Roots", "desc": "Rootsnare 20% more often", "icon": "lightning-tree", "rarity": "epic", "max": 2, "sidekick": "sapling", "effect": "haste"},
 }
 ## A companion hero hits at this share of its own damage.
 const ALLY_DMG := 0.45
@@ -887,11 +893,11 @@ const UNIQUES := {
 	"seedheart": {"cls": "knight", "dye": Color(0.6, 1.0, 0.4), "name": "Seedheart Aegis", "slot": "trinket", "rarity": "legendary", "source": "thorn", "rate": 30, "stats": {"aspd": 12, "regen": 5}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "shield"},
 	# Ancient forms (Torment and up): a relic and a pet each.
 	"barrow_relic": {"name": "Ancient Barrow Crown", "slot": "trophy", "rarity": "legendary", "source": "ancient_boss", "rate": 30, "icon": "crowned-skull", "power": "Cold iron from the first king. Sells for 5000 gold.", "sell": 5000},
-	"barrow_squire": {"name": "Barrow Squire", "slot": "pet", "rarity": "legendary", "source": "ancient_boss", "rate": 60, "icon": "skull-crossed-bones", "power": "A small, very loyal skeleton knight.", "model": "Skeleton_Warrior"},
+	"barrow_squire": {"name": "Barrow Squire", "slot": "pet", "rarity": "legendary", "source": "ancient_boss", "rate": 60, "icon": "skull-crossed-bones", "power": "Sidekick: Shield Bash stuns the pack.", "model": "Skeleton_Warrior"},
 	"hex_relic": {"name": "Ancient Hex Spindle", "slot": "trophy", "rarity": "legendary", "source": "ancient_hexer", "rate": 30, "icon": "magic-swirl", "power": "Still spinning. Sells for 5000 gold.", "sell": 5000},
-	"shade": {"name": "Hexbound Shade", "slot": "pet", "rarity": "legendary", "source": "ancient_hexer", "rate": 60, "icon": "ghost", "power": "A quiet shade that keeps to your heels.", "model": "Skeleton_Rogue"},
+	"shade": {"name": "Hexbound Shade", "slot": "pet", "rarity": "legendary", "source": "ancient_hexer", "rate": 60, "icon": "ghost", "power": "Sidekick: Shadow Strike hunts the toughest foes.", "model": "Skeleton_Rogue"},
 	"thorn_relic": {"name": "Ancient Heartwood", "slot": "trophy", "rarity": "legendary", "source": "ancient_thorn", "rate": 30, "icon": "crystal-shine", "power": "Warm to the touch. Sells for 5000 gold.", "sell": 5000},
-	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "A tiny hooded grove-keeper.", "model": "Rogue_Hooded"},
+	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "Sidekick: Rootsnare holds the pack.", "model": "Sapling"},
 	"acolyte": {"name": "Acolyte", "slot": "pet", "rarity": "legendary", "source": "thorn", "rate": 50, "icon": "ghost", "power": "Sidekick: Thorn Ward throws foes back.", "model": "Rogue_Hooded"},
 	"seed": {"name": "Thorn Seed", "slot": "trophy", "rarity": "magic", "source": "thorn", "rate": 4, "icon": "gems", "power": "It wriggles. Sells for 80 gold.", "sell": 80},
 	# The Gilded Warden (the Vault).
