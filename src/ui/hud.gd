@@ -357,6 +357,7 @@ func _open_pause() -> void:
 	if get_tree().paused or hunt.phase in ["victory", "defeat"]:
 		return
 	%Stick.release()
+	hunt.end_hitstop()
 	get_tree().paused = true
 	Sfx.duck(true)
 	var m := PAUSE.instantiate()

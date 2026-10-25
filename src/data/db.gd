@@ -420,6 +420,8 @@ const DESCENT_CHESTS := [[15, "crypt"], [10, "gold"], [5, "silver"]]
 ## Boss Rush: the zone's bosses in turn, each empowered on the second lap.
 const RUSH_ORDER := [["gravemaw", 1.0], ["hexer", 1.0], ["gravemaw", 1.5], ["hexer", 1.5]]
 const RUSH_GAP := 7.0
+## Gold per level-up pick still banked when a run ends (times the tier's gold).
+const BANKED_PICK_GOLD := 30
 ## The Wilderness: a royale on a closing ring. Rival bands (hero-built foes)
 ## hunt you while the dead rise; the last band standing wins. Ring radius by
 ## time: [seconds, radius] keyframes, linear between. Rivals per tier.

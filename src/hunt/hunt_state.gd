@@ -56,6 +56,8 @@ var foe_speed_mult := 1.0
 var spawn_t := 1.5
 var elite_marks := [0.28, 0.58, 0.86]
 var pending_levels := 0
+## True while the level-up cards are on screen.
+var card_open := false
 var bot := false
 var low := false
 var result := {}
@@ -451,6 +453,32 @@ func hitstop(t: float) -> void:
 		return
 	Engine.time_scale = 0.05
 	_real_hitstop = maxf(_real_hitstop, t)
+
+
+## A modal (level-up cards, pact, pause) is about to pause the tree. Hunt's
+## _process, which winds a hitstop or slow-mo back to 1x, stops with it, so a
+## hitstop still running here froze Engine.time_scale at 0.05-0.35 for the
+## whole modal and every unpaused tween crawled. End it before pausing.
+func end_hitstop() -> void:
+	_real_hitstop = 0.0
+	if phase != "victory" and phase != "defeat":
+		Engine.time_scale = 1.0
+
+
+## Level-up cards are only offered mid-fight. Once the run is over, or every
+## foe is dead with nothing left to spawn (a cleared room, the breath between
+## bosses), picks are banked and offered when the fighting starts again.
+func cards_blocked() -> bool:
+	if _ended or phase == "victory" or phase == "defeat" or not hero.alive:
+		return true
+	if boss != null and boss.alive:
+		return false
+	if not _spawn_q.is_empty():
+		return false
+	for f in foes:
+		if is_instance_valid(f) and f.alive:
+			return false
+	return true
 
 
 func shake(v: float) -> void:

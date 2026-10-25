@@ -208,6 +208,7 @@ func run() -> int:
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
 	_sidekick_motor_tests()
+	_levelup_tests()
 	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
 	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
 	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
@@ -889,3 +890,42 @@ func _sidekick_motor_tests() -> void:
 				gaps.append("%s.%s" % [sid, key])
 		(lk2["root"] as Node).free()
 	_ok("every sidekick has real attack, hit and special clips %s" % str(gaps), gaps.is_empty())
+
+
+## Level-up cards: a hitstop running when the cards pause the tree must not
+## leave the world (and the cards' tweens) at 0.05x; no cards once it's clear.
+func _levelup_tests() -> void:
+	var h := Hunt.new()
+	h.phase = "rise"
+	h.hero = Hero.new()
+	h.tier = {"gold": 1.0}
+	h.hitstop(0.09)
+	_ok("hitstop slows the world", is_equal_approx(Engine.time_scale, 0.05))
+	h.end_hitstop()
+	_ok("cards end a running hitstop before pausing", is_equal_approx(Engine.time_scale, 1.0) and h._real_hitstop == 0.0)
+	h.phase = "victory"
+	Engine.time_scale = 0.25
+	h.end_hitstop()
+	_ok("victory slow-mo is left alone", is_equal_approx(Engine.time_scale, 0.25))
+	Engine.time_scale = 1.0
+	h.phase = "rise"
+	# Every foe dead, nothing queued: the pick is banked, no cards.
+	h.pending_levels = 1
+	h._offer_cards()
+	_ok("no cards once every foe is dead", h.cards_blocked() and not h.card_open and h.pending_levels == 1)
+	var e := Enemy.new()
+	h.foes.append(e)
+	_ok("cards allowed while a foe lives", not h.cards_blocked())
+	e.alive = false
+	h._spawn_q.append({"t": 1.0})
+	_ok("cards allowed while foes are still to spawn", not h.cards_blocked())
+	h._spawn_q.clear()
+	h.phase = "victory"
+	h.foes.clear()
+	e.free()
+	_ok("no cards after victory", h.cards_blocked())
+	h.pending_levels = 2
+	var g0 := h.gold
+	_ok("banked picks are paid in gold at the end", h.cash_banked_picks() == 2 * DB.BANKED_PICK_GOLD and h.gold == g0 + 2 * DB.BANKED_PICK_GOLD and h.pending_levels == 0)
+	h.hero.free()
+	h.free()

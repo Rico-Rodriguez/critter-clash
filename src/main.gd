@@ -739,7 +739,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx":
+			"hunt", "levelup", "levelup_slow", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -770,6 +770,27 @@ func _capture(args: PackedStringArray) -> void:
 					h.run_xp = DB.run_level_xp(h.run_level)
 					h._check_level()
 					await _wait(0.9)
+				elif shot == "levelup_slow":
+					# The once-a-match slow cards: a level-up lands while an
+					# elite's kill hitstop (0.05x) is still running. Saves 1 s of
+					# frames of the cards coming in, then the pick going out.
+					await _wait_sim(h, 6.0)
+					h.bot = false
+					h.hitstop(0.09)
+					h.run_xp = DB.run_level_xp(h.run_level)
+					h._check_level()
+					var lv: Control = null
+					for c in h.hud.get_children():
+						if c.has_method("_pick"):
+							lv = c
+					for i in 30:
+						await _save("levelup_slow_in_%02d" % i)
+					var cards_: Control = lv.get_node("%Cards")
+					print("LEVELUP_POP after 30 frames: first card alpha=%.2f time_scale=%.2f" % [cards_.get_child(0).modulate.a, Engine.time_scale])
+					lv._pick(str(lv._choices[0]), cards_.get_child(0))
+					for i in 20:
+						await _save("levelup_slow_out_%02d" % i)
+					print("LEVELUP_OUT after 20 frames: cards open=%s time_scale=%.2f" % [is_instance_valid(lv) and lv.is_inside_tree(), Engine.time_scale])
 				elif shot == "powers":
 					await _wait_sim(h, 7.0)
 					var kit: Dictionary = {"knight": {"smite": 3}, "mage": {"meteor": 3, "frost": 2}, "ranger": {"barrage": 3, "explosive": 2}, "barbarian": {"quake": 3, "axes": 3}, "rogue": {"shockwave": 3, "rime_trap": 2}}[hid]
