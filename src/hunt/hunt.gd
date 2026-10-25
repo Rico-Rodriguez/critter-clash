@@ -266,6 +266,8 @@ func tick(dt: float) -> void:
 						pk.pulled = true
 			if phase_t > 7.0 or (phase_t > 3.0 and _loot_left() == 0):
 				_end(true)
+	if pending_levels > 0 and cards_blocked():
+		drop_bank()
 	if streak > 0:
 		streak_t -= dt
 		if streak_t <= 0.0:
