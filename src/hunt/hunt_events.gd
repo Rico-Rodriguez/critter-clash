@@ -101,7 +101,8 @@ func _tick_curse(dt: float) -> void:
 	_drop_item(hero.flat_pos(), _roll_good("elite", 2))
 	run_level += 1
 	pending_levels += 1
-	_offer_cards()
+	if pending_levels == 1:
+		_offer_cards()
 
 
 # --- Surges, hazards and the ritual -------------------------------------------

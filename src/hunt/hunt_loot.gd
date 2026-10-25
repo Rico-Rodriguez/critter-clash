@@ -164,19 +164,20 @@ func _check_level() -> void:
 		run_xp -= need
 		run_level += 1
 		pending_levels += 1
-		_offer_cards()
+		if pending_levels == 1:
+			_offer_cards()
 
 
-## Shows the cards for a pending level, unless they are up already or the
-## fight is over (cards_blocked); banked picks are retried from tick().
+## Shows the cards for the next pending level. Once the run is over the
+## pending picks are simply dropped.
 func _offer_cards() -> void:
-	if card_open or pending_levels <= 0 or cards_blocked():
+	if cards_blocked():
+		pending_levels = 0
 		return
 	var choices := roll_cards(card_choices())
 	if choices.is_empty():
 		pending_levels = 0
 		return
-	card_open = true
 	Sfx.play("levelup", 0.0)
 	Ui.buzz(25, 0.4)
 	# Level up: a column of sharp rays, chevrons rising and gold motes.
@@ -297,8 +298,7 @@ func pick_card(id: String) -> void:
 	hero.recompute()
 	if id == "vigor":
 		hero.hp = minf(hero.hp + hero.max_hp * 0.3, hero.max_hp)
-	pending_levels = maxi(pending_levels - 1, 0)
-	card_open = false
+	pending_levels -= 1
 	get_tree().paused = false
 	Sfx.play("card_pick", -2.0)
 	if pending_levels > 0:
@@ -306,16 +306,6 @@ func pick_card(id: String) -> void:
 	else:
 		_check_level()
 
-
-## The run ended with picks still banked (the last level came from the souls
-## of the final kills): each one pays BANKED_PICK_GOLD gold instead.
-func cash_banked_picks() -> int:
-	if pending_levels <= 0:
-		return 0
-	var g := pending_levels * int(round(DB.BANKED_PICK_GOLD * float(tier["gold"])))
-	gold += g
-	pending_levels = 0
-	return g
 
 
 ## Rolls an item of at least rarity index `min_idx` (tries a few times).

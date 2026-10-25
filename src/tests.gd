@@ -909,23 +909,15 @@ func _levelup_tests() -> void:
 	_ok("victory slow-mo is left alone", is_equal_approx(Engine.time_scale, 0.25))
 	Engine.time_scale = 1.0
 	h.phase = "rise"
-	# Every foe dead, nothing queued: the pick is banked, no cards.
+	_ok("mid-run cards still show with no foe alive", h.foes.is_empty() and h._spawn_q.is_empty() and not h.cards_blocked())
+	# Boss Rush: a boss falls mid-run, the phase goes back to "rise" for the break.
+	h.mode = "rush"
+	_ok("the Boss Rush break card still shows", not h.cards_blocked())
+	h.phase = "victory"
 	h.pending_levels = 1
 	h._offer_cards()
-	_ok("no cards once every foe is dead", h.cards_blocked() and not h.card_open and h.pending_levels == 1)
-	var e := Enemy.new()
-	h.foes.append(e)
-	_ok("cards allowed while a foe lives", not h.cards_blocked())
-	e.alive = false
-	h._spawn_q.append({"t": 1.0})
-	_ok("cards allowed while foes are still to spawn", not h.cards_blocked())
-	h._spawn_q.clear()
-	h.phase = "victory"
-	h.foes.clear()
-	e.free()
-	_ok("no cards after victory", h.cards_blocked())
-	h.pending_levels = 2
-	var g0 := h.gold
-	_ok("banked picks are paid in gold at the end", h.cash_banked_picks() == 2 * DB.BANKED_PICK_GOLD and h.gold == g0 + 2 * DB.BANKED_PICK_GOLD and h.pending_levels == 0)
+	_ok("no card after the final boss falls; the pick is dropped", h.cards_blocked() and h.pending_levels == 0)
+	h.phase = "defeat"
+	_ok("no card after death", h.cards_blocked())
 	h.hero.free()
 	h.free()

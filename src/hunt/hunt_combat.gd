@@ -443,7 +443,8 @@ func _boss_down_midway() -> void:
 	banner("Next: %s" % DB.boss_def(str(nxt[0]))["name"], Color(0.85, 0.8, 0.7), "Take a card and a breath")
 	run_level += 1
 	pending_levels += 1
-	_offer_cards()
+	if pending_levels == 1:
+		_offer_cards()
 
 
 ## The dead boss sinks away; free it and its occluder a moment later.
@@ -480,9 +481,6 @@ func _end(win: bool) -> void:
 		return
 	_ended = true
 	Engine.time_scale = 1.0
-	var banked := cash_banked_picks()
-	if banked > 0:
-		print("HUNT banked picks cashed: +%d gold" % banked)
 	# Loot still lying around after a win is swept into the bag.
 	if win:
 		for p in pickups:
