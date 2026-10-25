@@ -41,6 +41,7 @@ static func run(ok: Callable) -> void:
 	ok.call("vfx: no lights in the library", v.find_children("*", "Light3D", true, false).is_empty())
 	v.free()
 	_tiers(ok, tree)
+	_stamps(ok, tree)
 	ok.call("vfx: element_for maps hues", VfxLib.element_for(Color(1.0, 0.45, 0.1)) == &"fire" and VfxLib.element_for(Color(0.55, 0.9, 1.0)) in [&"frost", &"storm"] and VfxLib.element_for(Color(0.7, 0.3, 1.0)) == &"shadow")
 	# No placeholder ring art left: the flat ring shaders are gone and only the
 	# shim in fx.gd (and sidekick.gd, owned by an open PR) still calls ring().
@@ -185,3 +186,33 @@ static func _scan_tiers(dir: String, out: Array) -> void:
 					out.append("%s:%d" % [f, i + 1])
 	for d in DirAccess.get_directories_at(dir):
 		_scan_tiers(dir + "/" + d, out)
+
+
+## No effect may paste the same sprite icon N times: every stamp-like layer
+## (flame cones, diamond shards, emblems) is rerouted to varied procedural
+## pieces, and sprays stay capped.
+static func _stamps(ok: Callable, tree: SceneTree) -> void:
+	var v: Node3D = VfxLib.new()
+	tree.root.add_child(v)
+	for tier in VfxLib.TIERS:
+		for el in VfxLib.ELEMENTS:
+			for variant in [&"cast", &"travel", &"impact", &"nova", &"linger"]:
+				v.play(el, variant, Vector3.ZERO, 2.0, Vector3(0, 0, 8), 0.4, VfxLib.NO_TINT, tier)
+	for i in 10:
+		v.spray(&"fire", Vector3.ZERO, Vector3(1, 0, 0), 4.0, 0.5, 0.5)
+	v.fire_basic_spray = true
+	v.travel(&"fire", Vector3.ZERO, Vector3(0, 0, 9), VfxLib.NO_TINT, &"light")
+	var sprays := 0
+	for e in v._live:
+		if e["kind"] == "spray": sprays += 1
+	for i in 20:
+		v._process(1.0 / 30.0)
+	var built := []
+	for n in VfxLib.REMAP:
+		if v._layers.has(n):
+			built.append(n)
+	ok.call("vfx: no stamp sprite layer is ever built %s" % [built], built.is_empty())
+	ok.call("vfx: puffs and ribbons drawn", v._layers.has("puff") and v._layers.has("ribbon"))
+	ok.call("vfx: sprays capped (%d)" % sprays, sprays <= VfxLib.MAX_SPRAYS and sprays > 0)
+	ok.call("vfx: puff layer within cap", int(v._layers["puff"]["alive"]) <= int(v._layers["puff"]["cap"]))
+	v.free()

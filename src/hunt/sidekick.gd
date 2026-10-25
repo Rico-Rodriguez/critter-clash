@@ -409,9 +409,8 @@ func _use() -> bool:
 			var flame := Color(0.35, 0.6, 1.0) if evolved else Color(1.0, 0.45, 0.12)
 			# Swoop toward the pack, then breathe along the cone.
 			var start := to - fwd * minf(rng * 0.45, from.distance_to(to))
-			for i in 4:
-				var p := start + fwd * rng * (0.2 + 0.24 * i)
-				fx.flame_burst(p, 0.8 + 0.25 * i, false, flame, &"skill")
+			# One continuous jet that widens into the cone, not stamped bursts.
+			fx.vfx.spray(&"fire", start, fwd, rng, float(ab["cone"]), 0.5, flame, &"skill")
 			for f in hunt.foes_near(start, rng + 0.5):
 				var to_f: Vector3 = f.flat_pos() - start
 				if to_f.length() <= rng + f.radius and fwd.dot(to_f.normalized()) > cos(float(ab["cone"])):

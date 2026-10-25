@@ -11,6 +11,9 @@ const TGT := Vector3(2.4, 0, -0.6)
 const SEG := 2.6
 const TIERS := [&"light", &"skill", &"big"]
 const NAMES := ["LIGHT: basic attacks (x3)", "SKILL: abilities", "BIG: supers / bosses"]
+## --fire: fireball basic vs flame-spray basic + breath vs big wavefront.
+const FIRE_NAMES := ["FIREBALL: basic (x3)", "FLAME SPRAY: basic option + breath", "BIG: fire wavefront"]
+var fire_cmp := false
 
 var el := &"fire"
 var col := Color.WHITE
@@ -27,6 +30,8 @@ var idle := 0
 
 func _initialize() -> void:
 	for a in OS.get_cmdline_user_args():
+		if a == "--fire":
+			fire_cmp = true
 		if a.begins_with("--el="):
 			el = StringName(a.substr(5))
 	col = VfxLib.COLORS[el]
@@ -81,11 +86,25 @@ func _process(dt: float) -> bool:
 	if s != seg:
 		seg = s
 		fired.clear()
-		label.text = NAMES[s]
+		label.text = (FIRE_NAMES if fire_cmp else NAMES)[s]
 	peak[s] = maxi(int(peak.get(s, 0)), draws)
 	var lt := t - s * SEG
 	var tier: StringName = TIERS[s]
-	if s == 0:
+	if fire_cmp:
+		if s == 0:
+			vfx.fire_basic_spray = false
+			for k in 3:
+				_at(lt, 0.15 + k * 0.5, "fireball%d" % k, _shot.bind(&"light"))
+		elif s == 1:
+			vfx.fire_basic_spray = true
+			for k in 3:
+				_at(lt, 0.15 + k * 0.4, "spray basic%d" % k, _shot.bind(&"light"))
+			_at(lt, 1.4, "breath", func(): vfx.spray(&"fire", HERO, TGT - HERO, 5.5, 0.5, 0.55))
+		else:
+			vfx.fire_basic_spray = false
+			_at(lt, 0.2, "wavefront", func(): vfx.nova(&"fire", TGT + Vector3(-1.5, 0, 0.5), 4.2, 0.6, VfxLib.NO_TINT, &"big"))
+			_at(lt, 1.4, "impact", func(): vfx.impact(&"fire", TGT, 2.2, VfxLib.NO_TINT, &"big"))
+	elif s == 0:
 		for k in 3:
 			_at(lt, 0.15 + k * 0.45, "shot%d" % k, _shot.bind(tier))
 	else:
@@ -119,7 +138,7 @@ func _shot(tier: StringName) -> void:
 		var p := (HERO + Vector3(0.4, 1.1, -0.2)).lerp(TGT + Vector3(0, 0.9, 0), k)
 		if a - float(acc[0]) >= 0.045 and k < 1.0:
 			acc[0] = a
-			vfx.travel(el, p, (TGT - HERO).normalized(), VfxLib.NO_TINT, tier)
+			vfx.travel(el, p, (TGT - HERO) / dur, VfxLib.NO_TINT, tier)
 		if k >= 1.0 and not acc[1]:
 			acc[1] = true
 			phase_label.text = "impact"

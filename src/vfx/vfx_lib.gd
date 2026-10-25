@@ -20,6 +20,7 @@ extends Node3D
 const DECAL := preload("res://src/vfx/vfx_decal.gdshader")
 const CORE := preload("res://src/vfx/vfx_core.gdshader")
 const CRYSTAL := preload("res://src/vfx/vfx_crystal.gdshader")
+const PUFF := preload("res://src/vfx/vfx_puff.gdshader")
 const TEX := "res://assets/vfx/%s.png"
 
 const ELEMENTS: Array[StringName] = [&"fire", &"frost", &"storm", &"poison", &"nature", &"holy", &"shadow", &"physical", &"blood", &"heal", &"buff", &"level"]
@@ -90,6 +91,10 @@ const LAYERS := {
 	"ball": {"mesh": "ball", "life": 0.45, "grav": Vector3.ZERO, "damp": 3.0, "size": Vector2(1, 1), "amount": 96},
 	"tongue": {"mesh": "wall", "life": 0.6, "grav": Vector3.ZERO, "damp": 0.0, "size": Vector2(1, 1), "amount": 24},
 	"spike": {"mesh": "spike", "life": 0.5, "grav": Vector3.ZERO, "damp": 0.0, "size": Vector2(1, 1), "amount": 160},
+	# Volume pieces: seeded noise billboards (sprays, flames, smoke) and a
+	# tapering ribbon strip for travel trails.
+	"puff": {"mesh": "puff", "life": 0.6, "grav": Vector3(0, 1.2, 0), "damp": 1.2, "size": Vector2(0.5, 0.9), "amount": 260},
+	"ribbon": {"mesh": "ribbon", "life": 0.28, "grav": Vector3.ZERO, "damp": 0.0, "size": Vector2(1, 1), "amount": 96},
 	"chip": {"mesh": "chip", "life": 0.6, "grav": Vector3(0, -14, 0), "damp": 0.4, "size": Vector2(0.7, 1.2), "amount": 160, "spin": 540.0},
 }
 
@@ -97,6 +102,20 @@ const DECALS := {
 	&"fire": "scorch", &"frost": "frost", &"poison": "poison", &"nature": "poison", &"holy": "holy",
 	&"shadow": "shadow", &"physical": "crack", &"storm": "crack", &"level": "holy", &"heal": "holy",
 }
+
+## Sprite layers that read as one stamp pasted many times are never drawn.
+## Their emits are rerouted to varied procedural pieces:
+## [target layer, style (-1 = element style from colour), size mult, growth].
+const REMAP := {
+	"flame": ["puff", 0, 0.8, 1.5], "flame_lg": ["puff", 0, 0.75, 1.4], "wisp": ["puff", 2, 0.8, 1.4],
+	"dust": ["puff", 4, 0.9, 1.6], "cross": ["puff", 3, 1.3, 1.3], "chevron": ["puff", 3, 1.2, 1.3],
+	"shard": ["chip", 0, 1.0, 1.0], "flake": ["chip", 0, 0.6, 1.0], "ray": ["puff", 3, 0.45, 1.3],
+}
+## Fire basic attacks: false = fireball with ribbon trail, true = a flame jet
+## (a continuous spray of puffs, Brawl Stars style).
+var fire_basic_spray := false
+## Spray jets alive at once.
+const MAX_SPRAYS := 6
 
 ## Particle cap per call and per frame of a wave, so a screen of procs stays cheap.
 const MAX_DECALS := 24
@@ -252,7 +271,7 @@ func _cast(el: StringName, pos: Vector3, r: float, c: Color) -> void:
 func _travel(el: StringName, pos: Vector3, dir: Vector3, c: Color) -> void:
 	var back := -dir.normalized() * 1.2 if dir.length_squared() > 0.0 else Vector3.ZERO
 	match el:
-		&"fire": _emit("flame", pos, back + Vector3(0, 0.6, 0), c); _emit("ember", pos, back * 0.5 + _rnd(0.6), c)
+		&"fire": _emit("ember", pos, back * 0.5 + _rnd(0.6), c)
 		&"frost": _emit("flake", pos, back + _rnd(0.4), c); _emit("spark", pos, back * 0.4, c)
 		&"storm": _emit("spark", pos, back + _rnd(2.5), c)
 		&"poison": _emit("bubble", pos, back + _rnd(0.4), c)
@@ -347,7 +366,18 @@ func _core(el: StringName, variant: StringName, pos: Vector3, r: float, dir: Vec
 	var light: bool = T == TIER[&"light"]
 	match variant:
 		&"travel":
+			var sp := dir.length()
+			var fwd := dir / sp if sp > 0.01 else Vector3.FORWARD
+			if el == &"fire" and light and fire_basic_spray:
+				spray(el, pos - Vector3(0, 0.7, 0), fwd, 1.1, 0.22, 0.05, c, &"light")
+				return
+			# A tapering ribbon behind the head: overlapping segments, the
+			# older ones thinner, so the trail reads as one strip.
+			var seg := clampf(sp * 0.07, 0.35, 1.1)
+			_mesh("ribbon", pos - fwd * seg * 0.45, Vector3.ZERO, c, st, (0.3 if light else 0.42) * k, 0.26, Vector3(seg, 1, 1), fwd)
 			_mesh("ball", pos, Vector3.ZERO, c, st, 0.5 if light else 0.6 * k, 0.2 if light else 0.3)
+			if randf() < (0.25 if light else 0.5):
+				_emit("ember", pos, -fwd * 1.5 + _rnd(0.9), c)
 			if not light and el == &"storm" and randf() < 0.25:
 				bolt_arc(pos, 0.45, c)
 			elif not light and SPIKES.has(el) and el != &"physical" and randf() < 0.5:
@@ -718,11 +748,19 @@ func _mesh_layer(n: String, d: Dictionary, mm: MultiMesh, cap: int) -> MultiMesh
 			sp.radial_segments = 6
 			sp.rings = 1
 			mesh = sp
+		"puff", "ribbon":
+			mesh = QuadMesh.new()
 		_:
 			var pm := PrismMesh.new()
 			pm.size = Vector3(0.12, 0.2, 0.06)
 			mesh = pm
-	if str(d["mesh"]) in ["ball", "wall"]:
+	if str(d["mesh"]) in ["puff", "ribbon"]:
+		m.shader = PUFF
+		if _noise == null:
+			_noise = load(TEX % "noise")
+		m.set_shader_parameter("noise", _noise)
+		m.set_shader_parameter("mode", 0 if str(d["mesh"]) == "puff" else 1)
+	elif str(d["mesh"]) in ["ball", "wall"]:
 		m.shader = CORE
 		if _noise == null:
 			_noise = load(TEX % "noise")
@@ -767,6 +805,8 @@ func _finish_layer(n: String, d: Dictionary, mm: MultiMesh, m: Material, cap: in
 
 
 func _emit(n: String, p: Vector3, v: Vector3, c: Color) -> int:
+	if REMAP.has(n):
+		return _remap(n, p, v, c)
 	layer(n)
 	var L: Dictionary = _layers[n]
 	var i: int = L["next"]
@@ -793,6 +833,66 @@ func _emit(n: String, p: Vector3, v: Vector3, c: Color) -> int:
 	node.visible = true
 	(L["mm"] as MultiMesh).visible_instance_count = int(L["top"])
 	return i
+
+
+## A stamp-like sprite emit becomes one varied procedural piece instead.
+func _remap(n: String, p: Vector3, v: Vector3, c: Color) -> int:
+	var r: Array = REMAP[n]
+	var d: Dictionary = LAYERS[n]
+	var sz: Vector2 = d["size"]
+	var size := randf_range(sz.x, sz.y) * float(r[2]) * randf_range(0.7, 1.3)
+	var life := float(d["life"]) * randf_range(0.7, 1.3)
+	if str(r[0]) == "chip":
+		return _mesh("chip", p, v, c, int(r[1]), size * 2.2, life, Vector3(randf_range(0.6, 1.4), randf_range(0.7, 1.7), randf_range(0.6, 1.2)))
+	return _mesh("puff", p, v * 0.7, c, int(r[1]), size, life, Vector3(float(r[3]), 1, 1))
+
+
+## A continuous flame jet: overlapping seeded puffs fired along `dir`,
+## spreading into a cone of half-angle `cone`, for `dur` seconds.
+func spray(el: StringName, pos: Vector3, dir: Vector3, length := 4.0, cone := 0.45, dur := 0.45, tint := Color(0, 0, 0, 0), tier: StringName = &"skill") -> void:
+	if not COLORS.has(el):
+		el = &"fire"
+	var f := Vector3(dir.x, 0, dir.z)
+	f = f.normalized() if f.length() > 0.01 else Vector3.FORWARD
+	var live := 0
+	for e in _live:
+		if e["kind"] == "spray":
+			live += 1
+	if live >= MAX_SPRAYS:
+		return
+	var light := tier == &"light"
+	var c: Color = tint if tint.a > 0.0 else COLORS[el]
+	_live.append({"kind": "spray", "el": el, "pos": pos, "dir": f, "len": length, "cone": cone, "c": c, "t": 0.0, "dur": dur, "acc": 0.0,
+		"rate": (34.0 if light else 70.0) * (0.5 if quality_low else 1.0), "light": light})
+	if not light:
+		_later(dur * 0.6, func(): decal(el, pos + f * length * 0.6, length * 0.3, 2.0 * _gdur))
+
+
+func _tick_spray(e: Dictionary, k: float, dt: float) -> void:
+	if k >= 1.0:
+		return
+	e["acc"] = float(e["acc"]) + float(e["rate"]) * dt
+	var n := mini(int(e["acc"]), 8)
+	e["acc"] = float(e["acc"]) - n
+	var f: Vector3 = e["dir"]
+	var side := f.cross(Vector3.UP)
+	var ln: float = e["len"]
+	var light: bool = e["light"]
+	var life := 0.32 if light else 0.42
+	var speed := ln / life
+	var c: Color = e["c"]
+	var st: int = STYLE[e["el"]]
+	for i in n:
+		var a := randf_range(-1.0, 1.0) * float(e["cone"])
+		var up := randf_range(-0.08, 0.18)
+		var v := (f * cos(a) + side * sin(a) + Vector3(0, up, 0)) * speed * randf_range(0.8, 1.15)
+		var p: Vector3 = e["pos"] + Vector3(0, 0.7, 0) + f * randf_range(0.0, 0.3)
+		var cc := c.lerp(Color(1.0, 0.85, 0.45), randf() * 0.35) if st == 0 else c
+		# Growth: tight at the nozzle, widening as it flies.
+		var g := (1.0 + tan(float(e["cone"])) * ln * 0.9)
+		_mesh("puff", p, v, cc, st, randf_range(0.28, 0.42) * (0.75 if light else 1.0), life * randf_range(0.8, 1.2), Vector3(g, 1, 1))
+	if not light and randf() < 0.3:
+		_emit("ember", e["pos"] + Vector3(0, 0.8, 0) + f * ln * randf_range(0.3, 0.9), _rnd(1.0) + Vector3(0, 1.5, 0), c)
 
 
 ## One procedural core instance: `size` overall, `shape` per-axis multiplier
@@ -872,7 +972,7 @@ func _mesh_xform(mm: MultiMesh, i: int, mesh: String, k: float, a: float, p: Vec
 	var size := info[i * 4]
 	var seed := info[i * 4 + 1]
 	var style := info[i * 4 + 3]
-	var b := Basis(Quaternion(Vector3.UP, up)) if up != Vector3.UP else Basis()
+	var b := Basis(Quaternion(Vector3.UP, up)) if up.dot(Vector3.UP) > -0.999 and up != Vector3.UP else Basis()
 	var t: Transform3D
 	match mesh:
 		"ball":
@@ -883,6 +983,12 @@ func _mesh_xform(mm: MultiMesh, i: int, mesh: String, k: float, a: float, p: Vec
 			var rad := lerpf(size, 1.0, 1.0 - pow(1.0 - k, 2.0))
 			var h := sh.y * lerpf(1.0, 0.55, k)
 			t = Transform3D(b.scaled(Vector3(sh.x * rad, h, sh.z * rad)), p + up * h * 0.5)
+		"puff":
+			var s2 := size * lerpf(0.6, sh.x, sqrt(k))
+			t = Transform3D(Basis().scaled(Vector3(s2, s2, s2)), p)
+		"ribbon":
+			var w := size * (1.0 - k * 0.8)
+			t = Transform3D(Basis(up * sh.x, Vector3(0, w, 0), up.cross(Vector3.UP).normalized() if absf(up.y) < 0.99 else Vector3.RIGHT), p)
 		"spike":
 			var g := clampf(k / 0.22, 0.02, 1.0)
 			if k > 0.85:
@@ -892,7 +998,7 @@ func _mesh_xform(mm: MultiMesh, i: int, mesh: String, k: float, a: float, p: Vec
 		_:
 			var sc := size * clampf((1.0 - k) / 0.35, 0.0, 1.0)
 			var ax := Vector3(sin(seed), cos(seed * 1.3), sin(seed * 0.7)).normalized()
-			t = Transform3D(Basis(ax, seed + info[i * 4 + 2] * a).scaled(Vector3.ONE * maxf(sc, 0.001)), p)
+			t = Transform3D(Basis(ax, seed + info[i * 4 + 2] * a).scaled(sh * maxf(sc, 0.001)), p)
 	mm.set_instance_transform(i, t)
 	mm.set_instance_color(i, c)
 	mm.set_instance_custom_data(i, Color(seed, style, minf(k, 0.999), 0.0))
@@ -939,14 +1045,14 @@ func _rnd(s: float) -> Vector3:
 
 ## What the front of a nova throws up, per element: [layer, up speed, outward].
 const WAVE := {
-	&"fire": ["flame", 1.4, 2.0], &"frost": ["shard", 5.5, 1.5], &"storm": ["spark", 3.5, 3.0],
+	&"fire": ["ember", 2.0, 2.0], &"frost": ["shard", 5.5, 1.5], &"storm": ["spark", 3.5, 3.0],
 	&"poison": ["bubble", 1.6, 1.0], &"nature": ["leaf", 3.0, 2.0], &"holy": ["mote", 2.5, 1.0],
 	&"level": ["mote", 3.0, 1.0], &"shadow": ["wisp", 1.8, 1.4], &"physical": ["dust", 0.8, 2.5],
 	&"blood": ["blood", 3.0, 2.0], &"heal": ["cross", 1.4, 0.5], &"buff": ["chevron", 1.8, 0.5],
 }
 ## And the second accent layer on the front.
 const WAVE2 := {
-	&"fire": "ember", &"frost": "flake", &"storm": "", &"poison": "spore", &"nature": "spore",
+	&"fire": "", &"frost": "flake", &"storm": "", &"poison": "spore", &"nature": "spore",
 	&"holy": "ray", &"level": "ray", &"shadow": "bone", &"physical": "debris", &"blood": "",
 	&"heal": "mote", &"buff": "mote",
 }
@@ -1027,6 +1133,8 @@ func _process(delta: float) -> void:
 					_bolt_geo(b, e["pts"], e["c"], e["forks"], e["w"])
 			"spikes":
 				_tick_spikes(e, k, delta)
+			"spray":
+				_tick_spray(e, k, delta)
 			"later":
 				if k >= 1.0:
 					(e["fn"] as Callable).call()

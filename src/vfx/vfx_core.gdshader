@@ -24,6 +24,10 @@ void vertex() {
 		float wob = style > 0.5 && style < 1.5 ? 0.5 : 0.3;
 		float n = textureLod(noise, UV * vec2(2.0, 1.0) + vec2(seed + TIME * 0.3, -TIME * 1.1), 0.0).r;
 		VERTEX += NORMAL * (n - 0.5) * wob;
+	} else {
+		// Wall: an irregular front, not a perfect circle.
+		float w = textureLod(noise, vec2(UV.x * 3.0 + seed, seed * 0.37), 0.0).r;
+		VERTEX.xz *= 1.0 + (w - 0.5) * 0.3;
 	}
 }
 
@@ -38,7 +42,11 @@ void fragment() {
 	float n2 = texture(noise, uv * 2.3 + vec2(TIME * 0.2, TIME * sp * 1.7)).r;
 	float v = n * 0.65 + n2 * 0.35;
 	if (mode == 1) {
-		v = v * 1.3 - (1.0 - UV.y) * 0.9 + 0.25;  // tongues: solid base, torn top
+		// Tongues: solid base, torn top, and big uneven heat licks around
+		// the ring so the front never reads as a repeated pattern.
+		float lick = texture(noise, vec2(UV.x * 2.3 + seed, TIME * 0.35)).r;
+		float lick2 = texture(noise, vec2(UV.x * 5.1 - seed, TIME * 0.6 + 0.5)).r;
+		v = v * 1.3 - (1.0 - UV.y) * (0.6 + lick * 0.9 + lick2 * 0.4) + 0.3;
 	}
 	float a = v + 0.5 - prog * prog * 1.1;
 	ALPHA = a;
