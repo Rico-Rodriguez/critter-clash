@@ -17,6 +17,7 @@ Draw calls in the busy hunt over 240 frames, 3 runs each:
 | | avg | max |
 |---|---|---|
 | before (origin/main 89e14f2) | 554 / 533 / 505 | 712 / 671 / 590 |
-| after | 531 / 542 / 509 | 668 / 709 / 663 |
+| after, revision 1 | 531 / 542 / 509 | 668 / 709 / 663 |
+| after, revision 2 (no stamps) | 499 / 500 | 624 / 622 |
 
 Regenerate: `godot --path . --rendering-method gl_compatibility --write-movie x.avi --fixed-fps 30 -s tools/dev/vfx_tiers.gd -- --el=fire`, and `-- --capture --shots=busy --hero=mage [--clip=1]` for the busy hunt.
