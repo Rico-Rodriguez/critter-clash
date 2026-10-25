@@ -100,9 +100,7 @@ func _tick_curse(dt: float) -> void:
 	Sfx.play("rare_chime", -2.0)
 	_drop_item(hero.flat_pos(), _roll_good("elite", 2))
 	run_level += 1
-	pending_levels += 1
-	if pending_levels == 1:
-		_offer_cards()
+	bank_level()
 
 
 # --- Surges, hazards and the ritual -------------------------------------------
