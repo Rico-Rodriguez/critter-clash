@@ -230,7 +230,7 @@ func _wind_up(at: Vector3) -> void:
 	var fx = hunt.fx
 	if fx:
 		# A thin, hard-edged tell at its feet in its colour (no glow).
-		fx.ring(Vector3(motor.pos.x, 0.05, motor.pos.z), 0.55 if not is_special() else 0.8, def["color"], t.x + 0.05, 0.05)
+		fx.ring(Vector3(motor.pos.x, 0.05, motor.pos.z), 0.55 if not is_special() else 0.8, def["color"], t.x + 0.05, 0.05, &"light")
 	Sfx.play("charge" if is_special() else "swing", -14.0, 1.35)
 
 
@@ -390,7 +390,7 @@ func _use() -> bool:
 				return false
 			hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * (SDB.EVOLVE_DMG if evolved else 1.0) * hunt.heal_mult(), hero.max_hp)
 			var r := float(ab["radius"]) * reach_mult()
-			fx.ring(hero.flat_pos(), r, col, 0.5)
+			fx.ring(hero.flat_pos(), r, col, 0.5, 0.12, &"skill")
 			fx.burst(hero.flat_pos() + Vector3(0, 1.0, 0), col, 10, 3.0, 1.5)
 			for f in hunt.foes_near(hero.position, r):
 				_strike(f, hit_dmg(float(ab["dmg"])))
@@ -409,9 +409,8 @@ func _use() -> bool:
 			var flame := Color(0.35, 0.6, 1.0) if evolved else Color(1.0, 0.45, 0.12)
 			# Swoop toward the pack, then breathe along the cone.
 			var start := to - fwd * minf(rng * 0.45, from.distance_to(to))
-			for i in 4:
-				var p := start + fwd * rng * (0.2 + 0.24 * i)
-				fx.flame_burst(p, 0.8 + 0.25 * i, false, flame)
+			# One continuous jet that widens into the cone, not stamped bursts.
+			fx.vfx.spray(&"fire", start, fwd, rng, float(ab["cone"]), 0.5, flame, &"skill")
 			for f in hunt.foes_near(start, rng + 0.5):
 				var to_f: Vector3 = f.flat_pos() - start
 				if to_f.length() <= rng + f.radius and fwd.dot(to_f.normalized()) > cos(float(ab["cone"])):
@@ -419,7 +418,7 @@ func _use() -> bool:
 			var mid := start + fwd * rng * 0.55
 			hunt.add_pyre(mid, rng * 0.35, float(ab["burn"]), hit_dmg(float(ab["dmg"])) * 0.25)
 			if _card("haste") > 0:
-				fx.ring(mid, rng * 0.5, flame, 0.4)
+				fx.ring(mid, rng * 0.5, flame, 0.4, 0.12, &"skill")
 				for f in hunt.foes_near(mid, rng * 0.5):
 					_strike(f, hit_dmg(float(ab["dmg"])) * 0.3)
 			_attack_anim()
@@ -435,7 +434,7 @@ func _use() -> bool:
 				if at == null:
 					break
 				hit.append(at)
-				fx.lightning(PackedVector3Array([prev, at.flat_pos() + Vector3(0, 0.6, 0)]), Color(0.95, 0.9, 0.78))
+				fx.lightning(PackedVector3Array([prev, at.flat_pos() + Vector3(0, 0.6, 0)]), Color(0.95, 0.9, 0.78), &"light")
 				fx.bone_burst(at.flat_pos(), 3, 3.5)
 				prev = at.flat_pos() + Vector3(0, 0.6, 0)
 				_strike(at, hit_dmg(float(ab["dmg"])), 2.5)
@@ -460,7 +459,7 @@ func _use() -> bool:
 				if not is_instance_valid(me) or not is_instance_valid(hunt):
 					return
 				var c2 := Color(0.7, 0.45, 1.0)
-				fx.ring(at, r, c2, 0.45)
+				fx.ring(at, r, c2, 0.45, 0.12, &"skill")
 				fx.burst(at, c2, 14, 6.0)
 				for f in hunt.foes_near(at, r):
 					_strike(f, burst)
@@ -473,7 +472,7 @@ func _use() -> bool:
 			var near: Array = hunt.foes_near(hero.position, r)
 			if near.is_empty():
 				return false
-			fx.ring(hero.flat_pos(), r, col, 0.5, 0.2)
+			fx.ring(hero.flat_pos(), r, col, 0.5, 0.2, &"skill")
 			fx.burst(hero.flat_pos(), col, 16, 7.0, 0.3)
 			for f in near:
 				_strike(f, hit_dmg(float(ab["dmg"])), float(ab["push"]))
@@ -493,7 +492,7 @@ func _use() -> bool:
 				pts.append(at.flat_pos() + Vector3(0, 0.8, 0))
 				_strike(at, hit_dmg(float(ab["dmg"])), 1.0)
 				at = _next_foe(at.position, 4.5 * reach_mult(), hit)
-			fx.lightning(pts, Color(0.6, 0.85, 1.0))
+			fx.lightning(pts, Color(0.6, 0.85, 1.0), &"skill")
 			_attack_anim()
 			Sfx.play("thunder", -8.0, 1.2)
 		"snap":
@@ -528,7 +527,7 @@ func _use() -> bool:
 				return false
 			var p: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
-			fx.ring(p, r, col, 0.4, 0.18)
+			fx.ring(p, r, col, 0.4, 0.18, &"skill")
 			fx.puff(p, Color(0.3, 0.27, 0.23, 0.6), 8, 1.5, 2.0)
 			for f in hunt.foes_near(p, r):
 				_strike(f, hit_dmg(float(ab["dmg"])), 4.0)
@@ -555,7 +554,7 @@ func _use() -> bool:
 				return false
 			var at: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
-			fx.ring(at, r, col, 0.5, 0.2)
+			fx.ring(at, r, col, 0.5, 0.2, &"skill")
 			fx.burst(at, col, 14, 5.0, 0.4)
 			for f in hunt.foes_near(at, r):
 				if not f is Boss:
@@ -566,7 +565,7 @@ func _use() -> bool:
 				get_tree().create_timer(0.4 * (k + 1), false).timeout.connect(func():
 					if not is_instance_valid(me) or not is_instance_valid(hunt):
 						return
-					fx.ring(at, r * 0.8, col, 0.3)
+					fx.ring(at, r * 0.8, col, 0.3, 0.12, &"light")
 					for f in hunt.foes_near(at, r):
 						_strike(f, amount))
 			_attack_anim()

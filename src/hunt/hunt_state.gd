@@ -489,7 +489,7 @@ func super_moment(at: Vector3) -> void:
 func _legendary_moment(at: Vector3, it: Dictionary) -> void:
 	var col := DB.rarity_color(it["rarity"])
 	fx.sky_bolt(at, col.lightened(0.3), 0.5, 18.0)
-	fx.vfx.impact(&"level", at, 2.4, col.lightened(0.3))
+	fx.vfx.impact(&"level", at, 2.4, col.lightened(0.3), &"big")
 	fx.flash_light(at, col, 6.0, 10.0, 0.8)
 	cam.punch = maxf(cam.punch, 0.06)
 	if phase != "victory":

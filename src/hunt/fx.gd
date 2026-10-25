@@ -207,17 +207,22 @@ func slash(pos: Vector3, yaw: float, radius: float, deg: float, color: Color, mi
 ## the element (VfxLib.element_for) and its nova races out instead: flames,
 ## ice spikes, leaves, motes. New code calls fx.vfx.nova(&"frost", ...) with
 ## the element by name; this stays so open branches keep working.
-func ring(pos: Vector3, radius: float, color: Color, dur := 0.45, _width := 0.12) -> void:
-	vfx.nova(VfxLib.element_for(color), pos, radius, dur, color)
+func ring(pos: Vector3, radius: float, color: Color, dur := 0.45, _width := 0.12, tier: StringName = &"skill") -> void:
+	vfx.nova(VfxLib.element_for(color), pos, radius, dur, color, tier)
 
 
 ## A burst of fire: a front of flame tongues racing out over the ground,
 ## a cluster of flames, sparks and embers, and a scorch decal left behind.
 ## `wall` false (small, frequent bursts) skips the racing front.
-func flame_burst(pos: Vector3, radius: float, wall := true, color := Color(1.0, 0.55, 0.18)) -> void:
+## `tier` light (basic-attack fireballs, frequent procs): a small flicker of
+## flame only, no front, no scorch, no light.
+func flame_burst(pos: Vector3, radius: float, wall := true, color := Color(1.0, 0.55, 0.18), tier: StringName = &"skill") -> void:
+	if tier == &"light":
+		vfx.impact(&"fire", pos, radius * 0.6, color, tier)
+		return
 	if wall and not quality_low:
-		vfx.nova(&"fire", pos, radius, clampf(0.3 + radius * 0.05, 0.32, 0.6), color)
-	vfx.impact(&"fire", pos, radius * 0.6, color)
+		vfx.nova(&"fire", pos, radius, clampf(0.3 + radius * 0.05, 0.32, 0.6), color, tier)
+	vfx.impact(&"fire", pos, radius * 0.6, color, tier)
 	flash_light(pos, Color(1.0, 0.55, 0.25), 2.0, radius * 2.0, 0.2)
 
 
@@ -482,56 +487,27 @@ func bone_burst(pos: Vector3, count := 6, force := 5.0) -> void:
 
 
 ## Chain lightning: forked, flickering bolts between the points (pooled).
-func lightning(points: PackedVector3Array, color := Color(0.6, 0.8, 1.0)) -> void:
-	vfx.bolt(points, color)
+## light tier: unforked and brief (basic chain attacks).
+func lightning(points: PackedVector3Array, color := Color(0.6, 0.8, 1.0), tier: StringName = &"skill") -> void:
+	if tier == &"light":
+		vfx.bolt(points, color, false, 0.05, 0.14)
+	else:
+		vfx.bolt(points, color, true, 0.07 if tier == &"skill" else 0.09, 0.22 if tier == &"skill" else 0.3)
 
 
 # --- Sky effects: lightning strikes, meteors, falling arrows ---------------
 
-static var _bolt_mat: StandardMaterial3D
 static var _fall_cache := {}
 
 
 ## A bolt of lightning from the sky onto `at`: jagged column, ground flash,
 ## shockwave ring and sparks. Pass the strike color (gold for holy, blue for storm).
 func sky_bolt(at: Vector3, color := Color(1.0, 0.9, 0.55), width := 0.2, height := 15.0) -> void:
-	if _bolt_mat == null:
-		_bolt_mat = StandardMaterial3D.new()
-		_bolt_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_bolt_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_bolt_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		_bolt_mat.vertex_color_use_as_albedo = true
-		_bolt_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var im := ImmediateMesh.new()
-	var mi := MeshInstance3D.new()
-	mi.mesh = im
-	mi.material_override = _bolt_mat
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-	var hot := Color(color.r * 1.35, color.g * 1.35, color.b * 1.35, 1.0)
-	var steps := 9
-	var path: Array[Vector3] = []
-	for j in steps + 1:
-		var t := float(j) / steps
-		var p := at + Vector3(0, height * (1.0 - t), 0)
-		if j > 0 and j < steps:
-			p += Vector3(randf_range(-0.7, 0.7), 0, randf_range(-0.7, 0.7)) * (1.0 - t * 0.5)
-		path.append(p)
-	for side in [Vector3.RIGHT, Vector3.BACK]:
-		im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
-		for j in path.size():
-			var w := width * (0.5 + 0.5 * float(j) / steps)
-			im.surface_set_color(hot)
-			im.surface_add_vertex(path[j] - side * w)
-			im.surface_set_color(hot)
-			im.surface_add_vertex(path[j] + side * w)
-		im.surface_end()
-	var tw := mi.create_tween()
-	tw.tween_property(mi, "transparency", 1.0, 0.28).from(0.0).set_ease(Tween.EASE_IN)
-	tw.tween_callback(mi.queue_free)
+	# Pooled, re-forking and capped (VfxLib.sky); always big tier.
+	vfx.sky(at, color, width, height)
 	flare(at, color)
 	flash_light(at, color, 5.0, 8.0, 0.3)
-	vfx.impact(VfxLib.element_for(color) if VfxLib.element_for(color) == &"holy" else &"storm", at, 1.6, color)
+	vfx.impact(VfxLib.element_for(color) if VfxLib.element_for(color) == &"holy" else &"storm", at, 1.6, color, &"skill")
 
 
 ## Something falling onto `to` after `delay`, taking `dur` to arrive: a "meteor"
