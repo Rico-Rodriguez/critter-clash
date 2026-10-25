@@ -145,7 +145,7 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 			hero._storm(3, hero.dmg * 0.8)
 			_storming = false
 	dmg_dealt += landed
-	var gain := DB.super_hit_charge(landed, hero.dmg, hero.super_budget, hero.super_rate, hero.super_t > 0.0 or hero.super_lock > 0.0)
+	var gain := DB.super_hit_charge(landed, hero.dmg, hero.super_budget, hero.super_rate, hero.super_t > 0.0 or hero.super_lock > 0.0 or not hero.super_open)
 	if gain > 0.0:
 		hero.super_budget = 0.0
 		hero.super_charge = minf(hero.super_charge + gain, 1.0)
@@ -171,6 +171,7 @@ func _kill(f: Enemy) -> void:
 	foes.erase(f)
 	corpses.append(f)
 	kills += 1
+	hero.add_super(float(DB.SUPER["kill"]))
 	if hero.flags.has("bloodlust"):
 		hero.rage = mini(hero.rage + 1, int(hero.flags["bloodlust"]))
 		hero.rage_t = 1.5
@@ -329,6 +330,7 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 	amount *= 1.0 + pact_sum("dmg_taken")
 	amount = roundf(amount * randf_range(0.92, 1.08))
 	hero.hp -= amount
+	hero.calm_t = 0.0
 	hero.hit_flash()
 	hero.invuln = 0.08
 	fx.number(hero.flat_pos(), int(amount), Color(1.0, 0.3, 0.25), 0.9)
@@ -369,8 +371,7 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 func _perfect_dodge() -> void:
 	hero.perfect_used = true
 	hero.riposte_t = float(DB.PERFECT_DODGE["time"])
-	if hero.super_lock <= 0.0:
-		hero.super_charge = minf(hero.super_charge + float(DB.PERFECT_DODGE["super"]), 1.0)
+	hero.add_super(float(DB.PERFECT_DODGE["super"]))
 	perfect_dodges += 1
 	if hero.flags.has("dodge_heal"):
 		hero.hp = minf(hero.hp + hero.max_hp * float(hero.flags["dodge_heal"]), hero.max_hp)

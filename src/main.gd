@@ -200,6 +200,10 @@ func _run_bot(args: PackedStringArray) -> void:
 	var bot_fam := _arg(args, "fam", "")
 	Game.open_whole_road()
 	Game.data["start_picked"] = true
+	# A real player only reaches a gated mode or zone with that many trophies
+	# (which also unlocks the super), so the bot starts there too.
+	var gate := maxi(DB.road_gate(_arg(args, "mode", "horde")), DB.road_gate(_arg(args, "zone", "barrow")))
+	Game.data["renown"] = maxi(int(Game.data.get("renown", 0)), gate)
 	# --sidekick=drake[:kills]: that sidekick at your side, with that many bond kills.
 	var sk_arg := _arg(args, "sidekick", "")
 	if sk_arg != "":

@@ -546,7 +546,11 @@ const ERUPTION := {"every": 12.0, "every_ai": 2.6, "min": 4.2, "count": 2, "coun
 ## target, not every foe an area hit touches) and never from the super's own
 ## hits. After a super fires, charge is locked for `lock` seconds. All rate
 ## bonuses (Wrath, talents, pacts, ranks) add up, then soften toward `rate_cap`.
-const SUPER := {"passive": 0.012, "per_hit": 40.0, "lock": 12.0, "rate_cap": 2.2}
+const SUPER := {"passive": 0.012, "per_hit": 40.0, "lock": 12.0, "rate_cap": 2.2,
+	# Earned charge: kills, and staying unhurt for `calm` seconds.
+	"kill": 0.006, "calm": 10.0, "calm_gain": 0.10,
+	# Backup fill: passive charge only after `floor_after` s with no super.
+	"floor_after": 40.0}
 
 
 ## Charge-rate multiplier for a summed bonus (0.25 = +25%): diminishing
@@ -986,22 +990,70 @@ const LAMP_SHARDS := 10
 
 ## Super ranks: the job for shards. Each rank costs shards plus gold and adds
 ## the change its line says, so the price and payoff are always readable.
+## Super rank prices (shards + gold). Ranks change what the super does, never
+## how fast it charges: see SUPER_PERKS.
 const SUPER_RANKS := [
-	{"shards": 50, "gold": 1000, "dmg": 0.15, "charge": 0.0, "text": "+15% Super damage"},
-	{"shards": 100, "gold": 3000, "dmg": 0.0, "charge": 0.15, "text": "Super charges 15% faster"},
-	{"shards": 200, "gold": 7000, "dmg": 0.2, "charge": 0.0, "text": "+20% Super damage"},
-	{"shards": 350, "gold": 15000, "dmg": 0.0, "charge": 0.2, "text": "Super charges 20% faster"},
-	{"shards": 500, "gold": 30000, "dmg": 0.3, "charge": 0.0, "text": "+30% Super damage"},
+	{"shards": 50, "gold": 1000},
+	{"shards": 100, "gold": 3000},
+	{"shards": 200, "gold": 7000},
+	{"shards": 350, "gold": 15000},
+	{"shards": 500, "gold": 30000},
 ]
 
-## Super damage and charge-rate multipliers at `rank` (0 to SUPER_RANKS.size()).
-static func super_mults(rank: int) -> Vector2:
-	var d := 1.0
-	var c := 1.0
-	for i in clampi(rank, 0, SUPER_RANKS.size()):
-		d += float(SUPER_RANKS[i]["dmg"])
-		c += float(SUPER_RANKS[i]["charge"])
-	return Vector2(d, c)
+## The super unlocks at hero combat level `level`, or for every hero once the
+## Trophy Road reaches `trophies`.
+const SUPER_UNLOCK := {"level": 5, "trophies": 150}
+
+## What each rank adds, per super. Numbers add up across ranks; `lock` is
+## seconds off the lockout after the super.
+const SUPER_PERKS := {
+	"slam": [
+		{"text": "Wider slam", "radius": 1.0},
+		{"text": "Stun lasts 1 s longer", "stun": 1.0},
+		{"text": "A second, smaller slam lands after the first", "echo": 1},
+		{"text": "Lightning strikes along the leap", "trail": 1},
+		{"text": "Lockout 2 s shorter", "lock": -2.0},
+	],
+	"whirlwind": [
+		{"text": "Spin lasts 0.8 s longer", "dur": 0.8},
+		{"text": "Wider spin", "radius": 0.8},
+		{"text": "Each spin that cuts a foe heals 1% health", "heal": 0.01},
+		{"text": "Ends in a fire blast", "finale": 1},
+		{"text": "Lockout 2 s shorter", "lock": -2.0},
+	],
+	"volley": [
+		{"text": "+6 arrows in the fan", "arrows": 6},
+		{"text": "Arrow rain covers 3 more foes", "rain": 3},
+		{"text": "A second fan follows the first", "echo": 1},
+		{"text": "Arrow rain pins foes in place", "stun": 0.6},
+		{"text": "Lockout 2 s shorter", "lock": -2.0},
+	],
+	"meteor": [
+		{"text": "+3 meteors", "count": 3},
+		{"text": "Bigger blasts", "radius": 0.7},
+		{"text": "Meteors stun", "stun": 0.8},
+		{"text": "A great meteor falls last", "echo": 1},
+		{"text": "Lockout 2 s shorter", "lock": -2.0},
+	],
+	"shadowstep": [
+		{"text": "Blink to 3 more foes", "marks": 3},
+		{"text": "Longer reach", "reach": 3.0},
+		{"text": "Stabs stun", "stun": 1.0},
+		{"text": "Ends in a smoke burst", "finale": 1},
+		{"text": "Lockout 2 s shorter", "lock": -2.0},
+	],
+}
+
+
+## The summed perks of a `kind` super at `rank` (0 to SUPER_RANKS.size()).
+static func super_perks(kind: String, rank: int) -> Dictionary:
+	var out := {}
+	var list: Array = SUPER_PERKS.get(kind, [])
+	for i in clampi(rank, 0, list.size()):
+		for k: String in list[i]:
+			if k != "text":
+				out[k] = float(out.get(k, 0.0)) + float(list[i][k])
+	return out
 const LAMP_XP := 5
 ## Skill XP per point of damage dealt.
 const XP_PER_DAMAGE := 0.16

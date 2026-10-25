@@ -9,6 +9,11 @@ func super_rank(id: String) -> int:
 	return int(hero(id).get("super_rank", 0))
 
 
+## Whether `id` has its super yet (combat level, or the Trophy Road).
+func super_unlocked(id: String) -> bool:
+	return combat_level(id) >= int(DB.SUPER_UNLOCK["level"]) or int(data.get("renown", 0)) >= int(DB.SUPER_UNLOCK["trophies"])
+
+
 ## The next rank's price, or {} at max rank.
 func super_rank_cost(id: String) -> Dictionary:
 	var r := super_rank(id)
