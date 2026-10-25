@@ -432,7 +432,8 @@ func _boss_down_midway() -> void:
 	for f in foes.duplicate():
 		if f.alive:
 			_kill(f)
-	hero.hp = minf(hero.hp + hero.max_hp * 0.5, hero.max_hp)
+	# A Rush break is a full breather; the Descent only patches you up.
+	hero.hp = hero.max_hp if _rushlike() else minf(hero.hp + hero.max_hp * 0.5, hero.max_hp)
 	Sfx.music(music_track(), 1.0)
 	if mode == "descent":
 		depth_t = 0.0

@@ -73,8 +73,8 @@ const HEROES := {
 		"model": "Mage",
 		"weapons": {"handslot.r": "staff.gltf"},
 		"weapon_bone": "handslot.r", "weapon_looks": [],
-		"style": "magic", "hp": 300.0, "speed": 5.4, "dmg": 25.0, "rate": 1.15,
-		"range": 8.5, "proj_speed": 16.0, "splash": 2.2, "armor": 0.0,
+		"style": "magic", "hp": 380.0, "speed": 5.4, "dmg": 28.0, "rate": 1.15,
+		"range": 8.5, "proj_speed": 16.0, "splash": 2.2, "armor": 0.1,
 		"super": "meteor", "super_name": "Meteor Storm", "super_desc": "Call down a barrage of meteors on the horde.",
 		"anim": {"idle": "Idle_B", "run": "Running_B", "attack": ["Ranged_Magic_Shoot"], "super": "Ranged_Magic_Summon"},
 		"color": Color(0.85, 0.42, 0.95), "icon": "wizard-staff",
@@ -418,7 +418,7 @@ const DESCENT_HP := 0.16
 const DESCENT_DMG := 0.08
 const DESCENT_CHESTS := [[15, "crypt"], [10, "gold"], [5, "silver"]]
 ## Boss Rush: the zone's bosses in turn, each empowered on the second lap.
-const RUSH_ORDER := [["gravemaw", 1.0], ["hexer", 1.0], ["gravemaw", 1.5], ["hexer", 1.5]]
+const RUSH_ORDER := [["gravemaw", 1.0], ["hexer", 1.0], ["gravemaw", 1.3], ["hexer", 1.35]]
 const RUSH_GAP := 7.0
 ## The Wilderness: a royale on a closing ring. Rival bands (hero-built foes)
 ## hunt you while the dead rise; the last band standing wins. Ring radius by
