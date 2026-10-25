@@ -739,7 +739,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -769,7 +769,38 @@ func _capture(args: PackedStringArray) -> void:
 					h.bot = false
 					h.run_xp = DB.run_level_xp(h.run_level)
 					h._check_level()
+					h.open_bank()
 					await _wait(0.9)
+				elif shot == "bank":
+					# The upgrade bank: two level-ups land on the badge while the
+					# hunt plays on, a tap opens the cards, one pick, keep the
+					# other, play continues. bank_NN.png frames at 30 fps.
+					await _wait_sim(h, 6.0)
+					h.bot = false
+					var n := 0
+					for k in 2:
+						h.run_xp = DB.run_level_xp(h.run_level)
+						h._check_level()
+						for i in 18:
+							await _save("bank_%03d" % n)
+							n += 1
+					print("BANK badge=%d paused=%s" % [h.hud.bank_count(), get_tree().paused])
+					h.hud._bank.pressed.emit()
+					for i in 20:
+						await _save("bank_%03d" % n)
+						n += 1
+					h.pick_card(str(h.roll_cards(1)[0]))
+					for i in 15:
+						await _save("bank_%03d" % n)
+						n += 1
+					for c in h.hud.get_children():
+						if c.has_method("_keep"):
+							c._keep()
+					var t0 := h.time
+					for i in 30:
+						await _save("bank_%03d" % n)
+						n += 1
+					print("BANK after keep: badge=%d paused=%s hunt_time_advanced=%.2f" % [h.hud.bank_count(), get_tree().paused, h.time - t0])
 				elif shot == "levelup_slow":
 					# The once-a-match slow cards: a level-up lands while an
 					# elite's kill hitstop (0.05x) is still running. Saves 1 s of
@@ -779,6 +810,7 @@ func _capture(args: PackedStringArray) -> void:
 					h.hitstop(0.09)
 					h.run_xp = DB.run_level_xp(h.run_level)
 					h._check_level()
+					h.open_bank()
 					var lv: Control = null
 					for c in h.hud.get_children():
 						if c.has_method("_pick"):

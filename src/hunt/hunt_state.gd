@@ -55,7 +55,10 @@ var dmg_dealt := 0.0
 var foe_speed_mult := 1.0
 var spawn_t := 1.5
 var elite_marks := [0.28, 0.58, 0.86]
+## Banked level-up picks (the "+N" badge over the super button).
 var pending_levels := 0
+## True while the level-up cards are on screen.
+var card_open := false
 var bot := false
 var low := false
 var result := {}

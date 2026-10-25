@@ -153,6 +153,7 @@ func _clear_room(r: Dictionary) -> void:
 		_set_dark(false)
 	var at := hero.flat_pos()
 	banner("Room cleared", Color(0.6, 1.0, 0.7), "The way is open")
+	safe_moment()
 	Sfx.play("rare_chime", -2.0)
 	var kind := str(r["kind"])
 	for i in randi_range(4, 7):

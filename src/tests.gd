@@ -209,6 +209,7 @@ func run() -> int:
 	_sidekick_tests()
 	_sidekick_motor_tests()
 	_levelup_tests()
+	_bank_tests()
 	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
 	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
 	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
@@ -919,5 +920,60 @@ func _levelup_tests() -> void:
 	_ok("no card after the final boss falls; the pick is dropped", h.cards_blocked() and h.pending_levels == 0)
 	h.phase = "defeat"
 	_ok("no card after death", h.cards_blocked())
+	h.hero.free()
+	h.free()
+
+
+## The upgrade bank: level-ups wait on the "+N" badge instead of pausing.
+func _bank_tests() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var h := Hunt.new()
+	h.phase = "rise"
+	h.mode = "horde"
+	h.hero_id = "knight"
+	h.hero = Hero.new()
+	h.hero.def = DB.HEROES["knight"]
+	h.hero.hunt = h
+	h.hero.base = Game.hero_stats("knight")
+	var hud: Node = load("res://src/ui/hud.tscn").instantiate()
+	hud.hunt = h
+	h.hud = hud
+	tree.root.add_child(hud)
+	hud._make_bank_badge()
+	h.bank_level()
+	_ok("a level-up does not pause the game", not tree.paused and not h.card_open)
+	h.bank_level()
+	_ok("the badge shows the banked count", hud.bank_count() == 2 and hud._bank.visible and hud._bank.text == "+2 cards")
+	hud._bank.pressed.emit()
+	var lv: Node = null
+	for c in hud.get_children():
+		if c.has_method("_pick"):
+			lv = c
+	_ok("tapping the badge pauses and opens the cards", tree.paused and h.card_open and lv != null)
+	if lv:
+		lv._keep()
+	_ok("keep for later closes and keeps the picks", not tree.paused and not h.card_open and h.pending_levels == 2)
+	hud._bank.pressed.emit()
+	h.pick_card(str(h.roll_cards(1)[0]))
+	_ok("after a pick the next banked set shows right away", tree.paused and h.card_open and h.pending_levels == 1 and hud.bank_count() == 1)
+	h.close_bank()
+	# Safe moments open the bank by themselves: a room cleared, a boss down mid-run.
+	h.safe_moment()
+	_ok("a cleared room opens the banked picks", tree.paused and h.card_open)
+	h.close_bank()
+	h.pending_levels = 0
+	hud.set_bank(0)
+	h.bank_level(true)
+	_ok("the break between bosses opens the cards", tree.paused and h.card_open and h.pending_levels == 1)
+	h.close_bank()
+	# The final boss falls: banked picks are dropped and the badge hides.
+	h.phase = "victory"
+	h.bank_level()
+	_ok("no cards after the run ends; bank dropped, badge hidden", h.pending_levels == 0 and not hud._bank.visible and not h.card_open)
+	for c in hud.get_children():
+		if c.has_method("_pick"):
+			c.free()
+	tree.paused = false
+	hud.free()
 	h.hero.free()
 	h.free()
