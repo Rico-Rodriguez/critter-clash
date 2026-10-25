@@ -263,6 +263,7 @@ func refresh(dt: float) -> void:
 		var sk = hunt.sidekick
 		_sk_ring.value = 1.0 - clampf(sk.cd / maxf(sk.cooldown(), 0.01), 0.0, 1.0)
 		_sk_text.text = "%s · %d slain\n%s" % [sk.ability_name(), sk.slain, "ready" if sk.cd <= 0.0 else "ready in %ds" % ceili(sk.cd)]
+	%Super.visible = hero.super_open
 	%Super.fill = hero.super_charge
 	%Super.is_ready = hero.super_ready()
 	%Super.lock_left = hero.super_lock

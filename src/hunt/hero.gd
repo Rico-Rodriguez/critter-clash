@@ -67,6 +67,12 @@ var super_charge := 0.0
 var super_lock := 0.0
 ## Damage the current swing may still turn into charge (one swing's worth).
 var super_budget := 0.0
+## Rank perks for this hero's super (DB.super_perks), and whether it is unlocked.
+var sp := {}
+var super_open := true
+## Seconds since the last super (or the hunt start), and since the hero was hurt.
+var since_super := 0.0
+var calm_t := 0.0
 var super_t := 0.0
 var super_kind := ""
 var leap_from := Vector3.ZERO
@@ -254,9 +260,10 @@ func recompute() -> void:
 	xp_mult = 1.0 + float(base.get("xp", 0.0)) + hunt.pact_sum("xp")
 	rate *= 1.0 + 0.05 * rage
 	dash_cd_max = 2.2 * (1.0 - 0.2 * lv.call("dash")) * (1.0 - float(base.get("dash", 0.0)))
-	var sm := DB.super_mults(Game.super_rank(id))
-	super_dmg = sm.x
-	super_rate = DB.super_rate(0.25 * lv.call("wrath") + float(base.get("super", 0.0)) + hunt.pact_sum("super") + (sm.y - 1.0))
+	sp = DB.super_perks(str(def["super"]), Game.super_rank(id))
+	super_open = Game.super_unlocked(id)
+	super_dmg = 1.0
+	super_rate = DB.super_rate(0.25 * lv.call("wrath") + float(base.get("super", 0.0)) + hunt.pact_sum("super"))
 	gold_mult = base["gold"] * (1.0 + 0.3 * lv.call("greed"))
 	leech = 0.03 * lv.call("leech")
 	thorns = 0.6 * lv.call("thorns")
@@ -308,10 +315,17 @@ func tick(dt: float) -> void:
 	if regen > 0.0:
 		hp = minf(hp + minf(regen, max_hp * DB.REGEN_CAP) * hunt.heal_mult() * dt, max_hp)
 	leech_pool = minf(leech_pool + max_hp * DB.LEECH_CAP * dt, max_hp * DB.LEECH_CAP)
+	since_super += dt
 	if super_lock > 0.0:
 		super_lock = maxf(super_lock - dt, 0.0)
-	else:
-		super_charge = minf(super_charge + dt * float(DB.SUPER["passive"]) * super_rate, 1.0)
+	elif super_open and super_t <= 0.0:
+		# Staying unhurt earns a slice; the passive tick is only a backup.
+		calm_t += dt
+		if calm_t >= float(DB.SUPER["calm"]):
+			calm_t = 0.0
+			add_super(float(DB.SUPER["calm_gain"]))
+		if since_super >= float(DB.SUPER["floor_after"]):
+			add_super(dt * float(DB.SUPER["passive"]))
 	_tick_cards(dt)
 	if super_t > 0.0:
 		_tick_super(dt)
@@ -713,15 +727,27 @@ func try_potion() -> bool:
 	return true
 
 
+## Earned charge (kills, calm, dodges), scaled by the softened rate. None
+## while the super is locked out, going off, or not unlocked yet.
+func add_super(amount: float) -> void:
+	if super_open and super_lock <= 0.0 and super_t <= 0.0:
+		super_charge = minf(super_charge + amount * super_rate, 1.0)
+
+
+func perk(key: String) -> float:
+	return float(sp.get(key, 0.0))
+
+
 func super_ready() -> bool:
-	return super_charge >= 1.0 and super_t <= 0.0 and super_lock <= 0.0 and alive
+	return super_open and super_charge >= 1.0 and super_t <= 0.0 and super_lock <= 0.0 and alive
 
 
 func try_super() -> bool:
 	if not super_ready():
 		return false
 	super_charge = 0.0
-	super_lock = float(DB.SUPER["lock"])
+	super_lock = maxf(float(DB.SUPER["lock"]) + perk("lock"), 0.0)
+	since_super = 0.0
 	Ui.buzz(50, 0.7)
 	super_kind = def["super"]
 	impact_t = -1.0
@@ -743,7 +769,7 @@ func try_super() -> bool:
 			act(def["anim"]["super"], 0.75, true)
 			Sfx.play("charge", -2.0)
 		"whirlwind":
-			super_t = 3.2
+			super_t = 3.2 + perk("dur")
 			whirl_tick = 0.0
 			whirl_n = 0
 			tree.active = false
@@ -756,11 +782,11 @@ func try_super() -> bool:
 		"volley":
 			super_t = 0.35
 			act(def["anim"]["super"], 0.35, true)
-			var n := 15
-			for i in n:
-				var a := rotation.y + (i - (n - 1) * 0.5) * deg_to_rad(6.0)
-				var d := dir_of(a)
-				hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * 30.0, dmg * 1.7 * super_dmg, 99, self, {"super": true})
+			_volley_fan(15 + int(perk("arrows")))
+			if perk("echo") > 0.0:
+				get_tree().create_timer(0.4, false).timeout.connect(func():
+					if is_instance_valid(hunt) and alive:
+						_volley_fan(15 + int(perk("arrows"))))
 			hunt.shake(0.25)
 			Sfx.play("volley", 0.0)
 			# The sky goes dark with arrows: a dim, and a rain that falls
@@ -769,33 +795,42 @@ func try_super() -> bool:
 				var cp := flat_pos() + Vector3(randf_range(-9.0, 9.0), 0, randf_range(-9.0, 9.0))
 				hunt.fx.fall("arrow", cp, randf_range(0.15, 0.95), 0.28, func(): hunt.fx.puff(cp, Color(0.32, 0.27, 0.22, 0.4), 2, 0.4, 1.0))
 			# A second wave from above, onto the foes the fan runs through.
-			var rain := _foes_in(12.0, 5)
+			var rain := _foes_in(12.0, 5 + int(perk("rain")))
 			for k in rain.size():
 				var rp: Vector3 = (rain[k] as Actor).flat_pos()
 				for j in 5:
 					var ap := rp + Vector3(randf_range(-1.6, 1.6), 0, randf_range(-1.6, 1.6))
-					hunt.fx.fall("arrow", ap, 0.25 + 0.05 * (k * 5 + j), 0.28, func(): _arrow_hit(ap, dmg * 0.9 * super_dmg))
+					hunt.fx.fall("arrow", ap, 0.25 + 0.05 * (k * 5 + j), 0.28, func(): _arrow_hit(ap, dmg * 0.9 * super_dmg, perk("stun")))
 		"shadowstep":
 			super_t = 0.45
 			invuln = 1.0
 			act(def["anim"]["super"], 0.5, true)
 			Sfx.play("blades", -2.0)
-			var marks := _foes_in(9.0, 6)
+			var marks := _foes_in(9.0 + perk("reach"), 6 + int(perk("marks")))
 			for m in marks:
 				var mf := m as Actor
 				hunt.fx.puff(flat_pos(), Color(0.1, 0.12, 0.1, 0.5), 4, 0.5, 1.0)
 				position = hunt.arena.resolve(mf.flat_pos() - dir_of(yaw_to(position, mf.position)) * 0.9, radius)
 				hunt.damage_foe(mf, dmg * 2.4 * super_dmg, self, dir_of(yaw_to(position, mf.position)), 2.0)
+				_stun(mf, perk("stun"))
 				hunt.fx.slash(mf.flat_pos(), randf() * TAU, 1.8, 140, Color(0.6, 1.0, 0.7), randf() < 0.5, 0.18)
 			if marks.is_empty():
 				position = hunt.arena.resolve(flat_pos() + fwd * 4.0, radius)
+			if perk("finale") > 0.0:
+				_finale_blast(3.0, dmg * 1.6, &"shadow")
 			hunt.shake(0.2)
 		"meteor":
 			super_t = 0.5
 			act(def["anim"]["super"], 0.6, true)
 			hunt.fx.vfx.cast(&"fire", flat_pos(), 1.6, Fx.VfxLib.NO_TINT, &"big")
 			var arm := int(hunt.cards.get("armageddon", 0)) > 0
-			meteor_shower(14 if arm else 9, dmg * 3.2 * super_dmg, 2.9, 13.0)
+			meteor_shower((14 if arm else 9) + int(perk("count")), dmg * 3.2 * super_dmg, 2.9 + perk("radius"), 13.0, perk("stun"))
+			if perk("echo") > 0.0:
+				var big := hunt.nearest_foe(position, 13.0)
+				var bat: Vector3 = big.flat_pos() if big else flat_pos() + fwd * 5.0
+				var br := 4.2 + perk("radius")
+				hunt.fx.telegraph(0, bat, 0.0, Vector2(br, 0), 1.6, 0.6, &"fire")
+				hunt.fx.fall("meteor", bat, 1.05, 0.55, func(): _meteor_hit(bat, dmg * 5.0, br, perk("stun")))
 			hunt.shake(0.3)
 			Sfx.play("charge", -3.0, 0.7)
 	# The name goes up where the hero will be (the Knight's leap lands away).
@@ -811,9 +846,17 @@ func _tick_super(dt: float) -> void:
 			var p := leap_from.lerp(leap_to, smoothstep(0.0, 1.0, k))
 			position = p
 			model.position.y = sin(k * PI) * 2.4
+			if perk("trail") > 0.0 and int(k * 4.0) > int((1.0 - clampf((super_t + dt) / 0.55, 0.0, 1.0)) * 4.0):
+				hunt.fx.sky_bolt(flat_pos(), Color(0.85, 0.92, 1.0), 0.14, 12.0)
+				for tf in hunt.foes_near(position, 1.8):
+					hunt.damage_foe(tf, dmg * 1.0, self, Vector3.ZERO, 2.0)
 			if super_t <= 0.0:
 				model.position.y = 0.0
 				_slam_land()
+				if perk("echo") > 0.0:
+					get_tree().create_timer(0.6, false).timeout.connect(func():
+						if is_instance_valid(hunt) and alive:
+							_slam_land(0.6))
 		"whirlwind":
 			var want := Vector3(move_input.x, 0, move_input.y)
 			if want.length() > 1.0:
@@ -824,10 +867,12 @@ func _tick_super(dt: float) -> void:
 			if whirl_tick <= 0.0:
 				whirl_tick = 0.2
 				var any := false
-				for f in hunt.foes_near(position, 3.2):
+				for f in hunt.foes_near(position, 3.2 + perk("radius")):
 					var to: Vector3 = f.flat_pos() - flat_pos()
 					hunt.damage_foe(f, dmg * 0.75 * super_dmg, self, to.normalized(), 3.0)
 					any = true
+				if any and perk("heal") > 0.0:
+					hp = minf(hp + max_hp * perk("heal") * hunt.heal_mult(), max_hp)
 				hunt.fx.slash(flat_pos(), randf() * TAU, 3.2, 360, Color(1.0, 0.55, 0.25), false, 0.22)
 				hunt.fx.embers_at(flat_pos(), Color(1.0, 0.6, 0.2), 5, 2.4)
 				# Each turn of the spin whooshes past, rising as it winds up.
@@ -840,20 +885,27 @@ func _tick_super(dt: float) -> void:
 			if super_t <= 0.0:
 				tree.active = true
 				cur_anim = ""
+				if perk("finale") > 0.0:
+					_finale_blast(4.0 + perk("radius"), dmg * 2.0, &"fire")
 	if super_t <= 0.0:
 		super_kind = ""
 
 
-func _slam_land() -> void:
+func _slam_land(scale := 1.0) -> void:
 	var at := flat_pos()
+	var sr := (4.6 + perk("radius")) * (0.75 if scale < 1.0 else 1.0)
 	hunt.fx.vfx.nova(&"physical", at, 5.0, 0.45, Fx.VfxLib.NO_TINT, &"big")
 	hunt.fx.vfx.impact(&"holy", at, 2.6, Fx.VfxLib.NO_TINT, &"big")
 	hunt.fx.puff(at, Color(0.35, 0.3, 0.25, 0.7), 10, 2.5, 4.0)
-	for f in hunt.foes_near(position, 4.6):
+	for f in hunt.foes_near(position, sr):
 		var to: Vector3 = f.flat_pos() - at
-		hunt.damage_foe(f, dmg * 3.6 * super_dmg, self, to.normalized(), 13.0)
+		hunt.damage_foe(f, dmg * 3.6 * super_dmg * scale, self, to.normalized(), 13.0)
 		if f.alive:
-			f.stun_t = 1.6
+			f.stun_t = 1.6 + perk("stun")
+	if scale < 1.0:
+		hunt.shake(0.35)
+		Sfx.play("charge_land", -4.0)
+		return
 	for f2 in _foes_in(6.5, 6):
 		hunt.fx.sky_bolt(f2.flat_pos(), Color(1.0, 0.88, 0.5), 0.22)
 		if f2.alive:
@@ -871,6 +923,28 @@ func _slam_land() -> void:
 	Sfx.play("charge_land", 0.0)
 	Sfx.play("thunder", -4.0)
 	Sfx.play("meteor", -3.0)
+
+
+func _volley_fan(n: int) -> void:
+	for i in n:
+		var a := rotation.y + (i - (n - 1) * 0.5) * deg_to_rad(84.0 / maxf(n - 1, 1))
+		var d := dir_of(a)
+		hunt.spawn_proj("arrow", flat_pos() + d * 0.5, d * 30.0, dmg * 1.7 * super_dmg, 99, self, {"super": true})
+
+
+func _stun(f: Node, t: float) -> void:
+	if t > 0.0 and is_instance_valid(f) and f != hunt.boss and "stun_t" in f and f.alive:
+		f.stun_t = maxf(f.stun_t, t)
+
+
+## A rank-4 finisher: one burst around the hero.
+func _finale_blast(r: float, amount: float, element: StringName) -> void:
+	var at := flat_pos()
+	hunt.fx.vfx.nova(element, at, r, 0.4, Fx.VfxLib.NO_TINT, &"big")
+	for f in hunt.foes_near(position, r):
+		hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 8.0)
+	hunt.shake(0.3)
+	Sfx.play("boom", -6.0)
 
 
 # --- Cards that act on their own -----------------------------------------
@@ -1135,7 +1209,7 @@ func _throw_axes(n: int, amount: float) -> void:
 
 
 ## Meteors on the thickest part of the horde (or just ahead if it is empty).
-func meteor_shower(count: int, amount: float, radius: float, reach_: float) -> void:
+func meteor_shower(count: int, amount: float, radius: float, reach_: float, stun := 0.0) -> void:
 	var pool := _foes_in(reach_, 20)
 	Sfx.play("meteor", -6.0)
 	for i in count:
@@ -1146,10 +1220,10 @@ func meteor_shower(count: int, amount: float, radius: float, reach_: float) -> v
 			at = (pool[randi() % pool.size()] as Actor).flat_pos() + Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0))
 		var delay := 0.12 * i + randf() * 0.1
 		hunt.fx.telegraph(0, at, 0.0, Vector2(radius, 0), 0.55 + delay, 0.6, &"fire")
-		hunt.fx.fall("meteor", at, delay, 0.55, func(): _meteor_hit(at, amount, radius))
+		hunt.fx.fall("meteor", at, delay, 0.55, func(): _meteor_hit(at, amount, radius, stun))
 
 
-func _meteor_hit(at: Vector3, amount: float, radius: float) -> void:
+func _meteor_hit(at: Vector3, amount: float, radius: float, stun := 0.0) -> void:
 	if not is_instance_valid(hunt) or hunt.phase == "defeat":
 		return
 	hunt.fx.flame_burst(at, radius * 1.2, true, Color(1.0, 0.55, 0.18), &"skill")
@@ -1157,6 +1231,7 @@ func _meteor_hit(at: Vector3, amount: float, radius: float) -> void:
 	for f in hunt.foes_near(at, radius + 1.0):
 		if at.distance_to(f.flat_pos()) <= radius + f.radius:
 			hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 8.0)
+			_stun(f, stun)
 	if hunt.boss and hunt.boss.alive and at.distance_to(hunt.boss.flat_pos()) <= radius + hunt.boss.radius:
 		hunt.damage_foe(hunt.boss, amount, self, Vector3.ZERO, 0.0)
 	hunt.shake(0.14)
@@ -1196,7 +1271,7 @@ func _arrow_storm(count: int, amount: float, radius: float) -> void:
 		hunt.fx.fall("arrow", at, delay, 0.28, func(): _arrow_hit(at, amount))
 
 
-func _arrow_hit(at: Vector3, amount: float) -> void:
+func _arrow_hit(at: Vector3, amount: float, stun := 0.0) -> void:
 	if not is_instance_valid(hunt):
 		return
 	hunt.fx.burst(at, Color(1.0, 0.9, 0.6), 3, 4.0)
@@ -1204,6 +1279,7 @@ func _arrow_hit(at: Vector3, amount: float) -> void:
 	for f in hunt.foes_near(at, 1.5):
 		if at.distance_to(f.flat_pos()) <= 1.2 + f.radius:
 			hunt.damage_foe(f, amount, self, Vector3.ZERO, 1.5)
+			_stun(f, stun)
 
 
 func _storm(jumps: int, amount: float) -> void:
