@@ -739,7 +739,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "superlock":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -850,6 +850,16 @@ func _capture(args: PackedStringArray) -> void:
 					h.hero.wisp_t = 0.02
 					h.hero.nova_t = 0.5
 					await _wait_sim(h, float(_arg(args, "after", "0.55")))
+				elif shot == "superlock":
+					# The super button through its lockout: fire, then frames
+					# as the grey ring drains and the countdown ticks to 0.
+					await _wait_sim(h, 10.0)
+					h.hero.super_charge = 1.0
+					h.hero.try_super()
+					for sec in [0.3, 3.0, 6.0, 9.0, 11.5]:
+						await _wait_sim(h, sec - (float(DB.SUPER["lock"]) - h.hero.super_lock))
+						await _save("superlock_%02d" % int(sec * 10.0))
+					await _wait_sim(h, 1.0)
 				elif shot == "hexer":
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal

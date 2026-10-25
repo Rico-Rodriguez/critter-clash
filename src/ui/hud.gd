@@ -265,6 +265,8 @@ func refresh(dt: float) -> void:
 		_sk_text.text = "%s · %d slain\n%s" % [sk.ability_name(), sk.slain, "ready" if sk.cd <= 0.0 else "ready in %ds" % ceili(sk.cd)]
 	%Super.fill = hero.super_charge
 	%Super.is_ready = hero.super_ready()
+	%Super.lock_left = hero.super_lock
+	%Super.lock_max = float(DB.SUPER["lock"])
 	%Dash.fill = 1.0 - clampf(hero.dash_cd / hero.dash_cd_max, 0.0, 1.0)
 	%Dash.is_ready = hero.dash_cd <= 0.0
 	%Potion.fill = 1.0 if hero.potions > 0 else 1.0 - clampf(hero.potion_cd / float(DB.POTION["cd"]), 0.0, 1.0)

@@ -542,6 +542,28 @@ const RUN_BOSS_HP := 0.05
 const ERUPTION := {"every": 12.0, "every_ai": 2.6, "min": 4.2, "count": 2, "count_ai": 1.5, "dmg": 13.0, "radius": 1.9, "delay": 1.15, "mech": 0.55}
 ## Dashing through a blow that would have landed: a riposte, harder hits for a
 ## few seconds, and a slice of super.
+## Super charge. Hits charge it, but only one swing's worth per swing (the main
+## target, not every foe an area hit touches) and never from the super's own
+## hits. After a super fires, charge is locked for `lock` seconds. All rate
+## bonuses (Wrath, talents, pacts, ranks) add up, then soften toward `rate_cap`.
+const SUPER := {"passive": 0.012, "per_hit": 40.0, "lock": 12.0, "rate_cap": 2.2}
+
+
+## Charge-rate multiplier for a summed bonus (0.25 = +25%): diminishing
+## returns, never above SUPER.rate_cap.
+static func super_rate(bonus: float) -> float:
+	var k := float(SUPER["rate_cap"]) - 1.0
+	return 1.0 + k * (1.0 - exp(-maxf(bonus, 0.0) / k))
+
+
+## Charge one hit adds: `landed` damage, capped at the swing's remaining
+## `budget`, none while the super is active or locked.
+static func super_hit_charge(landed: float, dmg: float, budget: float, rate: float, blocked: bool) -> float:
+	if blocked or budget <= 0.0 or dmg <= 0.0:
+		return 0.0
+	return minf(landed, budget) / (dmg * float(SUPER["per_hit"])) * rate
+
+
 const PERFECT_DODGE := {"dmg": 0.35, "time": 3.0, "super": 0.15}
 ## Bow and staff heroes who plant their feet aim truer: more damage after
 ## standing still a moment. Moving is safety, standing is damage.
@@ -569,7 +591,7 @@ const CARDS := {
 	"regen": {"name": "Second Breath", "desc": "Regenerate 1.2% health per second", "icon": "health-normal", "rarity": "rare", "max": 4},
 	"leech": {"name": "Bloodthirst", "desc": "Heal 3% of damage dealt", "icon": "dripping-sword", "rarity": "rare", "max": 4},
 	"dash": {"name": "Shadowstep", "desc": "Dash recharges 20% faster", "icon": "sprint", "rarity": "common", "max": 3},
-	"wrath": {"name": "Wrath", "desc": "Super charges 25% faster", "icon": "explosion-rays", "rarity": "rare", "max": 3},
+	"wrath": {"name": "Wrath", "desc": "Super charge +25% (all charge bonuses soften, max x2.2)", "icon": "explosion-rays", "rarity": "rare", "max": 3},
 	"multishot": {"name": "Split Shot", "desc": "+1 projectile", "icon": "arrow-cluster", "rarity": "epic", "max": 3, "only": ["bow", "magic"]},
 	"pierce": {"name": "Barbed Arrows", "desc": "Arrows pierce one more foe", "icon": "barbed-arrow", "rarity": "rare", "max": 3, "only": ["bow"]},
 	"inferno": {"name": "Inferno", "desc": "+35% blast radius", "icon": "fireball", "rarity": "rare", "max": 3, "only": ["magic"]},
@@ -804,7 +826,7 @@ static func road_gate(id: String) -> int:
 ## the same as PACTS'; `no_dash` removes the dash.
 const WEEKLY_OMENS := [
 	{"id": "swarm", "name": "The Swarm", "desc": "Half again as many foes, each a little frailer.", "icon": "bone-gnawer", "mod": {"pack": 0.5, "foe_hp": -0.2}},
-	{"id": "still", "name": "Stillness", "desc": "No dash. Your super charges twice as fast.", "icon": "hourglass", "mod": {"super": 1.0}, "no_dash": true},
+	{"id": "still", "name": "Stillness", "desc": "No dash. Your super charges 50% faster.", "icon": "hourglass", "mod": {"super": 0.5}, "no_dash": true},
 	{"id": "swiftdead", "name": "The Swift Dead", "desc": "Every foe moves 20% faster.", "icon": "running-shoe", "mod": {"foe_speed": 0.2}},
 	{"id": "glass", "name": "Glass Hunt", "desc": "+60% damage, but you have 40% less health.", "icon": "broken-bone", "mod": {"dmg": 0.6, "hp": -0.4}},
 	{"id": "ironclad", "name": "Ironclad Dead", "desc": "Foes have 50% more health; you take 20% less damage.", "icon": "checked-shield", "mod": {"foe_hp": 0.5, "dmg_taken": -0.2}},
