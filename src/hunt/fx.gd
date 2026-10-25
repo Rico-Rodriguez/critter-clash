@@ -1,24 +1,23 @@
 class_name Fx
 extends Node3D
 ## Pooled visual effects for the hunt. Everything here is cosmetic: gameplay
-## never waits on an effect. Particle bursts go through the pooled sprite
-## layers in `vfx` (one MultiMesh draw each), so a hundred hits cost nothing.
-## Element effects (fire, frost, storm, poison, nature, holy, shadow, physical,
-## blood, heal, buff, level) live in the shared library `vfx`
-## (src/vfx/vfx_lib.gd); the old colour-only helpers below route into it.
+## never waits on an effect. Every effect is built from the Supercell-style
+## blocks in `vfx` (src/vfx/vfx_lib.gd): toon puffs, hit stars, sparks,
+## debris, crescents, cartoon bolts, scorch marks, all batched (one draw per
+## layer). The helpers below are thin, named wrappers over those blocks.
+## There is no plain decorative ring: a ring only exists as the brief
+## shockwave of an impact, or as a telegraph.
 
-const SLASH := preload("res://src/fx/slash.gdshader")
 const TELE := preload("res://src/fx/telegraph.gdshader")
 const BEAM := preload("res://src/fx/beam.gdshader")
-const TORNADO := preload("res://src/fx/tornado.gdshader")
 const SOFT := preload("res://src/fx/soft.gdshader")
+const TOON1 := preload("res://src/vfx/sc_toon_single.gdshader")
 const VfxLib := preload("res://src/vfx/vfx_lib.gd")
 
 
 var _live: Array = []
 var _pools := {}
 var _arc_meshes := {}
-var _slash_mat: ShaderMaterial
 var _tele_mats := {}
 var _beam_mat: ShaderMaterial
 var _quad: PlaneMesh
@@ -27,8 +26,6 @@ var _quad: PlaneMesh
 var vfx: Node3D
 var _numbers: Array[Label3D] = []
 var _num_i := 0
-var _lights: Array[OmniLight3D] = []
-var _light_i := 0
 var title_font: FontVariation
 var quality_low := false
 var _merge := {}
@@ -40,8 +37,6 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	_slash_mat = ShaderMaterial.new()
-	_slash_mat.shader = SLASH
 	_beam_mat = ShaderMaterial.new()
 	_beam_mat.shader = BEAM
 	vfx = VfxLib.new()
@@ -67,18 +62,31 @@ func _ready() -> void:
 		l.visible = false
 		add_child(l)
 		_numbers.append(l)
-	for i in 4:
-		var o := OmniLight3D.new()
-		o.visible = false
-		o.shadow_enabled = false
-		add_child(o)
-		_lights.append(o)
 
 
-## A translucent shield bubble (used by warded champions).
+static var _toon1: ShaderMaterial
+
+
+## Give a mesh the toon 3-band look (projectile heads, wisps, blades, rocks,
+## souls). `body` is the main colour; core and rim are derived from it.
+static func toon(gi: GeometryInstance3D, body: Color, wobble := 0.0) -> void:
+	if _toon1 == null:
+		_toon1 = ShaderMaterial.new()
+		_toon1.shader = TOON1
+	gi.material_override = _toon1
+	gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var rim := Color.from_hsv(fposmod(body.h - (0.03 if body.h < 0.2 or body.h > 0.9 else -0.02), 1.0), minf(body.s + 0.15, 0.9), clampf(body.v * 0.55, 0.18, 0.8))
+	gi.set_instance_shader_parameter("body", Color(body.r, body.g, body.b, 1.0))
+	gi.set_instance_shader_parameter("core", Color(body.r, body.g, body.b).lerp(Color(1.0, 0.98, 0.86), 0.72))
+	gi.set_instance_shader_parameter("rim", rim)
+	gi.set_instance_shader_parameter("wobble", wobble)
+
+
+## A shield bubble (warded champions): a hard-edged toon rim, see-through in
+## the middle, no additive glow.
 static func make_ward(radius: float) -> MeshInstance3D:
 	var sh := Shader.new()
-	sh.code = "shader_type spatial;\nrender_mode blend_add, unshaded, cull_back, depth_draw_never, shadows_disabled;\nvoid fragment(){ float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5); ALBEDO = vec3(0.55, 0.5, 1.0) * 2.0; ALPHA = clamp(f * 0.9 + 0.05, 0.0, 1.0); }"
+	sh.code = "shader_type spatial;\nrender_mode blend_mix, unshaded, cull_back, depth_draw_never, shadows_disabled;\nvoid fragment(){ float f = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0); if (f < 0.55) discard; ALBEDO = f > 0.8 ? vec3(0.32, 0.24, 0.7) : vec3(0.62, 0.56, 1.0); ALPHA = 0.85; }"
 	var m := ShaderMaterial.new()
 	m.shader = sh
 	var mi := MeshInstance3D.new()
@@ -103,8 +111,6 @@ func _process(delta: float) -> void:
 			i -= 1
 			continue
 		match str(e["kind"]):
-			"slash":
-				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
 			"tele":
 				(n as GeometryInstance3D).set_instance_shader_parameter("progress", k)
 				var fade_in: float = clampf(e["t"] / 0.12, 0.0, 1.0)
@@ -117,21 +123,23 @@ func _process(delta: float) -> void:
 				l.position = base + Vector3(e["dx"] * k, 1.1 * (1.0 - pow(1.0 - k, 2.0)), 0)
 				l.modulate.a = 1.0 - smoothstep(0.65, 1.0, k)
 				l.outline_modulate.a = l.modulate.a * 0.95
-			"light":
-				var o := n as OmniLight3D
-				o.light_energy = float(e["energy"]) * pow(1.0 - k, 2.0)
 			"beam":
 				pass
+			"trail":
+				if n.visible:
+					e["acc"] = float(e["acc"]) + delta
+					if float(e["acc"]) >= float(e["every"]):
+						e["acc"] = 0.0
+						var tier: StringName = e["tier"]
+						vfx.travel(e["el"], n.global_position, -n.global_transform.basis.z * 10.0, VfxLib.NO_TINT, tier)
 			"tornado":
 				if is_instance_valid(e["follow"]):
 					n.position = (e["follow"] as Actor).flat_pos()
-				n.rotation.y -= delta * 9.0
-				var fade: float = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.85, 1.0, k))
-				(n.get_child(0) as GeometryInstance3D).set_instance_shader_parameter("fade", fade)
+				_whirl(e, n.position, k, delta)
 		if k >= 1.0:
-			if e["kind"] == "num" or e["kind"] == "light":
+			if e["kind"] == "num":
 				n.visible = false
-			elif e["kind"] != "beam":
+			elif e["kind"] != "beam" and e["kind"] != "trail":
 				_release(str(e["kind"]), n)
 			_live.remove_at(i)
 		i -= 1
@@ -184,31 +192,17 @@ func _arc(deg: int) -> ArrayMesh:
 	return m
 
 
-## A sword swing: arc of `deg` around the facing angle `yaw`.
+## A sword swing: a solid crescent sweeping `deg` around the facing `yaw`
+## (white leading edge into the colour), then a few sparks off its tip.
 func slash(pos: Vector3, yaw: float, radius: float, deg: float, color: Color, mirror := false, dur := 0.2) -> void:
-	var d := int(clampf(roundf(deg / 10.0) * 10.0, 30.0, 360.0))
-	var kind := "slash%d" % d
-	var n := _take(kind, func():
-		var mi := MeshInstance3D.new()
-		mi.mesh = _arc(d)
-		mi.material_override = _slash_mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.set_meta("pool", kind)
-		return mi)
-	n.position = pos + Vector3(0, 0.9, 0)
-	n.rotation = Vector3(0, yaw, 0)
-	n.scale = Vector3(-radius if mirror else radius, 1, radius)
-	(n as GeometryInstance3D).set_instance_shader_parameter("tint", color)
-	(n as GeometryInstance3D).set_instance_shader_parameter("progress", 0.0)
-	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "slash"})
-
-
-## Legacy shockwave call. There is no plain ring any more: the colour picks
-## the element (VfxLib.element_for) and its nova races out instead: flames,
-## ice spikes, leaves, motes. New code calls fx.vfx.nova(&"frost", ...) with
-## the element by name; this stays so open branches keep working.
-func ring(pos: Vector3, radius: float, color: Color, dur := 0.45, _width := 0.12, tier: StringName = &"skill") -> void:
-	vfx.nova(VfxLib.element_for(color), pos, radius, dur, color, tier)
+	var half := deg_to_rad(clampf(deg, 30.0, 360.0)) * 0.5
+	var a0 := yaw - half
+	var a1 := yaw + half
+	if mirror:
+		var t := a0
+		a0 = a1
+		a1 = t
+	vfx.crescent(pos, radius * 0.95, a0, a1, radius * 0.32, Color(color.r, color.g, color.b, 1.0), maxf(dur, 0.14) * 1.2, 0.9)
 
 
 ## A burst of fire: a front of flame tongues racing out over the ground,
@@ -223,7 +217,6 @@ func flame_burst(pos: Vector3, radius: float, wall := true, color := Color(1.0, 
 	if wall and not quality_low:
 		vfx.nova(&"fire", pos, radius, clampf(0.3 + radius * 0.05, 0.32, 0.6), color, tier)
 	vfx.impact(&"fire", pos, radius * 0.6, color, tier)
-	flash_light(pos, Color(1.0, 0.55, 0.25), 2.0, radius * 2.0, 0.2)
 
 
 ## Burnt ground that fades over `dur` seconds.
@@ -231,44 +224,20 @@ func scorch(pos: Vector3, radius: float, dur := 2.6) -> void:
 	vfx.decal(&"fire", pos, radius, dur)
 
 
-## The Hellfire Wisp: a white-hot core in a flickering shell of fire, lit.
-## The caller owns the node (adds it to the world, moves it, frees it).
+## The Hellfire Wisp: a churning toon fireball with a white-hot core. No
+## light, no additive shell. The caller owns the node.
 func make_wisp() -> Node3D:
 	var root := Node3D.new()
-	var core := MeshInstance3D.new()
-	var cs := SphereMesh.new()
-	cs.radius = 0.17
-	cs.height = 0.34
-	cs.radial_segments = 12
-	cs.rings = 6
-	core.mesh = cs
-	var cm := StandardMaterial3D.new()
-	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	cm.albedo_color = Color(1.0, 0.95, 0.75)
-	core.material_override = cm
-	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(core)
-	var shell := MeshInstance3D.new()
+	var ball := MeshInstance3D.new()
 	var ss := SphereMesh.new()
-	ss.radius = 0.42
-	ss.height = 0.95
+	ss.radius = 0.36
+	ss.height = 0.8
 	ss.radial_segments = 16
 	ss.rings = 8
-	shell.mesh = ss
-	shell.position.y = 0.12
-	var sh := Shader.new()
-	sh.code = "shader_type spatial;\nrender_mode blend_add, unshaded, cull_back, depth_draw_never, shadows_disabled;\nvoid fragment(){ float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.4); float lick = 0.6 + 0.4 * sin(UV.x * 37.7 + UV.y * 9.0 - TIME * 11.0); ALBEDO = mix(vec3(1.0, 0.75, 0.3), vec3(1.0, 0.3, 0.06), rim) * 2.4; ALPHA = clamp((1.0 - rim) * 0.55 * lick + rim * 0.25, 0.0, 1.0) * smoothstep(0.0, 0.35, UV.y); }"
-	var sm := ShaderMaterial.new()
-	sm.shader = sh
-	shell.material_override = sm
-	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(shell)
-	var o := OmniLight3D.new()
-	o.light_color = Color(1.0, 0.55, 0.2)
-	o.light_energy = 1.4
-	o.omni_range = 4.5
-	o.shadow_enabled = false
-	root.add_child(o)
+	ball.mesh = ss
+	ball.position.y = 0.1
+	toon(ball, Color(1.0, 0.6, 0.14), 0.05)
+	root.add_child(ball)
 	return root
 
 
@@ -351,36 +320,33 @@ func beam(pos: Vector3, color: Color, height := 7.0) -> MeshInstance3D:
 	return n
 
 
-## A column of fire spinning around `follow` for `dur` seconds (the
-## Barbarian's whirlwind). One cone, reused.
+## A whirlwind around `follow` for `dur` seconds (the Barbarian): solid
+## crescents sweeping round at varied heights and radii, widening upward,
+## with puffs flung off the edge. No cone shader.
 func tornado(follow: Actor, color: Color, dur: float) -> void:
 	var n := _take("tornado", func():
-		var mi := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 2.4
-		cyl.bottom_radius = 0.9
-		cyl.height = 3.4
-		cyl.cap_top = false
-		cyl.cap_bottom = false
-		cyl.radial_segments = 24
-		cyl.rings = 4
-		mi.mesh = cyl
-		var m := ShaderMaterial.new()
-		m.shader = TORNADO
-		mi.material_override = m
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.set_meta("pool", "tornado")
-		# The mesh is centred: lift it so the narrow end sits on the ground.
 		var holder := Node3D.new()
-		holder.add_child(mi)
-		mi.position.y = 1.7
 		holder.set_meta("pool", "tornado")
 		return holder)
 	n.position = follow.flat_pos()
-	var cone := n.get_child(0) as GeometryInstance3D
-	cone.set_instance_shader_parameter("tint", color)
-	cone.set_instance_shader_parameter("fade", 0.0)
-	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "tornado", "follow": follow})
+	_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "tornado", "follow": follow, "c": color, "acc": 0.0, "spin": randf() * TAU})
+
+
+func _whirl(e: Dictionary, at: Vector3, k: float, delta: float) -> void:
+	if k >= 0.95:
+		return
+	e["spin"] = float(e["spin"]) - delta * 9.0
+	e["acc"] = float(e["acc"]) + delta
+	if float(e["acc"]) < (0.09 if quality_low else 0.05):
+		return
+	e["acc"] = 0.0
+	var c: Color = e["c"]
+	var h := randf_range(0.2, 2.6)
+	var r := lerpf(0.9, 2.3, h / 2.6) * randf_range(0.9, 1.1)
+	var a: float = float(e["spin"]) + randf() * TAU
+	vfx.crescent(at, r, a, a - randf_range(1.6, 2.4), randf_range(0.22, 0.4), c, 0.2, h)
+	var out := Vector3(sin(a), 0, cos(a))
+	vfx.puff_el(VfxLib.element_for(c), at + out * r + Vector3(0, h, 0), randf_range(0.25, 0.4), out * 3.0 + Vector3(0, 1.0, 0), 0.3, c)
 
 
 func release_beam(n: Node3D) -> void:
@@ -437,53 +403,42 @@ func text(pos: Vector3, s: String, color: Color, size := 0.8, dur := 1.1) -> voi
 	_live.append({"node": l, "t": 0.0, "dur": dur, "kind": "num", "from": from, "size": size, "dx": 0.0})
 
 
-func flash_light(pos: Vector3, color: Color, energy := 3.0, radius := 6.0, dur := 0.25) -> void:
-	if quality_low:
-		return
-	var o := _lights[_light_i]
-	_light_i = (_light_i + 1) % _lights.size()
-	for e in _live:
-		if e["node"] == o:
-			_live.erase(e)
-			break
-	o.visible = true
-	o.position = pos + Vector3(0, 1.2, 0)
-	o.light_color = color
-	# Art lock: a tiny, short accent, never a wash over the arena.
-	energy = minf(energy, 2.5)
-	o.omni_range = minf(radius, 6.0)
-	o.light_energy = energy
-	_live.append({"node": o, "t": 0.0, "dur": minf(dur, 0.3), "kind": "light", "energy": energy})
+# --- Small hit pieces ---------------------------------------------------
 
-
-# --- Particle bursts -----------------------------------------------------
-
-## Crisp four-point sparks thrown out of `pos` (hits, pickups, procs).
+## A hit pop: a small spiky star and fat sparks thrown out of `pos`.
 func burst(pos: Vector3, color: Color, count := 10, speed := 6.0, up := 0.5) -> void:
-	vfx._burst("spark", pos + Vector3(0, 0.9, 0), count, speed, color, up)
+	var p := pos + Vector3(0, 0.9, 0)
+	vfx.star(p, clampf(0.25 + count * 0.025, 0.3, 0.7), color, 0.13, 5.0)
+	vfx.sparks(p, clampi(count / 2, 2, 8), speed, color, 0.3, up + 0.2)
 
 
+## Small toon embers rising from `pos` (wakes, burning, buffs).
 func embers_at(pos: Vector3, color: Color, count := 6, radius := 0.6) -> void:
-	vfx._cloud("ember", pos + Vector3(0, 0.6, 0), radius, count, Vector3(0, 1.2, 0), color, 0.4)
+	var el := VfxLib.element_for(color)
+	for i in clampi(count / 2, 1, 6):
+		var o := Vector3(randf_range(-1, 1), randf_range(0.0, 0.6), randf_range(-1, 1)) * radius
+		vfx.puff_el(el, pos + Vector3(0, 0.5, 0) + o, randf_range(0.12, 0.22), Vector3(0, 1.6, 0), randf_range(0.3, 0.45), color, randf() * 0.08)
 
 
-## Ground dust: flat, hard-edged lobes (no smoke shader, no blur).
+## Ground dust: chunky toon smoke puffs kicked out along the ground.
 func puff(pos: Vector3, color := Color(0.32, 0.27, 0.22, 0.55), count := 6, spread := 0.8, speed := 1.4) -> void:
-	var c := Color(color.r * 2.2, color.g * 2.2, color.b * 2.2, minf(color.a * 1.4, 1.0))
-	for i in mini(count, VfxLib.MAX_PER_CALL):
+	var c := Color(minf(color.r * 2.0, 1.0), minf(color.g * 2.0, 1.0), minf(color.b * 2.0, 1.0))
+	var rim := Vector2(fposmod(c.h - 0.02, 1.0), clampf(c.v * 0.45, 0.15, 0.5))
+	for i in mini(clampi(count / 2, 2, 8), VfxLib.MAX_PER_CALL):
 		var dir := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).normalized()
-		vfx._emit("dust", pos + dir * randf() * spread + Vector3(0, 0.25, 0), dir * speed * randf_range(0.5, 1.0) + Vector3(0, randf_range(0.2, 0.6), 0), c)
+		vfx.puff(pos + dir * randf() * spread + Vector3(0, 0.25, 0), randf_range(0.28, 0.45) * clampf(spread, 0.6, 1.6), dir * speed * randf_range(0.6, 1.1) + Vector3(0, 0.6, 0), randf_range(0.35, 0.5), c, rim, randf() * 0.05)
 
 
-## A small star glint (it used to be a big soft glow blob).
+## A small star glint (pickups, procs).
 func flare(pos: Vector3, color: Color) -> void:
-	vfx._cloud("mote", pos + Vector3(0, 0.9, 0), 0.15, 2, Vector3.ZERO, color, 0.3)
+	vfx.star(pos + Vector3(0, 0.9, 0), 0.35, color, 0.14, 4.0)
 
 
+## Bones: toon bone chunks hopping out and bouncing.
 func bone_burst(pos: Vector3, count := 6, force := 5.0) -> void:
 	if quality_low:
 		count = mini(count, 3)
-	vfx._burst("bone", pos + Vector3(0, 0.8, 0), count * 2, force, Color(0.93, 0.9, 0.82), 1.4)
+	vfx.debris(pos + Vector3(0, 0.6, 0), count, force * 0.8, &"shadow")
 
 
 ## Chain lightning: forked, flickering bolts between the points (pooled).
@@ -500,14 +455,11 @@ func lightning(points: PackedVector3Array, color := Color(0.6, 0.8, 1.0), tier: 
 static var _fall_cache := {}
 
 
-## A bolt of lightning from the sky onto `at`: jagged column, ground flash,
-## shockwave ring and sparks. Pass the strike color (gold for holy, blue for storm).
+## A strike from the sky onto `at`: a fat cartoon bolt, flash, shockwave,
+## star, sparks, rubble and a crack. Pass the colour (gold holy, blue storm).
 func sky_bolt(at: Vector3, color := Color(1.0, 0.9, 0.55), width := 0.2, height := 15.0) -> void:
 	# Pooled, re-forking and capped (VfxLib.sky); always big tier.
 	vfx.sky(at, color, width, height)
-	flare(at, color)
-	flash_light(at, color, 5.0, 8.0, 0.3)
-	vfx.impact(VfxLib.element_for(color) if VfxLib.element_for(color) == &"holy" else &"storm", at, 1.6, color, &"skill")
 
 
 ## Something falling onto `to` after `delay`, taking `dur` to arrive: a "meteor"
@@ -522,7 +474,9 @@ func fall(kind: String, to: Vector3, delay: float, dur: float, land: Callable) -
 	if delay > 0.0:
 		tw.tween_interval(delay)
 	tw.tween_callback(func():
-		n.visible = true)
+		n.visible = true
+		_live.append({"node": n, "t": 0.0, "dur": dur, "kind": "trail", "acc": 0.0, "every": 0.025 if kind == "meteor" else 0.06,
+			"el": &"fire" if kind == "meteor" else &"physical", "tier": &"skill" if kind == "meteor" else &"light"}))
 	tw.tween_property(n, "position", to, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func():
 		_release("fall_" + kind, n)
@@ -541,61 +495,12 @@ func _make_faller(kind: String) -> Node3D:
 		sm.radial_segments = 10
 		sm.rings = 6
 		rock.mesh = sm
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(1.0, 0.8, 0.45)
-		m.emission_enabled = true
-		m.emission = Color(1.0, 0.4, 0.08)
-		m.emission_energy_multiplier = 4.0
-		rock.material_override = m
-		rock.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rock.scale = Vector3(1, 1, 1.5)
+		toon(rock, Color(1.0, 0.55, 0.12), 0.04)
 		root.add_child(rock)
-		for rot in [0.0, PI * 0.5]:
-			var tr := MeshInstance3D.new()
-			var q := QuadMesh.new()
-			q.size = Vector2(0.9, 5.0)
-			q.orientation = PlaneMesh.FACE_Y
-			tr.mesh = q
-			tr.material_override = _trail_material(Color(1.0, 0.45, 0.12))
-			tr.position = Vector3(0, 0, 2.5)
-			tr.rotation.z = rot
-			tr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			root.add_child(tr)
 	else:
 		var a := KK.prop("res://assets/kaykit/weapons/arrow_bow.gltf")
 		a.scale = Vector3.ONE * 2.2
 		a.rotation = Vector3(0, 0, 0)
 		root.add_child(a)
-		var tr2 := MeshInstance3D.new()
-		var q2 := QuadMesh.new()
-		q2.size = Vector2(0.18, 2.2)
-		q2.orientation = PlaneMesh.FACE_Y
-		tr2.mesh = q2
-		tr2.material_override = _trail_material(Color(1.0, 0.9, 0.6))
-		tr2.position = Vector3(0, 0, 1.2)
-		root.add_child(tr2)
 	return root
-
-
-func _trail_material(color: Color) -> StandardMaterial3D:
-	var key := color.to_html()
-	if _fall_cache.has(key):
-		return _fall_cache[key]
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.albedo_color = Color(color.r, color.g, color.b, 0.5)
-	var g := Gradient.new()
-	g.set_color(0, Color(1, 1, 1, 1))
-	g.set_color(1, Color(1, 1, 1, 0))
-	var gt := GradientTexture2D.new()
-	gt.gradient = g
-	gt.fill_from = Vector2(0.5, 1.0)
-	gt.fill_to = Vector2(0.5, 0.0)
-	gt.width = 8
-	gt.height = 64
-	m.albedo_texture = gt
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_fall_cache[key] = m
-	return m

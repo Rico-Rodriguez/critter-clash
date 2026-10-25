@@ -239,9 +239,8 @@ func run() -> int:
 	var fake_hunt: Node = fake_src.new()
 	var hsk: Node3D = preload("res://src/hunt/sidekick.gd").new()
 	hsk.setup(fake_hunt, "bat", 0)
-	var hring := hsk.find_child("CompanionRing", false, false) as MeshInstance3D
 	var hroot := hsk.find_child("SidekickModel", true, false) as Node3D
-	_ok("hunt sidekick has its ring at its feet, camp model has none", hring != null and absf(hring.position.y - 0.04) < 0.001 and hroot != null and hroot.scale.x > 1.0 and sap.find_child("CompanionRing", true, false) == null and sap.scale.is_equal_approx(Vector3.ONE))
+	_ok("hunt sidekick is drawn bigger, with no ring under it; camp model is plain", hsk.find_child("CompanionRing", true, false) == null and hroot != null and hroot.scale.x > 1.0 and sap.find_child("CompanionRing", true, false) == null and sap.scale.is_equal_approx(Vector3.ONE))
 	hsk.free()
 	(fake_hunt.get("hero") as Node3D).free()
 	fake_hunt.free()

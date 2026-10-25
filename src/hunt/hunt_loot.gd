@@ -7,8 +7,6 @@ extends "res://src/hunt/hunt_state.gd"
 
 var _label_n := 0
 var _soul_mesh: Mesh
-var _soul_mat: Material
-var _heart_mat: Material
 
 
 func _drop(kind: String, at: Vector3, value: int) -> void:
@@ -31,21 +29,9 @@ func _drop(kind: String, at: Vector3, value: int) -> void:
 				sm.radial_segments = 10
 				sm.rings = 6
 				_soul_mesh = sm
-				var m := StandardMaterial3D.new()
-				m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-				m.albedo_color = Color(0.6, 0.95, 1.0)
-				m.emission_enabled = true
-				m.emission = Color(0.35, 0.85, 1.0)
-				m.emission_energy_multiplier = 4.0
-				_soul_mat = m
-				var hm := m.duplicate() as StandardMaterial3D
-				hm.albedo_color = Color(1.0, 0.5, 0.5)
-				hm.emission = Color(1.0, 0.15, 0.2)
-				_heart_mat = hm
 			var mi := MeshInstance3D.new()
 			mi.mesh = _soul_mesh
-			mi.material_override = _soul_mat if kind == "soul" else _heart_mat
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			Fx.toon(mi, Color(0.5, 0.9, 1.0) if kind == "soul" else Color(1.0, 0.32, 0.36))
 			if kind == "heart":
 				mi.scale = Vector3.ONE * 2.0
 			p.add_child(mi)
@@ -181,7 +167,6 @@ func bank_level(auto_open := false) -> void:
 		# Level up: a column of sharp rays, chevrons rising and gold motes.
 		fx.vfx.impact(&"level", hero.flat_pos(), 1.8, Fx.VfxLib.NO_TINT, &"skill")
 		fx.vfx.cast(&"buff", hero.flat_pos(), 1.0, Color(1.0, 0.85, 0.4), &"skill")
-		fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 4.0, 8.0, 0.35)
 	if hud:
 		hud.set_bank(pending_levels, true)
 	if bot or auto_open:
@@ -395,39 +380,28 @@ func _proj_body(kind: String) -> Node3D:
 		"fireball":
 			var s := MeshInstance3D.new()
 			var sm := SphereMesh.new()
-			sm.radius = 0.26
-			sm.height = 0.52
+			sm.radius = 0.28
+			sm.height = 0.28 * 2.0
+			sm.radial_segments = 14
+			sm.rings = 7
 			s.mesh = sm
-			var m := StandardMaterial3D.new()
-			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			m.albedo_color = Color(1.0, 0.85, 0.5)
-			m.emission_enabled = true
-			m.emission = Color(1.0, 0.45, 0.1)
-			m.emission_energy_multiplier = 4.0
-			s.material_override = m
-			s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			s.scale = Vector3(1, 1, 1.5)
+			Fx.toon(s, Color(1.0, 0.6, 0.14), 0.03)
 			root.add_child(s)
 			root.add_child(_streak(Color(1.0, 0.5, 0.15), 1.4, 0.7))
 		"firebolt":
-			# The wisp's bolt: a white-hot core in a ball of flame, long tail.
-			for layer in [[0.16, Color(1.0, 0.95, 0.75), 1.0], [0.34, Color(1.0, 0.45, 0.1), 3.5]]:
-				var fb := MeshInstance3D.new()
-				var fm := SphereMesh.new()
-				fm.radius = layer[0]
-				fm.height = layer[0] * 2.0
-				fm.radial_segments = 10
-				fm.rings = 5
-				fb.mesh = fm
-				var fmat := StandardMaterial3D.new()
-				fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-				fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				fmat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-				fmat.albedo_color = Color(layer[1].r * layer[2], layer[1].g * layer[2], layer[1].b * layer[2], 0.9 if layer[0] < 0.2 else 0.45)
-				fb.material_override = fmat
-				fb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				root.add_child(fb)
+			# The wisp's bolt: a churning toon fireball with a long solid tail.
+			var fb := MeshInstance3D.new()
+			var fbm := SphereMesh.new()
+			fbm.radius = 0.3
+			fbm.height = 0.3 * 2.0
+			fbm.radial_segments = 14
+			fbm.rings = 7
+			fb.mesh = fbm
+			fb.scale = Vector3(1, 1, 1.5)
+			Fx.toon(fb, Color(1.0, 0.55, 0.12), 0.04)
+			root.add_child(fb)
 			root.add_child(_streak(Color(1.0, 0.55, 0.15), 2.2, 0.75))
-			root.add_child(_streak(Color(1.0, 0.85, 0.5), 1.2, 0.3))
 		"axe":
 			var ax := KK.prop("res://assets/kaykit/weapons/axe_1handed.gltf")
 			ax.scale = Vector3.ONE * 1.9
@@ -449,16 +423,12 @@ func _proj_body(kind: String) -> Node3D:
 			var o := MeshInstance3D.new()
 			var om := SphereMesh.new()
 			om.radius = 0.3
-			om.height = 0.6
+			om.height = 0.3 * 2.0
+			om.radial_segments = 14
+			om.rings = 7
 			o.mesh = om
-			var omat := StandardMaterial3D.new()
-			omat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			omat.albedo_color = Color(0.9, 0.7, 1.0)
-			omat.emission_enabled = true
-			omat.emission = Color(0.7, 0.35, 1.0)
-			omat.emission_energy_multiplier = 4.0
-			o.material_override = omat
-			o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			o.scale = Vector3(1, 1, 1.5)
+			Fx.toon(o, Color(0.68, 0.42, 1.0), 0.02)
 			root.add_child(o)
 			root.add_child(_streak(Color(0.7, 0.4, 1.0), 1.4, 0.6))
 		"spear":
@@ -487,58 +457,42 @@ func _proj_body(kind: String) -> Node3D:
 		"spark":
 			var sp := MeshInstance3D.new()
 			var spm := SphereMesh.new()
-			spm.radius = 0.16
-			spm.height = 0.32
+			spm.radius = 0.17
+			spm.height = 0.17 * 2.0
+			spm.radial_segments = 14
+			spm.rings = 7
 			sp.mesh = spm
-			var spmat := StandardMaterial3D.new()
-			spmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			spmat.albedo_color = Color(1.0, 0.95, 0.6)
-			spmat.emission_enabled = true
-			spmat.emission = Color(1.0, 0.75, 0.2)
-			spmat.emission_energy_multiplier = 4.0
-			sp.material_override = spmat
-			sp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			sp.scale = Vector3(1, 1, 1.3)
+			Fx.toon(sp, Color(1.0, 0.85, 0.3), 0.0)
 			root.add_child(sp)
 			root.add_child(_streak(Color(1.0, 0.8, 0.3), 1.0, 0.4))
 		"wave":
+			# A solid crescent of force (toon bands, no additive arc).
 			var w := MeshInstance3D.new()
 			w.mesh = fx._arc(100)
-			var wm := ShaderMaterial.new()
-			wm.shader = Fx.SLASH
-			wm.set_shader_parameter("color", Color(0.7, 0.85, 1.0))
-			w.material_override = wm
-			w.set_instance_shader_parameter("progress", 0.5)
+			Fx.toon(w, Color(0.6, 0.82, 1.0))
 			w.scale = Vector3(1.4, 1, 0.9)
 			w.position = Vector3(0, -0.2, -0.6)
-			w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			root.add_child(w)
 	return root
 
 
+static var _streak_mat: ShaderMaterial
+
+
+## A solid tapered speed streak behind a projectile (white head into colour).
 func _streak(color: Color, length: float, width := 0.35) -> MeshInstance3D:
+	if _streak_mat == null:
+		_streak_mat = ShaderMaterial.new()
+		_streak_mat.shader = preload("res://src/vfx/sc_streak.gdshader")
 	var mi := MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2(width, length)
+	q.size = Vector2(width * 0.7, length * 0.8)
 	q.orientation = PlaneMesh.FACE_Y
 	mi.mesh = q
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.albedo_color = Color(color.r, color.g, color.b, 0.55)
-	var g := Gradient.new()
-	g.set_color(0, Color(1, 1, 1, 0))
-	g.set_color(1, Color(1, 1, 1, 1))
-	var gt := GradientTexture2D.new()
-	gt.gradient = g
-	gt.fill_from = Vector2(0.5, 1.0)
-	gt.fill_to = Vector2(0.5, 0.0)
-	gt.width = 8
-	gt.height = 64
-	m.albedo_texture = gt
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = m
-	mi.position = Vector3(0, 0, -length * 0.5)
+	mi.material_override = _streak_mat
+	mi.set_instance_shader_parameter("tint", Color(color.r, color.g, color.b, 1.0))
+	mi.position = Vector3(0, 0, -length * 0.4)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
 

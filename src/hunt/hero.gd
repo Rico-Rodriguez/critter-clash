@@ -129,7 +129,7 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 	light.shadow_enabled = false
 	add_child(light)
 	var ws := Shader.new()
-	ws.code = "shader_type spatial;\nrender_mode blend_add, unshaded, cull_back, depth_draw_never, shadows_disabled;\nvoid fragment(){ float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5); ALBEDO = vec3(0.45, 0.75, 1.0) * 2.0; ALPHA = clamp(f * 0.9 + 0.04, 0.0, 1.0); }"
+	ws.code = "shader_type spatial;\nrender_mode blend_mix, unshaded, cull_back, depth_draw_never, shadows_disabled;\nvoid fragment(){ float f = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0); if (f < 0.55) discard; ALBEDO = f > 0.8 ? vec3(0.16, 0.42, 0.78) : vec3(0.55, 0.85, 1.0); ALPHA = 0.85; }"
 	var wm := ShaderMaterial.new()
 	wm.shader = ws
 	ward_mesh = MeshInstance3D.new()
@@ -849,7 +849,6 @@ func _slam_land() -> void:
 	hunt.fx.vfx.nova(&"physical", at, 5.0, 0.45, Fx.VfxLib.NO_TINT, &"big")
 	hunt.fx.vfx.impact(&"holy", at, 2.6, Fx.VfxLib.NO_TINT, &"big")
 	hunt.fx.puff(at, Color(0.35, 0.3, 0.25, 0.7), 10, 2.5, 4.0)
-	hunt.fx.flash_light(at, Color(1.0, 0.8, 0.5), 7.0, 10.0, 0.4)
 	for f in hunt.foes_near(position, 4.6):
 		var to: Vector3 = f.flat_pos() - at
 		hunt.damage_foe(f, dmg * 3.6 * super_dmg, self, to.normalized(), 13.0)
@@ -883,15 +882,8 @@ func _sync_blades(level: int) -> void:
 		want *= 2
 	while blades.size() < want:
 		var b := KK.prop(KK.WEAPON_DIR + blade_model)
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = Color(0.55, 0.85, 1.0)
-		m.emission_enabled = true
-		m.emission = Color(0.4, 0.75, 1.0)
-		m.emission_energy_multiplier = 2.5
 		for mi in b.find_children("*", "MeshInstance3D", true, false):
-			(mi as MeshInstance3D).material_override = m
-			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			Fx.toon(mi as MeshInstance3D, Color(0.55, 0.85, 1.0))
 		b.scale = Vector3.ONE * 1.3
 		hunt.world.add_child(b)
 		blades.append(b)
@@ -910,14 +902,13 @@ func _tick_cards(dt: float) -> void:
 			var b := blades[i]
 			b.position = p + Vector3(0, 0.9, 0)
 			b.rotation = Vector3(0, a + PI * 0.5, PI * 0.5)
-			# A spectral wake behind each blade.
-			if randf() < 0.25:
-				hunt.fx.embers_at(p - Vector3(0, 0.3, 0), Color(0.45, 0.8, 1.0), 1, 0.15)
+			# A solid swipe wake behind each blade.
+			if randf() < 0.16:
+				hunt.fx.vfx.crescent(flat_pos(), r, a - 0.8, a, 0.2, Color(0.45, 0.8, 1.0), 0.16, 0.9)
 			for f in hunt.foes_near(p, 0.9):
 				if f.has_method("can_hit") and f.can_hit(1000 + i, 0.45):
 					hunt.damage_foe(f, dmg * (0.4 + 0.1 * bl), self, (f.flat_pos() - flat_pos()).normalized(), 4.0)
 					hunt.fx.burst(p, Color(0.5, 0.8, 1.0), 6, 5.0)
-					hunt.fx.flare(p, Color(0.45, 0.75, 1.0))
 					Sfx.play("blade_hit", -8.0, randf_range(0.9, 1.2))
 	# Storm call: chain lightning.
 	var sl: int = c.get("storm", 0)
@@ -1124,7 +1115,6 @@ func _quake(radius: float, amount: float, wide: bool) -> void:
 	hunt.fx.vfx.nova(&"physical", at, r, 0.45, Fx.VfxLib.NO_TINT, &"skill")
 	hunt.fx.vfx.impact(&"physical", at, r * 0.6, Fx.VfxLib.NO_TINT, &"skill")
 	hunt.fx.bone_burst(at, 6, 8.0)
-	hunt.fx.flash_light(at, Color(1.0, 0.7, 0.4), 4.0, r * 1.5, 0.3)
 	for f in hunt.foes_near(position, r):
 		var to: Vector3 = f.flat_pos() - at
 		hunt.damage_foe(f, amount, self, to.normalized(), 12.0)
@@ -1178,7 +1168,6 @@ func _frost_ring(radius: float, amount: float) -> void:
 	var at := flat_pos()
 	hunt.fx.vfx.nova(&"frost", at, radius, 0.4, Fx.VfxLib.NO_TINT, &"skill")
 	hunt.fx.vfx.impact(&"frost", at, radius * 0.5, Fx.VfxLib.NO_TINT, &"skill")
-	hunt.fx.flash_light(at, Color(0.5, 0.85, 1.0), 4.0, radius * 2.0, 0.35)
 	for f in hunt.foes_near(position, radius):
 		hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 4.0)
 		if f.alive and f.has_method("freeze"):

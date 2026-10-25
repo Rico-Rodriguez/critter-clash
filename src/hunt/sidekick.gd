@@ -39,13 +39,9 @@ var _last_state := -1
 const ATTACK_TIME := Vector2(0.22, 0.55)
 const SPECIAL_TIME := Vector2(0.32, 0.8)
 const HIT_TIME := 0.32
-## Hunt-only readability: the companion is drawn a bit bigger than in camp,
-## over a thin ground ring in the hero's team colour (one shared, unlit,
-## crisp-alpha draw: no glow, no falloff).
+## Hunt-only readability: the companion is drawn a bit bigger than in camp
+## (no ring under it: the art lock has no decorative rings).
 const HUNT_SCALE := 1.2
-const RING_COLOR := Color(0.35, 0.75, 1.0, 0.4)
-static var _ring_mesh: TorusMesh
-var ring: MeshInstance3D
 
 
 func setup(h: Node, sid: String, kills: int) -> void:
@@ -60,7 +56,6 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	add_child(pivot)
 	pivot.add_child(look["root"])
 	(look["root"] as Node3D).scale *= HUNT_SCALE * float(def.get("hunt_scale", 1.0))
-	_add_ring()
 	Look.play(look, "idle")
 	cd_max = float(ab["cd"])
 	cd = minf(2.0, cd_max)
@@ -69,30 +64,6 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	motor.pos = motor.slot(hunt.hero.position, hunt.hero.rotation.y)
 	motor.yaw = hunt.hero.rotation.y
 	position = motor.pos
-
-
-func _add_ring() -> void:
-	if _ring_mesh == null:
-		_ring_mesh = TorusMesh.new()
-		_ring_mesh.inner_radius = 0.5
-		_ring_mesh.outer_radius = 0.56
-		_ring_mesh.rings = 40
-		_ring_mesh.ring_segments = 3
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.albedo_color = RING_COLOR
-		m.disable_receive_shadows = true
-		_ring_mesh.material = m
-	ring = MeshInstance3D.new()
-	ring.name = "CompanionRing"
-	ring.mesh = _ring_mesh
-	ring.scale = Vector3(1.0, 0.05, 1.0)
-	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Rides at the companion's feet (also for flyers), so it never sits on
-	# the ground apart from it as an empty ring.
-	ring.position.y = 0.04
-	add_child(ring)
 
 
 func display_name() -> String:
@@ -229,8 +200,9 @@ func _wind_up(at: Vector3) -> void:
 	cd = 0.3
 	var fx = hunt.fx
 	if fx:
-		# A thin, hard-edged tell at its feet in its colour (no glow).
-		fx.ring(Vector3(motor.pos.x, 0.05, motor.pos.z), 0.55 if not is_special() else 0.8, def["color"], t.x + 0.05, 0.05, &"light")
+		# Anticipation: its element gathers in, then pops (light tier).
+		var tc: Color = def["color"]
+		fx.vfx.cast(Fx.VfxLib.element_for(tc), Vector3(motor.pos.x, 0.0, motor.pos.z), 0.55 if not is_special() else 0.8, tc, &"light")
 	Sfx.play("charge" if is_special() else "swing", -14.0, 1.35)
 
 
@@ -390,7 +362,7 @@ func _use() -> bool:
 				return false
 			hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * (SDB.EVOLVE_DMG if evolved else 1.0) * hunt.heal_mult(), hero.max_hp)
 			var r := float(ab["radius"]) * reach_mult()
-			fx.ring(hero.flat_pos(), r, col, 0.5, 0.12, &"skill")
+			fx.vfx.nova(&"heal", hero.flat_pos(), r, 0.5, col, &"skill")
 			fx.burst(hero.flat_pos() + Vector3(0, 1.0, 0), col, 10, 3.0, 1.5)
 			for f in hunt.foes_near(hero.position, r):
 				_strike(f, hit_dmg(float(ab["dmg"])))
@@ -418,7 +390,7 @@ func _use() -> bool:
 			var mid := start + fwd * rng * 0.55
 			hunt.add_pyre(mid, rng * 0.35, float(ab["burn"]), hit_dmg(float(ab["dmg"])) * 0.25)
 			if _card("haste") > 0:
-				fx.ring(mid, rng * 0.5, flame, 0.4, 0.12, &"skill")
+				fx.vfx.nova(&"fire", mid, rng * 0.5, 0.4, flame, &"skill")
 				for f in hunt.foes_near(mid, rng * 0.5):
 					_strike(f, hit_dmg(float(ab["dmg"])) * 0.3)
 			_attack_anim()
@@ -459,7 +431,7 @@ func _use() -> bool:
 				if not is_instance_valid(me) or not is_instance_valid(hunt):
 					return
 				var c2 := Color(0.7, 0.45, 1.0)
-				fx.ring(at, r, c2, 0.45, 0.12, &"skill")
+				fx.vfx.impact(&"shadow", at, r, c2, &"skill")
 				fx.burst(at, c2, 14, 6.0)
 				for f in hunt.foes_near(at, r):
 					_strike(f, burst)
@@ -472,7 +444,7 @@ func _use() -> bool:
 			var near: Array = hunt.foes_near(hero.position, r)
 			if near.is_empty():
 				return false
-			fx.ring(hero.flat_pos(), r, col, 0.5, 0.2, &"skill")
+			fx.vfx.nova(&"nature", hero.flat_pos(), r, 0.5, col, &"skill")
 			fx.burst(hero.flat_pos(), col, 16, 7.0, 0.3)
 			for f in near:
 				_strike(f, hit_dmg(float(ab["dmg"])), float(ab["push"]))
@@ -527,7 +499,7 @@ func _use() -> bool:
 				return false
 			var p: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
-			fx.ring(p, r, col, 0.4, 0.18, &"skill")
+			fx.vfx.impact(&"physical", p, r, Fx.VfxLib.NO_TINT, &"skill")
 			fx.puff(p, Color(0.3, 0.27, 0.23, 0.6), 8, 1.5, 2.0)
 			for f in hunt.foes_near(p, r):
 				_strike(f, hit_dmg(float(ab["dmg"])), 4.0)
@@ -554,7 +526,7 @@ func _use() -> bool:
 				return false
 			var at: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
-			fx.ring(at, r, col, 0.5, 0.2, &"skill")
+			fx.vfx.nova(Fx.VfxLib.element_for(col), at, r, 0.5, col, &"skill")
 			fx.burst(at, col, 14, 5.0, 0.4)
 			for f in hunt.foes_near(at, r):
 				if not f is Boss:
@@ -565,7 +537,7 @@ func _use() -> bool:
 				get_tree().create_timer(0.4 * (k + 1), false).timeout.connect(func():
 					if not is_instance_valid(me) or not is_instance_valid(hunt):
 						return
-					fx.ring(at, r * 0.8, col, 0.3, 0.12, &"light")
+					fx.vfx.impact(Fx.VfxLib.element_for(col), at, r * 0.8, col, &"light")
 					for f in hunt.foes_near(at, r):
 						_strike(f, amount))
 			_attack_anim()
