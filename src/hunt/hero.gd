@@ -63,6 +63,10 @@ var dash_t := 0.0
 var dash_dir := Vector3.ZERO
 var invuln := 0.0
 var super_charge := 0.0
+## Seconds left before charge can build again after a super.
+var super_lock := 0.0
+## Damage the current swing may still turn into charge (one swing's worth).
+var super_budget := 0.0
 var super_t := 0.0
 var super_kind := ""
 var leap_from := Vector3.ZERO
@@ -250,10 +254,9 @@ func recompute() -> void:
 	xp_mult = 1.0 + float(base.get("xp", 0.0)) + hunt.pact_sum("xp")
 	rate *= 1.0 + 0.05 * rage
 	dash_cd_max = 2.2 * (1.0 - 0.2 * lv.call("dash")) * (1.0 - float(base.get("dash", 0.0)))
-	super_rate = (1.0 + 0.25 * lv.call("wrath")) * (1.0 + float(base.get("super", 0.0)) + hunt.pact_sum("super"))
 	var sm := DB.super_mults(Game.super_rank(id))
 	super_dmg = sm.x
-	super_rate *= sm.y
+	super_rate = DB.super_rate(0.25 * lv.call("wrath") + float(base.get("super", 0.0)) + hunt.pact_sum("super") + (sm.y - 1.0))
 	gold_mult = base["gold"] * (1.0 + 0.3 * lv.call("greed"))
 	leech = 0.03 * lv.call("leech")
 	thorns = 0.6 * lv.call("thorns")
@@ -305,7 +308,10 @@ func tick(dt: float) -> void:
 	if regen > 0.0:
 		hp = minf(hp + minf(regen, max_hp * DB.REGEN_CAP) * hunt.heal_mult() * dt, max_hp)
 	leech_pool = minf(leech_pool + max_hp * DB.LEECH_CAP * dt, max_hp * DB.LEECH_CAP)
-	super_charge = minf(super_charge + dt * 0.012 * super_rate, 1.0)
+	if super_lock > 0.0:
+		super_lock = maxf(super_lock - dt, 0.0)
+	else:
+		super_charge = minf(super_charge + dt * float(DB.SUPER["passive"]) * super_rate, 1.0)
 	_tick_cards(dt)
 	if super_t > 0.0:
 		_tick_super(dt)
@@ -374,6 +380,7 @@ func _tick_attack(dt: float) -> void:
 	aim_hold = 0.6
 	aim_yaw = yaw_to(position, t.position)
 	atk_cd = 1.0 / rate
+	super_budget = dmg
 	var clips: Array = def["anim"]["attack"]
 	var clip: String = clips[swing_i % clips.size()]
 	swing_i += 1
@@ -707,13 +714,14 @@ func try_potion() -> bool:
 
 
 func super_ready() -> bool:
-	return super_charge >= 1.0 and super_t <= 0.0 and alive
+	return super_charge >= 1.0 and super_t <= 0.0 and super_lock <= 0.0 and alive
 
 
 func try_super() -> bool:
 	if not super_ready():
 		return false
 	super_charge = 0.0
+	super_lock = float(DB.SUPER["lock"])
 	Ui.buzz(50, 0.7)
 	super_kind = def["super"]
 	impact_t = -1.0

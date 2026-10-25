@@ -59,6 +59,21 @@ func run() -> int:
 	_ok("super rank pays shards and gold", Game.buy_super_rank("knight") and Game.super_rank("knight") == 1 and int(Game.hero("knight")["shards"]) == 10 and Game.gold() == 0)
 	_ok("super ranks scale the super", DB.super_mults(1).x > 1.0 and DB.super_mults(DB.SUPER_RANKS.size()).y > 1.0)
 	Game.hero("knight")["super_rank"] = 0
+	# Super charge rules (balance/supers-charge-fix).
+	_ok("super: no charge from the super's own hits", DB.super_hit_charge(500.0, 10.0, 10.0, 1.0, true) == 0.0)
+	_ok("super: no charge while locked out", DB.super_hit_charge(10.0, 10.0, 10.0, 1.0, true) == 0.0)
+	_ok("super: a hit charges at most one swing", is_equal_approx(DB.super_hit_charge(500.0, 10.0, 10.0, 1.0, false), 1.0 / DB.SUPER["per_hit"]))
+	_ok("super: spent swing budget charges nothing", DB.super_hit_charge(10.0, 10.0, 0.0, 1.0, false) == 0.0)
+	_ok("super: small hits charge pro rata", is_equal_approx(DB.super_hit_charge(5.0, 10.0, 10.0, 1.0, false), 0.5 / DB.SUPER["per_hit"]))
+	_ok("super: lockout after each super", float(DB.SUPER["lock"]) == 12.0 and float(DB.SUPER["per_hit"]) == 40.0)
+	_ok("super: no bonus is x1", DB.super_rate(0.0) == 1.0)
+	_ok("super: bonuses soften", DB.super_rate(0.5) < 1.5 and DB.super_rate(0.5) > 1.3 and DB.super_rate(1.0) - DB.super_rate(0.5) < DB.super_rate(0.5) - 1.0)
+	_ok("super: rate never above x2.2", DB.super_rate(100.0) <= 2.2 and DB.super_rate(0.75 + 0.45 + 0.5 + 0.35) < 2.2)
+	var still := {}
+	for p in DB.WEEKLY_OMENS:
+		if p["id"] == "still":
+			still = p
+	_ok("super: Stillness is +50%", float(still.get("mod", {}).get("super", 0.0)) == 0.5 and str(still["desc"]).contains("50%"))
 	_ok("lamp adds xp", Game.rub_lamp("knight", "strength") and Game.skill_xp("strength", "knight") == xp_lamp and int(Game.hero("knight")["shards"]) == 0)
 	_ok("no shards, no lamp", not Game.can_rub_lamp("knight"))
 	Game.data = keep_lv

@@ -145,7 +145,10 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 			hero._storm(3, hero.dmg * 0.8)
 			_storming = false
 	dmg_dealt += landed
-	hero.super_charge = minf(hero.super_charge + landed / (hero.dmg * 15.0) * hero.super_rate, 1.0)
+	var gain := DB.super_hit_charge(landed, hero.dmg, hero.super_budget, hero.super_rate, hero.super_t > 0.0 or hero.super_lock > 0.0)
+	if gain > 0.0:
+		hero.super_budget = 0.0
+		hero.super_charge = minf(hero.super_charge + gain, 1.0)
 	if hero.leech > 0.0 and hero.alive:
 		var heal := minf(landed * hero.leech * heal_mult(), hero.leech_pool)
 		hero.leech_pool -= heal
@@ -366,7 +369,8 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 func _perfect_dodge() -> void:
 	hero.perfect_used = true
 	hero.riposte_t = float(DB.PERFECT_DODGE["time"])
-	hero.super_charge = minf(hero.super_charge + float(DB.PERFECT_DODGE["super"]), 1.0)
+	if hero.super_lock <= 0.0:
+		hero.super_charge = minf(hero.super_charge + float(DB.PERFECT_DODGE["super"]), 1.0)
 	perfect_dodges += 1
 	if hero.flags.has("dodge_heal"):
 		hero.hp = minf(hero.hp + hero.max_hp * float(hero.flags["dodge_heal"]), hero.max_hp)
