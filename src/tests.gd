@@ -208,6 +208,7 @@ func run() -> int:
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
 	_sidekick_motor_tests()
+	_collision_tests()
 	_levelup_tests()
 	_bank_tests()
 	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
@@ -893,6 +894,87 @@ func _sidekick_motor_tests() -> void:
 	_ok("every sidekick has real attack, hit and special clips %s" % str(gaps), gaps.is_empty())
 
 
+## Environment props: every model has a collision policy, every solid one a
+## collider, and nothing walks or paths through the crypt.
+func _collision_tests() -> void:
+	const PS := preload("res://src/hunt/prop_shapes.gd")
+	const FOOT := preload("res://src/data/prop_footprints.gd")
+	var unlisted := {}
+	var missing := []
+	var clutter_blocks := []
+	for cfg in [["barrow", 0, 1], ["depths", 0, 1], ["vault", 0, 1], ["grove", 0, 1], ["barrow", 5, 1], ["barrow", 5, 2], ["barrow", 5, 3]]:
+		var a := Arena.new()
+		a.build(true, cfg[0], cfg[1], cfg[2])
+		for p: Dictionary in a.props:
+			var file := str(p["path"]).get_file()
+			if not PS.POLICY.has(file):
+				unlisted[file] = true
+				continue
+			var pos: Vector3 = p["pos"]
+			var inside := pos.x > a.min_x and pos.x < a.max_x and pos.z > a.min_z and pos.z < a.max_z and pos.y < 0.5
+			if not inside:
+				continue
+			if p["shape"] != "walk" and (int(p["obs"]) < 0 or not a.blocked(pos + Vector3(0.0, 0, 0.0), 0.05) and not a.blocked(pos, 0.3)):
+				missing.append("%s %s@%s" % [cfg[0], file, pos])
+			if PS.POLICY[file] == "walk" and int(p["obs"]) >= 0:
+				clutter_blocks.append(file)
+		a.free()
+	_ok("every prop type has a collision policy %s" % str(unlisted.keys()), unlisted.is_empty())
+	_ok("every blocking prop placed has a collider %s" % str(missing.slice(0, 4)), missing.is_empty())
+	_ok("ground clutter has no collider %s" % str(clutter_blocks.slice(0, 4)), clutter_blocks.is_empty())
+	var no_foot := []
+	for f: String in PS.POLICY:
+		# A zero footprint is allowed: a pebble with nothing in the body band.
+		if PS.POLICY[f] != "walk" and not FOOT.FOOT.has(f):
+			no_foot.append(f)
+	_ok("every blocking prop type has a baked footprint %s" % str(no_foot), no_foot.is_empty())
+	var crypt_now: Array = PS.measure(PS.path_of("crypt.gltf"))
+	var crypt_baked: Array = FOOT.FOOT["crypt.gltf"]
+	_ok("prop footprints baked (crypt matches its mesh)", absf(float(crypt_now[2]) - float(crypt_baked[2])) < 0.01 and absf(float(crypt_now[3]) - float(crypt_baked[3])) < 0.01)
+
+	# The crypt: walk at it from every side the playfield allows, the way
+	# Hero.tick moves (step, then resolve), and never end up inside.
+	var b := Arena.new()
+	b.build(true, "barrow", 0, 1)
+	var cp := b.crypt_pos
+	var half := Vector2(3.0, 4.0) * PS.FILL * 1.9
+	var in_crypt := func(q: Vector3, r: float) -> bool:
+		return absf(q.x - cp.x) < half.x + r * 0.8 and absf(q.z - cp.z) < half.y + r * 0.8
+	var through := []
+	for k in 11:
+		var ang := PI * 0.5 + PI * float(k) / 10.0 # west, south, east
+		var p := b.resolve(cp + Vector3(cos(ang), 0, sin(ang)) * 14.0, 0.5)
+		for i in 360:
+			var d := (cp - p)
+			d.y = 0.0
+			p = b.resolve(p + d.normalized() * 5.5 / 60.0, 0.5)
+			if in_crypt.call(p, 0.5):
+				through.append(k)
+				break
+	_ok("hero can't walk into the crypt from any side %s" % str(through), through.is_empty())
+	_ok("projectiles stop at the crypt", b.blocked(cp + Vector3(0, 0, half.y - 0.3), 0.05) and b.blocked(cp + Vector3(half.x - 0.3, 0, 0), 0.05))
+	# A foe east of the crypt reaches a hero west of it by the flow field
+	# (Enemy._around_walls), round the front, never through it.
+	# (The step field reaches 40 m of path, so the pair sit within that.)
+	var hero_at := Vector3(cp.x - 3.0, 0, cp.z + half.y + 2.0)
+	var foe := Vector3(cp.x + half.x + 2.3, 0, cp.z - 1.5)
+	for i in 400:
+		b.update_flow(hero_at, 1.0 / 60.0)
+	var reached := false
+	var cut := false
+	for i in 60 * 20:
+		if i % 15 == 0:
+			b.update_flow(hero_at, 0.25)
+		var f := b.flow_dir(foe)
+		if f == Vector3.ZERO:
+			f = (hero_at - foe).normalized()
+		foe = b.resolve(foe + f * 3.2 / 60.0, 0.55)
+		cut = cut or in_crypt.call(foe, 0.55)
+		if foe.distance_to(hero_at) < 1.5:
+			reached = true
+			break
+	_ok("a foe paths round the crypt to the hero (reached %s at %s, through %s)" % [reached, foe, cut], reached and not cut)
+	b.free()
 ## Level-up cards: a hitstop running when the cards pause the tree must not
 ## leave the world (and the cards' tweens) at 0.05x; no cards once it's clear.
 func _levelup_tests() -> void:
