@@ -941,7 +941,7 @@ func _stun(f: Node, t: float) -> void:
 ## A rank-4 finisher: one burst around the hero.
 func _finale_blast(r: float, amount: float, element: StringName) -> void:
 	var at := flat_pos()
-	hunt.fx.vfx.nova(element, at, r, 0.4)
+	hunt.fx.vfx.nova(element, at, r, 0.4, Fx.VfxLib.NO_TINT, &"big")
 	for f in hunt.foes_near(position, r):
 		hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 8.0)
 	hunt.shake(0.3)
