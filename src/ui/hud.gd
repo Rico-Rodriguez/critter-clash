@@ -31,10 +31,15 @@ var _sk_ring: XpRing
 var _sk_text: Label
 
 
+var _bank: Button
+var _bank_tween: Tween
+
+
 func setup(h: Hunt) -> void:
 	hunt = h
 	Ui.apply_safe_area(%Safe)
-	%Stick.blockers.assign([%Dash, %Super, %Pause, %Potion])
+	_make_bank_badge()
+	%Stick.blockers.assign([%Dash, %Super, %Pause, %Potion, _bank])
 	_layout_buttons()
 	%Dash.pressed.connect(func(): dash_pressed.emit())
 	%Super.pressed.connect(func(): super_pressed.emit())
@@ -141,11 +146,71 @@ func _layout_buttons() -> void:
 	%Stick._place_home()
 
 
+## The upgrade bank badge over the super button: "+N", tap to pick. Flat
+## and crisp: dark plate, gold rim, no glow or tint.
+func _make_bank_badge() -> void:
+	_bank = Button.new()
+	_bank.name = "BankBadge"
+	_bank.focus_mode = Control.FOCUS_NONE
+	_bank.custom_minimum_size = Vector2(176, 52)
+	_bank.add_theme_font_size_override("font_size", 22)
+	_bank.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
+	_bank.add_theme_color_override("font_pressed_color", Color(1.0, 0.95, 0.75))
+	_bank.add_theme_color_override("font_hover_color", Color(1.0, 0.88, 0.5))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.09, 0.08, 0.11, 0.94)
+	sb.set_corner_radius_all(26)
+	sb.set_border_width_all(3)
+	sb.border_color = Color(0.95, 0.76, 0.32)
+	var sp := sb.duplicate() as StyleBoxFlat
+	sp.bg_color = Color(0.18, 0.15, 0.1, 0.96)
+	for k in ["normal", "focus", "hover", "disabled"]:
+		_bank.add_theme_stylebox_override(k, sb)
+	_bank.add_theme_stylebox_override("pressed", sp)
+	_bank.visible = false
+	_bank.pressed.connect(func(): hunt.open_bank())
+	%Super.get_parent().add_child(_bank)
+
+
+## Shows the banked count on the badge (hidden at 0); pulse on a new pick.
+func set_bank(n: int, pulse := false) -> void:
+	if _bank == null:
+		return
+	_bank.visible = n > 0
+	_bank.text = "+%d card%s" % [n, "" if n == 1 else "s"]
+	_place_bank()
+	if pulse and n > 0:
+		if _bank_tween:
+			_bank_tween.kill()
+		_bank.pivot_offset = _bank.size * 0.5
+		_bank.scale = Vector2.ONE
+		_bank_tween = _bank.create_tween().set_ignore_time_scale(true).set_trans(Tween.TRANS_SINE)
+		for i in 2:
+			_bank_tween.tween_property(_bank, "scale", Vector2.ONE * 1.14, 0.14)
+			_bank_tween.tween_property(_bank, "scale", Vector2.ONE, 0.18)
+
+
+func bank_count() -> int:
+	return hunt.pending_levels if _bank and _bank.visible else 0
+
+
+func _place_bank() -> void:
+	var s: Control = %Super
+	_bank.size = _bank.get_combined_minimum_size()
+	var pos := s.position + Vector2((s.size.x - _bank.size.x) * 0.5, -_bank.size.y - 10.0)
+	# Keep it whole on screen: the super sits close to the edge.
+	var w: float = (_bank.get_parent() as Control).size.x
+	pos.x = clampf(pos.x, 16.0, maxf(w - _bank.size.x - 16.0, 16.0))
+	_bank.position = pos
+
+
 func move_vector() -> Vector2:
 	return %Stick.value
 
 
 func refresh(dt: float) -> void:
+	if _bank and _bank.visible:
+		_place_bank()
 	var hero := hunt.hero
 	if _hint and (hero.vel.length() > 1.0 and hunt.time > 2.0 or hunt.time > 12.0):
 		var h := _hint
@@ -329,12 +394,16 @@ func dim(color: Color, rise: float, hold: float, fall: float) -> void:
 	t.tween_callback(f.queue_free)
 
 
-func show_levelup(choices: Array, level: int) -> void:
+func show_levelup(choices: Array, level: int, banked := 1) -> void:
 	%Stick.release()
 	Sfx.duck(true)
 	var m := LEVELUP.instantiate()
 	add_child(m)
-	m.open(hunt, choices, level)
+	m.open(hunt, choices, level, banked)
+	m.kept.connect(func():
+		m.queue_free()
+		Sfx.duck(false)
+		hunt.close_bank())
 	m.picked.connect(func(id: String):
 		m.queue_free()
 		Sfx.duck(false)
@@ -357,6 +426,7 @@ func _open_pause() -> void:
 	if get_tree().paused or hunt.phase in ["victory", "defeat"]:
 		return
 	%Stick.release()
+	hunt.end_hitstop()
 	get_tree().paused = true
 	Sfx.duck(true)
 	var m := PAUSE.instantiate()

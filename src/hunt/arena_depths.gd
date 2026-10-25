@@ -104,13 +104,11 @@ static func _torch(a: Arena, at: Vector3, yaw: float) -> void:
 
 # --- Divisions -----------------------------------------------------------
 
-## Low barriers split the crypt into halls. Each piece blocks as two circles.
+## Low barriers split the crypt into halls. Each piece blocks as a box (PropShapes).
 static func _barrier_run(a: Arena, x0: float, x1: float, z: float) -> void:
 	var x := x0 + 2.0
 	while x <= x1 - 1.9:
 		a.put(D + "barrier.gltf", Vector3(x, 0, z), 0.0)
-		a.add_obstacle(Vector2(x - 1.0, z), 0.7)
-		a.add_obstacle(Vector2(x + 1.0, z), 0.7)
 		x += 4.0
 	for e in [x0, x1]:
 		a.put(D + "pillar.gltf", Vector3(e, 0, z), 0.0, 0.8, 0.8, true, 0.8)

@@ -163,22 +163,66 @@ func _check_level() -> void:
 	if run_xp >= need and hero.alive and phase != "defeat":
 		run_xp -= need
 		run_level += 1
-		pending_levels += 1
-		if pending_levels == 1:
-			_offer_cards()
+		bank_level()
 
 
-func _offer_cards() -> void:
-	var choices := roll_cards(card_choices())
-	if choices.is_empty():
-		pending_levels = 0
+## The upgrade bank: a level-up no longer stops the game. The pick waits on
+## the "+N" badge until the player taps it, or opens by itself at a safe
+## moment (auto_open: a room cleared, the break between bosses). The bot
+## takes its picks straight away. Once the run is over picks are dropped.
+func bank_level(auto_open := false) -> void:
+	if cards_blocked():
+		drop_bank()
 		return
+	pending_levels += 1
 	Sfx.play("levelup", 0.0)
 	Ui.buzz(25, 0.4)
-	# Level up: a column of sharp rays, chevrons rising and gold motes.
-	fx.vfx.impact(&"level", hero.flat_pos(), 1.8, Fx.VfxLib.NO_TINT, &"skill")
-	fx.vfx.cast(&"buff", hero.flat_pos(), 1.0, Color(1.0, 0.85, 0.4), &"skill")
-	fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 4.0, 8.0, 0.35)
+	if fx:
+		# Level up: a column of sharp rays, chevrons rising and gold motes.
+		fx.vfx.impact(&"level", hero.flat_pos(), 1.8, Fx.VfxLib.NO_TINT, &"skill")
+		fx.vfx.cast(&"buff", hero.flat_pos(), 1.0, Color(1.0, 0.85, 0.4), &"skill")
+		fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 4.0, 8.0, 0.35)
+	if hud:
+		hud.set_bank(pending_levels, true)
+	if bot or auto_open:
+		open_bank()
+
+
+## A safe moment (room cleared): any banked picks open by themselves.
+func safe_moment() -> void:
+	if pending_levels > 0 and not bot:
+		open_bank()
+
+
+## Tapping the badge: pause and show the cards for the next banked pick.
+func open_bank() -> void:
+	if card_open or pending_levels <= 0:
+		return
+	_offer_cards()
+
+
+## The run is over: banked picks are dropped and the badge hides.
+func drop_bank() -> void:
+	pending_levels = 0
+	if hud:
+		hud.set_bank(0)
+
+
+## "Keep for later" on the cards: back to the hunt, the picks stay banked.
+func close_bank() -> void:
+	card_open = false
+	(Engine.get_main_loop() as SceneTree).paused = false
+
+
+## Shows the cards for the next banked pick (the tree pauses underneath).
+func _offer_cards() -> void:
+	if cards_blocked():
+		drop_bank()
+		return
+	var choices := roll_cards(card_choices())
+	if choices.is_empty():
+		drop_bank()
+		return
 	if bot:
 		var pref := ["bladestorm", "tempest", "inferno_heart", "rain", "judgement_day", "armageddon", "heavens", "fault", "deluge", "meteor", "smite", "quake", "axes", "barrage", "frost", "explosive", "blades", "storm", "nova", "might", "haste", "multishot", "wave", "crit", "vigor", "phoenix", "reach", "inferno", "pierce", "regen", "leech", "wrath", "ward", "swift"]
 		var best: String = choices[0]
@@ -188,8 +232,10 @@ func _offer_cards() -> void:
 				break
 		pick_card(best)
 		return
-	get_tree().paused = true
-	hud.show_levelup(choices, run_level)
+	card_open = true
+	end_hitstop()
+	(Engine.get_main_loop() as SceneTree).paused = true
+	hud.show_levelup(choices, run_level - pending_levels + 1, pending_levels)
 
 
 ## Three choices, four once the hero reaches DB.FOURTH_CARD_LEVEL.
@@ -292,13 +338,17 @@ func pick_card(id: String) -> void:
 	hero.recompute()
 	if id == "vigor":
 		hero.hp = minf(hero.hp + hero.max_hp * 0.3, hero.max_hp)
-	pending_levels -= 1
-	get_tree().paused = false
+	pending_levels = maxi(pending_levels - 1, 0)
+	card_open = false
+	hud.set_bank(pending_levels)
+	(Engine.get_main_loop() as SceneTree).paused = false
 	Sfx.play("card_pick", -2.0)
-	if pending_levels > 0:
+	# More banked: the next set shows right away (the bot already took them).
+	if pending_levels > 0 and not bot:
 		_offer_cards()
 	else:
 		_check_level()
+
 
 
 ## Rolls an item of at least rarity index `min_idx` (tries a few times).

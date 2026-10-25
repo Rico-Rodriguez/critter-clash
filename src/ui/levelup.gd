@@ -2,6 +2,8 @@ extends Control
 ## The level-up choice: three cards, tap one. The tree is paused underneath.
 
 signal picked(id: String)
+## "Keep for later": close without picking; the picks stay banked.
+signal kept
 
 var _done := false
 var _hunt: Hunt
@@ -9,7 +11,7 @@ var _choices: Array = []
 var _reroll: Button
 
 
-func open(h: Hunt, choices: Array, level: int) -> void:
+func open(h: Hunt, choices: Array, level: int, banked := 1) -> void:
 	_hunt = h
 	%Title.text = "Level %d" % level
 	_held_row(h)
@@ -20,6 +22,15 @@ func open(h: Hunt, choices: Array, level: int) -> void:
 	_reroll.custom_minimum_size = Vector2(0, 72)
 	_reroll.pressed.connect(_do_reroll)
 	$Box.add_child(_reroll)
+	var keep := Button.new()
+	keep.name = "Keep"
+	keep.theme_type_variation = "CardButton"
+	keep.add_theme_font_size_override("font_size", 22)
+	keep.focus_mode = Control.FOCUS_NONE
+	keep.custom_minimum_size = Vector2(0, 60)
+	keep.text = "Keep for later" if banked <= 1 else "Keep %d for later" % banked
+	keep.pressed.connect(_keep)
+	$Box.add_child(keep)
 	_fill(choices)
 	Ui.pop_in(%Title, 0.0, 1.3)
 
@@ -75,6 +86,14 @@ func _fill(choices: Array) -> void:
 	for c in %Cards.get_children():
 		Ui.pop_in(c, 0.03 + i * 0.07, 0.7)
 		i += 1
+
+
+func _keep() -> void:
+	if _done:
+		return
+	_done = true
+	Sfx.play("ui_back", -6.0)
+	kept.emit()
 
 
 func _do_reroll() -> void:
@@ -213,6 +232,11 @@ func _banish(id: String) -> void:
 func _input(e: InputEvent) -> void:
 	if _done or not (e is InputEventScreenTouch) or not e.pressed or e.index == 0:
 		return
+	var keep := $Box.get_node_or_null("Keep") as Button
+	if keep and keep.get_global_rect().has_point(e.position):
+		get_viewport().set_input_as_handled()
+		keep.pressed.emit()
+		return
 	if _reroll.get_global_rect().has_point(e.position):
 		get_viewport().set_input_as_handled()
 		_reroll.pressed.emit()
@@ -233,7 +257,7 @@ func _pick(id: String, b: Control) -> void:
 		return
 	_done = true
 	Sfx.play("card_flip", -2.0)
-	var t := create_tween().set_parallel(true)
+	var t := create_tween().set_parallel(true).set_ignore_time_scale(true)
 	for c in %Cards.get_children():
 		if c == b:
 			c.pivot_offset = c.size * 0.5

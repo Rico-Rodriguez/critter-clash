@@ -442,9 +442,7 @@ func _boss_down_midway() -> void:
 	var nxt: Array = rush_order()[rush_i]
 	banner("Next: %s" % DB.boss_def(str(nxt[0]))["name"], Color(0.85, 0.8, 0.7), "Take a card and a breath")
 	run_level += 1
-	pending_levels += 1
-	if pending_levels == 1:
-		_offer_cards()
+	bank_level(true)
 
 
 ## The dead boss sinks away; free it and its occluder a moment later.

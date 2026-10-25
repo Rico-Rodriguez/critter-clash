@@ -40,6 +40,8 @@ var shrines: Array = []
 ## {"meshes": Array[MeshInstance3D], "x", "z", "r", "h", "t"} — faded by
 ## update_occlusion() while they cover the hero or the boss.
 var occluders: Array = []
+## Every prop put() placed: {path, pos, yaw, scale, block} (the collision audit reads it).
+var props: Array = []
 
 var _obs: Array = [] # [Vector2 center, radius]
 var _grid := {}
@@ -72,6 +74,7 @@ const PATH_RECT := Rect2(-30, -40, 60, 70)
 
 ## Content-pack layouts are preloaded by path (no class_name; see tests).
 const VaultLayout := preload("res://src/hunt/arena_vault.gd")
+const PropShapes := preload("res://src/hunt/prop_shapes.gd")
 
 
 func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_seed := 1) -> void:
@@ -220,6 +223,9 @@ func _noise(size: int, freq: float, seed_: int) -> NoiseTexture2D:
 
 # --- Props ---------------------------------------------------------------
 
+## Collision comes from the model's PropShapes policy (a box, a circle or
+## none), sized from its baked footprint. `block` no longer sizes it: > 0 only
+## says the prop is solid enough to fade when it hides the hero.
 ## `occlude` > 0 marks the prop as view-blocking: its footprint radius in
 ## metres at scale 1 (the prop fades while it hides the hero).
 func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, shadow := true, occlude := 0.0) -> Node3D:
@@ -228,11 +234,22 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 	n.rotation.y = yaw
 	n.scale = Vector3.ONE * scale_
 	add_child(n)
+	var shape := PropShapes.shape_for(path, yaw, scale_)
+	props.append({"path": path, "pos": pos, "yaw": yaw, "scale": scale_, "shape": shape[0], "obs": -1})
+	if shape[0] != "walk" and pos.y < 0.5:
+		var c: Vector2 = Vector2(pos.x, pos.z) + shape[1]
+		var half: Vector2 = shape[2]
+		# Out past the bounds (the forest round the wall) nothing can reach it.
+		var reach := half.length()
+		if c.x + reach > min_x - 1.0 and c.x - reach < max_x + 1.0 and c.y + reach > min_z - 1.0 and c.y - reach < max_z + 1.0:
+			props[-1]["obs"] = _obs.size()
+			if shape[0] == "box":
+				add_box(c, half, yaw)
+			else:
+				add_obstacle(c, half.x)
 	if not shadow:
 		for mi in n.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	if block > 0.0:
-		add_obstacle(Vector2(pos.x, pos.z), block * scale_)
 	# Anything solid and taller than the hero's waist can hide the fight: it
 	# fades too, without every caller having to say so.
 	if occlude <= 0.0 and block > 0.0 and size_of(path).y * scale_ > 1.2:
@@ -320,8 +337,45 @@ func size_of(path: String) -> Vector3:
 
 
 func add_obstacle(c: Vector2, r: float) -> void:
+	_file_obstacle([c, r], r)
+
+
+## An oriented rectangle: centre, half extents along the prop's own X and Z,
+## and its yaw. Stored as [c, bounding r, half, cos, sin].
+func add_box(c: Vector2, half: Vector2, yaw: float) -> void:
+	_file_obstacle([c, half.length(), half, cos(yaw), sin(yaw)], half.length())
+
+
+## The nearest point of obstacle `o` to `q`, and whether `q` is inside it.
+static func _nearest(o: Array, q: Vector2) -> Array:
+	var c: Vector2 = o[0]
+	var d := q - c
+	if o.size() < 5:
+		var l := d.length()
+		var r: float = o[1]
+		return [c + (d / l if l > 0.001 else Vector2(1, 0)) * r, l < r]
+	var half: Vector2 = o[2]
+	var cs: float = o[3]
+	var sn: float = o[4]
+	# Into the box's frame (node yaw turns +X toward -Z).
+	var lx := d.x * cs - d.y * sn
+	var lz := d.x * sn + d.y * cs
+	var inside := absf(lx) < half.x and absf(lz) < half.y
+	var nx := clampf(lx, -half.x, half.x)
+	var nz := clampf(lz, -half.y, half.y)
+	if inside:
+		# Out through the nearest face.
+		if half.x - absf(lx) < half.y - absf(lz):
+			nx = half.x * signf(lx if lx != 0.0 else 1.0)
+		else:
+			nz = half.y * signf(lz if lz != 0.0 else 1.0)
+	return [c + Vector2(nx * cs + nz * sn, -nx * sn + nz * cs), inside]
+
+
+func _file_obstacle(o: Array, r: float) -> void:
 	var idx := _obs.size()
-	_obs.append([c, r])
+	_obs.append(o)
+	var c: Vector2 = o[0]
 	var x0 := int(floor((c.x - r) / CELL))
 	var x1 := int(floor((c.x + r) / CELL))
 	var z0 := int(floor((c.y - r) / CELL))
@@ -342,7 +396,13 @@ func blocked(p: Vector3, r: float) -> bool:
 		for dz in range(-1, 2):
 			for idx in _grid.get(Vector2i(k.x + dx, k.y + dz), []):
 				var o: Array = _obs[idx]
-				if Vector2(p.x, p.z).distance_to(o[0]) < o[1] + r:
+				var q := Vector2(p.x, p.z)
+				if q.distance_to(o[0]) >= float(o[1]) + r:
+					continue
+				if o.size() < 5:
+					return true
+				var hit: Array = _nearest(o, q)
+				if hit[1] or q.distance_to(hit[0]) < r:
 					return true
 	return p.x < min_x or p.x > max_x or p.z < min_z or p.z > max_z
 
@@ -467,19 +527,29 @@ func resolve(p: Vector3, r: float) -> Vector3:
 			for idx in _grid.get(Vector2i(k.x + dx, k.y + dz), []):
 				var o: Array = _obs[idx]
 				var c: Vector2 = o[0]
-				var rr: float = o[1] + r
-				var d := q - c
-				var l := d.length()
-				if l < rr:
-					q = c + (d / l if l > 0.001 else Vector2(1, 0)) * rr
+				if q.distance_to(c) >= float(o[1]) + r:
+					continue
+				if o.size() < 5:
+					var d := q - c
+					var l := d.length()
+					q = c + (d / l if l > 0.001 else Vector2(1, 0)) * (float(o[1]) + r)
+					continue
+				var hit: Array = _nearest(o, q)
+				var np: Vector2 = hit[0]
+				var away := q - np
+				var al := away.length()
+				if hit[1]:
+					# Inside: out through the face, then the walker's radius on.
+					var n := (np - q) / maxf(al, 0.001)
+					q = np + n * r
+				elif al < r:
+					q = np + away / maxf(al, 0.001) * r
 	return Vector3(q.x, p.y, q.y)
 
 
 func _layout() -> void:
 	# The crypt: the King's lair at the north end.
-	var crypt := put(G + "crypt.gltf", crypt_pos, 0.0, 1.9, -1.0, true, 2.4)
-	for x in [-2.8, -1.0, 1.0, 2.8]:
-		add_obstacle(Vector2(crypt_pos.x + x, crypt_pos.z - 0.4), 2.2)
+	put(G + "crypt.gltf", crypt_pos, 0.0, 1.9, -1.0, true, 2.4)
 	var cl := _light(crypt_pos + Vector3(0, 2.5, 3.6), Color(0.35, 1.0, 0.75), 2.6, 9.0, false)
 	cl.set_meta("flicker", 0.15)
 	put(G + "post_skull.gltf", crypt_pos + Vector3(-4.6, 0, 3.2), 0.0, 1.3, 0.3, true, 0.8)
@@ -893,3 +963,40 @@ func spawn_point(around: Vector3, near: float, far: float) -> Vector3:
 		if not blocked(p, 0.6):
 			return p
 	return resolve(around + Vector3(_rng.randf_range(-far, far), 0, -far), 0.6)
+
+
+## Thin outlines of every collider on the ground, for captures and debugging.
+func debug_outlines(color := Color(0.2, 1.0, 0.9)) -> MeshInstance3D:
+	var im := ImmediateMesh.new()
+	im.surface_begin(Mesh.PRIMITIVE_LINES)
+	for o: Array in _obs:
+		var c: Vector2 = o[0]
+		var pts: Array[Vector2] = []
+		if o.size() < 5:
+			var r: float = o[1]
+			if r <= 0.0:
+				continue
+			for i in 20:
+				pts.append(c + Vector2(cos(TAU * i / 20.0), sin(TAU * i / 20.0)) * r)
+		else:
+			var h: Vector2 = o[2]
+			var cs: float = o[3]
+			var sn: float = o[4]
+			for l: Vector2 in [Vector2(-h.x, -h.y), Vector2(h.x, -h.y), Vector2(h.x, h.y), Vector2(-h.x, h.y)]:
+				pts.append(c + Vector2(l.x * cs + l.y * sn, -l.x * sn + l.y * cs))
+		for i in pts.size():
+			var a := pts[i]
+			var b := pts[(i + 1) % pts.size()]
+			im.surface_add_vertex(Vector3(a.x, 0.08, a.y))
+			im.surface_add_vertex(Vector3(b.x, 0.08, b.y))
+	im.surface_end()
+	var mi := MeshInstance3D.new()
+	mi.mesh = im
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = color
+	m.no_depth_test = true
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	return mi
