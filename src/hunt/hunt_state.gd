@@ -453,6 +453,22 @@ func hitstop(t: float) -> void:
 	_real_hitstop = maxf(_real_hitstop, t)
 
 
+## A modal (level-up cards, pact, pause) is about to pause the tree. Hunt's
+## _process, which winds a hitstop or slow-mo back to 1x, stops with it, so a
+## hitstop still running here froze Engine.time_scale at 0.05-0.35 for the
+## whole modal and every unpaused tween crawled. End it before pausing.
+func end_hitstop() -> void:
+	_real_hitstop = 0.0
+	if phase != "victory" and phase != "defeat":
+		Engine.time_scale = 1.0
+
+
+## Level-up cards are never offered once the run is over: a win (the final
+## boss is dead, souls still flying in), a death, or the hunt has ended.
+func cards_blocked() -> bool:
+	return _ended or phase == "victory" or phase == "defeat" or hero == null or not hero.alive
+
+
 func shake(v: float) -> void:
 	cam.add_trauma(v)
 

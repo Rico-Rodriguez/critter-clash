@@ -208,6 +208,7 @@ func run() -> int:
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
 	_sidekick_motor_tests()
+	_levelup_tests()
 	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
 	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
 	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
@@ -889,3 +890,34 @@ func _sidekick_motor_tests() -> void:
 				gaps.append("%s.%s" % [sid, key])
 		(lk2["root"] as Node).free()
 	_ok("every sidekick has real attack, hit and special clips %s" % str(gaps), gaps.is_empty())
+
+
+## Level-up cards: a hitstop running when the cards pause the tree must not
+## leave the world (and the cards' tweens) at 0.05x; no cards once it's clear.
+func _levelup_tests() -> void:
+	var h := Hunt.new()
+	h.phase = "rise"
+	h.hero = Hero.new()
+	h.tier = {"gold": 1.0}
+	h.hitstop(0.09)
+	_ok("hitstop slows the world", is_equal_approx(Engine.time_scale, 0.05))
+	h.end_hitstop()
+	_ok("cards end a running hitstop before pausing", is_equal_approx(Engine.time_scale, 1.0) and h._real_hitstop == 0.0)
+	h.phase = "victory"
+	Engine.time_scale = 0.25
+	h.end_hitstop()
+	_ok("victory slow-mo is left alone", is_equal_approx(Engine.time_scale, 0.25))
+	Engine.time_scale = 1.0
+	h.phase = "rise"
+	_ok("mid-run cards still show with no foe alive", h.foes.is_empty() and h._spawn_q.is_empty() and not h.cards_blocked())
+	# Boss Rush: a boss falls mid-run, the phase goes back to "rise" for the break.
+	h.mode = "rush"
+	_ok("the Boss Rush break card still shows", not h.cards_blocked())
+	h.phase = "victory"
+	h.pending_levels = 1
+	h._offer_cards()
+	_ok("no card after the final boss falls; the pick is dropped", h.cards_blocked() and h.pending_levels == 0)
+	h.phase = "defeat"
+	_ok("no card after death", h.cards_blocked())
+	h.hero.free()
+	h.free()

@@ -233,7 +233,7 @@ func _pick(id: String, b: Control) -> void:
 		return
 	_done = true
 	Sfx.play("card_flip", -2.0)
-	var t := create_tween().set_parallel(true)
+	var t := create_tween().set_parallel(true).set_ignore_time_scale(true)
 	for c in %Cards.get_children():
 		if c == b:
 			c.pivot_offset = c.size * 0.5

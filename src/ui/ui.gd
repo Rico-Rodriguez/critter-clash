@@ -79,7 +79,8 @@ static func pop_in(c: Control, delay := 0.0, from_scale := 0.85) -> void:
 	c.pivot_offset = c.size * 0.5
 	c.modulate.a = 0.0
 	c.scale = Vector2.ONE * from_scale
-	var t := c.create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# UI pops never slow down with a gameplay hitstop or slow-mo.
+	var t := c.create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_ignore_time_scale(true)
 	t.tween_property(c, "modulate:a", 1.0, 0.18).set_delay(delay)
 	t.tween_property(c, "scale", Vector2.ONE, 0.32).set_delay(delay)
 

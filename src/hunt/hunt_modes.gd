@@ -275,6 +275,7 @@ func offer_pact() -> void:
 		pick_pact(choices[0])
 		return
 	tip("pact", "A pact: power with a price. You may refuse both", "dripping-sword")
+	end_hitstop()
 	get_tree().paused = true
 	hud.show_pact(choices)
 

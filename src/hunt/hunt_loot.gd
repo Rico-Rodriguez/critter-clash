@@ -168,7 +168,12 @@ func _check_level() -> void:
 			_offer_cards()
 
 
+## Shows the cards for the next pending level. Once the run is over the
+## pending picks are simply dropped.
 func _offer_cards() -> void:
+	if cards_blocked():
+		pending_levels = 0
+		return
 	var choices := roll_cards(card_choices())
 	if choices.is_empty():
 		pending_levels = 0
@@ -188,6 +193,7 @@ func _offer_cards() -> void:
 				break
 		pick_card(best)
 		return
+	end_hitstop()
 	get_tree().paused = true
 	hud.show_levelup(choices, run_level)
 
@@ -299,6 +305,7 @@ func pick_card(id: String) -> void:
 		_offer_cards()
 	else:
 		_check_level()
+
 
 
 ## Rolls an item of at least rarity index `min_idx` (tries a few times).
