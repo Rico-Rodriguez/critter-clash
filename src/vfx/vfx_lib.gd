@@ -110,6 +110,7 @@ const REMAP := {
 	"flame": ["puff", 0, 0.8, 1.5], "flame_lg": ["puff", 0, 0.75, 1.4], "wisp": ["puff", 2, 0.8, 1.4],
 	"dust": ["puff", 4, 0.9, 1.6], "cross": ["puff", 3, 1.3, 1.3], "chevron": ["puff", 3, 1.2, 1.3],
 	"shard": ["chip", 0, 1.0, 1.0], "flake": ["chip", 0, 0.6, 1.0], "ray": ["puff", 3, 0.45, 1.3],
+	"ember": ["puff", 0, 1.6, 0.5], "spark": ["puff", 5, 1.0, 0.4], "mote": ["puff", 3, 1.1, 0.5],
 }
 ## Fire basic attacks: false = fireball with ribbon trail, true = a flame jet
 ## (a continuous spray of puffs, Brawl Stars style).
@@ -374,7 +375,7 @@ func _core(el: StringName, variant: StringName, pos: Vector3, r: float, dir: Vec
 			# A tapering ribbon behind the head: overlapping segments, the
 			# older ones thinner, so the trail reads as one strip.
 			var seg := clampf(sp * 0.07, 0.35, 1.1)
-			_mesh("ribbon", pos - fwd * seg * 0.45, Vector3.ZERO, c, st, (0.3 if light else 0.42) * k, 0.26, Vector3(seg, 1, 1), fwd)
+			_mesh("ribbon", pos - fwd * seg * 0.45, Vector3.ZERO, c, st, (0.42 if light else 0.55) * k, 0.3, Vector3(seg, 1, 1), fwd)
 			_mesh("ball", pos, Vector3.ZERO, c, st, 0.5 if light else 0.6 * k, 0.2 if light else 0.3)
 			if randf() < (0.25 if light else 0.5):
 				_emit("ember", pos, -fwd * 1.5 + _rnd(0.9), c)
@@ -863,7 +864,7 @@ func spray(el: StringName, pos: Vector3, dir: Vector3, length := 4.0, cone := 0.
 	var light := tier == &"light"
 	var c: Color = tint if tint.a > 0.0 else COLORS[el]
 	_live.append({"kind": "spray", "el": el, "pos": pos, "dir": f, "len": length, "cone": cone, "c": c, "t": 0.0, "dur": dur, "acc": 0.0,
-		"rate": (34.0 if light else 70.0) * (0.5 if quality_low else 1.0), "light": light})
+		"rate": (40.0 if light else 90.0) * (0.5 if quality_low else 1.0), "light": light})
 	if not light:
 		_later(dur * 0.6, func(): decal(el, pos + f * length * 0.6, length * 0.3, 2.0 * _gdur))
 
@@ -890,7 +891,7 @@ func _tick_spray(e: Dictionary, k: float, dt: float) -> void:
 		var cc := c.lerp(Color(1.0, 0.85, 0.45), randf() * 0.35) if st == 0 else c
 		# Growth: tight at the nozzle, widening as it flies.
 		var g := (1.0 + tan(float(e["cone"])) * ln * 0.9)
-		_mesh("puff", p, v, cc, st, randf_range(0.28, 0.42) * (0.75 if light else 1.0), life * randf_range(0.8, 1.2), Vector3(g, 1, 1))
+		_mesh("puff", p, v, cc, st, randf_range(0.45, 0.7) * (0.7 if light else 1.0), life * randf_range(0.8, 1.2), Vector3(g, 1, 1))
 	if not light and randf() < 0.3:
 		_emit("ember", e["pos"] + Vector3(0, 0.8, 0) + f * ln * randf_range(0.3, 0.9), _rnd(1.0) + Vector3(0, 1.5, 0), c)
 

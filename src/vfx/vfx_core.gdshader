@@ -46,7 +46,7 @@ void fragment() {
 		// the ring so the front never reads as a repeated pattern.
 		float lick = texture(noise, vec2(UV.x * 2.3 + seed, TIME * 0.35)).r;
 		float lick2 = texture(noise, vec2(UV.x * 5.1 - seed, TIME * 0.6 + 0.5)).r;
-		v = v * 1.3 - (1.0 - UV.y) * (0.6 + lick * 0.9 + lick2 * 0.4) + 0.3;
+		v = v * 1.3 - (1.0 - UV.y) * (0.55 + lick * 0.55 + lick2 * 0.25) + 0.3;
 	}
 	float a = v + 0.5 - prog * prog * 1.1;
 	ALPHA = a;
