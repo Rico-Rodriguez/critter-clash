@@ -59,39 +59,8 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	model.scale = Vector3.ONE * float(d["scale"])
 	var occ: Vector2 = d["occluder"]
 	hunt.arena.add_dynamic_occluder(self, occ.x, occ.y)
-	# A crown of green fire over the King's head.
-	var crown := GPUParticles3D.new()
-	crown.amount = 40
-	crown.lifetime = 0.8
-	crown.local_coords = false
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	pm.emission_ring_radius = 0.45
-	pm.emission_ring_inner_radius = 0.3
-	pm.emission_ring_height = 0.05
-	pm.emission_ring_axis = Vector3.UP
-	pm.direction = Vector3.UP
-	pm.spread = 10.0
-	pm.initial_velocity_min = 1.2
-	pm.initial_velocity_max = 2.2
-	pm.gravity = Vector3.ZERO
-	pm.color = aura
-	var ramp := Gradient.new()
-	ramp.set_color(0, Color(1, 1, 1, 1))
-	ramp.set_color(1, Color(1, 1, 1, 0))
-	var rt := GradientTexture1D.new()
-	rt.gradient = ramp
-	pm.color_ramp = rt
-	crown.process_material = pm
-	var q := QuadMesh.new()
-	q.size = Vector2(0.35, 0.35)
-	var sm := ShaderMaterial.new()
-	sm.shader = Fx.SOFT
-	sm.set_shader_parameter("intensity", 3.0)
-	q.material = sm
-	crown.draw_pass_1 = q
-	crown.position = Vector3(0, 5.3, 0.1)
-	add_child(crown)
+	# A crown of green toon flames over the King's head (emitted in tick).
+	crown_col = aura
 	var glow := OmniLight3D.new()
 	glow.light_color = aura
 	glow.light_energy = 1.8
@@ -103,7 +72,17 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	play("Skeletons_Awaken_Standing", 0.0, anim_length("Skeletons_Awaken_Standing") / 2.2)
 
 
+var crown_col := Color(0.4, 1.0, 0.6)
+var _crown_t := 0.0
+
+
 func tick(dt: float) -> void:
+	_crown_t -= dt
+	if _crown_t <= 0.0 and visible and hunt.fx:
+		_crown_t = randf_range(0.07, 0.12)
+		var a := randf() * TAU
+		var top := global_position + Vector3(sin(a) * 0.4, 5.2, cos(a) * 0.4 + 0.1)
+		hunt.fx.vfx.puff_el(&"poison", top, randf_range(0.2, 0.32), Vector3(0, 1.6, 0), randf_range(0.35, 0.5), crown_col)
 	if not alive:
 		state_t -= dt
 		if state_t < 0.0:
@@ -241,7 +220,6 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.5, Fx.VfxLib.NO_TINT, &"big")
 				hunt.fx.puff(flat_pos(), Color(0.3, 0.27, 0.23, 0.7), 18, 4.5, 4.0)
 				hunt.fx.bone_burst(flat_pos(), 8, 7.0)
-				hunt.fx.flash_light(flat_pos(), Color(0.4, 1.0, 0.7), 5.0, 10.0, 0.4)
 				hunt.shake(0.6)
 				Sfx.play("quake", 0.0)
 				_finish(0.9)
@@ -282,7 +260,6 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 						var d := dir_of(a)
 						hunt.spawn_proj("spear", flat_pos() + d * 1.6, d * 12.5, dmg * 0.55, 1, self)
 					Sfx.play("atk_mage", -3.0, 0.6)
-					hunt.fx.flash_light(flat_pos() + dir_of(yaw) * 1.5, Color(0.5, 1.0, 0.7), 2.5, 6.0, 0.2)
 					step += 1
 					step_t = 0.42
 					face(yaw, 1.0, 1.0)

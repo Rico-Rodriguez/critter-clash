@@ -448,7 +448,6 @@ func _release() -> void:
 		"caster":
 			var blast: float = def["blast"] * (1.25 if elite else 1.0)
 			hunt.fx.vfx.impact(&"nature" if def.get("root", false) else &"shadow", aim, blast, Fx.VfxLib.NO_TINT, &"skill")
-			hunt.fx.flash_light(aim, Color(0.7, 0.3, 1.0), 4.0, 5.0, 0.3)
 			Sfx.play("boom", -8.0, 1.2)
 			if hero.flat_pos().distance_to(aim) <= blast + hero.radius * 0.5:
 				hunt.damage_hero(dmg, self, 0.5)
@@ -460,7 +459,6 @@ func _release() -> void:
 			var at := flat_pos()
 			hunt.fx.flame_burst(at, blast_r, true, Color(1.0, 0.55, 0.18), &"skill")
 			hunt.fx.puff(at, Color(0.3, 0.25, 0.2, 0.7), 8, 1.2, 3.0)
-			hunt.fx.flash_light(at, Color(1.0, 0.55, 0.25), 5.0, 8.0, 0.3)
 			hunt.shake(0.3)
 			Sfx.play("boom", -3.0)
 			if hero.flat_pos().distance_to(at) <= blast_r + hero.radius * 0.5:

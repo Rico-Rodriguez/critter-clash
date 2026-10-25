@@ -219,7 +219,6 @@ func _kill(f: Enemy) -> void:
 		# A fountain of coin every time, whatever else drops.
 		for i in 16:
 			_drop("gold", at, randi_range(2, 5))
-		fx.flash_light(at, Color(1.0, 0.82, 0.35), 4.0, 7.0, 0.4)
 		fx.burst(at + Vector3(0, 0.8, 0), Color(1.0, 0.82, 0.35), 20, 7.0, 1.8)
 		Sfx.play("coin", -2.0, 0.9)
 		_drop_item(at, Game.roll_item("elite", tier_i, "", "", loot_bonus))
@@ -256,7 +255,6 @@ func _kill_boss() -> void:
 	fx.bone_burst(at, 20, 10.0)
 	fx.vfx.nova(&"shadow", at, 9.0, 0.9, Fx.VfxLib.NO_TINT, &"big")
 	fx.vfx.impact(&"holy", at, 3.0, Fx.VfxLib.NO_TINT, &"big")
-	fx.flash_light(at, Color(DB.boss_def(cur_boss)["color"]).lightened(0.3), 10.0, 18.0, 1.5)
 	shake(1.0)
 	Sfx.play("boss_die", 2.0)
 	Sfx.music("", 2.0)
@@ -358,7 +356,6 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 			hero.revive()
 			fx.vfx.nova(&"fire", hero.flat_pos(), 6.0, 0.55, Fx.VfxLib.NO_TINT, &"big")
 			fx.vfx.impact(&"holy", hero.flat_pos(), 2.0, Color(1.0, 0.7, 0.35), &"big")
-			fx.flash_light(hero.flat_pos(), Color(1.0, 0.6, 0.25), 8.0, 12.0, 0.8)
 			for f in foes_near(hero.position, 6.0):
 				damage_foe(f, hero.dmg * 3.0, hero, (f.flat_pos() - hero.flat_pos()).normalized(), 12.0)
 			banner("Undying", Color(1.0, 0.7, 0.3), "You rise again")
@@ -378,7 +375,6 @@ func _perfect_dodge() -> void:
 	fx.text(hero.flat_pos() + Vector3(0, 0.4, 0), "Perfect!", Color(0.55, 0.95, 1.0), 1.2, 0.9)
 	tip("perfect", "Perfect dodge: your next hits strike 35% harder", "sprint")
 	fx.vfx.impact(&"storm", hero.flat_pos(), 1.4, Color(0.55, 0.9, 1.0), &"skill")
-	fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 3.0, 6.0, 0.25)
 	Sfx.play("unlock_start", -4.0, 1.5)
 	Ui.buzz(30, 0.5)
 	hitstop(0.07)
@@ -423,7 +419,6 @@ func _boss_down_midway() -> void:
 	var col: Color = DB.boss_def(b.boss_id)["color"]
 	fx.bone_burst(at, 16, 9.0)
 	fx.vfx.nova(&"shadow", at, 8.0, 0.8, Fx.VfxLib.NO_TINT, &"big")
-	fx.flash_light(at, Color(col).lightened(0.3), 9.0, 16.0, 1.2)
 	shake(0.8)
 	Sfx.play("boss_die", 0.0)
 	banner("%s falls" % b.display_name, Color(1.0, 0.85, 0.5))

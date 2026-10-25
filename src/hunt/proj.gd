@@ -185,7 +185,6 @@ func _explode(h: Hunt) -> void:
 	var r := maxf(splash, 1.2)
 	if kind == "orb":
 		h.fx.vfx.impact(&"shadow", at, r, Fx.VfxLib.NO_TINT, &"light")
-		h.fx.flash_light(at, Color(0.7, 0.4, 1.0), 3.0, r * 3.0, 0.2)
 		Sfx.play("impact", -8.0)
 	else:
 		# Fire lands as fire: a torn ring of flame and a scorch, with a wall

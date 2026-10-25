@@ -77,6 +77,9 @@ func _ready() -> void:
 	fx = Fx.new()
 	fx.quality_low = low
 	world.add_child(fx)
+	# Big hits kick the camera and freeze a beat (rate limited in the lib).
+	fx.vfx.on_shake = shake
+	fx.vfx.on_freeze = hitstop
 	hero = Hero.new()
 	world.add_child(hero)
 	hero.position = arena.start
@@ -160,7 +163,6 @@ func _warmup() -> void:
 	fx.bone_burst(at, 2)
 	fx.embers_at(at, Color.ORANGE, 2)
 	fx.flare(at, Color.WHITE)
-	fx.flash_light(at, Color.WHITE, 0.1, 3.0, 0.1)
 	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]), Color(0.6, 0.8, 1.0), &"skill")
 	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})

@@ -1,7 +1,8 @@
 extends RefCounted
 ## VFX library checks, called from tests.gd: every element has every
-## variant, pools are reused rather than grown, and no flat placeholder ring
-## survives anywhere in the hunt.
+## variant in every tier, the batched layers are reused rather than grown,
+## caps hold under spam, tiers stay apart, and no legacy ring / circle /
+## glow helper survives anywhere in the game.
 
 const VfxLib := preload("res://src/vfx/vfx_lib.gd")
 
@@ -14,12 +15,13 @@ static func run(ok: Callable) -> void:
 	for el in VfxLib.ELEMENTS:
 		for variant in VfxLib.VARIANTS:
 			v.play(el, variant, at, 2.0, Vector3(0, 0, 1), 0.5)
-	ok.call("vfx: %d elements x %d variants play" % [VfxLib.ELEMENTS.size(), VfxLib.VARIANTS.size()], VfxLib.ELEMENTS.size() >= 12 and VfxLib.VARIANTS.size() >= 4)
+	ok.call("vfx: %d elements x %d variants play" % [VfxLib.ELEMENTS.size(), VfxLib.VARIANTS.size()], VfxLib.ELEMENTS.size() >= 12 and VfxLib.VARIANTS.size() == 5)
 	var missing := []
 	for el in VfxLib.ELEMENTS:
-		if not VfxLib.COLORS.has(el) or not VfxLib.EDGES.has(el):
-			missing.append(el)
-	ok.call("vfx: every element has a colour and a telegraph edge %s" % [missing], missing.is_empty())
+		for table in [VfxLib.COLORS, VfxLib.EDGES, VfxLib.RIM, VfxLib.DEBRIS]:
+			if not table.has(el):
+				missing.append(el)
+	ok.call("vfx: every element has colour, rim, debris and telegraph edge %s" % [missing], missing.is_empty())
 	for i in 60:
 		v._process(0.1)
 	var built: Dictionary = v.built.duplicate()
@@ -29,110 +31,83 @@ static func run(ok: Callable) -> void:
 				v.play(el, variant, at, 2.0, Vector3(0, 0, 1), 0.5)
 		for i in 60:
 			v._process(0.1)
-	ok.call("vfx: pools reused, not grown %s -> %s" % [built, v.built], v.built == built)
-	ok.call("vfx: decal pool capped", int(v.built["decal"]) <= VfxLib.MAX_DECALS)
-	ok.call("vfx: bolt pool capped", int(v.built["bolt"]) <= VfxLib.BOLT_POOL)
-	ok.call("vfx: idle layers hidden", v.active_layers() == 0)
+	ok.call("vfx: layers reused, not grown %s -> %s" % [built, v.built], v.built["layer"] == built["layer"] and v.built["strip"] == 1)
+	ok.call("vfx: idle layers hidden (%d)" % v.active_layers(), v.active_layers() == 0)
 	var shadow := []
 	for p in v.find_children("*", "GeometryInstance3D", true, false):
 		if (p as GeometryInstance3D).cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 			shadow.append(p.name)
 	ok.call("vfx: nothing casts shadows %s" % [shadow], shadow.is_empty())
 	ok.call("vfx: no lights in the library", v.find_children("*", "Light3D", true, false).is_empty())
+	var loose := 0
+	for c in v.get_children():
+		if c is MeshInstance3D and not (c.mesh is ImmediateMesh):
+			loose += 1
+	ok.call("vfx: every piece batched (%d loose meshes, %d layers)" % [loose, v._layers.size()], loose == 0 and v._layers.size() <= VfxLib.LAYERS.size())
 	v.free()
 	_tiers(ok, tree)
-	_stamps(ok, tree)
+	_spam(ok, tree)
+	_blocks(ok, tree)
 	ok.call("vfx: element_for maps hues", VfxLib.element_for(Color(1.0, 0.45, 0.1)) == &"fire" and VfxLib.element_for(Color(0.55, 0.9, 1.0)) in [&"frost", &"storm"] and VfxLib.element_for(Color(0.7, 0.3, 1.0)) == &"shadow")
-	# No placeholder ring art left: the flat ring shaders are gone and only the
-	# shim in fx.gd (and sidekick.gd, owned by an open PR) still calls ring().
-	for gone in ["ring", "flame_ring", "flame_wall", "scorch"]:
-		ok.call("vfx: %s.gdshader removed" % gone, not ResourceLoader.exists("res://src/fx/%s.gdshader" % gone))
-	var callers := []
-	_scan("res://src", callers)
-	ok.call("vfx: no fx.ring( call sites %s" % [callers], callers.is_empty())
+	_legacy(ok)
 
 
-static func _scan(dir: String, out: Array) -> void:
-	for f in DirAccess.get_files_at(dir):
-		if not f.ends_with(".gd") or f in ["fx.gd", "sidekick.gd", "vfx_tests.gd"]:
-			continue
-		var s := FileAccess.get_file_as_string(dir + "/" + f)
-		if s.contains("fx.ring("):
-			out.append(f)
-	for d in DirAccess.get_directories_at(dir):
-		_scan(dir + "/" + d, out)
-
-
-## Tiers: light is quiet (no ground mark, no sky strike, no shatter, one
-## bolt at most), big is louder than skill, and every cap holds under spam.
-static func _tiers(ok: Callable, tree: SceneTree) -> void:
-	ok.call("vfx: three tiers", VfxLib.TIERS == [&"light", &"skill", &"big"] and VfxLib.TIER.size() == 3)
-	var cores := []
+## Counts what a tier produces for every element x variant.
+static func _measure(tree: SceneTree, tier: StringName) -> Dictionary:
+	var v: Node3D = VfxLib.new()
+	tree.root.add_child(v)
+	var shakes := [0.0]
+	var freezes := [0]
+	v.on_shake = func(a: float): shakes[0] = maxf(shakes[0], a)
+	v.on_freeze = func(_t: float): freezes[0] += 1
+	var st := {"decal": 0, "shock": 0, "bolt": 0, "sky": 0, "toon": 0, "chunk": 0, "star": 0}
 	for el in VfxLib.ELEMENTS:
-		if not VfxLib.STYLE.has(el):
-			cores.append(el)
-	ok.call("vfx: every element has a procedural core %s" % [cores], cores.is_empty())
-	var at := Vector3(0, 0, 0)
-	var stats := {}
-	for tier in VfxLib.TIERS:
-		var v: Node3D = VfxLib.new()
-		tree.root.add_child(v)
-		var decals := 0
-		var bolts := 0
-		var sky := 0
-		var chips := 0
-		var cores_n := 0
-		for el in VfxLib.ELEMENTS:
-			for variant in [&"cast", &"travel", &"impact", &"nova"]:
-				v.play(el, variant, at, 2.0, Vector3(0, 0, 1), 0.4, VfxLib.NO_TINT, tier)
-			for i in 12:
-				v._process(1.0 / 30.0)
-				for e in v._live:
-					if e["kind"] == "decal": decals += 1
-					if e["kind"] == "bolt": bolts = maxi(bolts, v._bolts_live())
-					if e["kind"] == "bolt" and e.get("sky", false): sky += 1
-			for n in ["ball", "tongue", "spike"]:
+		for variant in [&"cast", &"travel", &"impact", &"nova"]:
+			v.play(el, variant, Vector3.ZERO, 2.0, Vector3(0, 0, 1), 0.4, VfxLib.NO_TINT, tier)
+		for i in 12:
+			v._process(1.0 / 30.0)
+			var bolts := 0
+			for s in v._strips:
+				if s["kind"] == "bolt":
+					bolts += 1
+					if s.get("sky", false):
+						st["sky"] += 1
+			st["bolt"] = maxi(st["bolt"], bolts)
+			for n in ["toon", "chunk", "star"]:
 				if v._layers.has(n):
-					cores_n += int(v._layers[n]["alive"])
-			if v._layers.has("chip"):
-				chips += int(v._layers["chip"]["alive"])
+					st[n] = maxi(st[n], int(v._layers[n]["alive"]))
+		if v._layers.has("ground"):
+			var L: Dictionary = v._layers["ground"]
+			for i in int(L["top"]):
+				if L["age"][i] < L["life"][i]:
+					if int(L["prm"][i]) == 1: st["decal"] += 1
+					if int(L["prm"][i]) == 0: st["shock"] += 1
 		for i in 60:
 			v._process(0.1)
-		stats[tier] = {"decals": decals, "bolts": bolts, "sky": sky, "chips": chips, "cores": cores_n}
-		v.free()
-	var L: Dictionary = stats[&"light"]
-	ok.call("vfx: light tier leaves no ground mark %s" % [L], int(L["decals"]) == 0)
-	ok.call("vfx: light tier has no sky strike or shatter", int(L["sky"]) == 0 and int(L["chips"]) == 0)
-	ok.call("vfx: light tier at most one bolt", int(L["bolts"]) <= 1)
-	ok.call("vfx: light tier still draws a core", int(L["cores"]) > 0)
-	ok.call("vfx: big has sky strikes, skill none %s" % [stats], int(stats[&"big"]["sky"]) > 0 and int(stats[&"skill"]["sky"]) == 0)
-	ok.call("vfx: skill shatters crystals", int(stats[&"skill"]["chips"]) > 0)
-	ok.call("vfx: big marks more ground than skill", int(stats[&"big"]["decals"]) >= int(stats[&"skill"]["decals"]))
-	# Spam: 300 big storm/frost impacts in one second stay inside every cap.
-	var s: Node3D = VfxLib.new()
-	tree.root.add_child(s)
-	for i in 300:
-		s.play([&"storm", &"frost", &"holy"][i % 3], &"impact", Vector3(i % 10, 0, 0), 2.0, Vector3.ZERO, -1.0, VfxLib.NO_TINT, &"big")
-		s._process(1.0 / 300.0)
-	var skies := 0
-	for e in s._live:
-		if e["kind"] == "bolt" and e.get("sky", false):
-			skies += 1
-	ok.call("vfx: bolts capped under spam", int(s.built["bolt"]) <= VfxLib.BOLT_POOL)
-	ok.call("vfx: sky strikes capped (%d)" % skies, skies <= VfxLib.MAX_SKY)
-	ok.call("vfx: ground marks capped", int(s.built["decal"]) <= VfxLib.MAX_DECALS)
-	var over := []
-	for n in s._layers:
-		if int(s._layers[n]["alive"]) > int(VfxLib.LAYERS[n]["amount"]):
-			over.append(n)
-	ok.call("vfx: core layers capped %s" % [over], over.is_empty())
-	# Crystals and shards are batched: one MultiMesh each, never loose meshes.
-	var loose := 0
-	for c in s.get_children():
-		if c is MeshInstance3D and not (c.mesh is ImmediateMesh or c.mesh is PlaneMesh):
-			loose += 1
-	ok.call("vfx: crystals and shards batched (%d loose meshes)" % loose, loose == 0 and s._layers["spike"]["node"] is MultiMeshInstance3D and s._layers["chip"]["node"] is MultiMeshInstance3D)
-	s.free()
+	st["shake"] = shakes[0]
+	st["freeze"] = freezes[0]
+	v.free()
+	return st
+
+
+## Tiers: light is quick and quiet (no ground mark, no shockwave ring, no
+## sky strike, no shake/freeze, one bolt at most); big outdoes skill.
+static func _tiers(ok: Callable, tree: SceneTree) -> void:
+	ok.call("vfx: three tiers", VfxLib.TIERS == [&"light", &"skill", &"big"] and VfxLib.TIER.size() == 3)
+	var S := {}
+	for tier in VfxLib.TIERS:
+		S[tier] = _measure(tree, tier)
+	var L: Dictionary = S[&"light"]
+	ok.call("vfx: light tier leaves no ground mark %s" % [L], int(L["decal"]) == 0)
+	ok.call("vfx: light tier has no sky strike", int(L["sky"]) == 0)
+	ok.call("vfx: light tier at most one bolt", int(L["bolt"]) <= 1)
+	ok.call("vfx: light tier has no shockwave ring", int(L["shock"]) == 0)
+	ok.call("vfx: light tier no shake, no freeze", float(L["shake"]) == 0.0 and int(L["freeze"]) == 0)
+	ok.call("vfx: light tier still pops (stars and puffs)", int(L["star"]) > 0 and int(L["toon"]) > 0)
+	ok.call("vfx: big has sky strikes, skill none %s" % [S], int(S[&"big"]["sky"]) > 0 and int(S[&"skill"]["sky"]) == 0)
+	ok.call("vfx: skill throws debris and marks the ground", int(S[&"skill"]["chunk"]) > 0 and int(S[&"skill"]["decal"]) > 0)
+	ok.call("vfx: big is louder than skill", int(S[&"big"]["toon"]) > int(S[&"skill"]["toon"]) and int(S[&"big"]["chunk"]) >= int(S[&"skill"]["chunk"]) and float(S[&"big"]["shake"]) > float(S[&"skill"]["shake"]))
+	ok.call("vfx: only big freezes", int(S[&"big"]["freeze"]) > 0 and int(S[&"skill"]["freeze"]) == 0)
 	# Every call site names its tier.
 	var untiered := []
 	_scan_tiers("res://src", untiered)
@@ -142,6 +117,65 @@ static func _tiers(ok: Callable, tree: SceneTree) -> void:
 		var src := FileAccess.get_file_as_string("res://src/hunt/" + f)
 		var want: String = TIER_MAP[site]
 		ok.call("vfx: tier map %s -> %s" % [site, want], src.contains(site.split(":")[1]) and _tier_of(src, site.split(":")[1]) == want)
+
+
+## 300 big impacts in a second stay inside every cap.
+static func _spam(ok: Callable, tree: SceneTree) -> void:
+	var s: Node3D = VfxLib.new()
+	tree.root.add_child(s)
+	var max_bolts := 0
+	var max_sky := 0
+	var max_marks := 0
+	for i in 300:
+		s.play([&"storm", &"frost", &"holy", &"fire"][i % 4], &"impact", Vector3(i % 10, 0, 0), 2.0, Vector3.ZERO, -1.0, VfxLib.NO_TINT, &"big")
+		s._process(1.0 / 300.0)
+		var b := 0
+		var sk := 0
+		for e in s._strips:
+			if e["kind"] == "bolt":
+				b += 1
+				if e.get("sky", false): sk += 1
+		max_bolts = maxi(max_bolts, b)
+		max_sky = maxi(max_sky, sk)
+		var L: Dictionary = s._layers["ground"]
+		var m := 0
+		for j in int(L["top"]):
+			if L["age"][j] < L["life"][j] and int(L["prm"][j]) == 1:
+				m += 1
+		max_marks = maxi(max_marks, m)
+	ok.call("vfx: bolts capped under spam (%d)" % max_bolts, max_bolts <= VfxLib.BOLT_POOL)
+	ok.call("vfx: sky strikes capped (%d)" % max_sky, max_sky <= VfxLib.MAX_SKY)
+	ok.call("vfx: ground marks capped (%d)" % max_marks, max_marks <= VfxLib.MAX_DECALS)
+	var over := []
+	for n in s._layers:
+		if int(s._layers[n]["alive"]) > int(s._layers[n]["cap"]):
+			over.append(n)
+	ok.call("vfx: layers capped %s" % [over], over.is_empty())
+	for i in 10:
+		s.spray(&"fire", Vector3.ZERO, Vector3(1, 0, 0), 4.0, 0.5, 0.5)
+	var sprays := 0
+	for e in s._live:
+		if e["kind"] == "spray": sprays += 1
+	ok.call("vfx: sprays capped (%d)" % sprays, sprays <= VfxLib.MAX_SPRAYS and sprays > 0)
+	s.free()
+
+
+## The building blocks: puffs pop with overshoot then erode with a hard
+## edge, no two puffs in a burst are the same size (no stamps), stars
+## hollow out, sparks fall.
+static func _blocks(ok: Callable, tree: SceneTree) -> void:
+	var v: Node3D = VfxLib.new()
+	tree.root.add_child(v)
+	v.impact(&"fire", Vector3.ZERO, 1.5, VfxLib.NO_TINT, &"skill")
+	var L: Dictionary = v._layers["toon"]
+	var sizes := {}
+	for i in int(L["top"]):
+		sizes[snappedf(L["size"][i], 0.001)] = true
+	ok.call("vfx: impact puffs vary in size (%d distinct of %d)" % [sizes.size(), int(L["top"])], sizes.size() >= int(L["top"]) - 1 and int(L["top"]) >= 4)
+	ok.call("vfx: overshoot pop", VfxLib.ease_pop(0.35) > 1.1 and absf(VfxLib.ease_pop(1.0) - 1.0) < 0.01)
+	ok.call("vfx: puffs hold, then dissolve with an erode edge", VfxLib.erode_at(0.3) == 0.0 and VfxLib.erode_at(0.8) > 0.4 and VfxLib.erode_at(1.0) == 1.0)
+	ok.call("vfx: toon layer uses the 3-band toon shader", ((L["node"] as MultiMeshInstance3D).material_override as ShaderMaterial).shader == VfxLib.TOON)
+	v.free()
 
 
 ## The mapping the PR lists, spot-checked: file:unique snippet -> tier.
@@ -169,7 +203,7 @@ static func _tier_of(src: String, snippet: String) -> String:
 	return ""
 
 
-const CALLS := ["vfx.cast(", "vfx.travel(", "vfx.impact(", "vfx.nova(", "vfx.linger(", "fx.ring(", "fx.flame_burst(", "fx.lightning("]
+const CALLS := ["vfx.cast(", "vfx.travel(", "vfx.impact(", "vfx.nova(", "vfx.linger(", "fx.flame_burst(", "fx.lightning("]
 
 
 static func _scan_tiers(dir: String, out: Array) -> void:
@@ -188,31 +222,42 @@ static func _scan_tiers(dir: String, out: Array) -> void:
 		_scan_tiers(dir + "/" + d, out)
 
 
-## No effect may paste the same sprite icon N times: every stamp-like layer
-## (flame cones, diamond shards, emblems) is rerouted to varied procedural
-## pieces, and sprays stay capped.
-static func _stamps(ok: Callable, tree: SceneTree) -> void:
-	var v: Node3D = VfxLib.new()
-	tree.root.add_child(v)
-	for tier in VfxLib.TIERS:
-		for el in VfxLib.ELEMENTS:
-			for variant in [&"cast", &"travel", &"impact", &"nova", &"linger"]:
-				v.play(el, variant, Vector3.ZERO, 2.0, Vector3(0, 0, 8), 0.4, VfxLib.NO_TINT, tier)
-	for i in 10:
-		v.spray(&"fire", Vector3.ZERO, Vector3(1, 0, 0), 4.0, 0.5, 0.5)
-	v.fire_basic_spray = true
-	v.travel(&"fire", Vector3.ZERO, Vector3(0, 0, 9), VfxLib.NO_TINT, &"light")
-	var sprays := 0
-	for e in v._live:
-		if e["kind"] == "spray": sprays += 1
-	for i in 20:
-		v._process(1.0 / 30.0)
-	var built := []
-	for n in VfxLib.REMAP:
-		if v._layers.has(n):
-			built.append(n)
-	ok.call("vfx: no stamp sprite layer is ever built %s" % [built], built.is_empty())
-	ok.call("vfx: puffs and ribbons drawn", v._layers.has("puff") and v._layers.has("ribbon"))
-	ok.call("vfx: sprays capped (%d)" % sprays, sprays <= VfxLib.MAX_SPRAYS and sprays > 0)
-	ok.call("vfx: puff layer within cap", int(v._layers["puff"]["alive"]) <= int(v._layers["puff"]["cap"]))
-	v.free()
+## Legacy helpers that drew decorative colored rings, abstract circles,
+## additive glow shells or light flashes. None may come back: a ring now
+## exists only as an impact's brief shockwave (vfx.shockwave, called by the
+## lib itself) or as a telegraph (fx.telegraph / vfx.target).
+const LEGACY := ["fx.ring(", "func ring(", "TorusMesh", "\"tongue\"", "flash_light(", "Fx.SLASH", "Fx.TORNADO",
+	"slash.gdshader", "tornado.gdshader", "vfx_core.gdshader", "vfx_decal.gdshader", "vfx_puff.gdshader", "vfx_crystal.gdshader",
+	"CompanionRing", "_add_ring(", "vfx._burst(", "vfx._cloud(", "vfx._emit("]
+## Effect code (not world art) may not use additive blending or emission glow.
+const GLOW := ["blend_add", "BLEND_MODE_ADD", "emission_enabled = true"]
+const EFFECT_FILES := ["res://src/vfx/vfx_lib.gd", "res://src/hunt/fx.gd", "res://src/hunt/hunt_loot.gd", "res://src/hunt/proj.gd",
+	"res://src/hunt/sidekick.gd", "res://src/hunt/boss.gd", "res://src/hunt/hero.gd", "res://src/hunt/enemy.gd"]
+
+
+static func _legacy(ok: Callable) -> void:
+	var hits := []
+	_scan_legacy("res://src", hits)
+	ok.call("vfx: no legacy ring / circle / glow helper call sites %s" % [hits], hits.is_empty())
+	for gone in ["src/fx/ring", "src/fx/flame_ring", "src/fx/flame_wall", "src/fx/scorch", "src/fx/slash", "src/fx/tornado", "src/vfx/vfx_core", "src/vfx/vfx_decal"]:
+		ok.call("vfx: %s.gdshader removed" % gone, not ResourceLoader.exists("res://%s.gdshader" % gone))
+	var glow := []
+	for f in EFFECT_FILES:
+		var s := FileAccess.get_file_as_string(f)
+		for g in GLOW:
+			if s.contains(g):
+				glow.append("%s:%s" % [f.get_file(), g])
+	ok.call("vfx: effect code has no additive glow or emission %s" % [glow], glow.is_empty())
+
+
+static func _scan_legacy(dir: String, out: Array) -> void:
+	for f in DirAccess.get_files_at(dir):
+		if not f.ends_with(".gd") or f in ["vfx_tests.gd", "tests.gd"]:
+			continue
+		var lines := FileAccess.get_file_as_string(dir + "/" + f).split("\n")
+		for i in lines.size():
+			for t in LEGACY:
+				if lines[i].contains(t):
+					out.append("%s:%d %s" % [f, i + 1, t])
+	for d in DirAccess.get_directories_at(dir):
+		_scan_legacy(dir + "/" + d, out)
