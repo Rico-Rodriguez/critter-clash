@@ -17,6 +17,7 @@ var knock := Vector3.ZERO
 var stun_t := 0.0
 var freeze_t := 0.0
 var flash_t := 0.0
+var _squash_base := Vector3.ZERO
 var model: Node3D
 var anim: AnimationPlayer
 var cur_anim := ""
@@ -131,7 +132,10 @@ func _apply_tint(c: Color) -> void:
 		mi.set_instance_shader_parameter("tint", c)
 
 
+## Hit feedback: a white flash and a quick squash pop of the model.
 func hit_flash() -> void:
+	if flash_t <= 0.0 and model:
+		_squash_base = model.scale
 	flash_t = 0.11
 	set_flash(1.0)
 
@@ -139,7 +143,12 @@ func hit_flash() -> void:
 func tick_common(dt: float) -> void:
 	if flash_t > 0.0:
 		flash_t -= dt
-		set_flash(clampf(flash_t / 0.11, 0.0, 1.0))
+		var fk := clampf(flash_t / 0.11, 0.0, 1.0)
+		set_flash(fk)
+		if model and _squash_base != Vector3.ZERO:
+			model.scale = _squash_base * (Vector3(1.0 + 0.16 * fk, 1.0 - 0.14 * fk, 1.0 + 0.16 * fk) if flash_t > 0.0 else Vector3.ONE)
+			if flash_t <= 0.0:
+				_squash_base = Vector3.ZERO
 	if knock.length_squared() > 0.0001:
 		position += knock * dt
 		knock = knock.move_toward(Vector3.ZERO, 26.0 * dt)

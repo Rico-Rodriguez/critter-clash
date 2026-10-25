@@ -45,7 +45,6 @@ func _begin(p: String) -> void:
 			step_t = 0.9 * fast
 			hunt.fx.vfx.linger(&"shadow", flat_pos(), 2.4, step_t, Fx.VfxLib.NO_TINT, &"big")
 			hunt.fx.vfx.cast(&"shadow", flat_pos(), 2.0, Fx.VfxLib.NO_TINT, &"big")
-			hunt.fx.flash_light(flat_pos(), VIOLET, 3.0, 8.0, step_t)
 			play("Ranged_Magic_Spellcasting", 0.1, 1.0, true)
 			Sfx.play("boss_windup", -3.0, 1.2)
 		"circles":
@@ -148,7 +147,6 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 						hunt.damage_hero(dmg * 1.0, self, 0.8)
 						hero.slow_t = 3.0
 					hunt.fx.lightning(PackedVector3Array([flat_pos() + Vector3(0, 1.5, 0) + d * 1.5, flat_pos() + Vector3(0, 0.6, 0) + d * 20.0]), Color(0.6, 0.8, 1.0), &"big")
-				hunt.fx.flash_light(flat_pos() + lane_dir * 3.0, VIOLET, 4.0, 9.0, 0.3)
 				Sfx.play("boss_slam", -3.0, 1.3)
 				hunt.shake(0.3)
 				_finish(0.8)
