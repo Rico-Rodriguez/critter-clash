@@ -57,7 +57,30 @@ func run() -> int:
 	_ok("super rank needs its gold", not Game.buy_super_rank("knight") and Game.super_rank("knight") == 0)
 	Game.data["gold"] = 1000
 	_ok("super rank pays shards and gold", Game.buy_super_rank("knight") and Game.super_rank("knight") == 1 and int(Game.hero("knight")["shards"]) == 10 and Game.gold() == 0)
-	_ok("super ranks scale the super", DB.super_mults(1).x > 1.0 and DB.super_mults(DB.SUPER_RANKS.size()).y > 1.0)
+	# Super progression (feat/super-progression).
+	var costs := [[50, 1000], [100, 3000], [200, 7000], [350, 15000], [500, 30000]]
+	var cost_ok := DB.SUPER_RANKS.size() == 5
+	for i in DB.SUPER_RANKS.size():
+		cost_ok = cost_ok and int(DB.SUPER_RANKS[i]["shards"]) == costs[i][0] and int(DB.SUPER_RANKS[i]["gold"]) == costs[i][1]
+	_ok("super ranks keep the planned costs", cost_ok)
+	var perks_ok := true
+	for h: String in DB.HEROES:
+		var kind := str(DB.HEROES[h]["super"])
+		var list: Array = DB.SUPER_PERKS.get(kind, [])
+		perks_ok = perks_ok and list.size() == 5
+		for r in list:
+			perks_ok = perks_ok and str(r.get("text", "")) != "" and r.size() >= 2
+			for k: String in r:
+				perks_ok = perks_ok and not k in ["charge", "rate", "super", "dmg"]
+	_ok("every super has 5 behavior ranks, none touch charge", perks_ok)
+	_ok("rank perks add up", DB.super_perks("slam", 0).is_empty() and DB.super_perks("slam", 1).get("radius", 0.0) == 1.0 and DB.super_perks("slam", 5).get("lock", 0.0) == -2.0)
+	var keep_renown = Game.data.get("renown", 0)
+	Game.data["renown"] = 0
+	_ok("super locked for a fresh hero", Game.combat_level("knight") >= int(DB.SUPER_UNLOCK["level"]) or not Game.super_unlocked("knight"))
+	Game.data["renown"] = int(DB.SUPER_UNLOCK["trophies"])
+	_ok("Trophy Road unlocks the super", Game.super_unlocked("knight"))
+	Game.data["renown"] = keep_renown
+	_ok("backup fill waits, earned charge exists", float(DB.SUPER["floor_after"]) >= 30.0 and float(DB.SUPER["kill"]) > 0.0 and float(DB.SUPER["calm_gain"]) > 0.0)
 	Game.hero("knight")["super_rank"] = 0
 	# Super charge rules (balance/supers-charge-fix).
 	_ok("super: no charge from the super's own hits", DB.super_hit_charge(500.0, 10.0, 10.0, 1.0, true) == 0.0)

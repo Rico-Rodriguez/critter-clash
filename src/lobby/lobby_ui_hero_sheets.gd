@@ -322,9 +322,14 @@ func _build_skills(s: Sheet) -> void:
 	st.add_theme_font_size_override("font_size", 24)
 	st.add_theme_color_override("font_color", Color(0.75, 0.6, 1.0))
 	sv.add_child(st)
-	for i in DB.SUPER_RANKS.size():
-		var rk: Dictionary = DB.SUPER_RANKS[i]
-		var rl := Ui.label("%s %d. %s" % ["✓" if i < rank else "·", i + 1, rk["text"]], "Small")
+	if not Game.super_unlocked(id):
+		var ul := Ui.label("Unlocks at combat level %d, or for every hero at %d trophies." % [int(DB.SUPER_UNLOCK["level"]), int(DB.SUPER_UNLOCK["trophies"])], "Small")
+		ul.add_theme_font_size_override("font_size", 20)
+		ul.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sv.add_child(ul)
+	var perks: Array = DB.SUPER_PERKS.get(str(DB.HEROES[id]["super"]), [])
+	for i in perks.size():
+		var rl := Ui.label("%s %d. %s" % ["✓" if i < rank else "·", i + 1, perks[i]["text"]], "Small")
 		rl.add_theme_font_size_override("font_size", 20)
 		rl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4) if i < rank else Color(0.7, 0.68, 0.64))
 		sv.add_child(rl)
