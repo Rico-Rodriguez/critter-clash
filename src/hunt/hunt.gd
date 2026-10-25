@@ -161,7 +161,7 @@ func _warmup() -> void:
 	fx.embers_at(at, Color.ORANGE, 2)
 	fx.flare(at, Color.WHITE)
 	fx.flash_light(at, Color.WHITE, 0.1, 3.0, 0.1)
-	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]))
+	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]), Color(0.6, 0.8, 1.0), &"skill")
 	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
 	var temp: Array[Enemy] = []

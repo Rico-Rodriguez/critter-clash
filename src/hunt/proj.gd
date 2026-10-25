@@ -51,9 +51,12 @@ func tick(dt: float, h: Hunt) -> bool:
 	if kind in ["fireball", "orb", "spark", "soularrow", "firebolt"]:
 		_ember_t -= dt
 		if _ember_t <= 0.0:
-			_ember_t = 0.03
+			_ember_t = 0.045
 			var ec: Color = {"fireball": Color(1.0, 0.45, 0.12), "orb": Color(0.7, 0.35, 1.0), "spark": Color(1.0, 0.8, 0.3), "soularrow": Color(0.5, 1.0, 0.7), "firebolt": Color(1.0, 0.5, 0.12)}[kind]
-			h.fx.embers_at(position - Vector3(0, 1.0, 0) - vel.normalized() * 0.3, ec, 1, 0.1)
+			# A small dissolve core trailing the shot (light tier: cheap and
+			# quiet, since basics fire several times a second).
+			var el: StringName = {"fireball": &"fire", "orb": &"shadow", "spark": &"fire", "soularrow": &"nature", "firebolt": &"fire"}[kind]
+			h.fx.vfx.travel(el, position - vel.normalized() * 0.25, vel, ec, &"light")
 	if life <= 0.0:
 		if _bursts():
 			_explode(h)
@@ -181,13 +184,13 @@ func _explode(h: Hunt) -> void:
 	var at := Vector3(position.x, 0, position.z)
 	var r := maxf(splash, 1.2)
 	if kind == "orb":
-		h.fx.vfx.impact(&"shadow", at, r)
+		h.fx.vfx.impact(&"shadow", at, r, Fx.VfxLib.NO_TINT, &"light")
 		h.fx.flash_light(at, Color(0.7, 0.4, 1.0), 3.0, r * 3.0, 0.2)
 		Sfx.play("impact", -8.0)
 	else:
 		# Fire lands as fire: a torn ring of flame and a scorch, with a wall
 		# of flame on the wisp's bolts.
-		h.fx.flame_burst(at, r, kind == "firebolt")
+		h.fx.flame_burst(at, r, kind == "firebolt", Color(1.0, 0.55, 0.18), &"light")
 		Sfx.play("fire_hit", -6.0)
 	var any := false
 	for f in h.foes_near(at, r + 1.0):
