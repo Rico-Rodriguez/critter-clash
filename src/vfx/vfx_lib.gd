@@ -18,10 +18,37 @@ extends Node3D
 ## preload("res://src/vfx/vfx_lib.gd"). Fx owns one as `fx.vfx`.
 
 const DECAL := preload("res://src/vfx/vfx_decal.gdshader")
+const CORE := preload("res://src/vfx/vfx_core.gdshader")
+const CRYSTAL := preload("res://src/vfx/vfx_crystal.gdshader")
 const TEX := "res://assets/vfx/%s.png"
 
 const ELEMENTS: Array[StringName] = [&"fire", &"frost", &"storm", &"poison", &"nature", &"holy", &"shadow", &"physical", &"blood", &"heal", &"buff", &"level"]
 const VARIANTS: Array[StringName] = [&"cast", &"travel", &"impact", &"nova", &"linger"]
+
+## Importance tiers. Every call names one (default skill, the old look):
+##   light: basic and auto attacks, sidekick basics, frequent procs. A small
+##          dissolve core and a tiny flicker: no ground mark, no shatter, no
+##          sky strike, at most one short unforked bolt. Readable at 5+/s.
+##   skill: abilities and specials. Procedural core + ground mark + light
+##          sprite secondaries.
+##   big:   supers, boss attacks, ultimates. Skill, larger and longer ground
+##          marks, more bolts and spikes, and a sky strike on storm/holy/level.
+## Pass where a caller has no tint but names a tier.
+const NO_TINT := Color(0, 0, 0, 0)
+const TIERS: Array[StringName] = [&"light", &"skill", &"big"]
+const TIER := {
+	&"light": {"core": 0.55, "sec": 0.0, "ground": 0.0, "gdur": 0.0, "shatter": false, "sky": false, "bolts": 1, "spikes": 0.0},
+	&"skill": {"core": 1.0, "sec": 0.55, "ground": 1.0, "gdur": 1.0, "shatter": true, "sky": false, "bolts": 3, "spikes": 1.0},
+	&"big": {"core": 1.35, "sec": 0.9, "ground": 1.45, "gdur": 1.7, "shatter": true, "sky": true, "bolts": 5, "spikes": 1.6},
+}
+
+## Procedural core style per element (vfx_core.gdshader / vfx_crystal.gdshader).
+const STYLE := {
+	&"fire": 0, &"poison": 1, &"blood": 1, &"nature": 1, &"shadow": 2, &"holy": 3, &"heal": 3,
+	&"buff": 3, &"level": 3, &"physical": 4, &"storm": 5, &"frost": 5,
+}
+## Elements whose core is faceted spikes (and their crystal style).
+const SPIKES := {&"frost": 0, &"nature": 1, &"physical": 2, &"shadow": 3}
 
 ## Default palette per element (tint overrides it where a caller has a colour).
 const COLORS := {
@@ -59,6 +86,11 @@ const LAYERS := {
 	"blood": {"tex": "blood", "hf": 2, "vf": 2, "add": false, "life": 0.5, "grav": Vector3(0, -15, 0), "damp": 0.5, "size": Vector2(0.12, 0.22), "amount": 120},
 	"cross": {"tex": "cross", "add": false, "life": 0.9, "grav": Vector3(0, 1.2, 0), "damp": 1.0, "size": Vector2(0.22, 0.34), "amount": 60},
 	"chevron": {"tex": "chevron", "add": false, "life": 0.8, "grav": Vector3(0, 2.0, 0), "damp": 0.8, "size": Vector2(0.3, 0.42), "amount": 60},
+	# Procedural cores: mesh instances, not sprites. One MultiMesh each.
+	"ball": {"mesh": "ball", "life": 0.45, "grav": Vector3.ZERO, "damp": 3.0, "size": Vector2(1, 1), "amount": 96},
+	"tongue": {"mesh": "wall", "life": 0.6, "grav": Vector3.ZERO, "damp": 0.0, "size": Vector2(1, 1), "amount": 24},
+	"spike": {"mesh": "spike", "life": 0.5, "grav": Vector3.ZERO, "damp": 0.0, "size": Vector2(1, 1), "amount": 160},
+	"chip": {"mesh": "chip", "life": 0.6, "grav": Vector3(0, -14, 0), "damp": 0.4, "size": Vector2(0.7, 1.2), "amount": 160, "spin": 540.0},
 }
 
 const DECALS := {
@@ -70,6 +102,8 @@ const DECALS := {
 const MAX_DECALS := 24
 const MAX_PER_CALL := 40
 const BOLT_POOL := 10
+## Sky strikes alive at once (each holds a pooled bolt).
+const MAX_SKY := 3
 
 var quality_low := false
 var _layers := {}  # name -> particle state, see layer()
@@ -81,6 +115,11 @@ var _bolts: Array[MeshInstance3D] = []
 var _bolt_i := 0
 var _bolt_mat: StandardMaterial3D
 var _now := 0.0
+var _noise: Texture2D
+## Tier scaling applied while one play() call runs (1 outside it).
+var _sec := 1.0
+var _ground := 1.0
+var _gdur := 1.0
 ## Counters the tests read: how many nodes each pool ever built.
 var built := {"decal": 0, "bolt": 0, "layer": 0}
 
@@ -104,38 +143,51 @@ func _ready() -> void:
 
 ## Any element, any variant. `r` is the area radius (impact/nova/linger) or
 ## the effect scale; `dir` aims casts and trails; `dur` sets nova/linger time.
-func play(el: StringName, variant: StringName, pos: Vector3, r := 1.0, dir := Vector3.ZERO, dur := -1.0, tint := Color(0, 0, 0, 0)) -> void:
+## `tier` (light / skill / big) scales how loud it is, see TIER.
+func play(el: StringName, variant: StringName, pos: Vector3, r := 1.0, dir := Vector3.ZERO, dur := -1.0, tint := Color(0, 0, 0, 0), tier: StringName = &"skill") -> void:
 	if not COLORS.has(el):
 		el = &"physical"
+	if not TIER.has(tier):
+		tier = &"skill"
+	var T: Dictionary = TIER[tier]
 	var c: Color = tint if tint.a > 0.0 else COLORS[el]
-	match variant:
-		&"cast": _cast(el, pos, r, c)
-		&"travel": _travel(el, pos, dir, c)
-		&"impact": _impact(el, pos, r, c)
-		&"nova": _nova(el, pos, r, c, dur)
-		&"linger": _linger(el, pos, r, c, dur)
+	_sec = float(T["sec"]) * (0.5 if quality_low else 1.0)
+	_ground = float(T["ground"])
+	_gdur = float(T["gdur"])
+	_core(el, variant, pos, r, dir, dur, c, T)
+	# Sprite secondaries (the A look), scaled down; light tier skips them.
+	if _sec > 0.0:
+		match variant:
+			&"cast": _cast(el, pos, r, c)
+			&"travel": _travel(el, pos, dir, c)
+			&"impact": _impact(el, pos, r, c)
+			&"nova": _nova(el, pos, r, c, dur)
+			&"linger": _linger(el, pos, r, c, dur)
+	_sec = 1.0
+	_ground = 1.0
+	_gdur = 1.0
 
 
-func cast(el: StringName, pos: Vector3, r := 1.0, tint := Color(0, 0, 0, 0)) -> void:
-	play(el, &"cast", pos, r, Vector3.ZERO, -1.0, tint)
+func cast(el: StringName, pos: Vector3, r := 1.0, tint := Color(0, 0, 0, 0), tier: StringName = &"skill") -> void:
+	play(el, &"cast", pos, r, Vector3.ZERO, -1.0, tint, tier)
 
 
-func travel(el: StringName, pos: Vector3, dir := Vector3.ZERO, tint := Color(0, 0, 0, 0)) -> void:
-	play(el, &"travel", pos, 1.0, dir, -1.0, tint)
+func travel(el: StringName, pos: Vector3, dir := Vector3.ZERO, tint := Color(0, 0, 0, 0), tier: StringName = &"skill") -> void:
+	play(el, &"travel", pos, 1.0, dir, -1.0, tint, tier)
 
 
-func impact(el: StringName, pos: Vector3, r := 1.0, tint := Color(0, 0, 0, 0)) -> void:
-	play(el, &"impact", pos, r, Vector3.ZERO, -1.0, tint)
+func impact(el: StringName, pos: Vector3, r := 1.0, tint := Color(0, 0, 0, 0), tier: StringName = &"skill") -> void:
+	play(el, &"impact", pos, r, Vector3.ZERO, -1.0, tint, tier)
 
 
 ## A shockwave of the element racing out to `r` over `dur` (flames, ice
 ## spikes, leaves...), not a ring: replaces every old Fx.ring call.
-func nova(el: StringName, pos: Vector3, r := 3.0, dur := -1.0, tint := Color(0, 0, 0, 0)) -> void:
-	play(el, &"nova", pos, r, Vector3.ZERO, dur, tint)
+func nova(el: StringName, pos: Vector3, r := 3.0, dur := -1.0, tint := Color(0, 0, 0, 0), tier: StringName = &"skill") -> void:
+	play(el, &"nova", pos, r, Vector3.ZERO, dur, tint, tier)
 
 
-func linger(el: StringName, pos: Vector3, r := 1.5, dur := 2.0, tint := Color(0, 0, 0, 0)) -> void:
-	play(el, &"linger", pos, r, Vector3.ZERO, dur, tint)
+func linger(el: StringName, pos: Vector3, r := 1.5, dur := 2.0, tint := Color(0, 0, 0, 0), tier: StringName = &"skill") -> void:
+	play(el, &"linger", pos, r, Vector3.ZERO, dur, tint, tier)
 
 
 ## Which element a legacy colour means: lets old colour-only call sites (and
@@ -240,7 +292,6 @@ func _impact(el: StringName, pos: Vector3, r: float, c: Color) -> void:
 		&"nature":
 			_burst("leaf", p, n, 4.5, c, 1.0)
 			_cloud("spore", p, 0.5 * r, n / 2, Vector3(0, 0.8, 0), c.lightened(0.3))
-			_burst("debris", pos + Vector3(0, 0.3, 0), n / 3, 4.0, Color.WHITE, 1.4)
 		&"holy", &"level":
 			_cloud("ray", pos, 0.45 * r, mini(2 + int(r), 6), Vector3.ZERO, c)
 			_burst("mote", p, n, 4.0, c, 1.2)
@@ -270,7 +321,7 @@ func _impact(el: StringName, pos: Vector3, r: float, c: Color) -> void:
 func _nova(el: StringName, pos: Vector3, r: float, c: Color, dur: float) -> void:
 	if dur <= 0.0:
 		dur = clampf(0.25 + r * 0.06, 0.3, 0.7)
-	_live.append({"kind": "wave", "el": el, "pos": pos, "r": r, "c": c, "t": 0.0, "dur": dur, "acc": 0.0})
+	_live.append({"kind": "wave", "el": el, "pos": pos, "r": r, "c": c, "t": 0.0, "dur": dur, "acc": 0.0, "sec": _sec})
 	if DECALS.has(el):
 		decal(el, pos, r * (0.55 if el in [&"holy", &"level", &"heal"] else 0.7), maxf(dur * 2.5, 1.2))
 	if el in [&"holy", &"level"]:
@@ -282,17 +333,193 @@ func _linger(el: StringName, pos: Vector3, r: float, c: Color, dur: float) -> vo
 		dur = 2.0
 	if DECALS.has(el):
 		decal(el, pos, r, dur + 0.4)
-	_live.append({"kind": "field", "el": el, "pos": pos, "r": r, "c": c, "t": 0.0, "dur": dur, "acc": 0.0})
+	_live.append({"kind": "field", "el": el, "pos": pos, "r": r, "c": c, "t": 0.0, "dur": dur, "acc": 0.0, "sec": _sec})
 
+
+
+# --- Procedural cores (tiered) ----------------------------------------------
+
+## The heart of every effect: dissolve flames/goo/void/light, faceted spikes
+## that grow and shatter, re-forking bolts. Scaled by the call's tier.
+func _core(el: StringName, variant: StringName, pos: Vector3, r: float, dir: Vector3, dur: float, c: Color, T: Dictionary) -> void:
+	var st: int = STYLE[el]
+	var k: float = T["core"]
+	var light: bool = T == TIER[&"light"]
+	match variant:
+		&"travel":
+			_mesh("ball", pos, Vector3.ZERO, c, st, 0.5 if light else 0.6 * k, 0.2 if light else 0.3)
+			if not light and el == &"storm" and randf() < 0.25:
+				bolt_arc(pos, 0.45, c)
+			elif not light and SPIKES.has(el) and el != &"physical" and randf() < 0.5:
+				_mesh("chip", pos, -dir.normalized() * 1.5 + _rnd(0.8), c, SPIKES[el], 1.0, 0.4)
+		&"cast":
+			var at := pos + Vector3(0, 0.9, 0)
+			if light:
+				_mesh("ball", at, Vector3.ZERO, c, st, 0.55, 0.2)
+			elif SPIKES.has(el) and el != &"physical":
+				_spikes(el, pos, 0.75 * r, int(6 * k), 0.45 * r * k, c, 0.5, false, true)
+			elif el == &"storm":
+				_mesh("ball", at, Vector3.ZERO, c, st, 0.6 * k, 0.3)
+				bolt_arc(at, 0.7 * r, c)
+			else:
+				_mesh("tongue", pos, Vector3.ZERO, c, st, 0.75, 0.5, Vector3(0.9 * r * k, (1.6 if st == 3 else 1.2) * k, 0.9 * r * k))
+		&"impact":
+			var at := pos + Vector3(0, 0.5, 0)
+			if light:
+				# A tiny flicker: one small, fast core (plus one short unforked
+				# bolt for storm). Nothing on the ground.
+				_mesh("ball", at, Vector3.ZERO, c, st, clampf(0.6 * r, 0.5, 0.8), 0.22)
+				if el == &"storm":
+					var a := randf() * TAU
+					bolt(PackedVector3Array([at + Vector3(0, 0.3, 0), pos + Vector3(sin(a), 0.1, cos(a)) * 0.7]), c, false, 0.04, 0.12)
+				return
+			if SPIKES.has(el) and (el != &"physical" or T["sky"]):
+				_spikes(el, pos, 0.9 * r, int(7 * float(T["spikes"])), 0.8 * r * k, c, 0.5, T["shatter"], false)
+				if el == &"nature":
+					_mesh("ball", at, Vector3.ZERO, c, st, 0.9 * r * k, 0.35)
+			if el == &"storm":
+				_mesh("ball", at, Vector3.ZERO, c, st, 0.9 * k, 0.25)
+				for i in int(T["bolts"]):
+					var a := randf() * TAU
+					bolt(PackedVector3Array([at + Vector3(0, 0.3, 0), pos + Vector3(sin(a), 0.1, cos(a)) * r * randf_range(0.7, 1.1)]), c, true, 0.06, 0.3)
+			elif el != &"frost" and el != &"nature":
+				_mesh("ball", pos + Vector3(0, 0.45 * r * k, 0), Vector3.ZERO, c, st, 1.6 * r * k, 0.6)
+				if st == 3:
+					_mesh("tongue", pos, Vector3.ZERO, c, st, 0.6, 0.55, Vector3(0.45 * r, 3.0 * k, 0.45 * r))
+			if T["sky"] and el in [&"storm", &"holy", &"level"]:
+				sky(pos, c, 0.22)
+		&"nova":
+			var d := dur if dur > 0.0 else clampf(0.25 + r * 0.06, 0.3, 0.7)
+			if light:
+				_mesh("tongue", pos, Vector3.ZERO, c, st, 0.2, d * 1.2, Vector3(r, 0.5, r))
+				return
+			if SPIKES.has(el) and (el != &"physical" or T["sky"]):
+				_live.append({"kind": "spikes", "el": el, "pos": pos, "r": r, "c": c, "t": 0.0, "dur": d, "acc": 0.0, "k": k, "shatter": T["shatter"]})
+			if el == &"storm":
+				_mesh("ball", pos + Vector3(0, 0.5, 0), Vector3.ZERO, c, st, 1.2 * k, 0.3)
+			elif el != &"frost":
+				_mesh("tongue", pos, Vector3.ZERO, c, st, 0.15, d * 1.35, Vector3(r, (1.6 if st == 3 else 1.1) * k, r))
+			if T["sky"] and el in [&"storm", &"holy", &"level"]:
+				sky(pos, c, 0.24)
+		&"linger":
+			var d2 := dur if dur > 0.0 else 2.0
+			_live.append({"kind": "field", "el": el, "pos": pos, "r": r, "c": c, "t": 0.0, "dur": d2, "acc": 0.0, "core": true, "k": k})
+
+
+## Faceted spikes (ice, thorns, stone, void) in a disc; optional shatter.
+func _spikes(el: StringName, pos: Vector3, r: float, n: int, h: float, c: Color, life: float, shatter: bool, ring: bool) -> void:
+	var cs: int = SPIKES[el]
+	n = mini(n, 16)
+	for i in n:
+		var an := TAU * i / maxf(n, 1) + randf() * 0.4
+		var rr := r if ring else r * sqrt(randf())
+		var at := pos + Vector3(sin(an), 0, cos(an)) * rr
+		var up := Vector3(sin(an) * (0.5 + rr * 0.3), 1.2, cos(an) * (0.5 + rr * 0.3))
+		var hh := h * randf_range(0.7, 1.3)
+		var lf := life * randf_range(0.9, 1.1)
+		_mesh("spike", at, Vector3.ZERO, c, cs, hh, lf, Vector3.ONE, up)
+		if shatter and not quality_low:
+			_later(lf * 0.86, _shatter.bind(at + up.normalized() * hh * 0.5, hh, c, cs))
+
+
+func _shatter(at: Vector3, h: float, c: Color, cs: int) -> void:
+	for j in 3:
+		var v := Vector3(randf_range(-1, 1), randf_range(0.6, 1.6), randf_range(-1, 1)) * 3.0
+		_mesh("chip", at, v, c, cs, 0.6 + h * 0.5, 0.55)
+
+
+func _later(delay: float, fn: Callable) -> void:
+	_live.append({"kind": "later", "t": 0.0, "dur": maxf(delay, 0.001), "fn": fn})
+
+
+## Spikes racing out with a nova front.
+func _tick_spikes(e: Dictionary, k: float, dt: float) -> void:
+	var r: float = e["r"]
+	var front := r * (1.0 - pow(1.0 - k, 2.0))
+	e["acc"] = float(e["acc"]) + dt * TAU * r / 0.7 / maxf(float(e["dur"]), 0.2) * float(e["k"]) * (0.5 if quality_low else 1.0)
+	var n := mini(int(e["acc"]), 6)
+	e["acc"] = float(e["acc"]) - n
+	var el: StringName = e["el"]
+	var pos: Vector3 = e["pos"]
+	for i in n:
+		var an := randf() * TAU
+		var at := pos + Vector3(sin(an), 0, cos(an)) * front
+		var up := Vector3(sin(an) * 0.6, 1.0, cos(an) * 0.6)
+		var hh := randf_range(0.5, 0.9) * float(e["k"])
+		_mesh("spike", at, Vector3.ZERO, e["c"], SPIKES[el], hh, 0.34, Vector3.ONE, up)
+		if e["shatter"] and not quality_low and i % 2 == 0:
+			_later(0.3, _shatter.bind(at + up.normalized() * hh * 0.5, hh, e["c"], int(SPIKES[el])))
+
+
+## A lingering field's cores: small flames, goo, void, light, ice, thorns.
+func _tick_core_field(e: Dictionary, dt: float) -> void:
+	var el: StringName = e["el"]
+	var r: float = e["r"]
+	e["acc"] = float(e["acc"]) + dt * clampf(r * 2.5, 2.0, 8.0) * (0.5 if quality_low else 1.0)
+	var n := mini(int(e["acc"]), 3)
+	e["acc"] = float(e["acc"]) - n
+	var pos: Vector3 = e["pos"]
+	var c: Color = e["c"]
+	for i in n:
+		var a := randf() * TAU
+		var at := pos + Vector3(sin(a), 0, cos(a)) * r * sqrt(randf())
+		if el == &"storm":
+			if _bolts_live() < BOLT_POOL / 2:
+				bolt_arc(at + Vector3(0, 0.4, 0), 0.4, c)
+		elif SPIKES.has(el) and el != &"physical":
+			_mesh("spike", at, Vector3.ZERO, c, SPIKES[el], randf_range(0.3, 0.6), 0.8, Vector3.ONE, Vector3(randf_range(-0.3, 0.3), 1, randf_range(-0.3, 0.3)))
+		else:
+			_mesh("ball", at + Vector3(0, 0.3, 0), Vector3(0, 1.1, 0), c, STYLE[el], randf_range(0.5, 0.8), 0.5)
+
+
+## A strike from the sky onto `at` (big tier): a tall re-forking bolt, a core
+## flash on the ground and a mark. Capped at MAX_SKY alive; pooled.
+func sky(at: Vector3, c := Color(0.65, 0.82, 1.0), width := 0.2, height := 14.0) -> void:
+	var live := 0
+	for e in _live:
+		if e["kind"] == "bolt" and e.get("sky", false):
+			live += 1
+	if live >= MAX_SKY:
+		return
+	var top := at + Vector3(randf_range(-1.0, 1.0), height, randf_range(-1.0, 1.0))
+	bolt(PackedVector3Array([top, at.lerp(top, 0.5) + _rnd(0.6), at]), c, true, width, 0.32)
+	_live[_live.size() - 1]["sky"] = true
+	var el := element_for(c)
+	_mesh("ball", at + Vector3(0, 0.4, 0), Vector3.ZERO, c, 3 if el == &"holy" else 5, 1.4, 0.3)
+	var g := _ground
+	_ground = maxf(_ground, 1.0)
+	decal(&"holy" if el == &"holy" else &"storm", at, 1.2, 1.4)
+	_ground = g
+
+
+func _bolts_live() -> int:
+	var n := 0
+	for e in _live:
+		if e["kind"] == "bolt":
+			n += 1
+	return n
 
 # --- Bolts -------------------------------------------------------------------
 
 ## Forked lightning between points: a jagged hot ribbon with side branches,
 ## flickering once before it dies (0.2 s). Pooled meshes, one shared material.
-func bolt(points: PackedVector3Array, c := Color(0.65, 0.82, 1.0), forks := true, width := 0.07) -> void:
+## Live bolts re-fork (new jag, new branches) every REFORK seconds.
+func bolt(points: PackedVector3Array, c := Color(0.65, 0.82, 1.0), forks := true, width := 0.07, dur := 0.2) -> void:
 	if points.size() < 2:
 		return
 	var mi := _take_bolt()
+	_bolt_geo(mi, points, c, forks, width)
+	mi.transparency = 0.0
+	mi.visible = true
+	_live.append({"kind": "bolt", "node": mi, "t": 0.0, "dur": dur, "pts": points, "c": c, "forks": forks, "w": width, "re": 0.0})
+	for p in points:
+		_burst("spark", p, 3, 3.5, c)
+
+
+const REFORK := 0.066
+
+
+func _bolt_geo(mi: MeshInstance3D, points: PackedVector3Array, c: Color, forks: bool, width: float) -> void:
 	var im := mi.mesh as ImmediateMesh
 	im.clear_surfaces()
 	var hot := Color(minf(c.r * 1.6, 1.0), minf(c.g * 1.6, 1.0), minf(c.b * 1.6, 1.0))
@@ -306,11 +533,6 @@ func bolt(points: PackedVector3Array, c := Color(0.65, 0.82, 1.0), forks := true
 				var side := dirv.cross(Vector3.UP).normalized() * (1.0 if randf() < 0.5 else -1.0)
 				var end := path[j] + (dirv * 0.5 + side + Vector3(0, -0.3, 0)).normalized() * randf_range(0.6, 1.3)
 				_strip(im, _jag(path[j], end, 3, 0.18), width * 0.55, hot)
-	mi.transparency = 0.0
-	mi.visible = true
-	_live.append({"kind": "bolt", "node": mi, "t": 0.0, "dur": 0.2})
-	for p in points:
-		_burst("spark", p, 3, 3.5, c)
 
 
 ## Little arcs crackling round a point (storm casts, stuns).
@@ -371,7 +593,11 @@ func _strip(im: ImmediateMesh, path: PackedVector3Array, w: float, col: Color) -
 # --- Decals ------------------------------------------------------------------
 
 func decal(el: StringName, pos: Vector3, r: float, dur := 2.0, tint := Color(1, 1, 1, 1)) -> void:
-	if not DECALS.has(el) or r < 0.15:
+	if _ground <= 0.0 or not DECALS.has(el):
+		return
+	r *= _ground
+	dur *= _gdur
+	if r < 0.15:
 		return
 	var tex: String = DECALS[el]
 	var mat := _decal_mat(tex)
@@ -430,6 +656,8 @@ func layer(n: String) -> MultiMeshInstance3D:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
 	mm.use_custom_data = true
+	if d.has("mesh"):
+		return _mesh_layer(n, d, mm, cap)
 	var q := QuadMesh.new()
 	q.size = d.get("quad", Vector2.ONE)
 	if d.has("quad"):
@@ -458,6 +686,59 @@ func layer(n: String) -> MultiMeshInstance3D:
 		m.particles_anim_h_frames = int(d.get("hf", 1))
 		m.particles_anim_v_frames = int(d.get("vf", 1))
 		m.particles_anim_loop = false
+	return _finish_layer(n, d, mm, m, cap)
+
+
+func _mesh_layer(n: String, d: Dictionary, mm: MultiMesh, cap: int) -> MultiMeshInstance3D:
+	var mesh: Mesh
+	var m := ShaderMaterial.new()
+	match str(d["mesh"]):
+		"ball":
+			var sm := SphereMesh.new()
+			sm.radius = 0.5
+			sm.height = 1.0
+			sm.radial_segments = 16
+			sm.rings = 8
+			mesh = sm
+		"wall":
+			var cm := CylinderMesh.new()
+			cm.top_radius = 1.0
+			cm.bottom_radius = 1.0
+			cm.height = 1.0
+			cm.cap_top = false
+			cm.cap_bottom = false
+			cm.radial_segments = 40
+			cm.rings = 1
+			mesh = cm
+		"spike":
+			var sp := CylinderMesh.new()
+			sp.top_radius = 0.0
+			sp.bottom_radius = 0.16
+			sp.height = 1.0
+			sp.radial_segments = 6
+			sp.rings = 1
+			mesh = sp
+		_:
+			var pm := PrismMesh.new()
+			pm.size = Vector3(0.12, 0.2, 0.06)
+			mesh = pm
+	if str(d["mesh"]) in ["ball", "wall"]:
+		m.shader = CORE
+		if _noise == null:
+			_noise = load(TEX % "noise")
+		m.set_shader_parameter("noise", _noise)
+		m.set_shader_parameter("mode", 0 if str(d["mesh"]) == "ball" else 1)
+	else:
+		m.shader = CRYSTAL
+	mm.mesh = mesh
+	mm.instance_count = cap
+	for i in cap:
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ZERO), Vector3.ZERO))
+	mm.visible_instance_count = 0
+	return _finish_layer(n, d, mm, m, cap)
+
+
+func _finish_layer(n: String, d: Dictionary, mm: MultiMesh, m: Material, cap: int) -> MultiMeshInstance3D:
 	var node := MultiMeshInstance3D.new()
 	node.name = "L_" + n
 	node.multimesh = mm
@@ -470,22 +751,27 @@ func layer(n: String) -> MultiMeshInstance3D:
 	var vel := PackedVector3Array(); vel.resize(cap)
 	var col := PackedColorArray(); col.resize(cap)
 	var age := PackedFloat32Array(); age.resize(cap)
-	var info := PackedFloat32Array(); info.resize(cap * 4)  # size, angle, spin, frame
+	var info := PackedFloat32Array(); info.resize(cap * 4)  # size, angle, spin, frame/style
+	var lf := PackedFloat32Array(); lf.resize(cap)  # per-particle life
+	var shape := PackedVector3Array(); shape.resize(cap)  # mesh cores: per-axis scale
+	var axis := PackedVector3Array(); axis.resize(cap)  # mesh cores: up direction
 	age.fill(1e9)
+	lf.fill(1.0)
 	_layers[n] = {"node": node, "mm": mm, "cap": cap, "next": 0, "alive": 0, "top": 0,
-		"pos": pos, "vel": vel, "col": col, "age": age, "info": info,
+		"pos": pos, "vel": vel, "col": col, "age": age, "info": info, "lf": lf, "shape": shape, "axis": axis,
+		"mesh": str(d.get("mesh", "")),
 		"life": float(d["life"]), "grav": d["grav"], "damp": float(d["damp"]),
 		"flip": bool(d.get("flip", false)), "atlas": int(d.get("hf", 1)) * int(d.get("vf", 1)) > 1}
 	built["layer"] += 1
 	return node
 
 
-func _emit(n: String, p: Vector3, v: Vector3, c: Color) -> void:
+func _emit(n: String, p: Vector3, v: Vector3, c: Color) -> int:
 	layer(n)
 	var L: Dictionary = _layers[n]
 	var i: int = L["next"]
 	L["next"] = (i + 1) % int(L["cap"])
-	if float(L["age"][i]) >= float(L["life"]):
+	if float(L["age"][i]) >= float(L["lf"][i]):
 		L["alive"] = int(L["alive"]) + 1
 	L["top"] = maxi(int(L["top"]), i + 1)
 	var d: Dictionary = LAYERS[n]
@@ -494,6 +780,9 @@ func _emit(n: String, p: Vector3, v: Vector3, c: Color) -> void:
 	L["vel"][i] = v
 	L["col"][i] = c
 	L["age"][i] = 0.0
+	L["lf"][i] = float(L["life"])
+	L["shape"][i] = Vector3.ONE
+	L["axis"][i] = Vector3.UP
 	var info: PackedFloat32Array = L["info"]
 	info[i * 4] = randf_range(sz.x, sz.y)
 	info[i * 4 + 1] = randf() * TAU if d.has("spin") else 0.0
@@ -503,12 +792,32 @@ func _emit(n: String, p: Vector3, v: Vector3, c: Color) -> void:
 	var node: MultiMeshInstance3D = L["node"]
 	node.visible = true
 	(L["mm"] as MultiMesh).visible_instance_count = int(L["top"])
+	return i
+
+
+## One procedural core instance: `size` overall, `shape` per-axis multiplier
+## (walls: end radius/height), `axis` its up, `style` the shader look.
+func _mesh(n: String, p: Vector3, v: Vector3, c: Color, style: int, size: float, life: float, shape := Vector3.ONE, axis := Vector3.UP) -> int:
+	var i := _emit(n, p, v, c)
+	var L: Dictionary = _layers[n]
+	L["lf"][i] = life
+	L["shape"][i] = shape
+	L["axis"][i] = axis.normalized() if axis.length_squared() > 0.0001 else Vector3.UP
+	var info: PackedFloat32Array = L["info"]
+	info[i * 4] = size
+	info[i * 4 + 1] = randf() * 10.0
+	info[i * 4 + 3] = float(style)
+	L["info"] = info
+	return i
 
 
 ## Step one layer: integrate, then write transforms, colours and custom data.
 func _tick_layer(L: Dictionary, dt: float) -> void:
 	var mm: MultiMesh = L["mm"]
-	var life: float = L["life"]
+	var lf: PackedFloat32Array = L["lf"]
+	var mesh: String = L["mesh"]
+	var shape: PackedVector3Array = L["shape"]
+	var axis: PackedVector3Array = L["axis"]
 	var grav: Vector3 = L["grav"]
 	var damp := maxf(0.0, 1.0 - float(L["damp"]) * dt)
 	var pos: PackedVector3Array = L["pos"]
@@ -521,6 +830,7 @@ func _tick_layer(L: Dictionary, dt: float) -> void:
 	var top := 0
 	for i in int(L["top"]):
 		var a := age[i]
+		var life := lf[i]
 		if a >= life:
 			continue
 		a += dt
@@ -534,6 +844,9 @@ func _tick_layer(L: Dictionary, dt: float) -> void:
 		vel[i] = v
 		pos[i] += v * dt
 		var k := a / life
+		if mesh != "":
+			_mesh_xform(mm, i, mesh, k, a, pos[i], info, shape[i], axis[i], col[i])
+			continue
 		# Pop in fast, hold, shrink away at the end: crisp, no soft bloom.
 		var s := info[i * 4] * (0.7 + 0.3 * k if flip else (lerpf(0.6, 1.0, k / 0.15) if k < 0.15 else (1.0 if k < 0.75 else lerpf(1.0, 0.0, (k - 0.75) / 0.25))))
 		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3(s, s, s)), pos[i]))
@@ -553,9 +866,41 @@ func _tick_layer(L: Dictionary, dt: float) -> void:
 		(L["node"] as Node3D).visible = false
 
 
+## Shape-over-life of the procedural cores. Crisp: they grow, then the
+## dissolve (balls, walls) or a fast shrink (spikes, chips) takes them.
+func _mesh_xform(mm: MultiMesh, i: int, mesh: String, k: float, a: float, p: Vector3, info: PackedFloat32Array, sh: Vector3, up: Vector3, c: Color) -> void:
+	var size := info[i * 4]
+	var seed := info[i * 4 + 1]
+	var style := info[i * 4 + 3]
+	var b := Basis(Quaternion(Vector3.UP, up)) if up != Vector3.UP else Basis()
+	var t: Transform3D
+	match mesh:
+		"ball":
+			var s := size * (0.55 + 0.45 * (1.0 - pow(1.0 - k, 3.0)))
+			t = Transform3D(b.scaled(sh * s), p)
+		"wall":
+			# size = start radius fraction; races out to sh.x, settles lower.
+			var rad := lerpf(size, 1.0, 1.0 - pow(1.0 - k, 2.0))
+			var h := sh.y * lerpf(1.0, 0.55, k)
+			t = Transform3D(b.scaled(Vector3(sh.x * rad, h, sh.z * rad)), p + up * h * 0.5)
+		"spike":
+			var g := clampf(k / 0.22, 0.02, 1.0)
+			if k > 0.85:
+				g *= maxf((1.0 - k) / 0.15, 0.02)
+			var bb := b.rotated(up, seed)
+			t = Transform3D(bb.scaled(Vector3(size * sh.x, size * g, size * sh.z)), p + up * size * g * 0.5)
+		_:
+			var sc := size * clampf((1.0 - k) / 0.35, 0.0, 1.0)
+			var ax := Vector3(sin(seed), cos(seed * 1.3), sin(seed * 0.7)).normalized()
+			t = Transform3D(Basis(ax, seed + info[i * 4 + 2] * a).scaled(Vector3.ONE * maxf(sc, 0.001)), p)
+	mm.set_instance_transform(i, t)
+	mm.set_instance_color(i, c)
+	mm.set_instance_custom_data(i, Color(seed, style, minf(k, 0.999), 0.0))
+
+
 ## Particles scattered in a sphere of `spread`, drifting with `vel` (+ jitter).
 func _cloud(n: String, at: Vector3, spread: float, count: int, vel: Vector3, c: Color, jitter := 0.6) -> void:
-	for i in mini(count, MAX_PER_CALL):
+	for i in _n(count):
 		var off := Vector3(randf_range(-1, 1), randf_range(-0.3, 0.6), randf_range(-1, 1)) * spread
 		if LAYERS[n].get("fixed_y", false):
 			off.y = 0.0
@@ -564,18 +909,26 @@ func _cloud(n: String, at: Vector3, spread: float, count: int, vel: Vector3, c: 
 
 ## Particles thrown outward (and up by `up`) from a point.
 func _burst(n: String, at: Vector3, count: int, speed: float, c: Color, up := 0.8) -> void:
-	for i in mini(count, MAX_PER_CALL):
+	for i in _n(count):
 		var dir := Vector3(randf_range(-1, 1), randf_range(0.2, 1.0) * up + 0.1, randf_range(-1, 1)).normalized()
 		_emit(n, at, dir * speed * randf_range(0.45, 1.0), c)
 
 
 ## Particles spiralling up around a point (heals, frost casts, leaves).
 func _swirl(n: String, at: Vector3, r: float, count: int, spin: float, c: Color) -> void:
-	for i in mini(count, MAX_PER_CALL):
+	count = _n(count)
+	for i in count:
 		var a := TAU * i / maxf(count, 1) + randf() * 0.3
 		var off := Vector3(sin(a), 0, cos(a)) * r
 		var tang := Vector3(cos(a), 0, -sin(a)) * spin
 		_emit(n, at + off + Vector3(0, randf_range(0.2, 0.9), 0), tang + Vector3(0, randf_range(1.0, 2.2), 0), c)
+
+
+## Sprite count after tier scaling, capped per call.
+func _n(count: int) -> int:
+	if _sec < 1.0:
+		count = int(ceil(count * _sec))
+	return mini(count, MAX_PER_CALL)
 
 
 func _rnd(s: float) -> Vector3:
@@ -604,7 +957,7 @@ func _tick_wave(e: Dictionary, k: float, dt: float) -> void:
 	var c: Color = e["c"]
 	var w: Array = WAVE[el]
 	# Density by circumference: about one sprite per 0.6 m of front per frame step.
-	var rate := clampf(TAU * maxf(front, 0.5) / 0.6, 6.0, 60.0) / maxf(float(e["dur"]), 0.2) * 1.4
+	var rate := clampf(TAU * maxf(front, 0.5) / 0.6, 6.0, 60.0) / maxf(float(e["dur"]), 0.2) * 1.4 * float(e.get("sec", 1.0))
 	if quality_low:
 		rate *= 0.5
 	e["acc"] = float(e["acc"]) + rate * dt
@@ -626,7 +979,7 @@ func _tick_wave(e: Dictionary, k: float, dt: float) -> void:
 func _tick_field(e: Dictionary, dt: float) -> void:
 	var el: StringName = e["el"]
 	var r: float = e["r"]
-	e["acc"] = float(e["acc"]) + dt * clampf(r * 6.0, 4.0, 18.0) * (0.5 if quality_low else 1.0)
+	e["acc"] = float(e["acc"]) + dt * clampf(r * 6.0, 4.0, 18.0) * (0.5 if quality_low else 1.0) * float(e.get("sec", 1.0))
 	var n := mini(int(e["acc"]), 6)
 	e["acc"] = float(e["acc"]) - n
 	var pos: Vector3 = e["pos"]
@@ -660,11 +1013,23 @@ func _process(delta: float) -> void:
 			"wave":
 				_tick_wave(e, k, delta)
 			"field":
-				_tick_field(e, delta)
+				if e.get("core", false):
+					_tick_core_field(e, delta)
+				else:
+					_tick_field(e, delta)
 			"bolt":
 				var b := e["node"] as MeshInstance3D
 				# Hard flicker: full, dip, full, then gone. No soft fade-out glow.
 				b.transparency = 0.0 if k < 0.35 or (k > 0.5 and k < 0.75) else 0.7
+				e["re"] = float(e["re"]) + delta
+				if e.has("pts") and float(e["re"]) >= REFORK and k < 0.8:
+					e["re"] = 0.0
+					_bolt_geo(b, e["pts"], e["c"], e["forks"], e["w"])
+			"spikes":
+				_tick_spikes(e, k, delta)
+			"later":
+				if k >= 1.0:
+					(e["fn"] as Callable).call()
 		if k >= 1.0:
 			if e["kind"] == "decal":
 				var d := e["node"] as MeshInstance3D

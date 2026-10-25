@@ -331,8 +331,8 @@ func _tick_depth(dt: float) -> void:
 func _depth_moment() -> void:
 	var at := hero.flat_pos()
 	var col := Color(1.0, 0.3, 0.15)
-	fx.vfx.nova(&"physical", at, 12.0, 0.9)
-	fx.vfx.nova(&"fire", at, 6.0, 0.6)
+	fx.vfx.nova(&"physical", at, 12.0, 0.9, Fx.VfxLib.NO_TINT, &"big")
+	fx.vfx.nova(&"fire", at, 6.0, 0.6, Fx.VfxLib.NO_TINT, &"big")
 	fx.flash_light(at, col, 5.0, 14.0, 0.8)
 	for i in 14:
 		var p := at + Vector3(randf_range(-10.0, 10.0), 0, randf_range(-10.0, 10.0))
@@ -380,8 +380,8 @@ func _begin_boss() -> void:
 	fx.puff(arena.boss_spawn, Color(0.3, 0.27, 0.22, 0.85), 22, 3.0, 3.0)
 	fx.bone_burst(arena.boss_spawn, 10, 8.0)
 	var aura: Color = DB.boss_def(cur_boss)["color"]
-	fx.vfx.nova(&"shadow", arena.boss_spawn, 7.0, 0.8)
-	fx.vfx.impact(&"shadow", arena.boss_spawn, 2.5)
+	fx.vfx.nova(&"shadow", arena.boss_spawn, 7.0, 0.8, Fx.VfxLib.NO_TINT, &"big")
+	fx.vfx.impact(&"shadow", arena.boss_spawn, 2.5, Fx.VfxLib.NO_TINT, &"big")
 	fx.flash_light(arena.boss_spawn, aura, 8.0, 16.0, 1.2)
 	shake(0.8)
 	Sfx.music(str(zone.get("boss_music", "boss")) if mode != "rift" else "rift", 0.6)

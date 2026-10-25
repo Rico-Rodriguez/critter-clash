@@ -63,8 +63,8 @@ func _activate_shrine(s: Dictionary) -> void:
 	hero.recompute()
 	(s["ring"] as MeshInstance3D).queue_free()
 	(s["light"] as OmniLight3D).light_energy = 0.4
-	fx.vfx.nova(&"buff", hero.flat_pos(), 3.5, 0.5, d["color"])
-	fx.vfx.cast(&"buff", hero.flat_pos(), 1.2, d["color"])
+	fx.vfx.nova(&"buff", hero.flat_pos(), 3.5, 0.5, d["color"], &"skill")
+	fx.vfx.cast(&"buff", hero.flat_pos(), 1.2, d["color"], &"skill")
 	fx.flash_light(hero.flat_pos(), d["color"], 4.0, 8.0, 0.5)
 	Sfx.play("unlock_start", 0.0)
 	Ui.buzz(40, 0.5)
@@ -77,8 +77,8 @@ func _activate_curse(s: Dictionary) -> void:
 	(s["light"] as OmniLight3D).light_energy = 0.4
 	curse_t = DB.CURSE_TIME
 	banner(str(DB.CURSE["name"]), col, "Survive %d seconds" % int(DB.CURSE_TIME))
-	fx.vfx.nova(&"shadow", hero.flat_pos(), 5.0, 0.6)
-	fx.vfx.impact(&"shadow", hero.flat_pos(), 1.6)
+	fx.vfx.nova(&"shadow", hero.flat_pos(), 5.0, 0.6, Fx.VfxLib.NO_TINT, &"skill")
+	fx.vfx.impact(&"shadow", hero.flat_pos(), 1.6, Fx.VfxLib.NO_TINT, &"skill")
 	fx.flash_light(hero.flat_pos(), col, 5.0, 9.0, 0.6)
 	Sfx.play("boom", -2.0, 0.7)
 	Ui.buzz(70, 0.7)
@@ -189,7 +189,7 @@ func _tick_ritual(dt: float) -> void:
 		ritual_callers = left
 	if fmod(ritual_t, 0.5) < dt:
 		for c in left:
-			fx.lightning(PackedVector3Array([(c as Enemy).position + Vector3(0, 1.6, 0), ritual_at + Vector3(0, 0.3, 0)]), Color(0.75, 0.4, 1.0))
+			fx.lightning(PackedVector3Array([(c as Enemy).position + Vector3(0, 1.6, 0), ritual_at + Vector3(0, 0.3, 0)]), Color(0.75, 0.4, 1.0), &"light")
 	if left.is_empty():
 		ritual_t = 0.0
 		if _ritual_tele:

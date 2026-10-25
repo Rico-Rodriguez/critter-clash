@@ -529,9 +529,34 @@ def edge_light(d, W, H, r):  # storm / lightning
         x += w
 
 
+def noise():
+    """Tileable fractal value noise (data, not art): drives the dissolve cores.
+    Saved straight, no supersample, so it tiles exactly."""
+    import numpy as np
+    rng = np.random.default_rng(7)
+    N = 128
+    acc = np.zeros((N, N))
+    amp, tot = 1.0, 0.0
+    for f in (4, 8, 16, 32):
+        g = rng.random((f, f))
+        x = np.arange(N) * f / N
+        i0 = np.floor(x).astype(int) % f
+        i1 = (i0 + 1) % f
+        t = x - np.floor(x)
+        t = t * t * (3 - 2 * t)
+        rows = g[i0][:, :] * (1 - t)[:, None] + g[i1] * t[:, None]
+        acc += amp * (rows[:, i0] * (1 - t)[None, :] + rows[:, i1] * t[None, :])
+        tot += amp
+        amp *= 0.5
+    acc /= tot
+    acc = (acc - acc.min()) / (acc.max() - acc.min())
+    Image.fromarray((acc * 255).astype("uint8"), "L").save(os.path.join(OUT, "noise.png"))
+    print("wrote noise", (N, N))
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    for f in [flame_flipbook, ember, spark, scorch_decal, ice_shards, snowflake, frost_decal, bolt_strip, bubble, spore, leaves, poison_decal, ray, holy_decal, wisp, shadow_decal, bone_chips, debris, dust, crack_decal, blood, cross, chevron]:
+    for f in [flame_flipbook, ember, spark, scorch_decal, ice_shards, snowflake, frost_decal, bolt_strip, bubble, spore, leaves, poison_decal, ray, holy_decal, wisp, shadow_decal, bone_chips, debris, dust, crack_decal, blood, cross, chevron, noise]:
         f()
     for n, fn in [("danger", edge_danger), ("fire", edge_fire), ("frost", edge_frost), ("poison", edge_poison), ("holy", edge_holy), ("shadow", edge_shadow), ("stone", edge_stone), ("storm", edge_light)]:
         strip(n, fn)
