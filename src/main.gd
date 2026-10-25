@@ -739,7 +739,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "superlock":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -836,6 +836,26 @@ func _capture(args: PackedStringArray) -> void:
 					h.hero.frost_t = 0.05
 					h.hero.barrage_t = 0.05
 					await _wait_sim(h, 0.5 if hid in ["mage", "ranger"] else 0.12)
+				elif shot == "busy":
+					# Busy hunt, the hero spamming basics: prints draw calls.
+					await _wait_sim(h, 5.0)
+					var mx := 0
+					var sum := 0
+					var nf := 0
+					while nf < 240:
+						h.run_xp = 0
+						h.pending_levels = 0
+						h.hero.rate = maxf(h.hero.rate, 6.0)
+						await get_tree().process_frame
+						var d := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+						mx = maxi(mx, d)
+						sum += d
+						nf += 1
+						if _arg(args, "clip", "") != "":
+							get_viewport().get_texture().get_image().save_png("%s/busy_%03d.png" % [_shots_dir, nf])
+					print("BUSY draws avg=%d max=%d" % [sum / nf, mx])
+				elif shot == "collision":
+					await preload("res://src/hunt/collision_capture.gd").shoot(self, h, _arg(args, "zone", "barrow"))
 				elif shot == "vfx":
 					await preload("res://src/vfx/vfx_capture.gd").shoot(self, h, int(_arg(args, "frames", "24")))
 				elif shot == "fire":

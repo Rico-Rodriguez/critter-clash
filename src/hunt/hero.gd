@@ -497,7 +497,7 @@ func _spell_impact(fwd: Vector3) -> void:
 				from = to
 				amount *= 0.85
 			if pts.size() > 1:
-				hunt.fx.lightning(pts, col)
+				hunt.fx.lightning(pts, col, &"light")
 				Sfx.play("chain", -6.0)
 		"lance":
 			hunt.spawn_proj("wave", flat_pos() + fwd * 0.8, fwd * 24.0, dmg, 99, self, {"life": reach / 24.0, "width": float(fdef["width"])})
@@ -577,8 +577,8 @@ func _family_impact(fwd: Vector3) -> void:
 					f.stun_t = maxf(f.stun_t, float(fdef["stun"]))
 				hit += 1
 			# Cracked earth and debris kicked out of the blow, not a ring.
-			hunt.fx.vfx.nova(&"physical", at, r * 1.1, 0.3)
-			hunt.fx.vfx.impact(&"physical", at, r * 0.7)
+			hunt.fx.vfx.nova(&"physical", at, r * 1.1, 0.3, Fx.VfxLib.NO_TINT, &"light")
+			hunt.fx.vfx.impact(&"physical", at, r * 0.7, Fx.VfxLib.NO_TINT, &"light")
 			Sfx.play("impact", -4.0)
 			hunt.shake(0.22)
 			_hit_feel(hit, true)
@@ -707,7 +707,7 @@ func try_potion() -> bool:
 	if potion_cd <= 0.0:
 		potion_cd = float(DB.POTION["cd"])
 	hp = minf(hp + max_hp * float(DB.POTION["heal"]), max_hp)
-	hunt.fx.vfx.impact(&"heal", flat_pos(), 1.4)
+	hunt.fx.vfx.impact(&"heal", flat_pos(), 1.4, Fx.VfxLib.NO_TINT, &"skill")
 	Sfx.play("levelup", -8.0, 1.3)
 	Ui.buzz(20, 0.4)
 	return true
@@ -752,7 +752,7 @@ func try_super() -> bool:
 			Sfx.play("fire_trail", -4.0, 0.8)
 			# The spin becomes a column of fire.
 			hunt.fx.tornado(self, Color(1.0, 0.42, 0.12), super_t)
-			hunt.fx.vfx.nova(&"fire", flat_pos(), 3.4, 0.4)
+			hunt.fx.vfx.nova(&"fire", flat_pos(), 3.4, 0.4, Fx.VfxLib.NO_TINT, &"big")
 		"volley":
 			super_t = 0.35
 			act(def["anim"]["super"], 0.35, true)
@@ -793,7 +793,7 @@ func try_super() -> bool:
 		"meteor":
 			super_t = 0.5
 			act(def["anim"]["super"], 0.6, true)
-			hunt.fx.vfx.cast(&"fire", flat_pos(), 1.6)
+			hunt.fx.vfx.cast(&"fire", flat_pos(), 1.6, Fx.VfxLib.NO_TINT, &"big")
 			var arm := int(hunt.cards.get("armageddon", 0)) > 0
 			meteor_shower(14 if arm else 9, dmg * 3.2 * super_dmg, 2.9, 13.0)
 			hunt.shake(0.3)
@@ -846,8 +846,8 @@ func _tick_super(dt: float) -> void:
 
 func _slam_land() -> void:
 	var at := flat_pos()
-	hunt.fx.vfx.nova(&"physical", at, 5.0, 0.45)
-	hunt.fx.vfx.impact(&"holy", at, 2.6)
+	hunt.fx.vfx.nova(&"physical", at, 5.0, 0.45, Fx.VfxLib.NO_TINT, &"big")
+	hunt.fx.vfx.impact(&"holy", at, 2.6, Fx.VfxLib.NO_TINT, &"big")
 	hunt.fx.puff(at, Color(0.35, 0.3, 0.25, 0.7), 10, 2.5, 4.0)
 	hunt.fx.flash_light(at, Color(1.0, 0.8, 0.5), 7.0, 10.0, 0.4)
 	for f in hunt.foes_near(position, 4.6):
@@ -933,7 +933,7 @@ func _tick_cards(dt: float) -> void:
 		if nova_t <= 0.0:
 			nova_t = maxf(5.0 - 0.7 * nl, 2.0)
 			var r2 := (3.4 + 0.5 * nl) * (1.5 if int(c.get("inferno_heart", 0)) > 0 else 1.0)
-			hunt.fx.flame_burst(flat_pos(), r2)
+			hunt.fx.flame_burst(flat_pos(), r2, true, Color(1.0, 0.55, 0.18), &"skill")
 			hunt.shake(0.15)
 			var struck := 0
 			for f in hunt.foes_near(position, r2):
@@ -970,7 +970,7 @@ func _tick_wisp(dt: float, level: int) -> void:
 		wisp = hunt.fx.make_wisp()
 		hunt.world.add_child(wisp)
 		wisp.position = flat_pos() + Vector3(0, 2.3, 0)
-		hunt.fx.flame_burst(flat_pos(), 1.6, false)
+		hunt.fx.flame_burst(flat_pos(), 1.6, false, Color(1.0, 0.55, 0.18), &"skill")
 	wisp.visible = alive
 	wisp_angle += dt * 1.4
 	var want := flat_pos() + Vector3(sin(wisp_angle) * 1.1, 2.3 + sin(wisp_angle * 2.3) * 0.2, cos(wisp_angle) * 1.1)
@@ -1121,8 +1121,8 @@ func _smite(n: int, amount: float, stun: bool) -> void:
 func _quake(radius: float, amount: float, wide: bool) -> void:
 	var r := radius * (1.7 if wide else 1.0)
 	var at := flat_pos()
-	hunt.fx.vfx.nova(&"physical", at, r, 0.45)
-	hunt.fx.vfx.impact(&"physical", at, r * 0.6)
+	hunt.fx.vfx.nova(&"physical", at, r, 0.45, Fx.VfxLib.NO_TINT, &"skill")
+	hunt.fx.vfx.impact(&"physical", at, r * 0.6, Fx.VfxLib.NO_TINT, &"skill")
 	hunt.fx.bone_burst(at, 6, 8.0)
 	hunt.fx.flash_light(at, Color(1.0, 0.7, 0.4), 4.0, r * 1.5, 0.3)
 	for f in hunt.foes_near(position, r):
@@ -1162,7 +1162,7 @@ func meteor_shower(count: int, amount: float, radius: float, reach_: float) -> v
 func _meteor_hit(at: Vector3, amount: float, radius: float) -> void:
 	if not is_instance_valid(hunt) or hunt.phase == "defeat":
 		return
-	hunt.fx.flame_burst(at, radius * 1.2)
+	hunt.fx.flame_burst(at, radius * 1.2, true, Color(1.0, 0.55, 0.18), &"skill")
 	hunt.fx.puff(at, Color(0.25, 0.2, 0.17, 0.7), 8, radius * 0.6, 3.0)
 	for f in hunt.foes_near(at, radius + 1.0):
 		if at.distance_to(f.flat_pos()) <= radius + f.radius:
@@ -1176,8 +1176,8 @@ func _meteor_hit(at: Vector3, amount: float, radius: float) -> void:
 
 func _frost_ring(radius: float, amount: float) -> void:
 	var at := flat_pos()
-	hunt.fx.vfx.nova(&"frost", at, radius, 0.4)
-	hunt.fx.vfx.impact(&"frost", at, radius * 0.5)
+	hunt.fx.vfx.nova(&"frost", at, radius, 0.4, Fx.VfxLib.NO_TINT, &"skill")
+	hunt.fx.vfx.impact(&"frost", at, radius * 0.5, Fx.VfxLib.NO_TINT, &"skill")
 	hunt.fx.flash_light(at, Color(0.5, 0.85, 1.0), 4.0, radius * 2.0, 0.35)
 	for f in hunt.foes_near(position, radius):
 		hunt.damage_foe(f, amount, self, (f.flat_pos() - at).normalized(), 4.0)
@@ -1239,7 +1239,7 @@ func _storm(jumps: int, amount: float) -> void:
 		pts.append(cur + Vector3(0, 1.0, 0))
 		hunt.damage_foe(best, amount, self, Vector3.ZERO, 0.0)
 	if pts.size() > 1:
-		hunt.fx.lightning(pts)
+		hunt.fx.lightning(pts, Color(0.6, 0.8, 1.0), &"skill")
 		Sfx.play("chain", -4.0)
 		Sfx.play("thunder", -10.0)
 

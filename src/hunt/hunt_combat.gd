@@ -13,7 +13,7 @@ func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: Strin
 	get_tree().create_timer(delay, false).timeout.connect(func():
 		if _ended or not is_instance_valid(hero):
 			return
-		fx.vfx.impact(el, pos, r, col)
+		fx.vfx.impact(el, pos, r, col, &"skill")
 		Sfx.play("boom", -10.0, 1.3)
 		if hero.alive and hero.flat_pos().distance_to(pos) < r + hero.radius * 0.5:
 			damage_hero(amount, null, mech)
@@ -35,7 +35,7 @@ func beam_from(from: Vector3, yaw: float, delay: float, amount: float, col: Colo
 		var along := rel.dot(fwd)
 		var across := (rel - fwd * along).length()
 		for k in 4:
-			fx.vfx.impact(el, from + fwd * (2.0 + k * 3.5), 0.9, col)
+			fx.vfx.impact(el, from + fwd * (2.0 + k * 3.5), 0.9, col, &"skill")
 		if hero.alive and along > 0.0 and along < 14.0 and across < 0.9 + hero.radius * 0.5:
 			damage_hero(amount, null, mech))
 
@@ -44,13 +44,13 @@ func beam_from(from: Vector3, yaw: float, delay: float, amount: float, col: Colo
 ## hero takes `dps` a second while standing in it.
 func add_fire_patch(at: Vector3, r: float, dur: float, dps: float) -> void:
 	patches.append({"pos": at, "r": r, "t": dur, "dps": dps, "tick": 0.5, "node": fx.telegraph(0, at, 0.0, Vector2(r, 0), dur, 0.6, &"fire")})
-	fx.vfx.linger(&"fire", at, r * 0.8, dur)
+	fx.vfx.linger(&"fire", at, r * 0.8, dur, Fx.VfxLib.NO_TINT, &"skill")
 
 
 ## Pyre: burning ground that hurts the dead standing in it.
 func add_pyre(at: Vector3, r: float, dur: float, dps: float) -> void:
 	pyres.append({"pos": at, "r": r, "t": dur, "dps": dps, "tick": 0.0})
-	fx.vfx.linger(&"fire", at, r * 0.8, dur)
+	fx.vfx.linger(&"fire", at, r * 0.8, dur, Fx.VfxLib.NO_TINT, &"light")
 
 
 func _tick_pyres(dt: float) -> void:
@@ -227,7 +227,7 @@ func _kill(f: Enemy) -> void:
 		if "molten" in f.affixes:
 			fx.telegraph(0, at, 0.0, Vector2(2.6, 0), 1.0, 0.6, &"fire")
 			get_tree().create_timer(1.0, false).timeout.connect(func():
-				fx.flame_burst(at, 2.8)
+				fx.flame_burst(at, 2.8, true, Color(1.0, 0.55, 0.18), &"skill")
 				if hero.flat_pos().distance_to(at) < 2.6:
 					damage_hero(f.dmg * 1.2, null, 0.5))
 		banner("%s slain" % f.elite_name, Color(1.0, 0.85, 0.5))
@@ -253,8 +253,8 @@ func _kill_boss() -> void:
 	_real_hitstop = 1.4
 	var at := boss.flat_pos()
 	fx.bone_burst(at, 20, 10.0)
-	fx.vfx.nova(&"shadow", at, 9.0, 0.9)
-	fx.vfx.impact(&"holy", at, 3.0)
+	fx.vfx.nova(&"shadow", at, 9.0, 0.9, Fx.VfxLib.NO_TINT, &"big")
+	fx.vfx.impact(&"holy", at, 3.0, Fx.VfxLib.NO_TINT, &"big")
 	fx.flash_light(at, Color(DB.boss_def(cur_boss)["color"]).lightened(0.3), 10.0, 18.0, 1.5)
 	shake(1.0)
 	Sfx.play("boss_die", 2.0)
@@ -340,7 +340,7 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 		var e := src as Enemy
 		if "vampiric" in e.affixes:
 			e.hp = minf(e.hp + amount * 2.0, e.max_hp)
-			fx.lightning(PackedVector3Array([hero.position + Vector3(0, 1.0, 0), e.position + Vector3(0, 1.0, 0)]), Color(1.0, 0.2, 0.25))
+			fx.lightning(PackedVector3Array([hero.position + Vector3(0, 1.0, 0), e.position + Vector3(0, 1.0, 0)]), Color(1.0, 0.2, 0.25), &"light")
 		if hero.thorns > 0.0 and e.def["ai"] == "melee" and e.alive:
 			Sfx.play("thorns", -6.0)
 			damage_foe(e, amount * hero.thorns * 2.0, hero, (e.flat_pos() - hero.flat_pos()).normalized(), 3.0)
@@ -348,14 +348,14 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 		hero.wind_used = true
 		hero.hp = minf(hero.hp + hero.max_hp * float(hero.flags["second_wind"]), hero.max_hp)
 		hud.event("Second wind", Color(0.5, 1.0, 0.6), "heart-plus")
-		fx.vfx.nova(&"heal", hero.flat_pos(), 3.0, 0.5)
+		fx.vfx.nova(&"heal", hero.flat_pos(), 3.0, 0.5, Fx.VfxLib.NO_TINT, &"skill")
 		Sfx.play("levelup", -6.0)
 	if hero.hp <= 0.0:
 		hero.hp = 0.0
 		if int(cards.get("phoenix", 0)) > 0 and not hero.revived:
 			hero.revive()
-			fx.vfx.nova(&"fire", hero.flat_pos(), 6.0, 0.55)
-			fx.vfx.impact(&"holy", hero.flat_pos(), 2.0, Color(1.0, 0.7, 0.35))
+			fx.vfx.nova(&"fire", hero.flat_pos(), 6.0, 0.55, Fx.VfxLib.NO_TINT, &"big")
+			fx.vfx.impact(&"holy", hero.flat_pos(), 2.0, Color(1.0, 0.7, 0.35), &"big")
 			fx.flash_light(hero.flat_pos(), Color(1.0, 0.6, 0.25), 8.0, 12.0, 0.8)
 			for f in foes_near(hero.position, 6.0):
 				damage_foe(f, hero.dmg * 3.0, hero, (f.flat_pos() - hero.flat_pos()).normalized(), 12.0)
@@ -376,7 +376,7 @@ func _perfect_dodge() -> void:
 		hero.hp = minf(hero.hp + hero.max_hp * float(hero.flags["dodge_heal"]), hero.max_hp)
 	fx.text(hero.flat_pos() + Vector3(0, 0.4, 0), "Perfect!", Color(0.55, 0.95, 1.0), 1.2, 0.9)
 	tip("perfect", "Perfect dodge: your next hits strike 35% harder", "sprint")
-	fx.vfx.impact(&"storm", hero.flat_pos(), 1.4, Color(0.55, 0.9, 1.0))
+	fx.vfx.impact(&"storm", hero.flat_pos(), 1.4, Color(0.55, 0.9, 1.0), &"skill")
 	fx.flash_light(hero.flat_pos(), Color(0.5, 0.85, 1.0), 3.0, 6.0, 0.25)
 	Sfx.play("unlock_start", -4.0, 1.5)
 	Ui.buzz(30, 0.5)
@@ -421,7 +421,7 @@ func _boss_down_midway() -> void:
 	var at := b.flat_pos()
 	var col: Color = DB.boss_def(b.boss_id)["color"]
 	fx.bone_burst(at, 16, 9.0)
-	fx.vfx.nova(&"shadow", at, 8.0, 0.8)
+	fx.vfx.nova(&"shadow", at, 8.0, 0.8, Fx.VfxLib.NO_TINT, &"big")
 	fx.flash_light(at, Color(col).lightened(0.3), 9.0, 16.0, 1.2)
 	shake(0.8)
 	Sfx.play("boss_die", 0.0)

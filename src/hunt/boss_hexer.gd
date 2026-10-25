@@ -43,8 +43,8 @@ func _begin(p: String) -> void:
 	match p:
 		"orbs":
 			step_t = 0.9 * fast
-			hunt.fx.vfx.linger(&"shadow", flat_pos(), 2.4, step_t)
-			hunt.fx.vfx.cast(&"shadow", flat_pos(), 2.0)
+			hunt.fx.vfx.linger(&"shadow", flat_pos(), 2.4, step_t, Fx.VfxLib.NO_TINT, &"big")
+			hunt.fx.vfx.cast(&"shadow", flat_pos(), 2.0, Fx.VfxLib.NO_TINT, &"big")
 			hunt.fx.flash_light(flat_pos(), VIOLET, 3.0, 8.0, step_t)
 			play("Ranged_Magic_Spellcasting", 0.1, 1.0, true)
 			Sfx.play("boss_windup", -3.0, 1.2)
@@ -74,7 +74,7 @@ func _begin(p: String) -> void:
 				expose(float(DB.EXPOSED["time"]) * 0.7)
 				return
 			step_t = 0.35
-			hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.0)
+			hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.0, Fx.VfxLib.NO_TINT, &"skill")
 			hunt.fx.puff(flat_pos(), Color(0.45, 0.25, 0.6, 0.7), 12, 2.0, 3.0)
 			blink_to = _blink_spot()
 			Sfx.play("dash", -2.0, 0.7)
@@ -111,7 +111,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				for i in n:
 					var d := dir_of(phase + TAU * i / n)
 					hunt.spawn_proj("orb", flat_pos() + d * 1.5, d * 9.0, dmg * 0.6, 1, self, {"life": 2.4})
-				hunt.fx.vfx.nova(&"shadow", flat_pos(), 4.5, 0.3)
+				hunt.fx.vfx.nova(&"shadow", flat_pos(), 4.5, 0.3, Fx.VfxLib.NO_TINT, &"skill")
 				Sfx.play("atk_mage", -3.0, 0.7)
 				step += 1
 				step_t = 0.55
@@ -147,7 +147,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 						cursed = true
 						hunt.damage_hero(dmg * 1.0, self, 0.8)
 						hero.slow_t = 3.0
-					hunt.fx.lightning(PackedVector3Array([flat_pos() + Vector3(0, 1.5, 0) + d * 1.5, flat_pos() + Vector3(0, 0.6, 0) + d * 20.0]))
+					hunt.fx.lightning(PackedVector3Array([flat_pos() + Vector3(0, 1.5, 0) + d * 1.5, flat_pos() + Vector3(0, 0.6, 0) + d * 20.0]), Color(0.6, 0.8, 1.0), &"big")
 				hunt.fx.flash_light(flat_pos() + lane_dir * 3.0, VIOLET, 4.0, 9.0, 0.3)
 				Sfx.play("boss_slam", -3.0, 1.3)
 				hunt.shake(0.3)
@@ -166,7 +166,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				model.visible = true
 				var yaw := yaw_to(position, hero.position)
 				rotation.y = yaw
-				hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.2)
+				hunt.fx.vfx.impact(&"shadow", flat_pos(), 2.2, Fx.VfxLib.NO_TINT, &"big")
 				hunt.fx.puff(flat_pos(), Color(0.45, 0.25, 0.6, 0.7), 12, 2.0, 3.0)
 				var n := 5 if enraged else 3
 				for i in n:
