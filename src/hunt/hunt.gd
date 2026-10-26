@@ -3,6 +3,8 @@ extends "res://src/hunt/hunt_modes.gd"
 
 const Online := preload("res://src/net/online.gd")
 const Partner := preload("res://src/hunt/partner.gd")
+const BlobShadows := preload("res://src/hunt/blob_shadows.gd")
+var _blobs: MultiMeshInstance3D
 const FocusGuard := preload("res://src/hunt/focus_guard.gd")
 ## One hunt in the Barrow: the dead rise, the soul meter fills, the King
 ## wakes, and the hunt ends in victory or death. Owns every actor and runs
@@ -75,6 +77,8 @@ func _ready() -> void:
 	arena = Arena.new()
 	world.add_child(arena)
 	arena.build(low, zone_id, trial_rooms, trial_seed)
+	_blobs = BlobShadows.new()
+	add_child(_blobs)
 	fx = Fx.new()
 	fx.quality_low = low
 	world.add_child(fx)
@@ -216,6 +220,8 @@ func _process(delta: float) -> void:
 			Engine.time_scale = 1.0
 	var dt := minf(delta, 1.0 / 30.0)
 	tick(dt)
+	if _blobs:
+		_blobs.update(foes)
 
 
 func tick(dt: float) -> void:

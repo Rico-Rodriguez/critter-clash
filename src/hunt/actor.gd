@@ -38,6 +38,8 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 	model = KK.character(model_name, weapons)
 	add_child(model)
 	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
+	if merge_parts and skel:
+		_merge_parts(skel, model_name)
 	if skel and head_scale != 1.0:
 		var bs := BoneScaler.new()
 		bs.scales = {"head": Vector3.ONE * head_scale, "chest": Vector3(1.06, 1.0, 1.1)}
@@ -61,12 +63,107 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 
 ## Applies the character shader to every mesh under `root` and tracks them for
 ## flashes and tints. Call it again for parts added later (a swapped weapon).
+## Minions draw as one mesh: KayKit splits a body into 6-8 skinned parts
+## (arms, legs, head, jaw, eyes...), a draw call each per foe. Parts that
+## share a skeleton, skin and material are concatenated once per model and
+## the merged mesh is shared by every foe of that model.
+var merge_parts := false
+static var _merged := {}
+
+
+func _merge_parts(skel: Skeleton3D, key: String) -> void:
+	var parts: Array[MeshInstance3D] = []
+	for c in skel.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null or not mi.visible or mi.mesh == null or mi.skin == null:
+			continue
+		if not mi.transform.is_equal_approx(Transform3D.IDENTITY) or mi.mesh.get_blend_shape_count() > 0:
+			continue
+		parts.append(mi)
+	if parts.size() < 2:
+		return
+	var skin := parts[0].skin
+	for mi in parts:
+		if mi.skin.get_bind_count() != skin.get_bind_count():
+			return
+		for b in skin.get_bind_count():
+			if mi.skin.get_bind_name(b) != skin.get_bind_name(b) or mi.skin.get_bind_bone(b) != skin.get_bind_bone(b) or not mi.skin.get_bind_pose(b).is_equal_approx(skin.get_bind_pose(b)):
+				return
+	var names := PackedStringArray()
+	for mi in parts:
+		names.append(str(mi.name))
+	var k := key + "|" + ",".join(names)
+	var merged: ArrayMesh = _merged.get(k)
+	if merged == null:
+		merged = _concat(parts)
+		if merged == null:
+			return
+		_merged[k] = merged
+	parts[0].mesh = merged
+	for si in merged.get_surface_count():
+		parts[0].set_surface_override_material(si, null)
+	for i in range(1, parts.size()):
+		skel.remove_child(parts[i])
+		parts[i].free()
+
+
+## Concatenates every surface of `parts`, one output surface per material.
+static func _concat(parts: Array[MeshInstance3D]) -> ArrayMesh:
+	var by_mat := {}
+	var order := []
+	for mi in parts:
+		for s in mi.mesh.get_surface_count():
+			var mat := mi.get_active_material(s)
+			var fmt: int = (mi.mesh as ArrayMesh).surface_get_format(s) if mi.mesh is ArrayMesh else -1
+			if fmt == -1 or mi.mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+				return null
+			var mk := [mat, fmt]
+			if not by_mat.has(mk):
+				by_mat[mk] = []
+				order.append(mk)
+			by_mat[mk].append(mi.mesh.surface_get_arrays(s))
+	var out := ArrayMesh.new()
+	var lists := [Mesh.ARRAY_VERTEX, Mesh.ARRAY_NORMAL, Mesh.ARRAY_TANGENT, Mesh.ARRAY_COLOR, Mesh.ARRAY_TEX_UV, Mesh.ARRAY_TEX_UV2, Mesh.ARRAY_BONES, Mesh.ARRAY_WEIGHTS]
+	for mk in order:
+		var arrs: Array = by_mat[mk]
+		var res := []
+		res.resize(Mesh.ARRAY_MAX)
+		var idx := PackedInt32Array()
+		var base := 0
+		for a in arrs:
+			for t in lists:
+				if a[t] == null:
+					continue
+				if res[t] == null:
+					res[t] = a[t].duplicate()
+				else:
+					res[t].append_array(a[t])
+			var n: int = (a[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+			if a[Mesh.ARRAY_INDEX] != null:
+				for v in a[Mesh.ARRAY_INDEX]:
+					idx.append(v + base)
+			else:
+				for v in n:
+					idx.append(v + base)
+			base += n
+		res[Mesh.ARRAY_INDEX] = idx
+		var flags: int = (mk[1] as int) & (Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, res, [], {}, flags)
+		out.surface_set_material(out.get_surface_count() - 1, mk[0])
+	return out
+
+
+## Minions skip the shadow pass (a draw per mesh each): the hunt gives them
+## one shared blob shadow instead (see hunt_state.gd tick_blobs).
+var casts_shadow := true
+
+
 func restyle(root: Node) -> void:
 	for mi in KK.meshes(root):
 		if mi in _meshes:
 			continue
 		_meshes.append(mi)
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts_shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for s in mi.mesh.get_surface_count():
 			var src := mi.get_active_material(s)
 			var tex: Texture2D = null

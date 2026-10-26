@@ -98,6 +98,87 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 		_ground()
 		_layout()
 	_atmosphere()
+	bake_statics()
+
+
+# --- Static batching -----------------------------------------------------
+
+## Props placed with put(), for bake_statics().
+var _put_nodes: Array[Node3D] = []
+## Size of a batching cell: big enough to merge a grove of trees into one draw,
+## small enough that cells off screen are still frustum-culled.
+const BAKE_CELL := 24.0
+
+
+## Folds every prop mesh that never changes into one MultiMesh per (mesh,
+## material, shadow, cell): a forest of 30 pines becomes one draw instead of
+## 30, and the same again in the shadow pass. Props that fade when they hide
+## the fight (occluders) keep their own nodes, as their transparency moves.
+func bake_statics() -> void:
+	var skip := {}
+	for o in occluders:
+		for mi in o["meshes"]:
+			skip[mi] = true
+	var groups := {}
+	for n in _put_nodes:
+		if not is_instance_valid(n):
+			continue
+		for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
+			if mi.mesh == null or not mi.visible or mi.skin != null:
+				continue
+			var fading := skip.has(mi)
+			var mat: Material = mi.material_override
+			var surf_over := false
+			for si in mi.mesh.get_surface_count():
+				if mi.get_surface_override_material(si) != null:
+					surf_over = true
+			if surf_over or mi.transparency > 0.0:
+				continue
+			# A prop that fades keeps its own visible mesh, but its shadow
+			# (which does not fade) batches with its neighbours'.
+			if fading and mi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				continue
+			var xf := n.transform * _local_to(n, mi)
+			var cell := Vector2i(floori(xf.origin.x / BAKE_CELL), floori(xf.origin.z / BAKE_CELL))
+			var sh := GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if fading else mi.cast_shadow
+			var key := [mi.mesh.get_rid(), mat.get_rid() if mat else RID(), sh, cell]
+			if not groups.has(key):
+				groups[key] = {"mesh": mi.mesh, "mat": mat, "shadow": sh, "list": []}
+			groups[key]["list"].append([mi, xf])
+	for key in groups:
+		var g: Dictionary = groups[key]
+		var list: Array = g["list"]
+		if list.size() < 2:
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = g["mesh"]
+		mm.instance_count = list.size()
+		for i in list.size():
+			mm.set_instance_transform(i, list[i][1])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "Baked"
+		mmi.multimesh = mm
+		mmi.material_override = g["mat"]
+		mmi.cast_shadow = g["shadow"]
+		add_child(mmi)
+		for e in list:
+			var mi: MeshInstance3D = e[0]
+			if g["shadow"] == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY:
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			else:
+				mi.get_parent().remove_child(mi)
+				mi.free()
+
+
+## A child's transform relative to `root`, for nodes not yet in the tree.
+func _local_to(root: Node3D, n: Node3D) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var c: Node = n
+	while c != root and c is Node3D:
+		t = (c as Node3D).transform * t
+		c = c.get_parent()
+	return t
 
 
 # --- Environment ---------------------------------------------------------
@@ -138,8 +219,10 @@ func _environment() -> void:
 	sun.rotation_degrees = zone_env["sun_rot"]
 	sun.shadow_enabled = true
 	sun.shadow_opacity = 0.85
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if low else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 38.0
+	# One orthogonal split: two splits drew every caster twice. The top-down
+	# camera sees ~30 m, so one 30 m map keeps the same texel density.
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = 30.0
 	sun.shadow_blur = 1.5
 	add_child(sun)
 
@@ -234,6 +317,7 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 	n.rotation.y = yaw
 	n.scale = Vector3.ONE * scale_
 	add_child(n)
+	_put_nodes.append(n)
 	var shape := PropShapes.shape_for(path, yaw, scale_)
 	props.append({"path": path, "pos": pos, "yaw": yaw, "scale": scale_, "shape": shape[0], "obs": -1})
 	if shape[0] != "walk" and pos.y < 0.5:
@@ -247,6 +331,10 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 				add_box(c, half, yaw)
 			else:
 				add_obstacle(c, half.x)
+	# Ground clutter (bones, candles, grass tufts) lower than a shin casts a
+	# shadow too small to read but costs a draw in the shadow pass.
+	if shadow and size_of(path).y * scale_ < 0.45:
+		shadow = false
 	if not shadow:
 		for mi in n.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

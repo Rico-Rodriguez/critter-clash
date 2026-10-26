@@ -280,7 +280,10 @@ func refresh(dt: float) -> void:
 	if hp_k < 0.3 and hero.alive:
 		low = (0.3 - hp_k) / 0.3 * (0.45 + 0.25 * sin(hunt.time * 6.0))
 	Sfx.muffle(hp_k < 0.25 and hero.alive and hunt.phase in ["rise", "boss"])
-	(%Hurt.material as ShaderMaterial).set_shader_parameter("strength", maxf(_hurt, low))
+	var hs := maxf(_hurt, low)
+	# A full-screen shader pass costs fill rate even at zero: skip it then.
+	%Hurt.visible = hs > 0.001
+	(%Hurt.material as ShaderMaterial).set_shader_parameter("strength", hs)
 
 
 func hurt(s: float) -> void:
