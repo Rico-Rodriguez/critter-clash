@@ -1118,18 +1118,6 @@ func _clear_new(slot: String) -> void:
 			_new_uids.erase(int(it["uid"]))
 
 
-func _frame(col: Color, fill: float, radius: int, border: int) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.07, 0.065, 0.08, 0.9).lerp(Color(col.r, col.g, col.b, 0.9), fill * 0.5)
-	s.set_corner_radius_all(radius)
-	s.set_border_width_all(border)
-	s.border_color = col
-	s.anti_aliasing = true
-	s.shadow_color = Color(col.r, col.g, col.b, 0.35 if fill > 0.0 else 0.0)
-	s.shadow_size = 10 if fill > 0.0 else 0
-	return s
-
-
 # --- The piece's card ----------------------------------------------------------
 
 ## Everything about one piece and what to do with it, in place of the hero

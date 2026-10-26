@@ -449,12 +449,6 @@ func _open_pause() -> void:
 	Sfx.play("ui_tap", -4.0)
 
 
-func _notification(what: int) -> void:
-	# Leaving the app mid-hunt pauses it.
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and hunt and hunt.phase in ["rise", "boss"] and not get_tree().paused:
-		_open_pause()
-
-
 func show_results(result: Dictionary) -> void:
 	%Controls.visible = false
 	%Safe.visible = false

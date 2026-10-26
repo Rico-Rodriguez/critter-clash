@@ -455,10 +455,6 @@ func shockwave(p: Vector3, r: float, c: Color, life := 0.3, _nova := false) -> v
 	ground(p, r, 0, c, life, true, -1.0, 0.05)
 
 
-func flash_disk(p: Vector3, r: float, c: Color) -> void:
-	ground(p, r, 2, c, 0.16, true, -1.0, 0.055)
-
-
 ## A telegraph target ring (rim + fill that tightens to the hit). The only
 ## ring a caller may place on purpose, and only as a warning.
 func target(p: Vector3, r: float, c: Color, life: float) -> void:

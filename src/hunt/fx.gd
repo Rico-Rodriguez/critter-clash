@@ -9,7 +9,7 @@ extends Node3D
 ## shockwave of an impact, or as a telegraph.
 
 const TELE := preload("res://src/fx/telegraph.gdshader")
-const BEAM := preload("res://src/fx/beam.gdshader")
+const BEAM := preload("res://src/vfx/sc_beam.gdshader")
 const SOFT := preload("res://src/fx/soft.gdshader")
 const TOON1 := preload("res://src/vfx/sc_toon_single.gdshader")
 const VfxLib := preload("res://src/vfx/vfx_lib.gd")
@@ -302,12 +302,12 @@ func beam(pos: Vector3, color: Color, height := 7.0) -> MeshInstance3D:
 	var n := _take("beam", func():
 		var mi := MeshInstance3D.new()
 		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.28
-		cyl.bottom_radius = 0.42
+		cyl.top_radius = 0.2
+		cyl.bottom_radius = 0.3
 		cyl.height = 1.0
 		cyl.cap_top = false
 		cyl.cap_bottom = false
-		cyl.radial_segments = 12
+		cyl.radial_segments = 10
 		mi.mesh = cyl
 		mi.material_override = _beam_mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

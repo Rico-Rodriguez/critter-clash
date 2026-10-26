@@ -5,6 +5,7 @@ const Online := preload("res://src/net/online.gd")
 const Partner := preload("res://src/hunt/partner.gd")
 const BlobShadows := preload("res://src/hunt/blob_shadows.gd")
 var _blobs: MultiMeshInstance3D
+const FocusGuard := preload("res://src/hunt/focus_guard.gd")
 ## One hunt in the Barrow: the dead rise, the soul meter fills, the King
 ## wakes, and the hunt ends in victory or death. Owns every actor and runs
 ## the rules; the HUD only reads from here and sends input back.
@@ -107,6 +108,8 @@ func _ready() -> void:
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
 	hud.setup(self)
+	# Leaving the app pauses; coming back counts 3-2-1 or retreats to camp.
+	add_child(FocusGuard.new(self))
 	hud.dash_pressed.connect(func(): hero.try_dash())
 	hud.super_pressed.connect(func(): hero.try_super())
 	hud.card_picked.connect(pick_card)

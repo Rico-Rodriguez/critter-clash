@@ -247,6 +247,7 @@ func run() -> int:
 	_sidekick_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
+	_focus_tests()
 	_levelup_tests()
 	_bank_tests()
 	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
@@ -1012,6 +1013,50 @@ func _collision_tests() -> void:
 			break
 	_ok("a foe paths round the crypt to the hero (reached %s at %s, through %s)" % [reached, foe, cut], reached and not cut)
 	b.free()
+## Leaving the app mid-hunt: pause, snapshot, then 3-2-1 or retreat.
+func _focus_tests() -> void:
+	var FG := preload("res://src/hunt/focus_guard.gd")
+	var tree := Engine.get_main_loop() as SceneTree
+	var keep := Game.data.duplicate(true)
+	var h := Hunt.new()
+	h.phase = "rise"
+	h.hero = Hero.new()
+	h.tier = {"gold": 1.0, "chest": "silver", "xp": 1.0}
+	h.gold = 77
+	h.hero.def = DB.HEROES["knight"]
+	var g := FG.new(h)
+	tree.root.add_child(g)
+	var was := tree.paused
+	tree.paused = false
+	h.hitstop(0.09)
+	g.suspend(1000.0)
+	_ok("focus loss pauses the world and ends hitstop", tree.paused and is_equal_approx(Engine.time_scale, 1.0))
+	_ok("focus loss snapshots the run's gold", int(Game.data.get("suspended_run", {}).get("gold", -1)) == 77)
+	g.suspend(1001.0)
+	_ok("a second focus-out keeps the first time", is_equal_approx(g.away_at, 1000.0))
+	_ok("a short absence counts down", g.resume(1010.0) == "countdown" and not Game.data.has("suspended_run"))
+	g._finish_countdown()
+	_ok("the countdown unpauses", not tree.paused)
+	g.suspend(2000.0)
+	_ok("a long absence retreats to camp", g.resume(2000.0 + FG.AWAY_LIMIT + 1.0) == "lobby")
+	tree.paused = true
+	g.paused_by_us = false
+	g.suspend(3000.0)
+	_ok("a menu's pause is left to the menu", g.resume(3005.0) == "none" and tree.paused)
+	# A process killed in the background pays the snapshot on the next boot.
+	var g0 := Game.gold()
+	Game.data["suspended_run"] = {"hero": "knight", "gold": 40, "xp": {}, "items": [], "kills": 3, "tier": 0}
+	Game.recover_suspended_run()
+	_ok("a killed run's gold is kept once", Game.gold() == g0 + 40 and not Game.data.has("suspended_run"))
+	Game.recover_suspended_run()
+	_ok("recovery does not pay twice", Game.gold() == g0 + 40)
+	tree.paused = was
+	g.queue_free()
+	h.hero.free()
+	h.free()
+	Game.data = keep
+
+
 ## Level-up cards: a hitstop running when the cards pause the tree must not
 ## leave the world (and the cards' tweens) at 0.05x; no cards once it's clear.
 func _levelup_tests() -> void:
