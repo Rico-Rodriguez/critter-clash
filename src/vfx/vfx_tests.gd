@@ -232,14 +232,14 @@ const LEGACY := ["fx.ring(", "func ring(", "TorusMesh", "\"tongue\"", "flash_lig
 ## Effect code (not world art) may not use additive blending or emission glow.
 const GLOW := ["blend_add", "BLEND_MODE_ADD", "emission_enabled = true"]
 const EFFECT_FILES := ["res://src/vfx/vfx_lib.gd", "res://src/hunt/fx.gd", "res://src/hunt/hunt_loot.gd", "res://src/hunt/proj.gd",
-	"res://src/hunt/sidekick.gd", "res://src/hunt/boss.gd", "res://src/hunt/hero.gd", "res://src/hunt/enemy.gd"]
+	"res://src/hunt/sidekick.gd", "res://src/core/gear_look.gd", "res://src/vfx/sc_beam.gdshader", "res://src/vfx/sc_mote.gdshader", "res://src/hunt/boss.gd", "res://src/hunt/hero.gd", "res://src/hunt/enemy.gd"]
 
 
 static func _legacy(ok: Callable) -> void:
 	var hits := []
 	_scan_legacy("res://src", hits)
 	ok.call("vfx: no legacy ring / circle / glow helper call sites %s" % [hits], hits.is_empty())
-	for gone in ["src/fx/ring", "src/fx/flame_ring", "src/fx/flame_wall", "src/fx/scorch", "src/fx/slash", "src/fx/tornado", "src/vfx/vfx_core", "src/vfx/vfx_decal"]:
+	for gone in ["src/fx/ring", "src/fx/beam", "src/fx/flame_ring", "src/fx/flame_wall", "src/fx/scorch", "src/fx/slash", "src/fx/tornado", "src/vfx/vfx_core", "src/vfx/vfx_decal"]:
 		ok.call("vfx: %s.gdshader removed" % gone, not ResourceLoader.exists("res://%s.gdshader" % gone))
 	var glow := []
 	for f in EFFECT_FILES:

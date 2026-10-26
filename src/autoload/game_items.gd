@@ -465,15 +465,6 @@ func trade_copies(from_uid: int, to_uid: int) -> bool:
 	return true
 
 
-## Pieces with copies and gold enough to level (the gear tab's dot).
-func levels_ready(hero_id_: String) -> int:
-	var n := 0
-	for it in data["items"]:
-		if str(it.get("cls", "")) == hero_id_ and level_block(it) == "":
-			n += 1
-	return n
-
-
 ## Every piece a hero can collect in a slot, as rows for the armory: one row
 ## per weapon family (or one row of sets), each set in its column (a {} where
 ## a family has no piece of that set), then a row of the boss-set and unique

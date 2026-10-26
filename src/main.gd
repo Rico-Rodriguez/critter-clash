@@ -752,7 +752,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "spikes":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -875,6 +875,18 @@ func _capture(args: PackedStringArray) -> void:
 					for i in 3:
 						h.hero.bone_spike_burst(at + Vector3(-2.6 + 2.6 * i, 0, -2.2), [&"light", &"skill", &"big"][i])
 					await _wait_sim(h, float(_arg(args, "after", "0.2")))
+				elif shot == "loot":
+					# Loot beams of each rarity around the hero, and a full set's
+					# motes at its feet (the effects-polish review shot).
+					await _wait_sim(h, 2.0)
+					h.bot = false
+					var at: Vector3 = h.hero.global_position
+					var cols := [Color(0.85, 0.85, 0.85), Color(0.35, 0.8, 1.0), Color(0.75, 0.4, 1.0), Color(1.0, 0.6, 0.15)]
+					for i in cols.size():
+						var a := TAU * float(i) / 4.0 + 0.4
+						h.fx.beam(at + Vector3(cos(a), 0, sin(a)) * 2.6, cols[i], 9.0 if i == 3 else 6.0)
+					GearLook._aura(h.hero, Color(1.0, 0.6, 0.15, 1.0))
+					await _wait_sim(h, 1.2)
 				elif shot == "collision":
 					await preload("res://src/hunt/collision_capture.gd").shoot(self, h, _arg(args, "zone", "barrow"))
 				elif shot == "vfx":

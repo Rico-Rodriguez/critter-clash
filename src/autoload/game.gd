@@ -26,6 +26,8 @@ func _ready() -> void:
 	if not memory_only:
 		load_save()
 	SK.migrate(data)
+	if not memory_only:
+		recover_suspended_run()
 	if int(data.get("idle_since", 0)) <= 0:
 		data["idle_since"] = int(Time.get_unix_time_from_system())
 	Sfx.refresh_volume.call_deferred()
@@ -48,6 +50,22 @@ func _notification(what: int) -> void:
 		errors.session_closed()
 	elif what == NOTIFICATION_APPLICATION_RESUMED and not memory_only:
 		errors.session_open()
+
+
+## A hunt that was in the background when the process died pays out now, as
+## a retreat: what it had earned is kept, nothing is lost. Returns the summary.
+func recover_suspended_run() -> Dictionary:
+	var snap = data.get("suspended_run")
+	if not snap is Dictionary:
+		data.erase("suspended_run")
+		return {}
+	data.erase("suspended_run")
+	var r: Dictionary = snap
+	r["win"] = false
+	var summary := finish_hunt(r)
+	data["recovered_run"] = {"gold": int(r.get("gold", 0)), "items": (r.get("items", []) as Array).size()}
+	save()
+	return summary
 
 
 # --- Loading and migrations ---------------------------------------------------

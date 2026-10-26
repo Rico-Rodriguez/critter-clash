@@ -491,8 +491,22 @@ func _end(win: bool) -> void:
 						items.append(p.item)
 				_sweep(p)
 		pickups.clear()
+	result = build_result(win)
+	# The run ends here: a crash-safety snapshot must not pay out twice.
+	Game.data.erase("suspended_run")
+	var summary := Game.finish_hunt(result)
+	result["summary"] = summary
+	if bot:
+		finished.emit(result)
+		return
+	hud.show_results(result)
+
+
+## What the hunt pays if it ended now. Pure: also used for the snapshot
+## saved when the app goes to the background (see focus_guard.gd).
+func build_result(win: bool) -> Dictionary:
 	var spent := _end_time if _end_time > 0.0 else time
-	result = {
+	var r := {
 		"win": win, "tier": tier_i, "zone": zone_id, "mode": mode, "rooms_cleared": rooms_cleared, "rooms": trial_rooms,"hero": hero_id, "gold": gold, "xp": skill_xp_gained(),
 		"items": items, "kills": kills, "elites": elites_killed, "time": spent,
 		"chest": tier["chest"] if win else "", "level": run_level, "souls": souls,
@@ -503,27 +517,22 @@ func _end(win: bool) -> void:
 	}
 	# A won hunt under the weekly omen pays more, and its chest is a grade better.
 	if not omen.is_empty() and (win or mode == "descent"):
-		result["gold"] = int(round(gold * (1.0 + DB.OMEN_GOLD)))
+		r["gold"] = int(round(gold * (1.0 + DB.OMEN_GOLD)))
 		var grades := ["silver", "gold", "crypt"]
-		var ch := str(result["chest"]) if win else ""
+		var ch := str(r["chest"]) if win else ""
 		if ch != "":
-			result["chest"] = grades[mini(grades.find(ch) + 1, 2)]
+			r["chest"] = grades[mini(grades.find(ch) + 1, 2)]
 	if not partners.is_empty():
-		result["party"] = partners.size()
-		result["gold"] = int(round(int(result["gold"]) * (1.0 + DB.PARTY_GOLD)))
+		r["party"] = partners.size()
+		r["gold"] = int(round(int(r["gold"]) * (1.0 + DB.PARTY_GOLD)))
 	# The Vault pays more gold.
 	if float(zone.get("gold_bonus", 0.0)) > 0.0:
-		result["gold"] = int(round(int(result["gold"]) * (1.0 + float(zone["gold_bonus"]))))
-	if mode == "wild" and not win and rivals_total > 0 and int(result["place"]) <= 3:
-		result["chest"] = "silver"
+		r["gold"] = int(round(int(r["gold"]) * (1.0 + float(zone["gold_bonus"]))))
+	if mode == "wild" and not win and rivals_total > 0 and int(r["place"]) <= 3:
+		r["chest"] = "silver"
 	if mode == "descent":
 		for pair in DB.DESCENT_CHESTS:
 			if depth >= int(pair[0]):
-				result["chest"] = pair[1]
+				r["chest"] = pair[1]
 				break
-	var summary := Game.finish_hunt(result)
-	result["summary"] = summary
-	if bot:
-		finished.emit(result)
-		return
-	hud.show_results(result)
+	return r
