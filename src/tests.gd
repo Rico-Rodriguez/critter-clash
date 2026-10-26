@@ -613,6 +613,9 @@ func _depth_tests() -> void:
 	for u in ["barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]:
 		_ok("ancient unique %s" % u, DB.UNIQUES.has(u) and u in DB.LOG_ORDER and str(DB.UNIQUES[u]["source"]).begins_with("ancient_"))
 	_ok("ancient uniques never roll below Torment", Game.roll_uniques("ancient_boss", 0).size() >= 0 and DB.TIER_ANCIENT == 6)
+	_ok("bone spikes card defined, universal epic", DB.CARDS.has("bone_spikes") and DB.CARDS["bone_spikes"]["rarity"] == "epic" and not DB.CARDS["bone_spikes"].has("hero") and Ui.icon("broken-bone") != null)
+	const HeroS := preload("res://src/hunt/hero.gd")
+	_ok("bone spikes speed up and hit harder per level", HeroS.spikes_cooldown(4) < HeroS.spikes_cooldown(1) and HeroS.spikes_mult(4) > HeroS.spikes_mult(1) and HeroS.spikes_cooldown(4) >= 1.6)
 	_ok("road cards start locked", not Game.card_open("skybolt") and Game.card_open("might"))
 	_ok("every hero has two road epics", ["oath_storm", "shockwave", "rime_trap", "storm_arrows", "skybolt", "rift_quake", "thunder_cry", "skyfall"].all(func(c): return DB.CARDS.has(c) and DB.card_road_step(c) > 0))
 	var tr0 := Game.renown()
@@ -1073,7 +1076,7 @@ func _bank_tests() -> void:
 		lv._keep()
 	_ok("keep for later closes and keeps the picks", not tree.paused and not h.card_open and h.pending_levels == 2)
 	hud._bank.pressed.emit()
-	h.pick_card(str(h.roll_cards(1)[0]))
+	h.pick_card("might")
 	_ok("after a pick the next banked set shows right away", tree.paused and h.card_open and h.pending_levels == 1 and hud.bank_count() == 1)
 	h.close_bank()
 	# Safe moments open the bank by themselves: a room cleared, a boss down mid-run.

@@ -1010,6 +1010,7 @@ func _tick_cards(dt: float) -> void:
 	_tick_wisp(dt, int(c.get("wisp", 0)))
 	_tick_powers(dt, c)
 	_tick_road_cards(dt, c)
+	_tick_bone_spikes(dt, int(c.get("bone_spikes", 0)))
 	# Bone ward.
 	var wl: int = c.get("ward", 0)
 	if wl > 0 and not ward_up:
@@ -1164,6 +1165,63 @@ func _foes_in(radius: float, n: int) -> Array:
 			out.append(f)
 	out.sort_custom(func(a, b): return a.flat_pos().distance_squared_to(flat_pos()) < b.flat_pos().distance_squared_to(flat_pos()))
 	return out.slice(0, n)
+
+
+# --- Bone Spikes (universal epic) --------------------------------------------
+
+const BONE := Color(0.93, 0.9, 0.82)
+var spikes_t := 2.5
+## Total damage the spikes have dealt this hunt (read by the bot balance log).
+var spikes_dealt := 0.0
+
+
+func _tick_bone_spikes(dt: float, lv: int) -> void:
+	if lv <= 0:
+		return
+	spikes_t -= dt
+	if spikes_t > 0.0:
+		return
+	spikes_t = spikes_cooldown(lv)
+	var targets := _foes_in(8.0, 1 + lv)
+	if targets.is_empty():
+		spikes_t = 0.4
+		return
+	var amount := dmg * spikes_mult(lv)
+	var tier: StringName = &"light" if lv <= 1 else (&"big" if lv >= 4 else &"skill")
+	for f: Actor in targets:
+		bone_spike_burst(f.flat_pos(), tier)
+		for o in hunt.foes_near(f.flat_pos(), 1.3):
+			var before: float = o.hp
+			hunt.damage_foe(o, amount, self, Vector3.ZERO, 2.0)
+			spikes_dealt += maxf(before - o.hp, 0.0)
+			if o.alive:
+				o.stun_t = maxf(o.stun_t, 0.35 + 0.1 * lv)
+	hunt.shake(0.1 if tier != &"big" else 0.22)
+	Sfx.play("impact", -6.0)
+
+
+static func spikes_cooldown(lv: int) -> float:
+	return maxf(3.6 - 0.5 * lv, 1.6)
+
+
+static func spikes_mult(lv: int) -> float:
+	return 1.3 + 0.35 * lv
+
+
+## The burst itself: a crown of solid bone spikes jutting up and out of the
+## ground, a physical impact (chunks, puffs) under it, more spikes and a
+## heavier hit per tier. Toon blocks only; no rings.
+func bone_spike_burst(at: Vector3, tier: StringName) -> void:
+	var v: Node3D = hunt.fx.vfx
+	var n: int = {&"light": 4, &"skill": 6, &"big": 9}[tier]
+	var h: float = {&"light": 0.8, &"skill": 1.1, &"big": 1.5}[tier]
+	v.impact(&"physical", at, 0.8 if tier == &"light" else 1.1, BONE, tier)
+	for i in n:
+		var an := TAU * i / float(n) + randf() * 0.5
+		var rr := 0.25 + randf() * 0.55
+		var p := at + Vector3(sin(an), 0, cos(an)) * rr
+		v.spike(p, Vector3(sin(an) * (0.35 + rr * 0.5), 1.3, cos(an) * (0.35 + rr * 0.5)), BONE, h * randf_range(0.75, 1.25), 0.55)
+	v.spike(at, Vector3(0, 1, 0), BONE, h * 1.35, 0.6)
 
 
 ## Holy lightning from the heavens onto the nearest foes.

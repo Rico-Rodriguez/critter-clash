@@ -246,6 +246,13 @@ func _run_bot(args: PackedStringArray) -> void:
 			add_child(h)
 			if idle:
 				h._bot.idle = true
+			# --card=id:lv,id:lv forces power cards from the start (balance checks).
+			var force := _arg(args, "card", "")
+			if force != "":
+				await get_tree().process_frame
+				for cl in force.split(","):
+					h.cards[cl.get_slice(":", 0)] = int(cl.get_slice(":", 1)) if cl.contains(":") else 1
+				h.hero.recompute()
 			# --limit=N ends the hunt after N seconds of play (the Descent has no end).
 			var limit := float(_arg(args, "limit", "0"))
 			if limit > 0.0:
@@ -257,6 +264,8 @@ func _run_bot(args: PackedStringArray) -> void:
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
 			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s xp=%s sidekick=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards, res["xp"], ("%s bond=%d slain=%d" % [h.sidekick.id, h.sidekick.bond, h.sidekick.slain]) if h.sidekick else "none"])
+			if h.hero.spikes_dealt > 0.0:
+				print("POWER bone_spikes dealt=%.0f per_s=%.1f" % [h.hero.spikes_dealt, h.hero.spikes_dealt / maxf(float(res["time"]), 1.0)])
 			if idle and res["win"]:
 				ok = false
 			h.queue_free()
@@ -743,7 +752,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "spikes":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -858,6 +867,14 @@ func _capture(args: PackedStringArray) -> void:
 						if _arg(args, "clip", "") != "":
 							get_viewport().get_texture().get_image().save_png("%s/busy_%03d.png" % [_shots_dir, nf])
 					print("BUSY draws avg=%d max=%d" % [sum / nf, mx])
+				elif shot == "spikes":
+					# Bone Spikes at each tier (light, skill, big) beside the hero.
+					await _wait_sim(h, 2.0)
+					h.bot = false
+					var at: Vector3 = h.hero.flat_pos()
+					for i in 3:
+						h.hero.bone_spike_burst(at + Vector3(-2.6 + 2.6 * i, 0, -2.2), [&"light", &"skill", &"big"][i])
+					await _wait_sim(h, float(_arg(args, "after", "0.2")))
 				elif shot == "collision":
 					await preload("res://src/hunt/collision_capture.gd").shoot(self, h, _arg(args, "zone", "barrow"))
 				elif shot == "vfx":
