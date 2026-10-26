@@ -44,49 +44,6 @@ def lerp(a, b, t):
 
 # --- Fire ------------------------------------------------------------------
 
-def flame_flipbook():
-    """4x4 frames of a licking flame tongue. Layered hard-edged bands:
-    deep orange outer, orange, yellow, white-hot core. Mix-blended in game."""
-    F = 128
-    im = canvas(F * 4)
-    rnd = random.Random(7)
-    phases = [rnd.random() * 6.28 for _ in range(4)]
-    for f in range(16):
-        fx, fy = (f % 4) * F * SS, (f // 4) * F * SS
-        t = f / 16.0
-        d = ImageDraw.Draw(im)
-        life = math.sin(min(1.0, t * 1.15) * math.pi) ** 0.6  # grow then die
-        layers = [((200, 52, 14, 255), 1.0), ((246, 112, 22, 255), 0.78), ((255, 196, 64, 255), 0.55), ((255, 246, 200, 255), 0.3)]
-        for col, k in layers:
-            pts = []
-            H = F * 0.9 * (0.55 + 0.45 * life) * (0.7 + 0.3 * k)
-            W = F * 0.30 * k * (0.6 + 0.4 * life)
-            base = F * 0.95
-            steps = 24
-            for i in range(steps + 1):
-                u = i / steps
-                y = base - H * u
-                wob = math.sin(u * 7.0 + t * 6.28 * 2 + phases[0]) * F * 0.05 * u
-                w = W * (1 - u) ** 0.75 * (1 + 0.25 * math.sin(u * 13 + phases[1] + t * 9))
-                pts.append((F / 2 + wob - w, y))
-            tip = (F / 2 + math.sin(t * 12.5 + phases[2]) * F * 0.08, base - H * 1.04)
-            right = []
-            for i in range(steps, -1, -1):
-                u = i / steps
-                y = base - H * u
-                wob = math.sin(u * 7.0 + t * 6.28 * 2 + phases[0]) * F * 0.05 * u
-                w = W * (1 - u) ** 0.75 * (1 + 0.25 * math.sin(u * 11 + phases[3] - t * 8))
-                right.append((F / 2 + wob + w, y))
-            # rounded base
-            bottom = [(F / 2 + math.cos(a) * W, base + math.sin(a) * W * 0.35) for a in [i / 8 * math.pi for i in range(9)]]
-            outline = pts + [tip] + right + bottom
-            poly(d, outline, col, SS, fx, fy)
-        # a detached licking flake above the tip, late in life
-        if 0.3 < t < 0.85:
-            y = F * (0.25 - 0.15 * t)
-            poly(d, [(F / 2 + 4, y), (F / 2 + 9, y - 14), (F / 2 + 13, y + 1)], (246, 112, 22, 255), SS, fx, fy)
-    done(im, "flame_flipbook")
-
 
 def ember():
     im = canvas(32)
@@ -134,23 +91,6 @@ def scorch_decal():
 
 # --- Ice ---------------------------------------------------------------------
 
-def ice_shards():
-    """2x2 atlas of faceted ice crystals: light face, mid face, dark edge."""
-    F = 64
-    im = canvas(F * 2)
-    d = ImageDraw.Draw(im)
-    rnd = random.Random(11)
-    for i in range(4):
-        ox, oy = (i % 2) * F * SS, (i // 2) * F * SS
-        L = F * rnd.uniform(0.78, 0.92)
-        W = F * rnd.uniform(0.16, 0.24)
-        top, bot = (F / 2, F / 2 - L / 2), (F / 2, F / 2 + L / 2)
-        l, r = (F / 2 - W, F / 2 + L * 0.05), (F / 2 + W, F / 2 - L * 0.05)
-        poly(d, [top, r, bot, l], (40, 110, 170, 255), SS, ox, oy)
-        poly(d, [top, (F / 2 + 2, F / 2), bot, l], (150, 215, 250, 255), SS, ox, oy)
-        poly(d, [top, (F / 2 + 1, F / 2 - L * 0.1), (F / 2 - W * 0.5, F / 2)], (235, 250, 255, 255), SS, ox, oy)
-    done(im, "ice_shards")
-
 
 def snowflake():
     im = canvas(64)
@@ -190,15 +130,6 @@ def frost_decal():
 
 
 # --- Lightning ---------------------------------------------------------------
-
-def bolt_strip():
-    """A forked bolt, horizontal strip for ribbons (u along, v across)."""
-    W, H = 256, 32
-    im = canvas(W, H)
-    d = ImageDraw.Draw(im)
-    d.rectangle([0, (H / 2 - 3) * SS, W * SS, (H / 2 + 3) * SS], fill=(150, 200, 255, 255))
-    d.rectangle([0, (H / 2 - 1.2) * SS, W * SS, (H / 2 + 1.2) * SS], fill=(255, 255, 255, 255))
-    done(im, "bolt_strip")
 
 
 # --- Poison / nature ---------------------------------------------------------
@@ -333,24 +264,6 @@ def shadow_decal():
         a = k / 6 * math.tau
         d.line([((c + math.cos(a) * 10) * SS, (c + math.sin(a) * 10) * SS), ((c + math.cos(a) * 26) * SS, (c + math.sin(a) * 26) * SS)], fill=(170, 110, 230, 255), width=3 * SS)
     done(im, "shadow")
-
-
-def bone_chips():
-    F = 64
-    im = canvas(F * 2)
-    d = ImageDraw.Draw(im)
-    rnd = random.Random(17)
-    for i in range(4):
-        ox, oy = (i % 2) * F * SS, (i // 2) * F * SS
-        pts = []
-        n = rnd.randint(5, 7)
-        for k in range(n):
-            a = k / n * math.tau + rnd.random() * 0.3
-            r = F * rnd.uniform(0.18, 0.36) * (1.6 if k == 0 else 1)
-            pts.append((F / 2 + math.cos(a) * r, F / 2 + math.sin(a) * r * 0.6))
-        poly(d, pts, (220, 210, 185, 255), SS, ox, oy)
-        poly(d, [(F / 2 + (x - F / 2) * 0.5, F / 2 + (y - F / 2) * 0.5 - 2) for x, y in pts], (245, 240, 225, 255), SS, ox, oy)
-    done(im, "bone_chips")
 
 
 # --- Physical ----------------------------------------------------------------
@@ -556,7 +469,7 @@ def noise():
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    for f in [flame_flipbook, ember, spark, scorch_decal, ice_shards, snowflake, frost_decal, bolt_strip, bubble, spore, leaves, poison_decal, ray, holy_decal, wisp, shadow_decal, bone_chips, debris, dust, crack_decal, blood, cross, chevron, noise]:
+    for f in [ember, spark, scorch_decal, snowflake, frost_decal, bubble, spore, leaves, poison_decal, ray, holy_decal, wisp, shadow_decal, debris, dust, crack_decal, blood, cross, chevron, noise]:
         f()
     for n, fn in [("danger", edge_danger), ("fire", edge_fire), ("frost", edge_frost), ("poison", edge_poison), ("holy", edge_holy), ("shadow", edge_shadow), ("stone", edge_stone), ("storm", edge_light)]:
         strip(n, fn)
