@@ -348,27 +348,11 @@ static func emitter(amount: int, life: float, size: float) -> GPUParticles3D:
 	return p
 
 
-static var _mat: StandardMaterial3D
+static var _mat: ShaderMaterial
 
 
-static func _spark_mat() -> StandardMaterial3D:
+static func _spark_mat() -> ShaderMaterial:
 	if _mat == null:
-		_mat = StandardMaterial3D.new()
-		_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-		_mat.vertex_color_use_as_albedo = true
-		_mat.no_depth_test = false
-		var g := Gradient.new()
-		g.set_color(0, Color(1, 1, 1, 1))
-		g.set_color(1, Color(1, 1, 1, 0))
-		var gt := GradientTexture2D.new()
-		gt.gradient = g
-		gt.fill = GradientTexture2D.FILL_RADIAL
-		gt.fill_from = Vector2(0.5, 0.5)
-		gt.fill_to = Vector2(1.0, 0.5)
-		gt.width = 32
-		gt.height = 32
-		_mat.albedo_texture = gt
+		_mat = ShaderMaterial.new()
+		_mat.shader = preload("res://src/vfx/sc_mote.gdshader")
 	return _mat
