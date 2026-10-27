@@ -401,6 +401,9 @@ func _windup() -> void:
 	var len_ := anim_length(atk)
 	var impact := len_ * 0.45
 	play(atk, 0.08, clampf(impact / w, 0.5, 2.5), true)
+	# Wind up: crouch and lean back, then _release lunges.
+	squash(Vector3(0.05, -0.07, -0.05))
+	lean(-dir_of(aim_yaw), 0.08)
 	match ai:
 		"melee":
 			if kind == "warrior" or elite:
@@ -432,6 +435,8 @@ func _release() -> void:
 	if tele:
 		hunt.fx.cancel(tele)
 		tele = null
+	squash(Vector3(-0.06, -0.05, 0.16))
+	lean(dir_of(aim_yaw), 0.12)
 	var hero := hunt.hero
 	match str(def["ai"]):
 		"melee":
@@ -504,11 +509,26 @@ func _release() -> void:
 
 
 ## Light foes flinch when hit: a short stagger so blows read as blows.
+## Heavy foes, elites and casters only hitch for a beat (no animation, so
+## their attacks stay readable); the body lean and flash do the rest.
 func stagger() -> void:
-	if elite or state != "chase" or kind in ["warrior", "mage", "necro", "robber", "bomber", "brute"]:
+	if state != "chase":
+		return
+	if elite or kind in ["warrior", "mage", "necro", "robber", "bomber", "brute"]:
+		hit_t = maxf(hit_t, 0.05 if elite else 0.07)
 		return
 	hit_t = 0.18
 	play(def["anim"]["hit"], 0.04, 1.6, true)
+
+
+## A killing blow throws the body: it rides the knock and hops once.
+func launch(dir: Vector3, force: float) -> void:
+	push(dir, force)
+	if model == null:
+		return
+	var t := create_tween()
+	t.tween_property(model, "position:y", 0.38, 0.11).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(model, "position:y", 0.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 func can_hit(id: int, cd: float) -> bool:
@@ -521,6 +541,7 @@ func can_hit(id: int, cd: float) -> bool:
 
 func die() -> void:
 	alive = false
+	clear_springs()
 	if tele:
 		hunt.fx.cancel(tele)
 		tele = null

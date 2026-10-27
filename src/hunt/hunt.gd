@@ -240,10 +240,18 @@ func _warmup() -> void:
 
 
 func _process(delta: float) -> void:
+	var real := delta / maxf(Engine.time_scale, 0.01)
+	_stop_bank = minf(_stop_bank + real * STOP_REFILL, STOP_TANK)
 	if _real_hitstop > 0.0:
-		_real_hitstop -= delta / maxf(Engine.time_scale, 0.01)
+		_stop_ease = 0.0
+		_real_hitstop -= real
 		if _real_hitstop <= 0.0 and phase != "victory_slow":
-			Engine.time_scale = 1.0
+			# Ease back in: a beat at half speed, not a snap to full.
+			Engine.time_scale = 0.55
+			_stop_ease = 0.05
+	elif _stop_ease > 0.0:
+		_stop_ease -= real
+		Engine.time_scale = 1.0 if _stop_ease <= 0.0 else lerpf(1.0, 0.55, _stop_ease / 0.05)
 	var dt := minf(delta, 1.0 / 30.0)
 	tick(dt)
 	if _blobs:

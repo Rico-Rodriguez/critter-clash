@@ -15,6 +15,7 @@ var dist_mult := 1.0      # player preset: Close 0.86, Standard 1.0, Wide 1.16
 var zoom := 1.0           # dynamic, eased toward zoom_target
 var zoom_target := 1.0
 var pitch_shift := 0.0    # degrees added to pitch_deg (the boss entrance drops the camera low)
+var _kick := Vector3.ZERO  # a quick shove along the blow, gone in a few frames
 var punch := 0.0          # a quick push in that eases out (supers, big drops); negative pulls back
 
 var target: Node3D
@@ -54,6 +55,7 @@ func follow(dt: float, vel: Vector3) -> void:
 	zoom = lerpf(zoom, zoom_target, 1.0 - exp(-2.5 * dt))
 	trauma = maxf(trauma - dt * 1.6, 0.0)
 	punch = move_toward(punch, 0.0, dt * 0.45)
+	_kick = _kick.lerp(Vector3.ZERO, 1.0 - exp(-16.0 * dt))
 	_apply(trauma * trauma if shake_enabled else 0.0)
 
 
@@ -69,6 +71,7 @@ func _apply(shake: float) -> void:
 	var aspect := vp.x / maxf(vp.y, 1.0)
 	var half_v := atan(tan(deg_to_rad(fov_w) * 0.5) / aspect)
 	rotate_object_local(Vector3.RIGHT, atan((anchor - 0.5) * 2.0 * tan(half_v)))
+	global_position += _kick
 	if shake > 0.0:
 		rotate_object_local(Vector3.RIGHT, _noise.get_noise_2d(_t * 40.0, 0.0) * 0.05 * shake)
 		rotate_object_local(Vector3.UP, _noise.get_noise_2d(0.0, _t * 40.0) * 0.05 * shake)
@@ -87,5 +90,15 @@ func set_preset(name_: String) -> void:
 		_apply(0.0)
 
 
+## A blow shoves the camera along `dir` (world, flat) by about `mag` metres; it
+## springs back in a few frames. Off with the shake setting.
+func kick(dir: Vector3, mag: float) -> void:
+	if not shake_enabled or dir.length_squared() < 0.0001:
+		return
+	_kick = (_kick + Vector3(dir.x, 0.0, dir.z).normalized() * mag).limit_length(0.5)
+
+
+## Shake adds up with diminishing returns: the more there already is, the
+## less a new knock adds, so a brawl rumbles instead of pinning the meter.
 func add_trauma(v: float) -> void:
-	trauma = clampf(trauma + v, 0.0, 1.0)
+	trauma = clampf(trauma + v * (1.0 - trauma * 0.5), 0.0, 1.0)

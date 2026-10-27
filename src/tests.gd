@@ -256,6 +256,7 @@ func run() -> int:
 	_gate_tests()
 	_event_tests()
 	_settings_tests()
+	_feel_tests()
 	_store_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
@@ -1811,3 +1812,76 @@ func _settings_tests() -> void:
 	camp.free()
 	h.free()
 	Game.data = keep
+
+
+## Combat feel: hit reactions spring back to rest, the camera kick respects the
+## shake setting, and hitstop is paid from a tank that can't snowball.
+func _feel_tests() -> void:
+	var a := Actor.new()
+	a.model = Node3D.new()
+	a.add_child(a.model)
+	a.hit_react(Vector3(1, 0, 0), 1.0, false)
+	_ok("feel: a hit flashes the actor", a.flash_t > 0.0)
+	a.tick_common(0.016)
+	_ok("feel: a hit tips the model and squashes it", a._spring_on and (a.model.rotation.z != 0.0 or a.model.rotation.x != 0.0))
+	var peak := 0.0
+	for i in 12:
+		a.tick_common(0.016)
+		peak = maxf(peak, absf(a.model.rotation.z) + absf(a.model.rotation.x))
+	_ok("feel: the lean is visible but not a faceplant", peak > 0.03 and peak < 0.6)
+	for i in 120:
+		a.tick_common(0.016)
+	_ok("feel: springs settle back to the rest pose", not a._spring_on and a.model.scale.is_equal_approx(Vector3.ONE) and a.model.rotation.is_zero_approx())
+	a.squash(Vector3(-0.1, -0.1, 0.3))
+	a.tick_common(0.016)
+	var stretched := a.model.scale.z > 1.0
+	a.clear_springs()
+	_ok("feel: a lunge stretches forward, and clear_springs resets it at once", stretched and a.model.scale == Vector3.ONE and a.model.rotation.is_zero_approx())
+	var big := Actor.new()
+	big.model = Node3D.new()
+	big.add_child(big.model)
+	var small := Actor.new()
+	small.model = Node3D.new()
+	small.add_child(small.model)
+	big.hit_react(Vector3(1, 0, 0), 0.4)
+	small.hit_react(Vector3(1, 0, 0), 1.2)
+	big.tick_common(0.016)
+	small.tick_common(0.016)
+	_ok("feel: light foes tip further than heavy ones", absf(small.model.rotation.z) > absf(big.model.rotation.z) * 1.5)
+	var c := HuntCam.new()
+	c.shake_enabled = true
+	c.kick(Vector3(1, 0, 0), 0.2)
+	_ok("feel: a camera kick is stored", c._kick.x > 0.15)
+	c.shake_enabled = false
+	c._kick = Vector3.ZERO
+	c.kick(Vector3(1, 0, 0), 0.2)
+	_ok("feel: no kick when screen shake is off", c._kick == Vector3.ZERO)
+	c.trauma = 0.0
+	c.add_trauma(0.4)
+	var first := c.trauma
+	c.add_trauma(0.4)
+	_ok("feel: trauma has diminishing returns", first > 0.35 and c.trauma - first < first and c.trauma < 1.0)
+	var h := Hunt.new()
+	h.phase = "rise"
+	h.hero = Hero.new()
+	h.tier = {"gold": 1.0}
+	h.hitstop(0.1)
+	h.hitstop(0.1)
+	h.hitstop(0.1)
+	_ok("feel: hitstop stops drawing once the tank is empty", h._stop_bank < 0.02 and h._real_hitstop <= 0.12)
+	h.end_hitstop()
+	h._stop_bank = 0.0
+	Engine.time_scale = 1.0
+	h.hitstop(0.1)
+	_ok("feel: an empty tank skips the hitstop", is_equal_approx(Engine.time_scale, 1.0) and h._real_hitstop == 0.0)
+	h._stop_bank = Hunt.STOP_TANK
+	h.hitstop(0.05)
+	_ok("feel: a full tank pays the stop", is_equal_approx(Engine.time_scale, 0.05) and is_equal_approx(h._stop_bank, Hunt.STOP_TANK - 0.05))
+	h.end_hitstop()
+	_ok("feel: ending hitstop clears the ease", h._stop_ease == 0.0 and is_equal_approx(Engine.time_scale, 1.0))
+	h.hero.free()
+	h.free()
+	c.free()
+	a.free()
+	big.free()
+	small.free()
