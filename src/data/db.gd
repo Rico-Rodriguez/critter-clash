@@ -527,9 +527,9 @@ const ZONES := {
 		"souls_mult": 1.0, "unlock": "Trophy Road: 10500 trophies", "music": "frozen", "boss_music": "frozen_boss",
 		"hazards": ["icefall", "drifts", "gale"],
 		"hazard_line": "Icicles fall, drifts drag and gales shove",
-		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.62, 0.72, 0.95), "ambient_e": 0.5, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "frost", "weather": "snow",
-			"sun": Color(0.82, 0.9, 1.0), "sun_e": 0.95, "sun_rot": Vector3(-62, -30, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(0.92, 0.97, 1.0, 1.0),
-			"ground": {"grass_a": Color(0.36, 0.44, 0.56), "grass_b": Color(0.46, 0.55, 0.68), "dirt": Color(0.28, 0.4, 0.56), "dark": Color(0.05, 0.07, 0.11)}},
+		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.5, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "frost", "weather": "snow",
+			"sun": Color(0.95, 0.97, 1.0), "sun_e": 1.1, "sun_rot": Vector3(-54, -32, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(0.92, 0.97, 1.0, 1.0),
+			"ground": {"grass_a": Color(0.5, 0.57, 0.67), "grass_b": Color(0.64, 0.71, 0.8), "dirt": Color(0.36, 0.41, 0.5), "dark": Color(0.05, 0.07, 0.11)}},
 	},
 	"swamp": {
 		"name": "The Burning Swamp", "boss": "cinder", "blurb": "A drowned wood alight on its own gas. The Cinder Ogre tends the fires.",
@@ -539,9 +539,9 @@ const ZONES := {
 		"souls_mult": 1.0, "unlock": "Trophy Road: 12500 trophies", "music": "swamp", "boss_music": "swamp_boss",
 		"hazards": ["vents", "mud", "marsh"],
 		"hazard_line": "Vents erupt, mud drags and the marsh ignites",
-		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.7, 0.66, 0.58), "ambient_e": 0.8, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "swamp", "weather": "embers",
-			"sun": Color(1.0, 0.84, 0.66), "sun_e": 0.95, "sun_rot": Vector3(-52, -38, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(1.0, 0.55, 0.15, 1.0),
-			"ground": {"grass_a": Color(0.16, 0.17, 0.11), "grass_b": Color(0.25, 0.26, 0.17), "dirt": Color(0.2, 0.17, 0.13), "dark": Color(0.03, 0.025, 0.02)}},
+		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.62, 0.62, 0.64), "ambient_e": 0.95, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "swamp", "weather": "embers",
+			"sun": Color(0.92, 0.9, 0.86), "sun_e": 1.1, "sun_rot": Vector3(-46, -38, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(1.0, 0.55, 0.15, 1.0),
+			"ground": {"grass_a": Color(0.15, 0.145, 0.12), "grass_b": Color(0.24, 0.225, 0.18), "dirt": Color(0.23, 0.19, 0.15), "dark": Color(0.03, 0.025, 0.02)}},
 	},
 }
 const ZONE_ORDER := ["barrow", "depths", "grove", "vault", "frost", "swamp"]

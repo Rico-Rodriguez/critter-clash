@@ -145,17 +145,17 @@ def cinder(h, s, v):
 
 
 def swamp_props(h, s, v):
-    """Scorched wood and basalt: greens to murk olive, warm swatches to soot
-    with a dull ember brown, greys to charcoal."""
+    """Scorched wood and basalt: charred stone and sooty wood so the firelight
+    reads against them, greens to dark murk olive, the baked ramp kept."""
     w = warm(h)
     g = (h >= 62.0) & (h < 180.0) & (s > 0.25)
-    nh = np.where(w, 24.0, np.where(g, 74.0, h))
-    ns = np.where(w, np.minimum(s * 0.6, 0.42), np.where(g, s * 0.6, s))
-    nv = np.where(w, v * 0.72 + 0.08, np.where(g, v * 0.75, v))
+    nh = np.where(w, 22.0, np.where(g, 78.0, h))
+    ns = np.where(w, np.minimum(s * 0.5, 0.34), np.where(g, s * 0.45, s))
+    nv = np.where(w, v * 0.42 + 0.04, np.where(g, v * 0.36, v))
     grey = (s < 0.14)
-    nh = np.where(grey, 28.0, nh)
-    ns = np.where(grey, 0.1, ns)
-    nv = np.where(grey, v * 0.78 + 0.06, nv)
+    nh = np.where(grey, 24.0, nh)
+    ns = np.where(grey, 0.06, ns)
+    nv = np.where(grey, v * 0.42 + 0.03, nv)
     return nh, ns, nv
 
 
