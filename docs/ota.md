@@ -89,3 +89,15 @@ App Store page once the app is listed (it points at the sideload release now).
 Test it on the desktop: `CC_GATE_URL=http://127.0.0.1:8765/version.json` with a
 `min_native` above 3 (serve it as in section A); `-- --no-gate` skips the check.
 Capture the screen with `-- --capture --shots=update`.
+
+### App Store link placeholder
+
+Until the app has a listing, `store_url` is the sideload page and the button
+says "GET THE UPDATE". When the App Store record exists run
+`python3 tools/store/set_app_id.py <numeric id>`: it writes `app_store_id` and
+`store_url` (`https://apps.apple.com/app/id<ID>`) into `tools/ota_gate.json`, and
+the button becomes "OPEN APP STORE" (`AppGate.is_store_url`). CI publishes the
+`app_store_id` link even if `store_url` was left stale. `tools/store/check_store.py`
+(in the Game checks workflow) warns while the placeholder is in place and fails
+if `min_native` is switched on without a real store link. The full submission
+list is `docs/app-store/checklist.md`.

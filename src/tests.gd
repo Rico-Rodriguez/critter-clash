@@ -251,6 +251,7 @@ func run() -> int:
 	_breeding_tests()
 	_stage_tests()
 	_gate_tests()
+	_store_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
 	_focus_tests()
@@ -1381,6 +1382,54 @@ func _stage_tests() -> void:
 	_ok("stages: the old bool call still works", SKL_T.build("bonelet", true)["root"].get_node_or_null("ElderCrown") != null)
 
 
+const PRIV := preload("res://src/core/privacy.gd")
+const CRASH := preload("res://src/core/crash_report.gd")
+
+
+## App Store readiness: the consent record, the crash-report hookup (inert
+## without a DSN and a yes) and that no secret ships in the repo.
+func _store_tests() -> void:
+	var keep = Game.data
+	Game.data = Game._fresh()
+	_ok("privacy: a new save is asked", PRIV.needed())
+	_ok("privacy: crash reports off until said yes", not PRIV.crash_ok())
+	_ok("privacy: online off until answered", not PRIV.online_ok())
+	PRIV.record(false, true)
+	_ok("privacy: answered once, not asked again", not PRIV.needed())
+	_ok("privacy: a no stays a no", not PRIV.crash_ok() and PRIV.online_ok())
+	PRIV.record(true, false)
+	_ok("privacy: crash yes recorded", PRIV.crash_ok())
+	_ok("privacy: online no switches the account off", not PRIV.online_ok() and bool(Game.data["online"]["off"]))
+	Game.data["privacy"]["v"] = PRIV.VERSION - 1
+	_ok("privacy: a new policy version asks again", PRIV.needed() and not PRIV.crash_ok())
+	Game.data = {"seen_tutorial": true, "online": {"off": false}}
+	_ok("privacy: an old save without the key is asked", PRIV.needed())
+	Game.data = Game._fresh()
+	# The hookup: DSN parsing and the envelope.
+	var t: Dictionary = CRASH.parse_dsn("https://abc123@o42.ingest.example.io/777")
+	_ok("crash: DSN parses to the envelope url", t.get("url") == "https://o42.ingest.example.io/api/777/envelope/" and t.get("key") == "abc123")
+	_ok("crash: a secret-key DSN keeps only the public key", CRASH.parse_dsn("https://abc:secret@h.example/9").get("key") == "abc")
+	_ok("crash: http DSN refused", CRASH.parse_dsn("http://abc@h.example/9").is_empty())
+	_ok("crash: junk DSN refused", CRASH.parse_dsn("").is_empty() and CRASH.parse_dsn("https://h.example/9").is_empty() and CRASH.parse_dsn("https://k@h.example/x").is_empty())
+	var el = load("res://src/autoload/error_log.gd").new()
+	el._enabled = false
+	el._add("script", "x.gd:1 f", "boom")
+	var ev: Dictionary = CRASH.event(el, "gravelight@2.0.0+1", 1)
+	_ok("crash: event names the error", str(ev["exception"]["values"][0]["value"]).contains("boom"))
+	_ok("crash: event id is 32 hex", str(ev["event_id"]).length() == 32)
+	var env := CRASH.envelope("https://abc@h.example/9", ev).split("\n")
+	_ok("crash: envelope is header, item header, event", env.size() == 3 and JSON.parse_string(env[1])["type"] == "event" and JSON.parse_string(env[2])["event_id"] == ev["event_id"])
+	var blob := JSON.stringify(ev)
+	_ok("crash: event carries no save, name or account", not blob.contains("user_id") and not blob.contains(Game.player_name()))
+	# Gating: needs a DSN and a yes.
+	_ok("crash: no DSN in the repo, so nothing is due", str(ProjectSettings.get_setting("crash/dsn", "")) == "" and CRASH.dsn() == "" or OS.get_environment("CC_CRASH_DSN") != "")
+	var node: Node = CRASH.new()
+	var out: String = await node.send_if_due(el, "r", 1)
+	_ok("crash: nothing is sent without a DSN", out == "skipped")
+	node.free()
+	Game.data = keep
+
+
 func _gate_tests() -> void:
 	const GATE := preload("res://src/core/app_gate.gd")
 	var ok_body := '{"build": 12, "min_engine": 3, "min_native": 5, "store_url": "https://apps.apple.com/app/id1"}'.to_utf8_buffer()
@@ -1401,6 +1450,10 @@ func _gate_tests() -> void:
 	_ok("gate: a junk store link falls back", GATE.verdict({"min_native": 9, "store_url": "javascript:x"}, 3)["store_url"] == GATE.STORE_URL)
 	_ok("gate: App Store link says App Store", GATE.button_text("https://apps.apple.com/app/id1") == "OPEN APP STORE")
 	_ok("gate: sideload link says update", GATE.button_text(GATE.STORE_URL) == "GET THE UPDATE")
+	_ok("gate: itms-apps link says App Store", GATE.button_text("itms-apps://apps.apple.com/app/id1") == "OPEN APP STORE")
+	_ok("gate: a lookalike host is not the store", not GATE.is_store_url("https://apps.apple.com.evil.example/app/id1"))
+	_ok("gate: a query mention is not the store", GATE.button_text("https://example.com/?u=apps.apple.com/app/id1") == "GET THE UPDATE")
+	_ok("gate: empty link is not the store", not GATE.is_store_url(""))
 	var root: Window = (Engine.get_main_loop() as SceneTree).root
 	var g: Node = GATE.new()
 	root.add_child(g)

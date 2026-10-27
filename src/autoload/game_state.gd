@@ -42,6 +42,8 @@ func _fresh() -> Dictionary:
 		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}, "rifts": 0, "best_perfect": 0, "best_tier_won": 0},
 		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard", "buttons": "right", "haptics": true},
 		"seen_tutorial": false,
+		## The privacy screen's answer (see src/core/privacy.gd).
+		"privacy": {"v": 0, "crash": false, "online": true, "crash_sent": 0},
 		"seen_items": [],
 		"bounties": {"day": "", "list": []},
 		"zone": "barrow",

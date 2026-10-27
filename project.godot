@@ -21,6 +21,12 @@ Ota="*res://src/autoload/ota_boot.gd"
 Game="*res://src/autoload/game.gd"
 Sfx="*res://src/autoload/sfx.gd"
 
+[crash]
+
+; Sentry-compatible DSN. Empty in the repo on purpose: CI stamps it from the
+; CRASH_DSN secret when it builds the IPA (docs/app-store/checklist.md).
+dsn=""
+
 [ota]
 
 build=0

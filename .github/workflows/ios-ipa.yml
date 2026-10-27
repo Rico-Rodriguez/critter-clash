@@ -28,6 +28,8 @@ jobs:
           lfs: true
 
       - name: Stamp the OTA build number
+        env:
+          CRASH_DSN: ${{ secrets.CRASH_DSN }}
         run: |
           set -euo pipefail
           # Monotonic build id for OTA content packs and the AltStore source.
@@ -35,11 +37,21 @@ jobs:
           # src/autoload/ota_boot.gd before any pack mounts) and as its bundle version.
           BUILD="${{ github.run_number }}"
           python3 - "$BUILD" "${{ github.sha }}" << 'PY'
-          import re, sys
+          import os, re, sys
           build, sha = sys.argv[1], sys.argv[2]
           text = open("project.godot").read()
           text, n = re.subn(r'(\[ota\]\s*\nbuild=)\d+(\nsha=)"[^"]*"', r'\g<1>%s\g<2>"%s"' % (build, sha), text)
           assert n == 1, "project.godot [ota] section not found"
+          # Crash reporting: the DSN is a repo secret and never committed. Absent
+          # = reporting stays off in this build (src/core/crash_report.gd).
+          dsn = os.environ.get("CRASH_DSN", "").strip()
+          if dsn:
+              assert dsn.startswith("https://") and '"' not in dsn and "\n" not in dsn, "CRASH_DSN is not an https DSN"
+              text, n = re.subn(r'(\[crash\][^\[]*?\ndsn=)""', lambda m: m.group(1) + '"' + dsn + '"', text, count=1, flags=re.S)
+              assert n == 1, "project.godot [crash] section not found"
+              print("crash reporting DSN stamped")
+          else:
+              print("no CRASH_DSN secret: crash reporting off in this build")
           open("project.godot", "w").write(text)
           text = open("export_presets.cfg").read()
           base = re.search(r'^application/short_version="(\d+\.\d+)', text, re.M).group(1)
@@ -175,6 +187,10 @@ jobs:
           gate = json.load(open("tools/ota_gate.json"))
           info["min_native"] = int(gate.get("min_native", 0))
           info["store_url"] = str(gate.get("store_url", ""))
+          # Once the app has a listing, its id wins over the sideload placeholder.
+          app_id = str(gate.get("app_store_id", "")).strip()
+          if app_id.isdigit():
+              info["store_url"] = "https://apps.apple.com/app/id" + app_id
           json.dump(info, open("dist/version.json", "w"), indent=2)
           print(json.dumps(info, indent=2))
           PY
