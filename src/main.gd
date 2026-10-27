@@ -475,7 +475,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
-			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -514,6 +514,12 @@ func _capture(args: PackedStringArray) -> void:
 					Game.data["story"]["cleared"] = ["oath"]
 				if shot in ["shop", "shopbuy", "shoplooks"]:
 					Game.data["gold"] = 3240
+				if shot == "bounties":
+					Game.data["bounties"]["day"] = ""
+					Game.refresh_bounties("2030-01-%02d" % int(_arg(args, "day", "5")))
+					Game.data["bounties"]["list"][2]["progress"] = int(Game.data["bounties"]["list"][2]["target"])
+				if _arg(args, "pin", "") != "":
+					SKC.pin(Game.data, _arg(args, "pin", ""))
 				if shot == "talents":
 					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
 						Game.learn_talent(hid, n[0], n[1])
@@ -562,6 +568,12 @@ func _capture(args: PackedStringArray) -> void:
 					current.ui._sk_detail = "@breed" if shot == "breeding" else "@log"
 					current.ui._sheet.rebuild()
 					await _wait(0.8)
+				elif shot == "hatch" or shot == "hatchwobble":
+					# --pet=shade (what hatches) from --egg=exotic; "hatchwobble" stops mid-shake.
+					current.open_sheet("sidekicks")
+					await _wait(0.8)
+					current.ui.play_hatch({"id": _arg(args, "pet", "shade"), "kind": _arg(args, "egg", "exotic"), "new": true, "kills": 0})
+					await _wait(1.6 if shot == "hatchwobble" else 5.0)
 				elif shot == "sidekicks" or shot == "sidekick":
 					current.open_sheet("sidekicks")
 					await _wait(1.0)

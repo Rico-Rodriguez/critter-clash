@@ -247,6 +247,7 @@ func run() -> int:
 	ra.free()
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
+	_pet_polish_tests()
 	_hatchery_tests()
 	_breeding_tests()
 	_story_tests()
@@ -789,6 +790,70 @@ func _outfit_tests() -> void:
 				head_dyed += 1
 	_ok("outfit dyes the body, not the head", dyed >= 2 and head_dyed == 0)
 	a.queue_free()
+	Game.data = keep
+
+
+const PET_DB := preload("res://src/data/sidekick_db.gd")
+
+
+## Pet polish: rarity, the showcase, pet quests, and the hatching show.
+func _pet_polish_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	const HATCH := preload("res://src/ui/hatch_show.gd")
+	var keep := Game.data
+	Game.data = Game._fresh()
+	_ok("every species has a rarity", PET_DB.ORDER.all(func(i): return PET_DB.SPECIES_RARITY.has(i) and PET_DB.rarity(i) >= 0 and PET_DB.rarity(i) < PET_DB.GRADES.size()))
+	_ok("exotics outrank starters", PET_DB.rarity("shade") > PET_DB.rarity("wisp"))
+	_ok("empty stable, empty showcase", SK.showcase(Game.data).is_empty())
+	for id in ["wisp", "bonelet", "drake", "shade", "crow"]:
+		SK.own(Game.data, id)
+	var show: Array = SK.showcase(Game.data)
+	_ok("showcase fills with the rarest", show.size() == PET_DB.SHOWCASE_SLOTS and show[0] == "shade" and show[1] == "drake")
+	_ok("pin a common one", SK.pin(Game.data, "wisp") and SK.showcase(Game.data)[0] == "wisp" and SK.showcase(Game.data).size() == PET_DB.SHOWCASE_SLOTS)
+	_ok("cannot pin what you do not own", not SK.pin(Game.data, "sapling"))
+	SK.pin(Game.data, "bonelet")
+	SK.pin(Game.data, "crow")
+	_ok("the case holds three", not SK.pin(Game.data, "drake") and (Game.data["sidekicks"]["showcase"] as Array).size() == 3)
+	_ok("unpin", SK.pin(Game.data, "wisp") and not SK.is_pinned(Game.data, "wisp"))
+	# Pet quests: dealt one a day once a sidekick is yours, never before.
+	Game.data = Game._fresh()
+	for d in range(1, 21):
+		Game.refresh_bounties("2031-02-%02d" % d)
+		_ok("no pet quest without a pet (%d)" % d, Game.data["bounties"]["list"].all(func(e): return not e["id"] in DB.PET_BOUNTIES))
+		Game.data["bounties"]["day"] = ""
+	SK.own(Game.data, "wisp")
+	var all_pet := true
+	for d in range(1, 21):
+		Game.refresh_bounties("2031-02-%02d" % d)
+		var n: int = (Game.data["bounties"]["list"] as Array).filter(func(e): return e["id"] in DB.PET_BOUNTIES and e["id"] != "pet_breed").size()
+		all_pet = all_pet and n == 1 and Game.data["bounties"]["list"].size() == DB.BOUNTIES_PER_DAY
+		Game.data["bounties"]["day"] = ""
+	_ok("one pet quest a day, three in all", all_pet)
+	var entry := func(id: String, target: int) -> Dictionary:
+		return {"id": id, "target": target, "gold": 100, "gems": 3, "progress": 0, "claimed": false, "hero": "", "shards": 0, "shard_hero": ""}
+	Game.data["bounties"]["list"] = [entry.call("pet_kills", 100), entry.call("pet_win", 1), entry.call("pet_hatch", 1)]
+	SK.set_active(Game.data, "")
+	Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "hero": "knight", "gold": 10, "xp": {}, "items": [], "kills": 130, "elites": 0, "level": 3, "mode": "horde", "time": 90.0})
+	_ok("pet quests need a pet along", int(Game.data["bounties"]["list"][0]["progress"]) == 0 and int(Game.data["bounties"]["list"][1]["progress"]) == 0)
+	SK.set_active(Game.data, "wisp")
+	Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "hero": "knight", "gold": 10, "xp": {}, "items": [], "kills": 130, "elites": 0, "level": 3, "mode": "horde", "time": 90.0})
+	_ok("pet kills and win count with a pet", int(Game.data["bounties"]["list"][0]["progress"]) == 100 and int(Game.data["bounties"]["list"][1]["progress"]) == 1)
+	_ok("hatch quest waits for a hatch", int(Game.data["bounties"]["list"][2]["progress"]) == 0)
+	Game.bounty_note("hatched")
+	_ok("hatching counts", int(Game.data["bounties"]["list"][2]["progress"]) == 1)
+	var gems0 := int(Game.data["gems"])
+	var paid := Game.claim_bounty(2)
+	_ok("pet quest pays gems", int(paid.get("gems", 0)) == 3 and int(Game.data["gems"]) == gems0 + 3)
+	# The hatching show builds for every egg and rarity without error.
+	var root := (Engine.get_main_loop() as SceneTree).root
+	for pet in ["wisp", "drake", "shade"]:
+		var host := Control.new()
+		host.size = Vector2(720, 1280)
+		root.add_child(host)
+		var h: Control = HATCH.new()
+		h.play(host, {"id": pet, "kind": "brood", "new": true, "kills": 0})
+		_ok("hatch show builds for %s" % pet, h.get_child_count() >= 6)
+		host.queue_free()
 	Game.data = keep
 
 

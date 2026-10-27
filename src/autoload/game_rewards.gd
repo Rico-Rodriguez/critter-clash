@@ -373,16 +373,20 @@ func refresh_bounties(today := "") -> bool:
 		return false
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(today)
-	var ids: Array = DB.BOUNTY_POOL.keys()
+	var ids: Array = DB.BOUNTY_POOL.keys().filter(func(i): return not i in DB.PET_BOUNTIES)
 	if int(data["tier_unlocked"]) < DB.TIER_VETERAN:
 		ids.erase("veteran")
+	# With a sidekick in the stable, one of the three is a pet quest.
+	var pets: Array = DB.PET_BOUNTIES.filter(func(i): return (data.get("sidekicks", {}).get("owned", {}) as Dictionary).size() >= int(DB.BOUNTY_POOL[i].get("needs", 1)))
 	var list := []
 	while list.size() < DB.BOUNTIES_PER_DAY and not ids.is_empty():
-		var id: String = ids[rng.randi() % ids.size()]
+		var pet_turn := list.size() == DB.BOUNTIES_PER_DAY - 1 and not pets.is_empty()
+		var from: Array = pets if pet_turn else ids
+		var id: String = from[rng.randi() % from.size()]
 		ids.erase(id)
 		var def: Dictionary = DB.BOUNTY_POOL[id]
 		var k := rng.randi() % (def["targets"] as Array).size()
-		var entry := {"id": id, "target": int(def["targets"][k]), "gold": int(def["gold"][k]), "progress": 0, "claimed": false, "hero": "", "shards": 0, "shard_hero": ""}
+		var entry := {"id": id, "target": int(def["targets"][k]), "gold": int(def["gold"][k]), "progress": 0, "claimed": false, "hero": "", "shards": 0, "shard_hero": "", "gems": int(def["gems"][k]) if def.has("gems") else 0}
 		if def.has("hero"):
 			var pool: Array = DB.HERO_ORDER.filter(func(h): return hero(h)["unlocked"])
 			entry["hero"] = pool[rng.randi() % pool.size()]
@@ -415,6 +419,13 @@ func bounty_claimable() -> int:
 	return n
 
 
+## Counts something that happened outside a hunt (an egg hatched, a pair bred)
+## toward today's bounties: `stat` is the bounty's stat key.
+func bounty_note(stat: String, n := 1) -> void:
+	_bounty_progress({stat: n})
+	save()
+
+
 func _bounty_progress(r: Dictionary) -> void:
 	var won: bool = r.get("win", false)
 	for e in data["bounties"]["list"]:
@@ -424,6 +435,8 @@ func _bounty_progress(r: Dictionary) -> void:
 		if def.has("veteran") and int(r.get("tier", 0)) < DB.TIER_VETERAN:
 			continue
 		if def.has("hero") and str(r.get("hero", "")) != str(e["hero"]):
+			continue
+		if def.has("pet") and not bool(r.get("pet", false)):
 			continue
 		var amount := 0
 		match def["stat"]:
@@ -446,12 +459,13 @@ func claim_bounty(i: int) -> Dictionary:
 		return {}
 	e["claimed"] = true
 	data["gold"] = gold() + int(e["gold"])
+	data["gems"] = int(data.get("gems", 0)) + int(e.get("gems", 0))
 	var sh := str(e.get("shard_hero", ""))
 	if int(e["shards"]) > 0 and sh != "":
 		hero(sh)["shards"] = int(hero(sh)["shards"]) + int(e["shards"])
 	var opened := unlock_by_shards()
 	save()
-	return {"gold": int(e["gold"]), "shards": int(e["shards"]), "hero": sh, "unlocked": opened}
+	return {"gold": int(e["gold"]), "gems": int(e.get("gems", 0)), "shards": int(e["shards"]), "hero": sh, "unlocked": opened}
 
 
 # --- Shop ----------------------------------------------------------------------
