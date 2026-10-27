@@ -868,6 +868,7 @@ func set_low(on: bool) -> void:
 		if not on:
 			env.ssao_radius = 1.2
 			env.ssao_intensity = 1.6
+	life.set_low(on)
 	if _grass_mm:
 		_grass_mm.visible_instance_count = int(_grass_n * (500.0 / 1300.0)) if on else _grass_n
 	if _mist:

@@ -27,12 +27,14 @@ var _push: Array[Vector4] = [Vector4(), Vector4(), Vector4(), Vector4()]
 var _print_mm: MultiMesh
 var _print_mat: ShaderMaterial
 var _print_i := 0
+var _print_n := PRINTS
 var _print_last := Vector3(1e6, 0, 1e6)
 var _print_side := 1.0
 # bats and beetles
 var bats: MultiMeshInstance3D
 var _bug_mm: MultiMesh
 var _bugs: Array = []
+var _bug_n := 14
 # reactive props
 var _react: Array = []
 var _moving: Array = []
@@ -40,6 +42,20 @@ var _moving: Array = []
 
 func _init(a: Node3D) -> void:
 	arena = a
+
+
+## Graphics quality: everything is built at full count and low shows a subset,
+## so the setting can flip either way in a running hunt.
+func set_low(on: bool) -> void:
+	_print_n = 24 if on else PRINTS
+	_print_i = 0
+	if _print_mm:
+		_print_mm.visible_instance_count = _print_n
+	if bats:
+		bats.multimesh.visible_instance_count = 4 if on else 7
+	if _bug_mm:
+		_bug_n = 7 if on else 14
+		_bug_mm.visible_instance_count = _bug_n
 
 
 # --- Grass ---------------------------------------------------------------
@@ -60,6 +76,7 @@ func setup(outdoor: bool) -> void:
 	if outdoor:
 		_setup_bats()
 		_setup_bugs()
+	set_low(arena.low)
 
 
 func _setup_prints() -> void:
@@ -70,7 +87,7 @@ func _setup_prints() -> void:
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(0.26, 0.4)
 	_print_mm.mesh = pm
-	_print_mm.instance_count = PRINTS if not arena.low else 24
+	_print_mm.instance_count = PRINTS
 	var gone := Transform3D(Basis.IDENTITY.scaled(Vector3.ZERO), Vector3.ZERO)
 	for i in _print_mm.instance_count:
 		_print_mm.set_instance_transform(i, gone)
@@ -110,7 +127,7 @@ func _step(pos: Vector3, vel: Vector3) -> void:
 	_print_mm.set_instance_transform(_print_i, Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, 0.045, p.z)))
 	_print_mm.set_instance_color(_print_i, Color(0.04, 0.03, 0.025, 0.4))
 	_print_mm.set_instance_custom_data(_print_i, Color(_now, 0, 0, 0))
-	_print_i = (_print_i + 1) % _print_mm.instance_count
+	_print_i = (_print_i + 1) % _print_n
 
 
 # --- Bats ----------------------------------------------------------------
@@ -135,7 +152,7 @@ func _setup_bats() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
 	mm.mesh = m
-	var n := 4 if arena.low else 7
+	var n := 7
 	mm.instance_count = n
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242
@@ -168,7 +185,7 @@ func _setup_bugs() -> void:
 	sm.radial_segments = 8
 	sm.rings = 4
 	_bug_mm.mesh = sm
-	var n := 7 if arena.low else 14
+	var n := 14
 	_bug_mm.instance_count = n
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 909
@@ -215,7 +232,7 @@ func _flee(b: Dictionary, away: Vector2) -> void:
 
 
 func _tick_bugs(dt: float, hero: Vector3) -> void:
-	for i in _bugs.size():
+	for i in _bug_n:
 		var b: Dictionary = _bugs[i]
 		var p: Vector3 = b["p"]
 		if float(b["run"]) <= 0.0:
