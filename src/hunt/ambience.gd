@@ -65,20 +65,18 @@ class Bit extends RefCounted:
 
 ## The Hunt's entry. Builds the set on the first call; null when the zone has none.
 static func tick(hunt, dt: float) -> void:
-	var a: Variant = hunt.get_meta("ambience", null)
-	if a == null:
-		if hunt.has_meta("ambience"):
-			return
-		a = make(hunt, hunt.zone_id)
-		hunt.set_meta("ambience", a)
-	if a != null:
+	if not hunt.has_meta("ambience"):
+		var made: Variant = make(hunt, hunt.zone_id)
+		hunt.set_meta("ambience", made if made != null else false)  # a null meta would remove the key
+	var a: Variant = hunt.get_meta("ambience")
+	if a is RefCounted:
 		(a as RefCounted).step(dt)
 
 
 static func make(hunt, zone_id: String) -> RefCounted:
 	if not SETS.has(zone_id):
 		return null
-	var a := (load("res://src/hunt/ambience.gd") as GDScript).new()
+	var a: RefCounted = (load("res://src/hunt/ambience.gd") as GDScript).new()
 	a.setup(hunt, zone_id)
 	return a
 
@@ -103,7 +101,7 @@ func setup(hunt, zone_id: String) -> void:
 
 
 func step(dt: float) -> void:
-	if h._warming or h._ended or not h.hero.alive:
+	if h._warming or h._ended or not h.hero.alive or not (h.phase == "rise" or h.phase == "boss"):
 		return
 	_bed_level(dt)
 	_spawn_t -= dt
@@ -189,7 +187,7 @@ func _shots(dt: float) -> void:
 		var span: Vector2 = s[2]
 		_shot_t[i] = randf_range(span.x, span.y)
 		var a := randf() * TAU
-		var at := h.hero.flat_pos() + Vector3(sin(a), 0, cos(a)) * randf_range(6.0, 12.0)
+		var at: Vector3 = h.hero.flat_pos() + Vector3(sin(a), 0, cos(a)) * randf_range(6.0, 12.0)
 		play(str(s[0]), float(s[1]), at)
 		if str(s[0]) == "swamp_ember" and not h.low:
 			h.fx.embers_at(at, Color(1.0, 0.55, 0.15), 1, 0.4)
@@ -201,7 +199,7 @@ func _breath(dt: float) -> void:
 	if _breath_t > 0.0:
 		return
 	_breath_t = 1.6
-	var hp := h.hero.flat_pos()
+	var hp: Vector3 = h.hero.flat_pos()
 	var n := 0
 	for f in h.foes:
 		if not f.alive or f.state == "spawn" or f.def.get("fly", false):
@@ -246,8 +244,8 @@ func _spawn_one() -> void:
 
 
 func _spot(kind: String) -> Variant:
-	var hp := h.hero.flat_pos()
-	var ar := h.arena
+	var hp: Vector3 = h.hero.flat_pos()
+	var ar: Node = h.arena
 	var tr: Object = ar.get("terrain")
 	if tr == null and ar.has_meta("terrain"):
 		tr = ar.get_meta("terrain")
@@ -276,7 +274,7 @@ func spawn(kind: String, at: Vector3) -> Bit:
 	b.node.scale = Vector3.ONE * 0.01
 	h.world.add_child(b.node)
 	b.life = randf_range(14.0, 26.0)
-	var to := h.hero.flat_pos() - b.node.position
+	var to: Vector3 = h.hero.flat_pos() - b.node.position
 	b.node.rotation.y = atan2(to.x, to.z) + randf_range(-0.8, 0.8)
 	match kind:
 		"hare":
@@ -492,18 +490,19 @@ func _build_bubble(b: Bit) -> void:
 
 
 func _build_ring(b: Bit) -> void:
-	var tor := TorusMesh.new()
-	tor.inner_radius = 0.17
-	tor.outer_radius = 0.22
-	tor.rings = 14
-	tor.ring_segments = 5
-	b.parts["ring"] = _m(b.node, tor, Color(0.62, 0.7, 0.5), Vector3(0, 0.05, 0), Vector3(1, 0.4, 1))
+	var ring := Node3D.new()
+	ring.position = Vector3(0, 0.05, 0)
+	b.node.add_child(ring)
+	b.parts["ring"] = ring
+	for i in 8:
+		var a := TAU * i / 8.0
+		_m(ring, _box(0.2, 0.02, 0.05), Color(0.62, 0.7, 0.5), Vector3(sin(a), 0, cos(a)) * 0.2, Vector3.ONE, Vector3(0, a + PI / 2, 0))
 
 
 # --- Behaviour ------------------------------------------------------------------
 
 func _away(b: Bit) -> Vector3:
-	var d := b.node.position - h.hero.flat_pos()
+	var d: Vector3 = b.node.position - h.hero.flat_pos()
 	d.y = 0.0
 	if d.length() < 0.05:
 		d = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
@@ -515,7 +514,7 @@ func _dist(b: Bit) -> float:
 
 
 func _clamped(p: Vector3) -> bool:
-	var ar := h.arena
+	var ar: Node = h.arena
 	return p.x <= ar.min_x + 0.5 or p.x >= ar.max_x - 0.5 or p.z <= ar.min_z + 0.5 or p.z >= ar.max_z - 0.5
 
 
@@ -571,6 +570,9 @@ func _hare(b: Bit, dt: float) -> void:
 	b.node.rotation.y = atan2(d.x, d.z)
 	body.position.y = absf(sin(b.t * 13.0)) * 0.2
 	if _clamped(b.node.position):
+		var ar: Node = h.arena
+		b.node.position.x = clampf(b.node.position.x, ar.min_x + 0.5, ar.max_x - 0.5)
+		b.node.position.z = clampf(b.node.position.z, ar.min_z + 0.5, ar.max_z - 0.5)
 		b.leave = minf(b.leave, 0.5)
 
 
@@ -607,7 +609,7 @@ func _wolf(b: Bit, dt: float) -> void:
 	var legs: Array = b.parts["legs"]
 	if b.st == "idle":
 		b.life -= dt
-		var to := h.hero.flat_pos() - b.node.position
+		var to: Vector3 = h.hero.flat_pos() - b.node.position
 		b.node.rotation.y = lerp_angle(b.node.rotation.y, atan2(to.x, to.z), minf(dt * 1.2, 1.0))
 		body.rotation.x = sin(b.t * 0.9) * 0.02
 		if _dist(b) < 5.5 or b.life <= 0.0:
@@ -700,6 +702,6 @@ func _bubble(b: Bit, dt: float) -> void:
 
 func _ring(b: Bit, dt: float) -> void:
 	var k := minf(b.t / 1.5, 1.0)
-	(b.parts["ring"] as Node3D).scale = Vector3(1.0 + k * 3.2, 0.4 * (1.0 - k * 0.7), 1.0 + k * 3.2)
+	(b.parts["ring"] as Node3D).scale = Vector3(1.0 + k * 3.2, 1.0, 1.0 + k * 3.2)
 	if k >= 1.0 and b.leave == INF:
 		b.leave = 0.01
