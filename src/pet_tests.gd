@@ -11,6 +11,7 @@ const GEN := preload("res://src/data/pet_gen.gd")
 const PARTS := preload("res://src/core/pet_parts.gd")
 const PG := preload("res://src/core/pet_graft.gd")
 const SKL := preload("res://src/core/sidekick_look.gd")
+const SKIN := preload("res://src/core/pet_skin.gd")
 
 const T0 := 1_800_000_000
 
@@ -19,6 +20,7 @@ static func run(ok: Callable) -> void:
 	_sources(ok)
 	_shop(ok)
 	_breeds(ok)
+	_skins(ok)
 	_hatch(ok)
 	_log(ok)
 
@@ -323,6 +325,115 @@ static func _breeds(ok: Callable) -> void:
 			var donor := str(ch["genes"]["parts"][slot])
 			rolled = rolled and (donor == SDB.body_of(str(ch["breed"])) or GEN.donates(donor, slot))
 	ok.call("breeds: a rolled child never gets a part that can't be shown", rolled)
+
+
+## Every mutation and coat pattern changes a real pet's materials: the artist's
+## own StandardMaterial3Ds become shared variant ShaderMaterials (and nothing is
+## stuck on).
+static func _skins(ok: Callable) -> void:
+	var variants: Array = []
+	for m: String in GEN.MUTATION_ORDER:
+		variants.append({"name": m, "mutation": m, "pattern": "plain", "glow": false})
+	variants.append({"name": "spots", "mutation": "", "pattern": "spots", "glow": false})
+	variants.append({"name": "stripes", "mutation": "", "pattern": "stripes", "glow": false})
+	variants.append({"name": "glow", "mutation": "", "pattern": "plain", "glow": true})
+	ok.call("skins: six mutations, two drawn coats and glow are all variants", variants.size() == 9 and GEN.MUTATION_ORDER.size() == 6)
+	var uniforms := {}
+	for u: Dictionary in SKIN.SHADER.get_shader_uniform_list():
+		uniforms[u["name"]] = true
+	var changed := true
+	var stray := ""
+	var plain_clean := true
+	var all_converted := true
+	var distinct := true
+	var shared := true
+	var per_pet := true
+	var seen := 0
+	for sp: String in SDB.ORDER:
+		var pg := SDB.base_genes()
+		SDB.BRED["x96"] = SDB.bred_def(sp, pg)
+		var plain: Node3D = SKL.build("x96", false)["root"]
+		for n in plain.find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			plain_clean = plain_clean and not (mi.material_override is ShaderMaterial)
+			for i in mi.get_surface_override_material_count():
+				plain_clean = plain_clean and not (mi.get_surface_override_material(i) is ShaderMaterial)
+		var plain_ids := _skin_ids(plain)
+		plain.free()
+		var ids_by_variant := {}
+		for v: Dictionary in variants:
+			var g := SDB.base_genes()
+			g["mutation"] = v["mutation"]
+			g["pattern"] = v["pattern"]
+			g["glow"] = v["glow"]
+			g["accent"] = "ff8a3d"
+			SDB.BRED["x96"] = SDB.bred_def(sp, g)
+			var pet: Node3D = SKL.build("x96", false)["root"]
+			var want := SKIN.variant(g)
+			var got := 0
+			for n in pet.find_children("*", "MeshInstance3D", true, false):
+				var mi := n as MeshInstance3D
+				if mi.mesh == null:
+					continue
+				for i in mi.mesh.get_surface_count():
+					var mat := mi.get_active_material(i)
+					if mat is BaseMaterial3D:
+						all_converted = false
+						stray = "%s/%s" % [sp, mi.name]
+						continue
+					var sm := mat as ShaderMaterial
+					if sm == null or sm.shader != SKIN.SHADER:
+						continue
+					got += 1
+					changed = changed and int(sm.get_shader_parameter("mutation")) == int(want["mutation"]) \
+						and int(sm.get_shader_parameter("pattern")) == int(want["pattern"]) \
+						and (float(sm.get_shader_parameter("glow_on")) > 0.5) == bool(want["glow"])
+					for u: String in ["albedo", "mutation", "pattern", "glow_on", "mut_color", "pat_scale", "tex_albedo"]:
+						changed = changed and uniforms.has(u)
+				if mi.get_instance_shader_parameter("accent") != null and not Color.html("ff8a3d").is_equal_approx(mi.get_instance_shader_parameter("accent")):
+					per_pet = false
+			var ids := _skin_ids(pet)
+			ids_by_variant[v["name"]] = ids
+			changed = changed and got > 0 and ids != plain_ids
+			seen += got
+			pet.free()
+		# Every variant draws with materials no other variant (or the plain pet) uses.
+		var all_ids: Array = [plain_ids]
+		for v: Dictionary in variants:
+			var ids: Array = ids_by_variant[v["name"]]
+			for other: Array in all_ids:
+				for id in ids:
+					distinct = distinct and not other.has(id)
+			all_ids.append(ids)
+		# The same variant on a second pet is the same material objects, whatever its accent.
+		var g2 := SDB.base_genes()
+		g2["mutation"] = "gilded"
+		g2["accent"] = "6ee7ff"
+		SDB.BRED["x96"] = SDB.bred_def(sp, g2)
+		var other_pet: Node3D = SKL.build("x96", false)["root"]
+		shared = shared and _skin_ids(other_pet) == ids_by_variant["gilded"]
+		other_pet.free()
+	SDB.BRED.erase("x96")
+	ok.call("skins: every mutation, coat and glow puts its own shader materials on a pet of every species (%d surfaces)" % seen, changed and seen > 0)
+	ok.call("skins: every surface of every species converts, none is left as the artist made it (%s)" % stray, all_converted)
+	ok.call("skins: each variant's materials are its own, none shared with another variant or the plain pet", distinct)
+	ok.call("skins: two pets in one variant share their materials (accent is per instance)", shared and per_pet)
+	ok.call("skins: a plain pet keeps the artist's materials", plain_clean)
+
+
+## Instance ids of the variant materials on a model.
+static func _skin_ids(root: Node3D) -> Array:
+	var ids := []
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			var mat := mi.get_active_material(i)
+			if mat is ShaderMaterial and not ids.has(mat.get_instance_id()):
+				ids.append(mat.get_instance_id())
+	ids.sort()
+	return ids
 
 
 ## Triangles in every mesh of a model, hidden ones left out.
