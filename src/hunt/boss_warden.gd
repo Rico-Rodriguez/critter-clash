@@ -6,6 +6,12 @@ extends Boss
 ##   lockdown  a ring of blasts shuts round the hero with one gap left open,
 ##             then the middle falls in: walk out through the gap
 ## Spending a lockdown leaves him open. Enraged, more coins and a tighter ring.
+## Across the fight:
+##   phase 2  Avalanche: gold pours down in lanes across the floor, one after
+##            another; stand between them
+##   phase 3  the avalanche comes in a grid (a second set crosses the first), and
+##            his charges chain, one into the next
+## The room: gilded vault floor (slow, burning gold) takes the edges at 2 and 3.
 ## (No class_name: scripts the IPA didn't bake are preloaded by path.)
 
 const GOLD := Color(1.0, 0.82, 0.35)
@@ -16,10 +22,14 @@ var _coins: Array = []
 func setup(h: Hunt, t: Dictionary) -> void:
 	super.setup(h, t)
 	keep_dist = 3.6
+	chain_charge = true
 
 
 func _choose(dist: float) -> void:
+	combo = 0
 	var options := ["coinfall", "lockdown"]
+	if phase >= 2:
+		options += ["avalanche", "avalanche"]
 	if dist < 5.5:
 		options += ["cleave", "quake"]
 	else:
@@ -29,7 +39,7 @@ func _choose(dist: float) -> void:
 
 
 func _begin(p: String) -> void:
-	if not p in ["coinfall", "lockdown"]:
+	if not p in ["coinfall", "lockdown", "avalanche"]:
 		super._begin(p)
 		return
 	_clear_tele()
@@ -52,6 +62,31 @@ func _begin(p: String) -> void:
 			step_t = 1.0
 			play("Ranged_Magic_Summon", 0.1, 1.0, true)
 			Sfx.play("boss_windup", -4.0, 1.4)
+		"avalanche":
+			# Lanes of gold across the floor, falling one after another.
+			var fwd := dir_of(rotation.y)
+			var perp := dir_of(rotation.y + PI * 0.5)
+			var c := hero.flat_pos()
+			var skip := randi() % 5
+			for i in 5:
+				if i == skip and final:
+					continue
+				var off := (i - 2) * 3.8
+				var from := hunt.arena.resolve(c - fwd * 7.0 + perp * off, 0.4)
+				hunt.beam_from(from, rotation.y, 1.0 + 0.22 * i, dmg * 0.9, GOLD)
+			if final:
+				# The second set crosses the first.
+				var skip2 := randi() % 5
+				for i in 5:
+					if i == skip2:
+						continue
+					var off2 := (i - 2) * 3.8
+					var from2 := hunt.arena.resolve(c - perp * 7.0 + fwd * off2, 0.4)
+					hunt.beam_from(from2, rotation.y + PI * 0.5, 2.1 + 0.22 * i, dmg * 0.9, GOLD)
+			step_t = (3.4 if final else 2.3)
+			play("Skeletons_Taunt", 0.1, 1.0, true)
+			Sfx.play("boss_roar", -4.0, 1.3)
+			hunt.hud.event("Avalanche", GOLD, "two-coins")
 		"lockdown":
 			# Bolts all round the hero but one gap, then the middle.
 			var at := hero.flat_pos()
@@ -71,7 +106,7 @@ func _begin(p: String) -> void:
 
 
 func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
-	if not pattern in ["coinfall", "lockdown"]:
+	if not pattern in ["coinfall", "lockdown", "avalanche"]:
 		super._tick_pattern(dt, to, dist)
 		return
 	step_t -= dt
@@ -93,9 +128,30 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				if step - 1 >= _coins.size():
 					hunt.shake(0.25)
 					_finish(0.6)
+		"avalanche":
+			if step_t <= 0.0:
+				hunt.shake(0.3)
+				_finish(0.7)
 		"lockdown":
 			if step_t <= 0.0:
 				hunt.shake(0.4)
 				_finish(0.4)
 				# The vault shut on nothing: the moment to strike.
 				expose(float(DB.EXPOSED["time"]) * 0.6)
+
+
+func _phase_lines(n: int) -> Array:
+	if n == 2:
+		return ["The Vault opens", "\"Nothing leaves the Vault.\""]
+	return ["The Vault seals", "\"Every coin has its keeper.\""]
+
+
+func _phase_fx(n: int) -> void:
+	hunt.fx.vfx.nova(&"holy", flat_pos(), 8.0, 0.45, Fx.VfxLib.NO_TINT, &"big")
+	if n == 3:
+		hunt.fx.vfx.sky(flat_pos() + Vector3(2, 0, 2), GOLD, 0.3, 14.0)
+
+
+func _phase_arena(n: int) -> void:
+	# Gilded floor takes the vault's edge: it drags and it burns.
+	_patch_ring(4 if n == 2 else 7, 9.5 if n == 2 else 11.0, 1.8, 14.0, dmg * 0.25, &"holy", true, randf() * TAU)
