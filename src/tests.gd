@@ -1009,7 +1009,7 @@ func _hatchery_tests() -> void:
 	SK.own(d2, "shade")
 	var ex := SK.give_egg(d2, "exotic", t0, 99)
 	var dup := SK.hatch(d2, int(ex["uid"]), t0 + 13 * 3600)
-	_ok("hatchery: a duplicate pays bond kills", not bool(dup["new"]) and int(dup["kills"]) == SKDB_T.DUP_KILLS and SK.kills(d2, str(dup["id"])) == SKDB_T.DUP_KILLS)
+	_ok("hatchery: a duplicate hatches its own individual", bool(dup["new"]) and bool(dup.get("wild", false)) and SK.bred_ids(d2).has(str(dup["id"])) and SKDB_T.species(str(dup["id"])) in ["drake", "bat", "mimic", "barrow_squire", "shade", "sapling"] and SK.kills(d2, SKDB_T.species(str(dup["id"]))) == 0)
 	_ok("hatchery: same egg seed, same sidekick", SK.egg_result(Game._fresh(), {"kind": "brood", "seed": 42}) == SK.egg_result(Game._fresh(), {"kind": "brood", "seed": 42}))
 	# Pools only name real sidekicks.
 	var pools_ok := true

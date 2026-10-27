@@ -825,6 +825,87 @@ func _capture(args: PackedStringArray) -> void:
 				lob.hero.rotation.y = 0.35
 				await _wait(1.5)
 				await _save("icon")
+			"petlineup":
+				# Pets 2.0 review: a row of bred pets at camp, close up. --row=parts|
+				# mutations|coats, --back looks from behind (wings and tails).
+				const SKLU := preload("res://src/core/sidekick_look.gd")
+				_set_screen_now("lobby")
+				var lu: Node = current
+				lu.ui.visible = false
+				lu.hero.visible = false
+				for c in lu.get_children():
+					if c is Node3D:
+						(c as Node3D).visible = false
+					elif c is WorldEnvironment:
+						c.queue_free()
+				var stage := Node3D.new()
+				add_child(stage)
+				var ground := MeshInstance3D.new()
+				var gpm := PlaneMesh.new()
+				gpm.size = Vector2(40, 40)
+				ground.mesh = gpm
+				var gmat := StandardMaterial3D.new()
+				gmat.albedo_color = Color(0.2, 0.18, 0.22)
+				ground.material_override = gmat
+				stage.add_child(ground)
+				var lenv := Environment.new()
+				lenv.background_mode = Environment.BG_COLOR
+				lenv.background_color = Color(1, 0, 1) if args.has("--ortho=front") or args.has("--ortho=side") else Color(0.1, 0.11, 0.18)
+				lenv.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+				lenv.ambient_light_color = Color(0.75, 0.78, 0.9)
+				lenv.ambient_light_energy = 0.8
+				var lwe := WorldEnvironment.new()
+				lwe.environment = lenv
+				stage.add_child(lwe)
+				var lsun := DirectionalLight3D.new()
+				lsun.rotation_degrees = Vector3(-45, 25, 0)
+				stage.add_child(lsun)
+				var lcam := Camera3D.new()
+				lcam.fov = 30.0
+				stage.add_child(lcam)
+				lcam.make_current()
+				var lrows := {
+					"parts": [["drake", {"head": "bonelet"}, ""], ["drake", {"wings": "bat", "tail": "crow"}, ""], ["bonelet", {"head": "drake", "tail": "wisp"}, ""], ["hexling", {"head": "crow", "tail": "sapling"}, ""], ["acolyte", {"head": "mimic", "wings": "lid"}, ""], ["sapling", {"head": "barrow_squire", "wings": "bat", "tail": "mimic"}, ""]],
+					"mutations": [["bonelet", {}, "gilded"], ["hexling", {}, "frostborn"], ["bonelet", {}, "stormtouched"], ["wisp", {}, "voidborn"], ["hexling", {}, "emberheart"], ["sapling", {}, "verdant"]],
+					"coats": [["wisp", {}, ""], ["bonelet", {}, ""], ["hexling", {}, ""], ["sapling", {}, ""], ["acolyte", {}, ""], ["shade", {}, ""]],
+				}
+				var lrow := str(_arg(args, "row", "parts"))
+				var lspecs: Array = lrows[lrow]
+				var solo := str(_arg(args, "solo", ""))
+				if solo != "":
+					lspecs = [[solo, {"head": "bonelet", "wings": "bat", "tail": "crow"} if args.has("--parts") else {}, ""]]
+				if str(_arg(args, "only", "")) != "":
+					lspecs = [lspecs[int(_arg(args, "only", "0"))]]
+				for i in lspecs.size():
+					var spec: Array = lspecs[i]
+					var g := SKLU.SDB.base_genes()
+					g["parts"] = spec[1]
+					g["mutation"] = spec[2]
+					if lrow == "coats":
+						SKLU.SDB._apply_variant(g, str(spec[0]), str(SKLU.SDB.GEN.variants(str(spec[0]))[(i + 1) % 4]["id"]))
+					var id := "x%d" % (300 + i)
+					SKLU.SDB.BRED[id] = SKLU.SDB.bred_def(str(spec[0]), g)
+					var lb: Dictionary = SKLU.build(id, false)
+					var m: Node3D = lb["root"]
+					stage.add_child(m)
+					m.position = Vector3(-1.25 * (lspecs.size() - 1) * 0.5 + 1.25 * i, 0, 0)
+					if lb["anim"] != null and str(lb["idle"]) != "":
+						(lb["anim"] as AnimationPlayer).play(str(lb["idle"]))
+					m.rotation.y = PI if args.has("--back") else 0.0
+				var ortho := str(_arg(args, "ortho", ""))
+				if ortho != "":
+					# Flat-lit silhouette views (front / side, 200 px per metre at 600x600)
+					# for measuring a body's frame: tools/dev/pet_frames.py reads them.
+					ground.visible = false
+					lcam.projection = Camera3D.PROJECTION_ORTHOGONAL
+					lcam.size = 3.0
+					lcam.look_at_from_position(Vector3(0, 1.0, 6.0) if ortho == "front" else Vector3(6.0, 1.0, 0), Vector3(0, 1.0, 0), Vector3.UP)
+				elif solo != "" or lspecs.size() == 1:
+					lcam.look_at_from_position(Vector3(2.4, 1.1, 2.8), Vector3(0, 0.45, 0), Vector3.UP)
+				else:
+					lcam.look_at_from_position(Vector3(0, 1.9, 6.6), Vector3(0, 0.75, 0), Vector3.UP)
+				await _wait(1.5)
+				await _save("petlineup_" + (solo if solo != "" else lrow) + ("_" + ortho if ortho != "" else "") + ("_back" if args.has("--back") else ""))
 			"appicon", "splash":
 				# The app icon: the hero with a lantern in the dark, in plain
 				# polished gear so no rarity glow muddies it at 60 px

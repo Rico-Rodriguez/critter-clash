@@ -5,6 +5,7 @@ extends RefCounted
 ## "" when the model lacks it)}.
 
 const SDB := preload("res://src/data/sidekick_db.gd")
+const PARTS := preload("res://src/core/pet_parts.gd")
 const Q_DIR := "res://assets/quaternius/"
 ## Licensed hero-quality replacements (CC0 / CC-BY, see CREDITS.md): "sf:name".
 const SF_DIR := "res://assets/sidekicks/"
@@ -83,6 +84,7 @@ static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 			_crest(root, Color(d["color"]).lightened(0.25), top).name = "ElderCrown"
 		if d.has("genes"):
 			_traits(root, d, top)
+			PARTS.attach(root, model, d, grow)
 	out["root"] = root
 	return out
 
