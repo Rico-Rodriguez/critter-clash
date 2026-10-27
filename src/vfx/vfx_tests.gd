@@ -184,8 +184,8 @@ const TIER_MAP := {
 	"proj.gd:h.fx.vfx.travel(el": "light",
 	"proj.gd:h.fx.vfx.impact(&\"shadow\", at, r": "light",
 	"hero.gd:hunt.fx.vfx.nova(&\"physical\", at, r * 1.1": "light",
+	"pet_fx.gd:v.impact(&\"physical\", at, minf(r, 1.45), Color(0, 0, 0, 0), &\"skill\")": "skill",
 	"hero.gd:hunt.fx.lightning(pts, col": "light",
-	"sidekick.gd:0.55 if not is_special() else 0.8": "light",
 	"hero.gd:hunt.fx.vfx.nova(&\"frost\", at, radius": "skill",
 	"hero.gd:hunt.fx.vfx.nova(&\"fire\", flat_pos(), 3.4": "big",
 	"boss.gd:hunt.fx.vfx.nova(&\"fire\", flat_pos(), 6.0": "big",
@@ -232,7 +232,7 @@ const LEGACY := ["fx.ring(", "func ring(", "TorusMesh", "\"tongue\"", "flash_lig
 ## Effect code (not world art) may not use additive blending or emission glow.
 const GLOW := ["blend_add", "BLEND_MODE_ADD", "emission_enabled = true"]
 const EFFECT_FILES := ["res://src/vfx/vfx_lib.gd", "res://src/hunt/fx.gd", "res://src/hunt/hunt_loot.gd", "res://src/hunt/proj.gd",
-	"res://src/hunt/sidekick.gd", "res://src/core/gear_look.gd", "res://src/vfx/sc_beam.gdshader", "res://src/vfx/sc_mote.gdshader", "res://src/hunt/boss.gd", "res://src/hunt/hero.gd", "res://src/hunt/enemy.gd"]
+	"res://src/hunt/sidekick.gd", "res://src/hunt/pet_fx.gd", "res://src/core/gear_look.gd", "res://src/vfx/sc_beam.gdshader", "res://src/vfx/sc_mote.gdshader", "res://src/hunt/boss.gd", "res://src/hunt/hero.gd", "res://src/hunt/enemy.gd"]
 
 
 static func _legacy(ok: Callable) -> void:

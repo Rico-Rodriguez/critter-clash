@@ -863,6 +863,27 @@ func _pet_polish_tests() -> void:
 		h.play(host, {"id": pet, "kind": "brood", "new": true, "kills": 0})
 		_ok("hatch show builds for %s" % pet, h.get_child_count() >= 6)
 		host.queue_free()
+	# A mutation adds its own reveal; a growth plays the evolve show.
+	var mhost := Control.new()
+	mhost.size = Vector2(720, 1280)
+	root.add_child(mhost)
+	var mh: Control = HATCH.new()
+	mh.play(mhost, {"id": "drake", "kind": "exotic", "new": true, "kills": 0, "mutation": "Frostbound", "mutation_power": "Its bite chills"})
+	_ok("hatch show builds with a mutation", mh.get_child_count() >= 6)
+	var eh: Control = preload("res://src/ui/evolve_show.gd").new()
+	eh.play(mhost, {"id": "drake", "stage_from": 1, "stage_to": 2})
+	_ok("evolve show builds", eh.get_child_count() >= 6)
+	mhost.queue_free()
+	const PLIFE := preload("res://src/hunt/pet_life.gd")
+	var stray := []
+	for persona: String in PLIFE.PERSONAS:
+		for f in PLIFE.PERSONAS[persona]:
+			if not PLIFE.FIDGETS.has(f):
+				stray.append(f)
+	for kind: String in preload("res://src/hunt/pet_anim.gd").STYLE_OF:
+		if not PLIFE.PERSONA_OF.has(kind):
+			stray.append(kind)
+	_ok("every ability has a temperament of known fidgets %s" % str(stray), stray.is_empty())
 	Game.data = keep
 
 
@@ -1136,8 +1157,33 @@ func _sidekick_motor_tests() -> void:
 	_ok("no blink while on screen and merely far", m8.teleports == 0)
 	# Procedural fallbacks move the pose when a clip is missing.
 	var lunge: Dictionary = SKN.pose(M.S.ATTACK, 0.3, 0.0, 0.22, 0.55, false, 0.0)
-	var hop: Dictionary = SKN.pose(M.S.SPECIAL, 0.55, 0.0, 0.32, 0.8, false, 0.0)
-	_ok("fallback attack lunges, special hops", float(lunge["z"]) > 0.2 and float(hop["y"]) > 0.3)
+	var hop: Dictionary = SKN.pose(M.S.SPECIAL, 0.3, 0.0, 0.32, 0.8, false, 0.0)
+	_ok("fallback attack lunges, special rises", float(lunge["z"]) > 0.2 and float(hop["y"]) > 0.2)
+	# Pet moves: anticipate, strike, settle; no style jumps at the hit frame or snaps at the end.
+	const PA := preload("res://src/hunt/pet_anim.gd")
+	var pa_bad := []
+	for kind: String in PA.STYLE_OF:
+		var sty := PA.style_for(kind)
+		var before: Dictionary = PA.strike(sty, 0.3 - 0.0005, 0.3)
+		var after: Dictionary = PA.strike(sty, 0.3 + 0.0005, 0.3)
+		for key in PA.KEYS:
+			if absf(float(before[key]) - float(after[key])) > 0.03:
+				pa_bad.append("%s jumps at the hit (%s)" % [kind, key])
+		var gone: Dictionary = PA.strike(sty, 0.3 + PA.TAIL + 0.01, 0.3)
+		for key in PA.KEYS:
+			if absf(float(gone[key]) - float(PA.neutral()[key])) > 0.0001:
+				pa_bad.append("%s does not settle (%s)" % [kind, key])
+		var peak := 0.0
+		for i in 40:
+			var q: Dictionary = PA.strike(sty, 0.3 + i * 0.02, 0.3)
+			peak = maxf(peak, absf(float(q["z"])) + absf(float(q["y"])) + absf(float(q["pitch"])) + absf(float(q["spin"])))
+		if peak < 0.3:
+			pa_bad.append("%s barely moves" % kind)
+	_ok("pet moves anticipate, strike and settle %s" % str(pa_bad), pa_bad.is_empty())
+	var flapped: Dictionary = PA.flap(5.0, 0.7)
+	var strode: Dictionary = PA.gait(4.0, 0.7, 6.0)
+	_ok("pet gait: flyers bob, walkers lean into speed", float(strode["pitch"]) > 0.05 and absf(float(flapped["y"])) > 0.0)
+	_ok("pet lean: accelerating tips forward, braking back", float(PA.lean(Vector3(0, 0, 6.0), 3.0)["pitch"]) > 0.05 and float(PA.lean(Vector3(0, 0, -6.0), 3.0)["pitch"]) < -0.05)
 	# Every clip in the map exists on its model.
 	var bad := []
 	const SDB2 := preload("res://src/data/sidekick_db.gd")

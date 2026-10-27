@@ -537,7 +537,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
-			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble", "pets", "petshatch", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -636,6 +636,27 @@ func _capture(args: PackedStringArray) -> void:
 						current.ui._breed_b = "wisp"
 					current.ui._page.rebuild()
 					await _wait(0.8)
+				elif shot == "hatchseq":
+					# --pet=drake --egg=exotic [--mutation=Frostbound] [--frames=12 --step=0.4]: a frame every --step s from the egg dropping in.
+					current.open_sheet("sidekicks")
+					await _wait(0.8)
+					var hres := {"id": _arg(args, "pet", "drake"), "kind": _arg(args, "egg", "exotic"), "new": true, "kills": 0}
+					if _arg(args, "mutation", "") != "":
+						hres["mutation"] = _arg(args, "mutation", "")
+						hres["mutation_power"] = _arg(args, "power", "Cold to the bone: its bite chills")
+					current.ui.play_hatch(hres)
+					for hf in int(_arg(args, "frames", "12")):
+						await _wait(float(_arg(args, "step", "0.4")))
+						_save("hatchseq_%02d" % hf)
+				elif shot == "evolveseq":
+					# --pet=drake --to=2 [--frames=12 --step=0.4]: a frame every --step s of the evolution.
+					current.open_sheet("sidekicks")
+					await _wait(0.8)
+					var to_stage := int(_arg(args, "to", "2"))
+					preload("res://src/ui/evolve_show.gd").new().play(current.ui.find_child("Overlay", true, false), {"id": _arg(args, "pet", "drake"), "stage_from": to_stage - 1, "stage_to": to_stage})
+					for ef in int(_arg(args, "frames", "12")):
+						await _wait(float(_arg(args, "step", "0.4")))
+						_save("evolveseq_%02d" % ef)
 				elif shot == "hatch" or shot == "hatchwobble":
 					# --pet=shade (what hatches) from --egg=exotic; "hatchwobble" stops mid-shake.
 					current.open_sheet("hatchery")
@@ -1078,7 +1099,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1207,6 +1228,8 @@ func _capture(args: PackedStringArray) -> void:
 							m2.position = at2 + Vector3(-1.6 + 1.6 * st, 0, -2.0 - 1.3 * row2)
 						row2 += 1
 					await _wait_sim(h, 0.3)
+				elif shot == "petfx":
+					await preload("res://src/hunt/pet_capture.gd").shoot(self, h, _arg(args, "el", ""), int(_arg(args, "frames", "12")), float(_arg(args, "step", "0.1")))
 				elif shot == "traits":
 					# Two rows of bred pets, one per pattern, the second row glowing.
 					const SKLT := preload("res://src/core/sidekick_look.gd")
