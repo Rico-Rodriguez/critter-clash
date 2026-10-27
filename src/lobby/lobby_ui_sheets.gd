@@ -698,7 +698,7 @@ func _build_settings(s: Sheet) -> void:
 	b.add_child(HSeparator.new())
 	_privacy_rows(b)
 	b.add_child(HSeparator.new())
-	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Sidekicks: LasquetiSpice, Alexei Ostapenko, Batuhan13, matisosanimation, Joseph Payeur, Spinnee, danielmclogan, BeardenInc, EvgeshQa, Mateus Schwaab (CC BY 4.0, Sketchfab). Icons: game-icons.net (CC BY 3.0). Music and boss stings: Kevin MacLeod (CC BY 4.0). Effects: Kenney, rubberduck and others (CC0). Full list in CREDITS.md.", "Small")
+	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Sidekicks and bosses: LasquetiSpice, Alexei Ostapenko, Batuhan13, matisosanimation, Joseph Payeur, Spinnee, danielmclogan, BeardenInc, EvgeshQa, Mateus Schwaab, Riltariki (CC BY 4.0, Sketchfab). Icons: game-icons.net (CC BY 3.0). Music and boss stings: Kevin MacLeod (CC BY 4.0). Effects: Kenney, rubberduck and others (CC0). Full list in CREDITS.md.", "Small")
 	cr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(cr)
 	var ota := get_node_or_null("/root/Ota")
