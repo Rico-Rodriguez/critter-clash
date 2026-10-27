@@ -10,6 +10,31 @@ version is 7.
 
 ---
 
+## Unreleased: Phone performance and battery
+
+Code only (OTA-safe, no `project.godot` change, no reinstall). The look is untouched.
+
+- **Frame cap.** On a phone the game now asks for 60 fps (`Game.fps_cap`); an iPhone with a
+  120 Hz screen used to draw twice as many frames for no gain in a top-down hunt. New
+  Settings row **Frame rate: 60 / 30** (setting `fps`, 30 = battery saver, applies at once).
+  At 30 the simulation step ceiling is 1/24 s (`Game.max_step`) so the hunt keeps real-time
+  pace. Desktop and the bot checks are not capped.
+- **Physics tick 30 Hz** on a phone, at most 2 steps a frame: nothing uses the physics engine.
+- **Background.** `NOTIFICATION_APPLICATION_PAUSED` drops the cap to 5 fps until the app resumes
+  (the hunt already pauses itself in `focus_guard.gd`).
+- **Hunt CPU.** Prop fade checks at 30 Hz with the elapsed time accumulated (no reusable
+  array per frame), torch flicker at 20 Hz, foe separation rejects far pairs on plain numbers
+  (no vector per pair), the HUD stops restyling the buff label and re-setting the hurt
+  shader every frame.
+- **Measuring.** `tools/dev/perf.sh [hunt|busy|boss] [zone] [low|high] [frames]` runs the new
+  `--shots=perf` capture twice: headless for script time per frame, software Vulkan with the
+  mobile renderer at 1179x2556 for draw calls and triangles.
+- Already in place and left alone: batched props (MultiMesh), blob shadows for minions, no
+  shadows on small props, low-quality particle halving. Mesh LOD threshold was tried (1 to 3)
+  and changed under 3% of triangles, so it was not shipped.
+
+---
+
 ## Unreleased: Real music for the new zones
 
 The placeholder synth loops for the Frozen Crypt and the Burning Swamp are replaced by

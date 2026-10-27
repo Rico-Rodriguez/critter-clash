@@ -992,12 +992,21 @@ func span_for_weather() -> float:
 	return minf(max_z - min_z, follow_radius if follow_radius > 0.0 else 1e9)
 
 
-func _process(_dt: float) -> void:
+var _flicker_dt := 1.0
+
+
+func _process(dt: float) -> void:
 	if follow and follow_radius > 0.0 and _motes:
 		var fz := follow.position.z
 		if _mist:
 			_mist.position.z = fz
 		_motes.position.z = fz
+	# A torch flicker moves at a few hertz: 20 updates a second look the same
+	# and each one re-sorts the light for the renderer.
+	_flicker_dt += dt
+	if _flicker_dt < 0.05:
+		return
+	_flicker_dt = 0.0
 	var t := Time.get_ticks_msec() / 1000.0
 	for o in lights:
 		var f: float = o.get_meta("flicker")

@@ -418,6 +418,11 @@ func _capture(args: PackedStringArray) -> void:
 		Game.hero(h0)["unlocked"] = true
 	Game.data["gold"] = 1240
 	Game.data["hero"] = hid
+	# --quality=low|high|auto: the Graphics setting the shot runs under.
+	Game.data["settings"]["quality"] = _arg(args, "quality", "auto")
+	if "perf" in want:
+		seed(7)
+		Game.rng.seed = 7
 	Game.hero(hid)["shards"] = 9
 	Game.data["tier_unlocked"] = 1
 	Game.data["mode"] = _arg(args, "mode", "horde")
@@ -1239,7 +1244,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards", "perf":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1507,6 +1512,8 @@ func _capture(args: PackedStringArray) -> void:
 							n2 += 1
 					await _wait_sim(h, 1.0)
 					await _save("bossphase_after")
+				elif shot == "perf":
+					await _perf(h, args)
 				elif shot == "hazards":
 					# The zone's hazards all at once, winding up around the hero.
 					await _wait_sim(h, 5.0)
@@ -1665,6 +1672,70 @@ func _wait(sec: float) -> void:
 
 
 ## Software rendering is slow: wait on hunt time, not wall time.
+## Frame costs of a hunt, printed as one PERF line (tools/dev/perf.sh runs it):
+## --scene=hunt|busy|boss picks the moment, --zone= the biome, --frames= the
+## window, --warm= the seconds of hunt before it. Draw calls and triangles need
+## a renderer. Headless, the wall time of a frame is the game's own code (no
+## drawing), which is the CPU cost the phone pays too.
+func _perf(h: Hunt, args: PackedStringArray) -> void:
+	var scene := _arg(args, "scene", "hunt")
+	var frames := int(_arg(args, "frames", "240"))
+	# Nothing is drawn while the hunt warms up: the software GPU is slow, and
+	# only the sampled frames need pixels.
+	RenderingServer.render_loop_enabled = false
+	await _wait_sim(h, 4.0)
+	if scene == "boss":
+		h.souls = h.souls_goal
+		await _wait_sim(h, 9.0)
+	else:
+		await _wait_sim(h, float(_arg(args, "warm", "40")))
+	RenderingServer.render_loop_enabled = true
+	await get_tree().process_frame
+	var draws: Array[float] = []
+	var prims: Array[float] = []
+	var objs: Array[float] = []
+	var nodes: Array[float] = []
+	var proc: Array[float] = []
+	Engine.set_meta("prof", {})
+	var t0 := Time.get_ticks_usec()
+	var obj0 := int(Performance.get_monitor(Performance.OBJECT_COUNT))
+	var mem0 := int(Performance.get_monitor(Performance.MEMORY_STATIC))
+	for i in frames:
+		if scene == "busy":
+			h.run_xp = 0
+			h.pending_levels = 0
+			h.hero.rate = maxf(h.hero.rate, 6.0)
+		var f0 := Time.get_ticks_usec()
+		await get_tree().process_frame
+		proc.append(float(Time.get_ticks_usec() - f0) / 1000.0)
+		draws.append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		prims.append(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+		objs.append(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))
+		nodes.append(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+	var secs := float(Time.get_ticks_usec() - t0) / 1e6
+	var pf: Dictionary = Engine.get_meta("prof", {})
+	var keys := pf.keys()
+	keys.sort_custom(func(a, b): return pf[a] > pf[b])
+	for k in keys:
+		print("PROF %-18s %.3f ms/frame" % [k, float(pf[k]) / 1000.0 / frames])
+	print("PERF scene=%s zone=%s q=%s frames=%d boss=%s foes=%d" % [scene, _arg(args, "zone", "barrow"), Game.setting("quality"), frames, str(is_instance_valid(h.boss) and h.boss.alive), h.foes.size()])
+	print("PERF draws avg=%.0f p95=%.0f max=%.0f | prims avg=%.0f max=%.0f | objects avg=%.0f | nodes avg=%.0f" % [_avg(draws), _pct(draws, 0.95), draws.max(), _avg(prims), prims.max(), _avg(objs), _avg(nodes)])
+	print("PERF frame ms (wall): avg=%.2f p95=%.2f max=%.2f | fps=%.1f | new objects/frame=%.1f static_mem_kb/frame=%.1f" % [_avg(proc), _pct(proc, 0.95), proc.max(), frames / secs, float(int(Performance.get_monitor(Performance.OBJECT_COUNT)) - obj0) / frames, float(int(Performance.get_monitor(Performance.MEMORY_STATIC)) - mem0) / 1024.0 / frames])
+
+
+static func _avg(a: Array[float]) -> float:
+	var t := 0.0
+	for v in a:
+		t += v
+	return t / maxf(a.size(), 1)
+
+
+static func _pct(a: Array[float], q: float) -> float:
+	var b := a.duplicate()
+	b.sort()
+	return b[clampi(int(b.size() * q), 0, b.size() - 1)]
+
+
 func _wait_sim(h: Hunt, sec: float) -> void:
 	var end := h.time + sec
 	var guard := Time.get_ticks_msec() + 240000
@@ -1948,6 +2019,8 @@ func _stage(ov: Control, stage: String) -> void:
 
 
 func _save(name_: String) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	img.save_png("%s/%s.png" % [_shots_dir, name_])

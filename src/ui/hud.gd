@@ -208,6 +208,10 @@ func move_vector() -> Vector2:
 	return %Stick.value
 
 
+var _buffs_col := Color(-1, -1, -1)
+var _hurt_shown := -1.0
+
+
 func refresh(dt: float) -> void:
 	if _bank and _bank.visible:
 		_place_bank()
@@ -253,7 +257,10 @@ func refresh(dt: float) -> void:
 		bcol = Color(1.0, 0.45, 0.3)
 	_buffs.visible = not parts.is_empty()
 	_buffs.text = "  ".join(parts)
-	_buffs.add_theme_color_override("font_color", bcol)
+	# A theme override restyles and redraws the label even for the same colour.
+	if bcol != _buffs_col:
+		_buffs_col = bcol
+		_buffs.add_theme_color_override("font_color", bcol)
 	# Kill streak: appears from 5 and fades with the window.
 	_streak.visible = hunt.streak >= 5
 	if _streak.visible:
@@ -283,7 +290,9 @@ func refresh(dt: float) -> void:
 	var hs := maxf(_hurt, low)
 	# A full-screen shader pass costs fill rate even at zero: skip it then.
 	%Hurt.visible = hs > 0.001
-	(%Hurt.material as ShaderMaterial).set_shader_parameter("strength", hs)
+	if hs != _hurt_shown:
+		_hurt_shown = hs
+		(%Hurt.material as ShaderMaterial).set_shader_parameter("strength", hs)
 
 
 func hurt(s: float) -> void:

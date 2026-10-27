@@ -27,8 +27,9 @@ func _ready() -> void:
 	_choices("Buttons", "buttons", ["right", "left"])
 	_choices("Camera", "camera", ["close", "standard", "wide"])
 	_choices("Graphics", "quality", ["auto", "low", "high"])
+	_choices("Frame rate", "fps", ["60", "30"])
 	if not in_hunt:
-		var note := Ui.label("Button, camera and graphics changes apply in your next hunt.", "Small")
+		var note := Ui.label("Button, camera and graphics changes apply in your next hunt. 30 fps saves battery.", "Small")
 		note.add_theme_font_size_override("font_size", 17)
 		add_child(note)
 
