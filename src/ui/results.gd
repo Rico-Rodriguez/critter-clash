@@ -391,7 +391,9 @@ func _sidekick_notes(sk: Dictionary) -> void:
 		var d: Dictionary = SDB.def(id)
 		var col: Color = d["color"]
 		if bool(sk.get("evolved", false)):
-			_note("%s evolves into the %s!" % [d["name"], d.get("evolved_name", d["name"])], col, str(d["icon"]))
+			_note("%s evolves into the %s!" % [d["name"], SDB.stage_name(id, 2)], col, str(d["icon"]))
+		elif int(sk.get("stage_to", 0)) > int(sk.get("stage_from", 0)):
+			_note("%s grows up!" % d["name"], col, str(d["icon"]))
 		elif int(sk["bond_to"]) > int(sk["bond_from"]):
 			_note("%s reached Bond %d" % [d["name"], int(sk["bond_to"])], col, str(d["icon"]))
 		else:

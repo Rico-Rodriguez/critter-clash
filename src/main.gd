@@ -798,7 +798,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -913,6 +913,20 @@ func _capture(args: PackedStringArray) -> void:
 						if _arg(args, "clip", "") != "":
 							get_viewport().get_texture().get_image().save_png("%s/busy_%03d.png" % [_shots_dir, nf])
 					print("BUSY draws avg=%d max=%d" % [sum / nf, mx])
+				elif shot == "stages":
+					# Three species at each stage, small to large; Elders wear a crown.
+					const SKLS := preload("res://src/core/sidekick_look.gd")
+					await _wait_sim(h, 1.0)
+					h.bot = false
+					var at2: Vector3 = h.hero.flat_pos()
+					var row2 := 0
+					for sp in ["bonelet", "hexling", "sapling"]:
+						for st in 3:
+							var m2: Node3D = SKLS.build(sp, false, st)["root"]
+							h.world.add_child(m2)
+							m2.position = at2 + Vector3(-1.6 + 1.6 * st, 0, -2.0 - 1.3 * row2)
+						row2 += 1
+					await _wait_sim(h, 0.3)
 				elif shot == "traits":
 					# Two rows of bred pets, one per pattern, the second row glowing.
 					const SKLT := preload("res://src/core/sidekick_look.gd")

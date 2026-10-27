@@ -249,6 +249,7 @@ func run() -> int:
 	_sidekick_tests()
 	_hatchery_tests()
 	_breeding_tests()
+	_stage_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
 	_focus_tests()
@@ -1339,3 +1340,41 @@ func _breeding_tests() -> void:
 	SK.set_active(dl, "x98")
 	_ok("breeding: a lucky pet doubles exotic odds", is_equal_approx(SK.exotic_chance(dl, false, 0), plain * 2.0))
 	SKDB_T.BRED.erase("x98")
+
+
+func _stage_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	const SKL_T := preload("res://src/core/sidekick_look.gd")
+	_ok("stages: bond 1-3 is Hatchling", SKDB_T.stage_of(1) == 0 and SKDB_T.stage_of(3) == 0)
+	_ok("stages: bond 4-9 is Grown", SKDB_T.stage_of(4) == 1 and SKDB_T.stage_of(9) == 1)
+	_ok("stages: bond 10 is Elder", SKDB_T.stage_of(10) == 2)
+	_ok("stages: the Drake's Elder is the Ash Wyrm", SKDB_T.stage_name("drake", 2) == "Ash Wyrm" and SKDB_T.stage_name("drake", 0) == "Young Ember Drake")
+	_ok("stages: an Elder without its own name is Elder X", SKDB_T.stage_name("bonelet", 2) == "Elder Bonelet")
+	_ok("stages: display name follows bond kills", SKDB_T.display_name("drake", 0) == "Young Ember Drake" and SKDB_T.display_name("drake", 15000) == "Ash Wyrm" and SKDB_T.display_name("drake", 1000) == "Ember Drake")
+	_ok("stages: power only grows", SKDB_T.STAGE_DMG[0] < SKDB_T.STAGE_DMG[1] and SKDB_T.STAGE_DMG[1] < SKDB_T.STAGE_DMG[2] and SKDB_T.STAGE_SCALE[0] < SKDB_T.STAGE_SCALE[2])
+	# Growing up is reported once.
+	var d := Game._fresh()
+	SK.migrate(d)
+	SK.own(d, "bonelet")
+	SK.set_active(d, "bonelet")
+	d["sidekicks"]["owned"]["bonelet"]["kills"] = 980
+	var out := SK.after_hunt(d, {"kills": 40, "win": false}, RandomNumberGenerator.new())
+	_ok("stages: crossing Bond 4 is a stage up", int(out["stage_from"]) == 0 and int(out["stage_to"]) == 1 and not bool(out["evolved"]))
+	d["sidekicks"]["owned"]["bonelet"]["kills"] = 14990
+	out = SK.after_hunt(d, {"kills": 20, "win": false}, RandomNumberGenerator.new())
+	_ok("stages: crossing Bond 10 evolves", int(out["stage_to"]) == 2 and bool(out["evolved"]))
+	out = SK.after_hunt(d, {"kills": 20, "win": false}, RandomNumberGenerator.new())
+	_ok("stages: no second evolution", not bool(out["evolved"]) and int(out["stage_from"]) == 2)
+	# Models: sizes follow the stage; only Elders wear a crown.
+	var sizes := []
+	for st in 3:
+		var look := SKL_T.build("bonelet", false, st)
+		var big := 0.0
+		for ch in look["root"].get_children():
+			if ch is Node3D and not (ch is Light3D) and ch.name != "ElderCrown":
+				big = maxf(big, (ch as Node3D).scale.y)
+		sizes.append(big)
+		_ok("stages: stage %d crown matches" % st, (look["root"].get_node_or_null("ElderCrown") != null) == (st == 2))
+		look["root"].free()
+	_ok("stages: the model grows with each stage", sizes[0] < sizes[1] and sizes[1] < sizes[2])
+	_ok("stages: the old bool call still works", SKL_T.build("bonelet", true)["root"].get_node_or_null("ElderCrown") != null)

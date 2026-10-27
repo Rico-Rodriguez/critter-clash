@@ -818,7 +818,7 @@ func _sidekick_tile(s: Sheet, id: String) -> Control:
 		var tag := ""
 		if d.has("genes"):
 			tag = " · %s" % SKDB.GRADES[SKDB.grade(d["genes"])]
-		return _sk_tile_box(str(d["icon"]), Color(d["color"]), SKDB.display_name(id, k), ("At your side · " if here else "") + "Bond %d" % SKDB.bond_level(k) + tag, -1.0, false, func():
+		return _sk_tile_box(str(d["icon"]), Color(d["color"]), SKDB.display_name(id, k), ("At your side · " if here else "") + "Bond %d · %s" % [SKDB.bond_level(k), SKDB.STAGE_LABELS[SKDB.stage_of(SKDB.bond_level(k))]] + tag, -1.0, false, func():
 			_sk_detail = id
 			s.rebuild())
 	var pr: Array = SKS.progress(Game.data, id)
@@ -898,6 +898,7 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	bv.add_child(bar)
 	bc.add_child(bv)
 	b.add_child(bc)
+	b.add_child(_stage_card(id, lv))
 	if d.has("genes"):
 		b.add_child(_genome_card(d))
 	var ac := _card()
@@ -939,6 +940,25 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	b.add_child(go)
 	if here:
 		b.add_child(Ui.label("Tap again to send it home.", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+
+
+## The evolution ladder: Hatchling, Grown, Elder, with what each gives.
+func _stage_card(id: String, lv: int) -> Control:
+	var cur := SKDB.stage_of(lv)
+	var c := _card()
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	v.add_child(Ui.label("EVOLUTION", "Caption"))
+	for st in 3:
+		var reached := st <= cur
+		var l := Ui.label("%s %s · Bond %d%s" % ["●" if st == cur else ("✓" if reached else "○"), SKDB.stage_name(id, st), int(SKDB.STAGE_BOND[st]), "  ← now" if st == cur else ""], "Body")
+		l.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5) if reached else Color(0.6, 0.6, 0.65))
+		v.add_child(l)
+		var n := Ui.label("     " + SKDB.STAGE_NOTES[st], "Small")
+		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(n)
+	c.add_child(v)
+	return c
 
 
 ## A bred sidekick's traits: grade, element, perk, and each gene.
