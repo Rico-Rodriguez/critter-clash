@@ -254,7 +254,7 @@ func _process(delta: float) -> void:
 	elif _stop_ease > 0.0:
 		_stop_ease -= real
 		Engine.time_scale = 1.0 if _stop_ease <= 0.0 else lerpf(1.0, 0.55, _stop_ease / 0.05)
-	var dt := minf(delta, 1.0 / 30.0)
+	var dt := minf(delta, Game.max_step(Game.setting("fps")))
 	tick(dt)
 	if _blobs:
 		_blobs.update(foes)

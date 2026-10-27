@@ -1845,6 +1845,13 @@ func _settings_tests() -> void:
 	_ok("settings: low graphics drops ambient occlusion, grass and mist", h.low and h.fx.quality_low and h.fx.vfx.quality_low and not h.arena.env.ssao_enabled and h.arena._grass_mm.visible_instance_count < grass and h.arena._mist.amount == 26)
 	Game.set_setting("quality", "high")
 	_ok("settings: high graphics brings them back", not h.low and h.arena.env.ssao_enabled and h.arena._grass_mm.visible_instance_count == grass and h.arena._mist.amount == 48)
+	_ok("settings: a phone caps at 60 fps, the saver at 30, a desktop is left alone", Game.fps_cap("60", true) == 60 and Game.fps_cap("30", true) == 30 and Game.fps_cap(null, true) == 60 and Game.fps_cap("30", false) == 0)
+	_ok("settings: a new save is on 60 fps and a 30 fps frame is not slowed down", Game.setting("fps") == "60" and Game.max_step("60") < 1.0 / 30.0 + 0.0001 and Game.max_step("30") > 1.0 / 30.0)
+	var prev_cap := Engine.max_fps
+	Game.set_setting("fps", "30")
+	_ok("settings: the frame rate choice is saved and announced", Game.setting("fps") == "30")
+	Game.set_setting("fps", "60")
+	Engine.max_fps = prev_cap
 	# The pause menu's own buttons write the same settings.
 	var pause: Control = load("res://src/ui/pause.tscn").instantiate()
 	tree.root.add_child(pause)

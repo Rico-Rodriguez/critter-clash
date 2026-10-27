@@ -14,6 +14,32 @@ const ErrorLog := preload("res://src/autoload/error_log.gd")
 var errors: ErrorLog
 
 
+## The frame rate the game asks of the phone. iPhones with a fast screen would
+## draw 120 fps and burn the battery for no gain in a top-down hunt: the default
+## is 60, "30" is the battery saver. Other platforms keep their own pacing (0 =
+## no cap), so dev runs and the bot checks are not slowed.
+static func fps_cap(choice, mobile: bool) -> int:
+	if not mobile:
+		return 0
+	return 30 if str(choice) == "30" else 60
+
+
+## The longest step one frame may simulate: a hitch must not skip the world
+## ahead, but the 30 fps saver has to keep real-time pace (a 34 ms frame is normal there).
+static func max_step(choice) -> float:
+	return 1.0 / 24.0 if str(choice) == "30" else 1.0 / 30.0
+
+
+## Applies the frame cap, and on a phone drops the physics tick (nothing in the
+## game uses the physics engine, so its 60 empty ticks a second are wasted work).
+func apply_perf_limits() -> void:
+	var mobile := OS.has_feature("mobile")
+	Engine.max_fps = fps_cap(setting("fps"), mobile)
+	if mobile:
+		Engine.physics_ticks_per_second = 30
+		Engine.max_physics_steps_per_frame = 2
+
+
 func _ready() -> void:
 	rng.randomize()
 	if OS.get_cmdline_user_args().has("--fresh") or OS.get_cmdline_user_args().has("--capture") or OS.get_cmdline_user_args().has("--bot") or OS.get_cmdline_user_args().has("--nettest"):
@@ -26,6 +52,8 @@ func _ready() -> void:
 	if not memory_only:
 		load_save()
 	SK.migrate(data)
+	apply_perf_limits()
+	setting_changed.connect(func(key: String): if key == "fps": apply_perf_limits())
 	if not memory_only:
 		recover_suspended_run()
 	if int(data.get("idle_since", 0)) <= 0:
@@ -44,6 +72,11 @@ func _ota_unload() -> void:
 
 
 func _notification(what: int) -> void:
+	# In the background nothing is on screen: ask for next to no frames until we are back.
+	if what == NOTIFICATION_APPLICATION_PAUSED and OS.has_feature("mobile"):
+		Engine.max_fps = 5
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		apply_perf_limits()
 	if errors == null:
 		return
 	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_EXIT_TREE]:
