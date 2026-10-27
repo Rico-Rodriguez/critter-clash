@@ -359,11 +359,12 @@ func _dress() -> void:
 	if selected.has("cos"):
 		# A skin or glow on trial: worn for the look, then put back.
 		var h := Game.hero(hero_id)
-		var was := [h.get("skin", ""), h.get("glow", "")]
+		var was := [h.get("skin", ""), h.get("glow", ""), h.get("outfit", "")]
 		h[selected["cos"]] = selected["key"]
 		GearLook.apply(_actor, hero_id, preview)
 		h["skin"] = was[0]
 		h["glow"] = was[1]
+		h["outfit"] = was[2]
 		return
 	if not selected.is_empty() and str(selected["cls"]) == hero_id:
 		preview[selected["slot"]] = selected
@@ -588,6 +589,13 @@ func _on_skins() -> void:
 
 
 func _build_skins_list() -> void:
+	var outfits: Array = DB.OUTFIT_ORDER.filter(func(k): return hero_id in DB.OUTFITS[k]["heroes"] and (not DB.OUTFITS[k].get("gift", false) or k in Game.hero(hero_id)["outfits"]))
+	if not outfits.is_empty():
+		_list.add_child(_section("Outfits", outfits.size(), Color(0.45, 0.7, 1.0)))
+		var og := _grid()
+		for k: String in outfits:
+			og.add_child(_cos_tile({"cos": "outfit", "key": k}))
+		_list.add_child(og)
 	var skins: Array = DB.WEAPON_SKIN_ORDER.filter(func(k): return hero_id in DB.WEAPON_SKINS[k]["heroes"])
 	if not skins.is_empty():
 		_list.add_child(_section("Weapon skins", skins.size(), GOLD))
@@ -611,6 +619,11 @@ func _cos_info(c: Dictionary) -> Dictionary:
 		var sd: Dictionary = DB.WEAPON_SKINS[k]
 		return {"name": sd["name"], "kind": "Weapon skin", "icon": sd["icon"], "col": GOLD, "tint": Color("f6e3b4"),
 			"owned": k in h.get("skins", []), "worn": str(h.get("skin", "")) == k, "price": Game.skin_price(k)}
+	if c["cos"] == "outfit":
+		var od: Dictionary = DB.OUTFITS[k]
+		var oc := Color(od["dye"], 1.0)
+		return {"name": od["name"], "kind": "Outfit", "icon": DB.HEROES[hero_id]["icon"], "col": oc, "tint": oc.lightened(0.25),
+			"owned": k in h.get("outfits", []), "worn": str(h.get("outfit", "")) == k, "price": Game.outfit_price(k)}
 	var gd: Dictionary = DB.GLOWS[k]
 	var gc := Color(gd["color"], 1.0)
 	return {"name": "%s glow" % gd["name"], "kind": "Weapon glow", "icon": "dripping-sword", "col": gc, "tint": gc.lerp(Color.WHITE, 0.2),
@@ -693,6 +706,8 @@ func _open_cos_card(c: Dictionary) -> void:
 		row.add_child(_action("Take off" if info["worn"] else "Wear", "" if info["worn"] else "PrimaryButton", func():
 			if c["cos"] == "skin":
 				Game.set_skin(hero_id, "" if info["worn"] else key)
+			elif c["cos"] == "outfit":
+				Game.set_outfit(hero_id, "" if info["worn"] else key)
 			else:
 				Game.set_glow(hero_id, "" if info["worn"] else key)
 			Sfx.play("ui_toggle", -4.0)
@@ -708,7 +723,7 @@ func _open_cos_card(c: Dictionary) -> void:
 				buy.text = "Tap again to buy · %s" % Ui.fmt_num(price)
 				Sfx.play("ui_tap", -4.0)
 				return
-			var ok := Game.buy_skin(hero_id, key) if c["cos"] == "skin" else Game.buy_glow(hero_id, key)
+			var ok := Game.buy_skin(hero_id, key) if c["cos"] == "skin" else (Game.buy_outfit(hero_id, key) if c["cos"] == "outfit" else Game.buy_glow(hero_id, key))
 			if not ok:
 				Sfx.play("ui_error", -6.0)
 				_say("Not enough gold", RED)

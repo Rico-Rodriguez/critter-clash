@@ -19,7 +19,7 @@ func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
 		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
-			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "skin": "", "skins": [], "best_mat": -1, "skills": _fresh_skills()}
+			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "skin": "", "skins": [], "outfit": "", "outfits": [], "best_mat": -1, "skills": _fresh_skills()}
 	return {
 		"version": SAVE_VERSION,
 		"gold": 0,
@@ -56,6 +56,10 @@ func _fresh() -> Dictionary:
 		# A new save chooses its first hero once, before the first hunt.
 		"start_picked": false,
 		"omen_on": false,
+		# The weekly event: {week, pts, claimed, hunts}; reset when the week turns.
+		"event": {"week": -1, "pts": 0, "claimed": 0, "hunts": 0},
+		# The story campaign: chapter ids cleared, and the chapter the next hunt plays.
+		"story": {"cleared": [], "run": ""},
 		"clue": {},
 		# Retention: first win of the day, the login calendar, the campfire,
 		# boss kill counts and dry streaks, rift keys, achievements, the season.

@@ -247,10 +247,13 @@ func run() -> int:
 	ra.free()
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
+	_pet_polish_tests()
 	_hatchery_tests()
 	_breeding_tests()
+	_story_tests()
 	_stage_tests()
 	_gate_tests()
+	_event_tests()
 	_store_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
@@ -730,6 +733,129 @@ func _net_tests() -> void:
 	Game.set_skin("barbarian", "")
 	_ok("skin put away, kept", Game.hero("barbarian")["skin"] == "" and Game.buy_skin("barbarian", "reaper") and Game.gold() == g0 - Game.skin_price("reaper"))
 	Game.data = Game._fresh()
+	_outfit_tests()
+
+
+## Outfits: sold per hero for gold, season ones earned for every hero, a save
+## from before them still loads, and the look dyes the body but not the head.
+func _outfit_tests() -> void:
+	var keep := Game.data
+	Game.data = Game._fresh()
+	for k: String in DB.OUTFIT_ORDER:
+		var od: Dictionary = DB.OUTFITS[k]
+		_ok("outfit %s is whole" % k, od.has("name") and not (od["heroes"] as Array).is_empty() and float(od["mix"]) > 0.0 and float(od["mix"]) <= 1.0 and (od.get("gift", false) or int(od["gold"]) > 0))
+		_ok("outfit %s fits real heroes" % k, (od["heroes"] as Array).all(func(h): return DB.HEROES.has(h)))
+	_ok("every hero has two outfits to buy", DB.HERO_ORDER.all(func(h): return DB.OUTFIT_ORDER.filter(func(k): return h in DB.OUTFITS[k]["heroes"] and not DB.OUTFITS[k].get("gift", false)).size() >= 2))
+	_ok("a fresh hero wears nothing", Game.hero("knight")["outfit"] == "" and Game.hero("knight")["outfits"].is_empty())
+	Game.data["gold"] = 100000
+	_ok("outfit not for another hero", not Game.buy_outfit("ranger", "crimson") and Game.hero("ranger")["outfits"].is_empty())
+	_ok("season outfit not for sale", not Game.buy_outfit("knight", "embergilt"))
+	var g0 := Game.gold()
+	_ok("outfit bought and worn", Game.buy_outfit("knight", "crimson") and Game.gold() == g0 - Game.outfit_price("crimson") and Game.hero("knight")["outfit"] == "crimson")
+	Game.set_outfit("knight", "")
+	_ok("outfit put away, kept", Game.hero("knight")["outfit"] == "" and Game.buy_outfit("knight", "crimson") and Game.gold() == g0 - Game.outfit_price("crimson"))
+	Game.set_outfit("knight", "viper")
+	_ok("cannot wear what you do not own", Game.hero("knight")["outfit"] == "crimson")
+	Game.data["gold"] = 10
+	_ok("too poor to buy", not Game.buy_outfit("knight", "gilded"))
+	# The season pass pays an outfit to every hero.
+	var tiers := 0
+	for n in range(1, DB.SEASON_TIERS + 1):
+		if DB.season_reward(n)["kind"] == "outfit":
+			tiers += 1
+	_ok("the pass pays one outfit a season", tiers == 1 and DB.season_reward(DB.SEASON_OUTFIT_TIER, 1)["outfit"] == DB.SEASON_OUTFITS[1])
+	Game.season()["claimed"] = DB.SEASON_OUTFIT_TIER - 1
+	Game.season()["xp"] = DB.SEASON_XP * DB.SEASON_OUTFIT_TIER
+	var got := Game.claim_season()
+	_ok("season claim pays the outfit", got.get("kind", "") == "outfit" and DB.HERO_ORDER.all(func(h): return str(got["outfit"]) in Game.hero(h)["outfits"]))
+	# An old save has neither key and still loads.
+	var old := Game._fresh()
+	(old["heroes"]["mage"] as Dictionary).erase("outfit")
+	(old["heroes"]["mage"] as Dictionary).erase("outfits")
+	var merged := Game._fresh()
+	Game._merge(merged, old)
+	_ok("old save gets outfit keys", merged["heroes"]["mage"]["outfit"] == "" and merged["heroes"]["mage"]["outfits"] is Array)
+	# The look: body dyed, head left alone.
+	Game.hero("knight")["outfit"] = "crimson"
+	var a := Actor.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(a)
+	a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+	GearLook.apply(a, "knight")
+	var dyed := 0
+	var head_dyed := 0
+	for m in a.find_children("*", "MeshInstance3D", true, false):
+		var c: Variant = m.get_instance_shader_parameter("dye")
+		if c is Color and (c as Color).a > 0.5:
+			dyed += 1
+			if str(m.name).ends_with("_Head"):
+				head_dyed += 1
+	_ok("outfit dyes the body, not the head", dyed >= 2 and head_dyed == 0)
+	a.queue_free()
+	Game.data = keep
+
+
+const PET_DB := preload("res://src/data/sidekick_db.gd")
+
+
+## Pet polish: rarity, the showcase, pet quests, and the hatching show.
+func _pet_polish_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	const HATCH := preload("res://src/ui/hatch_show.gd")
+	var keep := Game.data
+	Game.data = Game._fresh()
+	_ok("every species has a rarity", PET_DB.ORDER.all(func(i): return PET_DB.SPECIES_RARITY.has(i) and PET_DB.rarity(i) >= 0 and PET_DB.rarity(i) < PET_DB.GRADES.size()))
+	_ok("exotics outrank starters", PET_DB.rarity("shade") > PET_DB.rarity("wisp"))
+	_ok("empty stable, empty showcase", SK.showcase(Game.data).is_empty())
+	for id in ["wisp", "bonelet", "drake", "shade", "crow"]:
+		SK.own(Game.data, id)
+	var show: Array = SK.showcase(Game.data)
+	_ok("showcase fills with the rarest", show.size() == PET_DB.SHOWCASE_SLOTS and show[0] == "shade" and show[1] == "drake")
+	_ok("pin a common one", SK.pin(Game.data, "wisp") and SK.showcase(Game.data)[0] == "wisp" and SK.showcase(Game.data).size() == PET_DB.SHOWCASE_SLOTS)
+	_ok("cannot pin what you do not own", not SK.pin(Game.data, "sapling"))
+	SK.pin(Game.data, "bonelet")
+	SK.pin(Game.data, "crow")
+	_ok("the case holds three", not SK.pin(Game.data, "drake") and (Game.data["sidekicks"]["showcase"] as Array).size() == 3)
+	_ok("unpin", SK.pin(Game.data, "wisp") and not SK.is_pinned(Game.data, "wisp"))
+	# Pet quests: dealt one a day once a sidekick is yours, never before.
+	Game.data = Game._fresh()
+	for d in range(1, 21):
+		Game.refresh_bounties("2031-02-%02d" % d)
+		_ok("no pet quest without a pet (%d)" % d, Game.data["bounties"]["list"].all(func(e): return not e["id"] in DB.PET_BOUNTIES))
+		Game.data["bounties"]["day"] = ""
+	SK.own(Game.data, "wisp")
+	var all_pet := true
+	for d in range(1, 21):
+		Game.refresh_bounties("2031-02-%02d" % d)
+		var n: int = (Game.data["bounties"]["list"] as Array).filter(func(e): return e["id"] in DB.PET_BOUNTIES and e["id"] != "pet_breed").size()
+		all_pet = all_pet and n == 1 and Game.data["bounties"]["list"].size() == DB.BOUNTIES_PER_DAY
+		Game.data["bounties"]["day"] = ""
+	_ok("one pet quest a day, three in all", all_pet)
+	var entry := func(id: String, target: int) -> Dictionary:
+		return {"id": id, "target": target, "gold": 100, "gems": 3, "progress": 0, "claimed": false, "hero": "", "shards": 0, "shard_hero": ""}
+	Game.data["bounties"]["list"] = [entry.call("pet_kills", 100), entry.call("pet_win", 1), entry.call("pet_hatch", 1)]
+	SK.set_active(Game.data, "")
+	Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "hero": "knight", "gold": 10, "xp": {}, "items": [], "kills": 130, "elites": 0, "level": 3, "mode": "horde", "time": 90.0})
+	_ok("pet quests need a pet along", int(Game.data["bounties"]["list"][0]["progress"]) == 0 and int(Game.data["bounties"]["list"][1]["progress"]) == 0)
+	SK.set_active(Game.data, "wisp")
+	Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "hero": "knight", "gold": 10, "xp": {}, "items": [], "kills": 130, "elites": 0, "level": 3, "mode": "horde", "time": 90.0})
+	_ok("pet kills and win count with a pet", int(Game.data["bounties"]["list"][0]["progress"]) == 100 and int(Game.data["bounties"]["list"][1]["progress"]) == 1)
+	_ok("hatch quest waits for a hatch", int(Game.data["bounties"]["list"][2]["progress"]) == 0)
+	Game.bounty_note("hatched")
+	_ok("hatching counts", int(Game.data["bounties"]["list"][2]["progress"]) == 1)
+	var gems0 := int(Game.data["gems"])
+	var paid := Game.claim_bounty(2)
+	_ok("pet quest pays gems", int(paid.get("gems", 0)) == 3 and int(Game.data["gems"]) == gems0 + 3)
+	# The hatching show builds for every egg and rarity without error.
+	var root := (Engine.get_main_loop() as SceneTree).root
+	for pet in ["wisp", "drake", "shade"]:
+		var host := Control.new()
+		host.size = Vector2(720, 1280)
+		root.add_child(host)
+		var h: Control = HATCH.new()
+		h.play(host, {"id": pet, "kind": "brood", "new": true, "kills": 0})
+		_ok("hatch show builds for %s" % pet, h.get_child_count() >= 6)
+		host.queue_free()
+	Game.data = keep
 
 
 ## Sidekicks: the save migration from pets and the ally, bond, eggs, unlocks.
@@ -1344,6 +1470,84 @@ func _breeding_tests() -> void:
 	SKDB_T.BRED.erase("x98")
 
 
+func _story_tests() -> void:
+	const SDB_S := preload("res://src/data/story_db.gd")
+	var keep: Dictionary = Game.data
+	Game.data = Game._fresh()
+	_ok("story: five chapters", SDB_S.count() == 5)
+	var ids := {}
+	var data_ok := true
+	var beats_ok := true
+	var tied_ok := true
+	for ch: Dictionary in SDB_S.CHAPTERS:
+		ids[ch["id"]] = true
+		data_ok = data_ok and ch["hero"] in DB.HERO_ORDER and DB.ZONES.has(ch["zone"]) and DB.BOSSES.has(ch["boss"]) and not ch["intro"].is_empty() and not ch["outro"].is_empty()
+		tied_ok = tied_ok and str(DB.ZONES[ch["zone"]]["boss"]) == str(ch["boss"])
+		for which in ["intro", "outro"]:
+			for b: Dictionary in ch[which]:
+				beats_ok = beats_ok and b["who"] in ["hero", "boss", "narrator"] and b.get("cam", "wide") in ["wide", "hero", "boss"] and str(b["line"]) != ""
+	_ok("story: chapter ids are unique", ids.size() == SDB_S.count())
+	_ok("story: every chapter has a real hero, zone and boss", data_ok)
+	_ok("story: every chapter's boss is its zone's boss", tied_ok)
+	_ok("story: every beat is a known speaker, camera and line", beats_ok)
+	_ok("story: the finale pays a weapon glow that exists", DB.GLOWS.has(SDB_S.CHAPTERS[4]["reward"]["glow"]))
+	_ok("story: a fresh save has no story", Game.data["story"]["cleared"].is_empty() and Game.story_next() == 0)
+	_ok("story: chapter 1 is open, 2 is not", Game.story_open(0) and not Game.story_open(1) and not Game.story_open(9) and not Game.story_open(-1))
+	_ok("story: a locked chapter cannot be queued", not Game.story_begin("roots") and str(Game.data["story"]["run"]) == "")
+	_ok("story: an unknown chapter cannot be queued", not Game.story_begin("nope"))
+	_ok("story: an open chapter queues", Game.story_begin("oath") and str(Game.data["story"]["run"]) == "oath")
+	var taken := Game.story_take()
+	_ok("story: taking hands over the chapter once", str(taken["id"]) == "oath" and Game.story_take().is_empty())
+	# Boss retelling.
+	var base: Dictionary = DB.boss_def("gravemaw")
+	var told: Dictionary = SDB_S.boss_def(base, "gravemaw", taken)
+	_ok("story: the chapter boss gets its own name and title", str(told["name"]) == "Gravemaw" and str(told["title"]) == "the Oathbreaker")
+	var lk: Dictionary = SDB_S.chapter("lightless")
+	var big: Dictionary = SDB_S.boss_def(base, "gravemaw", lk)
+	_ok("story: the Lightless King is bigger and tougher", float(big["hp"]) > float(base["hp"]) * 1.5 and float(big["scale"]) > float(base["scale"]) * 1.2)
+	_ok("story: another zone's boss is left alone", SDB_S.boss_def(DB.boss_def("thorn"), "thorn", taken) == DB.boss_def("thorn"))
+	_ok("story: a normal hunt leaves the boss alone", SDB_S.boss_def(base, "gravemaw", {}) == base)
+	_ok("story: the base boss table was not changed", DB.boss_def("gravemaw")["name"] == base["name"] and float(DB.boss_def("gravemaw")["hp"]) == float(base["hp"]))
+	# Paying a clear.
+	var hunt := {"win": true, "tier": 0, "zone": "barrow", "mode": "horde", "time": 120.0, "chest": "silver", "hero": "mage", "level": 6, "souls": 100, "gold": 10, "xp": {}, "items": [], "kills": 5, "elites": 0, "story": "oath"}
+	var g0 := Game.gold()
+	var out := Game.finish_hunt(hunt)
+	var su: Dictionary = out.get("story", {})
+	_ok("story: a first win reports the chapter", bool(su.get("first", false)) and str(su["id"]) == "oath" and not bool(su["hero_bonus"]))
+	_ok("story: it pays the chapter reward and opens the next", int(su["gold"]) == 1500 and Game.story_cleared("oath") and Game.story_open(1) and Game.story_next() == 1)
+	_ok("story: gold lands in the purse", Game.gold() >= g0 + 1500)
+	var again := Game.finish_hunt(hunt)
+	_ok("story: a replay pays nothing more and stays cleared", not bool(again["story"]["first"]) and int(again["story"]["gold"]) == 0 and Game.data["story"]["cleared"].size() == 1)
+	var lost := Game.finish_hunt(_story_loss(hunt))
+	_ok("story: a loss pays and clears nothing", not lost.has("story"))
+	var sh0 := int(Game.hero("ranger")["shards"])
+	var rh := hunt.duplicate()
+	rh["hero"] = "ranger"
+	rh["story"] = "roots"
+	var ro := Game.finish_hunt(rh)
+	_ok("story: the chapter's own hero earns 25% more", bool(ro["story"]["hero_bonus"]) and int(ro["story"]["gold"]) == int(round(1800 * 1.25)))
+	_ok("story: shards go to the chapter's hero", int(Game.hero("ranger")["shards"]) == sh0 + int(ro["story"]["shards"]) and int(ro["story"]["shards"]) > 35)
+	# The finale's glow reaches every hero.
+	for id in ["crypt", "vault", "lightless"]:
+		var fh := hunt.duplicate()
+		fh["story"] = id
+		fh["hero"] = SDB_S.chapter(id)["hero"]
+		Game.finish_hunt(fh)
+	var all_glow := true
+	for id in DB.HERO_ORDER:
+		all_glow = all_glow and "wraith" in Game.hero(id)["glows"]
+	_ok("story: the whole story is cleared and the finale's glow is everyone's", Game.story_next() == 5 and all_glow)
+	_ok("story: the cutscene script has no class_name", not ("\n" + FileAccess.get_file_as_string("res://src/ui/cutscene.gd")).contains("\nclass_name "))
+	_ok("story: the story data has no class_name", not ("\n" + FileAccess.get_file_as_string("res://src/data/story_db.gd")).contains("\nclass_name "))
+	Game.data = keep
+
+
+func _story_loss(h: Dictionary) -> Dictionary:
+	var l := h.duplicate()
+	l["win"] = false
+	return l
+
+
 func _stage_tests() -> void:
 	const SK := preload("res://src/autoload/sidekicks.gd")
 	const SKL_T := preload("res://src/core/sidekick_look.gd")
@@ -1487,3 +1691,51 @@ func _gate_tests() -> void:
 	_ok("gate: a lowered min_native clears it", g.apply({"min_native": 1}) == false and not g.blocked and cleared[0])
 	_ok("gate: clearing unpauses the game", root.get_tree().paused == was)
 	g.free()
+
+
+func _event_tests() -> void:
+	var keep: Dictionary = Game.data
+	Game.data = Game._fresh()
+	var om := Game.weekly_omen()
+	_ok("event: more weird rules than before", DB.WEEKLY_OMENS.size() >= 8)
+	var mods_ok := true
+	for o in DB.WEEKLY_OMENS:
+		for k in o["mod"]:
+			mods_ok = mods_ok and k in ["pack", "foe_hp", "foe_speed", "foe_dmg", "dmg", "hp", "dmg_taken", "rate", "super"]
+	_ok("event: every rule only uses known modifiers", mods_ok)
+	_ok("event: the track climbs", DB.EVENT_TRACK.size() == 10 and DB.EVENT_TRACK[0] < DB.EVENT_TRACK[1] and DB.EVENT_TRACK[8] < DB.EVENT_TRACK[9])
+	var strictly := true
+	for i in range(1, DB.EVENT_TRACK.size()):
+		strictly = strictly and DB.EVENT_TRACK[i] > DB.EVENT_TRACK[i - 1]
+	_ok("event: track points strictly rise", strictly)
+	_ok("event: the last tier is the crypt chest", DB.event_reward(10)["kind"] == "chest" and DB.event_reward(10)["chest"] == "crypt")
+	var kinds_ok := true
+	for n in range(1, 11):
+		kinds_ok = kinds_ok and DB.event_reward(n).has("kind")
+	_ok("event: every tier pays something", kinds_ok)
+	_ok("event: a fresh week starts at zero", Game.event_points() == 0 and Game.event_level() == 0 and Game.event_claimable() == 0)
+	_ok("event: a hunt off the omen earns no points", Game.add_event_points({"omen": "", "win": true, "level": 8}) == 0 and Game.event_points() == 0)
+	var win := {"omen": str(om["id"]), "win": true, "level": 8, "souls": 300, "bosses": 2, "depth": 0, "perfect": 4}
+	var pts := Game.add_event_points(win)
+	_ok("event: an omen win earns score/10 points", pts == DB.event_points_for(Game.weekly_score(win)) and pts > 100 and Game.event_points() == pts)
+	_ok("event: a loss still earns a few", Game.add_event_points({"omen": str(om["id"]), "win": false, "level": 3, "souls": 40}) > 0)
+	Game.event()["pts"] = 1100
+	_ok("event: points map to tiers", Game.event_level() == 4 and Game.event_claimable() == 4)
+	var gold0 := Game.gold()
+	var rw := Game.claim_event()
+	_ok("event: tier 1 pays gold", rw.get("kind") == "gold" and Game.gold() == gold0 + int(rw["amount"]) and int(Game.event()["claimed"]) == 1)
+	Game.claim_event()
+	Game.claim_event()
+	Game.claim_event()
+	_ok("event: claims go in order, never past what is earned", Game.event_claimable() == 0 and Game.claim_event().is_empty() and int(Game.event()["claimed"]) == 4)
+	Game.event()["week"] = Game.week_number() - 1
+	_ok("event: a new week resets the track", Game.event_points() == 0 and int(Game.event()["claimed"]) == 0)
+	_ok("event: the clock reads", Game.event_seconds_left() > 0 and Game.event_seconds_left() <= 604800)
+	_ok("event: time text", Game.left_text(2 * 86400 + 5 * 3600) == "2d 5h" and Game.left_text(5 * 3600 + 720) == "5h 12m" and Game.left_text(30) == "1m")
+	# Finishing a hunt under the omen reports the points, and the season is untouched.
+	Game.data["omen_on"] = true
+	var s := Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "mode": "horde", "time": 120.0, "chest": "silver", "omen": str(om["id"]), "hero": "knight", "level": 6, "souls": 100, "gold": 10, "xp": {}, "items": [], "kills": 5, "elites": 0})
+	_ok("event: finish_hunt carries the points", int(s["event_pts"]) > 0 and int(s["event_total"]) == Game.event_points())
+	var sb := Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "mode": "horde", "time": 120.0, "chest": "silver", "omen": "", "hero": "knight", "level": 6, "gold": 10, "xp": {}, "items": [], "kills": 5, "elites": 0})
+	_ok("event: a plain hunt reports none", not sb.has("event_pts"))
+	Game.data = keep

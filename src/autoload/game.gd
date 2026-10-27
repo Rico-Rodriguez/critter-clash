@@ -348,8 +348,14 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if str(r.get("chest", "")) in grades:
 			r["chest"] = grades[mini(grades.find(str(r["chest"])) + 1, 2)]
 		summary["first_win"] = true
-	if str(r.get("omen", "")) != "" and record_weekly(r):
-		summary["weekly_best"] = weekly_best()
+	if str(r.get("story", "")) != "" and r.get("win", false):
+		summary["story"] = story_clear(r)
+	if str(r.get("omen", "")) != "":
+		if record_weekly(r):
+			summary["weekly_best"] = weekly_best()
+		summary["event_pts"] = add_event_points(r)
+		summary["event_total"] = event_points()
+		summary["event_tiers"] = event_claimable()
 	data["gold"] = gold() + int(r.get("gold", 0))
 	# Skill XP goes to the hero who earned it.
 	var sk_hid := str(r.get("hero", hero_id()))
@@ -423,6 +429,8 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			st["best"][dkey] = d
 			summary["record"] = true
 	summary["sidekick"] = SK.after_hunt(data, r, rng)
+	r["pet"] = SK.active(data) != ""
+	r["hatched"] = (summary["sidekick"]["hatched"] as Array).size()
 	_bounty_progress(r)
 	var opened := unlock_by_shards()
 	if opened != "":

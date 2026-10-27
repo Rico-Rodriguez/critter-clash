@@ -14,7 +14,7 @@ const SDB := preload("res://src/data/sidekick_db.gd")
 ## goal); `migrated`: pets and ally folded in.
 static func fresh() -> Dictionary:
 	return {"active": "", "owned": {}, "eggs": {}, "hatchery": [], "egg_uid": 1, "dry": {}, "chests": 0, "seen": [], "migrated": false,
-		"bred_uid": 1, "rest": {}, "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false}}
+		"bred_uid": 1, "rest": {}, "showcase": [], "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false}}
 
 
 static func block(d: Dictionary) -> Dictionary:
@@ -256,6 +256,55 @@ static func bred_ids(d: Dictionary) -> Array:
 	var out := (block(d)["owned"] as Dictionary).keys().filter(func(i): return str(i).begins_with("x"))
 	out.sort_custom(func(x, y): return int(str(x).substr(1)) < int(str(y).substr(1)))
 	return out
+
+
+# --- The showcase ----------------------------------------------------------------
+
+## Owned sidekicks, rarest first, then the most bonded.
+static func by_rarity(d: Dictionary) -> Array:
+	var ids: Array = []
+	for id: String in block(d)["owned"]:
+		if SDB.exists(id):
+			ids.append(id)
+	ids.sort_custom(func(a: String, b: String) -> bool:
+		var ra := SDB.rarity(a)
+		var rb := SDB.rarity(b)
+		if ra != rb:
+			return ra > rb
+		var ka := kills(d, a)
+		var kb := kills(d, b)
+		return ka > kb if ka != kb else a < b)
+	return ids
+
+
+## What the showcase shows: the ones you pinned, then your rarest to fill it.
+static func showcase(d: Dictionary) -> Array:
+	var out: Array = []
+	for id in block(d)["showcase"]:
+		if is_owned(d, str(id)) and not str(id) in out:
+			out.append(str(id))
+	for id: String in by_rarity(d):
+		if out.size() >= SDB.SHOWCASE_SLOTS:
+			break
+		if not id in out:
+			out.append(id)
+	return out.slice(0, SDB.SHOWCASE_SLOTS)
+
+
+static func is_pinned(d: Dictionary, id: String) -> bool:
+	return id in block(d)["showcase"]
+
+
+## Pins a sidekick to the showcase (or unpins it). False when it's not yours or the case is full.
+static func pin(d: Dictionary, id: String) -> bool:
+	var pins: Array = block(d)["showcase"]
+	if id in pins:
+		pins.erase(id)
+		return true
+	if not is_owned(d, id) or pins.size() >= SDB.SHOWCASE_SLOTS:
+		return false
+	pins.append(id)
+	return true
 
 
 ## Hatches every ready egg. Returns the hatch results.

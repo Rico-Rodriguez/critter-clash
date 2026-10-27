@@ -9,6 +9,8 @@ const LOBBY := preload("res://src/lobby/lobby.tscn")
 const Online := preload("res://src/net/online.gd")
 const UiJuice := preload("res://src/ui/ui_juice.gd")
 const AppGate := preload("res://src/core/app_gate.gd")
+const STORY_DB := preload("res://src/data/story_db.gd")
+const CUTSCENE := preload("res://src/ui/cutscene.gd")
 const Privacy := preload("res://src/core/privacy.gd")
 const CrashReport := preload("res://src/core/crash_report.gd")
 
@@ -148,7 +150,24 @@ func _on_hunt_finished(result: Dictionary) -> void:
 				pending_chest = c
 			else:
 				chest_queue.append(c)
-	go("hunt" if result.get("again", false) else "lobby")
+	var again: bool = result.get("again", false)
+	var sc: Dictionary = result.get("summary", {}).get("story", {})
+	await go("hunt" if again else "lobby")
+	# A chapter's first clear closes with its ending, over the camp.
+	if not again and bool(sc.get("first", false)):
+		_play_story(STORY_DB.chapter(str(sc["id"])), "outro", str(result["hero"]))
+
+
+## Plays a chapter's "intro" or "outro" scene over whatever is showing.
+func _play_story(ch: Dictionary, which: String, hero_id: String, title := true) -> Control:
+	var layer := CanvasLayer.new()
+	layer.layer = 60
+	add_child(layer)
+	var cs: Control = CUTSCENE.new()
+	layer.add_child(cs)
+	cs.finished.connect(layer.queue_free)
+	cs.play(ch, which, hero_id, title)
+	return cs
 
 
 ## The next waiting chest after one is opened, or "".
@@ -303,6 +322,11 @@ func _run_bot(args: PackedStringArray) -> void:
 			Game.data["zone"] = zone
 			Game.data["mode"] = mode
 			Game.data["tier"] = tier
+			# --story=roots plays that chapter (the ones before it count as cleared).
+			var story_arg := _arg(args, "story", "")
+			if story_arg != "":
+				Game.data["story"]["cleared"] = STORY_DB.CHAPTERS.slice(0, maxi(STORY_DB.index(story_arg), 0)).map(func(c): return c["id"])
+				Game.story_begin(story_arg)
 			var h := Hunt.new()
 			add_child(h)
 			if idle:
@@ -325,6 +349,8 @@ func _run_bot(args: PackedStringArray) -> void:
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
 			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s xp=%s sidekick=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards, res["xp"], ("%s bond=%d slain=%d" % [h.sidekick.id, h.sidekick.bond, h.sidekick.slain]) if h.sidekick else "none"])
+			if story_arg != "":
+				print("BOT STORY ", res.get("summary", {}).get("story", {}), " boss=", h.boss.display_name if h.boss else "-", " ", h.boss.title if h.boss else "")
 			if h.hero.spikes_dealt > 0.0:
 				print("POWER bone_spikes dealt=%.0f per_s=%.1f" % [h.hero.spikes_dealt, h.hero.spikes_dealt / maxf(float(res["time"]), 1.0)])
 			if idle and res["win"]:
@@ -406,6 +432,10 @@ func _capture(args: PackedStringArray) -> void:
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
 		Game.set_skin(hid, _arg(args, "skin", ""))
+	# --outfit=crimson: own and wear that outfit.
+	if _arg(args, "outfit", "") != "":
+		Game.grant_outfit(_arg(args, "outfit", ""))
+		Game.set_outfit(hid, _arg(args, "outfit", ""))
 	# --skin=reaper: the hero holds a weapon skin.
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
@@ -453,7 +483,23 @@ func _capture(args: PackedStringArray) -> void:
 				await _save("update")
 				g.hide_required()
 				g.queue_free()
-			"sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"storytitle", "storyintro", "storyboss", "storyoutro":
+				# A chapter's scenes over the camp: --chapter=oath|roots|crypt|vault|lightless.
+				var ch: Dictionary = STORY_DB.chapter(_arg(args, "chapter", "oath"))
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				var cs: Control = _play_story(ch, "outro" if shot == "storyoutro" else "intro", hid, shot == "storytitle")
+				await _wait(1.9 if shot == "storytitle" else 0.5)
+				if shot == "storyintro":
+					cs._show(1)
+				elif shot == "storyboss":
+					cs._show(2)
+				elif shot == "storyoutro":
+					cs._show(1)
+				await _wait(0.1 if shot == "storytitle" else 3.6)
+				await _save(shot)
+				cs.queue_free()
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -482,8 +528,22 @@ func _capture(args: PackedStringArray) -> void:
 					for h0 in DB.START_HEROES:
 						Game.hero(h0)["unlocked"] = h0 == hid
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
+				if shot in ["event", "eventboard"]:
+					# Three tiers in with two ready, and a board of rivals.
+					Game.data["omen_on"] = true
+					Game.event()["pts"] = 1330
+					Game.event()["claimed"] = 2
+					Game.data["weekly"] = {"week": Game.week_number(), "best": 3420, "omen": str(Game.weekly_omen()["id"]), "hero": hid}
+				if shot == "story":
+					Game.data["story"]["cleared"] = ["oath"]
 				if shot in ["shop", "shopbuy", "shoplooks"]:
 					Game.data["gold"] = 3240
+				if shot == "bounties":
+					Game.data["bounties"]["day"] = ""
+					Game.refresh_bounties("2030-01-%02d" % int(_arg(args, "day", "5")))
+					Game.data["bounties"]["list"][2]["progress"] = int(Game.data["bounties"]["list"][2]["target"])
+				if _arg(args, "pin", "") != "":
+					SKC.pin(Game.data, _arg(args, "pin", ""))
 				if shot == "talents":
 					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
 						Game.learn_talent(hid, n[0], n[1])
@@ -492,6 +552,19 @@ func _capture(args: PackedStringArray) -> void:
 				if shot == "campfire":
 					current.ui._side_pressed("idle")
 					await _wait(1.0)
+				elif shot in ["event", "eventboard"]:
+					current.ui._board_stub = {"ok": true, "mine": {"rank": 14, "score": 3420}, "data": [
+						{"rank": 1, "name": "Marrow", "score": 6120, "meta": {"hero": "mage"}},
+						{"rank": 2, "name": "Ashlyn", "score": 5890, "meta": {"hero": "rogue"}},
+						{"rank": 3, "name": "Brokk", "score": 5410, "meta": {"hero": "barbarian"}},
+						{"rank": 4, "name": "Vesper", "score": 5002, "meta": {"hero": "ranger"}},
+						{"rank": 5, "name": "Dunmore", "score": 4777, "meta": {"hero": "knight"}}]}
+					current.open_sheet("event")
+					await _wait(1.0)
+					if shot == "eventboard":
+						for sc in current.ui._sheet.find_children("*", "ScrollContainer", true, false):
+							(sc as ScrollContainer).scroll_vertical = 100000
+						await _wait(0.5)
 				elif shot == "shoplooks":
 					current.open_sheet("looks")
 					await _wait(1.2)
@@ -519,6 +592,12 @@ func _capture(args: PackedStringArray) -> void:
 					current.ui._sk_detail = "@breed" if shot == "breeding" else "@log"
 					current.ui._sheet.rebuild()
 					await _wait(0.8)
+				elif shot == "hatch" or shot == "hatchwobble":
+					# --pet=shade (what hatches) from --egg=exotic; "hatchwobble" stops mid-shake.
+					current.open_sheet("sidekicks")
+					await _wait(0.8)
+					current.ui.play_hatch({"id": _arg(args, "pet", "shade"), "kind": _arg(args, "egg", "exotic"), "new": true, "kills": 0})
+					await _wait(1.6 if shot == "hatchwobble" else 5.0)
 				elif shot == "sidekicks" or shot == "sidekick":
 					current.open_sheet("sidekicks")
 					await _wait(1.0)
@@ -537,7 +616,10 @@ func _capture(args: PackedStringArray) -> void:
 						var eqs: Node = current.ui.equipment
 						eqs._on_skins()
 						await _wait(0.3)
-						eqs._select_cos({"cos": "glow", "key": DB.GLOW_ORDER[1]})
+						if _arg(args, "cos", "") != "":
+							eqs._select_cos({"cos": "outfit", "key": _arg(args, "cos", "")})
+						else:
+							eqs._select_cos({"cos": "glow", "key": DB.GLOW_ORDER[1]})
 						await _wait(0.6)
 					if shot == "equipcard":
 						# The card of the weapon in hand (else the best owned), with a copy to level it.
@@ -579,7 +661,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
-			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins":
+			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins", "outfits":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
 			"gear":
@@ -676,6 +758,19 @@ func _capture(args: PackedStringArray) -> void:
 					# The ground runs out to the fog instead of ending in a hard horizon.
 					(current.get_node("IconStage").get_child(0).mesh as PlaneMesh).size = Vector2(400, 400)
 				await _wait(1.5)
+				await _save(shot)
+			"storyhunt", "storyfoe":
+				# A chapter's hunt: its banner at the start, or its retold boss waking.
+				Game.data["story"]["cleared"] = STORY_DB.CHAPTERS.slice(0, STORY_DB.index(_arg(args, "chapter", "oath"))).map(func(c): return c["id"])
+				Game.data["hero"] = hid
+				Game.story_begin(_arg(args, "chapter", "oath"))
+				_set_screen_now("hunt")
+				var hsy: Hunt = current
+				hsy.hero.invuln = 99.0
+				await _wait_sim(hsy, 1.0 if shot == "storyhunt" else 3.0)
+				if shot == "storyfoe":
+					hsy._begin_boss()
+					await _wait_sim(hsy, 1.2)
 				await _save(shot)
 			"depth":
 				# The Descent going a level deeper.
@@ -1276,6 +1371,31 @@ func _contact_sheet(kind: String, only := "") -> void:
 				GearLook.apply(a, hid, pre)
 				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
 		cam2.look_at_from_position(Vector3(0, -2.9, 21.0 + (cols.size() - 4) * 4.0), Vector3(0, -2.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if kind == "outfits":
+		# Every hero in the clothes it starts in, then each outfit it can buy,
+		# one hero a row; the last column is the season pass's outfit.
+		var cam5 := Camera3D.new()
+		root.add_child(cam5)
+		cam5.fov = 30
+		var rr := 0
+		for hid: String in DB.HERO_ORDER:
+			var ids: Array = [""]
+			ids.append_array(DB.OUTFIT_ORDER.filter(func(k): return hid in DB.OUTFITS[k]["heroes"] and not DB.OUTFITS[k].get("gift", false)))
+			ids.append("embergilt")
+			for c in ids.size():
+				Game.hero(hid)["outfit"] = ids[c]
+				var a := Actor.new()
+				root.add_child(a)
+				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				a.position = Vector3((c - (ids.size() - 1) * 0.5) * 1.9, -rr * 2.6, 0)
+				a.rotation_degrees.y = -20.0
+				GearLook.apply(a, hid)
+				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+			Game.hero(hid)["outfit"] = ""
+			rr += 1
+		cam5.look_at_from_position(Vector3(0, 1.0 - (rr - 1) * 1.3, 10.0 + rr * 4.0), Vector3(0, 1.0 - (rr - 1) * 1.3, 0), Vector3.UP)
 		await _wait(1.0)
 		return
 	if kind == "skins":

@@ -273,6 +273,19 @@ static func grade(g: Dictionary) -> int:
 
 
 const GRADES := ["Common", "Rare", "Epic", "Legendary", "Mythic"]
+## How rare each species is to come by (an index into GRADES). A bred
+## sidekick is graded by its genes instead (see rarity()).
+const SPECIES_RARITY := {"wisp": 0, "bonelet": 0, "hexling": 0, "acolyte": 1, "crow": 1, "mimic": 2, "bat": 2, "drake": 3, "barrow_squire": 3, "shade": 4, "sapling": 4}
+## The showcase holds this many sidekicks.
+const SHOWCASE_SLOTS := 3
+
+
+## How rare a sidekick is, 0..4 (Common to Mythic), for the showcase and the hatch.
+static func rarity(id: String) -> int:
+	var d := def(id)
+	if d.has("genes"):
+		return grade(d["genes"])
+	return int(SPECIES_RARITY.get(id, SPECIES_RARITY.get(species(id), 3 if BREEDS.has(id) else 0)))
 const GRADE_COLORS := [Color(0.85, 0.85, 0.85), Color(0.35, 0.8, 1.0), Color(0.75, 0.4, 1.0), Color(1.0, 0.6, 0.15), Color(1.0, 0.3, 0.45)]
 
 

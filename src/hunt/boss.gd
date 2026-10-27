@@ -40,7 +40,7 @@ var exposed_t := 0.0
 
 func setup(h: Hunt, tier: Dictionary) -> void:
 	hunt = h
-	var d: Dictionary = DB.boss_def(boss_id)
+	var d: Dictionary = hunt.boss_def(boss_id)
 	def = d
 	ancient = hunt.tier_i >= DB.TIER_ANCIENT
 	var aura: Color = Color(1.0, 0.86, 0.5) if ancient else d["color"]
