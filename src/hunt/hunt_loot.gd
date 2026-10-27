@@ -402,6 +402,21 @@ func _proj_body(kind: String) -> Node3D:
 			Fx.toon(fb, Color(1.0, 0.55, 0.12), 0.04)
 			root.add_child(fb)
 			root.add_child(_streak(Color(1.0, 0.55, 0.15), 2.2, 0.75))
+		"frostbolt", "cinderbolt":
+			# The Crypt's and the Swamp's archers: a crisp toon bolt, a long clean tail.
+			var cold := kind == "frostbolt"
+			var cb := MeshInstance3D.new()
+			var cbm := SphereMesh.new()
+			cbm.radius = 0.26
+			cbm.height = 0.26 * 2.0
+			cbm.radial_segments = 14
+			cbm.rings = 7
+			cb.mesh = cbm
+			cb.scale = Vector3(1, 1, 1.6)
+			var bc := Color(0.65, 0.9, 1.0) if cold else Color(1.0, 0.5, 0.12)
+			Fx.toon(cb, bc, 0.03)
+			root.add_child(cb)
+			root.add_child(_streak(bc, 1.9, 0.7))
 		"axe":
 			var ax := KK.prop("res://assets/kaykit/weapons/axe_1handed.gltf")
 			ax.scale = Vector3.ONE * 1.9

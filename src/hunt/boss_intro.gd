@@ -17,6 +17,8 @@ const STYLE := {
 	"thorn": {"drift": -1.8, "drop": 12.0, "zoom": 0.84},
 	"hexer": {"drift": 0.0, "drop": 20.0, "zoom": 0.76},
 	"warden": {"drift": 1.2, "drop": 14.0, "zoom": 0.80},
+	"rime": {"drift": -1.2, "drop": 16.0, "zoom": 0.78},
+	"cinder": {"drift": 1.5, "drop": 19.0, "zoom": 0.76},
 }
 
 var hunt: Node

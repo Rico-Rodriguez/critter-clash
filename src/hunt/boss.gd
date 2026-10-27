@@ -55,7 +55,10 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	mass = d["mass"]
 	build_model(d["model"], d["weapons"], aura, 0.55, Color(aura, 1.0))
 	if d.has("skin"):
-		_gild(load(KK.CHAR_DIR + str(d["skin"])) as Texture2D)
+		if DB.SKINS.has(str(d["skin"])):
+			reskin(DB.SKINS[str(d["skin"])])
+		else:
+			_gild(load(KK.CHAR_DIR + str(d["skin"])) as Texture2D)
 	model.scale = Vector3.ONE * float(d["scale"])
 	var occ: Vector2 = d["occluder"]
 	hunt.arena.add_dynamic_occluder(self, occ.x, occ.y)

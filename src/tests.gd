@@ -250,6 +250,7 @@ func run() -> int:
 	_pet_polish_tests()
 	_hatchery_tests()
 	preload("res://src/pet_tests.gd").run(_ok)
+	preload("res://src/biome_tests.gd").run(_ok)
 	_breeding_tests()
 	_pet_care_tests()
 	_story_tests()
@@ -622,14 +623,14 @@ func _depth_tests() -> void:
 	_ok("weekly worse run is not kept", not Game.record_weekly({"win": false}) and Game.weekly_best() == 1150)
 	_ok("weekly entry carries this week's seed", int(Game.weekly_entry()["seed"]) == Game.weekly_seed())
 	Game.data["weekly"] = wb_keep
-	_ok("the Vault is the fourth zone", DB.ZONE_ORDER.size() == 4 and DB.ZONES.has("vault") and DB.ARENAS.any(func(z): return z["zone"] == "vault"))
+	_ok("the Vault is the fourth zone (the Frozen Crypt and Burning Swamp follow)", DB.ZONE_ORDER.size() >= 4 and DB.ZONE_ORDER[3] == "vault" and DB.ZONES.has("vault") and DB.ARENAS.any(func(z): return z["zone"] == "vault"))
 	_ok("the Vault opens on the road", DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "zone" and str(st.get("id", "")) == "vault"))
 	_ok("the Rogue is a hero", DB.HEROES.has("rogue") and "rogue" in DB.HERO_ORDER and GearDB.LINES.has("rogue") and TalentDB.PATHS.has("rogue"))
 	_ok("the Rogue is on the road", DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "hero" and str(st.get("id", "")) == "rogue"))
 	_ok("the Rogue has a signature", DB.CARDS.has(DB.SIGNATURES["rogue"]))
 	_ok("a new save has the Rogue locked", not Game._fresh()["heroes"]["rogue"]["unlocked"])
 	_ok("the Rogue has four weapon skins", DB.WEAPON_SKIN_ORDER.filter(func(k): return "rogue" in DB.WEAPON_SKINS[k]["heroes"]).size() == 4)
-	for u in ["barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling"]:
+	for u in ["barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling", "rime_relic", "cinder_relic"]:
 		_ok("ancient unique %s" % u, DB.UNIQUES.has(u) and u in DB.LOG_ORDER and str(DB.UNIQUES[u]["source"]).begins_with("ancient_"))
 	_ok("ancient uniques never roll below Torment", Game.roll_uniques("ancient_boss", 0).size() >= 0 and DB.TIER_ANCIENT == 6)
 	_ok("bone spikes card defined, universal epic", DB.CARDS.has("bone_spikes") and DB.CARDS["bone_spikes"]["rarity"] == "epic" and not DB.CARDS["bone_spikes"].has("hero") and Ui.icon("broken-bone") != null)

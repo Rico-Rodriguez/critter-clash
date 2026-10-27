@@ -79,6 +79,9 @@ var _bot: HuntBot
 var _ended := false
 var _warming := false
 var patches: Array = []
+## The zone's rules and hazards (src/hunt/biome.gd), or null in the older zones.
+## Untyped: built in hunt.gd, the leaf of the class chain.
+var biome
 var shrines: Array = []
 ## The first surge comes early so a new player meets the horde in the first minute.
 var surge_marks := [0.15, 0.45, 0.75]
@@ -238,7 +241,7 @@ func _room_active() -> bool:
 func brute_count() -> int:
 	var n := 0
 	for f in foes:
-		if f.alive and f.kind == "brute":
+		if f.alive and str(f.def.get("base", f.kind)) == "brute":
 			n += 1
 	return n
 
@@ -246,7 +249,7 @@ func brute_count() -> int:
 func necro_count() -> int:
 	var n := 0
 	for f in foes:
-		if f.alive and f.kind == "necro":
+		if f.alive and str(f.def.get("base", f.kind)) == "necro":
 			n += 1
 	return n
 
@@ -331,6 +334,8 @@ func _room_alive(r: Dictionary) -> int:
 
 ## No class_name for new scripts (the IPA bakes the list): preloaded by path.
 const BossWarden := preload("res://src/hunt/boss_warden.gd")
+const BossRime := preload("res://src/hunt/boss_rime.gd")
+const BossCinder := preload("res://src/hunt/boss_cinder.gd")
 
 ## A boss's definition, retold by the story chapter when it plays one.
 func boss_def(id: String) -> Dictionary:
@@ -341,6 +346,10 @@ func _make_boss() -> Boss:
 	var b: Boss
 	if cur_boss == "warden":
 		b = BossWarden.new()
+	elif cur_boss == "rime":
+		b = BossRime.new()
+	elif cur_boss == "cinder":
+		b = BossCinder.new()
 	else:
 		b = BossHexer.new() if cur_boss == "hexer" else (BossThorn.new() if cur_boss == "thorn" else Boss.new())
 	b.boss_id = cur_boss

@@ -10,6 +10,39 @@ version is 7.
 
 ---
 
+## Unreleased: The Frozen Crypt and the Burning Swamp
+
+Two new zones after the Vault, opened on the Trophy Road (Frozen Crypt at
+10500 trophies, Burning Swamp at 12500). No save-version change: the road gains
+seven appended steps and `Game.zone_unlocked` also opens a zone for any save
+whose `road` already passed its step.
+
+- **Frozen Crypt** (boss: the Rime Regent): a rimed crypt lair on snow, ice
+  crystal clusters as cover, snow drifts that slow, a gale that shoves, and
+  icicles that fall on a telegraph. Foes: Frostbound Thrall, Rime Guard, Rime
+  Archer, Rime Seer, Winter Caller, Rime Hound, Glacier Colossus. Chilling hits
+  leave frost patches; bodies shatter.
+- **Burning Swamp** (boss: the Cinder Ogre): a scorched crypt, bog pools that
+  drag, methane vents that erupt on a telegraph, marsh fire, burning stumps.
+  Foes: Bogwalker, Charred Guard, Ember Spitter, Cinder Witch, Pyre Caller,
+  Bog Leaper, Methane Bloat (ignites the ground when it dies), Pyre Brute.
+- Bosses use the existing entrance (`boss_intro.gd` styles `rime`, `cinder`)
+  with new patterns: Rime Regent's Icelances and Blizzard, Cinder Ogre's
+  Eruption, Inferno and Bloats; both reuse cleave, quake and charge.
+- Loot: five uniques per boss (weapon, armor, boots/robe/cowl, trinket, and an
+  Ancient relic at Torment+), a Frost Egg and a Cinder Egg on the road.
+- Art: `tools/art/biome_textures.py` recolors the KayKit skeleton, ogre, forest
+  and graveyard atlases (unmodified PBR, no fog, no tint wash); `biome_art.gd`
+  batches the crystals, drifts, pools and vents.
+- Music: `tools/audio/build_biome_music.py` writes `frozen`, `frozen_boss`,
+  `swamp` and `swamp_boss`. Snow and embers are crisp round dots.
+- Weekly events, pets, power-ups, the living world and the quality toggles work
+  as in the other zones; the Long Road gets the zone's lighting and weather,
+  and its hazards, but not the static drifts or vents.
+- `tools/dev/check.sh` also runs a hunt in each new zone.
+
+---
+
 ## Unreleased: The Trophy Road
 
 The feature freeze was lifted once for this, at the user's request. Save

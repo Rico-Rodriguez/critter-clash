@@ -175,8 +175,10 @@ func set_mode(id: String) -> void:
 
 
 ## Zones (the arenas) open on the Trophy Road.
+## A save that already walked past the zone's step (the road kept paying chests
+## there before the Frozen Crypt and the Burning Swamp were added) counts as open.
 func zone_unlocked(id: String) -> bool:
-	return DB.road_gate(id) < 0 or id in data["unlocks"]
+	return DB.road_gate(id) < 0 or id in data["unlocks"] or int(data["road"]) >= DB.road_step(id)
 
 
 func set_zone(id: String) -> void:

@@ -39,6 +39,7 @@ var _rim := Color.WHITE
 var _rim_strength := 0.5
 var _eyes := Color(0, 0, 0, 0)
 static var _mats := {}
+static var _skins := {}
 static var _grime: NoiseTexture2D
 
 
@@ -194,6 +195,34 @@ func restyle(root: Node) -> void:
 				m.set_shader_parameter("grime_tex", _grime)
 				_mats[key] = m
 			mi.set_surface_override_material(s, _mats[key])
+
+
+## Swaps the character texture for a recoloured one (DB.SKINS) and shades it
+## clean: `polish` is the glossy, rim-lit grade, `veins` the glowing seams in
+## `accent`, `eyes` the skull's eye glow. The skin carries the colour, so
+## nothing is tinted. Materials are shared by skin and source texture, so
+## every foe of a skin still batches; weapons keep their own texture.
+func reskin(sk: Dictionary) -> void:
+	var tex_name := str(sk["tex"])
+	var eyes: Color = sk["eyes"]
+	for mi in _meshes:
+		for s in mi.mesh.get_surface_count():
+			var m := mi.get_surface_override_material(s) as ShaderMaterial
+			if m == null:
+				continue
+			var base := m.get_shader_parameter("albedo_tex") as Texture2D
+			if base == null or not str(base.resource_path).begins_with(KK.CHAR_DIR):
+				continue
+			var key := "%s|%s|%s|%s" % [tex_name, base.resource_path, eyes.to_html(), _rim.to_html()]
+			if not _skins.has(key):
+				var d := m.duplicate() as ShaderMaterial
+				d.set_shader_parameter("albedo_tex", load(KK.CHAR_DIR + tex_name))
+				d.set_shader_parameter("eye_glow", eyes)
+				d.set_shader_parameter("roughness", float(sk["rough"]))
+				_skins[key] = d
+			mi.set_surface_override_material(s, _skins[key])
+		mi.set_instance_shader_parameter("grade", Vector4(float(sk["polish"]), 0.0, float(sk["veins"]), 0.0))
+		mi.set_instance_shader_parameter("accent", sk["accent"])
 
 
 ## Stops tracking the meshes under `root` (call before freeing it).

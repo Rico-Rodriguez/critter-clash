@@ -4,6 +4,7 @@ extends "res://src/hunt/hunt_modes.gd"
 const Online := preload("res://src/net/online.gd")
 const Partner := preload("res://src/hunt/partner.gd")
 const BlobShadows := preload("res://src/hunt/blob_shadows.gd")
+const Biome := preload("res://src/hunt/biome.gd")
 var _blobs: MultiMeshInstance3D
 const FocusGuard := preload("res://src/hunt/focus_guard.gd")
 ## One hunt in the Barrow: the dead rise, the soul meter fills, the King
@@ -108,6 +109,9 @@ func _ready() -> void:
 	_spawn_sidekick()
 	_spawn_partners()
 	_setup_shrines()
+	if not (zone.get("hazards", []) as Array).is_empty():
+		biome = Biome.new()
+		biome.setup(self)
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
 	hud.setup(self)
@@ -197,7 +201,7 @@ func _warmup() -> void:
 	fx.embers_at(at, Color.ORANGE, 2)
 	fx.flare(at, Color.WHITE)
 	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]), Color(0.6, 0.8, 1.0), &"skill")
-	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe"]:
+	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe", "frostbolt", "cinderbolt"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
 	var temp: Array[Enemy] = []
 	var x := -3.0
