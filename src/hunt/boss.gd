@@ -52,7 +52,7 @@ const PHASE_AT := [0.66, 0.33]
 const SHIFT_LEN := 2.4
 const SHIFT_BEAT := 1.1
 ## Longest wind-up pose held per pattern, for patterns whose first step is long.
-const WIND_CAP := {"eruption": 0.8, "inferno": 1.2, "lockdown": 1.1, "spikes": 1.0, "bonecrown": 1.1, "crossfire": 1.1, "spiral": 1.0, "avalanche": 1.0, "meteors": 1.0, "magma": 1.1}
+const WIND_CAP := {"eruption": 0.8, "inferno": 1.2, "lockdown": 1.1, "spikes": 1.0, "bonecrown": 1.1, "crossfire": 1.1, "spiral": 1.0, "avalanche": 1.0, "meteors": 1.0, "magma": 1.1, "shatter": 1.0, "whiteout": 1.0}
 ## Patterns that wind up by rising and arching back; the rest crouch and tip back.
 const CASTS := ["spears", "graves", "orbs", "circles", "lane", "ring", "seeds", "roots", "coinfall", "spikes", "blizzard", "bloats", "eruption", "crossfire", "spiral", "bramble", "overgrowth", "avalanche", "shatter", "whiteout", "meteors", "magma"]
 

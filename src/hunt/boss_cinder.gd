@@ -5,12 +5,19 @@ extends Boss
 ##   inferno   a blast under him, then a ring of fire round that: stand in the gap
 ##   bloats    he coughs up methane bloats; pop them away from yourself
 ## A spent inferno leaves him open. Enraged: a longer eruption, more bloats.
+## Across the fight:
+##   phase 2  Meteor Rain: fire falls round you in a quickening drizzle and the
+##            last few leave burning ground
+##   phase 3  Magma Wave: rows of fire roll out from him, each with one gap that
+##            wanders a step from the last: follow the gap
+## The room: embers and burning ground take the swamp's edge at 2 and 3.
 ## (No class_name: scripts the IPA didn't bake are preloaded by path.)
 
 const FIRE := Color(1.0, 0.5, 0.15)
-const MINE := ["eruption", "inferno", "bloats"]
+const MINE := ["eruption", "inferno", "bloats", "meteors", "magma"]
 
 var _line: Array = []
+var _fall: Array = []
 
 
 func setup(h: Hunt, t: Dictionary) -> void:
@@ -24,6 +31,10 @@ func _choose(dist: float) -> void:
 		options += ["cleave", "quake"]
 	else:
 		options += ["charge", "eruption"]
+	if phase >= 2:
+		options += ["meteors", "meteors"]
+	if final:
+		options += ["magma", "magma"]
 	options.erase(last)
 	_begin(options[randi() % options.size()])
 
@@ -54,6 +65,38 @@ func _begin(p: String) -> void:
 			play("Melee_2H_Attack_Chop", 0.1, 0.8, true)
 			Sfx.play("boss_windup", -3.0, 0.8)
 			hunt.hud.event("Eruption", FIRE, "fire-ring")
+		"meteors":
+			_fall.clear()
+			var n := 12 if final else 9
+			var lead := hero.flat_pos() + hero.vel * 0.4
+			for i in n:
+				var off := Vector3.ZERO if i == 0 else Vector3(randf_range(-5.5, 5.5), 0, randf_range(-5.5, 5.5))
+				var at := hunt.arena.resolve(lead + off, 0.4)
+				if i >= n - 3:
+					_fall.append(at)
+				var delay := 1.0 + i * 0.2 - i * i * 0.006
+				hunt.blast_at(at, 1.7, delay, dmg * 0.8, "", FIRE)
+			step_t = 1.0 + n * 0.2 + 0.5
+			play("Ranged_Magic_Summon", 0.1, 1.0, true)
+			Sfx.play("boss_windup", -3.0, 0.7)
+			hunt.hud.event("Meteor Rain", FIRE, "meteor-impact")
+		"magma":
+			# Rows of fire roll out from him, a gap in each that moves a step at a time.
+			var fwd := dir_of(yaw)
+			var perp := dir_of(yaw + PI * 0.5)
+			var gap := clampf(randf_range(-4.0, 4.0), -5.0, 5.0)
+			for row in 4:
+				var base := flat_pos() + fwd * (4.5 + row * 3.4)
+				for j in 7:
+					var off := (j - 3) * 3.0
+					if absf(off - gap) <= 3.0:
+						continue
+					hunt.blast_at(hunt.arena.resolve(base + perp * off, 0.3), 1.7, 1.2 + row * 0.5, dmg * 0.85, "", FIRE)
+				gap = clampf(gap + randf_range(-3.0, 3.0), -6.0, 6.0)
+			step_t = 1.2 + 4 * 0.5 + 0.3
+			play("Melee_2H_Attack_Chop", 0.1, 0.7, true)
+			Sfx.play("boss_roar", -2.0, 0.7)
+			hunt.hud.event("Magma Wave", FIRE, "fire-ring")
 		"inferno":
 			var c := flat_pos()
 			hunt.blast_at(c, 3.4, 1.2, dmg * 1.0, "", FIRE, 0.8)
@@ -85,6 +128,18 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 			if step_t <= 0.0:
 				hunt.shake(0.3)
 				_finish(0.8)
+		"meteors":
+			if step_t <= 0.0:
+				# The last few leave ground that burns a while.
+				for at: Vector3 in _fall:
+					hunt.add_fire_patch(at, 1.5, 5.0, dmg * 0.3)
+				hunt.shake(0.3)
+				_finish(0.7)
+		"magma":
+			if step_t <= 0.0:
+				hunt.shake(0.4)
+				_finish(0.5)
+				expose(float(DB.EXPOSED["time"]) * 0.7)
 		"inferno":
 			if step_t <= 0.0:
 				hunt.shake(0.45)
@@ -99,3 +154,20 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 						hunt.spawn_foe("bomber", hunt.arena.resolve(flat_pos() + Vector3(sin(a), 0, cos(a)) * 4.0, 0.6))
 				Sfx.play("boss_hit", -6.0, 0.8)
 				_finish(0.9)
+
+
+func _phase_lines(n: int) -> Array:
+	if n == 2:
+		return ["The furnace roars", "\"Burn. Burn. BURN.\""]
+	return ["The Swamp ignites", "\"All of it. All of you.\""]
+
+
+func _phase_fx(n: int) -> void:
+	hunt.fx.vfx.nova(&"fire", flat_pos(), 8.0, 0.45, Fx.VfxLib.NO_TINT, &"big")
+	if n == 3:
+		hunt.fx.vfx.sky(flat_pos() + Vector3(2, 0, 1), FIRE, 0.3, 14.0)
+
+
+func _phase_arena(n: int) -> void:
+	# Burning ground takes the swamp's edge: more of it each phase.
+	_patch_ring(4 if n == 2 else 7, 10.0 if n == 2 else 11.5, 1.8, 12.0, dmg * 0.3, &"fire", false, randf() * TAU)
