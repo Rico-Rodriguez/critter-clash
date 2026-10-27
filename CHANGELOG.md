@@ -10,6 +10,19 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, ambient life and audio
+
+- Rimehollow and the Cinder Mire now have their own ambience (`src/hunt/ambience.gd`):
+  snow hares, owls on ice crystals, a watching wolf and visible foe breath in the
+  cold; frogs, dragonflies, crows on stumps, methane bubbles that pop into small blue
+  flames and fish rings in the bog. All flat-coloured primitives, no particles,
+  harmless, capped (two on Low quality) and gone when the hero comes near.
+- Each zone has a looping sound bed (ducked under loud fights) and spatial one-shots:
+  wind, ice creaks and drips; swamp air, frogs, a crow, bubbles and ember pops.
+  CC0 recordings from OpenGameArt, credited in CREDITS.md and the in-game credits;
+  the creaks and drips are synthesized. `tools/audio/build_ambience.py` builds them.
+- `src/ambience_tests.gd`: assets and credits, caps, flee behaviour, ducking.
+
 ## Unreleased: Biome rebuild, foe AI
 
 - Sixteen new foes (Rimehollow and Cinder Mire) with their own behaviours:
