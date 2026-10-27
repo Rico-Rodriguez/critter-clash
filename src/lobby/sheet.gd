@@ -99,7 +99,7 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	# One segment needs no row of choices.
 	if segments.size() > 1:
 		_seg_row = HBoxContainer.new()
-		_seg_row.add_theme_constant_override("separation", 8)
+		_seg_row.add_theme_constant_override("separation", 8 if segments.size() < 5 else 6)
 		v.add_child(_seg_row)
 		_build_segments()
 	var wrap := Control.new()
@@ -218,7 +218,10 @@ func _build_segments() -> void:
 		b.custom_minimum_size = Vector2(0, 66)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 22)
+		# Five segments need a smaller label to fit one row.
+		b.add_theme_font_size_override("font_size", 22 if segments.size() < 5 else 17)
+		if segments.size() >= 5:
+			b.clip_text = true
 		var n := i
 		b.pressed.connect(func():
 			Sfx.play("ui_toggle", -6.0)

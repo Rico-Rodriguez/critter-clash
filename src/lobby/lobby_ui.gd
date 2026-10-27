@@ -13,17 +13,20 @@ extends "res://src/lobby/lobby_ui_social.gd"
 const Shop := preload("res://src/lobby/shop.gd")
 
 ## Left to right in the bar.
-const TABS := ["shop", "heroes", "hunt", "clan"]
+const TABS := ["shop", "heroes", "hunt", "pets", "clan"]
 const TAB_LOOK := {
 	"shop": ["Shop", "two-coins"],
 	"heroes": ["Heroes", "visored-helm"],
 	"hunt": ["Hunt", "crossed-swords"],
+	"pets": ["Pets", "egg-clutch"],
 	"clan": ["Clan", "checked-shield"],
 }
 ## Which tab and sub-tab each old sheet name lands on.
 const SHEET_TAB := {
 	"heroes": ["heroes", 0],
 	"bag": ["heroes", 0], "clan": ["clan", 0], "shop": ["shop", 0],
+	"sidekicks": ["pets", 0], "pets": ["pets", 0], "hatchery": ["pets", 1], "breeding": ["pets", 2],
+	"collection": ["pets", 3], "showcase": ["pets", 4],
 }
 
 var _tab_btns := {}
@@ -151,6 +154,7 @@ func refresh() -> void:
 	_tab_dots["heroes"].visible = _any_upgrade() or Game.new_item_count() > 0
 	_tab_dots["clan"].visible = _social_dot()
 	_tab_dots["shop"].visible = Game.shop_free_ready() > 0
+	_tab_dots["pets"].visible = PetsTab.dot()
 	_refresh_side()
 	_first_steps()
 
@@ -534,6 +538,8 @@ func show_tab(name_: String, sub := 0) -> void:
 	%Shade.visible = tab == "hunt"
 	if tab == "hunt":
 		refresh()
+		if lobby and is_instance_valid(lobby) and lobby.has_method("camp_return"):
+			lobby.camp_return()
 		return
 	match tab:
 		"heroes":
@@ -547,6 +553,9 @@ func show_tab(name_: String, sub := 0) -> void:
 			_page = _make_page("Clan", [["Clan", _build_social]], sub)
 		"shop":
 			_page = _make_page("Shop", Shop.segments(self), sub)
+		"pets":
+			_sk_detail = ""
+			_page = _make_page("Pets", PetsTab.segments(self), sub)
 	if dir != 0.0:
 		var w := get_viewport().get_visible_rect().size.x
 		_page.position.x = dir * w * 0.35
@@ -752,9 +761,6 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Skills", _build_skills)
 		"talents":
 			_sheet.open("Talents", _build_talents)
-		"sidekicks":
-			_sk_detail = ""
-			_sheet.open("Sidekicks", _build_sidekicks)
 		_:
 			if not _open_social_sheet(_sheet, name_):
 				_sheet.queue_free()
@@ -772,7 +778,7 @@ func _sheet_closed() -> void:
 			equipment._show_hero(Game.hero_id())
 		else:
 			equipment._refresh()
-	if tab in ["clan", "shop"] and _page is Sheet and is_instance_valid(_page):
+	if tab in ["clan", "shop", "pets"] and _page is Sheet and is_instance_valid(_page):
 		(_page as Sheet).rebuild()
 
 

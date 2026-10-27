@@ -251,6 +251,7 @@ func run() -> int:
 	_hatchery_tests()
 	preload("res://src/pet_tests.gd").run(_ok)
 	_breeding_tests()
+	_pet_care_tests()
 	_story_tests()
 	_stage_tests()
 	_gate_tests()
@@ -1885,3 +1886,68 @@ func _feel_tests() -> void:
 	a.free()
 	big.free()
 	small.free()
+
+
+## Pets 2.0 care: the rest that grows with every litter, and names.
+func _pet_care_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	const Care := preload("res://src/core/pet_care.gd")
+	var t0 := 1_000_000
+	# The rest steps up and stops at the cap.
+	var want := [8, 12, 18, 24, 36, 48, 48, 48]
+	var ok := true
+	for i in want.size():
+		ok = ok and Care.rest_secs(i) == int(want[i]) * 3600
+	_ok("care: rest grows 8h, 12h, 18h, 24h, 36h, 48h and stops", ok)
+	var d := Game._fresh()
+	SK.migrate(d)
+	for id in ["drake", "wisp", "bonelet"]:
+		SK.own(d, id)
+		d["sidekicks"]["owned"][id]["kills"] = 700
+	_ok("care: a pet that never bred has bred 0 times", Care.bred_times(d, "drake") == 0 and Care.next_rest(d, "drake") == 8 * 3600)
+	d["gold"] = SKDB_T.BREED_GOLD * 10
+	var now := t0
+	SK.breed(d, "drake", "wisp", now, 1)
+	_ok("care: the first litter rests both parents 8h", SK.resting(d, "drake", now) == 8 * 3600 and SK.resting(d, "wisp", now) == 8 * 3600)
+	_ok("care: and counts it", Care.bred_times(d, "drake") == 1 and Care.next_rest(d, "drake") == 12 * 3600)
+	now += 8 * 3600
+	SK.breed(d, "drake", "bonelet", now, 2)
+	_ok("care: the second litter costs the repeat parent 12h but a first-timer 8h", SK.resting(d, "drake", now) == 12 * 3600 and SK.resting(d, "bonelet", now) == 8 * 3600)
+	_ok("care: a rested parent is not blocked, a resting one is", SK.breed_block(d, "wisp", "bonelet", now) != "" and SK.breed_block(d, "wisp", "wisp", now) != "")
+	for i in 8:
+		now += 60 * 3600
+		d["sidekicks"]["hatchery"] = []
+		SK.breed(d, "drake", "wisp", now, 10 + i)
+	_ok("care: after many litters the rest holds at the cap", SK.resting(d, "drake", now) == 48 * 3600 and Care.at_cap(d, "drake"))
+	# A clock set far ahead can't strand a pet beyond the longest rest.
+	d["sidekicks"]["rest"]["drake"] = now + 900 * 86400
+	_ok("care: a rest never reads longer than the cap", SK.resting(d, "drake", now) == 48 * 3600)
+	# Save-safe: counts survive a save round trip; an old save has none.
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(d))
+	_ok("care: counts survive the save", Care.bred_times(saved, "drake") == Care.bred_times(d, "drake"))
+	var old := Game._fresh()
+	old["sidekicks"].erase("bcount")
+	_ok("care: an old save without counts still loads", Care.bred_times(old, "drake") == 0 and Care.next_rest(old, "drake") == 8 * 3600)
+	# Names.
+	_ok("name: plain names pass", bool(Care.check_name("Ember")["ok"]) and bool(Care.check_name("Sir Wiggles-II")["ok"]) and bool(Care.check_name("O'Malley")["ok"]))
+	_ok("name: spaces are trimmed and squeezed", str(Care.check_name("   Big    Boo  ")["name"]) == "Big Boo")
+	_ok("name: empty clears", bool(Care.check_name("   ")["ok"]) and str(Care.check_name("   ")["name"]) == "")
+	_ok("name: too short and too long fail", not bool(Care.check_name("A")["ok"]) and not bool(Care.check_name("Abcdefghijklmnop")["ok"]) and bool(Care.check_name("Abcdefghijklmn")["ok"]))
+	_ok("name: odd characters fail", not bool(Care.check_name("Fluffy<3")["ok"]) and not bool(Care.check_name("Rex\nTwo")["ok"]) and not bool(Care.check_name("🙂🙂")["ok"]))
+	_ok("name: must start with a letter or number", not bool(Care.check_name("-Rex")["ok"]) and not bool(Care.check_name(".Rex")["ok"]))
+	var rude := ["fuck", "F u C k", "sh1t", "B1tch", "bigcunt", "n1gg3r", "ass", "D1CK", "f.u.c.k"]
+	var allrude := true
+	for r in rude:
+		allrude = allrude and not bool(Care.check_name(r)["ok"])
+	_ok("name: the filter catches rude words, spaced or spelled with digits", allrude)
+	var clean := true
+	for c in ["Peacock", "Cucumber", "Assam", "Scrap", "Grassy", "Cockatrice", "Dickens", "Classic", "Passion", "Hello", "Titan", "Spicy", "Cuckoo", "Torpedo"]:
+		clean = clean and bool(Care.check_name(c)["ok"])
+	_ok("name: ordinary words that contain a short bad one pass", clean)
+	_ok("name: a pet takes a name and the name reads back", Care.set_name(d, "drake", "  Cinder  ") and Care.nickname(d, "drake") == "Cinder" and Care.shown_name(d, "drake", "Ember Drake") == "Cinder")
+	_ok("name: a bad name changes nothing", not Care.set_name(d, "drake", "fuck") and Care.nickname(d, "drake") == "Cinder")
+	_ok("name: not for a pet you don't own", not Care.set_name(d, "hexling", "Boo"))
+	_ok("name: empty puts the breed name back", Care.set_name(d, "drake", "") and Care.shown_name(d, "drake", "Ember Drake") == "Ember Drake")
+	Care.set_name(d, "wisp", "Boo")
+	var saved2: Dictionary = JSON.parse_string(JSON.stringify(d))
+	_ok("name: it survives the save", Care.nickname(saved2, "wisp") == "Boo")
