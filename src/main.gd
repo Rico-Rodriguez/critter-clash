@@ -420,6 +420,9 @@ func _capture(args: PackedStringArray) -> void:
 	Game.data["hero"] = hid
 	# --quality=low|high|auto: the Graphics setting the shot runs under.
 	Game.data["settings"]["quality"] = _arg(args, "quality", "auto")
+	if "perf" in want:
+		seed(7)
+		Game.rng.seed = 7
 	Game.hero(hid)["shards"] = 9
 	Game.data["tier_unlocked"] = 1
 	Game.data["mode"] = _arg(args, "mode", "horde")
