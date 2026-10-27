@@ -366,6 +366,7 @@ static func deny(c: Control) -> void:
 		return
 	_center(c)
 	c.set_meta("fx_deny", true)
+	Sfx.play("ui_error", -6.0)
 	var t := c.create_tween().set_trans(Tween.TRANS_SINE)
 	for d in [-7.0, 7.0, -4.0, 4.0, 0.0]:
 		t.tween_property(c, "rotation_degrees", d * 0.45, 0.05)
