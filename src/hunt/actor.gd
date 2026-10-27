@@ -277,6 +277,12 @@ func face(yaw: float, dt: float, rate := 14.0) -> void:
 	rotation.y = lerp_angle(rotation.y, yaw, 1.0 - exp(-rate * dt))
 
 
+## Like face, but the turn never exceeds `max_rate` rad/s.
+func face_capped(yaw: float, dt: float, rate: float, max_rate: float) -> void:
+	var d := wrapf(yaw - rotation.y, -PI, PI)
+	rotation.y += clampf(d * (1.0 - exp(-rate * dt)), -max_rate * dt, max_rate * dt)
+
+
 static func yaw_to(from: Vector3, to: Vector3) -> float:
 	return atan2(to.x - from.x, to.z - from.z)
 
