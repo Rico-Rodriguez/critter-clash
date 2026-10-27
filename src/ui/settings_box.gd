@@ -1,17 +1,26 @@
 class_name SettingsBox
 extends VBoxContainer
 ## Volume, shake and graphics rows; used by the pause menu and the camp.
+## Every row saves at once, and a running hunt applies it at once too (see
+## Hunt.apply_setting); in the camp the next hunt picks it up.
+
+## True when shown over a hunt, where nothing waits for the next one.
+var in_hunt := false
 
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 14)
+	# Slider drags save on release; this catches a close in the middle of one.
+	tree_exiting.connect(Game.save)
 	_slider("Music", "music")
 	_slider("Effects", "sfx")
 	var shake := CheckButton.new()
 	shake.text = "Screen shake"
 	shake.button_pressed = bool(Game.setting("shake"))
 	shake.focus_mode = Control.FOCUS_NONE
-	shake.toggled.connect(func(on: bool): Game.set_setting("shake", on))
+	shake.toggled.connect(func(on: bool):
+		Game.set_setting("shake", on)
+		Sfx.play("ui_toggle", -4.0))
 	add_child(shake)
 	var buzz := CheckButton.new()
 	buzz.text = "Vibration"
@@ -19,14 +28,16 @@ func _ready() -> void:
 	buzz.focus_mode = Control.FOCUS_NONE
 	buzz.toggled.connect(func(on: bool):
 		Game.set_setting("haptics", on)
+		Sfx.play("ui_toggle", -4.0)
 		Ui.buzz(30))
 	add_child(buzz)
 	_choices("Buttons", "buttons", ["right", "left"])
 	_choices("Camera", "camera", ["close", "standard", "wide"])
 	_choices("Graphics", "quality", ["auto", "low", "high"])
-	var note := Ui.label("Button, camera and graphics changes apply on the next hunt.", "Small")
-	note.add_theme_font_size_override("font_size", 17)
-	add_child(note)
+	if not in_hunt:
+		var note := Ui.label("Button, camera and graphics changes apply in your next hunt.", "Small")
+		note.add_theme_font_size_override("font_size", 17)
+		add_child(note)
 
 
 ## A row of exclusive toggle buttons that writes the chosen value to a setting.

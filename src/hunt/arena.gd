@@ -32,6 +32,8 @@ var follow: Node3D
 var follow_radius := 0.0
 var _mist: GPUParticles3D
 var _motes: GPUParticles3D
+var _grass_mm: MultiMesh
+var _grass_n := 0
 var zone := "barrow"
 var zone_env: Dictionary
 ## [{"pos": Vector3 (stand here), "light": OmniLight3D}] for the three shrines.
@@ -98,6 +100,8 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 		_ground()
 		_layout()
 	_atmosphere()
+	if low:
+		set_low(true)
 	bake_statics()
 
 
@@ -778,7 +782,10 @@ func _grass() -> void:
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
 	mm.mesh = mesh
-	var want := 500 if low else 1300
+	# Always laid out at full density; low quality just shows the first part
+	# (the scatter is random, so any prefix is an even spread). That lets the
+	# Graphics setting switch mid-hunt.
+	var want := 1300
 	mm.instance_count = want
 	var n := 0
 	var tries := 0
@@ -793,6 +800,8 @@ func _grass() -> void:
 		mm.set_instance_color(n, Color(shade, shade, shade))
 		n += 1
 	mm.visible_instance_count = n
+	_grass_mm = mm
+	_grass_n = n
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -830,10 +839,27 @@ func _light(pos: Vector3, color: Color, energy: float, range_: float, flicker :=
 
 # --- Atmosphere ----------------------------------------------------------
 
+## Switches the Graphics setting mid-hunt: ambient occlusion, grass density and
+## the mist and firefly counts. (Tree and bush counts are baked at build.)
+func set_low(on: bool) -> void:
+	low = on
+	if env:
+		env.ssao_enabled = not on
+		if not on:
+			env.ssao_radius = 1.2
+			env.ssao_intensity = 1.6
+	if _grass_mm:
+		_grass_mm.visible_instance_count = int(_grass_n * (500.0 / 1300.0)) if on else _grass_n
+	if _mist:
+		_mist.amount = 26 if on else 48
+	if _motes:
+		_motes.amount = 40 if on else 90
+
+
 func _atmosphere() -> void:
 	# Low mist drifting across the graves.
 	var mist := GPUParticles3D.new()
-	mist.amount = 26 if low else 48
+	mist.amount = 48
 	mist.lifetime = 16.0
 	mist.preprocess = 16.0
 	mist.local_coords = false
@@ -872,7 +898,7 @@ func _atmosphere() -> void:
 	_mist = mist
 	# Fireflies and grave-wisps.
 	var ff := GPUParticles3D.new()
-	ff.amount = 40 if low else 90
+	ff.amount = 90
 	ff.lifetime = 6.0
 	ff.preprocess = 6.0
 	ff.local_coords = false

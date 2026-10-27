@@ -8,6 +8,7 @@ var _confirm := false
 var _hunt: Hunt
 var _taps: Array[float] = []
 var _dev: DevPanel
+var _peek: Tween
 
 
 func open(h: Hunt) -> void:
@@ -30,8 +31,27 @@ func open(h: Hunt) -> void:
 		if e is InputEventMouseButton and e.pressed and _dev == null:
 			Sfx.play("ui_back", -4.0)
 			resumed.emit())
-	%Settings.add_child(SettingsBox.new())
+	var box := SettingsBox.new()
+	box.in_hunt = true
+	%Settings.add_child(box)
+	Game.setting_changed.connect(_on_setting)
 	Ui.pop_in(%Panel, 0.0, 0.92)
+
+
+## A camera, button or graphics change: the world is paused behind a dark
+## scrim, so lift the scrim for a moment and the player sees the new view.
+func _on_setting(key: String) -> void:
+	if not (key in ["camera", "buttons", "quality"]) or _dev != null:
+		return
+	if _peek:
+		_peek.kill()
+	var scrim: Control = get_node("Scrim")
+	_peek = create_tween().set_parallel(true)
+	_peek.tween_property(scrim, "modulate:a", 0.12, 0.18)
+	_peek.tween_property(%Panel, "modulate:a", 0.4, 0.18)
+	_peek.chain().tween_interval(0.9)
+	_peek.chain().tween_property(scrim, "modulate:a", 1.0, 0.3)
+	_peek.parallel().tween_property(%Panel, "modulate:a", 1.0, 0.3)
 
 
 ## Five taps on the info line within three seconds open the camera panel.
