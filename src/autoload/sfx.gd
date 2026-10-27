@@ -33,7 +33,7 @@ const HEAT := {
 	"fire_hit": 0.03, "thunder": 0.1, "meteor": 0.1, "nova": 0.08, "quake": 0.15,
 }
 ## Per track, the intensity the music never drops under (home stays wide open).
-const MUSIC_FLOOR := {"home": 1.0, "boss": 0.7, "boss_2": 0.7, "grove_boss": 0.7, "rift": 0.6}
+const MUSIC_FLOOR := {"home": 1.0, "boss": 0.7, "boss_2": 0.7, "grove_boss": 0.7, "frozen_boss": 0.7, "swamp_boss": 0.7, "rift": 0.6}
 
 var _variants := {}
 var _players: Array[AudioStreamPlayer] = []

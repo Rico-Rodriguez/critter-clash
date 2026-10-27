@@ -98,6 +98,12 @@ unchanged. Authors:
   "Final Battle of the Dark Wizards" by Kevin MacLeod (incompetech.com), same
   license. Trimmed to 2–3 minutes with fades, loudness-matched (−16.5 LUFS)
   and re-encoded to OGG.
+- The Frozen Crypt and Burning Swamp (`frozen`, `frozen_boss`, `swamp`, `swamp_boss`),
+  all by Kevin MacLeod (incompetech.com), same license: "Night Vigil" (Crypt),
+  "Eternal Terminal" (Rime Regent), "Static Motion" (Swamp) and "Burnt Spirit" (Cinder
+  Ogre). Cut to loops of 70-98 s with the tail crossfaded into the lead-in so they wrap
+  without a seam, loudness-matched (-16.5 LUFS) and re-encoded to OGG by
+  `tools/audio/build_biome_music.py`; otherwise unchanged.
 - Victory sting: "Victory Fanfare Short" by cynicmusic —
   https://opengameart.org/content/victory-fanfare-short — CC0 (trimmed).
 

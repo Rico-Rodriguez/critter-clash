@@ -10,6 +10,17 @@ version is 7.
 
 ---
 
+## Unreleased: Real music for the new zones
+
+The placeholder synth loops for the Frozen Crypt and the Burning Swamp are replaced by
+real tracks (Kevin MacLeod, CC BY 4.0): cold choir and bass for the Crypt, a clicking
+drone for the Swamp, a waterphone-and-brass march for Rime Regent and a choir-and-anvil
+drive for Cinder Ogre. Each loops seamlessly at -16.5 LUFS like the other zones.
+`frozen_boss` and `swamp_boss` also get the 0.7 boss intensity floor the other boss
+tracks have.
+
+---
+
 ## Unreleased: Screen shake intensity
 
 The Screen shake on/off switch is now Off / Low / Medium / High (setting
@@ -52,8 +63,9 @@ whose `road` already passed its step.
 - Art: `tools/art/biome_textures.py` recolors the KayKit skeleton, ogre, forest
   and graveyard atlases (unmodified PBR, no fog, no tint wash); `biome_art.gd`
   batches the crystals, drifts, pools and vents.
-- Music: `tools/audio/build_biome_music.py` writes `frozen`, `frozen_boss`,
-  `swamp` and `swamp_boss`. Snow and embers are crisp round dots.
+- Music: `frozen`, `frozen_boss`, `swamp` and `swamp_boss` are cut by
+  `tools/audio/build_biome_music.py` from four Kevin MacLeod tracks (CC BY 4.0,
+  see CREDITS.md). Snow and embers are crisp round dots.
 - Weekly events, pets, power-ups, the living world and the quality toggles work
   as in the other zones; the Long Road gets the zone's lighting and weather,
   and its hazards, but not the static drifts or vents.
