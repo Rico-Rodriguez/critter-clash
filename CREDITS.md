@@ -107,6 +107,16 @@ unchanged. Authors:
 - Victory sting: "Victory Fanfare Short" by cynicmusic —
   https://opengameart.org/content/victory-fanfare-short — CC0 (trimmed).
 
+## Boss stings (CC BY 4.0)
+
+The hit that lands with each boss's name card (`boss_sting_<boss>.ogg`) is cut from Kevin
+MacLeod's (incompetech.com) "Danse Macabre - Big Hit 1", "Danse Macabre - Big Hit 2" and
+"Darkness Speaks", Creative Commons: By Attribution 4.0
+(https://creativecommons.org/licenses/by/4.0/). Trimmed, pitched or filtered per boss, with
+the CC0 `boom` effects layered under the heavy ones, loudness-matched and re-encoded to OGG by
+`tools/audio/build_boss_stings.py`. ("Danse Macabre" is Saint-Saëns, public domain; the
+recording is MacLeod's.)
+
 ## Sound effects
 
 Licensed (CC0), trimmed and layered:
