@@ -795,7 +795,7 @@ func _flash_screen(col: Color, alpha: float, dur: float) -> void:
 func _shake(px: float, dur: float) -> void:
 	var t := create_tween()
 	t.tween_method(func(v: float) -> void:
-		position = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * px * (1.0 - v), 0.0, 1.0, dur)
+		position = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * minf(px, 10.0) * Game.shake_amp() * (1.0 - v), 0.0, 1.0, dur)
 	t.tween_callback(func() -> void: position = Vector2.ZERO)
 
 

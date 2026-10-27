@@ -95,10 +95,25 @@ func load_save() -> void:
 			_migrate_v7(parsed)
 		if int(parsed.get("version", 0)) == 8:
 			_migrate_v8(parsed)
+		_migrate_shake(parsed)
 		_merge(data, parsed)
 		_rename_gear()
 		_refund_levels()
 		_free_hands()
+
+
+## The shake on/off switch became a level (Off, Low, Medium, High). On becomes
+## Low, which is the new default and a third of the old strength; off stays Off.
+## Safe to repeat, so no save version is needed.
+func _migrate_shake(d: Dictionary) -> void:
+	var st = d.get("settings")
+	if not (st is Dictionary):
+		return
+	if st.has("shake") and not st.has("shake_level"):
+		st["shake_level"] = "low" if bool(st["shake"]) else "off"
+	st.erase("shake")
+	if not HuntCam.LEVELS.has(str(st.get("shake_level", "low"))):
+		st["shake_level"] = "low"
 
 
 ## Pieces once carried a random prefix ("Barrowborn Steel Greaves"). Names are

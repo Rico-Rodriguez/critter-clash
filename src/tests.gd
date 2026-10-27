@@ -1827,11 +1827,14 @@ func _settings_tests() -> void:
 	var before := h.cam.global_position
 	Game.set_setting("camera", "wide")
 	_ok("settings: the camera moves right away, even paused", h.cam.global_position.distance_to(before) > 1.0)
-	Game.set_setting("shake", false)
+	_ok("settings: a new save starts on Low shake", Game.setting("shake_level") == "low" and h.cam.shake_level == "low")
+	Game.set_setting("shake_level", "off")
 	h.shake(1.0)
-	_ok("settings: shake off stops the shake", not h.cam.shake_enabled)
-	Game.set_setting("shake", true)
-	_ok("settings: shake on", h.cam.shake_enabled)
+	_ok("settings: shake off stops the shake", h.cam.shake_level == "off" and h.cam.trauma == 0.0)
+	for lv in ["low", "medium", "high"]:
+		Game.set_setting("shake_level", lv)
+		_ok("settings: shake %s applies in the hunt" % lv, h.cam.shake_level == lv)
+	Game.set_setting("shake_level", "low")
 	Game.set_setting("buttons", "left")
 	_ok("settings: buttons move to the left", h.hud.get_node("%Dash").anchor_left == 0.0 and h.hud.get_node("%Super").anchor_left == 0.0)
 	Game.set_setting("buttons", "right")
@@ -1872,6 +1875,90 @@ func _settings_tests() -> void:
 	Game.data = keep
 
 
+## The screen shake level: one dial for every source, a hard ceiling, an old
+## on/off save moves to Low or Off.
+func _shake_level_tests() -> void:
+	var c := HuntCam.new()
+	var order := ["off", "low", "medium", "high"]
+	var amps: Array[float] = []
+	var kicks: Array[float] = []
+	var pushes: Array[float] = []
+	var peaks: Array[float] = []
+	for lv in order:
+		c.shake_level = lv
+		c.trauma = 0.0
+		c._kick = Vector3.ZERO
+		c.kick(Vector3(1, 0, 0), 0.2)
+		kicks.append(c._kick.length())
+		for i in 30:
+			c.add_trauma(1.0)
+		peaks.append(c.trauma)
+		amps.append(c.amp())
+		pushes.append(float(HuntCam.LEVELS[lv]["push"]))
+	_ok("shake: the levels step up Off, Low, Medium, High", amps[0] == 0.0 and amps[0] < amps[1] and amps[1] < amps[2] and amps[2] < amps[3])
+	_ok("shake: kicks and punches follow the level", kicks[0] == 0.0 and kicks[1] < kicks[2] and kicks[2] < kicks[3] and pushes[1] < pushes[3] and pushes[0] == 0.0)
+	_ok("shake: nothing builds up while Off", peaks[0] == 0.0)
+	_ok("shake: stacked blows cap below full trauma", peaks[3] <= HuntCam.MAX_TRAUMA + 0.001 and peaks[3] > 0.5)
+	c.shake_level = "high"
+	c.trauma = 0.0
+	c.add_trauma(1.0)
+	_ok("shake: one blow can't jump straight to the cap", c.trauma <= HuntCam.MAX_ADD + 0.001)
+	c.trauma = 0.0
+	c._kick = Vector3.ZERO
+	for i in 20:
+		c.kick(Vector3(1, 0, 0), 0.4)
+	_ok("shake: stacked kicks stay under the kick cap", c._kick.length() <= HuntCam.MAX_KICK + 0.001)
+	# Low, the default, is about a third of the old full-strength shake (old
+	# peak shift 0.6 m and 0.05 rad at trauma 1; new Low peak at the cap).
+	var low_move: float = HuntCam.MAX_SHAKE_MOVE * HuntCam.LEVELS["low"]["amp"]
+	var low_turn: float = HuntCam.MAX_SHAKE_TURN * HuntCam.LEVELS["low"]["amp"]
+	_ok("shake: Low is 30-35% of the old move, less of the old turn", low_move / 0.6 > 0.28 and low_move / 0.6 < 0.37 and low_turn / 0.05 < 0.3)
+	_ok("shake: even High moves and turns less than the old shake", HuntCam.MAX_SHAKE_MOVE < 0.6 and HuntCam.MAX_SHAKE_TURN < 0.05)
+	# The camera itself: at the trauma cap, the worst frame stays inside the budget.
+	var tree := Engine.get_main_loop() as SceneTree
+	var tgt := Node3D.new()
+	tree.root.add_child(tgt)
+	var cam := HuntCam.new()
+	tree.root.add_child(cam)
+	cam.target = tgt
+	cam.snap()
+	var rest := cam.global_position
+	for lv in ["low", "high"]:
+		cam.shake_level = lv
+		cam.trauma = 0.0
+		cam.add_trauma(1.0)
+		cam.add_trauma(1.0)
+		cam.add_trauma(1.0)
+		var worst := 0.0
+		for i in 40:
+			cam.trauma = HuntCam.MAX_TRAUMA
+			cam.follow(0.0, Vector3.ZERO)
+			cam._t += 0.05
+			worst = maxf(worst, cam.global_position.distance_to(rest))
+		var budget: float = HuntCam.MAX_SHAKE_MOVE * float(HuntCam.LEVELS[lv]["amp"]) * HuntCam.MAX_TRAUMA * HuntCam.MAX_TRAUMA * 1.5
+		_ok("shake: %s stays inside its move budget (%.2f m)" % [lv, worst], worst <= budget and (lv == "high" or worst < 0.2))
+	cam.free()
+	tgt.free()
+	_ok("shake: a bad saved level reads as Low", HuntCam.level_of("loud") == "low" and HuntCam.level_of(null) == "low" and HuntCam.level_of("high") == "high")
+	_ok("shake: the camp jolts follow the setting", _shake_amp_for("off") == 0.0 and _shake_amp_for("low") < _shake_amp_for("high"))
+	# Old saves.
+	var keep := Game.data.duplicate(true)
+	for case in [[{"shake": true, "music": 0.5}, "low"], [{"shake": false}, "off"], [{"shake": true, "shake_level": "high"}, "high"], [{"music": 1.0}, "low"]]:
+		var d := {"settings": case[0].duplicate()}
+		Game._migrate_shake(d)
+		_ok("shake: old save %s becomes %s" % [str(case[0]), case[1]], d["settings"].get("shake_level", "low") == case[1] and not d["settings"].has("shake"))
+	Game.data = keep
+	c.free()
+
+
+func _shake_amp_for(lv: String) -> float:
+	var keep: Variant = Game.data["settings"].get("shake_level")
+	Game.data["settings"]["shake_level"] = lv
+	var a := Game.shake_amp()
+	Game.data["settings"]["shake_level"] = keep
+	return a
+
+
 ## Combat feel: hit reactions spring back to rest, the camera kick respects the
 ## shake setting, and hitstop is paid from a tank that can't snowball.
 func _feel_tests() -> void:
@@ -1907,18 +1994,20 @@ func _feel_tests() -> void:
 	small.tick_common(0.016)
 	_ok("feel: light foes tip further than heavy ones", absf(small.model.rotation.z) > absf(big.model.rotation.z) * 1.5)
 	var c := HuntCam.new()
-	c.shake_enabled = true
+	c.shake_level = "high"
 	c.kick(Vector3(1, 0, 0), 0.2)
 	_ok("feel: a camera kick is stored", c._kick.x > 0.15)
-	c.shake_enabled = false
+	c.shake_level = "off"
 	c._kick = Vector3.ZERO
 	c.kick(Vector3(1, 0, 0), 0.2)
 	_ok("feel: no kick when screen shake is off", c._kick == Vector3.ZERO)
+	c.shake_level = "high"
 	c.trauma = 0.0
 	c.add_trauma(0.4)
 	var first := c.trauma
 	c.add_trauma(0.4)
 	_ok("feel: trauma has diminishing returns", first > 0.35 and c.trauma - first < first and c.trauma < 1.0)
+	_shake_level_tests()
 	var h := Hunt.new()
 	h.phase = "rise"
 	h.hero = Hero.new()

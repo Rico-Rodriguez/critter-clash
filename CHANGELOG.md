@@ -10,6 +10,24 @@ version is 7.
 
 ---
 
+## Unreleased: Screen shake intensity
+
+The Screen shake on/off switch is now Off / Low / Medium / High (setting
+`shake_level`), in the pause menu and the camp settings. It applies live and is
+saved. **Low is the default**, about a third of the old strength. No save-version
+change: `Game._migrate_shake` turns an old shake-on into Low and shake-off into
+Off on load (safe to repeat).
+
+- One dial in `HuntCam` (`LEVELS`): the rattle, the hit kicks and the punch-in
+  (supers, boss slams) all scale by the level, so every `hunt.shake`, VFX tier
+  shake, boss and biome hazard call, `cam.kick` and `cam.punch` follow it.
+- Lower ceilings at every level, High included: peak shift 0.6 m to 0.45 m,
+  rotation 0.05 to 0.025 rad, trauma capped at 0.8, one blow adds at most 0.5,
+  kicks cap at 0.3 m, punch-ins at 0.16.
+- The camp's jolts (chest open, hatch, evolve) follow the setting too, capped at 10 px.
+
+---
+
 ## Unreleased: The Frozen Crypt and the Burning Swamp
 
 Two new zones after the Vault, opened on the Trophy Road (Frozen Crypt at

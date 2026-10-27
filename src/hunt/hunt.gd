@@ -101,7 +101,7 @@ func _ready() -> void:
 	cam = HuntCam.new()
 	world.add_child(cam)
 	cam.target = hero
-	cam.shake_enabled = bool(Game.setting("shake"))
+	cam.shake_level = HuntCam.level_of(Game.setting("shake_level"))
 	cam.dist_mult = HuntCam.preset_mult(str(Game.setting("camera")))
 	cam.snap()
 	cam.current = true
@@ -152,10 +152,8 @@ func _ready() -> void:
 ## settings live, so only shake, camera, buttons and graphics need work here.
 func apply_setting(key: String) -> void:
 	match key:
-		"shake":
-			cam.shake_enabled = bool(Game.setting("shake"))
-			if not cam.shake_enabled:
-				cam.trauma = 0.0
+		"shake_level":
+			cam.shake_level = HuntCam.level_of(Game.setting("shake_level"))
 		"camera":
 			cam.set_preset(str(Game.setting("camera")))
 		"buttons":

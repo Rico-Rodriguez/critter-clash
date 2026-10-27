@@ -237,7 +237,7 @@ func _process(dt: float) -> void:
 	if _shake <= 0.01:
 		position = Vector2.ZERO
 		return
-	position = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
+	position = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * minf(_shake, 10.0) * Game.shake_amp()
 	_shake = move_toward(_shake, 0.0, dt * 60.0)
 
 

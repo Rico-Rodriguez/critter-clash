@@ -1008,6 +1008,30 @@ func _capture(args: PackedStringArray) -> void:
 					await _save(step[1])
 					await _wait(1.6)
 				await _save("settings_5_menu_after")
+			"shakeui":
+				# The pause menu's Screen shake row: the default (Low), then each level.
+				_set_screen_now("hunt")
+				var hq: Hunt = current
+				hq.bot = true
+				hq._bot = HuntBot.new()
+				hq._bot.hunt = hq
+				await _wait_sim(hq, 6.0)
+				hq.hud._open_pause()
+				await _wait(0.6)
+				var qm: Control = hq.hud.get_children().back()
+				await _save("shake_0_default_low")
+				var shake_row: HBoxContainer = null
+				for hb in qm.find_children("*", "HBoxContainer", true, false):
+					for lb in hb.get_children():
+						if lb is Label and (lb as Label).text == "Screen shake":
+							shake_row = hb
+				for lv in ["Off", "Medium", "High"]:
+					for bt in shake_row.get_children():
+						if bt is Button and (bt as Button).text == lv:
+							(bt as Button).pressed.emit()
+					await _wait(0.4)
+					print("SHAKE level=%s cam=%s" % [lv, hq.cam.shake_level])
+					await _save("shake_%s" % lv.to_lower())
 			"devpanel":
 				_set_screen_now("hunt")
 				var hd: Hunt = current

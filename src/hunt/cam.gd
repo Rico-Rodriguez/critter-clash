@@ -18,10 +18,33 @@ var pitch_shift := 0.0    # degrees added to pitch_deg (the boss entrance drops 
 var _kick := Vector3.ZERO  # a quick shove along the blow, gone in a few frames
 var punch := 0.0          # a quick push in that eases out (supers, big drops); negative pulls back
 
+## amp scales the rattle and the kick; push scales the punch-in (supers, bosses).
+## High is already well under the old full-strength shake, and Low (the default)
+## is about a third of it.
+const LEVELS := {
+	"off": {"amp": 0.0, "push": 0.0},
+	"low": {"amp": 0.45, "push": 0.5},
+	"medium": {"amp": 0.7, "push": 0.75},
+	"high": {"amp": 1.0, "push": 1.0},
+}
+const MAX_TRAUMA := 0.8      # the meter never pins, however much stacks
+const MAX_ADD := 0.5         # one blow adds at most this much trauma
+const MAX_SHAKE_MOVE := 0.45 # metres, at amp 1.0
+const MAX_SHAKE_TURN := 0.025 # radians, at amp 1.0
+const MAX_KICK := 0.3        # metres, before the level scales it
+const MAX_PUNCH := 0.16
+
 var target: Node3D
 var focus_override: Variant = null
 var trauma := 0.0
-var shake_enabled := true
+## The player's screen shake level (Off, Low, Medium, High). Every shake source
+## (trauma, kicks, punches) is scaled by it here, so there is one dial.
+var shake_level := "low":
+	set(v):
+		shake_level = v if LEVELS.has(v) else "low"
+		if shake_level == "off":
+			trauma = 0.0
+			_kick = Vector3.ZERO
 var _focus := Vector3.ZERO
 var _lead := Vector3.ZERO
 var _t := 0.0
@@ -56,14 +79,14 @@ func follow(dt: float, vel: Vector3) -> void:
 	trauma = maxf(trauma - dt * 1.6, 0.0)
 	punch = move_toward(punch, 0.0, dt * 0.45)
 	_kick = _kick.lerp(Vector3.ZERO, 1.0 - exp(-16.0 * dt))
-	_apply(trauma * trauma if shake_enabled else 0.0)
+	_apply(trauma * trauma * amp())
 
 
 ## Recomputed from scratch every frame, so shake never accumulates.
 func _apply(shake: float) -> void:
 	fov = fov_w
 	var p := deg_to_rad(clampf(pitch_deg + pitch_shift, 25.0, 80.0))
-	var d := distance * dist_mult * zoom * (1.0 - punch)
+	var d := distance * dist_mult * zoom * (1.0 - clampf(punch, -MAX_PUNCH, MAX_PUNCH) * float(LEVELS[shake_level]["push"]))
 	global_position = _focus + Vector3(0, sin(p), cos(p)) * d
 	look_at(_focus, Vector3.UP)
 	# Tilt so the focus sits at `anchor` instead of the center.
@@ -73,9 +96,9 @@ func _apply(shake: float) -> void:
 	rotate_object_local(Vector3.RIGHT, atan((anchor - 0.5) * 2.0 * tan(half_v)))
 	global_position += _kick
 	if shake > 0.0:
-		rotate_object_local(Vector3.RIGHT, _noise.get_noise_2d(_t * 40.0, 0.0) * 0.05 * shake)
-		rotate_object_local(Vector3.UP, _noise.get_noise_2d(0.0, _t * 40.0) * 0.05 * shake)
-		global_position += Vector3(_noise.get_noise_2d(_t * 30.0, 7.0), 0, _noise.get_noise_2d(7.0, _t * 30.0)) * 0.6 * shake
+		rotate_object_local(Vector3.RIGHT, _noise.get_noise_2d(_t * 40.0, 0.0) * MAX_SHAKE_TURN * shake)
+		rotate_object_local(Vector3.UP, _noise.get_noise_2d(0.0, _t * 40.0) * MAX_SHAKE_TURN * shake)
+		global_position += Vector3(_noise.get_noise_2d(_t * 30.0, 7.0), 0, _noise.get_noise_2d(7.0, _t * 30.0)) * MAX_SHAKE_MOVE * shake
 
 
 ## The player's camera preset ("close", "standard", "wide"). Applies on the
@@ -91,14 +114,26 @@ func set_preset(name_: String) -> void:
 
 
 ## A blow shoves the camera along `dir` (world, flat) by about `mag` metres; it
-## springs back in a few frames. Off with the shake setting.
+## springs back in a few frames. Scaled by the shake level, gone when it is Off.
 func kick(dir: Vector3, mag: float) -> void:
-	if not shake_enabled or dir.length_squared() < 0.0001:
+	if amp() <= 0.0 or dir.length_squared() < 0.0001:
 		return
-	_kick = (_kick + Vector3(dir.x, 0.0, dir.z).normalized() * mag).limit_length(0.5)
+	_kick = (_kick + Vector3(dir.x, 0.0, dir.z).normalized() * mag * amp()).limit_length(MAX_KICK * amp())
 
 
 ## Shake adds up with diminishing returns: the more there already is, the
 ## less a new knock adds, so a brawl rumbles instead of pinning the meter.
 func add_trauma(v: float) -> void:
-	trauma = clampf(trauma + v * (1.0 - trauma * 0.5), 0.0, 1.0)
+	if amp() <= 0.0:
+		return
+	trauma = clampf(trauma + minf(v, MAX_ADD) * (1.0 - trauma * 0.5), 0.0, MAX_TRAUMA)
+
+
+## 0 when shake is Off, up to 1 at High.
+func amp() -> float:
+	return float(LEVELS[shake_level]["amp"])
+
+
+## The shake level for a saved setting; anything unknown is Low.
+static func level_of(v) -> String:
+	return str(v) if LEVELS.has(str(v)) else "low"
