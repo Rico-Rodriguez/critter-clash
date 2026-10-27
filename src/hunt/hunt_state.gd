@@ -336,6 +336,7 @@ func _room_alive(r: Dictionary) -> int:
 const BossWarden := preload("res://src/hunt/boss_warden.gd")
 const BossRime := preload("res://src/hunt/boss_rime.gd")
 const BossCinder := preload("res://src/hunt/boss_cinder.gd")
+const BossKing := preload("res://src/hunt/boss_king.gd")
 
 ## A boss's definition, retold by the story chapter when it plays one.
 func boss_def(id: String) -> Dictionary:
@@ -351,7 +352,7 @@ func _make_boss() -> Boss:
 	elif cur_boss == "cinder":
 		b = BossCinder.new()
 	else:
-		b = BossHexer.new() if cur_boss == "hexer" else (BossThorn.new() if cur_boss == "thorn" else Boss.new())
+		b = BossHexer.new() if cur_boss == "hexer" else (BossThorn.new() if cur_boss == "thorn" else BossKing.new())
 	b.boss_id = cur_boss
 	return b
 

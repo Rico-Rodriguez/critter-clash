@@ -188,7 +188,7 @@ const TIER_MAP := {
 	"hero.gd:hunt.fx.lightning(pts, col": "light",
 	"hero.gd:hunt.fx.vfx.nova(&\"frost\", at, radius": "skill",
 	"hero.gd:hunt.fx.vfx.nova(&\"fire\", flat_pos(), 3.4": "big",
-	"boss.gd:hunt.fx.vfx.nova(&\"fire\", flat_pos(), 6.0": "big",
+	"boss.gd:hunt.fx.vfx.nova(crown_el, flat_pos(), 11.0": "big",
 	"hunt_combat.gd:fx.vfx.nova(&\"shadow\", at, 9.0": "big",
 	"boss_thorn.gd:RING_REACH / RING_SPEED, Fx": "big",
 }

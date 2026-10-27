@@ -446,37 +446,37 @@ const BOSSES := {
 		"name": "Gravemaw", "title": "the Barrow King", "wake": "the Barrow King wakes", "fall": "Gravemaw falls. Take what is yours.",
 		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"},
 		"hp": 4250.0, "dmg": 26.0, "speed": 3.0, "radius": 1.5, "scale": 2.6, "mass": 40.0,
-		"color": Color(0.4, 1.0, 0.75), "source": "boss", "occluder": Vector2(1.8, 5.0), "summon_line": "The King calls his dead!", "enrage_line": "\"You will lie beside them.\"",
+		"color": Color(0.4, 1.0, 0.75), "el": "poison", "source": "boss", "occluder": Vector2(1.8, 5.0), "summon_line": "The King calls his dead!", "enrage_line": "\"You will lie beside them.\"",
 	},
 	"thorn": {
 		"name": "The Thornmother", "title": "of the Hollow Grove", "wake": "the Thornmother uncurls", "fall": "The Thornmother withers. Take what is yours.",
 		"model": "Rogue_Hooded", "weapons": {"handslot.r": "staff.gltf"},
 		"hp": 5200.0, "dmg": 25.0, "speed": 3.1, "radius": 1.3, "scale": 2.5, "mass": 35.0,
-		"color": Color(0.55, 0.95, 0.35), "source": "thorn", "occluder": Vector2(1.5, 4.8), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
+		"color": Color(0.55, 0.95, 0.35), "el": "nature", "source": "thorn", "occluder": Vector2(1.5, 4.8), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
 	},
 	"hexer": {
 		"name": "Hexer Queen", "title": "of the Sunken Crypt", "wake": "the Queen of the Crypt rises", "fall": "The Hexer Queen unravels. Take what is yours.",
 		"model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
 		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.3, "mass": 30.0,
-		"color": Color(0.75, 0.4, 1.0), "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
+		"color": Color(0.75, 0.4, 1.0), "el": "shadow", "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
 	},
 	"warden": {
 		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
 		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
 		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
-		"color": Color(1.0, 0.82, 0.35), "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
+		"color": Color(1.0, 0.82, 0.35), "el": "holy", "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
 	},
 	"rime": {
 		"name": "The Rime Regent", "title": "of the Frozen Crypt", "wake": "the Regent stirs in the ice", "fall": "The Regent shatters. The Crypt thaws.",
 		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"}, "skin": "regent",
 		"hp": 6000.0, "dmg": 28.0, "speed": 3.0, "radius": 1.45, "scale": 2.6, "mass": 45.0,
-		"color": Color(0.55, 0.85, 1.0), "source": "rime", "occluder": Vector2(1.6, 4.9), "summon_line": "The Regent calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
+		"color": Color(0.55, 0.85, 1.0), "el": "frost", "source": "rime", "occluder": Vector2(1.6, 4.9), "summon_line": "The Regent calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
 	},
 	"cinder": {
 		"name": "The Cinder Ogre", "title": "of the Burning Swamp", "wake": "the Ogre climbs from the embers", "fall": "The Ogre gutters out. The Swamp smoulders.",
 		"model": "Barbarian", "weapons": {"handslot.r": "axe_2handed.gltf"}, "skin": "ogre",
 		"hp": 6400.0, "dmg": 29.0, "speed": 3.0, "radius": 1.5, "scale": 2.7, "mass": 50.0,
-		"color": Color(1.0, 0.5, 0.15), "source": "cinder", "occluder": Vector2(1.7, 5.0), "summon_line": "The Ogre stokes the bog!", "enrage_line": "\"Burn. Burn. BURN.\"",
+		"color": Color(1.0, 0.5, 0.15), "el": "fire", "source": "cinder", "occluder": Vector2(1.7, 5.0), "summon_line": "The Ogre stokes the bog!", "enrage_line": "\"Burn. Burn. BURN.\"",
 	},
 }
 

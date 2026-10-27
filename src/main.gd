@@ -1226,7 +1226,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "hazards":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1461,10 +1461,39 @@ func _capture(args: PackedStringArray) -> void:
 					h.souls = h.souls_goal
 					await _wait_sim(h, 9.0)
 					h.bot = false
+					# --phase=2|3 starts the pattern as that phase (room and all).
+					var ph := int(_arg(args, "phase", "1"))
+					if ph > 1:
+						h.hero.invuln = 99.0
+						h.boss.phase = ph
+						h.boss.final = ph == 3
+						h.boss._phase_arena(ph)
 					h.boss._begin(str(_arg(args, "pattern", "cleave")))
 					await _wait_sim(h, float(_arg(args, "after", "0.8")))
 					h.boss.set_flash(0.0)
 					await get_tree().process_frame
+				elif shot == "bossphase":
+					# A phase break as a filmstrip: bossphase_<n>.png as the boss gathers,
+					# roars and settles. --phase=2|3 picks the break.
+					await _wait_sim(h, 4.0)
+					h.souls = h.souls_goal
+					await _wait_sim(h, 9.0)
+					h.bot = false
+					h.hero.invuln = 99.0
+					var to := int(_arg(args, "phase", "2"))
+					h.boss.phase = to - 1
+					h.boss.hp = h.boss.max_hp * (Boss.PHASE_AT[to - 2] - 0.01)
+					var marks2 := [0.25, 0.7, 1.1, 1.25, 1.5, 1.9, 2.35]
+					var n2 := 0
+					var guard := 0
+					while n2 < marks2.size() and guard < 900:
+						guard += 1
+						await get_tree().process_frame
+						if h.boss.state == "shift" and h.boss.shift_t >= float(marks2[n2]):
+							await _save("bossphase_%d" % n2)
+							n2 += 1
+					await _wait_sim(h, 1.0)
+					await _save("bossphase_after")
 				elif shot == "hazards":
 					# The zone's hazards all at once, winding up around the hero.
 					await _wait_sim(h, 5.0)

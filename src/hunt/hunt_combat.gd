@@ -110,7 +110,7 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 		return
 	if f is Enemy and (f as Enemy).state == "spawn":
 		return
-	if f is Boss and (f as Boss).state == "intro":
+	if f is Boss and ((f as Boss).state == "intro" or (f as Boss).state == "shift"):
 		return
 	if src == hero:
 		amount *= hero.hit_mult()
