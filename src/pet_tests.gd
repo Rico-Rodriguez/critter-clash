@@ -9,6 +9,8 @@ const EggShop := preload("res://src/autoload/egg_shop.gd")
 const STORY := preload("res://src/data/story_db.gd")
 const GEN := preload("res://src/data/pet_gen.gd")
 const PARTS := preload("res://src/core/pet_parts.gd")
+const PG := preload("res://src/core/pet_graft.gd")
+const SKL := preload("res://src/core/sidekick_look.gd")
 
 const T0 := 1_800_000_000
 
@@ -244,36 +246,100 @@ static func _breeds(ok: Callable) -> void:
 	var old := {"dmg": 1.1, "haste": 1.0, "reach": 1.0, "size": 1.0, "element": "fire", "pattern": "spots", "accent": "ff0000", "glow": false, "personality": "keen", "echo": ""}
 	var od := SDB.bred_def("drake", old)
 	ok.call("breeds: a pet saved before pets 2.0 still builds", not od.is_empty() and (od["notes"] as Array).is_empty() and not od.has("skin"))
-	# The toon parts.
-	var plain := Node3D.new()
-	PARTS.attach(plain, _bare(plain), od)
+	# Real parts: lifted from the donor's own model and hung on the body's.
+	ok.call("breeds: a pet saved before pets 2.0 wears no borrowed part", PARTS.swaps(od).is_empty())
 	var gp := SDB.base_genes()
 	gp["parts"] = {"head": "bonelet", "wings": "bat", "tail": "drake"}
 	gp["mutation"] = "gilded"
-	var pd := SDB.bred_def("drake", gp)
-	var dressed := Node3D.new()
-	PARTS.attach(dressed, _bare(dressed), pd)
-	var pn := dressed.get_node_or_null("Parts")
-	ok.call("breeds: borrowed parts and a mutation skin hang under named nodes", plain.get_node_or_null("Parts") == null and plain.get_node_or_null("Mutation") == null and pn != null and pn.get_child_count() == 2 and pn.get_node_or_null("Head") != null and pn.get_node_or_null("Wings") != null and pn.get_node_or_null("Tail") == null and dressed.get_node_or_null("Mutation") != null)
+	gp["pattern"] = "spots"
+	gp["glow"] = true
+	SDB.BRED["x98"] = SDB.bred_def("drake", gp)
+	var look: Dictionary = SKL.build("x98", false)
+	var lr: Node3D = look["root"]
+	var gh := lr.find_child("Graft_head", true, false)
+	var gw := lr.find_child("Graft_wings", true, false)
+	ok.call("breeds: borrowed head and wings hang on the body's skeleton, an own tail adds nothing", gh != null and gw != null and gh is BoneAttachment3D and lr.find_child("Graft_tail", true, false) == null and gw.get_child(0).get_child_count() == 2)
+	var prim := 0
+	var real := 0
+	for n in lr.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh is PrimitiveMesh:
+			prim += 1
+		elif mi.mesh != null and mi.visible:
+			real += 1
+	ok.call("breeds: no orb, box or prism anywhere on a bred pet (traits, parts and mutation are data and card text)", prim == 0 and real >= 3 and lr.get_node_or_null("Traits") == null and lr.get_node_or_null("Mutation") == null and lr.get_node_or_null("Parts") == null)
+	var meshes_ok := true
+	for gn: Node in [gh, gw]:
+		for n in gn.find_children("*", "MeshInstance3D", true, false):
+			var m := (n as MeshInstance3D).mesh
+			meshes_ok = meshes_ok and m is ArrayMesh and m.surface_get_material(0) is BaseMaterial3D and (m as ArrayMesh).get_aabb().size.length() > 0.02
+	ok.call("breeds: a borrowed part is the donor's own mesh with its own PBR", meshes_ok)
+	var wing_sides := []
+	for n in gw.find_children("Wing*", "Node3D", true, false):
+		wing_sides.append(int(n.get_meta("side")))
+	wing_sides.sort()
+	ok.call("breeds: wings come as a left and a right pivot", wing_sides == [-1, 1])
+	lr.free()
+	# The body's own head is cut out where the donor's goes on.
+	var own_tris := _tris(SKL.build("drake", false)["root"])
+	var carved_tris := _tris(SKL.build("x98", false)["root"])
+	ok.call("breeds: the body's own head and wings are cut out so nothing doubles up", carved_tris < own_tris and carved_tris > own_tris / 2)
+	SDB.BRED.erase("x98")
+	# Every part a species can lend builds on every body: real meshes of sane size.
 	var every := true
+	var count := 0
 	for sp: String in SDB.ORDER:
 		for slot: String in GEN.PART_SLOTS:
-			var host := Node3D.new()
+			if not GEN.donates(sp, slot):
+				continue
+			count += 1
+			var pt := PG.part(sp, slot)
+			var sz: Vector3 = pt["aabb"].size if not pt.is_empty() else Vector3.ZERO
+			every = every and not pt.is_empty() and sz.length() > 0.05 and sz.length() < 8.0 and (pt["items"] as Array).size() >= (2 if slot == "wings" else 1)
+	ok.call("breeds: every part in GEN.GRAFT extracts (%d of them)" % count, every and count == GEN.donor_parts())
+	var all_ok := true
+	for body: String in SDB.ORDER:
+		for sp: String in SDB.ORDER:
 			var gq := SDB.base_genes()
-			gq["parts"] = {slot: sp}
-			PARTS.attach(host, _bare(host), SDB.bred_def("drake" if sp != "drake" else "wisp", gq))
-			every = every and host.get_node_or_null("Parts") != null and host.get_node("Parts").get_child(0).get_child_count() > 0
-			host.free()
-	for m: String in GEN.MUTATION_ORDER:
-		var host := Node3D.new()
-		var gq := SDB.base_genes()
-		gq["mutation"] = m
-		PARTS.attach(host, _bare(host), SDB.bred_def("wisp", gq))
-		every = every and host.get_node("Mutation").get_child_count() >= 2
-		host.free()
-	ok.call("breeds: every species' part and every mutation skin builds shapes", every)
-	plain.free()
-	dressed.free()
+			gq["parts"] = {"head": sp, "wings": sp, "tail": sp}
+			SDB.BRED["x97"] = SDB.bred_def(body, gq)
+			var lk: Dictionary = SKL.build("x97", false)
+			var want: int = PARTS.swaps(SDB.BRED["x97"]).size()
+			var got := (lk["root"] as Node3D).find_children("Graft_*", "", true, false).size()
+			all_ok = all_ok and got == want and want == (0 if sp == body else _donor_slots(sp))
+			(lk["root"] as Node3D).free()
+	SDB.BRED.erase("x97")
+	ok.call("breeds: every body takes every donor's parts (a slot with no real part draws nothing)", all_ok)
+	# A slot with no real part stays data and card text only.
+	var gx := SDB.base_genes()
+	gx["parts"] = {"head": "drake", "wings": "hexling", "tail": "bonelet"}
+	var xd := SDB.bred_def("crow", gx)
+	ok.call("breeds: a part with no real donor model is on the card but never drawn", PARTS.swaps(xd).size() == 1 and (xd["notes"] as Array).size() == 3)
+	# Rolls only hand out parts that exist.
+	var rolled := true
+	for sd in 120:
+		var ch: Dictionary = SDB.roll_child("hexling", SDB.base_genes(), "acolyte", SDB.base_genes(), sd, 0.0)
+		for slot: String in GEN.PART_SLOTS:
+			var donor := str(ch["genes"]["parts"][slot])
+			rolled = rolled and (donor == SDB.body_of(str(ch["breed"])) or GEN.donates(donor, slot))
+	ok.call("breeds: a rolled child never gets a part that can't be shown", rolled)
+
+
+## Triangles in every mesh of a model, hidden ones left out.
+static func _tris(root: Node3D) -> int:
+	var n := 0
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null or not mi.visible or mi.get_parent().name.begins_with("Frame") or mi.get_parent().name.begins_with("Wing"):
+			continue
+		for s in mi.mesh.get_surface_count():
+			var a := mi.mesh.surface_get_arrays(s)
+			n += (a[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
+	return n
+
+
+static func _donor_slots(sp: String) -> int:
+	return (GEN.GRAFT.get(sp, {}) as Dictionary).size()
 
 
 # --- Hatching individuals, mutation pity, cooldown growth, the stable ------------------
@@ -315,6 +381,7 @@ static func _hatch(ok: Callable) -> void:
 	e4["kind"] = "ember"
 	var h4 := SK.hatch(d3, int(e4["uid"]), T0 + 9 * 3600)
 	ok.call("hatching: the pity hatch is mutated and resets the count", str(h4["mutation"]) != "" and int(d3["sidekicks"]["dry"]["mutation"]) == 0 and (d3["sidekicks"]["found"]["mutations"] as Array).has(str(h4["mutation"])))
+	ok.call("hatching: the result carries the mutation's power line for the reveal", str(h4["mutation_power"]) == str(GEN.MUTATIONS[str(h4["mutation"])]["power"]))
 	var e5 := SK.give_egg(d3, "ember", T0, 9)
 	SK.hatch(d3, int(e5["uid"]), T0 + 9 * 3600)
 	ok.call("hatching: an unmutated roll counts toward the pity", int(d3["sidekicks"]["dry"]["mutation"]) in [0, 1])
@@ -340,7 +407,7 @@ static func _log(ok: Callable) -> void:
 	var d := Game._fresh()
 	SK.migrate(d)
 	var c0 := SK.collection(d)
-	ok.call("log: a new save has nothing found, with real totals", int(c0["variants"]["have"]) == 0 and int(c0["variants"]["total"]) == 11 * 4 + 8 * 4 and int(c0["mutations"]["total"]) == 6 and int(c0["parts"]["total"]) == 33 and int(c0["breeds"]["total"]) == 19)
+	ok.call("log: a new save has nothing found, with real totals", int(c0["variants"]["have"]) == 0 and int(c0["variants"]["total"]) == 11 * 4 + 8 * 4 and int(c0["mutations"]["total"]) == 6 and int(c0["parts"]["total"]) == GEN.donor_parts() and GEN.donor_parts() == 18 and int(c0["breeds"]["total"]) == 19)
 	var child := {"breed": "cinderbone", "genes": SDB.base_genes()}
 	child["genes"]["variant"] = "bright"
 	child["genes"]["mutation"] = "gilded"
@@ -364,10 +431,3 @@ static func _log(ok: Callable) -> void:
 	SK.migrate(rt)
 	ok.call("log: a mutated pet comes back from the save with its skin", str(SDB.def("x1").get("skin", "")) == "gilded" and str(SDB.def("x1")["name"]).begins_with("Gilded"))
 	SDB.BRED.clear()
-
-
-## A model stand-in under `host` (freed with it).
-static func _bare(host: Node3D) -> Node3D:
-	var m := Node3D.new()
-	host.add_child(m)
-	return m

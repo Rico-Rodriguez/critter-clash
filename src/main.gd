@@ -886,6 +886,15 @@ func _capture(args: PackedStringArray) -> void:
 				var solo := str(_arg(args, "solo", ""))
 				if solo != "":
 					lspecs = [[solo, {"head": "bonelet", "wings": "bat", "tail": "crow"} if args.has("--parts") else {}, ""]]
+				var mix := str(_arg(args, "mix", ""))
+				if mix != "":
+					# --mix=body,head,wings,tail: one pet, "-" keeps the body's own slot.
+					var mp := mix.split(",")
+					var mparts := {}
+					for k in 3:
+						if mp.size() > k + 1 and mp[k + 1] != "-":
+							mparts[["head", "wings", "tail"][k]] = mp[k + 1]
+					lspecs = [[mp[0], mparts, ""]]
 				if str(_arg(args, "only", "")) != "":
 					lspecs = [lspecs[int(_arg(args, "only", "0"))]]
 				for i in lspecs.size():
@@ -907,17 +916,18 @@ func _capture(args: PackedStringArray) -> void:
 				var ortho := str(_arg(args, "ortho", ""))
 				if ortho != "":
 					# Flat-lit silhouette views (front / side, 200 px per metre at 600x600)
-					# for measuring a body's frame: tools/dev/pet_frames.py reads them.
+					# for checking a body's frame by eye.
 					ground.visible = false
 					lcam.projection = Camera3D.PROJECTION_ORTHOGONAL
 					lcam.size = 3.0
 					lcam.look_at_from_position(Vector3(0, 1.0, 6.0) if ortho == "front" else Vector3(6.0, 1.0, 0), Vector3(0, 1.0, 0), Vector3.UP)
 				elif solo != "" or lspecs.size() == 1:
-					lcam.look_at_from_position(Vector3(2.4, 1.1, 2.8), Vector3(0, 0.45, 0), Vector3.UP)
+					var cd := float(_arg(args, "cd", "1"))
+					lcam.look_at_from_position(Vector3(2.4, 1.1, 2.8) * cd, Vector3(0, 0.45, 0) * cd, Vector3.UP)
 				else:
 					lcam.look_at_from_position(Vector3(0, 1.9, 6.6), Vector3(0, 0.75, 0), Vector3.UP)
 				await _wait(1.5)
-				await _save("petlineup_" + (solo if solo != "" else lrow) + ("_" + ortho if ortho != "" else "") + ("_back" if args.has("--back") else ""))
+				await _save("petlineup_" + (solo if solo != "" else (mix.replace(",", "_") if mix != "" else lrow)) + ("_" + ortho if ortho != "" else "") + ("_back" if args.has("--back") else ""))
 			"appicon", "splash":
 				# The app icon: the hero with a lantern in the dark, in plain
 				# polished gear so no rarity glow muddies it at 60 px
