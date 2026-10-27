@@ -23,7 +23,7 @@ static func build(a: Arena) -> void:
 	Art.scorch(a, [Vector3(-14, 0, 1), Vector3(14.5, 0, 5), Vector3(-9.5, 0, -22), Vector3(15, 0, -22), Vector3(-6.5, 0, 14.5), Vector3(6, 0, -3), Vector3(a.crypt_pos.x, 0, a.crypt_pos.z + 5.5)], 1.6)
 	_spawn_spots(a)
 	a._forest([G + "tree_dead_large.gltf", G + "tree_dead_medium.gltf", G + "tree_dead_large_decorated.gltf",
-		F + "Tree_Bare_1_A_Color1.gltf", F + "Tree_Bare_2_A_Color1.gltf", F + "Tree_Bare_1_A_Color1.gltf", G + "tree_pine_orange_large.gltf"])
+		F + "Tree_Bare_1_A_Color1.gltf", F + "Tree_Bare_2_A_Color1.gltf", F + "Tree_Bare_1_A_Color1.gltf", G + "tree_dead_medium.gltf"])
 
 
 ## The Ogre's den: a scorched crypt with a red glow in its doorway.
