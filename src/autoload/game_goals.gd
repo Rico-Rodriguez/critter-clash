@@ -320,6 +320,12 @@ func story_open(i: int) -> bool:
 	return i == 0 or (i > 0 and i < STORY.count() and story_cleared(str(STORY.CHAPTERS[i - 1]["id"])))
 
 
+## What the camp's Story button reads: the chapter waiting, or COMPLETE.
+func story_home_label() -> String:
+	var n := story_next()
+	return "COMPLETE" if n >= STORY.count() else "CHAPTER %d" % (n + 1)
+
+
 ## The first chapter not yet cleared (count() when the story is done).
 func story_next() -> int:
 	for i in STORY.count():

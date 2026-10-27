@@ -1551,6 +1551,9 @@ func _story_tests() -> void:
 	_ok("story: every beat is a known speaker, camera and line", beats_ok)
 	_ok("story: the finale pays a weapon glow that exists", DB.GLOWS.has(SDB_S.CHAPTERS[4]["reward"]["glow"]))
 	_ok("story: a fresh save has no story", Game.data["story"]["cleared"].is_empty() and Game.story_next() == 0)
+	_ok("story: the camp button points a new player at Chapter 1", Game.story_home_label() == "CHAPTER 1")
+	var camp_src := FileAccess.get_file_as_string("res://src/lobby/lobby_ui.gd")
+	_ok("story: the camp rail has its own Story button that opens the story", camp_src.contains("_rail_button(\"story\"") and camp_src.contains("open_sheet(\"story\")"))
 	_ok("story: chapter 1 is open, 2 is not", Game.story_open(0) and not Game.story_open(1) and not Game.story_open(9) and not Game.story_open(-1))
 	_ok("story: a locked chapter cannot be queued", not Game.story_begin("roots") and str(Game.data["story"]["run"]) == "")
 	_ok("story: an unknown chapter cannot be queued", not Game.story_begin("nope"))
@@ -1596,6 +1599,7 @@ func _story_tests() -> void:
 	for id in DB.HERO_ORDER:
 		all_glow = all_glow and "wraith" in Game.hero(id)["glows"]
 	_ok("story: the whole story is cleared and the finale's glow is everyone's", Game.story_next() == 5 and all_glow)
+	_ok("story: the camp button reads COMPLETE once it is all cleared", Game.story_home_label() == "COMPLETE")
 	_ok("story: the cutscene script has no class_name", not ("\n" + FileAccess.get_file_as_string("res://src/ui/cutscene.gd")).contains("\nclass_name "))
 	_ok("story: the story data has no class_name", not ("\n" + FileAccess.get_file_as_string("res://src/data/story_db.gd")).contains("\nclass_name "))
 	Game.data = keep
