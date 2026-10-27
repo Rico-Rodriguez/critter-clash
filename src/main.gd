@@ -501,6 +501,8 @@ func _capture(args: PackedStringArray) -> void:
 		match shot:
 			"uipress", "uifly1", "uifly2", "uiiris1", "uiiris2", "uideny":
 				await _uifx_shot(shot)
+			"chestcharge", "chestback", "chestflip", "chestrare", "chestlegend", "chestsum", "chestfly":
+				await _chestfx_shot(shot)
 			"privacy":
 				# The first-launch privacy screen, as a new player sees it.
 				var pv: CanvasLayer = load("res://src/core/privacy.gd").new()
@@ -1601,6 +1603,67 @@ func _uifx_shot(shot: String) -> void:
 			_iris(1.0, 0.6, Vector2(0.5, 0.8))
 			await _wait(0.4 if shot == "uiiris1" else 0.8)
 	await _save(shot)
+
+
+## Mid-motion shots of the chest opening: charging, a face-down card, a flip,
+## a rare and a legendary reveal, the summary, and the rewards flying to their
+## counters.
+func _chestfx_shot(shot: String) -> void:
+	var hid: String = Game.hero_id()
+	pending_chest = "gold"
+	Game.data["gems"] = 18
+	var rare: Dictionary = Game.roll_item("chest", 1, "", hid)
+	rare["rarity"] = "rare"
+	var leg: Dictionary = Game.roll_item("chest", 1, "", hid)
+	leg["rarity"] = "legendary"
+	var ChestOpen := preload("res://src/lobby/chest_open.gd")
+	ChestOpen.forced_rewards = [
+		{"type": "gold", "amount": 820}, {"type": "gems", "amount": 12},
+		{"type": "item", "item": rare}, {"type": "item", "item": leg},
+		{"type": "egg", "egg": "ember"}]
+	_set_screen_now("lobby")
+	await _wait(1.4)
+	var ui: LobbyUI = current.ui
+	ui._open_chest()
+	var host: Control = ui.get_node("%Overlay")
+	var ov: Control = host.get_child(host.get_child_count() - 1)
+	await _wait(0.8)
+	if shot == "chestcharge":
+		ov._tap()
+		await _wait(0.75)
+		await _save(shot)
+		return
+	ov._tap()
+	await _stage(ov, "facedown")
+	# Card by card: flip, then on to the next.
+	var stop := {"chestback": 0, "chestflip": 0, "chestrare": 2, "chestlegend": 3, "chestsum": 5, "chestfly": 5}
+	var n: int = stop[shot]
+	for i in n:
+		ov._tap()
+		await _stage(ov, "revealed")
+		ov._tap()
+		await _stage(ov, "facedown" if i + 1 < 5 else "summary")
+	if shot == "chestback":
+		await _wait(0.2)
+	elif shot in ["chestflip", "chestrare", "chestlegend"]:
+		ov._tap()
+		await _wait(0.2 if shot == "chestflip" else 0.32)
+	elif shot == "chestfly":
+		await _wait(0.6)
+		ov._tap()
+		await _wait(0.4)
+	else:
+		await _wait(0.8)
+	await _save(shot)
+
+
+## Waits (in frames) for the chest overlay to reach `stage`.
+func _stage(ov: Control, stage: String) -> void:
+	var frames := 0
+	while ov.stage != stage and frames < 300:
+		await _wait(0.1)
+		frames += 3
+	await _wait(0.1)
 
 
 func _save(name_: String) -> void:

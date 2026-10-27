@@ -178,6 +178,20 @@ func _sync_currency(delay := 0.0) -> void:
 	_sync_chip("gems", SKS.gems(Game.data), delay)
 
 
+## The counters jump to the true numbers with no fuss (the chest overlay has
+## already counted them up in front of the player).
+func settle_currency() -> void:
+	_currency_held = false
+	for g in [_gold_tween, _gem_tween]:
+		if g and g.is_valid():
+			g.kill()
+	_gold_shown = Game.gold()
+	_gems_shown = SKS.gems(Game.data)
+	%Gold.text = Ui.fmt_num(_gold_shown)
+	_gem_label.text = Ui.fmt_num(_gems_shown)
+	_gem_chip.visible = _gems_shown > 0
+
+
 func hold_currency(on: bool) -> void:
 	_currency_held = on
 	if not on:
@@ -661,7 +675,7 @@ func chest_done() -> void:
 	chest_opening = false
 	%Safe.visible = true
 	%NavBar.visible = true
-	hold_currency(false)
+	settle_currency()
 	FxUi.still(%Chest)
 	lobby.remove_chest()
 	refresh()

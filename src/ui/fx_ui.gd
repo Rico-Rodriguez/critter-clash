@@ -139,6 +139,21 @@ static func add_motes(c: Control, color := Color(1.0, 0.78, 0.45, 0.55), amount 
 	return p
 
 
+## A soft round glow, filling its parent, for light behind an icon.
+static func glow_dot(tint: Color, alpha := 1.0) -> TextureRect:
+	var r := TextureRect.new()
+	r.texture = _dot_texture()
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.modulate = Color(tint, alpha)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+
+static func dot_texture() -> Texture2D:
+	return _dot_texture()
+
+
 static func _dot_texture() -> Texture2D:
 	if _dot == null:
 		var g := Gradient.new()
