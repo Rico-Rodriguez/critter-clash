@@ -416,6 +416,10 @@ func _capture(args: PackedStringArray) -> void:
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
 		Game.set_skin(hid, _arg(args, "skin", ""))
+	# --outfit=crimson: own and wear that outfit.
+	if _arg(args, "outfit", "") != "":
+		Game.grant_outfit(_arg(args, "outfit", ""))
+		Game.set_outfit(hid, _arg(args, "outfit", ""))
 	# --skin=reaper: the hero holds a weapon skin.
 	if _arg(args, "skin", "") != "":
 		Game.hero(hid)["skins"].append(_arg(args, "skin", ""))
@@ -576,7 +580,10 @@ func _capture(args: PackedStringArray) -> void:
 						var eqs: Node = current.ui.equipment
 						eqs._on_skins()
 						await _wait(0.3)
-						eqs._select_cos({"cos": "glow", "key": DB.GLOW_ORDER[1]})
+						if _arg(args, "cos", "") != "":
+							eqs._select_cos({"cos": "outfit", "key": _arg(args, "cos", "")})
+						else:
+							eqs._select_cos({"cos": "glow", "key": DB.GLOW_ORDER[1]})
 						await _wait(0.6)
 					if shot == "equipcard":
 						# The card of the weapon in hand (else the best owned), with a copy to level it.
@@ -618,7 +625,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
-			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins":
+			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins", "outfits":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
 			"gear":
@@ -1328,6 +1335,31 @@ func _contact_sheet(kind: String, only := "") -> void:
 				GearLook.apply(a, hid, pre)
 				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
 		cam2.look_at_from_position(Vector3(0, -2.9, 21.0 + (cols.size() - 4) * 4.0), Vector3(0, -2.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if kind == "outfits":
+		# Every hero in the clothes it starts in, then each outfit it can buy,
+		# one hero a row; the last column is the season pass's outfit.
+		var cam5 := Camera3D.new()
+		root.add_child(cam5)
+		cam5.fov = 30
+		var rr := 0
+		for hid: String in DB.HERO_ORDER:
+			var ids: Array = [""]
+			ids.append_array(DB.OUTFIT_ORDER.filter(func(k): return hid in DB.OUTFITS[k]["heroes"] and not DB.OUTFITS[k].get("gift", false)))
+			ids.append("embergilt")
+			for c in ids.size():
+				Game.hero(hid)["outfit"] = ids[c]
+				var a := Actor.new()
+				root.add_child(a)
+				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				a.position = Vector3((c - (ids.size() - 1) * 0.5) * 1.9, -rr * 2.6, 0)
+				a.rotation_degrees.y = -20.0
+				GearLook.apply(a, hid)
+				a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+			Game.hero(hid)["outfit"] = ""
+			rr += 1
+		cam5.look_at_from_position(Vector3(0, 1.0 - (rr - 1) * 1.3, 10.0 + rr * 4.0), Vector3(0, 1.0 - (rr - 1) * 1.3, 0), Vector3.UP)
 		await _wait(1.0)
 		return
 	if kind == "skins":

@@ -209,7 +209,7 @@ func claim_season() -> Dictionary:
 		return {}
 	var s := season()
 	s["claimed"] = int(s["claimed"]) + 1
-	return pay_reward(DB.season_reward(int(s["claimed"])))
+	return pay_reward(DB.season_reward(int(s["claimed"]), season_id()))
 
 
 ## Pays a track reward ({kind, ...}) and saves. A chest is opened (the result
@@ -232,6 +232,8 @@ func pay_reward(rw: Dictionary) -> Dictionary:
 			for id in DB.HERO_ORDER:
 				if not rw["glow"] in hero(id)["glows"]:
 					hero(id)["glows"].append(rw["glow"])
+		"outfit":
+			grant_outfit(str(rw["outfit"]))
 	save()
 	return rw
 

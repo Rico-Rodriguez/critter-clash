@@ -731,6 +731,65 @@ func _net_tests() -> void:
 	Game.set_skin("barbarian", "")
 	_ok("skin put away, kept", Game.hero("barbarian")["skin"] == "" and Game.buy_skin("barbarian", "reaper") and Game.gold() == g0 - Game.skin_price("reaper"))
 	Game.data = Game._fresh()
+	_outfit_tests()
+
+
+## Outfits: sold per hero for gold, season ones earned for every hero, a save
+## from before them still loads, and the look dyes the body but not the head.
+func _outfit_tests() -> void:
+	var keep := Game.data
+	Game.data = Game._fresh()
+	for k: String in DB.OUTFIT_ORDER:
+		var od: Dictionary = DB.OUTFITS[k]
+		_ok("outfit %s is whole" % k, od.has("name") and not (od["heroes"] as Array).is_empty() and float(od["mix"]) > 0.0 and float(od["mix"]) <= 1.0 and (od.get("gift", false) or int(od["gold"]) > 0))
+		_ok("outfit %s fits real heroes" % k, (od["heroes"] as Array).all(func(h): return DB.HEROES.has(h)))
+	_ok("every hero has two outfits to buy", DB.HERO_ORDER.all(func(h): return DB.OUTFIT_ORDER.filter(func(k): return h in DB.OUTFITS[k]["heroes"] and not DB.OUTFITS[k].get("gift", false)).size() >= 2))
+	_ok("a fresh hero wears nothing", Game.hero("knight")["outfit"] == "" and Game.hero("knight")["outfits"].is_empty())
+	Game.data["gold"] = 100000
+	_ok("outfit not for another hero", not Game.buy_outfit("ranger", "crimson") and Game.hero("ranger")["outfits"].is_empty())
+	_ok("season outfit not for sale", not Game.buy_outfit("knight", "embergilt"))
+	var g0 := Game.gold()
+	_ok("outfit bought and worn", Game.buy_outfit("knight", "crimson") and Game.gold() == g0 - Game.outfit_price("crimson") and Game.hero("knight")["outfit"] == "crimson")
+	Game.set_outfit("knight", "")
+	_ok("outfit put away, kept", Game.hero("knight")["outfit"] == "" and Game.buy_outfit("knight", "crimson") and Game.gold() == g0 - Game.outfit_price("crimson"))
+	Game.set_outfit("knight", "viper")
+	_ok("cannot wear what you do not own", Game.hero("knight")["outfit"] == "crimson")
+	Game.data["gold"] = 10
+	_ok("too poor to buy", not Game.buy_outfit("knight", "gilded"))
+	# The season pass pays an outfit to every hero.
+	var tiers := 0
+	for n in range(1, DB.SEASON_TIERS + 1):
+		if DB.season_reward(n)["kind"] == "outfit":
+			tiers += 1
+	_ok("the pass pays one outfit a season", tiers == 1 and DB.season_reward(DB.SEASON_OUTFIT_TIER, 1)["outfit"] == DB.SEASON_OUTFITS[1])
+	Game.season()["claimed"] = DB.SEASON_OUTFIT_TIER - 1
+	Game.season()["xp"] = DB.SEASON_XP * DB.SEASON_OUTFIT_TIER
+	var got := Game.claim_season()
+	_ok("season claim pays the outfit", got.get("kind", "") == "outfit" and DB.HERO_ORDER.all(func(h): return str(got["outfit"]) in Game.hero(h)["outfits"]))
+	# An old save has neither key and still loads.
+	var old := Game._fresh()
+	(old["heroes"]["mage"] as Dictionary).erase("outfit")
+	(old["heroes"]["mage"] as Dictionary).erase("outfits")
+	var merged := Game._fresh()
+	Game._merge(merged, old)
+	_ok("old save gets outfit keys", merged["heroes"]["mage"]["outfit"] == "" and merged["heroes"]["mage"]["outfits"] is Array)
+	# The look: body dyed, head left alone.
+	Game.hero("knight")["outfit"] = "crimson"
+	var a := Actor.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(a)
+	a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+	GearLook.apply(a, "knight")
+	var dyed := 0
+	var head_dyed := 0
+	for m in a.find_children("*", "MeshInstance3D", true, false):
+		var c: Variant = m.get_instance_shader_parameter("dye")
+		if c is Color and (c as Color).a > 0.5:
+			dyed += 1
+			if str(m.name).ends_with("_Head"):
+				head_dyed += 1
+	_ok("outfit dyes the body, not the head", dyed >= 2 and head_dyed == 0)
+	a.queue_free()
+	Game.data = keep
 
 
 ## Sidekicks: the save migration from pets and the ally, bond, eggs, unlocks.

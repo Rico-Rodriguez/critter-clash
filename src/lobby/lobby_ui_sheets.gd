@@ -237,6 +237,7 @@ func _reward_text(rw: Dictionary) -> String:
 		"gems": return "%d gems" % int(rw["amount"])
 		"egg": return str(SKDB.EGGS[rw["egg"]]["name"])
 		"glow": return "%s weapon glow for every hero" % DB.GLOWS[rw["glow"]]["name"]
+		"outfit": return "%s outfit for every hero" % DB.OUTFITS[rw["outfit"]]["name"]
 	return ""
 
 
@@ -255,7 +256,7 @@ func _build_season(s: Sheet) -> void:
 	b.add_child(note)
 	var claimed := int(se["claimed"])
 	for n in range(maxi(claimed - 1, 1), mini(claimed + 9, DB.SEASON_TIERS) + 1):
-		var rw := DB.season_reward(n)
+		var rw := DB.season_reward(n, Game.season_id())
 		var c := _card()
 		var row := _row([], 14)
 		var num := Ui.label("%d" % n, "Value")
