@@ -10,6 +10,19 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, test harness
+
+- `src/hunt/terrain.gd`: the terrain cell grid's rules as plain data (nine kinds,
+  surface grip and speed, thin ice that snaps after 1.2 s, fire that spreads
+  across bog and planks in 1.5 s telegraphed steps, ash that re-floods after
+  25 s). Nothing uses it yet; the Arena hooks it in (see
+  `biome-rebuild-plan.md`, "Dev hooks").
+- `src/terrain_tests.gd` and `src/foe_tests.gd` run inside `-- --test`: surface
+  physics, drowning, fire spread and re-flood, and every foe def's six
+  animation states against its model.
+- `tools/dev/perf-biomes.sh` (and `check.sh --perf`): draw calls, triangles and
+  frame ms for the Frozen Crypt and Burning Swamp, hunt, busy and boss scenes.
+
 ## Unreleased: Phone performance and battery
 
 Code only (OTA-safe, no `project.godot` change, no reinstall). The look is untouched.

@@ -5,7 +5,8 @@
 #   3. autopilot hunts: knight, mage, barbarian must mostly win
 #   4. Endless Descent runs 260 s without errors, Boss Rush and the Wilderness can be won
 #   5. an idle hero must lose
-# Usage: tools/dev/check.sh [--quick]
+#   6. with --perf: the Frozen Crypt and Burning Swamp stay inside the frame budget
+# Usage: tools/dev/check.sh [--quick] [--perf]   (a private TMPDIR keeps bots apart)
 set -uo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 LOG="${TMPDIR:-/tmp}/barrowfall-check"
@@ -21,7 +22,9 @@ grep -E "FAIL|SCRIPT ERROR|TESTS" "$LOG/test.log" | head -20
 grep -q "TESTS PASSED" "$LOG/test.log" || fail=1
 # A script error stops a test function early, so its later checks never run.
 ! grep -q "SCRIPT ERROR" "$LOG/test.log" || fail=1
-if [ "${1:-}" != "--quick" ]; then
+PERF=0; QUICK=0
+for a in "$@"; do [ "$a" = "--perf" ] && PERF=1; [ "$a" = "--quick" ] && QUICK=1; done
+if [ $QUICK -eq 0 ]; then
 	timeout 1500 "$D/godot.sh" --fixed-fps 60 -- --bot --hero=knight,mage,barbarian,ranger > "$LOG/bot.log" 2>&1
 	grep -E "^BOT|SCRIPT ERROR" "$LOG/bot.log" | cut -c1-150
 	grep -q "BOT DONE PASS" "$LOG/bot.log" || fail=1
@@ -61,6 +64,11 @@ if [ "${1:-}" != "--quick" ]; then
 	timeout 600 "$D/godot.sh" --fixed-fps 60 -- --bot --hero=knight --idle > "$LOG/idle.log" 2>&1
 	grep -E "^BOT" "$LOG/idle.log" | cut -c1-110
 	grep -q "BOT DONE PASS" "$LOG/idle.log" || fail=1
+fi
+if [ $PERF -eq 1 ]; then
+	timeout 3000 "$D/perf-biomes.sh" > "$LOG/perf.log" 2>&1
+	cat "$LOG/perf.log"
+	grep -q "PERF BUDGET PASSED" "$LOG/perf.log" || fail=1
 fi
 if [ $fail -eq 0 ]; then echo "CHECKS PASSED"; else echo "CHECKS FAILED (logs in $LOG)"; fi
 exit $fail
