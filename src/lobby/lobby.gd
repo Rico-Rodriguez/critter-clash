@@ -5,6 +5,7 @@ extends Node3D
 const G := "res://assets/kaykit/graveyard/"
 const D := "res://assets/kaykit/dungeon/"
 const F := "res://assets/kaykit/forest/"
+const Nest := preload("res://src/lobby/camp_nest.gd")
 
 var main: Node
 var ui: LobbyUI
@@ -32,6 +33,20 @@ const CHEST_STAGE := Vector3(0.0, 0.0, 0.9)
 ## 0..1 push-in toward the hero, tweened on a hero change.
 var push := 0.0
 var _push_tween: Tween
+## Buildings you can tap and walk into: [{node, tab, name, reach}]. The node has
+## tap_point(), door_point(), inside_point() and bump() (see camp_nest.gd).
+var buildings: Array = []
+var nest: Nest
+## The camera glides to look at a building while the hero walks in: 0 is the
+## camp view, 1 is `focus_cam` looking at `focus_look`.
+var focus_amt := 0.0
+var focus_cam := CAM_BASE
+var focus_look := CAM_LOOK
+## The building the hero is inside (or walking into); "" in the camp.
+var inside := ""
+var _walk: Tween
+var _walk_yaw := NAN
+const NEST_AT := Vector3(2.2, 0, -3.4)
 var _rng := RandomNumberGenerator.new()
 
 
@@ -43,6 +58,7 @@ func _ready() -> void:
 	ui.setup(self)
 	show_hero(Game.hero_id(), false)
 	_make_portraits()
+	_build_nest()
 	refresh_sidekick()
 	Sfx.music("home")
 	if main and str(main.pending_chest) != "":
@@ -124,12 +140,10 @@ func _build_world() -> void:
 	key.omni_range = 7.0
 	key.position = Vector3(1.6, 2.4, 2.4)
 	add_child(key)
-	_put(G + "post_lantern.gltf", Vector3(2.6, 0, -1.2), -0.6, 1.0)
-	# Camp dressing at the edges of the frame.
-	_put(D + "barrel_large.gltf", Vector3(3.3, 0, -2.6), 0.3, 0.9)
-	_put(D + "crates_stacked.gltf", Vector3(4.3, 0, -3.8), -0.4, 0.9)
+	# Camp dressing at the edges of the frame (the Nest takes the right side).
+	_put(D + "barrel_large.gltf", Vector3(5.3, 0, -1.2), 0.3, 0.9)
+	_put(D + "crates_stacked.gltf", Vector3(5.6, 0, -4.2), -0.4, 0.9)
 	_put(D + "keg_decorated.gltf", Vector3(-4.4, 0, -4.4), 0.8, 0.9)
-	_put(D + "sword_shield.gltf", Vector3(2.2, 0, -3.4), -0.3, 1.0)
 	_put(G + "bench.gltf", Vector3(-3.4, 0, 0.2), 1.2, 0.9)
 	# The Barrow behind: graves, dead trees, the crypt in the mist.
 	_put(G + "crypt.gltf", Vector3(3.5, 0, -17.0), -0.3, 2.2)
@@ -144,7 +158,12 @@ func _build_world() -> void:
 		if absf(p.x) < 1.5 and p.z > -6:
 			continue
 		var stone: String = ["gravestone.gltf", "grave_A.gltf", "grave_B.gltf", "gravemarker_A.gltf", "gravemarker_B.gltf"][_rng.randi() % 5]
-		_put(G + stone, p, _rng.randf_range(-0.3, 0.3), _rng.randf_range(1.1, 1.4))
+		var yaw := _rng.randf_range(-0.3, 0.3)
+		var sc := _rng.randf_range(1.1, 1.4)
+		# The ground in front of the Nest stays clear for the walk to its door.
+		if p.x > 0.8 and p.z > -6.0:
+			continue
+		_put(G + stone, p, yaw, sc)
 	for tp in [Vector3(-5.5, 0, -6.5), Vector3(5.5, 0, -8), Vector3(-7, 0, -12), Vector3(8, 0, -13)]:
 		_put(G + ["tree_dead_large.gltf", "tree_dead_medium.gltf", "tree_dead_large_decorated.gltf"][_rng.randi() % 3], tp, _rng.randf() * TAU, 1.6)
 	for i in 18:
@@ -157,7 +176,7 @@ func _build_world() -> void:
 	# Foreground: grass, stones and a candle in front of the hero, so the bottom
 	# of the frame is ground to stand on rather than a dark band.
 	for spec in [["Grass_1_A_Color1.gltf", Vector3(-1.4, 0, 1.9)], ["Grass_2_B_Color1.gltf", Vector3(1.5, 0, 2.1)], ["Grass_1_C_Color1.gltf", Vector3(0.4, 0, 2.6)],
-			["Rock_1_H_Color1.gltf", Vector3(-3.0, 0, 0.9)], ["Rock_1_J_Color1.gltf", Vector3(3.4, 0, 0.2)], ["Grass_2_A_Color1.gltf", Vector3(-0.7, 0, 2.9)]]:
+			["Rock_1_H_Color1.gltf", Vector3(-3.0, 0, 0.9)], ["Rock_1_J_Color1.gltf", Vector3(-4.8, 0, 1.4)], ["Grass_2_A_Color1.gltf", Vector3(-0.7, 0, 2.9)]]:
 		_put(F + str(spec[0]), spec[1], _rng.randf() * TAU, 0.9)
 	_put(G + "candle_triple.gltf", Vector3(1.1, 0, 1.8), 0.3, 1.0)
 	_put(G + "bone_B.gltf", Vector3(-0.9, 0, 1.7), 1.1, 1.0)
@@ -258,6 +277,116 @@ func _fire(at: Vector3) -> void:
 	add_child(sparks)
 
 
+## The Nest, camp's hatchery: a hut on the right you can tap to walk into.
+func _build_nest() -> void:
+	nest = Nest.new()
+	nest.position = NEST_AT
+	nest.rotation.y = -0.62
+	add_child(nest)
+	add_building(nest, "pets", "Nest")
+	nest.refresh()
+
+
+## Registers a tappable building. `tab` is the Lobby tab it opens.
+func add_building(node: Node3D, tab: String, name_: String, reach := 0.2) -> void:
+	buildings.append({"node": node, "tab": tab, "name": name_, "reach": reach})
+
+
+## The building under a screen tap, or {}. `reach` is a share of the screen width.
+func building_at(pos: Vector2) -> Dictionary:
+	if cam == null:
+		return {}
+	var vp := get_viewport().get_visible_rect().size
+	var best := {}
+	var best_d := INF
+	for b in buildings:
+		var p: Vector3 = (b["node"] as Node3D).call("tap_point")
+		if cam.is_position_behind(p):
+			continue
+		var dist := cam.unproject_position(p).distance_to(pos)
+		if dist < float(b["reach"]) * vp.x and dist < best_d:
+			best = b
+			best_d = dist
+	return best
+
+
+## Walks the hero into a building and opens its tab: the camera swings to it,
+## hero and pet walk to the door and in, then the page slides up.
+func enter_building(b: Dictionary) -> void:
+	if inside != "" or hero == null or not is_instance_valid(hero) or not ui.camp_idle():
+		return
+	var node: Node3D = b["node"]
+	inside = str(b["name"])
+	node.call("bump")
+	Sfx.play("ui_tap", -2.0)
+	var door: Vector3 = node.call("door_point")
+	var inner: Vector3 = node.call("inside_point")
+	focus_cam = Vector3(node.position.x * 0.5, 1.75, CAM_BASE.z - 0.9)
+	focus_look = node.position + Vector3(0, 1.05, 0)
+	if _walk:
+		_walk.kill()
+	_walk = create_tween().set_parallel(true)
+	_walk.tween_property(self, "focus_amt", 1.0, 1.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	var run: String = GearDB.anims(Game.hero_id(), Game.weapon_family(Game.hero_id()))["run"]
+	hero.play(run, 0.1, 0.85)
+	_walk_yaw = Actor.yaw_to(hero.position, door)
+	_walk.tween_property(hero, "position", Vector3(door.x, 0, door.z), 0.85).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if pet and is_instance_valid(pet):
+		_walk.tween_property(pet, "position", Vector3(door.x - 0.7, pet.position.y, door.z + 0.5), 0.95).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var seq := create_tween()
+	seq.tween_interval(0.85)
+	seq.tween_callback(func(): _walk_yaw = Actor.yaw_to(hero.position, inner))
+	seq.tween_property(hero, "position", Vector3(inner.x, 0, inner.z), 0.45).set_trans(Tween.TRANS_SINE)
+	seq.tween_callback(func():
+		hero.visible = false
+		if pet and is_instance_valid(pet):
+			pet.visible = false)
+	seq.tween_interval(0.14)
+	seq.tween_callback(func():
+		if inside != "":
+			ui.show_tab(str(b["tab"])))
+
+
+## Back on the Hunt tab: the hero steps out of the building and walks home, the
+## camera eases back out. Safe to call when nobody went in.
+func camp_return() -> void:
+	if nest:
+		nest.refresh()
+	if inside == "":
+		return
+	var node: Node3D = null
+	for b in buildings:
+		if str(b["name"]) == inside:
+			node = b["node"]
+	inside = ""
+	if _walk:
+		_walk.kill()
+	if node == null or hero == null or not is_instance_valid(hero):
+		focus_amt = 0.0
+		_walk_yaw = NAN
+		return
+	var door: Vector3 = node.call("door_point")
+	hero.visible = true
+	hero.position = Vector3(door.x, 0, door.z)
+	var run: String = GearDB.anims(Game.hero_id(), Game.weapon_family(Game.hero_id()))["run"]
+	hero.play(run, 0.1, 0.85)
+	_walk_yaw = Actor.yaw_to(hero.position, Vector3.ZERO)
+	_walk = create_tween().set_parallel(true)
+	_walk.tween_property(self, "focus_amt", 0.0, 0.9).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_walk.tween_property(hero, "position", Vector3.ZERO, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if pet and is_instance_valid(pet):
+		pet.visible = true
+		var home := _pet_home()
+		pet.position = Vector3(door.x - 0.7, home.y, door.z + 0.5)
+		_walk.tween_property(pet, "position", home, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var done := create_tween()
+	done.tween_interval(0.8)
+	done.tween_callback(func():
+		_walk_yaw = NAN
+		if hero and is_instance_valid(hero):
+			hero.play(GearDB.anims(Game.hero_id(), Game.weapon_family(Game.hero_id()))["idle"], 0.2))
+
+
 func show_hero(id: String, cheer := true) -> void:
 	if hero:
 		hero.queue_free()
@@ -269,6 +398,7 @@ func show_hero(id: String, cheer := true) -> void:
 	hero.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.45)
 	GearLook.apply(hero, id)
 	hero.rotation.y = 0.3 + _spin
+	hero.visible = inside == ""
 	if cheer and cam:
 		if _push_tween:
 			_push_tween.kill()
@@ -382,8 +512,19 @@ func remove_chest() -> void:
 		place_chest(main.pending_chest)
 
 
+## Where the pet at your side waits: on the hero's right, away from the fire
+## and its glow, so nothing hides it. Wide flyers (the drake) sit further out
+## so the hero's shield can't hide them.
+func _pet_home() -> Vector3:
+	const SKL := preload("res://src/autoload/sidekicks.gd")
+	var d: Dictionary = SKL.SDB.def(SKL.active(Game.data))
+	return Vector3(1.2, float(d["fly"]) * 0.5, 0.45) + d.get("camp_offset", Vector3.ZERO)
+
+
 ## The sidekick at your side waits by the hero in camp (unmodified model).
 func refresh_sidekick() -> void:
+	if nest:
+		nest.refresh()
 	if pet and is_instance_valid(pet):
 		pet.queue_free()
 	pet = null
@@ -396,11 +537,10 @@ func refresh_sidekick() -> void:
 	pet = Node3D.new()
 	pet.add_child(look["root"])
 	add_child(pet)
-	# On the hero's right, away from the fire and its glow, so nothing hides it.
-	pet.position = Vector3(1.2, float(SKL.SDB.def(sid)["fly"]) * 0.5, 0.45)
-	# Wide flyers (the drake) sit further out so the hero's shield can't hide them.
-	pet.position += SKL.SDB.def(sid).get("camp_offset", Vector3.ZERO)
-	pet.scale = Vector3.ONE * 0.75 * float(SKL.SDB.def(sid).get("camp_scale", 1.0))
+	pet.position = _pet_home()
+	pet.visible = inside == ""
+	var def: Dictionary = SKL.SDB.def(sid)
+	pet.scale = Vector3.ONE * 0.75 * float(def.get("camp_scale", 1.0))
 	pet.rotation.y = -0.5
 	Look.play(look, "idle")
 
@@ -433,16 +573,20 @@ func _process(dt: float) -> void:
 	_t += dt
 	if cam:
 		# A slow sideways drift keeps the camp alive; the push-in sells a swap.
-		var drift := sin(_t * TAU / 12.0) * 0.15
-		var pos := CAM_BASE + Vector3(drift, 0, 0) + (CAM_LOOK - CAM_BASE).normalized() * 0.4 * push
-		cam.look_at_from_position(pos, CAM_LOOK, Vector3.UP)
+		var drift := sin(_t * TAU / 12.0) * 0.15 * (1.0 - focus_amt)
+		var base := CAM_BASE.lerp(focus_cam, focus_amt)
+		var look := CAM_LOOK.lerp(focus_look, focus_amt)
+		var pos := base + Vector3(drift, 0, 0) + (look - base).normalized() * 0.4 * push
+		cam.look_at_from_position(pos, look, Vector3.UP)
 	if fire_light:
 		fire_light.light_energy = 2.6 * (1.0 + 0.14 * sin(_t * 11.0) + 0.08 * sin(_t * 27.0))
 	if hero and _drag < 0:
 		_spin = lerpf(_spin, 0.0, 1.0 - exp(-1.5 * dt))
 	if hero:
-		hero.rotation.y = 0.3 + _spin
-		_camp_life(dt)
+		hero.rotation.y = 0.3 + _spin if is_nan(_walk_yaw) else lerp_angle(hero.rotation.y, _walk_yaw, 1.0 - exp(-12.0 * dt))
+		# The idle quirks wait while the hero walks to or from a building.
+		if is_nan(_walk_yaw) and not inside:
+			_camp_life(dt)
 	if chest and not ui.chest_opening:
 		chest.position.y = 0.04 + 0.04 * sin(_t * 3.0)
 
@@ -458,12 +602,15 @@ func _unhandled_input(e: InputEvent) -> void:
 			_tap_t = Time.get_ticks_msec() / 1000.0
 		elif not t.pressed and t.index == _drag:
 			_drag = -1
-			# A quick tap on the hero opens the roster.
+			# A quick tap on a building walks in; on the hero it opens the roster.
 			var vp := get_viewport().get_visible_rect().size
 			var held := Time.get_ticks_msec() / 1000.0 - _tap_t
-			if held < 0.35 and t.position.distance_to(_tap_from) < 14.0 and ui.camp_idle() \
-					and absf(t.position.x - vp.x * 0.5) < vp.x * 0.3 and t.position.y > vp.y * 0.2:
-				ui.open_sheet("heroes")
+			if held < 0.35 and t.position.distance_to(_tap_from) < 14.0 and ui.camp_idle():
+				var bld := building_at(t.position)
+				if not bld.is_empty():
+					enter_building(bld)
+				elif absf(t.position.x - vp.x * 0.5) < vp.x * 0.3 and t.position.y > vp.y * 0.2:
+					ui.open_sheet("heroes")
 	elif e is InputEventScreenDrag:
 		var d := e as InputEventScreenDrag
 		if d.index == _drag:

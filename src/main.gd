@@ -536,7 +536,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
-			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble":
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble", "pets", "petshatch", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -620,33 +620,59 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(2.2)
 				elif shot == "pickhero":
 					await _wait(1.2)
-				elif shot == "breeding" or shot == "collection":
-					current.open_sheet("sidekicks")
+				elif shot in ["breeding", "collection", "petsbreed", "petresting"]:
+					current.open_sheet("collection" if shot == "collection" else "breeding")
 					await _wait(0.6)
-					if shot == "breeding":
+					if shot == "petresting":
+						# Two parents on their rest ladder: the drake on its third litter.
+						var now1 := int(Time.get_unix_time_from_system())
+						SKC.block(Game.data)["rest"]["drake"] = now1 + 5 * 3600 + 720
+						SKC.block(Game.data)["bcount"] = {"drake": 2, "wisp": 1}
+						current.ui._breed_a = "wisp"
+						current.ui._breed_b = "bonelet"
+					elif shot != "collection":
 						current.ui._breed_a = "drake"
 						current.ui._breed_b = "wisp"
-					current.ui._sk_detail = "@breed" if shot == "breeding" else "@log"
-					current.ui._sheet.rebuild()
+					current.ui._page.rebuild()
 					await _wait(0.8)
 				elif shot == "hatch" or shot == "hatchwobble":
 					# --pet=shade (what hatches) from --egg=exotic; "hatchwobble" stops mid-shake.
-					current.open_sheet("sidekicks")
+					current.open_sheet("hatchery")
 					await _wait(0.8)
 					current.ui.play_hatch({"id": _arg(args, "pet", "shade"), "kind": _arg(args, "egg", "exotic"), "new": true, "kills": 0})
 					await _wait(1.6 if shot == "hatchwobble" else 5.0)
-				elif shot == "sidekicks" or shot == "sidekick":
+				elif shot == "petshatch":
+					current.open_sheet("hatchery")
+					await _wait(1.0)
+				elif shot == "petsshowcase":
+					current.open_sheet("showcase")
+					await _wait(1.0)
+				elif shot in ["petrename", "petrenamebad"]:
 					current.open_sheet("sidekicks")
 					await _wait(1.0)
+					var rl: Control = current.ui.PetsTab.rename(current.ui, SKC.active(Game.data), func(): pass)
+					await _wait(0.5)
+					(rl.find_child("NameField", true, false) as LineEdit).text = "Embr" if shot == "petrename" else "Sh1tface"
+					(rl.find_child("NameField", true, false) as LineEdit).text_changed.emit((rl.find_child("NameField", true, false) as LineEdit).text)
+					await _wait(0.6)
+				elif shot in ["sidekicks", "sidekick", "pets"]:
+					current.open_sheet("sidekicks")
+					await _wait(1.2)
 					if shot == "sidekick":
 						current.ui._sk_detail = SKC.active(Game.data)
-						current.ui._sheet.rebuild()
+						current.ui._page.rebuild()
 						await _wait(0.8)
+				elif shot in ["nest", "nestwalk", "nestin", "nestback"]:
+					# The camp with the Nest; "nestwalk" mid-walk, "nestin" arrived, "nestback" walking out again.
+					await _wait(0.8)
+					if shot != "nest":
+						current.enter_building(current.buildings[0])
+						await _wait(0.55 if shot == "nestwalk" else 3.2)
+					if shot == "nestback":
+						current.ui.show_tab("hunt")
+						await _wait(0.4)
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot.begins_with("equip") else shot)
-					if shot == "equipsidekick":
-						await _wait(1.2)
-						current.ui.equipment._sk_btn.pressed.emit()
 					await _wait(1.0 if shot != "chest" else 2.8)
 					if shot == "equipskins":
 						# The Skins collection with a glow on trial.

@@ -764,127 +764,29 @@ func _error_report_row(b: Control, ver: String) -> void:
 const SKS := preload("res://src/autoload/sidekicks.gd")
 const SKDB := preload("res://src/data/sidekick_db.gd")
 const HATCH := preload("res://src/ui/hatch_show.gd")
+const Care := preload("res://src/core/pet_care.gd")
+const PetsTab := preload("res://src/lobby/pets_tab.gd")
+const PetStage := preload("res://src/lobby/pet_stage.gd")
 ## The sidekick whose detail page is open in the sheet ("" = the stable).
 var _sk_detail := ""
 
 
-## The Sidekicks sheet: who is at your side, the stable (owned, locked, eggs
-## hatching), and a detail page per sidekick with its ability and bond road.
-func _build_sidekicks(s: Sheet) -> void:
-	if _sk_detail == "@breed":
-		_build_breeding(s)
-		return
-	if _sk_detail == "@log":
-		_build_collection(s)
-		return
-	if _sk_detail != "" and SKS.is_owned(Game.data, _sk_detail):
-		_build_sidekick_detail(s, _sk_detail)
-		return
-	_sk_detail = ""
-	var b := s.body
-	var intro := Ui.label("One walks (or flies) with you. Shared by all heroes.", "Small")
-	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.add_child(intro)
-	var a := SKS.active(Game.data)
-	var side := _card()
-	var sv := VBoxContainer.new()
-	sv.add_theme_constant_override("separation", 6)
-	sv.add_child(Ui.label("AT YOUR SIDE", "Caption"))
-	if a == "":
-		var none := Ui.label("No one yet. Slay your first boss: the Grave Wisp follows the victor." if (Game.data["sidekicks"]["owned"] as Dictionary).is_empty() else "No one. Pick a sidekick from your stable.", "Body")
-		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		sv.add_child(none)
-	else:
-		var d: Dictionary = SKDB.def(a)
-		var k := SKS.kills(Game.data, a)
-		var line := Ui.label("%s · %s" % [d["ability"]["name"], d["desc"]], "Small")
-		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		var head := _row([Ui.icon_rect(str(d["icon"]), 48, Color(d["color"])), Ui.label(SKDB.display_name(a, k), "Heading"), _spacer(), Ui.label("Bond %d" % SKDB.bond_level(k), "Body")], 10)
-		sv.add_child(head)
-		sv.add_child(line)
-	side.add_child(sv)
-	b.add_child(side)
-	_build_showcase(s)
-	_build_hatchery(s)
-	var owned: int = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)).size()
-	b.add_child(Ui.label("STABLE · %d / %d" % [owned, SKDB.ORDER.size()], "Caption"))
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	for id: String in SKDB.ORDER:
-		grid.add_child(_sidekick_tile(s, id))
-	for id: String in SKS.bred_ids(Game.data):
-		grid.add_child(_sidekick_tile(s, id))
-	b.add_child(grid)
-	FxUi.deal_in(grid, 0.04)
-	var nav := _row([], 10)
-	for pair in [["BREED", "@breed"], ["COLLECTION", "@log"]]:
-		var nb := Button.new()
-		nb.theme_type_variation = &"GoldButton" if pair[1] == "@breed" else &"Ghost"
-		nb.text = pair[0]
-		nb.focus_mode = Control.FOCUS_NONE
-		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nb.custom_minimum_size = Vector2(0, 64)
-		nb.pressed.connect(func():
-			_sk_detail = pair[1]
-			s.rebuild())
-		nav.add_child(nb)
-	b.add_child(nav)
+## A pet's name as the player sees it: its nickname, else its breed (by stage).
+func _pet_name(id: String) -> String:
+	return Care.shown_name(Game.data, id, SKDB.display_name(id, SKS.kills(Game.data, id)))
+
+
+## "Bred 2× · next rest 18h": what a litter has cost this pet and will cost it.
+func _rest_note(id: String) -> String:
+	var n := Care.bred_times(Game.data, id)
+	var nxt := Care.hours_text(Care.next_rest(Game.data, id))
+	if n == 0:
+		return "Never bred · rests %s after a litter" % nxt
+	return "Bred %d× · rests %s after the next litter%s" % [n, nxt, " (the longest)" if Care.at_cap(Game.data, id) else ""]
 
 
 ## The egg just hatched in the sheet, handed to the hatching show.
 var _hatch_news := {}
-
-
-## The showcase: your three best (the ones you pinned, then the rarest),
-## shown big with their rarity. Tap one to open it.
-func _build_showcase(s: Sheet) -> void:
-	var picks: Array = SKS.showcase(Game.data)
-	if picks.is_empty():
-		return
-	var b := s.body
-	b.add_child(Ui.label("SHOWCASE", "Caption"))
-	var rowc := HBoxContainer.new()
-	rowc.add_theme_constant_override("separation", 10)
-	for id: String in picks:
-		var d: Dictionary = SKDB.def(id)
-		var rar := SKDB.rarity(id)
-		var gc: Color = SKDB.GRADE_COLORS[rar]
-		var btn := Button.new()
-		btn.focus_mode = Control.FOCUS_NONE
-		btn.theme_type_variation = &"Ghost"
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.custom_minimum_size = Vector2(0, 190)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(gc, 0.14)
-		sb.border_color = Color(gc, 0.9 if rar >= 2 else 0.5)
-		sb.set_border_width_all(3 if rar >= 3 else 2)
-		sb.set_corner_radius_all(14)
-		for st in ["normal", "hover", "pressed", "focus"]:
-			btn.add_theme_stylebox_override(st, sb)
-		var v := VBoxContainer.new()
-		v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_theme_constant_override("separation", 2)
-		var ic := CenterContainer.new()
-		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ic.add_child(Ui.icon_rect(str(d["icon"]), 84, Color(d["color"])))
-		v.add_child(ic)
-		var nm := Ui.label(SKDB.display_name(id, SKS.kills(Game.data, id)), "Small", HORIZONTAL_ALIGNMENT_CENTER)
-		nm.clip_text = true
-		v.add_child(nm)
-		var gl := Ui.label(SKDB.GRADES[rar].to_upper() + (" ★" if SKS.is_pinned(Game.data, id) else ""), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-		gl.add_theme_color_override("font_color", gc)
-		v.add_child(gl)
-		btn.add_child(v)
-		btn.pressed.connect(func():
-			_sk_detail = id
-			s.rebuild())
-		rowc.add_child(btn)
-	b.add_child(rowc)
-	FxUi.deal_in(rowc, 0.06)
 
 
 ## The hatchery: every egg warming, by the clock or by kills, whichever is
@@ -985,7 +887,7 @@ func _sidekick_tile(s: Sheet, id: String) -> Control:
 		var tag := ""
 		if d.has("genes"):
 			tag = " · %s" % SKDB.GRADES[SKDB.grade(d["genes"])]
-		return _sk_tile_box(str(d["icon"]), Color(d["color"]), SKDB.display_name(id, k), ("At your side · " if here else "") + "Bond %d · %s" % [SKDB.bond_level(k), SKDB.STAGE_LABELS[SKDB.stage_of(SKDB.bond_level(k))]] + tag, -1.0, false, func():
+		return _sk_tile_box(str(d["icon"]), Color(d["color"]), _pet_name(id), ("At your side · " if here else "") + "Bond %d · %s" % [SKDB.bond_level(k), SKDB.STAGE_LABELS[SKDB.stage_of(SKDB.bond_level(k))]] + tag, -1.0, false, func():
 			_sk_detail = id
 			s.rebuild())
 	var pr: Array = SKS.progress(Game.data, id)
@@ -1047,9 +949,16 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 		_sk_detail = ""
 		s.rebuild())
 	b.add_child(back)
-	b.add_child(_row([Ui.icon_rect(str(d["icon"]), 64, Color(d["color"])), Ui.label(SKDB.display_name(id, k), "Title")], 12))
+	b.add_child(PetStage.make(id, 330))
+	var title := Ui.label(_pet_name(id), "Title")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.clip_text = true
+	b.add_child(_row([title, PetsTab.rename_button(self, id, func():
+		_refresh_camp_sidekick()
+		s.rebuild())], 10))
 	var rar := SKDB.rarity(id)
-	var rchip := Ui.label(SKDB.GRADES[rar].to_upper(), "Caption")
+	var kind := SKDB.display_name(id, k)
+	var rchip := Ui.label(("%s · " % kind if Care.nickname(Game.data, id) != "" else "") + SKDB.GRADES[rar].to_upper(), "Caption")
 	rchip.add_theme_color_override("font_color", SKDB.GRADE_COLORS[rar])
 	b.add_child(rchip)
 	var origin := Ui.label("%s · %s" % [d["origin"], d["element"]], "Small")
@@ -1070,6 +979,7 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	bc.add_child(bv)
 	b.add_child(bc)
 	b.add_child(_stage_card(id, lv))
+	b.add_child(_breeding_card(id))
 	if d.has("genes"):
 		b.add_child(_genome_card(d))
 	var ac := _card()
@@ -1129,6 +1039,39 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 		b.add_child(Ui.label("The showcase is full: unpin one first.", "Small", HORIZONTAL_ALIGNMENT_CENTER))
 
 
+## How often this pet may breed: the litters so far, the rest it is on (a bar
+## and a countdown) and the rest the next one will cost.
+func _breeding_card(id: String) -> Control:
+	var now := int(Time.get_unix_time_from_system())
+	var rest := SKS.resting(Game.data, id, now)
+	var c := _card()
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.add_child(Ui.label("BREEDING", "Caption"))
+	if rest > 0:
+		var prev := maxi(Care.bred_times(Game.data, id) - 1, 0)
+		var warm := Ui.label("Resting · back in %s" % _dur(rest), "Body")
+		warm.add_theme_color_override("font_color", Color(1.0, 0.78, 0.4))
+		v.add_child(warm)
+		var bar := ProgressBar.new()
+		bar.theme_type_variation = &"XPBar"
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 12)
+		bar.value = (1.0 - clampf(float(rest) / float(Care.rest_secs(prev)), 0.0, 1.0)) * 100.0
+		v.add_child(bar)
+	elif SKS.bond(Game.data, id) < SKDB.BREED_BOND:
+		v.add_child(Ui.label("Ready at Bond %d" % SKDB.BREED_BOND, "Body"))
+	else:
+		var ok := Ui.label("Ready to breed", "Body")
+		ok.add_theme_color_override("font_color", Color(0.6, 0.95, 0.6))
+		v.add_child(ok)
+	var note := Ui.label(_rest_note(id), "Small")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(note)
+	c.add_child(v)
+	return c
+
+
 ## The evolution ladder: Hatchling, Grown, Elder, with what each gives.
 func _stage_card(id: String, lv: int) -> Control:
 	var cur := SKDB.stage_of(lv)
@@ -1184,27 +1127,28 @@ var _breed_news := ""
 
 ## Breeding: pick two sidekicks at Bond 3+, pay gold, and a Nest Egg holding
 ## their child goes to the hatchery. The pair determines the breed (a parent's,
-## or sometimes their hybrid); the traits are rolled and unique.
+## or sometimes their hybrid); the traits are rolled and unique. Each parent
+## then rests, longer every time it breeds (Care.REST_HOURS).
 func _build_breeding(s: Sheet) -> void:
 	var b := s.body
 	var now := int(Time.get_unix_time_from_system())
-	var back := Button.new()
-	back.theme_type_variation = &"Ghost"
-	back.text = "‹ Stable"
-	back.focus_mode = Control.FOCUS_NONE
-	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	back.pressed.connect(func():
-		Sfx.play("ui_back", -4.0)
-		_sk_detail = ""
-		s.rebuild())
-	b.add_child(back)
-	b.add_child(Ui.label("Breeding", "Title"))
-	var info := Ui.label("Two sidekicks at Bond %d+ lay a Nest Egg. The pair decides the breed; every child rolls its own traits. Parents rest %dh." % [SKDB.BREED_BOND, SKDB.BREED_REST / 3600], "Small")
+	var info := Ui.label("Two pets at Bond %d+ lay a Nest Egg. The pair decides the breed; every child rolls its own traits." % SKDB.BREED_BOND, "Small")
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(info)
+	b.add_child(_rest_ladder())
 	if _breed_news != "":
-		b.add_child(Ui.label(_breed_news, "Heading", HORIZONTAL_ALIGNMENT_CENTER))
+		var news := Ui.label(_breed_news, "Heading", HORIZONTAL_ALIGNMENT_CENTER)
+		news.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
+		b.add_child(news)
 		_breed_news = ""
+	var slots := HBoxContainer.new()
+	slots.add_theme_constant_override("separation", 10)
+	slots.add_child(_breed_slot(s, _breed_a, true))
+	var plus := Ui.label("+", "Title", HORIZONTAL_ALIGNMENT_CENTER)
+	plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slots.add_child(plus)
+	slots.add_child(_breed_slot(s, _breed_b, false))
+	b.add_child(slots)
 	var plabel := Ui.label("PARENTS", "Caption")
 	b.add_child(plabel)
 	var grid := GridContainer.new()
@@ -1218,9 +1162,12 @@ func _build_breeding(s: Sheet) -> void:
 		var lv := SKS.bond(Game.data, id)
 		var rest := SKS.resting(Game.data, id, now)
 		var sel := id == _breed_a or id == _breed_b
-		var status := ("Resting %s" % _dur(rest)) if rest > 0 else (("Bond %d" % lv) if lv >= SKDB.BREED_BOND else "Bond %d (needs %d)" % [lv, SKDB.BREED_BOND])
+		var status := ("Resting %s" % _dur(rest)) if rest > 0 else (("Bond %d · next rest %s" % [lv, Care.hours_text(Care.next_rest(Game.data, id))]) if lv >= SKDB.BREED_BOND else "Bond %d (needs %d)" % [lv, SKDB.BREED_BOND])
 		var ok := rest == 0 and lv >= SKDB.BREED_BOND
-		var tile := _sk_tile_box(str(d["icon"]), Color(d["color"]), ("✓ " if sel else "") + str(d["name"]), status, -1.0, not ok, func():
+		var frac := -1.0
+		if rest > 0:
+			frac = clampf(float(rest) / float(Care.rest_secs(maxi(Care.bred_times(Game.data, id) - 1, 0))), 0.0, 1.0)
+		var tile := _sk_tile_box(str(d["icon"]), Color(d["color"]), ("✓ " if sel else "") + _pet_name(id), status, frac, not ok, func():
 			if id == _breed_a:
 				_breed_a = ""
 			elif id == _breed_b:
@@ -1238,6 +1185,7 @@ func _build_breeding(s: Sheet) -> void:
 		var hy := SKDB.hybrid_for(SKDB.species(_breed_a), SKDB.species(_breed_b))
 		var pc := _card()
 		var pv := VBoxContainer.new()
+		pv.add_theme_constant_override("separation", 4)
 		pv.add_child(Ui.label("OFFSPRING", "Caption"))
 		var odds := "%s or %s" % [SKDB.def(_breed_a)["name"], SKDB.def(_breed_b)["name"]]
 		if hy != "":
@@ -1245,6 +1193,10 @@ func _build_breeding(s: Sheet) -> void:
 		var ol := Ui.label(odds + "\nTraits are rolled: looks, stats, element, personality.", "Body")
 		ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		pv.add_child(ol)
+		var rl := Ui.label("Then they rest: %s %s · %s %s" % [_pet_name(_breed_a), Care.hours_text(Care.next_rest(Game.data, _breed_a)), _pet_name(_breed_b), Care.hours_text(Care.next_rest(Game.data, _breed_b))], "Small")
+		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rl.add_theme_color_override("font_color", Color(1.0, 0.78, 0.4))
+		pv.add_child(rl)
 		pc.add_child(pv)
 		b.add_child(pc)
 	var why := SKS.breed_block(Game.data, _breed_a, _breed_b, now) if picked else "Pick two parents"
@@ -1264,6 +1216,7 @@ func _build_breeding(s: Sheet) -> void:
 		Game.bounty_note("bred")
 		Sfx.play("rare_chime", 0.0)
 		Game.save()
+		_refresh_camp_sidekick()
 		s.rebuild())
 	b.add_child(go)
 	if why != "":
@@ -1273,20 +1226,77 @@ func _build_breeding(s: Sheet) -> void:
 	b.move_child(grid, b.get_child_count() - 1)
 
 
+## The rests a pet earns, litter by litter: 8h, 12h, 18h, 24h, 36h, 48h.
+func _rest_ladder() -> Control:
+	var c := _card()
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	v.add_child(Ui.label("REST AFTER EACH LITTER", "Caption"))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	for i in Care.REST_HOURS.size():
+		var chip := PanelContainer.new()
+		chip.theme_type_variation = &"Card"
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var l := Ui.label("%dh" % int(Care.REST_HOURS[i]), "Body", HORIZONTAL_ALIGNMENT_CENTER)
+		l.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45) if i == Care.REST_HOURS.size() - 1 else Color(0.9, 0.88, 0.84))
+		chip.add_child(l)
+		row.add_child(chip)
+	v.add_child(row)
+	var note := Ui.label("Every litter makes a pet rest longer, up to %s. It never goes past that." % Care.hours_text(Care.max_rest()), "Small")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(note)
+	c.add_child(v)
+	return c
+
+
+## One parent slot over the pair: the pet, or an invitation to pick one.
+func _breed_slot(s: Sheet, id: String, first: bool) -> Control:
+	var btn := Button.new()
+	btn.theme_type_variation = &"Card"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.custom_minimum_size = Vector2(0, 150)
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 2)
+	if id == "":
+		var q := Ui.icon_rect("egg-clutch", 48, Color(1, 1, 1, 0.25))
+		q.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(q)
+		var l := Ui.label("Parent %s" % ("one" if first else "two"), "Small", HORIZONTAL_ALIGNMENT_CENTER)
+		l.modulate.a = 0.6
+		v.add_child(l)
+		btn.disabled = true
+	else:
+		var d: Dictionary = SKDB.def(id)
+		var ic := Ui.icon_rect(str(d["icon"]), 56, Color(d["color"]))
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(ic)
+		var nm := Ui.label(_pet_name(id), "Body", HORIZONTAL_ALIGNMENT_CENTER)
+		nm.clip_text = true
+		v.add_child(nm)
+		var rl := Ui.label("Rests %s after" % Care.hours_text(Care.next_rest(Game.data, id)), "Small", HORIZONTAL_ALIGNMENT_CENTER)
+		rl.add_theme_color_override("font_color", Color(1.0, 0.78, 0.4))
+		v.add_child(rl)
+		btn.pressed.connect(func():
+			Sfx.play("ui_tap", -4.0)
+			if first:
+				_breed_a = ""
+			else:
+				_breed_b = ""
+			s.rebuild())
+	for ch in v.get_children():
+		(ch as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(v)
+	return btn
+
+
 ## The collection log: every breed and trait you've hatched, and what's left.
 func _build_collection(s: Sheet) -> void:
 	var b := s.body
-	var back := Button.new()
-	back.theme_type_variation = &"Ghost"
-	back.text = "‹ Stable"
-	back.focus_mode = Control.FOCUS_NONE
-	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	back.pressed.connect(func():
-		Sfx.play("ui_back", -4.0)
-		_sk_detail = ""
-		s.rebuild())
-	b.add_child(back)
-	b.add_child(Ui.label("Collection", "Title"))
 	var f: Dictionary = SKS.block(Game.data)["found"]
 	var breeds := SKS.breeds_found(Game.data)
 	var all_breeds: Array = SKDB.ORDER + SKDB.BREED_ORDER

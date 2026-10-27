@@ -46,7 +46,6 @@ var _title: Label
 var _faces: HBoxContainer
 var _slots := {}
 var _best_btn: Button
-var _sk_btn: Button
 var _best_ups := 0
 var _strip: GridContainer
 var _hero_row: HBoxContainer
@@ -202,7 +201,7 @@ func _round_button(text: String, cb: Callable) -> Button:
 
 
 ## The paper doll: armor slots down the left, weapon and offhand down the
-## right with the sidekick slot under them, the hero between; the stat strip below.
+## right, the hero between; the stat strip below.
 func _build_top(col: VBoxContainer) -> void:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
@@ -213,14 +212,6 @@ func _build_top(col: VBoxContainer) -> void:
 	_build_stage(top)
 	var right := _slot_column(RIGHT_SLOTS)
 	top.add_child(right)
-	_sk_btn = Button.new()
-	_sk_btn.focus_mode = Control.FOCUS_NONE
-	_sk_btn.custom_minimum_size = Vector2(SLOT_TILE, SLOT_TILE)
-	_sk_btn.pressed.connect(func():
-		Sfx.play("ui_tap", -4.0)
-		ui._shown_hero = hero_id
-		ui.open_sheet("sidekicks"))
-	right.add_child(_sk_btn)
 	var card := PanelContainer.new()
 	card.theme_type_variation = "Card"
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -410,7 +401,6 @@ func _refresh() -> void:
 		if not _best_for(slot).is_empty():
 			ups += 1
 	_best_ups = ups
-	_style_sidekick_slot()
 	_slot_title.text = "Skins · looks only, never stats" if filter == "skins" else "%s collection" % str(DB.SLOT_NAME[filter])
 	_build_strip()
 	_build_skills()
@@ -998,42 +988,6 @@ func _build_hero_row() -> void:
 				ui._shown_hero = hero_id
 				ui.open_sheet(what))
 		_hero_row.add_child(b)
-
-
-## The sidekick slot under the weapons: the companion's icon in its colour
-## and its name, or an empty tile. Tapping opens the Sidekicks sheet.
-func _style_sidekick_slot() -> void:
-	const SKE := preload("res://src/autoload/sidekicks.gd")
-	Ui.clear(_sk_btn)
-	_sk_btn.text = ""
-	var sk := SKE.active(Game.data)
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 2)
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_sk_btn.add_child(box)
-	var d: Dictionary = SKE.SDB.ROSTER.get(sk, {})
-	var edge: Color = Color(d["color"]) if not d.is_empty() else EMPTY
-	var nb := _tile_box(edge, false, 0.0)
-	nb.bg_color = Color(0.05, 0.045, 0.06, 0.9)
-	_sk_btn.add_theme_stylebox_override("normal", nb)
-	_sk_btn.add_theme_stylebox_override("hover", nb)
-	_sk_btn.add_theme_stylebox_override("pressed", _tile_box(edge, true, 0.1))
-	_sk_btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	var ic := Ui.icon_rect(str(d.get("icon", "ghost")), SLOT_TILE * 0.5,
-		Color(d["color"]) if not d.is_empty() else Color(1, 1, 1, 0.3))
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(ic)
-	var l := Ui.label(str(d["name"]).get_slice(" ", str(d["name"]).get_slice_count(" ") - 1) if not d.is_empty() else "Sidekick", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-	l.add_theme_font_size_override("font_size", 15)
-	l.clip_text = true
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if d.is_empty():
-		l.modulate.a = 0.55
-	box.add_child(l)
-	_sk_btn.tooltip_text = str(d.get("name", "No sidekick"))
 
 
 func _open_hero(id: String) -> void:

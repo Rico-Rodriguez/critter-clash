@@ -5,6 +5,7 @@ extends RefCounted
 ## Preload by path: `const SK := preload("res://src/autoload/sidekicks.gd")`.
 
 const SDB := preload("res://src/data/sidekick_db.gd")
+const Care := preload("res://src/core/pet_care.gd")
 
 
 ## The save block. `owned`: {id: {"kills": int}}; `hatchery`: eggs warming,
@@ -181,7 +182,8 @@ static func genes_of(d: Dictionary, id: String) -> Dictionary:
 
 
 static func resting(d: Dictionary, id: String, now: int) -> int:
-	return maxi(int(block(d)["rest"].get(id, 0)) - now, 0)
+	# Capped at the longest rest, so a clock set far ahead can't strand a pet.
+	return clampi(int(block(d)["rest"].get(id, 0)) - now, 0, Care.max_rest())
 
 
 ## Why two sidekicks can't breed now ("" when they can).
@@ -209,8 +211,9 @@ static func breed(d: Dictionary, a: String, b: String, now: int, sd: int) -> Dic
 		return {}
 	d["gold"] = int(d["gold"]) - SDB.BREED_GOLD
 	var bl := block(d)
-	bl["rest"][a] = now + SDB.BREED_REST
-	bl["rest"][b] = now + SDB.BREED_REST
+	# Each parent rests longer than the last time it bred (pet_care.gd).
+	bl["rest"][a] = now + Care.note_bred(d, a)
+	bl["rest"][b] = now + Care.note_bred(d, b)
 	var e := _add_egg(bl, "nest", now, 0, sd)
 	e["child"] = SDB.roll_child(a, genes_of(d, a), b, genes_of(d, b), sd)
 	e["parents"] = [a, b]
