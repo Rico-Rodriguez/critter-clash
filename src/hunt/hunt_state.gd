@@ -448,7 +448,7 @@ func _spawn_sidekick() -> void:
 func sidekick_card_open(c: Dictionary) -> bool:
 	if not c.has("sidekick"):
 		return true
-	return sidekick != null and str(sidekick.id) == str(c["sidekick"]) and int(sidekick.bond) >= SK.SDB.BOND_CARDS
+	return sidekick != null and str(sidekick.species) == str(c["sidekick"]) and int(sidekick.bond) >= SK.SDB.BOND_CARDS
 
 
 func hitstop(t: float) -> void:

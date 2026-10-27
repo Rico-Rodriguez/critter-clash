@@ -16,7 +16,7 @@ const FILL_LAYER := 1 << 19
 
 
 static func build(id: String, evolved := false) -> Dictionary:
-	var d: Dictionary = SDB.ROSTER[id]
+	var d: Dictionary = SDB.def(id)
 	var spec := str(d["evolved_model"]) if evolved and d.has("evolved_model") else str(d["model"])
 	var grow := SDB.EVOLVE_SCALE if evolved else 1.0
 	var out := {"root": null, "anim": null, "idle": "", "move": "", "run": "", "attack": "", "hit": "", "special": ""}
@@ -58,7 +58,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
 		if ap:
 			out["anim"] = ap
-			var map: Dictionary = SDB.CLIPS.get(id, {})
+			var map: Dictionary = SDB.CLIPS.get(SDB.species(id), SDB.CLIPS.get(str(d.get("pair", [""])[0]), {}))
 			for k in ["idle", "move", "run", "attack", "hit", "special"]:
 				out[k] = _clip(ap, [str(map[k])]) if map.has(k) else ""
 			if out["idle"] == "" and map.is_empty():
@@ -73,8 +73,90 @@ static func build(id: String, evolved := false) -> Dictionary:
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		(mi as MeshInstance3D).layers = 1 | FILL_LAYER
+	if d.has("pair") or d.has("genes"):
+		var top := float(d["scale"]) * grow * 0.95
+		if d.has("pair"):
+			_crest(root, SDB.def(str(d["pair"][1]))["color"], top)
+		if d.has("genes"):
+			_traits(root, d, top)
 	out["root"] = root
 	return out
+
+
+## A hybrid breed's crest: three toon crystals over the head in its second
+## parent's colour (its own nodes; the model's PBR stays untouched).
+static func _crest(root: Node3D, col: Color, top: float) -> void:
+	var crest := Node3D.new()
+	crest.name = "FusionCrest"
+	crest.position = Vector3(0, top, 0)
+	for i in 3:
+		var mi := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.1, 0.28 + 0.06 * int(i == 1), 0.1)
+		mi.mesh = pm
+		mi.position = Vector3((i - 1) * 0.13, 0.04 * int(i == 1), 0)
+		mi.rotation.z = (i - 1) * -0.28
+		Fx.toon(mi, col)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		crest.add_child(mi)
+	root.add_child(crest)
+
+
+## A bred individual's looks, as toon nodes on top of the unmodified model
+## (art lock): a pattern in its accent colour, and a crisp glow gem when it
+## has the glow gene. Everything is its own Node3D named "Traits".
+static func _traits(root: Node3D, d: Dictionary, top: float) -> void:
+	var sc := top
+	var g: Dictionary = d["genes"]
+	var t := Node3D.new()
+	t.name = "Traits"
+	var acc := Color.html(str(g.get("accent", "ffffff")))
+	var pat := str(g.get("pattern", "plain"))
+	match pat:
+		"spots":
+			for i in 5:
+				var mi := _bit(SphereMesh.new(), acc, Vector3(0.12, 0.12, 0.12))
+				var a := i * 1.26
+				mi.position = Vector3(cos(a) * 0.17 * sc, (0.35 + 0.12 * (i % 3)) * sc, sin(a) * 0.17 * sc)
+				t.add_child(mi)
+		"stripes":
+			for i in 3:
+				var mi := _bit(BoxMesh.new(), acc, Vector3(0.36 * sc, 0.05, 0.05))
+				mi.position = Vector3(0, (0.3 + 0.2 * i) * sc, 0.12 * sc)
+				t.add_child(mi)
+		"crest":
+			for i in 3:
+				var mi := _bit(PrismMesh.new(), acc, Vector3(0.1, 0.26 + 0.06 * int(i == 1), 0.1))
+				mi.position = Vector3((i - 1) * 0.12, top + 0.05, 0)
+				mi.rotation.z = (i - 1) * -0.3
+				t.add_child(mi)
+		"horns":
+			for sgn in [-1.0, 1.0]:
+				var mi := _bit(PrismMesh.new(), acc, Vector3(0.1, 0.3, 0.1))
+				mi.position = Vector3(sgn * 0.16, top, 0)
+				mi.rotation.z = sgn * -0.45
+				t.add_child(mi)
+	if bool(g.get("glow", false)):
+		var gem := _bit(PrismMesh.new(), Color(d["color"]).lightened(0.35), Vector3(0.16, 0.22, 0.16))
+		gem.name = "GlowGem"
+		gem.position = Vector3(0, top + 0.3, 0)
+		t.add_child(gem)
+	root.add_child(t)
+
+
+static func _bit(mesh: Mesh, col: Color, size: Vector3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	if mesh is PrismMesh:
+		(mesh as PrismMesh).size = size
+	elif mesh is BoxMesh:
+		(mesh as BoxMesh).size = size
+	elif mesh is SphereMesh:
+		(mesh as SphereMesh).radius = size.x * 0.5
+		(mesh as SphereMesh).height = size.x
+	mi.mesh = mesh
+	Fx.toon(mi, col)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
 
 
 ## The Ash Wyrm: the drake's own textures baked to ash grey, with embers

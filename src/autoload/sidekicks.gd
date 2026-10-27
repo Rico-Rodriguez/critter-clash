@@ -13,7 +13,8 @@ const SDB := preload("res://src/data/sidekick_db.gd")
 ## "exotic": tries without a drop}; `chests`: chests opened (the Mimic's
 ## goal); `migrated`: pets and ally folded in.
 static func fresh() -> Dictionary:
-	return {"active": "", "owned": {}, "eggs": {}, "hatchery": [], "egg_uid": 1, "dry": {}, "chests": 0, "seen": [], "migrated": false}
+	return {"active": "", "owned": {}, "eggs": {}, "hatchery": [], "egg_uid": 1, "dry": {}, "chests": 0, "seen": [], "migrated": false,
+		"bred_uid": 1, "rest": {}, "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false}}
 
 
 static func block(d: Dictionary) -> Dictionary:
@@ -29,7 +30,16 @@ static func block(d: Dictionary) -> Dictionary:
 			if SDB.EGGS.has(eid):
 				_add_egg(b, eid, int(Time.get_unix_time_from_system()), int(b["eggs"][eid].get("kills", 0)), hash(eid))
 		b["eggs"] = {}
+	sync(b)
 	return b
+
+
+## Registers every bred individual's def (SDB.BRED) from the save.
+static func sync(b: Dictionary) -> void:
+	for id: String in b["owned"]:
+		var o: Dictionary = b["owned"][id]
+		if o.has("breed") and (not SDB.BRED.has(id) or SDB.BRED[id]["genes"] != o["genes"]):
+			SDB.BRED[id] = SDB.bred_def(str(o["breed"]), o["genes"])
 
 
 # --- Eggs and the hatchery ----------------------------------------------------
@@ -121,6 +131,8 @@ static func rush(d: Dictionary, uid: int, now: int) -> Dictionary:
 ## prefers sidekicks you don't own yet. The same egg always gives the same.
 static func egg_result(d: Dictionary, e: Dictionary) -> String:
 	var ed: Dictionary = SDB.EGGS[str(e["kind"])]
+	if e.has("child"):
+		return str(e["child"]["breed"])
 	if ed.has("hatches"):
 		return str(ed["hatches"])
 	var pool: Array = ed["pool"]
@@ -145,6 +157,10 @@ static func hatch(d: Dictionary, uid: int, now: int) -> Dictionary:
 	var e := find_egg(d, uid)
 	if e.is_empty() or not egg_ready(e, now):
 		return {}
+	if e.has("child"):
+		hatchery(d).erase(e)
+		var cid := _add_bred(d, e["child"], e.get("parents", []))
+		return {"id": cid, "kind": str(e["kind"]), "new": true, "kills": 0}
 	var id := egg_result(d, e)
 	hatchery(d).erase(e)
 	var out := {"id": id, "kind": str(e["kind"]), "new": false, "kills": 0}
@@ -153,6 +169,92 @@ static func hatch(d: Dictionary, uid: int, now: int) -> Dictionary:
 	else:
 		block(d)["owned"][id]["kills"] = kills(d, id) + SDB.DUP_KILLS
 		out["kills"] = SDB.DUP_KILLS
+	return out
+
+
+# --- Breeding ------------------------------------------------------------------
+
+static func genes_of(d: Dictionary, id: String) -> Dictionary:
+	var o: Dictionary = block(d)["owned"].get(id, {})
+	return o.get("genes", SDB.base_genes())
+
+
+static func resting(d: Dictionary, id: String, now: int) -> int:
+	return maxi(int(block(d)["rest"].get(id, 0)) - now, 0)
+
+
+## Why two sidekicks can't breed now ("" when they can).
+static func breed_block(d: Dictionary, a: String, b: String, now: int) -> String:
+	if a == b:
+		return "Pick two different sidekicks"
+	for id in [a, b]:
+		if not is_owned(d, id):
+			return "Not in your stable"
+		if bond(d, id) < SDB.BREED_BOND:
+			return "%s needs Bond %d" % [SDB.def(id)["name"], SDB.BREED_BOND]
+		if resting(d, id, now) > 0:
+			return "%s is resting" % SDB.def(id)["name"]
+	if hatchery_full(d):
+		return "The hatchery is full"
+	if int(d.get("gold", 0)) < SDB.BREED_GOLD:
+		return "Needs %d gold" % SDB.BREED_GOLD
+	return ""
+
+
+## Breeds a pair: pays gold, rests both parents, and lays a Nest Egg that
+## already holds the child (seeded, so reloading can't reroll it).
+static func breed(d: Dictionary, a: String, b: String, now: int, sd: int) -> Dictionary:
+	if breed_block(d, a, b, now) != "":
+		return {}
+	d["gold"] = int(d["gold"]) - SDB.BREED_GOLD
+	var bl := block(d)
+	bl["rest"][a] = now + SDB.BREED_REST
+	bl["rest"][b] = now + SDB.BREED_REST
+	var e := _add_egg(bl, "nest", now, 0, sd)
+	e["child"] = SDB.roll_child(a, genes_of(d, a), b, genes_of(d, b), sd)
+	e["parents"] = [a, b]
+	return e
+
+
+static func _add_bred(d: Dictionary, child: Dictionary, parents: Array) -> String:
+	var b := block(d)
+	var id := "x%d" % int(b["bred_uid"])
+	b["bred_uid"] = int(b["bred_uid"]) + 1
+	b["owned"][id] = {"kills": 0, "breed": str(child["breed"]), "genes": (child["genes"] as Dictionary).duplicate(true), "parents": parents.duplicate()}
+	SDB.BRED[id] = SDB.bred_def(str(child["breed"]), child["genes"])
+	if str(b["active"]) == "":
+		b["active"] = id
+	_discover(b, child)
+	return id
+
+
+## The collection log: breeds and traits ever hatched.
+static func _discover(b: Dictionary, child: Dictionary) -> void:
+	var f: Dictionary = b["found"]
+	var g: Dictionary = child["genes"]
+	for pair in [["breeds", str(child["breed"])], ["elements", str(g["element"])], ["patterns", str(g["pattern"])], ["personalities", str(g["personality"])]]:
+		if str(pair[1]) != "" and not (f[pair[0]] as Array).has(pair[1]):
+			f[pair[0]].append(pair[1])
+	if bool(g["glow"]):
+		f["glow"] = true
+
+
+## Breeds known: base sidekicks owned plus every breed hatched.
+static func breeds_found(d: Dictionary) -> Array:
+	var out := []
+	for id: String in SDB.ORDER:
+		if is_owned(d, id):
+			out.append(id)
+	for k: String in block(d)["found"]["breeds"]:
+		if not out.has(k):
+			out.append(k)
+	return out
+
+
+## Bred individuals you own, oldest first.
+static func bred_ids(d: Dictionary) -> Array:
+	var out := (block(d)["owned"] as Dictionary).keys().filter(func(i): return str(i).begins_with("x"))
+	out.sort_custom(func(x, y): return int(str(x).substr(1)) < int(str(y).substr(1)))
 	return out
 
 
@@ -172,7 +274,8 @@ static func exotic_chance(d: Dictionary, boss: bool, bosses_this_hunt: int) -> f
 		return 0.0
 	if boss and int(block(d)["dry"].get("exotic", 0)) + bosses_this_hunt + 1 >= SDB.EXOTIC_PITY:
 		return 1.0
-	return SDB.EXOTIC_BOSS if boss else SDB.EXOTIC_ELITE
+	var lucky := 2.0 if str(SDB.def(active(d)).get("perk", "")) == "lucky" else 1.0
+	return (SDB.EXOTIC_BOSS if boss else SDB.EXOTIC_ELITE) * lucky
 
 
 ## A chest's egg and gems, already given: [{type: "gems"|"egg", ...}].
@@ -216,7 +319,7 @@ static func is_owned(d: Dictionary, id: String) -> bool:
 
 ## Adds a sidekick. The first one owned goes straight to your side.
 static func own(d: Dictionary, id: String) -> bool:
-	if not SDB.ROSTER.has(id) or is_owned(d, id):
+	if not SDB.exists(id) or is_owned(d, id):
 		return false
 	var b := block(d)
 	b["owned"][id] = {"kills": 0}
@@ -309,7 +412,7 @@ static func progress(d: Dictionary, id: String) -> Array:
 
 ## A hidden sidekick shows as ??? until its egg is found.
 static func hidden(d: Dictionary, id: String) -> bool:
-	if not bool(SDB.ROSTER[id].get("hidden", false)) or is_owned(d, id):
+	if not SDB.ROSTER.has(id) or not bool(SDB.ROSTER[id].get("hidden", false)) or is_owned(d, id):
 		return false
 	var u: Dictionary = SDB.ROSTER[id]["unlock"]
 	return not (str(u.get("kind", "")) == "egg" and has_egg(d, str(u["egg"])))
@@ -325,9 +428,10 @@ static func after_hunt(d: Dictionary, r: Dictionary, rng: RandomNumberGenerator)
 	var a := active(d)
 	if a != "" and k > 0:
 		var before := bond(d, a)
-		b["owned"][a]["kills"] = kills(d, a) + k
+		var gain := int(round(k * (1.25 if str(SDB.def(a).get("perk", "")) == "loyal" else 1.0)))
+		b["owned"][a]["kills"] = kills(d, a) + gain
 		out["id"] = a
-		out["kills"] = k
+		out["kills"] = gain
 		out["bond_from"] = before
 		out["bond_to"] = bond(d, a)
 		out["evolved"] = before < SDB.BOND_EVOLVE and int(out["bond_to"]) >= SDB.BOND_EVOLVE

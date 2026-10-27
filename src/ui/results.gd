@@ -388,7 +388,7 @@ func _sidekick_notes(sk: Dictionary) -> void:
 	const SDB := preload("res://src/data/sidekick_db.gd")
 	var id := str(sk.get("id", ""))
 	if id != "":
-		var d: Dictionary = SDB.ROSTER[id]
+		var d: Dictionary = SDB.def(id)
 		var col: Color = d["color"]
 		if bool(sk.get("evolved", false)):
 			_note("%s evolves into the %s!" % [d["name"], d.get("evolved_name", d["name"])], col, str(d["icon"]))
@@ -402,6 +402,6 @@ func _sidekick_notes(sk: Dictionary) -> void:
 	for i in int(sk.get("exotic", 0)):
 		_note("EXOTIC EGG! It's warming in your hatchery", SDB.EGGS["exotic"]["color"], "egg-clutch")
 	for h in sk.get("hatched", []):
-		_note("The egg hatched: %s joins you" % SDB.ROSTER[str(h)]["name"], Color(SDB.ROSTER[str(h)]["color"]), str(SDB.ROSTER[str(h)]["icon"]))
+		_note("The egg hatched: %s joins you" % SDB.def(str(h))["name"], Color(SDB.def(str(h))["color"]), str(SDB.def(str(h))["icon"]))
 	for u in sk.get("unlocked", []):
-		_note("New sidekick: %s (see Sidekicks)" % SDB.ROSTER[str(u)]["name"], Color(SDB.ROSTER[str(u)]["color"]), str(SDB.ROSTER[str(u)]["icon"]))
+		_note("New sidekick: %s (see Sidekicks)" % SDB.def(str(u))["name"], Color(SDB.def(str(u))["color"]), str(SDB.def(str(u))["icon"]))

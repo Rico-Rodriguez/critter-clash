@@ -165,6 +165,33 @@ func _walk(dir: String) -> PackedStringArray:
 
 # --- Headless autopilot ---------------------------------------------------
 
+## --bred=a:b:seed[:kills]: owns the parents, breeds and hatches that child at
+## once, and puts it at your side.
+func _give_bred(spec: String, active := true) -> void:
+	if spec == "":
+		return
+	const SKB := preload("res://src/autoload/sidekicks.gd")
+	var p := spec.split(":")
+	for id in [p[0], p[1]]:
+		SKB.own(Game.data, id)
+		Game.data["sidekicks"]["owned"][id]["kills"] = maxi(SKB.kills(Game.data, id), 700)
+	var now := int(Time.get_unix_time_from_system())
+	Game.data["gold"] = maxi(int(Game.data.get("gold", 0)), 5000)
+	var e := SKB.breed(Game.data, p[0], p[1], now, int(p[2]))
+	var out := SKB.hatch(Game.data, int(e["uid"]), now + 30 * 86400)
+	Game.data["sidekicks"]["rest"] = {}
+	# A fifth field forces a pattern and the glow gene, to see the traits.
+	if p.size() > 4 and not out.is_empty():
+		var o: Dictionary = Game.data["sidekicks"]["owned"][out["id"]]
+		o["genes"]["pattern"] = p[4]
+		o["genes"]["glow"] = true
+		SKB.SDB.BRED[out["id"]] = SKB.SDB.bred_def(str(o["breed"]), o["genes"])
+	if active and not out.is_empty():
+		SKB.set_active(Game.data, out["id"])
+		if p.size() > 3:
+			Game.data["sidekicks"]["owned"][out["id"]]["kills"] = int(p[3])
+
+
 func _arg(args: PackedStringArray, key: String, def: String) -> String:
 	for a in args:
 		if a.begins_with("--%s=" % key):
@@ -368,10 +395,14 @@ func _capture(args: PackedStringArray) -> void:
 		SKC.own(Game.data, sid0)
 		SKC.set_active(Game.data, sid0)
 		Game.data["sidekicks"]["owned"][sid0]["kills"] = int(_arg(args, "sidekick", "").get_slice(":", 1))
+	# A few bred sidekicks for the stable, and the first at your side with --bred.
+	for spec in ["drake:wisp:3", "bonelet:hexling:11", "wisp:sapling:7"]:
+		_give_bred(spec, false)
+	_give_bred(_arg(args, "bred", ""))
 	_fade.visible = false
 	for shot in want:
 		match shot:
-			"sidekicks", "sidekick", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -428,6 +459,15 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(2.2)
 				elif shot == "pickhero":
 					await _wait(1.2)
+				elif shot == "breeding" or shot == "collection":
+					current.open_sheet("sidekicks")
+					await _wait(0.6)
+					if shot == "breeding":
+						current.ui._breed_a = "drake"
+						current.ui._breed_b = "wisp"
+					current.ui._sk_detail = "@breed" if shot == "breeding" else "@log"
+					current.ui._sheet.rebuild()
+					await _wait(0.8)
 				elif shot == "sidekicks" or shot == "sidekick":
 					current.open_sheet("sidekicks")
 					await _wait(1.0)
@@ -758,7 +798,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -873,6 +913,34 @@ func _capture(args: PackedStringArray) -> void:
 						if _arg(args, "clip", "") != "":
 							get_viewport().get_texture().get_image().save_png("%s/busy_%03d.png" % [_shots_dir, nf])
 					print("BUSY draws avg=%d max=%d" % [sum / nf, mx])
+				elif shot == "traits":
+					# Two rows of bred pets, one per pattern, the second row glowing.
+					const SKLT := preload("res://src/core/sidekick_look.gd")
+					await _wait_sim(h, 1.0)
+					h.bot = false
+					var at: Vector3 = h.hero.flat_pos()
+					var n := 0
+					for row in 2:
+						for pat in ["plain", "spots", "stripes", "crest", "horns"]:
+							var g := {"dmg": 1.0, "haste": 1.0, "reach": 1.0, "size": 1.0, "element": ["fire", "ice", "storm", "shadow"][n % 4], "pattern": pat, "accent": ["ffd24a", "6ee7ff", "ff6ea8", "9dff6e", "ffffff"][n % 5], "glow": row == 1, "personality": "fierce"}
+							var id := "x%d" % (90 + n)
+							SKLT.SDB.BRED[id] = SKLT.SDB.bred_def("bonelet", g)
+							var m: Node3D = SKLT.build(id, false)["root"]
+							h.world.add_child(m)
+							m.position = at + Vector3(-2.0 + 1.0 * (n % 5), 0, -2.2 - 1.4 * row)
+							n += 1
+					await _wait_sim(h, 0.3)
+				elif shot == "cast":
+					# The sidekick casts its ability (and its echo) beside the hero.
+					await _wait_sim(h, 3.0)
+					h.bot = false
+					if h.sidekick:
+						h.sidekick.global_position = h.hero.flat_pos() + Vector3(-1.1, 0.0, -1.3)
+						h.sidekick.cd = 0.0
+						print("CAST ", h.sidekick.def["name"], " ", h.sidekick.def["element"], " ", h.sidekick._use())
+						if h.sidekick.def.has("echo"):
+							h.sidekick._echo()
+					await _wait_sim(h, float(_arg(args, "after", "0.35")))
 				elif shot == "exotic":
 					# The exotic egg drop moment beside the hero.
 					await _wait_sim(h, 2.0)
