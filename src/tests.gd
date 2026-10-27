@@ -870,6 +870,10 @@ func _pet_polish_tests() -> void:
 	var mh: Control = HATCH.new()
 	mh.play(mhost, {"id": "drake", "kind": "exotic", "new": true, "kills": 0, "mutation": "Frostbound", "mutation_power": "Its bite chills"})
 	_ok("hatch show builds with a mutation", mh.get_child_count() >= 6)
+	# The game's own result names a mutation by id with no power line: the show fills in both.
+	var mh2: Control = HATCH.new()
+	mh2.play(mhost, {"id": "drake", "kind": "exotic", "new": true, "kills": 0, "mutation": "frostborn"})
+	_ok("hatch show turns a mutation id into its name and power", mh2._res["mutation"] == "Frostborn" and str(mh2._res["mutation_power"]).begins_with("Ice-cast"))
 	var eh: Control = preload("res://src/ui/evolve_show.gd").new()
 	eh.play(mhost, {"id": "drake", "stage_from": 1, "stage_to": 2})
 	_ok("evolve show builds", eh.get_child_count() >= 6)
@@ -1501,14 +1505,14 @@ func _breeding_tests() -> void:
 	_ok("breeding: damage and speed genes change the ability", float(bd["ability"]["dmg"]) > float(base["ability"]["dmg"]) and float(bd["ability"]["cd"]) < float(base["ability"]["cd"]))
 	_ok("breeding: the size gene scales it", float(bd["scale"]) > float(base["scale"]))
 	_ok("breeding: the element recolours its attacks", bd["vfx_el"] == &"frost" and bd["color"] != base["color"])
-	# Every kind of bred pet has a model, and traits are their own nodes.
+	# Every kind of bred pet has a model; patterns and the glow gene are data and card text, never primitives.
 	for pat in SKDB_T.PATTERNS:
 		var gg := g.duplicate()
 		gg["pattern"] = pat
 		gg["glow"] = true
 		SKDB_T.BRED["x99"] = SKDB_T.bred_def("drake", gg)
 		var look := SKL_T.build("x99", false)
-		_ok("breeding: a %s drake builds, traits on their own nodes" % pat, look["root"].get_node_or_null("Traits") != null)
+		_ok("breeding: a %s drake builds with no primitive trait shapes" % pat, look["root"].get_node_or_null("Traits") == null and look["root"].find_children("*", "MeshInstance3D", true, false).size() > 0)
 		look["root"].free()
 	SKDB_T.BRED.erase("x99")
 	# A Lucky pet doubles the exotic egg odds.

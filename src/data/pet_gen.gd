@@ -87,44 +87,95 @@ const VARIANTS_HYBRID := [
 ## How far a variant leans its stat.
 const LEAN := 1.08
 
-## Where a species' parts hang, in metres at its roster scale (read off the
-## ortho silhouettes with tools/dev/pet_frames.py). Each anchor is [y, z] (the
-## wings' is [y, x] for the wing root); crown is the top of the head, u the
-## size unit parts are built in. The model faces +Z.
-const FRAMES := {
-	"acolyte": {"head": [0.95, 0.14], "wings": [0.62, 0.22], "tail": [0.35, -0.2], "crown": 0.98, "u": 1.0, "hs": 0.8},
-	"barrow_squire": {"head": [0.98, 0.0], "wings": [0.62, 0.18], "tail": [0.4, -0.22], "crown": 1.0, "u": 1.0, "hs": 0.8},
-	"bat": {"head": [0.78, 0.0], "wings": [0.5, 0.2], "tail": [0.25, -0.1], "crown": 0.84, "u": 0.8, "hs": 0.6},
-	"bonelet": {"head": [0.95, 0.0], "wings": [0.65, 0.2], "tail": [0.4, -0.15], "crown": 0.98, "u": 1.0, "hs": 0.65},
-	"crow": {"head": [1.08, 0.46], "wings": [0.8, 0.3], "tail": [0.6, -1.0], "crown": 1.08, "u": 1.0, "hs": 0.9},
-	"drake": {"head": [0.42, 0.85], "wings": [0.5, 0.3], "tail": [0.3, -0.3], "crown": 0.5, "u": 0.7, "hs": 0.6},
-	"hexling": {"head": [0.9, 0.05], "wings": [0.6, 0.2], "tail": [0.3, -0.2], "crown": 0.95, "u": 1.0, "hs": 0.75},
-	"mimic": {"head": [0.85, 0.1], "wings": [0.6, 0.45], "tail": [0.45, -0.35], "crown": 0.85, "u": 0.85, "hs": 1.0},
-	"sapling": {"head": [0.9, 0.05], "wings": [0.6, 0.3], "tail": [0.3, -0.25], "crown": 0.97, "u": 1.0, "hs": 0.9},
-	"shade": {"head": [0.95, 0.0], "wings": [0.6, 0.15], "tail": [0.25, -0.07], "crown": 1.0, "u": 1.0, "hs": 0.7},
-	"wisp": {"head": [0.4, 0.6], "wings": [0.3, 0.5], "tail": [0.2, -0.6], "crown": 0.8, "u": 0.8, "hs": 0.8},
-}
-
 ## What each species lends a child that takes its head, wings or tail: the
-## toon style core/pet_parts.gd builds (the model's own PBR stays untouched).
+## part's name on the card. The part itself is real: core/pet_graft.gd lifts it
+## out of the donor's own model by the GRAFT spec below. A slot with no GRAFT
+## entry is data and card text only (nothing is drawn for it).
 const PART_STYLES := {
 	"drake": {"head": "horns", "wings": "dragon", "tail": "spike"},
-	"wisp": {"head": "tuft", "wings": "wisp", "tail": "flame"},
+	"wisp": {"head": "maw", "wings": "fins", "tail": "flame"},
 	"bonelet": {"head": "skull", "wings": "ribs", "tail": "bone"},
-	"hexling": {"head": "hood", "wings": "cape", "tail": "plume"},
-	"acolyte": {"head": "leaves", "wings": "cape", "tail": "vine"},
+	"hexling": {"head": "eye", "wings": "cape", "tail": "plume"},
+	"acolyte": {"head": "mask", "wings": "cape", "tail": "vine"},
 	"crow": {"head": "beak", "wings": "feather", "tail": "fan"},
-	"mimic": {"head": "crown", "wings": "lid", "tail": "chain"},
+	"mimic": {"head": "fangs", "wings": "lid", "tail": "chain"},
 	"bat": {"head": "ears", "wings": "bat", "tail": "whip"},
 	"barrow_squire": {"head": "helm", "wings": "banner", "tail": "mace"},
-	"shade": {"head": "hood", "wings": "wisp", "tail": "flame"},
-	"sapling": {"head": "leaves", "wings": "leaf", "tail": "vine"},
+	"shade": {"head": "veil", "wings": "wisp", "tail": "flame"},
+	"sapling": {"head": "bark", "wings": "leaf", "tail": "vine"},
 }
 const PART_NAMES := {
-	"head": {"horns": "drake horns", "tuft": "flame tuft", "skull": "bone skull", "hood": "hex hood", "leaves": "leaf crown", "beak": "crow beak", "crown": "gold crown", "ears": "bat ears", "helm": "squire helm"},
-	"wings": {"dragon": "dragon wings", "wisp": "wisp wings", "ribs": "rib wings", "cape": "hex cape", "feather": "feather wings", "lid": "chest lids", "bat": "bat wings", "banner": "banner wings", "leaf": "leaf wings"},
-	"tail": {"spike": "spiked tail", "flame": "flame tail", "bone": "bone tail", "plume": "plume tail", "vine": "vine tail", "fan": "feather fan", "chain": "gold chain tail", "whip": "whip tail", "mace": "mace tail"},
+	"head": {"horns": "horned dragon head", "maw": "mawko head", "skull": "bone skull", "eye": "cyclops head", "mask": "plague mask", "beak": "crow head", "fangs": "fanged chest lid", "ears": "bat head", "helm": "squire helm", "veil": "veiled head", "bark": "treant head"},
+	"wings": {"dragon": "dragon wings", "fins": "mawko fins", "ribs": "rib wings", "cape": "hex cape", "feather": "feather wings", "lid": "chest lids", "bat": "bat wings", "banner": "banner wings", "wisp": "wisp wings", "leaf": "leaf wings"},
+	"tail": {"spike": "dragon tail", "flame": "mawko tail", "bone": "bone tail", "plume": "plume tail", "vine": "vine tail", "fan": "crow tail", "chain": "gold chain tail", "whip": "whip tail", "mace": "mace tail"},
 }
+
+## Which turn (degrees about Y) makes a species' model face +Z; 0 when it does.
+const GRAFT_YAW := {"bat": -90.0}
+
+## Which of a donor's triangles are its head, wings or tail: `bones` (lower-case
+## name fragments; a triangle belongs when most of its weight sits on them,
+## minus `not`) or `meshes` (name fragments of rigid meshes), `pivot` the bone
+## the part hangs from, `split` makes a left and a right piece. Reviewed with
+## tools/dev/graft_sheet.sh (every part, extracted, one PNG per species).
+const GRAFT := {
+	"drake": {
+		"head": {"bones": ["head.", "jaw_", "tongu", "nose", "_eye", "lid", "brow"], "pivot": "neck_11"},
+		"wings": {"bones": ["clavicle", "_shoulder.", "forearm", "_hand", "finger", "wingflap"], "pivot": "spine_06", "split": true},
+		"tail": {"bones": ["tail_", "tailspike", "tailbasespike"], "pivot": "tail_01"},
+	},
+	"wisp": {
+		"head": {"bones": ["mawko_rig", "jaw_"], "pivot": "neck_01"},
+		"wings": {"bones": ["fin1_", "fin2_"], "pivot": "spine2", "split": true},
+		"tail": {"bones": ["tail"], "pivot": "tail1"},
+	},
+	"bonelet": {"head": {"bones": ["head1", "head2"], "pivot": "neck1"}},
+	"hexling": {"head": {"bones": ["head_06", "jaw", "lowerteeth", "sight", "eye_", "beard", "mustache"], "pivot": "neck1"}},
+	"acolyte": {"head": {"bones": ["face"], "pivot": "neck"}},
+	"crow": {
+		"head": {"bones": ["head_05", "queue"], "pivot": "neck_04"},
+		"wings": {"bones": ["wingleft", "wingright", "clavicle", "upperarm", "forearm", "hand"], "pivot": "spine_03", "split": true},
+		"tail": {"bones": ["crowtail"], "pivot": "pelvis"},
+	},
+	"mimic": {"head": {"meshes": ["polysurface63"], "pivot": ""}},
+	"bat": {
+		"head": {"bones": ["haed", "ear", "eyes"], "meshes": ["eye_"], "pivot": "neck"},
+		"wings": {"bones": ["clavicle", "elbow", "hand", "finger"], "pivot": "chest", "split": true},
+	},
+	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
+	"shade": {"head": {"bones": ["head_08", "bone.019", "hair"], "pivot": "neck_07"}},
+	"sapling": {"head": {"bones": ["head_04", "jaw", "brow"], "pivot": "root.002"}},
+}
+
+## Where a receiver hangs wings and a tail that its own model has no slot for
+## (bone name fragments; "" = the body's bounds, for a model without a skeleton).
+const MOUNT := {
+	"drake": {"wings": "spine_06", "tail": "tail_01"},
+	"wisp": {"wings": "spine2", "tail": "tail1"},
+	"bonelet": {"wings": "spine4", "tail": "pelvis"},
+	"hexling": {"wings": "spine3", "tail": "hip"},
+	"acolyte": {"wings": "chest", "tail": "pelvis"},
+	"crow": {"wings": "spine_03", "tail": "pelvis"},
+	"mimic": {"wings": "", "tail": ""},
+	"bat": {"wings": "chest", "tail": "hip"},
+	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},
+	"shade": {"wings": "spine2", "tail": "spine4"},
+	"sapling": {"wings": "root.002", "tail": "root_01"},
+}
+
+## True when `donor` has a real `slot` part to lend (a GRAFT entry).
+static func donates(donor: String, slot: String) -> bool:
+	return (GRAFT.get(donor, {}) as Dictionary).has(slot)
+
+
+## How many (slot, donor) parts exist to find.
+static func donor_parts() -> int:
+	var n := 0
+	for sp: String in GRAFT:
+		n += (GRAFT[sp] as Dictionary).size()
+	return n
+
+
 const PART_SLOTS := ["head", "wings", "tail"]
 ## What each borrowed part adds to the child's numbers (per part).
 const PART_LEAN := {"head": {"reach": 0.04}, "wings": {"haste": 0.04}, "tail": {"dmg": 0.04}}

@@ -339,7 +339,9 @@ static func _roll_look(r: RandomNumberGenerator, g: Dictionary, breed: String, g
 	var parts := {}
 	for slot: String in GEN.PART_SLOTS:
 		var take_a := r.randf() < 0.5
-		parts[slot] = str((pa if take_a else pb).get(slot, body_of(sa) if take_a else body_of(sb)))
+		var donor := str((pa if take_a else pb).get(slot, body_of(sa) if take_a else body_of(sb)))
+		# Only a donor with a real part to lend counts: what you roll is what you see.
+		parts[slot] = donor if GEN.donates(donor, slot) else body_of(breed)
 	g["parts"] = parts
 	var inh := r.randf()
 	var fresh_m := r.randf()

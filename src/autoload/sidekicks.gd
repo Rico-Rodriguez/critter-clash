@@ -166,7 +166,8 @@ static func hatch(d: Dictionary, uid: int, now: int) -> Dictionary:
 	if e.has("child"):
 		hatchery(d).erase(e)
 		var cid := _add_bred(d, e["child"], e.get("parents", []))
-		return {"id": cid, "kind": str(e["kind"]), "new": true, "kills": 0, "breed": str(e["child"]["breed"]), "mutation": str(e["child"]["genes"].get("mutation", ""))}
+		var cm := str(e["child"]["genes"].get("mutation", ""))
+		return {"id": cid, "kind": str(e["kind"]), "new": true, "kills": 0, "breed": str(e["child"]["breed"]), "mutation": cm, "mutation_power": str(SDB.GEN.MUTATIONS.get(cm, {}).get("power", ""))}
 	var id := egg_result(d, e)
 	hatchery(d).erase(e)
 	var out := {"id": id, "kind": str(e["kind"]), "new": false, "kills": 0}
@@ -186,6 +187,7 @@ static func hatch(d: Dictionary, uid: int, now: int) -> Dictionary:
 		out["kills"] = SDB.DUP_KILLS
 	out["breed"] = id if not out.get("wild", false) else str(SDB.def(str(out["id"])).get("breed", id))
 	out["mutation"] = str(genes_of(d, str(out["id"])).get("mutation", ""))
+	out["mutation_power"] = str(SDB.GEN.MUTATIONS.get(str(out["mutation"]), {}).get("power", ""))
 	return out
 
 
@@ -268,7 +270,7 @@ static func _discover(b: Dictionary, child: Dictionary) -> void:
 	var body := SDB.body_of(breed)
 	for slot: String in SDB.GEN.PART_SLOTS:
 		var donor := str((g.get("parts", {}) as Dictionary).get(slot, body))
-		if donor != body and not (f["parts"] as Array).has("%s:%s" % [slot, donor]):
+		if donor != body and SDB.GEN.donates(donor, slot) and not (f["parts"] as Array).has("%s:%s" % [slot, donor]):
 			f["parts"].append("%s:%s" % [slot, donor])
 
 
@@ -309,7 +311,7 @@ static func collection(d: Dictionary) -> Dictionary:
 		"breeds": {"have": breeds_found(d).size(), "total": SDB.ORDER.size() + SDB.BREED_ORDER.size()},
 		"variants": {"have": (f["variants"] as Array).size(), "total": variants_total},
 		"mutations": {"have": (f["mutations"] as Array).size(), "total": SDB.GEN.MUTATION_ORDER.size()},
-		"parts": {"have": (f["parts"] as Array).size(), "total": SDB.GEN.PART_SLOTS.size() * SDB.GEN.PART_STYLES.size()},
+		"parts": {"have": (f["parts"] as Array).filter(func(e): return SDB.GEN.donates(str(e).split(":")[1], str(e).split(":")[0])).size(), "total": SDB.GEN.donor_parts()},
 		"glow": bool(f["glow"]),
 	}
 

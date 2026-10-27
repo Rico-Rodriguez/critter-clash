@@ -139,7 +139,13 @@ var _ncrack := 0
 
 ## Plays over `host` (a full-screen layer). `on_done` runs when the player moves on.
 func play(host: Control, res: Dictionary, on_done := Callable()) -> void:
-	_res = res
+	# A hatch result names the mutation by id; the reveal shows its name and power.
+	_res = res.duplicate()
+	var md: Dictionary = SKDB.GEN.MUTATIONS.get(str(_res.get("mutation", "")), {})
+	if not md.is_empty():
+		_res["mutation"] = str(md["name"])
+		if str(_res.get("mutation_power", "")) == "":
+			_res["mutation_power"] = str(md["power"])
 	var pd: Dictionary = SKDB.def(str(res["id"]))
 	_col = Color(pd["color"])
 	_rar = SKDB.rarity(str(res["id"]))
