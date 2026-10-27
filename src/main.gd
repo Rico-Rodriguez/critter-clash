@@ -1003,7 +1003,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1230,6 +1230,19 @@ func _capture(args: PackedStringArray) -> void:
 					# The shot shows his plate, not a hit flash.
 					h.boss.set_flash(0.0)
 					await get_tree().process_frame
+				elif shot == "bossintro":
+					# The entrance as a filmstrip: bossintro_<n>.png at set times.
+					# --boss=thorn etc. picks the boss; the rush starts it directly.
+					await _wait_sim(h, 3.0)
+					h.cur_boss = str(_arg(args, "boss", "gravemaw"))
+					h._begin_boss()
+					var marks := [0.3, 0.8, 1.3, 1.8, 2.4, 2.9, 3.35]
+					var n := 0
+					while n < marks.size() and h.phase == "boss_intro":
+						await get_tree().process_frame
+						if h.phase_t >= float(marks[n]):
+							await _save("bossintro_%d" % n)
+							n += 1
 				elif shot in ["boss", "victory", "results"]:
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal

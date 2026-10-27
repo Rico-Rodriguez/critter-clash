@@ -292,7 +292,7 @@ func tick(dt: float) -> void:
 		"rise":
 			_direct(dt)
 		"boss_intro":
-			if phase_t > 2.6:
+			if phase_t > BossIntro.LENGTH:
 				phase = "boss"
 				hud.boss_mode(boss)
 		"victory":
@@ -314,7 +314,7 @@ func tick(dt: float) -> void:
 	var watch := [hero.position]
 	if boss and boss.alive:
 		watch.append(boss.position)
-	arena.update_occlusion(watch, cam.pitch_deg, dt)
+	arena.update_occlusion(watch, cam.pitch_deg + cam.pitch_shift, dt)
 	_skill_t -= dt
 	if _skill_t <= 0.0:
 		_skill_t = 0.4
@@ -327,14 +327,19 @@ func tick(dt: float) -> void:
 func _frame_camera() -> void:
 	match phase:
 		"boss_intro":
-			cam.zoom_target = 1.25
+			var sh: Dictionary = BossIntro.shot(cur_boss, phase_t, boss.position, hero.position)
+			cam.focus_override = sh["focus"]
+			cam.zoom_target = sh["zoom"]
+			cam.pitch_shift = -float(sh["pitch"])
 		"boss":
+			cam.pitch_shift = 0.0
 			cam.zoom_target = 1.18
 			if boss and boss.alive:
 				cam.focus_override = hero.position.lerp(boss.position, 0.25)
 			else:
 				cam.focus_override = null
 		"victory":
+			cam.pitch_shift = 0.0
 			# First the fall, close on the boss, then back to the hero and the loot.
 			if phase_t < 0.6 and boss:
 				cam.zoom_target = 0.75
@@ -343,6 +348,7 @@ func _frame_camera() -> void:
 				cam.zoom_target = 0.85
 				cam.focus_override = null
 		_:
+			cam.pitch_shift = 0.0
 			cam.zoom_target = 1.0 + clampf((foes.size() - 15) / 60.0, 0.0, 0.12)
 			# Back to the hero: a boss that fell mid-run (Descent, Boss Rush)
 			# would otherwise leave the camera pinned where the fight was.
