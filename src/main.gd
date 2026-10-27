@@ -8,8 +8,10 @@ extends Node
 const LOBBY := preload("res://src/lobby/lobby.tscn")
 const Online := preload("res://src/net/online.gd")
 const UiJuice := preload("res://src/ui/ui_juice.gd")
+const AppGate := preload("res://src/core/app_gate.gd")
 
 var current: Node
+var _gate: Node
 var _fade: ColorRect
 var _busy := false
 ## A chest won in the last hunt, waiting to be opened in camp.
@@ -50,11 +52,27 @@ func _ready() -> void:
 		_start_online()
 		# The launch update check holds the camp behind the splash; a connect,
 		# not an await, so an in-process update restart can free this node.
+		_gate = AppGate.new()
+		add_child(_gate)
+		_gate.cleared.connect(_gate_cleared)
 		var ota := get_node_or_null("/root/Ota")
 		if ota and ota.get("checking") == true and ota.has_signal("boot_done"):
-			ota.connect("boot_done", go.bind("lobby"), CONNECT_ONE_SHOT)
+			ota.connect("boot_done", _launch, CONNECT_ONE_SHOT)
 		else:
-			go("lobby")
+			_launch()
+
+
+## The forced-update gate asks once at launch; a blocked player stays on its
+## screen until it clears (see src/core/app_gate.gd).
+func _launch() -> void:
+	if await _gate.check():
+		return
+	go("lobby")
+
+
+func _gate_cleared() -> void:
+	if current == null and not _busy:
+		go("lobby")
 
 
 func _start_online() -> void:
@@ -402,6 +420,15 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
+			"update":
+				# The forced-update screen, as a too-old shell would see it.
+				var g := AppGate.new()
+				add_child(g)
+				g.apply({"min_native": 99, "store_url": _arg(args, "store", "https://apps.apple.com/app/id0000000000")})
+				await get_tree().create_timer(0.6, true, false, true).timeout
+				await _save("update")
+				g.hide_required()
+				g.queue_free()
 			"sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600

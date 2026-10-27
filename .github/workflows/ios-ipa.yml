@@ -170,6 +170,11 @@ jobs:
               "platform": "ios",
               "date": datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
           }
+          # Forced native update: tools/ota_gate.json holds min_native (0 = off)
+          # and the store link the "Update required" screen opens.
+          gate = json.load(open("tools/ota_gate.json"))
+          info["min_native"] = int(gate.get("min_native", 0))
+          info["store_url"] = str(gate.get("store_url", ""))
           json.dump(info, open("dist/version.json", "w"), indent=2)
           print(json.dumps(info, indent=2))
           PY
