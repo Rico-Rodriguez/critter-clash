@@ -20,9 +20,10 @@ static func build(a: Arena) -> void:
 	_bog(a)
 	_fires(a)
 	_dressing(a)
+	Art.scorch(a, [Vector3(-14, 0, 1), Vector3(14.5, 0, 5), Vector3(-9.5, 0, -22), Vector3(15, 0, -22), Vector3(-6.5, 0, 14.5), Vector3(6, 0, -3), Vector3(a.crypt_pos.x, 0, a.crypt_pos.z + 5.5)], 1.6)
 	_spawn_spots(a)
 	a._forest([G + "tree_dead_large.gltf", G + "tree_dead_medium.gltf", G + "tree_dead_large_decorated.gltf",
-		F + "Tree_Bare_1_A_Color1.gltf", F + "Tree_Bare_2_A_Color1.gltf", F + "Tree_Bare_1_A_Color1.gltf", G + "tree_pine_orange_large.gltf"])
+		F + "Tree_Bare_1_A_Color1.gltf", F + "Tree_Bare_2_A_Color1.gltf", F + "Tree_Bare_1_A_Color1.gltf", G + "tree_dead_medium.gltf"])
 
 
 ## The Ogre's den: a scorched crypt with a red glow in its doorway.
@@ -88,7 +89,7 @@ static func _dressing(a: Arena) -> void:
 	for i in 10:
 		var rn := "Rock_%d_%s_Color1.gltf" % [a._rng.randi_range(1, 3), "ABCDEFGH"[a._rng.randi() % 8]]
 		a.put(F + rn, a._free_spot(1.0), a._rng.randf() * TAU, a._rng.randf_range(0.9, 1.5), 0.55)
-	for i in 14:
+	for i in 7:
 		a.put(F + "Bush_%d_%s_Color1.gltf" % [a._rng.randi_range(3, 4), "ABC"[a._rng.randi() % 3]], a._free_spot(0.5), a._rng.randf() * TAU, a._rng.randf_range(0.8, 1.2), -1.0, false)
 
 

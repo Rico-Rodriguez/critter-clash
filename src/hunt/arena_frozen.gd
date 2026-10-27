@@ -21,6 +21,8 @@ static func build(a: Arena) -> void:
 	_lanterns(a)
 	_dressing(a)
 	_ice(a)
+	Art.snow_caps(a)
+	Art.ice_sheets(a, [Vector3(-4, 0, 6), Vector3(3, 0, 12), Vector3(-15, 0, 2), Vector3(14, 0, -1), Vector3(5, 0, -20), Vector3(-9, 0, -11), Vector3(15.5, 0, 13), Vector3(-1, 0, -17)])
 	_spawn_spots(a)
 	a._forest([G + "tree_pine_orange_large.gltf", G + "tree_pine_yellow_large.gltf", G + "tree_pine_orange_medium.gltf",
 		G + "tree_pine_yellow_medium.gltf", G + "tree_dead_large.gltf", F + "Tree_Bare_1_A_Color1.gltf", F + "Tree_Bare_2_A_Color1.gltf"])
