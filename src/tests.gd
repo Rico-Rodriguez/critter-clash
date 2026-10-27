@@ -249,6 +249,7 @@ func run() -> int:
 	_sidekick_tests()
 	_hatchery_tests()
 	_breeding_tests()
+	_story_tests()
 	_stage_tests()
 	_gate_tests()
 	_sidekick_motor_tests()
@@ -1341,6 +1342,84 @@ func _breeding_tests() -> void:
 	SK.set_active(dl, "x98")
 	_ok("breeding: a lucky pet doubles exotic odds", is_equal_approx(SK.exotic_chance(dl, false, 0), plain * 2.0))
 	SKDB_T.BRED.erase("x98")
+
+
+func _story_tests() -> void:
+	const SDB_S := preload("res://src/data/story_db.gd")
+	var keep: Dictionary = Game.data
+	Game.data = Game._fresh()
+	_ok("story: five chapters", SDB_S.count() == 5)
+	var ids := {}
+	var data_ok := true
+	var beats_ok := true
+	var tied_ok := true
+	for ch: Dictionary in SDB_S.CHAPTERS:
+		ids[ch["id"]] = true
+		data_ok = data_ok and ch["hero"] in DB.HERO_ORDER and DB.ZONES.has(ch["zone"]) and DB.BOSSES.has(ch["boss"]) and not ch["intro"].is_empty() and not ch["outro"].is_empty()
+		tied_ok = tied_ok and str(DB.ZONES[ch["zone"]]["boss"]) == str(ch["boss"])
+		for which in ["intro", "outro"]:
+			for b: Dictionary in ch[which]:
+				beats_ok = beats_ok and b["who"] in ["hero", "boss", "narrator"] and b.get("cam", "wide") in ["wide", "hero", "boss"] and str(b["line"]) != ""
+	_ok("story: chapter ids are unique", ids.size() == SDB_S.count())
+	_ok("story: every chapter has a real hero, zone and boss", data_ok)
+	_ok("story: every chapter's boss is its zone's boss", tied_ok)
+	_ok("story: every beat is a known speaker, camera and line", beats_ok)
+	_ok("story: the finale pays a weapon glow that exists", DB.GLOWS.has(SDB_S.CHAPTERS[4]["reward"]["glow"]))
+	_ok("story: a fresh save has no story", Game.data["story"]["cleared"].is_empty() and Game.story_next() == 0)
+	_ok("story: chapter 1 is open, 2 is not", Game.story_open(0) and not Game.story_open(1) and not Game.story_open(9) and not Game.story_open(-1))
+	_ok("story: a locked chapter cannot be queued", not Game.story_begin("roots") and str(Game.data["story"]["run"]) == "")
+	_ok("story: an unknown chapter cannot be queued", not Game.story_begin("nope"))
+	_ok("story: an open chapter queues", Game.story_begin("oath") and str(Game.data["story"]["run"]) == "oath")
+	var taken := Game.story_take()
+	_ok("story: taking hands over the chapter once", str(taken["id"]) == "oath" and Game.story_take().is_empty())
+	# Boss retelling.
+	var base: Dictionary = DB.boss_def("gravemaw")
+	var told: Dictionary = SDB_S.boss_def(base, "gravemaw", taken)
+	_ok("story: the chapter boss gets its own name and title", str(told["name"]) == "Gravemaw" and str(told["title"]) == "the Oathbreaker")
+	var lk: Dictionary = SDB_S.chapter("lightless")
+	var big: Dictionary = SDB_S.boss_def(base, "gravemaw", lk)
+	_ok("story: the Lightless King is bigger and tougher", float(big["hp"]) > float(base["hp"]) * 1.5 and float(big["scale"]) > float(base["scale"]) * 1.2)
+	_ok("story: another zone's boss is left alone", SDB_S.boss_def(DB.boss_def("thorn"), "thorn", taken) == DB.boss_def("thorn"))
+	_ok("story: a normal hunt leaves the boss alone", SDB_S.boss_def(base, "gravemaw", {}) == base)
+	_ok("story: the base boss table was not changed", DB.boss_def("gravemaw")["name"] == base["name"] and float(DB.boss_def("gravemaw")["hp"]) == float(base["hp"]))
+	# Paying a clear.
+	var hunt := {"win": true, "tier": 0, "zone": "barrow", "mode": "horde", "time": 120.0, "chest": "silver", "hero": "mage", "level": 6, "souls": 100, "gold": 10, "xp": {}, "items": [], "kills": 5, "elites": 0, "story": "oath"}
+	var g0 := Game.gold()
+	var out := Game.finish_hunt(hunt)
+	var su: Dictionary = out.get("story", {})
+	_ok("story: a first win reports the chapter", bool(su.get("first", false)) and str(su["id"]) == "oath" and not bool(su["hero_bonus"]))
+	_ok("story: it pays the chapter reward and opens the next", int(su["gold"]) == 1500 and Game.story_cleared("oath") and Game.story_open(1) and Game.story_next() == 1)
+	_ok("story: gold lands in the purse", Game.gold() >= g0 + 1500)
+	var again := Game.finish_hunt(hunt)
+	_ok("story: a replay pays nothing more and stays cleared", not bool(again["story"]["first"]) and int(again["story"]["gold"]) == 0 and Game.data["story"]["cleared"].size() == 1)
+	var lost := Game.finish_hunt(_story_loss(hunt))
+	_ok("story: a loss pays and clears nothing", not lost.has("story"))
+	var sh0 := int(Game.hero("ranger")["shards"])
+	var rh := hunt.duplicate()
+	rh["hero"] = "ranger"
+	rh["story"] = "roots"
+	var ro := Game.finish_hunt(rh)
+	_ok("story: the chapter's own hero earns 25% more", bool(ro["story"]["hero_bonus"]) and int(ro["story"]["gold"]) == int(round(1800 * 1.25)))
+	_ok("story: shards go to the chapter's hero", int(Game.hero("ranger")["shards"]) == sh0 + int(ro["story"]["shards"]) and int(ro["story"]["shards"]) > 35)
+	# The finale's glow reaches every hero.
+	for id in ["crypt", "vault", "lightless"]:
+		var fh := hunt.duplicate()
+		fh["story"] = id
+		fh["hero"] = SDB_S.chapter(id)["hero"]
+		Game.finish_hunt(fh)
+	var all_glow := true
+	for id in DB.HERO_ORDER:
+		all_glow = all_glow and "wraith" in Game.hero(id)["glows"]
+	_ok("story: the whole story is cleared and the finale's glow is everyone's", Game.story_next() == 5 and all_glow)
+	_ok("story: the cutscene script has no class_name", not ("\n" + FileAccess.get_file_as_string("res://src/ui/cutscene.gd")).contains("\nclass_name "))
+	_ok("story: the story data has no class_name", not ("\n" + FileAccess.get_file_as_string("res://src/data/story_db.gd")).contains("\nclass_name "))
+	Game.data = keep
+
+
+func _story_loss(h: Dictionary) -> Dictionary:
+	var l := h.duplicate()
+	l["win"] = false
+	return l
 
 
 func _stage_tests() -> void:

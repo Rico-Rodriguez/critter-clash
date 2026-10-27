@@ -27,9 +27,9 @@ const SETS := {
 
 ## Camera presets: [from position, to position, look-at].
 const CAMS := {
-	"wide": [Vector3(0.6, 2.8, 9.2), Vector3(0.2, 2.4, 7.6), Vector3(0.4, 1.7, -0.6)],
-	"hero": [Vector3(-0.2, 1.7, 4.6), Vector3(-0.7, 1.65, 3.7), Vector3(-1.9, 1.5, 0.0)],
-	"boss": [Vector3(1.4, 2.5, 7.4), Vector3(1.9, 2.7, 6.2), Vector3(2.8, 2.7, -1.6)],
+	"wide": [Vector3(0.9, 3.4, 16.0), Vector3(0.4, 3.0, 14.0), Vector3(0.2, 2.1, -0.6)],
+	"hero": [Vector3(-0.3, 1.5, 7.0), Vector3(-0.8, 1.4, 5.8), Vector3(-1.5, 0.85, 0.0)],
+	"boss": [Vector3(0.8, 3.0, 14.5), Vector3(1.2, 3.0, 12.8), Vector3(1.9, 2.9, -1.2)],
 }
 
 var chapter := {}
@@ -49,6 +49,7 @@ var _type_tw: Tween
 var _cam_tw: Tween
 var _done := false
 var _card: Control
+var _box: Control
 
 
 ## Starts the scene for `ch`'s "intro" or "outro" with the player's hero.
@@ -63,7 +64,9 @@ func play(ch: Dictionary, which_: String, hero_: String, title := true) -> void:
 	_build_stage()
 	_build_ui()
 	if which_ == "intro" and title:
+		_box.visible = false
 		await _title_card()
+		_box.visible = true
 	_next()
 
 
@@ -131,7 +134,7 @@ func _build_stage() -> void:
 	_vp.add_child(_hero)
 	_hero.build_model(hd["model"], hd["weapons"], Color(0.55, 0.68, 1.0), 0.5)
 	GearLook.apply(_hero, hero_id)
-	_hero.position = Vector3(-1.9, 0, 0)
+	_hero.position = Vector3(-1.5, 0, 0)
 	_hero.rotation.y = PI * 0.5 - 0.25
 	_hero.play(hd["anim"]["idle"], 0.0)
 	var bd: Dictionary = STORY_DB.boss_def(DB.boss_def(str(chapter["boss"])), str(chapter["boss"]), chapter)
@@ -140,14 +143,14 @@ func _build_stage() -> void:
 	_vp.add_child(_boss)
 	_boss.build_model(bd["model"], bd["weapons"], aura, 0.55, aura)
 	_boss.model.scale = Vector3.ONE * float(bd["scale"])
-	_boss.position = Vector3(2.8, 0, -1.6)
+	_boss.position = Vector3(1.9, 0, -1.2)
 	_boss.rotation.y = -PI * 0.5 + 0.3
 	_boss.play("Skeletons_Idle" if str(bd["model"]).begins_with("Skeleton") else str(hd["anim"]["idle"]), 0.0)
 	var glow := OmniLight3D.new()
 	glow.light_color = aura
 	glow.light_energy = 1.6
 	glow.omni_range = 7.0
-	glow.position = Vector3(2.8, 3.6, -0.6)
+	glow.position = Vector3(1.9, 3.6, -0.2)
 	_vp.add_child(glow)
 	_cam = Camera3D.new()
 	_cam.fov = 38.0
@@ -191,6 +194,7 @@ func _build_ui() -> void:
 	box.add_theme_constant_override("separation", 6)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(box)
+	_box = box
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.03, 0.05, 0.82)

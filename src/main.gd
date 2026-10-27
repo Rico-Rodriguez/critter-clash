@@ -454,14 +454,14 @@ func _capture(args: PackedStringArray) -> void:
 				_set_screen_now("lobby")
 				await _wait(1.0)
 				var cs: Control = _play_story(ch, "outro" if shot == "storyoutro" else "intro", hid, shot == "storytitle")
-				await _wait(2.4 if shot == "storytitle" else 0.5)
+				await _wait(1.9 if shot == "storytitle" else 0.5)
 				if shot == "storyintro":
 					cs._show(1)
 				elif shot == "storyboss":
 					cs._show(2)
 				elif shot == "storyoutro":
 					cs._show(1)
-				await _wait(3.6)
+				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
 			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
