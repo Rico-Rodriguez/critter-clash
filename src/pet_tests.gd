@@ -7,6 +7,8 @@ const SK := preload("res://src/autoload/sidekicks.gd")
 const SDB := preload("res://src/data/sidekick_db.gd")
 const EggShop := preload("res://src/autoload/egg_shop.gd")
 const STORY := preload("res://src/data/story_db.gd")
+const GEN := preload("res://src/data/pet_gen.gd")
+const PARTS := preload("res://src/core/pet_parts.gd")
 
 const T0 := 1_800_000_000
 
@@ -14,6 +16,9 @@ const T0 := 1_800_000_000
 static func run(ok: Callable) -> void:
 	_sources(ok)
 	_shop(ok)
+	_breeds(ok)
+	_hatch(ok)
+	_log(ok)
 
 
 static func _sources(ok: Callable) -> void:
@@ -158,3 +163,211 @@ static func _shop(ok: Callable) -> void:
 	var bought := Game.buy_egg(0)
 	ok.call("egg shop: Game.buy_egg works on the save", sh.size() == 4 and not bought.is_empty() and int(Game.data["gold"]) < 5000)
 	Game.data = keep
+
+
+# --- Breeds, variants, parts, mutations ---------------------------------------------
+
+static func _breeds(ok: Callable) -> void:
+	# Handmade data is complete and real.
+	var data_ok := true
+	for id: String in SDB.ORDER:
+		var vs: Array = GEN.variants(id)
+		var ids := vs.map(func(v): return v["id"])
+		data_ok = data_ok and GEN.VARIANTS.has(id) and vs.size() == 4 and ids.size() == (ids as Array).filter(func(x): return ids.count(x) == 1).size()
+		for v: Dictionary in vs:
+			data_ok = data_ok and Color.html(str(v["color"])) != Color() and SDB.GENE_RANGE.has(str(v["lean"]))
+		data_ok = data_ok and GEN.PART_STYLES.has(id)
+		for slot: String in GEN.PART_SLOTS:
+			data_ok = data_ok and (GEN.PART_NAMES[slot] as Dictionary).has(GEN.PART_STYLES[id][slot])
+	ok.call("breeds: every species has 4 coats and a head, wings and tail", data_ok)
+	var hy_ok := SDB.BREED_ORDER.size() == 8
+	for k: String in SDB.BREED_ORDER:
+		var p: Array = SDB.BREEDS[k]["pair"]
+		hy_ok = hy_ok and SDB.hybrid_for(str(p[0]), str(p[1])) == k and SDB.hybrid_for(str(p[1]), str(p[0])) == k
+		hy_ok = hy_ok and SDB.ROSTER.has(str(p[0])) and SDB.ROSTER.has(str(p[1])) and SDB.CLIPS.has(str(p[0])) and SDB.BREEDS[k].has("echo") and SDB.body_of(k) == str(p[0])
+	ok.call("breeds: 8 hybrids, each pair finds its breed either way", hy_ok)
+	var mu_ok := GEN.MUTATION_ORDER.size() == GEN.MUTATIONS.size()
+	for m: String in GEN.MUTATION_ORDER:
+		mu_ok = mu_ok and GEN.MUTATIONS.has(m) and str(GEN.MUTATIONS[m]["power"]) != ""
+	ok.call("breeds: six mutations, each with a power", mu_ok and GEN.MUTATIONS.size() == 6)
+	# Rolls are seeded and shaped right.
+	var ga := SDB.base_genes()
+	var c1 := SDB.roll_child("drake", ga, "bonelet", ga, 77)
+	var c2 := SDB.roll_child("drake", ga, "bonelet", ga, 77)
+	ok.call("breeds: the same seed rolls the same child, parts and all", c1 == c2 and (c1["genes"]["parts"] as Dictionary).size() == 3)
+	var shape := true
+	var mixed := 0
+	var coats := {}
+	for sd in 300:
+		var c := SDB.roll_child("drake", ga, "bonelet", ga, sd)
+		var g: Dictionary = c["genes"]
+		shape = shape and not GEN.variant(str(c["breed"]), str(g["variant"])).is_empty() and str(g["accent"]) == str(GEN.variant(str(c["breed"]), str(g["variant"]))["color"])
+		coats[str(c["breed"]) + str(g["variant"])] = true
+		var donors := (g["parts"] as Dictionary).values()
+		shape = shape and donors.all(func(x): return x == "drake" or x == "bonelet")
+		if donors.has("drake") and donors.has("bonelet"):
+			mixed += 1
+		for k in SDB.GENE_RANGE:
+			var rg: Vector2 = SDB.GENE_RANGE[k]
+			shape = shape and float(g[k]) >= rg.x and float(g[k]) <= rg.y
+	ok.call("breeds: children take parts from both parents and wear a real coat", shape and mixed > 100 and coats.size() >= 8)
+	# Mutations: rare, inherited, applied.
+	var none := 0
+	var all := 0
+	for sd in 200:
+		none += int(str(SDB.roll_child("wisp", ga, "bat", ga, sd, 0.0)["genes"]["mutation"]) != "")
+		all += int(str(SDB.roll_child("wisp", ga, "bat", ga, sd, 1.0)["genes"]["mutation"]) != "")
+	ok.call("breeds: mutation chance 0 never mutates, 1 always does", none == 0 and all == 200)
+	var gm := SDB.base_genes()
+	gm["mutation"] = "frostborn"
+	var kept := 0
+	for sd in 400:
+		kept += int(str(SDB.roll_child("wisp", gm, "bat", ga, sd, 0.0)["genes"]["mutation"]) == "frostborn")
+	ok.call("breeds: a mutated parent passes it on about a quarter of the time", kept > 60 and kept < 140)
+	var wolds := SDB.roll_wild("crow", 5, 0.0)
+	var base_d := SDB.bred_def("crow", SDB.base_genes())
+	var gs := SDB.base_genes()
+	gs["mutation"] = "stormtouched"
+	var sd_def := SDB.bred_def("crow", gs)
+	ok.call("breeds: stormtouched casts sooner, reaches farther and chains one more", float(sd_def["ability"]["cd"]) < float(base_d["ability"]["cd"]) and float(sd_def["reach"]) > float(base_d["reach"]) and int(sd_def["ability"]["chain"]) == int(base_d["ability"]["chain"]) + 1 and str(sd_def["name"]).begins_with("Stormtouched") and str(sd_def["skin"]) == "stormtouched")
+	var gv := SDB.base_genes()
+	gv["mutation"] = "verdant"
+	var snare := SDB.bred_def("sapling", gv)
+	ok.call("breeds: verdant doubles a snare's hold", is_equal_approx(float(snare["ability"]["hold"]), float(SDB.ROSTER["sapling"]["ability"]["hold"]) * 2.0))
+	ok.call("breeds: a mutation lifts the grade", SDB.grade(gs, "crow") > SDB.grade(SDB.base_genes(), "crow") and SDB.rarity("zz_none") == 0)
+	var notes: Array = sd_def["notes"]
+	ok.call("breeds: a pet's card lists its mutation", notes.size() == 1 and str(notes[0]).begins_with("Stormtouched"))
+	# Wild hatches.
+	var w1 := SDB.roll_wild("crow", 91)
+	ok.call("breeds: a wild roll is seeded and close to 1", w1 == SDB.roll_wild("crow", 91) and absf(float(w1["genes"]["dmg"]) - 1.0) <= 0.2 and not GEN.variant("crow", str(w1["genes"]["variant"])).is_empty() and wolds["genes"]["mutation"] == "")
+	# Old genomes with none of the new keys still build.
+	var old := {"dmg": 1.1, "haste": 1.0, "reach": 1.0, "size": 1.0, "element": "fire", "pattern": "spots", "accent": "ff0000", "glow": false, "personality": "keen", "echo": ""}
+	var od := SDB.bred_def("drake", old)
+	ok.call("breeds: a pet saved before pets 2.0 still builds", not od.is_empty() and (od["notes"] as Array).is_empty() and not od.has("skin"))
+	# The toon parts.
+	var plain := Node3D.new()
+	PARTS.attach(plain, _bare(plain), od)
+	var gp := SDB.base_genes()
+	gp["parts"] = {"head": "bonelet", "wings": "bat", "tail": "drake"}
+	gp["mutation"] = "gilded"
+	var pd := SDB.bred_def("drake", gp)
+	var dressed := Node3D.new()
+	PARTS.attach(dressed, _bare(dressed), pd)
+	var pn := dressed.get_node_or_null("Parts")
+	ok.call("breeds: borrowed parts and a mutation skin hang under named nodes", plain.get_node_or_null("Parts") == null and plain.get_node_or_null("Mutation") == null and pn != null and pn.get_child_count() == 2 and pn.get_node_or_null("Head") != null and pn.get_node_or_null("Wings") != null and pn.get_node_or_null("Tail") == null and dressed.get_node_or_null("Mutation") != null)
+	var every := true
+	for sp: String in SDB.ORDER:
+		for slot: String in GEN.PART_SLOTS:
+			var host := Node3D.new()
+			var gq := SDB.base_genes()
+			gq["parts"] = {slot: sp}
+			PARTS.attach(host, _bare(host), SDB.bred_def("drake" if sp != "drake" else "wisp", gq))
+			every = every and host.get_node_or_null("Parts") != null and host.get_node("Parts").get_child(0).get_child_count() > 0
+			host.free()
+	for m: String in GEN.MUTATION_ORDER:
+		var host := Node3D.new()
+		var gq := SDB.base_genes()
+		gq["mutation"] = m
+		PARTS.attach(host, _bare(host), SDB.bred_def("wisp", gq))
+		every = every and host.get_node("Mutation").get_child_count() >= 2
+		host.free()
+	ok.call("breeds: every species' part and every mutation skin builds shapes", every)
+	plain.free()
+	dressed.free()
+
+
+# --- Hatching individuals, mutation pity, cooldown growth, the stable ------------------
+
+static func _hatch(ok: Callable) -> void:
+	var d := Game._fresh()
+	SK.migrate(d)
+	var e := SK.give_egg(d, "ember", T0, 1234)
+	var first := SK.hatch(d, int(e["uid"]), T0 + 9 * 3600)
+	ok.call("hatching: a first-time species is the plain original", first["id"] == "drake" and not first.has("wild") and SDB.def("drake").get("genes") == null)
+	var d2 := Game._fresh()
+	SK.migrate(d2)
+	SK.own(d2, "wisp")
+	var held := SK.give_egg(d2, "brood", T0, 0)
+	held["kind"] = "ember"
+	held["seed"] = 55
+	SK.own(d2, "drake")
+	var h1 := SK.hatch(d2, int(held["uid"]), T0 + 9 * 3600)
+	ok.call("hatching: an owned species hatches its own individual, kills untouched", bool(h1["wild"]) and SDB.species(str(h1["id"])) == "drake" and SK.kills(d2, "drake") == 0 and str(h1["id"]).begins_with("x"))
+	# Seeded: the same egg on the same save rolls the same individual.
+	var d3 := Game._fresh()
+	SK.migrate(d3)
+	SK.own(d3, "drake")
+	var e3 := SK.give_egg(d3, "ember", T0, 55)
+	var h3 := SK.hatch(d3, int(e3["uid"]), T0 + 9 * 3600)
+	ok.call("hatching: the same egg seed gives the same individual", d2["sidekicks"]["owned"][h1["id"]]["genes"] == d3["sidekicks"]["owned"][h3["id"]]["genes"])
+	# Pity: each unmutated roll raises the chance; a mutation resets it.
+	d3["sidekicks"]["dry"]["mutation"] = 0
+	var base_p := SK.mutation_chance(d3, "brood")
+	d3["sidekicks"]["dry"]["mutation"] = 10
+	var p10 := SK.mutation_chance(d3, "brood")
+	d3["sidekicks"]["dry"]["mutation"] = SDB.MUTATION_PITY - 1
+	var p59 := SK.mutation_chance(d3, "brood")
+	ok.call("hatching: mutation pity climbs and is certain at the pity", is_equal_approx(base_p, SDB.MUTATION_BASE) and p10 > base_p and is_equal_approx(p59, 1.0) and SK.mutation_chance(d3, "exotic") <= 1.0)
+	d3["sidekicks"]["dry"]["mutation"] = 0
+	ok.call("hatching: exotic eggs and nests beat the base chance", SK.mutation_chance(d3, "exotic") > SK.mutation_chance(d3, "omen") and SK.mutation_chance(d3, "omen") > base_p and SK.mutation_chance(d3, "nest") > base_p)
+	d3["sidekicks"]["dry"]["mutation"] = SDB.MUTATION_PITY - 1
+	var e4 := SK.give_egg(d3, "brood", T0, 8)
+	e4["kind"] = "ember"
+	var h4 := SK.hatch(d3, int(e4["uid"]), T0 + 9 * 3600)
+	ok.call("hatching: the pity hatch is mutated and resets the count", str(h4["mutation"]) != "" and int(d3["sidekicks"]["dry"]["mutation"]) == 0 and (d3["sidekicks"]["found"]["mutations"] as Array).has(str(h4["mutation"])))
+	var e5 := SK.give_egg(d3, "ember", T0, 9)
+	SK.hatch(d3, int(e5["uid"]), T0 + 9 * 3600)
+	ok.call("hatching: an unmutated roll counts toward the pity", int(d3["sidekicks"]["dry"]["mutation"]) in [0, 1])
+	# A full stable falls back to bond kills.
+	var d6 := Game._fresh()
+	SK.migrate(d6)
+	SK.own(d6, "drake")
+	for i in SDB.STABLE_MAX:
+		d6["sidekicks"]["owned"]["x%d" % (i + 1)] = {"kills": 0, "breed": "wisp", "genes": SDB.base_genes(), "parents": []}
+	var e6 := SK.give_egg(d6, "ember", T0, 3)
+	var h6 := SK.hatch(d6, int(e6["uid"]), T0 + 9 * 3600)
+	ok.call("hatching: a full stable pays bond kills instead", not SK.stable_room(d6) and int(h6["kills"]) == SDB.DUP_KILLS and SK.kills(d6, "drake") == SDB.DUP_KILLS and not bool(h6.get("wild", false)))
+	d6["gold"] = SDB.BREED_GOLD
+	for id in ["drake", "x1"]:
+		d6["sidekicks"]["owned"][id]["kills"] = 900
+	ok.call("breeding: a full stable can't breed more", SK.breed_block(d6, "drake", "x1", T0) == "Your stable is full")
+	# Cooldown grows with every litter.
+
+
+# --- The collection log and old saves --------------------------------------------------
+
+static func _log(ok: Callable) -> void:
+	var d := Game._fresh()
+	SK.migrate(d)
+	var c0 := SK.collection(d)
+	ok.call("log: a new save has nothing found, with real totals", int(c0["variants"]["have"]) == 0 and int(c0["variants"]["total"]) == 11 * 4 + 8 * 4 and int(c0["mutations"]["total"]) == 6 and int(c0["parts"]["total"]) == 33 and int(c0["breeds"]["total"]) == 19)
+	var child := {"breed": "cinderbone", "genes": SDB.base_genes()}
+	child["genes"]["variant"] = "bright"
+	child["genes"]["mutation"] = "gilded"
+	child["genes"]["parts"] = {"head": "bonelet", "wings": "drake", "tail": "drake"}
+	d["sidekicks"]["owned"]["x1"] = {"kills": 0, "breed": "cinderbone", "genes": child["genes"], "parents": []}
+	SK._discover(d["sidekicks"], child)
+	var c1 := SK.collection(d)
+	ok.call("log: a rolled pet logs its coat, mutation and borrowed parts", int(c1["variants"]["have"]) == 1 and int(c1["mutations"]["have"]) == 1 and int(c1["parts"]["have"]) == 1 and (d["sidekicks"]["found"]["parts"] as Array).has("head:bonelet"))
+	# A save from before the new log lists still loads and gains them.
+	var old := Game._fresh()
+	(old["sidekicks"]["found"] as Dictionary).erase("variants")
+	(old["sidekicks"]["found"] as Dictionary).erase("mutations")
+	(old["sidekicks"]["found"] as Dictionary).erase("parts")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(old))
+	SK.migrate(saved)
+	var fb: Dictionary = saved["sidekicks"]["found"]
+	ok.call("log: an old save gains the new lists on load", fb.has("variants") and fb.has("mutations") and fb.has("parts") and int(SK.collection(saved)["parts"]["have"]) == 0)
+	# A pet and its mutation survive a save round trip.
+	var rt: Dictionary = JSON.parse_string(JSON.stringify(d))
+	SDB.BRED.clear()
+	SK.migrate(rt)
+	ok.call("log: a mutated pet comes back from the save with its skin", str(SDB.def("x1").get("skin", "")) == "gilded" and str(SDB.def("x1")["name"]).begins_with("Gilded"))
+	SDB.BRED.clear()
+
+
+## A model stand-in under `host` (freed with it).
+static func _bare(host: Node3D) -> Node3D:
+	var m := Node3D.new()
+	host.add_child(m)
+	return m

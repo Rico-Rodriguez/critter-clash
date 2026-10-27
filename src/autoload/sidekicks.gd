@@ -16,7 +16,7 @@ const Care := preload("res://src/core/pet_care.gd")
 ## offers (egg_shop.gd).
 static func fresh() -> Dictionary:
 	return {"active": "", "owned": {}, "eggs": {}, "hatchery": [], "egg_uid": 1, "dry": {}, "chests": 0, "seen": [], "migrated": false,
-		"bred_uid": 1, "rest": {}, "showcase": [], "shop": {}, "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false}}
+		"bred_uid": 1, "rest": {}, "showcase": [], "shop": {}, "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false, "variants": [], "mutations": [], "parts": []}}
 
 
 static func block(d: Dictionary) -> Dictionary:
@@ -26,6 +26,10 @@ static func block(d: Dictionary) -> Dictionary:
 	for k in fresh():
 		if not b.has(k):
 			b[k] = fresh()[k]
+	# New collection-log lists (nested, so the top-level merge above skips them).
+	for k in fresh()["found"]:
+		if not (b["found"] as Dictionary).has(k):
+			b["found"][k] = fresh()["found"][k]
 	# Eggs from before the hatchery keep their kills and start their clock now.
 	if not (b["eggs"] as Dictionary).is_empty():
 		for eid: String in b["eggs"].keys():
@@ -162,15 +166,26 @@ static func hatch(d: Dictionary, uid: int, now: int) -> Dictionary:
 	if e.has("child"):
 		hatchery(d).erase(e)
 		var cid := _add_bred(d, e["child"], e.get("parents", []))
-		return {"id": cid, "kind": str(e["kind"]), "new": true, "kills": 0}
+		return {"id": cid, "kind": str(e["kind"]), "new": true, "kills": 0, "breed": str(e["child"]["breed"]), "mutation": str(e["child"]["genes"].get("mutation", ""))}
 	var id := egg_result(d, e)
 	hatchery(d).erase(e)
 	var out := {"id": id, "kind": str(e["kind"]), "new": false, "kills": 0}
 	if own(d, id):
 		out["new"] = true
+	elif stable_room(d):
+		# A species you already have hatches its own individual: a coat, genes
+		# and maybe a mutation (seeded by the egg, so reloading can't reroll).
+		var child := SDB.roll_wild(id, int(e["seed"]) ^ 0x5eed, mutation_chance(d, str(e["kind"])))
+		_note_mutation(d, child["genes"])
+		var cid := _add_bred(d, child, [])
+		out["id"] = cid
+		out["new"] = true
+		out["wild"] = true
 	else:
 		block(d)["owned"][id]["kills"] = kills(d, id) + SDB.DUP_KILLS
 		out["kills"] = SDB.DUP_KILLS
+	out["breed"] = id if not out.get("wild", false) else str(SDB.def(str(out["id"])).get("breed", id))
+	out["mutation"] = str(genes_of(d, str(out["id"])).get("mutation", ""))
 	return out
 
 
@@ -199,6 +214,8 @@ static func breed_block(d: Dictionary, a: String, b: String, now: int) -> String
 			return "%s is resting" % SDB.def(id)["name"]
 	if hatchery_full(d):
 		return "The hatchery is full"
+	if not stable_room(d):
+		return "Your stable is full"
 	if int(d.get("gold", 0)) < SDB.BREED_GOLD:
 		return "Needs %d gold" % SDB.BREED_GOLD
 	return ""
@@ -215,7 +232,8 @@ static func breed(d: Dictionary, a: String, b: String, now: int, sd: int) -> Dic
 	bl["rest"][a] = now + Care.note_bred(d, a)
 	bl["rest"][b] = now + Care.note_bred(d, b)
 	var e := _add_egg(bl, "nest", now, 0, sd)
-	e["child"] = SDB.roll_child(a, genes_of(d, a), b, genes_of(d, b), sd)
+	e["child"] = SDB.roll_child(a, genes_of(d, a), b, genes_of(d, b), sd, mutation_chance(d, "nest"))
+	_note_mutation(d, e["child"]["genes"])
 	e["parents"] = [a, b]
 	return e
 
@@ -241,6 +259,59 @@ static func _discover(b: Dictionary, child: Dictionary) -> void:
 			f[pair[0]].append(pair[1])
 	if bool(g["glow"]):
 		f["glow"] = true
+	var breed := str(child["breed"])
+	var vid := str(g.get("variant", ""))
+	if vid != "" and not (f["variants"] as Array).has("%s:%s" % [breed, vid]):
+		f["variants"].append("%s:%s" % [breed, vid])
+	if str(g.get("mutation", "")) != "" and not (f["mutations"] as Array).has(str(g["mutation"])):
+		f["mutations"].append(str(g["mutation"]))
+	var body := SDB.body_of(breed)
+	for slot: String in SDB.GEN.PART_SLOTS:
+		var donor := str((g.get("parts", {}) as Dictionary).get(slot, body))
+		if donor != body and not (f["parts"] as Array).has("%s:%s" % [slot, donor]):
+			f["parts"].append("%s:%s" % [slot, donor])
+
+
+# --- Mutations and the collection log -------------------------------------------
+
+## The chance the next rolled pet carries a mutation: the base, times the egg's
+## multiplier, plus pity for every roll since the last one; certain at the pity.
+static func mutation_chance(d: Dictionary, kind: String) -> float:
+	var dry := int(block(d)["dry"].get("mutation", 0))
+	if dry + 1 >= SDB.MUTATION_PITY:
+		return 1.0
+	var mult := float((SDB.EGGS.get(kind, {}) as Dictionary).get("mut", SDB.MUTATION_NEST if kind == "nest" else 1.0))
+	return minf(SDB.MUTATION_BASE * mult + SDB.MUTATION_STEP * dry, 1.0)
+
+
+## Counts a rolled pet toward the mutation pity: a mutation resets it.
+static func _note_mutation(d: Dictionary, g: Dictionary) -> void:
+	var dry: Dictionary = block(d)["dry"]
+	dry["mutation"] = 0 if str(g.get("mutation", "")) != "" else int(dry.get("mutation", 0)) + 1
+
+
+## Room for another individual in the stable.
+static func stable_room(d: Dictionary) -> bool:
+	return bred_ids(d).size() < SDB.STABLE_MAX
+
+
+## The collection log: {section: {"have": n, "total": n}} for breeds, variants,
+## mutations and parts, plus {"glow": bool}. Variants count each breed's coats
+## (base species owned count as "classic" on their own, so only the coats seen
+## on rolled pets are listed in `found`).
+static func collection(d: Dictionary) -> Dictionary:
+	var f: Dictionary = block(d)["found"]
+	var variants_total := 0
+	for id: String in SDB.ORDER:
+		variants_total += SDB.GEN.variants(id).size()
+	variants_total += SDB.BREED_ORDER.size() * SDB.GEN.VARIANTS_HYBRID.size()
+	return {
+		"breeds": {"have": breeds_found(d).size(), "total": SDB.ORDER.size() + SDB.BREED_ORDER.size()},
+		"variants": {"have": (f["variants"] as Array).size(), "total": variants_total},
+		"mutations": {"have": (f["mutations"] as Array).size(), "total": SDB.GEN.MUTATION_ORDER.size()},
+		"parts": {"have": (f["parts"] as Array).size(), "total": SDB.GEN.PART_SLOTS.size() * SDB.GEN.PART_STYLES.size()},
+		"glow": bool(f["glow"]),
+	}
 
 
 ## Breeds known: base sidekicks owned plus every breed hatched.

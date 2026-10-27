@@ -4,6 +4,8 @@ extends RefCounted
 ## it never outclasses the hero. Bond (1-10) grows from kills made with it.
 ## Preloaded by path (no class_name: see CLAUDE.md, OTA packs).
 
+const GEN := preload("res://src/data/pet_gen.gd")
+
 ## Launch roster in sheet order. `model`: a KayKit Rig_Medium character
 ## ("kk:"), a KayKit prop ("prop:") or a Quaternius CC0 glb ("q:").
 ## `camp_scale`: extra size by the camp fire (the thin undead read small
@@ -148,13 +150,67 @@ const BREEDS := {
 		"echo": {"kind": "snare", "name": "Rootsnare", "cd": 7.0, "dmg": 0.35, "radius": 3.0, "pulses": 3, "hold": 1.2},
 		"desc": "Strikes behind the 3 toughest foes, then roots burst under the pack.",
 	},
+	"bloodmist": {
+		"name": "Bloodmist Wisp", "element": "Spirit · Blood", "icon": "ghost", "color": Color(0.92, 0.5, 0.62),
+		"model": "sf:mawko", "fly": 1.2, "scale": 0.85,
+		"pair": ["wisp", "bat"], "unlock": {"kind": "bred"}, "how": "Breed a Grave Wisp with a Night Bat",
+		"origin": "A wisp that drank the dusk a bat left behind",
+		"ability": {"kind": "mend", "name": "Bloodmist Light", "cd": 6.0, "dmg": 0.3, "heal": 0.05, "radius": 3.0},
+		"echo": {"kind": "leech", "name": "Blood Dive", "cd": 4.0, "dmg": 0.3, "bites": 3, "heal": 0.01},
+		"desc": "Pulses healing light, then dives through 3 foes and drinks from each.",
+	},
+	"thundermimic": {
+		"name": "Thunder Mimic", "element": "Gold · Storm", "icon": "open-treasure-chest", "color": Color(0.95, 0.86, 0.45),
+		"model": "sf:mimic", "fly": 0.0, "scale": 1.05,
+		"pair": ["mimic", "crow"], "unlock": {"kind": "bred"}, "how": "Breed a Gilded Mimic with a Storm Crow",
+		"origin": "A chest struck by lightning twice, and it liked it",
+		"ability": {"kind": "snap", "name": "Thunder Snap", "cd": 3.0, "dmg": 0.7, "gold": 2},
+		"echo": {"kind": "storm", "name": "Chain Lightning", "cd": 4.0, "dmg": 0.4, "chain": 4, "range": 7.0},
+		"desc": "Bites the nearest foe for gold, then lightning leaps between 4 more.",
+	},
+	"thornknight": {
+		"name": "Thornknight", "element": "Iron · Thorn", "icon": "checked-shield", "color": Color(0.72, 0.86, 0.5),
+		"model": "sf:squire", "camp_scale": 1.7, "fly": 0.0, "scale": 1.05,
+		"pair": ["barrow_squire", "acolyte"], "unlock": {"kind": "bred"}, "how": "Breed a Barrow Squire with an Acolyte",
+		"origin": "A squire whose shield grew roots",
+		"ability": {"kind": "bash", "name": "Briar Bash", "cd": 6.0, "dmg": 0.55, "radius": 2.2, "stun": 0.8},
+		"echo": {"kind": "thorns", "name": "Thorn Ward", "cd": 7.0, "dmg": 0.5, "radius": 3.5, "push": 7.0},
+		"desc": "Slams its shield into the pack, then thorns burst around you.",
+	},
+	"emberbat": {
+		"name": "Emberbat", "element": "Blood · Fire", "icon": "bat-wing", "color": Color(1.0, 0.46, 0.32),
+		"model": "sf:bat", "fly": 1.5, "scale": 1.05,
+		"pair": ["bat", "drake"], "unlock": {"kind": "bred"}, "how": "Breed a Night Bat with an Ember Drake",
+		"origin": "A bat that nested in a drake's cinders",
+		"ability": {"kind": "leech", "name": "Ember Dive", "cd": 4.0, "dmg": 0.3, "bites": 3, "heal": 0.01},
+		"echo": {"kind": "breath", "name": "Fire Breath", "cd": 5.0, "dmg": 0.6, "range": 5.0, "cone": 0.55, "burn": 3.0},
+		"desc": "Dives through 3 foes, then breathes a cone of fire.",
+	},
+	"bonehex": {
+		"name": "Bonehex Lich", "element": "Shadow · Bone", "icon": "magic-swirl", "color": Color(0.78, 0.68, 0.95),
+		"model": "sf:lich", "camp_scale": 1.7, "fly": 0.3, "scale": 1.05,
+		"pair": ["hexling", "bonelet"], "unlock": {"kind": "bred"}, "how": "Breed a Hexling with a Bonelet",
+		"origin": "A cultist who traded the staff for a bone",
+		"ability": {"kind": "hex", "name": "Bonehex", "cd": 6.0, "dmg": 0.35, "burst": 0.6, "delay": 1.5, "radius": 2.5},
+		"echo": {"kind": "bone_toss", "name": "Bone Toss", "cd": 4.0, "dmg": 0.45, "bounces": 3},
+		"desc": "Hexes the toughest foe, then hurls a bone that bounces between 3.",
+	},
 }
-const BREED_ORDER := ["cinderbone", "hexstorm", "briarshade"]
+const BREED_ORDER := ["cinderbone", "hexstorm", "briarshade", "bloodmist", "thundermimic", "thornknight", "emberbat", "bonehex"]
 const BREED_HYBRID := 0.35
 ## Breeding: both parents at BREED_BOND, BREED_GOLD, then they rest BREED_REST s.
 const BREED_BOND := 3
 const BREED_GOLD := 1000
 const BREED_REST := 8 * 3600
+## You keep at most this many hatched and bred individuals.
+const STABLE_MAX := 48
+## Mutations: the base chance for a rolled pet, what each egg or nest multiplies
+## it by, how much each miss adds (pity), and the miss count that guarantees one.
+const MUTATION_BASE := 0.03
+const MUTATION_STEP := 0.004
+const MUTATION_PITY := 60
+const MUTATION_NEST := 1.5
+const WILD_SPREAD := 0.12
 const ECHO_DMG := 0.6
 ## The genome's element: changes the ability's colour and its VFX element.
 const ELEMENTS := {
@@ -216,13 +272,13 @@ static func hybrid_for(a: String, b: String) -> String:
 
 ## A neutral genome (a base sidekick's, for inheritance).
 static func base_genes() -> Dictionary:
-	return {"dmg": 1.0, "haste": 1.0, "reach": 1.0, "size": 1.0, "element": "", "pattern": "plain", "accent": "", "glow": false, "personality": "", "echo": ""}
+	return {"dmg": 1.0, "haste": 1.0, "reach": 1.0, "size": 1.0, "element": "", "pattern": "plain", "accent": "", "glow": false, "personality": "", "echo": "", "variant": "", "parts": {}, "mutation": ""}
 
 
 ## Rolls a child: the breed (a parent's, or their hybrid) and a genome from
 ## both parents' genes plus mutation. Pure and seeded: the same parents and
 ## seed always give the same child.
-static func roll_child(a: String, ga: Dictionary, b: String, gb: Dictionary, sd: int) -> Dictionary:
+static func roll_child(a: String, ga: Dictionary, b: String, gb: Dictionary, sd: int, mut_p := MUTATION_BASE) -> Dictionary:
 	var r := RandomNumberGenerator.new()
 	r.seed = sd
 	var sa := species(a)
@@ -257,11 +313,85 @@ static func roll_child(a: String, ga: Dictionary, b: String, gb: Dictionary, sd:
 		var other := sb if breed == sa else sa
 		if other != breed and ROSTER.has(other):
 			g["echo"] = other
+	# Pets 2.0, rolled last so every roll above keeps its value: the coat, the
+	# head / wings / tail it takes from each parent, and a rare mutation.
+	_roll_look(r, g, breed, ga, gb, sa, sb, mut_p)
 	return {"breed": breed, "genes": g}
 
 
+## The handmade coat (one of the breed's variants, often a parent's), the parts
+## taken from either parent, and the mutation (inherited or fresh) into g.
+static func _roll_look(r: RandomNumberGenerator, g: Dictionary, breed: String, ga: Dictionary, gb: Dictionary, sa: String, sb: String, mut_p: float) -> void:
+	var pv := r.randf()
+	var fresh_v := r.randi()
+	var from_a := str(ga.get("variant", ""))
+	var from_b := str(gb.get("variant", ""))
+	var vid := ""
+	if pv < 0.35 and not GEN.variant(breed, from_a).is_empty():
+		vid = from_a
+	elif pv < 0.7 and not GEN.variant(breed, from_b).is_empty():
+		vid = from_b
+	else:
+		vid = str(GEN.variants(breed)[fresh_v % GEN.variants(breed).size()]["id"])
+	_apply_variant(g, breed, vid)
+	var pa: Dictionary = ga.get("parts", {})
+	var pb: Dictionary = gb.get("parts", {})
+	var parts := {}
+	for slot: String in GEN.PART_SLOTS:
+		var take_a := r.randf() < 0.5
+		parts[slot] = str((pa if take_a else pb).get(slot, body_of(sa) if take_a else body_of(sb)))
+	g["parts"] = parts
+	var inh := r.randf()
+	var fresh_m := r.randf()
+	var which := r.randi()
+	var held := [str(ga.get("mutation", "")), str(gb.get("mutation", ""))].filter(func(m): return m != "")
+	if not held.is_empty() and inh < GEN.MUTATION_INHERIT:
+		g["mutation"] = held[which % held.size()]
+	elif fresh_m < mut_p:
+		g["mutation"] = GEN.MUTATION_ORDER[which % GEN.MUTATION_ORDER.size()]
+
+
+## Sets a variant on a genome: its colour is the accent, and it leans one stat.
+static func _apply_variant(g: Dictionary, breed: String, vid: String) -> void:
+	var v := GEN.variant(breed, vid)
+	g["variant"] = vid
+	if v.is_empty():
+		return
+	g["accent"] = str(v["color"])
+	var k := str(v["lean"])
+	if GENE_RANGE.has(k):
+		var rg: Vector2 = GENE_RANGE[k]
+		g[k] = snappedf(clampf(float(g[k]) * GEN.LEAN, rg.x, rg.y), 0.01)
+
+
+## A wild hatch of a species you already have: its own individual, seeded.
+## Same body, a random coat, genes within WILD_SPREAD of 1, maybe a mutation.
+static func roll_wild(breed: String, sd: int, mut_p := MUTATION_BASE) -> Dictionary:
+	var r := RandomNumberGenerator.new()
+	r.seed = sd
+	var g := base_genes()
+	for k in GENE_RANGE:
+		var rg: Vector2 = GENE_RANGE[k]
+		g[k] = snappedf(clampf(1.0 + r.randf_range(-WILD_SPREAD, WILD_SPREAD), rg.x, rg.y), 0.01)
+	g["pattern"] = PATTERNS[1 + r.randi() % (PATTERNS.size() - 1)] if r.randf() < 0.4 else "plain"
+	g["glow"] = r.randf() < GLOW_CHANCE
+	var ps := PERSONALITIES.keys()
+	g["personality"] = ps[r.randi() % ps.size()]
+	var vs := GEN.variants(breed)
+	_apply_variant(g, breed, str(vs[r.randi() % vs.size()]["id"]))
+	var fresh_m := r.randf()
+	if fresh_m < mut_p:
+		g["mutation"] = GEN.MUTATION_ORDER[r.randi() % GEN.MUTATION_ORDER.size()]
+	return {"breed": breed, "genes": g}
+
+
+## The species whose body a def wears: a hybrid breed wears its first parent's.
+static func body_of(breed: String) -> String:
+	return str(BREEDS[breed]["pair"][0]) if BREEDS.has(breed) else breed
+
+
 ## How rare a genome is, 0..4: Common, Rare, Epic, Legendary, Mythic.
-static func grade(g: Dictionary) -> int:
+static func grade(g: Dictionary, breed := "") -> int:
 	var score := 0.0
 	for k in ["dmg", "haste", "reach"]:
 		score += maxf(float(g.get(k, 1.0)) - 1.0, 0.0) * 4.0
@@ -269,6 +399,13 @@ static func grade(g: Dictionary) -> int:
 		score += 1.2
 	if str(g.get("echo", "")) != "":
 		score += 1.0
+	if str(g.get("mutation", "")) != "":
+		score += 2.0
+	var body := body_of(breed)
+	for slot: String in GEN.PART_SLOTS:
+		var donor := str((g.get("parts", {}) as Dictionary).get(slot, body))
+		if breed != "" and donor != body:
+			score += 0.4
 	return clampi(int(score), 0, 4)
 
 
@@ -284,7 +421,7 @@ const SHOWCASE_SLOTS := 3
 static func rarity(id: String) -> int:
 	var d := def(id)
 	if d.has("genes"):
-		return grade(d["genes"])
+		return grade(d["genes"], str(d.get("breed", "")))
 	return int(SPECIES_RARITY.get(id, SPECIES_RARITY.get(species(id), 3 if BREEDS.has(id) else 0)))
 const GRADE_COLORS := [Color(0.85, 0.85, 0.85), Color(0.35, 0.8, 1.0), Color(0.75, 0.4, 1.0), Color(1.0, 0.6, 0.15), Color(1.0, 0.3, 0.45)]
 
@@ -317,6 +454,47 @@ static func bred_def(breed: String, g: Dictionary) -> Dictionary:
 		var e: Dictionary = base["echo"]
 		e["dmg"] = float(e.get("dmg", 0.0)) * dmg
 	base["perk"] = str(g.get("personality", ""))
+	# Pets 2.0: the variant's lean is already in the genes; the borrowed parts
+	# add a little each, and a mutation brings its skin and its power.
+	var parts: Dictionary = g.get("parts", {})
+	var body := body_of(breed)
+	for slot: String in GEN.PART_SLOTS:
+		var donor := str(parts.get(slot, body))
+		if donor != body and GEN.PART_STYLES.has(donor):
+			for lk: String in (GEN.PART_LEAN[slot] as Dictionary):
+				var lv := 1.0 + float(GEN.PART_LEAN[slot][lk])
+				match lk:
+					"dmg":
+						ab["dmg"] = float(ab["dmg"]) * lv
+					"haste":
+						ab["cd"] = float(ab["cd"]) / lv
+					"reach":
+						base["reach"] = float(base["reach"]) * lv
+	var mu: Dictionary = GEN.MUTATIONS.get(str(g.get("mutation", "")), {})
+	if not mu.is_empty():
+		base["name"] = "%s %s" % [mu["name"], base["name"]]
+		base["mutation"] = str(g["mutation"])
+		base["skin"] = str(mu["skin"])
+		ab["dmg"] = float(ab["dmg"]) * float(mu["dmg"])
+		if ab.has("burst"):
+			ab["burst"] = float(ab["burst"]) * float(mu["dmg"])
+		ab["cd"] = float(ab["cd"]) / float(mu["haste"])
+		base["reach"] = float(base["reach"]) * float(mu["reach"])
+		base["scale"] = float(base["scale"]) * float(mu["size"])
+		if int(mu["more"]) > 0:
+			for mk: String in GEN.MORE_KEYS:
+				if ab.has(mk):
+					ab[mk] = int(ab[mk]) + int(mu["more"])
+					break
+		if float(mu["fx"]) != 1.0:
+			for fk: String in GEN.FX_KEYS:
+				if ab.has(fk):
+					ab[fk] = float(ab[fk]) * float(mu["fx"])
+		if mu.has("element") and ELEMENTS.has(str(mu["element"])):
+			var me: Dictionary = ELEMENTS[str(mu["element"])]
+			base["vfx_el"] = me["vfx"]
+		base["color"] = Color.html(str(mu["color"]))
+	base["notes"] = GEN.describe(g, breed, body)
 	return base
 
 
@@ -353,12 +531,12 @@ const EGGS := {
 	"grove": {"name": "Grove Egg", "hatches": "bat", "zone": "grove", "chance": 0.1, "pity": 15, "kills": 500, "secs": 8 * 3600, "rarity": "rare", "color": Color(0.45, 0.85, 0.4)},
 	"brood": {"name": "Brood Egg", "kills": 300, "secs": 3 * 3600, "rarity": "common", "color": Color(0.92, 0.82, 0.62),
 		"pool": [["wisp", 3], ["bonelet", 3], ["hexling", 3], ["acolyte", 2], ["crow", 2], ["mimic", 1], ["bat", 1], ["drake", 1]]},
-	"season": {"name": "Season Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "color": Color(0.55, 0.75, 1.0),
+	"season": {"name": "Season Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "mut": 1.5, "color": Color(0.55, 0.75, 1.0),
 		"pool": [["crow", 2], ["acolyte", 2], ["mimic", 2], ["bat", 2], ["drake", 2], ["barrow_squire", 1]]},
 	"nest": {"name": "Nest Egg", "kills": 400, "secs": 4 * 3600, "rarity": "bred", "color": Color(0.95, 0.75, 0.85)},
-	"omen": {"name": "Omen Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "color": Color(0.78, 0.55, 1.0),
+	"omen": {"name": "Omen Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "mut": 2.0, "color": Color(0.78, 0.55, 1.0),
 		"pool": [["crow", 2], ["hexling", 2], ["shade", 2], ["sapling", 2], ["bat", 2], ["drake", 2]]},
-	"exotic": {"name": "Exotic Egg", "kills": 800, "secs": 12 * 3600, "rarity": "exotic", "color": Color(1.0, 0.78, 0.3),
+	"exotic": {"name": "Exotic Egg", "kills": 800, "secs": 12 * 3600, "rarity": "exotic", "mut": 4.0, "color": Color(1.0, 0.78, 0.3),
 		"pool": [["drake", 2], ["bat", 2], ["mimic", 2], ["barrow_squire", 3], ["shade", 3], ["sapling", 3]]},
 }
 ## The hatchery holds this many eggs; all of them warm at once.
