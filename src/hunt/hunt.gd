@@ -33,11 +33,14 @@ func _spawn_partners() -> void:
 
 
 func _ready() -> void:
-	zone_id = Game.zone_id()
+	story = Game.story_take()
+	# A story chapter fixes the zone (open to it whatever the road says), plays
+	# the horde on Normal and carries no omen.
+	zone_id = str(story["zone"]) if not story.is_empty() else Game.zone_id()
 	zone = DB.zone(zone_id)
 	loot_bonus = int(zone.get("loot_bonus", 0))
-	mode = Game.mode_id()
-	tier_i = Game.tier()
+	mode = "horde" if not story.is_empty() else Game.mode_id()
+	tier_i = 0 if not story.is_empty() else Game.tier()
 	tier = DB.TIERS[tier_i]
 	rerolls_left = 2 if ai() >= 2.0 else 1
 	hero_id = Game.hero_id()
@@ -63,7 +66,7 @@ func _ready() -> void:
 		# Nightmare and up: a second wave of champions.
 		elite_marks = [0.22, 0.42, 0.58, 0.72, 0.86]
 	cur_boss = str(zone["boss"])
-	omen = Game.active_omen(mode)
+	omen = {} if not story.is_empty() else Game.active_omen(mode)
 	if not omen.is_empty():
 		foe_speed_mult *= 1.0 + float(omen["mod"].get("foe_speed", 0.0))
 	robber_wanted = randf() < 0.35 and mode == "horde"
@@ -133,6 +136,8 @@ func _ready() -> void:
 		hud.banner(str(DB.MODES[mode]["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], "Survive as deep as you can" if mode == "descent" else "%d bosses, no rest" % rush_order().size()])
 	elif mode == "trial":
 		hud.banner(str(DB.MODES["trial"]["name"]), Color(0.85, 0.8, 0.7), "%s · %d rooms to the %s" % [tier["name"], trial_rooms, DB.boss_def(cur_boss)["name"]])
+	elif not story.is_empty():
+		hud.banner("Chapter %d: %s" % [STORY_DB.index(str(story["id"])) + 1, story["title"]], Color(0.95, 0.85, 0.6), str(zone["wake"]) % souls_goal)
 	else:
 		hud.banner(str(zone["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], str(zone["wake"]) % souls_goal])
 

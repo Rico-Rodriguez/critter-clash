@@ -348,6 +348,8 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if str(r.get("chest", "")) in grades:
 			r["chest"] = grades[mini(grades.find(str(r["chest"])) + 1, 2)]
 		summary["first_win"] = true
+	if str(r.get("story", "")) != "" and r.get("win", false):
+		summary["story"] = story_clear(r)
 	if str(r.get("omen", "")) != "":
 		if record_weekly(r):
 			summary["weekly_best"] = weekly_best()
