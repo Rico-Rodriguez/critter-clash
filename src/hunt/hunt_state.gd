@@ -82,6 +82,8 @@ var patches: Array = []
 ## The zone's rules and hazards (src/hunt/biome.gd), or null in the older zones.
 ## Untyped: built in hunt.gd, the leaf of the class chain.
 var biome
+## Terrain cells in play (ice, bog, fire): the per-tick glue, or null in the older zones.
+var terr
 var shrines: Array = []
 ## The first surge comes early so a new player meets the horde in the first minute.
 var surge_marks := [0.15, 0.45, 0.75]

@@ -295,6 +295,8 @@ func tick(dt: float) -> void:
 			lean(-dash_dir, 0.1)
 		position += dash_dir * DASH_SPEED * dt
 		position = hunt.arena.resolve(position, radius)
+		if hunt.arena.terrain_live:
+			hunt.arena.break_ice_at(position + dash_dir * 0.4, radius + 0.5)
 		if randf() < 0.6:
 			hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.26, 0.4), 1, 0.2, 0.6)
 		return
@@ -309,8 +311,8 @@ func tick(dt: float) -> void:
 	if root_t > 0.0:
 		root_t -= dt
 		swing_slow = 0.0
-	var target_vel := want * speed * swing_slow
-	var accel := 60.0 if want.length() > 0.1 else 70.0
+	var target_vel := want * speed * swing_slow * t_speed
+	var accel := (60.0 if want.length() > 0.1 else 70.0) * t_grip
 	vel = vel.move_toward(target_vel, accel * dt)
 	position += vel * dt
 	position = hunt.arena.resolve(position, radius)
@@ -647,7 +649,7 @@ func try_dash() -> bool:
 	if d.length() < 0.2:
 		d = dir_of(rotation.y)
 	dash_dir = d.normalized()
-	dash_t = DASH_TIME
+	dash_t = DASH_TIME * t_slide
 	dash_cd = dash_cd_max
 	invuln = DASH_TIME + 0.12
 	impact_t = -1.0

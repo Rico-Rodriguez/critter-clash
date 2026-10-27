@@ -12,6 +12,11 @@ var hp := 100.0
 var max_hp := 100.0
 var radius := 0.5
 var mass := 1.0
+## What the ground under this body does (set each tick by TerrainRun; 1 on plain ground):
+## walk-speed multiplier, grip (hero acceleration), and how far knockback carries.
+var t_speed := 1.0
+var t_grip := 1.0
+var t_slide := 1.0
 var speed := 4.0
 var alive := true
 var knock := Vector3.ZERO
@@ -455,7 +460,7 @@ func tick_common(dt: float) -> void:
 		_tick_springs(dt)
 	if knock.length_squared() > 0.0001:
 		position += knock * dt
-		knock = knock.move_toward(Vector3.ZERO, 26.0 * dt)
+		knock = knock.move_toward(Vector3.ZERO, 26.0 / t_slide * dt)
 	stun_t = maxf(stun_t - dt, 0.0)
 	if freeze_t > 0.0:
 		freeze_t -= dt
