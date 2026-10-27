@@ -1,7 +1,8 @@
 extends RefCounted
 ## Rule checks for the boss entrance (called from tests.gd): the shot never
 ## jumps from one frame to the next, ends on the camera's fight framing, and
-## SKIP is a glide (the clock jumps to the whip back), never a cut.
+## SKIP is a glide (the clock jumps to the whip back), never a cut. Every boss
+## with an entrance also ships its sting, and the shared fallback exists.
 
 const BI := preload("res://src/hunt/boss_intro.gd")
 const DT := 1.0 / 60.0
@@ -27,6 +28,8 @@ static func run(ok: Callable) -> void:
 		ok.call("boss entrance '%s' ends on the fight framing" % id, (end["focus"] as Vector3).distance_to(home) < 0.01 and absf(float(end["pitch"])) < 0.01)
 		var mid: Dictionary = BI.shot(id, BI.SLAM_AT, boss, hero)
 		ok.call("boss entrance '%s' holds low and close on the boss" % id, float(mid["pitch"]) > 8.0 and float(mid["zoom"]) < 0.9 and (mid["focus"] as Vector3).distance_to(boss) < 0.5)
+		ok.call("boss entrance '%s' ships its sting" % id, ResourceLoader.exists("res://assets/audio/sfx/boss_sting_%s.ogg" % id))
+	ok.call("boss entrance has a shared fallback sting", ResourceLoader.exists("res://assets/audio/sfx/boss_sting_1.ogg"))
 	ok.call("name card shows only between the slam and the whip back", BI.card_alpha(0.5) == 0.0 and BI.card_alpha(1.8) == 1.0 and BI.card_alpha(BI.LENGTH) == 0.0)
 	ok.call("letterbox bars come in and leave", BI.bars(0.0) == 0.0 and BI.bars(1.5) == 1.0 and BI.bars(BI.LENGTH) == 0.0)
 	var src := GDScript.new()
@@ -40,5 +43,29 @@ static func run(ok: Callable) -> void:
 	h.phase_t = 3.0
 	intro.skip()
 	ok.call("skipping late never rewinds", is_equal_approx(float(h.phase_t), 3.0))
+	h.free()
+	intro.free()
+	_sting(ok)
+
+
+## The slam plays the boss's own sting, and an unknown boss gets the shared one.
+static func _sting(ok: Callable) -> void:
+	var cam_src := GDScript.new()
+	cam_src.source_code = "extends Node\nvar punch := 0.0\nfunc add_trauma(_v: float) -> void:\n\tpass\n"
+	cam_src.reload()
+	var hunt_src := GDScript.new()
+	hunt_src.source_code = "extends Node\nvar cam: Node\n"
+	hunt_src.reload()
+	var h: Node = hunt_src.new()
+	h.cam = cam_src.new()
+	var intro: Node = BI.new()
+	intro.hunt = h
+	for id in ["gravemaw", "nobody"]:
+		var want: String = "boss_sting_" + id if id == "gravemaw" else "boss_sting"
+		Sfx._last.erase(want)
+		intro.boss_id = id
+		intro._slam()
+		ok.call("boss entrance '%s' slam plays %s" % [id, want], Sfx._last.has(want))
+	h.cam.free()
 	h.free()
 	intro.free()

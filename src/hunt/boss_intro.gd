@@ -177,14 +177,15 @@ func _process(_dt: float) -> void:
 		_slam()
 
 
-## The beat the name lands on: camera punch and shake, a roar, and the music
-## sting hook (an event named boss_sting_<id>, else boss_sting: silent until
-## the sound set has one).
+## The beat the name lands on: camera punch and shake, a roar, and the sting
+## (an event named boss_sting_<id>, else the shared boss_sting; see
+## tools/audio/build_boss_stings.py). It sits 3 dB under the roar's level so the
+## two together stay clear of clipping; the SFX slider scales both.
 func _slam() -> void:
 	hunt.cam.punch = 0.1
 	hunt.cam.add_trauma(0.55)
 	Sfx.play("boss_roar", 0.0, 0.85)
 	for ev in ["boss_sting_" + boss_id, "boss_sting"]:
 		if Sfx.has(ev):
-			Sfx.play(ev, 0.0, 1.0, 0.0)
+			Sfx.play(ev, -3.0, 1.0, 0.0)
 			break
