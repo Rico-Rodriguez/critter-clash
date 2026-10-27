@@ -1,6 +1,6 @@
 class_name SettingsBox
 extends VBoxContainer
-## Volume, shake and graphics rows; used by the pause menu and the camp.
+## Volume, screen shake and graphics rows; used by the pause menu and the camp.
 ## Every row saves at once, and a running hunt applies it at once too (see
 ## Hunt.apply_setting); in the camp the next hunt picks it up.
 
@@ -14,14 +14,7 @@ func _ready() -> void:
 	tree_exiting.connect(Game.save)
 	_slider("Music", "music")
 	_slider("Effects", "sfx")
-	var shake := CheckButton.new()
-	shake.text = "Screen shake"
-	shake.button_pressed = bool(Game.setting("shake"))
-	shake.focus_mode = Control.FOCUS_NONE
-	shake.toggled.connect(func(on: bool):
-		Game.set_setting("shake", on)
-		Sfx.play("ui_toggle", -4.0))
-	add_child(shake)
+	_choices("Screen shake", "shake_level", ["off", "low", "medium", "high"])
 	var buzz := CheckButton.new()
 	buzz.text = "Vibration"
 	buzz.button_pressed = bool(Game.setting("haptics"))

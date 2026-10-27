@@ -42,7 +42,7 @@ func _fresh() -> Dictionary:
 		"tier": 0,
 		"pet": "",
 		"stats": {"hunts": 0, "wins": 0, "kills": 0, "elites": 0, "boss_kills": 0, "best": {}, "rifts": 0, "best_perfect": 0, "best_tier_won": 0},
-		"settings": {"music": 0.7, "sfx": 1.0, "shake": true, "quality": "auto", "camera": "standard", "buttons": "right", "haptics": true},
+		"settings": {"music": 0.7, "sfx": 1.0, "shake_level": "low", "quality": "auto", "camera": "standard", "buttons": "right", "haptics": true},
 		"seen_tutorial": false,
 		## The privacy screen's answer (see src/core/privacy.gd).
 		"privacy": {"v": 0, "crash": false, "online": true, "crash_sent": 0},
@@ -216,6 +216,12 @@ func _open_mode_tier(mode: String, t: int) -> int:
 func set_tier(t: int) -> void:
 	data["tier"] = clampi(t, 0, mode_tier_unlocked())
 	save()
+
+
+## 0 (Off) to 1 (High): how much the player wants the screen to move. The
+## camp's own jolts (chest, hatch, evolve) read this; the hunt camera has its own table.
+func shake_amp() -> float:
+	return float(HuntCam.LEVELS[HuntCam.level_of(setting("shake_level"))]["amp"])
 
 
 func setting(key: String):

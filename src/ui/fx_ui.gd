@@ -212,8 +212,10 @@ static func shake(c: Control, every := 2.2) -> Tween:
 	_stop(c, "shake")
 	var t := c.create_tween().set_loops()
 	t.tween_interval(every)
+	# A "this is ready" cue, not screen shake: it follows the setting but stays visible.
+	var k := 0.35 + 0.65 * Game.shake_amp()
 	for d in [-9.0, 9.0, -6.0, 5.0, 0.0]:
-		t.tween_property(c, "rotation_degrees", d, 0.07)
+		t.tween_property(c, "rotation_degrees", d * k, 0.07)
 	c.set_meta("fx_shake", t)
 	return t
 
