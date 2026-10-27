@@ -260,6 +260,12 @@ func _process(delta: float) -> void:
 		_blobs.update(foes)
 
 
+## The shortest gap between prop-fade checks (seconds), and what has built up since the last.
+const OCCLUSION_STEP := 1.0 / 32.0
+var _occ_dt := 1.0
+var _watch: Array = [Vector3.ZERO]
+
+
 func tick(dt: float) -> void:
 	time += dt
 	phase_t += dt
@@ -321,10 +327,16 @@ func tick(dt: float) -> void:
 			streak = 0
 	_frame_camera()
 	cam.follow(dt, hero.vel)
-	var watch := [hero.position]
-	if boss and boss.alive:
-		watch.append(boss.position)
-	arena.update_occlusion(watch, cam.pitch_deg + cam.pitch_shift, dt)
+	# Props fade in and out over a quarter second: 30 checks a second are plenty,
+	# and the fade still gets all the time that passed.
+	_occ_dt += dt
+	if _occ_dt >= OCCLUSION_STEP:
+		_watch.resize(2 if boss and boss.alive else 1)
+		_watch[0] = hero.position
+		if _watch.size() > 1:
+			_watch[1] = boss.position
+		arena.update_occlusion(_watch, cam.pitch_deg + cam.pitch_shift, _occ_dt)
+		_occ_dt = 0.0
 	arena.tick_life(dt, hero.position, hero.vel, hero.alive, foes)
 	_skill_t -= dt
 	if _skill_t <= 0.0:
@@ -406,21 +418,27 @@ func _tick_foes(dt: float) -> void:
 		var fa := foes[a]
 		if not fa.alive:
 			continue
+		var ax := fa.position.x
+		var az := fa.position.z
+		var ar := fa.radius
 		for b in range(a + 1, n):
 			var fb := foes[b]
 			if not fb.alive:
 				continue
-			var d := fb.position - fa.position
-			d.y = 0.0
-			var rr := fa.radius + fb.radius
-			var l2 := d.length_squared()
+			# Most pairs are far apart: reject them on plain numbers, no vectors.
+			var dx: float = fb.position.x - ax
+			var dz: float = fb.position.z - az
+			var rr: float = ar + fb.radius
+			var l2 := dx * dx + dz * dz
 			if l2 < rr * rr and l2 > 0.0001:
 				var l := sqrt(l2)
 				var push := (rr - l) * 0.5
-				var dir := d / l
+				var dir := Vector3(dx, 0.0, dz) / l
 				var wa := fb.mass / (fa.mass + fb.mass)
 				fa.position -= dir * push * wa * 2.0
 				fb.position += dir * push * (1.0 - wa) * 2.0
+				ax = fa.position.x
+				az = fa.position.z
 		_separate_from_hero(fa)
 		fa.position = arena.resolve(fa.position, fa.radius)
 
