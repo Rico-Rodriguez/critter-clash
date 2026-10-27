@@ -59,6 +59,35 @@ static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 	if head and not _hood_on(worn["helm"], hero_id):
 		head.visible = true
 	_hands(actor, skel, hero_id, worn)
+	_outfit(actor, skel, str(Game.hero(hero_id).get("outfit", "")))
+
+
+## The worn outfit's dye over every body part: what the hero wears keeps its
+## shape and its own light and dark, the cloth takes the color. Heads, weapons
+## and hands-held props keep their own colors.
+static func _outfit(actor: Actor, skel: Skeleton3D, key: String) -> void:
+	if not DB.OUTFITS.has(key):
+		return
+	var o: Dictionary = DB.OUTFITS[key]
+	var dye: Color = o["dye"]
+	var grade := Vector4(float(o["polish"]), float(o["shimmer"]), 0.0, 0.0)
+	for mi: MeshInstance3D in _body_meshes(skel):
+		mi.set_instance_shader_parameter("dye", Color(dye, float(o["mix"])))
+		mi.set_instance_shader_parameter("grade", grade)
+		mi.set_instance_shader_parameter("accent", dye.lightened(0.35))
+
+
+## Visible dressable meshes on the skeleton, not the head and not what is held.
+static func _body_meshes(skel: Skeleton3D) -> Array[MeshInstance3D]:
+	var out: Array[MeshInstance3D] = []
+	for c in skel.get_children():
+		if c is MeshInstance3D and c.visible and not str(c.name).ends_with("_Head"):
+			out.append(c)
+		elif c is BoneAttachment3D and str(c.name).begins_with("Part_"):
+			for m in c.get_children():
+				if m is MeshInstance3D and m.visible:
+					out.append(m)
+	return out
 
 
 static func _hood_on(item: Dictionary, hero_id: String) -> bool:

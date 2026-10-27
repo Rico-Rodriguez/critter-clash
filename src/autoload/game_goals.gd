@@ -209,7 +209,12 @@ func claim_season() -> Dictionary:
 		return {}
 	var s := season()
 	s["claimed"] = int(s["claimed"]) + 1
-	var rw := DB.season_reward(int(s["claimed"]))
+	return pay_reward(DB.season_reward(int(s["claimed"]), season_id()))
+
+
+## Pays a track reward ({kind, ...}) and saves. A chest is opened (the result
+## is under "opened"); a full hatchery pays an egg as gems.
+func pay_reward(rw: Dictionary) -> Dictionary:
 	match str(rw["kind"]):
 		"gold":
 			data["gold"] = gold() + int(rw["amount"])
@@ -227,8 +232,144 @@ func claim_season() -> Dictionary:
 			for id in DB.HERO_ORDER:
 				if not rw["glow"] in hero(id)["glows"]:
 					hero(id)["glows"].append(rw["glow"])
+		"outfit":
+			grant_outfit(str(rw["outfit"]))
 	save()
 	return rw
+
+
+# --- Weekly event ------------------------------------------------------------
+
+## This week's event record; a new week starts it afresh.
+func event() -> Dictionary:
+	var e: Dictionary = data.get("event", {})
+	if int(e.get("week", -1)) != week_number():
+		e = {"week": week_number(), "pts": 0, "claimed": 0, "hunts": 0}
+		data["event"] = e
+	return e
+
+
+func event_points() -> int:
+	return int(event()["pts"])
+
+
+## Tiers of the track reached.
+func event_level() -> int:
+	var n := 0
+	for need in DB.EVENT_TRACK:
+		if event_points() >= int(need):
+			n += 1
+	return n
+
+
+func event_claimable() -> int:
+	return event_level() - int(event()["claimed"])
+
+
+## Seconds until the week (and the event) turns over.
+func event_seconds_left() -> int:
+	var span := 604800
+	var now := int(Time.get_unix_time_from_system())
+	return span - now % span
+
+
+## "2d 5h" / "5h 12m" / "9m" for the banner.
+static func left_text(secs: int) -> String:
+	var d := secs / 86400
+	var h := secs % 86400 / 3600
+	var m := secs % 3600 / 60
+	if d > 0:
+		return "%dd %dh" % [d, h]
+	if h > 0:
+		return "%dh %dm" % [h, m]
+	return "%dm" % maxi(m, 1)
+
+
+## Points a finished hunt adds to the event (0 off the omen). Returns them.
+func add_event_points(r: Dictionary) -> int:
+	if str(r.get("omen", "")) == "":
+		return 0
+	var pts := DB.event_points_for(weekly_score(r))
+	var e := event()
+	e["pts"] = int(e["pts"]) + pts
+	e["hunts"] = int(e["hunts"]) + 1
+	return pts
+
+
+## Pays the next event tier. {} when none is ready.
+func claim_event() -> Dictionary:
+	if event_claimable() <= 0:
+		return {}
+	var e := event()
+	e["claimed"] = int(e["claimed"]) + 1
+	return pay_reward(DB.event_reward(int(e["claimed"])))
+
+
+# --- Story campaign -----------------------------------------------------------
+
+const STORY := preload("res://src/data/story_db.gd")
+
+
+func story_cleared(id: String) -> bool:
+	return id in data["story"]["cleared"]
+
+
+## A chapter opens once the one before it is cleared.
+func story_open(i: int) -> bool:
+	return i == 0 or (i > 0 and i < STORY.count() and story_cleared(str(STORY.CHAPTERS[i - 1]["id"])))
+
+
+## The first chapter not yet cleared (count() when the story is done).
+func story_next() -> int:
+	for i in STORY.count():
+		if not story_cleared(str(STORY.CHAPTERS[i]["id"])):
+			return i
+	return STORY.count()
+
+
+## Queues chapter `id` for the next hunt. False when it is not open.
+func story_begin(id: String) -> bool:
+	var i := STORY.index(id)
+	if i < 0 or not story_open(i):
+		return false
+	data["story"]["run"] = id
+	save()
+	return true
+
+
+## The chapter the hunt now starting plays ({} for a normal hunt). Consumed:
+## a hunt that is left or lost does not leave the chapter queued.
+func story_take() -> Dictionary:
+	var id := str(data["story"].get("run", ""))
+	data["story"]["run"] = ""
+	return STORY.chapter(id)
+
+
+## Pays a won chapter hunt: first clears pay the chapter reward, the chapter's
+## own hero adds 25%. Returns {id, first, gold, gems, shards, glow, hero_bonus}.
+func story_clear(r: Dictionary) -> Dictionary:
+	var ch: Dictionary = STORY.chapter(str(r.get("story", "")))
+	if ch.is_empty():
+		return {}
+	var first := not story_cleared(str(ch["id"]))
+	var out := {"id": str(ch["id"]), "first": first, "gold": 0, "gems": 0, "shards": 0, "glow": "", "hero_bonus": false}
+	if first:
+		var rw: Dictionary = ch["reward"]
+		var bonus := 1.25 if str(r.get("hero", "")) == str(ch["hero"]) else 1.0
+		out["hero_bonus"] = bonus > 1.0
+		out["gold"] = int(round(int(rw.get("gold", 0)) * bonus))
+		out["gems"] = int(round(int(rw.get("gems", 0)) * bonus))
+		out["shards"] = int(round(int(rw.get("shards", 0)) * bonus))
+		data["gold"] = gold() + int(out["gold"])
+		data["gems"] = int(data.get("gems", 0)) + int(out["gems"])
+		hero(str(ch["hero"]))["shards"] = int(hero(str(ch["hero"]))["shards"]) + int(out["shards"])
+		if str(rw.get("glow", "")) != "":
+			out["glow"] = str(rw["glow"])
+			for id in DB.HERO_ORDER:
+				if not rw["glow"] in hero(id)["glows"]:
+					hero(id)["glows"].append(rw["glow"])
+		data["story"]["cleared"].append(str(ch["id"]))
+	return out
 
 
 ## The nearest goal worth chasing, for the camp ("An XP lamp is ready").

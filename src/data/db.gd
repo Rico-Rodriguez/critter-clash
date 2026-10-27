@@ -844,9 +844,37 @@ const WEEKLY_OMENS := [
 	{"id": "glass", "name": "Glass Hunt", "desc": "+60% damage, but you have 40% less health.", "icon": "broken-bone", "mod": {"dmg": 0.6, "hp": -0.4}},
 	{"id": "ironclad", "name": "Ironclad Dead", "desc": "Foes have 50% more health; you take 20% less damage.", "icon": "checked-shield", "mod": {"foe_hp": 0.5, "dmg_taken": -0.2}},
 	{"id": "frenzy", "name": "Blood Frenzy", "desc": "Foes hit 30% harder; you attack 30% faster.", "icon": "dripping-sword", "mod": {"rate": 0.3, "foe_dmg": 0.3}},
+	{"id": "paper", "name": "Paper Crowns", "desc": "Twice the foes, each at half health.", "icon": "crowned-skull", "mod": {"pack": 1.0, "foe_hp": -0.5}},
+	{"id": "titans", "name": "Week of Titans", "desc": "Few foes, but double health and 20% harder hits. You deal 40% more.", "icon": "tombstone", "mod": {"pack": -0.4, "foe_hp": 1.0, "foe_dmg": 0.2, "dmg": 0.4}},
 ]
 ## A won omen hunt pays 25% more gold and its chest is one grade better.
 const OMEN_GOLD := 0.25
+
+## The weekly event: the omen's hunts earn event points (score / EVENT_SCORE_DIV)
+## toward a rewards track that resets with the week. EVENT_TRACK[n-1] is the
+## total points for tier n.
+const EVENT_SCORE_DIV := 10
+const EVENT_TRACK := [150, 400, 700, 1100, 1600, 2200, 2900, 3700, 4600, 5600]
+## Rows of the event board on the camp sheet.
+const EVENT_BOARD_ROWS := 8
+
+static func event_points_for(score: int) -> int:
+	return maxi(score, 0) / EVENT_SCORE_DIV
+
+
+## What tier `n` (1..10) of the event track pays. The last is the week's prize.
+static func event_reward(n: int) -> Dictionary:
+	if n == EVENT_TRACK.size():
+		return {"kind": "chest", "chest": "crypt"}
+	if n == 7:
+		return {"kind": "egg", "egg": "season"}
+	if n % 5 == 0:
+		return {"kind": "chest", "chest": "gold"}
+	if n % 3 == 0:
+		return {"kind": "gems", "amount": 12 + 2 * n}
+	if n % 2 == 0:
+		return {"kind": "shards", "amount": 20 + 5 * n}
+	return {"kind": "gold", "amount": 400 + 150 * n}
 
 ## Treasure trails: a clue scroll is three goals in a row, then a casket.
 ## `text` takes the number or hero name.
@@ -1201,6 +1229,33 @@ const WEAPON_SKINS := {
 }
 const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang", "kris", "stiletto", "duelblade", "boneshiv"]
 
+## Outfits: a whole-body dye over what the hero wears, for the look only. Gear
+## still decides the shapes; the dye keeps the cloth's own light and dark, so
+## it stays crisp. `mix` is how much of the dye replaces the texture, `polish`
+## (0..1) a clean, glossy finish, `shimmer` a band of light sweeping the
+## outfit. `gift` outfits are earned (the season pass), never sold.
+const OUTFITS := {
+	"crimson": {"name": "Crimson Guard", "heroes": ["knight"], "dye": Color(0.8, 0.13, 0.16), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 12000},
+	"gilded": {"name": "Gilded Oath", "heroes": ["knight"], "dye": Color(1.0, 0.76, 0.28), "mix": 0.85, "polish": 0.8, "shimmer": 0.6, "gold": 32000},
+	"frostwood": {"name": "Frostwood", "heroes": ["ranger"], "dye": Color(0.55, 0.82, 1.0), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
+	"emberstalker": {"name": "Emberstalker", "heroes": ["ranger"], "dye": Color(0.95, 0.42, 0.12), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 26000},
+	"ashen": {"name": "Ashen Weave", "heroes": ["mage"], "dye": Color(0.62, 0.62, 0.7), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
+	"sunfire": {"name": "Sunfire Vestments", "heroes": ["mage"], "dye": Color(1.0, 0.6, 0.15), "mix": 0.82, "polish": 0.7, "shimmer": 0.6, "gold": 28000},
+	"bloodmoon": {"name": "Bloodmoon Raider", "heroes": ["barbarian"], "dye": Color(0.62, 0.07, 0.1), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 12000},
+	"glacier": {"name": "Glacier Clan", "heroes": ["barbarian"], "dye": Color(0.6, 0.86, 0.96), "mix": 0.8, "polish": 0.6, "shimmer": 0.5, "gold": 28000},
+	"midnight": {"name": "Midnight Shroud", "heroes": ["rogue"], "dye": Color(0.16, 0.2, 0.5), "mix": 0.82, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
+	"viper": {"name": "Viridian Viper", "heroes": ["rogue"], "dye": Color(0.15, 0.72, 0.38), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 28000},
+	# Season pass outfits fit every hero.
+	"embergilt": {"name": "Embergilt", "heroes": HERO_ORDER, "dye": Color(0.95, 0.55, 0.18), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
+	"moonsilk": {"name": "Moonsilk", "heroes": HERO_ORDER, "dye": Color(0.72, 0.8, 1.0), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
+	"verdigris": {"name": "Verdigris", "heroes": HERO_ORDER, "dye": Color(0.2, 0.78, 0.62), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
+}
+const OUTFIT_ORDER := ["crimson", "gilded", "frostwood", "emberstalker", "ashen", "sunfire", "bloodmoon", "glacier", "midnight", "viper", "embergilt", "moonsilk", "verdigris"]
+## The season pass's outfit, one a season in turn.
+const SEASON_OUTFITS := ["embergilt", "moonsilk", "verdigris"]
+## The pass pays it at this tier.
+const SEASON_OUTFIT_TIER := 25
+
 # --- Online ---------------------------------------------------------------------
 
 ## What one hunt deals to the clan raid boss: per kill, elite, boss and win,
@@ -1314,9 +1369,11 @@ const SEASON_TIERS := 30
 const SEASON_XP := 400
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
 
-static func season_reward(n: int) -> Dictionary:
+static func season_reward(n: int, sid := 0) -> Dictionary:
 	if n == SEASON_TIERS:
 		return {"kind": "glow", "glow": "void"}
+	if n == SEASON_OUTFIT_TIER:
+		return {"kind": "outfit", "outfit": SEASON_OUTFITS[sid % SEASON_OUTFITS.size()]}
 	if n == 10 or n == 20:
 		return {"kind": "egg", "egg": "season"}
 	if n % 5 == 0:
