@@ -11,6 +11,8 @@ const UiJuice := preload("res://src/ui/ui_juice.gd")
 const AppGate := preload("res://src/core/app_gate.gd")
 const STORY_DB := preload("res://src/data/story_db.gd")
 const CUTSCENE := preload("res://src/ui/cutscene.gd")
+const Privacy := preload("res://src/core/privacy.gd")
+const CrashReport := preload("res://src/core/crash_report.gd")
 
 var current: Node
 var _gate: Node
@@ -51,7 +53,6 @@ func _ready() -> void:
 			_start_online()
 		_capture.call_deferred(args)
 	else:
-		_start_online()
 		# The launch update check holds the camp behind the splash; a connect,
 		# not an await, so an in-process update restart can free this node.
 		_gate = AppGate.new()
@@ -69,12 +70,27 @@ func _ready() -> void:
 func _launch() -> void:
 	if await _gate.check():
 		return
-	go("lobby")
+	_enter()
 
 
 func _gate_cleared() -> void:
 	if current == null and not _busy:
-		go("lobby")
+		_enter()
+
+
+## Into the camp: after the privacy screen (first launch or a new policy),
+## and only then the online account and the optional crash report.
+func _enter() -> void:
+	await Privacy.ask(self)
+	if Online.inst == null and Privacy.online_ok():
+		_start_online()
+	var ota := get_node_or_null("/root/Ota")
+	var build := int(ota.get("build")) if ota else 0
+	var release := "gravelight@%s+%d" % [ProjectSettings.get_setting("application/config/version"), build]
+	var cr := CrashReport.new()
+	add_child(cr)
+	cr.send_if_due(Game.errors, release, build)
+	go("lobby")
 
 
 func _start_online() -> void:
@@ -450,6 +466,14 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
+			"privacy":
+				# The first-launch privacy screen, as a new player sees it.
+				var pv: CanvasLayer = load("res://src/core/privacy.gd").new()
+				add_child(pv)
+				pv.build()
+				await get_tree().create_timer(0.6, true, false, true).timeout
+				await _save("privacy")
+				pv.queue_free()
 			"update":
 				# The forced-update screen, as a too-old shell would see it.
 				var g := AppGate.new()

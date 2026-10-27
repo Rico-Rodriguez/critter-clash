@@ -696,6 +696,8 @@ func _build_settings(s: Sheet) -> void:
 	var b := s.body
 	b.add_child(SettingsBox.new())
 	b.add_child(HSeparator.new())
+	_privacy_rows(b)
+	b.add_child(HSeparator.new())
 	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Sidekicks: LasquetiSpice, Alexei Ostapenko, Batuhan13, matisosanimation, Joseph Payeur, Spinnee, danielmclogan, BeardenInc, EvgeshQa, Mateus Schwaab (CC BY 4.0, Sketchfab). Icons: game-icons.net (CC BY 3.0). Music: Kevin MacLeod (CC BY 4.0). Effects: Kenney, rubberduck and others (CC0). Full list in CREDITS.md.", "Small")
 	cr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(cr)
@@ -705,6 +707,39 @@ func _build_settings(s: Sheet) -> void:
 		ver += " · build %d · content %d" % [int(ota.get("baked_build")), int(ota.get("build"))]
 	b.add_child(Ui.label(ver, "Small"))
 	_error_report_row(b, ver)
+
+
+## Privacy: the two choices from the first-launch screen, and the policy.
+func _privacy_rows(b: Control) -> void:
+	var PV := preload("res://src/core/privacy.gd")
+	b.add_child(Ui.label("PRIVACY", "Caption"))
+	var rec: Dictionary = Game.data["privacy"]
+	var online := CheckButton.new()
+	online.text = "Online play"
+	online.button_pressed = not bool(Game.data["online"]["off"])
+	online.focus_mode = Control.FOCUS_NONE
+	online.toggled.connect(func(on: bool):
+		PV.record(bool(rec["crash"]), on)
+		Sfx.play("ui_toggle", -4.0))
+	b.add_child(online)
+	var crash := CheckButton.new()
+	crash.text = "Share crash reports"
+	crash.button_pressed = bool(rec["crash"])
+	crash.focus_mode = Control.FOCUS_NONE
+	crash.toggled.connect(func(on: bool):
+		PV.record(on, not bool(Game.data["online"]["off"]))
+		Sfx.play("ui_toggle", -4.0))
+	b.add_child(crash)
+	var note := Ui.label("Online play applies on the next launch. Crash reports are optional and never include your save or name.", "Small")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(note)
+	var pol := Button.new()
+	pol.name = "PolicyLink"
+	pol.text = "Privacy policy"
+	pol.theme_type_variation = "Ghost"
+	pol.focus_mode = Control.FOCUS_NONE
+	pol.pressed.connect(func(): OS.shell_open(PV.POLICY_URL))
+	b.add_child(pol)
 
 
 ## One tap copies the error log, so a playtester can paste it into a message.

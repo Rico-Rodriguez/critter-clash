@@ -104,6 +104,19 @@ func error_count() -> int:
 	return n
 
 
+func session_count() -> int:
+	return int(_d["sessions"])
+
+
+## The newest `n` logged errors (copies), newest first.
+func recent(n: int) -> Array:
+	_mutex.lock()
+	var list: Array = _d["errors"].duplicate(true)
+	_mutex.unlock()
+	list.reverse()
+	return list.slice(0, n)
+
+
 func crash_count() -> int:
 	return int(_d["crashes"])
 

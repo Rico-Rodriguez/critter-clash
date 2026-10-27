@@ -16,6 +16,9 @@ jobs:
         with:
           lfs: true
 
+      - name: App Store readiness (placeholders warn, secrets and broken links fail)
+        run: python3 tools/store/check_store.py
+
       - name: Install Godot 4.7.2
         run: |
           set -euo pipefail

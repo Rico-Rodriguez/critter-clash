@@ -51,9 +51,20 @@ static func parse(result: int, code: int, body: PackedByteArray) -> Dictionary:
 	return v if v is Dictionary else {}
 
 
-## "OPEN APP STORE" for an App Store link, else a plain "GET THE UPDATE".
+## True for a real App Store page: apps.apple.com or itunes.apple.com (https),
+## or an itms-apps:// link. A lookalike host or a link that only mentions
+## apps.apple.com in its query is not one.
+static func is_store_url(url: String) -> bool:
+	for pre in ["https://apps.apple.com/", "https://itunes.apple.com/", "itms-apps://apps.apple.com/", "itms-apps://itunes.apple.com/"]:
+		if url.begins_with(pre):
+			return true
+	return false
+
+
+## "OPEN APP STORE" for an App Store link, else a plain "GET THE UPDATE": the
+## sideload page stays the placeholder until the app is listed (docs/ota.md C).
 static func button_text(url: String) -> String:
-	return "OPEN APP STORE" if url.contains("apps.apple.com") or url.begins_with("itms-apps://") else "GET THE UPDATE"
+	return "OPEN APP STORE" if is_store_url(url) else "GET THE UPDATE"
 
 
 ## The installed native shell, from the Ota autoload's baked constant; 0 when
