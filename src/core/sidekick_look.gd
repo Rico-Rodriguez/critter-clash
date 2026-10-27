@@ -6,6 +6,7 @@ extends RefCounted
 
 const SDB := preload("res://src/data/sidekick_db.gd")
 const PARTS := preload("res://src/core/pet_parts.gd")
+const SKIN := preload("res://src/core/pet_skin.gd")
 const Q_DIR := "res://assets/quaternius/"
 ## Licensed hero-quality replacements (CC0 / CC-BY, see CREDITS.md): "sf:name".
 const SF_DIR := "res://assets/sidekicks/"
@@ -87,6 +88,9 @@ static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 			_crest(root, Color(d["color"]).lightened(0.25), top).name = "ElderCrown"
 	if d.has("genes") and spec == str(d["model"]):
 		PARTS.attach(model, d)
+	if d.has("genes"):
+		# Coat, glow and mutation: variant materials on the body and its borrowed parts.
+		SKIN.apply(model, d["genes"], Color(d["color"]), spec.trim_prefix("sf:"))
 	out["root"] = root
 	return out
 

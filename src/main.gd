@@ -252,8 +252,8 @@ func _walk(dir: String) -> PackedStringArray:
 
 # --- Headless autopilot ---------------------------------------------------
 
-## --bred=a:b:seed[:kills]: owns the parents, breeds and hatches that child at
-## once, and puts it at your side.
+## --bred=a:b:seed[:kills[:pattern[:mutation]]]: owns the parents, breeds and
+## hatches that child at once, and puts it at your side.
 func _give_bred(spec: String, active := true) -> void:
 	if spec == "":
 		return
@@ -272,6 +272,8 @@ func _give_bred(spec: String, active := true) -> void:
 		var o: Dictionary = Game.data["sidekicks"]["owned"][out["id"]]
 		o["genes"]["pattern"] = p[4]
 		o["genes"]["glow"] = true
+		if p.size() > 5:
+			o["genes"]["mutation"] = p[5]
 		SKB.SDB.BRED[out["id"]] = SKB.SDB.bred_def(str(o["breed"]), o["genes"])
 	if active and not out.is_empty():
 		SKB.set_active(Game.data, out["id"])
@@ -928,6 +930,9 @@ func _capture(args: PackedStringArray) -> void:
 					lcam.look_at_from_position(Vector3(0, 1.9, 6.6), Vector3(0, 0.75, 0), Vector3.UP)
 				await _wait(1.5)
 				await _save("petlineup_" + (solo if solo != "" else (mix.replace(",", "_") if mix != "" else lrow)) + ("_" + ortho if ortho != "" else "") + ("_back" if args.has("--back") else ""))
+			"petskins":
+				# Pet coats and mutations: one species in every variant (tools/dev/pet_skin_sheet.gd).
+				await load("res://tools/dev/pet_skin_sheet.gd").shoot(self, _arg(args, "skinsp", "bonelet").split(","), _arg(args, "skinmode", "grid"))
 			"appicon", "splash":
 				# The app icon: the hero with a lantern in the dark, in plain
 				# polished gear so no rarity glow muddies it at 60 px
@@ -971,6 +976,14 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait_sim(hdp, 4.0)
 				hdp.depth_t = DB.DESCENT_TIME
 				await _wait(float(_arg(args, "after", "0.4")))
+				await _save(shot)
+			"huntpet":
+				# A hunt with the bred pet (--bred=a:b:seed:kills:pattern:mutation) at the hero's side.
+				_set_screen_now("hunt")
+				var hpt: Hunt = current
+				hpt.hero.invuln = 99.0
+				hpt.cam.dist_mult = float(_arg(args, "cam", "1.0"))
+				await _wait_sim(hpt, float(_arg(args, "after", "3.0")))
 				await _save(shot)
 			"super", "legendary":
 				# The moment a super goes off, or a legendary falls.
