@@ -348,8 +348,12 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if str(r.get("chest", "")) in grades:
 			r["chest"] = grades[mini(grades.find(str(r["chest"])) + 1, 2)]
 		summary["first_win"] = true
-	if str(r.get("omen", "")) != "" and record_weekly(r):
-		summary["weekly_best"] = weekly_best()
+	if str(r.get("omen", "")) != "":
+		if record_weekly(r):
+			summary["weekly_best"] = weekly_best()
+		summary["event_pts"] = add_event_points(r)
+		summary["event_total"] = event_points()
+		summary["event_tiers"] = event_claimable()
 	data["gold"] = gold() + int(r.get("gold", 0))
 	# Skill XP goes to the hero who earned it.
 	var sk_hid := str(r.get("hero", hero_id()))

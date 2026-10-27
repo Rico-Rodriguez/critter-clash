@@ -146,6 +146,18 @@ func _build_daily(s: Sheet) -> void:
 	b.add_child(idle)
 
 
+## What a track reward pays, in words (the season and the weekly event).
+func _reward_text(rw: Dictionary) -> String:
+	match str(rw["kind"]):
+		"gold": return "%d gold" % int(rw["amount"])
+		"shards": return "%d shards" % int(rw["amount"])
+		"chest": return str(DB.CHESTS[rw["chest"]]["name"])
+		"gems": return "%d gems" % int(rw["amount"])
+		"egg": return str(SKDB.EGGS[rw["egg"]]["name"])
+		"glow": return "%s weapon glow for every hero" % DB.GLOWS[rw["glow"]]["name"]
+	return ""
+
+
 func _build_season(s: Sheet) -> void:
 	var b := s.body
 	var lv := Game.season_level()
@@ -168,15 +180,7 @@ func _build_season(s: Sheet) -> void:
 		num.custom_minimum_size = Vector2(54, 0)
 		num.add_theme_font_size_override("font_size", 28)
 		row.add_child(num)
-		var t := ""
-		match str(rw["kind"]):
-			"gold": t = "%d gold" % int(rw["amount"])
-			"shards": t = "%d shards" % int(rw["amount"])
-			"chest": t = DB.CHESTS[rw["chest"]]["name"]
-			"gems": t = "%d gems" % int(rw["amount"])
-			"egg": t = str(SKDB.EGGS[rw["egg"]]["name"])
-			"glow": t = "%s weapon glow for every hero" % DB.GLOWS[rw["glow"]]["name"]
-		var tl := Ui.label(("✓ " if n <= claimed else "") + t, "Body")
+		var tl := Ui.label(("✓ " if n <= claimed else "") + _reward_text(rw), "Body")
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(tl)
 		if n == claimed + 1 and n <= lv:
