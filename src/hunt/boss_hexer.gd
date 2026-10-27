@@ -3,13 +3,20 @@ extends Boss
 ## The Hexer Queen. She keeps her distance and works the room: rings of orbs
 ## flung outward, circles of dark summoning on the ground, a blink, and a cursed
 ## lane that slows. Every attack is telegraphed. Below half health she doubles
-## down: more orbs, more circles, three lanes at once.
+## down: more orbs, more circles, three lanes at once. Across the fight:
+##   phase 2  Hex Crossfire: lanes close on the hero from three sides at once
+##   phase 3  Unmaking: she stands still and turns a double spiral of orbs, and
+##            the spent spiral leaves her open
+## The room: dark sigils burn into the floor round her at phase 2 and 3.
 
 const VIOLET := Color(0.75, 0.4, 1.0)
 
 var circles_at: Array = []
 var blink_to := Vector3.ZERO
 var lane_dir := Vector3.ZERO
+var _spin := 0.0
+var _spin_t := 0.0
+var _cross_at := Vector3.ZERO
 
 
 func setup(h: Hunt, t: Dictionary) -> void:
@@ -20,6 +27,10 @@ func setup(h: Hunt, t: Dictionary) -> void:
 
 func _choose(dist: float) -> void:
 	var options := ["orbs", "circles", "lane"]
+	if phase >= 2:
+		options += ["crossfire", "crossfire"]
+	if final:
+		options += ["spiral"]
 	if dist < 6.5:
 		options += ["blink", "blink"]
 	options.erase(last)
@@ -27,9 +38,6 @@ func _choose(dist: float) -> void:
 
 
 func _begin(p: String) -> void:
-	if p == "summon":
-		super._begin(p)
-		return
 	_clear_tele()
 	pattern = p
 	last = p
@@ -67,6 +75,28 @@ func _begin(p: String) -> void:
 					tele.append(hunt.fx.telegraph(2, flat_pos(), yaw + 0.45 * sgn, Vector2(2.2, 20.0), step_t))
 			play("Skeletons_Taunt", 0.1, 1.4, true)
 			Sfx.play("boss_roar", -5.0, 1.5)
+		"crossfire":
+			# Lanes from three (four, enraged) points round the hero, all aimed at where they stand.
+			_cross_at = hero.flat_pos() + hero.vel * 0.35
+			var n := 4 if final else 3
+			var off := randf() * TAU
+			for i in n:
+				var a := off + TAU * i / n
+				var from := hunt.arena.resolve(_cross_at + Vector3(sin(a), 0, cos(a)) * 9.0, 0.4)
+				var aim := yaw_to(from, _cross_at)
+				hunt.beam_from(from, aim, 1.2 * fast, dmg * 0.9, VIOLET)
+				hunt.fx.vfx.cast(&"shadow", from, 1.6, Fx.VfxLib.NO_TINT, &"skill")
+			step_t = 1.2 * fast + 0.5
+			play("Ranged_Magic_Summon", 0.1, 1.0, true)
+			Sfx.play("boss_windup", -3.0, 0.7)
+			hunt.hud.event("Hex Crossfire", VIOLET, "lightning-helix")
+		"spiral":
+			_spin = randf() * TAU
+			step_t = 1.0
+			hunt.fx.vfx.linger(&"shadow", flat_pos(), 3.0, 1.0 + 3.4, Fx.VfxLib.NO_TINT, &"big")
+			play("Ranged_Magic_Spellcasting_Long", 0.1, 1.0, true)
+			Sfx.play("boss_roar", -4.0, 1.3)
+			hunt.hud.event("Unmaking", VIOLET, "magic-swirl")
 		"blink":
 			# Blinking out of a hero who closed the gap leaves her reeling.
 			if hero.flat_pos().distance_to(flat_pos()) < 3.5 and randf() < 0.5:
@@ -97,9 +127,6 @@ func _blink_spot() -> Vector3:
 
 
 func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
-	if pattern == "summon":
-		super._tick_pattern(dt, to, dist)
-		return
 	step_t -= dt
 	var hero := hunt.hero
 	match pattern:
@@ -153,6 +180,32 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				# Three lanes at once spend her: a short opening.
 				if enraged:
 					expose(float(DB.EXPOSED["time"]) * 0.6)
+		"crossfire":
+			if step_t <= 0.0:
+				hunt.shake(0.3)
+				_finish(0.8)
+		"spiral":
+			# Two arms of orbs turning round her; the wind-up is the first second.
+			if step == 0 and step_t <= 0.0:
+				step = 1
+				step_t = 3.4
+				_spin_t = 0.0
+			elif step == 1:
+				_spin_t -= dt
+				if _spin_t <= 0.0:
+					_spin_t = 0.15
+					_spin += 0.42
+					for arm in 2:
+						var d := dir_of(_spin + PI * arm)
+						hunt.spawn_proj("orb", flat_pos() + d * 1.5, d * 7.5, dmg * 0.5, 1, self, {"life": 2.6})
+					Sfx.play("atk_mage", -9.0, 0.9)
+				rotation.y = _spin
+				if step_t <= 0.0:
+					step = 2
+					hunt.shake(0.3)
+					_finish(0.6)
+					# The spiral spends her: a longer opening.
+					expose(float(DB.EXPOSED["time"]) * 0.8)
 		"blink":
 			if step == 0 and step_t <= 0.0:
 				step = 1
@@ -178,3 +231,20 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 func die() -> void:
 	model.visible = true
 	super.die()
+
+
+func _phase_lines(n: int) -> Array:
+	if n == 2:
+		return ["The Queen unveils", "\"I will unmake you, thread by thread.\""]
+	return ["The Unmaking", "\"Kneel. The cult is only the beginning.\""]
+
+
+func _phase_fx(n: int) -> void:
+	hunt.fx.vfx.nova(&"shadow", flat_pos(), 7.0, 0.4, Fx.VfxLib.NO_TINT, &"big")
+	if n == 3:
+		hunt.fx.vfx.sky(flat_pos() + Vector3(2, 0, 1), VIOLET, 0.3, 14.0)
+
+
+func _phase_arena(n: int) -> void:
+	# Dark sigils burn into the floor round her: they drag at the feet.
+	_patch_ring(4 if n == 2 else 7, 9.0 if n == 2 else 10.5, 1.9, 14.0, dmg * 0.25, &"shadow", true, randf() * TAU)

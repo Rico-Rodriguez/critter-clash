@@ -30,9 +30,6 @@ func _choose(dist: float) -> void:
 
 
 func _begin(p: String) -> void:
-	if p == "summon":
-		super._begin(p)
-		return
 	_clear_tele()
 	pattern = p
 	last = p
@@ -70,9 +67,6 @@ func _begin(p: String) -> void:
 
 
 func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
-	if pattern == "summon":
-		super._tick_pattern(dt, to, dist)
-		return
 	step_t -= dt
 	var hero := hunt.hero
 	match pattern:

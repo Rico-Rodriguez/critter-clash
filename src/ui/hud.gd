@@ -360,6 +360,33 @@ func boss_mode(b: Boss) -> void:
 	if b:
 		%BossName.text = "%s, %s" % [b.display_name.to_upper(), b.title.to_upper()]
 		Ui.pop_in(%BossBox, 0.0, 0.9)
+		_boss_marks()
+
+
+## Notches on the boss bar where the phases break (66% and 33%).
+func _boss_marks() -> void:
+	for c in %BossBar.get_children():
+		c.queue_free()
+	for f in Boss.PHASE_AT:
+		var m := ColorRect.new()
+		m.color = Color(0.04, 0.03, 0.06, 0.95)
+		m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		m.anchor_left = float(f)
+		m.anchor_right = float(f)
+		m.anchor_top = 0.0
+		m.anchor_bottom = 1.0
+		m.offset_left = -2.0
+		m.offset_right = 2.0
+		%BossBar.add_child(m)
+
+
+## A phase breaks: the bar pops, and the notch it passed fades.
+func boss_phase(n: int) -> void:
+	Ui.pop_in(%BossBox, 0.0, 1.14)
+	var marks := %BossBar.get_children()
+	for i in marks.size():
+		if i < n - 1:
+			(marks[i] as Control).modulate.a = 0.25
 
 
 ## The boss is dead: a white flash, and the combat buttons step aside so the

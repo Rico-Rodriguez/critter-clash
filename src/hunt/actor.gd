@@ -28,6 +28,10 @@ var _sq := Vector3.ZERO
 var _sq_v := Vector3.ZERO
 var _lean := Vector2.ZERO
 var _lean_v := Vector2.ZERO
+## A held pose: the springs settle here instead of at rest (a boss crouching
+## through a wind-up). Zero is the rest pose.
+var _sq_t := Vector3.ZERO
+var _lean_t := Vector2.ZERO
 var _spring_base := Vector3.ONE
 var _spring_on := false
 var model: Node3D
@@ -313,8 +317,26 @@ func clear_springs() -> void:
 		_sq_v = Vector3.ZERO
 		_lean = Vector2.ZERO
 		_lean_v = Vector2.ZERO
+		_sq_t = Vector3.ZERO
+		_lean_t = Vector2.ZERO
 		model.scale = _spring_base
 		model.rotation = Vector3(0.0, model.rotation.y, 0.0)
+
+
+## Holds the body in a pose: `sq` is a scale change in the model's axes (as
+## squash), `lean_pose` the tip in radians (x: forward when positive, y: roll).
+func hold_pose(sq: Vector3, lean_pose: Vector2) -> void:
+	if model == null:
+		return
+	_start_springs()
+	_sq_t = sq
+	_lean_t = lean_pose
+
+
+## Lets go of a held pose; the springs carry the body back to rest.
+func release_pose() -> void:
+	_sq_t = Vector3.ZERO
+	_lean_t = Vector2.ZERO
 
 
 func _start_springs() -> void:
@@ -325,11 +347,11 @@ func _start_springs() -> void:
 
 func _tick_springs(dt: float) -> void:
 	var h := minf(dt, 1.0 / 30.0)
-	_sq_v += (-SPRING_K * _sq - SPRING_C * _sq_v) * h
+	_sq_v += (-SPRING_K * (_sq - _sq_t) - SPRING_C * _sq_v) * h
 	_sq += _sq_v * h
-	_lean_v += (-SPRING_K * _lean - SPRING_C * _lean_v) * h
+	_lean_v += (-SPRING_K * (_lean - _lean_t) - SPRING_C * _lean_v) * h
 	_lean += _lean_v * h
-	if _sq.length_squared() + _sq_v.length_squared() * 0.0025 < 0.000004 and _lean.length_squared() + _lean_v.length_squared() * 0.0025 < 0.000004:
+	if _sq_t == Vector3.ZERO and _lean_t == Vector2.ZERO and _sq.length_squared() + _sq_v.length_squared() * 0.0025 < 0.000004 and _lean.length_squared() + _lean_v.length_squared() * 0.0025 < 0.000004:
 		_spring_on = false
 		_sq = Vector3.ZERO
 		_sq_v = Vector3.ZERO

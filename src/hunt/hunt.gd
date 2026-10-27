@@ -345,7 +345,13 @@ func _frame_camera() -> void:
 		"boss":
 			cam.pitch_shift = 0.0
 			cam.zoom_target = 1.18
-			if boss and boss.alive:
+			if boss and boss.alive and boss.state == "shift":
+				# A phase break: in close on the boss, low, then home again.
+				var sh: Dictionary = boss.shift_shot()
+				cam.focus_override = sh["focus"]
+				cam.zoom_target = sh["zoom"]
+				cam.pitch_shift = -float(sh["pitch"])
+			elif boss and boss.alive:
 				cam.focus_override = hero.position.lerp(boss.position, 0.25)
 			else:
 				cam.focus_override = null
