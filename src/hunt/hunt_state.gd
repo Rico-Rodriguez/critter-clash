@@ -106,6 +106,8 @@ var perfect_dodges := 0
 var banished: Array[String] = []
 ## Bosses killed this hunt (kill counts and dry streaks), and the rift's boss.
 var bosses_killed: Array[String] = []
+## Exotic eggs found this hunt (they join the hatchery when it ends).
+var exotic_found := 0
 var rift_boss := ""
 var banishes_left := DB.BANISHES
 ## Burning ground from Pyre: {pos, r, t, dps, tick}.
@@ -495,6 +497,77 @@ func _legendary_moment(at: Vector3, it: Dictionary) -> void:
 		Engine.time_scale = 0.35
 		_real_hitstop = maxf(_real_hitstop, 0.35)
 	hud.event("%s!" % str(it["name"]), col.lightened(0.2), "crowned-skull")
+
+
+## Rolls an exotic egg for a felled boss or elite at `at`.
+func _roll_exotic(at: Vector3, boss: bool) -> void:
+	const SKS := preload("res://src/autoload/sidekicks.gd")
+	var bosses_before := maxi(bosses_killed.size() - 1, 0) if boss else bosses_killed.size()
+	if randf() < SKS.exotic_chance(Game.data, boss, bosses_before):
+		exotic_found += 1
+		_exotic_moment(at)
+
+
+## The exotic egg drop, Destiny style: the world slows, a prismatic beam
+## cracks down, and the egg falls into it, spinning, ringed by stars.
+func _exotic_moment(at: Vector3) -> void:
+	const SDB := preload("res://src/data/sidekick_db.gd")
+	var col: Color = SDB.EGGS["exotic"]["color"]
+	var egg := Node3D.new()
+	egg.name = "ExoticEgg"
+	egg.scale = Vector3.ONE * 1.6
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.36
+	sm.height = 0.95
+	mi.mesh = sm
+	Fx.toon(mi, col)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	egg.add_child(mi)
+	# Speckles so it reads as an egg, not a ball.
+	for i in 9:
+		var spot := MeshInstance3D.new()
+		var sp := SphereMesh.new()
+		sp.radius = 0.07 + 0.03 * (i % 3)
+		sp.height = sp.radius * 1.2
+		spot.mesh = sp
+		var a := i * 2.4
+		var y := -0.25 + 0.06 * i
+		var rr := 0.33 * sqrt(maxf(1.0 - pow(y / 0.475, 2.0), 0.05))
+		spot.position = Vector3(cos(a) * rr, y, sin(a) * rr)
+		Fx.toon(spot, Color(0.55, 0.3, 1.0) if i % 2 == 0 else Color(1.0, 0.95, 0.75))
+		spot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		egg.add_child(spot)
+	world.add_child(egg)
+	var ground := Vector3(at.x, 0.55, at.z)
+	egg.position = ground + Vector3(0, 9.0, 0)
+	var beam := fx.beam(Vector3(at.x, 0, at.z), col.lightened(0.2), 11.0)
+	fx.sky_bolt(ground, Color(0.75, 0.55, 1.0), 0.6, 20.0)
+	var tw := egg.create_tween()
+	tw.tween_property(egg, "position", ground, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(egg, "rotation:y", TAU * 2.0, 0.55)
+	tw.tween_callback(func():
+		fx.vfx.impact(&"level", ground, 3.0, col, &"big")
+		fx.vfx.star(ground + Vector3(0, 0.6, 0), 1.6, col.lightened(0.3), 0.5, 6.0)
+		fx.vfx.star(ground + Vector3(0, 0.6, 0), 1.1, Color(0.7, 0.5, 1.0), 0.4, 4.0)
+		fx.vfx.sparks(ground + Vector3(0, 0.5, 0), 26, 9.0, col.lightened(0.2), 0.5)
+		cam.punch = maxf(cam.punch, 0.08)
+		shake(0.6)
+		Sfx.play("boom", -4.0, 0.8)
+		Sfx.play("sparkle", 0.0))
+	tw.tween_property(egg, "rotation:y", TAU * 5.0, 2.4)
+	tw.tween_property(egg, "scale", Vector3.ZERO, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		if is_instance_valid(beam):
+			fx.release_beam(beam)
+		egg.queue_free())
+	if phase != "victory":
+		Engine.time_scale = 0.3
+		_real_hitstop = maxf(_real_hitstop, 0.5)
+	Ui.buzz(160, 1.0)
+	Sfx.play("rare_chime", 0.0, 0.8)
+	hud.event("EXOTIC EGG!", col.lightened(0.2), "egg-clutch")
+	banner("Exotic Egg", col.lightened(0.15), "It joins your hatchery when the hunt ends")
 
 
 func banner(text: String, color := Color(1, 0.85, 0.5), sub := "") -> void:

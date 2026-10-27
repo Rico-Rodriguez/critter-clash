@@ -232,6 +232,7 @@ func _kill(f: Enemy) -> void:
 					damage_hero(f.dmg * 1.2, null, 0.5))
 		banner("%s slain" % f.elite_name, Color(1.0, 0.85, 0.5))
 		Sfx.play("rare_chime", -4.0)
+		_roll_exotic(at, false)
 	elif randf() < 0.012:
 		_drop_item(at, Game.roll_item("trash", tier_i, "", "", loot_bonus))
 
@@ -239,6 +240,7 @@ func _kill(f: Enemy) -> void:
 func _kill_boss() -> void:
 	boss_time = minf(boss_time, time - boss_at)
 	bosses_killed.append(boss.boss_id)
+	_roll_exotic(boss.global_position, true)
 	if mode == "descent" or (_rushlike() and rush_i < rush_order().size() - 1):
 		_boss_down_midway()
 		return
@@ -513,7 +515,7 @@ func build_result(win: bool) -> Dictionary:
 		"depth": depth, "dashes": dashes, "boss_time": boss_time,
 		"rivals": rivals_total, "place": 1 if win else rivals_alive() + 1,
 		"omen": str(omen.get("id", "")),
-		"bosses": bosses_killed, "perfect": perfect_dodges,
+		"bosses": bosses_killed, "perfect": perfect_dodges, "exotic": exotic_found,
 	}
 	# A won hunt under the weekly omen pays more, and its chest is a grade better.
 	if not omen.is_empty() and (win or mode == "descent"):

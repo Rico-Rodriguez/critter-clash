@@ -28,6 +28,7 @@ func open_chest(kind: String) -> Array:
 		var it := grant_item(roll_item("chest", tier_for_chest(kind)))
 		if not it.is_empty():
 			out.append({"type": "item", "item": it})
+	out.append_array(SK.chest_extras(data, kind, int(Time.get_unix_time_from_system()), rng))
 	var opened := unlock_by_shards()
 	if opened != "":
 		out.append({"type": "unlock", "hero": opened})

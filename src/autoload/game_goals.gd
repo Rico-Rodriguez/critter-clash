@@ -217,6 +217,12 @@ func claim_season() -> Dictionary:
 			hero(hero_id())["shards"] = int(hero(hero_id())["shards"]) + int(rw["amount"])
 		"chest":
 			rw["opened"] = open_chest(str(rw["chest"]))
+		"gems":
+			data["gems"] = int(data.get("gems", 0)) + int(rw["amount"])
+		"egg":
+			# A full hatchery pays the egg as gems instead.
+			if SK.give_egg(data, str(rw["egg"]), int(Time.get_unix_time_from_system()), rng.randi()).is_empty():
+				data["gems"] = int(data.get("gems", 0)) + 40
 		"glow":
 			for id in DB.HERO_ORDER:
 				if not rw["glow"] in hero(id)["glows"]:

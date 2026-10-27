@@ -354,7 +354,13 @@ func _capture(args: PackedStringArray) -> void:
 	for pair in [["drake", 1240], ["wisp", 5600], ["bonelet", 250], ["hexling", 0]]:
 		SKC.own(Game.data, pair[0])
 		Game.data["sidekicks"]["owned"][pair[0]]["kills"] = pair[1]
-	Game.data["sidekicks"]["eggs"]["grove"] = {"kills": 312}
+	# The hatchery: a Grove Egg warming by kills, a Brood Egg by the clock,
+	# an Exotic Egg ready to hatch, and gems to hurry one.
+	var now0 := int(Time.get_unix_time_from_system())
+	SKC.give_egg(Game.data, "grove", now0 - 1800, 11)["kills"] = 312
+	SKC.give_egg(Game.data, "brood", now0 - 5400, 12)
+	SKC.give_egg(Game.data, "exotic", now0 - 13 * 3600, 13)
+	Game.data["gems"] = 64
 	Game.data["sidekicks"]["chests"] = 37
 	SKC.set_active(Game.data, _arg(args, "sidekick", "drake").get_slice(":", 0))
 	if _arg(args, "sidekick", "").contains(":"):
@@ -752,7 +758,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -867,6 +873,12 @@ func _capture(args: PackedStringArray) -> void:
 						if _arg(args, "clip", "") != "":
 							get_viewport().get_texture().get_image().save_png("%s/busy_%03d.png" % [_shots_dir, nf])
 					print("BUSY draws avg=%d max=%d" % [sum / nf, mx])
+				elif shot == "exotic":
+					# The exotic egg drop moment beside the hero.
+					await _wait_sim(h, 2.0)
+					h.bot = false
+					h._exotic_moment(h.hero.flat_pos() + Vector3(1.6, 0, -2.0))
+					await _wait_sim(h, float(_arg(args, "after", "0.75")))
 				elif shot == "spikes":
 					# Bone Spikes at each tier (light, skill, big) beside the hero.
 					await _wait_sim(h, 2.0)

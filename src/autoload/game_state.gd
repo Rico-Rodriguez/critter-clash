@@ -23,6 +23,8 @@ func _fresh() -> Dictionary:
 	return {
 		"version": SAVE_VERSION,
 		"gold": 0,
+		# Gems: hatch eggs sooner. From chests, the season and spare egg drops.
+		"gems": 0,
 		"hero": "knight",
 		"heroes": heroes,
 		"items": [],

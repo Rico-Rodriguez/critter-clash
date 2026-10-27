@@ -3,6 +3,8 @@ extends RefCounted
 ## Small rule checks, run with `-- --test`. Prints TEST <name> OK/FAIL and
 ## returns the number of failures. The save is kept in memory only.
 
+const SKDB_T := preload("res://src/data/sidekick_db.gd")
+
 var _fails := 0
 
 
@@ -245,6 +247,7 @@ func run() -> int:
 	ra.free()
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
+	_hatchery_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
 	_focus_tests()
@@ -777,9 +780,9 @@ func _sidekick_tests() -> void:
 		if str(r["egg"]) == "ember":
 			got_egg = true
 			break
-	_ok("ember egg drops within pity", got_egg and d["sidekicks"]["eggs"].has("ember"))
+	_ok("ember egg drops within pity", got_egg and SK.has_egg(d, "ember"))
 	var h := SK.after_hunt(d, {"kills": 600}, rng)
-	_ok("egg hatches the drake", (h["hatched"] as Array).has("drake") and SK.is_owned(d, "drake") and not d["sidekicks"]["eggs"].has("ember"))
+	_ok("egg hatches the drake", (h["hatched"] as Array).has("drake") and SK.is_owned(d, "drake") and not SK.has_egg(d, "ember"))
 	_ok("night bat hidden until its egg", SK.hidden(d, "bat"))
 	# Mimic after 100 chests; Storm Crow on the road.
 	for i in 99:
@@ -803,6 +806,93 @@ func _sidekick_tests() -> void:
 	_ok("ancient sidekick abilities are distinct", ["bash", "shadowstrike", "snare"] == ["barrow_squire", "shade", "sapling"].map(func(i): return str(SDB.ROSTER[i]["ability"]["kind"])))
 	var sum := Game.finish_hunt({"hero": "knight", "kills": 120, "win": false, "tier": 0, "time": 60.0})
 	_ok("finish_hunt reports sidekick bond", str(sum["sidekick"]["id"]) == "bonelet" and SK.kills(Game.data, "bonelet") == 120)
+	Game.data = keep
+
+
+func _hatchery_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	var keep := Game.data.duplicate(true)
+	var t0 := 1_800_000_000
+	var d := Game._fresh()
+	SK.migrate(d)
+	# An old save's egg moves into the hatchery with its kills.
+	d["sidekicks"]["eggs"] = {"grove": {"kills": 120}}
+	_ok("hatchery: old eggs move in with their kills", SK.has_egg(d, "grove") and int(SK.hatchery(d)[0]["kills"]) == 120 and (d["sidekicks"]["eggs"] as Dictionary).is_empty())
+	d = Game._fresh()
+	var e := SK.give_egg(d, "brood", t0, 5)
+	var secs := int(SKDB_T.EGGS["brood"]["secs"])
+	_ok("hatchery: a new egg is not ready", not SK.egg_ready(e, t0) and is_zero_approx(SK.egg_frac(e, t0)))
+	_ok("hatchery: half the clock is half warm", is_equal_approx(SK.egg_frac(e, t0 + secs / 2), 0.5))
+	_ok("hatchery: a clock set backwards counts as no time", is_zero_approx(SK.egg_frac(e, t0 - 9999)))
+	e["kills"] = int(SKDB_T.EGGS["brood"]["kills"]) * 3 / 4
+	_ok("hatchery: kills or time, whichever is further", is_equal_approx(SK.egg_frac(e, t0 + secs / 2), 0.75))
+	_ok("hatchery: the clock alone hatches it", SK.egg_ready(e, t0 + secs) and SK.egg_secs_left(e, t0 + secs) == 0)
+	_ok("hatchery: not ready, no hatch", SK.hatch(d, int(e["uid"]), t0).is_empty() and SK.hatchery(d).size() == 1)
+	# Gems finish an egg: one per GEM_SECS left, rounded up.
+	e["kills"] = 0
+	var cost := SK.rush_cost(e, t0)
+	_ok("hatchery: rush cost by time left", cost == int(ceil(float(secs) / SKDB_T.GEM_SECS)))
+	d["gems"] = cost - 1
+	_ok("hatchery: too few gems, no rush", SK.rush(d, int(e["uid"]), t0).is_empty() and SK.gems(d) == cost - 1)
+	d["gems"] = cost + 3
+	var same := SK.egg_result(d, e)
+	var hr := SK.rush(d, int(e["uid"]), t0)
+	_ok("hatchery: rush spends gems and hatches", SK.gems(d) == 3 and str(hr.get("id", "")) == same and bool(hr["new"]) and SK.is_owned(d, same) and SK.hatchery(d).is_empty())
+	# Pools prefer sidekicks you don't own; a duplicate becomes bond kills.
+	var d2 := Game._fresh()
+	for p in SKDB_T.EGGS["exotic"]["pool"]:
+		if str(p[0]) != "shade":
+			SK.own(d2, str(p[0]))
+	var ok_fresh := true
+	for i in 20:
+		ok_fresh = ok_fresh and SK.egg_result(d2, {"kind": "exotic", "seed": i * 7919}) == "shade"
+	_ok("hatchery: an egg hatches the one you lack", ok_fresh)
+	SK.own(d2, "shade")
+	var ex := SK.give_egg(d2, "exotic", t0, 99)
+	var dup := SK.hatch(d2, int(ex["uid"]), t0 + 13 * 3600)
+	_ok("hatchery: a duplicate pays bond kills", not bool(dup["new"]) and int(dup["kills"]) == SKDB_T.DUP_KILLS and SK.kills(d2, str(dup["id"])) == SKDB_T.DUP_KILLS)
+	_ok("hatchery: same egg seed, same sidekick", SK.egg_result(Game._fresh(), {"kind": "brood", "seed": 42}) == SK.egg_result(Game._fresh(), {"kind": "brood", "seed": 42}))
+	# Pools only name real sidekicks.
+	var pools_ok := true
+	for k in SKDB_T.EGGS:
+		var ed: Dictionary = SKDB_T.EGGS[k]
+		pools_ok = pools_ok and ed.has("secs") and ed.has("kills") and (SKDB_T.ROSTER.has(str(ed.get("hatches", ""))) or (ed["pool"] as Array).all(func(p): return SKDB_T.ROSTER.has(str(p[0])) and int(p[1]) > 0))
+	_ok("hatchery: every egg hatches a real sidekick", pools_ok)
+	# The hatchery caps; a full one blocks drops.
+	var d3 := Game._fresh()
+	for i in SKDB_T.HATCH_SLOTS:
+		SK.give_egg(d3, "brood", t0, i)
+	_ok("hatchery: full at HATCH_SLOTS", SK.hatchery_full(d3) and SK.give_egg(d3, "brood", t0, 1).is_empty() and is_zero_approx(SK.exotic_chance(d3, true, 0)))
+	# Exotic drops: rare, with a pity across hunts.
+	var d4 := Game._fresh()
+	_ok("exotic: rare per boss, rarer per elite", SK.exotic_chance(d4, true, 0) == SKDB_T.EXOTIC_BOSS and SK.exotic_chance(d4, false, 0) == SKDB_T.EXOTIC_ELITE)
+	d4["sidekicks"]["dry"]["exotic"] = SKDB_T.EXOTIC_PITY - 2
+	_ok("exotic: pity guarantees the boss after", SK.exotic_chance(d4, true, 1) == 1.0 and SK.exotic_chance(d4, true, 0) < 1.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var r := SK.after_hunt(d4, {"kills": 50, "win": true, "bosses": ["hexer"], "exotic": 1, "now": t0}, rng)
+	_ok("exotic: a found egg joins the hatchery, pity resets", int(r.get("exotic", 0)) == 1 and SK.has_egg(d4, "exotic") and int(d4["sidekicks"]["dry"]["exotic"]) == 0 and int(SK.hatchery(d4)[0]["kills"]) == 0)
+	SK.after_hunt(d4, {"kills": 0, "win": true, "bosses": ["hexer", "thorn"], "now": t0}, rng)
+	_ok("exotic: bosses without one count toward pity", int(d4["sidekicks"]["dry"]["exotic"]) == 2)
+	# Chests and the season.
+	var d5 := Game._fresh()
+	var r5 := RandomNumberGenerator.new()
+	r5.seed = 1
+	var got_egg := false
+	var gems := 0
+	for i in 30:
+		for x in SK.chest_extras(d5, "crypt", t0, r5):
+			if str(x["type"]) == "egg":
+				got_egg = true
+			else:
+				gems += int(x["amount"])
+	_ok("chests: gems every time, brood eggs sometimes", gems == 30 * int(SKDB_T.CHEST_GEMS["crypt"]) and got_egg and SK.gems(d5) == gems)
+	_ok("chests: silver never has an egg", SK.chest_extras(Game._fresh(), "silver", t0, r5).all(func(x): return str(x["type"]) != "egg"))
+	_ok("season: Season Eggs at tiers 10 and 20, gems along the road", str(DB.season_reward(10)["kind"]) == "egg" and str(DB.season_reward(20)["egg"]) == "season" and str(DB.season_reward(3)["kind"]) == "gems" and str(DB.season_reward(30)["kind"]) == "glow")
+	Game.data = Game._fresh()
+	Game.data["season"] = {"id": Game.season_id(), "xp": DB.SEASON_XP * 10, "claimed": 9}
+	Game.claim_season()
+	_ok("season: claiming tier 10 puts a Season Egg in the hatchery", SK.has_egg(Game.data, "season"))
 	Game.data = keep
 
 

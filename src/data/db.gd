@@ -1309,8 +1309,12 @@ const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", 
 static func season_reward(n: int) -> Dictionary:
 	if n == SEASON_TIERS:
 		return {"kind": "glow", "glow": "void"}
+	if n == 10 or n == 20:
+		return {"kind": "egg", "egg": "season"}
 	if n % 5 == 0:
 		return {"kind": "chest", "chest": "gold" if n < 20 else "crypt"}
+	if n % 3 == 0 and n % 2 == 1:
+		return {"kind": "gems", "amount": 10 + n}
 	if n % 2 == 0:
 		return {"kind": "shards", "amount": 15 + n}
 	return {"kind": "gold", "amount": 300 + 50 * n}

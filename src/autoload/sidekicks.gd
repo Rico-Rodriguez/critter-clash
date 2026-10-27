@@ -7,11 +7,13 @@ extends RefCounted
 const SDB := preload("res://src/data/sidekick_db.gd")
 
 
-## The save block. `owned`: {id: {"kills": int}}; `eggs`: {egg_id: {"kills"}}
-## held and warming; `dry`: {egg_id: wins without a drop}; `chests`: chests
-## opened (the Mimic's goal); `migrated`: pets and ally folded in.
+## The save block. `owned`: {id: {"kills": int}}; `hatchery`: eggs warming,
+## [{uid, kind, t0 (unix secs found), kills, seed}]; `eggs`: the old
+## {egg_id: {"kills"}} (moved into the hatchery on load); `dry`: {egg_id or
+## "exotic": tries without a drop}; `chests`: chests opened (the Mimic's
+## goal); `migrated`: pets and ally folded in.
 static func fresh() -> Dictionary:
-	return {"active": "", "owned": {}, "eggs": {}, "dry": {}, "chests": 0, "seen": [], "migrated": false}
+	return {"active": "", "owned": {}, "eggs": {}, "hatchery": [], "egg_uid": 1, "dry": {}, "chests": 0, "seen": [], "migrated": false}
 
 
 static func block(d: Dictionary) -> Dictionary:
@@ -21,7 +23,170 @@ static func block(d: Dictionary) -> Dictionary:
 	for k in fresh():
 		if not b.has(k):
 			b[k] = fresh()[k]
+	# Eggs from before the hatchery keep their kills and start their clock now.
+	if not (b["eggs"] as Dictionary).is_empty():
+		for eid: String in b["eggs"].keys():
+			if SDB.EGGS.has(eid):
+				_add_egg(b, eid, int(Time.get_unix_time_from_system()), int(b["eggs"][eid].get("kills", 0)), hash(eid))
+		b["eggs"] = {}
 	return b
+
+
+# --- Eggs and the hatchery ----------------------------------------------------
+
+static func _add_egg(b: Dictionary, kind: String, now: int, k0 := 0, sd := 0) -> Dictionary:
+	var e := {"uid": int(b["egg_uid"]), "kind": kind, "t0": now, "kills": k0, "seed": sd}
+	b["egg_uid"] = int(b["egg_uid"]) + 1
+	b["hatchery"].append(e)
+	return e
+
+
+static func hatchery(d: Dictionary) -> Array:
+	return block(d)["hatchery"]
+
+
+static func has_egg(d: Dictionary, kind: String) -> bool:
+	return hatchery(d).any(func(e): return str(e["kind"]) == kind)
+
+
+static func hatchery_full(d: Dictionary) -> bool:
+	return hatchery(d).size() >= SDB.HATCH_SLOTS
+
+
+## Puts an egg in the hatchery. {} when it is full (the caller pays gems instead).
+static func give_egg(d: Dictionary, kind: String, now: int, sd: int) -> Dictionary:
+	if not SDB.EGGS.has(kind) or hatchery_full(d):
+		return {}
+	return _add_egg(block(d), kind, now, 0, sd)
+
+
+static func find_egg(d: Dictionary, uid: int) -> Dictionary:
+	for e: Dictionary in hatchery(d):
+		if int(e["uid"]) == uid:
+			return e
+	return {}
+
+
+## Seconds of real time an egg has warmed. A clock set backwards counts as none.
+static func egg_elapsed(e: Dictionary, now: int) -> int:
+	return maxi(now - int(e["t0"]), 0)
+
+
+## 0..1: whichever of time and kills is further along.
+static func egg_frac(e: Dictionary, now: int) -> float:
+	var ed: Dictionary = SDB.EGGS[str(e["kind"])]
+	return clampf(maxf(float(egg_elapsed(e, now)) / float(ed["secs"]), float(e["kills"]) / float(ed["kills"])), 0.0, 1.0)
+
+
+static func egg_ready(e: Dictionary, now: int) -> bool:
+	return egg_frac(e, now) >= 1.0
+
+
+## Seconds left by the clock if no more kills come (0 when ready).
+static func egg_secs_left(e: Dictionary, now: int) -> int:
+	if egg_ready(e, now):
+		return 0
+	var ed: Dictionary = SDB.EGGS[str(e["kind"])]
+	return maxi(int(ed["secs"]) - egg_elapsed(e, now), 0)
+
+
+## Gems to finish an egg now: one per GEM_SECS of the time left, by the
+## faster of the two roads, rounded up (at least one while it isn't ready).
+static func rush_cost(e: Dictionary, now: int) -> int:
+	if egg_ready(e, now):
+		return 0
+	var ed: Dictionary = SDB.EGGS[str(e["kind"])]
+	var left := (1.0 - egg_frac(e, now)) * float(ed["secs"])
+	return maxi(int(ceil(left / float(SDB.GEM_SECS))), 1)
+
+
+static func gems(d: Dictionary) -> int:
+	return int(d.get("gems", 0))
+
+
+## Spends gems to finish an egg, then hatches it. {} if it can't.
+static func rush(d: Dictionary, uid: int, now: int) -> Dictionary:
+	var e := find_egg(d, uid)
+	if e.is_empty():
+		return {}
+	var cost := rush_cost(e, now)
+	if gems(d) < cost:
+		return {}
+	d["gems"] = gems(d) - cost
+	e["kills"] = int(SDB.EGGS[str(e["kind"])]["kills"])
+	return hatch(d, uid, now)
+
+
+## What an egg hatches into: its species, or a seeded roll from its pool that
+## prefers sidekicks you don't own yet. The same egg always gives the same.
+static func egg_result(d: Dictionary, e: Dictionary) -> String:
+	var ed: Dictionary = SDB.EGGS[str(e["kind"])]
+	if ed.has("hatches"):
+		return str(ed["hatches"])
+	var pool: Array = ed["pool"]
+	var fresh_pool := pool.filter(func(p): return not is_owned(d, str(p[0])))
+	var use: Array = fresh_pool if not fresh_pool.is_empty() else pool
+	var total := 0
+	for p in use:
+		total += int(p[1])
+	var r := RandomNumberGenerator.new()
+	r.seed = int(e["seed"])
+	var pick := r.randi_range(0, total - 1)
+	for p in use:
+		pick -= int(p[1])
+		if pick < 0:
+			return str(p[0])
+	return str(use[0][0])
+
+
+## Hatches a ready egg: {id, kind, new (first time owned), kills (bond kills
+## given when it was a duplicate)}. {} when it isn't ready.
+static func hatch(d: Dictionary, uid: int, now: int) -> Dictionary:
+	var e := find_egg(d, uid)
+	if e.is_empty() or not egg_ready(e, now):
+		return {}
+	var id := egg_result(d, e)
+	hatchery(d).erase(e)
+	var out := {"id": id, "kind": str(e["kind"]), "new": false, "kills": 0}
+	if own(d, id):
+		out["new"] = true
+	else:
+		block(d)["owned"][id]["kills"] = kills(d, id) + SDB.DUP_KILLS
+		out["kills"] = SDB.DUP_KILLS
+	return out
+
+
+## Hatches every ready egg. Returns the hatch results.
+static func hatch_ready(d: Dictionary, now: int) -> Array:
+	var out := []
+	for e: Dictionary in hatchery(d).duplicate():
+		if egg_ready(e, now):
+			out.append(hatch(d, int(e["uid"]), now))
+	return out
+
+
+## The odds of an exotic egg from the next boss (or elite), given the bosses
+## already felled this hunt without one. 1.0 at the pity.
+static func exotic_chance(d: Dictionary, boss: bool, bosses_this_hunt: int) -> float:
+	if hatchery_full(d):
+		return 0.0
+	if boss and int(block(d)["dry"].get("exotic", 0)) + bosses_this_hunt + 1 >= SDB.EXOTIC_PITY:
+		return 1.0
+	return SDB.EXOTIC_BOSS if boss else SDB.EXOTIC_ELITE
+
+
+## A chest's egg and gems, already given: [{type: "gems"|"egg", ...}].
+static func chest_extras(d: Dictionary, kind: String, now: int, rng: RandomNumberGenerator) -> Array:
+	var out := []
+	var g := int(SDB.CHEST_GEMS.get(kind, 0))
+	if g > 0:
+		d["gems"] = gems(d) + g
+		out.append({"type": "gems", "amount": g})
+	if rng.randf() < float(SDB.CHEST_EGG.get(kind, 0.0)):
+		var e := give_egg(d, "brood", now, rng.randi())
+		if not e.is_empty():
+			out.append({"type": "egg", "egg": "brood"})
+	return out
 
 
 ## Pets and the hero ally from before sidekicks, folded in once (safe to run
@@ -135,9 +300,9 @@ static func progress(d: Dictionary, id: String) -> Array:
 		"egg":
 			var eid := str(u["egg"])
 			var e: Dictionary = SDB.EGGS[eid]
-			if b["eggs"].has(eid):
-				var k := int(b["eggs"][eid]["kills"])
-				return ["%s hatching %d / %d" % [e["name"], k, int(e["kills"])], clampf(float(k) / float(e["kills"]), 0.0, 1.0)]
+			for he: Dictionary in b["hatchery"]:
+				if str(he["kind"]) == eid:
+					return ["%s in the hatchery" % e["name"], egg_frac(he, int(Time.get_unix_time_from_system()))]
 			return [str(SDB.ROSTER[id]["how"]), 0.0]
 	return ["", 0.0]
 
@@ -147,7 +312,7 @@ static func hidden(d: Dictionary, id: String) -> bool:
 	if not bool(SDB.ROSTER[id].get("hidden", false)) or is_owned(d, id):
 		return false
 	var u: Dictionary = SDB.ROSTER[id]["unlock"]
-	return not (str(u.get("kind", "")) == "egg" and block(d)["eggs"].has(str(u["egg"])))
+	return not (str(u.get("kind", "")) == "egg" and has_egg(d, str(u["egg"])))
 
 
 ## Applies a finished hunt: bond kills to the sidekick at your side, warmth to
@@ -166,20 +331,24 @@ static func after_hunt(d: Dictionary, r: Dictionary, rng: RandomNumberGenerator)
 		out["bond_from"] = before
 		out["bond_to"] = bond(d, a)
 		out["evolved"] = before < SDB.BOND_EVOLVE and int(out["bond_to"]) >= SDB.BOND_EVOLVE
-	# Eggs warm with every kill, then hatch.
-	for eid: String in b["eggs"].keys():
-		var e: Dictionary = b["eggs"][eid]
+	# Eggs warm with every kill; ready ones hatch.
+	var now := int(r.get("now", Time.get_unix_time_from_system()))
+	for e: Dictionary in b["hatchery"]:
 		e["kills"] = int(e["kills"]) + k
-		if int(e["kills"]) >= int(SDB.EGGS[eid]["kills"]):
-			b["eggs"].erase(eid)
-			var sid := str(SDB.EGGS[eid]["hatches"])
-			if own(d, sid):
-				out["hatched"].append(sid)
-	# Egg drops on a win (or a boss felled in the Descent).
-	if r.get("win", false) or not (r.get("bosses", []) as Array).is_empty():
+	# Exotic eggs found in the hunt (rolled there, with the pity counted here).
+	var ex := int(r.get("exotic", 0))
+	var nb := (r.get("bosses", []) as Array).size()
+	b["dry"]["exotic"] = 0 if ex > 0 else int(b["dry"].get("exotic", 0)) + nb
+	for i in ex:
+		if not give_egg(d, "exotic", now, rng.randi()).is_empty():
+			out["exotic"] = int(out.get("exotic", 0)) + 1
+	# Species egg drops on a win (or a boss felled in the Descent).
+	if r.get("win", false) or nb > 0:
 		for eid: String in SDB.EGGS:
 			var e: Dictionary = SDB.EGGS[eid]
-			if is_owned(d, str(e["hatches"])) or b["eggs"].has(eid):
+			if not e.has("hatches") or not e.has("chance"):
+				continue
+			if is_owned(d, str(e["hatches"])) or has_egg(d, eid) or hatchery_full(d):
 				continue
 			var eligible := false
 			if e.has("boss"):
@@ -190,10 +359,12 @@ static func after_hunt(d: Dictionary, r: Dictionary, rng: RandomNumberGenerator)
 				continue
 			var dry := int(b["dry"].get(eid, 0))
 			if dry + 1 >= int(e["pity"]) or rng.randf() < float(e["chance"]):
-				b["eggs"][eid] = {"kills": 0}
+				give_egg(d, eid, now, rng.randi())
 				b["dry"][eid] = 0
 				out["egg"] = eid
 			else:
 				b["dry"][eid] = dry + 1
+	for h: Dictionary in hatch_ready(d, now):
+		out["hatched"].append(str(h["id"]))
 	out["unlocked"] = check_unlocks(d)
 	return out
