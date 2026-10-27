@@ -9,6 +9,7 @@ extends Node3D
 const SDB := preload("res://src/data/sidekick_db.gd")
 const Look := preload("res://src/core/sidekick_look.gd")
 const Motor := preload("res://src/hunt/sidekick_motor.gd")
+const PetLife := preload("res://src/hunt/pet_life.gd")
 
 var hunt: Node
 var id := ""
@@ -26,6 +27,8 @@ var cd_max := 5.0
 ## Foes this sidekick finished off this hunt (the HUD shows it).
 var slain := 0
 var _bob := 0.0
+## Body-language layer (pet_life.gd): pop-in, fidgets, cheers.
+var _life := PetLife.new_life(0)
 var motor := Motor.new()
 ## Procedural pose layer between the node and the model (lunge, hop, recoil,
 ## bank), so the rig's clips and the fallbacks stack.
@@ -62,6 +65,7 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	pivot.add_child(look["root"])
 	(look["root"] as Node3D).scale *= HUNT_SCALE * float(def.get("hunt_scale", 1.0))
 	Look.play(look, "idle")
+	_life = PetLife.new_life(hash(id))
 	cd_max = float(ab["cd"])
 	cd = 0.2 if str(def.get("perk", "")) == "eager" else minf(2.0, cd_max)
 	motor.fly = float(def["fly"])
@@ -133,7 +137,7 @@ func tick(dt: float) -> void:
 	var fly := float(def["fly"])
 	position = Vector3(motor.pos.x, fly + (sin(_bob * 2.6) * 0.12 if fly > 0.0 else 0.0), motor.pos.z)
 	rotation.y = motor.yaw
-	_animate()
+	_animate(dt)
 	cd -= dt
 	if _pending:
 		if motor.take_hit():
@@ -258,7 +262,7 @@ func _echo() -> void:
 
 ## Clips from the rig where it has them; a procedural pose where it doesn't
 ## (and a lighter accent on top where it does).
-func _animate() -> void:
+func _animate(dt: float) -> void:
 	var st := motor.state
 	var t := motor.state_t
 	# While a melee move is still closing in, it runs; the clip starts on
@@ -285,10 +289,13 @@ func _animate() -> void:
 			else:
 				Look.play(look, "idle", 0.25, 1.0)
 	var p := pose(st, t, spd, _windup, _dur, Look.has(look, _clip_key(st)), _bob)
-	pivot.position = Vector3(0, p["y"], p["z"])
-	pivot.rotation = Vector3(p["pitch"], p["spin"], motor.bank)
-	var sy: float = p["sy"]
-	pivot.scale = Vector3(1.0 / sqrt(sy), sy, 1.0 / sqrt(sy))
+	var phase: String = str(hunt.phase)
+	var mood := "cheer" if phase == "victory" else ("wary" if phase == "boss_intro" else ("droop" if phase == "defeat" else ""))
+	var lf: Dictionary = PetLife.step(_life, dt, spd < 0.3 and not motor.is_action(), mood)
+	pivot.position = Vector3(0, float(p["y"]) + float(lf["y"]), p["z"])
+	pivot.rotation = Vector3(float(p["pitch"]) + float(lf["pitch"]), float(p["spin"]) + float(lf["yaw"]), motor.bank + float(lf["roll"]))
+	var sy: float = float(p["sy"]) * float(lf["sy"])
+	pivot.scale = Vector3(1.0 / sqrt(sy), sy, 1.0 / sqrt(sy)) * float(lf["s"])
 
 
 static func _clip_key(st: int) -> String:

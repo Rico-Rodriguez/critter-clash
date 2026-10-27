@@ -19,6 +19,10 @@ var _drag_x := 0.0
 var _tap_from := Vector2.ZERO
 var _tap_t := 0.0
 var _spin := 0.0
+## The camp hero fidgets with its own personality clip now and then.
+var _hero_id := ""
+var _quirk_t := 6.0
+var _quirk_i := 0
 var _t := 0.0
 const CAM_BASE := Vector3(0.0, 1.85, 4.7)
 const CAM_LOOK := Vector3(0.0, 0.8, -0.4)
@@ -256,6 +260,8 @@ func _fire(at: Vector3) -> void:
 func show_hero(id: String, cheer := true) -> void:
 	if hero:
 		hero.queue_free()
+	_hero_id = id
+	_quirk_t = randf_range(5.0, 8.0)
 	var d: Dictionary = DB.HEROES[id]
 	hero = Actor.new()
 	add_child(hero)
@@ -385,6 +391,20 @@ func start_hunt() -> void:
 		main.go("hunt")
 
 
+## A fidget every few seconds: the hero's quirk clip, then back to its idle.
+func _camp_life(dt: float) -> void:
+	_quirk_t -= dt
+	if _quirk_t > 0.0 or hero.anim == null or not Game.hero(_hero_id)["unlocked"]:
+		return
+	var list: Array = preload("res://src/hunt/hero_anim.gd").CFG.get(_hero_id, {"quirk": ["Interact"]})["quirk"]
+	var clip: String = list[_quirk_i % list.size()]
+	_quirk_i += 1
+	_quirk_t = randf_range(6.0, 10.0) + hero.anim_length(clip)
+	hero.play(clip, 0.25, 1.0, true)
+	hero.anim.queue(GearDB.anims(_hero_id, Game.weapon_family(_hero_id))["idle"])
+	hero.cur_anim = ""
+
+
 func _process(dt: float) -> void:
 	_t += dt
 	if cam:
@@ -398,6 +418,7 @@ func _process(dt: float) -> void:
 		_spin = lerpf(_spin, 0.0, 1.0 - exp(-1.5 * dt))
 	if hero:
 		hero.rotation.y = 0.3 + _spin
+		_camp_life(dt)
 	if chest and not ui.chest_opening:
 		chest.position.y = 0.04 + 0.04 * sin(_t * 3.0)
 

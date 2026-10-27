@@ -263,7 +263,7 @@ func _kill_boss() -> void:
 	get_tree().create_timer(0.35 * 0.25, true).timeout.connect(func(): Sfx.play("sting_victory", 0.0))
 	banner("Victory", Color(1.0, 0.85, 0.45), str(boss_def(cur_boss)["fall"]))
 	if hero.alive:
-		hero.act("Cheering", 1.6, true)
+		hero.victory_pose()
 	# The hoard.
 	for i in 26:
 		_drop("gold", at, randi_range(3, 8))

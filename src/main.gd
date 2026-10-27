@@ -664,6 +664,8 @@ func _capture(args: PackedStringArray) -> void:
 			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins", "outfits":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
+			"animclips", "animhero":
+				await preload("res://src/hunt/anim_capture.gd").shoot(self, shot, args)
 			"gear":
 				# The equipment screen, its bag filtered to one slot, a piece's
 				# card and its Improve panel; then the Heroes sheet's other tabs.

@@ -4,7 +4,9 @@ extends Actor
 ## (and keeps attacking while it runs: the swing plays on the upper body),
 ## dashes through danger, and spends a charged super.
 
-const UPPER_BONES := ["spine", "chest", "upperarm.l", "lowerarm.l", "wrist.l", "hand.l", "handslot.l", "upperarm.r", "lowerarm.r", "wrist.r", "hand.r", "handslot.r", "head"]
+const HeroAnim := preload("res://src/hunt/hero_anim.gd")
+## Fastest the body turns, rad/s (about 700 degrees a second).
+const TURN_MAX := 12.0
 const DASH_SPEED := 21.0
 const DASH_TIME := 0.21
 
@@ -106,8 +108,8 @@ var tree: AnimationTree
 var fam := ""
 var fdef: Dictionary = {}
 var _later: Array = []
-var _up_anim: AnimationNodeAnimation
-var _full_anim: AnimationNodeAnimation
+## Blended locomotion, idles and victory poses (hero_anim.gd).
+var anim_set
 
 
 func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
@@ -178,65 +180,20 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 
 
 func _build_tree() -> void:
-	tree = AnimationTree.new()
-	model.add_child(tree)
-	tree.anim_player = tree.get_path_to(anim)
-	var a: Dictionary = def["anim"]
-	var bt := AnimationNodeBlendTree.new()
-	var idle := AnimationNodeAnimation.new()
-	idle.animation = a["idle"]
-	var run := AnimationNodeAnimation.new()
-	run.animation = a["run"]
-	_up_anim = AnimationNodeAnimation.new()
-	_up_anim.animation = a["attack"][0]
-	_full_anim = AnimationNodeAnimation.new()
-	_full_anim.animation = a["attack"][0]
-	var up := AnimationNodeOneShot.new()
-	up.filter_enabled = true
-	for b in UPPER_BONES:
-		up.set_filter_path(NodePath("Rig_Medium/Skeleton3D:" + b), true)
-	up.fadein_time = 0.05
-	up.fadeout_time = 0.16
-	var full := AnimationNodeOneShot.new()
-	full.fadein_time = 0.05
-	full.fadeout_time = 0.18
-	bt.add_node("idle", idle)
-	bt.add_node("run", run)
-	bt.add_node("run_ts", AnimationNodeTimeScale.new())
-	bt.add_node("move", AnimationNodeBlend2.new())
-	bt.add_node("up_anim", _up_anim)
-	bt.add_node("up_ts", AnimationNodeTimeScale.new())
-	bt.add_node("up", up)
-	bt.add_node("full_anim", _full_anim)
-	bt.add_node("full_ts", AnimationNodeTimeScale.new())
-	bt.add_node("full", full)
-	bt.connect_node("run_ts", 0, "run")
-	bt.connect_node("move", 0, "idle")
-	bt.connect_node("move", 1, "run_ts")
-	bt.connect_node("up_ts", 0, "up_anim")
-	bt.connect_node("up", 0, "move")
-	bt.connect_node("up", 1, "up_ts")
-	bt.connect_node("full_ts", 0, "full_anim")
-	bt.connect_node("full", 0, "up")
-	bt.connect_node("full", 1, "full_ts")
-	bt.connect_node("output", 0, "full")
-	tree.tree_root = bt
-	tree.active = true
+	anim_set = HeroAnim.new()
+	anim_set.attach(self, def["anim"], id)
+	tree = anim_set.tree
 
 
 ## Plays a clip: on the upper body while running, or the whole body.
 func act(clip: String, duration: float, whole := false) -> void:
-	var len_ := anim_length(clip)
-	var sc := clampf(len_ / maxf(duration, 0.05), 0.4, 3.0)
-	if whole or vel.length() < 1.0:
-		tree.set("parameters/up/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_ABORT)
-		_full_anim.animation = clip
-		tree.set("parameters/full_ts/scale", sc)
-		tree.set("parameters/full/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
-	else:
-		_up_anim.animation = clip
-		tree.set("parameters/up_ts/scale", sc)
-		tree.set("parameters/up/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
+	anim_set.act(clip, duration, whole, vel.length() >= 1.0)
+
+
+## The boss is down: this hero's own victory pose.
+func victory_pose() -> void:
+	if alive:
+		anim_set.victory()
 
 
 func recompute() -> void:
@@ -354,14 +311,14 @@ func tick(dt: float) -> void:
 	position += vel * dt
 	position = hunt.arena.resolve(position, radius)
 	var moving := vel.length()
-	tree.set("parameters/move/blend_amount", clampf(moving / 2.0, 0.0, 1.0))
-	tree.set("parameters/run_ts/scale", clampf(moving / speed, 0.6, 1.3))
-	# Facing: the target while attacking, else the way we run.
+	# Facing: the target while attacking, else the way we run. The turn rate is
+	# capped so a planted hero steps round instead of snapping.
 	if aim_hold > 0.0 and target and is_instance_valid(target) and target.alive:
 		aim_yaw = yaw_to(position, target.position)
-		face(aim_yaw, dt, 20.0)
+		face_capped(aim_yaw, dt, 20.0, TURN_MAX)
 	elif moving > 0.5:
-		face(atan2(vel.x, vel.z), dt, 14.0)
+		face_capped(atan2(vel.x, vel.z), dt, 14.0, TURN_MAX * 1.4)
+	anim_set.tick(dt, vel, speed, rotation.y, aim_hold > 0.0)
 	_tick_attack(dt)
 	_tick_later(dt)
 	_tick_target_ring()
@@ -1394,6 +1351,7 @@ func revive() -> void:
 	hp = max_hp * 0.5
 	invuln = 2.0
 	tree.active = true
+	anim_set.end_victory()
 	for b in blades:
 		b.visible = true
 	act("Spawn_Ground", 0.8, true)
