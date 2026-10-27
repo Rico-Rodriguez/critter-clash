@@ -126,6 +126,12 @@ var _xp_frac := 0.0
 var streak_t := 0.0
 
 
+## The Graphics setting resolved to low or high ("auto" asks the device).
+func _quality_low() -> bool:
+	var q := str(Game.setting("quality"))
+	return q == "low" or OS.has_feature("mobile") and q == "auto" and _weak_device()
+
+
 func _weak_device() -> bool:
 	var name_ := RenderingServer.get_video_adapter_name().to_lower()
 	return name_.contains("mali-g5") or name_.contains("adreno (tm) 5") or name_.contains("powervr")

@@ -75,5 +75,17 @@ func _apply(shake: float) -> void:
 		global_position += Vector3(_noise.get_noise_2d(_t * 30.0, 7.0), 0, _noise.get_noise_2d(7.0, _t * 30.0)) * 0.6 * shake
 
 
+## The player's camera preset ("close", "standard", "wide"). Applies on the
+## spot, also while the tree is paused, so the view behind the pause menu moves.
+static func preset_mult(name_: String) -> float:
+	return {"close": 0.86, "wide": 1.16}.get(name_, 1.0)
+
+
+func set_preset(name_: String) -> void:
+	dist_mult = preset_mult(name_)
+	if target:
+		_apply(0.0)
+
+
 func add_trauma(v: float) -> void:
 	trauma = clampf(trauma + v, 0.0, 1.0)

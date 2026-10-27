@@ -275,19 +275,90 @@ static func coin_fly(host: Control, from: Vector2, to: Control, n := 8, icon := 
 		t.tween_property(r, "position", end - r.size * 0.5, 0.42).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		t.parallel().tween_property(r, "scale", Vector2.ONE * 0.6, 0.42)
 		t.tween_callback(pop.bind(to, 1.15))
+		t.tween_callback(Sfx.play.bind("coin", -12.0, 1.0 + i * 0.05))
 		t.tween_callback(r.queue_free)
 
 
-## Squash on press, spring back on release. Wired to every button by UiJuice.
+## Where the last finger went down and when, so a reward that lands a moment
+## later can fly out of the button that earned it.
+static var last_tap := Vector2(-1.0, -1.0)
+static var last_tap_ms := -100000
+
+
+static func mark_tap(at: Vector2) -> void:
+	last_tap = at
+	last_tap_ms = Time.get_ticks_msec()
+
+
+## The last tap if it was within `ms`, else the middle of the screen.
+static func recent_tap(ms: int) -> Vector2:
+	if Time.get_ticks_msec() - last_tap_ms <= ms:
+		return last_tap
+	return (Engine.get_main_loop() as SceneTree).root.get_visible_rect().size * 0.5
+
+
+## The same as 0..1 of the screen, for the screen-change curtain.
+static func recent_tap_uv(ms: int) -> Vector2:
+	var size := (Engine.get_main_loop() as SceneTree).root.get_visible_rect().size
+	if Time.get_ticks_msec() - last_tap_ms <= ms:
+		return (last_tap / size).clamp(Vector2(0.05, 0.05), Vector2(0.95, 0.95))
+	return Vector2(0.5, 0.5)
+
+
+## Squash on press, a springy overshoot on release, and a brief brighten while
+## held. Wired to every button by UiJuice. A press on a greyed-out button
+## shakes it "no". Buttons with their own pulse or sway keep that instead.
 static func press_bounce(b: BaseButton) -> void:
 	if b.has_meta("fx_bounce"):
 		return
 	b.set_meta("fx_bounce", true)
 	b.button_down.connect(func() -> void:
+		if b.has_meta("fx_pulse") or b.has_meta("fx_bob"):
+			return
 		b.pivot_offset = b.size * 0.5
-		var t := b.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		t.tween_property(b, "scale", Vector2(0.97, 0.96), 0.06))
+		_kill_press(b)
+		if not b.has_meta("fx_tint"):
+			b.set_meta("fx_tint", b.self_modulate)
+		var t := b.create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.tween_property(b, "scale", Vector2(0.93, 0.92), 0.07)
+		t.tween_property(b, "self_modulate", (b.get_meta("fx_tint") as Color) * Color(1.22, 1.22, 1.22, 1.0), 0.07)
+		b.set_meta("fx_press", t))
 	b.button_up.connect(func() -> void:
-		var t := b.create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		t.tween_property(b, "scale", Vector2(1.015, 1.015), 0.08)
-		t.tween_property(b, "scale", Vector2.ONE, 0.16))
+		if not b.has_meta("fx_press"):
+			return
+		_kill_press(b)
+		var t := b.create_tween().set_parallel(true)
+		t.tween_property(b, "scale", Vector2(1.05, 1.05), 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.tween_property(b, "self_modulate", b.get_meta("fx_tint", Color.WHITE), 0.2)
+		t.chain().tween_property(b, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		b.set_meta("fx_press", t))
+	b.gui_input.connect(func(e: InputEvent) -> void:
+		if b.disabled and e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			deny(b))
+
+
+static func _kill_press(b: Control) -> void:
+	if b.has_meta("fx_press"):
+		var t: Tween = b.get_meta("fx_press")
+		if t and t.is_valid():
+			t.kill()
+		b.remove_meta("fx_press")
+
+
+## A quick side-to-side shake for something that can't be done right now.
+static func deny(c: Control) -> void:
+	if c.has_meta("fx_deny"):
+		return
+	_center(c)
+	c.set_meta("fx_deny", true)
+	var t := c.create_tween().set_trans(Tween.TRANS_SINE)
+	for d in [-7.0, 7.0, -4.0, 4.0, 0.0]:
+		t.tween_property(c, "rotation_degrees", d * 0.45, 0.05)
+	t.tween_callback(func() -> void: c.remove_meta("fx_deny"))
+
+
+## A quick red wash on a chip whose number just went down.
+static func deny_flash(c: Control) -> void:
+	var t := c.create_tween().set_trans(Tween.TRANS_SINE)
+	t.tween_property(c, "self_modulate", Color(1.5, 0.7, 0.65), 0.08)
+	t.tween_property(c, "self_modulate", Color.WHITE, 0.3)

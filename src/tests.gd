@@ -254,6 +254,7 @@ func run() -> int:
 	_stage_tests()
 	_gate_tests()
 	_event_tests()
+	_settings_tests()
 	_store_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
@@ -320,6 +321,7 @@ func run() -> int:
 		(lk["root"] as Node).free()
 	_ok("sf: sidekick materials lit, opaque, no emission %s" % [mat_bad], mat_bad.is_empty())
 	preload("res://src/vfx/vfx_tests.gd").run(_ok)
+	preload("res://src/hunt/anim_tests.gd").run(_ok)
 	preload("res://src/hunt/boss_intro_tests.gd").run(_ok)
 	return _fails
 
@@ -1739,4 +1741,72 @@ func _event_tests() -> void:
 	_ok("event: finish_hunt carries the points", int(s["event_pts"]) > 0 and int(s["event_total"]) == Game.event_points())
 	var sb := Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "mode": "horde", "time": 120.0, "chest": "silver", "omen": "", "hero": "knight", "level": 6, "gold": 10, "xp": {}, "items": [], "kills": 5, "elites": 0})
 	_ok("event: a plain hunt reports none", not sb.has("event_pts"))
+	Game.data = keep
+
+
+## Every pause-menu and settings option: it is saved at once, and a running
+## hunt shows the change at once (camera, buttons, shake, graphics).
+func _settings_tests() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var keep := Game.data.duplicate(true)
+	Game.data = Game._fresh()
+	var seen: Array[String] = []
+	var rec := func(k: String): seen.append(k)
+	Game.setting_changed.connect(rec)
+	Game.set_setting("camera", "wide")
+	_ok("settings: a change is announced", seen == ["camera"])
+	Game.setting_changed.disconnect(rec)
+	_ok("settings: it survives a save round trip", JSON.parse_string(JSON.stringify(Game.data["settings"]))["camera"] == "wide")
+	Game.data = Game._fresh()
+	var h := Hunt.new()
+	tree.root.add_child(h)
+	_ok("settings: a hunt starts on the saved camera", is_equal_approx(h.cam.dist_mult, 1.0))
+	for pair in [["close", 0.86], ["wide", 1.16], ["standard", 1.0]]:
+		Game.set_setting("camera", pair[0])
+		_ok("settings: camera %s applies in the hunt" % pair[0], is_equal_approx(h.cam.dist_mult, float(pair[1])))
+	var before := h.cam.global_position
+	Game.set_setting("camera", "wide")
+	_ok("settings: the camera moves right away, even paused", h.cam.global_position.distance_to(before) > 1.0)
+	Game.set_setting("shake", false)
+	h.shake(1.0)
+	_ok("settings: shake off stops the shake", not h.cam.shake_enabled)
+	Game.set_setting("shake", true)
+	_ok("settings: shake on", h.cam.shake_enabled)
+	Game.set_setting("buttons", "left")
+	_ok("settings: buttons move to the left", h.hud.get_node("%Dash").anchor_left == 0.0 and h.hud.get_node("%Super").anchor_left == 0.0)
+	Game.set_setting("buttons", "right")
+	_ok("settings: buttons move back to the right", h.hud.get_node("%Dash").anchor_left == 1.0)
+	var grass: int = h.arena._grass_n
+	Game.set_setting("quality", "low")
+	_ok("settings: low graphics drops ambient occlusion, grass and mist", h.low and h.fx.quality_low and h.fx.vfx.quality_low and not h.arena.env.ssao_enabled and h.arena._grass_mm.visible_instance_count < grass and h.arena._mist.amount == 26)
+	Game.set_setting("quality", "high")
+	_ok("settings: high graphics brings them back", not h.low and h.arena.env.ssao_enabled and h.arena._grass_mm.visible_instance_count == grass and h.arena._mist.amount == 48)
+	# The pause menu's own buttons write the same settings.
+	var pause: Control = load("res://src/ui/pause.tscn").instantiate()
+	tree.root.add_child(pause)
+	pause.open(h)
+	var box: Control = pause.find_children("*", "VBoxContainer", true, false).filter(func(n): return n is SettingsBox)[0]
+	var wide: Button = null
+	var notes := 0
+	for b in box.find_children("*", "Button", true, false):
+		if (b as Button).text == "Close":
+			wide = b
+	for l in box.find_children("*", "Label", true, false):
+		if (l as Label).text.contains("next hunt"):
+			notes += 1
+	_ok("settings: the pause menu has the camera row and no next-hunt note", wide != null and notes == 0)
+	wide.pressed.emit()
+	_ok("settings: tapping Close in the pause menu moves the live camera", Game.setting("camera") == "close" and is_equal_approx(h.cam.dist_mult, 0.86))
+	var lifted: float = pause.get_node("Scrim").modulate.a
+	_ok("settings: the pause scrim lifts to show the new view", lifted < 1.0 or pause._peek != null)
+	pause.free()
+	var camp := SettingsBox.new()
+	tree.root.add_child(camp)
+	var camp_notes := 0
+	for l in camp.find_children("*", "Label", true, false):
+		if (l as Label).text.contains("next hunt"):
+			camp_notes += 1
+	_ok("settings: the camp says changes wait for the next hunt", camp_notes == 1)
+	camp.free()
+	h.free()
 	Game.data = keep

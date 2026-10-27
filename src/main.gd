@@ -8,6 +8,8 @@ extends Node
 const LOBBY := preload("res://src/lobby/lobby.tscn")
 const Online := preload("res://src/net/online.gd")
 const UiJuice := preload("res://src/ui/ui_juice.gd")
+const IRIS := preload("res://src/fx/ui_iris.gdshader")
+const FxUi := preload("res://src/ui/fx_ui.gd")
 const AppGate := preload("res://src/core/app_gate.gd")
 const STORY_DB := preload("res://src/data/story_db.gd")
 const CUTSCENE := preload("res://src/ui/cutscene.gd")
@@ -17,6 +19,7 @@ const CrashReport := preload("res://src/core/crash_report.gd")
 var current: Node
 var _gate: Node
 var _fade: ColorRect
+var _emblem: TextureRect
 var _busy := false
 ## A chest won in the last hunt, waiting to be opened in camp.
 var pending_chest := ""
@@ -34,7 +37,10 @@ func _ready() -> void:
 	_fade.color = Color(0.01, 0.01, 0.02, 1.0)
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade.material = ShaderMaterial.new()
+	_fade.material.shader = IRIS
 	layer.add_child(_fade)
+	_iris(1.0, 0.0)
 	add_child(UiJuice.new())
 	var args := OS.get_cmdline_user_args()
 	if args.has("--notch"):
@@ -110,14 +116,42 @@ func _on_party_start(plan: Dictionary) -> void:
 	go("hunt")
 
 
+## Closes (to 1.0) or opens (to 0.0) the screen-change curtain around `at`
+## (0..1 of the screen). A zero duration just sets it. The emblem shows while
+## the curtain is shut.
+func _iris(to: float, dur: float, at := Vector2(0.5, 0.5)) -> void:
+	var m := _fade.material as ShaderMaterial
+	m.set_shader_parameter("view_size", get_viewport().get_visible_rect().size)
+	m.set_shader_parameter("center", at)
+	if _emblem == null:
+		_emblem = Ui.icon_rect("crossed-swords", 150, Color(1.0, 0.8, 0.4, 0.0))
+		_emblem.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		_emblem.pivot_offset = Vector2(75, 75)
+		_emblem.offset_left = -75.0
+		_emblem.offset_right = 75.0
+		_emblem.offset_top = -75.0
+		_emblem.offset_bottom = 75.0
+		_fade.add_child(_emblem)
+	var cur = m.get_shader_parameter("closed")
+	var from := float(cur) if cur != null else 0.0
+	if dur <= 0.0:
+		m.set_shader_parameter("closed", to)
+		_emblem.modulate.a = to
+		return
+	var t := create_tween().set_ignore_time_scale(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	t.tween_method(func(v: float) -> void:
+		m.set_shader_parameter("closed", v)
+		_emblem.modulate.a = clampf((v - 0.7) / 0.3, 0.0, 1.0)
+		_emblem.scale = Vector2.ONE * (0.7 + 0.3 * clampf((v - 0.5) * 2.0, 0.0, 1.0)), from, to, dur)
+	await t.finished
+
+
 func go(screen: String) -> void:
 	if _busy:
 		return
 	_busy = true
 	if current:
-		var t := create_tween()
-		t.tween_property(_fade, "color:a", 1.0, 0.25)
-		await t.finished
+		await _iris(1.0, 0.4, FxUi.recent_tap_uv(1200))
 		current.queue_free()
 		current = null
 		await get_tree().process_frame
@@ -135,9 +169,8 @@ func go(screen: String) -> void:
 			current = h
 			add_child(h)
 	await get_tree().process_frame
-	var t2 := create_tween()
-	t2.tween_property(_fade, "color:a", 0.0, 0.35)
 	_busy = false
+	await _iris(0.0, 0.55, Vector2(0.5, 0.46))
 
 
 func _on_hunt_finished(result: Dictionary) -> void:
@@ -466,6 +499,8 @@ func _capture(args: PackedStringArray) -> void:
 	_fade.visible = false
 	for shot in want:
 		match shot:
+			"uipress", "uifly1", "uifly2", "uiiris1", "uiiris2", "uideny":
+				await _uifx_shot(shot)
 			"privacy":
 				# The first-launch privacy screen, as a new player sees it.
 				var pv: CanvasLayer = load("res://src/core/privacy.gd").new()
@@ -664,6 +699,8 @@ func _capture(args: PackedStringArray) -> void:
 			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins", "outfits":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
+			"animclips", "animhero":
+				await preload("res://src/hunt/anim_capture.gd").shoot(self, shot, args)
 			"gear":
 				# The equipment screen, its bag filtered to one slot, a piece's
 				# card and its Improve panel; then the Heroes sheet's other tabs.
@@ -796,6 +833,28 @@ func _capture(args: PackedStringArray) -> void:
 					hs._drop_item(hs.hero.flat_pos() + Vector3(2.0, 0, -1.5), Game.make_unique("crown"))
 					await _wait(1.0)
 				await _save(shot)
+			"settingslive":
+				# The pause menu's camera and button rows change the live hunt:
+				# standard view, then Close, Wide and left-hand buttons.
+				_set_screen_now("hunt")
+				var hp: Hunt = current
+				hp.bot = true
+				hp._bot = HuntBot.new()
+				hp._bot.hunt = hp
+				await _wait_sim(hp, 8.0)
+				hp.hud._open_pause()
+				await _wait(0.6)
+				var pm: Control = hp.hud.get_children().back()
+				await _save("settings_0_menu")
+				var rows := {}
+				for bt in pm.find_children("*", "Button", true, false):
+					rows[(bt as Button).text] = bt
+				for step in [["Close", "settings_1_close"], ["Wide", "settings_2_wide"], ["Left", "settings_3_left"], ["Low", "settings_4_low"]]:
+					(rows[step[0]] as Button).pressed.emit()
+					await _wait(0.4)
+					await _save(step[1])
+					await _wait(1.6)
+				await _save("settings_5_menu_after")
 			"devpanel":
 				_set_screen_now("hunt")
 				var hd: Hunt = current
@@ -1512,6 +1571,36 @@ func _contact_sheet(kind: String, only := "") -> void:
 	var w_total := cols * (1.7 if kind == "parts" else 1.0)
 	cam.look_at_from_position(Vector3(0, -(rows - 1) * (1.1 if kind == "parts" else 0.7) + (0.9 if kind == "parts" else 0.0), 11.0 + rows * 1.5), Vector3(0, -(rows - 1) * (1.1 if kind == "parts" else 0.7) + (0.9 if kind == "parts" else 0.0), 0), Vector3.UP)
 	await _wait(1.0)
+
+
+## Mid-motion shots of the menu polish: a held button, coins in flight into the
+## gold chip, the screen-change curtain half shut.
+func _uifx_shot(shot: String) -> void:
+	_set_screen_now("lobby")
+	await _wait(1.2)
+	var ui: LobbyUI = current.ui
+	match shot:
+		"uipress":
+			var b: Button = ui.get_node("%Hunt")
+			b.button_down.emit()
+			await _wait(0.12)
+		"uideny":
+			var b2: Button = ui.get_node("%Hunt")
+			b2.disabled = true
+			FxUi.deny(b2)
+			await _wait(0.1)
+		"uifly1", "uifly2":
+			FxUi.mark_tap(ui.get_node("%Hunt").get_global_rect().get_center())
+			Game.data["gold"] = int(Game.data["gold"]) + 2400
+			Game.data["gems"] = int(Game.data.get("gems", 0)) + 35
+			Game.changed.emit()
+			await _wait(0.6 if shot == "uifly1" else 2.6)
+		"uiiris1", "uiiris2":
+			_fade.visible = true
+			_iris(0.0, 0.0)
+			_iris(1.0, 0.6, Vector2(0.5, 0.8))
+			await _wait(0.4 if shot == "uiiris1" else 0.8)
+	await _save(shot)
 
 
 func _save(name_: String) -> void:

@@ -3,6 +3,8 @@ extends Node
 ## saving, and the plain accessors every screen reads.
 
 signal changed
+## A player setting was written (pause menu or camp); a running hunt applies it at once.
+signal setting_changed(key: String)
 
 const SAVE_PATH := "user://barrowfall_save.json"
 const SAVE_VERSION := 9
@@ -221,6 +223,7 @@ func setting(key: String):
 func set_setting(key: String, value) -> void:
 	data["settings"][key] = value
 	save()
+	setting_changed.emit(key)
 
 
 ## Each hero trains their own skills. An empty id means the selected hero.
