@@ -79,7 +79,7 @@ func play(host: Control, res: Dictionary, on_done := Callable()) -> void:
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_flash)
 	_tween = create_tween()
-	_tween.tween_property(scrim, "color:a", 0.9, 0.3)
+	_tween.tween_property(scrim, "color:a", 0.95, 0.3)
 	_tween.parallel().tween_property(_egg, "modulate:a", 1.0, 0.2)
 	_tween.parallel().tween_property(_egg, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_tween.parallel().tween_property(_rays, "reach", 520.0, 0.9).set_ease(Tween.EASE_OUT)
@@ -112,7 +112,7 @@ func _burst() -> void:
 	_flash.color = Color(1, 1, 1, 0.95)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(_flash, "color:a", 0.0, 0.45).set_ease(Tween.EASE_OUT)
-	t.tween_property(_rays, "alpha", 0.35 + 0.1 * _rar, 0.3)
+	t.tween_property(_rays, "alpha", 0.2 + 0.06 * _rar, 0.3)
 	t.tween_property(_rays, "reach", 640.0 + 60.0 * _rar, 0.5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	_sparks()
 	_reveal()
