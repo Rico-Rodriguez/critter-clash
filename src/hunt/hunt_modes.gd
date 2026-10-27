@@ -3,6 +3,7 @@ extends "res://src/hunt/hunt_events.gd"
 ## the Wilderness rivals, the Descent's depths and pacts, Boss Rush, and
 ## waking a boss.
 
+const BossIntro := preload("res://src/hunt/boss_intro.gd")
 
 # --- The Long Road ------------------------------------------------------------
 
@@ -356,7 +357,7 @@ func _begin_boss() -> void:
 	boss_at = time
 	phase = "boss_intro"
 	phase_t = 0.0
-	hero.invuln = 3.0
+	hero.invuln = BossIntro.LENGTH + 0.6
 	# The King draws every soul to himself: the risen fall where they stand.
 	for f in foes.duplicate():
 		if f.alive:
@@ -385,9 +386,12 @@ func _begin_boss() -> void:
 	fx.vfx.impact(&"shadow", arena.boss_spawn, 2.5, Fx.VfxLib.NO_TINT, &"big")
 	shake(0.8)
 	Sfx.music(str(zone.get("boss_music", "boss")) if mode != "rift" else "rift", 0.6)
-	Sfx.play("boss_roar", 2.0)
-	var bd := boss_def(cur_boss)
-	banner(str(bd["name"]), Color(bd["color"]).lightened(0.25), str(bd["wake"]))
+	# The entrance's name card replaces the banner; the boss holds still for it.
+	if boss.state == "intro":
+		boss.state_t = BossIntro.LENGTH
+	var intro := BossIntro.new()
+	hud.add_child(intro)
+	intro.setup(self, cur_boss)
 	if cur_boss == "gravemaw":
 		tip("exposed", "Bait his charge into a wall: a dazed king takes 50% more", "bullseye")
 	else:

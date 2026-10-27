@@ -320,6 +320,7 @@ func run() -> int:
 		(lk["root"] as Node).free()
 	_ok("sf: sidekick materials lit, opaque, no emission %s" % [mat_bad], mat_bad.is_empty())
 	preload("res://src/vfx/vfx_tests.gd").run(_ok)
+	preload("res://src/hunt/boss_intro_tests.gd").run(_ok)
 	return _fails
 
 
