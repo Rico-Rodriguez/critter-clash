@@ -33,6 +33,9 @@ var _tab_btns := {}
 var _tab_dots := {}
 var _rail_r: VBoxContainer
 var _season_label: Label
+var _story_label: Label
+var _story_btn: Button
+var _story_tween: Tween
 ## A horizontal swipe in progress: where and when the finger went down.
 var _sw_from := Vector2.ZERO
 var _sw_t := -1.0
@@ -373,6 +376,11 @@ func _build_side() -> void:
 	_rail_r.offset_top = 18.0
 	%Space.add_child(_rail_r)
 	_rail_r.add_child(_rail_button("idle", "campfire", "Campfire"))
+	# The story is a headline, not a tile in Quests: open from the first launch.
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 18)
+	_rail_r.add_child(gap)
+	_rail_r.add_child(_rail_button("story", "scroll-unfurled", "Story"))
 
 
 func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
@@ -404,6 +412,27 @@ func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
 		_idle_label = l
 	if key == "season":
 		_season_label = l
+	if key == "story":
+		_story_label = l
+		_story_btn = b
+		b.name = "StoryButton"
+		b.custom_minimum_size = Vector2(84, 84)
+		# The badge carries the waiting chapter's number.
+		badge.custom_minimum_size = Vector2(26, 26)
+		badge.position = Vector2(60, -2)
+		var num := Ui.label("1", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		num.name = "Num"
+		num.add_theme_font_size_override("font_size", 15)
+		num.add_theme_color_override("font_color", Color.WHITE)
+		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		badge.add_child(num)
+		l.add_theme_color_override("font_color", Color("f3d58f"))
+		# A slow breath while a chapter waits, pivoting on the button's middle.
+		b.pivot_offset = Vector2(42, 42)
+		var tw := b.create_tween().set_loops()
+		_story_tween = tw
+		tw.tween_property(b, "scale", Vector2(1.06, 1.06), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_property(b, "scale", Vector2.ONE, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	return col
 
 
@@ -415,6 +444,14 @@ func _refresh_side() -> void:
 	_side_badges["season"].visible = Game.season_claimable() > 0
 	_side_badges["event"].visible = Game.event_claimable() > 0
 	_season_label.text = "TIER %d" % Game.season_level()
+	var story_left := Game.story_next() < STORY_DB.count()
+	_side_badges["story"].visible = story_left
+	_story_label.text = "STORY" if story_left else "STORY ✓"
+	(_side_badges["story"].get_node("Num") as Label).text = str(Game.story_next() + 1)
+	if not story_left and _story_tween != null:
+		_story_tween.kill()
+		_story_tween = null
+		_story_btn.scale = Vector2.ONE
 	var g := Game.idle_gold()
 	_side_badges["idle"].visible = g >= 50
 	_idle_label.text = "+%d" % g if g >= 50 else "CAMPFIRE"
@@ -439,6 +476,8 @@ func _side_pressed(key: String) -> void:
 			open_sheet("season")
 		"event":
 			open_sheet("event")
+		"story":
+			open_sheet("story")
 
 
 ## True while the home is showing with nothing over it (taps on the hero open
