@@ -303,6 +303,73 @@ func claim_event() -> Dictionary:
 	return pay_reward(DB.event_reward(int(e["claimed"])))
 
 
+# --- Story campaign -----------------------------------------------------------
+
+const STORY := preload("res://src/data/story_db.gd")
+
+
+func story_cleared(id: String) -> bool:
+	return id in data["story"]["cleared"]
+
+
+## A chapter opens once the one before it is cleared.
+func story_open(i: int) -> bool:
+	return i == 0 or (i > 0 and i < STORY.count() and story_cleared(str(STORY.CHAPTERS[i - 1]["id"])))
+
+
+## The first chapter not yet cleared (count() when the story is done).
+func story_next() -> int:
+	for i in STORY.count():
+		if not story_cleared(str(STORY.CHAPTERS[i]["id"])):
+			return i
+	return STORY.count()
+
+
+## Queues chapter `id` for the next hunt. False when it is not open.
+func story_begin(id: String) -> bool:
+	var i := STORY.index(id)
+	if i < 0 or not story_open(i):
+		return false
+	data["story"]["run"] = id
+	save()
+	return true
+
+
+## The chapter the hunt now starting plays ({} for a normal hunt). Consumed:
+## a hunt that is left or lost does not leave the chapter queued.
+func story_take() -> Dictionary:
+	var id := str(data["story"].get("run", ""))
+	data["story"]["run"] = ""
+	return STORY.chapter(id)
+
+
+## Pays a won chapter hunt: first clears pay the chapter reward, the chapter's
+## own hero adds 25%. Returns {id, first, gold, gems, shards, glow, hero_bonus}.
+func story_clear(r: Dictionary) -> Dictionary:
+	var ch: Dictionary = STORY.chapter(str(r.get("story", "")))
+	if ch.is_empty():
+		return {}
+	var first := not story_cleared(str(ch["id"]))
+	var out := {"id": str(ch["id"]), "first": first, "gold": 0, "gems": 0, "shards": 0, "glow": "", "hero_bonus": false}
+	if first:
+		var rw: Dictionary = ch["reward"]
+		var bonus := 1.25 if str(r.get("hero", "")) == str(ch["hero"]) else 1.0
+		out["hero_bonus"] = bonus > 1.0
+		out["gold"] = int(round(int(rw.get("gold", 0)) * bonus))
+		out["gems"] = int(round(int(rw.get("gems", 0)) * bonus))
+		out["shards"] = int(round(int(rw.get("shards", 0)) * bonus))
+		data["gold"] = gold() + int(out["gold"])
+		data["gems"] = int(data.get("gems", 0)) + int(out["gems"])
+		hero(str(ch["hero"]))["shards"] = int(hero(str(ch["hero"]))["shards"]) + int(out["shards"])
+		if str(rw.get("glow", "")) != "":
+			out["glow"] = str(rw["glow"])
+			for id in DB.HERO_ORDER:
+				if not rw["glow"] in hero(id)["glows"]:
+					hero(id)["glows"].append(rw["glow"])
+		data["story"]["cleared"].append(str(ch["id"]))
+	return out
+
+
 ## The nearest goal worth chasing, for the camp ("An XP lamp is ready").
 func next_goal() -> String:
 	var id := hero_id()
