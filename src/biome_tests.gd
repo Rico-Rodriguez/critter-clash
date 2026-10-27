@@ -56,10 +56,8 @@ static func _loot(ok: Callable) -> void:
 		ok.call("loot %s: more than one gear slot" % boss, slots.size() >= 3)
 	for egg in ["frost", "cinder"]:
 		var e: Dictionary = SDB.EGGS[egg]
-		var w := 0
-		for pid: String in e["pool"]:
-			w += int(e["pool"][pid])
-		ok.call("egg %s: a pool of real pets" % egg, w > 0 and (e["pool"] as Dictionary).keys().all(func(p): return SDB.ROSTER.has(p)))
+		var pool: Array = e["pool"]
+		ok.call("egg %s: a pool of real pets" % egg, pool.size() >= 4 and pool.all(func(r): return SDB.ROSTER.has(str(r[0])) and int(r[1]) > 0))
 		ok.call("egg %s: comes from a Trophy Road step" % egg, DB.TROPHY_ROAD.any(func(st): return str(st["kind"]) == "egg" and str(st.get("egg", "")) == egg))
 
 
