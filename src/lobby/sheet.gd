@@ -154,9 +154,11 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	var end_y := panel.position.y
 	panel.position.y = end_y + panel.size.y
 	scrim.modulate.a = 0.0
-	var t := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	t.tween_property(panel, "position:y", end_y, 0.32)
-	t.tween_property(scrim, "modulate:a", 1.0, 0.25)
+	var t := create_tween().set_parallel(true).set_ease(Tween.EASE_OUT)
+	# A small overshoot: the sheet lands with a spring, not a stop.
+	t.tween_property(panel, "position:y", end_y, 0.42).set_trans(Tween.TRANS_BACK)
+	t.tween_property(scrim, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_CUBIC)
+	FxUi.deal_in(body, 0.04, 0.9)
 	Sfx.play("ui_tap", -4.0)
 
 

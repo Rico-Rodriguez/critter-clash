@@ -36,6 +36,7 @@ var _sw_t := -1.0
 var _sw_index := -1
 ## The chest being opened was bought in the Shop: -1 off the shelf, else the deal.
 var _bought_deal := -2
+var _gold_delay := 0.0
 
 
 func setup(l: Node3D) -> void:
@@ -70,13 +71,20 @@ func setup(l: Node3D) -> void:
 	# The mode card right above HUNT says what you'll play and changes it.
 	%Expedition.pressed.connect(func(): open_sheet("expedition"))
 	%GoldIcon.texture = Ui.icon("two-coins")
+	_build_gem_chip()
 	_build_tabs()
 	_build_side()
 	_dress_home()
 	Game.changed.connect(refresh)
 	_social_setup()
+	var m = lobby.main
+	if m != null and int(m.gold_seen) >= 0 and int(m.gold_seen) < Game.gold():
+		_gold_shown = int(m.gold_seen)
+		_gold_delay = 0.7
+		%Gold.text = Ui.fmt_num(_gold_shown)
+	if m != null:
+		m.gold_seen = -1
 	refresh()
-	_count_gold_in()
 
 
 ## The home's motion: shine on the HUNT button and the pills, breathing
@@ -95,7 +103,8 @@ func _dress_home() -> void:
 
 
 func refresh() -> void:
-	%Gold.text = Ui.fmt_num(Game.gold())
+	_sync_currency(_gold_delay)
+	_gold_delay = 0.0
 	var id := _shown_hero
 	var d: Dictionary = DB.HEROES[id]
 	var h := Game.hero(id)
@@ -146,21 +155,101 @@ func refresh() -> void:
 	_first_steps()
 
 
-## Back from a hunt: the gold on the top bar ticks up from what it was.
-func _count_gold_in() -> void:
-	var m = lobby.main
-	if m == null or int(m.gold_seen) < 0 or int(m.gold_seen) >= Game.gold():
+## What the top bar shows now (it lags Game while a count-up runs), and the
+## count-up in flight. -1 until the first refresh.
+var _gold_shown := -1
+var _gems_shown := -1
+var _gold_tween: Tween
+var _gem_tween: Tween
+var _gem_chip: PanelContainer
+var _gem_label: Label
+## While a chest opens the bar is hidden and its rewards are not in yet; the
+## count-up and the flying coins wait for the collect.
+var _currency_held := false
+
+
+## Back from a hunt the gold ticks up from what it was; after that, any change
+## to gold or gems counts the chip up (or down) and, for a gain, flies coins in
+## from the last thing the player touched.
+func _sync_currency(delay := 0.0) -> void:
+	if _currency_held:
 		return
-	var from := int(m.gold_seen)
-	m.gold_seen = -1
-	var to := Game.gold()
+	_sync_chip("gold", Game.gold(), delay)
+	_sync_chip("gems", SKS.gems(Game.data), delay)
+
+
+func hold_currency(on: bool) -> void:
+	_currency_held = on
+	if not on:
+		_sync_currency()
+
+
+func _sync_chip(kind: String, now: int, delay: float) -> void:
+	var gold := kind == "gold"
+	var shown := _gold_shown if gold else _gems_shown
+	var label: Label = %Gold if gold else _gem_label
+	if gold:
+		_gold_shown = now
+	else:
+		_gems_shown = now
+		_gem_chip.visible = now > 0 or shown > 0
+	var running: Tween = _gold_tween if gold else _gem_tween
+	if shown < 0 or (now == shown and running == null):
+		label.text = Ui.fmt_num(now)
+		return
+	if now == shown:
+		return
+	var from := shown
+	if running and running.is_valid():
+		if label.has_meta("count_at"):
+			from = int(label.get_meta("count_at"))
+		running.kill()
+	var up := now > from
+	var chip: Control = %GoldChip if gold else _gem_chip
+	var dur := clampf(0.45 + absf(now - from) / 400.0, 0.5, 1.3) if up else 0.4
 	var t := create_tween()
-	t.tween_interval(0.6)
-	t.tween_method(func(v: float):
-		%Gold.text = Ui.fmt_num(int(v))
-		if randf() < 0.3:
-			Sfx.play("coin", -14.0, 1.2), float(from), float(to), 1.1)
-	%Gold.text = Ui.fmt_num(from)
+	if delay > 0.0:
+		t.tween_interval(delay)
+	if up and chip.is_visible_in_tree():
+		var src := FxUi.recent_tap(1500)
+		var icon := "two-coins" if gold else "gems"
+		var tint := Color(1.0, 0.84, 0.4) if gold else Color(0.55, 0.9, 1.0)
+		var n := clampi(4 + int(log(float(now - from) + 1.0)), 5, 12)
+		t.tween_callback(FxUi.coin_fly.bind(%Overlay, src, chip, n, icon, tint))
+		t.tween_interval(0.35)
+	t.tween_method(func(v: float) -> void:
+		label.set_meta("count_at", int(v))
+		label.text = Ui.fmt_num(int(v)), float(from), float(now), dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_callback(func() -> void:
+		label.text = Ui.fmt_num(now)
+		label.remove_meta("count_at")
+		FxUi.pop(label, 1.2))
+	if gold:
+		_gold_tween = t
+	else:
+		_gem_tween = t
+	if not up:
+		FxUi.deny_flash(chip)
+
+
+func _build_gem_chip() -> void:
+	var gold := %GoldChip as PanelContainer
+	_gem_chip = PanelContainer.new()
+	_gem_chip.theme_type_variation = gold.theme_type_variation
+	_gem_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gem_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_gem_chip.visible = false
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(Ui.icon_rect("gems", 30, Color(0.55, 0.9, 1.0)))
+	_gem_label = Ui.label("0", "Value")
+	_gem_label.add_theme_font_size_override("font_size", 24)
+	_gem_label.add_theme_color_override("font_color", Color(0.7, 0.93, 1.0))
+	row.add_child(_gem_label)
+	_gem_chip.add_child(row)
+	gold.get_parent().add_child(_gem_chip)
+	gold.get_parent().move_child(_gem_chip, gold.get_index())
 
 
 # --- First steps: a new player sees less and is pointed at the next thing --
@@ -322,7 +411,6 @@ func _side_pressed(key: String) -> void:
 			var g := Game.claim_idle()
 			if g > 0:
 				Sfx.play("coin", 0.0)
-				FxUi.coin_fly(%Overlay, _idle_label.get_global_rect().get_center(), %GoldChip, 8)
 				_float_text(_idle_label, "+%d gold" % g, Color(1.0, 0.85, 0.4))
 			else:
 				_float_text(_idle_label, "%d gold an hour" % rate, Color(0.85, 0.8, 0.7))
@@ -545,6 +633,7 @@ func _open_chest() -> void:
 		return
 	show_tab("hunt")
 	chest_opening = true
+	hold_currency(true)
 	%Safe.visible = false
 	%NavBar.visible = false
 	var ov := preload("res://src/lobby/chest_open.gd").new()
@@ -572,6 +661,7 @@ func chest_done() -> void:
 	chest_opening = false
 	%Safe.visible = true
 	%NavBar.visible = true
+	hold_currency(false)
 	FxUi.still(%Chest)
 	lobby.remove_chest()
 	refresh()

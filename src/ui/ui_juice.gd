@@ -13,3 +13,9 @@ func _ready() -> void:
 func _on_node_added(n: Node) -> void:
 	if n is BaseButton and not n.has_meta("no_juice"):
 		FxUi.press_bounce(n as BaseButton)
+
+
+## Remembers where the last finger went down (see FxUi.last_tap).
+func _input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+		FxUi.mark_tap(e.position)
