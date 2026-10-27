@@ -20,11 +20,16 @@ func _build_journal(s: Sheet) -> void:
 	grid.add_child(_reward_tile("archery-target", "Bounties", "%d / %d" % [done, list.size()], float(done) / maxf(list.size(), 1.0), Game.bounty_claimable(), "bounties"))
 	var got: int = Game.data["achievements"].size()
 	grid.add_child(_reward_tile("trophy", "Feats", "%d / %d" % [got, DB.ACHIEVEMENTS.size()], float(got) / DB.ACHIEVEMENTS.size(), Game.achievement_claimable(), "feats"))
+	var cleared: int = Game.data["story"]["cleared"].size()
+	var nxt := Game.story_next()
+	grid.add_child(_reward_tile("scroll-unfurled", "Story", "Done" if nxt >= STORY_DB.count() else "Chapter %d" % (nxt + 1), float(cleared) / STORY_DB.count(), 1 if nxt < STORY_DB.count() else 0, "story"))
 	s.body.add_child(grid)
 	FxUi.deal_in(grid, 0.06)
 
 
-const JOURNAL_TILE := {"daily": &"TileGold", "bounties": &"TileBlue", "road": &"TileRed", "season": &"TilePurple", "feats": &"TileGreen", "log": &"TileSlate"}
+const STORY_DB := preload("res://src/data/story_db.gd")
+const CUTSCENE := preload("res://src/ui/cutscene.gd")
+const JOURNAL_TILE := {"story": &"TileRed", "daily": &"TileGold", "bounties": &"TileBlue", "road": &"TileRed", "season": &"TilePurple", "feats": &"TileGreen", "log": &"TileSlate"}
 
 
 ## A tile of the Journal grid, in its track's color. `frac` < 0 leaves out the
@@ -82,6 +87,83 @@ func _reward_tile(icon: String, title: String, status: String, frac: float, read
 		Sfx.play("ui_tap", -4.0)
 		open_sheet(sheet))
 	return btn
+
+
+## The story: one card per chapter, in order. A chapter opens once the one
+## before it is cleared; its hero plays it for a 25% bigger first-clear prize.
+func _build_story(s: Sheet) -> void:
+	var b := s.body
+	var cleared: int = Game.data["story"]["cleared"].size()
+	b.add_child(_row([Ui.label("Gravelight", "Heading"), _spacer(), Ui.label("%d / %d chapters" % [cleared, STORY_DB.count()], "Small")]))
+	for i in STORY_DB.count():
+		var ch: Dictionary = STORY_DB.CHAPTERS[i]
+		var open := Game.story_open(i)
+		var done := Game.story_cleared(str(ch["id"]))
+		var hd: Dictionary = DB.HEROES[str(ch["hero"])]
+		var c := _card()
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 6)
+		var top := _row([Ui.icon_rect(str(hd["icon"]), 58, Color(hd["color"]) if open else Color(1, 1, 1, 0.4))], 14)
+		var tv := VBoxContainer.new()
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tv.add_theme_constant_override("separation", 0)
+		tv.add_child(Ui.label("CHAPTER %d · %s" % [i + 1, str(DB.zone(str(ch["zone"]))["name"]).to_upper()], "Caption"))
+		tv.add_child(Ui.label(("✓ " if done else "") + str(ch["title"]), "Heading"))
+		top.add_child(tv)
+		v.add_child(top)
+		var bl := Ui.label(str(ch["blurb"]) if open else "Clear Chapter %d to open this one." % i, "Small")
+		bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(bl)
+		var bd: Dictionary = STORY_DB.boss_def(DB.boss_def(str(ch["boss"])), str(ch["boss"]), ch)
+		var foe := Ui.label("Boss: %s, %s · Best with the %s" % [bd["name"], bd["title"], hd["name"]], "Small")
+		foe.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		foe.add_theme_color_override("font_color", Color(bd["color"]).lightened(0.2))
+		v.add_child(foe)
+		v.add_child(Ui.label(("First clear: " if not done else "Cleared · ") + _story_reward_text(ch), "Small"))
+		if open:
+			var btn := Button.new()
+			btn.text = "Replay" if done else "Begin"
+			btn.theme_type_variation = &"Ghost" if done else &"GoldButton"
+			btn.focus_mode = Control.FOCUS_NONE
+			btn.custom_minimum_size = Vector2(0, 64)
+			btn.pressed.connect(func():
+				Sfx.play("ui_press", 0.0)
+				_begin_story(ch))
+			v.add_child(btn)
+		else:
+			c.modulate = Color(1, 1, 1, 0.55)
+		c.add_child(v)
+		b.add_child(c)
+
+
+func _story_reward_text(ch: Dictionary) -> String:
+	var rw: Dictionary = ch["reward"]
+	var parts: Array[String] = []
+	if int(rw.get("gold", 0)) > 0:
+		parts.append("%s gold" % Ui.fmt_num(int(rw["gold"])))
+	if int(rw.get("gems", 0)) > 0:
+		parts.append("%d gems" % int(rw["gems"]))
+	if int(rw.get("shards", 0)) > 0:
+		parts.append("%d %s shards" % [int(rw["shards"]), DB.HEROES[str(ch["hero"])]["name"]])
+	if str(rw.get("glow", "")) != "":
+		parts.append("%s weapon glow" % DB.GLOWS[str(rw["glow"])]["name"])
+	return ", ".join(parts)
+
+
+## Queues the chapter, plays its opening scene and then starts the hunt. The
+## chapter's hero leads when unlocked; otherwise the current one does.
+func _begin_story(ch: Dictionary) -> void:
+	var hid := str(ch["hero"]) if Game.hero(str(ch["hero"]))["unlocked"] else Game.hero_id()
+	Game.set_hero(hid)
+	if not Game.story_begin(str(ch["id"])):
+		return
+	if _sheet and is_instance_valid(_sheet):
+		_sheet.queue_free()
+		_sheet = null
+	var cs: Control = CUTSCENE.new()
+	%Overlay.add_child(cs)
+	cs.finished.connect(func(): lobby.start_hunt())
+	cs.play(ch, "intro", hid)
 
 
 func _build_daily(s: Sheet) -> void:
@@ -146,6 +228,19 @@ func _build_daily(s: Sheet) -> void:
 	b.add_child(idle)
 
 
+## What a track reward pays, in words (the season and the weekly event).
+func _reward_text(rw: Dictionary) -> String:
+	match str(rw["kind"]):
+		"gold": return "%d gold" % int(rw["amount"])
+		"shards": return "%d shards" % int(rw["amount"])
+		"chest": return str(DB.CHESTS[rw["chest"]]["name"])
+		"gems": return "%d gems" % int(rw["amount"])
+		"egg": return str(SKDB.EGGS[rw["egg"]]["name"])
+		"glow": return "%s weapon glow for every hero" % DB.GLOWS[rw["glow"]]["name"]
+		"outfit": return "%s outfit for every hero" % DB.OUTFITS[rw["outfit"]]["name"]
+	return ""
+
+
 func _build_season(s: Sheet) -> void:
 	var b := s.body
 	var lv := Game.season_level()
@@ -168,16 +263,7 @@ func _build_season(s: Sheet) -> void:
 		num.custom_minimum_size = Vector2(54, 0)
 		num.add_theme_font_size_override("font_size", 28)
 		row.add_child(num)
-		var t := ""
-		match str(rw["kind"]):
-			"gold": t = "%d gold" % int(rw["amount"])
-			"shards": t = "%d shards" % int(rw["amount"])
-			"chest": t = DB.CHESTS[rw["chest"]]["name"]
-			"gems": t = "%d gems" % int(rw["amount"])
-			"egg": t = str(SKDB.EGGS[rw["egg"]]["name"])
-			"glow": t = "%s weapon glow for every hero" % DB.GLOWS[rw["glow"]]["name"]
-			"outfit": t = "%s outfit for every hero" % DB.OUTFITS[rw["outfit"]]["name"]
-		var tl := Ui.label(("✓ " if n <= claimed else "") + t, "Body")
+		var tl := Ui.label(("✓ " if n <= claimed else "") + _reward_text(rw), "Body")
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(tl)
 		if n == claimed + 1 and n <= lv:

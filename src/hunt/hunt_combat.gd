@@ -261,7 +261,7 @@ func _kill_boss() -> void:
 	Sfx.play("boss_die", 2.0)
 	Sfx.music("", 2.0)
 	get_tree().create_timer(0.35 * 0.25, true).timeout.connect(func(): Sfx.play("sting_victory", 0.0))
-	banner("Victory", Color(1.0, 0.85, 0.45), str(DB.boss_def(cur_boss)["fall"]))
+	banner("Victory", Color(1.0, 0.85, 0.45), str(boss_def(cur_boss)["fall"]))
 	if hero.alive:
 		hero.act("Cheering", 1.6, true)
 	# The hoard.
@@ -418,7 +418,7 @@ func _boss_down_midway() -> void:
 	hud.boss_mode(null)
 	Ui.buzz(80, 0.7)
 	var at := b.flat_pos()
-	var col: Color = DB.boss_def(b.boss_id)["color"]
+	var col: Color = boss_def(b.boss_id)["color"]
 	fx.bone_burst(at, 16, 9.0)
 	fx.vfx.nova(&"shadow", at, 8.0, 0.8, Fx.VfxLib.NO_TINT, &"big")
 	shake(0.8)
@@ -514,7 +514,7 @@ func build_result(win: bool) -> Dictionary:
 		"chest": tier["chest"] if win else "", "level": run_level, "souls": souls,
 		"depth": depth, "dashes": dashes, "boss_time": boss_time,
 		"rivals": rivals_total, "place": 1 if win else rivals_alive() + 1,
-		"omen": str(omen.get("id", "")),
+		"omen": str(omen.get("id", "")), "story": str(story.get("id", "")),
 		"bosses": bosses_killed, "perfect": perfect_dodges, "exotic": exotic_found,
 	}
 	# A won hunt under the weekly omen pays more, and its chest is a grade better.

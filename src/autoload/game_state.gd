@@ -54,6 +54,10 @@ func _fresh() -> Dictionary:
 		# A new save chooses its first hero once, before the first hunt.
 		"start_picked": false,
 		"omen_on": false,
+		# The weekly event: {week, pts, claimed, hunts}; reset when the week turns.
+		"event": {"week": -1, "pts": 0, "claimed": 0, "hunts": 0},
+		# The story campaign: chapter ids cleared, and the chapter the next hunt plays.
+		"story": {"cleared": [], "run": ""},
 		"clue": {},
 		# Retention: first win of the day, the login calendar, the campfire,
 		# boss kill counts and dry streaks, rift keys, achievements, the season.

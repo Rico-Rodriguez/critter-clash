@@ -7,6 +7,7 @@ signal finished(result: Dictionary)
 
 const HUD_SCENE := preload("res://src/ui/hud.tscn")
 const MAX_FOES := 44
+const STORY_DB := preload("res://src/data/story_db.gd")
 
 var tier_i := 0
 var zone_id := "barrow"
@@ -104,6 +105,8 @@ var cur_boss_power := 1.0
 var streak := 0
 var perfect_dodges := 0
 var banished: Array[String] = []
+## The story chapter this hunt plays ({} for a normal hunt), see story_db.gd.
+var story := {}
 ## Bosses killed this hunt (kill counts and dry streaks), and the rift's boss.
 var bosses_killed: Array[String] = []
 ## Exotic eggs found this hunt (they join the hatchery when it ends).
@@ -315,6 +318,11 @@ func _room_alive(r: Dictionary) -> int:
 
 ## No class_name for new scripts (the IPA bakes the list): preloaded by path.
 const BossWarden := preload("res://src/hunt/boss_warden.gd")
+
+## A boss's definition, retold by the story chapter when it plays one.
+func boss_def(id: String) -> Dictionary:
+	return STORY_DB.boss_def(DB.boss_def(id), id, story)
+
 
 func _make_boss() -> Boss:
 	var b: Boss

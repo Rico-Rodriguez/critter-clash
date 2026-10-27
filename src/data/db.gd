@@ -836,9 +836,37 @@ const WEEKLY_OMENS := [
 	{"id": "glass", "name": "Glass Hunt", "desc": "+60% damage, but you have 40% less health.", "icon": "broken-bone", "mod": {"dmg": 0.6, "hp": -0.4}},
 	{"id": "ironclad", "name": "Ironclad Dead", "desc": "Foes have 50% more health; you take 20% less damage.", "icon": "checked-shield", "mod": {"foe_hp": 0.5, "dmg_taken": -0.2}},
 	{"id": "frenzy", "name": "Blood Frenzy", "desc": "Foes hit 30% harder; you attack 30% faster.", "icon": "dripping-sword", "mod": {"rate": 0.3, "foe_dmg": 0.3}},
+	{"id": "paper", "name": "Paper Crowns", "desc": "Twice the foes, each at half health.", "icon": "crowned-skull", "mod": {"pack": 1.0, "foe_hp": -0.5}},
+	{"id": "titans", "name": "Week of Titans", "desc": "Few foes, but double health and 20% harder hits. You deal 40% more.", "icon": "tombstone", "mod": {"pack": -0.4, "foe_hp": 1.0, "foe_dmg": 0.2, "dmg": 0.4}},
 ]
 ## A won omen hunt pays 25% more gold and its chest is one grade better.
 const OMEN_GOLD := 0.25
+
+## The weekly event: the omen's hunts earn event points (score / EVENT_SCORE_DIV)
+## toward a rewards track that resets with the week. EVENT_TRACK[n-1] is the
+## total points for tier n.
+const EVENT_SCORE_DIV := 10
+const EVENT_TRACK := [150, 400, 700, 1100, 1600, 2200, 2900, 3700, 4600, 5600]
+## Rows of the event board on the camp sheet.
+const EVENT_BOARD_ROWS := 8
+
+static func event_points_for(score: int) -> int:
+	return maxi(score, 0) / EVENT_SCORE_DIV
+
+
+## What tier `n` (1..10) of the event track pays. The last is the week's prize.
+static func event_reward(n: int) -> Dictionary:
+	if n == EVENT_TRACK.size():
+		return {"kind": "chest", "chest": "crypt"}
+	if n == 7:
+		return {"kind": "egg", "egg": "season"}
+	if n % 5 == 0:
+		return {"kind": "chest", "chest": "gold"}
+	if n % 3 == 0:
+		return {"kind": "gems", "amount": 12 + 2 * n}
+	if n % 2 == 0:
+		return {"kind": "shards", "amount": 20 + 5 * n}
+	return {"kind": "gold", "amount": 400 + 150 * n}
 
 ## Treasure trails: a clue scroll is three goals in a row, then a casket.
 ## `text` takes the number or hero name.
