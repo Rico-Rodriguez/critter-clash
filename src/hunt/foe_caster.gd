@@ -132,19 +132,25 @@ func _plant(at: Vector3, r: float) -> void:
 			b._lanterns -= 1
 		if hunt._ended or not is_instance_valid(hunt.hero):
 			return
-		hunt.fx.vfx.impact(&"fire", at, r, Fx.VfxLib.NO_TINT, &"skill")
-		Sfx.play("boom", -8.0, 1.0)
-		if hunt.hero.alive and hunt.hero.flat_pos().distance_to(at) <= r + hunt.hero.radius * 0.5:
-			hunt.damage_hero(dmg, null, 0.5)
-		var ar: Object = hunt.arena.get("terrain")
-		if ar == null and hunt.arena.has_meta("terrain"):
-			ar = hunt.arena.get_meta("terrain")
-		if ar != null:
-			ar.ignite_at(at, r)
-		else:
-			hunt.add_fire_patch(at, r, 3.5, dmg * 0.25, &"fire"))
+		burst(hunt, at, r, dmg))
 	_aim = at
 
 
 func on_death() -> void:
 	super.on_death()
+
+
+## The lantern's burst: a blast, then the cells under it catch (or an ember patch
+## without a grid). Static so the timer needs no live brain, and tests can call it.
+static func burst(hunt: Hunt, at: Vector3, r: float, dmg: float) -> void:
+	hunt.fx.vfx.impact(&"fire", at, r, Fx.VfxLib.NO_TINT, &"skill")
+	Sfx.play("boom", -8.0, 1.0)
+	if hunt.hero.alive and hunt.hero.flat_pos().distance_to(at) <= r + hunt.hero.radius * 0.5:
+		hunt.damage_hero(dmg, null, 0.5)
+	var ar: Object = hunt.arena.get("terrain")
+	if ar == null and hunt.arena.has_meta("terrain"):
+		ar = hunt.arena.get_meta("terrain")
+	if ar != null:
+		ar.ignite_at(at, r)
+	else:
+		hunt.add_fire_patch(at, r, 3.5, dmg * 0.25, &"fire")

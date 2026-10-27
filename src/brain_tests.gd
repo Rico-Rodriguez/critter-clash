@@ -16,7 +16,7 @@ var hits: Array = []
 var clock := 0.0
 var last_tele := -99.0
 var seen_tele := false
-var max_cur := {}
+var m := {}
 
 
 static func run(ok_: Callable) -> void:
@@ -24,6 +24,17 @@ static func run(ok_: Callable) -> void:
 	var b = new()
 	b.ok = ok_
 	b.go()
+
+
+static func _declares(path: String) -> bool:
+	return _declares_src(FileAccess.get_file_as_string(path))
+
+
+static func _declares_src(src: String) -> bool:
+	for line in src.split("\n"):
+		if line.begins_with("class_name"):
+			return true
+	return false
 
 
 static func _registry(ok: Callable) -> void:
@@ -36,11 +47,11 @@ static func _registry(ok: Callable) -> void:
 			bad.append(k)
 	for kind: String in FoeBrains.SCRIPTS:
 		var src := FileAccess.get_file_as_string((FoeBrains.SCRIPTS[kind] as GDScript).resource_path)
-		if src.contains("class_name"):
+		if _declares_src(src):
 			plain.append(kind)
 	ok.call("brains: eight foes per zone, all with a registered brain %s" % str(bad), NF.FROST.size() == 8 and NF.SWAMP.size() == 8 and bad.is_empty())
 	ok.call("brains: no brain script declares a class_name %s" % str(plain), plain.is_empty())
-	ok.call("brains: the foe base, registry and brains are plain scripts", not FileAccess.get_file_as_string("res://src/hunt/foe_brain.gd").contains("class_name") and not FileAccess.get_file_as_string("res://src/hunt/foe_brains.gd").contains("class_name"))
+	ok.call("brains: the foe base, registry and brains are plain scripts", not _declares("res://src/hunt/foe_brain.gd") and not _declares("res://src/hunt/foe_brains.gd"))
 	for id in ["frost", "swamp"]:
 		var z: Dictionary = DB.ZONES[id]
 		var f: Dictionary = z["faction_next"]
@@ -83,6 +94,9 @@ func _stage(floor_kind := -1, hero_at := Vector3(0, 0, 0)) -> void:
 	h.hero.hp = h.hero.max_hp
 	h.hero.slow_t = 0.0
 	hits.clear()
+	m = {}
+	h.cam.global_position = hero_at + Vector3(0, 22, 9)
+	h.cam.look_at(hero_at, Vector3.UP)
 	clock = 0.0
 	last_tele = -99.0
 	seen_tele = false
@@ -233,12 +247,19 @@ func _telegraphs_and_clips() -> void:
 		if k in ["cm_bogfin", "cm_frog", "rh_effigy"]:
 			run_for(1.2)
 		var anims := {}
+		var phases := {}
 		for i in int(16.0 / DT):
 			tick()
 			if is_instance_valid(e):
 				anims[e.cur_anim] = true
+				var b := brain(e)
+				if b != null:
+					phases[b.st] = true
 		var a: Dictionary = e.def["anim"]
-		chk("%s: plays its attack clip" % k, anims.has(str(a["attack"])) or anims.has(str(a["spawn"])) and k == "rh_effigy" and hits.size() > 0)
+		var committed := phases.has("windup") or phases.has("crouch") or phases.has("bubble") or phases.has("wake")
+		chk("%s: commits to an attack through a readable windup (phases %s)" % [k, str(phases.keys())], committed)
+		var swings: bool = anims.has(str(a["attack"])) or phases.has("dash") or phases.has("hop") or phases.has("leap") or not e.alive
+		chk("%s: its blow plays the attack clip or a lunge (saw %s)" % [k, str(anims.keys())], swings)
 		chk("%s: plays its idle or run clip" % k, anims.has(str(a["run"])) or anims.has(str(a["idle"])))
 		var worst := 0.0
 		for hit in hits:
@@ -263,7 +284,7 @@ func _dormant() -> void:
 	e.position = Vector3(9, 0, 0)
 	run_for(0.2)
 	chk("effigy: it wakes when the hero is within its wake radius", brain(e).st == "wake" and teles_live() > 0)
-	run_for(3.0)
+	run_for(10.0, func(): return hits.size() >= 1)
 	chk("effigy: after waking it fights as a melee foe (%d hits)" % hits.size(), e.state != "spawn" and hits.size() >= 1)
 	var hp1 := e.hp
 	h.damage_foe(e, 50.0, h.hero, Vector3.ZERO, 0.0)
@@ -276,6 +297,16 @@ func _dormant() -> void:
 	chk("effigy: a hero far away does not wake it", brain(s).st == "move" and s.state == "spawn")
 	run_for(8.0)
 	chk("effigy: but the ice cracks by itself in the end", s.state != "spawn")
+
+
+func count_kind(kind: int) -> int:
+	var n := 0
+	var g := grid()
+	for z in g.h:
+		for x in g.w:
+			if g.kind_of(Vector2i(x, z)) == kind:
+				n += 1
+	return n
 
 
 func teles_live() -> int:
@@ -333,23 +364,13 @@ func _casters() -> void:
 	_stage(T.ICE)
 	var seer := foe("rh_seer", Vector3(7, 0, 0))
 	run_for(8.0)
-	var thin := 0
-	for z in grid().h:
-		for x in grid().w:
-			if grid().kind_of(Vector2i(x, z)) == T.THIN_ICE or grid().kind_of(Vector2i(x, z)) == T.WATER:
-				thin += 1
+	var thin := count_kind(T.THIN_ICE) + count_kind(T.WATER)
 	chk("seer: it shows a ring, then thins the ice under the hero (%d cells)" % thin, thin >= 2 and seen_tele)
 	# Pyre Shaman lights the bog.
 	_stage(T.BOG)
 	var sh := foe("cm_shaman", Vector3(7, 0, 0))
-	var burning := 0
-	run_for(8.0, func():
-		burning = 0
-		for z in grid().h:
-			for x in grid().w:
-				if grid().kind_of(Vector2i(x, z)) == T.BURNING:
-					burning += 1
-		return burning > 0)
+	run_for(8.0, func(): return count_kind(T.BURNING) > 0)
+	var burning := count_kind(T.BURNING)
 	chk("shaman: it ignites the bog near the hero (%d cells)" % burning, burning >= 1)
 	# Mire Hag plants lanterns that burst after the fuse.
 	_stage(T.PLANK)
@@ -357,14 +378,9 @@ func _casters() -> void:
 	run_for(3.0)
 	var planted: int = brain(hag)._lanterns
 	chk("hag: she plants a lantern with a ring that counts down", planted >= 1 and teles_live() >= 1)
-	var lit := 0
-	run_for(9.0, func():
-		lit = 0
-		for z in grid().h:
-			for x in grid().w:
-				if grid().kind_of(Vector2i(x, z)) == T.BURNING:
-					lit += 1
-		return lit > 0)
+	# The fuse is a SceneTree timer, which tests do not wait on: fire the burst itself.
+	FoeBrains.SCRIPTS["caster"].burst(h, h.hero.flat_pos(), 2.2, 10.0)
+	var lit := count_kind(T.BURNING)
 	chk("hag: the lantern ignites the planks when the fuse ends (%d cells)" % lit, lit >= 1)
 	var cap_ok := true
 	for i in int(20.0 / DT):
@@ -395,11 +411,7 @@ func _yeti() -> void:
 		if b.st == "windup" and b._kind == "slam":
 			slammed = true
 		slowed = slowed or h.hero.slow_t > 0.0
-	var thin := 0
-	for z in grid().h:
-		for x in grid().w:
-			if grid().kind_of(Vector2i(x, z)) in [T.THIN_ICE, T.WATER]:
-				thin += 1
+	var thin := count_kind(T.THIN_ICE) + count_kind(T.WATER)
 	chk("yeti: it lobs a snowball at range and slams up close (lob %s, slam %s)" % [lobbed, slammed], lobbed or slammed)
 	chk("yeti: its blows crack the ice into thin ice (%d cells)" % thin, thin >= 4)
 
@@ -408,10 +420,11 @@ func _drift() -> void:
 	# Shardling: lanes, a burst, dies.
 	_stage(T.DRY)
 	var s := foe("rh_shard", Vector3(6, 0, 0))
-	var lanes := 0
+	m["lanes"] = 0
 	run_for(8.0, func():
-		lanes = maxi(lanes, teles_live())
+		m["lanes"] = maxi(int(m["lanes"]), teles_live())
 		return not s.alive)
+	var lanes: int = m["lanes"]
 	chk("shardling: it shows shard lanes, then bursts and is gone (%d lanes)" % lanes, lanes >= 4 and not s.alive)
 	# Shards break ice walls.
 	_stage(T.WALL_ICE)
@@ -471,10 +484,11 @@ func _ambush() -> void:
 	var d0 := f.flat_pos().distance_to(h.hero.flat_pos())
 	run_for(3.0)
 	chk("bogfin: it creeps toward the hero under the bog (%.1f -> %.1f m)" % [d0, f.flat_pos().distance_to(h.hero.flat_pos())], f.flat_pos().distance_to(h.hero.flat_pos()) < d0 - 1.0)
-	var bubbled := false
+	m["bubbled"] = false
 	run_for(10.0, func():
-		bubbled = bubbled or (brain(f).st == "bubble" and teles_live() > 0)
+		m["bubbled"] = m["bubbled"] or (brain(f).st == "bubble" and teles_live() > 0)
 		return brain(f).st == "move")
+	var bubbled: bool = m["bubbled"]
 	chk("bogfin: a bubbling ring warns before it surfaces", bubbled)
 	chk("bogfin: it surfaces to fight and can be hurt", f.state != "spawn" and f.model.position.y > -0.5)
 	var h1 := f.hp
@@ -499,12 +513,14 @@ func _ambush() -> void:
 	var fr := foe("cm_frog", Vector3(9, 0, 0), false)
 	run_for(1.0)
 	chk("frog: it hides in the bog", fr.state == "spawn")
-	var leapt := false
-	var lane := false
+	m["lane"] = false
+	m["leapt"] = false
 	run_for(10.0, func():
-		lane = lane or (brain(fr).st == "bubble" and teles_live() > 0)
-		leapt = leapt or brain(fr).st == "leap"
-		return leapt and brain(fr).st == "recover")
+		m["lane"] = m["lane"] or (brain(fr).st == "bubble" and teles_live() > 0)
+		m["leapt"] = m["leapt"] or brain(fr).st == "leap"
+		return m["leapt"] and brain(fr).st == "recover")
+	var lane: bool = m["lane"]
+	var leapt: bool = m["leapt"]
 	chk("frog: a lane shows, then it leaps out of the bog (lane %s, leap %s)" % [lane, leapt], lane and leapt and fr.state != "spawn")
 	# Without a grid nothing submerges.
 	_stage()
@@ -516,28 +532,25 @@ func _ambush() -> void:
 func _wasp() -> void:
 	_stage(T.DRY)
 	var w := foe("cm_wasp", Vector3(8, 0, 0))
-	var windup := false
-	var dive := false
-	var flew := 0.0
+	m["windup"] = false
+	m["dive"] = false
+	m["flew"] = 0.0
 	run_for(10.0, func():
-		windup = windup or (brain(w).st == "windup" and teles_live() > 0)
-		dive = dive or brain(w).st == "dash"
-		flew = maxf(flew, w.model.position.y)
+		m["windup"] = m["windup"] or (brain(w).st == "windup" and teles_live() > 0)
+		m["dive"] = m["dive"] or brain(w).st == "dash"
+		m["flew"] = maxf(float(m["flew"]), w.model.position.y)
 		return false)
+	var windup: bool = m["windup"]
+	var dive: bool = m["dive"]
+	var flew: float = m["flew"]
 	chk("wasp: it shows a lane, then dives and stings (%d hits)" % hits.size(), windup and dive and hits.size() >= 1)
 	chk("wasp: it flies above the ground (%.1f m)" % flew, flew > 0.8)
 	chk("wasp: over dry ground its sparks leave short ember patches", h.patches.size() >= 1)
 	_stage(T.BOG)
 	var w2 := foe("cm_wasp", Vector3(8, 0, 0))
-	var burning := 0
 	seed(7)
-	run_for(30.0, func():
-		burning = 0
-		for z in grid().h:
-			for x in grid().w:
-				if grid().kind_of(Vector2i(x, z)) == T.BURNING:
-					burning += 1
-		return burning > 0)
+	run_for(30.0, func(): return count_kind(T.BURNING) > 0)
+	var burning := count_kind(T.BURNING)
 	chk("wasp: its sparks set the bog alight (%d cells)" % burning, burning >= 1)
 
 
