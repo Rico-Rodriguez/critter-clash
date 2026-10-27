@@ -8,8 +8,20 @@ extends RefCounted
 ## A pose is {y, pitch, yaw, roll, sy, s}: lift (m), tilt forward, turn, side
 ## lean, vertical squash (1 = none) and overall size (1 = none).
 
-const FIDGETS := ["look", "hop", "stretch", "shake"]
-const FIDGET_TIME := {"look": 1.6, "hop": 0.7, "stretch": 1.3, "shake": 0.8}
+const FIDGETS := ["look", "hop", "stretch", "shake", "sniff", "bounce", "puff", "sway"]
+const FIDGET_TIME := {"look": 1.6, "hop": 0.7, "stretch": 1.3, "shake": 0.8, "sniff": 1.5, "bounce": 0.9, "puff": 1.2, "sway": 1.8}
+## What it does when nothing is happening, by temperament: each kind of
+## sidekick leans one way, so a Wisp fidgets differently from a Barrow Squire.
+const PERSONAS := {
+	"jumpy": ["bounce", "hop", "look", "shake", "bounce"],
+	"calm": ["sway", "stretch", "look", "puff", "sway"],
+	"curious": ["sniff", "look", "sniff", "hop", "look"],
+	"proud": ["puff", "stretch", "look", "puff", "sway"],
+}
+const PERSONA_OF := {
+	"mend": "calm", "thorns": "calm", "snare": "calm", "breath": "proud", "bash": "proud",
+	"bone_toss": "jumpy", "storm": "jumpy", "snap": "jumpy", "hex": "curious", "leech": "curious", "shadowstrike": "curious",
+}
 const BORN_TIME := 0.55
 
 
@@ -17,8 +29,9 @@ static func neutral() -> Dictionary:
 	return {"y": 0.0, "pitch": 0.0, "yaw": 0.0, "roll": 0.0, "sy": 1.0, "s": 1.0}
 
 
-static func new_life(seed_: int) -> Dictionary:
-	return {"age": 0.0, "idle_t": 0.0, "next": 3.0 + float(seed_ % 5), "kind": "", "kind_t": 0.0, "n": seed_ % FIDGETS.size(), "beat": 0.0, "cheer_start": 0.2 + float(seed_ % 7) * 0.07}
+static func new_life(seed_: int, ability := "") -> Dictionary:
+	var list: Array = PERSONAS.get(PERSONA_OF.get(ability, ""), FIDGETS.slice(0, 4))
+	return {"age": 0.0, "idle_t": 0.0, "next": 3.0 + float(seed_ % 5), "kind": "", "kind_t": 0.0, "list": list, "n": absi(seed_) % list.size(), "beat": 0.0, "cheer_start": 0.2 + float(seed_ % 7) * 0.07}
 
 
 ## Arrival: grows from a point with an overshoot, and a little hop.
@@ -55,6 +68,25 @@ static func fidget(kind: String, u: float) -> Dictionary:
 		"shake":
 			o["roll"] = sin(u * 26.0) * 0.14 * w
 			o["yaw"] = sin(u * 22.0 + 1.0) * 0.12 * w
+		"sniff":
+			# Nose down to the ground, two quick snuffles, back up.
+			o["pitch"] = 0.34 * w
+			o["y"] = -0.03 * w
+			o["sy"] = 1.0 - 0.05 * w + 0.03 * w * sin(u * 34.0)
+		"bounce":
+			# Two small excited hops with a squash on each landing.
+			var h := absf(sin(u * TAU)) * (1.0 - u * 0.4)
+			o["y"] = 0.16 * h * w
+			o["sy"] = 1.0 + 0.1 * h * w - 0.08 * (1.0 - h) * w
+		"puff":
+			# Chest out, chin up, a proud breath.
+			o["s"] = 1.0 + 0.1 * w
+			o["pitch"] = -0.14 * w
+			o["sy"] = 1.0 + 0.04 * w
+		"sway":
+			# A slow roll side to side, content.
+			o["roll"] = sin(u * TAU) * 0.16 * w
+			o["yaw"] = sin(u * TAU + 0.6) * 0.1 * w
 	return o
 
 
@@ -119,7 +151,8 @@ static func step(life: Dictionary, dt: float, idle: bool, mood: String) -> Dicti
 	if idle and not any_mood:
 		life["idle_t"] = float(life["idle_t"]) + dt
 		if life["kind"] == "" and float(life["idle_t"]) >= float(life["next"]):
-			life["kind"] = FIDGETS[int(life["n"]) % FIDGETS.size()]
+			var list: Array = life["list"]
+			life["kind"] = list[int(life["n"]) % list.size()]
 			life["n"] = int(life["n"]) + 1
 			life["kind_t"] = 0.0
 	else:

@@ -10,6 +10,8 @@ const SDB := preload("res://src/data/sidekick_db.gd")
 const Look := preload("res://src/core/sidekick_look.gd")
 const Motor := preload("res://src/hunt/sidekick_motor.gd")
 const PetLife := preload("res://src/hunt/pet_life.gd")
+const PetFx := preload("res://src/hunt/pet_fx.gd")
+const PetAnim := preload("res://src/hunt/pet_anim.gd")
 
 var hunt: Node
 var id := ""
@@ -37,6 +39,13 @@ var pivot := Node3D.new()
 var _pending := false
 var _windup := 0.25
 var _dur := 0.6
+## Body language of the move in hand (pet_anim.gd style), and how long ago it
+## began, which keeps counting after the move so the follow-through plays out.
+var _style := "lunge"
+var _act_t := 99.0
+var _prev_vel := Vector3.ZERO
+var _acc := 0.0
+var _dust_t := 0.0
 var _last_hp := -1.0
 var _flinch_cd := 0.0
 var _was_closing := false
@@ -65,7 +74,7 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	pivot.add_child(look["root"])
 	(look["root"] as Node3D).scale *= HUNT_SCALE * float(def.get("hunt_scale", 1.0))
 	Look.play(look, "idle")
-	_life = PetLife.new_life(hash(id))
+	_life = PetLife.new_life(hash(id), str(ab["kind"]))
 	cd_max = float(ab["cd"])
 	cd = 0.2 if str(def.get("perk", "")) == "eager" else minf(2.0, cd_max)
 	motor.fly = float(def["fly"])
@@ -204,14 +213,14 @@ func _wind_up(at: Vector3) -> void:
 	var t := SPECIAL_TIME if is_special() else ATTACK_TIME
 	_windup = t.x
 	_dur = t.y
+	_style = PetAnim.style_for(str(ab["kind"]))
 	motor.act(Motor.S.SPECIAL if is_special() else Motor.S.ATTACK, t.x, t.y, at, _approach_point(at))
 	_pending = true
 	cd = 0.3
-	var fx = hunt.fx
-	if fx:
-		# Anticipation: its element gathers in, then pops (light tier).
-		var tc: Color = def["color"]
-		fx.vfx.cast(Fx.VfxLib.element_for(tc), Vector3(motor.pos.x, 0.0, motor.pos.z), 0.55 if not is_special() else 0.8, tc, &"light")
+	if hunt.fx:
+		# Anticipation: its element gathers where the move will come from.
+		var k := str(ab["kind"])
+		PetFx.windup(self, k, _el(KIT_EL.get(k, &"physical")), _tint(_kit_color(k)), stage, is_special(), at)
 	Sfx.play("charge" if is_special() else "swing", -14.0, 1.35)
 
 
@@ -229,6 +238,22 @@ func _fire() -> void:
 	else:
 		cd = 0.3
 		motor.action_t = minf(motor.action_t, 0.1)
+
+
+## The element each move is drawn in when the pet has none of its own, and the
+## colour (the pet's own unless the move has a fixed one, like flame).
+const KIT_EL := {"mend": &"heal", "breath": &"fire", "bone_toss": &"physical", "hex": &"shadow", "thorns": &"nature", "storm": &"storm", "snap": &"buff", "leech": &"blood", "bash": &"physical", "shadowstrike": &"shadow", "snare": &"nature"}
+
+
+func _kit_color(k: String) -> Color:
+	match k:
+		"breath":
+			return Color(0.35, 0.6, 1.0) if evolved else Color(1.0, 0.45, 0.12)
+		"hex":
+			return Color(0.7, 0.45, 1.0)
+		"bash", "bone_toss":
+			return Color(0.8, 0.76, 0.68)
+	return def["color"]
 
 
 ## A bred element recolours the ability's VFX: its element wins over the kit's.
@@ -288,12 +313,26 @@ func _animate(dt: float) -> void:
 				Look.play(look, "run" if run else "move", 0.2, clampf(spd / ref, 0.7, 1.9))
 			else:
 				Look.play(look, "idle", 0.25, 1.0)
-	var p := pose(st, t, spd, _windup, _dur, Look.has(look, _clip_key(st)), _bob)
+	var has_clip := Look.has(look, _clip_key(st))
+	var acting := st == Motor.S.ATTACK or st == Motor.S.SPECIAL
+	if acting and fresh:
+		_act_t = 0.0
+	else:
+		_act_t += dt
+	var p := pose(st, t, spd, _windup, _dur, has_clip, _bob, _style, motor.fly > 0.0)
+	if not acting and _act_t < _windup + PetAnim.TAIL:
+		# The move is over; its follow-through still rings out of the body.
+		p = PetAnim.add(p, PetAnim.strike(_style, _act_t, _windup, 0.35 if has_clip else 1.0))
+	elif spd > 0.3 and not motor.is_action():
+		p = PetAnim.add(p, _lean(dt))
+		_dust(dt, st, spd)
+	else:
+		_prev_vel = motor.vel
 	var phase: String = str(hunt.phase)
 	var mood := "cheer" if phase == "victory" else ("wary" if phase == "boss_intro" else ("droop" if phase == "defeat" else ""))
 	var lf: Dictionary = PetLife.step(_life, dt, spd < 0.3 and not motor.is_action(), mood)
 	pivot.position = Vector3(0, float(p["y"]) + float(lf["y"]), p["z"])
-	pivot.rotation = Vector3(float(p["pitch"]) + float(lf["pitch"]), float(p["spin"]) + float(lf["yaw"]), motor.bank + float(lf["roll"]))
+	pivot.rotation = Vector3(float(p["pitch"]) + float(lf["pitch"]), float(p["spin"]) + float(lf["yaw"]), motor.bank + float(p.get("roll", 0.0)) + float(lf["roll"]))
 	var sy: float = float(p["sy"]) * float(lf["sy"])
 	pivot.scale = Vector3(1.0 / sqrt(sy), sy, 1.0 / sqrt(sy)) * float(lf["s"])
 
@@ -309,46 +348,55 @@ static func _clip_key(st: int) -> String:
 	return "move"
 
 
-## The procedural pose for a state at time t: lift y, forward z, pitch, spin
-## and squash (sy). With a clip, the accent is scaled down so it only adds
+## Leaning into a change of pace: speeding up tips it forward, braking back.
+func _lean(dt: float) -> Dictionary:
+	var fwd := Vector3(sin(motor.yaw), 0, cos(motor.yaw))
+	var a := (motor.vel - _prev_vel).dot(fwd) / maxf(dt, 0.001)
+	_prev_vel = motor.vel
+	_acc = lerpf(_acc, a, 1.0 - exp(-8.0 * dt))
+	return PetAnim.lean(Vector3(0, 0, _acc), motor.speed())
+
+
+## Dust kicked up by a sprint, a skid when it brakes hard.
+func _dust(dt: float, st: int, spd: float) -> void:
+	_dust_t -= dt
+	if not hunt.fx or motor.fly > 0.0 or _dust_t > 0.0:
+		return
+	var sprint := st == Motor.S.SPRINT and spd > 3.2
+	var skid := _acc < -14.0 and spd > 1.5
+	if not (sprint or skid):
+		return
+	_dust_t = 0.07 if sprint else 0.05
+	var back := -Vector3(sin(motor.yaw), 0, cos(motor.yaw))
+	var s := 0.24 * PetFx.k_for(stage) * (1.3 if skid else 1.0)
+	hunt.fx.vfx.smoke(position + back * 0.25 + Vector3(randf_range(-0.12, 0.12), 0.06, 0), s, back * 0.8 + Vector3(0, 0.7, 0), 0.4)
+
+
+## The procedural pose for a state at time t: lift y, forward z, pitch, spin,
+## side lean and squash (sy). Attacks and specials play their move's style
+## (pet_anim.gd); with a clip the accent is scaled down so it only adds
 ## weight. Pure, so tests can read it.
-static func pose(st: int, t: float, spd: float, windup: float, dur: float, has_clip: bool, bob: float) -> Dictionary:
-	var o := {"y": 0.0, "z": 0.0, "pitch": 0.0, "spin": 0.0, "sy": 1.0}
+static func pose(st: int, t: float, spd: float, windup: float, dur: float, has_clip: bool, bob: float, style := "", flies := false) -> Dictionary:
+	var o := {"y": 0.0, "z": 0.0, "pitch": 0.0, "spin": 0.0, "roll": 0.0, "sy": 1.0}
 	var k := 0.35 if has_clip else 1.0
 	match st:
-		Motor.S.ATTACK:
-			if t < windup:
-				var e := t / windup
-				o["z"] = -0.12 * e * k
-				o["pitch"] = -0.22 * e * k
-				o["sy"] = 1.0 - 0.1 * e * k
-			else:
-				var u := clampf((t - windup) / maxf(dur - windup, 0.01), 0.0, 1.0)
-				var lunge := sin(minf(u * 3.0, 1.0) * PI * 0.5) * (1.0 - u)
-				o["z"] = 0.45 * lunge * k
-				o["pitch"] = 0.3 * lunge * k
-				o["sy"] = 1.0 + 0.12 * lunge * k
-		Motor.S.SPECIAL:
-			if t < windup:
-				var e := t / windup
-				o["sy"] = 1.0 - 0.18 * e * k
-			else:
-				var u := clampf((t - windup) / maxf(dur - windup, 0.01), 0.0, 1.0)
-				o["y"] = 0.55 * sin(u * PI) * k
-				o["spin"] = TAU * ease(u, -2.0) * (1.0 if not has_clip else 0.0)
-				o["sy"] = 1.0 + 0.15 * sin(u * PI) * k - (0.12 * (1.0 - u) * 4.0 * maxf(u - 0.75, 0.0) * k)
+		Motor.S.ATTACK, Motor.S.SPECIAL:
+			if style == "":
+				style = "lunge" if st == Motor.S.ATTACK else "float"
+			o = PetAnim.strike(style, t, windup, k)
 		Motor.S.HIT:
 			var u := clampf(t / HIT_TIME, 0.0, 1.0)
-			o["z"] = -0.25 * (1.0 - u) * k
-			o["pitch"] = -0.35 * (1.0 - u) * k
-			o["sy"] = 0.85 + 0.15 * u
+			var back := (1.0 - u) * (1.0 - u)
+			o["z"] = -0.3 * back * k
+			o["pitch"] = -0.42 * back * k
+			o["roll"] = sin(u * 26.0) * 0.12 * (1.0 - u) * k
+			o["sy"] = 1.0 - 0.18 * (1.0 - u) * (1.0 - u) + 0.04 * sin(u * PI)
 		_:
-			# A step bounce and forward lean while moving; breathing at rest.
-			if spd > 0.3:
-				o["y"] = absf(sin(bob * 9.0)) * 0.05 * minf(spd / 3.0, 1.0) * k
-				o["pitch"] = clampf(spd * 0.035, 0.0, 0.2)
-			else:
-				o["sy"] = 1.0 + 0.02 * sin(bob * 2.2)
+			var g := PetAnim.flap(spd, bob) if flies else PetAnim.gait(spd, bob, 6.0)
+			if has_clip and spd > 0.3:
+				g["y"] = float(g["y"]) * k
+				g["roll"] = float(g["roll"]) * k
+			o = g
 	return o
 
 
@@ -394,7 +442,8 @@ func _attack_anim() -> void:
 	pass
 
 
-## Uses the ability. False when there was nothing to use it on.
+## Uses the ability. False when there was nothing to use it on. The damage
+## is here; every effect is drawn by pet_fx.gd.
 func _use() -> bool:
 	var fx = hunt.fx
 	var col: Color = def["color"]
@@ -405,8 +454,7 @@ func _use() -> bool:
 				return false
 			hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * float(SDB.STAGE_DMG[stage]) * hunt.heal_mult(), hero.max_hp)
 			var r := float(ab["radius"]) * reach_mult()
-			fx.vfx.nova(_el(&"heal"), hero.flat_pos(), r, 0.5, col, &"skill")
-			fx.burst(hero.flat_pos() + Vector3(0, 1.0, 0), col, 10, 3.0, 1.5)
+			PetFx.mend(self, _el(&"heal"), col, hero.flat_pos(), r, stage)
 			for f in hunt.foes_near(hero.position, r):
 				_strike(f, hit_dmg(float(ab["dmg"])))
 			Sfx.play("sparkle", -6.0, 1.2)
@@ -421,11 +469,11 @@ func _use() -> bool:
 			fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 			rotation.y = atan2(fwd.x, fwd.z)
 			var rng := float(ab["range"]) * reach_mult()
-			var flame := _tint(Color(0.35, 0.6, 1.0) if evolved else Color(1.0, 0.45, 0.12))
+			var flame := _tint(_kit_color("breath"))
 			# Swoop toward the pack, then breathe along the cone.
 			var start := to - fwd * minf(rng * 0.45, from.distance_to(to))
 			# One continuous jet that widens into the cone, not stamped bursts.
-			fx.vfx.spray(_el(&"fire"), start, fwd, rng, float(ab["cone"]), 0.5, flame, &"skill")
+			PetFx.breath(self, _el(&"fire"), flame, start, fwd, rng, float(ab["cone"]), stage)
 			for f in hunt.foes_near(start, rng + 0.5):
 				var to_f: Vector3 = f.flat_pos() - start
 				if to_f.length() <= rng + f.radius and fwd.dot(to_f.normalized()) > cos(float(ab["cone"])):
@@ -444,13 +492,12 @@ func _use() -> bool:
 				return false
 			var hit := []
 			var at: Node3D = t
-			var prev := Vector3(position.x, 0.6, position.z)
+			var prev := Vector3(position.x, 0.8 + maxf(position.y - 0.4, 0.0), position.z)
 			for i in int(ab["bounces"]):
 				if at == null:
 					break
 				hit.append(at)
-				fx.lightning(PackedVector3Array([prev, at.flat_pos() + Vector3(0, 0.6, 0)]), Color(0.95, 0.9, 0.78), &"light")
-				fx.bone_burst(at.flat_pos(), 3, 3.5)
+				PetFx.bone_hop(self, _el(&"physical"), prev, at.flat_pos(), i, stage)
 				prev = at.flat_pos() + Vector3(0, 0.6, 0)
 				_strike(at, hit_dmg(float(ab["dmg"])), 2.5)
 				at = _next_foe(at.position, 4.0 * reach_mult(), hit)
@@ -468,13 +515,14 @@ func _use() -> bool:
 			var at: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
 			fx.telegraph(0, at, 0.0, Vector2(r, 0), float(ab["delay"]))
+			var c2 := _tint(_kit_color("hex"))
+			PetFx.hex_mark(self, _el(&"shadow"), c2, at, r, float(ab["delay"]), stage)
 			var burst := hit_dmg(float(ab["burst"]))
 			var me := self
 			get_tree().create_timer(float(ab["delay"]), false).timeout.connect(func():
 				if not is_instance_valid(me) or not is_instance_valid(hunt):
 					return
-				var c2 := _tint(Color(0.7, 0.45, 1.0))
-				fx.vfx.impact(_el(&"shadow"), at, r, c2, &"skill")
+				PetFx.hex_burst(me, _el(&"shadow"), c2, at, r, stage)
 				fx.burst(at, c2, 14, 6.0)
 				for f in hunt.foes_near(at, r):
 					_strike(f, burst)
@@ -487,8 +535,7 @@ func _use() -> bool:
 			var near: Array = hunt.foes_near(hero.position, r)
 			if near.is_empty():
 				return false
-			fx.vfx.nova(_el(&"nature"), hero.flat_pos(), r, 0.5, col, &"skill")
-			fx.burst(hero.flat_pos(), col, 16, 7.0, 0.3)
+			PetFx.thorns(self, _el(&"nature"), col, hero.flat_pos(), r, stage)
 			for f in near:
 				_strike(f, hit_dmg(float(ab["dmg"])), float(ab["push"]))
 			_attack_anim()
@@ -507,7 +554,7 @@ func _use() -> bool:
 				pts.append(at.flat_pos() + Vector3(0, 0.8, 0))
 				_strike(at, hit_dmg(float(ab["dmg"])), 1.0)
 				at = _next_foe(at.position, 4.5 * reach_mult(), hit)
-			fx.lightning(pts, _tint(Color(0.6, 0.85, 1.0)), &"skill")
+			PetFx.storm(self, _el(&"storm"), _tint(Color(0.6, 0.85, 1.0)), pts, stage)
 			_attack_anim()
 			Sfx.play("thunder", -8.0, 1.2)
 		"snap":
@@ -515,7 +562,7 @@ func _use() -> bool:
 			if t == null:
 				return false
 			var p: Vector3 = t.flat_pos()
-			fx.burst(p, Color(1.0, 0.82, 0.3), 8, 5.0)
+			PetFx.snap(self, _el(&"buff"), p, stage)
 			_strike(t, hit_dmg(float(ab["dmg"])), 3.0)
 			_attack_anim()
 			Sfx.play("coin", -6.0, 1.1)
@@ -530,7 +577,7 @@ func _use() -> bool:
 				if at == null:
 					break
 				hit.append(at)
-				fx.burst(at.flat_pos() + Vector3(0, 0.6, 0), Color(0.85, 0.2, 0.25), 6, 4.0)
+				PetFx.leech(self, _el(&"blood"), col, at.flat_pos(), hero.flat_pos(), i, stage)
 				_strike(at, hit_dmg(float(ab["dmg"])), 1.0)
 				hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * hunt.heal_mult(), hero.max_hp)
 				at = _next_foe(at.position, 4.0 * reach_mult(), hit)
@@ -542,12 +589,12 @@ func _use() -> bool:
 				return false
 			var p: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
-			fx.vfx.impact(_el(&"physical"), p, r, Fx.VfxLib.NO_TINT, &"skill")
-			fx.puff(p, Color(0.3, 0.27, 0.23, 0.6), 8, 1.5, 2.0)
+			PetFx.bash(self, _el(&"physical"), p, r, stage)
 			for f in hunt.foes_near(p, r):
 				_strike(f, hit_dmg(float(ab["dmg"])), 4.0)
 				if f.alive and not f is Boss:
 					f.stun_t = maxf(f.stun_t, float(ab["stun"]))
+					PetFx.dizzy(fx.vfx, f.flat_pos(), Color(1.0, 0.92, 0.5))
 			_attack_anim()
 			Sfx.play("impact", -4.0, 0.8)
 		"shadowstrike":
@@ -558,8 +605,7 @@ func _use() -> bool:
 			for i in mini(int(ab["strikes"]), near.size()):
 				var f: Node3D = near[i]
 				var tough: bool = f is Boss or (f is Enemy and (f as Enemy).elite)
-				fx.puff(f.flat_pos(), Color(0.15, 0.1, 0.25, 0.7), 6, 0.8, 1.5)
-				fx.burst(f.flat_pos() + Vector3(0, 0.7, 0), col, 6, 4.0)
+				PetFx.shadow_cut(self, _el(&"shadow"), col, f.flat_pos(), i, tough, stage)
 				_strike(f, hit_dmg(float(ab["dmg"])) * (2.0 if tough else 1.0), 1.0)
 			_attack_anim()
 			Sfx.play("swing", -4.0, 1.4)
@@ -569,8 +615,8 @@ func _use() -> bool:
 				return false
 			var at: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
-			fx.vfx.nova(Fx.VfxLib.element_for(col), at, r, 0.5, col, &"skill")
-			fx.burst(at, col, 14, 5.0, 0.4)
+			var el := _el(&"nature")
+			PetFx.snare_open(self, el, col, at, r, stage)
 			for f in hunt.foes_near(at, r):
 				if not f is Boss:
 					f.stun_t = maxf(f.stun_t, float(ab["hold"]))
@@ -580,7 +626,7 @@ func _use() -> bool:
 				get_tree().create_timer(0.4 * (k + 1), false).timeout.connect(func():
 					if not is_instance_valid(me) or not is_instance_valid(hunt):
 						return
-					fx.vfx.impact(Fx.VfxLib.element_for(col), at, r * 0.8, col, &"light")
+					PetFx.snare_pulse(me, el, col, at, r, stage)
 					for f in hunt.foes_near(at, r):
 						_strike(f, amount))
 			_attack_anim()

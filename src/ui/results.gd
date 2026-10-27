@@ -406,6 +406,12 @@ func _sidekick_notes(sk: Dictionary) -> void:
 	if id != "":
 		var d: Dictionary = SDB.def(id)
 		var col: Color = d["color"]
+		if int(sk.get("stage_to", 0)) > int(sk.get("stage_from", 0)):
+			# Its growing up plays out over the results once they have settled.
+			var show := {"id": id, "stage_from": int(sk["stage_from"]), "stage_to": int(sk["stage_to"])}
+			get_tree().create_timer(0.9).timeout.connect(func():
+				if is_inside_tree():
+					preload("res://src/ui/evolve_show.gd").new().play(self, show))
 		if bool(sk.get("evolved", false)):
 			_note("%s evolves into the %s!" % [d["name"], SDB.stage_name(id, 2)], col, str(d["icon"]))
 		elif int(sk.get("stage_to", 0)) > int(sk.get("stage_from", 0)):
