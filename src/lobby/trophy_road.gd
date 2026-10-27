@@ -368,6 +368,10 @@ func _add_step(n: int, y: float, w: float, claimed: int, ready_n: int) -> float:
 			icon = str(DB.CARDS[rw["ids"][0]]["icon"])
 			tag = "NEW CARDS"
 			sub = "They join your level-up draws"
+		"egg":
+			icon = "egg-clutch"
+			tag = "NEW EGG"
+			sub = "Warms in your hatchery"
 	var style := "RoadReady" if state == "ready" else ("RoadDone" if state == "done" else ("RoadUnlock" if big else "RoadStep"))
 	var c := _card(y, w, h, style, icon, tag, title, sub, state != "locked")
 	if state == "done":
@@ -686,6 +690,11 @@ func _reveal(rw: Dictionary, lines: Array) -> void:
 				title = str(DB.HEROES[hid]["name"])
 				sub = "%s · %s" % [DB.HEROES[hid]["title"], DB.HEROES[hid]["blurb"]]
 			tag = "NEW HERO"
+		"egg":
+			icon = "egg-clutch"
+			tag = "NEW EGG"
+			title = str(preload("res://src/data/sidekick_db.gd").EGGS[rw["egg"]]["name"])
+			sub = "\n".join(PackedStringArray(lines.map(func(x): return str(x))))
 		"chest":
 			icon = "open-treasure-chest"
 			title = str(DB.CHESTS[rw["chest"]]["name"])

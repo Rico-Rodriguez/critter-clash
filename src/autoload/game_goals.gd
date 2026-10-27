@@ -226,8 +226,9 @@ func pay_reward(rw: Dictionary) -> Dictionary:
 			data["gems"] = int(data.get("gems", 0)) + int(rw["amount"])
 		"egg":
 			# A full hatchery pays the egg as gems instead.
-			if SK.give_egg(data, str(rw["egg"]), int(Time.get_unix_time_from_system()), rng.randi()).is_empty():
-				data["gems"] = int(data.get("gems", 0)) + 40
+			var got := SK.award_egg(data, str(rw["egg"]), int(Time.get_unix_time_from_system()), rng.randi())
+			rw["laid"] = int(got["uid"]) > 0
+			rw["egg_gems"] = int(got["gems"])
 		"glow":
 			for id in DB.HERO_ORDER:
 				if not rw["glow"] in hero(id)["glows"]:
@@ -346,13 +347,13 @@ func story_take() -> Dictionary:
 
 
 ## Pays a won chapter hunt: first clears pay the chapter reward, the chapter's
-## own hero adds 25%. Returns {id, first, gold, gems, shards, glow, hero_bonus}.
+## own hero adds 25%. Returns {id, first, gold, gems, shards, glow, hero_bonus, egg, egg_gems}.
 func story_clear(r: Dictionary) -> Dictionary:
 	var ch: Dictionary = STORY.chapter(str(r.get("story", "")))
 	if ch.is_empty():
 		return {}
 	var first := not story_cleared(str(ch["id"]))
-	var out := {"id": str(ch["id"]), "first": first, "gold": 0, "gems": 0, "shards": 0, "glow": "", "hero_bonus": false}
+	var out := {"id": str(ch["id"]), "first": first, "gold": 0, "gems": 0, "shards": 0, "glow": "", "hero_bonus": false, "egg": "", "egg_gems": 0}
 	if first:
 		var rw: Dictionary = ch["reward"]
 		var bonus := 1.25 if str(r.get("hero", "")) == str(ch["hero"]) else 1.0
@@ -368,6 +369,10 @@ func story_clear(r: Dictionary) -> Dictionary:
 			for id in DB.HERO_ORDER:
 				if not rw["glow"] in hero(id)["glows"]:
 					hero(id)["glows"].append(rw["glow"])
+		if str(rw.get("egg", "")) != "":
+			var got := SK.award_egg(data, str(rw["egg"]), int(Time.get_unix_time_from_system()), rng.randi())
+			out["egg"] = str(rw["egg"])
+			out["egg_gems"] = int(got["gems"])
 		data["story"]["cleared"].append(str(ch["id"]))
 	return out
 

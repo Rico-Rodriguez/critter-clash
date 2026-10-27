@@ -4,6 +4,7 @@ extends Control
 ## `again`: straight into another hunt with the same setup.
 const ItemIcons := preload("res://src/ui/item_icons.gd")
 const STORY_DB := preload("res://src/data/story_db.gd")
+const SDB_EGGS := preload("res://src/data/sidekick_db.gd")
 
 signal closed(again: bool)
 
@@ -108,6 +109,9 @@ func open(r: Dictionary) -> void:
 			var ch: Dictionary = STORY_DB.chapter(str(st["id"]))
 			_note("Chapter cleared: %s" % ch["title"], Color(1.0, 0.85, 0.5), "scroll-unfurled")
 			_note("Story reward: %s gold, %d gems, %d shards%s" % [Ui.fmt_num(int(st["gold"])), int(st["gems"]), int(st["shards"]), " (hero bonus)" if st["hero_bonus"] else ""], Color(1.0, 0.85, 0.5), "two-coins")
+			if str(st.get("egg", "")) != "":
+				var sed: Dictionary = SDB_EGGS.EGGS[str(st["egg"])]
+				_note("Story reward: %s%s" % [sed["name"], "" if int(st["egg_gems"]) == 0 else " (hatchery full: +%d gems)" % int(st["egg_gems"])], sed["color"], "egg-clutch")
 		else:
 			_note("Chapter replayed: the story pays once", Color(0.8, 0.8, 0.85), "scroll-unfurled")
 	if str(r.get("omen", "")) != "":

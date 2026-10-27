@@ -744,35 +744,35 @@ const TROPHY_ROAD := [
 	{"t": 250, "kind": "chest", "chest": "silver"},
 	{"t": 400, "kind": "pick"},
 	{"t": 550, "kind": "mode", "id": "rush"},
-	{"t": 650, "kind": "gold", "amount": 450},
+	{"t": 650, "kind": "egg", "egg": "brood"},
 	{"t": 800, "kind": "zone", "id": "depths"},
 	{"t": 1000, "kind": "chest", "chest": "gold"},
 	{"t": 1200, "kind": "mode", "id": "descent"},
 	{"t": 1500, "kind": "pick"},
-	{"t": 1800, "kind": "shards", "amount": 30},
+	{"t": 1800, "kind": "egg", "egg": "brood"},
 	{"t": 2100, "kind": "mode", "id": "wild"},
 	{"t": 2500, "kind": "zone", "id": "grove"},
 	{"t": 3000, "kind": "hero", "id": "barbarian"},
 	{"t": 3500, "kind": "rift_key"},
 	# The long road: steps past 3,500 so the ladder lasts weeks, not an afternoon.
 	{"t": 3800, "kind": "cards", "ids": ["oath_storm", "rime_trap", "skybolt", "thunder_cry"]},
-	{"t": 4100, "kind": "shards", "amount": 60},
+	{"t": 4100, "kind": "egg", "egg": "season"},
 	{"t": 4400, "kind": "chest", "chest": "gold"},
 	{"t": 4700, "kind": "cards", "ids": ["wisp", "thorns"]},
 	{"t": 5000, "kind": "chest", "chest": "crypt"},
-	{"t": 5300, "kind": "shards", "amount": 80},
+	{"t": 5300, "kind": "egg", "egg": "season"},
 	{"t": 5600, "kind": "gold", "amount": 2500},
 	{"t": 5900, "kind": "cards", "ids": ["shockwave", "storm_arrows", "rift_quake", "skyfall"]},
 	{"t": 6200, "kind": "chest", "chest": "crypt"},
-	{"t": 6500, "kind": "shards", "amount": 100},
+	{"t": 6500, "kind": "egg", "egg": "season"},
 	{"t": 6800, "kind": "hero", "id": "rogue"},
 	{"t": 7100, "kind": "chest", "chest": "gold"},
 	{"t": 7500, "kind": "zone", "id": "vault"},
 	{"t": 7900, "kind": "shards", "amount": 120},
-	{"t": 8300, "kind": "gold", "amount": 4000},
+	{"t": 8300, "kind": "egg", "egg": "season"},
 	{"t": 8700, "kind": "cards", "ids": ["explosive", "greed"]},
 	{"t": 9100, "kind": "chest", "chest": "crypt"},
-	{"t": 9500, "kind": "shards", "amount": 150},
+	{"t": 9500, "kind": "egg", "egg": "exotic"},
 	{"t": 9800, "kind": "gold", "amount": 5000},
 	{"t": 10000, "kind": "chest", "chest": "crypt"},
 ]
@@ -824,6 +824,13 @@ static func road_threshold(n: int) -> int:
 static func road_reward(n: int) -> Dictionary:
 	if n >= 1 and n <= TROPHY_ROAD.size():
 		return TROPHY_ROAD[n - 1]
+	# Past the last step: a Crypt chest each time, with an egg every fourth and
+	# an exotic every twelfth.
+	var k := n - TROPHY_ROAD.size()
+	if k % 12 == 0:
+		return {"t": road_threshold(n), "kind": "egg", "egg": "exotic"}
+	if k % 4 == 0:
+		return {"t": road_threshold(n), "kind": "egg", "egg": "season"}
 	return {"t": road_threshold(n), "kind": "chest", "chest": "crypt"}
 
 
@@ -866,8 +873,12 @@ static func event_points_for(score: int) -> int:
 static func event_reward(n: int) -> Dictionary:
 	if n == EVENT_TRACK.size():
 		return {"kind": "chest", "chest": "crypt"}
+	if n == 4:
+		return {"kind": "egg", "egg": "brood"}
 	if n == 7:
 		return {"kind": "egg", "egg": "season"}
+	if n == 9:
+		return {"kind": "egg", "egg": "omen"}
 	if n % 5 == 0:
 		return {"kind": "chest", "chest": "gold"}
 	if n % 3 == 0:
@@ -1374,8 +1385,12 @@ static func season_reward(n: int, sid := 0) -> Dictionary:
 		return {"kind": "glow", "glow": "void"}
 	if n == SEASON_OUTFIT_TIER:
 		return {"kind": "outfit", "outfit": SEASON_OUTFITS[sid % SEASON_OUTFITS.size()]}
+	if n == 28:
+		return {"kind": "egg", "egg": "exotic"}
 	if n == 10 or n == 20:
 		return {"kind": "egg", "egg": "season"}
+	if n == 5 or n == 15:
+		return {"kind": "egg", "egg": "brood"}
 	if n % 5 == 0:
 		return {"kind": "chest", "chest": "gold" if n < 20 else "crypt"}
 	if n % 3 == 0 and n % 2 == 1:
