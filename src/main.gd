@@ -988,6 +988,52 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("swing%d" % i)
 					await _wait_sim(hs, 0.07)
+			"world":
+				# The living world: grass in wind and trampled, footprints on
+				# the path, beetles, bats, props knocked by the fight.
+				_set_screen_now("hunt")
+				var hw: Hunt = current
+				hw.bot = true
+				hw._bot = HuntBot.new()
+				hw._bot.hunt = hw
+				await _wait_sim(hw, float(_arg(args, "lead", "14")))
+				if _arg(args, "stage", "0") == "1":
+					# Bring the critters to the hero so a still shows them.
+					var lf: RefCounted = hw.arena.life
+					var hp := hw.hero.position
+					for i in lf.bats.multimesh.instance_count:
+						var xf: Transform3D = lf.bats.multimesh.get_instance_transform(i)
+						xf.origin = hp + Vector3(0, 3.5 + i * 0.3, -1.0 - i * 0.5)
+						lf.bats.multimesh.set_instance_transform(i, xf)
+					for i in lf._bugs.size():
+						var ba: float = float(i) * 0.9
+						lf._bugs[i]["p"] = hp + Vector3(sin(ba), 0, cos(ba)) * (3.2 + float(i % 4) * 0.5)
+						lf._place_bug(i)
+				if _arg(args, "stage", "0") == "2":
+					# Footprints: a walk up the path in front of the hero.
+					var lf2: RefCounted = hw.arena.life
+					hw.hero.position = Vector3(0.0, 0.0, 6.0)
+					for k in 9:
+						lf2._print_last = Vector3(1e6, 0, 1e6)
+						lf2._step(Vector3(0.0, 0.0, 13.0 - k * 0.8), Vector3(0, 0, -3))
+					await _wait(0.3)
+				var step := 0.8
+				if _arg(args, "stage", "0") == "3":
+					# Knock the nearest gravestones and watch them rock.
+					var lf3: RefCounted = hw.arena.life
+					var best: Dictionary = {}
+					var bd := 1e9
+					for r in lf3._react:
+						var dd: float = Vector2(float(r["x"]) - hw.hero.position.x, float(r["z"]) - hw.hero.position.z).length()
+						if not r["small"] and dd < bd:
+							bd = dd
+							best = r
+					hw.hero.invuln = 99.0
+					hw.world_hit(Vector3(float(best["x"]) + 0.6, 0.0, float(best["z"]) + 0.5), 1.5, 1.4)
+					step = 0.06
+				for i in 4:
+					await _save("world%d" % i)
+					await _wait_sim(hw, step)
 			"skfilm":
 				# Sidekick behaviour reel (frames, for ffmpeg): the hero stands
 				# still (it wanders), then hunts (it follows, attacks, specials).
