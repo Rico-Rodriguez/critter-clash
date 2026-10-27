@@ -323,6 +323,7 @@ func tick(dt: float) -> void:
 	if boss and boss.alive:
 		watch.append(boss.position)
 	arena.update_occlusion(watch, cam.pitch_deg + cam.pitch_shift, dt)
+	arena.tick_life(dt, hero.position, hero.vel, hero.alive, foes)
 	_skill_t -= dt
 	if _skill_t <= 0.0:
 		_skill_t = 0.4

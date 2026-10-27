@@ -5,6 +5,13 @@ extends "res://src/hunt/hunt_loot.gd"
 
 # --- Hazards ------------------------------------------------------------------
 
+## A blow lands in the world: props nearby wobble, beetles scatter, and gravestones
+## hit hard shed dust and stone chips.
+func world_hit(pos: Vector3, reach: float, power: float) -> void:
+	for p in arena.nudge(pos, reach, power):
+		fx.puff(p + Vector3(0, 0.3, 0), Color(0.3, 0.29, 0.28, 0.5), 3, 0.4, 0.9)
+		fx.vfx.debris(p + Vector3(0, 0.5, 0), 2, 2.6, &"physical")
+
 ## A telegraphed blast on the ground: after `delay` it hurts the hero if they
 ## are still inside, and may slow or root them.
 func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: String, col: Color, mech := 0.5) -> void:
@@ -15,6 +22,7 @@ func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: Strin
 			return
 		fx.vfx.impact(el, pos, r, col, &"skill")
 		Sfx.play("boom", -10.0, 1.3)
+		world_hit(pos, r + 0.8, 1.4)
 		if hero.alive and hero.flat_pos().distance_to(pos) < r + hero.radius * 0.5:
 			damage_hero(amount, null, mech)
 			if effect == "slow":
@@ -119,6 +127,7 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 		if amount <= 0.0:
 			fx.text(f.flat_pos(), "Warded", Color(0.7, 0.65, 1.0), 0.6, 0.6)
 			return
+	world_hit(f.position, f.radius + 0.7, clampf(force / 6.0, 0.35, 1.2))
 	var landed := minf(amount, maxf(f.hp, 0.0))
 	f.hp -= amount
 	# Light foes are shoved and tipped hard, heavy ones barely; a crit lands harder.

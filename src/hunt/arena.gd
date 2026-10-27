@@ -77,6 +77,12 @@ const PATH_RECT := Rect2(-30, -40, 60, 70)
 ## Content-pack layouts are preloaded by path (no class_name; see tests).
 const VaultLayout := preload("res://src/hunt/arena_vault.gd")
 const PropShapes := preload("res://src/hunt/prop_shapes.gd")
+const Life := preload("res://src/hunt/arena_life.gd")
+
+## The living-world layer (grass wind, footprints, reactive props, critters).
+var life: RefCounted
+## Baked prop node -> its [MultiMesh, index, transform] slots, so a baked prop can still wobble.
+var baked_slots := {}
 
 
 func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_seed := 1) -> void:
@@ -84,6 +90,7 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 	zone = zone_id
 	zone_env = DB.zone(zone_id)["env"]
 	_rng.seed = 7331
+	life = Life.new(self)
 	_environment()
 	if trial_rooms > 0:
 		TrialLayout.build(self, trial_seed, trial_rooms)
@@ -103,6 +110,7 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 	if low:
 		set_low(true)
 	bake_statics()
+	life.setup(trial_rooms == 0 and (zone_id == "barrow" or zone_id == "grove"))
 
 
 # --- Static batching -----------------------------------------------------
@@ -124,6 +132,7 @@ func bake_statics() -> void:
 		for mi in o["meshes"]:
 			skip[mi] = true
 	var groups := {}
+	var owner_of := {}
 	for n in _put_nodes:
 		if not is_instance_valid(n):
 			continue
@@ -149,6 +158,7 @@ func bake_statics() -> void:
 			if not groups.has(key):
 				groups[key] = {"mesh": mi.mesh, "mat": mat, "shadow": sh, "list": []}
 			groups[key]["list"].append([mi, xf])
+			owner_of[mi] = n
 	for key in groups:
 		var g: Dictionary = groups[key]
 		var list: Array = g["list"]
@@ -160,6 +170,7 @@ func bake_statics() -> void:
 		mm.instance_count = list.size()
 		for i in list.size():
 			mm.set_instance_transform(i, list[i][1])
+			baked_slots.get_or_add(owner_of[list[i][0]], []).append([mm, i, list[i][1]])
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name = "Baked"
 		mmi.multimesh = mm
@@ -436,6 +447,17 @@ func add_obstacle(c: Vector2, r: float) -> void:
 ## and its yaw. Stored as [c, bounding r, half, cos, sin].
 func add_box(c: Vector2, half: Vector2, yaw: float) -> void:
 	_file_obstacle([c, half.length(), half, cos(yaw), sin(yaw)], half.length())
+
+
+## A blow at `pos`: props nearby wobble and beetles scatter. Returns the
+## positions of props hit hard enough to shed dust.
+func nudge(pos: Vector3, radius: float, power: float) -> Array:
+	return life.nudge(pos, radius, power)
+
+
+## Once a frame: wind and trampling on the grass, footprints, critters.
+func tick_life(dt: float, hero_pos: Vector3, hero_vel: Vector3, hero_alive: bool, foes: Array) -> void:
+	life.tick(dt, hero_pos, hero_vel, hero_alive, foes)
 
 
 ## The nearest point of obstacle `o` to `q`, and whether `q` is inside it.
@@ -807,9 +829,7 @@ func _grass() -> void:
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var src_mat := mesh.surface_get_material(0)
 	if src_mat is BaseMaterial3D:
-		var m: StandardMaterial3D = (src_mat as BaseMaterial3D).duplicate()
-		m.vertex_color_use_as_albedo = true
-		mmi.material_override = m
+		mmi.material_override = life.grass_material(src_mat as BaseMaterial3D)
 	add_child(mmi)
 
 

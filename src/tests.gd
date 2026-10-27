@@ -258,6 +258,7 @@ func run() -> int:
 	_event_tests()
 	_settings_tests()
 	_feel_tests()
+	_world_tests()
 	_store_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
@@ -1951,3 +1952,88 @@ func _pet_care_tests() -> void:
 	Care.set_name(d, "wisp", "Boo")
 	var saved2: Dictionary = JSON.parse_string(JSON.stringify(d))
 	_ok("name: it survives the save", Care.nickname(saved2, "wisp") == "Boo")
+
+
+## The living world: grass wind, footprints, props that wobble, bats, beetles.
+func _world_tests() -> void:
+	const LIFE := preload("res://src/hunt/arena_life.gd")
+	var a := Arena.new()
+	a.build(true, "barrow", 0, 1)
+	var lf: RefCounted = a.life
+	_ok("world: the grass is a wind shader on the stock texture", lf.grass_mat is ShaderMaterial and lf.grass_mat.shader == LIFE.GRASS and lf.grass_mat.get_shader_parameter("albedo_tex") != null)
+	_ok("world: bats circle over the barrow", lf.bats != null and lf.bats.multimesh.instance_count == 4)
+	_ok("world: beetles live in the barrow", lf._bugs.size() == 7)
+	var d := Arena.new()
+	d.build(true, "depths", 0, 1)
+	_ok("world: no bats or beetles indoors", d.life.bats == null and d.life._bugs.is_empty())
+	var t := Arena.new()
+	t.build(true, "barrow", 3, 1)
+	_ok("world: none in a trial either", t.life.bats == null)
+	# Footprints: a walk down the path leaves prints; grass leaves none.
+	var kids := a.get_child_count()
+	lf._print_i = 0
+	for k in 12:
+		lf.tick(0.1, Vector3(0.0, 0.0, 16.0 - k * 1.0), Vector3(0, 0, -5), true, [])
+	_ok("world: walking the path leaves boot prints", lf._print_i >= 8)
+	var off := Vector3(14.0, 0.0, 16.0)
+	var before: int = lf._print_i
+	_ok("world: not on the grass (test spot is off the path)", a.on_path(off) < 0.3)
+	for k in 12:
+		lf.tick(0.1, off + Vector3(0, 0, -k * 1.0), Vector3(0, 0, -5), true, [])
+	_ok("world: the grass keeps no prints", lf._print_i == before)
+	_ok("world: standing still leaves none", lf._print_i == before and (func() -> bool:
+		lf.tick(0.1, Vector3(0, 0, 5), Vector3.ZERO, true, [])
+		return lf._print_i == before).call())
+	for k in 200:
+		lf._print_last = Vector3(1e6, 0, 1e6)
+		lf._step(Vector3(0.0, 0.0, 10.0), Vector3(0, 0, -3))
+	_ok("world: the print pool wraps", lf._print_i >= 0 and lf._print_i < lf._print_mm.instance_count)
+	_ok("world: ticking adds no nodes", a.get_child_count() == kids)
+	# The grass bends round the hero and the nearest foes.
+	lf.tick(0.016, Vector3(3, 0, 4), Vector3.ZERO, true, [])
+	var p0: Vector4 = lf.grass_mat.get_shader_parameter("push0")
+	_ok("world: the hero presses the grass", is_equal_approx(p0.x, 3.0) and is_equal_approx(p0.z, 4.0) and p0.w > 0.5)
+	# Props: a hard blow rocks a gravestone and it settles back to where it stood.
+	var rp: Dictionary = {}
+	for r in lf._react:
+		if not r["small"]:
+			rp = r
+			break
+	_ok("world: gravestones are reactive", not rp.is_empty())
+	if not rp.is_empty():
+		var at := Vector3(rp["x"], 0.0, rp["z"]) + Vector3(0.4, 0, 0)
+		var hard: Array = lf.nudge(at, 0.5, 1.2)
+		_ok("world: a hard blow reports the stone it hit", hard.size() >= 1 and hard.size() <= 2)
+		_ok("world: an immediate second blow is rate-limited", rp["cool"] > 0.0 and lf.nudge(at, 0.5, 1.2).filter(func(v): return v == Vector3(rp["x"], 0.0, rp["z"])).is_empty())
+		var peak := 0.0
+		for i in 20:
+			lf.tick(0.016, Vector3(-30, 0, 30), Vector3.ZERO, false, [])
+			peak = maxf(peak, (rp["tilt"] as Vector2).length())
+		_ok("world: the stone rocks but does not fall over (%.2f rad)" % peak, peak > 0.03 and peak < 0.45)
+		for i in 400:
+			lf.tick(0.016, Vector3(-30, 0, 30), Vector3.ZERO, false, [])
+		_ok("world: it settles back exactly", not rp["on"] and rp["tilt"] == Vector2.ZERO and (rp["n"] as Node3D).transform.is_equal_approx(rp["base"]))
+		var baked := 0
+		for r in lf._react:
+			baked += (r["slots"] as Array).size()
+		_ok("world: batched props keep a slot to wobble (the dummy renderer can't read instances back)", baked > 0)
+	# Beetles scatter from the hero and from fights, and stay in the arena.
+	var b0: Dictionary = lf._bugs[0]
+	var bp: Vector3 = b0["p"]
+	b0["run"] = 0.0
+	lf.tick(0.016, bp + Vector3(0.5, 0, 0), Vector3.ZERO, true, [])
+	_ok("world: a beetle bolts when the hero gets close", float(b0["run"]) > 0.0 and float(b0["v"]) > 2.0)
+	var b1: Dictionary = lf._bugs[1]
+	b1["run"] = 0.0
+	lf.nudge(b1["p"], 0.5, 1.0)
+	_ok("world: a fight scares them too", float(b1["run"]) > 0.0)
+	var inside := true
+	for i in 600:
+		lf.tick(0.016, bp, Vector3.ZERO, true, [])
+		for bb in lf._bugs:
+			var q: Vector3 = bb["p"]
+			inside = inside and q.x > a.min_x and q.x < a.max_x and q.z > a.min_z and q.z < a.max_z
+	_ok("world: beetles stay inside the walls", inside)
+	a.free()
+	d.free()
+	t.free()
