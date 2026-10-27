@@ -537,7 +537,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
-			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "eggshop", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -663,6 +663,18 @@ func _capture(args: PackedStringArray) -> void:
 					await _wait(0.8)
 					current.ui.play_hatch({"id": _arg(args, "pet", "shade"), "kind": _arg(args, "egg", "exotic"), "new": true, "kills": 0})
 					await _wait(1.6 if shot == "hatchwobble" else 5.0)
+				elif shot == "eggshop":
+					# The shelf under the hatchery, a few gems to spend, offer 1 already bought.
+					Game.data["gems"] = 400
+					Game.data["gold"] = 5000
+					current.open_sheet("hatchery")
+					await _wait(0.8)
+					Game.buy_egg(1)
+					current.ui._page.rebuild()
+					await _wait(0.8)
+					for sc in current.ui._page.find_children("*", "ScrollContainer", true, false):
+						(sc as ScrollContainer).scroll_vertical = 100000
+					await _wait(0.8)
 				elif shot == "petshatch":
 					current.open_sheet("hatchery")
 					await _wait(1.0)

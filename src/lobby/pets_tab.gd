@@ -118,6 +118,108 @@ static func build_hatchery(ui, s: Sheet) -> void:
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(info)
 	ui._build_hatchery(s)
+	build_egg_shop(ui, s)
+
+
+# --- Egg shop ----------------------------------------------------------------
+
+## The rotating shelf under the hatchery: three daily offers and a weekly
+## feature (EggShop via Game.egg_shop()). A buy lays the egg in the hatchery.
+static func build_egg_shop(ui, s: Sheet) -> void:
+	var b := s.body
+	var offers: Array = Game.egg_shop()
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 6)
+	b.add_child(gap)
+	var daily := int(offers[0]["left"])
+	var weekly := int(offers[offers.size() - 1]["left"])
+	b.add_child(ui._row([Ui.label("EGG SHOP", "Caption"), ui._spacer(), Ui.icon_rect("two-coins", 26, Color(1.0, 0.84, 0.4)), Ui.label("%d" % Game.gold(), "Value")], 8))
+	var info := Ui.label("Fresh eggs every day, one rare feature every week. Daily offers turn in %s · the feature in %s." % [_span(daily), _span(weekly)], "Small")
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(info)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	for of: Dictionary in offers:
+		grid.add_child(_offer_card(ui, s, of))
+	b.add_child(grid)
+	FxUi.deal_in(grid, 0.06)
+
+
+static func _span(secs: int) -> String:
+	if secs >= 86400:
+		return "%dd %dh" % [secs / 86400, (secs % 86400) / 3600]
+	if secs >= 3600:
+		return "%dh %02dm" % [secs / 3600, (secs % 3600) / 60]
+	return "%dm" % maxi(secs / 60, 1)
+
+
+## What an egg hatches, in one line.
+static func egg_blurb(kind: String) -> String:
+	var ed: Dictionary = SKDB.EGGS[kind]
+	if ed.has("hatches"):
+		return "Always a %s" % str(SKDB.ROSTER[str(ed["hatches"])]["name"])
+	var mut := SKDB.MUTATION_BASE * float(ed.get("mut", 1.0))
+	return "A random pet · %.1f%% mutation" % (mut * 100.0)
+
+
+static func _offer_card(ui, s: Sheet, of: Dictionary) -> Control:
+	var kind := str(of["egg"])
+	var ed: Dictionary = SKDB.EGGS[kind]
+	var col: Color = ed["color"]
+	var sold := bool(of["sold"])
+	var c: PanelContainer = ui._card()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.custom_minimum_size = Vector2(0, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	var tag := Ui.label("WEEKLY FEATURE" if bool(of["weekly"]) else str(ed["rarity"]).to_upper(), "Caption")
+	tag.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4) if bool(of["weekly"]) else col.lightened(0.2))
+	v.add_child(tag)
+	var egg := Ui.icon_rect("egg-clutch", 64, col)
+	egg.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(egg)
+	if bool(of["weekly"]) and not sold:
+		FxUi.bob(egg, 5.0, 2.2)
+	var nm := Ui.label(str(ed["name"]), "Body")
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(nm)
+	var blurb := Ui.label(egg_blurb(kind), "Small")
+	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(blurb)
+	var go := Button.new()
+	go.focus_mode = Control.FOCUS_NONE
+	go.theme_type_variation = &"GoldButton"
+	go.add_theme_font_size_override("font_size", 24)
+	go.clip_text = true
+	var gems := str(of["cur"]) == "gems"
+	go.text = "SOLD" if sold else "%d %s" % [int(of["price"]), "gems" if gems else "gold"]
+	go.icon = Ui.icon("gems" if gems else "two-coins")
+	go.expand_icon = true
+	var why := str(of["why"])
+	go.disabled = why != ""
+	if why != "" and not sold:
+		go.tooltip_text = why
+	var slot := int(of["slot"])
+	go.pressed.connect(func():
+		var got: Dictionary = Game.buy_egg(slot)
+		if got.is_empty():
+			return
+		FxUi.pop(egg)
+		ui._toast("%s laid in your hatchery" % str(SKDB.EGGS[str(got["egg"])]["name"]), SKDB.EGGS[str(got["egg"])]["color"])
+		s.rebuild())
+	v.add_child(go)
+	if why != "" and not sold:
+		var note := Ui.label(why, "Small")
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		note.add_theme_color_override("font_color", Color(0.9, 0.55, 0.5))
+		v.add_child(note)
+	if sold:
+		c.modulate = Color(1, 1, 1, 0.55)
+	c.add_child(v)
+	return c
 
 
 # --- Showcase ----------------------------------------------------------------
