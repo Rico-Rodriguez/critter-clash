@@ -1405,6 +1405,22 @@ func _store_tests() -> void:
 	Game.data = {"seen_tutorial": true, "online": {"off": false}}
 	_ok("privacy: an old save without the key is asked", PRIV.needed())
 	Game.data = Game._fresh()
+	# The screen itself: toggling crash reports and tapping CONTINUE records and finishes.
+	var scr: CanvasLayer = PRIV.new()
+	(Engine.get_main_loop() as SceneTree).root.add_child(scr)
+	scr.build()
+	var seen := [false]
+	scr.done.connect(func(): seen[0] = true)
+	var accept := scr.find_child("AcceptButton", true, false) as Button
+	_ok("privacy: the screen has a continue button", accept != null)
+	for cb in scr.find_children("*", "CheckButton", true, false):
+		if (cb as CheckButton).text == "Share crash reports":
+			(cb as CheckButton).button_pressed = true
+	accept.pressed.emit()
+	_ok("privacy: continue finishes the screen", seen[0])
+	_ok("privacy: continue records the crash yes", PRIV.crash_ok() and not PRIV.needed())
+	scr.queue_free()
+	Game.data = Game._fresh()
 	# The hookup: DSN parsing and the envelope.
 	var t: Dictionary = CRASH.parse_dsn("https://abc123@o42.ingest.example.io/777")
 	_ok("crash: DSN parses to the envelope url", t.get("url") == "https://o42.ingest.example.io/api/777/envelope/" and t.get("key") == "abc123")
