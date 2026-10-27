@@ -121,14 +121,21 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 			return
 	var landed := minf(amount, maxf(f.hp, 0.0))
 	f.hp -= amount
-	f.hit_flash()
+	# Light foes are shoved and tipped hard, heavy ones barely; a crit lands harder.
+	f.hit_react(dir, clampf(1.0 / sqrt(maxf(f.mass, 0.5)), 0.35, 1.2), crit)
+	if src == hero and force > 0.0:
+		cam.kick(dir, (0.14 if crit else 0.07) * clampf(force / 6.0, 0.5, 1.4))
+	if crit and src == hero:
+		hitstop(0.03)
 	if f is Enemy and f.hp > 0.0:
 		(f as Enemy).stagger()
 		if (f as Enemy).kind == "robber":
 			for i in randi_range(1, 2):
 				_drop("gold", f.flat_pos(), randi_range(2, 5))
 	if force > 0.0:
-		f.push(dir, force)
+		var shove := force * (1.35 if crit else 1.0)
+		f.push(dir, shove)
+		_skid_dust(f, shove)
 	var big := f is Boss
 	# Every blow lands with a sound of its own (rate limited in Sfx, so a
 	# crowd of hits in one frame is one crunch): bigger foes knock deeper.
@@ -164,6 +171,16 @@ func damage_foe(f: Actor, amount: float, src: Node3D, dir: Vector3, force: float
 			_kill_boss()
 		else:
 			_kill(f as Enemy)
+			if force > 0.0:
+				(f as Enemy).launch(dir, maxf(force, 5.0) * 1.3)
+
+
+## A shoved foe scuffs the ground: a small dust puff, at most every 50 ms.
+func _skid_dust(f: Actor, shove: float) -> void:
+	if f is Boss or shove / maxf(f.mass, 0.5) < 5.0 or time < _dust_t:
+		return
+	_dust_t = time + 0.05
+	fx.puff(f.flat_pos(), Color(0.32, 0.27, 0.22, 0.5), 3, 0.35, 1.0)
 
 
 func _kill(f: Enemy) -> void:
@@ -331,7 +348,14 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 	amount = roundf(amount * randf_range(0.92, 1.08))
 	hero.hp -= amount
 	hero.calm_t = 0.0
-	hero.hit_flash()
+	var from := Vector3.ZERO
+	if src != null:
+		from = hero.flat_pos() - Vector3(src.global_position.x, 0.0, src.global_position.z)
+	hero.hit_react(from, 1.0)
+	if from.length_squared() > 0.0001:
+		cam.kick(from, clampf(amount / hero.max_hp * 3.0, 0.1, 0.4))
+		if amount > hero.max_hp * 0.05:
+			hero.push(from.normalized(), 3.5)
 	hero.invuln = 0.08
 	fx.number(hero.flat_pos(), int(amount), Color(1.0, 0.3, 0.25), 0.9)
 	hud.hurt(clampf(amount / hero.max_hp * 4.0, 0.25, 1.0))

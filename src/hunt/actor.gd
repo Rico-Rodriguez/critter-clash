@@ -17,7 +17,19 @@ var knock := Vector3.ZERO
 var stun_t := 0.0
 var freeze_t := 0.0
 var flash_t := 0.0
-var _squash_base := Vector3.ZERO
+var _flash_len := 0.12
+## Body springs: squash/stretch (a scale offset in the model's own axes) and a
+## lean (small rotation about X and Z), both kicked by impulses and settling
+## with a little overshoot. Idle actors cost nothing (see _tick_springs).
+const SPRING_K := 420.0
+const SPRING_C := 17.0
+const SPRING_IMPULSE := 34.0
+var _sq := Vector3.ZERO
+var _sq_v := Vector3.ZERO
+var _lean := Vector2.ZERO
+var _lean_v := Vector2.ZERO
+var _spring_base := Vector3.ONE
+var _spring_on := false
 var model: Node3D
 var anim: AnimationPlayer
 var cur_anim := ""
@@ -229,23 +241,89 @@ func _apply_tint(c: Color) -> void:
 		mi.set_instance_shader_parameter("tint", c)
 
 
-## Hit feedback: a white flash and a quick squash pop of the model.
-func hit_flash() -> void:
-	if flash_t <= 0.0 and model:
-		_squash_base = model.scale
-	flash_t = 0.11
+## Hit feedback: a hard white flash (full for the first beat, then a quick
+## fade) and a squash pop of the model. A crit holds the flash longer.
+func hit_flash(crit := false) -> void:
+	_flash_len = 0.17 if crit else 0.12
+	flash_t = _flash_len
 	set_flash(1.0)
+	squash(Vector3(0.05, -0.09, 0.05) * (1.4 if crit else 1.0))
+
+
+## A blow from the direction `dir` (world, the way it pushes): flash, squash
+## and the body leans away along `dir`, harder for light actors and crits.
+func hit_react(dir: Vector3, power := 1.0, crit := false) -> void:
+	hit_flash(crit)
+	if dir.length_squared() > 0.0001:
+		lean(dir.normalized(), 0.13 * power * (1.35 if crit else 1.0))
+
+
+## Kicks the squash/stretch spring. `offset` is a scale change in the model's
+## axes (z is forward): (-0.06, -0.04, 0.16) is a lunge, (0.05, -0.09, 0.05) a hit.
+func squash(offset: Vector3) -> void:
+	if model == null:
+		return
+	_start_springs()
+	_sq_v += offset * SPRING_IMPULSE
+
+
+## Tips the model so its head moves along `dir` (world) by about `rad` radians.
+func lean(dir: Vector3, rad: float) -> void:
+	if model == null:
+		return
+	_start_springs()
+	var l := dir.rotated(Vector3.UP, -rotation.y)
+	_lean_v += Vector2(l.z, -l.x) * rad * SPRING_IMPULSE
+
+
+## Back to the rest pose at once (a foe that just died stays where it fell).
+func clear_springs() -> void:
+	if _spring_on:
+		_spring_on = false
+		_sq = Vector3.ZERO
+		_sq_v = Vector3.ZERO
+		_lean = Vector2.ZERO
+		_lean_v = Vector2.ZERO
+		model.scale = _spring_base
+		model.rotation = Vector3(0.0, model.rotation.y, 0.0)
+
+
+func _start_springs() -> void:
+	if not _spring_on:
+		_spring_on = true
+		_spring_base = model.scale
+
+
+func _tick_springs(dt: float) -> void:
+	var h := minf(dt, 1.0 / 30.0)
+	_sq_v += (-SPRING_K * _sq - SPRING_C * _sq_v) * h
+	_sq += _sq_v * h
+	_lean_v += (-SPRING_K * _lean - SPRING_C * _lean_v) * h
+	_lean += _lean_v * h
+	if _sq.length_squared() + _sq_v.length_squared() * 0.0025 < 0.000004 and _lean.length_squared() + _lean_v.length_squared() * 0.0025 < 0.000004:
+		_spring_on = false
+		_sq = Vector3.ZERO
+		_sq_v = Vector3.ZERO
+		_lean = Vector2.ZERO
+		_lean_v = Vector2.ZERO
+		model.scale = _spring_base
+		model.rotation = Vector3(0.0, model.rotation.y, 0.0)
+		return
+	model.scale = _spring_base * (Vector3.ONE + _sq)
+	model.rotation = Vector3(_lean.x, model.rotation.y, _lean.y)
 
 
 func tick_common(dt: float) -> void:
 	if flash_t > 0.0:
 		flash_t -= dt
-		var fk := clampf(flash_t / 0.11, 0.0, 1.0)
-		set_flash(fk)
-		if model and _squash_base != Vector3.ZERO:
-			model.scale = _squash_base * (Vector3(1.0 + 0.16 * fk, 1.0 - 0.14 * fk, 1.0 + 0.16 * fk) if flash_t > 0.0 else Vector3.ONE)
-			if flash_t <= 0.0:
-				_squash_base = Vector3.ZERO
+		# Full white for the first beat, then a quick fade.
+		var hold := _flash_len - 0.06
+		if flash_t > hold:
+			set_flash(1.0)
+		else:
+			set_flash(clampf(flash_t / maxf(hold, 0.01), 0.0, 1.0))
+	if _spring_on and model:
+		_tick_springs(dt)
 	if knock.length_squared() > 0.0001:
 		position += knock * dt
 		knock = knock.move_toward(Vector3.ZERO, 26.0 * dt)

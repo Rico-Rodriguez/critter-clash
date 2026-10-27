@@ -289,6 +289,10 @@ func tick(dt: float) -> void:
 		return
 	if dash_t > 0.0:
 		dash_t -= dt
+		if dash_t <= 0.0:
+			# Landing: squat and settle.
+			squash(Vector3(0.09, -0.13, 0.0))
+			lean(-dash_dir, 0.1)
 		position += dash_dir * DASH_SPEED * dt
 		position = hunt.arena.resolve(position, radius)
 		if randf() < 0.6:
@@ -362,6 +366,9 @@ func _tick_attack(dt: float) -> void:
 	lead = minf(lead, atk_cd * 0.6)
 	impact_t = lead
 	act(clip, lead / 0.45)
+	# Anticipation: a crouch and a lean back before the blow.
+	squash(Vector3(0.04, -0.06, -0.06))
+	lean(-dir_of(aim_yaw), 0.07)
 
 
 func _impact() -> void:
@@ -370,6 +377,13 @@ func _impact() -> void:
 		aim_yaw = yaw_to(position, target.position)
 	rotation.y = aim_yaw
 	var fwd := dir_of(aim_yaw)
+	# The blow: melee lunges forward and stretches, ranged and magic recoil.
+	if style == "melee":
+		squash(Vector3(-0.07, -0.05, 0.17))
+		lean(fwd, 0.15)
+	else:
+		squash(Vector3(0.04, -0.05, -0.08))
+		lean(-fwd, 0.1)
 	if fam != "" and style == "melee":
 		_family_impact(fwd)
 		_wave(fwd)
@@ -639,6 +653,8 @@ func try_dash() -> bool:
 	impact_t = -1.0
 	rotation.y = atan2(dash_dir.x, dash_dir.z)
 	vel = dash_dir * speed
+	squash(Vector3(-0.09, -0.11, 0.24))
+	lean(dash_dir, 0.22)
 	act("Dodge_Forward", DASH_TIME + 0.15, true)
 	hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.26, 0.55), 6, 0.5, 2.0)
 	# Barkbound set: the dash leaves a trail of thorns.

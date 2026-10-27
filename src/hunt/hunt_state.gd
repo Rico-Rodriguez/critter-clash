@@ -65,6 +65,13 @@ var low := false
 var result := {}
 var _proj_pool := {}
 var _real_hitstop := 0.0
+## Hitstop is paid from a tank that refills as real time passes, so a long
+## brawl can't turn into slow motion; a hitstop already ending eases back in.
+const STOP_TANK := 0.22
+const STOP_REFILL := 0.3
+var _stop_bank := STOP_TANK
+var _stop_ease := 0.0
+var _dust_t := 0.0
 var _skill_base := {}
 var _skill_shown := {}
 var _skill_t := 0.0
@@ -468,7 +475,12 @@ func sidekick_card_open(c: Dictionary) -> bool:
 func hitstop(t: float) -> void:
 	if phase == "victory" or phase == "defeat":
 		return
+	t = minf(t, _stop_bank)
+	if t < 0.012:
+		return
+	_stop_bank -= t
 	Engine.time_scale = 0.05
+	_stop_ease = 0.0
 	_real_hitstop = maxf(_real_hitstop, t)
 
 
@@ -478,6 +490,7 @@ func hitstop(t: float) -> void:
 ## whole modal and every unpaused tween crawled. End it before pausing.
 func end_hitstop() -> void:
 	_real_hitstop = 0.0
+	_stop_ease = 0.0
 	if phase != "victory" and phase != "defeat":
 		Engine.time_scale = 1.0
 
