@@ -571,6 +571,41 @@ func set_skin(id: String, skin: String) -> void:
 		save()
 
 
+func outfit_price(o: String) -> int:
+	return int(DB.OUTFITS[o]["gold"])
+
+
+## Buys outfit `o` for hero `id` (and puts it on); owning it just puts it on.
+func buy_outfit(id: String, o: String) -> bool:
+	var h := hero(id)
+	if o in h["outfits"]:
+		h["outfit"] = o
+		save()
+		return true
+	var d: Dictionary = DB.OUTFITS[o]
+	var cost := outfit_price(o)
+	if not id in d["heroes"] or d.get("gift", false) or gold() < cost:
+		return false
+	data["gold"] = gold() - cost
+	h["outfits"].append(o)
+	h["outfit"] = o
+	save()
+	return true
+
+
+func set_outfit(id: String, o: String) -> void:
+	if o == "" or o in hero(id)["outfits"]:
+		hero(id)["outfit"] = o
+		save()
+
+
+## Gives outfit `o` to every hero it fits, without wearing it.
+func grant_outfit(o: String) -> void:
+	for id in DB.OUTFITS[o]["heroes"]:
+		if not o in hero(id)["outfits"]:
+			hero(id)["outfits"].append(o)
+
+
 func set_glow(id: String, glow: String) -> void:
 	if glow == "" or glow in hero(id)["glows"]:
 		hero(id)["glow"] = glow

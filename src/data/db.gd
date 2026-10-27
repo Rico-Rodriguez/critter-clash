@@ -1193,6 +1193,33 @@ const WEAPON_SKINS := {
 }
 const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "hawk", "bolt", "elder", "sprite", "grimoire", "hexstaff", "reaper", "cleaver", "crusher", "twinfang", "kris", "stiletto", "duelblade", "boneshiv"]
 
+## Outfits: a whole-body dye over what the hero wears, for the look only. Gear
+## still decides the shapes; the dye keeps the cloth's own light and dark, so
+## it stays crisp. `mix` is how much of the dye replaces the texture, `polish`
+## (0..1) a clean, glossy finish, `shimmer` a band of light sweeping the
+## outfit. `gift` outfits are earned (the season pass), never sold.
+const OUTFITS := {
+	"crimson": {"name": "Crimson Guard", "heroes": ["knight"], "dye": Color(0.8, 0.13, 0.16), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 12000},
+	"gilded": {"name": "Gilded Oathsworn", "heroes": ["knight"], "dye": Color(1.0, 0.76, 0.28), "mix": 0.85, "polish": 0.8, "shimmer": 0.6, "gold": 32000},
+	"frostwood": {"name": "Frostwood", "heroes": ["ranger"], "dye": Color(0.55, 0.82, 1.0), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
+	"emberstalker": {"name": "Emberstalker", "heroes": ["ranger"], "dye": Color(0.95, 0.42, 0.12), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 26000},
+	"ashen": {"name": "Ashen Weave", "heroes": ["mage"], "dye": Color(0.62, 0.62, 0.7), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
+	"sunfire": {"name": "Sunfire Vestments", "heroes": ["mage"], "dye": Color(1.0, 0.6, 0.15), "mix": 0.82, "polish": 0.7, "shimmer": 0.6, "gold": 28000},
+	"bloodmoon": {"name": "Bloodmoon Raider", "heroes": ["barbarian"], "dye": Color(0.62, 0.07, 0.1), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 12000},
+	"glacier": {"name": "Glacier Clan", "heroes": ["barbarian"], "dye": Color(0.6, 0.86, 0.96), "mix": 0.8, "polish": 0.6, "shimmer": 0.5, "gold": 28000},
+	"midnight": {"name": "Midnight Shroud", "heroes": ["rogue"], "dye": Color(0.16, 0.2, 0.5), "mix": 0.82, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
+	"viper": {"name": "Viridian Viper", "heroes": ["rogue"], "dye": Color(0.15, 0.72, 0.38), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 28000},
+	# Season pass outfits fit every hero.
+	"embergilt": {"name": "Embergilt", "heroes": HERO_ORDER, "dye": Color(0.95, 0.55, 0.18), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
+	"moonsilk": {"name": "Moonsilk", "heroes": HERO_ORDER, "dye": Color(0.72, 0.8, 1.0), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
+	"verdigris": {"name": "Verdigris", "heroes": HERO_ORDER, "dye": Color(0.2, 0.78, 0.62), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
+}
+const OUTFIT_ORDER := ["crimson", "gilded", "frostwood", "emberstalker", "ashen", "sunfire", "bloodmoon", "glacier", "midnight", "viper", "embergilt", "moonsilk", "verdigris"]
+## The season pass's outfit, one a season in turn.
+const SEASON_OUTFITS := ["embergilt", "moonsilk", "verdigris"]
+## The pass pays it at this tier.
+const SEASON_OUTFIT_TIER := 25
+
 # --- Online ---------------------------------------------------------------------
 
 ## What one hunt deals to the clan raid boss: per kill, elite, boss and win,
@@ -1306,9 +1333,11 @@ const SEASON_TIERS := 30
 const SEASON_XP := 400
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
 
-static func season_reward(n: int) -> Dictionary:
+static func season_reward(n: int, sid := 0) -> Dictionary:
 	if n == SEASON_TIERS:
 		return {"kind": "glow", "glow": "void"}
+	if n == SEASON_OUTFIT_TIER:
+		return {"kind": "outfit", "outfit": SEASON_OUTFITS[sid % SEASON_OUTFITS.size()]}
 	if n == 10 or n == 20:
 		return {"kind": "egg", "egg": "season"}
 	if n % 5 == 0:

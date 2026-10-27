@@ -128,6 +128,14 @@ static func build_skins(ui, s: Sheet) -> void:
 	nm.add_theme_font_size_override("font_size", 22)
 	nm.add_theme_color_override("font_color", Color("f6e7c4"))
 	b.add_child(nm)
+	var outfits: Array = DB.OUTFIT_ORDER.filter(func(k): return hid in DB.OUTFITS[k]["heroes"] and (not DB.OUTFITS[k].get("gift", false) or k in Game.hero(hid)["outfits"]))
+	if not outfits.is_empty():
+		b.add_child(_heading("OUTFITS", "Dye for the whole look"))
+		var og := _grid()
+		for k: String in outfits:
+			og.add_child(_outfit_card(ui, s, hid, k))
+		b.add_child(og)
+		FxUi.deal_in(og, 0.05)
 	var skins: Array = DB.WEAPON_SKIN_ORDER.filter(func(k): return hid in DB.WEAPON_SKINS[k]["heroes"])
 	if not skins.is_empty():
 		b.add_child(_heading("WEAPON SKINS", ""))
@@ -450,6 +458,28 @@ static func _glow_card(ui, s: Sheet, hid: String, g: String) -> Button:
 	return btn
 
 
+static func _outfit_card(ui, s: Sheet, hid: String, k: String) -> Button:
+	var od: Dictionary = DB.OUTFITS[k]
+	var h := Game.hero(hid)
+	var owned: bool = k in h.get("outfits", [])
+	var worn: bool = str(h.get("outfit", "")) == k
+	var price := Game.outfit_price(k)
+	var art := Ui.icon_rect(str(DB.HEROES[hid]["icon"]), 84, Color(od["dye"]).lightened(0.25))
+	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_num(price))
+	var tag := "Season outfit" if od.get("gift", false) else "Outfit"
+	var btn := _card(art, str(od["name"]), tag, ptxt, &"TileBlue", "", worn, false, not owned)
+	btn.pressed.connect(func():
+		if owned:
+			Game.set_outfit(hid, "" if worn else k)
+			Sfx.play("ui_toggle", -4.0)
+			ui.lobby.show_hero(Game.hero_id())
+			Portraits.rebuild(ui, hid)
+			s.rebuild()
+			return
+		_confirm(ui, s, {"kind": "outfit", "outfit": k, "hero": hid, "price": price}, -1))
+	return btn
+
+
 static func _skin_card(ui, s: Sheet, hid: String, k: String) -> Button:
 	var sd: Dictionary = DB.WEAPON_SKINS[k]
 	var h := Game.hero(hid)
@@ -487,6 +517,8 @@ static func _confirm(ui, page: Sheet, d: Dictionary, i: int) -> void:
 			title = "%s glow" % DB.GLOWS[d["glow"]]["name"]
 		"skin":
 			title = str(DB.WEAPON_SKINS[d["skin"]]["name"])
+		"outfit":
+			title = str(DB.OUTFITS[d["outfit"]]["name"])
 	sh.open(title, func(cs: Sheet): _confirm_body(ui, page, cs, d, i), 0.6)
 
 
@@ -520,6 +552,9 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 		"glow":
 			lines.append("Your %s's weapon glows %s in every hunt." % [DB.HEROES[d["hero"]]["name"], str(DB.GLOWS[d["glow"]]["name"]).to_lower()])
 			lines.append("Looks only: it changes no stats.")
+		"outfit":
+			lines.append("Your %s wears the %s outfit in camp and in every hunt." % [DB.HEROES[d["hero"]]["name"], DB.OUTFITS[d["outfit"]]["name"]])
+			lines.append("Looks only: the gear you wear still counts.")
 		"skin":
 			lines.append("Your %s carries the %s in camp and in every hunt." % [DB.HEROES[d["hero"]]["name"], DB.WEAPON_SKINS[d["skin"]]["name"]])
 			lines.append("Looks only: your equipped weapon's stats still count.")
@@ -555,6 +590,12 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 					Sfx.play("ui_error", -6.0)
 					return
 				ui.lobby.show_hero(str(d["hero"]))
+			"outfit":
+				if not Game.buy_outfit(str(d["hero"]), str(d["outfit"])):
+					Sfx.play("ui_error", -6.0)
+					return
+				ui.lobby.show_hero(str(d["hero"]))
+				Portraits.rebuild(ui, str(d["hero"]))
 			_:
 				if Game.buy_deal(i).is_empty():
 					Sfx.play("ui_error", -6.0)
