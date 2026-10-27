@@ -173,6 +173,8 @@ func _build_season(s: Sheet) -> void:
 			"gold": t = "%d gold" % int(rw["amount"])
 			"shards": t = "%d shards" % int(rw["amount"])
 			"chest": t = DB.CHESTS[rw["chest"]]["name"]
+			"gems": t = "%d gems" % int(rw["amount"])
+			"egg": t = str(SKDB.EGGS[rw["egg"]]["name"])
 			"glow": t = "%s weapon glow for every hero" % DB.GLOWS[rw["glow"]]["name"]
 		var tl := Ui.label(("✓ " if n <= claimed else "") + t, "Body")
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -671,7 +673,8 @@ func _build_sidekicks(s: Sheet) -> void:
 		sv.add_child(line)
 	side.add_child(sv)
 	b.add_child(side)
-	var owned: int = (Game.data["sidekicks"]["owned"] as Dictionary).size()
+	_build_hatchery(s)
+	var owned: int = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)).size()
 	b.add_child(Ui.label("STABLE · %d / %d" % [owned, SKDB.ORDER.size()], "Caption"))
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -679,13 +682,109 @@ func _build_sidekicks(s: Sheet) -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	for id: String in SKDB.ORDER:
 		grid.add_child(_sidekick_tile(s, id))
-	# Eggs warming up, each its own tile.
-	for eid: String in Game.data["sidekicks"]["eggs"]:
-		var e: Dictionary = SKDB.EGGS[eid]
-		var k := int(Game.data["sidekicks"]["eggs"][eid]["kills"])
-		grid.add_child(_sk_tile_box("egg-clutch", Color(1.0, 0.85, 0.55), str(e["name"]), "Hatching %d / %d" % [k, int(e["kills"])], float(k) / float(e["kills"]), false, Callable()))
 	b.add_child(grid)
 	FxUi.deal_in(grid, 0.04)
+
+
+## The last egg hatched in the sheet, shown at the top of the hatchery once.
+var _hatch_news := {}
+
+
+## The hatchery: every egg warming, by the clock or by kills, whichever is
+## first. A ready egg hatches on a tap; gems finish one now.
+func _build_hatchery(s: Sheet) -> void:
+	var b := s.body
+	var now := int(Time.get_unix_time_from_system())
+	var eggs: Array = SKS.hatchery(Game.data)
+	var head := _row([Ui.label("HATCHERY · %d / %d" % [eggs.size(), SKDB.HATCH_SLOTS], "Caption"), _spacer(), Ui.icon_rect("gems", 26, Color(0.55, 0.9, 1.0)), Ui.label("%d" % SKS.gems(Game.data), "Value")], 8)
+	b.add_child(head)
+	if not _hatch_news.is_empty():
+		var hd: Dictionary = SKDB.ROSTER[str(_hatch_news["id"])]
+		var nc := _card()
+		var nv := VBoxContainer.new()
+		nv.alignment = BoxContainer.ALIGNMENT_CENTER
+		var ic := CenterContainer.new()
+		ic.add_child(Ui.icon_rect(str(hd["icon"]), 96, Color(hd["color"])))
+		nv.add_child(ic)
+		var t := Ui.label(("%s hatched!" if bool(_hatch_news["new"]) else "%s again: +%d bond kills") % ([hd["name"]] if bool(_hatch_news["new"]) else [hd["name"], int(_hatch_news["kills"])]), "Heading", HORIZONTAL_ALIGNMENT_CENTER)
+		t.add_theme_color_override("font_color", Color(hd["color"]).lightened(0.3))
+		nv.add_child(t)
+		nc.add_child(nv)
+		b.add_child(nc)
+		FxUi.deal_in(nv, 0.0)
+		_hatch_news = {}
+	if eggs.is_empty():
+		var none := Ui.label("No eggs. Find them in chests, on the season road, and, rarely, as exotic drops from bosses.", "Small")
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.add_child(none)
+		return
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	for e: Dictionary in eggs:
+		grid.add_child(_egg_tile(s, e, now))
+	b.add_child(grid)
+
+
+func _egg_tile(s: Sheet, e: Dictionary, now: int) -> Control:
+	var ed: Dictionary = SKDB.EGGS[str(e["kind"])]
+	var col: Color = ed["color"]
+	var uid := int(e["uid"])
+	var c := _card()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.custom_minimum_size = Vector2(0, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.add_child(_row([Ui.icon_rect("egg-clutch", 40, col), Ui.label(str(ed["name"]), "Body")], 8))
+	var hatchable := SKS.egg_ready(e, now)
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 12)
+	bar.value = SKS.egg_frac(e, now) * 100.0
+	v.add_child(bar)
+	var left := maxi(int(ed["kills"]) - int(e["kills"]), 0)
+	v.add_child(Ui.label("Ready!" if hatchable else "%s or %d kills" % [_dur(SKS.egg_secs_left(e, now)), left], "Small"))
+	var go := Button.new()
+	go.focus_mode = Control.FOCUS_NONE
+	go.theme_type_variation = &"GoldButton"
+	go.add_theme_font_size_override("font_size", 24)
+	go.clip_text = true
+	if hatchable:
+		go.text = "HATCH"
+		go.pressed.connect(func():
+			_hatch_news = SKS.hatch(Game.data, uid, int(Time.get_unix_time_from_system()))
+			_after_hatch(s))
+	else:
+		var cost := SKS.rush_cost(e, now)
+		go.text = "%d gems" % cost
+		go.disabled = SKS.gems(Game.data) < cost
+		go.pressed.connect(func():
+			_hatch_news = SKS.rush(Game.data, uid, int(Time.get_unix_time_from_system()))
+			_after_hatch(s))
+	v.add_child(go)
+	c.add_child(v)
+	return c
+
+
+## "5h 12m", "14m", "40s".
+static func _dur(secs: int) -> String:
+	if secs >= 3600:
+		return "%dh %02dm" % [secs / 3600, (secs % 3600) / 60]
+	if secs >= 60:
+		return "%dm" % (secs / 60)
+	return "%ds" % secs
+
+
+func _after_hatch(s: Sheet) -> void:
+	if _hatch_news.is_empty():
+		return
+	Sfx.play("rare_chime", 0.0)
+	Sfx.play("sparkle", -2.0)
+	Ui.buzz(80, 0.7)
+	Game.save()
+	_refresh_camp_sidekick()
+	s.rebuild()
 
 
 func _sidekick_tile(s: Sheet, id: String) -> Control:

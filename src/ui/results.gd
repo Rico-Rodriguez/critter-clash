@@ -398,7 +398,9 @@ func _sidekick_notes(sk: Dictionary) -> void:
 			_note("%s · +%d bond kills" % [d["name"], int(sk["kills"])], col, str(d["icon"]))
 	var egg := str(sk.get("egg", ""))
 	if egg != "":
-		_note("You found an %s! Kills warm it until it hatches" % SDB.EGGS[egg]["name"], Color(1.0, 0.85, 0.55), "egg-clutch")
+		_note("You found an %s! It's warming in your hatchery" % SDB.EGGS[egg]["name"], Color(1.0, 0.85, 0.55), "egg-clutch")
+	for i in int(sk.get("exotic", 0)):
+		_note("EXOTIC EGG! It's warming in your hatchery", SDB.EGGS["exotic"]["color"], "egg-clutch")
 	for h in sk.get("hatched", []):
 		_note("The egg hatched: %s joins you" % SDB.ROSTER[str(h)]["name"], Color(SDB.ROSTER[str(h)]["color"]), str(SDB.ROSTER[str(h)]["icon"]))
 	for u in sk.get("unlocked", []):

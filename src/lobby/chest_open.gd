@@ -112,6 +112,17 @@ func _reward_card(r: Dictionary) -> Control:
 			icon = GearDB.item_icon(it)
 			title = str(it["name"])
 			sub = "%s · for the %s\n%s" % [Game.item_tag(it), DB.HEROES[it["cls"]]["name"], "\n".join(Game.describe_stats(it))]
+		"gems":
+			col = Color(0.55, 0.9, 1.0)
+			icon = "gems"
+			title = "+%d gems" % int(r["amount"])
+			sub = "Gems hatch eggs sooner"
+		"egg":
+			var ed: Dictionary = preload("res://src/data/sidekick_db.gd").EGGS[r["egg"]]
+			col = ed["color"]
+			icon = "egg-clutch"
+			title = "%s!" % ed["name"]
+			sub = "It warms in your hatchery (Sidekicks)"
 		"unlock":
 			var d2: Dictionary = DB.HEROES[r["hero"]]
 			col = d2["color"]
@@ -178,6 +189,12 @@ func _summary() -> void:
 				col = DB.gear_color(r["item"])
 			"unlock":
 				line = "%s unlocked" % DB.HEROES[r["hero"]]["name"]
+			"gems":
+				line = "+%d gems" % int(r["amount"])
+				col = Color(0.55, 0.9, 1.0)
+			"egg":
+				line = str(preload("res://src/data/sidekick_db.gd").EGGS[r["egg"]]["name"])
+				col = preload("res://src/data/sidekick_db.gd").EGGS[r["egg"]]["color"]
 		var l := Ui.label(line, "Body", HORIZONTAL_ALIGNMENT_CENTER)
 		l.add_theme_color_override("font_color", col)
 		v.add_child(l)

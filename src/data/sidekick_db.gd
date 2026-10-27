@@ -137,13 +137,34 @@ const SPECIAL_KINDS := ["mend", "breath", "hex", "thorns", "snare"]
 
 const ORDER := ["drake", "wisp", "bonelet", "hexling", "crow", "acolyte", "mimic", "bat", "barrow_squire", "shade", "sapling"]
 
-## Eggs: found, then warmed by kills (any hero, any sidekick) until they hatch.
-## `boss`: dropped by that boss; `zone`: by any won hunt in that zone.
-## Chance per eligible win, guaranteed after `pity` dry wins.
+## Eggs. Each warms in the hatchery by real time ("secs") or by kills in
+## hunts ("kills"), whichever comes first; gems finish one now. Species eggs
+## ("hatches") drop from their boss or zone with a pity streak; the rest hatch
+## a roll from "pool" ([id, weight]), preferring sidekicks you don't have yet.
+## A sidekick you already own hatches as DUP_KILLS bond kills for it instead.
 const EGGS := {
-	"ember": {"name": "Ember Egg", "hatches": "drake", "boss": "gravemaw", "chance": 0.125, "pity": 12, "kills": 500},
-	"grove": {"name": "Grove Egg", "hatches": "bat", "zone": "grove", "chance": 0.1, "pity": 15, "kills": 500},
+	"ember": {"name": "Ember Egg", "hatches": "drake", "boss": "gravemaw", "chance": 0.125, "pity": 12, "kills": 500, "secs": 8 * 3600, "rarity": "rare", "color": Color(1.0, 0.5, 0.2)},
+	"grove": {"name": "Grove Egg", "hatches": "bat", "zone": "grove", "chance": 0.1, "pity": 15, "kills": 500, "secs": 8 * 3600, "rarity": "rare", "color": Color(0.45, 0.85, 0.4)},
+	"brood": {"name": "Brood Egg", "kills": 300, "secs": 3 * 3600, "rarity": "common", "color": Color(0.92, 0.82, 0.62),
+		"pool": [["wisp", 3], ["bonelet", 3], ["hexling", 3], ["acolyte", 2], ["crow", 2], ["mimic", 1], ["bat", 1], ["drake", 1]]},
+	"season": {"name": "Season Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "color": Color(0.55, 0.75, 1.0),
+		"pool": [["crow", 2], ["acolyte", 2], ["mimic", 2], ["bat", 2], ["drake", 2], ["barrow_squire", 1]]},
+	"exotic": {"name": "Exotic Egg", "kills": 800, "secs": 12 * 3600, "rarity": "exotic", "color": Color(1.0, 0.78, 0.3),
+		"pool": [["drake", 2], ["bat", 2], ["mimic", 2], ["barrow_squire", 3], ["shade", 3], ["sapling", 3]]},
 }
+## The hatchery holds this many eggs; all of them warm at once.
+const HATCH_SLOTS := 6
+## A gem buys this many seconds of warming (rounded up, at least one gem).
+const GEM_SECS := 900
+const DUP_KILLS := 300
+## Exotic wild drops in a hunt: per boss felled, per elite slain, and a
+## guarantee after EXOTIC_PITY bosses without one (counted across hunts).
+const EXOTIC_BOSS := 0.03
+const EXOTIC_ELITE := 0.003
+const EXOTIC_PITY := 40
+## Chests: gems in each, and the chance of a Brood Egg.
+const CHEST_GEMS := {"silver": 2, "gold": 6, "crypt": 15}
+const CHEST_EGG := {"silver": 0.0, "gold": 0.15, "crypt": 0.4}
 
 ## Total kills with a sidekick at your side to reach bond level i+1.
 const BOND_KILLS := [0, 200, 500, 1000, 2000, 3500, 5500, 8000, 11000, 15000]
