@@ -372,8 +372,36 @@ const REACH_MULT := 1.3
 const EVOLVE_DMG := 1.5
 const EVOLVE_SCALE := 1.25
 
+## Evolution stages, the same ladder for every sidekick: a small Hatchling,
+## the Grown pet, and an Elder (its evolved form, with a crown).
+const STAGE_BOND := [1, 4, BOND_EVOLVE]
+const STAGE_LABELS := ["Hatchling", "Grown", "Elder"]
+const STAGE_DMG := [0.9, 1.0, EVOLVE_DMG]
+const STAGE_SCALE := [0.8, 1.0, EVOLVE_SCALE]
+const STAGE_COOLDOWN := [1.0, 1.0, 0.85]
+const STAGE_NOTES := ["Small and eager: 90% damage.", "Full size.", "Evolved: bigger, +50% damage, ability 15% sooner, and a crown."]
+
 ## Pets from before sidekicks: the boss pets become these sidekicks.
 const PET_TO_SIDEKICK := {"bonelet": "bonelet", "hexling": "hexling", "acolyte": "acolyte", "barrow_squire": "barrow_squire", "shade": "shade", "sapling": "sapling"}
+
+
+## 0 Hatchling, 1 Grown, 2 Elder.
+static func stage_of(bond: int) -> int:
+	var st := 0
+	for i in STAGE_BOND.size():
+		if bond >= int(STAGE_BOND[i]):
+			st = i
+	return st
+
+
+static func stage_name(id: String, st: int) -> String:
+	var d: Dictionary = def(id)
+	match st:
+		0:
+			return "Young %s" % d["name"]
+		2:
+			return str(d["evolved_name"]) if d.has("evolved_name") else "Elder %s" % d["name"]
+	return str(d["name"])
 
 
 static func bond_level(kills: int) -> int:
@@ -395,6 +423,7 @@ static func bond_rewards(id: String) -> Array:
 	var ab: String = d["ability"]["name"]
 	var out := [
 		[BOND_REACH, "%s reaches 30%% farther" % ab],
+		[STAGE_BOND[1], "Grows up to full size"],
 		[BOND_CARDS, "%s cards join your level-up pool" % d["name"] if not d.has("cards") else "Its cards join your level-up pool (%s)" % ", ".join(PackedStringArray(d["cards"].map(func(c): return str(DB.CARDS[c]["name"]))))],
 		[BOND_CHAMPIONS, "Picks off champions first"],
 		[BOND_EVOLVE, "Evolves into the %s: bigger, +50%% damage" % d["evolved_name"] if d.has("evolved_name") else "Evolves: bigger, +50% damage"],
@@ -403,10 +432,7 @@ static func bond_rewards(id: String) -> Array:
 
 
 static func display_name(id: String, kills: int) -> String:
-	var d: Dictionary = def(id)
-	if bond_level(kills) >= BOND_EVOLVE and d.has("evolved_name"):
-		return str(d["evolved_name"])
-	return str(d["name"])
+	return stage_name(id, stage_of(bond_level(kills)))
 
 
 ## Sidekick cards live in DB.CARDS (key "sidekick"): they join the level-up

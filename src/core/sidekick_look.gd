@@ -15,10 +15,12 @@ const SF_DIR := "res://assets/sidekicks/"
 const FILL_LAYER := 1 << 19
 
 
-static func build(id: String, evolved := false) -> Dictionary:
+static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 	var d: Dictionary = SDB.def(id)
+	var st := stage if stage >= 0 else (2 if evolved else 1)
+	evolved = st == 2
 	var spec := str(d["evolved_model"]) if evolved and d.has("evolved_model") else str(d["model"])
-	var grow := SDB.EVOLVE_SCALE if evolved else 1.0
+	var grow := float(SDB.STAGE_SCALE[st])
 	var out := {"root": null, "anim": null, "idle": "", "move": "", "run": "", "attack": "", "hit": "", "special": ""}
 	var root := Node3D.new()
 	root.name = "SidekickModel"
@@ -73,10 +75,12 @@ static func build(id: String, evolved := false) -> Dictionary:
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		(mi as MeshInstance3D).layers = 1 | FILL_LAYER
-	if d.has("pair") or d.has("genes"):
+	if d.has("pair") or d.has("genes") or evolved:
 		var top := float(d["scale"]) * grow * 0.95
 		if d.has("pair"):
 			_crest(root, SDB.def(str(d["pair"][1]))["color"], top)
+		elif evolved:
+			_crest(root, Color(d["color"]).lightened(0.25), top).name = "ElderCrown"
 		if d.has("genes"):
 			_traits(root, d, top)
 	out["root"] = root
@@ -85,7 +89,7 @@ static func build(id: String, evolved := false) -> Dictionary:
 
 ## A hybrid breed's crest: three toon crystals over the head in its second
 ## parent's colour (its own nodes; the model's PBR stays untouched).
-static func _crest(root: Node3D, col: Color, top: float) -> void:
+static func _crest(root: Node3D, col: Color, top: float) -> Node3D:
 	var crest := Node3D.new()
 	crest.name = "FusionCrest"
 	crest.position = Vector3(0, top, 0)
@@ -100,6 +104,7 @@ static func _crest(root: Node3D, col: Color, top: float) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		crest.add_child(mi)
 	root.add_child(crest)
+	return crest
 
 
 ## A bred individual's looks, as toon nodes on top of the unmodified model

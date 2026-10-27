@@ -351,6 +351,10 @@ static func bond(d: Dictionary, id: String) -> int:
 	return SDB.bond_level(kills(d, id))
 
 
+static func stage(d: Dictionary, id: String) -> int:
+	return SDB.stage_of(bond(d, id))
+
+
 static func evolved(d: Dictionary, id: String) -> bool:
 	return bond(d, id) >= SDB.BOND_EVOLVE
 
@@ -423,7 +427,7 @@ static func hidden(d: Dictionary, id: String) -> bool:
 ## Returns {id, kills, bond_from, bond_to, evolved, egg, hatched [], unlocked []}.
 static func after_hunt(d: Dictionary, r: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
 	var b := block(d)
-	var out := {"id": "", "kills": 0, "bond_from": 0, "bond_to": 0, "evolved": false, "egg": "", "hatched": [], "unlocked": []}
+	var out := {"id": "", "kills": 0, "bond_from": 0, "bond_to": 0, "evolved": false, "stage_from": 0, "stage_to": 0, "egg": "", "hatched": [], "unlocked": []}
 	var k := maxi(int(r.get("kills", 0)), 0)
 	var a := active(d)
 	if a != "" and k > 0:
@@ -434,6 +438,8 @@ static func after_hunt(d: Dictionary, r: Dictionary, rng: RandomNumberGenerator)
 		out["kills"] = gain
 		out["bond_from"] = before
 		out["bond_to"] = bond(d, a)
+		out["stage_from"] = SDB.stage_of(before)
+		out["stage_to"] = SDB.stage_of(int(out["bond_to"]))
 		out["evolved"] = before < SDB.BOND_EVOLVE and int(out["bond_to"]) >= SDB.BOND_EVOLVE
 	# Eggs warm with every kill; ready ones hatch.
 	var now := int(r.get("now", Time.get_unix_time_from_system()))

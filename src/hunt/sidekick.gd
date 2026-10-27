@@ -18,6 +18,7 @@ var def: Dictionary
 var ab: Dictionary
 var bond := 1
 var evolved := false
+var stage := 1
 var look: Dictionary
 ## Seconds until the ability is ready, and its full cooldown.
 var cd := 2.0
@@ -53,8 +54,9 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	species = SDB.species(id)
 	ab = def["ability"]
 	bond = SDB.bond_level(kills)
-	evolved = bond >= SDB.BOND_EVOLVE
-	look = Look.build(id, evolved)
+	stage = SDB.stage_of(bond)
+	evolved = stage == 2
+	look = Look.build(id, evolved, stage)
 	pivot.name = "Pose"
 	add_child(pivot)
 	pivot.add_child(look["root"])
@@ -70,7 +72,7 @@ func setup(h: Node, sid: String, kills: int) -> void:
 
 
 func display_name() -> String:
-	return str(def["evolved_name"]) if evolved and def.has("evolved_name") else str(def["name"])
+	return SDB.stage_name(id, stage)
 
 
 func ability_name() -> String:
@@ -87,7 +89,7 @@ func _card(effect: String) -> int:
 ## The ability's damage per hit: a share of the hero's, grown by evolving and
 ## by its power card.
 func hit_dmg(share: float) -> float:
-	var k := share * (SDB.EVOLVE_DMG if evolved else 1.0) * (1.0 + SDB.POWER_PER * _card("power"))
+	var k := share * float(SDB.STAGE_DMG[stage]) * (1.0 + SDB.POWER_PER * _card("power"))
 	return float(hunt.hero.dmg) * k
 
 
@@ -96,7 +98,7 @@ func reach_mult() -> float:
 
 
 func cooldown() -> float:
-	return cd_max / (1.0 + SDB.HASTE_PER * _card("haste"))
+	return cd_max * float(SDB.STAGE_COOLDOWN[stage]) / (1.0 + SDB.HASTE_PER * _card("haste"))
 
 
 func tick(dt: float) -> void:
@@ -394,7 +396,7 @@ func _use() -> bool:
 			var hero = hunt.hero
 			if hero.hp >= hero.max_hp and hunt.foes_near(hero.position, float(ab["radius"]) * reach_mult()).is_empty():
 				return false
-			hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * (SDB.EVOLVE_DMG if evolved else 1.0) * hunt.heal_mult(), hero.max_hp)
+			hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * float(SDB.STAGE_DMG[stage]) * hunt.heal_mult(), hero.max_hp)
 			var r := float(ab["radius"]) * reach_mult()
 			fx.vfx.nova(_el(&"heal"), hero.flat_pos(), r, 0.5, col, &"skill")
 			fx.burst(hero.flat_pos() + Vector3(0, 1.0, 0), col, 10, 3.0, 1.5)

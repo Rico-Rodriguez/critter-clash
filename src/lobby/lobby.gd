@@ -362,7 +362,7 @@ func refresh_sidekick() -> void:
 	var sid := SKL.active(Game.data)
 	if sid == "":
 		return
-	var look := Look.build(sid, SKL.evolved(Game.data, sid))
+	var look := Look.build(sid, SKL.evolved(Game.data, sid), SKL.stage(Game.data, sid))
 	pet = Node3D.new()
 	pet.add_child(look["root"])
 	add_child(pet)
