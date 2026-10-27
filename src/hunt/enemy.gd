@@ -62,8 +62,8 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 	strafe = 1.0 if randf() < 0.5 else -1.0
 	_side = strafe
 	var rim := Color(0.45, 0.6, 1.0)
-	build_model(def["model"], def["weapons"], rim, 0.45, Color(1.0, 0.55, 0.15, 1.0))
-	if def.has("skin"):
+	build_model(def["model"], def["weapons"], rim, 0.45, Color(1.0, 0.55, 0.15, 1.0), 0.8, def)
+	if def.has("skin") and not foreign:
 		reskin(DB.SKINS[str(def["skin"])])
 	var sc: float = def["scale"]
 	if elite:

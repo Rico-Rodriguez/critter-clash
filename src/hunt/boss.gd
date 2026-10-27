@@ -88,8 +88,8 @@ func setup(h: Hunt, tier: Dictionary) -> void:
 	speed = d["speed"]
 	radius = d["radius"]
 	mass = d["mass"]
-	build_model(d["model"], d["weapons"], aura, 0.55, Color(aura, 1.0))
-	if d.has("skin"):
+	build_model(d["model"], d["weapons"], aura, 0.55, Color(aura, 1.0), 0.8, d)
+	if d.has("skin") and not foreign:
 		if DB.SKINS.has(str(d["skin"])):
 			reskin(DB.SKINS[str(d["skin"])])
 		else:
