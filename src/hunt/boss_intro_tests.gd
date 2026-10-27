@@ -66,6 +66,9 @@ static func _sting(ok: Callable) -> void:
 		intro.boss_id = id
 		intro._slam()
 		ok.call("boss entrance '%s' slam plays %s" % [id, want], Sfx._last.has(want))
+	# The slam also roars and heats the music: leave Sfx as the next test expects.
+	Sfx._last.erase("boss_roar")
+	Sfx.intensity = 0.0
 	h.cam.free()
 	h.free()
 	intro.free()
