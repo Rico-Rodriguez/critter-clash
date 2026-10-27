@@ -57,3 +57,35 @@ https://github.com/Rico-Rodriguez/critter-clash/releases/download/ota/altstore.j
 CI regenerates it after every IPA (`tools/altstore_source.py`, which also
 validates it) with the real IPA size, date and the bundle version `1.1.<run>`, so
 the app shows an update whenever a new IPA lands on `ios-v1`.
+
+
+## C. Forced native update ("Update required")
+
+Packs (A) cannot change the native shell, and a shell below a pack's
+`min_engine` quietly keeps its old content. For a build the old shell truly
+cannot run, the game can instead refuse to start until the player updates.
+
+- `version.json` also carries `min_native` and `store_url`, both copied from
+  `tools/ota_gate.json` by the publish step. `min_native` is compared with the
+  installed `Ota.NATIVE_VERSION`; `0` (the default) turns the gate off.
+- `src/core/app_gate.gd` fetches `version.json` on launch (after the OTA
+  check settles) and every time the app resumes. If the installed shell is
+  below `min_native`, a blocking "Update required" screen covers the game, the
+  tree is paused and the lobby is never entered. The button opens `store_url`
+  ("Open App Store" for an apps.apple.com link, "Get the update" otherwise).
+- It fails open: offline, a timeout (3 s), an HTTP error or bad JSON lets the
+  player in. Nothing is cached, so the next launch or resume asks again.
+- It is a pack script, not part of `ota_boot.gd`, so it reaches installed
+  copies over the air and needs no `NATIVE_VERSION` bump. The copy that has
+  to carry the gate is therefore the first one that already contains it.
+- Content-only builds never set `min_native`, so OTA behaves as before.
+
+To force an update: ship the new native build (bump `NATIVE_VERSION`), then set
+`min_native` in `tools/ota_gate.json` to that number and merge. To flip it
+without a build, edit `version.json` on the `ota` release by hand
+(`gh release upload ota version.json --clobber`). Set `store_url` to the real
+App Store page once the app is listed (it points at the sideload release now).
+
+Test it on the desktop: `CC_GATE_URL=http://127.0.0.1:8765/version.json` with a
+`min_native` above 3 (serve it as in section A); `-- --no-gate` skips the check.
+Capture the screen with `-- --capture --shots=update`.
