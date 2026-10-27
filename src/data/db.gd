@@ -325,12 +325,120 @@ const ENEMIES_EXTRA := {
 		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.15, "tint": Color(0.3, 0.55, 0.25, 0.45),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
+	# The Frozen Crypt's dead (the Rime Regent's court): the same bones, frozen
+	# and recoloured from their own texture (no tint wash). `rider` is what a
+	# landed blow leaves on the hero, `leave` and `trail` what a blast or a lunge
+	# leaves on the ground, `death` what the body does, `base` the role it fills.
+	"thrall": {
+		"name": "Frostbound Thrall", "model": "Skeleton_Minion", "weapons": {"handslot.r": "Skeleton_Blade.gltf"}, "skin": "rime", "base": "minion",
+		"ai": "melee", "hp": 36.0, "dmg": 9.0, "speed": 3.4, "radius": 0.42, "reach": 1.25, "rider": "chill",
+		"windup": 0.4, "cooldown": 1.1, "mass": 1.0, "xp": 1, "scale": 1.0,
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"frostguard": {
+		"name": "Rime Guard", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "Skeleton_Axe.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"}, "skin": "rime", "base": "warrior",
+		"ai": "melee", "hp": 140.0, "dmg": 19.0, "speed": 2.6, "radius": 0.6, "reach": 1.55, "rider": "chill",
+		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 1.12,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_1H_Attack_Slice_Diagonal", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_A"},
+	},
+	"rimearcher": {
+		"name": "Rime Archer", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Crossbow.gltf"}, "skin": "rime", "base": "rogue",
+		"ai": "ranged", "hp": 46.0, "dmg": 12.0, "speed": 3.1, "radius": 0.45, "reach": 8.5, "rider": "chill", "proj": "frostbolt",
+		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 1.0, "proj_speed": 12.0,
+		"anim": {"idle": "Ranged_1H_Aiming", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"rimeseer": {
+		"name": "Rime Seer", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"}, "skin": "rime", "base": "mage",
+		"ai": "caster", "hp": 62.0, "dmg": 22.0, "speed": 2.7, "radius": 0.45, "reach": 9.0, "blast": 2.0, "element": "frost", "leave": "frost",
+		"windup": 1.15, "cooldown": 4.0, "mass": 1.2, "xp": 3, "scale": 1.0,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Spellcasting", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"frostcaller": {
+		"name": "Winter Caller", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"}, "skin": "rime", "base": "necro",
+		"ai": "necro", "hp": 95.0, "dmg": 0.0, "speed": 2.6, "radius": 0.5, "reach": 9.0, "blast": 3.0,
+		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 1.18,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Summon", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"rimehound": {
+		"name": "Rime Hound", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Blade.gltf"}, "skin": "rime", "base": "hound",
+		"ai": "charge", "hp": 60.0, "dmg": 17.0, "speed": 4.0, "radius": 0.45, "reach": 1.4, "rider": "chill", "trail": "frost",
+		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.95,
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"colossus": {
+		"name": "Glacier Colossus", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf"}, "skin": "rime", "base": "brute",
+		"ai": "slam", "hp": 540.0, "dmg": 36.0, "speed": 2.2, "radius": 0.85, "reach": 2.8, "rider": "chill", "leave": "frost", "death": "shatter", "element": "frost",
+		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.6, "blast": 3.3,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	# The Burning Swamp's dead (the Cinder Ogre's court): drowned bog-bones and
+	# charred, ember-veined ones. Fire is the theme: hits scorch, bodies ignite.
+	"bogwalker": {
+		"name": "Bog Husk", "model": "Skeleton_Minion", "weapons": {"handslot.r": "Skeleton_Blade.gltf"}, "skin": "bog", "base": "minion",
+		"ai": "melee", "hp": 36.0, "dmg": 9.0, "speed": 3.4, "radius": 0.42, "reach": 1.25, "death": "ignite",
+		"windup": 0.4, "cooldown": 1.1, "mass": 1.0, "xp": 1, "scale": 1.0,
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"charredguard": {
+		"name": "Charred Guard", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "Skeleton_Axe.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"}, "skin": "cinder", "base": "warrior",
+		"ai": "melee", "hp": 140.0, "dmg": 19.0, "speed": 2.6, "radius": 0.6, "reach": 1.55, "rider": "scorch",
+		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 1.12,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_1H_Attack_Slice_Diagonal", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_A"},
+	},
+	"embershooter": {
+		"name": "Ember Spitter", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Crossbow.gltf"}, "skin": "cinder", "base": "rogue",
+		"ai": "ranged", "hp": 46.0, "dmg": 12.0, "speed": 3.1, "radius": 0.45, "reach": 8.5, "rider": "scorch", "proj": "cinderbolt",
+		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 1.0, "proj_speed": 12.5,
+		"anim": {"idle": "Ranged_1H_Aiming", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"cinderwitch": {
+		"name": "Cinder Witch", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"}, "skin": "cinder", "base": "mage",
+		"ai": "caster", "hp": 62.0, "dmg": 22.0, "speed": 2.7, "radius": 0.45, "reach": 9.0, "blast": 2.0, "element": "fire", "leave": "fire",
+		"windup": 1.15, "cooldown": 4.2, "mass": 1.2, "xp": 3, "scale": 1.0,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Spellcasting", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"pyrecaller": {
+		"name": "Pyre Caller", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"}, "skin": "cinder", "base": "necro",
+		"ai": "necro", "hp": 95.0, "dmg": 0.0, "speed": 2.6, "radius": 0.5, "reach": 9.0, "blast": 3.0,
+		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 1.18,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Summon", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"bogleaper": {
+		"name": "Bog Leaper", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Blade.gltf"}, "skin": "bog", "base": "hound",
+		"ai": "charge", "hp": 60.0, "dmg": 17.0, "speed": 4.0, "radius": 0.45, "reach": 1.4, "rider": "scorch", "trail": "fire",
+		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.95,
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"methanebloat": {
+		"name": "Methane Bloat", "model": "Skeleton_Minion", "weapons": {"handslot.r": "res://assets/kaykit/dungeon/barrel_small.gltf"}, "skin": "bog", "base": "bomber",
+		"ai": "bomb", "hp": 24.0, "dmg": 38.0, "speed": 4.2, "radius": 0.42, "reach": 1.7, "death": "ignite",
+		"windup": 0.75, "cooldown": 9.0, "mass": 1.0, "xp": 2, "scale": 1.0, "blast": 2.4,
+		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
+	"cinderbrute": {
+		"name": "Pyre Brute", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf"}, "skin": "cinder", "base": "brute",
+		"ai": "slam", "hp": 540.0, "dmg": 36.0, "speed": 2.2, "radius": 0.85, "reach": 2.8, "rider": "scorch", "leave": "fire", "death": "ignite", "element": "fire",
+		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.6, "blast": 3.3,
+		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
+	},
 	"robber": {
 		"name": "Grave Robber", "model": "Skeleton_Rogue", "weapons": {},
 		"ai": "flee", "hp": 260.0, "dmg": 0.0, "speed": 6.2, "radius": 0.45, "reach": 0.0,
 		"windup": 1.0, "cooldown": 99.0, "mass": 1.0, "xp": 10, "scale": 1.1, "tint": Color(1.0, 0.8, 0.2, 0.55),
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
+}
+
+## Recoloured character textures (tools/art/biome_textures.py): a foe's `skin`
+## swaps the texture, keeps the model, and shades it clean (`polish`) instead of
+## washing it with a tint. `eyes` is the glow of the skull's eye texels, `veins`
+## the glowing seams (the molten grade) in `accent`.
+const SKINS := {
+	"rime": {"tex": "Skeleton_rime_texture.png", "polish": 0.55, "accent": Color(0.6, 0.88, 1.0), "eyes": Color(0.45, 0.9, 1.0, 1.0), "veins": 0.0, "rough": 0.58},
+	"regent": {"tex": "Skeleton_regent_texture.png", "polish": 0.7, "accent": Color(0.55, 0.8, 1.0), "eyes": Color(0.5, 0.9, 1.0, 1.0), "veins": 0.0, "rough": 0.42},
+	"bog": {"tex": "Skeleton_bog_texture.png", "polish": 0.0, "accent": Color(1.0, 0.6, 0.2), "eyes": Color(1.0, 0.6, 0.2, 1.0), "veins": 0.0, "rough": 0.85},
+	"cinder": {"tex": "Skeleton_cinder_texture.png", "polish": 0.1, "accent": Color(1.0, 0.45, 0.1), "eyes": Color(1.0, 0.55, 0.15, 1.0), "veins": 0.7, "rough": 0.72},
+	"ogre": {"tex": "Barbarian_cinder_texture.png", "polish": 0.12, "accent": Color(1.0, 0.42, 0.08), "eyes": Color(1.0, 0.55, 0.15, 0.0), "veins": 0.9, "rough": 0.7},
 }
 
 const BOSSES := {
@@ -357,6 +465,18 @@ const BOSSES := {
 		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
 		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
 		"color": Color(1.0, 0.82, 0.35), "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
+	},
+	"rime": {
+		"name": "The Rime Regent", "title": "of the Frozen Crypt", "wake": "the Regent stirs in the ice", "fall": "The Regent shatters. The Crypt thaws.",
+		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"}, "skin": "regent",
+		"hp": 6000.0, "dmg": 28.0, "speed": 3.0, "radius": 1.45, "scale": 2.6, "mass": 45.0,
+		"color": Color(0.55, 0.85, 1.0), "source": "rime", "occluder": Vector2(1.6, 4.9), "summon_line": "The Regent calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
+	},
+	"cinder": {
+		"name": "The Cinder Ogre", "title": "of the Burning Swamp", "wake": "the Ogre climbs from the embers", "fall": "The Ogre gutters out. The Swamp smoulders.",
+		"model": "Barbarian", "weapons": {"handslot.r": "axe_2handed.gltf"}, "skin": "ogre",
+		"hp": 6400.0, "dmg": 29.0, "speed": 3.0, "radius": 1.5, "scale": 2.7, "mass": 50.0,
+		"color": Color(1.0, 0.5, 0.15), "source": "cinder", "occluder": Vector2(1.7, 5.0), "summon_line": "The Ogre stokes the bog!", "enrage_line": "\"Burn. Burn. BURN.\"",
 	},
 }
 
@@ -395,8 +515,36 @@ const ZONES := {
 		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
 			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
 	},
+	# The fifth and sixth zones: built crisp. No fog (`fog_d` 0), no bloom, no tint
+	# washes; `env.weather` is falling snow or rising embers drawn as hard particles and
+	# `env.skin` recolours every KayKit prop placed (tools/art/biome_textures.py).
+	# `hazards` are run by src/hunt/biome.gd, `ground` recolours the floor shader.
+	"frost": {
+		"name": "The Frozen Crypt", "boss": "rime", "blurb": "A buried crypt under the ice. The Rime Regent holds the winter.",
+		"wake": "Gather %d souls to wake the Regent", "defeat": "The Frost keeps you", "enter": "Into the Frozen Crypt",
+		"loot_bonus": 3, "weights": {"warrior": 1.3, "rogue": 1.5, "mage": 1.4, "hound": 1.3, "brute": 1.0, "bomber": 0.0, "necro": 1.0},
+		"faction": {"minion": "thrall", "warrior": "frostguard", "rogue": "rimearcher", "mage": "rimeseer", "necro": "frostcaller", "hound": "rimehound", "brute": "colossus"},
+		"souls_mult": 1.0, "unlock": "Trophy Road: 10500 trophies", "music": "frozen", "boss_music": "frozen_boss",
+		"hazards": ["icefall", "drifts", "gale"],
+		"hazard_line": "Icicles fall, drifts drag and gales shove",
+		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.62, 0.72, 0.95), "ambient_e": 0.5, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "frost", "weather": "snow",
+			"sun": Color(0.82, 0.9, 1.0), "sun_e": 0.95, "sun_rot": Vector3(-62, -30, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(0.92, 0.97, 1.0, 1.0),
+			"ground": {"grass_a": Color(0.36, 0.44, 0.56), "grass_b": Color(0.46, 0.55, 0.68), "dirt": Color(0.28, 0.4, 0.56), "dark": Color(0.05, 0.07, 0.11)}},
+	},
+	"swamp": {
+		"name": "The Burning Swamp", "boss": "cinder", "blurb": "A drowned wood alight on its own gas. The Cinder Ogre tends the fires.",
+		"wake": "Gather %d souls to wake the Ogre", "defeat": "The Swamp keeps you", "enter": "Into the Burning Swamp",
+		"loot_bonus": 3, "gold_bonus": 0.15, "weights": {"warrior": 1.2, "rogue": 1.4, "mage": 1.5, "hound": 1.5, "brute": 1.1, "bomber": 1.7, "necro": 1.0},
+		"faction": {"minion": "bogwalker", "warrior": "charredguard", "rogue": "embershooter", "mage": "cinderwitch", "necro": "pyrecaller", "hound": "bogleaper", "bomber": "methanebloat", "brute": "cinderbrute"},
+		"souls_mult": 1.0, "unlock": "Trophy Road: 12500 trophies", "music": "swamp", "boss_music": "swamp_boss",
+		"hazards": ["vents", "mud", "marsh"],
+		"hazard_line": "Vents erupt, mud drags and the marsh ignites",
+		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.7, 0.66, 0.58), "ambient_e": 0.8, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "swamp", "weather": "embers",
+			"sun": Color(1.0, 0.84, 0.66), "sun_e": 0.95, "sun_rot": Vector3(-52, -38, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(1.0, 0.55, 0.15, 1.0),
+			"ground": {"grass_a": Color(0.16, 0.17, 0.11), "grass_b": Color(0.25, 0.26, 0.17), "dirt": Color(0.2, 0.17, 0.13), "dark": Color(0.03, 0.025, 0.02)}},
+	},
 }
-const ZONE_ORDER := ["barrow", "depths", "grove", "vault"]
+const ZONE_ORDER := ["barrow", "depths", "grove", "vault", "frost", "swamp"]
 
 ## How a hunt is played. horde: the soul meter fills, the boss wakes. trial:
 ## the Long Road, a generated dungeon of rooms to fight through, boss at the
@@ -775,6 +923,14 @@ const TROPHY_ROAD := [
 	{"t": 9500, "kind": "egg", "egg": "exotic"},
 	{"t": 9800, "kind": "gold", "amount": 5000},
 	{"t": 10000, "kind": "chest", "chest": "crypt"},
+	# The cold and the burning: two more arenas out past the first long road.
+	{"t": 10500, "kind": "zone", "id": "frost"},
+	{"t": 10900, "kind": "egg", "egg": "frost"},
+	{"t": 11300, "kind": "chest", "chest": "crypt"},
+	{"t": 11900, "kind": "shards", "amount": 150},
+	{"t": 12500, "kind": "zone", "id": "swamp"},
+	{"t": 12900, "kind": "egg", "egg": "cinder"},
+	{"t": 13300, "kind": "chest", "chest": "crypt"},
 ]
 const ROAD_EVERY := 500
 
@@ -791,6 +947,8 @@ const ARENAS := [
 	{"zone": "depths", "t": 800, "color": Color(0.6, 0.4, 0.8)},
 	{"zone": "grove", "t": 2500, "color": Color(0.8, 0.6, 0.28)},
 	{"zone": "vault", "t": 7500, "color": Color(0.95, 0.78, 0.35)},
+	{"zone": "frost", "t": 10500, "color": Color(0.55, 0.82, 1.0)},
+	{"zone": "swamp", "t": 12500, "color": Color(1.0, 0.5, 0.15)},
 ]
 ## A new save picks one of these; the rest come from the road's `pick` steps.
 const START_HEROES := ["knight", "ranger", "mage"]
@@ -835,6 +993,15 @@ static func road_reward(n: int) -> Dictionary:
 
 
 ## The trophies at which a mode or zone opens, or -1 if the road never gates it.
+## The 1-based road step that opens a zone or mode (0 when none does).
+static func road_step(id: String) -> int:
+	for i in TROPHY_ROAD.size():
+		var st: Dictionary = TROPHY_ROAD[i]
+		if st.has("id") and str(st["id"]) == id and str(st["kind"]) in ["mode", "zone"]:
+			return i + 1
+	return 0
+
+
 static func road_gate(id: String) -> int:
 	for st in TROPHY_ROAD:
 		if st.has("id") and str(st["id"]) == id and str(st["kind"]) in ["mode", "zone"]:
@@ -978,11 +1145,23 @@ const UNIQUES := {
 	"gilded_fang": {"cls": "rogue", "fam": "daggers", "dye": Color(1.0, 0.82, 0.35), "name": "Gilded Fangs", "slot": "weapon", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"dmg": 27, "crit": 10}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "cloak-dagger"},
 	"hoardplate": {"cls": "knight", "dye": Color(1.0, 0.8, 0.35), "name": "Hoardplate", "slot": "chest", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"hp": 32, "armor": 9}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
 	"vault_coin": {"name": "Vault Sovereign", "slot": "trophy", "rarity": "magic", "source": "warden", "rate": 4, "icon": "two-coins", "power": "Heavier than it looks. Sells for 120 gold.", "sell": 120},
+	# The Rime Regent (the Frozen Crypt).
+	"rime_maul": {"cls": "knight", "fam": "warhammer", "dye": Color(0.55, 0.85, 1.0), "name": "Glacierfall Maul", "slot": "weapon", "rarity": "legendary", "source": "rime", "rate": 25, "stats": {"dmg": 30, "hp": 10}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "warhammer"},
+	"rime_robe": {"cls": "mage", "dye": Color(0.78, 0.92, 1.0), "name": "Rimewoven Robes", "slot": "chest", "rarity": "legendary", "source": "rime", "rate": 25, "stats": {"hp": 30, "armor": 9}, "card": "regen", "power": "Start every hunt with Second Breath", "icon": "robe"},
+	"rime_cowl": {"cls": "ranger", "dye": Color(0.62, 0.82, 1.0), "name": "Winter's Cowl", "slot": "helm", "rarity": "legendary", "source": "rime", "rate": 30, "stats": {"crit": 9, "speed": 6}, "card": "barrage", "power": "Start every hunt with Arrow Storm", "icon": "hood"},
+	"rime_shard": {"name": "Rime Shard", "slot": "trophy", "rarity": "magic", "source": "rime", "rate": 4, "icon": "crystal-shine", "power": "It does not melt. Sells for 130 gold.", "sell": 130},
+	"rime_relic": {"name": "Ancient Winter Seal", "slot": "trophy", "rarity": "legendary", "source": "ancient_rime", "rate": 30, "icon": "frozen-orb", "power": "Cold as the first frost. Sells for 5000 gold.", "sell": 5000},
+	# The Cinder Ogre (the Burning Swamp).
+	"cinder_maul": {"cls": "barbarian", "fam": "maul", "dye": Color(1.0, 0.45, 0.12), "name": "Ashmaker", "slot": "weapon", "rarity": "legendary", "source": "cinder", "rate": 25, "stats": {"dmg": 31, "aspd": 9}, "card": "wisp", "power": "Start every hunt with Hellfire Wisp", "icon": "warhammer"},
+	"cinder_plate": {"cls": "knight", "dye": Color(0.3, 0.14, 0.08), "name": "Pyreplate", "slot": "chest", "rarity": "legendary", "source": "cinder", "rate": 25, "stats": {"hp": 34, "armor": 8}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
+	"cinder_boots": {"cls": "rogue", "dye": Color(0.85, 0.32, 0.1), "name": "Emberstride Boots", "slot": "legs", "rarity": "legendary", "source": "cinder", "rate": 30, "stats": {"speed": 9, "hp": 12}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "boots"},
+	"cinder_core": {"name": "Cinder Core", "slot": "trophy", "rarity": "magic", "source": "cinder", "rate": 4, "icon": "flame", "power": "Still warm. Sells for 140 gold.", "sell": 140},
+	"cinder_relic": {"name": "Ancient Ogre Brand", "slot": "trophy", "rarity": "legendary", "source": "ancient_cinder", "rate": 30, "icon": "fire-ring", "power": "It never cools. Sells for 5000 gold.", "sell": 5000},
 	"abyssal": {"name": "Abyssal Gem", "slot": "trophy", "rarity": "legendary", "source": "nightmare", "rate": 80, "icon": "crystal-shine", "power": "It hums. Sells for 2000 gold.", "sell": 2000},
 }
-const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling", "gilded_fang", "hoardplate", "vault_coin"]
+const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling", "gilded_fang", "hoardplate", "vault_coin", "rime_maul", "rime_robe", "rime_cowl", "rime_shard", "rime_relic", "cinder_maul", "cinder_plate", "cinder_boots", "cinder_core", "cinder_relic"]
 ## Unique sources and the boss whose kill count and dry streak they follow.
-const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn", "warden": "warden"}
+const SOURCE_BOSS := {"boss": "gravemaw", "hexer": "hexer", "thorn": "thorn", "warden": "warden", "rime": "rime", "cinder": "cinder"}
 
 ## Rarity weights by source; tier loot multiplier shifts weight upward.
 const DROP_RARITY := {

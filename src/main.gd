@@ -1202,7 +1202,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "hazards":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1431,6 +1431,22 @@ func _capture(args: PackedStringArray) -> void:
 					# The shot shows his plate, not a hit flash.
 					h.boss.set_flash(0.0)
 					await get_tree().process_frame
+				elif shot == "bosspat":
+					# A boss mid-pattern: --pattern=spikes (any biome boss), --zone=frost.
+					await _wait_sim(h, 4.0)
+					h.souls = h.souls_goal
+					await _wait_sim(h, 9.0)
+					h.bot = false
+					h.boss._begin(str(_arg(args, "pattern", "cleave")))
+					await _wait_sim(h, float(_arg(args, "after", "0.8")))
+					h.boss.set_flash(0.0)
+					await get_tree().process_frame
+				elif shot == "hazards":
+					# The zone's hazards all at once, winding up around the hero.
+					await _wait_sim(h, 5.0)
+					h.hero.invuln = 99.0
+					h.biome.demo()
+					await _wait_sim(h, float(_arg(args, "after", "0.7")))
 				elif shot == "bossintro":
 					# The entrance as a filmstrip: bossintro_<n>.png at set times.
 					# --boss=thorn etc. picks the boss; the rush starts it directly.

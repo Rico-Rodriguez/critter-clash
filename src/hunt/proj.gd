@@ -32,7 +32,7 @@ func launch(kind_: String, pos: Vector3, v: Vector3, dmg_: float, hits: int, src
 	team = 1 if src is Enemy or src is Boss else 0
 	life = float(ex.get("life", 0.9 if kind in ["arrow", "quarrel", "soularrow", "knife"] else 1.6))
 	radius = {"arrow": 0.4, "fireball": 0.45, "bolt": 0.35, "spear": 0.45, "wave": float(ex.get("width", 1.2)), "orb": 0.5, "axe": 0.7, "throwaxe": 0.75,
-		"knife": 0.45, "quarrel": 0.4, "soularrow": 0.45, "spark": 0.35, "firebolt": 0.45}.get(kind, 0.4)
+		"knife": 0.45, "quarrel": 0.4, "soularrow": 0.45, "spark": 0.35, "firebolt": 0.45, "frostbolt": 0.4, "cinderbolt": 0.4}.get(kind, 0.4)
 	rotation = Vector3(0, atan2(v.x, v.z), 0)
 	active = true
 	visible = true
@@ -48,14 +48,14 @@ func tick(dt: float, h: Hunt) -> bool:
 		_steer(dt, h)
 	if kind == "throwaxe":
 		return _tick_return(dt, h)
-	if kind in ["fireball", "orb", "spark", "soularrow", "firebolt"]:
+	if kind in ["fireball", "orb", "spark", "soularrow", "firebolt", "frostbolt", "cinderbolt"]:
 		_ember_t -= dt
 		if _ember_t <= 0.0:
 			_ember_t = 0.045
-			var ec: Color = {"fireball": Color(1.0, 0.45, 0.12), "orb": Color(0.7, 0.35, 1.0), "spark": Color(1.0, 0.8, 0.3), "soularrow": Color(0.5, 1.0, 0.7), "firebolt": Color(1.0, 0.5, 0.12)}[kind]
+			var ec: Color = {"fireball": Color(1.0, 0.45, 0.12), "orb": Color(0.7, 0.35, 1.0), "spark": Color(1.0, 0.8, 0.3), "soularrow": Color(0.5, 1.0, 0.7), "firebolt": Color(1.0, 0.5, 0.12), "frostbolt": Color(0.6, 0.88, 1.0), "cinderbolt": Color(1.0, 0.5, 0.12)}[kind]
 			# A small dissolve core trailing the shot (light tier: cheap and
 			# quiet, since basics fire several times a second).
-			var el: StringName = {"fireball": &"fire", "orb": &"shadow", "spark": &"fire", "soularrow": &"nature", "firebolt": &"fire"}[kind]
+			var el: StringName = {"fireball": &"fire", "orb": &"shadow", "spark": &"fire", "soularrow": &"nature", "firebolt": &"fire", "frostbolt": &"frost", "cinderbolt": &"fire"}[kind]
 			h.fx.vfx.travel(el, position - vel.normalized() * 0.25, vel, ec, &"light")
 	if life <= 0.0:
 		if _bursts():
@@ -115,7 +115,7 @@ func tick(dt: float, h: Hunt) -> bool:
 		var hero := h.hero
 		if hero.alive and flat.distance_to(hero.flat_pos()) < radius + hero.radius * 0.8:
 			h.damage_hero(dmg, source, 0.2 if source is Boss else 0.0)
-			h.fx.burst(flat, Color(1.0, 0.4, 0.3), 6, 4.0)
+			h.fx.burst(flat, Color(0.6, 0.88, 1.0) if kind == "frostbolt" else Color(1.0, 0.4, 0.3), 6, 4.0)
 			return false
 	return true
 

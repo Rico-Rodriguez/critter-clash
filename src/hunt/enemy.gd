@@ -38,6 +38,7 @@ var ward_hp := 0.0
 var ward_mesh: MeshInstance3D
 var dash_dir := Vector3.ZERO
 var _dash_hit := false
+var _patch_t := 0.0
 var _trail_t := 0.0
 var _fire_t := 0.0
 ## A ritual caller stands at the sigil and chants instead of fighting.
@@ -62,6 +63,8 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 	_side = strafe
 	var rim := Color(0.45, 0.6, 1.0)
 	build_model(def["model"], def["weapons"], rim, 0.45, Color(1.0, 0.55, 0.15, 1.0))
+	if def.has("skin"):
+		reskin(DB.SKINS[str(def["skin"])])
 	var sc: float = def["scale"]
 	if elite:
 		max_hp *= 4.5
@@ -266,6 +269,11 @@ func _tick_dash(dt: float, hero: Hero) -> void:
 		_trail_t = 0.05
 		hunt.fx.puff(flat_pos(), Color(0.35, 0.3, 0.26, 0.4), 1, 0.3, 0.8)
 	_trail_t -= dt
+	# A frost or fire lunge sheds a small patch every fifth of a second.
+	_patch_t -= dt
+	if _patch_t <= 0.0 and def.has("trail") and hunt.biome != null:
+		_patch_t = 0.2
+		hunt.biome.trail(self)
 	if not _dash_hit and flat_pos().distance_to(hero.flat_pos()) < radius + hero.radius + 0.25:
 		_dash_hit = true
 		hunt.damage_hero(dmg, self, 0.3)
@@ -406,7 +414,7 @@ func _windup() -> void:
 	lean(-dir_of(aim_yaw), 0.08)
 	match ai:
 		"melee":
-			if kind == "warrior" or elite:
+			if str(def.get("base", kind)) == "warrior" or elite:
 				tele = hunt.fx.telegraph(1, flat_pos(), aim_yaw, Vector2(reach + 0.6, 0), w, 0.9)
 		"ranged":
 			tele = hunt.fx.telegraph(2, flat_pos(), aim_yaw, Vector2(0.35, reach), w)
@@ -450,17 +458,19 @@ func _release() -> void:
 			var n := 3 if hunt.ai() >= 1.5 and not def.has("rival") else 1
 			for i in n:
 				var dir := dir_of(aim_yaw + (i - (n - 1) * 0.5) * deg_to_rad(14.0))
-				hunt.spawn_proj("bolt", flat_pos() + dir * 0.6, dir * float(def["proj_speed"]), dmg, 1, self)
+				hunt.spawn_proj(str(def.get("proj", "bolt")), flat_pos() + dir * 0.6, dir * float(def["proj_speed"]), dmg, 1, self)
 			Sfx.play("atk_archer", -9.0, 0.8)
 		"caster":
 			var blast: float = def["blast"] * (1.25 if elite else 1.0)
-			hunt.fx.vfx.impact(&"nature" if def.get("root", false) else &"shadow", aim, blast, Fx.VfxLib.NO_TINT, &"skill")
+			hunt.fx.vfx.impact(StringName(def.get("element", "nature" if def.get("root", false) else "shadow")), aim, blast, Fx.VfxLib.NO_TINT, &"skill")
 			Sfx.play("boom", -8.0, 1.2)
 			if hero.flat_pos().distance_to(aim) <= blast + hero.radius * 0.5:
 				hunt.damage_hero(dmg, self, 0.5)
 				# Thorn shamans' circles bind: a rooted hero is a target.
 				if def.get("root", false):
 					hero.root_t = maxf(hero.root_t, 0.9)
+			if def.has("leave") and hunt.biome != null:
+				hunt.biome.leave(self, aim)
 		"bomb":
 			var blast_r: float = def["blast"]
 			var at := flat_pos()
@@ -479,7 +489,7 @@ func _release() -> void:
 		"slam":
 			var sr: float = def["blast"]
 			var sat := flat_pos()
-			hunt.fx.vfx.nova(&"physical", sat, sr * 1.1, 0.35, Fx.VfxLib.NO_TINT, &"skill")
+			hunt.fx.vfx.nova(StringName(def.get("element", "physical")), sat, sr * 1.1, 0.35, Fx.VfxLib.NO_TINT, &"skill")
 			hunt.fx.puff(sat, Color(0.3, 0.26, 0.2, 0.7), 10, 1.4, 3.5)
 			hunt.fx.bone_burst(sat, 5, 6.0)
 			hunt.shake(0.3)
@@ -487,6 +497,8 @@ func _release() -> void:
 			if hero.flat_pos().distance_to(sat) <= sr + hero.radius * 0.5:
 				hunt.damage_hero(dmg, self, 0.8)
 				hero.push((hero.flat_pos() - sat).normalized(), 14.0)
+			if def.has("leave") and hunt.biome != null:
+				hunt.biome.leave(self, sat)
 		"charge":
 			dash_dir = dir_of(aim_yaw)
 			_dash_hit = false
@@ -514,7 +526,7 @@ func _release() -> void:
 func stagger() -> void:
 	if state != "chase":
 		return
-	if elite or kind in ["warrior", "mage", "necro", "robber", "bomber", "brute"]:
+	if elite or str(def.get("base", kind)) in ["warrior", "mage", "necro", "robber", "bomber", "brute"]:
 		hit_t = maxf(hit_t, 0.05 if elite else 0.07)
 		return
 	hit_t = 0.18

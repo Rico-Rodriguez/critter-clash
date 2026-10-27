@@ -32,6 +32,13 @@ if [ "${1:-}" != "--quick" ]; then
 	grep -q "BOT DONE PASS" "$LOG/depths.log" || fail=1
 	grep -q "SCRIPT ERROR" "$LOG/depths.log" && fail=1
 	[ "$(grep -c 'win=true' "$LOG/depths.log")" -ge 1 ] || fail=1
+	# The late biomes: hazards, riders, bosses and loot must run clean (a loss is fine).
+	for zone in frost swamp; do
+		timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --zone=$zone --hero=knight,mage > "$LOG/$zone.log" 2>&1
+		grep -E "^BOT|SCRIPT ERROR" "$LOG/$zone.log" | cut -c1-150
+		grep -q "BOT DONE PASS" "$LOG/$zone.log" || fail=1
+		grep -q "SCRIPT ERROR" "$LOG/$zone.log" && fail=1
+	done
 	timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --mode=trial --hero=knight,mage > "$LOG/trial.log" 2>&1
 	grep -E "^BOT|SCRIPT ERROR" "$LOG/trial.log" | cut -c1-150
 	grep -q "BOT DONE PASS" "$LOG/trial.log" || fail=1

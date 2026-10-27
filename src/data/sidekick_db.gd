@@ -538,6 +538,10 @@ const EGGS := {
 	"nest": {"name": "Nest Egg", "kills": 400, "secs": 4 * 3600, "rarity": "bred", "color": Color(0.95, 0.75, 0.85)},
 	"omen": {"name": "Omen Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "mut": 2.0, "color": Color(0.78, 0.55, 1.0),
 		"pool": [["crow", 2], ["hexling", 2], ["shade", 2], ["sapling", 2], ["bat", 2], ["drake", 2]]},
+	"frost": {"name": "Frostbound Egg", "kills": 500, "secs": 8 * 3600, "rarity": "epic", "mut": 2.0, "color": Color(0.6, 0.86, 1.0),
+		"pool": [["bat", 3], ["hexling", 2], ["shade", 2], ["crow", 2], ["drake", 1]]},
+	"cinder": {"name": "Cinderbound Egg", "kills": 500, "secs": 8 * 3600, "rarity": "epic", "mut": 2.0, "color": Color(1.0, 0.5, 0.15),
+		"pool": [["drake", 3], ["wisp", 2], ["acolyte", 2], ["mimic", 2], ["barrow_squire", 1]]},
 	"exotic": {"name": "Exotic Egg", "kills": 800, "secs": 12 * 3600, "rarity": "exotic", "mut": 4.0, "color": Color(1.0, 0.78, 0.3),
 		"pool": [["drake", 2], ["bat", 2], ["mimic", 2], ["barrow_squire", 3], ["shade", 3], ["sapling", 3]]},
 }
@@ -570,6 +574,8 @@ const EGG_FROM := {
 	"nest": "Bred from two of your pets",
 	"exotic": "A rare boss drop, a season finale or the story's last chapter",
 	"omen": "The weekly event and the weekly egg shop",
+	"frost": "The Trophy Road, out past the Gilded Vault: the Frozen Crypt's step",
+	"cinder": "The Trophy Road, past the Frozen Crypt: the Burning Swamp's step",
 }
 
 ## Total kills with a sidekick at your side to reach bond level i+1.

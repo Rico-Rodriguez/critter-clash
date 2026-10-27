@@ -78,9 +78,19 @@ const PATH_RECT := Rect2(-30, -40, 60, 70)
 const VaultLayout := preload("res://src/hunt/arena_vault.gd")
 const PropShapes := preload("res://src/hunt/prop_shapes.gd")
 const Life := preload("res://src/hunt/arena_life.gd")
+const FrostLayout := preload("res://src/hunt/arena_frozen.gd")
+const SwampLayout := preload("res://src/hunt/arena_swamp.gd")
+const BiomeArt := preload("res://src/hunt/biome_art.gd")
 
 ## The living-world layer (grass wind, footprints, reactive props, critters).
 var life: RefCounted
+## The new zones' ground hazards: circles that drag the hero ({pos, r}: drifts,
+## bog mud) and where methane vents sit. Read by src/hunt/biome.gd.
+var slow_zones: Array = []
+var hazard_spots: Array[Vector3] = []
+## The prop recolour for this zone ("frost", "swamp", or "" for none).
+var _skin := ""
+var _motes_n := 90
 ## Baked prop node -> its [MultiMesh, index, transform] slots, so a baked prop can still wobble.
 var baked_slots := {}
 
@@ -89,6 +99,7 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 	low = low_quality
 	zone = zone_id
 	zone_env = DB.zone(zone_id)["env"]
+	_skin = str(zone_env.get("skin", ""))
 	_rng.seed = 7331
 	life = Life.new(self)
 	_environment()
@@ -102,6 +113,14 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 		_paths()
 		_ground()
 		GroveLayout.build(self)
+	elif zone_id == "frost":
+		_paths()
+		_ground()
+		FrostLayout.build(self)
+	elif zone_id == "swamp":
+		_paths()
+		_ground()
+		SwampLayout.build(self)
 	else:
 		_paths()
 		_ground()
@@ -110,7 +129,7 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 	if low:
 		set_low(true)
 	bake_statics()
-	life.setup(trial_rooms == 0 and (zone_id == "barrow" or zone_id == "grove"))
+	life.setup(trial_rooms == 0 and (zone_id == "barrow" or zone_id == "grove" or zone_id == "swamp"))
 
 
 # --- Static batching -----------------------------------------------------
@@ -208,12 +227,13 @@ func _environment() -> void:
 	env.ambient_light_energy = zone_env["ambient_e"]
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.05
-	env.glow_enabled = true
+	# The crisp zones (the Frozen Crypt, the Burning Swamp) draw no bloom and no fog.
+	env.glow_enabled = bool(zone_env.get("glow", true))
 	env.glow_intensity = 0.65
 	env.glow_bloom = 0.06
 	env.glow_hdr_threshold = 0.95
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
-	env.fog_enabled = true
+	env.fog_enabled = float(zone_env["fog_d"]) > 0.0
 	env.fog_light_color = zone_env["fog"]
 	env.fog_density = zone_env["fog_d"]
 	env.fog_sky_affect = 0.0
@@ -300,6 +320,8 @@ func _ground() -> void:
 	m.set_shader_parameter("path_mask", _path_tex)
 	m.set_shader_parameter("path_rect", Vector4(PATH_RECT.position.x, PATH_RECT.position.y, PATH_RECT.size.x, PATH_RECT.size.y))
 	m.set_shader_parameter("bounds", Vector4(min_x - 1.0, min_z - 1.0, max_x + 1.0, max_z + 1.0))
+	for k: String in zone_env.get("ground", {}):
+		m.set_shader_parameter(k, zone_env["ground"][k])
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
@@ -331,6 +353,8 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 	n.position = pos
 	n.rotation.y = yaw
 	n.scale = Vector3.ONE * scale_
+	if _skin != "":
+		BiomeArt.recolor(n, _skin)
 	add_child(n)
 	_put_nodes.append(n)
 	var shape := PropShapes.shape_for(path, yaw, scale_)
@@ -761,9 +785,9 @@ func _fence_line(a: Vector3, b: Vector3) -> void:
 			put(G + ("fence_pillar_broken.gltf" if _rng.randf() < 0.2 else "fence_pillar.gltf"), a + dir * (seg * i), yaw, 1.4)
 
 
-func _forest() -> void:
+func _forest(kinds_override: Array = []) -> void:
 	# Autumn pines and dark trees outside the wall close the horizon.
-	var kinds := [G + "tree_pine_orange_large.gltf", G + "tree_pine_yellow_large.gltf", G + "tree_pine_orange_medium.gltf",
+	var kinds := kinds_override if not kinds_override.is_empty() else [G + "tree_pine_orange_large.gltf", G + "tree_pine_yellow_large.gltf", G + "tree_pine_orange_medium.gltf",
 		F + "Tree_1_A_Color1.gltf", F + "Tree_2_A_Color1.gltf", F + "Tree_3_A_Color1.gltf", F + "Tree_Bare_1_A_Color1.gltf", F + "Tree_Bare_2_A_Color1.gltf"]
 	var count := 70 if low else 130
 	var placed := 0
@@ -874,10 +898,15 @@ func set_low(on: bool) -> void:
 	if _mist:
 		_mist.amount = 26 if on else 48
 	if _motes:
-		_motes.amount = 40 if on else 90
+		_motes.amount = int(_motes_n * (0.45 if on else 1.0))
 
 
 func _atmosphere() -> void:
+	# The crisp zones have weather (snow, embers) instead of mist and glow-motes.
+	if str(zone_env.get("weather", "")) != "":
+		_motes = BiomeArt.weather(self, str(zone_env["weather"]), span_for_weather())
+		_motes_n = _motes.amount
+		return
 	# Low mist drifting across the graves.
 	var mist := GPUParticles3D.new()
 	mist.amount = 48
@@ -958,10 +987,16 @@ func _atmosphere() -> void:
 	_motes = ff
 
 
+## How far the weather reaches along z: the arena, or the Long Road's window.
+func span_for_weather() -> float:
+	return minf(max_z - min_z, follow_radius if follow_radius > 0.0 else 1e9)
+
+
 func _process(_dt: float) -> void:
-	if follow and follow_radius > 0.0 and _mist:
+	if follow and follow_radius > 0.0 and _motes:
 		var fz := follow.position.z
-		_mist.position.z = fz
+		if _mist:
+			_mist.position.z = fz
 		_motes.position.z = fz
 	var t := Time.get_ticks_msec() / 1000.0
 	for o in lights:

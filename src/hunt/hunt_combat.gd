@@ -14,6 +14,9 @@ func world_hit(pos: Vector3, reach: float, power: float) -> void:
 
 ## A telegraphed blast on the ground: after `delay` it hurts the hero if they
 ## are still inside, and may slow or root them.
+const MAX_PATCHES := 14
+
+
 func blast_at(pos: Vector3, r: float, delay: float, amount: float, effect: String, col: Color, mech := 0.5) -> void:
 	var el := Fx.VfxLib.element_for(col)
 	fx.telegraph(0, pos, 0.0, Vector2(r, 0), delay, 0.6, el)
@@ -50,9 +53,13 @@ func beam_from(from: Vector3, yaw: float, delay: float, amount: float, col: Colo
 
 ## A burning patch of ground left by a molten champion. It telegraphs red; the
 ## hero takes `dps` a second while standing in it.
-func add_fire_patch(at: Vector3, r: float, dur: float, dps: float) -> void:
-	patches.append({"pos": at, "r": r, "t": dur, "dps": dps, "tick": 0.5, "node": fx.telegraph(0, at, 0.0, Vector2(r, 0), dur, 0.6, &"fire")})
-	fx.vfx.linger(&"fire", at, r * 0.8, dur, Fx.VfxLib.NO_TINT, &"skill")
+## `el` &"frost" makes it an ice patch and `slow` drags the hero in it (the
+## Frozen Crypt). The list is capped, so a long hunt never piles up patches.
+func add_fire_patch(at: Vector3, r: float, dur: float, dps: float, el: StringName = &"fire", slow := false) -> void:
+	if patches.size() >= MAX_PATCHES:
+		patches.pop_front()
+	patches.append({"pos": at, "r": r, "t": dur, "dps": dps, "slow": slow, "tick": 0.5, "node": fx.telegraph(0, at, 0.0, Vector2(r, 0), dur, 0.6, el)})
+	fx.vfx.linger(el, at, r * 0.8, dur, Fx.VfxLib.NO_TINT, &"skill")
 
 
 ## Pyre: burning ground that hurts the dead standing in it.
@@ -87,7 +94,10 @@ func _tick_patches(dt: float) -> void:
 			pt["tick"] = 0.5
 			var d: float = hero.flat_pos().distance_to(pt["pos"])
 			if hero.alive and d < float(pt["r"]) + hero.radius * 0.5:
-				damage_hero(float(pt["dps"]) * 0.5, null, 0.06)
+				if bool(pt.get("slow", false)):
+					hero.slow_t = maxf(hero.slow_t, 1.2)
+				if float(pt["dps"]) > 0.0:
+					damage_hero(float(pt["dps"]) * 0.5, null, 0.06)
 		if pt["t"] <= 0.0:
 			patches.remove_at(i)
 		i -= 1
@@ -212,6 +222,8 @@ func _kill(f: Enemy) -> void:
 		shake(0.25)
 		_check_level()
 	var at := f.flat_pos()
+	if biome != null and f.hp <= 0.0:
+		biome.on_death(f)
 	fx.bone_burst(at, 5 if not f.elite else 12, 5.5 if not f.elite else 8.0)
 	fx.puff(at, Color(0.4, 0.38, 0.35, 0.5), 3, 0.4, 1.2)
 	Sfx.play("enemy_die", -5.0)
@@ -373,6 +385,8 @@ func damage_hero(amount: float, src: Node3D, mech := 0.0) -> void:
 	Sfx.play("hero_hurt", -3.0)
 	if src is Enemy:
 		var e := src as Enemy
+		if biome != null:
+			biome.rider(e)
 		if "vampiric" in e.affixes:
 			e.hp = minf(e.hp + amount * 2.0, e.max_hp)
 			fx.lightning(PackedVector3Array([hero.position + Vector3(0, 1.0, 0), e.position + Vector3(0, 1.0, 0)]), Color(1.0, 0.2, 0.25), &"light")
