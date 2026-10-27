@@ -12,6 +12,8 @@ const Motor := preload("res://src/hunt/sidekick_motor.gd")
 
 var hunt: Node
 var id := ""
+## The breed behind the id (cards and clips key on it; bred individuals are "x7").
+var species := ""
 var def: Dictionary
 var ab: Dictionary
 var bond := 1
@@ -47,7 +49,8 @@ const HUNT_SCALE := 1.2
 func setup(h: Node, sid: String, kills: int) -> void:
 	hunt = h
 	id = sid
-	def = SDB.ROSTER[id]
+	def = SDB.def(id)
+	species = SDB.species(id)
 	ab = def["ability"]
 	bond = SDB.bond_level(kills)
 	evolved = bond >= SDB.BOND_EVOLVE
@@ -58,7 +61,7 @@ func setup(h: Node, sid: String, kills: int) -> void:
 	(look["root"] as Node3D).scale *= HUNT_SCALE * float(def.get("hunt_scale", 1.0))
 	Look.play(look, "idle")
 	cd_max = float(ab["cd"])
-	cd = minf(2.0, cd_max)
+	cd = 0.2 if str(def.get("perk", "")) == "eager" else minf(2.0, cd_max)
 	motor.fly = float(def["fly"])
 	motor.rng.seed = hash(id)
 	motor.pos = motor.slot(hunt.hero.position, hunt.hero.rotation.y)
@@ -89,7 +92,7 @@ func hit_dmg(share: float) -> float:
 
 
 func reach_mult() -> float:
-	return SDB.REACH_MULT if bond >= SDB.BOND_REACH else 1.0
+	return (SDB.REACH_MULT if bond >= SDB.BOND_REACH else 1.0) * float(def.get("reach", 1.0))
 
 
 func cooldown() -> float:
@@ -211,6 +214,8 @@ func _fire() -> void:
 	# No ability moves the node any more (they used to snap it onto the
 	# target, which read as a teleport); the motor walked it there instead.
 	var ok := _use()
+	if ok and def.has("echo"):
+		_echo()
 	if ok:
 		cd = cooldown()
 		if hunt.fx:
@@ -218,6 +223,35 @@ func _fire() -> void:
 	else:
 		cd = 0.3
 		motor.action_t = minf(motor.action_t, 0.1)
+
+
+## A bred element recolours the ability's VFX: its element wins over the kit's.
+func _el(kit: StringName) -> StringName:
+	return def.get("vfx_el", kit)
+
+
+## A bred element's colour replaces the kit's own on its VFX.
+func _tint(base: Color) -> Color:
+	return Color(def["color"]).lightened(0.15) if def.has("vfx_el") else base
+
+
+## Mixed attacks: right after its own cast, a hybrid or an echo-gened child
+## casts its other parent's ability at ECHO_DMG (the numbers are captured by
+## each kind before any timer, so restoring `ab` after is safe).
+func _echo() -> void:
+	var at := Vector3(position.x, 0.4, position.z)
+	var c: Color = def["color"]
+	if hunt.fx:
+		hunt.fx.vfx.star(at + Vector3(0, 0.8, 0), 0.7, c.lightened(0.25), 0.16, 4.0)
+		hunt.fx.vfx.sparks(at + Vector3(0, 0.6, 0), 8, 6.0, c, 0.3)
+	var keep := ab
+	var e: Dictionary = (def["echo"] as Dictionary).duplicate()
+	for key in ["dmg", "burst"]:
+		if e.has(key):
+			e[key] = float(e[key]) * SDB.ECHO_DMG
+	ab = e
+	_use()
+	ab = keep
 
 
 ## Clips from the rig where it has them; a procedural pose where it doesn't
@@ -362,7 +396,7 @@ func _use() -> bool:
 				return false
 			hero.hp = minf(hero.hp + hero.max_hp * float(ab["heal"]) * (SDB.EVOLVE_DMG if evolved else 1.0) * hunt.heal_mult(), hero.max_hp)
 			var r := float(ab["radius"]) * reach_mult()
-			fx.vfx.nova(&"heal", hero.flat_pos(), r, 0.5, col, &"skill")
+			fx.vfx.nova(_el(&"heal"), hero.flat_pos(), r, 0.5, col, &"skill")
 			fx.burst(hero.flat_pos() + Vector3(0, 1.0, 0), col, 10, 3.0, 1.5)
 			for f in hunt.foes_near(hero.position, r):
 				_strike(f, hit_dmg(float(ab["dmg"])))
@@ -378,11 +412,11 @@ func _use() -> bool:
 			fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 			rotation.y = atan2(fwd.x, fwd.z)
 			var rng := float(ab["range"]) * reach_mult()
-			var flame := Color(0.35, 0.6, 1.0) if evolved else Color(1.0, 0.45, 0.12)
+			var flame := _tint(Color(0.35, 0.6, 1.0) if evolved else Color(1.0, 0.45, 0.12))
 			# Swoop toward the pack, then breathe along the cone.
 			var start := to - fwd * minf(rng * 0.45, from.distance_to(to))
 			# One continuous jet that widens into the cone, not stamped bursts.
-			fx.vfx.spray(&"fire", start, fwd, rng, float(ab["cone"]), 0.5, flame, &"skill")
+			fx.vfx.spray(_el(&"fire"), start, fwd, rng, float(ab["cone"]), 0.5, flame, &"skill")
 			for f in hunt.foes_near(start, rng + 0.5):
 				var to_f: Vector3 = f.flat_pos() - start
 				if to_f.length() <= rng + f.radius and fwd.dot(to_f.normalized()) > cos(float(ab["cone"])):
@@ -390,7 +424,7 @@ func _use() -> bool:
 			var mid := start + fwd * rng * 0.55
 			hunt.add_pyre(mid, rng * 0.35, float(ab["burn"]), hit_dmg(float(ab["dmg"])) * 0.25)
 			if _card("haste") > 0:
-				fx.vfx.nova(&"fire", mid, rng * 0.5, 0.4, flame, &"skill")
+				fx.vfx.nova(_el(&"fire"), mid, rng * 0.5, 0.4, flame, &"skill")
 				for f in hunt.foes_near(mid, rng * 0.5):
 					_strike(f, hit_dmg(float(ab["dmg"])) * 0.3)
 			_attack_anim()
@@ -430,8 +464,8 @@ func _use() -> bool:
 			get_tree().create_timer(float(ab["delay"]), false).timeout.connect(func():
 				if not is_instance_valid(me) or not is_instance_valid(hunt):
 					return
-				var c2 := Color(0.7, 0.45, 1.0)
-				fx.vfx.impact(&"shadow", at, r, c2, &"skill")
+				var c2 := _tint(Color(0.7, 0.45, 1.0))
+				fx.vfx.impact(_el(&"shadow"), at, r, c2, &"skill")
 				fx.burst(at, c2, 14, 6.0)
 				for f in hunt.foes_near(at, r):
 					_strike(f, burst)
@@ -444,7 +478,7 @@ func _use() -> bool:
 			var near: Array = hunt.foes_near(hero.position, r)
 			if near.is_empty():
 				return false
-			fx.vfx.nova(&"nature", hero.flat_pos(), r, 0.5, col, &"skill")
+			fx.vfx.nova(_el(&"nature"), hero.flat_pos(), r, 0.5, col, &"skill")
 			fx.burst(hero.flat_pos(), col, 16, 7.0, 0.3)
 			for f in near:
 				_strike(f, hit_dmg(float(ab["dmg"])), float(ab["push"]))
@@ -464,7 +498,7 @@ func _use() -> bool:
 				pts.append(at.flat_pos() + Vector3(0, 0.8, 0))
 				_strike(at, hit_dmg(float(ab["dmg"])), 1.0)
 				at = _next_foe(at.position, 4.5 * reach_mult(), hit)
-			fx.lightning(pts, Color(0.6, 0.85, 1.0), &"skill")
+			fx.lightning(pts, _tint(Color(0.6, 0.85, 1.0)), &"skill")
 			_attack_anim()
 			Sfx.play("thunder", -8.0, 1.2)
 		"snap":
@@ -499,7 +533,7 @@ func _use() -> bool:
 				return false
 			var p: Vector3 = t.flat_pos()
 			var r := float(ab["radius"]) * reach_mult()
-			fx.vfx.impact(&"physical", p, r, Fx.VfxLib.NO_TINT, &"skill")
+			fx.vfx.impact(_el(&"physical"), p, r, Fx.VfxLib.NO_TINT, &"skill")
 			fx.puff(p, Color(0.3, 0.27, 0.23, 0.6), 8, 1.5, 2.0)
 			for f in hunt.foes_near(p, r):
 				_strike(f, hit_dmg(float(ab["dmg"])), 4.0)

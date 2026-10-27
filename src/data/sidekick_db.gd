@@ -114,6 +114,199 @@ const ROSTER := {
 		"cards": ["sapling_bloom", "sapling_deep"],
 	},
 }
+# --- Breeding: breeds and the genome --------------------------------------
+
+## Breeds that only come from a pair: the two parents (either order) have a
+## BREED_HYBRID chance to hatch one of these instead of a parent's breed. Each
+## wears its first parent's body and casts its first parent's kit, then
+## echoes the second parent's ability at ECHO_DMG.
+const BREEDS := {
+	"cinderbone": {
+		"name": "Cinderbone Drake", "element": "Fire · Bone", "icon": "dragon-head", "color": Color(1.0, 0.62, 0.3),
+		"model": "sf:dragon", "fly": 1.4, "scale": 0.9, "camp_offset": Vector3(0.1, -0.15, 1.1),
+		"pair": ["drake", "bonelet"], "unlock": {"kind": "bred"}, "how": "Breed an Ember Drake with a Bonelet",
+		"origin": "A drake that swallowed a Bonelet's bones and kept them",
+		"ability": {"kind": "breath", "name": "Bonefire Breath", "cd": 5.0, "dmg": 0.6, "range": 5.0, "cone": 0.55, "burn": 3.0},
+		"echo": {"kind": "bone_toss", "name": "Bone Toss", "cd": 4.0, "dmg": 0.45, "bounces": 3},
+		"desc": "Breathes a cone of fire, then hurls a burning bone that bounces between 3 foes.",
+	},
+	"hexstorm": {
+		"name": "Hexstorm Raven", "element": "Storm · Shadow", "icon": "raven", "color": Color(0.55, 0.65, 1.0),
+		"model": "sf:crow", "fly": 0.0, "scale": 1.1, "hunt_scale": 1.0, "fill": 3.4,
+		"pair": ["crow", "hexling"], "unlock": {"kind": "bred"}, "how": "Breed a Storm Crow with a Hexling",
+		"origin": "A storm crow that learned a hexling's curse",
+		"ability": {"kind": "storm", "name": "Hexchain", "cd": 4.0, "dmg": 0.4, "chain": 4, "range": 7.0},
+		"echo": {"kind": "hex", "name": "Hex", "cd": 6.0, "dmg": 0.35, "burst": 0.6, "delay": 1.5, "radius": 2.5},
+		"desc": "Lightning leaps between 4 foes, then the toughest is hexed and bursts.",
+	},
+	"briarshade": {
+		"name": "Briarshade", "element": "Shadow · Thorn", "icon": "two-shadows", "color": Color(0.55, 0.75, 0.6),
+		"model": "sf:wraith", "camp_scale": 1.7, "fly": 0.2, "scale": 1.1,
+		"pair": ["shade", "sapling"], "unlock": {"kind": "bred"}, "how": "Breed a Hexbound Shade with a Thorn Sapling",
+		"origin": "A shade that took root in Ancient heartwood",
+		"ability": {"kind": "shadowstrike", "name": "Briar Strike", "cd": 5.0, "dmg": 0.5, "strikes": 3},
+		"echo": {"kind": "snare", "name": "Rootsnare", "cd": 7.0, "dmg": 0.35, "radius": 3.0, "pulses": 3, "hold": 1.2},
+		"desc": "Strikes behind the 3 toughest foes, then roots burst under the pack.",
+	},
+}
+const BREED_ORDER := ["cinderbone", "hexstorm", "briarshade"]
+const BREED_HYBRID := 0.35
+## Breeding: both parents at BREED_BOND, BREED_GOLD, then they rest BREED_REST s.
+const BREED_BOND := 3
+const BREED_GOLD := 1000
+const BREED_REST := 8 * 3600
+const ECHO_DMG := 0.6
+## The genome's element: changes the ability's colour and its VFX element.
+const ELEMENTS := {
+	"fire": {"name": "Fire", "color": Color(1.0, 0.45, 0.15), "vfx": &"fire"},
+	"ice": {"name": "Ice", "color": Color(0.45, 0.85, 1.0), "vfx": &"frost"},
+	"storm": {"name": "Storm", "color": Color(0.5, 0.6, 1.0), "vfx": &"storm"},
+	"shadow": {"name": "Shadow", "color": Color(0.7, 0.4, 1.0), "vfx": &"shadow"},
+}
+## Patterns are toon accents on the model (its own materials stay untouched).
+const PATTERNS := ["plain", "spots", "stripes", "crest", "horns"]
+## Personality: a name and a passive perk.
+const PERSONALITIES := {
+	"fierce": {"name": "Fierce", "perk": "+10% ability damage"},
+	"swift": {"name": "Swift", "perk": "Casts 10% more often"},
+	"keen": {"name": "Keen", "perk": "+15% reach"},
+	"loyal": {"name": "Loyal", "perk": "+25% bond from hunts"},
+	"lucky": {"name": "Lucky", "perk": "Doubles the exotic egg chance"},
+	"eager": {"name": "Eager", "perk": "Its first cast comes at once"},
+}
+## Gene ranges: multipliers on the breed's numbers.
+const GENE_RANGE := {"dmg": Vector2(0.85, 1.3), "haste": Vector2(0.85, 1.25), "reach": Vector2(0.85, 1.25), "size": Vector2(0.85, 1.25)}
+## How far one generation drifts from its parents' average.
+const MUTATE := 0.12
+const GLOW_CHANCE := 0.06
+const GLOW_INHERIT := 0.35
+const ECHO_CHANCE := 0.15
+
+## Offspring defs, built from their genome: {"x7": def}. Filled from the save
+## by sidekicks.gd (sync) so every caller resolves an id with def().
+static var BRED: Dictionary = {}
+
+
+## Any sidekick by id: a base one, a pure breed, or a bred individual.
+static func def(id: String) -> Dictionary:
+	if ROSTER.has(id):
+		return ROSTER[id]
+	if BRED.has(id):
+		return BRED[id]
+	return BREEDS.get(id, {})
+
+
+static func exists(id: String) -> bool:
+	return not def(id).is_empty()
+
+
+## The breed (species) behind an id: itself for base sidekicks.
+static func species(id: String) -> String:
+	return str(def(id).get("breed", id))
+
+
+## The hybrid breed a pair can make, or "".
+static func hybrid_for(a: String, b: String) -> String:
+	for k in BREED_ORDER:
+		var p: Array = BREEDS[k]["pair"]
+		if (p[0] == a and p[1] == b) or (p[0] == b and p[1] == a):
+			return k
+	return ""
+
+
+## A neutral genome (a base sidekick's, for inheritance).
+static func base_genes() -> Dictionary:
+	return {"dmg": 1.0, "haste": 1.0, "reach": 1.0, "size": 1.0, "element": "", "pattern": "plain", "accent": "", "glow": false, "personality": "", "echo": ""}
+
+
+## Rolls a child: the breed (a parent's, or their hybrid) and a genome from
+## both parents' genes plus mutation. Pure and seeded: the same parents and
+## seed always give the same child.
+static func roll_child(a: String, ga: Dictionary, b: String, gb: Dictionary, sd: int) -> Dictionary:
+	var r := RandomNumberGenerator.new()
+	r.seed = sd
+	var sa := species(a)
+	var sb := species(b)
+	var hy := hybrid_for(sa, sb)
+	var breed := sa if r.randf() < 0.5 else sb
+	if hy != "" and r.randf() < BREED_HYBRID:
+		breed = hy
+	var g := base_genes()
+	for k in GENE_RANGE:
+		var rg: Vector2 = GENE_RANGE[k]
+		var avg := (float(ga.get(k, 1.0)) + float(gb.get(k, 1.0))) * 0.5
+		g[k] = snappedf(clampf(avg + r.randf_range(-MUTATE, MUTATE), rg.x, rg.y), 0.01)
+	var els := ELEMENTS.keys()
+	var roll := r.randf()
+	var ea := str(ga.get("element", ""))
+	var eb := str(gb.get("element", ""))
+	if roll < 0.4 and ea != "":
+		g["element"] = ea
+	elif roll < 0.8 and eb != "":
+		g["element"] = eb
+	else:
+		g["element"] = els[r.randi() % els.size()]
+	g["pattern"] = PATTERNS[1 + r.randi() % (PATTERNS.size() - 1)] if r.randf() < 0.75 else "plain"
+	g["accent"] = Color.from_hsv(r.randf(), r.randf_range(0.45, 0.8), r.randf_range(0.85, 1.0)).to_html(false)
+	var glow_p := GLOW_INHERIT if bool(ga.get("glow", false)) or bool(gb.get("glow", false)) else GLOW_CHANCE
+	g["glow"] = r.randf() < glow_p
+	var ps := PERSONALITIES.keys()
+	g["personality"] = ps[r.randi() % ps.size()]
+	# Mixed attacks: sometimes a child echoes the other parent's ability.
+	if not BREEDS.has(breed) and r.randf() < ECHO_CHANCE:
+		var other := sb if breed == sa else sa
+		if other != breed and ROSTER.has(other):
+			g["echo"] = other
+	return {"breed": breed, "genes": g}
+
+
+## How rare a genome is, 0..4: Common, Rare, Epic, Legendary, Mythic.
+static func grade(g: Dictionary) -> int:
+	var score := 0.0
+	for k in ["dmg", "haste", "reach"]:
+		score += maxf(float(g.get(k, 1.0)) - 1.0, 0.0) * 4.0
+	if bool(g.get("glow", false)):
+		score += 1.2
+	if str(g.get("echo", "")) != "":
+		score += 1.0
+	return clampi(int(score), 0, 4)
+
+
+const GRADES := ["Common", "Rare", "Epic", "Legendary", "Mythic"]
+const GRADE_COLORS := [Color(0.85, 0.85, 0.85), Color(0.35, 0.8, 1.0), Color(0.75, 0.4, 1.0), Color(1.0, 0.6, 0.15), Color(1.0, 0.3, 0.45)]
+
+
+## A bred individual's def: its breed's, with the genome applied.
+static func bred_def(breed: String, g: Dictionary) -> Dictionary:
+	var base: Dictionary = (ROSTER[breed] if ROSTER.has(breed) else BREEDS[breed]).duplicate(true)
+	base["breed"] = breed
+	base["genes"] = g
+	var per: Dictionary = PERSONALITIES.get(str(g.get("personality", "")), {})
+	var el: Dictionary = ELEMENTS.get(str(g.get("element", "")), {})
+	base["name"] = ("%s %s" % [per.get("name", ""), base["name"]]).strip_edges()
+	base.erase("evolved_name")
+	if not el.is_empty():
+		base["color"] = el["color"]
+		base["vfx_el"] = el["vfx"]
+		base["element"] = el["name"]
+	var ab: Dictionary = base["ability"]
+	var dmg := float(g.get("dmg", 1.0)) * (1.1 if str(g.get("personality", "")) == "fierce" else 1.0)
+	var haste := float(g.get("haste", 1.0)) * (1.1 if str(g.get("personality", "")) == "swift" else 1.0)
+	ab["dmg"] = float(ab.get("dmg", 0.0)) * dmg
+	if ab.has("burst"):
+		ab["burst"] = float(ab["burst"]) * dmg
+	ab["cd"] = float(ab["cd"]) / haste
+	base["reach"] = float(g.get("reach", 1.0)) * (1.15 if str(g.get("personality", "")) == "keen" else 1.0)
+	base["scale"] = float(base["scale"]) * float(g.get("size", 1.0))
+	if str(g.get("echo", "")) != "" and ROSTER.has(str(g["echo"])):
+		base["echo"] = (ROSTER[str(g["echo"])]["ability"] as Dictionary).duplicate(true)
+	if base.has("echo"):
+		var e: Dictionary = base["echo"]
+		e["dmg"] = float(e.get("dmg", 0.0)) * dmg
+	base["perk"] = str(g.get("personality", ""))
+	return base
+
+
 ## Which of each model's own clips plays for each state (see
 ## docs/review/sidekicks/clip_inventory.md). Keys: idle, move, run, attack,
 ## hit, special. A missing key falls back to a procedural move in
@@ -149,6 +342,7 @@ const EGGS := {
 		"pool": [["wisp", 3], ["bonelet", 3], ["hexling", 3], ["acolyte", 2], ["crow", 2], ["mimic", 1], ["bat", 1], ["drake", 1]]},
 	"season": {"name": "Season Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "color": Color(0.55, 0.75, 1.0),
 		"pool": [["crow", 2], ["acolyte", 2], ["mimic", 2], ["bat", 2], ["drake", 2], ["barrow_squire", 1]]},
+	"nest": {"name": "Nest Egg", "kills": 400, "secs": 4 * 3600, "rarity": "bred", "color": Color(0.95, 0.75, 0.85)},
 	"exotic": {"name": "Exotic Egg", "kills": 800, "secs": 12 * 3600, "rarity": "exotic", "color": Color(1.0, 0.78, 0.3),
 		"pool": [["drake", 2], ["bat", 2], ["mimic", 2], ["barrow_squire", 3], ["shade", 3], ["sapling", 3]]},
 }
@@ -197,7 +391,7 @@ static func bond_next(kills: int) -> int:
 
 
 static func bond_rewards(id: String) -> Array:
-	var d: Dictionary = ROSTER[id]
+	var d: Dictionary = def(id)
 	var ab: String = d["ability"]["name"]
 	var out := [
 		[BOND_REACH, "%s reaches 30%% farther" % ab],
@@ -209,7 +403,7 @@ static func bond_rewards(id: String) -> Array:
 
 
 static func display_name(id: String, kills: int) -> String:
-	var d: Dictionary = ROSTER[id]
+	var d: Dictionary = def(id)
 	if bond_level(kills) >= BOND_EVOLVE and d.has("evolved_name"):
 		return str(d["evolved_name"])
 	return str(d["name"])

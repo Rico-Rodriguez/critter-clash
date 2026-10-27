@@ -248,6 +248,7 @@ func run() -> int:
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
 	_hatchery_tests()
+	_breeding_tests()
 	_sidekick_motor_tests()
 	_collision_tests()
 	_focus_tests()
@@ -856,7 +857,7 @@ func _hatchery_tests() -> void:
 	var pools_ok := true
 	for k in SKDB_T.EGGS:
 		var ed: Dictionary = SKDB_T.EGGS[k]
-		pools_ok = pools_ok and ed.has("secs") and ed.has("kills") and (SKDB_T.ROSTER.has(str(ed.get("hatches", ""))) or (ed["pool"] as Array).all(func(p): return SKDB_T.ROSTER.has(str(p[0])) and int(p[1]) > 0))
+		pools_ok = pools_ok and ed.has("secs") and ed.has("kills") and (str(ed["rarity"]) == "bred" or SKDB_T.ROSTER.has(str(ed.get("hatches", ""))) or (ed["pool"] as Array).all(func(p): return SKDB_T.ROSTER.has(str(p[0])) and int(p[1]) > 0))
 	_ok("hatchery: every egg hatches a real sidekick", pools_ok)
 	# The hatchery caps; a full one blocks drops.
 	var d3 := Game._fresh()
@@ -1234,3 +1235,107 @@ func _bank_tests() -> void:
 	hud.free()
 	h.hero.free()
 	h.free()
+
+
+func _breeding_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	const SKL_T := preload("res://src/core/sidekick_look.gd")
+	var t0 := 1_800_000_000
+	var ga := SKDB_T.base_genes()
+	# The roll is seeded: the same parents and seed always give the same child.
+	var c1 := SKDB_T.roll_child("drake", ga, "wisp", ga, 42)
+	var c2 := SKDB_T.roll_child("drake", ga, "wisp", ga, 42)
+	_ok("breeding: the same seed gives the same child", c1 == c2)
+	var distinct := {}
+	var in_range := true
+	var breeds_ok := true
+	for sd in 200:
+		var c := SKDB_T.roll_child("drake", ga, "wisp", ga, sd)
+		distinct[str(c["genes"])] = true
+		breeds_ok = breeds_ok and ["drake", "wisp"].has(c["breed"]) or SKDB_T.BREEDS.has(c["breed"])
+		for k in SKDB_T.GENE_RANGE:
+			var rg: Vector2 = SKDB_T.GENE_RANGE[k]
+			in_range = in_range and float(c["genes"][k]) >= rg.x - 0.001 and float(c["genes"][k]) <= rg.y + 0.001
+	_ok("breeding: the same parents give many different children", distinct.size() > 150)
+	_ok("breeding: every gene stays in range", in_range)
+	_ok("breeding: a child's breed is a parent's or a hybrid", breeds_ok)
+	# A matching pair can produce its hybrid breed, and only that pair can.
+	var hy := 0
+	var other := 0
+	for sd in 300:
+		if SKDB_T.roll_child("drake", ga, "bonelet", ga, sd)["breed"] == "cinderbone":
+			hy += 1
+		if SKDB_T.roll_child("drake", ga, "wisp", ga, sd)["breed"] == "cinderbone":
+			other += 1
+	_ok("breeding: the right pair can breed a hybrid, about a third of the time", hy > 60 and hy < 150 and other == 0)
+	# Parents with strong genes pull the child up.
+	var strong := ga.duplicate()
+	strong["dmg"] = 1.3
+	var avg := 0.0
+	for sd in 100:
+		avg += float(SKDB_T.roll_child("drake", strong, "wisp", strong, sd)["genes"]["dmg"])
+	_ok("breeding: strong parents breed strong children", avg / 100.0 > 1.2)
+	# Rules.
+	var d := Game._fresh()
+	SK.migrate(d)
+	for id in ["drake", "wisp"]:
+		SK.own(d, id)
+		d["sidekicks"]["owned"][id]["kills"] = 700
+	d["gold"] = SKDB_T.BREED_GOLD
+	_ok("breeding: a good pair can breed", SK.breed_block(d, "drake", "wisp", t0) == "")
+	_ok("breeding: not with itself", SK.breed_block(d, "drake", "drake", t0) != "")
+	SK.own(d, "bonelet")
+	_ok("breeding: needs Bond %d" % SKDB_T.BREED_BOND, SK.breed_block(d, "drake", "bonelet", t0) != "")
+	_ok("breeding: needs both owned", SK.breed_block(d, "drake", "hexling", t0) != "")
+	d["gold"] = SKDB_T.BREED_GOLD - 1
+	_ok("breeding: needs gold", SK.breed_block(d, "drake", "wisp", t0) != "")
+	d["gold"] = SKDB_T.BREED_GOLD
+	var egg := SK.breed(d, "drake", "wisp", t0, 7)
+	_ok("breeding: pays gold and lays a nest egg", int(d["gold"]) == 0 and str(egg["kind"]) == "nest" and SK.hatchery(d).size() == 1)
+	_ok("breeding: the parents rest", SK.resting(d, "drake", t0) == SKDB_T.BREED_REST and SK.breed_block(d, "drake", "wisp", t0 + 10) != "")
+	_ok("breeding: rested parents can breed again", SK.resting(d, "drake", t0 + SKDB_T.BREED_REST) == 0)
+	# The nest egg already holds its child, so hatching can't reroll it.
+	_ok("breeding: not hatched too soon", SK.hatch(d, int(egg["uid"]), t0).is_empty())
+	var want: Dictionary = egg["child"]
+	var out := SK.hatch(d, int(egg["uid"]), t0 + int(SKDB_T.EGGS["nest"]["secs"]))
+	var cid := str(out.get("id", ""))
+	_ok("breeding: the egg hatches the child it held", cid == "x1" and SK.is_owned(d, cid) and d["sidekicks"]["owned"][cid]["genes"] == want["genes"])
+	_ok("breeding: the child is in the collection log", SK.breeds_found(d).has(str(want["breed"])) and (d["sidekicks"]["found"]["elements"] as Array).has(str(want["genes"]["element"])))
+	# Save-safe: the def is rebuilt from the save alone.
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(d))
+	SKDB_T.BRED.clear()
+	SK.migrate(saved)
+	_ok("breeding: a saved child comes back with its def", SKDB_T.exists(cid) and SKDB_T.def(cid)["name"] == SKDB_T.bred_def(str(want["breed"]), want["genes"])["name"])
+	# Genes change the def.
+	var g := SKDB_T.base_genes()
+	g["dmg"] = 1.3
+	g["haste"] = 1.2
+	g["size"] = 1.2
+	g["element"] = "ice"
+	g["personality"] = "eager"
+	var base := SKDB_T.ROSTER["drake"]
+	var bd := SKDB_T.bred_def("drake", g)
+	_ok("breeding: damage and speed genes change the ability", float(bd["ability"]["dmg"]) > float(base["ability"]["dmg"]) and float(bd["ability"]["cd"]) < float(base["ability"]["cd"]))
+	_ok("breeding: the size gene scales it", float(bd["scale"]) > float(base["scale"]))
+	_ok("breeding: the element recolours its attacks", bd["vfx_el"] == &"frost" and bd["color"] != base["color"])
+	# Every kind of bred pet has a model, and traits are their own nodes.
+	for pat in SKDB_T.PATTERNS:
+		var gg := g.duplicate()
+		gg["pattern"] = pat
+		gg["glow"] = true
+		SKDB_T.BRED["x99"] = SKDB_T.bred_def("drake", gg)
+		var look := SKL_T.build("x99", false)
+		_ok("breeding: a %s drake builds, traits on their own nodes" % pat, look["root"].get_node_or_null("Traits") != null)
+		look["root"].free()
+	SKDB_T.BRED.erase("x99")
+	# A Lucky pet doubles the exotic egg odds.
+	var dl := Game._fresh()
+	SK.migrate(dl)
+	var lg := SKDB_T.base_genes()
+	lg["personality"] = "lucky"
+	SKDB_T.BRED["x98"] = SKDB_T.bred_def("drake", lg)
+	var plain := SK.exotic_chance(dl, false, 0)
+	dl["sidekicks"]["owned"]["x98"] = {"kills": 0, "breed": "drake", "genes": lg, "parents": []}
+	SK.set_active(dl, "x98")
+	_ok("breeding: a lucky pet doubles exotic odds", is_equal_approx(SK.exotic_chance(dl, false, 0), plain * 2.0))
+	SKDB_T.BRED.erase("x98")

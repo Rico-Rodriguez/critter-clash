@@ -646,6 +646,12 @@ var _sk_detail := ""
 ## The Sidekicks sheet: who is at your side, the stable (owned, locked, eggs
 ## hatching), and a detail page per sidekick with its ability and bond road.
 func _build_sidekicks(s: Sheet) -> void:
+	if _sk_detail == "@breed":
+		_build_breeding(s)
+		return
+	if _sk_detail == "@log":
+		_build_collection(s)
+		return
 	if _sk_detail != "" and SKS.is_owned(Game.data, _sk_detail):
 		_build_sidekick_detail(s, _sk_detail)
 		return
@@ -664,7 +670,7 @@ func _build_sidekicks(s: Sheet) -> void:
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		sv.add_child(none)
 	else:
-		var d: Dictionary = SKDB.ROSTER[a]
+		var d: Dictionary = SKDB.def(a)
 		var k := SKS.kills(Game.data, a)
 		var line := Ui.label("%s · %s" % [d["ability"]["name"], d["desc"]], "Small")
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -682,8 +688,23 @@ func _build_sidekicks(s: Sheet) -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	for id: String in SKDB.ORDER:
 		grid.add_child(_sidekick_tile(s, id))
+	for id: String in SKS.bred_ids(Game.data):
+		grid.add_child(_sidekick_tile(s, id))
 	b.add_child(grid)
 	FxUi.deal_in(grid, 0.04)
+	var nav := _row([], 10)
+	for pair in [["BREED", "@breed"], ["COLLECTION", "@log"]]:
+		var nb := Button.new()
+		nb.theme_type_variation = &"GoldButton" if pair[1] == "@breed" else &"Ghost"
+		nb.text = pair[0]
+		nb.focus_mode = Control.FOCUS_NONE
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.custom_minimum_size = Vector2(0, 64)
+		nb.pressed.connect(func():
+			_sk_detail = pair[1]
+			s.rebuild())
+		nav.add_child(nb)
+	b.add_child(nav)
 
 
 ## The last egg hatched in the sheet, shown at the top of the hatchery once.
@@ -699,7 +720,7 @@ func _build_hatchery(s: Sheet) -> void:
 	var head := _row([Ui.label("HATCHERY · %d / %d" % [eggs.size(), SKDB.HATCH_SLOTS], "Caption"), _spacer(), Ui.icon_rect("gems", 26, Color(0.55, 0.9, 1.0)), Ui.label("%d" % SKS.gems(Game.data), "Value")], 8)
 	b.add_child(head)
 	if not _hatch_news.is_empty():
-		var hd: Dictionary = SKDB.ROSTER[str(_hatch_news["id"])]
+		var hd: Dictionary = SKDB.def(str(_hatch_news["id"]))
 		var nc := _card()
 		var nv := VBoxContainer.new()
 		nv.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -788,13 +809,16 @@ func _after_hatch(s: Sheet) -> void:
 
 
 func _sidekick_tile(s: Sheet, id: String) -> Control:
-	var d: Dictionary = SKDB.ROSTER[id]
+	var d: Dictionary = SKDB.def(id)
 	if SKS.hidden(Game.data, id):
 		return _sk_tile_box("egg-clutch", Color(0.5, 0.5, 0.55), "???", "Hidden", 0.0, true, Callable())
 	if SKS.is_owned(Game.data, id):
 		var k := SKS.kills(Game.data, id)
 		var here := SKS.active(Game.data) == id
-		return _sk_tile_box(str(d["icon"]), Color(d["color"]), SKDB.display_name(id, k), ("At your side · " if here else "") + "Bond %d" % SKDB.bond_level(k), -1.0, false, func():
+		var tag := ""
+		if d.has("genes"):
+			tag = " · %s" % SKDB.GRADES[SKDB.grade(d["genes"])]
+		return _sk_tile_box(str(d["icon"]), Color(d["color"]), SKDB.display_name(id, k), ("At your side · " if here else "") + "Bond %d" % SKDB.bond_level(k) + tag, -1.0, false, func():
 			_sk_detail = id
 			s.rebuild())
 	var pr: Array = SKS.progress(Game.data, id)
@@ -843,7 +867,7 @@ func _sk_tile_box(icon: String, col: Color, title: String, status: String, frac:
 
 func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	var b := s.body
-	var d: Dictionary = SKDB.ROSTER[id]
+	var d: Dictionary = SKDB.def(id)
 	var k := SKS.kills(Game.data, id)
 	var lv := SKDB.bond_level(k)
 	var back := Button.new()
@@ -874,10 +898,12 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	bv.add_child(bar)
 	bc.add_child(bv)
 	b.add_child(bc)
+	if d.has("genes"):
+		b.add_child(_genome_card(d))
 	var ac := _card()
 	var av := VBoxContainer.new()
 	av.add_theme_constant_override("separation", 4)
-	av.add_child(Ui.label("ABILITY · %s" % str(d["ability"]["name"]).to_upper(), "Caption"))
+	av.add_child(Ui.label("ABILITY · %s" % str(d["ability"]["name"]).to_upper() + ((" + %s" % str(d["echo"]["name"]).to_upper()) if d.has("echo") else ""), "Caption"))
 	var desc := Ui.label(str(d["desc"]), "Body")
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	av.add_child(desc)
@@ -913,6 +939,172 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	b.add_child(go)
 	if here:
 		b.add_child(Ui.label("Tap again to send it home.", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+
+
+## A bred sidekick's traits: grade, element, perk, and each gene.
+func _genome_card(d: Dictionary) -> Control:
+	var g: Dictionary = d["genes"]
+	var gr := SKDB.grade(g)
+	var c := _card()
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	var head := Ui.label("%s · %s" % [SKDB.GRADES[gr].to_upper(), str(d["element"]).to_upper()], "Caption")
+	head.add_theme_color_override("font_color", SKDB.GRADE_COLORS[gr])
+	v.add_child(head)
+	var per: Dictionary = SKDB.PERSONALITIES.get(str(g.get("personality", "")), {})
+	if not per.is_empty():
+		v.add_child(Ui.label("%s: %s" % [per["name"], per["perk"]], "Body"))
+	var lines := []
+	for k in ["dmg", "haste", "reach", "size"]:
+		lines.append("%s %+d%%" % [{"dmg": "Damage", "haste": "Speed", "reach": "Reach", "size": "Size"}[k], int(round((float(g.get(k, 1.0)) - 1.0) * 100.0))])
+	var gl := Ui.label("  ·  ".join(PackedStringArray(lines)), "Small")
+	gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(gl)
+	var look := "%s pattern" % str(g.get("pattern", "plain")).capitalize()
+	if bool(g.get("glow", false)):
+		look += " · glowing"
+	if str(g.get("echo", "")) != "":
+		look += " · echoes %s" % SKDB.def(str(g["echo"]))["name"]
+	v.add_child(Ui.label(look, "Small"))
+	c.add_child(v)
+	return c
+
+
+var _breed_a := ""
+var _breed_b := ""
+var _breed_news := ""
+
+
+## Breeding: pick two sidekicks at Bond 3+, pay gold, and a Nest Egg holding
+## their child goes to the hatchery. The pair determines the breed (a parent's,
+## or sometimes their hybrid); the traits are rolled and unique.
+func _build_breeding(s: Sheet) -> void:
+	var b := s.body
+	var now := int(Time.get_unix_time_from_system())
+	var back := Button.new()
+	back.theme_type_variation = &"Ghost"
+	back.text = "‹ Stable"
+	back.focus_mode = Control.FOCUS_NONE
+	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	back.pressed.connect(func():
+		Sfx.play("ui_back", -4.0)
+		_sk_detail = ""
+		s.rebuild())
+	b.add_child(back)
+	b.add_child(Ui.label("Breeding", "Title"))
+	var info := Ui.label("Two sidekicks at Bond %d+ lay a Nest Egg. The pair decides the breed; every child rolls its own traits. Parents rest %dh." % [SKDB.BREED_BOND, SKDB.BREED_REST / 3600], "Small")
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(info)
+	if _breed_news != "":
+		b.add_child(Ui.label(_breed_news, "Heading", HORIZONTAL_ALIGNMENT_CENTER))
+		_breed_news = ""
+	var plabel := Ui.label("PARENTS", "Caption")
+	b.add_child(plabel)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	for id: String in SKDB.ORDER + SKS.bred_ids(Game.data):
+		if not SKS.is_owned(Game.data, id):
+			continue
+		var d: Dictionary = SKDB.def(id)
+		var lv := SKS.bond(Game.data, id)
+		var rest := SKS.resting(Game.data, id, now)
+		var sel := id == _breed_a or id == _breed_b
+		var status := ("Resting %s" % _dur(rest)) if rest > 0 else (("Bond %d" % lv) if lv >= SKDB.BREED_BOND else "Bond %d (needs %d)" % [lv, SKDB.BREED_BOND])
+		var ok := rest == 0 and lv >= SKDB.BREED_BOND
+		var tile := _sk_tile_box(str(d["icon"]), Color(d["color"]), ("✓ " if sel else "") + str(d["name"]), status, -1.0, not ok, func():
+			if id == _breed_a:
+				_breed_a = ""
+			elif id == _breed_b:
+				_breed_b = ""
+			elif _breed_a == "":
+				_breed_a = id
+			else:
+				_breed_b = id
+			s.rebuild())
+		(tile as Button).disabled = not ok
+		grid.add_child(tile)
+	b.add_child(grid)
+	var picked := _breed_a != "" and _breed_b != ""
+	if picked:
+		var hy := SKDB.hybrid_for(SKDB.species(_breed_a), SKDB.species(_breed_b))
+		var pc := _card()
+		var pv := VBoxContainer.new()
+		pv.add_child(Ui.label("OFFSPRING", "Caption"))
+		var odds := "%s or %s" % [SKDB.def(_breed_a)["name"], SKDB.def(_breed_b)["name"]]
+		if hy != "":
+			odds += "\n%d%% chance of a %s" % [int(SKDB.BREED_HYBRID * 100.0), SKDB.BREEDS[hy]["name"]]
+		var ol := Ui.label(odds + "\nTraits are rolled: looks, stats, element, personality.", "Body")
+		ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		pv.add_child(ol)
+		pc.add_child(pv)
+		b.add_child(pc)
+	var why := SKS.breed_block(Game.data, _breed_a, _breed_b, now) if picked else "Pick two parents"
+	var go := Button.new()
+	go.theme_type_variation = &"GoldButton"
+	go.text = "BREED · %s GOLD" % Ui.fmt_num(SKDB.BREED_GOLD)
+	go.focus_mode = Control.FOCUS_NONE
+	go.custom_minimum_size = Vector2(0, 72)
+	go.disabled = why != ""
+	go.pressed.connect(func():
+		var e := SKS.breed(Game.data, _breed_a, _breed_b, int(Time.get_unix_time_from_system()), randi())
+		if e.is_empty():
+			return
+		_breed_a = ""
+		_breed_b = ""
+		_breed_news = "A Nest Egg is in your hatchery!"
+		Sfx.play("rare_chime", 0.0)
+		Game.save()
+		s.rebuild())
+	b.add_child(go)
+	if why != "":
+		b.add_child(Ui.label(why, "Small", HORIZONTAL_ALIGNMENT_CENTER))
+	# Parents last: the offspring and the button stay in view.
+	b.move_child(plabel, b.get_child_count() - 1)
+	b.move_child(grid, b.get_child_count() - 1)
+
+
+## The collection log: every breed and trait you've hatched, and what's left.
+func _build_collection(s: Sheet) -> void:
+	var b := s.body
+	var back := Button.new()
+	back.theme_type_variation = &"Ghost"
+	back.text = "‹ Stable"
+	back.focus_mode = Control.FOCUS_NONE
+	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	back.pressed.connect(func():
+		Sfx.play("ui_back", -4.0)
+		_sk_detail = ""
+		s.rebuild())
+	b.add_child(back)
+	b.add_child(Ui.label("Collection", "Title"))
+	var f: Dictionary = SKS.block(Game.data)["found"]
+	var breeds := SKS.breeds_found(Game.data)
+	var all_breeds: Array = SKDB.ORDER + SKDB.BREED_ORDER
+	var sections := [
+		["BREEDS", all_breeds, breeds, func(k): return str(SKDB.def(k)["name"])],
+		["ELEMENTS", SKDB.ELEMENTS.keys(), f["elements"], func(k): return str(SKDB.ELEMENTS[k]["name"])],
+		["PATTERNS", SKDB.PATTERNS.slice(1), f["patterns"], func(k): return str(k).capitalize()],
+		["PERSONALITIES", SKDB.PERSONALITIES.keys(), f["personalities"], func(k): return str(SKDB.PERSONALITIES[k]["name"])],
+	]
+	for sec in sections:
+		var have: Array = sec[2]
+		var total: Array = sec[1]
+		var n := total.filter(func(k): return have.has(k)).size()
+		b.add_child(Ui.label("%s · %d / %d" % [sec[0], n, total.size()], "Caption"))
+		var fl := HFlowContainer.new()
+		fl.add_theme_constant_override("h_separation", 8)
+		fl.add_theme_constant_override("v_separation", 8)
+		for k in total:
+			var got := have.has(k)
+			var l := Ui.label(str(sec[3].call(k)) if got else "???", "Small")
+			l.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5) if got else Color(0.5, 0.5, 0.55))
+			var pc := _card()
+			pc.add_child(l)
+			fl.add_child(pc)
+		b.add_child(fl)
+	b.add_child(Ui.label("GLOW · %s" % ("found" if bool(f["glow"]) else "???"), "Caption"))
 
 
 ## The camp shows the sidekick at your side by the fire.

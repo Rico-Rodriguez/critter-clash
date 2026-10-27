@@ -104,7 +104,7 @@ func _build_sidekick_box() -> void:
 	if hunt.sidekick == null:
 		return
 	const SDB := preload("res://src/data/sidekick_db.gd")
-	var d: Dictionary = SDB.ROSTER[str(hunt.sidekick.id)]
+	var d: Dictionary = SDB.def(str(hunt.sidekick.id))
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 8)
