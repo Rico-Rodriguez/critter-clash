@@ -5,6 +5,7 @@ extends Node3D
 ## per-instance shader flash/tint.
 
 const CHAR_SHADER := preload("res://src/fx/char.gdshader")
+const FoeRig := preload("res://src/core/foe_rig.gd")
 
 var hunt: Hunt
 var hp := 100.0
@@ -37,6 +38,11 @@ var _spring_on := false
 var model: Node3D
 var anim: AnimationPlayer
 var cur_anim := ""
+## True for a "glb:" or "proc:" model (see foe_rig.gd): it keeps its own PBR
+## materials and its own clips, which `play` finds through `_rig_def`.
+var foreign := false
+var _rig_def: Dictionary = {}
+var _clip_cache := {}
 var _meshes: Array[MeshInstance3D] = []
 var _tint := Color(0, 0, 0, 0)
 var _rim := Color.WHITE
@@ -51,7 +57,12 @@ static var _grime: NoiseTexture2D
 ## shader (one material per texture), and keeps the mesh list for flashes.
 ## `head_scale` < 1 shrinks the head (and helmet) on the shared skeleton for a
 ## more adult build; the chest is broadened a little to match.
-func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_strength := 0.5, eyes := Color(0, 0, 0, 0), head_scale := 0.8) -> void:
+## A "glb:"/"proc:" `model_name` builds a foreign rig instead (foe_rig.gd);
+## `rig_def` is the foe or boss def that carries its fit, clips and alias.
+func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_strength := 0.5, eyes := Color(0, 0, 0, 0), head_scale := 0.8, rig_def := {}) -> void:
+	if FoeRig.is_foreign(model_name):
+		_build_foreign(model_name, weapons, rig_def)
+		return
 	model = KK.character(model_name, weapons)
 	add_child(model)
 	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
@@ -75,6 +86,31 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 	_rim = rim
 	_rim_strength = rim_strength
 	_eyes = eyes
+	restyle(model)
+
+
+func _build_foreign(model_name: String, weapons: Dictionary, rig_def: Dictionary) -> void:
+	foreign = true
+	_rig_def = rig_def
+	var built := FoeRig.build(model_name, rig_def)
+	model = built["root"]
+	add_child(model)
+	anim = built["anim"]
+	anim.playback_default_blend_time = 0.12
+	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
+	# Weapon keys are bone names on the foe's own skeleton.
+	for slot in weapons:
+		if skel == null or skel.find_bone(slot) < 0:
+			continue
+		var att := BoneAttachment3D.new()
+		att.bone_name = slot
+		skel.add_child(att)
+		att.add_child(KK.prop(str(weapons[slot]) if str(weapons[slot]).begins_with("res://") else KK.WEAPON_DIR + str(weapons[slot])))
+	if merge_parts and skel:
+		_merge_parts(skel, model_name)
+	_rim = Color(rig_def.get("rim_color", Color.WHITE))
+	_rim_strength = float(rig_def.get("rim", 0.0))
+	_eyes = Color(0, 0, 0, 0)
 	restyle(model)
 
 
@@ -183,6 +219,11 @@ func restyle(root: Node) -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts_shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for s in mi.mesh.get_surface_count():
 			var src := mi.get_active_material(s)
+			if foreign:
+				var lit := FoeRig.lit(src, _rim, _rim_strength)
+				if lit:
+					mi.set_surface_override_material(s, lit)
+				continue
 			var tex: Texture2D = null
 			if src is BaseMaterial3D:
 				tex = (src as BaseMaterial3D).albedo_texture
@@ -239,8 +280,32 @@ func mesh_list() -> Array[MeshInstance3D]:
 	return _meshes
 
 
+## The clip this actor's rig has for a combat clip name (KayKit rigs: itself).
+func _clip(name_: String) -> String:
+	if not foreign:
+		return name_ if anim and anim.has_animation(name_) else ""
+	return FoeRig.resolve(anim, name_, _rig_def, _clip_cache) if anim else ""
+
+
 func play(name_: String, blend := -1.0, speed_ := 1.0, restart := false) -> void:
-	if anim == null or not anim.has_animation(name_):
+	if anim == null:
+		return
+	if foreign:
+		var real := _clip(name_)
+		if real == "":
+			_pose_for(name_, restart)
+			return
+		# One state: callers compare names, so keep theirs, play the rig's.
+		if name_ == cur_anim and not restart:
+			anim.speed_scale = speed_
+			return
+		cur_anim = name_
+		anim.speed_scale = speed_
+		if restart and anim.current_animation == real:
+			anim.stop()
+		anim.play(real, blend)
+		return
+	if not anim.has_animation(name_):
 		return
 	if name_ == cur_anim and not restart:
 		anim.speed_scale = speed_
@@ -253,9 +318,22 @@ func play(name_: String, blend := -1.0, speed_ := 1.0, restart := false) -> void
 
 
 func anim_length(name_: String) -> float:
-	if anim and anim.has_animation(name_):
-		return anim.get_animation(name_).length
+	var n := _clip(name_)
+	if n != "":
+		return anim.get_animation(n).length
 	return 1.0
+
+
+## A rig with no clip for `name_` fakes a one-shot with the body springs.
+func _pose_for(name_: String, restart: bool) -> void:
+	if not restart and name_ == cur_anim:
+		return
+	cur_anim = name_
+	match FoeRig.class_of(name_):
+		"attack":
+			squash(Vector3(-0.06, -0.04, 0.16))
+		"cast", "taunt":
+			squash(Vector3(-0.05, 0.12, -0.05))
 
 
 func set_flash(v: float) -> void:
