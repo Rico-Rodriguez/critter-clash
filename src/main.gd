@@ -138,6 +138,7 @@ func _iris(to: float, dur: float, at := Vector2(0.5, 0.5)) -> void:
 		m.set_shader_parameter("closed", to)
 		_emblem.modulate.a = to
 		return
+	Sfx.play("dash", -11.0, 0.7 if to > from else 1.1)
 	var t := create_tween().set_ignore_time_scale(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.tween_method(func(v: float) -> void:
 		m.set_shader_parameter("closed", v)

@@ -115,6 +115,12 @@ Licensed (CC0), trimmed and layered:
 Some effects (swings, dashes, novas, chain lightning, thorns, hit contacts,
 the Barbarian's spin, fire bolts and similar) were
 synthesized from oscillators and noise for this project and are original work.
+Layered hits and the adaptive music (`src/autoload/sfx.gd`) reuse the files
+above. The one new sound, a low "thump" under heavy hits, is synthesized in
+code at start-up (a falling sine with a short noise tick): original, no file, no
+license. The adaptive music is a low-pass and level on the Music bus driven by
+how many fight sounds are playing; it changes no music files.
+
 The scripts that built the audio are are kept in `tools/audio/`.
 
 ## Sidekicks
