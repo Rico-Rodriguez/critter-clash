@@ -256,7 +256,7 @@ func _build_side() -> void:
 	_side.position = Vector2(0, 18)
 	%Space.add_child(_side)
 	# Daily, bounties and feats are one place (Quests); the road has the top bar.
-	for spec in [["quests", "archery-target", "Quests"], ["season", "round-star", "Season"]]:
+	for spec in [["quests", "archery-target", "Quests"], ["season", "round-star", "Season"], ["event", "moon", "Event"]]:
 		_side.add_child(_rail_button(spec[0], spec[1], spec[2]))
 	_rail_r = VBoxContainer.new()
 	_rail_r.add_theme_constant_override("separation", 0)
@@ -306,6 +306,7 @@ func _refresh_side() -> void:
 	var login := Game.login_status()
 	_side_badges["quests"].visible = bool(login["ready"]) or Game.bounty_claimable() > 0 or Game.achievement_claimable() > 0
 	_side_badges["season"].visible = Game.season_claimable() > 0
+	_side_badges["event"].visible = Game.event_claimable() > 0
 	_season_label.text = "TIER %d" % Game.season_level()
 	var g := Game.idle_gold()
 	_side_badges["idle"].visible = g >= 50
@@ -330,6 +331,8 @@ func _side_pressed(key: String) -> void:
 			open_sheet("journal")
 		"season":
 			open_sheet("season")
+		"event":
+			open_sheet("event")
 
 
 ## True while the home is showing with nothing over it (taps on the hero open
@@ -627,6 +630,8 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Bounties", _build_bounties)
 		"season":
 			_sheet.open("Season", _build_season)
+		"event":
+			_sheet.open("Weekly Event", _build_event)
 		"feats":
 			_sheet.open("Feats", _build_feats)
 		"log":

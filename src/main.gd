@@ -429,7 +429,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _save("update")
 				g.hide_required()
 				g.queue_free()
-			"sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -458,6 +458,12 @@ func _capture(args: PackedStringArray) -> void:
 					for h0 in DB.START_HEROES:
 						Game.hero(h0)["unlocked"] = h0 == hid
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
+				if shot in ["event", "eventboard"]:
+					# Three tiers in with two ready, and a board of rivals.
+					Game.data["omen_on"] = true
+					Game.event()["pts"] = 1330
+					Game.event()["claimed"] = 2
+					Game.data["weekly"] = {"week": Game.week_number(), "best": 3420, "omen": str(Game.weekly_omen()["id"]), "hero": hid}
 				if shot in ["shop", "shopbuy", "shoplooks"]:
 					Game.data["gold"] = 3240
 				if shot == "talents":
@@ -468,6 +474,19 @@ func _capture(args: PackedStringArray) -> void:
 				if shot == "campfire":
 					current.ui._side_pressed("idle")
 					await _wait(1.0)
+				elif shot in ["event", "eventboard"]:
+					current.ui._board_stub = {"ok": true, "mine": {"rank": 14, "score": 3420}, "data": [
+						{"rank": 1, "name": "Marrow", "score": 6120, "meta": {"hero": "mage"}},
+						{"rank": 2, "name": "Ashlyn", "score": 5890, "meta": {"hero": "rogue"}},
+						{"rank": 3, "name": "Brokk", "score": 5410, "meta": {"hero": "barbarian"}},
+						{"rank": 4, "name": "Vesper", "score": 5002, "meta": {"hero": "ranger"}},
+						{"rank": 5, "name": "Dunmore", "score": 4777, "meta": {"hero": "knight"}}]}
+					current.open_sheet("event")
+					await _wait(1.0)
+					if shot == "eventboard":
+						for sc in current.ui._sheet.find_children("*", "ScrollContainer", true, false):
+							(sc as ScrollContainer).scroll_vertical = 100000
+						await _wait(0.5)
 				elif shot == "shoplooks":
 					current.open_sheet("looks")
 					await _wait(1.2)
