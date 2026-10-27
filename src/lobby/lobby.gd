@@ -14,6 +14,7 @@ var pet: Node3D
 var chest: Node3D
 var chest_lid: Node3D
 var fire_light: OmniLight3D
+var chest_glow: OmniLight3D
 var _drag := -1
 var _drag_x := 0.0
 var _tap_from := Vector2.ZERO
@@ -317,6 +318,7 @@ func place_chest(kind: String) -> void:
 	glow.omni_range = 3.0
 	glow.position = Vector3(0, 0.8, 0.3)
 	chest.add_child(glow)
+	chest_glow = glow
 	ui.show_chest(kind)
 	Sfx.play("chest_land", 0.0)
 
@@ -328,6 +330,28 @@ func center_chest() -> Tween:
 	mv.tween_property(chest, "rotation:y", 0.0, 0.35)
 	mv.tween_property(chest, "scale", Vector3.ONE * 0.95, 0.35)
 	return mv
+
+
+## The chest rattles harder and harder and its light swells, for `dur` seconds.
+func charge_chest(dur: float) -> void:
+	if chest == null:
+		return
+	var c := chest
+	var base := c.position
+	var glow := chest_glow
+	var t := create_tween()
+	t.tween_method(func(v: float) -> void:
+		if not is_instance_valid(c):
+			return
+		var a := 0.012 + 0.07 * v * v
+		c.position = base + Vector3(randf_range(-a, a), 0.0, randf_range(-a, a))
+		c.rotation.z = randf_range(-a, a) * 1.6
+		if glow and is_instance_valid(glow):
+			glow.light_energy = 1.5 + 7.0 * v * v, 0.0, 1.0, dur)
+	t.tween_callback(func() -> void:
+		if is_instance_valid(c):
+			c.position = base
+			c.rotation.z = 0.0)
 
 
 func open_chest_fx() -> void:
