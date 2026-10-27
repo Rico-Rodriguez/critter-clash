@@ -423,6 +423,8 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 			st["best"][dkey] = d
 			summary["record"] = true
 	summary["sidekick"] = SK.after_hunt(data, r, rng)
+	r["pet"] = SK.active(data) != ""
+	r["hatched"] = (summary["sidekick"]["hatched"] as Array).size()
 	_bounty_progress(r)
 	var opened := unlock_by_shards()
 	if opened != "":

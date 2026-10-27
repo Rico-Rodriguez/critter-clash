@@ -248,6 +248,8 @@ func _build_bounties(s: Sheet) -> void:
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 8)
 		var rew := "%d gold" % int(e["gold"])
+		if int(e.get("gems", 0)) > 0:
+			rew += " + %d gems" % int(e["gems"])
 		if int(e["shards"]) > 0:
 			rew += " + %d %s shards" % [int(e["shards"]), DB.HEROES[e["shard_hero"]]["name"]]
 		var top := _row([Ui.label(Game.bounty_text(e), "Body"), _spacer()], 8)
@@ -639,6 +641,7 @@ func _error_report_row(b: Control, ver: String) -> void:
 
 const SKS := preload("res://src/autoload/sidekicks.gd")
 const SKDB := preload("res://src/data/sidekick_db.gd")
+const HATCH := preload("res://src/ui/hatch_show.gd")
 ## The sidekick whose detail page is open in the sheet ("" = the stable).
 var _sk_detail := ""
 
@@ -679,6 +682,7 @@ func _build_sidekicks(s: Sheet) -> void:
 		sv.add_child(line)
 	side.add_child(sv)
 	b.add_child(side)
+	_build_showcase(s)
 	_build_hatchery(s)
 	var owned: int = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)).size()
 	b.add_child(Ui.label("STABLE · %d / %d" % [owned, SKDB.ORDER.size()], "Caption"))
@@ -707,8 +711,58 @@ func _build_sidekicks(s: Sheet) -> void:
 	b.add_child(nav)
 
 
-## The last egg hatched in the sheet, shown at the top of the hatchery once.
+## The egg just hatched in the sheet, handed to the hatching show.
 var _hatch_news := {}
+
+
+## The showcase: your three best (the ones you pinned, then the rarest),
+## shown big with their rarity. Tap one to open it.
+func _build_showcase(s: Sheet) -> void:
+	var picks: Array = SKS.showcase(Game.data)
+	if picks.is_empty():
+		return
+	var b := s.body
+	b.add_child(Ui.label("SHOWCASE", "Caption"))
+	var rowc := HBoxContainer.new()
+	rowc.add_theme_constant_override("separation", 10)
+	for id: String in picks:
+		var d: Dictionary = SKDB.def(id)
+		var rar := SKDB.rarity(id)
+		var gc: Color = SKDB.GRADE_COLORS[rar]
+		var btn := Button.new()
+		btn.focus_mode = Control.FOCUS_NONE
+		btn.theme_type_variation = &"Ghost"
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.custom_minimum_size = Vector2(0, 190)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(gc, 0.14)
+		sb.border_color = Color(gc, 0.9 if rar >= 2 else 0.5)
+		sb.set_border_width_all(3 if rar >= 3 else 2)
+		sb.set_corner_radius_all(14)
+		for st in ["normal", "hover", "pressed", "focus"]:
+			btn.add_theme_stylebox_override(st, sb)
+		var v := VBoxContainer.new()
+		v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_theme_constant_override("separation", 2)
+		var ic := CenterContainer.new()
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ic.add_child(Ui.icon_rect(str(d["icon"]), 84, Color(d["color"])))
+		v.add_child(ic)
+		var nm := Ui.label(SKDB.display_name(id, SKS.kills(Game.data, id)), "Small", HORIZONTAL_ALIGNMENT_CENTER)
+		nm.clip_text = true
+		v.add_child(nm)
+		var gl := Ui.label(SKDB.GRADES[rar].to_upper() + (" ★" if SKS.is_pinned(Game.data, id) else ""), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		gl.add_theme_color_override("font_color", gc)
+		v.add_child(gl)
+		btn.add_child(v)
+		btn.pressed.connect(func():
+			_sk_detail = id
+			s.rebuild())
+		rowc.add_child(btn)
+	b.add_child(rowc)
+	FxUi.deal_in(rowc, 0.06)
 
 
 ## The hatchery: every egg warming, by the clock or by kills, whichever is
@@ -719,21 +773,6 @@ func _build_hatchery(s: Sheet) -> void:
 	var eggs: Array = SKS.hatchery(Game.data)
 	var head := _row([Ui.label("HATCHERY · %d / %d" % [eggs.size(), SKDB.HATCH_SLOTS], "Caption"), _spacer(), Ui.icon_rect("gems", 26, Color(0.55, 0.9, 1.0)), Ui.label("%d" % SKS.gems(Game.data), "Value")], 8)
 	b.add_child(head)
-	if not _hatch_news.is_empty():
-		var hd: Dictionary = SKDB.def(str(_hatch_news["id"]))
-		var nc := _card()
-		var nv := VBoxContainer.new()
-		nv.alignment = BoxContainer.ALIGNMENT_CENTER
-		var ic := CenterContainer.new()
-		ic.add_child(Ui.icon_rect(str(hd["icon"]), 96, Color(hd["color"])))
-		nv.add_child(ic)
-		var t := Ui.label(("%s hatched!" if bool(_hatch_news["new"]) else "%s again: +%d bond kills") % ([hd["name"]] if bool(_hatch_news["new"]) else [hd["name"], int(_hatch_news["kills"])]), "Heading", HORIZONTAL_ALIGNMENT_CENTER)
-		t.add_theme_color_override("font_color", Color(hd["color"]).lightened(0.3))
-		nv.add_child(t)
-		nc.add_child(nv)
-		b.add_child(nc)
-		FxUi.deal_in(nv, 0.0)
-		_hatch_news = {}
 	if eggs.is_empty():
 		var none := Ui.label("No eggs. Find them in chests, on the season road, and, rarely, as exotic drops from bosses.", "Small")
 		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -800,12 +839,18 @@ static func _dur(secs: int) -> String:
 func _after_hatch(s: Sheet) -> void:
 	if _hatch_news.is_empty():
 		return
-	Sfx.play("rare_chime", 0.0)
-	Sfx.play("sparkle", -2.0)
-	Ui.buzz(80, 0.7)
+	Game.bounty_note("hatched")
 	Game.save()
 	_refresh_camp_sidekick()
+	var res := _hatch_news
+	_hatch_news = {}
 	s.rebuild()
+	play_hatch(res)
+
+
+## The hatching: the egg wobbles, cracks and bursts, and the sidekick steps out.
+func play_hatch(res: Dictionary) -> void:
+	HATCH.new().play(%Overlay, res)
 
 
 func _sidekick_tile(s: Sheet, id: String) -> Control:
@@ -881,6 +926,10 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 		s.rebuild())
 	b.add_child(back)
 	b.add_child(_row([Ui.icon_rect(str(d["icon"]), 64, Color(d["color"])), Ui.label(SKDB.display_name(id, k), "Title")], 12))
+	var rar := SKDB.rarity(id)
+	var rchip := Ui.label(SKDB.GRADES[rar].to_upper(), "Caption")
+	rchip.add_theme_color_override("font_color", SKDB.GRADE_COLORS[rar])
+	b.add_child(rchip)
 	var origin := Ui.label("%s · %s" % [d["origin"], d["element"]], "Small")
 	origin.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(origin)
@@ -940,6 +989,22 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	b.add_child(go)
 	if here:
 		b.add_child(Ui.label("Tap again to send it home.", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+	var pinned := SKS.is_pinned(Game.data, id)
+	var pin := Button.new()
+	pin.theme_type_variation = &"Ghost"
+	pin.text = "★ IN YOUR SHOWCASE" if pinned else "PIN TO SHOWCASE"
+	pin.focus_mode = Control.FOCUS_NONE
+	pin.custom_minimum_size = Vector2(0, 64)
+	pin.pressed.connect(func():
+		if not SKS.pin(Game.data, id):
+			Sfx.play("ui_error", -6.0)
+			return
+		Sfx.play("ui_toggle", -4.0)
+		Game.save()
+		s.rebuild())
+	b.add_child(pin)
+	if not pinned and (Game.data["sidekicks"]["showcase"] as Array).size() >= SKDB.SHOWCASE_SLOTS:
+		b.add_child(Ui.label("The showcase is full: unpin one first.", "Small", HORIZONTAL_ALIGNMENT_CENTER))
 
 
 ## The evolution ladder: Hatchling, Grown, Elder, with what each gives.
@@ -1074,6 +1139,7 @@ func _build_breeding(s: Sheet) -> void:
 		_breed_a = ""
 		_breed_b = ""
 		_breed_news = "A Nest Egg is in your hatchery!"
+		Game.bounty_note("bred")
 		Sfx.play("rare_chime", 0.0)
 		Game.save()
 		s.rebuild())

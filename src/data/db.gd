@@ -696,7 +696,15 @@ const BOUNTY_POOL := {
 	"veteran": {"text": "Clear Veteran", "stat": "wins", "targets": [1], "gold": [400], "win": true, "veteran": true, "shards": 4},
 	"gold": {"text": "Collect %d gold in hunts", "stat": "gold", "targets": [300, 600], "gold": [150, 300]},
 	"level": {"text": "Reach level %d in one hunt", "stat": "level", "targets": [8, 10], "gold": [150, 250], "best": true},
+	# Pet quests: one is dealt a day once a sidekick is yours. `pet` needs one
+	# at your side; `gems` (parallel to gold) pays toward the hatchery.
+	"pet_win": {"text": "Win a hunt with a sidekick at your side", "stat": "wins", "targets": [1], "gold": [250], "gems": [3], "win": true, "pet": true},
+	"pet_kills": {"text": "Slay %d foes with a sidekick at your side", "stat": "kills", "targets": [150, 300], "gold": [150, 300], "gems": [2, 4], "pet": true},
+	"pet_hatch": {"text": "Hatch an egg", "stat": "hatched", "targets": [1], "gold": [200], "gems": [3]},
+	"pet_breed": {"text": "Breed two sidekicks", "stat": "bred", "targets": [1], "gold": [300], "gems": [4], "needs": 2},
 }
+## The bounties a sidekick unlocks (the rest of the pool is open to everyone).
+const PET_BOUNTIES := ["pet_win", "pet_kills", "pet_hatch", "pet_breed"]
 const BOUNTIES_PER_DAY := 3
 
 ## Shrines in the graveyard: stand in the ring for a moment to take the
