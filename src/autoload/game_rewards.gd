@@ -3,6 +3,25 @@ extends "res://src/autoload/game_heroes.gd"
 ## weekly omen, treasure trails, daily bounties and the shop.
 
 
+const SDB_EGGS := preload("res://src/data/sidekick_db.gd")
+const EggShop := preload("res://src/autoload/egg_shop.gd")
+
+
+# --- Egg shop --------------------------------------------------------------
+
+## Today's shelf (see egg_shop.gd): [{slot, egg, cur, price, sold, weekly, left, why}].
+func egg_shop() -> Array:
+	return EggShop.offers(data, int(Time.get_unix_time_from_system()))
+
+
+## Buys offer `slot`. {egg, uid, cur, price}, or {} when it can't be bought.
+func buy_egg(slot: int) -> Dictionary:
+	var out := EggShop.buy(data, slot, int(Time.get_unix_time_from_system()), rng.randi())
+	if not out.is_empty():
+		save()
+	return out
+
+
 # --- Rewards -------------------------------------------------------------
 
 ## Opens a chest kind: returns a list of rewards already applied.
@@ -103,7 +122,7 @@ func road_fill_for(r: int) -> float:
 ## The next step that opens something (a mode, zone or hero), 1-based, or 0.
 func road_next_unlock() -> int:
 	for i in DB.TROPHY_ROAD.size():
-		if DB.road_threshold(i + 1) > renown() and not str(DB.TROPHY_ROAD[i]["kind"]) in ["gold", "chest", "shards"]:
+		if DB.road_threshold(i + 1) > renown() and not str(DB.TROPHY_ROAD[i]["kind"]) in ["gold", "chest", "shards", "egg"]:
 			return i + 1
 	return 0
 
@@ -138,6 +157,8 @@ func road_reward_text(n: int) -> String:
 			return "A new hero"
 		"rift_key":
 			return "A rift key"
+		"egg":
+			return str(SDB_EGGS.EGGS[rw["egg"]]["name"])
 		"cards":
 			return "New cards: %s" % ", ".join(PackedStringArray((rw["ids"] as Array).map(func(c): return str(DB.CARDS[c]["name"]))))
 	return DB.CHESTS[rw["chest"]]["name"]
@@ -165,6 +186,9 @@ func claim_road(pick := "") -> Array:
 		"rift_key":
 			data["rift_keys"] = int(data.get("rift_keys", 0)) + 1
 			lines.append("A rift key: the Rift is open")
+		"egg":
+			var got := SK.award_egg(data, str(rw["egg"]), int(Time.get_unix_time_from_system()), rng.randi())
+			lines.append("%s: %s" % [road_reward_text(n), "it warms in your hatchery" if int(got["uid"]) > 0 else "hatchery full, +%d gems" % int(got["gems"])])
 		"cards":
 			lines.append("%s join your level-up draws" % road_reward_text(n).trim_prefix("New cards: "))
 		"pick", "hero":

@@ -25,7 +25,7 @@ const CHAPTERS := [
 			{"who": "narrator", "line": "The King sinks into the loam, and the lamps catch one by one.", "cam": "wide"},
 			{"who": "hero", "line": "The watch holds. But something stirs in the roots to the east.", "cam": "hero"},
 		],
-		"reward": {"gold": 1500, "gems": 20, "shards": 30},
+		"reward": {"gold": 1500, "gems": 20, "shards": 30, "egg": "brood"},
 	},
 	{
 		"id": "roots", "title": "Arrows in the Roots", "hero": "ranger", "zone": "grove", "boss": "thorn",
@@ -42,7 +42,7 @@ const CHAPTERS := [
 			{"who": "narrator", "line": "The roots let go. Somewhere deep, a bell rings under the stone.", "cam": "wide"},
 			{"who": "hero", "line": "That bell is from the crypt. Someone is calling the dead by name.", "cam": "hero"},
 		],
-		"reward": {"gold": 1800, "gems": 25, "shards": 35},
+		"reward": {"gold": 1800, "gems": 25, "shards": 35, "egg": "brood"},
 	},
 	{
 		"id": "crypt", "title": "Ember and Hex", "hero": "mage", "zone": "depths", "boss": "hexer",
@@ -59,7 +59,7 @@ const CHAPTERS := [
 			{"who": "narrator", "line": "The threads burn back to the needle. A key falls, gold and heavy.", "cam": "wide"},
 			{"who": "hero", "line": "The King's treasury. Whoever opened it left a trail of coins.", "cam": "hero"},
 		],
-		"reward": {"gold": 2100, "gems": 30, "shards": 40},
+		"reward": {"gold": 2100, "gems": 30, "shards": 40, "egg": "season"},
 	},
 	{
 		"id": "vault", "title": "Knives in the Dark", "hero": "rogue", "zone": "vault", "boss": "warden",
@@ -76,7 +76,7 @@ const CHAPTERS := [
 			{"who": "narrator", "line": "The door opens outward, for the first time in a thousand years.", "cam": "wide"},
 			{"who": "hero", "line": "The treasury was only the lid. The King himself is rising again.", "cam": "hero"},
 		],
-		"reward": {"gold": 2500, "gems": 35, "shards": 45},
+		"reward": {"gold": 2500, "gems": 35, "shards": 45, "egg": "season"},
 	},
 	{
 		"id": "lightless", "title": "The Lightless King", "hero": "barbarian", "zone": "barrow", "boss": "gravemaw",
@@ -93,7 +93,7 @@ const CHAPTERS := [
 			{"who": "narrator", "line": "The dark lifts off the Barrow like a lid. The lamps hold.", "cam": "wide"},
 			{"who": "hero", "line": "Quiet at last. Somebody tell the lamplighters they are out of work.", "cam": "hero"},
 		],
-		"reward": {"gold": 4000, "gems": 60, "shards": 80, "glow": "wraith"},
+		"reward": {"gold": 4000, "gems": 60, "shards": 80, "glow": "wraith", "egg": "exotic"},
 	},
 ]
 

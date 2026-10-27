@@ -356,6 +356,8 @@ const EGGS := {
 	"season": {"name": "Season Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "color": Color(0.55, 0.75, 1.0),
 		"pool": [["crow", 2], ["acolyte", 2], ["mimic", 2], ["bat", 2], ["drake", 2], ["barrow_squire", 1]]},
 	"nest": {"name": "Nest Egg", "kills": 400, "secs": 4 * 3600, "rarity": "bred", "color": Color(0.95, 0.75, 0.85)},
+	"omen": {"name": "Omen Egg", "kills": 400, "secs": 6 * 3600, "rarity": "epic", "color": Color(0.78, 0.55, 1.0),
+		"pool": [["crow", 2], ["hexling", 2], ["shade", 2], ["sapling", 2], ["bat", 2], ["drake", 2]]},
 	"exotic": {"name": "Exotic Egg", "kills": 800, "secs": 12 * 3600, "rarity": "exotic", "color": Color(1.0, 0.78, 0.3),
 		"pool": [["drake", 2], ["bat", 2], ["mimic", 2], ["barrow_squire", 3], ["shade", 3], ["sapling", 3]]},
 }
@@ -369,9 +371,26 @@ const DUP_KILLS := 300
 const EXOTIC_BOSS := 0.03
 const EXOTIC_ELITE := 0.003
 const EXOTIC_PITY := 40
-## Chests: gems in each, and the chance of a Brood Egg.
+## Chests: gems in each, and the eggs each can hold: [egg, chance] rolled in
+## turn, at most one egg per chest.
 const CHEST_GEMS := {"silver": 2, "gold": 6, "crypt": 15}
-const CHEST_EGG := {"silver": 0.0, "gold": 0.15, "crypt": 0.4}
+const CHEST_EGGS := {
+	"silver": [["brood", 0.04]],
+	"gold": [["season", 0.04], ["brood", 0.15]],
+	"crypt": [["season", 0.12], ["brood", 0.3]],
+}
+## A reward egg with a full hatchery pays this many gems instead.
+const FULL_EGG_GEMS := 40
+## Where each egg comes from, for its card in the nest.
+const EGG_FROM := {
+	"ember": "Gravemaw drops it (Barrow wins)",
+	"grove": "Found under the Hollow Grove (Grove wins)",
+	"brood": "Chests, the Trophy Road, story chapters and the egg shop",
+	"season": "The season pass, Trophy Road, weekly events and the egg shop",
+	"nest": "Bred from two of your pets",
+	"exotic": "A rare boss drop, a season finale or the story's last chapter",
+	"omen": "The weekly event and the weekly egg shop",
+}
 
 ## Total kills with a sidekick at your side to reach bond level i+1.
 const BOND_KILLS := [0, 200, 500, 1000, 2000, 3500, 5500, 8000, 11000, 15000]

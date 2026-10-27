@@ -11,10 +11,11 @@ const SDB := preload("res://src/data/sidekick_db.gd")
 ## [{uid, kind, t0 (unix secs found), kills, seed}]; `eggs`: the old
 ## {egg_id: {"kills"}} (moved into the hatchery on load); `dry`: {egg_id or
 ## "exotic": tries without a drop}; `chests`: chests opened (the Mimic's
-## goal); `migrated`: pets and ally folded in.
+## goal); `migrated`: pets and ally folded in; `shop`: the egg shop's sold
+## offers (egg_shop.gd).
 static func fresh() -> Dictionary:
 	return {"active": "", "owned": {}, "eggs": {}, "hatchery": [], "egg_uid": 1, "dry": {}, "chests": 0, "seen": [], "migrated": false,
-		"bred_uid": 1, "rest": {}, "showcase": [], "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false}}
+		"bred_uid": 1, "rest": {}, "showcase": [], "shop": {}, "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false}}
 
 
 static func block(d: Dictionary) -> Dictionary:
@@ -327,6 +328,17 @@ static func exotic_chance(d: Dictionary, boss: bool, bosses_this_hunt: int) -> f
 	return (SDB.EXOTIC_BOSS if boss else SDB.EXOTIC_ELITE) * lucky
 
 
+## Gives a reward egg (the Trophy Road, the season pass, events, the story, a
+## chest). A full hatchery pays FULL_EGG_GEMS gems instead, so a reward is never
+## lost. Returns {egg, uid (0 when none was laid), gems}.
+static func award_egg(d: Dictionary, kind: String, now: int, sd: int) -> Dictionary:
+	var e := give_egg(d, kind, now, sd)
+	if not e.is_empty():
+		return {"egg": kind, "uid": int(e["uid"]), "gems": 0}
+	d["gems"] = gems(d) + SDB.FULL_EGG_GEMS
+	return {"egg": kind, "uid": 0, "gems": SDB.FULL_EGG_GEMS}
+
+
 ## A chest's egg and gems, already given: [{type: "gems"|"egg", ...}].
 static func chest_extras(d: Dictionary, kind: String, now: int, rng: RandomNumberGenerator) -> Array:
 	var out := []
@@ -334,10 +346,15 @@ static func chest_extras(d: Dictionary, kind: String, now: int, rng: RandomNumbe
 	if g > 0:
 		d["gems"] = gems(d) + g
 		out.append({"type": "gems", "amount": g})
-	if rng.randf() < float(SDB.CHEST_EGG.get(kind, 0.0)):
-		var e := give_egg(d, "brood", now, rng.randi())
-		if not e.is_empty():
-			out.append({"type": "egg", "egg": "brood"})
+	var roll := rng.randf()
+	var acc := 0.0
+	for pair: Array in SDB.CHEST_EGGS.get(kind, []):
+		acc += float(pair[1])
+		if roll < acc:
+			var e := give_egg(d, str(pair[0]), now, rng.randi())
+			if not e.is_empty():
+				out.append({"type": "egg", "egg": str(pair[0])})
+			break
 	return out
 
 

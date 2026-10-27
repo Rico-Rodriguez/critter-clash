@@ -249,6 +249,7 @@ func run() -> int:
 	_sidekick_tests()
 	_pet_polish_tests()
 	_hatchery_tests()
+	preload("res://src/pet_tests.gd").run(_ok)
 	_breeding_tests()
 	_story_tests()
 	_stage_tests()
