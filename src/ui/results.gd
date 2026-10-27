@@ -3,6 +3,7 @@ extends Control
 
 ## `again`: straight into another hunt with the same setup.
 const ItemIcons := preload("res://src/ui/item_icons.gd")
+const STORY_DB := preload("res://src/data/story_db.gd")
 
 signal closed(again: bool)
 
@@ -101,6 +102,14 @@ func open(r: Dictionary) -> void:
 			_note("Clue step done: %d of %d" % [int(cl["step"]), DB.CLUE_STEPS], Color(1.0, 0.88, 0.5), "scroll-unfurled")
 		"casket":
 			_note("Casket opened: %s" % ", ".join(cl["lines"]), Color(1.0, 0.85, 0.4), "open-treasure-chest")
+	var st: Dictionary = s.get("story", {})
+	if not st.is_empty():
+		if bool(st["first"]):
+			var ch: Dictionary = STORY_DB.chapter(str(st["id"]))
+			_note("Chapter cleared: %s" % ch["title"], Color(1.0, 0.85, 0.5), "scroll-unfurled")
+			_note("Story reward: %s gold, %d gems, %d shards%s" % [Ui.fmt_num(int(st["gold"])), int(st["gems"]), int(st["shards"]), " (hero bonus)" if st["hero_bonus"] else ""], Color(1.0, 0.85, 0.5), "two-coins")
+		else:
+			_note("Chapter replayed: the story pays once", Color(0.8, 0.8, 0.85), "scroll-unfurled")
 	if str(r.get("omen", "")) != "":
 		_note("Weekly omen: bonus paid", Color(0.8, 0.6, 1.0), "moon")
 	if not win and not descent and not wild:

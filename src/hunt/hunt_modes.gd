@@ -380,13 +380,13 @@ func _begin_boss() -> void:
 	cam.focus_override = arena.boss_spawn + Vector3(0, 0, 3.0)
 	fx.puff(arena.boss_spawn, Color(0.3, 0.27, 0.22, 0.85), 22, 3.0, 3.0)
 	fx.bone_burst(arena.boss_spawn, 10, 8.0)
-	var aura: Color = DB.boss_def(cur_boss)["color"]
+	var aura: Color = boss_def(cur_boss)["color"]
 	fx.vfx.nova(&"shadow", arena.boss_spawn, 7.0, 0.8, Fx.VfxLib.NO_TINT, &"big")
 	fx.vfx.impact(&"shadow", arena.boss_spawn, 2.5, Fx.VfxLib.NO_TINT, &"big")
 	shake(0.8)
 	Sfx.music(str(zone.get("boss_music", "boss")) if mode != "rift" else "rift", 0.6)
 	Sfx.play("boss_roar", 2.0)
-	var bd := DB.boss_def(cur_boss)
+	var bd := boss_def(cur_boss)
 	banner(str(bd["name"]), Color(bd["color"]).lightened(0.25), str(bd["wake"]))
 	if cur_boss == "gravemaw":
 		tip("exposed", "Bait his charge into a wall: a dazed king takes 50% more", "bullseye")

@@ -623,6 +623,8 @@ func open_sheet(name_: String) -> void:
 			_sheet.open("Daily", _build_daily)
 		"journal":
 			_sheet.open("Quests", _build_journal)
+		"story":
+			_sheet.open("Story", _build_story)
 		"bounties":
 			_sheet.open("Bounties", _build_bounties)
 		"season":

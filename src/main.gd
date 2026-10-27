@@ -9,6 +9,8 @@ const LOBBY := preload("res://src/lobby/lobby.tscn")
 const Online := preload("res://src/net/online.gd")
 const UiJuice := preload("res://src/ui/ui_juice.gd")
 const AppGate := preload("res://src/core/app_gate.gd")
+const STORY_DB := preload("res://src/data/story_db.gd")
+const CUTSCENE := preload("res://src/ui/cutscene.gd")
 
 var current: Node
 var _gate: Node
@@ -132,7 +134,24 @@ func _on_hunt_finished(result: Dictionary) -> void:
 				pending_chest = c
 			else:
 				chest_queue.append(c)
-	go("hunt" if result.get("again", false) else "lobby")
+	var again: bool = result.get("again", false)
+	var sc: Dictionary = result.get("summary", {}).get("story", {})
+	await go("hunt" if again else "lobby")
+	# A chapter's first clear closes with its ending, over the camp.
+	if not again and bool(sc.get("first", false)):
+		_play_story(STORY_DB.chapter(str(sc["id"])), "outro", str(result["hero"]))
+
+
+## Plays a chapter's "intro" or "outro" scene over whatever is showing.
+func _play_story(ch: Dictionary, which: String, hero_id: String, title := true) -> Control:
+	var layer := CanvasLayer.new()
+	layer.layer = 60
+	add_child(layer)
+	var cs: Control = CUTSCENE.new()
+	layer.add_child(cs)
+	cs.finished.connect(layer.queue_free)
+	cs.play(ch, which, hero_id, title)
+	return cs
 
 
 ## The next waiting chest after one is opened, or "".
@@ -429,7 +448,23 @@ func _capture(args: PackedStringArray) -> void:
 				await _save("update")
 				g.hide_required()
 				g.queue_free()
-			"sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
+			"storytitle", "storyintro", "storyboss", "storyoutro":
+				# A chapter's scenes over the camp: --chapter=oath|roots|crypt|vault|lightless.
+				var ch: Dictionary = STORY_DB.chapter(_arg(args, "chapter", "oath"))
+				_set_screen_now("lobby")
+				await _wait(1.0)
+				var cs: Control = _play_story(ch, "outro" if shot == "storyoutro" else "intro", hid, shot == "storytitle")
+				await _wait(2.4 if shot == "storytitle" else 0.5)
+				if shot == "storyintro":
+					cs._show(1)
+				elif shot == "storyboss":
+					cs._show(2)
+				elif shot == "storyoutro":
+					cs._show(1)
+				await _wait(3.6)
+				await _save(shot)
+				cs.queue_free()
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "equipsidekick", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -458,6 +493,8 @@ func _capture(args: PackedStringArray) -> void:
 					for h0 in DB.START_HEROES:
 						Game.hero(h0)["unlocked"] = h0 == hid
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
+				if shot == "story":
+					Game.data["story"]["cleared"] = ["oath"]
 				if shot in ["shop", "shopbuy", "shoplooks"]:
 					Game.data["gold"] = 3240
 				if shot == "talents":
