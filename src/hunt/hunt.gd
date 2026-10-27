@@ -72,7 +72,7 @@ func _ready() -> void:
 	robber_wanted = randf() < 0.35 and mode == "horde"
 	ritual_done = not (mode == "horde" and randf() < float(DB.RITUAL["chance"]))
 	_erupt_t = 14.0 if ai() <= 0.0 else 7.0
-	low = str(Game.setting("quality")) == "low" or OS.has_feature("mobile") and str(Game.setting("quality")) == "auto" and _weak_device()
+	low = _quality_low()
 	bot = OS.get_cmdline_user_args().has("--bot")
 	world = Node3D.new()
 	world.name = "World"
@@ -101,7 +101,7 @@ func _ready() -> void:
 	world.add_child(cam)
 	cam.target = hero
 	cam.shake_enabled = bool(Game.setting("shake"))
-	cam.dist_mult = {"close": 0.86, "wide": 1.16}.get(str(Game.setting("camera")), 1.0)
+	cam.dist_mult = HuntCam.preset_mult(str(Game.setting("camera")))
 	cam.snap()
 	cam.current = true
 	# Sidekicks replaced the hero ally and the cosmetic pet.
@@ -111,6 +111,7 @@ func _ready() -> void:
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
 	hud.setup(self)
+	Game.setting_changed.connect(apply_setting)
 	# Leaving the app pauses; coming back counts 3-2-1 or retreats to camp.
 	add_child(FocusGuard.new(self))
 	hud.dash_pressed.connect(func(): hero.try_dash())
@@ -140,6 +141,26 @@ func _ready() -> void:
 		hud.banner("Chapter %d: %s" % [STORY_DB.index(str(story["id"])) + 1, story["title"]], Color(0.95, 0.85, 0.6), str(zone["wake"]) % souls_goal)
 	else:
 		hud.banner(str(zone["name"]), Color(0.85, 0.8, 0.7), "%s · %s" % [tier["name"], str(zone["wake"]) % souls_goal])
+
+
+## A setting changed in the pause menu: apply it to this hunt right away. The
+## settings screen has already saved it. Audio and vibration read their
+## settings live, so only shake, camera, buttons and graphics need work here.
+func apply_setting(key: String) -> void:
+	match key:
+		"shake":
+			cam.shake_enabled = bool(Game.setting("shake"))
+			if not cam.shake_enabled:
+				cam.trauma = 0.0
+		"camera":
+			cam.set_preset(str(Game.setting("camera")))
+		"buttons":
+			hud._layout_buttons()
+		"quality":
+			low = _quality_low()
+			fx.quality_low = low
+			fx.vfx.quality_low = low
+			arena.set_low(low)
 
 
 ## On a phone the first draw of every material, particle and effect compiles a

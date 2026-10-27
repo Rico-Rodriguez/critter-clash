@@ -831,6 +831,28 @@ func _capture(args: PackedStringArray) -> void:
 					hs._drop_item(hs.hero.flat_pos() + Vector3(2.0, 0, -1.5), Game.make_unique("crown"))
 					await _wait(1.0)
 				await _save(shot)
+			"settingslive":
+				# The pause menu's camera and button rows change the live hunt:
+				# standard view, then Close, Wide and left-hand buttons.
+				_set_screen_now("hunt")
+				var hp: Hunt = current
+				hp.bot = true
+				hp._bot = HuntBot.new()
+				hp._bot.hunt = hp
+				await _wait_sim(hp, 8.0)
+				hp.hud._open_pause()
+				await _wait(0.6)
+				var pm: Control = hp.hud.get_children().back()
+				await _save("settings_0_menu")
+				var rows := {}
+				for bt in pm.find_children("*", "Button", true, false):
+					rows[(bt as Button).text] = bt
+				for step in [["Close", "settings_1_close"], ["Wide", "settings_2_wide"], ["Left", "settings_3_left"], ["Low", "settings_4_low"]]:
+					(rows[step[0]] as Button).pressed.emit()
+					await _wait(0.4)
+					await _save(step[1])
+					await _wait(1.6)
+				await _save("settings_5_menu_after")
 			"devpanel":
 				_set_screen_now("hunt")
 				var hd: Hunt = current
