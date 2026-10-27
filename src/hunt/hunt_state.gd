@@ -7,6 +7,7 @@ signal finished(result: Dictionary)
 
 const HUD_SCENE := preload("res://src/ui/hud.tscn")
 const MAX_FOES := 44
+const FoeBrains := preload("res://src/hunt/foe_brains.gd")
 const STORY_DB := preload("res://src/data/story_db.gd")
 
 var tier_i := 0
@@ -218,12 +219,13 @@ func objective_fill() -> float:
 
 func spawn_foe(kind: String, at: Vector3, elite := false, affix := "") -> Enemy:
 	# A zone's own faction stands in for the skeletons of the same role.
-	kind = str(zone.get("faction", {}).get(kind, kind))
+	kind = str(FoeBrains.faction(zone).get(kind, kind))
 	var e := Enemy.new()
 	world.add_child(e)
 	e.position = at
 	e.rotation.y = Actor.yaw_to(at, hero.position)
 	e.setup(self, kind, scaled_tier(), elite, affix)
+	FoeBrains.attach(e)
 	foes.append(e)
 	fx.puff(at, Color(0.28, 0.23, 0.18, 0.75), 7, 0.7, 1.6)
 	if on_screen(at):
@@ -264,9 +266,12 @@ func _pick_kind(p: float) -> String:
 		"brute": 0.07 if p > 0.4 and brute_count() < 2 else 0.0,
 		"bomber": 0.22 if p > 0.3 else 0.0,
 		"necro": 0.12 if p > 0.55 and necro_count() < 2 else 0.0,
+		# The rebuilt swamp's flying skirmisher: only zones whose faction has the slot.
+		"skirmisher": 0.2 if p > 0.28 and FoeBrains.faction(zone).has("skirmisher") else 0.0,
 	}
-	for k in zone["weights"]:
-		w[k] = float(w[k]) * float(zone["weights"][k])
+	var zw := FoeBrains.weights(zone)
+	for k in zw:
+		w[k] = float(w[k]) * float(zw[k])
 	var total := 0.0
 	for k in w:
 		total += w[k]

@@ -5,6 +5,7 @@ extends RefCounted
 ## ignores a clip it cannot find, so a typo in db.gd shows up as a foe frozen in
 ## its T-pose; this is the only place that catches it.
 
+const FoeRig := preload("res://src/core/foe_rig.gd")
 const STATES := ["idle", "run", "attack", "hit", "die", "spawn"]
 const AIS := ["melee", "ranged", "caster", "bomb", "necro", "charge", "slam", "flee"]
 const NUMS := ["hp", "dmg", "speed", "radius", "reach", "windup", "cooldown", "mass", "xp", "scale"]
@@ -38,14 +39,18 @@ static func _defs(ok: Callable) -> void:
 	var models := {}
 	for k: String in kinds:
 		var d: Dictionary = DB.enemy(k)
-		var offered := clips(d)
+		var foreign := FoeRig.is_foreign(str(d["model"]))
 		var a: Dictionary = d["anim"]
+		# A foreign rig (glb:/proc:) maps the KayKit clip names itself (rig_tests.gd).
+		var offered := PackedStringArray() if foreign else clips(d)
 		for s in STATES:
-			if not a.has(s) or not offered.has(str(a[s])):
+			if not a.has(s) or (not foreign and not offered.has(str(a[s]))):
 				bad_anim.append("%s.%s" % [k, s])
 		var path := str(d["glb"]) if d.has("glb") else KK.CHAR_DIR + str(d["model"]) + ".glb"
+		if foreign:
+			path = FoeRig.scene_path(str(d["model"]).split(":", true, 1)[1])
 		if not models.has(path):
-			models[path] = ResourceLoader.exists(path)
+			models[path] = path != "" and ResourceLoader.exists(path)
 		if not models[path]:
 			bad_model.append(k)
 		for slot: String in d.get("weapons", {}):
@@ -64,8 +69,21 @@ static func _defs(ok: Callable) -> void:
 
 
 static func _zones(ok: Callable) -> void:
-	var slots := ["minion", "warrior", "rogue", "mage", "necro", "hound", "brute", "bomber"]
+	var slots := ["minion", "warrior", "rogue", "mage", "necro", "hound", "brute", "bomber", "skirmisher"]
 	for id: String in DB.ZONE_ORDER:
-		var f: Dictionary = DB.ZONES[id].get("faction", {})
-		var bad := f.keys().filter(func(slot): return not slot in slots or not (DB.ENEMIES.has(f[slot]) or DB.ENEMIES_EXTRA.has(f[slot])))
-		ok.call("zone %s: faction slots are director classes with real foes %s" % [id, str(bad)], bad.is_empty())
+		for key in ["faction", "faction_next"]:
+			if not DB.ZONES[id].has(key):
+				continue
+			var f: Dictionary = DB.ZONES[id][key]
+			var bad := f.keys().filter(func(slot): return not slot in slots or not DB.enemy_kinds().has(f[slot]))
+			ok.call("zone %s: %s slots are director classes with real foes %s" % [id, key, str(bad)], bad.is_empty())
+	# A next faction fields only slots it has (a missing slot would spawn a plain skeleton).
+	for id: String in ["frost", "swamp"]:
+		var z: Dictionary = DB.ZONES[id]
+		var f: Dictionary = z["faction_next"]
+		var w: Dictionary = z["weights_next"]
+		var live := []
+		for slot: String in slots:
+			if not slot in ["minion", "skirmisher"] and not f.has(slot) and float(w.get(slot, 1.0)) > 0.0:
+				live.append(slot)
+		ok.call("zone %s: next weights never draw a slot the faction lacks %s" % [id, str(live)], live.is_empty() and f.has("minion"))

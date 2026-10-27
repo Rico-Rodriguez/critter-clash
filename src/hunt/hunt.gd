@@ -398,7 +398,8 @@ func _tick_foes(dt: float) -> void:
 		if not is_instance_valid(f):
 			foes.remove_at(i)
 		else:
-			f.tick(dt)
+			if not FoeBrains.tick(f, dt):
+				f.tick(dt)
 		i -= 1
 	# The fallen lie a while and sink; the oldest go first past the cap.
 	var extra := corpses.size() - DB.CORPSE_MAX
