@@ -306,6 +306,11 @@ func _run_bot(args: PackedStringArray) -> void:
 			Game.data["zone"] = zone
 			Game.data["mode"] = mode
 			Game.data["tier"] = tier
+			# --story=roots plays that chapter (the ones before it count as cleared).
+			var story_arg := _arg(args, "story", "")
+			if story_arg != "":
+				Game.data["story"]["cleared"] = STORY_DB.CHAPTERS.slice(0, maxi(STORY_DB.index(story_arg), 0)).map(func(c): return c["id"])
+				Game.story_begin(story_arg)
 			var h := Hunt.new()
 			add_child(h)
 			if idle:
@@ -328,6 +333,8 @@ func _run_bot(args: PackedStringArray) -> void:
 			var res: Dictionary = await h.finished
 			var boss_left := (h.boss.hp / h.boss.max_hp) if h.boss else 1.0
 			print("BOT mode=%s zone=%s hero=%s tier=%d win=%s time=%.1f boss_at=%.1f boss_left=%.2f kills=%d elites=%d level=%d gold=%d items=%d hp=%.0f/%.0f depth=%d rush=%d cards=%s xp=%s sidekick=%s" % [mode, zone, hid, tier, res["win"], res["time"], h.boss_at, boss_left, res["kills"], res["elites"], res["level"], res["gold"], res["items"].size(), h.hero.hp, h.hero.max_hp, h.depth, h.rush_i, h.cards, res["xp"], ("%s bond=%d slain=%d" % [h.sidekick.id, h.sidekick.bond, h.sidekick.slain]) if h.sidekick else "none"])
+			if story_arg != "":
+				print("BOT STORY ", res.get("summary", {}).get("story", {}), " boss=", h.boss.display_name if h.boss else "-", " ", h.boss.title if h.boss else "")
 			if h.hero.spikes_dealt > 0.0:
 				print("POWER bone_spikes dealt=%.0f per_s=%.1f" % [h.hero.spikes_dealt, h.hero.spikes_dealt / maxf(float(res["time"]), 1.0)])
 			if idle and res["win"]:
@@ -689,6 +696,19 @@ func _capture(args: PackedStringArray) -> void:
 					# The ground runs out to the fog instead of ending in a hard horizon.
 					(current.get_node("IconStage").get_child(0).mesh as PlaneMesh).size = Vector2(400, 400)
 				await _wait(1.5)
+				await _save(shot)
+			"storyhunt", "storyfoe":
+				# A chapter's hunt: its banner at the start, or its retold boss waking.
+				Game.data["story"]["cleared"] = STORY_DB.CHAPTERS.slice(0, STORY_DB.index(_arg(args, "chapter", "oath"))).map(func(c): return c["id"])
+				Game.data["hero"] = hid
+				Game.story_begin(_arg(args, "chapter", "oath"))
+				_set_screen_now("hunt")
+				var hsy: Hunt = current
+				hsy.hero.invuln = 99.0
+				await _wait_sim(hsy, 1.0 if shot == "storyhunt" else 3.0)
+				if shot == "storyfoe":
+					hsy._begin_boss()
+					await _wait_sim(hsy, 1.2)
 				await _save(shot)
 			"depth":
 				# The Descent going a level deeper.
