@@ -10,6 +10,14 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, bog in the flow field and bosses that wade
+
+The foes' flow field now weighs the ground: a step costs the terrain's `cost`
+(1 firm, 3 bog, 6 burning), so foes walk round a small bog when a dry way is
+not much longer and wade a wide one. Zones without terrain keep the plain step
+count. Bosses feel half of what the ground does to the hero (a bog or a cracked
+open hole slows the Frost Troll or the Cinder Warlord), and still never drown.
+
 ## Unreleased: Biome rebuild, the Frost Troll cracks the floor
 
 From his second phase the Frost Troll's court cracks. The break itself cracks a
