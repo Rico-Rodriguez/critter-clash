@@ -14,8 +14,8 @@ OUT = os.path.join(K.ROOT, "assets", "kits", "rime", "rime_kit.glb")
 # Cold, desaturated, a little dirty. Snow is never pure white.
 ROCK = ["#1e2229", "#30363f", "#4a525e", "#6a7380"]
 SNOW = ["#8ea0b6", "#b9c8da", "#dfe9f3", "#f3f8fc"]
-ICEC = ["#0b1c2b", "#16384f", "#2f6585", "#6fa0bc", "#c4dbe8"]
-CRYS = ["#133b54", "#2c7092", "#6bb3d2", "#d6f0fa"]
+ICEC = ["#070d13", "#0f2230", "#1d4252", "#356b7c", "#8fb2be"]
+CRYS = ["#08202d", "#10404f", "#237282", "#8ec9cf"]
 WOOD = ["#1e1510", "#33241a", "#4a3626", "#6a5a48"]
 IRON = ["#1a1c21", "#2c3037", "#444a54"]
 PINE = ["#08150f", "#102b21", "#1b432f", "#2b5f40"]

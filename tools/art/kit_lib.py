@@ -88,7 +88,7 @@ class Palette:
 def make_materials(img, kit):
     """The three glTF materials, all on the one palette image."""
     out = []
-    for name, rough, emit in ((kit + "_matte", 0.86, 0.0), (kit + "_ice", 0.1, 0.0), (kit + "_crystal", 0.1, 0.3)):
+    for name, rough, emit in ((kit + "_matte", 0.86, 0.0), (kit + "_ice", 0.16, 0.0), (kit + "_crystal", 0.16, 0.18)):
         m = bpy.data.materials.new(name)
         m.use_nodes = True
         m.use_backface_culling = False
