@@ -5,6 +5,7 @@ extends RefCounted
 ## it. When the Arena owns a grid (`arena.terrain`) the last group runs the same
 ## rules through the real Hero and Enemy.
 
+const ZoneRooms := preload("res://src/hunt/arena_trial_zone.gd")
 const T := preload("res://src/hunt/terrain.gd")
 
 
@@ -28,6 +29,7 @@ static func run(ok: Callable) -> void:
 	_cost(ok)
 	_arena(ok)
 	_mire(ok)
+	_long_road(ok)
 
 
 static func _surfaces(ok: Callable) -> void:
@@ -232,7 +234,7 @@ static func _cost(ok: Callable) -> void:
 ## The same rules through the real arena, once it owns a grid.
 static func _arena(ok: Callable) -> void:
 	_arena_live(ok)
-	for zone in ["frost", "swamp"]:
+	for zone: String in ["frost", "swamp"]:
 		var a := Arena.new()
 		a.build(true, zone, 0, 1)
 		var terr = a.get("terrain")
@@ -247,7 +249,7 @@ static func _arena(ok: Callable) -> void:
 
 ## Whether firm footing (dry, ash, planks) links `from` to `to` cell by cell, so the
 ## way across the bog never needs a wade.
-static func _firm_route(t: RefCounted, from: Vector3, to: Vector3) -> bool:
+static func _firm_route(t: RefCounted, from: Vector3, to: Vector3, kinds: Array = [T.DRY, T.ASH, T.PLANK]) -> bool:
 	var seen := {}
 	var q: Array = [t.cell_of(from)]
 	var goal: Vector2i = t.cell_of(to)
@@ -258,7 +260,7 @@ static func _firm_route(t: RefCounted, from: Vector3, to: Vector3) -> bool:
 			return true
 		for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			var n: Vector2i = c + d
-			if seen.has(n) or not t.in_bounds(n) or not (t.kind_of(n) in [T.DRY, T.ASH, T.PLANK]):
+			if seen.has(n) or not t.in_bounds(n) or not (t.kind_of(n) in kinds):
 				continue
 			seen[n] = true
 			q.append(n)
@@ -315,6 +317,45 @@ static func _mire(ok: Callable) -> void:
 	ok.call("mire: a fallen plank's piece is gone, a burnt one stays chared", left == 0)
 	ok.call("mire: the islands are firebreaks, the landing never burns", t.kind_at(m.start) == T.DRY and t.kind_at(Vector3(0, 0, 18)) == T.DRY)
 	m.free()
+
+
+## The Long Road in a rebuilt biome: the same rooms on the zone's terrain, with a
+## firm way from gap to gap and the whole road crossable on foot.
+static func _long_road(ok: Callable) -> void:
+	for zone: String in ["frost", "swamp"]:
+		var a := Arena.new()
+		a.build(true, zone, 5, 4242)
+		var t: RefCounted = a.terrain
+		var rooms: Array = a.trial["rooms"]
+		var tag := "long road (" + zone + "): "
+		ok.call(tag + "paints the whole road on a tall grid", a.terrain_live and t.h > 100 and t.origin.y <= a.min_z)
+		var firm_way := true
+		var way_kinds := [T.DRY, T.ICE, T.ASH, T.PLANK] if zone == "swamp" else [T.DRY, T.ICE]
+		for i in rooms.size():
+			var w: Array = ZoneRooms.way(a, a.trial, i)
+			var from: Vector2 = w[0]
+			var to: Vector2 = w[1]
+			if not _firm_route(t, Vector3(from.x, 0, from.y), Vector3(to.x, 0, to.y), way_kinds):
+				firm_way = false
+		ok.call(tag + "a firm way runs from every gap to the next", firm_way)
+		ok.call(tag + "the landing and the boss spot are solid ground", t.kind_at(a.start) == T.DRY and t.kind_at(a.boss_spawn) in [T.DRY, T.ICE])
+		ok.call(tag + "the boss hall is reachable on foot", _reach(a, a.start, a.boss_spawn))
+		var kinds := {}
+		for k in t.kind:
+			kinds[int(k)] = int(kinds.get(int(k), 0)) + 1
+		if zone == "frost":
+			ok.call(tag + "ice ponds with thin ice in the road", int(kinds.get(T.ICE, 0)) > 150 and int(kinds.get(T.THIN_ICE, 0)) > 4)
+		else:
+			ok.call(tag + "bog with a boardwalk that burns", int(kinds.get(T.BOG, 0)) > 150 and int(kinds.get(T.PLANK, 0)) > 30 and a.plank_nodes.size() == int(kinds.get(T.PLANK, 0)))
+		var clear := true
+		for r: Dictionary in rooms:
+			for k in 6:
+				var p2: Vector3 = a.room_point(r, a.start)
+				if t.flow_cost(p2) < 0.0:
+					clear = false
+		ok.call(tag + "foes are never placed in open water", clear)
+		ok.call(tag + "shrines on firm ground", a.shrines.size() >= 1 and a.shrines.all(func(sh): return t.kind_at(sh["pos"]) in [T.DRY, T.ICE]))
+		a.free()
 
 
 ## Whether a 1 m walk from `from` to `to` exists round obstacles, water and walls.

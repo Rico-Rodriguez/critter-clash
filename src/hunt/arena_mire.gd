@@ -50,7 +50,7 @@ static func build(a: Arena) -> void:
 	a.crypt_pos = PYRE
 	_ground(a)
 	_floor(a)
-	_boardwalk(a)
+	boardwalk(a)
 	_pyre(a)
 	_shacks(a)
 	_perimeter(a)
@@ -102,7 +102,7 @@ static func _floor(a: Arena) -> void:
 
 ## One boardwalk piece on every plank cell, registered so fire and collapse find it,
 ## with piles driven in beside the runs.
-static func _boardwalk(a: Arena) -> void:
+static func boardwalk(a: Arena) -> void:
 	var t: RefCounted = a.terrain
 	var wood := Kit.mat("wood")
 	var burnt := Kit.charred_mat()

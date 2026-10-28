@@ -10,6 +10,17 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the Long Road in Rimehollow and the Mire
+
+On the Long Road in Rimehollow or the Burning Swamp the same rooms, gaps and
+encounters now stand on the zone's own kit (`src/hunt/arena_trial_zone.gd`): a
+tall terrain grid the length of the road, glacier or bog-rock walls, rock
+ramparts or pile palisades for the dividers, ice ponds (thin ice, then open
+water deeper in) or bog pools with a boardwalk of planks that burns, and the
+court of the Frost Troll or the Warlord's deck and Pyre Tree at the end. A firm
+line always runs gap to gap. Other zones keep the dungeon. Foes are no longer
+placed in open water.
+
 ## Unreleased: Biome rebuild, the Cinder Mire
 
 The Burning Swamp now paints the terrain grid. `src/hunt/arena_mire.gd` lays out a
