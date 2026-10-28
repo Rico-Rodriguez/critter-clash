@@ -125,6 +125,7 @@ var bosses_killed: Array[String] = []
 ## Exotic eggs found this hunt (they join the hatchery when it ends).
 var exotic_found := 0
 var rift_boss := ""
+var _rush_list: Array = []
 var banishes_left := DB.BANISHES
 ## Burning ground from Pyre: {pos, r, t, dps, tick}.
 var pyres: Array = []
@@ -408,8 +409,21 @@ func _rushlike() -> bool:
 	return mode == "rush" or mode == "rift"
 
 
+## The bosses of every zone the player has opened (see DB.rush_order_for).
+func open_zone_ids() -> Array:
+	var ids := []
+	for z: String in DB.ZONE_ORDER:
+		if Game.zone_unlocked(z):
+			ids.append(z)
+	return ids
+
+
 func rush_order() -> Array:
-	return [[rift_boss, DB.RIFT_POWER]] if mode == "rift" else DB.RUSH_ORDER
+	if mode == "rift":
+		return [[rift_boss, DB.RIFT_POWER]]
+	if _rush_list.is_empty():
+		_rush_list = DB.rush_order_for(open_zone_ids())
+	return _rush_list
 
 
 ## The music of the moment: the Descent and rifts have their own; zones may too.

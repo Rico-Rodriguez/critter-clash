@@ -495,14 +495,14 @@ const ZONES := {
 	"barrow": {
 		"name": "The Barrow", "boss": "gravemaw", "blurb": "A walled graveyard under a cold moon.",
 		"wake": "Gather %d souls to wake the King", "defeat": "The Barrow keeps you", "enter": "Enter the Barrow",
-		"weights": {}, "souls_mult": 1.0, "unlock": "",
+		"loot_bonus": 2, "weights": {}, "souls_mult": 1.0, "unlock": "",
 		"env": {"bg": Color(0.015, 0.02, 0.035), "ambient": Color(0.32, 0.38, 0.58), "ambient_e": 0.3, "fog": Color(0.09, 0.11, 0.17), "fog_d": 0.012,
 			"sun": Color(0.62, 0.7, 1.0), "sun_e": 0.5, "sun_rot": Vector3(-58, -32, 0), "mist": Color(0.55, 0.62, 0.8, 0.13), "motes": Color(0.55, 1.0, 0.7, 0.9)},
 	},
 	"depths": {
 		"name": "The Sunken Crypt", "boss": "hexer", "blurb": "Torchlit halls under the barrow. The Queen's cult waits.",
 		"wake": "Gather %d souls to wake the Queen", "defeat": "The Crypt keeps you", "enter": "Descend into the Crypt",
-		"loot_bonus": 1, "weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5, "hound": 1.4, "brute": 1.6}, "souls_mult": 1.0, "unlock": "Trophy Road: 800 trophies",
+		"loot_bonus": 2, "weights": {"minion": 0.8, "warrior": 0.8, "rogue": 1.4, "mage": 1.8, "necro": 1.5, "hound": 1.4, "brute": 1.6}, "souls_mult": 1.0, "unlock": "Trophy Road: 800 trophies",
 		"env": {"bg": Color(0.02, 0.012, 0.03), "ambient": Color(0.4, 0.3, 0.55), "ambient_e": 0.34, "fog": Color(0.1, 0.06, 0.14), "fog_d": 0.016,
 			"sun": Color(0.7, 0.62, 1.0), "sun_e": 0.28, "sun_rot": Vector3(-78, -20, 0), "mist": Color(0.6, 0.45, 0.8, 0.09), "motes": Color(1.0, 0.65, 0.35, 0.9)},
 	},
@@ -520,7 +520,7 @@ const ZONES := {
 	"vault": {
 		"name": "The Gilded Vault", "boss": "warden", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
 		"wake": "Gather %d souls to wake the King", "defeat": "The Vault keeps you", "enter": "Break into the Vault",
-		"loot_bonus": 3, "gold_bonus": 0.25, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 7500 trophies",
+		"loot_bonus": 2, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 4100 trophies",
 		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
 			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
 	},
@@ -530,12 +530,12 @@ const ZONES := {
 	"frost": {
 		"name": "The Frozen Crypt", "boss": "rime", "blurb": "A buried crypt under the ice. The Rime Regent holds the winter.",
 		"wake": "Gather %d souls to wake the Regent", "defeat": "The Frost keeps you", "enter": "Into the Frozen Crypt",
-		"loot_bonus": 3, "weights": {"warrior": 1.3, "rogue": 1.5, "mage": 1.4, "hound": 1.3, "brute": 1.0, "bomber": 0.0, "necro": 1.0},
+		"loot_bonus": 2, "weights": {"warrior": 1.3, "rogue": 1.5, "mage": 1.4, "hound": 1.3, "brute": 1.0, "bomber": 0.0, "necro": 1.0},
 		"faction": {"minion": "thrall", "warrior": "frostguard", "rogue": "rimearcher", "mage": "rimeseer", "necro": "frostcaller", "hound": "rimehound", "brute": "colossus"},
 		# Rimehollow's own foes (next_foes.gd), fielded while FoeBrains.next is on.
 		"faction_next": {"minion": "rh_imp", "warrior": "rh_effigy", "rogue": "rh_wraith", "mage": "rh_seer", "necro": "rh_caller", "hound": "rh_wolf", "brute": "rh_yeti", "bomber": "rh_shard"},
 		"weights_next": {"warrior": 1.2, "rogue": 1.4, "mage": 1.3, "hound": 1.6, "brute": 1.0, "bomber": 1.2, "necro": 1.0},
-		"souls_mult": 1.0, "unlock": "Trophy Road: 10500 trophies", "music": "frozen", "boss_music": "frozen_boss",
+		"souls_mult": 1.0, "unlock": "Trophy Road: 4400 trophies", "music": "frozen", "boss_music": "frozen_boss",
 		"hazards": ["icefall", "thin_ice", "gale"],
 		"hazard_line": "Icicles fall, thin ice gives way and gales shove",
 		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.5, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "", "weather": "snow",
@@ -545,12 +545,12 @@ const ZONES := {
 	"swamp": {
 		"name": "The Burning Swamp", "boss": "cinder", "blurb": "A drowned wood alight on its own gas. The Cinder Warlord tends the fires.",
 		"wake": "Gather %d souls to wake the Warlord", "defeat": "The Swamp keeps you", "enter": "Into the Burning Swamp",
-		"loot_bonus": 3, "gold_bonus": 0.15, "weights": {"warrior": 1.2, "rogue": 1.4, "mage": 1.5, "hound": 1.5, "brute": 1.1, "bomber": 1.7, "necro": 1.0},
+		"loot_bonus": 2, "weights": {"warrior": 1.2, "rogue": 1.4, "mage": 1.5, "hound": 1.5, "brute": 1.1, "bomber": 1.7, "necro": 1.0},
 		"faction": {"minion": "bogwalker", "warrior": "charredguard", "rogue": "embershooter", "mage": "cinderwitch", "necro": "pyrecaller", "hound": "bogleaper", "bomber": "methanebloat", "brute": "cinderbrute"},
 		# The Cinder Mire's own foes. No brute: the Ogre is its only heavy.
 		"faction_next": {"minion": "cm_spore", "warrior": "cm_bogfin", "rogue": "cm_imp", "mage": "cm_shaman", "necro": "cm_hag", "hound": "cm_frog", "bomber": "cm_bloat", "skirmisher": "cm_wasp"},
 		"weights_next": {"warrior": 1.2, "rogue": 1.2, "mage": 1.4, "hound": 1.4, "brute": 0.0, "bomber": 1.3, "necro": 1.0, "skirmisher": 1.2},
-		"souls_mult": 1.0, "unlock": "Trophy Road: 12500 trophies", "music": "swamp", "boss_music": "swamp_boss",
+		"souls_mult": 1.0, "unlock": "Trophy Road: 5000 trophies", "music": "swamp", "boss_music": "swamp_boss",
 		"hazards": ["vents", "mud", "marsh"],
 		"hazard_line": "Vents erupt, the bog drags and fire runs the boardwalk",
 		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.78, 0.76, 0.74), "ambient_e": 1.35, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "", "weather": "embers",
@@ -567,9 +567,9 @@ const MODES := {
 	"horde": {"name": "Horde Hunt", "short": "Horde", "blurb": "Hold the graveyard against the rising dead."},
 	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "unlock": "Trophy Road: 150 trophies", "rooms": [5, 5, 6, 6, 7, 7, 7, 8]},
 	"descent": {"name": "Endless Descent", "short": "Descent", "blurb": "The dead never stop. Each minute goes a level deeper; a boss every fifth. How deep can you go?", "unlock": "Trophy Road: 1200 trophies"},
-	"wild": {"name": "The Wilderness", "short": "Wilderness", "blurb": "A closing ring and rival bands hunting you. Be the last band standing.", "unlock": "Trophy Road: 2100 trophies"},
-	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Both bosses, twice, back to back. A card and a breath between each.", "unlock": "Trophy Road: 550 trophies"},
-	"rift": {"name": "Rift", "short": "Rift", "blurb": "Spend a rift key: one boss at more than twice its strength, and a unique drop if you win.", "unlock": "Reach depth 8 in the Descent for a rift key"},
+	"wild": {"name": "The Wilderness", "short": "Wilderness", "blurb": "A closing ring and rival bands hunting you. Be the last band standing.", "unlock": "Trophy Road: 1000 trophies"},
+	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Every boss you have unlocked, back to back, each a little stronger. A card and a breath between each.", "unlock": "Trophy Road: 550 trophies"},
+	"rift": {"name": "Rift", "short": "Rift", "blurb": "Spend a rift key: one of your unlocked bosses at more than twice its strength, and a unique drop if you win.", "unlock": "Reach depth 8 in the Descent for a rift key"},
 }
 ## Endless Descent: the horde never stops. Every DESCENT_TIME seconds the depth
 ## rises (foes grow tougher, a champion arrives); every fifth depth a boss.
@@ -580,7 +580,29 @@ const DESCENT_HP := 0.16
 const DESCENT_DMG := 0.08
 const DESCENT_CHESTS := [[15, "crypt"], [10, "gold"], [5, "silver"]]
 ## Boss Rush: the zone's bosses in turn, each empowered on the second lap.
-const RUSH_ORDER := [["gravemaw", 1.0], ["hexer", 1.0], ["gravemaw", 1.3], ["hexer", 1.35]]
+const RUSH_MIN := 4
+const RUSH_RAMP := 0.07
+## The bosses of the zones `open` (zone ids), in zone order.
+static func open_bosses(open: Array) -> Array:
+	var out := []
+	for z: String in ZONE_ORDER:
+		if z in open and ZONES.has(z):
+			out.append(str(ZONES[z]["boss"]))
+	return out if not out.is_empty() else [str(ZONES["barrow"]["boss"])]
+
+
+## The Boss Rush for a player who has opened `open` zones: every one of their
+## bosses once, each a little stronger than the last. With fewer than RUSH_MIN
+## bosses the lap repeats at 1.3x so the rush is never a two-boss sprint.
+static func rush_order_for(open: Array) -> Array:
+	var ids := open_bosses(open)
+	var out := []
+	var i := 0
+	while out.size() < maxi(ids.size(), RUSH_MIN):
+		var lap := i / ids.size()
+		out.append([ids[i % ids.size()], (1.0 + 0.3 * lap) if ids.size() < RUSH_MIN else 1.0 + RUSH_RAMP * i])
+		i += 1
+	return out
 const RUSH_GAP := 7.0
 ## The Wilderness: a royale on a closing ring. Rival bands (hero-built foes)
 ## hunt you while the dead rise; the last band standing wins. Ring radius by
@@ -916,28 +938,28 @@ const TROPHY_ROAD := [
 	{"t": 550, "kind": "mode", "id": "rush"},
 	{"t": 650, "kind": "egg", "egg": "brood"},
 	{"t": 800, "kind": "zone", "id": "depths"},
-	{"t": 1000, "kind": "chest", "chest": "gold"},
+	{"t": 1000, "kind": "mode", "id": "wild"},
 	{"t": 1200, "kind": "mode", "id": "descent"},
 	{"t": 1500, "kind": "pick"},
 	{"t": 1800, "kind": "egg", "egg": "brood"},
-	{"t": 2100, "kind": "mode", "id": "wild"},
+	{"t": 2100, "kind": "chest", "chest": "gold"},
 	{"t": 2500, "kind": "zone", "id": "grove"},
 	{"t": 3000, "kind": "hero", "id": "barbarian"},
-	{"t": 3500, "kind": "rift_key"},
+	{"t": 3500, "kind": "hero", "id": "rogue"},
 	# The long road: steps past 3,500 so the ladder lasts weeks, not an afternoon.
 	{"t": 3800, "kind": "cards", "ids": ["oath_storm", "rime_trap", "skybolt", "thunder_cry"]},
-	{"t": 4100, "kind": "egg", "egg": "season"},
-	{"t": 4400, "kind": "chest", "chest": "gold"},
+	{"t": 4100, "kind": "zone", "id": "vault"},
+	{"t": 4400, "kind": "zone", "id": "frost"},
 	{"t": 4700, "kind": "cards", "ids": ["wisp", "thorns"]},
-	{"t": 5000, "kind": "chest", "chest": "crypt"},
+	{"t": 5000, "kind": "zone", "id": "swamp"},
 	{"t": 5300, "kind": "egg", "egg": "season"},
 	{"t": 5600, "kind": "gold", "amount": 2500},
 	{"t": 5900, "kind": "cards", "ids": ["shockwave", "storm_arrows", "rift_quake", "skyfall"]},
 	{"t": 6200, "kind": "chest", "chest": "crypt"},
 	{"t": 6500, "kind": "egg", "egg": "season"},
-	{"t": 6800, "kind": "hero", "id": "rogue"},
+	{"t": 6800, "kind": "rift_key"},
 	{"t": 7100, "kind": "chest", "chest": "gold"},
-	{"t": 7500, "kind": "zone", "id": "vault"},
+	{"t": 7500, "kind": "egg", "egg": "season"},
 	{"t": 7900, "kind": "shards", "amount": 120},
 	{"t": 8300, "kind": "egg", "egg": "season"},
 	{"t": 8700, "kind": "cards", "ids": ["explosive", "greed"]},
@@ -946,11 +968,11 @@ const TROPHY_ROAD := [
 	{"t": 9800, "kind": "gold", "amount": 5000},
 	{"t": 10000, "kind": "chest", "chest": "crypt"},
 	# The cold and the burning: two more arenas out past the first long road.
-	{"t": 10500, "kind": "zone", "id": "frost"},
+	{"t": 10500, "kind": "chest", "chest": "gold"},
 	{"t": 10900, "kind": "egg", "egg": "frost"},
 	{"t": 11300, "kind": "chest", "chest": "crypt"},
 	{"t": 11900, "kind": "shards", "amount": 150},
-	{"t": 12500, "kind": "zone", "id": "swamp"},
+	{"t": 12500, "kind": "chest", "chest": "crypt"},
 	{"t": 12900, "kind": "egg", "egg": "cinder"},
 	{"t": 13300, "kind": "chest", "chest": "crypt"},
 ]
@@ -968,9 +990,9 @@ const ARENAS := [
 	{"zone": "barrow", "t": 0, "color": Color(0.36, 0.45, 0.75)},
 	{"zone": "depths", "t": 800, "color": Color(0.6, 0.4, 0.8)},
 	{"zone": "grove", "t": 2500, "color": Color(0.8, 0.6, 0.28)},
-	{"zone": "vault", "t": 7500, "color": Color(0.95, 0.78, 0.35)},
-	{"zone": "frost", "t": 10500, "color": Color(0.55, 0.82, 1.0)},
-	{"zone": "swamp", "t": 12500, "color": Color(1.0, 0.5, 0.15)},
+	{"zone": "vault", "t": 4100, "color": Color(0.95, 0.78, 0.35)},
+	{"zone": "frost", "t": 4400, "color": Color(0.55, 0.82, 1.0)},
+	{"zone": "swamp", "t": 5000, "color": Color(1.0, 0.5, 0.15)},
 ]
 ## A new save picks one of these; the rest come from the road's `pick` steps.
 const START_HEROES := ["knight", "ranger", "mage"]
