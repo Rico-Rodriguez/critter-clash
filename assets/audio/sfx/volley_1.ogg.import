@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://dnhnnqvsqblm6"
-path="res://.godot/imported/volley_1.ogg-241e3a3774a111f1dd65127049dbd7c0.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/volley_1.ogg"
-dest_files=["res://.godot/imported/volley_1.ogg-241e3a3774a111f1dd65127049dbd7c0.oggvorbisstr"]
 
 [params]
 

@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://dwo6ukaw1bl63"
-path="res://.godot/imported/rare_chime_1.ogg-b41a4748c9c14b048040adf231cb55d0.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/rare_chime_1.ogg"
-dest_files=["res://.godot/imported/rare_chime_1.ogg-b41a4748c9c14b048040adf231cb55d0.oggvorbisstr"]
 
 [params]
 

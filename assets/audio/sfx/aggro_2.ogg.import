@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://di0pa5c8grdvd"
-path="res://.godot/imported/aggro_2.ogg-fe37dec6437c6527d53a6484c9539a67.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/aggro_2.ogg"
-dest_files=["res://.godot/imported/aggro_2.ogg-fe37dec6437c6527d53a6484c9539a67.oggvorbisstr"]
 
 [params]
 

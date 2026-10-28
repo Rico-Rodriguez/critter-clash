@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://cil6ntuug8bla"
-path="res://.godot/imported/charge_land_1.ogg-ebc27a36dc3ff52892bbb3bd90afd11b.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/charge_land_1.ogg"
-dest_files=["res://.godot/imported/charge_land_1.ogg-ebc27a36dc3ff52892bbb3bd90afd11b.oggvorbisstr"]
 
 [params]
 

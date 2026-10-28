@@ -42,10 +42,10 @@ float cut(float v, float w) {
 void fragment() {
 	vec2 p = wpos.xz;
 	float n1 = texture(noise_a, p * 0.045).r;
-	float n2 = texture(noise_b, p * 0.21).r;
-	float n3 = texture(noise_b, p * 0.9).r;
-	float nc = texture(noise_b, p * 0.16 + vec2(0.37, 0.11)).r;
-	float nd = texture(noise_b, p * 0.43 + vec2(0.71, 0.53)).r;
+	float n2 = texture(noise_b, p * 0.05).r;
+	float n3 = texture(noise_b, p * 0.2).r;
+	float nc = texture(noise_b, p * 0.035 + vec2(0.37, 0.11)).r;
+	float nd = texture(noise_b, p * 0.09 + vec2(0.71, 0.53)).r;
 
 	vec3 col = mix(base_a.rgb, base_b.rgb, smoothstep(0.35, 0.75, n1)) * (0.88 + 0.24 * n3);
 	float rough = base_rough;
@@ -56,15 +56,15 @@ void fragment() {
 	vec2 uv = (p - cell_rect.xy) / cell_rect.zw;
 	vec4 A = texture(lay_a, uv);
 	vec4 B = texture(lay_b, uv);
-	float jit = (n2 - 0.5) * 0.55 + (n3 - 0.5) * 0.2;
+	float jit = (n2 - 0.5) * 0.55 + (n3 - 0.5) * 0.07;
 
 	// Ice: clear and glossy, with long cracks where the noise crosses one value.
 	float ice = cut(A.r + jit, 0.05);
 	if (ice > 0.0) {
-		vec3 ic = mix(ice_a.rgb, ice_b.rgb, smoothstep(0.3, 0.8, n1 + (n3 - 0.5) * 0.4));
+		vec3 ic = mix(ice_a.rgb, ice_b.rgb, smoothstep(0.3, 0.8, n1 + (n3 - 0.5) * 0.12));
 		float ridge = 1.0 - smoothstep(0.0, 0.028, abs(nc - 0.5));
 		float fine = 1.0 - smoothstep(0.0, 0.02, abs(nd - 0.5));
-		ic = mix(ic, crack_col.rgb, clamp(ridge * 0.75 + fine * 0.35, 0.0, 1.0));
+		ic = mix(ic, crack_col.rgb, clamp(ridge * 0.75 + fine * 0.12, 0.0, 1.0));
 		col = mix(col, ic, ice);
 		rough = mix(rough, 0.09 + 0.2 * ridge, ice);
 		spec = mix(spec, 0.9, ice);
@@ -83,7 +83,7 @@ void fragment() {
 	// Open water: black and mirror-like, with a slow ripple.
 	float wat = cut(A.b + jit * 0.8, 0.05);
 	if (wat > 0.0) {
-		float rip = texture(noise_b, p * 0.5 + vec2(TIME * 0.03, TIME * 0.02)).r;
+		float rip = texture(noise_b, p * 0.1 + vec2(TIME * 0.03, TIME * 0.02)).r;
 		col = mix(col, water_col.rgb, wat);
 		rough = mix(rough, 0.03, wat);
 		spec = mix(spec, 1.0, wat);
@@ -92,7 +92,7 @@ void fragment() {
 	// Bog: black tar, glossy, with lighter swirls. Burning and ash sit on top of it.
 	float bog = cut(A.a + jit, 0.05);
 	if (bog > 0.0) {
-		float sw = smoothstep(0.35, 0.8, texture(noise_b, p * 0.3 + vec2(TIME * 0.01, 0.0)).r);
+		float sw = smoothstep(0.35, 0.8, texture(noise_b, p * 0.06 + vec2(TIME * 0.01, 0.0)).r);
 		col = mix(col, bog_col.rgb * (0.8 + 0.7 * sw), bog);
 		rough = mix(rough, 0.16 + 0.25 * (1.0 - sw), bog);
 		spec = mix(spec, 0.8, bog);
@@ -107,7 +107,7 @@ void fragment() {
 	}
 	float burn = cut(B.r + jit * 0.8, 0.05);
 	if (burn > 0.0) {
-		float lava = smoothstep(0.25, 0.7, texture(noise_b, p * 0.55 + vec2(TIME * 0.05, -TIME * 0.04)).r);
+		float lava = smoothstep(0.25, 0.7, texture(noise_b, p * 0.11 + vec2(TIME * 0.05, -TIME * 0.04)).r);
 		col = mix(col, vec3(0.05, 0.03, 0.025), burn);
 		rough = mix(rough, 0.6, burn);
 		emit += ember_col.rgb * burn * (0.35 + 1.1 * lava) * (0.85 + 0.25 * sin(TIME * 9.0 + n1 * 30.0));

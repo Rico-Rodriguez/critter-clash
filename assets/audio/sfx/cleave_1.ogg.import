@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://cf7dkxhrqx8rm"
-path="res://.godot/imported/cleave_1.ogg-fe21a5b67015fda78e54218b65673250.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/cleave_1.ogg"
-dest_files=["res://.godot/imported/cleave_1.ogg-fe21a5b67015fda78e54218b65673250.oggvorbisstr"]
 
 [params]
 

@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://bk8s4m6fqgbf0"
-path="res://.godot/imported/enemy_die_1.ogg-768ec07b6464afdf341b9ad4a4fa0d14.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/enemy_die_1.ogg"
-dest_files=["res://.godot/imported/enemy_die_1.ogg-768ec07b6464afdf341b9ad4a4fa0d14.oggvorbisstr"]
 
 [params]
 

@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://cwvw5xt1k7ifa"
-path="res://.godot/imported/chain_1.ogg-a8caacd8f51f4a76acccc47c25542d73.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/chain_1.ogg"
-dest_files=["res://.godot/imported/chain_1.ogg-a8caacd8f51f4a76acccc47c25542d73.oggvorbisstr"]
 
 [params]
 
