@@ -6,7 +6,7 @@ extends RefCounted
 
 const KitModels := preload("res://src/data/kit_models.gd")
 const MAX_PROP_TRIS := 1000
-const MAX_KIT_TRIS := 6000
+const MAX_KIT_TRIS := {"rime": 6000, "mire": 8000}
 const MAX_TEX := 1024
 
 
@@ -45,9 +45,11 @@ static func run(ok: Callable) -> void:
 			var b := m.get_aabb()
 			ok.call("%s: feet on y = 0 (%.2f), %.2f m tall against %.2f" % [tag, b.position.y, b.size.y, sp["h"]], absf(b.position.y) < 0.25 and absf(b.size.y - float(sp["h"])) < 0.3)
 			ok.call("%s: obstacle circle %.1f sits inside its footprint" % [tag, sp["r"]], float(sp["r"]) <= maxf(b.size.x, b.size.z) * 0.5 + 0.01)
-		ok.call("kit %s: %d tris in all, at most %d" % [kit, total, MAX_KIT_TRIS], total <= MAX_KIT_TRIS)
+		ok.call("kit %s: %d tris in all, at most %d" % [kit, total, MAX_KIT_TRIS[kit]], total <= int(MAX_KIT_TRIS[kit]))
 		ok.call("kit %s: %d materials shared by every piece, at most 3" % [kit, mats.size()], mats.size() >= 1 and mats.size() <= 3)
 		var small := texs.size() == 1
 		for t: Texture2D in texs:
 			small = small and t.get_width() <= MAX_TEX and t.get_height() <= MAX_TEX
 		ok.call("kit %s: one albedo texture, %d px at most" % [kit, MAX_TEX], small)
+	var burnt := KitModels.charred("mire") as StandardMaterial3D
+	ok.call("kit mire: the charred override keeps the palette texture and glows", burnt != null and burnt.albedo_texture != null and burnt.emission_enabled)

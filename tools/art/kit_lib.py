@@ -16,6 +16,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LEVELS = 63           # sRGB steps per channel when a face colour is quantised into the palette
 CELL, GRID = 8, 32    # 8 px cells, 32 x 32 of them: up to 1024 colours, a 256 px texture
 MATTE, ICE, CRYSTAL = 0, 1, 2
+EMIT = {"mire": 0.8}   # emission strength of the third material, per kit (default 0.18); the Mire uses it for coals
 SLOTS = {}   # object name -> the material slots (0..2) its faces use, in order
 
 
@@ -88,7 +89,7 @@ class Palette:
 def make_materials(img, kit):
     """The three glTF materials, all on the one palette image."""
     out = []
-    for name, rough, emit in ((kit + "_matte", 0.86, 0.0), (kit + "_ice", 0.16, 0.0), (kit + "_crystal", 0.16, 0.18)):
+    for name, rough, emit in ((kit + "_matte", 0.86, 0.0), (kit + "_ice", 0.16, 0.0), (kit + "_crystal", 0.16, EMIT.get(kit, 0.18))):
         m = bpy.data.materials.new(name)
         m.use_nodes = True
         m.use_backface_culling = False
