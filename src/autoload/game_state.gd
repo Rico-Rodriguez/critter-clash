@@ -163,7 +163,8 @@ func mode_id() -> String:
 func mode_unlocked(id: String) -> bool:
 	if id == "rift":
 		return int(data.get("rift_keys", 0)) > 0
-	return DB.road_gate(id) < 0 or id in data["unlocks"]
+	# Steps already passed count, so moving a mode earlier on the road opens it for saves past that step.
+	return DB.road_gate(id) < 0 or id in data["unlocks"] or int(data["road"]) >= DB.road_step(id)
 
 
 func best_depth(hero: String) -> int:

@@ -684,6 +684,15 @@ func _depth_tests() -> void:
 	_ok("an old save keeps its best mode's tier", Game.mode_tier_unlocked("horde") == 4)
 	Game._one_ladder()
 	_ok("the ladder migration is safe to repeat", Game.mode_tier_unlocked() == 4)
+	# The road now opens every zone by 5,000 trophies; a save past a mode's step has it.
+	_ok("all six zones open by 5,000 trophies", DB.ZONE_ORDER.all(func(z: String) -> bool: return DB.road_gate(z) <= 5000))
+	_ok("every mode opens by 1,200 trophies", ["trial", "rush", "descent", "wild"].all(func(m: String) -> bool: return DB.road_gate(m) <= 1200))
+	_ok("the Rogue joins at 3,500", DB.TROPHY_ROAD.any(func(st: Dictionary) -> bool: return str(st["kind"]) == "hero" and str(st["id"]) == "rogue" and int(st["t"]) == 3500))
+	var road_keep2: Dictionary = Game.data
+	Game.data = Game._fresh()
+	Game.data["road"] = DB.road_step("wild")
+	_ok("a save past the Wilderness's step can play it", Game.mode_unlocked("wild") and not Game.mode_unlocked("descent"))
+	Game.data = road_keep2
 	# Boss Rush runs every boss the player has opened, not just the first two.
 	var ro_all: Array = DB.rush_order_for(DB.ZONE_ORDER).map(func(e: Array) -> String: return str(e[0]))
 	_ok("rush with every zone open fields all six bosses once", ro_all == ["gravemaw", "hexer", "thorn", "warden", "rime", "cinder"])
