@@ -10,6 +10,13 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, foe kits wired in
+
+`DB.enemy` now folds the Art foe kits into the foes' defs (`FoeModels.fold`):
+Rimehollow's wolf, frost wraith, yeti and shardling and the Cinder Mire's
+shaman, bloat and sporecap wear their own models, rigs and clips. Foes without
+a kit stay on their skeletons.
+
 ## Unreleased: Biome rebuild, the Long Road in Rimehollow and the Mire
 
 On the Long Road in Rimehollow or the Burning Swamp the same rooms, gaps and

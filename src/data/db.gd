@@ -249,6 +249,9 @@ const UPGRADE_GOLD := [0, 60, 140, 280, 500, 800, 1200, 1800, 2700, 4000, 5500, 
 # caster (drops a telegraphed circle on the hero).
 
 const NEXT_FOES := preload("res://src/data/next_foes.gd")
+const FOE_MODELS := preload("res://src/data/foe_models.gd")
+## NEXT_FOES defs with their model specs folded in (foe_models.gd), built on first use.
+static var _next_folded := {}
 
 const ENEMIES := {
 	"minion": {
@@ -843,7 +846,9 @@ static func enemy(kind: String) -> Dictionary:
 	if kind.begins_with("rival_"):
 		return rival_def(kind.substr(6))
 	if NEXT_FOES.FOES.has(kind):
-		return NEXT_FOES.FOES[kind]
+		if not _next_folded.has(kind):
+			_next_folded[kind] = FOE_MODELS.fold(kind, NEXT_FOES.FOES[kind])
+		return _next_folded[kind]
 	return ENEMIES[kind] if ENEMIES.has(kind) else ENEMIES_EXTRA[kind]
 
 
