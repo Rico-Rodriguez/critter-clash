@@ -10,6 +10,7 @@ version is 7.
 
 ---
 
+
 ## Unreleased: Biome rebuild, the swamp light lives in db.gd
 
 The Burning Swamp's lift (ambient 1.35 warm-grey, a warm 1.55 sun, ground `grass_a`/`grass_b` 0.36/0.5 browns)
@@ -17,6 +18,13 @@ moves from `arena_mire.gd` `_light` into `db.gd`'s swamp env, so night and the d
 the zone's `ambient_e`/`sun_e`) work from the lifted values instead of the old murky ones. `_light` keeps only
 what env has no key for: exposure 1.18 and the cool rim light. The Long Road's mire floor uses the same lighter
 soil. Looks the same in the hunt (before/after in /workspace/rebuild-caps/swamp-light).
+
+## Unreleased: Biome rebuild, the frost water is blue
+
+Open water in Rimehollow rendered black (`water_col` in `terrain_ground.gdshader` was near black, and
+there is no sky to mirror), so a fishing hole or a cracked-open floor read as a hole in the world. It
+is now a deep blue with a slow lighter ripple, still glossy and unlit by fog or tint.
+
 
 ## Biome visual polish (dev/biome-models, round 2)
 
@@ -26,6 +34,7 @@ soil. Looks the same in the hunt (before/after in /workspace/rebuild-caps/swamp-
 - FoeModels.DEFS emptied: every Rimehollow and Cinder Mire foe stands on its next_foes.gd model.
 - Biome capture shots: knight in Blackguard plate, no tutorial hint, no ground telegraphs.
 
+
 ## Unreleased: Biome rebuild, the Rimehollow kit
 
 Rimehollow's cliffs, crystals, ice blocks, pines, longship, hut, sled and
@@ -34,6 +43,7 @@ via `KitModels.mesh`) instead of the code-built pieces: darker, colder ice and
 rock, one palette texture, same sizes, transforms and obstacle circles. Still
 code-built: the Long Road's frost rooms (`Kit.cliff` and friends).
 
+
 ## Unreleased: Biome rebuild, bog in the flow field and bosses that wade
 
 The foes' flow field now weighs the ground: a step costs the terrain's `cost`
@@ -41,6 +51,7 @@ The foes' flow field now weighs the ground: a step costs the terrain's `cost`
 not much longer and wade a wide one. Zones without terrain keep the plain step
 count. Bosses feel half of what the ground does to the hero (a bog or a cracked
 open hole slows the Frost Troll or the Cinder Warlord), and still never drown.
+
 
 ## Unreleased: Biome rebuild, the Frost Troll cracks the floor
 
@@ -52,12 +63,14 @@ water after 1.9 s whether you stand on it or not, and freezes over again
 (`Terrain.crack`, `crack_disc`, `boss_rime.gd`). Ice only: snow and the Long
 Road's firm ground never crack.
 
+
 ## Unreleased: Biome rebuild, foe kits wired in
 
 `DB.enemy` now folds the Art foe kits into the foes' defs (`FoeModels.fold`):
 Rimehollow's wolf, frost wraith, yeti and shardling and the Cinder Mire's
 shaman, bloat and sporecap wear their own models, rigs and clips. Foes without
 a kit stay on their skeletons.
+
 
 ## Unreleased: Biome rebuild, the Long Road in Rimehollow and the Mire
 
@@ -69,12 +82,14 @@ water deeper in) or bog pools with a boardwalk of planks that burns, and the
 court of the Frost Troll or the Warlord's deck and Pyre Tree at the end. A firm
 line always runs gap to gap. Other zones keep the dungeon. Foes are no longer
 placed in open water.
+
 ## Unreleased: Biome rebuild, the Cinder Mire built from the Art kit
 
 The Mire's boardwalk (with `KitModels.charred("mire")` for burning planks), piles, shacks (one burnt),
 Pyre Tree, braziers, bog stones and reeds are now the Art kit's Blender meshes
 (`assets/kits/mire/mire_kit.glb` via `KitModels.mesh`) instead of the code-built pieces in `mire_kit.gd`: same sizes, transforms and obstacle circles, one palette
 texture. Still code-built: the Long Road's mire rooms (`arena_trial_zone.gd`).
+
 
 ## Unreleased: Biome rebuild, the Cinder Mire
 
@@ -97,6 +112,7 @@ helpers in `biome_art.gd`. Tests: `terrain_tests.gd` adds the Mire (a firm route
 to the platform, reachability, fire over planks, spawn spots on the right
 ground).
 
+
 ## Unreleased: Biome rebuild, real models for the foes and the ambient life
 
 All 16 Rimehollow and Cinder Mire foes and the six model-based ambient critters
@@ -110,12 +126,14 @@ not painted terrain no longer shows a snow plane. `--capture --shots=biome
 --zone=frost|swamp` renders the zone's eight foes and its critters. Bog dwellers
 burn harder (x2) in `terrain_run.gd`.
 
+
 ## Unreleased: Biome rebuild, the Frost Troll
 
 The Frozen Crypt's boss is now the **Frost Troll** (provisional model by
 moonbaby2402, CC BY, see `CREDITS.md`), 5.7 m tall at scale 3.0. `DB.BOSSES["rime"]`
 names its rig like the Cinder Warlord does; hitbox radius 1.95, occluder 2.1 x 6.0.
 His attacks are the Regent's (cleave, quake, charge, ice lanes, blizzard).
+
 
 ## Unreleased: Biome rebuild, the new foes go live
 
@@ -125,6 +143,7 @@ longer drowns the swimming ambush foes (Bogfin, Bog Frog), and a submerged one
 is never burned. `arena.spawn_holes` and `arena.perches` exist; Rimehollow fills
 them (cracks round the court for the Winter Caller's imps, the lake rim for the
 wraiths).
+
 
 ## Unreleased: Biome rebuild, ambient life and audio
 
@@ -138,6 +157,7 @@ wraiths).
   CC0 recordings from OpenGameArt, credited in CREDITS.md and the in-game credits;
   the creaks and drips are synthesized. `tools/audio/build_ambience.py` builds them.
 - `src/ambience_tests.gd`: assets and credits, caps, flee behaviour, ducking.
+
 
 ## Unreleased: Biome rebuild, Rimehollow layout
 
@@ -153,6 +173,7 @@ thin ice and gale. `tools/dev/layout-cap.sh` stills any arena from above.
 `terrain_tests.gd` proves the throne is reachable on foot and the caverns open
 only after the ice breaks.
 
+
 ## Unreleased: Biome rebuild, foe AI
 
 - Sixteen new foes (Rimehollow and Cinder Mire) with their own behaviours:
@@ -166,6 +187,7 @@ only after the ice breaks.
 - `src/brain_tests.gd` drives a real Hunt with a terrain grid and checks the
   telegraphs, pack rules, ambush, fire and ice interplay. check.sh also runs the
   Frozen Crypt and Burning Swamp hunts with `--next-foes`.
+
 
 ## Unreleased: Biome rebuild, terrain engine
 
@@ -190,6 +212,7 @@ and Cinder Mire layouts land.
 - Ice walls (`add_ice_wall`) are solid to everything and break to a dash or any
   big blow; the flow field routes round water and walls.
 
+
 ## Unreleased: Biome rebuild, test harness
 
 - `src/hunt/terrain.gd`: the terrain cell grid's rules as plain data (nine kinds,
@@ -202,6 +225,7 @@ and Cinder Mire layouts land.
   animation states against its model.
 - `tools/dev/perf-biomes.sh` (and `check.sh --perf`): draw calls, triangles and
   frame ms for the Frozen Crypt and Burning Swamp, hunt, busy and boss scenes.
+
 
 ## Unreleased: Phone performance and battery
 
@@ -228,6 +252,7 @@ Code only (OTA-safe, no `project.godot` change, no reinstall). The look is untou
 
 ---
 
+
 ## Unreleased: Real music for the new zones
 
 The placeholder synth loops for the Frozen Crypt and the Burning Swamp are replaced by
@@ -238,6 +263,7 @@ drive for Cinder Ogre. Each loops seamlessly at -16.5 LUFS like the other zones.
 tracks have.
 
 ---
+
 
 ## Unreleased: Screen shake intensity
 
@@ -256,6 +282,7 @@ Off on load (safe to repeat).
 - The camp's jolts (chest open, hatch, evolve) follow the setting too, capped at 10 px.
 
 ---
+
 
 ## Unreleased: The Frozen Crypt and the Burning Swamp
 
@@ -291,6 +318,7 @@ whose `road` already passed its step.
 
 ---
 
+
 ## Unreleased: The Trophy Road
 
 The feature freeze was lifted once for this, at the user's request. Save
@@ -314,6 +342,7 @@ new road, new keys `unlocks` and `start_picked` (`Game._migrate_v6`).
 
 ---
 
+
 ## Unreleased: Weapon skins
 
 Two weapons modeled from scratch for the shop: the **Oathbound Blade**
@@ -325,6 +354,7 @@ keys `skin` and `skins` have defaults; save version unchanged. Look at them
 with `--capture --shots=skins`.
 
 ---
+
 
 ## Unreleased: Camp tabs and hunting together
 
@@ -367,6 +397,7 @@ settings changed. Online features stay off until the server is deployed and
 - `server/`: the game server (Nakama with our rules, Docker, HTTPS, nightly
   backups), its smoke test, and `-- --nettest` for the game's side.
 
+
 ## Unreleased: Skills are a hero's power
 
 Save version unchanged (bought levels are refunded on load). `NATIVE_VERSION`
@@ -384,6 +415,7 @@ unchanged.
 - Old saves get back the shards and gold their bought levels cost.
 
 ---
+
 
 ## Unreleased: Gear has one quality ladder
 
@@ -427,6 +459,7 @@ No save version change (the new tutorial notes use the existing `tips` key).
   there: its floating names showed through the results screen.
 - The results chest sits beside its name, so three loot rows fit on a short
   phone instead of one and a half.
+
 
 ## Unreleased: Launch splash and in-game updates
 
