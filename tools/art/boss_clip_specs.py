@@ -59,4 +59,18 @@ def frost_troll():
     }
     return cfg
 
-MODELS = {'frost_troll': frost_troll()}
+def yeti():
+    """The Rime Yeti (foe, a Mixamo biped): the troll's moves on its rig, a hunched, quicker gait."""
+    cfg = frost_troll()
+    cfg.update({'file': 'yeti', 'root': 'mixamorig:Hips_00', 'roles': {
+        'spine': r'mixamorig:Spine[12]?_0[123]', 'head': r'mixamorig:(Neck_04|Head_05)',
+        'armL': r'mixamorig:LeftArm_07', 'armR': r'mixamorig:RightArm_011',
+        'foreL': r'mixamorig:LeftForeArm_08', 'foreR': r'mixamorig:RightForeArm_012',
+        'thighL': r'mixamorig:LeftUpLeg_014', 'thighR': r'mixamorig:RightUpLeg_019',
+        'calfL': r'mixamorig:LeftLeg_015', 'calfR': r'mixamorig:RightLeg_020'}})
+    cfg['clips'] = dict(cfg['clips'])
+    cfg['clips']['Walk'] = gait(1.05, 20, 34, 12, 12, -0.02)
+    cfg['clips']['Run'] = gait(0.62, 32, 58, 24, 18, -0.04)
+    return cfg
+
+MODELS = {'frost_troll': frost_troll(), 'yeti': yeti()}

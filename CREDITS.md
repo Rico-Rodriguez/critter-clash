@@ -214,3 +214,17 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
     itszyx123456789's "Monster" (2020-11-19) and credits no original; the rig is the 38-bone "Mutant:"
     skeleton (a Mixamo-style character). The author's CC BY grant may not be theirs to give. To be replaced
     before release; credit and entry go when it is.
+  - Rimehollow foe, Rime Yeti — "Lowpoly bigfoot" by Sololopenko (CC BY 4.0, listed on the Sketchfab API
+    2026-10-27) — https://sketchfab.com/3d-models/lowpoly-bigfoot-a85b050494a14d8aa7a5a94c82a6176c
+    (decimated from 3.4k to 2.8k tris; its texture as shipped, 1024 px; the shipped take is Idle, the other
+    clips — Walk, Run, Attack, Slam, Roar, Hit, Death — are keyframed for this project on its Mixamo rig,
+    `tools/art/boss_clips.py`)
+- Foe models in `assets/foes/`, public domain (CC0 1.0), no attribution required, credited anyway:
+  - Frost Wolf — "Wolf" by Quaternius (via Poly Pizza) — https://poly.pizza/m/P1gU3Qkr9r
+  - Wail Wraith (recoloured frost blue) and Pyre Shaman — "Ghost Skull" by Quaternius —
+    https://poly.pizza/m/TX8r9WBXpe
+  - The Quaternius models are flat-colour factor materials; each is merged to one material with a palette
+    texture of the same colours (`tools/art/palette_merge.py`; the Wraith swaps two palette colours),
+    decimated to under 3k tris (`tools/art/decimate_skinned.py`), scaled in `assets/foes/*.tscn`.
+  - Crystal Shardling, Methane Bloat and Sporecap: custom Blender models for this project, built by
+    `tools/art/make_foes.py` (CC0).

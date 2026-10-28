@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/wraith_src.glb" id="1_tg8fr"]
+
+[node name="wraith" type="Node3D" unique_id=146370314]
+metadata/cull_aabbs = {
+"RootNode/CharacterArmature/Skeleton3D/Ghost_Skull": AABB(-0.038445488, -0.036357038, -0.020859264, 0.07689627, 0.06853629, 0.07781874)
+}
+metadata/posed_aabb = AABB(-0.48484632, 0, -0.3475137, 0.96969265, 1, 0.6950274)
+
+[node name="Root Scene" type="Node3D" parent="." unique_id=32618794 instance=ExtResource("1_tg8fr")]
+transform = Transform3D(0.3285477, 0, 0, 0, 0.3285477, 0, 0, 0, 0.3285477, -8.702671e-05, -0.09303195, -0.06863002)
