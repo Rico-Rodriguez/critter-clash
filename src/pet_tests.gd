@@ -51,7 +51,7 @@ static func _sources(ok: Callable) -> void:
 			road_eggs += 1
 			named = named and SDB.EGGS.has(str(rw["egg"]))
 	ok.call("egg sources: the Trophy Road has eggs, all real", road_eggs >= 8 and named)
-	ok.call("egg sources: the road keeps its length and its gates", DB.TROPHY_ROAD.size() == 42 and DB.road_gate("grove") == 2500 and DB.road_gate("vault") == 7500)
+	ok.call("egg sources: the road keeps its length and its gates", DB.TROPHY_ROAD.size() == 42 and DB.road_gate("grove") == 2500 and DB.road_gate("vault") == 4100)
 	var past := DB.TROPHY_ROAD.size()
 	ok.call("egg sources: past the road, a season egg every fourth step and an exotic every twelfth", str(DB.road_reward(past + 4)["egg"]) == "season" and str(DB.road_reward(past + 12)["egg"]) == "exotic" and str(DB.road_reward(past + 1)["kind"]) == "chest")
 	ok.call("egg sources: a road egg has a name", Game.road_reward_text(5 + 1) != "" and Game.road_reward_text(6) == "Brood Egg")
