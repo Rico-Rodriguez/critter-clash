@@ -10,6 +10,22 @@ version is 7.
 
 ---
 
+## Unreleased: the release gate catches broken imports
+
+No game change. PR #118 shipped 93 broken audio imports and nothing failed,
+because a sound that cannot load is only an engine `ERROR` line.
+
+- `tools/dev/check_imports.py` fails on any committed `.import` marked
+  `valid=false`, and on `Failed loading resource` / `Invalid array format`
+  lines in the test and bot logs. It runs in `tools/dev/check.sh` and in the
+  `Game checks` workflow.
+- `tools/dev/check_pack.py` opens the exported pack and fails when a sound or
+  texture has no imported copy in it, and prints the pack's size against a
+  200 MiB ceiling. The IPA workflow runs it before the pack is published.
+- `assets/splash.png.import` is valid again (it had the same `valid=false`).
+
+---
+
 ## Unreleased: sound is back, and three progression fixes
 
 No save version change: the road fix is safe to repeat on every load.
