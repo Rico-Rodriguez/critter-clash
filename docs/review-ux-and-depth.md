@@ -3,7 +3,7 @@
 A pass over every screen at iPhone size (720×1560 with `--notch`), plus a read
 of the systems behind them. Part 1 is what is wrong with the screens and what
 to do about each. Part 2 is how to make the game less repetitive: what to add,
-in what order, and why. The tasks are in `docs/PLAN.md`, Phases 9 and 10.
+in what order, and why. The tasks are in `docs/PLAN-history.md`, Phases 9 and 10.
 
 The yardstick throughout is the four games the README names:
 

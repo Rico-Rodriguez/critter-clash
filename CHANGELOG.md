@@ -2,11 +2,17 @@
 
 Patch notes for Gravelight (formerly Barrowfall), newest first. Each entry lists the commits that
 shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
-**Next up**.
+**Next**.
 
 Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is 3 (the boot
 splash settings changed: reinstall the IPA). Save
 version is 7.
+
+---
+
+## Unreleased: one plan for every bot
+
+`docs/PLAN.md` is rewritten as the live queue (rules for working with other bots, what needs Rico, what is next); the old phases moved to `docs/PLAN-history.md`. New `docs/biomes.md` records which zones are rebuilt. `CLAUDE.md` gains the two-bot rules. Also restored the `---` between changelog entries that the merges dropped.
 
 ---
 
@@ -20,18 +26,33 @@ version is 7.
 ## Unreleased: main.gd loses its dev modes
 
 The autopilot, screenshot, perf and contact-sheet code (1,850 lines) moved from `src/main.gd` to `src/dev/capture.gd`, which the export leaves out. `main.gd` is 270 lines. Behaviour is the same: `--bot`, `--capture` and the shot helpers run through a shim for Main's `current`, `go` and `pending_chest`.
+
+---
+
 ## Unreleased: unused foe scenes removed
 
 Deleted `assets/foes/bloat*` and `spore*` (scene, glb, palette): nothing referenced them since the Blender models replaced them. They shipped in every pack.
+
+---
+
 ## Unreleased: Godot stops importing docs/
 
 Added `docs/.gdignore` and removed 69 `.import` files for review screenshots and videos. They were never in the pack (`docs/*` is excluded from export) but every import, local and CI, processed them. The media itself is untouched.
+
+---
+
 ## Unreleased: the weekly board refuses impossible scores
 
 `weekly_submit` clamped a reported score to 100000, so a cheater still took first place. It now refuses anything above 40000 (`implausible`, logged), a bound taken from the score formula. No game change; the server needs redeploying. `net_test.gd` covers it.
+
+---
+
 ## Unreleased: a recovered hunt says so
 
 When the phone kills the app mid-hunt, the next boot pays the hunt out as a retreat. The camp now shows a note ("Your last hunt was saved", with the gold and items kept) once, then clears the `recovered_run` flag. Before, the flag was written and never read. `--shots=recovered` captures it.
+
+---
+
 ## Unreleased: pinned tool versions
 
 The test-server workflow downloads cloudflared 2025.9.1 instead of `latest` and runs on
@@ -109,12 +130,16 @@ pit, snags), the frost spire ring and the Warlord's watchtower and cage come fro
 code-built piece in `kit_mesh.gd` are deleted; it keeps only the MultiMesh `batch`. Captures:
 /workspace/rebuild-caps/long-road.
 
+---
+
 ## Unreleased: Biome rebuild, the last Rimehollow kit pieces
 
 The kit's throne (dais, ice seat and spires; replaces five scaled ice blocks), the six `hole_rim` rings round the
 fishing holes, the `ice_arch` over the causeway at the Glacier Gate (its legs are cover), and fifteen `snow_bank`
 drifts at the foot of the cliffs and the shore props are placed in `arena_rime.gd`. Before/after:
 /workspace/rebuild-caps/rime-pieces.
+
+---
 
 ## Unreleased: Biome rebuild, the swamp light lives in db.gd
 
@@ -124,17 +149,23 @@ the zone's `ambient_e`/`sun_e`) work from the lifted values instead of the old m
 what env has no key for: exposure 1.18 and the cool rim light. The Long Road's mire floor uses the same lighter
 soil. Looks the same in the hunt (before/after in /workspace/rebuild-caps/swamp-light).
 
+---
+
 ## Unreleased: perf-biomes fails a run that drew nothing
 
 `tools/dev/perf-biomes.sh` now fails when a run reports 0 draw calls or 0 triangles (a blank viewport or a
 dead camera used to print `0` and pass the budget). The swamp mobile runs re-measured after the biome
 models landed: hunt 252 draws p95, busy 281, boss 203; 150k-240k triangles; 1.6-3.3 ms script frame.
 
+---
+
 ## Unreleased: Biome rebuild, the frost water is blue
 
 Open water in Rimehollow rendered black (`water_col` in `terrain_ground.gdshader` was near black, and
 there is no sky to mirror), so a fishing hole or a cracked-open floor read as a hole in the world. It
 is now a deep blue with a slow lighter ripple, still glossy and unlit by fog or tint.
+
+---
 
 ## Biome visual polish (dev/biome-models, round 2)
 
@@ -144,6 +175,8 @@ is now a deep blue with a slow lighter ripple, still glossy and unlit by fog or 
 - FoeModels.DEFS emptied: every Rimehollow and Cinder Mire foe stands on its next_foes.gd model.
 - Biome capture shots: knight in Blackguard plate, no tutorial hint, no ground telegraphs.
 
+---
+
 ## Unreleased: Biome rebuild, the Rimehollow kit
 
 Rimehollow's cliffs, crystals, ice blocks, pines, longship, hut, sled and
@@ -152,6 +185,8 @@ via `KitModels.mesh`) instead of the code-built pieces: darker, colder ice and
 rock, one palette texture, same sizes, transforms and obstacle circles. Still
 code-built: the Long Road's frost rooms (`Kit.cliff` and friends).
 
+---
+
 ## Unreleased: Biome rebuild, bog in the flow field and bosses that wade
 
 The foes' flow field now weighs the ground: a step costs the terrain's `cost`
@@ -159,6 +194,8 @@ The foes' flow field now weighs the ground: a step costs the terrain's `cost`
 not much longer and wade a wide one. Zones without terrain keep the plain step
 count. Bosses feel half of what the ground does to the hero (a bog or a cracked
 open hole slows the Frost Troll or the Cinder Warlord), and still never drown.
+
+---
 
 ## Unreleased: Biome rebuild, the Frost Troll cracks the floor
 
@@ -170,12 +207,16 @@ water after 1.9 s whether you stand on it or not, and freezes over again
 (`Terrain.crack`, `crack_disc`, `boss_rime.gd`). Ice only: snow and the Long
 Road's firm ground never crack.
 
+---
+
 ## Unreleased: Biome rebuild, foe kits wired in
 
 `DB.enemy` now folds the Art foe kits into the foes' defs (`FoeModels.fold`):
 Rimehollow's wolf, frost wraith, yeti and shardling and the Cinder Mire's
 shaman, bloat and sporecap wear their own models, rigs and clips. Foes without
 a kit stay on their skeletons.
+
+---
 
 ## Unreleased: Biome rebuild, the Long Road in Rimehollow and the Mire
 
@@ -188,12 +229,16 @@ court of the Frost Troll or the Warlord's deck and Pyre Tree at the end. A firm
 line always runs gap to gap. Other zones keep the dungeon. Foes are no longer
 placed in open water.
 
+---
+
 ## Unreleased: Biome rebuild, the Cinder Mire built from the Art kit
 
 The Mire's boardwalk (with `KitModels.charred("mire")` for burning planks), piles, shacks (one burnt),
 Pyre Tree, braziers, bog stones and reeds are now the Art kit's Blender meshes
 (`assets/kits/mire/mire_kit.glb` via `KitModels.mesh`) instead of the code-built pieces in `mire_kit.gd`: same sizes, transforms and obstacle circles, one palette
 texture. Still code-built: the Long Road's mire rooms (`arena_trial_zone.gd`).
+
+---
 
 ## Unreleased: Biome rebuild, the Cinder Mire
 
@@ -216,6 +261,8 @@ helpers in `biome_art.gd`. Tests: `terrain_tests.gd` adds the Mire (a firm route
 to the platform, reachability, fire over planks, spawn spots on the right
 ground).
 
+---
+
 ## Unreleased: Biome rebuild, real models for the foes and the ambient life
 
 All 16 Rimehollow and Cinder Mire foes and the six model-based ambient critters
@@ -229,12 +276,16 @@ not painted terrain no longer shows a snow plane. `--capture --shots=biome
 --zone=frost|swamp` renders the zone's eight foes and its critters. Bog dwellers
 burn harder (x2) in `terrain_run.gd`.
 
+---
+
 ## Unreleased: Biome rebuild, the Frost Troll
 
 The Frozen Crypt's boss is now the **Frost Troll** (provisional model by
 moonbaby2402, CC BY, see `CREDITS.md`), 5.7 m tall at scale 3.0. `DB.BOSSES["rime"]`
 names its rig like the Cinder Warlord does; hitbox radius 1.95, occluder 2.1 x 6.0.
 His attacks are the Regent's (cleave, quake, charge, ice lanes, blizzard).
+
+---
 
 ## Unreleased: Biome rebuild, the new foes go live
 
@@ -244,6 +295,8 @@ longer drowns the swimming ambush foes (Bogfin, Bog Frog), and a submerged one
 is never burned. `arena.spawn_holes` and `arena.perches` exist; Rimehollow fills
 them (cracks round the court for the Winter Caller's imps, the lake rim for the
 wraiths).
+
+---
 
 ## Unreleased: Biome rebuild, ambient life and audio
 
@@ -257,6 +310,8 @@ wraiths).
   CC0 recordings from OpenGameArt, credited in CREDITS.md and the in-game credits;
   the creaks and drips are synthesized. `tools/audio/build_ambience.py` builds them.
 - `src/ambience_tests.gd`: assets and credits, caps, flee behaviour, ducking.
+
+---
 
 ## Unreleased: Biome rebuild, Rimehollow layout
 
@@ -272,6 +327,8 @@ thin ice and gale. `tools/dev/layout-cap.sh` stills any arena from above.
 `terrain_tests.gd` proves the throne is reachable on foot and the caverns open
 only after the ice breaks.
 
+---
+
 ## Unreleased: Biome rebuild, foe AI
 
 - Sixteen new foes (Rimehollow and Cinder Mire) with their own behaviours:
@@ -285,6 +342,8 @@ only after the ice breaks.
 - `src/brain_tests.gd` drives a real Hunt with a terrain grid and checks the
   telegraphs, pack rules, ambush, fire and ice interplay. check.sh also runs the
   Frozen Crypt and Burning Swamp hunts with `--next-foes`.
+
+---
 
 ## Unreleased: Biome rebuild, terrain engine
 
@@ -309,6 +368,8 @@ and Cinder Mire layouts land.
 - Ice walls (`add_ice_wall`) are solid to everything and break to a dash or any
   big blow; the flow field routes round water and walls.
 
+---
+
 ## Unreleased: Biome rebuild, test harness
 
 - `src/hunt/terrain.gd`: the terrain cell grid's rules as plain data (nine kinds,
@@ -321,6 +382,8 @@ and Cinder Mire layouts land.
   animation states against its model.
 - `tools/dev/perf-biomes.sh` (and `check.sh --perf`): draw calls, triangles and
   frame ms for the Frozen Crypt and Burning Swamp, hunt, busy and boss scenes.
+
+---
 
 ## Unreleased: Phone performance and battery
 
@@ -486,6 +549,8 @@ settings changed. Online features stay off until the server is deployed and
 - `server/`: the game server (Nakama with our rules, Docker, HTTPS, nightly
   backups), its smoke test, and `-- --nettest` for the game's side.
 
+---
+
 ## Unreleased: Skills are a hero's power
 
 Save version unchanged (bought levels are refunded on load). `NATIVE_VERSION`
@@ -546,6 +611,8 @@ No save version change (the new tutorial notes use the existing `tips` key).
   there: its floating names showed through the results screen.
 - The results chest sits beside its name, so three loot rows fit on a short
   phone instead of one and a half.
+
+---
 
 ## Unreleased: Launch splash and in-game updates
 
