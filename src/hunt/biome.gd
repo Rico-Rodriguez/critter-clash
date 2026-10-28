@@ -203,7 +203,16 @@ func _marsh_at(at: Vector3) -> void:
 	h.get_tree().create_timer(delay, false).timeout.connect(func():
 		if not is_instance_valid(h) or h._ended or h._warming:
 			return
-		h.add_fire_patch(at, r, float(MARSH["dur"]), float(MARSH["dps"]) * _scale()))
+		h.add_fire_patch(at, r, float(MARSH["dur"]), float(MARSH["dps"]) * _scale())
+		_light_ground(at, r))
+
+
+## A blast of marsh gas lights the bog and planks it reaches (the Cinder Mire's
+## terrain grid carries the fire from there).
+func _light_ground(at: Vector3, r: float) -> void:
+	var t = h.arena.terrain
+	if h.arena.terrain_live and t != null and t.ignite_at(at, r) > 0:
+		h.tip("fireline", "Fire runs along planks and bog: get onto dry ground or ash", "fire-breath")
 
 
 func _tick_vents(dt: float, pace: float, ai: float) -> void:
@@ -234,7 +243,8 @@ func _vent_burst(at: Vector3) -> void:
 			h.damage_foe(f, 38.0, h.hero, Vector3.ZERO, 0.0)
 		if h.hero.alive and h.hero.flat_pos().distance_to(at) < r + h.hero.radius * 0.5:
 			h.damage_hero(float(VENT["dmg"]) * _scale(), null, 0.5)
-		h.add_fire_patch(at, r * 0.9, 3.5, PATCH_DPS["fire"] * _scale()))
+		h.add_fire_patch(at, r * 0.9, 3.5, PATCH_DPS["fire"] * _scale())
+		_light_ground(at, r))
 
 
 ## Idle bubbling at the vents in view (skipped on Low quality).

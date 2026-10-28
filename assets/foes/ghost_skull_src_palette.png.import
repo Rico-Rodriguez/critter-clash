@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cg38yntye1n0u"
-path="res://.godot/imported/halloweenbits_swamp_texture.png-9e9ac00d49df691e43b780da0a0ef974.ctex"
+uid="uid://dufxrh6wfp3s6"
+path="res://.godot/imported/ghost_skull_src_palette.png-8c3e7b50cd87f77b9447a3d62f1d3460.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "795a741749ddda9ade6c0464ecb48615"
 }
 
 [deps]
 
-source_file="res://assets/kaykit/graveyard/halloweenbits_swamp_texture.png"
-dest_files=["res://.godot/imported/halloweenbits_swamp_texture.png-9e9ac00d49df691e43b780da0a0ef974.ctex"]
+source_file="res://assets/foes/ghost_skull_src_palette.png"
+dest_files=["res://.godot/imported/ghost_skull_src_palette.png-8c3e7b50cd87f77b9447a3d62f1d3460.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

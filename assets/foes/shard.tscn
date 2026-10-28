@@ -1,0 +1,10 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/shard_src.glb" id="1_swrvy"]
+
+[node name="shard" type="Node3D" unique_id=1247238082]
+metadata/cull_aabbs = {}
+metadata/posed_aabb = AABB(-0.419276, 0, -0.42992008, 0.838552, 1, 0.85984015)
+
+[node name="shard_src" type="Node3D" parent="." unique_id=820264609 instance=ExtResource("1_swrvy")]
+transform = Transform3D(0.67347467, 0, 0, 0, 0.67347467, 0, 0, 0, 0.67347467, -0.064891346, 0.024242004, -2.5530451e-05)

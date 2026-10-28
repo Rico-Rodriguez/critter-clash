@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ci6yn8u17houx"
-path="res://.godot/imported/halloweenbits_frost_texture.png-4e3cc9a3b136e3de346f4661c749d5c0.ctex"
+uid="uid://dmn3dg2g5d347"
+path="res://.godot/imported/wraith_src_palette.png-1bd4e7c18107c471b34f9376f9b772b3.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "ed97f1d361f1c2590aa7ff8b66b49246"
 }
 
 [deps]
 
-source_file="res://assets/kaykit/graveyard/halloweenbits_frost_texture.png"
-dest_files=["res://.godot/imported/halloweenbits_frost_texture.png-4e3cc9a3b136e3de346f4661c749d5c0.ctex"]
+source_file="res://assets/foes/wraith_src_palette.png"
+dest_files=["res://.godot/imported/wraith_src_palette.png-1bd4e7c18107c471b34f9376f9b772b3.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

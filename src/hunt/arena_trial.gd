@@ -6,10 +6,15 @@ extends RefCounted
 ## the boss hall. Everything here is data on `arena.trial`; the hunt reads it
 ## to decide what to spawn and when to close the gates.
 ##
+## In a zone with a rebuilt kit (Rimehollow, the Cinder Mire) the same rooms,
+## gaps and encounters are dressed by arena_trial_zone.gd instead: the zone's
+## terrain cells on the floor, its walls, ramparts and props.
+##
 ## Room kinds: start (safe), ambush, elite (a champion with an escort),
 ## hunters (ranged), horde (a big swarm), brutes (heavy hitters), shrine (a
 ## breather with a blessing), treasure (a chest guarded by a few).
 
+const ZoneRooms := preload("res://src/hunt/arena_trial_zone.gd")
 const D := "res://assets/kaykit/dungeon/"
 const G := "res://assets/kaykit/graveyard/"
 const ROOM_DEPTH := 34.0
@@ -33,7 +38,8 @@ static func build(a: Arena, seed_: int, rooms: int) -> void:
 	a.min_z = a.max_z - length
 	a.crypt_pos = Vector3(0, 0, a.min_z + 3.0)
 	a.boss_spawn = Vector3(0, 0, a.min_z + 14.0)
-	var layout := {"rooms": [], "boss_z": 0.0, "boss_gate": {}, "length": length}
+	var zoned := ZoneRooms.covers(a.zone)
+	var layout := {"rooms": [], "boss_z": 0.0, "boss_gate": {}, "length": length, "seed": seed_}
 	# Room 0 is the start; 1..rooms are fights; the boss hall follows.
 	var z_hi := a.max_z
 	var z_lo := a.max_z - START_DEPTH
@@ -50,22 +56,30 @@ static func build(a: Arena, seed_: int, rooms: int) -> void:
 			kind = _kind_for(i, rooms, rng)
 		var room := {"index": i, "hi": z_hi, "lo": z_lo, "gap_x": gap_x, "kind": kind, "state": "idle", "foes": [], "gate": {}, "depth": float(i) / rooms}
 		# The divider at the room's north end, with a gap the player walks through.
-		_divider(a, z_lo, gap_x, walls)
+		if zoned:
+			_block_divider(a, z_lo, gap_x)
+			ZoneRooms.divider(a, z_lo, gap_x, GAP)
+		else:
+			_divider(a, z_lo, gap_x, walls)
 		room["gate"] = a.add_gate(gap_x - GAP * 0.5, gap_x + GAP * 0.5, z_lo)
 		a.set_gate(room["gate"], false, true)
 		layout["rooms"].append(room)
-		_dress_room(a, room, rng)
+		if not zoned:
+			_dress_room(a, room, rng)
 		z_hi = z_lo
 	# The boss hall: z_hi .. min_z. Its entrance gate seals behind the hero.
 	layout["boss_z"] = z_hi - 6.0
 	var last: Dictionary = layout["rooms"][rooms]
 	layout["boss_gate"] = last["gate"]
-	_boss_hall(a, z_hi)
-	_floor(a)
-	_side_walls(a, walls)
 	a.trial = layout
 	a.follow_radius = 60.0
-	_shrine_spots(a, layout)
+	if zoned:
+		ZoneRooms.build(a, layout, z_hi)
+	else:
+		_boss_hall(a, z_hi)
+		_floor(a)
+		_side_walls(a, walls)
+		_shrine_spots(a, layout)
 
 
 static func _kind_for(i: int, rooms: int, rng: RandomNumberGenerator) -> String:
@@ -152,6 +166,17 @@ static func _side_walls(a: Arena, _walls: Array) -> void:
 	_multi(a, D + "barrier.gltf", south, false, 0.0)
 
 
+## Collision of a divider: its own dense run of circles so no sliver is left open.
+static func _block_divider(a: Arena, z: float, gap_x: float) -> void:
+	var gap0 := gap_x - GAP * 0.5
+	var gap1 := gap_x + GAP * 0.5
+	var bx := a.min_x - 2.0
+	while bx <= a.max_x + 2.0:
+		if bx <= gap0 or bx >= gap1:
+			a.add_obstacle(Vector2(bx, z), 0.8)
+		bx += 1.0
+
+
 ## A low wall across the hall at `z` with a gap at `gap_x`. Blocks as circles.
 static func _divider(a: Arena, z: float, gap_x: float, _walls: Array) -> void:
 	var pieces: Array = []
@@ -163,12 +188,7 @@ static func _divider(a: Arena, z: float, gap_x: float, _walls: Array) -> void:
 		if cx + 2.0 <= gap0 + 0.01 or cx - 2.0 >= gap1 - 0.01:
 			pieces.append(Vector3(cx, 0, z))
 		x += 4.0
-	# Collision is its own dense run of circles so no sliver is left open.
-	var bx := a.min_x - 2.0
-	while bx <= a.max_x + 2.0:
-		if bx <= gap0 or bx >= gap1:
-			a.add_obstacle(Vector2(bx, z), 0.8)
-		bx += 1.0
+	_block_divider(a, z, gap_x)
 	_multi(a, D + "barrier.gltf", pieces, false, 0.0)
 	# A pillar either side of the gap, taller than the wall, to read as a door.
 	for gx in [gap0 - 0.4, gap1 + 0.4]:

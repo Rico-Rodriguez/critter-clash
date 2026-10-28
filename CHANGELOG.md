@@ -10,6 +10,63 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, bog in the flow field and bosses that wade
+
+The foes' flow field now weighs the ground: a step costs the terrain's `cost`
+(1 firm, 3 bog, 6 burning), so foes walk round a small bog when a dry way is
+not much longer and wade a wide one. Zones without terrain keep the plain step
+count. Bosses feel half of what the ground does to the hero (a bog or a cracked
+open hole slows the Frost Troll or the Cinder Warlord), and still never drown.
+
+## Unreleased: Biome rebuild, the Frost Troll cracks the floor
+
+From his second phase the Frost Troll's court cracks. The break itself cracks a
+ring of ice round him; after that a patch just ahead of where you are heading
+turns thin every 6.5 s (every 4 s, two at a time, in the third phase), and
+Shatter's pillars crack the ice they stand on. Cracked ice snaps to cold open
+water after 1.9 s whether you stand on it or not, and freezes over again
+(`Terrain.crack`, `crack_disc`, `boss_rime.gd`). Ice only: snow and the Long
+Road's firm ground never crack.
+
+## Unreleased: Biome rebuild, foe kits wired in
+
+`DB.enemy` now folds the Art foe kits into the foes' defs (`FoeModels.fold`):
+Rimehollow's wolf, frost wraith, yeti and shardling and the Cinder Mire's
+shaman, bloat and sporecap wear their own models, rigs and clips. Foes without
+a kit stay on their skeletons.
+
+## Unreleased: Biome rebuild, the Long Road in Rimehollow and the Mire
+
+On the Long Road in Rimehollow or the Burning Swamp the same rooms, gaps and
+encounters now stand on the zone's own kit (`src/hunt/arena_trial_zone.gd`): a
+tall terrain grid the length of the road, glacier or bog-rock walls, rock
+ramparts or pile palisades for the dividers, ice ponds (thin ice, then open
+water deeper in) or bog pools with a boardwalk of planks that burns, and the
+court of the Frost Troll or the Warlord's deck and Pyre Tree at the end. A firm
+line always runs gap to gap. Other zones keep the dungeon. Foes are no longer
+placed in open water.
+
+## Unreleased: Biome rebuild, the Cinder Mire
+
+The Burning Swamp now paints the terrain grid. `src/hunt/arena_mire.gd` lays out a
+black bog (it drags: speed x0.55) with dry islands, ash and a boardwalk of planks
+from the landing to the Cinder Warlord's platform, a plank deck ring round it,
+and the Pyre Tree as his den. A methane vent or marsh blast now lights the bog
+and planks it reaches; fire runs the boardwalk, a burnt plank falls into the bog
+(`src/hunt/mire_plank.gd` chars and sinks), burnt bog turns to ash and floods
+back. Three shrines, five vents on ash pads, `graves` on firm ground, `perches`
+on island shores and `spawn_holes` in open bog. New pieces are code-built
+low-poly meshes in `src/hunt/mire_kit.gd` (planks, piles, shacks, Pyre Tree,
+braziers, reeds, stones), batched where they can be. `Terrain.fill_ellipse` and
+`fill_line` are shared by both zone layouts.
+
+Retired: the old swamp layout (`arena_swamp.gd`), the prop reskin
+(`env.skin`, `BiomeArt.recolor`, the four recoloured prop textures and their
+script outputs) and the unused mound, crystal, snow-cap, ice-sheet and scorch
+helpers in `biome_art.gd`. Tests: `terrain_tests.gd` adds the Mire (a firm route
+to the platform, reachability, fire over planks, spawn spots on the right
+ground).
+
 ## Unreleased: Biome rebuild, real models for the foes and the ambient life
 
 All 16 Rimehollow and Cinder Mire foes and the six model-based ambient critters

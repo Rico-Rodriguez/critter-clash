@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dntvhn2n8b5nr"
-path="res://.godot/imported/forest_swamp_texture.png-1e8f18635462063d7d0f2f10b0dd348e.ctex"
+uid="uid://5572n47hctml"
+path="res://.godot/imported/shard_src_shard_palette.png-bce4b12c228091404c0aff9a1d5c4a3d.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "8544b8f5aec449f698211f5d2ed95aa9"
 }
 
 [deps]
 
-source_file="res://assets/kaykit/forest/forest_swamp_texture.png"
-dest_files=["res://.godot/imported/forest_swamp_texture.png-1e8f18635462063d7d0f2f10b0dd348e.ctex"]
+source_file="res://assets/foes/shard_src_shard_palette.png"
+dest_files=["res://.godot/imported/shard_src_shard_palette.png-bce4b12c228091404c0aff9a1d5c4a3d.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

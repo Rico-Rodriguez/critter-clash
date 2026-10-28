@@ -249,6 +249,9 @@ const UPGRADE_GOLD := [0, 60, 140, 280, 500, 800, 1200, 1800, 2700, 4000, 5500, 
 # caster (drops a telegraphed circle on the hero).
 
 const NEXT_FOES := preload("res://src/data/next_foes.gd")
+const FOE_MODELS := preload("res://src/data/foe_models.gd")
+## NEXT_FOES defs with their model specs folded in (foe_models.gd), built on first use.
+static var _next_folded := {}
 
 const ENEMIES := {
 	"minion": {
@@ -524,8 +527,7 @@ const ZONES := {
 			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
 	},
 	# The fifth and sixth zones: built crisp. No fog (`fog_d` 0), no bloom, no tint
-	# washes; `env.weather` is falling snow or rising embers drawn as hard particles and
-	# `env.skin` recolours every KayKit prop placed (tools/art/biome_textures.py).
+	# washes; `env.weather` is falling snow or rising embers drawn as hard particles.
 	# `hazards` are run by src/hunt/biome.gd, `ground` recolours the floor shader.
 	"frost": {
 		"name": "The Frozen Crypt", "boss": "rime", "blurb": "A buried crypt under the ice. The Frost Troll holds the winter.",
@@ -552,8 +554,8 @@ const ZONES := {
 		"weights_next": {"warrior": 1.2, "rogue": 1.2, "mage": 1.4, "hound": 1.4, "brute": 0.0, "bomber": 1.3, "necro": 1.0, "skirmisher": 1.2},
 		"souls_mult": 1.0, "unlock": "Trophy Road: 12500 trophies", "music": "swamp", "boss_music": "swamp_boss",
 		"hazards": ["vents", "mud", "marsh"],
-		"hazard_line": "Vents erupt, mud drags and the marsh ignites",
-		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.62, 0.62, 0.64), "ambient_e": 0.95, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "swamp", "weather": "embers",
+		"hazard_line": "Vents erupt, the bog drags and fire runs the boardwalk",
+		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.62, 0.62, 0.64), "ambient_e": 0.95, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "", "weather": "embers",
 			"sun": Color(0.92, 0.9, 0.86), "sun_e": 1.1, "sun_rot": Vector3(-46, -38, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(1.0, 0.55, 0.15, 1.0),
 			"ground": {"grass_a": Color(0.15, 0.145, 0.12), "grass_b": Color(0.24, 0.225, 0.18), "dirt": Color(0.23, 0.19, 0.15), "dark": Color(0.03, 0.025, 0.02)}},
 	},
@@ -844,7 +846,9 @@ static func enemy(kind: String) -> Dictionary:
 	if kind.begins_with("rival_"):
 		return rival_def(kind.substr(6))
 	if NEXT_FOES.FOES.has(kind):
-		return NEXT_FOES.FOES[kind]
+		if not _next_folded.has(kind):
+			_next_folded[kind] = FOE_MODELS.fold(kind, NEXT_FOES.FOES[kind])
+		return _next_folded[kind]
 	return ENEMIES[kind] if ENEMIES.has(kind) else ENEMIES_EXTRA[kind]
 
 

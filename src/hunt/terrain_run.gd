@@ -9,6 +9,8 @@ const T := preload("res://src/hunt/terrain.gd")
 const ICE_COL := Color(0.8, 0.92, 1.0, 0.8)
 const FIRE_COL := Color(1.0, 0.5, 0.15)
 const SPLASH := Color(0.7, 0.85, 1.0, 0.7)
+## A boss feels this share of what the ground does to the hero.
+const BOSS_WADE := 0.5
 
 var h
 var a: Arena
@@ -40,6 +42,7 @@ func tick(dt: float) -> void:
 		return
 	_hero(dt)
 	_foes(dt)
+	_boss()
 	_embers(dt)
 
 
@@ -143,6 +146,15 @@ func _foes(dt: float) -> void:
 			# The fire that burns their bog hurts the bog dwellers twice as hard.
 			h.damage_foe(f, float(f.def.get("hp", 40.0)) * (0.1 if dweller else 0.05), h.hero, Vector3.ZERO, 0.0)
 			scorched += 1
+
+
+## A boss wades: the ground slows it by half what it slows the hero (so a bog or
+## a cracked-open hole gives the hero room), and it never drowns or burns.
+func _boss() -> void:
+	var b = h.boss
+	if b == null or not is_instance_valid(b) or not b.alive:
+		return
+	b.t_speed = lerpf(1.0, float(t.surface_at(b.flat_pos())["speed"]), BOSS_WADE)
 
 
 func _drown(f: Enemy) -> void:

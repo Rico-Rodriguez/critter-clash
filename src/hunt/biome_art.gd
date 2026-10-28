@@ -1,38 +1,13 @@
 extends RefCounted
-## Art helpers for the Frozen Crypt and the Burning Swamp (preloaded by path,
-## no class_name). Everything here is built for a clean, crisp read: opaque
-## PBR meshes batched into MultiMeshes, hard-edged weather particles, no fog
-## and no bloom. KayKit props get their zone's recoloured texture (see
-## tools/art/biome_textures.py) as a `material_override`, so they still batch.
+## Art helpers shared by the Frozen Crypt and the Burning Swamp (preloaded by path,
+## no class_name): methane vents, flames and the weather particles. Everything here
+## is built for a clean, crisp read: opaque PBR meshes batched into MultiMeshes,
+## hard-edged particles, no fog and no bloom. The zones' own pieces are in
+## kit_mesh.gd and mire_kit.gd.
 
 const SOFT := preload("res://src/fx/soft.gdshader")
-static var _recolored := {}
 static var _mats := {}
 static var _meshes := {}
-
-
-## Swaps a prop's palette texture for the zone's recoloured one. Only
-## single-surface meshes whose texture has a `<name>_<skin>_texture.png`
-## sibling are touched (the forest and halloween packs); the rest stay as is.
-static func recolor(n: Node3D, skin: String) -> void:
-	for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
-		if mi.mesh == null or mi.mesh.get_surface_count() != 1:
-			continue
-		var src := mi.get_active_material(0) as BaseMaterial3D
-		if src == null or src.albedo_texture == null:
-			continue
-		var from := str(src.albedo_texture.resource_path)
-		var to := from.get_base_dir() + "/" + from.get_file().replace("_texture.png", "_%s_texture.png" % skin)
-		var key := "%d|%s" % [src.get_instance_id(), to]
-		if not _recolored.has(key):
-			if to == from or not ResourceLoader.exists(to):
-				_recolored[key] = null
-			else:
-				var m := src.duplicate() as BaseMaterial3D
-				m.albedo_texture = load(to)
-				_recolored[key] = m
-		if _recolored[key] != null:
-			mi.material_override = _recolored[key]
 
 
 static func mat(id: String) -> StandardMaterial3D:
@@ -40,40 +15,6 @@ static func mat(id: String) -> StandardMaterial3D:
 		return _mats[id]
 	var m := StandardMaterial3D.new()
 	match id:
-		"ice":
-			m.albedo_color = Color(0.72, 0.89, 1.0)
-			m.roughness = 0.1
-			m.emission_enabled = true
-			m.emission = Color(0.2, 0.5, 0.9)
-			m.emission_energy_multiplier = 0.5
-		"snow":
-			m.albedo_color = Color(0.7, 0.78, 0.9)
-			m.roughness = 0.85
-		"cap":
-			m.albedo_color = Color(0.9, 0.94, 1.0)
-			m.roughness = 0.75
-		"sheet":
-			m.albedo_color = Color(0.5, 0.66, 0.82)
-			m.roughness = 0.06
-			m.metallic_specular = 1.0
-		"scorch":
-			m.albedo_color = Color(0.035, 0.03, 0.028)
-			m.roughness = 1.0
-		"ember":
-			m.albedo_color = Color(0.25, 0.06, 0.0)
-			m.roughness = 0.7
-			m.emission_enabled = true
-			m.emission = Color(1.0, 0.45, 0.08)
-			m.emission_energy_multiplier = 2.2
-		"rim_snow":
-			m.albedo_color = Color(0.82, 0.88, 0.97)
-			m.roughness = 0.8
-		"rim_mud":
-			m.albedo_color = Color(0.11, 0.09, 0.06)
-			m.roughness = 0.7
-		"mud":
-			m.albedo_color = Color(0.07, 0.05, 0.035)
-			m.roughness = 0.1
 		"char":
 			m.albedo_color = Color(0.09, 0.08, 0.075)
 			m.roughness = 0.9
@@ -92,14 +33,6 @@ static func mesh(id: String) -> Mesh:
 		return _meshes[id]
 	var out: Mesh
 	match id:
-		"crystal":
-			var c := CylinderMesh.new()
-			c.top_radius = 0.0
-			c.bottom_radius = 0.42
-			c.height = 3.0
-			c.radial_segments = 6
-			c.rings = 1
-			out = c
 		"lump":
 			var u := SphereMesh.new()
 			u.radius = 1.0
@@ -136,55 +69,6 @@ static func batch(a: Node3D, id: String, material: Material, xfs: Array, shadow 
 	return mmi
 
 
-## Clusters of ice crystals at `spots`: one tall spire and a ring of leaning
-## ones each, solid to walk into (a small obstacle apiece).
-static func crystals(a: Arena, spots: Array, scale_ := 1.0) -> void:
-	var xfs: Array = []
-	for p: Vector3 in spots:
-		var s := scale_ * a._rng.randf_range(0.8, 1.25)
-		var yaw := a._rng.randf() * TAU
-		xfs.append(Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3(s, s * 1.25, s)), p + Vector3(0, 1.5 * s * 1.25, 0)))
-		for k in 3:
-			var ang := yaw + TAU * k / 3.0 + a._rng.randf_range(-0.3, 0.3)
-			var lean := a._rng.randf_range(0.28, 0.5)
-			var ks := s * a._rng.randf_range(0.5, 0.8)
-			var b := Basis(Vector3.UP, ang) * Basis(Vector3.RIGHT, lean)
-			xfs.append(Transform3D(b.scaled(Vector3(ks, ks, ks)), p + Vector3(sin(ang), 0, cos(ang)) * 0.55 * s + Vector3(0, 1.2 * ks, 0)))
-		a.add_obstacle(Vector2(p.x, p.z), 0.85 * s)
-	if not xfs.is_empty():
-		batch(a, "crystal", mat("ice"), xfs, true)
-
-
-## Flat discs on the ground: snow drifts or bog pools. Flat on purpose: the
-## hazard telegraphs draw at y 0.04 and must stay readable on top. Each also
-## becomes a drag zone the hero wades through.
-static func mounds(a: Arena, id: String, material: String, spots: Array, radius: float, drag := true) -> void:
-	var xfs: Array = []
-	for p: Vector3 in spots:
-		var r := radius * a._rng.randf_range(0.85, 1.2)
-		xfs.append(Transform3D(Basis(Vector3.UP, a._rng.randf() * TAU).scaled(Vector3(r, 1.0, r * a._rng.randf_range(0.8, 1.0))), p))
-		if drag:
-			a.slow_zones.append({"pos": Vector3(p.x, 0, p.z), "r": r * 0.92})
-	if not xfs.is_empty():
-		batch(a, id, mat(material), xfs)
-		_rim(a, spots, radius, material)
-
-
-## A ring of low lumps round each drift or pool, so the edge has relief while
-## the middle stays flat for the hazard telegraphs.
-static func _rim(a: Arena, spots: Array, radius: float, material: String) -> void:
-	var xfs: Array = []
-	for p: Vector3 in spots:
-		var n := 9
-		var off := a._rng.randf() * TAU
-		for k in n:
-			var ang := off + TAU * k / n + a._rng.randf_range(-0.15, 0.15)
-			var s := a._rng.randf_range(0.28, 0.5)
-			var at := p + Vector3(sin(ang), 0, cos(ang)) * radius * a._rng.randf_range(0.95, 1.12)
-			xfs.append(Transform3D(Basis(Vector3.UP, ang).scaled(Vector3(s * 1.5, s * 0.6, s)), at))
-	batch(a, "lump", mat("rim_" + material), xfs)
-
-
 ## Methane vents: a charred rim around a glowing mouth, registered as hazards.
 static func vents(a: Arena, spots: Array) -> void:
 	var rims: Array = []
@@ -199,61 +83,6 @@ static func vents(a: Arena, spots: Array) -> void:
 	if not spots.is_empty():
 		batch(a, "lump", mat("char"), rims)
 		batch(a, "disc", mat("vent"), mouths)
-
-
-## Crisp snow caps on the tops of the solid props (headstones, posts, pillars,
-## benches, coffins), one batched draw. `sizes` is each prop's rest-pose AABB.
-static func snow_caps(a: Arena) -> void:
-	var want := ["gravestone", "grave_A", "grave_B", "gravemarker", "post_skull", "pillar", "fence_pillar", "bench", "coffin", "shrine"]
-	var xfs: Array = []
-	for pr: Dictionary in a.props:
-		var path: String = pr["path"]
-		var hit := false
-		for w: String in want:
-			if path.contains("/" + w):
-				hit = true
-		if not hit or path.contains("destroyed") or path.contains("broken"):
-			continue
-		var sz := a.size_of(path)
-		var sc: float = pr["scale"]
-		var at: Vector3 = pr["pos"]
-		var r := maxf(sz.x, sz.z) * sc * 0.5
-		var yaw: float = pr["yaw"]
-		xfs.append(Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3(r * 0.9, minf(0.2, r * 0.3), r * 0.75)), at + Vector3(0, sz.y * sc - 0.02, 0)))
-	if not xfs.is_empty():
-		batch(a, "lump", mat("cap"), xfs)
-
-
-## Flat sheets of black ice: a glint on the ground, never in the way (no drag).
-static func ice_sheets(a: Arena, spots: Array) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 4242
-	var xfs: Array = []
-	for p: Vector3 in spots:
-		var r := rng.randf_range(0.9, 1.7)
-		xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(r, 1.0, r * rng.randf_range(0.55, 0.8))), p + Vector3(0, 0.005, 0)))
-	if not xfs.is_empty():
-		batch(a, "disc", mat("sheet"), xfs)
-
-
-## Scorched earth and glowing cracks round each fire: a dark ring so the flame
-## sits in the ground, and a few thin ember seams for the firelight to read on.
-static func scorch(a: Arena, spots: Array, radius := 1.5) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 9137
-	var burns: Array = []
-	var seams: Array = []
-	for p: Vector3 in spots:
-		var r := radius * rng.randf_range(0.85, 1.2)
-		burns.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(r, 1.0, r * rng.randf_range(0.8, 1.0))), p + Vector3(0, 0.003, 0)))
-		for k in 5:
-			var ang := rng.randf() * TAU
-			var d := r * rng.randf_range(0.45, 0.95)
-			var ln := rng.randf_range(0.25, 0.6)
-			seams.append(Transform3D(Basis(Vector3.UP, ang + PI * 0.5).scaled(Vector3(ln, 0.02, 0.035)), p + Vector3(sin(ang), 0.02, cos(ang)) * d))
-	if not burns.is_empty():
-		batch(a, "disc", mat("scorch"), burns)
-		batch(a, "lump", mat("ember"), seams)
 
 
 ## A small standing fire (burning stump, brazier): a few soft flame particles.

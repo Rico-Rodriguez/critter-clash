@@ -1,4 +1,4 @@
-Boss and foe models in this folder are licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Boss and foe models in this folder are licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), except the CC0 ones listed at the end.
 Attribution (verified via the Sketchfab API, 2026-10-27):
 - Boss and foe models, Creative Commons Attribution 4.0, from Sketchfab. Unmodified materials; meshes
   merged into one draw per material (`tools/art/merge_skinned.py`), collapse-decimated
@@ -49,3 +49,12 @@ Attribution (verified via the Sketchfab API, 2026-10-27):
     https://sketchfab.com/3d-models/bloater-18e00bde1fca4cef9f39188fdfb20b1e
   - Ember Wasp — "Armored Wasp" by Rodrigo Bento —
     https://sketchfab.com/3d-models/armored-wasp-30e45b0f76d64aed8a8c587235d6f6e5
+  - Rimehollow foe, Rime Yeti — "Lowpoly bigfoot" by Sololopenko (CC BY 4.0, listed on the Sketchfab API
+    2026-10-27) — https://sketchfab.com/3d-models/lowpoly-bigfoot-a85b050494a14d8aa7a5a94c82a6176c
+    (decimated from 3.4k to 2.8k tris; its texture as shipped, 1024 px; the shipped take is Idle, the other
+    clips — Walk, Run, Attack, Slam, Roar, Hit, Death — are keyframed for this project on its Mixamo rig,
+    `tools/art/boss_clips.py`)
+
+Public domain (CC0 1.0), no attribution required: Frost Wolf ("Wolf") and the Wail Wraith / Pyre Shaman ("Ghost Skull")
+by Quaternius, via https://poly.pizza (https://poly.pizza/m/P1gU3Qkr9r, https://poly.pizza/m/TX8r9WBXpe);
+the Crystal Shardling, Methane Bloat and Sporecap are custom Blender models for this project (tools/art/make_foes.py).

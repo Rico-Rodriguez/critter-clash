@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://jmoxd2kiyqbl"
-path="res://.godot/imported/forest_frost_texture.png-069814bd0cb2fd064e394e4fbc1941fc.ctex"
+uid="uid://c8xwb5gnv7ety"
+path="res://.godot/imported/spore_src_spore_palette.png-0d869eb419ca84be6d596a36c16a9411.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "e3059fc091baf0d7214c2bba03031eb6"
 }
 
 [deps]
 
-source_file="res://assets/kaykit/forest/forest_frost_texture.png"
-dest_files=["res://.godot/imported/forest_frost_texture.png-069814bd0cb2fd064e394e4fbc1941fc.ctex"]
+source_file="res://assets/foes/spore_src_spore_palette.png"
+dest_files=["res://.godot/imported/spore_src_spore_palette.png-0d869eb419ca84be6d596a36c16a9411.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

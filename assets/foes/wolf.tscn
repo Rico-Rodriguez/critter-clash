@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/wolf_src.glb" id="1_mly7q"]
+
+[node name="wolf" type="Node3D" unique_id=1254449068]
+metadata/cull_aabbs = {
+"RootNode/AnimalArmature/Skeleton3D/Wolf": AABB(-0.035315286, -0.055646934, -0.030137246, 0.07063057, 0.11281424, 0.08681056)
+}
+metadata/posed_aabb = AABB(-0.19745846, 0, -0.9862296, 0.39491692, 1, 1.9724592)
+
+[node name="Root Scene" type="Node3D" parent="." unique_id=981475641 instance=ExtResource("1_mly7q")]
+transform = Transform3D(0.37396988, 0, 0, 0, 0.37396988, 0, 0, 0, 0.37396988, 8.916137e-08, 0.0038155525, 0.028428834)

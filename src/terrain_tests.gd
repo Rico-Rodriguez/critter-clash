@@ -5,6 +5,7 @@ extends RefCounted
 ## it. When the Arena owns a grid (`arena.terrain`) the last group runs the same
 ## rules through the real Hero and Enemy.
 
+const ZoneRooms := preload("res://src/hunt/arena_trial_zone.gd")
 const T := preload("res://src/hunt/terrain.gd")
 
 
@@ -22,11 +23,15 @@ static func run(ok: Callable) -> void:
 	_surfaces(ok)
 	_ice_motion(ok)
 	_thin_ice(ok)
+	_cracking(ok)
 	_drowning(ok)
 	_fire(ok)
 	_reflood(ok)
 	_cost(ok)
+	_flow(ok)
 	_arena(ok)
+	_mire(ok)
+	_long_road(ok)
 
 
 static func _surfaces(ok: Callable) -> void:
@@ -78,6 +83,20 @@ static func _ice_motion(ok: Callable) -> void:
 	ok.call("ice: a knockback carries further than on dry ground", g.slide_at(g.center_of(Vector2i(1, 0))) * T.KNOCK_SLIDE > g.slide_at(g.center_of(Vector2i(0, 0))) * 2.0)
 	ok.call("bog: knockback is short and the walk is slow", g.slide_at(g.center_of(Vector2i(2, 0))) < 1.0 and g.speed_mult_at(g.center_of(Vector2i(2, 0))) < 0.6)
 	ok.call("ash: fast and safe", g.speed_mult_at(g.center_of(Vector2i(3, 0))) > 1.0 and not g.body_effect(g.center_of(Vector2i(3, 0)))["lethal"] and float(g.body_effect(g.center_of(Vector2i(3, 0)))["dps"]) == 0.0)
+
+
+## The Frost Troll's floor: ice cracks on a timer, no one needs to stand on it.
+static func _cracking(ok: Callable) -> void:
+	var g := T.parse([",,,.,~"], Vector2(0, 0))
+	ok.call("crack: dry ground and water do not crack", not g.crack(Vector2i(3, 0), 1.0) and not g.crack(Vector2i(5, 0), 1.0))
+	ok.call("crack: ice turns thin with a fuse of its own", g.crack(Vector2i(1, 0), 1.0) and g.kind_of(Vector2i(1, 0)) == T.THIN_ICE and g.is_cracking(Vector2i(1, 0)))
+	var evs: Array = g.step(0.5)
+	ok.call("crack: nothing snaps before the delay", g.kind_of(Vector2i(1, 0)) == T.THIN_ICE and not evs.any(func(e): return e["ev"] == "snap"))
+	evs = g.step(0.6)
+	ok.call("crack: it snaps to open water when the delay is up", g.kind_of(Vector2i(1, 0)) == T.WATER and evs.any(func(e): return e["ev"] == "snap" and e["cell"] == Vector2i(1, 0)))
+	var d := T.parse([",,,,,,", ",,,.,,", ",,,,,,"], Vector2(0, 0))
+	var n: int = d.crack_disc(d.center_of(Vector2i(2, 1)), 2.1, 1.0)
+	ok.call("crack: a disc cracks the ice in reach and spares the rest (%d cells)" % n, n >= 3 and n <= 7 and d.kind_of(Vector2i(3, 1)) == T.DRY and d.kind_of(Vector2i(5, 1)) == T.ICE and d.kind_of(Vector2i(2, 1)) == T.THIN_ICE)
 
 
 static func _thin_ice(ok: Callable) -> void:
@@ -228,10 +247,32 @@ static func _cost(ok: Callable) -> void:
 	ok.call("fire: a whole-map blaze over 30 s costs under 0.5 ms a tick (%.2f ms total, %d events)" % [ms, n], ms / 1800.0 < 0.5 and n > 100)
 
 
+## A bog costs three steps: foes route round a small one, wade a wide one.
+static func _flow(ok: Callable) -> void:
+	var dirs: Array = []
+	for rx: float in [2.5, 9.0]:
+		var a := Arena.new()
+		a.terrain_live = true
+		a.terrain.fill_ellipse(T.BOG, 0.0, -4.0, rx, 2.5)
+		for i in 400:
+			a.update_flow(Vector3(0, 0, 0), 0.3)
+		dirs.append(a.flow_dir(Vector3(0, 0, -8)))
+		if rx == 2.5:
+			ok.call("flow: a bog cell costs 3 steps, firm ground one", a.terrain.flow_cost(Vector3(0, 0, -4)) == 3.0 and a.terrain.flow_cost(Vector3(0, 0, 4)) == 1.0)
+		a.free()
+	ok.call("flow: foes walk round a small bog (%s)" % dirs[0], absf((dirs[0] as Vector3).x) > 0.5)
+	ok.call("flow: but wade a wide one rather than walk its whole length (%s)" % dirs[1], (dirs[1] as Vector3).z > 0.5)
+	var dry := Arena.new()
+	for i in 400:
+		dry.update_flow(Vector3(0, 0, 0), 0.3)
+	ok.call("flow: with no terrain it is the plain step count", dry._flow_at(0, -30) == 30 and dry._flow_cap() == Arena.FLOW_STEPS)
+	dry.free()
+
+
 ## The same rules through the real arena, once it owns a grid.
 static func _arena(ok: Callable) -> void:
 	_arena_live(ok)
-	for zone in ["frost", "swamp"]:
+	for zone: String in ["frost", "swamp"]:
 		var a := Arena.new()
 		a.build(true, zone, 0, 1)
 		var terr = a.get("terrain")
@@ -241,6 +282,117 @@ static func _arena(ok: Callable) -> void:
 			ok.call("terrain %s: the arena's grid is 22 x 26" % zone, terr.w == 22 and terr.h == 26)
 			ok.call("terrain %s: the start is dry, safe ground" % zone, terr.kind_at(a.start) == T.DRY)
 			ok.call("terrain %s: the grid shapes the play space with blocked cells only inside the bounds" % zone, terr.cell_of(a.start).y < terr.h)
+		a.free()
+
+
+## Whether firm footing (dry, ash, planks) links `from` to `to` cell by cell, so the
+## way across the bog never needs a wade.
+static func _firm_route(t: RefCounted, from: Vector3, to: Vector3, kinds: Array = [T.DRY, T.ASH, T.PLANK]) -> bool:
+	var seen := {}
+	var q: Array = [t.cell_of(from)]
+	var goal: Vector2i = t.cell_of(to)
+	seen[q[0]] = true
+	while not q.is_empty():
+		var c: Vector2i = q.pop_back()
+		if c == goal:
+			return true
+		for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c + d
+			if seen.has(n) or not t.in_bounds(n) or not (t.kind_of(n) in kinds):
+				continue
+			seen[n] = true
+			q.append(n)
+	return false
+
+
+## The Cinder Mire: bog, islands, a boardwalk of planks that burn and fall, the
+## Warlord's platform, and foe spots on the right ground.
+static func _mire(ok: Callable) -> void:
+	var m := Arena.new()
+	m.build(true, "swamp", 0, 1)
+	var t: RefCounted = m.terrain
+	var firm := func(p: Vector3) -> bool: return t.kind_at(p) in [T.DRY, T.ASH]
+	var count := {}
+	for k in t.kind:
+		count[int(k)] = int(count.get(int(k), 0)) + 1
+	ok.call("mire: paints its cells, mostly bog with dry islands, ash and planks", m.terrain_live and int(count.get(T.BOG, 0)) > 150 and int(count.get(T.DRY, 0)) > 60 and int(count.get(T.ASH, 0)) > 10 and int(count.get(T.PLANK, 0)) > 30)
+	ok.call("mire: the start and the Warlord's spot are dry, solid ground", t.kind_at(m.start) == T.DRY and t.kind_at(m.boss_spawn) == T.DRY and t.kind_at(m.crypt_pos) == T.DRY)
+	ok.call("mire: the boardwalk is a firm route from the landing to the platform", _firm_route(t, m.start, m.boss_spawn))
+	ok.call("mire: the platform is reachable on foot too", _reach(m, m.start, m.boss_spawn))
+	ok.call("mire: every plank cell has its boardwalk piece, and it can burn", count.get(T.PLANK, 0) == m.plank_nodes.size() and m.plank_nodes.values().all(func(n): return is_instance_valid(n) and n.has_method("burn")))
+	ok.call("mire: three shrines, each on firm ground and within reach", m.shrines.size() == 3 and m.shrines.all(func(s): return firm.call(s["pos"]) and _reach(m, m.start, s["pos"])))
+	ok.call("mire: the vents stand on ash, clear of the planks", m.hazard_spots.size() == 5 and m.hazard_spots.all(func(v: Vector3): return t.kind_at(v) == T.ASH))
+	ok.call("mire: the dead rise on firm ground, away from the landing", m.graves.size() >= 10 and m.graves.all(func(g: Vector3): return firm.call(g) and g.z <= 12.0))
+	ok.call("mire: perches on firm open ground, spawn holes in open bog", m.perches.size() >= 12 and m.spawn_holes.size() >= 10 and m.perches.all(func(p: Vector3): return firm.call(p)) and m.spawn_holes.all(func(p: Vector3): return t.kind_at(p) == T.BOG))
+	ok.call("mire: bog slows and the flow field counts it dearer than firm ground", float(t.surface(T.BOG)["speed"]) < 0.7 and float(t.flow_cost(Vector3(-19, 0, -3))) > float(t.flow_cost(m.start)))
+	# A plank takes fire, and the fire runs the boardwalk and drops the pieces into the bog.
+	var first := Vector2i(-1, -1)
+	for c in t.w * t.h:
+		var cc := Vector2i(c % t.w, c / t.w)
+		if t.kind_of(cc) == T.PLANK and cc.y > 15:
+			first = cc
+			break
+	var fell := 0
+	var burned := 0
+	t.ignite(first)
+	for i in 60 * 30:
+		for e: Dictionary in t.step(1.0 / 60.0):
+			if e["ev"] == "ignite":
+				m.plank_burn(e["cell"])
+				burned += 1
+			elif e["ev"] == "fell":
+				m.plank_fall(e["cell"])
+				fell += 1
+	ok.call("mire: fire spreads over the boardwalk and burnt planks fall into the bog", burned > 6 and fell > 3)
+	for i in 60 * 40:
+		for e: Dictionary in t.step(1.0 / 60.0):
+			if e["ev"] == "fell":
+				m.plank_fall(e["cell"])
+	var left := 0
+	for i: int in m.plank_nodes:
+		if t.kind[i] != T.PLANK:
+			left += 1
+	ok.call("mire: a fallen plank's piece is gone, a burnt one stays chared", left == 0)
+	ok.call("mire: the islands are firebreaks, the landing never burns", t.kind_at(m.start) == T.DRY and t.kind_at(Vector3(0, 0, 18)) == T.DRY)
+	m.free()
+
+
+## The Long Road in a rebuilt biome: the same rooms on the zone's terrain, with a
+## firm way from gap to gap and the whole road crossable on foot.
+static func _long_road(ok: Callable) -> void:
+	for zone: String in ["frost", "swamp"]:
+		var a := Arena.new()
+		a.build(true, zone, 5, 4242)
+		var t: RefCounted = a.terrain
+		var rooms: Array = a.trial["rooms"]
+		var tag := "long road (" + zone + "): "
+		ok.call(tag + "paints the whole road on a tall grid", a.terrain_live and t.h > 100 and t.origin.y <= a.min_z)
+		var firm_way := true
+		var way_kinds := [T.DRY, T.ICE, T.ASH, T.PLANK] if zone == "swamp" else [T.DRY, T.ICE]
+		for i in rooms.size():
+			var w: Array = ZoneRooms.way(a, a.trial, i)
+			var from: Vector2 = w[0]
+			var to: Vector2 = w[1]
+			if not _firm_route(t, Vector3(from.x, 0, from.y), Vector3(to.x, 0, to.y), way_kinds):
+				firm_way = false
+		ok.call(tag + "a firm way runs from every gap to the next", firm_way)
+		ok.call(tag + "the landing and the boss spot are solid ground", t.kind_at(a.start) == T.DRY and t.kind_at(a.boss_spawn) in [T.DRY, T.ICE])
+		ok.call(tag + "the boss hall is reachable on foot", _reach(a, a.start, a.boss_spawn))
+		var kinds := {}
+		for k in t.kind:
+			kinds[int(k)] = int(kinds.get(int(k), 0)) + 1
+		if zone == "frost":
+			ok.call(tag + "ice ponds with thin ice in the road", int(kinds.get(T.ICE, 0)) > 150 and int(kinds.get(T.THIN_ICE, 0)) > 4)
+		else:
+			ok.call(tag + "bog with a boardwalk that burns", int(kinds.get(T.BOG, 0)) > 150 and int(kinds.get(T.PLANK, 0)) > 30 and a.plank_nodes.size() == int(kinds.get(T.PLANK, 0)))
+		var clear := true
+		for r: Dictionary in rooms:
+			for k in 6:
+				var p2: Vector3 = a.room_point(r, a.start)
+				if t.flow_cost(p2) < 0.0:
+					clear = false
+		ok.call(tag + "foes are never placed in open water", clear)
+		ok.call(tag + "shrines on firm ground", a.shrines.size() >= 1 and a.shrines.all(func(sh): return t.kind_at(sh["pos"]) in [T.DRY, T.ICE]))
 		a.free()
 
 
