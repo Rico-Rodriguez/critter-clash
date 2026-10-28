@@ -44,7 +44,7 @@ const FOES := {
 		"brain": {"kind": "kite", "hover": 0.9, "keep": 7.0, "shots": 1},
 	},
 	"rh_seer": {
-		"name": "Rime Seer", "model": "glb:rime_seer", "fit": 2.3, "clips": {"idle": "Lich_Lich_Idle", "walk": "Lich_Lich_WalkForward", "run": "Lich_Lich_RunForward", "attack": "Lich_Lich_AttackForeHandDamage", "cast": "Lich_Lich_SpellCasting_Enter", "hit": "Lich_Lich_StaggerBack", "die": "Lich_Lich_Death01"}, "gen": [], "weapons": {}, "skin": "rime", "base": "mage",
+		"name": "Rime Seer", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"}, "skin": "rime", "base": "mage",
 		"ai": "caster", "hp": 62.0, "dmg": 20.0, "speed": 2.7, "radius": 0.45, "reach": 9.0, "blast": 2.2, "element": "frost", "leave": "frost",
 		"windup": 1.2, "cooldown": 4.2, "mass": 1.2, "xp": 3, "scale": 1.0, "anim": A_CAST,
 		"brain": {"kind": "caster", "spell": "thin", "keep": 7.5, "r": 2.2},

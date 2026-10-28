@@ -85,7 +85,7 @@ static func _ice_motion(ok: Callable) -> void:
 	ok.call("ash: fast and safe", g.speed_mult_at(g.center_of(Vector2i(3, 0))) > 1.0 and not g.body_effect(g.center_of(Vector2i(3, 0)))["lethal"] and float(g.body_effect(g.center_of(Vector2i(3, 0)))["dps"]) == 0.0)
 
 
-## The Frost Troll's floor: ice cracks on a timer, no one needs to stand on it.
+## The Rime Regent's floor: ice cracks on a timer, no one needs to stand on it.
 static func _cracking(ok: Callable) -> void:
 	var g := T.parse([",,,.,~"], Vector2(0, 0))
 	ok.call("crack: dry ground and water do not crack", not g.crack(Vector2i(3, 0), 1.0) and not g.crack(Vector2i(5, 0), 1.0))
