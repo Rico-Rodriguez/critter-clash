@@ -105,8 +105,11 @@ func fill_ellipse(k: int, cx: float, cz: float, rx: float, rz: float, only := -1
 	var n := FastNoiseLite.new()
 	n.seed = seed_
 	n.frequency = 0.16
-	for z in h:
-		for x in w:
+	# Only the cells in the ellipse's box (a little wider, for the rough edge).
+	var lo := cell_of(Vector3(cx - rx * (1.0 + noise) - CELL, 0.0, cz - rz * (1.0 + noise) - CELL))
+	var hi := cell_of(Vector3(cx + rx * (1.0 + noise) + CELL, 0.0, cz + rz * (1.0 + noise) + CELL))
+	for z in range(maxi(lo.y, 0), mini(hi.y, h - 1) + 1):
+		for x in range(maxi(lo.x, 0), mini(hi.x, w - 1) + 1):
 			var c := Vector2i(x, z)
 			if only >= 0 and kind_of(c) != only:
 				continue

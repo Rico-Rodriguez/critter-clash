@@ -1218,7 +1218,7 @@ func route(a: Vector3, b: Vector3) -> Vector3:
 func room_point(room: Dictionary, hero_pos: Vector3, min_hero := 8.0) -> Vector3:
 	for i in 24:
 		var p := Vector3(_rng.randf_range(min_x + 3.0, max_x - 3.0), 0, _rng.randf_range(float(room["lo"]) + 4.0, float(room["hi"]) - 3.0))
-		if not blocked(p, 0.8) and p.distance_to(hero_pos) >= min_hero:
+		if not blocked(p, 0.8) and p.distance_to(hero_pos) >= min_hero and not (terrain_live and terrain.flow_cost(p) < 0.0):
 			return p
 	return resolve(Vector3(0, 0, (float(room["hi"]) + float(room["lo"])) * 0.5), 0.8)
 
