@@ -226,6 +226,7 @@ func _kill(f: Enemy) -> void:
 	var at := f.flat_pos()
 	if biome != null and f.hp <= 0.0:
 		biome.on_death(f)
+	FoeBrains.death(f)
 	fx.bone_burst(at, 5 if not f.elite else 12, 5.5 if not f.elite else 8.0)
 	fx.puff(at, Color(0.4, 0.38, 0.35, 0.5), 3, 0.4, 1.2)
 	Sfx.play("enemy_die", -5.0)

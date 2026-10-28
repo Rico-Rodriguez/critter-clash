@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://cugaxil1wb30v"
-path="res://.godot/imported/atk_tank_1.ogg-a8ef7ae882a131d6bab83976e82dd62b.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/atk_tank_1.ogg"
-dest_files=["res://.godot/imported/atk_tank_1.ogg-a8ef7ae882a131d6bab83976e82dd62b.oggvorbisstr"]
 
 [params]
 

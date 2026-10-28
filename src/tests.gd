@@ -253,6 +253,7 @@ func run() -> int:
 	preload("res://src/biome_tests.gd").run(_ok)
 	preload("res://src/terrain_tests.gd").run(_ok)
 	preload("res://src/foe_tests.gd").run(_ok)
+	preload("res://src/brain_tests.gd").run(_ok)
 	preload("res://src/rig_tests.gd").run(_ok)
 	preload("res://src/boss_model_tests.gd").run(_ok)
 	_breeding_tests()

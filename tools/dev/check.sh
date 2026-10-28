@@ -3,6 +3,7 @@
 #   1. re-import (also refreshes the class_name cache after new scripts)
 #   2. compile every script, scene and shader
 #   3. autopilot hunts: knight, mage, barbarian must mostly win
+#      (the Frozen Crypt and Burning Swamp also with the new foes, --next-foes)
 #   4. Endless Descent runs 260 s without errors, Boss Rush and the Wilderness can be won
 #   5. an idle hero must lose
 #   6. with --perf: the Frozen Crypt and Burning Swamp stay inside the frame budget
@@ -36,11 +37,15 @@ if [ $QUICK -eq 0 ]; then
 	grep -q "SCRIPT ERROR" "$LOG/depths.log" && fail=1
 	[ "$(grep -c 'win=true' "$LOG/depths.log")" -ge 1 ] || fail=1
 	# The late biomes: hazards, riders, bosses and loot must run clean (a loss is fine).
+	# Each runs once with today's foes and once with the new brain foes (--next-foes).
 	for zone in frost swamp; do
-		timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --zone=$zone --hero=knight,mage > "$LOG/$zone.log" 2>&1
-		grep -E "^BOT|SCRIPT ERROR" "$LOG/$zone.log" | cut -c1-150
-		grep -q "BOT DONE PASS" "$LOG/$zone.log" || fail=1
-		grep -q "SCRIPT ERROR" "$LOG/$zone.log" && fail=1
+		for flags in "" "--next-foes"; do
+			name="$zone${flags:+-next}"
+			timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --zone=$zone $flags --hero=knight,mage > "$LOG/$name.log" 2>&1
+			grep -E "^BOT|SCRIPT ERROR" "$LOG/$name.log" | cut -c1-150
+			grep -q "BOT DONE PASS" "$LOG/$name.log" || fail=1
+			grep -q "SCRIPT ERROR" "$LOG/$name.log" && fail=1
+		done
 	done
 	timeout 900 "$D/godot.sh" --fixed-fps 60 -- --bot --mode=trial --hero=knight,mage > "$LOG/trial.log" 2>&1
 	grep -E "^BOT|SCRIPT ERROR" "$LOG/trial.log" | cut -c1-150

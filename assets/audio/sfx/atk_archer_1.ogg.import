@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://d00tsvmy1susy"
-path="res://.godot/imported/atk_archer_1.ogg-a882b1f2bf07eea3901542b40184b8ac.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/atk_archer_1.ogg"
-dest_files=["res://.godot/imported/atk_archer_1.ogg-a882b1f2bf07eea3901542b40184b8ac.oggvorbisstr"]
 
 [params]
 

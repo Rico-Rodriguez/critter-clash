@@ -24,6 +24,22 @@ thin ice and gale. `tools/dev/layout-cap.sh` stills any arena from above.
 `terrain_tests.gd` proves the throne is reachable on foot and the caverns open
 only after the ice breaks.
 
+## Unreleased: Biome rebuild, foe AI
+
+- Sixteen new foes (Rimehollow and Cinder Mire) with their own behaviours:
+  wolf packs that lunge one at a time, a yeti, a dormant effigy, wail wraith and
+  cinder imp kiting, seer, caller, shaman and hag casters, shardling, sporecap
+  and bloat drifters, an ambushing bogfin and bog frog, and the ember wasp. Each
+  shows a ground telegraph before it can hurt and plays idle, run, attack, hit
+  and death clips. They run as brain objects (`src/hunt/foe_*.gd`, defs in
+  `src/data/next_foes.gd`), so the zones still field today's foes until
+  `FoeBrains.next` is turned on; `-- --bot --next-foes` plays them now.
+- `src/brain_tests.gd` drives a real Hunt with a terrain grid and checks the
+  telegraphs, pack rules, ambush, fire and ice interplay. check.sh also runs the
+  Frozen Crypt and Burning Swamp hunts with `--next-foes`.
+
+## Unreleased: Biome rebuild, terrain engine
+
 The Cinder Mire boss is now the **Cinder Warlord**: Riltariki's orc (CC BY, see
 `CREDITS.md`), 5.7 m tall at scale 3.0 with its own
 clips. `DB.BOSSES["cinder"]` names its rig (`"rig": "cinder_warlord"`) and

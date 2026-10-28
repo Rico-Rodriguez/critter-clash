@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://d2dw6pk2mlgu0"
-path="res://.godot/imported/hunt.ogg-01a3cb0f2484a1a80cb70c902941b319.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/music/hunt.ogg"
-dest_files=["res://.godot/imported/hunt.ogg-01a3cb0f2484a1a80cb70c902941b319.oggvorbisstr"]
 
 [params]
 
