@@ -101,6 +101,7 @@ static func build(spec: String, def: Dictionary) -> Dictionary:
 	else:
 		# Its own player and clips: tracks are relative to the player's root, so leave them be.
 		_loop_locomotion(ap, def)
+		_fill_missing(ap, rig, def)
 	return {"root": root, "anim": ap}
 
 
@@ -168,9 +169,9 @@ static func class_of(kk_clip: String) -> String:
 
 ## The rig's clip for a class, from def["clips"] first, then by looking at
 ## the clip names. "" when the rig has nothing close.
-static func resolve_class(ap: AnimationPlayer, cls: String, def: Dictionary) -> String:
+static func resolve_class(ap: AnimationPlayer, cls: String, def: Dictionary, chain := true) -> String:
 	var clips: Dictionary = def.get("clips", {})
-	for c: String in CHAIN.get(cls, [cls]):
+	for c: String in (CHAIN.get(cls, [cls]) if chain else [cls]):
 		if clips.has(c):
 			var want = clips[c]
 			for w in (want if want is Array else [want]):
@@ -206,13 +207,37 @@ static func resolve(ap: AnimationPlayer, name_: String, def: Dictionary, cache: 
 	return out
 
 
+## A rig with its own clips that lacks a class (a single-clip Sketchfab creature has no hit, no
+## death, no strike) gets the generated clip of that class, named "gen_<class>", moving the "Rig"
+## node (the fitted model sits one level below, so its own scale is kept). def["clips"] can point a
+## class at the rig's clip; def["gen"] (an Array of classes) forces a generated clip even where the
+## FoeRig.CHAIN would stand in another clip (a caster that has an attack but no cast). A generated
+## clip moves only the node, so the skeleton keeps the pose of the clip that played before it.
+static func _fill_missing(ap: AnimationPlayer, rig: Node3D, def: Dictionary) -> void:
+	var base := ap.get_node_or_null(ap.root_node)
+	if base == null:
+		return
+	var lib: AnimationLibrary
+	var forced: Array = def.get("gen", [])
+	for cls: String in CLASSES:
+		if resolve_class(ap, cls, def) != "" and not forced.has(cls):
+			continue
+		if lib == null:
+			lib = _proc_library(base, rig, def.get("proc", {}), true)
+		var gen := lib.get_animation(cls).duplicate() as Animation
+		var lib_name := ""
+		if not ap.has_animation_library(lib_name):
+			ap.add_animation_library(lib_name, AnimationLibrary.new())
+		ap.get_animation_library(lib_name).add_animation("gen_" + cls, gen)
+
+
 # -- generated clips for proc rigs ---------------------------------------------
 
 
 ## Tuning in def["proc"]: "hover" (idle height, m), "bob" (bob height), "rate"
 ## (bobs per second), "lean" (run tilt, rad), "spin" (turns per idle loop of
 ## children named Orbit*), "lunge" (attack reach, m).
-static func _proc_library(root: Node3D, body: Node3D, tune: Dictionary) -> AnimationLibrary:
+static func _proc_library(root: Node, body: Node3D, tune: Dictionary, fitted := false) -> AnimationLibrary:
 	var lib := AnimationLibrary.new()
 	var hover := float(tune.get("hover", 0.0))
 	var bob := float(tune.get("bob", 0.06))
@@ -222,6 +247,8 @@ static func _proc_library(root: Node3D, body: Node3D, tune: Dictionary) -> Anima
 	var orbits: Array[NodePath] = []
 	for n in body.find_children("Orbit*", "Node3D", true, false):
 		orbits.append(root.get_path_to(n))
+	if fitted:
+		orbits.clear()
 	var bp := root.get_path_to(body)
 	var idle_len := 1.0 / maxf(rate, 0.1)
 	# Idle and walk: a bob (and, when hovering, a slow drift), orbits turn once a loop.

@@ -40,14 +40,11 @@ func setup(e_: Enemy) -> void:
 	_sink_y = -1.7 * float(e.def["scale"])
 
 
-## The terrain cell grid (`arena.terrain`; the old
-## "terrain" meta still works). Null if absent: every brain has a fallback.
+## The arena's terrain grid while a zone paints one (`arena.terrain_live`, see
+## biome_ground.gd). Null otherwise: every brain has a fallback.
 func terrain() -> Object:
-	var a: Object = h.arena
-	var tr: Variant = a.get("terrain")
-	if tr == null and a.has_meta("terrain"):
-		tr = a.get_meta("terrain")
-	return tr as Object
+	var a: Arena = h.arena
+	return a.terrain if a.terrain_live else null
 
 
 ## Called by Hunt each tick for a live foe. True: the brain ran the tick.

@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/critters/frog_src.glb" id="1_1h7gy"]
+
+[node name="frog" type="Node3D" unique_id=1430311573]
+metadata/cull_aabbs = {
+"Sketchfab_model/frog_animated_fbx/Object_2/RootNode/frogs/frog_01b_group_001/frog_01b_001_locator/Object_7/Skeleton3D/Object_85": AABB(-4.6388764, -2.8895168, -5.801223, 9.107081, 7.532728, 9.492077)
+}
+metadata/posed_aabb = AABB(-0.8493843, 0, -0.93600875, 1.6987686, 1, 1.8720175)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1459842701 instance=ExtResource("1_1h7gy")]
+transform = Transform3D(1.8536857, 0, 0, 0, 1.8536857, 0, 0, 0, 1.8536857, 0.16042942, 0.2621209, 0.42117468)

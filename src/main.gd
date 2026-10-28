@@ -409,6 +409,15 @@ const BUDGET_DRAWS := 700
 const BUDGET_PRIMS := 400000
 
 
+## A beauty shot: no tutorial hint, no ground warnings under the lineup.
+func _beauty(h: Hunt) -> void:
+	if h.hud._hint:
+		h.hud._hint.visible = false
+	for n in h.find_children("*", "MeshInstance3D", true, false):
+		if n.has_meta("pool") and str(n.get_meta("pool")).begins_with("tele_"):
+			n.visible = false
+
+
 func _capture(args: PackedStringArray) -> void:
 	_shots_dir = _arg(args, "out", _shots_dir)
 	DirAccess.make_dir_recursive_absolute(_shots_dir)
@@ -427,6 +436,15 @@ func _capture(args: PackedStringArray) -> void:
 		seed(7)
 		Game.rng.seed = 7
 	Game.hero(hid)["shards"] = 9
+	# --dress=N: the hero in a full rare set (--set=hexer: the Blackguard plate and helm), so the beauty shots show a knight in plate and not the starter kettle hat.
+	var dress := int(_arg(args, "dress", "4" if "biome" in want else "-1"))
+	if dress >= 0:
+		for sk in DB.SKILLS:
+			Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(int(GearDB.REQ[dress])))
+		for slot in DB.SLOTS:
+			var piece := Game.make_item(hid, slot, dress, "rare")
+			piece["set"] = _arg(args, "set", "hexer")
+			Game.equip(hid, int(Game.grant_item(piece)["uid"]))
 	Game.data["tier_unlocked"] = 1
 	Game.data["mode"] = _arg(args, "mode", "horde")
 	Game.data["mode_tiers"][Game.data["mode"]] = 1
@@ -1247,7 +1265,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards", "perf":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards", "perf", "biome":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1517,6 +1535,64 @@ func _capture(args: PackedStringArray) -> void:
 					await _save("bossphase_after")
 				elif shot == "perf":
 					await _perf(h, args)
+				elif shot == "biome":
+					# Every foe of the zone, four to a frame ahead of the hero, then the critters:
+					# biome_0, biome_1, biome_critters (run it with --zone=frost|swamp and --cam=0.55).
+					# Taken right after the start, on a clean field (no waves, no corpses).
+					h.spawn_t = 1e9
+					h.hero.invuln = 99.0
+					h.bot = false
+					# The stage: the Cinder Mire's widest dry island (the landing is a fenced strip).
+					if h.arena.zone == "swamp":
+						h.hero.position = Vector3(0.0, 0.0, 14.0)
+					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
+					# A low angle, so the knight reads as a knight and not as the top of a helm.
+					h.cam.pitch_deg = float(_arg(args, "pitch", "50"))
+					# The hero low in the frame, the lineup in its middle.
+					h.cam.anchor = float(_arg(args, "anchor", "0.8"))
+					# Nobody fights in this shot: no blows from the hero, no pet ability bursts on the lineup.
+					h.hero.atk_cd = 1e9
+					if h.sidekick:
+						h.sidekick.cd = 99.0
+					await _wait_sim(h, 2.5)
+					for f in h.foes.duplicate():
+						h.foes.erase(f)
+						f.queue_free()
+					var kinds: Array = preload("res://src/hunt/foe_brains.gd").faction(h.zone).values()
+					h.foe_speed_mult = 0.0
+					h.spawn_t = 1e9
+					# Four foes a frame (2x2 in front of the hero), the zone's eight in two shots.
+					for part in 2:
+						for f in h.foes.duplicate():
+							h.foes.erase(f)
+							f.queue_free()
+						await _wait_sim(h, 0.3)
+						# A staggered row across the stage, the hero in front of it.
+						for i in 4:
+							var at: Vector3 = h.hero.position + Vector3((float(i) - 1.5) * 2.3, 0.0, -3.2 - float(i % 2) * 1.4)
+							h.spawn_foe(str(kinds[part * 4 + i]), h.arena.resolve(at, 0.5))
+						await _wait_sim(h, 1.8)
+						_beauty(h)
+						await _save("biome_%d" % part)
+					# The zone's critters in an arc ahead of the hero, each just past its flight distance.
+					for f in h.foes.duplicate():
+						h.foes.erase(f)
+						f.queue_free()
+					var amb: Variant = h.get_meta("ambience", null)
+					if amb is RefCounted:
+						(amb as RefCounted).calm = true
+						h.cam.dist_mult = float(_arg(args, "cam2", "0.4"))
+						var far := {"hare": 3.0, "owl": 3.6, "wolf": 4.4, "frog": 2.6, "dragonfly": 3.4, "crow": 4.6, "bubble": 3.0, "ring": 3.2}
+						var life: Dictionary = (amb as RefCounted).cfg["life"]
+						var n := 0
+						for k: String in life:
+							var at: Vector3 = h.hero.flat_pos() + Vector3((float(n) - float(life.size() - 1) * 0.5) * 1.9, 0.0, -float(far[k]) - float(n % 2) * 1.2)
+							var bit: Variant = (amb as RefCounted).spawn(k, at)
+							(bit as RefCounted).life = 99.0
+							n += 1
+						await _wait_sim(h, 1.1)
+						_beauty(h)
+						await _save("biome_critters")
 				elif shot == "hazards":
 					# The zone's hazards all at once, winding up around the hero.
 					await _wait_sim(h, 5.0)
