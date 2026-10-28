@@ -1547,7 +1547,7 @@ func _capture(args: PackedStringArray) -> void:
 						h.hero.position = Vector3(0.0, 0.0, 14.0)
 					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
 					# A low angle, so the knight reads as a knight and not as the top of a helm.
-					h.cam.pitch_deg = float(_arg(args, "pitch", "34"))
+					h.cam.pitch_deg = float(_arg(args, "pitch", "50"))
 					# The hero low in the frame, the lineup in its middle.
 					h.cam.anchor = float(_arg(args, "anchor", "0.8"))
 					# Nobody fights in this shot: no blows from the hero, no pet ability bursts on the lineup.
