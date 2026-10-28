@@ -881,7 +881,7 @@ func _build_strip() -> void:
 	Ui.clear(_strip)
 	var now := Game.hero_stats(hero_id)
 	var then := Game.hero_stats(hero_id, _try_on())
-	for spec in [["Health", "hp", 1.0, "%d"], ["Damage", "dmg", 1.0, "%d"], ["Armor", "armor", 100.0, "%d%%"], ["Speed", "rate", 1.0, "%.2f"]]:
+	for spec in [["Health", "hp", 1.0, "%d"], ["Damage", "dmg", 1.0, "%d"], ["Armor", "armor", 100.0, "%d%%"], ["Hits/s", "rate", 1.0, "%.2f"]]:
 		var key: String = spec[1]
 		var k: float = spec[2]
 		var f: String = spec[3]

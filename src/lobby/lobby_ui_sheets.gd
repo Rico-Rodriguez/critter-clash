@@ -478,7 +478,9 @@ func _build_log(s: Sheet) -> void:
 	var ec := _card()
 	var ev := VBoxContainer.new()
 	ev.add_theme_constant_override("separation", 2)
-	ev.add_child(Ui.label("EVOLUTIONS · three of the first card, one of the second", "Caption"))
+	var evh := Ui.label("EVOLUTIONS · three of the first card, one of the second", "Caption")
+	evh.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ev.add_child(evh)
 	for cid: String in DB.CARDS:
 		var c: Dictionary = DB.CARDS[cid]
 		if c.has("evo"):
@@ -497,7 +499,9 @@ func _build_log(s: Sheet) -> void:
 	var setc := _card()
 	var setv := VBoxContainer.new()
 	setv.add_theme_constant_override("separation", 2)
-	setv.add_child(Ui.label("SETS · pieces from a boss's hoard", "Caption"))
+	var seth := Ui.label("SETS · pieces from a boss's hoard", "Caption")
+	seth.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	setv.add_child(seth)
 	for sid: String in DB.SETS:
 		var sd: Dictionary = DB.SETS[sid]
 		var sl2 := Ui.label("%s: 2 pieces %s · 4 pieces %s" % [sd["name"], sd["2"]["desc"], sd["4"]["desc"]], "Small")
