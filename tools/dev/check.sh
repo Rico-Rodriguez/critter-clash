@@ -6,6 +6,7 @@
 #      (the Frozen Crypt and Burning Swamp also with the old foes, --old-foes)
 #   4. Endless Descent runs 260 s without errors, Boss Rush and the Wilderness can be won
 #   5. an idle hero must lose
+#   5b. no broken .import file, no resource that fails to load (tools/dev/check_imports.py)
 #   6. with --perf: the Frozen Crypt and Burning Swamp stay inside the frame budget
 # Usage: tools/dev/check.sh [--quick] [--perf]   (a private TMPDIR keeps bots apart)
 set -uo pipefail
@@ -23,6 +24,8 @@ grep -E "FAIL|SCRIPT ERROR|TESTS" "$LOG/test.log" | head -20
 grep -q "TESTS PASSED" "$LOG/test.log" || fail=1
 # A script error stops a test function early, so its later checks never run.
 ! grep -q "SCRIPT ERROR" "$LOG/test.log" || fail=1
+# Broken .import files and resources that failed to load ship a silent or blank game.
+python3 -I "$D/check_imports.py" "$LOG/test.log" || fail=1
 PERF=0; QUICK=0
 for a in "$@"; do [ "$a" = "--perf" ] && PERF=1; [ "$a" = "--quick" ] && QUICK=1; done
 if [ $QUICK -eq 0 ]; then
@@ -69,6 +72,9 @@ if [ $QUICK -eq 0 ]; then
 	timeout 600 "$D/godot.sh" --fixed-fps 60 -- --bot --hero=knight --idle > "$LOG/idle.log" 2>&1
 	grep -E "^BOT" "$LOG/idle.log" | cut -c1-110
 	grep -q "BOT DONE PASS" "$LOG/idle.log" || fail=1
+fi
+if [ $QUICK -eq 0 ]; then
+	python3 -I "$D/check_imports.py" "$LOG"/bot.log "$LOG"/depths.log "$LOG"/trial.log "$LOG"/rush.log "$LOG"/wild.log "$LOG"/frost*.log "$LOG"/swamp*.log "$LOG"/descent.log "$LOG"/idle.log || fail=1
 fi
 if [ $PERF -eq 1 ]; then
 	timeout 3000 "$D/perf-biomes.sh" > "$LOG/perf.log" 2>&1

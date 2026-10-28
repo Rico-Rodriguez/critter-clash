@@ -19,6 +19,9 @@ jobs:
       - name: App Store readiness (placeholders warn, secrets and broken links fail)
         run: python3 tools/store/check_store.py
 
+      - name: Import files must be valid (PR #118 shipped 93 broken ones)
+        run: python3 tools/dev/check_imports.py
+
       - name: Install Godot 4.7.2
         run: |
           set -euo pipefail
@@ -71,3 +74,6 @@ jobs:
           set -euo pipefail
           timeout 600 "$GODOT" --headless --path . --fixed-fps 60 -- --bot --hero=knight --idle 2>&1 | tee idle.log
           grep -q "BOT DONE PASS" idle.log
+
+      - name: No resource failed to load in any run
+        run: python3 tools/dev/check_imports.py test.log bot.log depths.log trial.log idle.log
