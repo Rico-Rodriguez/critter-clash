@@ -23,4 +23,11 @@ const CINDER_WARLORD := {
 	},
 }
 
-const DEFS := {"cinder_warlord": CINDER_WARLORD}
+## PROVISIONAL (provenance concern, see CREDITS.md): replace before release.
+const FROST_TROLL := {
+	"model": "glb:frost_troll", "fit": 1.9, "scale": 3.0,
+	"clips": {"idle":"Idle","walk":"Walk","run":"Run","attack":["Attack","Slam"],
+		"cast":"Roar","taunt":"Roar","spawn":"Roar","hit":"Hit","die":"Death"},
+	"alias": {"Melee_2H_Attack_Chop":"Slam","Melee_Dualwield_Attack_Slice":"Attack","Melee_2H_Attack_Spin":"Slam"},
+}
+const DEFS := {"cinder_warlord": CINDER_WARLORD, "frost_troll": FROST_TROLL}

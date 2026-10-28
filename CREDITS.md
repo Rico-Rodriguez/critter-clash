@@ -184,3 +184,12 @@ The scripts that built the audio are are kept in `tools/audio/`.
   - Cinder Warlord — "Low-poly orc" by Riltariki —
     https://sketchfab.com/3d-models/low-poly-orc-62f1637181cb4f6aa38897f5b7ab5edf
     (decimated from 21.6k to 11.4k tris; textures as shipped, 1024 px)
+  - Rimehollow boss, PROVISIONAL: Frost Troll — "Frost Troll" by moonbaby2402 (CC BY 4.0) —
+    https://sketchfab.com/3d-models/frost-troll-c0b30d5460f54736b0556a552688148c
+    (no decimation, 11.3k tris; textures as shipped, 1024 px; Idle is the shipped take, the other clips
+    — Walk, Run, Attack, Slam, Roar, Hit, Death — are keyframed for this project on its rig,
+    `tools/art/boss_clips.py`).
+    PROVISIONAL: provenance concern. This upload (2020-12-10) has the same 11,271 faces and 5,851 vertices as
+    itszyx123456789's "Monster" (2020-11-19) and credits no original; the rig is the 38-bone "Mutant:"
+    skeleton (a Mixamo-style character). The author's CC BY grant may not be theirs to give. To be replaced
+    before release; credit and entry go when it is.
