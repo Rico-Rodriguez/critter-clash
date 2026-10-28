@@ -7,6 +7,7 @@ extends RefCounted
 const ItemIcons := preload("res://src/ui/item_icons.gd")
 const GOLD := Color(1.0, 0.82, 0.4)
 const FxUi := preload("res://src/ui/fx_ui.gd")
+const LookPreview := preload("res://src/lobby/look_preview.gd")
 ## Tile colors by rarity and by chest.
 const RARITY_TILE := {"common": &"TileSlate", "magic": &"TileBlue", "rare": &"TileGold", "epic": &"TilePurple", "legendary": &"TileRed"}
 const CHEST_TILE := {"silver": &"TileSlate", "gold": &"TileGold", "crypt": &"TileRed"}
@@ -519,7 +520,7 @@ static func _confirm(ui, page: Sheet, d: Dictionary, i: int) -> void:
 			title = str(DB.WEAPON_SKINS[d["skin"]]["name"])
 		"outfit":
 			title = str(DB.OUTFITS[d["outfit"]]["name"])
-	sh.open(title, func(cs: Sheet): _confirm_body(ui, page, cs, d, i), 0.6)
+	sh.open(title, func(cs: Sheet): _confirm_body(ui, page, cs, d, i), 0.85 if str(d["kind"]) in ["outfit", "skin"] else 0.6)
 
 
 static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> void:
@@ -553,9 +554,15 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 			lines.append("Your %s's weapon glows %s in every hunt." % [DB.HEROES[d["hero"]]["name"], str(DB.GLOWS[d["glow"]]["name"]).to_lower()])
 			lines.append("Looks only: it changes no stats.")
 		"outfit":
+			var cp := CenterContainer.new()
+			cp.add_child(LookPreview.make(str(d["hero"]), {"outfit": str(d["outfit"])}))
+			b.add_child(cp)
 			lines.append("Your %s wears the %s outfit in camp and in every hunt." % [DB.HEROES[d["hero"]]["name"], DB.OUTFITS[d["outfit"]]["name"]])
 			lines.append("Looks only: the gear you wear still counts.")
 		"skin":
+			var cs2 := CenterContainer.new()
+			cs2.add_child(LookPreview.make(str(d["hero"]), {"skin": str(d["skin"])}))
+			b.add_child(cs2)
 			lines.append("Your %s carries the %s in camp and in every hunt." % [DB.HEROES[d["hero"]]["name"], DB.WEAPON_SKINS[d["skin"]]["name"]])
 			lines.append("Looks only: your equipped weapon's stats still count.")
 	for ln in lines:
