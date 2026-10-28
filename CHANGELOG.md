@@ -10,6 +10,13 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the last Rimehollow kit pieces
+
+The kit's throne (dais, ice seat and spires; replaces five scaled ice blocks), the six `hole_rim` rings round the
+fishing holes, the `ice_arch` over the causeway at the Glacier Gate (its legs are cover), and fifteen `snow_bank`
+drifts at the foot of the cliffs and the shore props are placed in `arena_rime.gd`. Before/after:
+/workspace/rebuild-caps/rime-pieces.
+
 ## Unreleased: Biome rebuild, the frost water is blue
 
 Open water in Rimehollow rendered black (`water_col` in `terrain_ground.gdshader` was near black, and
