@@ -139,6 +139,27 @@ how many fight sounds are playing; it changes no music files.
 
 The scripts that built the audio are are kept in `tools/audio/`.
 
+## Ambience — Rimehollow and the Cinder Mire (CC0)
+
+Beds and one-shots in `assets/audio/ambient/`, cut and loudness-matched by
+`tools/audio/build_ambience.py`. All sources are CC0 from OpenGameArt:
+
+- Écrivain — "Icy Heights" (the wind loop): the Rimehollow bed and gusts —
+  https://opengameart.org/content/icy-heights
+- wipics — "Winter Wind": more gusts — https://opengameart.org/content/winter-wind
+- LokiF — "Swamp Environment Audio": the Cinder Mire bed and bubbling —
+  https://opengameart.org/content/swamp-environment-audio
+- EZduzziteh — "Frog Croaks" and "Ribbit Frog Sounds" —
+  https://opengameart.org/content/frog-croaks ,
+  https://opengameart.org/content/ribbit-frog-sounds
+- zeroisnotnull — "Crow caw" — https://opengameart.org/content/crow-caw
+- AntumDeluge — "Fire Crackling" (the ember pops) —
+  https://opengameart.org/content/fire-crackling
+
+The ice creaks and drips are synthesized for this project (original work, no
+file source). The critters (hares, owls, wolves, frogs, dragonflies, crows,
+methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
+
 ## Sidekicks
 
 - Sidekick models, Creative Commons Attribution 4.0

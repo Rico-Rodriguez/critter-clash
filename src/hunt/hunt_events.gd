@@ -2,6 +2,8 @@ extends "res://src/hunt/hunt_combat.gd"
 ## The hunt, part 4: things that happen during a hunt. Shrines, curses,
 ## surges, the ritual and ground hazards.
 
+const Ambience := preload("res://src/hunt/ambience.gd")
+
 
 # --- Shrines and curses -------------------------------------------------------
 
@@ -134,6 +136,7 @@ func _tick_surge(dt: float) -> void:
 func _tick_hazards(dt: float) -> void:
 	if terr != null:
 		terr.tick(dt)
+	Ambience.tick(self, dt)
 	if biome != null:
 		biome.tick(dt)
 	if _warming or not hero.alive or not (phase == "rise" or phase == "boss"):
