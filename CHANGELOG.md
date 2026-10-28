@@ -13,6 +13,9 @@ version is 7.
 ## Unreleased: Godot stops importing docs/
 
 Added `docs/.gdignore` and removed 69 `.import` files for review screenshots and videos. They were never in the pack (`docs/*` is excluded from export) but every import, local and CI, processed them. The media itself is untouched.
+## Unreleased: the weekly board refuses impossible scores
+
+`weekly_submit` clamped a reported score to 100000, so a cheater still took first place. It now refuses anything above 40000 (`implausible`, logged), a bound taken from the score formula. No game change; the server needs redeploying. `net_test.gd` covers it.
 ## Unreleased: a recovered hunt says so
 
 When the phone kills the app mid-hunt, the next boot pays the hunt out as a retreat. The camp now shows a note ("Your last hunt was saved", with the gold and items kept) once, then clears the `recovered_run` flag. Before, the flag was written and never read. `--shots=recovered` captures it.
