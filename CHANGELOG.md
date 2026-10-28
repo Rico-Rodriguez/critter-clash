@@ -13,6 +13,11 @@ version is 7.
 ## Unreleased: one difficulty ladder for the whole account
 
 From the design audit (`reviews/design-audit-2026-10-28.html`). Difficulties used to open per mode, three wins each, so opening Abyss everywhere meant about 105 wins, most far below the player's power. Now a win on your highest difficulty in any mode opens the next one in every mode, and `DB.TIER_WINS` is 1. The first-clear trophy bonus pays once per difficulty for the account (`tier_wins["all:N"]`), not once per mode. Old saves keep the best tier any mode reached (`Game._one_ladder`, safe to repeat, no save version). `mode_tiers` stays in the save, unused. The results screen says "unlocked in every mode".
+---
+
+## Unreleased: Season and Daily as picture rows
+
+Each Season tier shows its reward (coins, shards, gems, a real chest, egg or outfit render) with a check on claimed tiers instead of plain text. The Daily login chests are real renders, and the first-win line now mentions the 2 gems.
 
 ---
 
