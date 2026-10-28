@@ -13,10 +13,12 @@ version is 7.
 ## Unreleased: Biome rebuild, the Long Road on the kits
 
 The Long Road's frost and mire rooms (`arena_trial_zone.gd`) place the Art kits' meshes instead of code-built
-ones: glacier cliffs, ice blocks, crystals and pines in Rimehollow, bog stones, piles, braziers, reeds and the
-Pyre Tree in the Cinder Mire. `mire_kit.gd` and every code-built piece in `kit_mesh.gd` are deleted; it keeps only
-the MultiMesh `batch`. Captures: /workspace/rebuild-caps/long-road (frost 126k to 216k triangles in the first
-room, still under the 450k budget).
+ones. Walls, dividers (glacier ramparts, stake palisades, 2.35 m step along x), gate posts at the gap, room
+cover (ice pillars, ash rocks), camp props (banner, cairn, crates, beacon / barricade, barrels, cage, fire
+pit, snags), the frost spire ring and the Warlord's watchtower and cage come from `rime_road` / `mire_road`
+(#138); pines, crystals, braziers, reeds and the Pyre Tree from the arena kits. `mire_kit.gd` and every
+code-built piece in `kit_mesh.gd` are deleted; it keeps only the MultiMesh `batch`. Captures:
+/workspace/rebuild-caps/long-road.
 
 ## Unreleased: Biome rebuild, the last Rimehollow kit pieces
 
