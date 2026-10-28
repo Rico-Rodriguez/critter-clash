@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: chests and eggs are real renders
+
+Shop chest cards (deal of the day, chest tiles, daily deals), the results chest and the egg shop and hatchery cards now show the actual 3D chest (KayKit, lit in the chest's colour) or a speckled egg built in code (`src/ui/prop_icons.gd`, cached off-screen renders). The egg shop header says one line when both clocks match.
+
+---
+
 ## Unreleased: shop look tiles show the look
 
 Outfit and weapon-skin tiles in the shop show the hero wearing the look (`src/ui/look_icons.gd`, same cached off-screen render as the pet portraits) instead of the hero icon, and long names no longer truncate. Weapon skins are still a full-body shot: the weapon is small in it.

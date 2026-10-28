@@ -769,6 +769,7 @@ const HATCH := preload("res://src/ui/hatch_show.gd")
 const Care := preload("res://src/core/pet_care.gd")
 const PetsTab := preload("res://src/lobby/pets_tab.gd")
 const PetStage := preload("res://src/lobby/pet_stage.gd")
+const PropIcons := preload("res://src/ui/prop_icons.gd")
 const PetIcons := preload("res://src/ui/pet_icons.gd")
 ## The sidekick whose detail page is open in the sheet ("" = the stable).
 var _sk_detail := ""
@@ -823,7 +824,7 @@ func _egg_tile(s: Sheet, e: Dictionary, now: int) -> Control:
 	c.custom_minimum_size = Vector2(0, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
-	v.add_child(_row([Ui.icon_rect("egg-clutch", 40, col), Ui.label(str(ed["name"]), "Body")], 8))
+	v.add_child(_row([PropIcons.egg(str(e["kind"]), 56), Ui.label(str(ed["name"]), "Body")], 8))
 	var hatchable := SKS.egg_ready(e, now)
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
