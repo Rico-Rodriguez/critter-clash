@@ -1548,6 +1548,8 @@ func _capture(args: PackedStringArray) -> void:
 					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
 					# A low angle, so the knight reads as a knight and not as the top of a helm.
 					h.cam.pitch_deg = float(_arg(args, "pitch", "34"))
+					# The hero low in the frame, the lineup in its middle.
+					h.cam.anchor = float(_arg(args, "anchor", "0.8"))
 					# Nobody fights in this shot: no blows from the hero, no pet ability bursts on the lineup.
 					h.hero.atk_cd = 1e9
 					if h.sidekick:
@@ -1567,7 +1569,7 @@ func _capture(args: PackedStringArray) -> void:
 						await _wait_sim(h, 0.3)
 						# A staggered row across the stage, the hero in front of it.
 						for i in 4:
-							var at: Vector3 = h.hero.position + Vector3((float(i) - 1.5) * 2.5, 0.0, -3.8 - float(i % 2) * 1.5)
+							var at: Vector3 = h.hero.position + Vector3((float(i) - 1.5) * 2.3, 0.0, -3.2 - float(i % 2) * 1.4)
 							h.spawn_foe(str(kinds[part * 4 + i]), h.arena.resolve(at, 0.5))
 						await _wait_sim(h, 1.8)
 						_beauty(h)
