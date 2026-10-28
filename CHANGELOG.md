@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the frost water is blue
+
+Open water in Rimehollow rendered black (`water_col` in `terrain_ground.gdshader` was near black, and
+there is no sky to mirror), so a fishing hole or a cracked-open floor read as a hole in the world. It
+is now a deep blue with a slow lighter ripple, still glossy and unlit by fog or tint.
+
 ## Biome visual polish (dev/biome-models, round 2)
 
 - Cinder Mire is lit: brighter ground, a warm key, a cool rim light (arena_mire.gd `_light`).

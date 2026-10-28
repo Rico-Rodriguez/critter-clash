@@ -21,7 +21,8 @@ uniform float base_rough = 0.85;
 uniform vec4 ice_a : source_color = vec4(0.66, 0.84, 0.96, 1.0);
 uniform vec4 ice_b : source_color = vec4(0.82, 0.93, 1.0, 1.0);
 uniform vec4 crack_col : source_color = vec4(0.30, 0.50, 0.72, 1.0);
-uniform vec4 water_col : source_color = vec4(0.012, 0.03, 0.05, 1.0);
+uniform vec4 water_col : source_color = vec4(0.04, 0.22, 0.38, 1.0);
+uniform vec4 water_deep : source_color = vec4(0.015, 0.09, 0.19, 1.0);
 uniform vec4 bog_col : source_color = vec4(0.028, 0.024, 0.02, 1.0);
 uniform vec4 ash_col : source_color = vec4(0.13, 0.12, 0.115, 1.0);
 uniform vec4 ember_col : source_color = vec4(1.0, 0.42, 0.08, 1.0);
@@ -105,11 +106,11 @@ void fragment() {
 		tc = mix(tc, vec3(0.95, 0.98, 1.0), going * (web + web2 * 0.5 + 0.25));
 		col = mix(col, tc, thin);
 	}
-	// Open water: black and mirror-like, with a slow ripple.
+	// Open water: deep blue and glossy, with a slow ripple (no sky to mirror here, so its colour is its own).
 	float wat = cut(A.b + jit * 0.8, 0.05);
 	if (wat > 0.0) {
 		float rip = texture(noise_b, p * 0.1 + vec2(TIME * 0.03, TIME * 0.02)).r;
-		col = mix(col, water_col.rgb, wat);
+		col = mix(col, mix(water_deep.rgb, water_col.rgb, smoothstep(0.25, 0.75, rip)), wat);
 		rough = mix(rough, 0.03, wat);
 		spec = mix(spec, 1.0, wat);
 		nrm = mix(nrm, vec3(0.5 + (rip - 0.5) * 0.35, 0.5 + (n3 - 0.5) * 0.2, 1.0), wat);
