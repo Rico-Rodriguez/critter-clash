@@ -1492,7 +1492,7 @@ const OUTFIT_ORDER := ["crimson", "gilded", "frostwood", "emberstalker", "ashen"
 ## The season pass's outfit, one a season in turn.
 const SEASON_OUTFITS := ["embergilt", "moonsilk", "verdigris"]
 ## The pass pays it at this tier.
-const SEASON_OUTFIT_TIER := 25
+const SEASON_OUTFIT_TIER := 20
 
 # --- Online ---------------------------------------------------------------------
 
@@ -1607,7 +1607,7 @@ const SEASON_WEEKS := 6
 ## the card's recommended power already warns about a fluke, and a loss costs nothing.
 const TIER_WINS := 1
 const SEASON_TIERS := 30
-const SEASON_XP := 400
+const SEASON_XP := 240
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
 
 static func season_reward(n: int, sid := 0) -> Dictionary:
@@ -1617,7 +1617,7 @@ static func season_reward(n: int, sid := 0) -> Dictionary:
 		return {"kind": "outfit", "outfit": SEASON_OUTFITS[sid % SEASON_OUTFITS.size()]}
 	if n == 28:
 		return {"kind": "egg", "egg": "exotic"}
-	if n == 10 or n == 20:
+	if n == 10 or n == 25:
 		return {"kind": "egg", "egg": "season"}
 	# The omen egg used to come from the weekly event track; it lives here now.
 	if n == 23:

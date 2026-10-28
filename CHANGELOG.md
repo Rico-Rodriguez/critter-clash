@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the season is a little shorter
+
+From the design audit. A tier now costs 240 season xp instead of 400, and the season's outfit is at tier 20 instead of 25 (the second season egg moves from 20 to 25 to swap places). In the simulated week a regular player reaches 6 tiers a week (5 weeks for all 30), a casual player 2, and the grinder 22, still under 30 (`economy_tests`).
+
+---
+
 ## Unreleased: zones and modes open early, zones stop out-paying each other
 
 From the design audit. Zones never got harder, they only paid more loot, so the newest zone made every older one pointless, and the gates sat 10,500 and 12,500 trophies out (about 23 and 27 weeks for a casual player). Now the zones are variety, not rungs: Vault 4,100, Frozen Crypt 4,400, Burning Swamp 5,000 trophies; the Wilderness opens at 1,000 and the Rogue at 3,500. Every zone now has loot bonus 2 and the Vault's and Swamp's extra gold is gone, so the choice is the boss and its uniques. Done by swapping what the road's steps pay, so step numbers (and the cards gated by them) do not move. `mode_unlocked` now also counts passed steps, like zones do, so a save already past the Wilderness's new step has it. A save loses at most one chest it would have been paid at a step that now pays something else.

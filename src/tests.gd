@@ -1097,7 +1097,7 @@ func _hatchery_tests() -> void:
 				gems += int(x["amount"])
 	_ok("chests: gems every time, brood eggs sometimes", gems == 30 * int(SKDB_T.CHEST_GEMS["crypt"]) and got_egg and SK.gems(d5) == gems)
 	_ok("chests: silver never has an egg", SK.chest_extras(Game._fresh(), "silver", t0, r5).all(func(x): return str(x["type"]) != "egg"))
-	_ok("season: Season Eggs at tiers 10 and 20, gems along the road", str(DB.season_reward(10)["kind"]) == "egg" and str(DB.season_reward(20)["egg"]) == "season" and str(DB.season_reward(3)["kind"]) == "gems" and str(DB.season_reward(30)["kind"]) == "glow")
+	_ok("season: Season Eggs at tiers 10 and 25, gems along the road", str(DB.season_reward(10)["kind"]) == "egg" and str(DB.season_reward(25)["egg"]) == "season" and str(DB.season_reward(3)["kind"]) == "gems" and str(DB.season_reward(30)["kind"]) == "glow")
 	Game.data = Game._fresh()
 	Game.data["season"] = {"id": Game.season_id(), "xp": DB.SEASON_XP * 10, "claimed": 9}
 	Game.claim_season()
