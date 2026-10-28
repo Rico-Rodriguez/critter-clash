@@ -13,6 +13,10 @@ version is 7.
 ## Unreleased: one plan for every bot
 
 `docs/PLAN.md` is rewritten as the live queue (rules for working with other bots, what needs Rico, what is next); the old phases moved to `docs/PLAN-history.md`. New `docs/biomes.md` records which zones are rebuilt. `CLAUDE.md` gains the two-bot rules. Also restored the `---` between changelog entries that the merges dropped.
+## Unreleased: omen hunts score again, and a simulated economy week
+
+- **Bug:** `Game.weekly_score` ran `int()` on the hunt's list of boss ids, so finishing a hunt under the weekly rule raised a script error and the week's best and event points were not recorded. It now counts the list. No bot ran an omen hunt, which is how it shipped.
+- New `src/economy_tests.gd` plays a week for a casual, a regular and a grinder player through the real `finish_hunt` and tier claims, prints an `ECONOMY` line each (casual: ~8k gold, 1 season tier, 2 of 10 event tiers; grinder: ~58k gold, 7 season tiers, all 10 event tiers) and guards the shape.
 
 ---
 

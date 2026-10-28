@@ -338,6 +338,7 @@ func run() -> int:
 	preload("res://src/hunt/boss_intro_tests.gd").run(_ok)
 	preload("res://src/hunt/boss_phase_tests.gd").run(_ok)
 	preload("res://src/sound_tests.gd").run(_ok)
+	preload("res://src/economy_tests.gd").run(_ok)
 	return _fails
 
 
