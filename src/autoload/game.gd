@@ -155,6 +155,17 @@ func load_save() -> void:
 		_refund_levels()
 		_free_hands()
 		_road_heroes()
+		_one_ladder()
+
+
+## Difficulties used to open per mode (`mode_tiers`). One ladder now opens them
+## for every mode: the save keeps the best tier any mode reached. Safe to
+## repeat, so no save version is needed.
+func _one_ladder() -> void:
+	var best := int(data.get("tier_unlocked", 0))
+	for m in data.get("mode_tiers", {}):
+		best = maxi(best, int(data["mode_tiers"][m]))
+	data["tier_unlocked"] = clampi(best, 0, DB.TIERS.size() - 1)
 
 
 ## The shake on/off switch became a level (Off, Low, Medium, High). On becomes
@@ -472,8 +483,6 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if best <= 0.0 or float(r["time"]) < best:
 			st["best"][key] = float(r["time"])
 		summary["unlocked_tier"] = _open_mode_tier(str(r.get("mode", "horde")), t)
-		if summary["unlocked_tier"] > 0 and t >= int(data["tier_unlocked"]) and t < DB.TIERS.size() - 1:
-			data["tier_unlocked"] = t + 1
 	summary["renown"] = _earn_renown(r, summary)
 	season()["xp"] = int(season()["xp"]) + int(summary["renown"])
 	var hid := str(r.get("hero", hero_id()))
@@ -502,8 +511,6 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		if (r.get("bosses", []) as Array).size() > 0:
 			var tt := int(r["tier"])
 			summary["unlocked_tier"] = _open_mode_tier("descent", tt)
-			if summary["unlocked_tier"] > 0 and tt >= int(data["tier_unlocked"]) and tt < DB.TIERS.size() - 1:
-				data["tier_unlocked"] = tt + 1
 		var dkey: String = "descent_" + str(r["hero"])
 		var d := int(r.get("depth", 1))
 		if d > int(st["best"].get(dkey, 0)):
