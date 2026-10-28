@@ -1259,9 +1259,6 @@ const SKILL_ARMOR := 0.004
 ## Talent points: one per this many combat levels above 3, up to the cap.
 const TALENT_COMBAT_STEP := 5
 const TALENT_MAX := 19
-## XP lamps: shards rubbed into a skill, worth this much XP per shard per
-## level of the skill (OSRS lamps scale with level too).
-const LAMP_SHARDS := 10
 
 ## Super ranks: the job for shards. Each rank costs shards plus gold and adds
 ## the change its line says, so the price and payoff are always readable.
@@ -1329,7 +1326,6 @@ static func super_perks(kind: String, rank: int) -> Dictionary:
 			if k != "text":
 				out[k] = float(out.get(k, 0.0)) + float(list[i][k])
 	return out
-const LAMP_XP := 5
 ## Skill XP per point of damage dealt.
 const XP_PER_DAMAGE := 0.16
 

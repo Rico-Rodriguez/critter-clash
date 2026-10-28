@@ -36,27 +36,6 @@ func buy_super_rank(id: String) -> bool:
 	return true
 
 
-# --- XP lamps -----------------------------------------------------------------
-
-## XP one lamp adds to skill `s` of hero `id` at its current level.
-func lamp_xp(id: String, s: String) -> int:
-	return DB.LAMP_SHARDS * DB.LAMP_XP * skill_level(s, id)
-
-
-func can_rub_lamp(id: String) -> bool:
-	return hero(id)["unlocked"] and int(hero(id)["shards"]) >= DB.LAMP_SHARDS
-
-
-func rub_lamp(id: String, s: String) -> bool:
-	if not can_rub_lamp(id) or not s in DB.STYLE_SKILLS[DB.HEROES[id]["skill"]]:
-		return false
-	var xp := lamp_xp(id, s)
-	hero(id)["shards"] = int(hero(id)["shards"]) - DB.LAMP_SHARDS
-	skills(id)[s] = mini(skill_xp(s, id) + xp, 200000000)
-	save()
-	return true
-
-
 # --- Hero stats ----------------------------------------------------------
 
 ## The hero's numbers before in-hunt cards: base, skills, gear.

@@ -56,7 +56,7 @@ func open_chest(kind: String) -> Array:
 
 
 ## Heroes join on the Trophy Road now; shards a locked hero gathers wait
-## for it (XP lamps). Kept, returning "", for the callers that still ask.
+## for it. Kept, returning "", for the callers that still ask.
 func unlock_by_shards() -> String:
 	return ""
 

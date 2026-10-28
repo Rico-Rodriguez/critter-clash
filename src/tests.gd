@@ -50,10 +50,6 @@ func run() -> int:
 	Game._refund_levels()
 	Game._refund_levels()
 	_ok("bought levels refunded once", Game.gold() == g_lv + DB.UPGRADE_GOLD[1] + DB.UPGRADE_GOLD[2] and int(Game.hero("knight")["shards"]) == s_lv + DB.UPGRADE_SHARDS[1] + DB.UPGRADE_SHARDS[2] and int(Game.hero("knight")["level"]) == 1)
-	# Lamps turn shards into XP for a skill the hero trains.
-	Game.hero("knight")["shards"] = DB.LAMP_SHARDS
-	var xp_lamp := Game.lamp_xp("knight", "strength")
-	_ok("a ranger skill takes no lamp", not Game.rub_lamp("knight", "ranged"))
 	Game.hero("knight")["shards"] = 60
 	Game.data["gold"] = 999
 	_ok("super rank needs its gold", not Game.buy_super_rank("knight") and Game.super_rank("knight") == 0)
@@ -99,8 +95,6 @@ func run() -> int:
 		if p["id"] == "still":
 			still = p
 	_ok("super: Stillness is +50%", float(still.get("mod", {}).get("super", 0.0)) == 0.5 and str(still["desc"]).contains("50%"))
-	_ok("lamp adds xp", Game.rub_lamp("knight", "strength") and Game.skill_xp("strength", "knight") == xp_lamp and int(Game.hero("knight")["shards"]) == 0)
-	_ok("no shards, no lamp", not Game.can_rub_lamp("knight"))
 	Game.data = keep_lv
 
 	var common_boss := 0
