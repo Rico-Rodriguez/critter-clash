@@ -12,7 +12,7 @@ version is 7.
 
 ## Unreleased: the Trophy Road shows what you win
 
-The road's chest, egg and pet steps show the real chest, egg or pet render in their icon well (dimmed until reached), and the last player-visible "NEW SIDEKICK" tag now says "NEW PET".
+The Album's breeds are now a grid of the pets' own portraits (a dark outline until found). The road's chest, egg and pet steps show the real chest, egg or pet render in their icon well (dimmed until reached), and the last player-visible "NEW SIDEKICK" tag now says "NEW PET".
 
 ---
 
