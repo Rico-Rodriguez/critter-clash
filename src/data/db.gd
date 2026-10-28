@@ -329,7 +329,7 @@ const ENEMIES_EXTRA := {
 		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.15, "tint": Color(0.3, 0.55, 0.25, 0.45),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
-	# The Frozen Crypt's dead (the Rime Regent's court): the same bones, frozen
+	# The Frozen Crypt's dead (the Frost Troll's court): the same bones, frozen
 	# and recoloured from their own texture (no tint wash). `rider` is what a
 	# landed blow leaves on the hero, `leave` and `trail` what a blast or a lunge
 	# leaves on the ground, `death` what the body does, `base` the role it fills.
@@ -471,10 +471,12 @@ const BOSSES := {
 		"color": Color(1.0, 0.82, 0.35), "el": "holy", "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
 	},
 	"rime": {
-		"name": "The Rime Regent", "title": "of the Frozen Crypt", "wake": "the Regent stirs in the ice", "fall": "The Regent shatters. The Crypt thaws.",
-		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"}, "skin": "regent",
-		"hp": 6000.0, "dmg": 28.0, "speed": 3.0, "radius": 1.45, "scale": 2.6, "mass": 45.0,
-		"color": Color(0.55, 0.85, 1.0), "el": "frost", "source": "rime", "occluder": Vector2(1.6, 4.9), "summon_line": "The Regent calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
+		"name": "The Frost Troll", "title": "of the Frozen Crypt", "wake": "the Troll stirs in the ice", "fall": "The Troll shatters. The Crypt thaws.",
+		# moonbaby2402's troll (assets/foes/frost_troll.tscn, PROVISIONAL); `rig` pulls fit, clips and alias from boss_models.gd.
+		# 5.7 m tall at scale 3.0, so the hitbox is wider and the occluder taller than the Regent's.
+		"model": "glb:frost_troll", "rig": "frost_troll", "weapons": {}, "skin": "regent",
+		"hp": 6000.0, "dmg": 28.0, "speed": 3.0, "radius": 1.95, "scale": 3.0, "mass": 60.0,
+		"color": Color(0.55, 0.85, 1.0), "el": "frost", "source": "rime", "occluder": Vector2(2.1, 6.0), "summon_line": "The Troll calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
 	},
 	"cinder": {
 		"name": "The Cinder Warlord", "title": "of the Burning Swamp", "wake": "the Warlord climbs from the embers", "fall": "The Warlord gutters out. The Swamp smoulders.",
@@ -526,8 +528,8 @@ const ZONES := {
 	# `env.skin` recolours every KayKit prop placed (tools/art/biome_textures.py).
 	# `hazards` are run by src/hunt/biome.gd, `ground` recolours the floor shader.
 	"frost": {
-		"name": "The Frozen Crypt", "boss": "rime", "blurb": "A buried crypt under the ice. The Rime Regent holds the winter.",
-		"wake": "Gather %d souls to wake the Regent", "defeat": "The Frost keeps you", "enter": "Into the Frozen Crypt",
+		"name": "The Frozen Crypt", "boss": "rime", "blurb": "A buried crypt under the ice. The Frost Troll holds the winter.",
+		"wake": "Gather %d souls to wake the Troll", "defeat": "The Frost keeps you", "enter": "Into the Frozen Crypt",
 		"loot_bonus": 3, "weights": {"warrior": 1.3, "rogue": 1.5, "mage": 1.4, "hound": 1.3, "brute": 1.0, "bomber": 0.0, "necro": 1.0},
 		"faction": {"minion": "thrall", "warrior": "frostguard", "rogue": "rimearcher", "mage": "rimeseer", "necro": "frostcaller", "hound": "rimehound", "brute": "colossus"},
 		# Rimehollow's own foes (next_foes.gd), fielded while FoeBrains.next is on.
@@ -1163,7 +1165,7 @@ const UNIQUES := {
 	"gilded_fang": {"cls": "rogue", "fam": "daggers", "dye": Color(1.0, 0.82, 0.35), "name": "Gilded Fangs", "slot": "weapon", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"dmg": 27, "crit": 10}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "cloak-dagger"},
 	"hoardplate": {"cls": "knight", "dye": Color(1.0, 0.8, 0.35), "name": "Hoardplate", "slot": "chest", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"hp": 32, "armor": 9}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "breastplate"},
 	"vault_coin": {"name": "Vault Sovereign", "slot": "trophy", "rarity": "magic", "source": "warden", "rate": 4, "icon": "two-coins", "power": "Heavier than it looks. Sells for 120 gold.", "sell": 120},
-	# The Rime Regent (the Frozen Crypt).
+	# The Frost Troll (the Frozen Crypt).
 	"rime_maul": {"cls": "knight", "fam": "warhammer", "dye": Color(0.55, 0.85, 1.0), "name": "Glacierfall Maul", "slot": "weapon", "rarity": "legendary", "source": "rime", "rate": 25, "stats": {"dmg": 30, "hp": 10}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "warhammer"},
 	"rime_robe": {"cls": "mage", "dye": Color(0.78, 0.92, 1.0), "name": "Rimewoven Robes", "slot": "chest", "rarity": "legendary", "source": "rime", "rate": 25, "stats": {"hp": 30, "armor": 9}, "card": "regen", "power": "Start every hunt with Second Breath", "icon": "robe"},
 	"rime_cowl": {"cls": "ranger", "dye": Color(0.62, 0.82, 1.0), "name": "Winter's Cowl", "slot": "helm", "rarity": "legendary", "source": "rime", "rate": 30, "stats": {"crit": 9, "speed": 6}, "card": "barrage", "power": "Start every hunt with Arrow Storm", "icon": "hood"},

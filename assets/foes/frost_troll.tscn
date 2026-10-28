@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/frost_troll_src.glb" id="1_livde"]
+
+[node name="frost_troll" type="Node3D" unique_id=599965302]
+metadata/cull_aabbs = {
+"Sketchfab_model/2a80e58bc3a8461fa0c5d18a066130bc_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_6": AABB(-178.60364, -110.58082, -130.61142, 358.30908, 373.43445, 299.3029)
+}
+metadata/posed_aabb = AABB(-0.4498392, 0, -0.2588163, 0.8996784, 1, 0.5176326)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=555892375 instance=ExtResource("1_livde")]
+transform = Transform3D(0.4182639, 0, 0, 0, 0.4182639, 0, 0, 0, 0.4182639, 0.2041484, 0.3168213, 1.396696)

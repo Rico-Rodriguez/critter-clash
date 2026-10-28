@@ -1,5 +1,5 @@
 extends Boss
-## The Rime Regent, lord of the Frozen Crypt: a skeleton king in ice. He keeps
+## The Frost Troll, lord of the Frozen Crypt: a troll cased in ice. He keeps
 ## Gravemaw's cleave, quake and charge, and adds two of his own:
 ##   spikes    a fan of ice lanes from him, each leaving a drag of frost
 ##             where it ends: step between the lanes
@@ -154,7 +154,7 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 
 func _phase_lines(n: int) -> Array:
 	if n == 2:
-		return ["The Regent rises", "\"Winter keeps what it takes.\""]
+		return ["The Troll rises", "\"Winter keeps what it takes.\""]
 	return ["The Long Winter", "\"Nothing thaws. Nothing leaves.\""]
 
 
