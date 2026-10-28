@@ -100,23 +100,6 @@ def regent(h, s, v):
     return nh, ns, nv
 
 
-def frost_props(h, s, v):
-    """Frosted wood, ice and stone: every warm swatch to blue-white, greens to
-    deep spruce, the baked light-to-dark ramp kept."""
-    w = warm(h)
-    spruce = (h >= 62.0) & (h < 180.0) & (s > 0.25)
-    nh = np.where(w, 208.0, np.where(spruce, 168.0, h))
-    ns = np.where(w, np.minimum(s * 0.55, 0.36), np.where(spruce, s * 0.55, s))
-    nv = np.where(w, np.clip(0.1 + v * 0.58, 0, 1), np.where(spruce, v * 0.62, v * 0.9))
-    grey = (s < 0.14)
-    nh = np.where(grey, 214.0, nh)
-    ns = np.where(grey, 0.16 + (1 - v) * 0.2, ns)
-    nv = np.where(grey, v * 0.72, nv)
-    return nh, ns, nv
-
-
-# --- Burning Swamp ------------------------------------------------------------
-
 def bog(h, s, v):
     """Bog-drowned bone: peat brown and moss olive, still bone-light on top."""
     w = warm(h) & ~eyes(h, s, v)
@@ -144,21 +127,6 @@ def cinder(h, s, v):
     return nh, ns, nv
 
 
-def swamp_props(h, s, v):
-    """Scorched wood and basalt: charred stone and sooty wood so the firelight
-    reads against them, greens to dark murk olive, the baked ramp kept."""
-    w = warm(h)
-    g = (h >= 62.0) & (h < 180.0) & (s > 0.25)
-    nh = np.where(w, 22.0, np.where(g, 78.0, h))
-    ns = np.where(w, np.minimum(s * 0.5, 0.34), np.where(g, s * 0.45, s))
-    nv = np.where(w, v * 0.42 + 0.04, np.where(g, v * 0.36, v))
-    grey = (s < 0.14)
-    nh = np.where(grey, 24.0, nh)
-    ns = np.where(grey, 0.06, ns)
-    nv = np.where(grey, v * 0.42 + 0.03, nv)
-    return nh, ns, nv
-
-
 def main():
     os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
     sk = load("characters/Skeleton_Minion_skeleton_texture.png")
@@ -168,12 +136,6 @@ def main():
     save(remap(sk, cinder), "characters/Skeleton_cinder_texture.png")
     bb = load("characters/Barbarian_barbarian_texture.png")
     save(remap(bb, cinder), "characters/Barbarian_cinder_texture.png")
-    fo = load("forest/forest_texture.png")
-    save(remap(fo, frost_props), "forest/forest_frost_texture.png")
-    save(remap(fo, swamp_props), "forest/forest_swamp_texture.png")
-    hb = load("graveyard/halloweenbits_texture.png")
-    save(remap(hb, frost_props), "graveyard/halloweenbits_frost_texture.png")
-    save(remap(hb, swamp_props), "graveyard/halloweenbits_swamp_texture.png")
 
 
 if __name__ == "__main__":

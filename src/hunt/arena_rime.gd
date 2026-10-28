@@ -54,32 +54,17 @@ static func _ground(a: Arena) -> void:
 	a.terrain_begin(look)
 
 
-static func _ellipse(t: RefCounted, kind: int, cx: float, cz: float, rx: float, rz: float, only := -1, noise := 0.0, seed_ := 1) -> void:
-	var n := FastNoiseLite.new()
-	n.seed = seed_
-	n.frequency = 0.16
-	for z in t.h:
-		for x in t.w:
-			var c := Vector2i(x, z)
-			if only >= 0 and t.kind_of(c) != only:
-				continue
-			var o: Vector3 = t.center_of(c)
-			var d := Vector2((o.x - cx) / rx, (o.z - cz) / rz).length() + n.get_noise_2d(o.x, o.z) * noise
-			if d <= 1.0:
-				t.set_kind(c, kind)
-
-
 static func _ice_floor(a: Arena) -> void:
 	var t: RefCounted = a.terrain
-	_ellipse(t, Terrain.ICE, LAKE.x, LAKE.z, LAKE_RX, LAKE_RZ, -1, 0.14, 11)
-	_ellipse(t, Terrain.ICE, COURT.x, COURT.z, 9.5, 7.2, -1, 0.1, 12)
+	t.fill_ellipse(Terrain.ICE, LAKE.x, LAKE.z, LAKE_RX, LAKE_RZ, -1, 0.14, 11)
+	t.fill_ellipse(Terrain.ICE, COURT.x, COURT.z, 9.5, 7.2, -1, 0.1, 12)
 	# The causeway between the lake and the court, a frozen stair.
 	for z in range(-14, -8, 2):
 		for x in range(-3, 4, 2):
 			t.set_kind(t.cell_of(Vector3(x, 0, z)), Terrain.ICE)
 	# Thin ice over parts of the lake: the sheen is the tell, the crack the cost.
 	for p: Array in [[-6.5, -4.5, 2.4], [7.5, 2.5, 2.6], [-1.5, 5.0, 2.0], [9.0, -5.0, 1.9], [-10.0, 3.5, 2.0], [3.0, -7.0, 1.6]]:
-		_ellipse(t, Terrain.THIN_ICE, p[0], p[1], p[2], p[2], Terrain.ICE, 0.12, int(p[0] * 7 + 5))
+		t.fill_ellipse(Terrain.THIN_ICE, p[0], p[1], p[2], p[2], Terrain.ICE, 0.12, int(p[0] * 7 + 5))
 	# Fishing holes: open water with an ice rim, always.
 	for h: Vector2 in [Vector2(3.0, -2.0), Vector2(-3.0, 1.0), Vector2(-8.0, -6.5), Vector2(10.0, 6.5), Vector2(-7.0, -6.5), Vector2(-3.0, 3.0)]:
 		t.set_kind(t.cell_of(Vector3(h.x, 0, h.y)), Terrain.WATER)

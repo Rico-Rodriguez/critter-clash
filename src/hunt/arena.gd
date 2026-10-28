@@ -83,7 +83,7 @@ const VaultLayout := preload("res://src/hunt/arena_vault.gd")
 const PropShapes := preload("res://src/hunt/prop_shapes.gd")
 const Life := preload("res://src/hunt/arena_life.gd")
 const RimeLayout := preload("res://src/hunt/arena_rime.gd")
-const SwampLayout := preload("res://src/hunt/arena_swamp.gd")
+const MireLayout := preload("res://src/hunt/arena_mire.gd")
 const BiomeArt := preload("res://src/hunt/biome_art.gd")
 const Terrain := preload("res://src/hunt/terrain.gd")
 const TerrainView := preload("res://src/hunt/terrain_view.gd")
@@ -104,8 +104,6 @@ var _ice_walls := {}
 ## Node3Ds that stand on a plank cell, by cell index: they burn and fall with it.
 var plank_nodes := {}
 var hazard_spots: Array[Vector3] = []
-## The prop recolour for this zone ("frost", "swamp", or "" for none).
-var _skin := ""
 var _motes_n := 90
 ## Baked prop node -> its [MultiMesh, index, transform] slots, so a baked prop can still wobble.
 var baked_slots := {}
@@ -115,7 +113,6 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 	low = low_quality
 	zone = zone_id
 	zone_env = DB.zone(zone_id)["env"]
-	_skin = str(zone_env.get("skin", ""))
 	_rng.seed = 7331
 	life = Life.new(self)
 	_environment()
@@ -132,9 +129,7 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 	elif zone_id == "frost":
 		RimeLayout.build(self)
 	elif zone_id == "swamp":
-		_paths()
-		_ground()
-		SwampLayout.build(self)
+		MireLayout.build(self)
 	else:
 		_paths()
 		_ground()
@@ -143,7 +138,7 @@ func build(low_quality := false, zone_id := "barrow", trial_rooms := 0, trial_se
 	if low:
 		set_low(true)
 	bake_statics()
-	life.setup(trial_rooms == 0 and (zone_id == "barrow" or zone_id == "grove" or zone_id == "swamp"))
+	life.setup(trial_rooms == 0 and (zone_id == "barrow" or zone_id == "grove"))
 
 
 # --- Static batching -----------------------------------------------------
@@ -367,8 +362,6 @@ func put(path: String, pos: Vector3, yaw := 0.0, scale_ := 1.0, block := -1.0, s
 	n.position = pos
 	n.rotation.y = yaw
 	n.scale = Vector3.ONE * scale_
-	if _skin != "":
-		BiomeArt.recolor(n, _skin)
 	add_child(n)
 	_put_nodes.append(n)
 	var shape := PropShapes.shape_for(path, yaw, scale_)

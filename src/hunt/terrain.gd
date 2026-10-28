@@ -99,6 +99,45 @@ static func parse(rows: Array, origin_ := ORIGIN) -> RefCounted:
 	return t
 
 
+## Paints a noisy ellipse (centre cx, cz; radii rx, rz) with `k`. `only` >= 0 limits it
+## to cells of that kind; `noise` roughens the edge. For zone layouts.
+func fill_ellipse(k: int, cx: float, cz: float, rx: float, rz: float, only := -1, noise := 0.0, seed_ := 1) -> void:
+	var n := FastNoiseLite.new()
+	n.seed = seed_
+	n.frequency = 0.16
+	for z in h:
+		for x in w:
+			var c := Vector2i(x, z)
+			if only >= 0 and kind_of(c) != only:
+				continue
+			var o := center_of(c)
+			var d := Vector2((o.x - cx) / rx, (o.z - cz) / rz).length() + n.get_noise_2d(o.x, o.z) * noise
+			if d <= 1.0:
+				set_kind(c, k)
+
+
+## Paints a one-cell-wide path from a to b (x, z) with `k`, stepping through shared
+## edges so the cells touch end to end. Cells of a kind in `keep` are left alone.
+func fill_line(k: int, a: Vector2, b: Vector2, keep: Array = []) -> void:
+	var c := cell_of(Vector3(a.x, 0, a.y))
+	var e := cell_of(Vector3(b.x, 0, b.y))
+	var total := e - c
+	var cells: Array[Vector2i] = [c]
+	while c != e:
+		var d := e - c
+		# Take the step on the axis with the larger share of its way still to go.
+		var fx := absf(float(d.x)) / maxf(absf(float(total.x)), 1.0)
+		var fz := absf(float(d.y)) / maxf(absf(float(total.y)), 1.0)
+		if d.y == 0 or (d.x != 0 and fx >= fz):
+			c.x += signi(d.x)
+		else:
+			c.y += signi(d.y)
+		cells.append(c)
+	for q in cells:
+		if in_bounds(q) and not keep.has(kind_of(q)):
+			set_kind(q, k)
+
+
 func idx(c: Vector2i) -> int:
 	return c.y * w + c.x
 

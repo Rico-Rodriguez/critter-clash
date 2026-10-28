@@ -27,6 +27,7 @@ static func run(ok: Callable) -> void:
 	_reflood(ok)
 	_cost(ok)
 	_arena(ok)
+	_mire(ok)
 
 
 static func _surfaces(ok: Callable) -> void:
@@ -242,6 +243,78 @@ static func _arena(ok: Callable) -> void:
 			ok.call("terrain %s: the start is dry, safe ground" % zone, terr.kind_at(a.start) == T.DRY)
 			ok.call("terrain %s: the grid shapes the play space with blocked cells only inside the bounds" % zone, terr.cell_of(a.start).y < terr.h)
 		a.free()
+
+
+## Whether firm footing (dry, ash, planks) links `from` to `to` cell by cell, so the
+## way across the bog never needs a wade.
+static func _firm_route(t: RefCounted, from: Vector3, to: Vector3) -> bool:
+	var seen := {}
+	var q: Array = [t.cell_of(from)]
+	var goal: Vector2i = t.cell_of(to)
+	seen[q[0]] = true
+	while not q.is_empty():
+		var c: Vector2i = q.pop_back()
+		if c == goal:
+			return true
+		for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c + d
+			if seen.has(n) or not t.in_bounds(n) or not (t.kind_of(n) in [T.DRY, T.ASH, T.PLANK]):
+				continue
+			seen[n] = true
+			q.append(n)
+	return false
+
+
+## The Cinder Mire: bog, islands, a boardwalk of planks that burn and fall, the
+## Warlord's platform, and foe spots on the right ground.
+static func _mire(ok: Callable) -> void:
+	var m := Arena.new()
+	m.build(true, "swamp", 0, 1)
+	var t: RefCounted = m.terrain
+	var firm := func(p: Vector3) -> bool: return t.kind_at(p) in [T.DRY, T.ASH]
+	var count := {}
+	for k in t.kind:
+		count[int(k)] = int(count.get(int(k), 0)) + 1
+	ok.call("mire: paints its cells, mostly bog with dry islands, ash and planks", m.terrain_live and int(count.get(T.BOG, 0)) > 150 and int(count.get(T.DRY, 0)) > 60 and int(count.get(T.ASH, 0)) > 10 and int(count.get(T.PLANK, 0)) > 30)
+	ok.call("mire: the start and the Warlord's spot are dry, solid ground", t.kind_at(m.start) == T.DRY and t.kind_at(m.boss_spawn) == T.DRY and t.kind_at(m.crypt_pos) == T.DRY)
+	ok.call("mire: the boardwalk is a firm route from the landing to the platform", _firm_route(t, m.start, m.boss_spawn))
+	ok.call("mire: the platform is reachable on foot too", _reach(m, m.start, m.boss_spawn))
+	ok.call("mire: every plank cell has its boardwalk piece, and it can burn", count.get(T.PLANK, 0) == m.plank_nodes.size() and m.plank_nodes.values().all(func(n): return is_instance_valid(n) and n.has_method("burn")))
+	ok.call("mire: three shrines, each on firm ground and within reach", m.shrines.size() == 3 and m.shrines.all(func(s): return firm.call(s["pos"]) and _reach(m, m.start, s["pos"])))
+	ok.call("mire: the vents stand on ash, clear of the planks", m.hazard_spots.size() == 5 and m.hazard_spots.all(func(v: Vector3): return t.kind_at(v) == T.ASH))
+	ok.call("mire: the dead rise on firm ground, away from the landing", m.graves.size() >= 10 and m.graves.all(func(g: Vector3): return firm.call(g) and g.z <= 12.0))
+	ok.call("mire: perches on firm open ground, spawn holes in open bog", m.perches.size() >= 12 and m.spawn_holes.size() >= 10 and m.perches.all(func(p: Vector3): return firm.call(p)) and m.spawn_holes.all(func(p: Vector3): return t.kind_at(p) == T.BOG))
+	ok.call("mire: bog slows and the flow field counts it dearer than firm ground", float(t.surface(T.BOG)["speed"]) < 0.7 and float(t.flow_cost(Vector3(-19, 0, -3))) > float(t.flow_cost(m.start)))
+	# A plank takes fire, and the fire runs the boardwalk and drops the pieces into the bog.
+	var first := Vector2i(-1, -1)
+	for c in t.w * t.h:
+		var cc := Vector2i(c % t.w, c / t.w)
+		if t.kind_of(cc) == T.PLANK and cc.y > 15:
+			first = cc
+			break
+	var fell := 0
+	var burned := 0
+	t.ignite(first)
+	for i in 60 * 30:
+		for e: Dictionary in t.step(1.0 / 60.0):
+			if e["ev"] == "ignite":
+				m.plank_burn(e["cell"])
+				burned += 1
+			elif e["ev"] == "fell":
+				m.plank_fall(e["cell"])
+				fell += 1
+	ok.call("mire: fire spreads over the boardwalk and burnt planks fall into the bog", burned > 6 and fell > 3)
+	for i in 60 * 40:
+		for e: Dictionary in t.step(1.0 / 60.0):
+			if e["ev"] == "fell":
+				m.plank_fall(e["cell"])
+	var left := 0
+	for i: int in m.plank_nodes:
+		if t.kind[i] != T.PLANK:
+			left += 1
+	ok.call("mire: a fallen plank's piece is gone, a burnt one stays chared", left == 0)
+	ok.call("mire: the islands are firebreaks, the landing never burns", t.kind_at(m.start) == T.DRY and t.kind_at(Vector3(0, 0, 18)) == T.DRY)
+	m.free()
 
 
 ## Whether a 1 m walk from `from` to `to` exists round obstacles, water and walls.
