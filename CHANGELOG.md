@@ -10,6 +10,15 @@ version is 7.
 
 ---
 
+## Biome visual polish (dev/biome-models, round 2)
+
+- Cinder Mire is lit: brighter ground, a warm key, a cool rim light (arena_mire.gd `_light`).
+- Rimehollow snow and ice have ripples, a glinting crust and frosted ice shores (`snow_detail` in terrain_ground.gdshader).
+- Frost Imp, Frozen Effigy and Rime Seer swapped for darker, higher-fidelity models (Rodolfoisreal1423, SuperKapoo913, orangesauceu; CC BY 4.0); the Winter Caller is the only wendigo.
+- FoeModels.DEFS emptied: every Rimehollow and Cinder Mire foe stands on its next_foes.gd model.
+- Biome capture shots: knight in Blackguard plate, no tutorial hint, no ground telegraphs.
+
+
 ## Unreleased: Biome rebuild, bog in the flow field and bosses that wade
 
 The foes' flow field now weighs the ground: a step costs the terrain's `cost`
