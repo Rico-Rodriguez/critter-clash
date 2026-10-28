@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://ctxganworrbyi"
-valid=false
+path="res://.godot/imported/boss_roar_1.ogg-9fd88de28a2c640b18891b51221f3196.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/boss_roar_1.ogg"
+dest_files=["res://.godot/imported/boss_roar_1.ogg-9fd88de28a2c640b18891b51221f3196.oggvorbisstr"]
 
 [params]
 

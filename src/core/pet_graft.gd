@@ -517,6 +517,17 @@ static func carve(model: Node3D, sp: String, slots: Array) -> void:
 	_carved[key] = cache
 
 
+## The flags add_surface_from_arrays needs to take a surface's arrays back:
+## 8 bone weights and each custom channel's format. Without the custom formats
+## a model with CUSTOM0-3 data is refused ("Invalid array format for surface")
+## and that surface goes missing from the carved mesh.
+static func _rebuild_flags(fmt: int) -> int:
+	var flags := fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+	for sh in [Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT, Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT, Mesh.ARRAY_FORMAT_CUSTOM2_SHIFT, Mesh.ARRAY_FORMAT_CUSTOM3_SHIFT]:
+		flags |= fmt & (Mesh.ARRAY_FORMAT_CUSTOM_MASK << int(sh))
+	return flags
+
+
 ## The mesh without the triangles the specs own; "keep" when it has none and
 ## "hide" when nothing would be left.
 static func _carve_mesh(model: Node3D, mi: MeshInstance3D, specs: Array) -> Variant:
@@ -536,7 +547,7 @@ static func _carve_mesh(model: Node3D, mi: MeshInstance3D, specs: Array) -> Vari
 			if c < 2:
 				keep.append_array(idx.slice(3 * t, 3 * t + 3))
 		if keep.size() == idx.size():
-			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, mi.mesh.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, _rebuild_flags(mi.mesh.surface_get_format(s)))
 			kept_any = true
 			continue
 		touched = true
@@ -545,7 +556,7 @@ static func _carve_mesh(model: Node3D, mi: MeshInstance3D, specs: Array) -> Vari
 		else:
 			kept_any = true
 		arrays[Mesh.ARRAY_INDEX] = keep
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, mi.mesh.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, _rebuild_flags(mi.mesh.surface_get_format(s)))
 	if not touched:
 		return "keep"
 	if not kept_any:

@@ -671,6 +671,21 @@ func _depth_tests() -> void:
 	for _i in DB.TIER_WINS:
 		Game.finish_hunt({"win": false, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
 	_ok("Descent bosses open the Descent's next tier", Game.mode_tier_unlocked("descent") == 1)
+	# First-clear trophies pay on the first win of a difficulty, not again on
+	# the win that opens the next one.
+	Game.data["mode_tiers"]["horde"] = 1
+	var fc := {"win": true, "tier": 1, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"}
+	var fc_gain: Array = []
+	for _i in DB.TIER_WINS:
+		fc_gain.append(int(Game.finish_hunt(fc.duplicate(true))["renown"]))
+	_ok("first-clear trophies pay once a difficulty", Game.mode_tier_unlocked("horde") == 2 and fc_gain[0] >= fc_gain[1] + DB.TROPHY_FIRST_CLEAR and fc_gain[-1] == fc_gain[1])
+	# A save that claimed the Rogue's road step under the old, shorter road.
+	var road_keep: Dictionary = Game.data
+	Game.data = Game._fresh()
+	Game.data["road"] = DB.TROPHY_ROAD.size() + 3
+	Game._road_heroes()
+	_ok("a save past a hero's road step has that hero", Game.hero("rogue")["unlocked"] and Game.hero("barbarian")["unlocked"])
+	Game.data = road_keep
 	Game.set_mode("horde")
 	Game.data["clue"] = {"step": 0, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 	var r := {"win": true, "tier": 1, "hero": "knight", "gold": 400, "elites": 3, "kills": 10, "xp": {}, "items": [], "dashes": 3, "mode": "horde", "time": 100.0, "zone": "barrow"}

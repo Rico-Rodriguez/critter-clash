@@ -10,6 +10,27 @@ version is 7.
 
 ---
 
+## Unreleased: sound is back, and three progression fixes
+
+No save version change: the road fix is safe to repeat on every load.
+
+### Fixed
+- **Sound and music on phones.** PR #118 committed 93 broken audio imports
+  (`valid=false`), so the content pack shipped without nearly every hit, UI,
+  chest and level-up sound and the home, hunt and boss music. The imports are
+  restored from before #118.
+- **The Rogue joins saves that were far along the road.** The road grew to 42
+  steps with the Rogue at step 25. A save that had claimed past 25 on the old
+  road got a crypt chest there instead, and never the Rogue. Any hero step a
+  save counts as claimed now opens its hero on load.
+- **First-clear trophies pay once a difficulty.** They were paid on the first
+  win and again on the third (the one that opens the next difficulty).
+- **Hybrid pets keep every body surface.** Carving a borrowed part dropped the
+  mesh's custom channel formats, so a surface with float custom data was
+  refused and went missing.
+
+---
+
 ## Unreleased: Biome rebuild, the last Rimehollow kit pieces
 
 The kit's throne (dais, ice seat and spires; replaces five scaled ice blocks), the six `hole_rim` rings round the

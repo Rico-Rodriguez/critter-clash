@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://c5ddo7oxhhd6v"
-valid=false
+path="res://.godot/imported/card_flip_1.ogg-993ce71059037dfdb73d1cf0bb5a0cda.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/card_flip_1.ogg"
+dest_files=["res://.godot/imported/card_flip_1.ogg-993ce71059037dfdb73d1cf0bb5a0cda.oggvorbisstr"]
 
 [params]
 

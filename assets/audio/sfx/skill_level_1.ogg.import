@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://drjdgkofyu6oq"
-valid=false
+path="res://.godot/imported/skill_level_1.ogg-9f8a67b7ddabfc3de4c9d3d60b5e8d08.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/skill_level_1.ogg"
+dest_files=["res://.godot/imported/skill_level_1.ogg-9f8a67b7ddabfc3de4c9d3d60b5e8d08.oggvorbisstr"]
 
 [params]
 
