@@ -10,6 +10,14 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the swamp light lives in db.gd
+
+The Burning Swamp's lift (ambient 1.35 warm-grey, a warm 1.55 sun, ground `grass_a`/`grass_b` 0.36/0.5 browns)
+moves from `arena_mire.gd` `_light` into `db.gd`'s swamp env, so night and the day cycle (`hunt_modes.gd` scales
+the zone's `ambient_e`/`sun_e`) work from the lifted values instead of the old murky ones. `_light` keeps only
+what env has no key for: exposure 1.18 and the cool rim light. The Long Road's mire floor uses the same lighter
+soil. Looks the same in the hunt (before/after in /workspace/rebuild-caps/swamp-light).
+
 ## Biome visual polish (dev/biome-models, round 2)
 
 - Cinder Mire is lit: brighter ground, a warm key, a cool rim light (arena_mire.gd `_light`).

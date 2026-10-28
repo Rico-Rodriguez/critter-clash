@@ -555,9 +555,9 @@ const ZONES := {
 		"souls_mult": 1.0, "unlock": "Trophy Road: 12500 trophies", "music": "swamp", "boss_music": "swamp_boss",
 		"hazards": ["vents", "mud", "marsh"],
 		"hazard_line": "Vents erupt, the bog drags and fire runs the boardwalk",
-		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.62, 0.62, 0.64), "ambient_e": 0.95, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "", "weather": "embers",
-			"sun": Color(0.92, 0.9, 0.86), "sun_e": 1.1, "sun_rot": Vector3(-46, -38, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(1.0, 0.55, 0.15, 1.0),
-			"ground": {"grass_a": Color(0.15, 0.145, 0.12), "grass_b": Color(0.24, 0.225, 0.18), "dirt": Color(0.23, 0.19, 0.15), "dark": Color(0.03, 0.025, 0.02)}},
+		"env": {"bg": Color(0.04, 0.03, 0.025), "ambient": Color(0.78, 0.76, 0.74), "ambient_e": 1.35, "fog": Color(0.2, 0.15, 0.1), "fog_d": 0.0, "glow": false, "skin": "", "weather": "embers",
+			"sun": Color(1.0, 0.93, 0.82), "sun_e": 1.55, "sun_rot": Vector3(-46, -38, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(1.0, 0.55, 0.15, 1.0),
+			"ground": {"grass_a": Color(0.36, 0.31, 0.24), "grass_b": Color(0.5, 0.43, 0.33), "dirt": Color(0.23, 0.19, 0.15), "dark": Color(0.03, 0.025, 0.02)}},
 	},
 }
 const ZONE_ORDER := ["barrow", "depths", "grove", "vault", "frost", "swamp"]
