@@ -85,23 +85,13 @@ static func _sources(ok: Callable) -> void:
 		for x in SK.chest_extras(d, "silver", T0, cr):
 			silver = silver or str(x["type"]) == "egg"
 	ok.call("egg sources: a Silver chest rarely holds a Brood Egg", silver)
-	# The season pass, weekly event and the story.
+	# The season pass and the story.
 	var season_eggs := []
 	for n in range(1, DB.SEASON_TIERS + 1):
 		var rw := DB.season_reward(n)
 		if str(rw["kind"]) == "egg":
 			season_eggs.append(str(rw["egg"]))
-	ok.call("egg sources: the season pass holds five eggs, one exotic, and ends on the glow", season_eggs.size() == 5 and season_eggs.count("exotic") == 1 and DB.season_reward(30)["kind"] == "glow")
-	var ev_eggs := []
-	for n in range(1, DB.EVENT_TRACK.size() + 1):
-		if str(DB.event_reward(n)["kind"]) == "egg":
-			ev_eggs.append(str(DB.event_reward(n)["egg"]))
-	ok.call("egg sources: the weekly event pays a brood, a season and an omen egg", ev_eggs == ["brood", "season", "omen"] and DB.event_reward(10)["kind"] == "chest")
-	Game.data = Game._fresh()
-	Game.event()["pts"] = 99999
-	for i in 4:
-		Game.claim_event()
-	ok.call("egg sources: event tier 4 lays an egg", SK.has_egg(Game.data, "brood"))
+	ok.call("egg sources: the season pass holds six eggs (one exotic, one omen) and ends on the glow", season_eggs.size() == 6 and season_eggs.count("exotic") == 1 and season_eggs.has("omen") and DB.season_reward(30)["kind"] == "glow")
 	var story_ok := true
 	for i in STORY.count():
 		story_ok = story_ok and SDB.EGGS.has(str(STORY.CHAPTERS[i]["reward"].get("egg", "")))

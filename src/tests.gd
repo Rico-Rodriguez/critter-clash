@@ -1782,6 +1782,7 @@ func _gate_tests() -> void:
 
 
 func _event_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
 	var keep: Dictionary = Game.data
 	Game.data = Game._fresh()
 	var om := Game.weekly_omen()
@@ -1791,41 +1792,31 @@ func _event_tests() -> void:
 		for k in o["mod"]:
 			mods_ok = mods_ok and k in ["pack", "foe_hp", "foe_speed", "foe_dmg", "dmg", "hp", "dmg_taken", "rate", "super"]
 	_ok("event: every rule only uses known modifiers", mods_ok)
-	_ok("event: the track climbs", DB.EVENT_TRACK.size() == 10 and DB.EVENT_TRACK[0] < DB.EVENT_TRACK[1] and DB.EVENT_TRACK[8] < DB.EVENT_TRACK[9])
-	var strictly := true
-	for i in range(1, DB.EVENT_TRACK.size()):
-		strictly = strictly and DB.EVENT_TRACK[i] > DB.EVENT_TRACK[i - 1]
-	_ok("event: track points strictly rise", strictly)
-	_ok("event: the last tier is the crypt chest", DB.event_reward(10)["kind"] == "chest" and DB.event_reward(10)["chest"] == "crypt")
-	var kinds_ok := true
-	for n in range(1, 11):
-		kinds_ok = kinds_ok and DB.event_reward(n).has("kind")
-	_ok("event: every tier pays something", kinds_ok)
-	_ok("event: a fresh week starts at zero", Game.event_points() == 0 and Game.event_level() == 0 and Game.event_claimable() == 0)
-	_ok("event: a hunt off the omen earns no points", Game.add_event_points({"omen": "", "win": true, "level": 8}) == 0 and Game.event_points() == 0)
-	var win := {"omen": str(om["id"]), "win": true, "level": 8, "souls": 300, "bosses": 2, "depth": 0, "perfect": 4}
-	var pts := Game.add_event_points(win)
-	_ok("event: an omen win earns score/10 points", pts == DB.event_points_for(Game.weekly_score(win)) and pts > 100 and Game.event_points() == pts)
-	_ok("event: a loss still earns a few", Game.add_event_points({"omen": str(om["id"]), "win": false, "level": 3, "souls": 40}) > 0)
-	Game.event()["pts"] = 1100
-	_ok("event: points map to tiers", Game.event_level() == 4 and Game.event_claimable() == 4)
-	var gold0 := Game.gold()
-	var rw := Game.claim_event()
-	_ok("event: tier 1 pays gold", rw.get("kind") == "gold" and Game.gold() == gold0 + int(rw["amount"]) and int(Game.event()["claimed"]) == 1)
-	Game.claim_event()
-	Game.claim_event()
-	Game.claim_event()
-	_ok("event: claims go in order, never past what is earned", Game.event_claimable() == 0 and Game.claim_event().is_empty() and int(Game.event()["claimed"]) == 4)
-	Game.event()["week"] = Game.week_number() - 1
-	_ok("event: a new week resets the track", Game.event_points() == 0 and int(Game.event()["claimed"]) == 0)
+	_ok("event: a hunt off the rule earns no bonus XP", Game.add_omen_xp({"omen": "", "win": true, "level": 8}) == 0 and int(Game.season()["xp"]) == 0)
+	var win := {"omen": str(om["id"]), "win": true, "level": 8, "souls": 300, "bosses": ["a", "b"], "depth": 0, "perfect": 4}
+	var xp := Game.add_omen_xp(win)
+	_ok("event: a win under the rule earns score/60 season XP", xp == DB.omen_xp_for(Game.weekly_score(win)) and xp > 15 and int(Game.season()["xp"]) == xp)
+	_ok("event: a loss still earns a little", Game.add_omen_xp({"omen": str(om["id"]), "win": false, "level": 3, "souls": 40}) > 0)
 	_ok("event: the clock reads", Game.event_seconds_left() > 0 and Game.event_seconds_left() <= 604800)
 	_ok("event: time text", Game.left_text(2 * 86400 + 5 * 3600) == "2d 5h" and Game.left_text(5 * 3600 + 720) == "5h 12m" and Game.left_text(30) == "1m")
-	# Finishing a hunt under the omen reports the points, and the season is untouched.
+	# Finishing a hunt under the rule reports the XP.
 	Game.data["omen_on"] = true
 	var s := Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "mode": "horde", "time": 120.0, "chest": "silver", "omen": str(om["id"]), "hero": "knight", "level": 6, "souls": 100, "gold": 10, "xp": {}, "items": [], "kills": 5, "elites": 0})
-	_ok("event: finish_hunt carries the points", int(s["event_pts"]) > 0 and int(s["event_total"]) == Game.event_points())
+	_ok("event: finish_hunt carries the XP", int(s["omen_xp"]) > 0)
 	var sb := Game.finish_hunt({"win": true, "tier": 0, "zone": "barrow", "mode": "horde", "time": 120.0, "chest": "silver", "omen": "", "hero": "knight", "level": 6, "gold": 10, "xp": {}, "items": [], "kills": 5, "elites": 0})
-	_ok("event: a plain hunt reports none", not sb.has("event_pts"))
+	_ok("event: a plain hunt reports none", not sb.has("omen_xp"))
+	# A save from before the fold: this week's earned, unclaimed tiers are paid once.
+	Game.data = Game._fresh()
+	Game.data["event"] = {"week": Game.week_number(), "pts": 1100, "claimed": 1, "hunts": 5}
+	Game._fold_event()
+	_ok("event: the old track pays the tiers earned and not claimed", int(Game.data["folded_event"]) == 3 and SK.has_egg(Game.data, "brood"))
+	var gold1 := Game.gold()
+	Game._fold_event()
+	_ok("event: the fold pays only once", Game.gold() == gold1 and int(Game.data["event"]["pts"]) == 0)
+	Game.data = Game._fresh()
+	Game.data["event"] = {"week": Game.week_number() - 1, "pts": 5000, "claimed": 0, "hunts": 9}
+	Game._fold_event()
+	_ok("event: last week's old points pay nothing", int(Game.data["folded_event"]) == 0)
 	Game.data = keep
 
 

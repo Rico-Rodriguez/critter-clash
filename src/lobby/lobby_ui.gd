@@ -329,6 +329,15 @@ func _coach() -> void:
 		_guide.setup(%Hunt, "Your last hunt was saved", body, false, camp_idle)
 		%Overlay.add_child(_guide)
 		return
+	# The weekly event track folded into the season: say what was paid for it, once.
+	if int(Game.data.get("folded_event", 0)) > 0:
+		var n := int(Game.data["folded_event"])
+		Game.data["folded_event"] = 0
+		Game.save()
+		_guide = CampGuide.new()
+		_guide.setup(%Hunt, "The weekly event changed", "Hunts under the weekly rule now earn bonus season XP. You had %d reward%s waiting from the old track; they are paid." % [n, "" if n == 1 else "s"], false, camp_idle)
+		%Overlay.add_child(_guide)
+		return
 	var tips: Dictionary = Game.data["tips"]
 	var played := int(Game.data["stats"]["hunts"]) > 0
 	for st in [
@@ -378,7 +387,7 @@ func _build_side() -> void:
 	_side.position = Vector2(0, 18)
 	%Space.add_child(_side)
 	# Daily, bounties and feats are one place (Quests); the road has the top bar.
-	for spec in [["quests", "archery-target", "Quests"], ["season", "round-star", "Season"], ["event", "moon", "Event"]]:
+	for spec in [["quests", "archery-target", "Quests"], ["season", "round-star", "Season"], ["event", "moon", "This week"]]:
 		_side.add_child(_rail_button(spec[0], spec[1], spec[2]))
 	_rail_r = VBoxContainer.new()
 	_rail_r.add_theme_constant_override("separation", 0)
@@ -454,7 +463,7 @@ func _refresh_side() -> void:
 	var login := Game.login_status()
 	_side_badges["quests"].visible = bool(login["ready"]) or Game.bounty_claimable() > 0 or Game.achievement_claimable() > 0
 	_side_badges["season"].visible = Game.season_claimable() > 0
-	_side_badges["event"].visible = Game.event_claimable() > 0
+	_side_badges["event"].visible = false
 	_season_label.text = "TIER %d" % Game.season_level()
 	var story_left := Game.story_next() < STORY_DB.count()
 	_side_badges["story"].visible = story_left
@@ -797,7 +806,7 @@ func open_sheet(name_: String) -> void:
 		"season":
 			_sheet.open("Season", _build_season)
 		"event":
-			_sheet.open("Weekly Event", _build_event)
+			_sheet.open("This Week", _build_event)
 		"feats":
 			_sheet.open("Feats", _build_feats)
 		"log":
