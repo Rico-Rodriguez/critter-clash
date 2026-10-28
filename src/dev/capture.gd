@@ -551,6 +551,12 @@ func _capture(args: PackedStringArray) -> void:
 				_set_screen_now("lobby")
 				await _wait(2.0)
 				await _save(shot)
+			"recovered":
+				# The camp after the phone killed a hunt in the background.
+				Game.data["recovered_run"] = {"gold": 132, "items": 2}
+				_set_screen_now("lobby")
+				await _wait(2.0)
+				await _save(shot)
 			"flow":
 				# Exercise the real transitions: camp -> hunt -> camp.
 				go("lobby")
