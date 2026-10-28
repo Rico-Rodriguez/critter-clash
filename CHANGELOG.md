@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: Godot stops importing docs/
+
+Added `docs/.gdignore` and removed 69 `.import` files for review screenshots and videos. They were never in the pack (`docs/*` is excluded from export) but every import, local and CI, processed them. The media itself is untouched.
+
+---
+
 ## Unreleased: the release gate catches broken imports
 
 No game change. PR #118 shipped 93 broken audio imports and nothing failed,
