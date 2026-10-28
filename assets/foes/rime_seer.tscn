@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/rime_seer_src.glb" id="1_ama2y"]
+
+[node name="rime_seer" type="Node3D" unique_id=1384576318]
+metadata/cull_aabbs = {
+"Sketchfab_model/c74ce6d7b784430d9f498ac59ec9e4ba_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-9.350801, -6.6616225, -7.5939236, 18.355446, 25.061718, 17.62164)
+}
+metadata/posed_aabb = AABB(-0.21289243, 0, -0.1814768, 0.42578486, 0.99999994, 0.3629536)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2067894892 instance=ExtResource("1_ama2y")]
+transform = Transform3D(0.08562359, 0, 0, 0, 0.08562359, 0, 0, 0, 0.08562359, 0.014819566, -0.0025451095, -0.104194954)

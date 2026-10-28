@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/cinder_imp_src.glb" id="1_28n08"]
+
+[node name="cinder_imp" type="Node3D" unique_id=226262633]
+metadata/cull_aabbs = {
+"Sketchfab_model/Root/Armature/Skeleton3D/imp_low_0": AABB(-9.336397, -12.875444, -7.511098, 17.836582, 24.650017, 15.488222)
+}
+metadata/posed_aabb = AABB(-0.2420806, 0, -0.55117816, 0.4841612, 1, 1.1023563)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=269960595 instance=ExtResource("1_28n08")]
+transform = Transform3D(0.48835745, 0, 0, 0, 0.48835745, 0, 0, 0, 0.48835745, 0.027092386, 0.75176483, 0.0047599757)

@@ -16,9 +16,9 @@ const SCRIPTS := {
 	"wasp": preload("res://src/hunt/foe_wasp.gd"),
 }
 
-## False: zones field their old factions. True: `faction_next` where a zone has
-## one. The bot's `--next-foes` flag turns it on for a run.
-static var next := false
+## True (the default): zones that have a `faction_next` field it (Rimehollow and the Cinder Mire).
+## False: every zone fields its old faction; `--old-foes` turns that on for a run.
+static var next := true
 
 
 static func attach(e: Enemy) -> void:

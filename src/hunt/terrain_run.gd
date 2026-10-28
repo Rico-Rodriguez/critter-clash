@@ -134,10 +134,13 @@ func _foes(dt: float) -> void:
 			continue
 		t.stand(t.cell_of(p), f.mass)
 		var fx: Dictionary = t.body_effect(p)
-		if bool(fx["lethal"]):
+		# `aquatic` foes (Bogfin, Bog Frog) live in the water: it never drowns them,
+		# and the fire that burns their bog hurts them twice as hard.
+		var aquatic := bool(f.def.get("aquatic", false))
+		if bool(fx["lethal"]) and not aquatic:
 			_drown(f)
 		elif burn_now and float(fx["dps"]) > 0.0 and str(f.def.get("element", "")) != "fire" and not bool(f.def.get("fireproof", false)):
-			h.damage_foe(f, float(f.def.get("hp", 40.0)) * 0.05, h.hero, Vector3.ZERO, 0.0)
+			h.damage_foe(f, float(f.def.get("hp", 40.0)) * (0.1 if aquatic else 0.05), h.hero, Vector3.ZERO, 0.0)
 			scorched += 1
 
 

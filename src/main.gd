@@ -1,7 +1,7 @@
 extends Node
 ## App shell: switches between the camp (lobby) and a hunt with a fade.
 ## Also hosts two command-line modes used for checks:
-##   -- --bot [--hero=knight] [--tier=0] [--zone=barrow|depths] [--runs=1] [--idle] [--next-foes] [--sidekick=drake[:kills]]   headless autopilot hunts
+##   -- --bot [--hero=knight] [--tier=0] [--zone=barrow|depths] [--runs=1] [--idle] [--old-foes] [--sidekick=drake[:kills]]   headless autopilot hunts
 ##   -- --capture --shots=lobby,hunt,... --out=/abs/dir         screenshots
 ##   -- --check                                                 compile every script and scene
 
@@ -43,9 +43,9 @@ func _ready() -> void:
 	_iris(1.0, 0.0)
 	add_child(UiJuice.new())
 	var args := OS.get_cmdline_user_args()
-	# --next-foes: the zones field their rebuilt factions (Rimehollow, Cinder Mire).
-	if args.has("--next-foes"):
-		preload("res://src/hunt/foe_brains.gd").next = true
+	# The zones field their rebuilt factions (Rimehollow, Cinder Mire); --old-foes brings back the stock ones.
+	if args.has("--old-foes"):
+		preload("res://src/hunt/foe_brains.gd").next = false
 	if args.has("--notch"):
 		Ui.forced_inset = Vector4(0, 108, 0, 62)
 	if args.has("--check"):

@@ -6,6 +6,7 @@ const Partner := preload("res://src/hunt/partner.gd")
 const BlobShadows := preload("res://src/hunt/blob_shadows.gd")
 const Biome := preload("res://src/hunt/biome.gd")
 const TerrainRun := preload("res://src/hunt/terrain_run.gd")
+const BiomeGround := preload("res://src/hunt/biome_ground.gd")
 var _blobs: MultiMeshInstance3D
 const FocusGuard := preload("res://src/hunt/focus_guard.gd")
 ## One hunt in the Barrow: the dead rise, the soul meter fills, the King
@@ -113,6 +114,8 @@ func _ready() -> void:
 	if not (zone.get("hazards", []) as Array).is_empty():
 		biome = Biome.new()
 		biome.setup(self)
+	if trial_rooms == 0 and FoeBrains.next:
+		BiomeGround.paint(arena, zone_id)
 	if arena.terrain_live:
 		terr = TerrainRun.new()
 		terr.setup(self)

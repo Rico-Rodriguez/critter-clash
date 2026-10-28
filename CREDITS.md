@@ -184,3 +184,37 @@ The scripts that built the audio are are kept in `tools/audio/`.
   - Cinder Warlord — "Low-poly orc" by Riltariki —
     https://sketchfab.com/3d-models/low-poly-orc-62f1637181cb4f6aa38897f5b7ab5edf
     (decimated from 21.6k to 11.4k tris; textures as shipped, 1024 px)
+  (Rimehollow and Cinder Mire foes: CC BY 4.0 from Sketchfab, `tools/art/foe_pipeline.sh`: clips pruned and
+  retimed, keyframes reduced, textures shrunk to at most 1024 px, meshes merged and decimated; materials unmodified)
+  - Frost Wolf — "WILD WOLF" by jbnotjeebe —
+    https://sketchfab.com/3d-models/wild-wolf-eba254adc5d44341b150bb4086d4b662
+  - Rime Yeti — "THE ABOMINABLE SNOWMAN (READ DESC)" by toro ardido modelos 3d —
+    https://sketchfab.com/3d-models/the-abominable-snowman-read-desc-75699f1d63e94e23b40a73df6a3d65b8
+  - Wail Wraith — "Banshee" by Vasian-Digital3D —
+    https://sketchfab.com/3d-models/banshee-690b8bb555fc4d20aba4e169c3220bb8
+  - Frozen Effigy — "Ice Golem" by Kolbaca —
+    https://sketchfab.com/3d-models/ice-golem-b618f7c8f0c7415ab5913ec2d112db62
+  - Rime Seer — "Wendingo Idle" by bootlegpanda —
+    https://sketchfab.com/3d-models/wendingo-idle-bd0efd5a3b9446d2948e92bd9bdf4c87
+  - Winter Caller — "FREE Low-poly PSX/PS1 Wendigo/Demon model" by Ultaraga Ultra Ultronus —
+    https://sketchfab.com/3d-models/free-low-poly-psxps1-wendigodemon-model-7c98d2c0a7984df2af2b5096c23e3044
+  - Frost Imp — "Goblin Ghoul" by Rodrigo Bento —
+    https://sketchfab.com/3d-models/goblin-ghoul-a6c6fffee3d34823b6d87a7054782577
+  - Shardling — "Ice golem" by CyberDriger83 —
+    https://sketchfab.com/3d-models/ice-golem-4070bce587134fe99c99df46d7b44c3a
+  - Sporecap — "Mushroom Guy" by mateuszpyska —
+    https://sketchfab.com/3d-models/mushroom-guy-231be56a49dc45948f47d267044d3286
+  - Bogfin — "Lizardman" by DJMaesen —
+    https://sketchfab.com/3d-models/lizardman-a710eb3eaeab4200a2ff83abc9b0c4db
+  - Cinder Imp — "Imp" by Al (lightningocelot) —
+    https://sketchfab.com/3d-models/imp-ea693fce383d4d859dd510946c5b0d4e
+  - Pyre Shaman — "Lich" by Spinnee —
+    https://sketchfab.com/3d-models/lich-4ad4ece50273473ba1d843797b8f4fa6
+  - Mire Hag — "Parameswara Chronicles: Witch" by Dr Helmi Norman —
+    https://sketchfab.com/3d-models/parameswara-chronicles-witch-3aec47eaaeae4f9693a1bb038aa86091
+  - Bog Frog — "Monster frog" by Goofy goober bird —
+    https://sketchfab.com/3d-models/monster-frog-2638fa13bdd647d195004bf3dc0047a7
+  - Methane Bloat — "Bloater" by Vasian-Digital3D —
+    https://sketchfab.com/3d-models/bloater-18e00bde1fca4cef9f39188fdfb20b1e
+  - Ember Wasp — "Armored Wasp" by Rodrigo Bento —
+    https://sketchfab.com/3d-models/armored-wasp-30e45b0f76d64aed8a8c587235d6f6e5

@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/winter_caller_src.glb" id="1_5640d"]
+
+[node name="winter_caller" type="Node3D" unique_id=264584311]
+metadata/cull_aabbs = {
+"Sketchfab_model/demon_fbx/Object_2/RootNode/metarig/Object_6/Skeleton3D/Object_9": AABB(-1.4541739, -1.4441592, -1.0735309, 2.9082441, 2.730859, 3.9888625)
+}
+metadata/posed_aabb = AABB(-0.21099314, 0, -0.1635523, 0.42198628, 1, 0.3271046)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1054175307 instance=ExtResource("1_5640d")]
+transform = Transform3D(0.33647493, 0, 0, 0, 0.33647493, 0, 0, 0, 0.33647493, 2.7736713e-05, 0.007418133, -0.042111762)

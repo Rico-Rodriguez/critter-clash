@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/pyre_shaman_src.glb" id="1_v2iso"]
+
+[node name="pyre_shaman" type="Node3D" unique_id=18953523]
+metadata/cull_aabbs = {
+"Sketchfab_model/3abddaa0bc4d4f59a8e11f478c6b659b_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-16.039946, -27.999111, -17.17014, 36.087746, 44.286087, 39.46243)
+}
+metadata/posed_aabb = AABB(-0.28097388, 0, -0.3711316, 0.56194776, 1, 0.7422632)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=854842305 instance=ExtResource("1_v2iso")]
+transform = Transform3D(5.343184, 0, 0, 0, 5.343184, 0, 0, 0, 5.343184, -0.10707356, 0.81290054, -0.13684298)
