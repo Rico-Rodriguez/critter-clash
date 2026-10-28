@@ -134,12 +134,14 @@ func _foes(dt: float) -> void:
 			continue
 		t.stand(t.cell_of(p), f.mass)
 		var fx: Dictionary = t.body_effect(p)
+		var dweller: bool = str((f.def.get("brain", {}) as Dictionary).get("kind", "")) == "ambush"
 		if bool(fx["lethal"]):
 			# Bog dwellers (the ambush brains: Bogfin, Bog Frog) swim, so open water is home to them.
-			if str((f.def.get("brain", {}) as Dictionary).get("kind", "")) != "ambush":
+			if not dweller:
 				_drown(f)
 		elif burn_now and float(fx["dps"]) > 0.0 and str(f.def.get("element", "")) != "fire" and not bool(f.def.get("fireproof", false)):
-			h.damage_foe(f, float(f.def.get("hp", 40.0)) * 0.05, h.hero, Vector3.ZERO, 0.0)
+			# The fire that burns their bog hurts the bog dwellers twice as hard.
+			h.damage_foe(f, float(f.def.get("hp", 40.0)) * (0.1 if dweller else 0.05), h.hero, Vector3.ZERO, 0.0)
 			scorched += 1
 
 

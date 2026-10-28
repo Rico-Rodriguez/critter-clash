@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/frost_wolf_src.glb" id="1_nc2ni"]
+
+[node name="frost_wolf" type="Node3D" unique_id=1768333349]
+metadata/cull_aabbs = {
+"Sketchfab_model/3fab0f308cf64efca49509e5e9fc2103_fbx/Object_2/RootNode/BoarWithAnim_Nov30_2016_0006_group1/Object_6/Skeleton3D/Object_9": AABB(-31.842766, -26.081102, -47.15529, 63.550186, 77.29604, 95.41788)
+}
+metadata/posed_aabb = AABB(-0.23013656, 0, -0.85577416, 0.46027312, 1, 1.7115483)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=199401012 instance=ExtResource("1_nc2ni")]
+transform = Transform3D(0.0392647, 0, 0, 0, 0.0392647, 0, 0, 0, 0.0392647, 0.0026571308, 0.0065637273, -0.021738898)

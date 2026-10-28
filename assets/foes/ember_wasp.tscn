@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/ember_wasp_src.glb" id="1_1xhcy"]
+
+[node name="ember_wasp" type="Node3D" unique_id=1603499285]
+metadata/cull_aabbs = {
+"Sketchfab_model/root/GLTF_SceneRootNode/Armature_24/GLTF_created_0/Skeleton3D/Object_7": AABB(-7.1903086, -6.4369392, -5.869995, 14.380618, 13.23733, 11.905485)
+}
+metadata/posed_aabb = AABB(-0.61865747, 0, -0.36177287, 1.2373149, 1, 0.72354573)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1076401619 instance=ExtResource("1_1xhcy")]
+transform = Transform3D(0.20757231, 0, 0, 0, 0.20757231, 0, 0, 0, 0.20757231, -9.897819e-08, -0.3366414, 0.07777028)
