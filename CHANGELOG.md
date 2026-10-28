@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: perf-biomes fails a run that drew nothing
+
+`tools/dev/perf-biomes.sh` now fails when a run reports 0 draw calls or 0 triangles (a blank viewport or a
+dead camera used to print `0` and pass the budget). The swamp mobile runs re-measured after the biome
+models landed: hunt 252 draws p95, busy 281, boss 203; 150k-240k triangles; 1.6-3.3 ms script frame.
+
 ## Biome visual polish (dev/biome-models, round 2)
 
 - Cinder Mire is lit: brighter ground, a warm key, a cool rim light (arena_mire.gd `_light`).
