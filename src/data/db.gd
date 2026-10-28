@@ -1607,7 +1607,7 @@ const SEASON_WEEKS := 6
 ## the card's recommended power already warns about a fluke, and a loss costs nothing.
 const TIER_WINS := 1
 const SEASON_TIERS := 30
-const SEASON_XP := 270
+const SEASON_XP := 240
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
 
 static func season_reward(n: int, sid := 0) -> Dictionary:

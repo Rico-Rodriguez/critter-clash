@@ -12,7 +12,7 @@ version is 7.
 
 ## Unreleased: the season is a little shorter
 
-From the design audit. A tier now costs 270 season xp instead of 400, and the season's outfit is at tier 20 instead of 25 (the second season egg moves from 20 to 25 to swap places). In the simulated week a regular player earns about 1,110 renown, which finishes the pass in about five of its six weeks; a casual player still doesn't, and the grinder stays well under 30 tiers in a week (`economy_tests`).
+From the design audit. A tier now costs 240 season xp instead of 400, and the season's outfit is at tier 20 instead of 25 (the second season egg moves from 20 to 25 to swap places). In the simulated week a regular player reaches 6 tiers a week (5 weeks for all 30), a casual player 2, and the grinder 22, still under 30 (`economy_tests`).
 
 ---
 
