@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: a recovered hunt says so
+
+When the phone kills the app mid-hunt, the next boot pays the hunt out as a retreat. The camp now shows a note ("Your last hunt was saved", with the gold and items kept) once, then clears the `recovered_run` flag. Before, the flag was written and never read. `--shots=recovered` captures it.
+
+---
+
 ## Unreleased: the release gate catches broken imports
 
 No game change. PR #118 shipped 93 broken audio imports and nothing failed,
