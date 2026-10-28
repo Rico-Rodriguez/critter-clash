@@ -10,6 +10,50 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the Rimehollow kit
+
+Rimehollow's cliffs, crystals, ice blocks, pines, longship, hut, sled and
+boulders are now the Art kit's Blender meshes (`assets/kits/rime/rime_kit.glb`
+via `KitModels.mesh`) instead of the code-built pieces: darker, colder ice and
+rock, one palette texture, same sizes, transforms and obstacle circles. Still
+code-built: the Long Road's frost rooms (`Kit.cliff` and friends).
+
+## Unreleased: Biome rebuild, bog in the flow field and bosses that wade
+
+The foes' flow field now weighs the ground: a step costs the terrain's `cost`
+(1 firm, 3 bog, 6 burning), so foes walk round a small bog when a dry way is
+not much longer and wade a wide one. Zones without terrain keep the plain step
+count. Bosses feel half of what the ground does to the hero (a bog or a cracked
+open hole slows the Frost Troll or the Cinder Warlord), and still never drown.
+
+## Unreleased: Biome rebuild, the Frost Troll cracks the floor
+
+From his second phase the Frost Troll's court cracks. The break itself cracks a
+ring of ice round him; after that a patch just ahead of where you are heading
+turns thin every 6.5 s (every 4 s, two at a time, in the third phase), and
+Shatter's pillars crack the ice they stand on. Cracked ice snaps to cold open
+water after 1.9 s whether you stand on it or not, and freezes over again
+(`Terrain.crack`, `crack_disc`, `boss_rime.gd`). Ice only: snow and the Long
+Road's firm ground never crack.
+
+## Unreleased: Biome rebuild, foe kits wired in
+
+`DB.enemy` now folds the Art foe kits into the foes' defs (`FoeModels.fold`):
+Rimehollow's wolf, frost wraith, yeti and shardling and the Cinder Mire's
+shaman, bloat and sporecap wear their own models, rigs and clips. Foes without
+a kit stay on their skeletons.
+
+## Unreleased: Biome rebuild, the Long Road in Rimehollow and the Mire
+
+On the Long Road in Rimehollow or the Burning Swamp the same rooms, gaps and
+encounters now stand on the zone's own kit (`src/hunt/arena_trial_zone.gd`): a
+tall terrain grid the length of the road, glacier or bog-rock walls, rock
+ramparts or pile palisades for the dividers, ice ponds (thin ice, then open
+water deeper in) or bog pools with a boardwalk of planks that burns, and the
+court of the Frost Troll or the Warlord's deck and Pyre Tree at the end. A firm
+line always runs gap to gap. Other zones keep the dungeon. Foes are no longer
+placed in open water.
+
 ## Unreleased: Biome rebuild, the Cinder Mire
 
 The Burning Swamp now paints the terrain grid. `src/hunt/arena_mire.gd` lays out a

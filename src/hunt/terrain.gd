@@ -105,8 +105,11 @@ func fill_ellipse(k: int, cx: float, cz: float, rx: float, rz: float, only := -1
 	var n := FastNoiseLite.new()
 	n.seed = seed_
 	n.frequency = 0.16
-	for z in h:
-		for x in w:
+	# Only the cells in the ellipse's box (a little wider, for the rough edge).
+	var lo := cell_of(Vector3(cx - rx * (1.0 + noise) - CELL, 0.0, cz - rz * (1.0 + noise) - CELL))
+	var hi := cell_of(Vector3(cx + rx * (1.0 + noise) + CELL, 0.0, cz + rz * (1.0 + noise) + CELL))
+	for z in range(maxi(lo.y, 0), mini(hi.y, h - 1) + 1):
+		for x in range(maxi(lo.x, 0), mini(hi.x, w - 1) + 1):
 			var c := Vector2i(x, z)
 			if only >= 0 and kind_of(c) != only:
 				continue
@@ -249,6 +252,35 @@ func thin(c: Vector2i) -> bool:
 	set_kind(c, THIN_ICE)
 	_ev.append({"ev": "thin", "cell": c})
 	return true
+
+
+## The floor cracks by itself: solid ice turns thin and snaps to water after
+## `delay` seconds whether anyone stands on it or not. Returns whether it took.
+func crack(c: Vector2i, delay: float) -> bool:
+	var k := kind_of(c)
+	if k != ICE and k != THIN_ICE:
+		return false
+	if k == ICE:
+		set_kind(c, THIN_ICE)
+		_ev.append({"ev": "thin", "cell": c})
+	var i := idx(c)
+	if timer[i] <= 0.0 or timer[i] > delay:
+		timer[i] = delay
+		_active[i] = true
+	return true
+
+
+## Cracks every ice cell whose centre is within `r` of `p`. Returns how many.
+func crack_disc(p: Vector3, r: float, delay: float) -> int:
+	var n := 0
+	var c0 := cell_of(p)
+	var reach := ceili(r / CELL) + 1
+	for dz in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var c := c0 + Vector2i(dx, dz)
+			if in_bounds(c) and Vector2(center_of(c).x - p.x, center_of(c).z - p.z).length() <= r and crack(c, delay):
+				n += 1
+	return n
 
 
 ## A Sporecap rots a plank to bog.
