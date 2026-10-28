@@ -270,8 +270,11 @@ func weekly_seed(week: int = -1) -> int:
 
 ## One number for a hunt under the omen, so runs can be ranked.
 func weekly_score(r: Dictionary) -> int:
+	# A hunt result lists the bosses it killed (ids); older callers pass a count.
+	var killed = r.get("bosses", 0)
+	var bosses: int = (killed as Array).size() if killed is Array else int(killed)
 	return (1000 if r.get("win", false) else 0) + int(r.get("level", 0)) * 50 \
-		+ int(r.get("souls", 0)) + int(r.get("bosses", 0)) * 250 \
+		+ int(r.get("souls", 0)) + bosses * 250 \
 		+ int(r.get("depth", 0)) * 100 + int(r.get("perfect", 0)) * 10
 
 

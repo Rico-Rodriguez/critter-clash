@@ -10,6 +10,13 @@ version is 7.
 
 ---
 
+## Unreleased: omen hunts score again, and a simulated economy week
+
+- **Bug:** `Game.weekly_score` ran `int()` on the hunt's list of boss ids, so finishing a hunt under the weekly rule raised a script error and the week's best and event points were not recorded. It now counts the list. No bot ran an omen hunt, which is how it shipped.
+- New `src/economy_tests.gd` plays a week for a casual, a regular and a grinder player through the real `finish_hunt` and tier claims, prints an `ECONOMY` line each (casual: ~8k gold, 1 season tier, 2 of 10 event tiers; grinder: ~58k gold, 7 season tiers, all 10 event tiers) and guards the shape.
+
+---
+
 ## Unreleased: main.gd loses its dev modes
 
 The autopilot, screenshot, perf and contact-sheet code (1,850 lines) moved from `src/main.gd` to `src/dev/capture.gd`, which the export leaves out. `main.gd` is 270 lines. Behaviour is the same: `--bot`, `--capture` and the shot helpers run through a shim for Main's `current`, `go` and `pending_chest`.
