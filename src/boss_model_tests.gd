@@ -72,6 +72,14 @@ static func run(ok: Callable) -> void:
 		a.set_flash(1.0)
 		a.free()
 
+	# The Cinder Mire boss stands on the Warlord rig: DB.boss_def folds in its fit, clips and alias,
+	# the hitbox is as wide as the body is tall for an orc, and the occluder covers the whole figure.
+	var cd: Dictionary = DB.boss_def("cinder")
+	var body_h := float(cd.get("fit", 0.0)) * float(cd["scale"])
+	ok.call("cinder boss: the Warlord rig at scale 3.0 with its clips and alias", str(cd["model"]) == "glb:cinder_warlord" and cd.has("clips") and cd.has("alias") and float(cd["scale"]) == 3.0 and body_h > 5.0)
+	ok.call("cinder boss: hitbox and occluder fit a %.1f m body" % body_h, float(cd["radius"]) >= 1.8 and (cd["occluder"] as Vector2).y >= body_h and (cd["occluder"] as Vector2).x >= float(cd["radius"]))
+	ok.call("cinder boss: other bosses are unchanged", DB.boss_def("rime") == DB.BOSSES["rime"] and not DB.boss_def("rime").has("clips"))
+
 
 ## Standing height in metres of a KayKit `model` at rest, from its mesh bounds.
 static func _height(model: Node3D, root: Node) -> float:
