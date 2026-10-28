@@ -187,7 +187,13 @@ func _build_daily(s: Sheet) -> void:
 		var today: bool = i + 1 == day and st["ready"]
 		var col := Color(1.0, 0.85, 0.4) if today else (Color(0.5, 0.9, 0.55) if claimed else Color(0.7, 0.66, 0.6))
 		var cc := CenterContainer.new()
-		cc.add_child(Ui.icon_rect(ic, 44, col))
+		if rw.has("chest"):
+			var chest_art: TextureRect = PropIcons.chest(str(rw["chest"]), 52)
+			if not (today or claimed):
+				chest_art.modulate = Color(0.7, 0.66, 0.6)
+			cc.add_child(chest_art)
+		else:
+			cc.add_child(Ui.icon_rect(ic, 44, col))
 		v.add_child(cc)
 		var t: String = ("%d gold" % int(rw["gold"])) if rw.has("gold") else (("%d shards" % int(rw["shards"])) if rw.has("shards") else DB.CHESTS[rw["chest"]]["name"])
 		if rw.has("gems"):
@@ -218,7 +224,7 @@ func _build_daily(s: Sheet) -> void:
 			s.rebuild())
 		b.add_child(cb)
 	var fw := _card()
-	var fl := Ui.label("First win of the day: %s" % ("ready. Double gold and a better chest." if Game.first_win_ready() else "claimed. Back tomorrow."), "Body")
+	var fl := Ui.label("First win of the day: %s" % ("ready. Double gold, a better chest and %d gems." % DB.FIRST_WIN_GEMS if Game.first_win_ready() else "claimed. Back tomorrow."), "Body")
 	fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	fl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.45) if Game.first_win_ready() else Color(0.6, 0.6, 0.6))
 	fw.add_child(fl)
@@ -243,6 +249,20 @@ func _reward_text(rw: Dictionary) -> String:
 	return ""
 
 
+## The picture for a season reward: a real chest, egg or outfit render, or the currency's icon.
+func _season_art(rw: Dictionary, size_: float) -> Control:
+	match str(rw["kind"]):
+		"chest": return PropIcons.chest(str(rw["chest"]), size_)
+		"egg": return PropIcons.egg(str(rw["egg"]), size_)
+		"outfit":
+			var hid := Game.hero_id()
+			return LookIcons.rect(hid, {"outfit": str(rw["outfit"])}, size_, str(DB.HEROES[hid]["icon"]), Color(DB.OUTFITS[rw["outfit"]]["dye"]).lightened(0.25))
+		"glow": return Ui.icon_rect("dripping-sword", size_ * 0.8, Color(DB.GLOWS[rw["glow"]]["color"]).lerp(Color.WHITE, 0.2))
+		"gems": return Ui.icon_rect("gems", size_ * 0.8, Color(0.55, 0.9, 1.0))
+		"shards": return Ui.icon_rect("gems", size_ * 0.8, Color(0.85, 0.72, 0.48))
+	return Ui.icon_rect("two-coins", size_ * 0.8, Color(1.0, 0.84, 0.4))
+
+
 func _build_season(s: Sheet) -> void:
 	var b := s.body
 	var lv := Game.season_level()
@@ -261,13 +281,22 @@ func _build_season(s: Sheet) -> void:
 		var rw := DB.season_reward(n, Game.season_id())
 		var c := _card()
 		var row := _row([], 14)
-		var num := Ui.label("%d" % n, "Value")
-		num.custom_minimum_size = Vector2(54, 0)
+		var num := Ui.label("%d" % n, "Value", HORIZONTAL_ALIGNMENT_CENTER)
+		num.custom_minimum_size = Vector2(46, 0)
 		num.add_theme_font_size_override("font_size", 28)
 		row.add_child(num)
-		var tl := Ui.label(("✓ " if n <= claimed else "") + _reward_text(rw), "Body")
+		var art := CenterContainer.new()
+		art.custom_minimum_size = Vector2(72, 72)
+		art.add_child(_season_art(rw, 64))
+		row.add_child(art)
+		var tl := Ui.label(_reward_text(rw), "Body")
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(tl)
+		if n <= claimed:
+			var ck := Ui.label("✓", "Value", HORIZONTAL_ALIGNMENT_CENTER)
+			ck.add_theme_color_override("font_color", Color(0.5, 0.9, 0.55))
+			row.add_child(ck)
 		if n == claimed + 1 and n <= lv:
 			var cb := Button.new()
 			cb.text = "Claim"
@@ -770,6 +799,7 @@ const Care := preload("res://src/core/pet_care.gd")
 const PetsTab := preload("res://src/lobby/pets_tab.gd")
 const PetStage := preload("res://src/lobby/pet_stage.gd")
 const PropIcons := preload("res://src/ui/prop_icons.gd")
+const LookIcons := preload("res://src/ui/look_icons.gd")
 const PetIcons := preload("res://src/ui/pet_icons.gd")
 ## The sidekick whose detail page is open in the sheet ("" = the stable).
 var _sk_detail := ""
