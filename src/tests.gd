@@ -684,6 +684,13 @@ func _depth_tests() -> void:
 	_ok("an old save keeps its best mode's tier", Game.mode_tier_unlocked("horde") == 4)
 	Game._one_ladder()
 	_ok("the ladder migration is safe to repeat", Game.mode_tier_unlocked() == 4)
+	# Boss Rush runs every boss the player has opened, not just the first two.
+	var ro_all: Array = DB.rush_order_for(DB.ZONE_ORDER).map(func(e: Array) -> String: return str(e[0]))
+	_ok("rush with every zone open fields all six bosses once", ro_all == ["gravemaw", "hexer", "thorn", "warden", "rime", "cinder"])
+	var ro_new: Array = DB.rush_order_for(["barrow"])
+	_ok("rush with one zone repeats its boss, stronger", ro_new.size() == DB.RUSH_MIN and ro_new[0][0] == "gravemaw" and float(ro_new[-1][1]) > 1.0)
+	var ro_pow: Array = DB.rush_order_for(DB.ZONE_ORDER).map(func(e: Array) -> float: return float(e[1]))
+	_ok("rush bosses get stronger", ro_pow[0] == 1.0 and ro_pow[-1] > ro_pow[0])
 	# A save that claimed the Rogue's road step under the old, shorter road.
 	var road_keep: Dictionary = Game.data
 	Game.data = Game._fresh()

@@ -568,8 +568,8 @@ const MODES := {
 	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "unlock": "Trophy Road: 150 trophies", "rooms": [5, 5, 6, 6, 7, 7, 7, 8]},
 	"descent": {"name": "Endless Descent", "short": "Descent", "blurb": "The dead never stop. Each minute goes a level deeper; a boss every fifth. How deep can you go?", "unlock": "Trophy Road: 1200 trophies"},
 	"wild": {"name": "The Wilderness", "short": "Wilderness", "blurb": "A closing ring and rival bands hunting you. Be the last band standing.", "unlock": "Trophy Road: 2100 trophies"},
-	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Both bosses, twice, back to back. A card and a breath between each.", "unlock": "Trophy Road: 550 trophies"},
-	"rift": {"name": "Rift", "short": "Rift", "blurb": "Spend a rift key: one boss at more than twice its strength, and a unique drop if you win.", "unlock": "Reach depth 8 in the Descent for a rift key"},
+	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Every boss you have unlocked, back to back, each a little stronger. A card and a breath between each.", "unlock": "Trophy Road: 550 trophies"},
+	"rift": {"name": "Rift", "short": "Rift", "blurb": "Spend a rift key: one of your unlocked bosses at more than twice its strength, and a unique drop if you win.", "unlock": "Reach depth 8 in the Descent for a rift key"},
 }
 ## Endless Descent: the horde never stops. Every DESCENT_TIME seconds the depth
 ## rises (foes grow tougher, a champion arrives); every fifth depth a boss.
@@ -580,7 +580,29 @@ const DESCENT_HP := 0.16
 const DESCENT_DMG := 0.08
 const DESCENT_CHESTS := [[15, "crypt"], [10, "gold"], [5, "silver"]]
 ## Boss Rush: the zone's bosses in turn, each empowered on the second lap.
-const RUSH_ORDER := [["gravemaw", 1.0], ["hexer", 1.0], ["gravemaw", 1.3], ["hexer", 1.35]]
+const RUSH_MIN := 4
+const RUSH_RAMP := 0.07
+## The bosses of the zones `open` (zone ids), in zone order.
+static func open_bosses(open: Array) -> Array:
+	var out := []
+	for z: String in ZONE_ORDER:
+		if z in open and ZONES.has(z):
+			out.append(str(ZONES[z]["boss"]))
+	return out if not out.is_empty() else [str(ZONES["barrow"]["boss"])]
+
+
+## The Boss Rush for a player who has opened `open` zones: every one of their
+## bosses once, each a little stronger than the last. With fewer than RUSH_MIN
+## bosses the lap repeats at 1.3x so the rush is never a two-boss sprint.
+static func rush_order_for(open: Array) -> Array:
+	var ids := open_bosses(open)
+	var out := []
+	var i := 0
+	while out.size() < maxi(ids.size(), RUSH_MIN):
+		var lap := i / ids.size()
+		out.append([ids[i % ids.size()], (1.0 + 0.3 * lap) if ids.size() < RUSH_MIN else 1.0 + RUSH_RAMP * i])
+		i += 1
+	return out
 const RUSH_GAP := 7.0
 ## The Wilderness: a royale on a closing ring. Rival bands (hero-built foes)
 ## hunt you while the dead rise; the last band standing wins. Ring radius by

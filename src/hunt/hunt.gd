@@ -57,7 +57,7 @@ func _ready() -> void:
 		# A rift key opens one empowered boss with a guaranteed unique.
 		Game.data["rift_keys"] = maxi(int(Game.data.get("rift_keys", 0)) - 1, 0)
 		Game.save()
-		rift_boss = "gravemaw" if randf() < 0.5 else "hexer"
+		rift_boss = str(DB.open_bosses(open_zone_ids()).pick_random())
 	if mode == "descent" or _rushlike() or mode == "wild":
 		elite_marks.clear()
 		surge_marks.clear()
