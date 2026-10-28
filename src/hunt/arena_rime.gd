@@ -10,6 +10,7 @@ extends RefCounted
 const G := "res://assets/kaykit/graveyard/"
 const Terrain := preload("res://src/hunt/terrain.gd")
 const Kit := preload("res://src/hunt/kit_mesh.gd")
+const KitModels := preload("res://src/data/kit_models.gd")
 const COLD := Color(0.62, 0.86, 1.0)
 const WARM := Color(1.0, 0.72, 0.38)
 
@@ -77,7 +78,7 @@ static func _ice_floor(a: Arena) -> void:
 static func _meshes() -> Array:
 	if _cliff_meshes.is_empty():
 		for i in 3:
-			_cliff_meshes.append(Kit.cliff(40 + i * 17, 1.0, 1.0, 8 + i))
+			_cliff_meshes.append(KitModels.mesh("rime", "cliff_" + "abc"[i]))
 	return _cliff_meshes
 
 
@@ -96,7 +97,6 @@ static func _batch(a: Arena, meshes: Array, material: Material, xfs: Array, shad
 static func _cliffs(a: Arena) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 90210
-	var rock := Kit.mat("rime_rock", 0.82)
 	var xfs: Array = []
 	var step := 3.1
 	# A ring just outside the walls; the south edge keeps a little gap where the
@@ -124,7 +124,7 @@ static func _cliffs(a: Arena) -> void:
 	for i in 9:
 		var xx := -20.0 + float(i) * 5.0
 		xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(3.4, 5.5, 3.4) * rng.randf_range(0.85, 1.3)), Vector3(xx, 0, a.min_z - 4.8 - rng.randf() * 1.5)))
-	_batch(a, _meshes(), rock, xfs)
+	_batch(a, _meshes(), null, xfs)
 	# Glacier Gate: two big chunks flank the causeway to the throne.
 	var gate: Array = []
 	for sx in [-1.0, 1.0]:
@@ -132,7 +132,7 @@ static func _cliffs(a: Arena) -> void:
 		a.add_obstacle(Vector2(sx * 6.3, -12.2), 2.2)
 		a.add_obstacle(Vector2(sx * 8.4, -11.4), 1.6)
 		gate.append(Transform3D(Basis(Vector3.UP, 1.9 * sx).scaled(Vector3(1.9, 2.5, 1.9)), Vector3(sx * 8.8, 0, -11.6)))
-	_batch(a, _meshes(), rock, gate)
+	_batch(a, _meshes(), null, gate)
 
 
 # --- Caverns, sealed behind breakable ice ----------------------------------
@@ -140,8 +140,6 @@ static func _cliffs(a: Arena) -> void:
 static func _caverns(a: Arena) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5150
-	var rock := Kit.mat("rime_rock", 0.82)
-	var ice := Kit.mat("rime_ice", 0.07, 0.0, Color(0.35, 0.65, 0.95), 0.12)
 	var xfs: Array = []
 	for cave: Dictionary in CAVES:
 		var at: Vector2 = cave["at"]
@@ -157,8 +155,7 @@ static func _caverns(a: Arena) -> void:
 		# The mouth: ice walls on the lake edge, each a solid block you can break.
 		for m: Vector2 in cave["mouth"]:
 			var node := MeshInstance3D.new()
-			node.mesh = Kit.ice_block(int(m.x * 3 + m.y))
-			node.material_override = ice
+			node.mesh = KitModels.mesh("rime", "ice_block")
 			node.position = Vector3(m.x, 0, m.y)
 			node.rotation.y = rng.randf() * TAU
 			a.add_child(node)
@@ -169,17 +166,16 @@ static func _caverns(a: Arena) -> void:
 		var sl := a._light(sp + Vector3(cos(face) * 1.0, 1.6, 0), Color(0.7, 0.9, 1.0), 1.8, 6.5)
 		a.shrines.append({"pos": sp + Vector3(cos(face) * 1.9, 0, 0), "light": sl})
 		a.terrain.set_kind(a.terrain.cell_of(Vector3(sp.x, 0, sp.z)), Terrain.DRY)
-	_batch(a, _meshes(), rock, xfs)
+	_batch(a, _meshes(), null, xfs)
 
 
 # --- The Glacier Throne ----------------------------------------------------
 
 static func _throne(a: Arena) -> void:
-	var ice := Kit.mat("rime_crystal", 0.1, 0.0, Color(0.4, 0.75, 1.0), 0.25)
 	var xfs: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 777
-	var meshes: Array = [Kit.crystals(31, 1.0), Kit.crystals(32, 1.0)]
+	var meshes: Array = [KitModels.mesh("rime", "crystal_c"), KitModels.mesh("rime", "crystal_a")]
 	# A ring of tall ice pillars round the court, open on the south.
 	for k in 10:
 		var ang := deg_to_rad(-150.0 + float(k) * 32.0)
@@ -189,13 +185,13 @@ static func _throne(a: Arena) -> void:
 		var s := rng.randf_range(1.5, 2.0)
 		xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * 1.2, s)), Vector3(p.x, 0, p.y)))
 		a.add_obstacle(p, 1.0 * s * 0.8)
-	_batch(a, meshes, ice, xfs)
+	_batch(a, meshes, null, xfs)
 	# The throne itself: a seat cut from three great blocks, spires rising behind.
 	var blocks: Array = []
-	var blk := Kit.ice_block(7, 2.0, 2.8)
+	var blk := KitModels.mesh("rime", "ice_block")
 	for b: Array in [[-3.0, -27.6, 1.5, 1.3], [3.0, -27.6, 1.5, 1.3], [0.0, -29.2, 2.0, 2.3], [-1.6, -28.4, 1.1, 1.8], [1.6, -28.4, 1.1, 1.8]]:
 		blocks.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(b[2], b[3], b[2])), Vector3(b[0], 0, b[1])))
-	Kit.batch(a, blk, Kit.mat("rime_ice", 0.07, 0.0, Color(0.35, 0.65, 0.95), 0.12), blocks)
+	Kit.batch(a, blk, null, blocks)
 	a.add_obstacle(Vector2(-3.0, -27.6), 1.5)
 	a.add_obstacle(Vector2(3.0, -27.6), 1.5)
 	a.add_obstacle(Vector2(0.0, -29.2), 2.0)
@@ -207,11 +203,9 @@ static func _throne(a: Arena) -> void:
 # --- The south shore ---------------------------------------------------------
 
 static func _shore(a: Arena) -> void:
-	var wood := Kit.mat("rime_wood", 0.9)
 	# The beached longship, bow toward the lake.
 	var ship := MeshInstance3D.new()
-	ship.mesh = Kit.longship(3)
-	ship.material_override = wood
+	ship.mesh = KitModels.mesh("rime", "longship")
 	ship.position = Vector3(-11.5, -0.2, 14.0)
 	ship.rotation = Vector3(0.06, PI + 0.5, 0.1)
 	a.add_child(ship)
@@ -220,15 +214,13 @@ static func _shore(a: Arena) -> void:
 		a.add_obstacle(o, 1.5)
 	# An ice-fisher's hut, a sled, and the first lanterns.
 	var hut := MeshInstance3D.new()
-	hut.mesh = Kit.hut(4)
-	hut.material_override = wood
+	hut.mesh = KitModels.mesh("rime", "hut")
 	hut.position = Vector3(11.0, 0, 15.5)
 	hut.rotation.y = -0.3
 	a.add_child(hut)
 	a.add_box(Vector2(11.0, 15.5), Vector2(1.7, 1.4), -0.3)
 	var sled := MeshInstance3D.new()
-	sled.mesh = Kit.sled()
-	sled.material_override = wood
+	sled.mesh = KitModels.mesh("rime", "sled")
 	sled.position = Vector3(8.0, 0, 12.2)
 	sled.rotation.y = 0.5
 	a.add_child(sled)
@@ -247,8 +239,7 @@ static func _shore(a: Arena) -> void:
 static func _pines(a: Arena) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2468
-	var leaf := Kit.mat("rime_pine", 0.9)
-	var meshes: Array = [Kit.pine(1, 1.0), Kit.pine(2, 1.15), Kit.pine(3, 0.9)]
+	var meshes: Array = [KitModels.mesh("rime", "pine_a"), KitModels.mesh("rime", "pine_b"), KitModels.mesh("rime", "pine_c")]
 	var xfs: Array = []
 	# Inside the hollow: pines on the shore flanks, solid cover.
 	var inside: Array = [Vector2(-18.5, 10.5), Vector2(-16.0, 17.5), Vector2(-19.0, 15.5), Vector2(18.5, 18.0), Vector2(19.5, 8.5), Vector2(-4.5, 18.5),
@@ -264,12 +255,11 @@ static func _pines(a: Arena) -> void:
 			continue
 		var s2 := rng.randf_range(1.5, 2.6)
 		xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s2), Vector3(p.x, 0, p.y)))
-	_batch(a, meshes, leaf, xfs)
+	_batch(a, meshes, null, xfs)
 
 
 static func _crystals(a: Arena) -> void:
-	var ice := Kit.mat("rime_crystal", 0.1, 0.0, Color(0.4, 0.75, 1.0), 0.25)
-	var meshes: Array = [Kit.crystals(51, 1.0), Kit.crystals(52, 1.0), Kit.crystals(53, 1.0), Kit.crystals(54, 1.0)]
+	var meshes: Array = [KitModels.mesh("rime", "crystal_a"), KitModels.mesh("rime", "crystal_b"), KitModels.mesh("rime", "crystal_c"), KitModels.mesh("rime", "crystal_d")]
 	var xfs: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242
@@ -288,7 +278,7 @@ static func _crystals(a: Arena) -> void:
 			var ang := float(cave["face"]) + PI + (float(k) * 2.0 - 1.0) * 1.0
 			var p := at + Vector2(cos(ang), sin(ang)) * 2.1
 			xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.0, 1.25, 1.0) * rng.randf_range(0.7, 1.1)), Vector3(p.x, 0, p.y)))
-	_batch(a, meshes, ice, xfs)
+	_batch(a, meshes, null, xfs)
 
 
 ## Boulders and stacked ice blocks: something to fight round on the
@@ -296,19 +286,17 @@ static func _crystals(a: Arena) -> void:
 static func _dressing(a: Arena) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1357
-	var rock := Kit.mat("rime_rock", 0.82)
-	var ice := Kit.mat("rime_ice", 0.07, 0.0, Color(0.35, 0.65, 0.95), 0.12)
 	var rocks: Array = []
 	for p: Vector2 in [Vector2(-5.5, 11.5), Vector2(12.5, 9.0), Vector2(-14.5, 6.5), Vector2(15.0, -6.5), Vector2(-3.5, -12.8), Vector2(6.5, -17.5), Vector2(-10.5, -17.0), Vector2(16.5, -19.5), Vector2(-17.0, -22.5), Vector2(1.5, 19.0), Vector2(-19.0, 18.5), Vector2(9.5, 4.5)]:
 		var s := rng.randf_range(0.55, 0.85)
-		rocks.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * 1.2, s * 0.8, s)), Vector3(p.x, 0, p.y)))
+		rocks.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * 1.2, s * 1.3, s)), Vector3(p.x, 0, p.y)))
 		a.add_obstacle(p, 0.95 * s)
-	_batch(a, _meshes(), rock, rocks)
+	_batch(a, [KitModels.mesh("rime", "boulder_a"), KitModels.mesh("rime", "boulder_b")], null, rocks)
 	# Cut ice stacked by the hut: the fisher's harvest.
 	var cubes: Array = []
 	for o: Array in [[14.6, 17.4, 0.0, 0.5], [15.9, 17.0, 0.0, 0.42], [15.2, 18.2, 1.2, 0.46], [-6.5, 18.0, 0.0, 0.5], [-5.4, 18.7, 0.0, 0.4]]:
-		cubes.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(o[3], o[3] * 0.9, o[3])), Vector3(o[0], o[2] * 0.0, o[1])))
-	Kit.batch(a, Kit.ice_block(21, 2.0, 2.0), ice, cubes)
+		cubes.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(o[3], o[3] * 0.63, o[3])), Vector3(o[0], o[2] * 0.0, o[1])))
+	Kit.batch(a, KitModels.mesh("rime", "ice_block"), null, cubes)
 	a.add_obstacle(Vector2(15.2, 17.4), 1.3)
 	a.add_obstacle(Vector2(-6.0, 18.3), 1.1)
 

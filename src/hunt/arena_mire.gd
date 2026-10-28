@@ -7,12 +7,12 @@ extends RefCounted
 ## back after a while. North, a plank deck rings the Cinder Warlord's platform,
 ## braziers on it and the Pyre Tree, his den, behind.
 ## The floor is the terrain cell grid (src/hunt/terrain*.gd); planks, piles, the
-## shacks, the Pyre Tree, braziers, reeds and stones are code-built low-poly
-## meshes (mire_kit.gd) until the art kit lands. Crisp PBR: no fog, no bloom, no tint.
+## shacks, the Pyre Tree, braziers, reeds and stones are the Art kit's Blender meshes
+## (assets/kits/mire/mire_kit.glb via KitModels). Crisp PBR: no fog, no bloom, no tint.
 
 const G := "res://assets/kaykit/graveyard/"
 const Terrain := preload("res://src/hunt/terrain.gd")
-const Kit := preload("res://src/hunt/mire_kit.gd")
+const KitModels := preload("res://src/data/kit_models.gd")
 const KitMesh := preload("res://src/hunt/kit_mesh.gd")
 const Art := preload("res://src/hunt/biome_art.gd")
 const Plank := preload("res://src/hunt/mire_plank.gd")
@@ -122,10 +122,9 @@ static func _floor(a: Arena) -> void:
 ## with piles driven in beside the runs.
 static func boardwalk(a: Arena) -> void:
 	var t: RefCounted = a.terrain
-	var wood := Kit.mat("wood")
-	var burnt := Kit.charred_mat()
-	var decks: Array = [Kit.plank_deck(1), Kit.plank_deck(2), Kit.plank_deck(3)]
-	var piles: Array = []
+	var burnt: Material = KitModels.charred("mire")
+	var decks: Array = [KitModels.mesh("mire", "plank_a"), KitModels.mesh("mire", "plank_b"), KitModels.mesh("mire", "plank_c")]
+	var piles: Array = [[], []]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 6061
 	for z in t.h:
@@ -139,15 +138,16 @@ static func boardwalk(a: Arena) -> void:
 			# Boards lie across the way: for a run along x they turn a quarter.
 			var yaw := PI * 0.5 if along_x and not along_z else 0.0
 			var n: Node3D = Plank.new()
-			n.setup(decks[(x * 3 + z) % 3], wood, burnt)
+			n.setup(decks[(x * 3 + z) % 3], null, burnt)
 			n.position = at
 			n.rotation.y = yaw + rng.randf_range(-0.03, 0.03)
 			a.add_child(n)
 			a.plank_nodes[t.idx(c)] = n
 			if (x + z) % 2 == 0:
 				for s in [-1.0, 1.0]:
-					piles.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), at + _pile_off(yaw, s)))
-	KitMesh.batch(a, Kit.pile(7), Kit.mat("wood"), piles)
+					(piles[(x + z + int(s)) & 1] as Array).append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU), at + _pile_off(yaw, s)))
+	KitMesh.batch(a, KitModels.mesh("mire", "pile_a"), null, piles[0])
+	KitMesh.batch(a, KitModels.mesh("mire", "pile_b"), null, piles[1])
 
 
 static func _pile_off(yaw: float, s: float) -> Vector3:
@@ -161,8 +161,7 @@ static func _pile_off(yaw: float, s: float) -> Vector3:
 ## posts and pillars at its feet, an unburnt giant dead tree each side.
 static func _pyre(a: Arena) -> void:
 	var tree := MeshInstance3D.new()
-	tree.mesh = Kit.pyre_tree(13)
-	tree.material_override = Kit.mat("pyre", 0.95)
+	tree.mesh = KitModels.mesh("mire", "pyre_tree")
 	tree.position = PYRE
 	tree.rotation.y = 0.4
 	tree.scale = Vector3.ONE * 1.3
@@ -179,12 +178,10 @@ static func _pyre(a: Arena) -> void:
 
 ## Two stilt shacks on the landing island, a lantern each.
 static func _shacks(a: Arena) -> void:
-	var wood := Kit.mat("wood")
-	for s: Array in [[Vector3(-10.5, 0, 17.5), 0.35], [Vector3(11.0, 0, 18.0), -0.4]]:
+	for s: Array in [[Vector3(-10.5, 0, 17.5), 0.35, "shack"], [Vector3(11.0, 0, 18.0), -0.4, "shack_burnt"]]:
 		var at: Vector3 = s[0]
 		var mi := MeshInstance3D.new()
-		mi.mesh = Kit.shack(int(at.x))
-		mi.material_override = wood
+		mi.mesh = KitModels.mesh("mire", s[2])
 		mi.position = at
 		mi.rotation.y = s[1]
 		a.add_child(mi)
@@ -223,7 +220,6 @@ static func _vents(a: Arena) -> void:
 
 ## Braziers on the deck round the Warlord's platform: his firelight.
 static func _braziers(a: Arena) -> void:
-	var iron := Kit.mat("iron", 0.7)
 	var xfs: Array = []
 	for deg in [165.0, 200.0, 240.0, 300.0, 340.0, 15.0]:
 		var ang := deg_to_rad(deg)
@@ -231,7 +227,7 @@ static func _braziers(a: Arena) -> void:
 		xfs.append(Transform3D(Basis(Vector3.UP, ang), p))
 		a.add_obstacle(Vector2(p.x, p.z), 0.5)
 		Art.flame(a, p + Vector3(0, 1.0, 0), 0.8)
-	KitMesh.batch(a, Kit.brazier(5), iron, xfs)
+	KitMesh.batch(a, KitModels.mesh("mire", "brazier"), null, xfs)
 	for p: Vector3 in [DECK + Vector3(-6.0, 1.6, -2.0), DECK + Vector3(6.0, 1.6, -2.0)]:
 		a._light(p, FIRE, 1.8, 8.0, true)
 
@@ -282,26 +278,30 @@ static func _scenery(a: Arena) -> void:
 		var tn: String = ["tree_dead_large.gltf", "tree_dead_large_decorated.gltf", "tree_dead_medium.gltf"][a._rng.randi() % 3]
 		a.put(G + tn, p, a._rng.randf() * TAU, a._rng.randf_range(1.3, 1.7), 0.45, true, 1.2)
 	# Bog stones, solid cover on the firm ground, batched.
-	var rocks: Array = []
+	var rocks: Array = [[], [], []]
 	for i in 12:
 		var p = _firm(a, 1.0)
 		if p == null:
 			continue
 		var s := a._rng.randf_range(0.9, 1.5)
-		rocks.append(Transform3D(Basis(Vector3.UP, a._rng.randf() * TAU).scaled(Vector3(s * 1.2, s, s)), p))
-		a.add_obstacle(Vector2(p.x, p.z), 0.85 * s)
-	KitMesh.batch(a, Kit.stone(3), Kit.mat("stone", 0.9), rocks)
+		(rocks[i % 3] as Array).append(Transform3D(Basis(Vector3.UP, a._rng.randf() * TAU).scaled(Vector3(s * 1.2, s, s)), p))
+		a.add_obstacle(Vector2(p.x, p.z), 0.6 * s)
+	for k in 3:
+		KitMesh.batch(a, KitModels.mesh("mire", "stone_" + "abc"[k]), null, rocks[k])
 	# Reeds standing in the bog, no collision, one draw.
-	var reeds: Array = []
+	var reeds: Array = [[], [], []]
+	var n_reeds := 0
 	var tries := 0
-	while reeds.size() < 70 and tries < 600:
+	while n_reeds < 70 and tries < 600:
 		tries += 1
 		var p := Vector3(a._rng.randf_range(a.min_x, a.max_x), 0, a._rng.randf_range(a.min_z, a.max_z))
 		if a.terrain.kind_at(p) != Terrain.BOG:
 			continue
 		var s := a._rng.randf_range(0.8, 1.4)
-		reeds.append(Transform3D(Basis(Vector3.UP, a._rng.randf() * TAU).scaled(Vector3(s, s, s)), p))
-	KitMesh.batch(a, Kit.reeds(4), Kit.mat("reeds", 0.95), reeds, false)
+		(reeds[n_reeds % 3] as Array).append(Transform3D(Basis(Vector3.UP, a._rng.randf() * TAU).scaled(Vector3(s, s, s)), p))
+		n_reeds += 1
+	for k in 3:
+		KitMesh.batch(a, KitModels.mesh("mire", "reeds_" + "abc"[k]), null, reeds[k], false)
 	# Bones where the dead lay down.
 	for i in 16:
 		var p = _firm(a, 0.5, 3.0)
