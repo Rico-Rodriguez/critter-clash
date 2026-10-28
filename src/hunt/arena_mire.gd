@@ -73,15 +73,11 @@ static func _ground(a: Arena) -> void:
 	_light(a)
 
 
-## A clear key and a cool fill from behind, so the boardwalks, the dead and the dry ground read
-## at a glance instead of sinking into the bog. The zone's env (db.gd) stays as the Lead wrote it;
-## this lifts it from the zone's own layout.
+## What the zone's env (db.gd) has no key for: a touch more exposure and a cool rim light from
+## behind, so the boardwalks, the dead and the dry ground read at a glance. The ambient and sun
+## are db.gd's, so night and the day cycle (hunt_modes) scale the lifted values.
 static func _light(a: Arena) -> void:
-	a.env.ambient_light_energy = maxf(a.env.ambient_light_energy, 1.35)
-	a.env.ambient_light_color = Color(0.78, 0.76, 0.74)
 	a.env.tonemap_exposure = 1.18
-	a.sun.light_energy = maxf(a.sun.light_energy, 1.55)
-	a.sun.light_color = Color(1.0, 0.93, 0.82)
 	var rim := DirectionalLight3D.new()
 	rim.rotation_degrees = Vector3(-28.0, 148.0, 0.0)
 	rim.light_color = Color(0.62, 0.78, 1.0)
