@@ -68,8 +68,26 @@ static func _ground(a: Arena) -> void:
 	# Scorched soil on the islands; the bog is near black and glossy so the two read
 	# apart at a glance.
 	var look: Dictionary = {"dark": (a.zone_env["ground"] as Dictionary)["dark"],
-		"base_a": Color(0.17, 0.15, 0.125), "base_b": Color(0.27, 0.235, 0.185), "bog_col": Color(0.04, 0.043, 0.035)}
+		"base_a": Color(0.36, 0.31, 0.24), "base_b": Color(0.5, 0.43, 0.33), "bog_col": Color(0.085, 0.1, 0.085)}
 	a.terrain_begin(look)
+	_light(a)
+
+
+## A clear key and a cool fill from behind, so the boardwalks, the dead and the dry ground read
+## at a glance instead of sinking into the bog. The zone's env (db.gd) stays as the Lead wrote it;
+## this lifts it from the zone's own layout.
+static func _light(a: Arena) -> void:
+	a.env.ambient_light_energy = maxf(a.env.ambient_light_energy, 1.35)
+	a.env.ambient_light_color = Color(0.78, 0.76, 0.74)
+	a.env.tonemap_exposure = 1.18
+	a.sun.light_energy = maxf(a.sun.light_energy, 1.55)
+	a.sun.light_color = Color(1.0, 0.93, 0.82)
+	var rim := DirectionalLight3D.new()
+	rim.rotation_degrees = Vector3(-28.0, 148.0, 0.0)
+	rim.light_color = Color(0.62, 0.78, 1.0)
+	rim.light_energy = 0.55
+	rim.shadow_enabled = false
+	a.add_child(rim)
 
 
 static func _floor(a: Arena) -> void:

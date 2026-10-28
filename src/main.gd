@@ -1533,6 +1533,9 @@ func _capture(args: PackedStringArray) -> void:
 					h.spawn_t = 1e9
 					h.hero.invuln = 99.0
 					h.bot = false
+					# The stage: the Cinder Mire's widest dry island (the landing is a fenced strip).
+					if h.arena.zone == "swamp":
+						h.hero.position = Vector3(0.0, 0.0, 18.6)
 					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
 					# A low angle, so the knight reads as a knight and not as the top of a helm.
 					h.cam.pitch_deg = float(_arg(args, "pitch", "34"))
@@ -1553,8 +1556,9 @@ func _capture(args: PackedStringArray) -> void:
 							h.foes.erase(f)
 							f.queue_free()
 						await _wait_sim(h, 0.3)
+						# A staggered row across the stage, the hero in front of it.
 						for i in 4:
-							var at: Vector3 = h.hero.position + Vector3((float(i % 2) - 0.5) * 4.4, 0.0, -3.4 - float(i / 2) * 3.4)
+							var at: Vector3 = h.hero.position + Vector3((float(i) - 1.5) * 2.5, 0.0, -3.8 - float(i % 2) * 1.5)
 							h.spawn_foe(str(kinds[part * 4 + i]), h.arena.resolve(at, 0.5))
 						await _wait_sim(h, 1.8)
 						_beauty(h)
