@@ -317,6 +317,18 @@ func _coach() -> void:
 		return
 	if is_instance_valid(_guide) or not camp_idle() or not is_inside_tree():
 		return
+	# A hunt the phone killed in the background paid out as a retreat at boot: say so, once.
+	if Game.data.get("recovered_run") is Dictionary:
+		var rr: Dictionary = Game.data["recovered_run"]
+		Game.data.erase("recovered_run")
+		Game.save()
+		var found := int(rr.get("items", 0))
+		var body := "The app was closed mid-hunt, so it ended as a retreat. You kept %d gold" % int(rr.get("gold", 0))
+		body += (" and %d item%s." % [found, "" if found == 1 else "s"]) if found > 0 else "."
+		_guide = CampGuide.new()
+		_guide.setup(%Hunt, "Your last hunt was saved", body, false, camp_idle)
+		%Overlay.add_child(_guide)
+		return
 	var tips: Dictionary = Game.data["tips"]
 	var played := int(Game.data["stats"]["hunts"]) > 0
 	for st in [

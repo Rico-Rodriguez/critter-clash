@@ -13,6 +13,13 @@ version is 7.
 ## Unreleased: unused foe scenes removed
 
 Deleted `assets/foes/bloat*` and `spore*` (scene, glb, palette): nothing referenced them since the Blender models replaced them. They shipped in every pack.
+## Unreleased: a recovered hunt says so
+
+When the phone kills the app mid-hunt, the next boot pays the hunt out as a retreat. The camp now shows a note ("Your last hunt was saved", with the gold and items kept) once, then clears the `recovered_run` flag. Before, the flag was written and never read. `--shots=recovered` captures it.
+## Unreleased: pinned tool versions
+
+The test-server workflow downloads cloudflared 2025.9.1 instead of `latest` and runs on
+`ubuntu-24.04`, so an upstream release cannot break the server unannounced.
 
 ---
 
