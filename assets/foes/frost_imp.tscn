@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/foes/frost_imp_src.glb" id="1_xlmgh"]
 
-[node name="frost_imp" type="Node3D" unique_id=1441583014]
+[node name="frost_imp" type="Node3D" unique_id=232776041]
 metadata/cull_aabbs = {
-"Sketchfab_model/root/GLTF_SceneRootNode/Armature_58/GLTF_created_0/Skeleton3D/Object_7": AABB(-1528.1068, -1208.542, -2543.5105, 3024.581, 2530.0117, 3535.753)
+"Sketchfab_model/hor_mon_1_1_fbx/Object_2/RootNode/Creature_armature/Object_5/Skeleton3D/Object_99": AABB(-2.284374, -2.6711707, -2.416346, 4.4472647, 4.718307, 5.0398645)
 }
-metadata/posed_aabb = AABB(-0.33680087, 0, -0.17890248, 0.67360175, 1, 0.35780495)
+metadata/posed_aabb = AABB(-0.35383472, 0, -0.42068756, 0.70766944, 1, 0.8413751)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=176517007 instance=ExtResource("1_xlmgh")]
-transform = Transform3D(0.06385293, 0, 0, 0, 0.06385293, 0, 0, 0, 0.06385293, 0.010099114, 0.0047350675, -0.03605398)
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1828359147 instance=ExtResource("1_xlmgh")]
+transform = Transform3D(0.49330145, 0, 0, 0, 0.49330145, 0, 0, 0, 0.49330145, 0.02996404, 0.008172257, -0.15391845)

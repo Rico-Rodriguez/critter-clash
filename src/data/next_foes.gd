@@ -26,15 +26,15 @@ const SWAMP := ["cm_spore", "cm_bogfin", "cm_imp", "cm_shaman", "cm_hag", "cm_fr
 const FOES := {
 	# --- Rimehollow ---------------------------------------------------------
 	"rh_imp": {
-		"name": "Frost Imp", "model": "glb:frost_imp", "fit": 1.402, "clips": {"idle": "Idle", "walk": "Walk", "run": "Walk", "attack": "Attack Combo", "die": "Death"}, "gen": [], "weapons": {}, "skin": "rime", "base": "minion",
+		"name": "Rime Crawler", "model": "glb:frost_imp", "fit": 1.5, "clips": {"idle": "Creature_armature|battle_idle", "walk": "Creature_armature|walk", "run": "Creature_armature|Run", "attack": "Creature_armature|attack_1", "hit": "Creature_armature|hit_1", "die": "Creature_armature|death_1"}, "gen": [], "weapons": {}, "skin": "rime", "base": "minion",
 		"ai": "melee", "hp": 30.0, "dmg": 8.0, "speed": 4.2, "radius": 0.38, "reach": 1.2, "rider": "chill",
 		"windup": 0.35, "cooldown": 1.0, "mass": 0.8, "xp": 1, "scale": 0.82, "anim": A_SK,
 		"brain": {"kind": "skitter", "hop_at": 4.2, "hop_len": 3.4, "puddle": 0.9},
 	},
 	"rh_effigy": {
-		"name": "Frozen Effigy", "model": "glb:frozen_effigy", "fit": 2.119, "clips": {"idle": "idle", "walk": "walk", "run": "run", "attack": "shoot", "die": "die"}, "gen": [], "weapons": {}, "skin": "rime", "base": "warrior",
+		"name": "Frozen Effigy", "model": "glb:frozen_effigy", "fit": 1.9, "clips": {"idle": "Slash", "walk": "Slash", "run": "Slash"}, "gen": ["cast"], "weapons": {}, "skin": "rime", "base": "warrior",
 		"ai": "melee", "hp": 170.0, "dmg": 22.0, "speed": 2.7, "radius": 0.62, "reach": 1.6, "rider": "chill",
-		"windup": 0.55, "cooldown": 1.6, "mass": 4.0, "xp": 4, "scale": 1.18, "anim": A_WALK,
+		"windup": 0.55, "cooldown": 1.6, "mass": 4.0, "xp": 4, "scale": 1.05, "anim": A_WALK,
 		"brain": {"kind": "dormant", "wake_r": 6.0, "wake_time": 0.9},
 	},
 	"rh_wraith": {
@@ -44,7 +44,7 @@ const FOES := {
 		"brain": {"kind": "kite", "hover": 0.9, "keep": 7.0, "shots": 1},
 	},
 	"rh_seer": {
-		"name": "Rime Seer", "model": "glb:rime_seer", "fit": 2.4, "clips": {"idle": "Take 001", "walk": "Take 001", "run": "Take 001"}, "gen": ["cast"], "weapons": {}, "skin": "rime", "base": "mage",
+		"name": "Rime Seer", "model": "glb:rime_seer", "fit": 2.3, "clips": {"idle": "Lich_Lich_Idle", "walk": "Lich_Lich_WalkForward", "run": "Lich_Lich_RunForward", "attack": "Lich_Lich_AttackForeHandDamage", "cast": "Lich_Lich_SpellCasting_Enter", "hit": "Lich_Lich_StaggerBack", "die": "Lich_Lich_Death01"}, "gen": [], "weapons": {}, "skin": "rime", "base": "mage",
 		"ai": "caster", "hp": 62.0, "dmg": 20.0, "speed": 2.7, "radius": 0.45, "reach": 9.0, "blast": 2.2, "element": "frost", "leave": "frost",
 		"windup": 1.2, "cooldown": 4.2, "mass": 1.2, "xp": 3, "scale": 1.0, "anim": A_CAST,
 		"brain": {"kind": "caster", "spell": "thin", "keep": 7.5, "r": 2.2},

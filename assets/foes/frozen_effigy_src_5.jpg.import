@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b80oflncy62te"
-path="res://.godot/imported/rime_seer_src_2.jpg-acc5d64bb703c9f5b8ed3b495223715f.ctex"
+uid="uid://bdjr3dn3mk3as"
+path="res://.godot/imported/frozen_effigy_src_5.jpg-ca792d90d9f0db1dbf19bcf732f78060.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "cb99800d6fce9981d25a709725f550c8"
+"md5": "c9e33792fb1d43268db623946e383ff1"
 }
 
 [deps]
 
-source_file="res://assets/foes/rime_seer_src_2.jpg"
-dest_files=["res://.godot/imported/rime_seer_src_2.jpg-acc5d64bb703c9f5b8ed3b495223715f.ctex"]
+source_file="res://assets/foes/frozen_effigy_src_5.jpg"
+dest_files=["res://.godot/imported/frozen_effigy_src_5.jpg-ca792d90d9f0db1dbf19bcf732f78060.ctex"]
 
 [params]
 
