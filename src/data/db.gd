@@ -248,6 +248,8 @@ const UPGRADE_GOLD := [0, 60, 140, 280, 500, 800, 1200, 1800, 2700, 4000, 5500, 
 # ai: melee (walk up, wind up, swing), ranged (keep distance, aimed bolt),
 # caster (drops a telegraphed circle on the hero).
 
+const NEXT_FOES := preload("res://src/data/next_foes.gd")
+
 const ENEMIES := {
 	"minion": {
 		"name": "Risen Bones", "model": "Skeleton_Minion", "weapons": {"handslot.r": "Skeleton_Blade.gltf"},
@@ -528,6 +530,9 @@ const ZONES := {
 		"wake": "Gather %d souls to wake the Regent", "defeat": "The Frost keeps you", "enter": "Into the Frozen Crypt",
 		"loot_bonus": 3, "weights": {"warrior": 1.3, "rogue": 1.5, "mage": 1.4, "hound": 1.3, "brute": 1.0, "bomber": 0.0, "necro": 1.0},
 		"faction": {"minion": "thrall", "warrior": "frostguard", "rogue": "rimearcher", "mage": "rimeseer", "necro": "frostcaller", "hound": "rimehound", "brute": "colossus"},
+		# Rimehollow's own foes (next_foes.gd), fielded while FoeBrains.next is on.
+		"faction_next": {"minion": "rh_imp", "warrior": "rh_effigy", "rogue": "rh_wraith", "mage": "rh_seer", "necro": "rh_caller", "hound": "rh_wolf", "brute": "rh_yeti", "bomber": "rh_shard"},
+		"weights_next": {"warrior": 1.2, "rogue": 1.4, "mage": 1.3, "hound": 1.6, "brute": 1.0, "bomber": 1.2, "necro": 1.0},
 		"souls_mult": 1.0, "unlock": "Trophy Road: 10500 trophies", "music": "frozen", "boss_music": "frozen_boss",
 		"hazards": ["icefall", "drifts", "gale"],
 		"hazard_line": "Icicles fall, drifts drag and gales shove",
@@ -540,6 +545,9 @@ const ZONES := {
 		"wake": "Gather %d souls to wake the Warlord", "defeat": "The Swamp keeps you", "enter": "Into the Burning Swamp",
 		"loot_bonus": 3, "gold_bonus": 0.15, "weights": {"warrior": 1.2, "rogue": 1.4, "mage": 1.5, "hound": 1.5, "brute": 1.1, "bomber": 1.7, "necro": 1.0},
 		"faction": {"minion": "bogwalker", "warrior": "charredguard", "rogue": "embershooter", "mage": "cinderwitch", "necro": "pyrecaller", "hound": "bogleaper", "bomber": "methanebloat", "brute": "cinderbrute"},
+		# The Cinder Mire's own foes. No brute: the Ogre is its only heavy.
+		"faction_next": {"minion": "cm_spore", "warrior": "cm_bogfin", "rogue": "cm_imp", "mage": "cm_shaman", "necro": "cm_hag", "hound": "cm_frog", "bomber": "cm_bloat", "skirmisher": "cm_wasp"},
+		"weights_next": {"warrior": 1.2, "rogue": 1.2, "mage": 1.4, "hound": 1.4, "brute": 0.0, "bomber": 1.3, "necro": 1.0, "skirmisher": 1.2},
 		"souls_mult": 1.0, "unlock": "Trophy Road: 12500 trophies", "music": "swamp", "boss_music": "swamp_boss",
 		"hazards": ["vents", "mud", "marsh"],
 		"hazard_line": "Vents erupt, mud drags and the marsh ignites",
@@ -833,11 +841,13 @@ const CARD_WEIGHT := {"common": 10.0, "rare": 6.0, "epic": 3.2, "legendary": 0.8
 static func enemy(kind: String) -> Dictionary:
 	if kind.begins_with("rival_"):
 		return rival_def(kind.substr(6))
+	if NEXT_FOES.FOES.has(kind):
+		return NEXT_FOES.FOES[kind]
 	return ENEMIES[kind] if ENEMIES.has(kind) else ENEMIES_EXTRA[kind]
 
 
 static func enemy_kinds() -> Array:
-	return ENEMIES.keys() + ENEMIES_EXTRA.keys()
+	return ENEMIES.keys() + ENEMIES_EXTRA.keys() + NEXT_FOES.FOES.keys()
 
 
 ## Daily bounties: three are drawn per calendar day. `stat` is summed over
