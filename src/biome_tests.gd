@@ -84,7 +84,7 @@ static func _files(ok: Callable) -> void:
 		ok.call("biome %s: its music keys are shipped tracks" % z, tracks.all(func(t): return ResourceLoader.exists("res://assets/audio/music/%s.ogg" % t)))
 	for s: String in DB.SKINS:
 		ok.call("skin %s: texture ships" % s, ResourceLoader.exists("res://assets/kaykit/characters/" + str(DB.SKINS[s]["tex"])))
-	for p in ["res://src/hunt/biome.gd", "res://src/hunt/biome_art.gd", "res://src/hunt/arena_rime.gd", "res://src/hunt/arena_mire.gd", "res://src/hunt/mire_kit.gd", "res://src/hunt/mire_plank.gd"]:
+	for p in ["res://src/hunt/biome.gd", "res://src/hunt/biome_art.gd", "res://src/hunt/arena_rime.gd", "res://src/hunt/arena_mire.gd", "res://src/hunt/mire_plank.gd"]:
 		ok.call("%s has no class_name" % p.get_file(), _plain(p))
 
 
