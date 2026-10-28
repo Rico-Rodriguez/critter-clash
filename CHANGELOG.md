@@ -10,7 +10,19 @@ version is 7.
 
 ---
 
-## Unreleased: Biome rebuild, terrain engine
+## Unreleased: Biome rebuild, Rimehollow layout
+
+Rebuild 3. The Frozen Crypt zone (Rimehollow) is a new arena, `arena_rime.gd`,
+painted on the terrain engine: a cracked blue lake with thin-ice webs and open
+water holes, a causeway to the Troll's court on a ring of ice pillars and a
+throne, two ice caverns sealed by breakable ice walls (a dash or heavy hit opens
+them) with a shrine inside, a wrecked longship, a hut and a sled on the south
+shore, snow-capped cliffs round the whole arena and a pine forest outside it.
+The scenery is flat-shaded procedural kit meshes (`kit_mesh.gd`) drawn as
+MultiMesh batches. The old frost reskin is no longer used. Hazards are now icefall,
+thin ice and gale. `tools/dev/layout-cap.sh` stills any arena from above.
+`terrain_tests.gd` proves the throne is reachable on foot and the caverns open
+only after the ice breaks.
 
 The Cinder Mire boss is now the **Cinder Warlord**: Riltariki's orc (CC BY, see
 `CREDITS.md`), 5.7 m tall at scale 3.0 with its own
