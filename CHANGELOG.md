@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the Trophy Road shows what you win
+
+The road's chest, egg and pet steps show the real chest, egg or pet render in their icon well (dimmed until reached), and the last player-visible "NEW SIDEKICK" tag now says "NEW PET".
+
+---
+
 ## Unreleased: chests and eggs are real renders
 
 Shop chest cards (deal of the day, chest tiles, daily deals), the results chest and the egg shop and hatchery cards now show the actual 3D chest (KayKit, lit in the chest's colour) or a speckled egg built in code (`src/ui/prop_icons.gd`, cached off-screen renders). The egg shop header says one line when both clocks match.
