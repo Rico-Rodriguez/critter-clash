@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the hatch scene uses the real egg and pet
+
+The egg that cracks is the speckled 3D egg render in its kind's colour, and the hatchling is the pet's own render (a black silhouette that floods back to full colour) instead of flat icons.
+
+---
+
 ## Unreleased: Season and Daily as picture rows
 
 Each Season tier shows its reward (coins, shards, gems, a real chest, egg or outfit render) with a check on claimed tiers instead of plain text. The Daily login chests are real renders, and the first-win line now mentions the 2 gems.
