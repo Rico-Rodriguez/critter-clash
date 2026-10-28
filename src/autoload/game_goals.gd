@@ -84,6 +84,7 @@ func claim_login() -> Dictionary:
 	l["last"] = today()
 	var rw: Dictionary = DB.LOGIN_REWARDS[int(st["day"]) - 1]
 	data["gold"] = gold() + int(rw.get("gold", 0))
+	data["gems"] = int(data.get("gems", 0)) + int(rw.get("gems", 0))
 	if rw.has("shards"):
 		hero(hero_id())["shards"] = int(hero(hero_id())["shards"]) + int(rw["shards"])
 	save()

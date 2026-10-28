@@ -82,7 +82,7 @@ func open(r: Dictionary) -> void:
 	if rn > 0:
 		_road_bar(rn)
 	if bool(s.get("first_win", false)):
-		_note("First win of the day: double gold, better chest", Color(1.0, 0.85, 0.35), "sun")
+		_note("First win of the day: double gold, better chest, +%d gems" % DB.FIRST_WIN_GEMS, Color(1.0, 0.85, 0.35), "sun")
 	var ms: Dictionary = s.get("mastery", {})
 	for title in ms.get("titles", []):
 		_note("Mastery rank: %s %s" % [DB.HEROES[r["hero"]]["name"], title], Color(1.0, 0.8, 0.35), "round-star")
