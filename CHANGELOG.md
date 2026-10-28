@@ -18,6 +18,20 @@ Pyre Tree in the Cinder Mire. `mire_kit.gd` and every code-built piece in `kit_m
 the MultiMesh `batch`. Captures: /workspace/rebuild-caps/long-road (frost 126k to 216k triangles in the first
 room, still under the 450k budget).
 
+## Unreleased: Biome rebuild, the swamp light lives in db.gd
+
+The Burning Swamp's lift (ambient 1.35 warm-grey, a warm 1.55 sun, ground `grass_a`/`grass_b` 0.36/0.5 browns)
+moves from `arena_mire.gd` `_light` into `db.gd`'s swamp env, so night and the day cycle (`hunt_modes.gd` scales
+the zone's `ambient_e`/`sun_e`) work from the lifted values instead of the old murky ones. `_light` keeps only
+what env has no key for: exposure 1.18 and the cool rim light. The Long Road's mire floor uses the same lighter
+soil. Looks the same in the hunt (before/after in /workspace/rebuild-caps/swamp-light).
+
+## Unreleased: perf-biomes fails a run that drew nothing
+
+`tools/dev/perf-biomes.sh` now fails when a run reports 0 draw calls or 0 triangles (a blank viewport or a
+dead camera used to print `0` and pass the budget). The swamp mobile runs re-measured after the biome
+models landed: hunt 252 draws p95, busy 281, boss 203; 150k-240k triangles; 1.6-3.3 ms script frame.
+
 ## Unreleased: Biome rebuild, the frost water is blue
 
 Open water in Rimehollow rendered black (`water_col` in `terrain_ground.gdshader` was near black, and
@@ -75,6 +89,7 @@ water deeper in) or bog pools with a boardwalk of planks that burns, and the
 court of the Frost Troll or the Warlord's deck and Pyre Tree at the end. A firm
 line always runs gap to gap. Other zones keep the dungeon. Foes are no longer
 placed in open water.
+
 ## Unreleased: Biome rebuild, the Cinder Mire built from the Art kit
 
 The Mire's boardwalk (with `KitModels.charred("mire")` for burning planks), piles, shacks (one burnt),

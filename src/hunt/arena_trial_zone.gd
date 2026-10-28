@@ -72,7 +72,7 @@ static func _floor(a: Arena, layout: Dictionary, z_hi: float) -> void:
 			"ice_a": Color(0.24, 0.5, 0.78), "ice_b": Color(0.4, 0.68, 0.92), "crack_col": Color(0.12, 0.3, 0.58)}
 	else:
 		look = {"dark": (a.zone_env["ground"] as Dictionary)["dark"],
-			"base_a": Color(0.17, 0.15, 0.125), "base_b": Color(0.27, 0.235, 0.185), "bog_col": Color(0.04, 0.043, 0.035)}
+			"base_a": Color(0.36, 0.31, 0.24), "base_b": Color(0.5, 0.43, 0.33), "bog_col": Color(0.085, 0.1, 0.085)}
 	a.terrain_begin(look, t, Vector2(110.0, a.max_z - a.min_z + 60.0), Vector3(0, 0, (a.min_z + a.max_z) * 0.5))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(layout["seed"]) + 77
