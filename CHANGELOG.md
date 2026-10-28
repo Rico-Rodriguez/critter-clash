@@ -10,6 +10,22 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, terrain engine
+
+Rebuild 2/3. No visible change yet: no zone paints terrain until the Rimehollow
+and Cinder Mire layouts land.
+
+- The Arena owns a terrain grid (`arena.terrain`, all dry) and `terrain_begin()`
+  turns it on for a zone: one ground plane (`terrain_ground.gdshader`) draws
+  ice, thin ice, open water, bog, fire and ash cells from two small textures,
+  with hard noisy edges and a real specular on ice and water.
+- `terrain_run.gd` steps the grid each tick: thin ice snaps, foes that stop on it
+  or fall in water drown, fire spreads and burns bog foes, the hero is chilled
+  and dragged out of open water, and every body gets its ground's speed, grip
+  and knockback slide (`t_speed`, `t_grip`, `t_slide` on `Actor`).
+- Ice walls (`add_ice_wall`) are solid to everything and break to a dash or any
+  big blow; the flow field routes round water and walls.
+
 ## Unreleased: Biome rebuild, test harness
 
 - `src/hunt/terrain.gd`: the terrain cell grid's rules as plain data (nine kinds,

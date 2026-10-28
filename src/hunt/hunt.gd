@@ -5,6 +5,7 @@ const Online := preload("res://src/net/online.gd")
 const Partner := preload("res://src/hunt/partner.gd")
 const BlobShadows := preload("res://src/hunt/blob_shadows.gd")
 const Biome := preload("res://src/hunt/biome.gd")
+const TerrainRun := preload("res://src/hunt/terrain_run.gd")
 var _blobs: MultiMeshInstance3D
 const FocusGuard := preload("res://src/hunt/focus_guard.gd")
 ## One hunt in the Barrow: the dead rise, the soul meter fills, the King
@@ -112,6 +113,9 @@ func _ready() -> void:
 	if not (zone.get("hazards", []) as Array).is_empty():
 		biome = Biome.new()
 		biome.setup(self)
+	if arena.terrain_live:
+		terr = TerrainRun.new()
+		terr.setup(self)
 	hud = HUD_SCENE.instantiate()
 	add_child(hud)
 	hud.setup(self)

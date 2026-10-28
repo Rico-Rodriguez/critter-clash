@@ -81,12 +81,24 @@ const Life := preload("res://src/hunt/arena_life.gd")
 const FrostLayout := preload("res://src/hunt/arena_frozen.gd")
 const SwampLayout := preload("res://src/hunt/arena_swamp.gd")
 const BiomeArt := preload("res://src/hunt/biome_art.gd")
+const Terrain := preload("res://src/hunt/terrain.gd")
+const TerrainView := preload("res://src/hunt/terrain_view.gd")
 
 ## The living-world layer (grass wind, footprints, reactive props, critters).
 var life: RefCounted
 ## The new zones' ground hazards: circles that drag the hero ({pos, r}: drifts,
 ## bog mud) and where methane vents sit. Read by src/hunt/biome.gd.
 var slow_zones: Array = []
+## The terrain cell grid (ice, water, bog, fire). Always present and all dry;
+## `terrain_live` is set by a zone that paints it (see `terrain_begin`).
+var terrain: RefCounted = Terrain.make()
+var terrain_live := false
+var tview: RefCounted
+## Events the arena raises between ticks (an ice wall breaking); TerrainRun drains them.
+var terrain_ev: Array = []
+var _ice_walls := {}
+## Node3Ds that stand on a plank cell, by cell index: they burn and fall with it.
+var plank_nodes := {}
 var hazard_spots: Array[Vector3] = []
 ## The prop recolour for this zone ("frost", "swamp", or "" for none).
 var _skin := ""
@@ -479,6 +491,94 @@ func nudge(pos: Vector3, radius: float, power: float) -> Array:
 	return life.nudge(pos, radius, power)
 
 
+# --- Terrain cells -------------------------------------------------------------
+
+## A zone that paints terrain calls this first: it swaps the grid for one of its
+## own size if asked, adds the ground plane that draws the cells, and turns the
+## hunt's terrain rules on. `look` overrides ground shader parameters.
+func terrain_begin(look: Dictionary, grid: RefCounted = null, size := Vector2(150, 150), center := Vector3(0, 0, -5)) -> void:
+	if grid != null:
+		terrain = grid
+	terrain_live = true
+	tview = TerrainView.new(terrain)
+	tview.make_ground(self, [_noise(256, 0.012, 1), _noise(256, 0.05, 2)], look, size, center)
+
+
+## After painting cells by hand: redraws every one.
+func terrain_painted() -> void:
+	tview.paint_all()
+	_open.clear()
+	_flow.clear()
+
+
+## The flow field must look again at the cells under a changed terrain cell.
+func reopen(c: Vector2i) -> void:
+	if _open.is_empty():
+		return
+	var o: Vector3 = terrain.center_of(c)
+	for cx in range(floori(o.x) - 2, floori(o.x) + 3):
+		for cz in range(floori(o.z) - 2, floori(o.z) + 3):
+			var k := _open_idx(cx, cz)
+			if k >= 0:
+				_open[k] = 0
+
+
+## A wall of ice in one cell: solid to the hero, foes and shots until it breaks.
+## `node` is its mesh (freed when it breaks).
+func add_ice_wall(c: Vector2i, node: Node3D = null) -> void:
+	terrain.set_kind(c, Terrain.WALL_ICE)
+	var o: Vector3 = terrain.center_of(c)
+	var id := _obs.size()
+	add_obstacle(Vector2(o.x, o.z), 1.15)
+	_ice_walls[terrain.idx(c)] = {"obs": id, "node": node}
+	if tview:
+		tview.paint(c)
+
+
+## Breaks every ice wall whose cell centre is within `reach` of `pos`. Returns how many.
+func break_ice_at(pos: Vector3, reach: float) -> int:
+	var n := 0
+	for i: int in _ice_walls.keys():
+		var c := Vector2i(i % terrain.w, i / terrain.w)
+		var o: Vector3 = terrain.center_of(c)
+		if Vector2(o.x - pos.x, o.z - pos.z).length() <= reach + 1.0:
+			break_ice(c)
+			n += 1
+	return n
+
+
+func break_ice(c: Vector2i) -> void:
+	var i: int = terrain.idx(c)
+	if not _ice_walls.has(i):
+		return
+	var w: Dictionary = _ice_walls[i]
+	_ice_walls.erase(i)
+	terrain.break_wall(c)
+	_obs[int(w["obs"])][1] = -2.0
+	var node = w["node"]
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	terrain_ev.append({"ev": "wallbreak", "cell": c})
+
+
+## A plank cell caught fire: the boardwalk piece on it chars.
+func plank_burn(c: Vector2i) -> void:
+	var n = plank_nodes.get(terrain.idx(c))
+	if n != null and is_instance_valid(n) and n.has_method("burn"):
+		n.burn()
+
+
+## A plank cell fell into the bog: the piece sinks and goes.
+func plank_fall(c: Vector2i) -> void:
+	var i: int = terrain.idx(c)
+	var n = plank_nodes.get(i)
+	plank_nodes.erase(i)
+	if n != null and is_instance_valid(n):
+		var tw: Tween = n.create_tween()
+		tw.tween_property(n, "position:y", -1.2, 0.6).set_ease(Tween.EASE_IN)
+		tw.tween_callback(n.queue_free)
+
+
 ## Once a frame: wind and trampling on the grass, footprints, critters.
 func tick_life(dt: float, hero_pos: Vector3, hero_vel: Vector3, hero_alive: bool, foes: Array) -> void:
 	life.tick(dt, hero_pos, hero_vel, hero_alive, foes)
@@ -622,7 +722,11 @@ func _passable(cx: int, cz: int) -> bool:
 	if k < 0:
 		return false
 	if _open[k] == 0:
-		_open[k] = 2 if blocked(Vector3(cx, 0, cz), FLOW_CLEAR) else 1
+		var shut := blocked(Vector3(cx, 0, cz), FLOW_CLEAR)
+		# Open water and ice walls are no way through for the flow field.
+		if not shut and terrain_live and terrain.flow_cost(Vector3(cx, 0, cz)) < 0.0:
+			shut = true
+		_open[k] = 2 if shut else 1
 	return _open[k] == 1
 
 
