@@ -257,6 +257,7 @@ func run() -> int:
 	preload("res://src/ambience_tests.gd").run(_ok)
 	preload("res://src/rig_tests.gd").run(_ok)
 	preload("res://src/boss_model_tests.gd").run(_ok)
+	preload("res://src/foe_model_tests.gd").run(_ok)
 	_breeding_tests()
 	_pet_care_tests()
 	_story_tests()

@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import sidekick_clips as sc
 from boss_clip_specs import MODELS
 sc.DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'foes')
-RENAME = {'frost_troll': ('mixamo.com', 'Idle')}
+RENAME = {'frost_troll': ('mixamo.com', 'Idle'), 'yeti': ('c5_action', 'Idle')}
 OWNED = {'Walk', 'Run', 'Attack', 'Slam', 'Roar', 'Hit', 'Death'}
 
 def run(key):
