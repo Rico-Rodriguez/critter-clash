@@ -52,10 +52,13 @@ var props: Array = []
 var _obs: Array = [] # [Vector2 center, radius]
 var _grid := {}
 const CELL := 4.0
-## Steps from the hero over a 1 m grid, so a foe behind a wall can walk round
-## it instead of pressing into it. Kept within FLOW_STEPS of the hero and
-## rebuilt a slice per frame into a back buffer, so no frame pays for all of it.
+## Cost from the hero over a 1 m grid, so a foe behind a wall can walk round
+## it instead of pressing into it, and round a bog when a dry way is not much
+## longer (a step costs the terrain's `cost`: 1 on firm ground, 3 in bog). The
+## window reaches FLOW_STEPS cells each way and FLOW_MAX cost; it is rebuilt a
+## slice per frame into a back buffer, so no frame pays for all of it.
 const FLOW_STEPS := 40
+const FLOW_MAX := 64
 const FLOW_N := FLOW_STEPS * 2 + 1
 const FLOW_EVERY := 0.25
 const FLOW_BUDGET := 250
@@ -65,7 +68,7 @@ var _flow := PackedInt32Array() # FLOW_N * FLOW_N steps, FLOW_FAR when unreached
 var _flow_o := Vector2i.ZERO # cell at the window's corner
 var _fb := PackedInt32Array() # the one being built
 var _fb_o := Vector2i.ZERO
-var _fq := PackedInt32Array()
+var _fq := PackedInt32Array() # ring: heads and tails count up, slots wrap
 var _fq_head := 0
 var _fq_tail := 0
 var _flow_t := 0.0
@@ -647,7 +650,7 @@ func update_flow(target: Vector3, dt: float) -> void:
 		_flow.resize(FLOW_N * FLOW_N)
 		_flow.fill(FLOW_FAR)
 		_fb.resize(FLOW_N * FLOW_N)
-		_fq.resize(FLOW_N * FLOW_N)
+		_fq.resize(FLOW_N * FLOW_N * 2)
 	if _open.is_empty():
 		# Fill the whole grid once, at the start, so the hunt never pays for it.
 		_open.resize(_arena_w() * (int(max_z - min_z) + 3))
@@ -669,10 +672,10 @@ func update_flow(target: Vector3, dt: float) -> void:
 	var budget := FLOW_BUDGET
 	while _fq_head < _fq_tail and budget > 0:
 		budget -= 1
-		var i := _fq[_fq_head]
+		var i := _fq[_fq_head % _fq.size()]
 		_fq_head += 1
-		var d := _fb[i] + 1
-		if d > FLOW_STEPS:
+		var d := _fb[i]
+		if d >= _flow_cap():
 			continue
 		var x := i % FLOW_N
 		var z := i / FLOW_N
@@ -691,11 +694,26 @@ func update_flow(target: Vector3, dt: float) -> void:
 		_flow_o = _fb_o
 
 
+## How far the field reaches: a cell a step each on firm ground, so wading
+## zones get the longer reach their dearer cells need.
+func _flow_cap() -> int:
+	return FLOW_MAX if terrain_live else FLOW_STEPS
+
+
+## Offers cell (nx, nz) the cost `d` plus the price of stepping into it. A cheaper
+## way found later queues it again (only where costs differ).
 func _flow_visit(ni: int, nx: int, nz: int, d: int) -> void:
-	if _fb[ni] != FLOW_FAR or not _passable(_fb_o.x + nx, _fb_o.y + nz):
+	var cx := _fb_o.x + nx
+	var cz := _fb_o.y + nz
+	if not _passable(cx, cz):
 		return
-	_fb[ni] = d
-	_fq[_fq_tail] = ni
+	var nd := d + 1
+	if terrain_live:
+		nd = d + maxi(1, roundi(terrain.flow_cost(Vector3(cx, 0, cz))))
+	if nd >= _fb[ni] or nd > _flow_cap() or _fq_tail - _fq_head >= _fq.size():
+		return
+	_fb[ni] = nd
+	_fq[_fq_tail % _fq.size()] = ni
 	_fq_tail += 1
 
 
@@ -738,7 +756,7 @@ func _flow_at(cx: int, cz: int) -> int:
 func flow_dir(p: Vector3) -> Vector3:
 	var cx := roundi(p.x)
 	var cz := roundi(p.z)
-	var best := mini(_flow_at(cx, cz), FLOW_STEPS + 1)
+	var best := mini(_flow_at(cx, cz), _flow_cap() + 1)
 	var to := Vector2i(cx, cz)
 	for dx in range(-1, 2):
 		for dz in range(-1, 2):

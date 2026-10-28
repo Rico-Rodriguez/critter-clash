@@ -174,7 +174,7 @@ func tick(dt: float) -> void:
 			cd -= dt
 			if dist > 3.2:
 				var spd := speed * (1.3 if enraged else 1.0)
-				position += to / dist * spd * dt
+				position += to / dist * spd * t_speed * dt
 				position = hunt.arena.resolve(position, radius * 0.6)
 				play("Skeletons_Walking", 0.25, 1.1 if enraged else 0.85)
 			else:

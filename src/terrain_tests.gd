@@ -28,6 +28,7 @@ static func run(ok: Callable) -> void:
 	_fire(ok)
 	_reflood(ok)
 	_cost(ok)
+	_flow(ok)
 	_arena(ok)
 	_mire(ok)
 	_long_road(ok)
@@ -244,6 +245,28 @@ static func _cost(ok: Callable) -> void:
 		n += g.step(1.0 / 60.0).size()
 	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
 	ok.call("fire: a whole-map blaze over 30 s costs under 0.5 ms a tick (%.2f ms total, %d events)" % [ms, n], ms / 1800.0 < 0.5 and n > 100)
+
+
+## A bog costs three steps: foes route round a small one, wade a wide one.
+static func _flow(ok: Callable) -> void:
+	var dirs: Array = []
+	for rx: float in [2.5, 9.0]:
+		var a := Arena.new()
+		a.terrain_live = true
+		a.terrain.fill_ellipse(T.BOG, 0.0, -4.0, rx, 2.5)
+		for i in 400:
+			a.update_flow(Vector3(0, 0, 0), 0.3)
+		dirs.append(a.flow_dir(Vector3(0, 0, -8)))
+		if rx == 2.5:
+			ok.call("flow: a bog cell costs 3 steps, firm ground one", a.terrain.flow_cost(Vector3(0, 0, -4)) == 3.0 and a.terrain.flow_cost(Vector3(0, 0, 4)) == 1.0)
+		a.free()
+	ok.call("flow: foes walk round a small bog (%s)" % dirs[0], absf((dirs[0] as Vector3).x) > 0.5)
+	ok.call("flow: but wade a wide one rather than walk its whole length (%s)" % dirs[1], (dirs[1] as Vector3).z > 0.5)
+	var dry := Arena.new()
+	for i in 400:
+		dry.update_flow(Vector3(0, 0, 0), 0.3)
+	ok.call("flow: with no terrain it is the plain step count", dry._flow_at(0, -30) == 30 and dry._flow_cap() == Arena.FLOW_STEPS)
+	dry.free()
 
 
 ## The same rules through the real arena, once it owns a grid.
