@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: pet portraits instead of icons
+
+The Stable and Breed tiles, the breed slots and the rename sheet now show each pet's own 3D portrait (`src/ui/pet_icons.gd`: one render per pet and growth stage, off screen, cropped to the creature, cached for the session) in place of a flat icon. Locked silhouettes keep the icon. First of the "real renders everywhere" passes.
+
+---
+
 ## Unreleased: the evolve scene shows the real pet
 
 The evolve sequence used a flat icon. It now stands the real 3D pet (the Pets screen's stage) in its old form, whitens it, and swaps in the new form at the white-out. An evolved pet without its own special look (only the Ash Wyrm has one) now has its coat drawn toward its colour with a faint glow of it, so the grown-up form is visible in the camp and the hunt as well. Screenshots: `evolveseq` for the drake (Ash Wyrm) and the crow.
