@@ -9,7 +9,8 @@ const MAX_TRIS := 12000
 const WANT := ["Skeletons_Idle", "Skeletons_Walking", "Running_A", "Melee_2H_Attack_Chop", "Melee_Dualwield_Attack_Slice",
 	"Ranged_Magic_Summon", "Skeletons_Taunt", "Hit_A", "Skeletons_Death", "Spawn_Ground"]
 const OWN_CLIPS := {"cinder_warlord": ["ANM_IDLE", "ANM_WALK", "ANM_RUN", "ANM_ATTACK_CRIT", "ANM_DAMAGED", "ANM_DEATH",
-	"ANM_LIGHT_ATTACK_2", "ANM_ORC_LIGHT_ATTACK", "ANM_ORC_Roar"]}
+	"ANM_LIGHT_ATTACK_2", "ANM_ORC_LIGHT_ATTACK", "ANM_ORC_Roar"],
+	"frost_troll": ["Idle", "Walk", "Run", "Attack", "Slam", "Roar", "Hit", "Death"]}
 
 
 static func run(ok: Callable) -> void:
