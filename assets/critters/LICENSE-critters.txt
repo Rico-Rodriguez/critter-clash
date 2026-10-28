@@ -1,0 +1,9 @@
+Ambient critter models: Creative Commons Attribution 4.0 (CC BY 4.0), from Sketchfab.
+Credits and source links: CREDITS.md ("Ambient critters").
+  hare.glb      "Hare (animated)" by bluekiwi.dog
+  owl.glb       "Day 20 - Snowy Owl" by Lilly! (LillyanneTr)
+  wolf.glb      "Stylized Wolf" by ESO (ESOOOO)
+  frog.glb      "Green Frog" by lawtrigg
+  dragonfly.glb "Dragonfly Chicken Gun" by babybuttred2
+  crow.glb      "Crow" by Alexei Ostapenko (alexanders823)
+Modified: clips pruned, keyframes reduced, textures shrunk, meshes merged and decimated (tools/art/foe_pipeline.sh).

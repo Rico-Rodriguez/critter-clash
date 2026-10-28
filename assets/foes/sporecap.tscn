@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/sporecap_src.glb" id="1_opxgu"]
+
+[node name="sporecap" type="Node3D" unique_id=675300126]
+metadata/cull_aabbs = {
+"Sketchfab_model/grzybolud_rig_fbx/Object_2/RootNode/root/Object_6/Skeleton3D/Object_9": AABB(-10.22953, -10.345575, -11.348026, 20.435678, 20.189852, 23.928242)
+}
+metadata/posed_aabb = AABB(-0.3282695, 0, -0.3161822, 0.656539, 1, 0.6323644)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=630219784 instance=ExtResource("1_opxgu")]
+transform = Transform3D(0.0983406, 0, 0, 0, 0.0983406, 0, 0, 0, 0.0983406, 0.00014140419, 0.41299045, -0.0003625959)

@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/rime_yeti_src.glb" id="1_nuwvn"]
+
+[node name="rime_yeti" type="Node3D" unique_id=1908186065]
+metadata/cull_aabbs = {
+"Sketchfab_model/root/GLTF_SceneRootNode/Sketchfab_model_0/fbx_merge_fbx_1/Object_2_2/RootNode_3/Object_4_4/GLTF_created_0/Skeleton3D/Object_178": AABB(-640.85034, -405.83374, -676.68634, 1287.1504, 1386.2594, 1185.6705)
+}
+metadata/posed_aabb = AABB(-0.41248128, 0, -0.32286885, 0.82496256, 1, 0.6457377)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1311961019 instance=ExtResource("1_nuwvn")]
+transform = Transform3D(0.5416692, 0, 0, 0, 0.5416692, 0, 0, 0, 0.5416692, -0.0048124217, -0.007396701, 0.14809036)

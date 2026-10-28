@@ -6,6 +6,8 @@ extends RefCounted
 ## ground rules are the real ones.
 
 const T := preload("res://src/hunt/terrain.gd")
+const TerrainRun := preload("res://src/hunt/terrain_run.gd")
+const BiomeGround := preload("res://src/hunt/biome_ground.gd")
 const FoeBrains := preload("res://src/hunt/foe_brains.gd")
 const NF := preload("res://src/data/next_foes.gd")
 const DT := 0.05
@@ -82,6 +84,7 @@ func go() -> void:
 	_drift()
 	_ambush()
 	_wasp()
+	_real_terrain()
 	_pack_limits()
 	h.queue_free()
 
@@ -105,12 +108,30 @@ func _stage(floor_kind := -1, hero_at := Vector3(0, 0, 0)) -> void:
 	clock = 0.0
 	last_tele = -99.0
 	seen_tele = false
+	_ground(floor_kind)
+
+
+## The real arena's grid: `floor_kind` swaps in a floor of one kind through
+## `terrain_begin` and a live TerrainRun, so drowning, fire and the surface
+## speeds are the game's. -1 turns the grid off (the no-terrain fallbacks).
+func _ground(floor_kind: int) -> void:
+	var a: Arena = h.arena
 	if floor_kind < 0:
-		h.arena.terrain = T.make()
-		h.arena.terrain_live = false
+		a.terrain_live = false
+		return
+	var g := _floor(floor_kind)
+	if a.tview == null:
+		a.terrain_begin({}, g)
 	else:
-		h.arena.terrain = _floor(floor_kind)
-		h.arena.terrain_live = true
+		a.terrain = g
+		a.tview.t = g
+		a.terrain_live = true
+		a.terrain_painted()
+	a.terrain_ev.clear()
+	if h.terr == null:
+		h.terr = TerrainRun.new()
+		h.terr.setup(h)
+	h.terr.t = g
 
 
 func _floor(kind: int) -> RefCounted:
@@ -148,8 +169,8 @@ func tick() -> void:
 		if str(l.get("kind", "")) == "tele":
 			last_tele = clock
 			seen_tele = true
-	if grid_ok():
-		grid().step(DT)
+	if grid_ok() and h.terr != null:
+		h.terr.tick(DT)
 	clock += DT
 
 
@@ -533,6 +554,43 @@ func _ambush() -> void:
 	var nb := foe("cm_bogfin", Vector3(8, 0, 0))
 	run_for(6.0)
 	chk("bogfin: with no terrain it just fights on the surface", nb.state != "spawn" and hits.size() >= 1)
+
+
+## The game's own terrain: biome_ground.gd paints the two zones, and the arena's
+## TerrainRun drowns and burns the new foes (the grid is `arena.terrain`).
+func _real_terrain() -> void:
+	for zid in ["frost", "swamp", "barrow"]:
+		var a := Arena.new()
+		a.build(true, zid, 0, 1)
+		BiomeGround.paint(a, zid)
+		var n := 0
+		for i in a.terrain.kind.size():
+			if int(a.terrain.kind[i]) != T.DRY:
+				n += 1
+		chk("ground %s: %s" % [zid, "painted (%d cells), live" % n if zid != "barrow" else "left alone"], (a.terrain_live and n > 20) if zid != "barrow" else (not a.terrain_live and n == 0))
+		a.free()
+	_stage(T.WATER)
+	var imp := foe("rh_imp", Vector3(6, 0, 0))
+	var fin := foe("cm_bogfin", Vector3(-6, 0, 0))
+	run_for(2.0)
+	chk("real terrain: a frost foe in open water drowns through the arena's TerrainRun", not imp.alive and h.terr.drowned >= 1)
+	chk("real terrain: an aquatic Bogfin does not drown in water", fin.alive)
+	_stage(T.BURNING)
+	var cold := foe("rh_imp", Vector3(6, 0, 0))
+	var hot := foe("cm_imp", Vector3(-6, 0, 0))
+	var cold_hp := cold.hp
+	var hot_hp := hot.hp
+	run_for(1.4)
+	chk("real terrain: burning bog hurts a frost foe (%.0f -> %.0f)" % [cold_hp, cold.hp], cold.hp < cold_hp)
+	chk("real terrain: a fire foe walks through it unhurt", hot.hp >= hot_hp)
+	_stage(T.BURNING)
+	var hag := foe("cm_bogfin", Vector3(6, 0, 0))
+	var wolf := foe("rh_wolf", Vector3(-6, 0, 0))
+	var hag_hp := hag.hp
+	var wolf_hp := wolf.hp
+	run_for(1.4)
+	chk("real terrain: fire hurts a bog dweller harder than a land foe by max HP (%.2f vs %.2f)" % [(hag_hp - hag.hp) / hag_hp, (wolf_hp - wolf.hp) / wolf_hp], (hag_hp - hag.hp) / hag_hp > (wolf_hp - wolf.hp) / wolf_hp)
+	_stage(-1)
 
 
 func _wasp() -> void:

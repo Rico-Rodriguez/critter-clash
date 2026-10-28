@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/critters/wolf_src.glb" id="1_yubcw"]
+
+[node name="wolf" type="Node3D" unique_id=305746470]
+metadata/cull_aabbs = {
+"Sketchfab_model/0b3ce07550bf40918889a8911f536b93_fbx/Object_2/RootNode/metarig/Object_6/Skeleton3D/Object_9": AABB(-3.7188363, -5.356883, -2.987396, 7.4982343, 11.002896, 8.7614975)
+}
+metadata/posed_aabb = AABB(-0.27421266, 0, -0.9006126, 0.5484253, 1, 1.8012252)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=153637046 instance=ExtResource("1_yubcw")]
+transform = Transform3D(0.35746664, 0, 0, 0, 0.35746664, 0, 0, 0, 0.35746664, -0.010824322, 0.0019229128, 0.051677287)

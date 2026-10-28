@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/critters/owl_src.glb" id="1_alsj8"]
+
+[node name="owl" type="Node3D" unique_id=146592007]
+metadata/cull_aabbs = {
+"Sketchfab_model/Root/Armature/Skeleton3D/Cube_0": AABB(-18.542255, -16.397873, -16.801266, 37.084415, 30.853172, 32.00476)
+}
+metadata/posed_aabb = AABB(-0.73751533, 0, -0.4461537, 1.4750307, 1, 0.8923074)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=742556477 instance=ExtResource("1_alsj8")]
+transform = Transform3D(0.6362597, 0, 0, 0, 0.6362597, 0, 0, 0, 0.6362597, 4.550884e-06, 0.6620913, -0.020924889)

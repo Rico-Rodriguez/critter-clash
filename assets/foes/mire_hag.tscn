@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/mire_hag_src.glb" id="1_l2rk5"]
+
+[node name="mire_hag" type="Node3D" unique_id=1162727648]
+metadata/cull_aabbs = {
+"Sketchfab_model/b15a31dac56743048bf0cf54107a0e54_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-206.86142, -132.13638, -178.77155, 381.22668, 445.37207, 398.2973)
+}
+metadata/posed_aabb = AABB(-0.3265938, 0, -0.37274128, 0.6531876, 1, 0.74548256)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1294479284 instance=ExtResource("1_l2rk5")]
+transform = Transform3D(0.48693576, 0, 0, 0, 0.48693576, 0, 0, 0, 0.48693576, 0.087847866, 0.010428528, -0.110172175)

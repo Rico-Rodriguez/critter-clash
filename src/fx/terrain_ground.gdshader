@@ -29,6 +29,9 @@ uniform vec4 ember_col : source_color = vec4(1.0, 0.42, 0.08, 1.0);
 uniform vec4 dark : source_color = vec4(0.02, 0.025, 0.03, 1.0);
 uniform vec4 bounds = vec4(-22.0, -30.0, 22.0, 22.0); // min x, min z, max x, max z
 uniform float edge_fade = 7.0;
+// Snow and ice depth (Rimehollow): wind ripples and drifts in the snow, a glittering crust, frosted ice
+// shores and a deeper blue under the ice. 0 leaves the floor as it was; the other zones keep it at 0.
+uniform float snow_detail = 0.0;
 
 varying vec3 wpos;
 
@@ -59,6 +62,20 @@ void fragment() {
 	vec4 B = texture(lay_b, uv);
 	float jit = (n2 - 0.5) * 0.55 + (n3 - 0.5) * 0.07;
 
+	if (snow_detail > 0.0) {
+		// Snow: wind-carved ripples over soft drifts, blue in the hollows and white on the crests.
+		float rpl = texture(noise_b, p * 0.55 + vec2(n1 * 0.6, 0.0)).r;
+		float drift = texture(noise_a, p * 0.11 + vec2(0.3, 0.8)).r;
+		col *= mix(vec3(0.86, 0.92, 1.04), vec3(1.04, 1.03, 1.0), smoothstep(0.3, 0.7, drift));
+		col *= 0.93 + 0.14 * rpl;
+		nrm = vec3(0.5 + ((rpl - 0.5) * 0.4 + (n3 - 0.5) * 0.3) * snow_detail, 0.5 + ((texture(noise_b, p * 0.62 + vec2(0.5)).r - 0.5) * 0.4 + (drift - 0.5) * 0.4) * snow_detail, 1.0);
+		rough = 0.62;
+		spec = 0.5;
+		// A crust that glints where the light catches it.
+		float gl = texture(noise_b, p * 3.1).r;
+		float tw = 0.5 + 0.5 * sin(TIME * 2.4 + gl * 80.0);
+		emit += vec3(0.8, 0.9, 1.0) * smoothstep(0.84, 0.96, gl) * tw * 0.35 * snow_detail;
+	}
 	// Ice: clear and glossy, with long cracks where the noise crosses one value.
 	float ice = cut(A.r + jit, 0.05);
 	if (ice > 0.0) {
@@ -66,6 +83,14 @@ void fragment() {
 		float ridge = 1.0 - smoothstep(0.0, 0.028, abs(nc - 0.5));
 		float fine = 1.0 - smoothstep(0.0, 0.02, abs(nd - 0.5));
 		ic = mix(ic, crack_col.rgb, clamp(ridge * 0.75 + fine * 0.12, 0.0, 1.0));
+		if (snow_detail > 0.0) {
+			// Deep clear blue under the middle of the sheet, frosted white along its shore and over the cracks.
+			float core = cut(A.r + jit - 0.2, 0.1);
+			float haze = smoothstep(0.45, 0.8, texture(noise_a, p * 0.17).r);
+			ic = mix(ic, ic * vec3(0.62, 0.78, 0.95), core * (0.55 + 0.35 * n1));
+			ic = mix(ic, vec3(0.9, 0.96, 1.0), (1.0 - core) * 0.7 + haze * 0.18 * (1.0 - ridge));
+			ic = mix(ic, vec3(0.95, 0.98, 1.0), ridge * 0.25);
+		}
 		col = mix(col, ic, ice);
 		rough = mix(rough, 0.09 + 0.2 * ridge, ice);
 		spec = mix(spec, 0.9, ice);

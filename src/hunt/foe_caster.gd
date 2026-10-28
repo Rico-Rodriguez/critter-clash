@@ -147,10 +147,7 @@ static func burst(hunt: Hunt, at: Vector3, r: float, dmg: float) -> void:
 	Sfx.play("boom", -8.0, 1.0)
 	if hunt.hero.alive and hunt.hero.flat_pos().distance_to(at) <= r + hunt.hero.radius * 0.5:
 		hunt.damage_hero(dmg, null, 0.5)
-	var ar: Object = hunt.arena.get("terrain")
-	if ar == null and hunt.arena.has_meta("terrain"):
-		ar = hunt.arena.get_meta("terrain")
-	if ar != null:
-		ar.ignite_at(at, r)
+	if hunt.arena.terrain_live:
+		hunt.arena.terrain.ignite_at(at, r)
 	else:
 		hunt.add_fire_patch(at, r, 3.5, dmg * 0.25, &"fire")

@@ -15,6 +15,13 @@ version is 7.
 Open water in Rimehollow rendered black (`water_col` in `terrain_ground.gdshader` was near black, and
 there is no sky to mirror), so a fishing hole or a cracked-open floor read as a hole in the world. It
 is now a deep blue with a slow lighter ripple, still glossy and unlit by fog or tint.
+## Biome visual polish (dev/biome-models, round 2)
+
+- Cinder Mire is lit: brighter ground, a warm key, a cool rim light (arena_mire.gd `_light`).
+- Rimehollow snow and ice have ripples, a glinting crust and frosted ice shores (`snow_detail` in terrain_ground.gdshader).
+- Frost Imp, Frozen Effigy and Rime Seer swapped for darker, higher-fidelity models (Rodolfoisreal1423, SuperKapoo913, orangesauceu; CC BY 4.0); the Winter Caller is the only wendigo.
+- FoeModels.DEFS emptied: every Rimehollow and Cinder Mire foe stands on its next_foes.gd model.
+- Biome capture shots: knight in Blackguard plate, no tutorial hint, no ground telegraphs.
 
 ## Unreleased: Biome rebuild, the Rimehollow kit
 
@@ -86,6 +93,19 @@ script outputs) and the unused mound, crystal, snow-cap, ice-sheet and scorch
 helpers in `biome_art.gd`. Tests: `terrain_tests.gd` adds the Mire (a firm route
 to the platform, reachability, fire over planks, spawn spots on the right
 ground).
+
+## Unreleased: Biome rebuild, real models for the foes and the ambient life
+
+All 16 Rimehollow and Cinder Mire foes and the six model-based ambient critters
+(hare, owl, wolf, frog, dragonfly, crow) are now real CC BY 4.0 Sketchfab models
+instead of KayKit stand-ins and primitive meshes. Sources and authors are in
+`CREDITS.md`, `assets/critters/LICENSE-critters.txt` and the in-game credits.
+Single-clip rigs get generated move/attack/hit/death clips (`FoeRig`), so they
+animate without Mixamo. The owl glides past rather than perching. The swamp's
+cells paint in its own dark earth (`biome_ground.gd`); a zone whose own arena has
+not painted terrain no longer shows a snow plane. `--capture --shots=biome
+--zone=frost|swamp` renders the zone's eight foes and its critters. Bog dwellers
+burn harder (x2) in `terrain_run.gd`.
 
 ## Unreleased: Biome rebuild, the Frost Troll
 

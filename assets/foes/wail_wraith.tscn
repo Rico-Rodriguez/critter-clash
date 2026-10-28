@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/wail_wraith_src.glb" id="1_5y0j8"]
+
+[node name="wail_wraith" type="Node3D" unique_id=159510351]
+metadata/cull_aabbs = {
+"Sketchfab_model/219caacb435d417f97c684ca900058eb_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-198.3284, -163.20494, -139.61287, 426.04132, 385.11737, 479.99768)
+}
+metadata/posed_aabb = AABB(-0.3678147, 0, -0.26755694, 0.7356294, 1, 0.5351139)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=973693144 instance=ExtResource("1_5y0j8")]
+transform = Transform3D(0.4899711, 0, 0, 0, 0.4899711, 0, 0, 0, 0.4899711, -0.07198776, 0.008137781, 0.14382483)

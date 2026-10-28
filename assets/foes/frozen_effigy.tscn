@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/foes/frozen_effigy_src.glb" id="1_cwktp"]
+
+[node name="frozen_effigy" type="Node3D" unique_id=725658693]
+metadata/cull_aabbs = {
+"Sketchfab_model/root/GLTF_SceneRootNode/Undead Armature_97/GLTF_created_0/Skeleton3D/Object_21": AABB(-114.5551, -64.67366, -83.720985, 209.46222, 224.79813, 184.09846)
+}
+metadata/posed_aabb = AABB(-0.24815026, 0, -0.16704199, 0.49630052, 1, 0.33408397)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2107615303 instance=ExtResource("1_cwktp")]
+transform = Transform3D(0.0025035187, 0, 0, 0, 0.0025035187, 0, 0, 0, 0.0025035187, 0.06283033, -0.00087081274, -0.0561417)
