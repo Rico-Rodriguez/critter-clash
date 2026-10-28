@@ -254,6 +254,35 @@ func thin(c: Vector2i) -> bool:
 	return true
 
 
+## The floor cracks by itself: solid ice turns thin and snaps to water after
+## `delay` seconds whether anyone stands on it or not. Returns whether it took.
+func crack(c: Vector2i, delay: float) -> bool:
+	var k := kind_of(c)
+	if k != ICE and k != THIN_ICE:
+		return false
+	if k == ICE:
+		set_kind(c, THIN_ICE)
+		_ev.append({"ev": "thin", "cell": c})
+	var i := idx(c)
+	if timer[i] <= 0.0 or timer[i] > delay:
+		timer[i] = delay
+		_active[i] = true
+	return true
+
+
+## Cracks every ice cell whose centre is within `r` of `p`. Returns how many.
+func crack_disc(p: Vector3, r: float, delay: float) -> int:
+	var n := 0
+	var c0 := cell_of(p)
+	var reach := ceili(r / CELL) + 1
+	for dz in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var c := c0 + Vector2i(dx, dz)
+			if in_bounds(c) and Vector2(center_of(c).x - p.x, center_of(c).z - p.z).length() <= r and crack(c, delay):
+				n += 1
+	return n
+
+
 ## A Sporecap rots a plank to bog.
 func rot(c: Vector2i) -> bool:
 	if kind_of(c) != PLANK:

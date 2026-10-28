@@ -23,6 +23,7 @@ static func run(ok: Callable) -> void:
 	_surfaces(ok)
 	_ice_motion(ok)
 	_thin_ice(ok)
+	_cracking(ok)
 	_drowning(ok)
 	_fire(ok)
 	_reflood(ok)
@@ -81,6 +82,20 @@ static func _ice_motion(ok: Callable) -> void:
 	ok.call("ice: a knockback carries further than on dry ground", g.slide_at(g.center_of(Vector2i(1, 0))) * T.KNOCK_SLIDE > g.slide_at(g.center_of(Vector2i(0, 0))) * 2.0)
 	ok.call("bog: knockback is short and the walk is slow", g.slide_at(g.center_of(Vector2i(2, 0))) < 1.0 and g.speed_mult_at(g.center_of(Vector2i(2, 0))) < 0.6)
 	ok.call("ash: fast and safe", g.speed_mult_at(g.center_of(Vector2i(3, 0))) > 1.0 and not g.body_effect(g.center_of(Vector2i(3, 0)))["lethal"] and float(g.body_effect(g.center_of(Vector2i(3, 0)))["dps"]) == 0.0)
+
+
+## The Frost Troll's floor: ice cracks on a timer, no one needs to stand on it.
+static func _cracking(ok: Callable) -> void:
+	var g := T.parse([",,,.,~"], Vector2(0, 0))
+	ok.call("crack: dry ground and water do not crack", not g.crack(Vector2i(3, 0), 1.0) and not g.crack(Vector2i(5, 0), 1.0))
+	ok.call("crack: ice turns thin with a fuse of its own", g.crack(Vector2i(1, 0), 1.0) and g.kind_of(Vector2i(1, 0)) == T.THIN_ICE and g.is_cracking(Vector2i(1, 0)))
+	var evs: Array = g.step(0.5)
+	ok.call("crack: nothing snaps before the delay", g.kind_of(Vector2i(1, 0)) == T.THIN_ICE and not evs.any(func(e): return e["ev"] == "snap"))
+	evs = g.step(0.6)
+	ok.call("crack: it snaps to open water when the delay is up", g.kind_of(Vector2i(1, 0)) == T.WATER and evs.any(func(e): return e["ev"] == "snap" and e["cell"] == Vector2i(1, 0)))
+	var d := T.parse([",,,,,,", ",,,.,,", ",,,,,,"], Vector2(0, 0))
+	var n: int = d.crack_disc(d.center_of(Vector2i(2, 1)), 2.1, 1.0)
+	ok.call("crack: a disc cracks the ice in reach and spares the rest (%d cells)" % n, n >= 3 and n <= 7 and d.kind_of(Vector2i(3, 1)) == T.DRY and d.kind_of(Vector2i(5, 1)) == T.ICE and d.kind_of(Vector2i(2, 1)) == T.THIN_ICE)
 
 
 static func _thin_ice(ok: Callable) -> void:
