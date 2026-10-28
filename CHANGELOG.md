@@ -10,6 +10,13 @@ version is 7.
 
 ---
 
+## Unreleased: pinned tool versions
+
+The test-server workflow downloads cloudflared 2025.9.1 instead of `latest` and runs on
+`ubuntu-24.04`, so an upstream release cannot break the server unannounced.
+
+---
+
 ## Unreleased: the release gate catches broken imports
 
 No game change. PR #118 shipped 93 broken audio imports and nothing failed,
