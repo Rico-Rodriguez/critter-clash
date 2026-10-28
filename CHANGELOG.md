@@ -10,6 +10,14 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the Rimehollow kit
+
+Rimehollow's cliffs, crystals, ice blocks, pines, longship, hut, sled and
+boulders are now the Art kit's Blender meshes (`assets/kits/rime/rime_kit.glb`
+via `KitModels.mesh`) instead of the code-built pieces: darker, colder ice and
+rock, one palette texture, same sizes, transforms and obstacle circles. Still
+code-built: the Long Road's frost rooms (`Kit.cliff` and friends).
+
 ## Unreleased: Biome rebuild, bog in the flow field and bosses that wade
 
 The foes' flow field now weighs the ground: a step costs the terrain's `cost`
