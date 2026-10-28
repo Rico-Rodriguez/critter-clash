@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: main.gd loses its dev modes
+
+The autopilot, screenshot, perf and contact-sheet code (1,850 lines) moved from `src/main.gd` to `src/dev/capture.gd`, which the export leaves out. `main.gd` is 270 lines. Behaviour is the same: `--bot`, `--capture` and the shot helpers run through a shim for Main's `current`, `go` and `pending_chest`.
+
+---
+
 ## Unreleased: the release gate catches broken imports
 
 No game change. PR #118 shipped 93 broken audio imports and nothing failed,
