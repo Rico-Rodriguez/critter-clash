@@ -439,6 +439,8 @@ func _capture(args: PackedStringArray) -> void:
 	# --dress=N: the hero in a full rare set (--set=hexer: the Blackguard plate and helm), so the beauty shots show a knight in plate and not the starter kettle hat.
 	var dress := int(_arg(args, "dress", "4" if "biome" in want else "-1"))
 	if dress >= 0:
+		for sk in DB.SKILLS:
+			Game.skills(hid)[sk] = maxi(Game.skill_xp(sk, hid), DB.xp_for_level(int(GearDB.REQ[dress])))
 		for slot in DB.SLOTS:
 			var piece := Game.make_item(hid, slot, dress, "rare")
 			piece["set"] = _arg(args, "set", "hexer")
@@ -1542,7 +1544,7 @@ func _capture(args: PackedStringArray) -> void:
 					h.bot = false
 					# The stage: the Cinder Mire's widest dry island (the landing is a fenced strip).
 					if h.arena.zone == "swamp":
-						h.hero.position = Vector3(0.0, 0.0, 15.2)
+						h.hero.position = Vector3(0.0, 0.0, 14.0)
 					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
 					# A low angle, so the knight reads as a knight and not as the top of a helm.
 					h.cam.pitch_deg = float(_arg(args, "pitch", "34"))

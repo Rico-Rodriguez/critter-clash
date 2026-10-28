@@ -48,8 +48,10 @@ const BLOAT := {"model": "proc:bloat", "fit": 1.5, "proc": {"bob": 0.12, "rate":
 ## Sporecap: custom Blender model (tools/art/make_foes.py), CC0.
 const SPORE := {"model": "proc:spore", "fit": 1.2, "proc": {"bob": 0.05, "rate": 0.7, "lean": 0.3, "lunge": 0.4}}
 
-const DEFS := {"rh_wolf": WOLF, "rh_wraith": WRAITH, "rh_yeti": YETI, "rh_shard": SHARD,
-	"cm_shaman": SHAMAN, "cm_bloat": BLOAT, "cm_spore": SPORE}
+## Empty on dev/biome-models: the realistic Sketchfab models of next_foes.gd (CC BY, credited) replace these
+## low-poly Quaternius and procedural kits, which read cartoony beside the rest of the lineup in review. Put an
+## entry back (`"rh_wolf": WOLF`) to restore one; the consts above stay so the models and tests keep loading.
+const DEFS := {}
 
 
 ## `def` (a NextFoes def) with the model keys of foe `id` folded in; a def with no entry comes back as is.

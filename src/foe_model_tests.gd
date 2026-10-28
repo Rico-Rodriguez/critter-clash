@@ -13,7 +13,7 @@ static func run(ok: Callable) -> void:
 	var wired := true
 	for id: String in FoeModels.DEFS:
 		wired = wired and DB.enemy(id)["model"] == FoeModels.DEFS[id]["model"] and DB.enemy(id)["weapons"].is_empty()
-	ok.call("foe models: DB.enemy hands out the folded defs, the rest stay on their skeletons", wired and not str(DB.enemy("rh_imp")["model"]).begins_with("glb:") and DB.enemy("rh_wolf") == DB.enemy("rh_wolf"))
+	ok.call("foe models: DB.enemy hands out the folded defs (none on dev/biome-models: next_foes.gd carries every model)", wired and DB.enemy("rh_wolf") == DB.enemy("rh_wolf"))
 	for id: String in FoeModels.DEFS:
 		var def: Dictionary = FoeModels.fold(id, NextFoes.FOES[id])
 		var tag := "foe model %s (%s)" % [id, def["model"]]
