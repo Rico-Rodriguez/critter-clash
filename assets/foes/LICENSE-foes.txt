@@ -1,0 +1,9 @@
+Boss and foe models in this folder are licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Attribution (verified via the Sketchfab API, 2026-10-27):
+- Boss and foe models, Creative Commons Attribution 4.0, from Sketchfab. Unmodified materials; meshes
+  merged into one draw per material (`tools/art/merge_skinned.py`), collapse-decimated
+  (`tools/art/decimate_skinned.py`), clips moved to start at 0, scaled to size in `assets/foes/*.tscn`
+  (`tools/art/wrap_foes.gd`):
+  - Cinder Warlord — "Low-poly orc" by Riltariki —
+    https://sketchfab.com/3d-models/low-poly-orc-62f1637181cb4f6aa38897f5b7ab5edf
+    (decimated from 21.6k to 11.4k tris for mobile)

@@ -3,6 +3,8 @@ extends RefCounted
 ## All tunable game data in one place: heroes, enemies, upgrade cards, loot,
 ## difficulty tiers and the OSRS skill curve. Nothing here touches the scene.
 
+const BOSS_MODELS := preload("res://src/data/boss_models.gd")
+
 # --- Rarity --------------------------------------------------------------
 
 const RARITIES := ["common", "magic", "rare", "legendary"]
@@ -373,7 +375,7 @@ const ENEMIES_EXTRA := {
 		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.6, "blast": 3.3,
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
-	# The Burning Swamp's dead (the Cinder Ogre's court): drowned bog-bones and
+	# The Burning Swamp's dead (the Cinder Warlord's court): drowned bog-bones and
 	# charred, ember-veined ones. Fire is the theme: hits scorch, bodies ignite.
 	"bogwalker": {
 		"name": "Bog Husk", "model": "Skeleton_Minion", "weapons": {"handslot.r": "Skeleton_Blade.gltf"}, "skin": "bog", "base": "minion",
@@ -475,10 +477,12 @@ const BOSSES := {
 		"color": Color(0.55, 0.85, 1.0), "el": "frost", "source": "rime", "occluder": Vector2(1.6, 4.9), "summon_line": "The Regent calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
 	},
 	"cinder": {
-		"name": "The Cinder Ogre", "title": "of the Burning Swamp", "wake": "the Ogre climbs from the embers", "fall": "The Ogre gutters out. The Swamp smoulders.",
-		"model": "Barbarian", "weapons": {"handslot.r": "axe_2handed.gltf"}, "skin": "ogre",
-		"hp": 6400.0, "dmg": 29.0, "speed": 3.0, "radius": 1.5, "scale": 2.7, "mass": 50.0,
-		"color": Color(1.0, 0.5, 0.15), "el": "fire", "source": "cinder", "occluder": Vector2(1.7, 5.0), "summon_line": "The Ogre stokes the bog!", "enrage_line": "\"Burn. Burn. BURN.\"",
+		"name": "The Cinder Warlord", "title": "of the Burning Swamp", "wake": "the Warlord climbs from the embers", "fall": "The Warlord gutters out. The Swamp smoulders.",
+		# Riltariki's orc (assets/foes/cinder_warlord.tscn); `rig` pulls fit, clips and alias from boss_models.gd.
+		# 5.7 m tall at scale 3.0, so the hitbox is wider and the occluder taller than the Ogre's.
+		"model": "glb:cinder_warlord", "rig": "cinder_warlord", "weapons": {}, "skin": "ogre",
+		"hp": 6400.0, "dmg": 29.0, "speed": 3.0, "radius": 1.95, "scale": 3.0, "mass": 60.0,
+		"color": Color(1.0, 0.5, 0.15), "el": "fire", "source": "cinder", "occluder": Vector2(2.1, 6.0), "summon_line": "The Warlord stokes the bog!", "enrage_line": "\"Burn. Burn. BURN.\"",
 	},
 }
 
@@ -537,8 +541,8 @@ const ZONES := {
 			"ground": {"grass_a": Color(0.5, 0.57, 0.67), "grass_b": Color(0.64, 0.71, 0.8), "dirt": Color(0.36, 0.41, 0.5), "dark": Color(0.05, 0.07, 0.11)}},
 	},
 	"swamp": {
-		"name": "The Burning Swamp", "boss": "cinder", "blurb": "A drowned wood alight on its own gas. The Cinder Ogre tends the fires.",
-		"wake": "Gather %d souls to wake the Ogre", "defeat": "The Swamp keeps you", "enter": "Into the Burning Swamp",
+		"name": "The Burning Swamp", "boss": "cinder", "blurb": "A drowned wood alight on its own gas. The Cinder Warlord tends the fires.",
+		"wake": "Gather %d souls to wake the Warlord", "defeat": "The Swamp keeps you", "enter": "Into the Burning Swamp",
 		"loot_bonus": 3, "gold_bonus": 0.15, "weights": {"warrior": 1.2, "rogue": 1.4, "mage": 1.5, "hound": 1.5, "brute": 1.1, "bomber": 1.7, "necro": 1.0},
 		"faction": {"minion": "bogwalker", "warrior": "charredguard", "rogue": "embershooter", "mage": "cinderwitch", "necro": "pyrecaller", "hound": "bogleaper", "bomber": "methanebloat", "brute": "cinderbrute"},
 		# The Cinder Mire's own foes. No brute: the Ogre is its only heavy.
@@ -619,7 +623,11 @@ static func zone(id: String) -> Dictionary:
 
 
 static func boss_def(id: String) -> Dictionary:
-	return BOSSES[id] if BOSSES.has(id) else BOSSES["gravemaw"]
+	var d: Dictionary = BOSSES[id] if BOSSES.has(id) else BOSSES["gravemaw"]
+	if d.has("rig"):
+		# A licensed model brings its fit, clips and alias; the boss keeps its own scale and the rest.
+		return (BOSS_MODELS.DEFS[str(d["rig"])] as Dictionary).merged(d, true)
+	return d
 
 ## Elite affixes: Diablo-style champions. Each multiplies or adds a trait.
 ## The fallen stay on the ground a while, then sink; past CORPSE_MAX the
@@ -1161,12 +1169,12 @@ const UNIQUES := {
 	"rime_cowl": {"cls": "ranger", "dye": Color(0.62, 0.82, 1.0), "name": "Winter's Cowl", "slot": "helm", "rarity": "legendary", "source": "rime", "rate": 30, "stats": {"crit": 9, "speed": 6}, "card": "barrage", "power": "Start every hunt with Arrow Storm", "icon": "hood"},
 	"rime_shard": {"name": "Rime Shard", "slot": "trophy", "rarity": "magic", "source": "rime", "rate": 4, "icon": "crystal-shine", "power": "It does not melt. Sells for 130 gold.", "sell": 130},
 	"rime_relic": {"name": "Ancient Winter Seal", "slot": "trophy", "rarity": "legendary", "source": "ancient_rime", "rate": 30, "icon": "frozen-orb", "power": "Cold as the first frost. Sells for 5000 gold.", "sell": 5000},
-	# The Cinder Ogre (the Burning Swamp).
+	# The Cinder Warlord (the Burning Swamp).
 	"cinder_maul": {"cls": "barbarian", "fam": "maul", "dye": Color(1.0, 0.45, 0.12), "name": "Ashmaker", "slot": "weapon", "rarity": "legendary", "source": "cinder", "rate": 25, "stats": {"dmg": 31, "aspd": 9}, "card": "wisp", "power": "Start every hunt with Hellfire Wisp", "icon": "warhammer"},
 	"cinder_plate": {"cls": "knight", "dye": Color(0.3, 0.14, 0.08), "name": "Pyreplate", "slot": "chest", "rarity": "legendary", "source": "cinder", "rate": 25, "stats": {"hp": 34, "armor": 8}, "card": "thorns", "power": "Start every hunt with Thorns", "icon": "breastplate"},
 	"cinder_boots": {"cls": "rogue", "dye": Color(0.85, 0.32, 0.1), "name": "Emberstride Boots", "slot": "legs", "rarity": "legendary", "source": "cinder", "rate": 30, "stats": {"speed": 9, "hp": 12}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "boots"},
 	"cinder_core": {"name": "Cinder Core", "slot": "trophy", "rarity": "magic", "source": "cinder", "rate": 4, "icon": "flame", "power": "Still warm. Sells for 140 gold.", "sell": 140},
-	"cinder_relic": {"name": "Ancient Ogre Brand", "slot": "trophy", "rarity": "legendary", "source": "ancient_cinder", "rate": 30, "icon": "fire-ring", "power": "It never cools. Sells for 5000 gold.", "sell": 5000},
+	"cinder_relic": {"name": "Ancient Warlord Brand", "slot": "trophy", "rarity": "legendary", "source": "ancient_cinder", "rate": 30, "icon": "fire-ring", "power": "It never cools. Sells for 5000 gold.", "sell": 5000},
 	"abyssal": {"name": "Abyssal Gem", "slot": "trophy", "rarity": "legendary", "source": "nightmare", "rate": 80, "icon": "crystal-shine", "power": "It hums. Sells for 2000 gold.", "sell": 2000},
 }
 const LOG_ORDER := ["cleaver", "shroud", "crown", "bonelet", "tooth", "scepter", "gown", "greaves", "hexling", "charm", "thornbow", "barkplate", "seedheart", "acolyte", "seed", "emberheart", "sigil", "abyssal", "barrow_relic", "barrow_squire", "hex_relic", "shade", "thorn_relic", "sapling", "gilded_fang", "hoardplate", "vault_coin", "rime_maul", "rime_robe", "rime_cowl", "rime_shard", "rime_relic", "cinder_maul", "cinder_plate", "cinder_boots", "cinder_core", "cinder_relic"]

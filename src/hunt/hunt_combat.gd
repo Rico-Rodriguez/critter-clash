@@ -8,6 +8,8 @@ extends "res://src/hunt/hunt_loot.gd"
 ## A blow lands in the world: props nearby wobble, beetles scatter, and gravestones
 ## hit hard shed dust and stone chips.
 func world_hit(pos: Vector3, reach: float, power: float) -> void:
+	if arena.terrain_live and power >= 1.2:
+		arena.break_ice_at(pos, reach * 0.8)
 	for p in arena.nudge(pos, reach, power):
 		fx.puff(p + Vector3(0, 0.3, 0), Color(0.3, 0.29, 0.28, 0.5), 3, 0.4, 0.9)
 		fx.vfx.debris(p + Vector3(0, 0.5, 0), 2, 2.6, &"physical")

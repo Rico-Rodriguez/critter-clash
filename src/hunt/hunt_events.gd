@@ -132,6 +132,8 @@ func _tick_surge(dt: float) -> void:
 ## Grave eruptions: telegraphed bursts under and around the hero. Whoever
 ## stands still is always hit; the cluster grows and quickens with the tier.
 func _tick_hazards(dt: float) -> void:
+	if terr != null:
+		terr.tick(dt)
 	if biome != null:
 		biome.tick(dt)
 	if _warming or not hero.alive or not (phase == "rise" or phase == "boss"):

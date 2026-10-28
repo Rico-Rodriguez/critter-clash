@@ -24,6 +24,29 @@ version is 7.
   telegraphs, pack rules, ambush, fire and ice interplay. check.sh also runs the
   Frozen Crypt and Burning Swamp hunts with `--next-foes`.
 
+## Unreleased: Biome rebuild, terrain engine
+
+The Cinder Mire boss is now the **Cinder Warlord**: Riltariki's orc (CC BY, see
+`CREDITS.md`), 5.7 m tall at scale 3.0 with its own
+clips. `DB.BOSSES["cinder"]` names its rig (`"rig": "cinder_warlord"`) and
+`DB.boss_def` folds in the fit, clips and alias from `boss_models.gd`. Hitbox
+radius is 1.95 and the occluder 2.1 x 6.0 for the taller body. Story cutscenes
+pass the rig to the boss actor so the Warlord shows there too.
+
+Rebuild 2/3. No visible change yet: no zone paints terrain until the Rimehollow
+and Cinder Mire layouts land.
+
+- The Arena owns a terrain grid (`arena.terrain`, all dry) and `terrain_begin()`
+  turns it on for a zone: one ground plane (`terrain_ground.gdshader`) draws
+  ice, thin ice, open water, bog, fire and ash cells from two small textures,
+  with hard noisy edges and a real specular on ice and water.
+- `terrain_run.gd` steps the grid each tick: thin ice snaps, foes that stop on it
+  or fall in water drown, fire spreads and burns bog foes, the hero is chilled
+  and dragged out of open water, and every body gets its ground's speed, grip
+  and knockback slide (`t_speed`, `t_grip`, `t_slide` on `Actor`).
+- Ice walls (`add_ice_wall`) are solid to everything and break to a dash or any
+  big blow; the flow field routes round water and walls.
+
 ## Unreleased: Biome rebuild, test harness
 
 - `src/hunt/terrain.gd`: the terrain cell grid's rules as plain data (nine kinds,

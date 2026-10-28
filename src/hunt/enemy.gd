@@ -303,7 +303,7 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 		var via := hunt.arena.route(flat_pos(), hero.flat_pos())
 		if via.distance_to(hero.flat_pos()) > 0.01:
 			var tv := _around_walls(via - flat_pos(), INF)
-			position += tv * speed * hunt.foe_speed_mult * dt
+			position += tv * speed * hunt.foe_speed_mult * t_speed * dt
 			face(atan2(tv.x, tv.z), dt, 10.0)
 			play(def["anim"]["run"], 0.15)
 			return
@@ -332,7 +332,7 @@ func _chase(dt: float, to_hero: Vector3, dist: float) -> void:
 		if dist <= reach and atk_cd <= 0.0 and hunt.on_screen(position, 1.0):
 			_windup()
 			return
-	var spd := speed * hunt.foe_speed_mult
+	var spd := speed * hunt.foe_speed_mult * t_speed
 	# A long kite wears the pack's patience: on Veteran and up, foes that cannot
 	# close the gap run harder the longer it lasts.
 	if hunt.ai() > 0.0 and (ai == "melee" or ai == "slam") and dist > 4.0:
@@ -386,7 +386,7 @@ func _walled(d: Vector3, look: float) -> bool:
 ## chase you keep is a chase you win.
 func _flee(dt: float, to_hero: Vector3, dist: float) -> void:
 	var away := -to_hero / maxf(dist, 0.01)
-	var spd := speed * (1.0 - 0.18 * floorf(age / 4.0)) * hunt.foe_speed_mult
+	var spd := speed * (1.0 - 0.18 * floorf(age / 4.0)) * hunt.foe_speed_mult * t_speed
 	var want := away
 	for i in 6:
 		if not hunt.arena.blocked(position + want * 1.4, radius):

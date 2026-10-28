@@ -432,7 +432,7 @@ func _build_log(s: Sheet) -> void:
 		nm.add_theme_font_size_override("font_size", 20)
 		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(nm)
-		var src: String = {"boss": "Gravemaw", "hexer": "Hexer Queen", "thorn": "Thornmother", "warden": "Gilded Warden", "rime": "Rime Regent", "cinder": "Cinder Ogre", "elite": "Champions", "nightmare": "Bosses (Nightmare)", "ancient_boss": "Ancient Gravemaw", "ancient_hexer": "Ancient Hexer Queen", "ancient_thorn": "Ancient Thornmother", "ancient_rime": "Ancient Rime Regent", "ancient_cinder": "Ancient Cinder Ogre"}[ud["source"]]
+		var src: String = {"boss": "Gravemaw", "hexer": "Hexer Queen", "thorn": "Thornmother", "warden": "Gilded Warden", "rime": "Rime Regent", "cinder": "Cinder Warlord", "elite": "Champions", "nightmare": "Bosses (Nightmare)", "ancient_boss": "Ancient Gravemaw", "ancient_hexer": "Ancient Hexer Queen", "ancient_thorn": "Ancient Thornmother", "ancient_rime": "Ancient Rime Regent", "ancient_cinder": "Ancient Cinder Warlord"}[ud["source"]]
 		var rl := Ui.label("1/%d · %s" % [int(ud["rate"]), src], "Small", HORIZONTAL_ALIGNMENT_CENTER)
 		rl.add_theme_font_size_override("font_size", 16)
 		v.add_child(rl)
@@ -698,7 +698,7 @@ func _build_settings(s: Sheet) -> void:
 	b.add_child(HSeparator.new())
 	_privacy_rows(b)
 	b.add_child(HSeparator.new())
-	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Sidekicks: LasquetiSpice, Alexei Ostapenko, Batuhan13, matisosanimation, Joseph Payeur, Spinnee, danielmclogan, BeardenInc, EvgeshQa, Mateus Schwaab (CC BY 4.0, Sketchfab). Icons: game-icons.net (CC BY 3.0). Music and boss stings: Kevin MacLeod (CC BY 4.0). Effects: Kenney, rubberduck and others (CC0). Full list in CREDITS.md.", "Small")
+	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Sidekicks and bosses: LasquetiSpice, Alexei Ostapenko, Batuhan13, matisosanimation, Joseph Payeur, Spinnee, danielmclogan, BeardenInc, EvgeshQa, Mateus Schwaab, Riltariki (CC BY 4.0, Sketchfab). Icons: game-icons.net (CC BY 3.0). Music and boss stings: Kevin MacLeod (CC BY 4.0). Effects: Kenney, rubberduck and others (CC0). Full list in CREDITS.md.", "Small")
 	cr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(cr)
 	var ota := get_node_or_null("/root/Ota")
