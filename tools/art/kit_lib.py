@@ -16,7 +16,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LEVELS = 63           # sRGB steps per channel when a face colour is quantised into the palette
 CELL, GRID = 8, 32    # 8 px cells, 32 x 32 of them: up to 1024 colours, a 256 px texture
 MATTE, ICE, CRYSTAL = 0, 1, 2
-EMIT = {"mire": 0.8}   # emission strength of the third material, per kit (default 0.18); the Mire uses it for coals
+EMIT = {"mire": 0.8, "mire_road": 0.8}   # emission strength of the third material, per kit (default 0.18); the Mire uses it for coals
 SLOTS = {}   # object name -> the material slots (0..2) its faces use, in order
 
 
