@@ -10,6 +10,15 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the new foes go live
+
+`FoeBrains.next` is now on: Rimehollow and the Cinder Mire field their rebuilt
+foes (`--old-foes` brings the old factions back for a bot run). Open water no
+longer drowns the swimming ambush foes (Bogfin, Bog Frog), and a submerged one
+is never burned. `arena.spawn_holes` and `arena.perches` exist; Rimehollow fills
+them (cracks round the court for the Winter Caller's imps, the lake rim for the
+wraiths).
+
 ## Unreleased: Biome rebuild, ambient life and audio
 
 - Rimehollow and the Cinder Mire now have their own ambience (`src/hunt/ambience.gd`):
