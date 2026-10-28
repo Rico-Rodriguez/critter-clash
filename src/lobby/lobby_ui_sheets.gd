@@ -1320,6 +1320,30 @@ func _build_collection(s: Sheet) -> void:
 		var total: Array = sec[1]
 		var n := total.filter(func(k): return have.has(k)).size()
 		b.add_child(Ui.label("%s · %d / %d" % [sec[0], n, total.size()], "Caption"))
+		if sec[0] == "BREEDS":
+			# Breeds are pictures: the pet's own render once found, a dark outline until then.
+			var grid := GridContainer.new()
+			grid.columns = 4
+			grid.add_theme_constant_override("h_separation", 8)
+			grid.add_theme_constant_override("v_separation", 8)
+			for k in total:
+				var got := have.has(k)
+				var pc := _card()
+				pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				var tv := VBoxContainer.new()
+				tv.add_theme_constant_override("separation", 2)
+				var pic: TextureRect = PetIcons.rect(str(k), 1, 84) if got else Ui.icon_rect(str(SKDB.def(k)["icon"]), 60, Color(0.12, 0.12, 0.16))
+				pic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+				tv.add_child(pic)
+				var nl := Ui.label(str(SKDB.def(k)["name"]) if got else "???", "Small", HORIZONTAL_ALIGNMENT_CENTER)
+				nl.add_theme_font_size_override("font_size", 15)
+				nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				nl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5) if got else Color(0.5, 0.5, 0.55))
+				tv.add_child(nl)
+				pc.add_child(tv)
+				grid.add_child(pc)
+			b.add_child(grid)
+			continue
 		var fl := HFlowContainer.new()
 		fl.add_theme_constant_override("h_separation", 8)
 		fl.add_theme_constant_override("v_separation", 8)

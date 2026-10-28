@@ -4,6 +4,8 @@ extends Control
 ## claimed in order; one that opens a mode, an arena or a hero gets a reveal.
 ## No class_name (over-the-air packs can't add global classes): preload it.
 
+const PetIcons := preload("res://src/ui/pet_icons.gd")
+const PropIcons := preload("res://src/ui/prop_icons.gd")
 const DragScroll := preload("res://src/ui/drag_scroll.gd")
 
 signal closed
@@ -293,7 +295,7 @@ func _add_arena(i: int, y: float, w: float) -> float:
 	return y + ARENA_H + GAP * 2.0
 
 
-## A sidekick milestone: no claim button; it joins after the next hunt
+## A pet milestone: no claim button; it joins after the next hunt
 ## past its trophies (Sidekicks.check_unlocks).
 func _add_sidekick(m: Dictionary, y: float, w: float) -> float:
 	var id := str(m["id"])
@@ -302,7 +304,7 @@ func _add_sidekick(m: Dictionary, y: float, w: float) -> float:
 	var owned := SKR.is_owned(Game.data, id)
 	var reached := owned or Game.renown() >= t
 	var sub := str(sd["desc"]) if reached else "Joins at %d trophies" % t
-	var c := _card(y, w, BIG_H, "RoadDone" if owned else "RoadUnlock", str(sd["icon"]), "NEW SIDEKICK", str(sd["name"]), sub, reached)
+	var c := _card(y, w, BIG_H, "RoadDone" if owned else "RoadUnlock", str(sd["icon"]), "NEW PET", str(sd["name"]), sub, reached, _dim(PetIcons.rect(id, 1, 64), reached))
 	if owned:
 		c.modulate.a = 0.8
 		_add_check(c)
@@ -373,7 +375,13 @@ func _add_step(n: int, y: float, w: float, claimed: int, ready_n: int) -> float:
 			tag = "NEW EGG"
 			sub = "Warms in your hatchery"
 	var style := "RoadReady" if state == "ready" else ("RoadDone" if state == "done" else ("RoadUnlock" if big else "RoadStep"))
-	var c := _card(y, w, h, style, icon, tag, title, sub, state != "locked")
+	var art: Control = null
+	match kind:
+		"chest":
+			art = _dim(PropIcons.chest(str(rw["chest"]), 64), state != "locked")
+		"egg":
+			art = _dim(PropIcons.egg(str(rw["egg"]), 62), state != "locked")
+	var c := _card(y, w, h, style, icon, tag, title, sub, state != "locked", art)
 	if state == "done":
 		c.modulate.a = 0.8
 		_add_check(c)
@@ -401,7 +409,15 @@ func _add_step(n: int, y: float, w: float, claimed: int, ready_n: int) -> float:
 
 
 ## A step's card: an icon well, then tag, title and a line under it.
-func _card(y: float, w: float, h: float, style: String, icon: String, tag: String, title: String, sub: String, lit: bool) -> PanelContainer:
+## A real render in the icon well fades back until the step is reached.
+func _dim(art: Control, lit: bool) -> Control:
+	if not lit:
+		art.modulate = Color(0.55, 0.52, 0.5, 0.85)
+	return art
+
+
+## `art` replaces the flat icon with a render.
+func _card(y: float, w: float, h: float, style: String, icon: String, tag: String, title: String, sub: String, lit: bool, art: Control = null) -> PanelContainer:
 	var c := PanelContainer.new()
 	c.theme_type_variation = StringName(style)
 	c.position = Vector2(CARD_X, y)
@@ -417,7 +433,7 @@ func _card(y: float, w: float, h: float, style: String, icon: String, tag: Strin
 	var tint := Color(1.0, 0.84, 0.5) if lit else Color(0.6, 0.56, 0.5)
 	if style == "RoadStep" and lit:
 		tint = Color(0.88, 0.82, 0.72)
-	cc.add_child(Ui.icon_rect(icon, 56, tint))
+	cc.add_child(art if art != null else Ui.icon_rect(icon, 56, tint))
 	well.add_child(cc)
 	row.add_child(well)
 	var v := VBoxContainer.new()
