@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: one difficulty ladder for the whole account
+
+From the design audit (`reviews/design-audit-2026-10-28.html`). Difficulties used to open per mode, three wins each, so opening Abyss everywhere meant about 105 wins, most far below the player's power. Now a win on your highest difficulty in any mode opens the next one in every mode, and `DB.TIER_WINS` is 1. The first-clear trophy bonus pays once per difficulty for the account (`tier_wins["all:N"]`), not once per mode. Old saves keep the best tier any mode reached (`Game._one_ladder`, safe to repeat, no save version). `mode_tiers` stays in the save, unused. The results screen says "unlocked in every mode".
+
+---
+
 ## Unreleased: the Trophy Road shows what you win
 
 The Album's breeds are now a grid of the pets' own portraits (a dark outline until found). The road's chest, egg and pet steps show the real chest, egg or pet render in their icon well (dimmed until reached), and the last player-visible "NEW SIDEKICK" tag now says "NEW PET".

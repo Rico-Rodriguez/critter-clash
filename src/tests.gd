@@ -658,28 +658,32 @@ func _depth_tests() -> void:
 	_ok("v6 road counts the new steps", int(v6["road"]) == 7 and v6["start_picked"])
 	Game.open_whole_road()
 	_ok("modes open after the road", Game.mode_unlocked("descent") and Game.mode_unlocked("rush"))
-	# Difficulties open per mode: a Horde win does not open Hard in Boss Rush.
-	Game.data["mode_tiers"] = {}
+	# One ladder: a win on the highest tier in any mode opens the next in every mode.
+	Game.data["tier_unlocked"] = 0
+	Game.data["tier_wins"] = {}
 	Game.set_mode("horde")
 	Game.finish_hunt({"win": true, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"})
-	_ok("one win is not enough", Game.mode_tier_unlocked("horde") == 0)
-	for _i in DB.TIER_WINS - 1:
-		Game.finish_hunt({"win": true, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"})
-	_ok("three wins open the next tier in its mode", Game.mode_tier_unlocked("horde") == 1 and Game.mode_tier_unlocked("rush") == 0)
+	_ok("one win opens the next tier", Game.mode_tier_unlocked() == 1)
 	Game.set_mode("rush")
 	Game.set_tier(1)
-	_ok("other modes stay shut", Game.tier() == 0)
-	for _i in DB.TIER_WINS:
-		Game.finish_hunt({"win": false, "tier": 0, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
-	_ok("Descent bosses open the Descent's next tier", Game.mode_tier_unlocked("descent") == 1)
-	# First-clear trophies pay on the first win of a difficulty, not again on
-	# the win that opens the next one.
-	Game.data["mode_tiers"]["horde"] = 1
-	var fc := {"win": true, "tier": 1, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"}
+	_ok("a Horde win opens it in Boss Rush too", Game.tier() == 1 and Game.mode_tier_unlocked("rush") == 1)
+	Game.finish_hunt({"win": false, "tier": 1, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "descent", "time": 300.0, "zone": "barrow", "depth": 6, "bosses": ["hexer"]})
+	_ok("a Descent boss opens the next tier everywhere", Game.mode_tier_unlocked("horde") == 2)
+	# First-clear trophies pay once a difficulty for the account, not again in another mode.
+	var fc := {"win": true, "tier": 2, "hero": "knight", "gold": 1, "kills": 1, "elites": 0, "xp": {}, "items": [], "mode": "horde", "time": 100.0, "zone": "barrow"}
 	var fc_gain: Array = []
-	for _i in DB.TIER_WINS:
-		fc_gain.append(int(Game.finish_hunt(fc.duplicate(true))["renown"]))
-	_ok("first-clear trophies pay once a difficulty", Game.mode_tier_unlocked("horde") == 2 and fc_gain[0] >= fc_gain[1] + DB.TROPHY_FIRST_CLEAR and fc_gain[-1] == fc_gain[1])
+	for md in ["horde", "trial", "horde"]:
+		var f2: Dictionary = fc.duplicate(true)
+		f2["mode"] = md
+		fc_gain.append(int(Game.finish_hunt(f2)["renown"]))
+	_ok("first-clear trophies pay once a difficulty", Game.mode_tier_unlocked() == 3 and fc_gain[0] >= fc_gain[1] + DB.TROPHY_FIRST_CLEAR and fc_gain[2] == fc_gain[1])
+	# Old saves with per-mode tiers keep the best of them.
+	Game.data["tier_unlocked"] = 1
+	Game.data["mode_tiers"] = {"horde": 1, "trial": 4, "rush": 2}
+	Game._one_ladder()
+	_ok("an old save keeps its best mode's tier", Game.mode_tier_unlocked("horde") == 4)
+	Game._one_ladder()
+	_ok("the ladder migration is safe to repeat", Game.mode_tier_unlocked() == 4)
 	# A save that claimed the Rogue's road step under the old, shorter road.
 	var road_keep: Dictionary = Game.data
 	Game.data = Game._fresh()

@@ -24,6 +24,20 @@ Last reviewed 2026-10-28, after the review of the five grokbot days (see the not
 8. Anything that needs a phone, a secret, or a decision about the game's direction is Rico's.
    Ask once, in the thread, and carry on with the rest.
 
+## Design decisions (2026-10-28 audit)
+
+Rico asked Claude to make every call from `reviews/design-audit-2026-10-28.html`. One PR each,
+in this order; tick a line when it merges.
+
+1. [x] **One difficulty ladder for the account**, one win per tier, first-clear trophies once per tier.
+2. [ ] **Boss Rush and Rift merge** into one Boss Rush that runs every boss the player has unlocked; a rift key becomes an optional harder, unique-dropping run. The Wilderness becomes a weekly event.
+3. [ ] **Zones are variety, not progress** (audit option B): all six open by about 3,000 trophies, `loot_bonus` flattened, each zone keeps its own boss uniques; the Rogue moves to about 3,500 trophies; modes all open by about 1,200.
+4. [ ] **Economy:** hero levels cap at 10 and cost about a quarter as many shards; the season is tuned so a regular player finishes in week 5; cosmetics are bought with gems; outfit and glow previews on the season sheet.
+5. [ ] **Fewer meters:** cut hero rating, slim the results screen to earned / opened / next step, add one next-goal card on camp.
+6. [ ] **Small bugs:** Log sheet overflow, the Speed vs Hits/s label, clipped zone and skin names, the first-hunt tip covering its card.
+
+Left for later: local notifications (needs a native plugin and an IPA bump), outfits that change the silhouette, trimming breeding and mutations from the Pets tab.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

@@ -1581,8 +1581,9 @@ const ACHIEVEMENTS := [
 ## SEASON_TIERS steps pays a reward; the last a weapon glow and a title. Free:
 ## the game charges nothing.
 const SEASON_WEEKS := 6
-## Wins on a difficulty before the next one opens (the first still pays the first-clear trophies).
-const TIER_WINS := 3
+## Wins on the account's highest difficulty before the next one opens. One:
+## the card's recommended power already warns about a fluke, and a loss costs nothing.
+const TIER_WINS := 1
 const SEASON_TIERS := 30
 const SEASON_XP := 400
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
