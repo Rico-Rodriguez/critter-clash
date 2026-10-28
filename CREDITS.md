@@ -222,14 +222,14 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
     https://sketchfab.com/3d-models/the-abominable-snowman-read-desc-75699f1d63e94e23b40a73df6a3d65b8
   - Wail Wraith — "Banshee" by Vasian-Digital3D —
     https://sketchfab.com/3d-models/banshee-690b8bb555fc4d20aba4e169c3220bb8
-  - Frozen Effigy — "Ice Golem" by Kolbaca —
-    https://sketchfab.com/3d-models/ice-golem-b618f7c8f0c7415ab5913ec2d112db62
-  - Rime Seer — "Wendingo Idle" by bootlegpanda —
-    https://sketchfab.com/3d-models/wendingo-idle-bd0efd5a3b9446d2948e92bd9bdf4c87
+  - Frozen Effigy — "Cursed Undead Soldier Rig" by SuperKapoo913 —
+    https://sketchfab.com/3d-models/b2e39de76b834d978adee5716aec814d
+  - Rime Seer — "The Elder Scrolls Blades Nether Lich" by orangesauceu —
+    https://sketchfab.com/3d-models/36d1fa593fee4b859b7d34852a4da5c3
   - Winter Caller — "FREE Low-poly PSX/PS1 Wendigo/Demon model" by Ultaraga Ultra Ultronus —
     https://sketchfab.com/3d-models/free-low-poly-psxps1-wendigodemon-model-7c98d2c0a7984df2af2b5096c23e3044
-  - Frost Imp — "Goblin Ghoul" by Rodrigo Bento —
-    https://sketchfab.com/3d-models/goblin-ghoul-a6c6fffee3d34823b6d87a7054782577
+  - Frost Imp — "Nightmare Creature 1#" by Rodolfoisreal1423 —
+    https://sketchfab.com/3d-models/9fb509d207d744babeb5d87a486f7de1
   - Shardling — "Ice golem" by CyberDriger83 —
     https://sketchfab.com/3d-models/ice-golem-4070bce587134fe99c99df46d7b44c3a
   - Sporecap — "Mushroom Guy" by mateuszpyska —
