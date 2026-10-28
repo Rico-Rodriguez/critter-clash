@@ -17,6 +17,8 @@ const LAKE := Vector3(0.0, 0.0, -0.5)   # centre x, z; rx and rz below
 const LAKE_RX := 14.5
 const LAKE_RZ := 10.0
 const COURT := Vector3(0.0, 0.0, -21.0)
+## Where the throne stands: its dais is 7 m across, the back is 1.2 m behind the middle.
+const THRONE_Z := -29.6
 ## Ice walls in a cavern mouth: cell centres. Behind each one is a shrine.
 const CAVES := [
 	{"at": Vector2(-17.8, -3.0), "r": 3.4, "mouth": [Vector2(-15, -4), Vector2(-15, -2)], "face": 0.0},
@@ -39,6 +41,7 @@ static func build(a: Arena) -> void:
 	_pines(a)
 	_crystals(a)
 	_dressing(a)
+	_drifts(a)
 	_spawn_spots(a)
 	_foe_spots(a)
 
@@ -65,9 +68,14 @@ static func _ice_floor(a: Arena) -> void:
 	# Thin ice over parts of the lake: the sheen is the tell, the crack the cost.
 	for p: Array in [[-6.5, -4.5, 2.4], [7.5, 2.5, 2.6], [-1.5, 5.0, 2.0], [9.0, -5.0, 1.9], [-10.0, 3.5, 2.0], [3.0, -7.0, 1.6]]:
 		t.fill_ellipse(Terrain.THIN_ICE, p[0], p[1], p[2], p[2], Terrain.ICE, 0.12, int(p[0] * 7 + 5))
-	# Fishing holes: open water with an ice rim, always.
+	# Fishing holes: open water with an ice rim, always (the kit's hole_rim ring of chunks).
+	var rims: Array = []
 	for h: Vector2 in [Vector2(3.0, -2.0), Vector2(-3.0, 1.0), Vector2(-8.0, -6.5), Vector2(10.0, 6.5), Vector2(-7.0, -6.5), Vector2(-3.0, 3.0)]:
-		t.set_kind(t.cell_of(Vector3(h.x, 0, h.y)), Terrain.WATER)
+		var hc: Vector2i = t.cell_of(Vector3(h.x, 0, h.y))
+		t.set_kind(hc, Terrain.WATER)
+		var at: Vector3 = t.center_of(hc)
+		rims.append(Transform3D(Basis(Vector3.UP, float(hc.x * 7 + hc.y * 3)), Vector3(at.x, 0, at.z)))
+	Kit.batch(a, KitModels.mesh("rime", "hole_rim"), null, rims, false)
 	a.terrain_painted()
 
 
@@ -132,6 +140,13 @@ static func _cliffs(a: Arena) -> void:
 		a.add_obstacle(Vector2(sx * 8.4, -11.4), 1.6)
 		gate.append(Transform3D(Basis(Vector3.UP, 1.9 * sx).scaled(Vector3(1.9, 2.5, 1.9)), Vector3(sx * 8.8, 0, -11.6)))
 	_batch(a, _meshes(), null, gate)
+	# And the ice arch they frame: the causeway runs through it, its two legs are cover.
+	var arch := MeshInstance3D.new()
+	arch.mesh = KitModels.mesh("rime", "ice_arch")
+	arch.position = Vector3(0.0, 0.0, -12.2)
+	a.add_child(arch)
+	for sx in [-1.0, 1.0]:
+		a.add_obstacle(Vector2(sx * 2.5, -12.2), 0.8)
 
 
 # --- Caverns, sealed behind breakable ice ----------------------------------
@@ -185,15 +200,13 @@ static func _throne(a: Arena) -> void:
 		xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * 1.2, s)), Vector3(p.x, 0, p.y)))
 		a.add_obstacle(p, 1.0 * s * 0.8)
 	_batch(a, meshes, null, xfs)
-	# The throne itself: a seat cut from three great blocks, spires rising behind.
-	var blocks: Array = []
-	var blk := KitModels.mesh("rime", "ice_block")
-	for b: Array in [[-3.0, -27.6, 1.5, 1.3], [3.0, -27.6, 1.5, 1.3], [0.0, -29.2, 2.0, 2.3], [-1.6, -28.4, 1.1, 1.8], [1.6, -28.4, 1.1, 1.8]]:
-		blocks.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(b[2], b[3], b[2])), Vector3(b[0], 0, b[1])))
-	Kit.batch(a, blk, null, blocks)
-	a.add_obstacle(Vector2(-3.0, -27.6), 1.5)
-	a.add_obstacle(Vector2(3.0, -27.6), 1.5)
-	a.add_obstacle(Vector2(0.0, -29.2), 2.0)
+	# The throne itself: the kit's stepped dais carrying a high-backed seat of ice, spires behind,
+	# facing south down the causeway.
+	var throne := MeshInstance3D.new()
+	throne.mesh = KitModels.mesh("rime", "throne")
+	throne.position = Vector3(0.0, 0.0, THRONE_Z)
+	a.add_child(throne)
+	a.add_obstacle(Vector2(0.0, THRONE_Z - 0.4), 3.0)
 	a._light(COURT + Vector3(0, 4.0, -3.0), COLD, 3.0, 14.0, false)
 	a._light(COURT + Vector3(-6.0, 2.5, 3.0), COLD, 1.4, 8.0, false)
 	a._light(COURT + Vector3(6.0, 2.5, 3.0), COLD, 1.4, 8.0, false)
@@ -298,6 +311,21 @@ static func _dressing(a: Arena) -> void:
 	Kit.batch(a, KitModels.mesh("rime", "ice_block"), null, cubes)
 	a.add_obstacle(Vector2(15.2, 17.4), 1.3)
 	a.add_obstacle(Vector2(-6.0, 18.3), 1.1)
+
+
+## Snow banks drifted against the foot of the cliffs and the shore props: no collision (they are
+## low and soft), just the snow piled where wind would pile it.
+static func _drifts(a: Arena) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 8642
+	var xfs: Array = []
+	var at: Array = [Vector2(-19.0, 4.0), Vector2(-19.2, -9.0), Vector2(-18.5, -17.0), Vector2(19.0, 12.0), Vector2(19.2, -4.0), Vector2(18.8, -15.0),
+		Vector2(-13.0, 19.8), Vector2(2.0, 20.0), Vector2(13.0, 19.8), Vector2(-9.0, -24.5), Vector2(10.0, -24.0), Vector2(-14.5, 15.0),
+		Vector2(8.0, 14.0), Vector2(-9.5, 16.0), Vector2(11.0, 12.5)]
+	for p: Vector2 in at:
+		var s := rng.randf_range(0.8, 1.35)
+		xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * 1.2, s, s)), Vector3(p.x, 0, p.y)))
+	_batch(a, [KitModels.mesh("rime", "snow_bank_a"), KitModels.mesh("rime", "snow_bank_b")], null, xfs, false)
 
 
 ## Where the frozen dead come up: ice and snow, never over thin ice or water,
