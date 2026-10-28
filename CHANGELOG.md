@@ -13,6 +13,13 @@ version is 7.
 ## Unreleased: Godot stops importing docs/
 
 Added `docs/.gdignore` and removed 69 `.import` files for review screenshots and videos. They were never in the pack (`docs/*` is excluded from export) but every import, local and CI, processed them. The media itself is untouched.
+## Unreleased: a recovered hunt says so
+
+When the phone kills the app mid-hunt, the next boot pays the hunt out as a retreat. The camp now shows a note ("Your last hunt was saved", with the gold and items kept) once, then clears the `recovered_run` flag. Before, the flag was written and never read. `--shots=recovered` captures it.
+## Unreleased: pinned tool versions
+
+The test-server workflow downloads cloudflared 2025.9.1 instead of `latest` and runs on
+`ubuntu-24.04`, so an upstream release cannot break the server unannounced.
 
 ---
 
