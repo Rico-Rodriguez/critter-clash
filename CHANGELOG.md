@@ -57,8 +57,8 @@ placed in open water.
 
 The Mire's boardwalk (with `KitModels.charred("mire")` for burning planks), piles, shacks (one burnt),
 Pyre Tree, braziers, bog stones and reeds are now the Art kit's Blender meshes
-(`assets/kits/mire/mire_kit.glb` via `KitModels.mesh`) instead of the code-built pieces in the deleted
-`mire_kit.gd`: same sizes, transforms and obstacle circles, one palette texture.
+(`assets/kits/mire/mire_kit.glb` via `KitModels.mesh`) instead of the code-built pieces in `mire_kit.gd`: same sizes, transforms and obstacle circles, one palette
+texture. Still code-built: the Long Road's mire rooms (`arena_trial_zone.gd`).
 
 ## Unreleased: Biome rebuild, the Cinder Mire
 
