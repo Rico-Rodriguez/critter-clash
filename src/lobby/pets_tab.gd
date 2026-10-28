@@ -9,6 +9,7 @@ const SKS := preload("res://src/autoload/sidekicks.gd")
 const SKDB := preload("res://src/data/sidekick_db.gd")
 const Care := preload("res://src/core/pet_care.gd")
 const PetStage := preload("res://src/lobby/pet_stage.gd")
+const PetIcons := preload("res://src/ui/pet_icons.gd")
 const FxUi := preload("res://src/ui/fx_ui.gd")
 
 
@@ -274,7 +275,7 @@ static func _podium_card(ui, s: Sheet, id: String) -> Control:
 	v.add_theme_constant_override("separation", 2)
 	var ic := CenterContainer.new()
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ic.add_child(Ui.icon_rect(str(d["icon"]), 84, Color(d["color"])))
+	ic.add_child(PetIcons.rect(id, SKS.stage(Game.data, id), 108))
 	v.add_child(ic)
 	var nm := Ui.label(ui._pet_name(id), "Small", HORIZONTAL_ALIGNMENT_CENTER)
 	nm.clip_text = true
@@ -303,7 +304,7 @@ static func _pin_tile(ui, s: Sheet, id: String) -> Control:
 			return
 		Sfx.play("ui_toggle", -4.0)
 		Game.save()
-		s.rebuild())
+		s.rebuild(), id)
 	tile.disabled = not pinned and full
 	return tile
 
@@ -362,7 +363,7 @@ static func rename(ui, id: String, done: Callable) -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
 	m.add_child(v)
-	v.add_child(ui._row([Ui.icon_rect(str(d["icon"]), 56, Color(d["color"])), Ui.label("Name your %s" % str(d["name"]), "Heading")], 12))
+	v.add_child(ui._row([PetIcons.rect(id, SKS.stage(Game.data, id), 72), Ui.label("Name your %s" % str(d["name"]), "Heading")], 12))
 	var hint := Ui.label("%d to %d letters, numbers, spaces, ' - and ." % [Care.NAME_MIN, Care.NAME_MAX], "Small")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(hint)

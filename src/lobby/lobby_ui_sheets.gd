@@ -769,6 +769,7 @@ const HATCH := preload("res://src/ui/hatch_show.gd")
 const Care := preload("res://src/core/pet_care.gd")
 const PetsTab := preload("res://src/lobby/pets_tab.gd")
 const PetStage := preload("res://src/lobby/pet_stage.gd")
+const PetIcons := preload("res://src/ui/pet_icons.gd")
 ## The sidekick whose detail page is open in the sheet ("" = the stable).
 var _sk_detail := ""
 
@@ -891,13 +892,13 @@ func _sidekick_tile(s: Sheet, id: String) -> Control:
 			tag = " · %s" % SKDB.GRADES[SKDB.grade(d["genes"])]
 		return _sk_tile_box(str(d["icon"]), Color(d["color"]), _pet_name(id), ("At your side · " if here else "") + "Bond %d · %s" % [SKDB.bond_level(k), SKDB.STAGE_LABELS[SKDB.stage_of(SKDB.bond_level(k))]] + tag, -1.0, false, func():
 			_sk_detail = id
-			s.rebuild())
+			s.rebuild(), id)
 	var pr: Array = SKS.progress(Game.data, id)
 	return _sk_tile_box(str(d["icon"]), Color(d["color"]), str(d["name"]), str(pr[0]), float(pr[1]), true, Callable())
 
 
 ## One stable tile: icon, name, a status line, and a bar when `frac` >= 0.
-func _sk_tile_box(icon: String, col: Color, title: String, status: String, frac: float, locked: bool, cb: Callable) -> Control:
+func _sk_tile_box(icon: String, col: Color, title: String, status: String, frac: float, locked: bool, cb: Callable, pet := "") -> Control:
 	var btn := Button.new()
 	btn.theme_type_variation = &"Card"
 	btn.focus_mode = Control.FOCUS_NONE
@@ -908,7 +909,12 @@ func _sk_tile_box(icon: String, col: Color, title: String, status: String, frac:
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 12)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 4)
-	var ic := Ui.icon_rect(icon if Ui.icon(icon) else "ghost", 40, col if not locked else col.darkened(0.45))
+	# An owned pet shows its own render; a locked silhouette keeps the flat icon.
+	var ic: TextureRect = PetIcons.rect(pet, SKS.stage(Game.data, pet), 72) if pet != "" else Ui.icon_rect(icon if Ui.icon(icon) else "ghost", 40, col if not locked else col.darkened(0.45))
+	if pet != "" and locked:
+		ic.modulate = Color(1, 1, 1, 0.5)
+	if pet != "":
+		btn.custom_minimum_size.y = 172.0
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(ic)
 	var t := Ui.label(title, "Body")
@@ -1178,7 +1184,7 @@ func _build_breeding(s: Sheet) -> void:
 				_breed_a = id
 			else:
 				_breed_b = id
-			s.rebuild())
+			s.rebuild(), id)
 		(tile as Button).disabled = not ok
 		grid.add_child(tile)
 	b.add_child(grid)
@@ -1274,7 +1280,7 @@ func _breed_slot(s: Sheet, id: String, first: bool) -> Control:
 		btn.disabled = true
 	else:
 		var d: Dictionary = SKDB.def(id)
-		var ic := Ui.icon_rect(str(d["icon"]), 56, Color(d["color"]))
+		var ic := PetIcons.rect(id, SKS.stage(Game.data, id), 96)
 		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(ic)
 		var nm := Ui.label(_pet_name(id), "Body", HORIZONTAL_ALIGNMENT_CENTER)
