@@ -7,7 +7,8 @@ extends RefCounted
 ## ground circle to give add_obstacle (r, 0 = none), and its triangle cap.
 ## Preloaded by path, no class_name.
 
-const PATHS := {"rime": "res://assets/kits/rime/rime_kit.glb", "mire": "res://assets/kits/mire/mire_kit.glb"}
+const PATHS := {"rime": "res://assets/kits/rime/rime_kit.glb", "mire": "res://assets/kits/mire/mire_kit.glb",
+	"rime_road": "res://assets/kits/rime/road_kit.glb", "mire_road": "res://assets/kits/mire/road_kit.glb"}
 
 ## Per piece: h = height in metres, r = the ground circle to give add_obstacle (0 = walkable or Lead's
 ## own placement), tris = the cap the test holds it to. Props batched as MultiMesh stay far under
@@ -55,6 +56,27 @@ const SPECS := {
 		"stump_a": {"h": 1.08, "r": 0.6, "tris": 70}, "stump_b": {"h": 0.68, "r": 0.5, "tris": 70},
 		"wrecked_boat": {"h": 3.75, "r": 1.5, "tris": 340},
 		"skull_totem": {"h": 2.96, "r": 0.5, "tris": 250},
+	},
+	"rime_road": {
+		"wall_a": {"h": 5.01, "r": 0.0, "tris": 400}, "wall_b": {"h": 5.02, "r": 0.0, "tris": 400},
+		"wall_c": {"h": 5.00, "r": 0.0, "tris": 400}, "rampart_a": {"h": 1.63, "r": 0.0, "tris": 280},
+		"rampart_b": {"h": 1.73, "r": 0.0, "tris": 330}, "rampart_c": {"h": 1.83, "r": 0.0, "tris": 400},
+		"gate_post": {"h": 2.90, "r": 0.55, "tris": 140}, "pillar_a": {"h": 3.57, "r": 1.0, "tris": 140},
+		"pillar_b": {"h": 2.90, "r": 1.0, "tris": 120}, "pillar_c": {"h": 2.30, "r": 1.0, "tris": 130},
+		"spire_a": {"h": 5.39, "r": 1.5, "tris": 240}, "spire_b": {"h": 6.29, "r": 1.5, "tris": 220},
+		"standard": {"h": 3.40, "r": 0.5, "tris": 220}, "cairn": {"h": 1.59, "r": 0.8, "tris": 480},
+		"crates": {"h": 1.20, "r": 0.7, "tris": 210}, "beacon": {"h": 2.20, "r": 0.3, "tris": 110},
+	},
+	"mire_road": {
+		"wall_a": {"h": 5.06, "r": 0.0, "tris": 250}, "wall_b": {"h": 5.07, "r": 0.0, "tris": 250},
+		"wall_c": {"h": 5.03, "r": 0.0, "tris": 250}, "palisade_a": {"h": 2.77, "r": 0.0, "tris": 330},
+		"palisade_b": {"h": 2.27, "r": 0.0, "tris": 260}, "palisade_c": {"h": 3.33, "r": 0.0, "tris": 320},
+		"gate_post": {"h": 4.09, "r": 0.5, "tris": 220}, "watchtower": {"h": 6.20, "r": 1.6, "tris": 510},
+		"cage": {"h": 3.20, "r": 0.4, "tris": 180}, "barricade_a": {"h": 1.27, "r": 0.0, "tris": 250},
+		"barricade_b": {"h": 1.80, "r": 0.8, "tris": 300}, "barrels": {"h": 0.90, "r": 0.6, "tris": 230},
+		"crates": {"h": 1.10, "r": 0.7, "tris": 160}, "ash_rock_a": {"h": 1.42, "r": 0.85, "tris": 120},
+		"ash_rock_b": {"h": 1.53, "r": 0.85, "tris": 120}, "snag_a": {"h": 5.29, "r": 0.5, "tris": 180},
+		"snag_b": {"h": 4.63, "r": 0.5, "tris": 180}, "fire_pit": {"h": 0.40, "r": 0.8, "tris": 270},
 	},
 }
 

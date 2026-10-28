@@ -6,7 +6,7 @@ extends RefCounted
 
 const KitModels := preload("res://src/data/kit_models.gd")
 const MAX_PROP_TRIS := 1000
-const MAX_KIT_TRIS := {"rime": 6000, "mire": 8000}
+const MAX_KIT_TRIS := {"rime": 6000, "mire": 8000, "rime_road": 5000, "mire_road": 6000}
 const MAX_TEX := 1024
 
 
