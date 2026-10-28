@@ -172,3 +172,15 @@ The scripts that built the audio are are kept in `tools/audio/`.
     https://sketchfab.com/3d-models/wraith-37fb72ef0c0642f68c968589fbda60d4
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
   Lorc, from game-icons.net, CC BY 3.0.
+
+## Bosses and foes
+
+- Boss and foe models in `assets/foes/`, Creative Commons Attribution 4.0
+  (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials (the artist's
+  specular/glossiness PBR is carried over untouched), meshes merged into one draw per material
+  (`tools/art/merge_skinned.py`), collapse-decimated for mobile with weights, UVs and clips kept
+  (`tools/art/decimate_skinned.py`), each clip moved to start at 0, scaled to size in
+  `assets/foes/*.tscn` (`tools/art/wrap_foes.gd`):
+  - Cinder Warlord — "Low-poly orc" by Riltariki —
+    https://sketchfab.com/3d-models/low-poly-orc-62f1637181cb4f6aa38897f5b7ab5edf
+    (decimated from 21.6k to 11.4k tris; textures as shipped, 1024 px)
