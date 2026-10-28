@@ -351,7 +351,7 @@ func story_clear(r: Dictionary) -> Dictionary:
 	return out
 
 
-## The nearest goal worth chasing, for the camp ("An XP lamp is ready").
+## The nearest goal worth chasing, for the camp ("A Super rank is ready").
 func next_goal() -> String:
 	var id := hero_id()
 	if can_buy_super_rank(id):

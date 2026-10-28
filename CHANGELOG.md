@@ -22,6 +22,12 @@ From the design audit (`reviews/design-audit-2026-10-28.html`). Difficulties use
 
 ---
 
+## Unreleased: the dead XP lamp code and tip are gone
+
+The XP lamp screen was removed from Skills earlier, but the results screen still told players to "Rub an XP lamp in Skills" whenever they had 10 shards, and the lamp functions and constants were still there. Removed the tip, `lamp_xp`, `can_rub_lamp`, `rub_lamp`, `DB.LAMP_SHARDS` and `DB.LAMP_XP`, and their tests. Shards now only buy Super ranks.
+
+---
+
 ## Unreleased: Season and Daily as picture rows
 
 Each Season tier shows its reward (coins, shards, gems, a real chest, egg or outfit render) with a check on claimed tiers instead of plain text. The Daily login chests are real renders, and the first-win line now mentions the 2 gems.
