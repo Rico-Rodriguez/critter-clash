@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the evolve scene shows the real pet
+
+The evolve sequence used a flat icon. It now stands the real 3D pet (the Pets screen's stage) in its old form, whitens it, and swaps in the new form at the white-out. An evolved pet without its own special look (only the Ash Wyrm has one) now has its coat drawn toward its colour with a faint glow of it, so the grown-up form is visible in the camp and the hunt as well. Screenshots: `evolveseq` for the drake (Ash Wyrm) and the crow.
+
+---
+
 ## Unreleased: casual play earns gems
 
 Your call (2026-10-28). The first win of each day pays 2 gems, and the login calendar pays 5 gems on day 3 and 10 on day 7 (shown on the Login sheet and the results screen). Simulated week: casual 27 gems, regular 42, grinder 61. `economy_tests` now claims the login each day and guards that a casual week earns 5 to 40 gems.

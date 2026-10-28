@@ -8,10 +8,13 @@ extends Control
 const FxUi := preload("res://src/ui/fx_ui.gd")
 const SKDB := preload("res://src/data/sidekick_db.gd")
 const HATCH := preload("res://src/ui/hatch_show.gd")
+const PetStage := preload("res://src/lobby/pet_stage.gd")
 
 signal finished
 
-var _pet: TextureRect
+var _pet: Control
+var _id := ""
+var _size_to := 0.0
 var _glow: TextureRect
 var _flash: ColorRect
 var _rays: TierReveal.Rays
@@ -64,11 +67,16 @@ func play(host: Control, res: Dictionary, on_done := Callable()) -> void:
 	add_child(_glow)
 	var size_from := 190.0 + 40.0 * from
 	var size_to := 190.0 + 40.0 * _to
-	_pet = Ui.icon_rect(str(pd["icon"]), size_to, Color.WHITE)
-	_pet.self_modulate = _col
-	_pet.size = Vector2(size_to, size_to)
+	var box := size_to * 2.0  # the 3D stage needs room for wings and a crown
+	# The real 3D pet: the old form on the stage, swapped for the new one at the white-out.
+	_id = id
+	_size_to = box
+	_pet = Control.new()
+	_pet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pet.add_child(_stage(from))
+	_pet.size = Vector2(box, box)
 	_pet.position = _mid - _pet.size * 0.5
-	_pet.pivot_offset = Vector2(size_to * 0.5, size_to * 0.9)
+	_pet.pivot_offset = Vector2(box * 0.5, box * 0.7)
 	_pet.scale = Vector2.ONE * (size_from / size_to) * 0.4
 	_pet.modulate.a = 0.0
 	add_child(_pet)
@@ -86,7 +94,7 @@ func play(host: Control, res: Dictionary, on_done := Callable()) -> void:
 	_title.add_theme_constant_override("outline_size", 14)
 	_title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.88))
 	_title.size = Vector2(vp.x, 90)
-	_title.position = Vector2(0, _mid.y + size_to * 0.5 + 40.0)
+	_title.position = Vector2(0, _mid.y + size_to * 0.75 + 40.0)
 	_title.pivot_offset = Vector2(vp.x * 0.5, 45)
 	_title.modulate.a = 0.0
 	add_child(_title)
@@ -104,6 +112,14 @@ func play(host: Control, res: Dictionary, on_done := Callable()) -> void:
 	_sequence(scrim, size_from / size_to)
 
 
+func _stage(stage: int) -> Control:
+	var s := PetStage.make(_id, _size_to, false, stage)
+	s.size = Vector2(_size_to, _size_to)
+	s.custom_minimum_size = Vector2.ZERO
+	s.clip_contents = false
+	return s
+
+
 func _process(dt: float) -> void:
 	if _shake <= 0.01:
 		position = Vector2.ZERO
@@ -115,7 +131,7 @@ func _process(dt: float) -> void:
 func _sequence(scrim: ColorRect, from_k: float) -> void:
 	Sfx.play("charge", -6.0, 0.9)
 	var t := create_tween()
-	t.tween_property(scrim, "color:a", 0.88, 0.3)
+	t.tween_property(scrim, "color:a", 0.95, 0.3)
 	t.parallel().tween_property(_pet, "modulate:a", 1.0, 0.2)
 	t.parallel().tween_property(_pet, "scale", Vector2.ONE * from_k, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.parallel().tween_property(_rays, "reach", 600.0, 0.8).set_ease(Tween.EASE_OUT)
@@ -126,13 +142,13 @@ func _sequence(scrim: ColorRect, from_k: float) -> void:
 	t.parallel().tween_property(_glow, "modulate:a", 0.9, build)
 	t.parallel().tween_property(_glow, "scale", Vector2.ONE * 1.0, build)
 	t.parallel().tween_property(_rays, "alpha", 0.3, build)
-	t.parallel().tween_property(_pet, "self_modulate", Color(2.0, 2.0, 2.0), build).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	t.parallel().tween_property(_pet, "modulate", Color(2.4, 2.4, 2.4, 1.0), build).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	t.parallel().tween_property(_pet, "scale", Vector2.ONE * from_k * 0.88, build).set_trans(Tween.TRANS_QUAD)
 	t.tween_callback(_whiteout)
 	# The new form: bigger than it was, flooding back to its colours.
 	t.tween_property(_flash, "color:a", 0.0, 0.5).set_ease(Tween.EASE_OUT)
 	t.parallel().tween_property(_pet, "scale", Vector2(1.18, 1.18), 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.parallel().tween_property(_pet, "self_modulate", _col, 0.7).set_trans(Tween.TRANS_SINE)
+	t.parallel().tween_property(_pet, "modulate", Color.WHITE, 0.7).set_trans(Tween.TRANS_SINE)
 	t.tween_property(_pet, "scale", Vector2(1.0, 1.0), 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 	t.parallel().tween_callback(_banner)
 	t.tween_interval(2.2)
@@ -160,6 +176,9 @@ func _whiteout() -> void:
 	Ui.buzz(140, 0.9)
 	_shake = 14.0
 	_pet.rotation_degrees = 0.0
+	for c in _pet.get_children():
+		c.queue_free()
+	_pet.add_child(_stage(_to))
 	_flash.color = Color(1, 1, 1, 1)
 	_glow.scale = Vector2.ONE * 1.5
 	for i in 70 + 30 * _to:

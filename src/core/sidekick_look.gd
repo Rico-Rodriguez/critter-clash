@@ -76,6 +76,8 @@ static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 					ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
 	if evolved and str(d.get("evolved_look", "")) == "ash":
 		_ash(model)
+	elif evolved:
+		_evolve_tint(model, Color(d["color"]))
 	root.add_child(model)
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -118,6 +120,30 @@ static func _crest(root: Node3D, col: Color, top: float) -> Node3D:
 ## The Ash Wyrm: the drake's own textures baked to ash grey, with embers
 ## glowing in the crevices (both baked by tools/art/ash_textures.py, so no
 ## colour multiply and the detail stays crisp).
+## The grown-up form reads at a glance: the coat drifts toward the pet's own
+## colour and a faint glow of it comes up through the surface. Materials are
+## duplicated, never edited in place (the scenes are cached and shared).
+static func _evolve_tint(model: Node3D, col: Color) -> void:
+	var tint := Color.WHITE.lerp(col.lightened(0.35), 0.4)
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			var src := mi.get_active_material(i) as BaseMaterial3D
+			if src == null:
+				continue
+			var m := src.duplicate() as BaseMaterial3D
+			m.albedo_color = src.albedo_color * tint
+			m.emission_enabled = true
+			m.emission = col
+			m.emission_energy_multiplier = 0.3
+			if mi.mesh.get_surface_count() == 1:
+				mi.material_override = m
+			else:
+				mi.set_surface_override_material(i, m)
+
+
 const ASH_ALBEDO := preload("res://assets/sidekicks/dragon_ash_albedo.png")
 const ASH_EMBERS := preload("res://assets/sidekicks/dragon_ash_emission.png")
 static func _ash(model: Node3D) -> void:
