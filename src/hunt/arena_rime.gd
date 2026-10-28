@@ -2,7 +2,7 @@ extends RefCounted
 ## Rimehollow: a frozen lake under glacier cliffs. You land on the south shore
 ## by a beached longship, cross the ice (thin patches that crack, fishing holes
 ## that drown) and can break into the two ice caverns for their shrines. North of
-## the lake the Glacier Throne rises, where the Frost Troll holds court.
+## the lake the Glacier Throne rises, where the Rime Regent holds court.
 ## The floor is the terrain cell grid (src/hunt/terrain*.gd); the cliffs, pines,
 ## crystals, hut and ship are the Art kit's meshes (kit_models.gd). Crisp PBR: no fog, no bloom, no tint.
 

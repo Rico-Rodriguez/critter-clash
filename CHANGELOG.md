@@ -13,6 +13,10 @@ version is 7.
 ## Unreleased: a recovered hunt says so
 
 When the phone kills the app mid-hunt, the next boot pays the hunt out as a retreat. The camp now shows a note ("Your last hunt was saved", with the gold and items kept) once, then clears the `recovered_run` flag. Before, the flag was written and never read. `--shots=recovered` captures it.
+## Unreleased: pinned tool versions
+
+The test-server workflow downloads cloudflared 2025.9.1 instead of `latest` and runs on
+`ubuntu-24.04`, so an upstream release cannot break the server unannounced.
 
 ---
 
@@ -50,6 +54,29 @@ No save version change: the road fix is safe to repeat on every load.
 - **Hybrid pets keep every body surface.** Carving a borrowed part dropped the
   mesh's custom channel formats, so a surface with float custom data was
   refused and went missing.
+
+---
+
+## Unreleased: the Rime Regent and the Rime Seer are back on KayKit
+
+Two models are gone from the pack because their provenance could not be defended
+(Phase 3 of the plan).
+
+- **The Rimehollow boss is the Rime Regent again** (the KayKit `Skeleton_Warrior`
+  in his `regent` skin, scale 2.6), as he was before PR #121. The Frost Troll
+  model's own credit said it was a probable re-upload of someone else's work.
+  Everything the Troll's PRs added keeps working: the Rime phase moves, the
+  court's cracking ice, and the Long Road boss hall.
+- **The Rime Seer is the KayKit `Skeleton_Mage`** in the `rime` skin with a
+  staff, as it was before PR #129. The Sketchfab model it used was "The Elder
+  Scrolls Blades Nether Lich", ripped from a commercial game. Its brain
+  (`caster`, spell `thin`) and numbers are unchanged.
+- Removed `assets/foes/frost_troll*` and `rime_seer*` (about 9 MB of glb and
+  textures), their credits, and the troll rig from `boss_models.gd`.
+- **The Cinder Mire dragonfly is drawn in code** (flat primitives, four beating
+  wings) instead of "Dragonfly Chicken Gun", named after a commercial game.
+- New `docs/art-audit.md` lists every third-party model with the ones a person
+  should check before an App Store build.
 
 ---
 

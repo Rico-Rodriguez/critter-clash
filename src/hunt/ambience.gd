@@ -368,14 +368,13 @@ static func _capsule(r: float, hgt: float) -> CapsuleMesh:
 
 
 ## Critter models (CC BY, Sketchfab; assets/critters/CREDITS in CREDITS.md): file, height in metres,
-## albedo tint (a grimmer, duller cast on the two that came out too bright).
+## albedo tint (a grimmer, duller cast on the one that came out too bright). The dragonfly is drawn in code.
 const CRIT := "res://assets/critters/"
 const MODELS := {
 	"hare": ["hare", 0.8, Color(1, 1, 1)],
 	"owl": ["owl", 0.9, Color(1, 1, 1)],
 	"wolf": ["wolf", 1.2, Color(1, 1, 1)],
 	"frog": ["frog", 0.4, Color(0.52, 0.6, 0.46)],
-	"dragonfly": ["dragonfly", 0.6, Color(0.62, 0.72, 0.8)],
 	"crow": ["crow", 0.7, Color(1, 1, 1)],
 }
 
@@ -463,10 +462,22 @@ func _build_frog(b: Bit) -> void:
 	_clip(b, "", 0.7)
 
 
+## Drawn in code (flat primitives, no licensed model): a slim blue-grey body, a round head and
+## four glassy wings that `_dragonfly` beats. The body points along +Z, the way it flies.
 func _build_dragonfly(b: Bit) -> void:
-	_model(b, b.node)
-	b.parts["wings"] = []
-	_clip(b, "fly", 1.4)
+	var body := Color(0.34, 0.5, 0.62)
+	_m(b.node, _sphere(0.045), body, Vector3(0, 0, 0.17))
+	_m(b.node, _cone(0.03, 0.2), body, Vector3(0, 0, 0.07), Vector3.ONE, Vector3(PI / 2, 0, 0))
+	_m(b.node, _cone(0.018, 0.34, 0.006), body, Vector3(0, 0, -0.2), Vector3.ONE, Vector3(-PI / 2, 0, 0))
+	var wings := []
+	for side in [-1.0, 1.0]:
+		for zoff in [0.1, 0.03]:
+			var pivot := Node3D.new()
+			pivot.position = Vector3(side * 0.03, 0.03, zoff)
+			b.node.add_child(pivot)
+			_m(pivot, _box(0.24, 0.006, 0.07), Color(0.75, 0.88, 0.95), Vector3(side * 0.12, 0, 0))
+			wings.append([pivot, side])
+	b.parts["wings"] = wings
 
 
 func _build_crow(b: Bit) -> void:
