@@ -12,6 +12,7 @@ def ramp(t1, v, t_end, hold=None):
 A, SL, RO, HT = 0.75, 1.0, 1.7, 0.4   # attack, slam, roar, hit lengths
 
 def frost_troll():
+    """The troll's moves, kept as the base the yeti's gait is tuned from (the troll model itself is gone)."""
     cfg = {'file': 'frost_troll', 'idle': 'Idle', 'root': 'Mutant:Hips_01', 'roles': {
         'spine': r'Mutant:Spine\d?_0[234]', 'head': r'Mutant:(Neck_05|Head_06)',
         'armL': r'Mutant:LeftArm_09', 'armR': r'Mutant:RightArm_013',
@@ -73,4 +74,4 @@ def yeti():
     cfg['clips']['Run'] = gait(0.62, 32, 58, 24, 18, -0.04)
     return cfg
 
-MODELS = {'frost_troll': frost_troll(), 'yeti': yeti()}
+MODELS = {'yeti': yeti()}

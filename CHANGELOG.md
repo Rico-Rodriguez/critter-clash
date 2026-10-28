@@ -47,6 +47,29 @@ No save version change: the road fix is safe to repeat on every load.
 
 ---
 
+## Unreleased: the Rime Regent and the Rime Seer are back on KayKit
+
+Two models are gone from the pack because their provenance could not be defended
+(Phase 3 of the plan).
+
+- **The Rimehollow boss is the Rime Regent again** (the KayKit `Skeleton_Warrior`
+  in his `regent` skin, scale 2.6), as he was before PR #121. The Frost Troll
+  model's own credit said it was a probable re-upload of someone else's work.
+  Everything the Troll's PRs added keeps working: the Rime phase moves, the
+  court's cracking ice, and the Long Road boss hall.
+- **The Rime Seer is the KayKit `Skeleton_Mage`** in the `rime` skin with a
+  staff, as it was before PR #129. The Sketchfab model it used was "The Elder
+  Scrolls Blades Nether Lich", ripped from a commercial game. Its brain
+  (`caster`, spell `thin`) and numbers are unchanged.
+- Removed `assets/foes/frost_troll*` and `rime_seer*` (about 9 MB of glb and
+  textures), their credits, and the troll rig from `boss_models.gd`.
+- **The Cinder Mire dragonfly is drawn in code** (flat primitives, four beating
+  wings) instead of "Dragonfly Chicken Gun", named after a commercial game.
+- New `docs/art-audit.md` lists every third-party model with the ones a person
+  should check before an App Store build.
+
+---
+
 ## Unreleased: Biome rebuild, the Long Road on the kits
 
 The Long Road's frost and mire rooms (`arena_trial_zone.gd`) place the Art kits' meshes instead of code-built

@@ -63,14 +63,14 @@ func assets() -> void:
 func _models(credits: String, sheet: String) -> void:
 	var bad := []
 	var nameless := []
-	var authors := {"hare": "bluekiwi.dog", "owl": "Lilly!", "wolf": "ESO", "frog": "lawtrigg", "dragonfly": "babybuttred2", "crow": "Alexei Ostapenko"}
+	var authors := {"hare": "bluekiwi.dog", "owl": "Lilly!", "wolf": "ESO", "frog": "lawtrigg", "crow": "Alexei Ostapenko"}
 	var life := {}
 	for z: String in Ambience.SETS:
 		for k: String in Ambience.SETS[z]["life"]:
 			life[k] = true
 	for k: String in life:
 		if not Ambience.MODELS.has(k):
-			if not k in ["bubble", "ring"]:
+			if not k in ["bubble", "ring", "dragonfly"]:
 				bad.append(k)
 			continue
 		var ps := load(Ambience.CRIT + str(Ambience.MODELS[k][0]) + ".tscn") as PackedScene
@@ -169,7 +169,7 @@ func _caps() -> void:
 		ok.call("ambience %s: never more than %d critters alive (saw %d)" % [z, a.cap, worst], worst <= a.cap and worst > 0)
 		ok.call("ambience %s: never more of a kind than its limit %s" % [z, str(over)], over.is_empty())
 		ok.call("ambience %s: critters stay in the arena %s" % [z, str(out)], out.is_empty())
-		ok.call("ambience %s: a critter is one model (%d meshes at most), none collide" % [z, meshes], meshes <= 4 and colliders == 0)
+		ok.call("ambience %s: a critter is one model (%d meshes at most), none collide" % [z, meshes], meshes <= 7 and colliders == 0)
 		ok.call("ambience %s: several kinds turn up in a minute %s" % [z, str(kinds.keys())], kinds.size() >= 2)
 		a._bed.stop()
 		for b in a.bits:
