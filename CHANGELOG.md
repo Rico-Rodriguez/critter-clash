@@ -10,6 +10,14 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the Long Road on the kits
+
+The Long Road's frost and mire rooms (`arena_trial_zone.gd`) place the Art kits' meshes instead of code-built
+ones: glacier cliffs, ice blocks, crystals and pines in Rimehollow, bog stones, piles, braziers, reeds and the
+Pyre Tree in the Cinder Mire. `mire_kit.gd` and every code-built piece in `kit_mesh.gd` are deleted; it keeps only
+the MultiMesh `batch`. Captures: /workspace/rebuild-caps/long-road (frost 126k to 216k triangles in the first
+room, still under the 450k budget).
+
 ## Unreleased: Biome rebuild, the frost water is blue
 
 Open water in Rimehollow rendered black (`water_col` in `terrain_ground.gdshader` was near black, and

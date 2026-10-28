@@ -5,6 +5,7 @@ extends RefCounted
 ## the floor is the terrain cell grid (a tall one, the length of the road), the
 ## walls are glacier chunks or bog rock, the dividers are rock ramparts or
 ## palisades, and every room gets the zone's hazards, scaled by how deep it is.
+## Every prop is the zone's Art kit (KitModels: rime_kit.glb, mire_kit.glb).
 ## A walkable line always runs gap to gap (never thin ice, open water or bog), so
 ## the road can be crossed on foot. Preloaded by arena_trial.gd, no class_name.
 ## Crisp PBR: no fog, no bloom, no tint.
@@ -12,7 +13,7 @@ extends RefCounted
 const G := "res://assets/kaykit/graveyard/"
 const Terrain := preload("res://src/hunt/terrain.gd")
 const Kit := preload("res://src/hunt/kit_mesh.gd")
-const Mire := preload("res://src/hunt/mire_kit.gd")
+const KitModels := preload("res://src/data/kit_models.gd")
 const MireLayout := preload("res://src/hunt/arena_mire.gd")
 const Art := preload("res://src/hunt/biome_art.gd")
 const COLD := Color(0.62, 0.86, 1.0)
@@ -178,12 +179,8 @@ static func _mire_hall(a: Arena, t: RefCounted, layout: Dictionary, z_hi: float)
 static func _rocks(frost: bool) -> Array:
 	var out: Array = []
 	for i in 3:
-		out.append(Kit.cliff(40 + i * 17, 1.0, 1.0, 8 + i) if frost else Mire.stone(5 + i))
+		out.append(KitModels.mesh("rime", "cliff_" + "abc"[i]) if frost else KitModels.mesh("mire", "stone_" + "abc"[i]))
 	return out
-
-
-static func _rock_mat(frost: bool) -> Material:
-	return Kit.mat("rime_rock", 0.82) if frost else Mire.mat("stone", 0.9)
 
 
 ## Adds `xf` to the batch of a 40 m stretch of road: so far stretches are culled.
@@ -194,9 +191,9 @@ static func _bin(bins: Dictionary, a: Arena, xf: Transform3D, variant: int) -> v
 	(bins[key] as Array).append(xf)
 
 
-static func _flush(a: Arena, bins: Dictionary, meshes: Array, mat: Material) -> void:
+static func _flush(a: Arena, bins: Dictionary, meshes: Array) -> void:
 	for key: int in bins:
-		Kit.batch(a, meshes[key % 3], mat, bins[key])
+		Kit.batch(a, meshes[key % 3], null, bins[key])
 
 
 ## The side walls, a south wall behind the landing, and the far wall behind the
@@ -224,7 +221,7 @@ static func _walls(a: Arena, layout: Dictionary) -> void:
 		_bin(bins, a, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(tall * rng.randf_range(0.9, 1.3)), Vector3(x, 0, a.min_z - 2.5)), rng.randi())
 		_bin(bins, a, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s2, s2 * 0.9, s2)), Vector3(x, 0, a.max_z + 1.8)), rng.randi())
 		x += 3.4
-	_flush(a, bins, meshes, _rock_mat(frost))
+	_flush(a, bins, meshes)
 
 
 ## The divider across a room's north end: a low rampart of rock, or a palisade of
@@ -248,21 +245,20 @@ static func divider(a: Arena, z: float, gap_x: float, gap: float) -> void:
 				xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s2, s2, s2)), Vector3(x + rng.randf_range(-0.1, 0.1), 0, z + rng.randf_range(-0.2, 0.2))))
 		x += step
 	if frost:
-		Kit.batch(a, Kit.cliff(40, 1.0, 1.0, 8), Kit.mat("rime_rock", 0.82), xfs)
-		var crystal := Kit.mat("rime_crystal", 0.1, 0.0, Color(0.4, 0.75, 1.0), 0.25)
+		Kit.batch(a, KitModels.mesh("rime", "cliff_a"), null, xfs)
 		var posts: Array = []
 		for gx in [gap0 - 0.6, gap1 + 0.6]:
 			posts.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.5, 2.1, 1.5)), Vector3(gx, 0, z)))
 			a.add_obstacle(Vector2(gx, z), 1.0)
-		Kit.batch(a, Kit.crystals(33, 1.0), crystal, posts)
+		Kit.batch(a, KitModels.mesh("rime", "crystal_c"), null, posts)
 	else:
-		Kit.batch(a, Mire.pile(7), Mire.mat("wood"), xfs)
+		Kit.batch(a, KitModels.mesh("mire", "pile_a"), null, xfs)
 		var posts2: Array = []
 		for gx2 in [gap0 - 0.6, gap1 + 0.6]:
 			posts2.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.0, 1.0, 1.0) * 1.7), Vector3(gx2, 0, z)))
 			a.add_obstacle(Vector2(gx2, z), 0.6)
 			Art.flame(a, Vector3(gx2, 2.7, z), 0.7)
-		Kit.batch(a, Mire.pile(8), Mire.mat("wood"), posts2)
+		Kit.batch(a, KitModels.mesh("mire", "pile_b"), null, posts2)
 
 
 # --- Rooms ---------------------------------------------------------------------
@@ -291,9 +287,8 @@ static func _dress(a: Arena, layout: Dictionary, room: Dictionary) -> void:
 	var hi: float = room["hi"]
 	var mid := (hi + lo) * 0.5
 	var kind: String = room["kind"]
-	var mat_stone := Kit.mat("rime_ice", 0.07, 0.0, Color(0.35, 0.65, 0.95), 0.12) if frost else Mire.mat("stone", 0.9)
 	var stones: Array = []
-	var stone_mesh: Mesh = Kit.ice_block(i + 3, 2.0, 3.0) if frost else Mire.stone(3)
+	var stone_mesh: Mesh = KitModels.mesh("rime", "ice_block") if frost else KitModels.mesh("mire", "stone_a")
 	# Cover to fight round: ice pillars, or bog stones.
 	for k in rng.randi_range(2, 4):
 		var p = _spot(a, rng, room, w, -15.0, 15.0)
@@ -303,7 +298,7 @@ static func _dress(a: Arena, layout: Dictionary, room: Dictionary) -> void:
 		stones.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s) * (1.0 if frost else 1.3)), p))
 		a.add_obstacle(Vector2(p.x, p.z), (1.2 if frost else 0.95) * s)
 	if not stones.is_empty():
-		Kit.batch(a, stone_mesh, mat_stone, stones)
+		Kit.batch(a, stone_mesh, null, stones)
 	if frost:
 		_frost_props(a, rng, room, w)
 	else:
@@ -332,7 +327,7 @@ static func _frost_props(a: Arena, rng: RandomNumberGenerator, room: Dictionary,
 		if k == 0:
 			a._light(p + Vector3(0, 1.4, 0), COLD, 1.8, 10.0)
 	if not crystals.is_empty():
-		Kit.batch(a, Kit.crystals(51 + int(room["index"]) % 4, 1.0), Kit.mat("rime_crystal", 0.1, 0.0, Color(0.4, 0.75, 1.0), 0.25), crystals)
+		Kit.batch(a, KitModels.mesh("rime", "crystal_" + "abcd"[int(room["index"]) % 4]), null, crystals)
 	var pines: Array = []
 	for k in 6:
 		var sgn := -1.0 if k % 2 == 0 else 1.0
@@ -340,7 +335,7 @@ static func _frost_props(a: Arena, rng: RandomNumberGenerator, room: Dictionary,
 		var s2 := rng.randf_range(1.2, 1.7)
 		pines.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s2), p2))
 		a.add_obstacle(Vector2(p2.x, p2.z), 0.7 * s2)
-	Kit.batch(a, Kit.pine(1 + int(room["index"]) % 3, 1.0), Kit.mat("rime_pine", 0.9), pines)
+	Kit.batch(a, KitModels.mesh("rime", "pine_" + "abc"[int(room["index"]) % 3]), null, pines)
 
 
 static func _mire_props(a: Arena, rng: RandomNumberGenerator, room: Dictionary, w: Array) -> void:
@@ -351,7 +346,6 @@ static func _mire_props(a: Arena, rng: RandomNumberGenerator, room: Dictionary, 
 		if p == null:
 			continue
 		a.put(G + ["tree_dead_large.gltf", "tree_dead_medium.gltf", "tree_dead_large_decorated.gltf"][rng.randi() % 3], p, rng.randf() * TAU, rng.randf_range(1.3, 1.7), 0.45, true, 1.2)
-	var iron := Kit.mat("iron", 0.7)
 	var pots: Array = []
 	for k in 2:
 		var sgn := -1.0 if k == 0 else 1.0
@@ -361,7 +355,7 @@ static func _mire_props(a: Arena, rng: RandomNumberGenerator, room: Dictionary, 
 		Art.flame(a, p2 + Vector3(0, 1.0, 0), 0.8)
 		if k == 0:
 			a._light(p2 + Vector3(sgn * -1.5, 1.6, 0), FIRE, 1.8, 9.0, true)
-	Kit.batch(a, Mire.brazier(5), iron, pots)
+	Kit.batch(a, KitModels.mesh("mire", "brazier"), null, pots)
 	var reeds: Array = []
 	var tries := 0
 	while reeds.size() < 16 and tries < 120:
@@ -372,7 +366,7 @@ static func _mire_props(a: Arena, rng: RandomNumberGenerator, room: Dictionary, 
 		var s := rng.randf_range(0.8, 1.4)
 		reeds.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s, s)), p3))
 	if not reeds.is_empty():
-		Kit.batch(a, Mire.reeds(4), Mire.mat("reeds", 0.95), reeds, false)
+		Kit.batch(a, KitModels.mesh("mire", "reeds_" + "abc"[int(room["index"]) % 3]), null, reeds, false)
 
 
 # --- The boss hall -------------------------------------------------------------
@@ -380,7 +374,6 @@ static func _mire_props(a: Arena, rng: RandomNumberGenerator, room: Dictionary, 
 static func _boss_hall(a: Arena, layout: Dictionary) -> void:
 	var c := a.boss_spawn
 	if a.zone == "frost":
-		var crystal := Kit.mat("rime_crystal", 0.1, 0.0, Color(0.4, 0.75, 1.0), 0.25)
 		var rng := RandomNumberGenerator.new()
 		rng.seed = int(layout["seed"]) + 21
 		var pillars: Array = []
@@ -393,12 +386,11 @@ static func _boss_hall(a: Arena, layout: Dictionary) -> void:
 			var s := rng.randf_range(1.5, 2.0)
 			pillars.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * 1.2, s)), Vector3(p.x, 0, p.y)))
 			a.add_obstacle(p, s * 0.8)
-		Kit.batch(a, Kit.crystals(31, 1.0), crystal, pillars)
+		Kit.batch(a, KitModels.mesh("rime", "crystal_c"), null, pillars)
 		a._light(c + Vector3(0, 3.0, 5.0), COLD, 2.6, 13.0, false)
 	else:
 		var tree := MeshInstance3D.new()
-		tree.mesh = Mire.pyre_tree(13)
-		tree.material_override = Mire.mat("pyre", 0.95)
+		tree.mesh = KitModels.mesh("mire", "pyre_tree")
 		tree.position = a.crypt_pos
 		tree.rotation.y = 0.4
 		tree.scale = Vector3.ONE * 1.3
@@ -407,7 +399,6 @@ static func _boss_hall(a: Arena, layout: Dictionary) -> void:
 		for o: Vector3 in [Vector3(0.6, 7.2, 0.4), Vector3(3.0, 9.0, 1.8), Vector3(-2.5, 8.5, -1.7)]:
 			Art.flame(a, a.crypt_pos + o, 1.5)
 		a._light(a.crypt_pos + Vector3(0, 6.5, 4.0), FIRE, 3.0, 13.0, true)
-		var iron := Kit.mat("iron", 0.7)
 		var pots: Array = []
 		for deg in [165.0, 200.0, 340.0, 15.0]:
 			var ang2 := deg_to_rad(deg)
@@ -415,7 +406,7 @@ static func _boss_hall(a: Arena, layout: Dictionary) -> void:
 			pots.append(Transform3D(Basis(Vector3.UP, ang2), bp))
 			a.add_obstacle(Vector2(bp.x, bp.z), 0.5)
 			Art.flame(a, bp + Vector3(0, 1.0, 0), 0.8)
-		Kit.batch(a, Mire.brazier(5), iron, pots)
+		Kit.batch(a, KitModels.mesh("mire", "brazier"), null, pots)
 
 
 ## Up to three shrines, on firm pads against the side walls, in the quiet rooms.

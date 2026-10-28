@@ -4,8 +4,7 @@ extends RefCounted
 ## that drown) and can break into the two ice caverns for their shrines. North of
 ## the lake the Glacier Throne rises, where the Frost Troll holds court.
 ## The floor is the terrain cell grid (src/hunt/terrain*.gd); the cliffs, pines,
-## crystals, hut and ship are code-built low-poly meshes (kit_mesh.gd) until the
-## art kit lands. Crisp PBR: no fog, no bloom, no tint.
+## crystals, hut and ship are the Art kit's meshes (kit_models.gd). Crisp PBR: no fog, no bloom, no tint.
 
 const G := "res://assets/kaykit/graveyard/"
 const Terrain := preload("res://src/hunt/terrain.gd")
