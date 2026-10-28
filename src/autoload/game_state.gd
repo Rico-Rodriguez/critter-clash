@@ -36,8 +36,8 @@ func _fresh() -> Dictionary:
 		"skills": _fresh_skills(),
 		"log": {},
 		"tier_unlocked": 0,
-		## Each mode opens its own difficulties: {mode: highest open tier}.
-		## tier_unlocked stays the best across all modes (zones, campfire).
+		# Unused since one ladder opens difficulties for every mode (tier_unlocked);
+		# kept so old saves load and the old per-mode record is not lost.
 		"mode_tiers": {},
 		"tier": 0,
 		"pet": "",
@@ -193,25 +193,27 @@ func tier() -> int:
 	return clampi(int(data["tier"]), 0, mode_tier_unlocked())
 
 
-## The highest difficulty open in a mode (the chosen mode by default).
-func mode_tier_unlocked(mode := "") -> int:
-	var m := mode if mode != "" else mode_id()
-	return mini(int(data["mode_tiers"].get(m, 0)), DB.TIERS.size() - 1)
+## The highest difficulty open. One ladder for the whole account: a tier beaten
+## in any mode opens the next in every mode, so a player never re-climbs Normal
+## in a mode they reach late. `mode` is kept for callers; it no longer matters.
+func mode_tier_unlocked(_mode := "") -> int:
+	return clampi(int(data["tier_unlocked"]), 0, DB.TIERS.size() - 1)
 
 
-## Opens the next difficulty in `mode` after tier `t` is beaten there.
+## Opens the next difficulty after tier `t` is beaten (in any mode).
 ## Returns the newly opened tier, or -1.
-func _open_mode_tier(mode: String, t: int) -> int:
-	if t < mode_tier_unlocked(mode) or t >= DB.TIERS.size() - 1:
-		return -1
-	# A tier opens after TIER_WINS wins on the one below it, not the first.
+func _open_mode_tier(_mode: String, t: int) -> int:
+	# Wins are counted per account tier (`tier_wins["all:N"]`) even once the tier is
+	# open, so the first-clear trophies can tell a first win from a repeat.
 	if not data.has("tier_wins"):
 		data["tier_wins"] = {}
-	var key := "%s:%d" % [mode, t]
+	var key := "all:%d" % t
 	data["tier_wins"][key] = int(data["tier_wins"].get(key, 0)) + 1
+	if t < mode_tier_unlocked() or t >= DB.TIERS.size() - 1:
+		return -1
 	if int(data["tier_wins"][key]) < DB.TIER_WINS:
 		return -1
-	data["mode_tiers"][mode] = t + 1
+	data["tier_unlocked"] = t + 1
 	return t + 1
 
 
