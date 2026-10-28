@@ -1,8 +1,8 @@
 # Gravelight — working rules
 
 Godot 4.7.2, GDScript, portrait mobile (iOS). Read `README.md` for what the game
-is, and `docs/PLAN.md` for the work queue. Do tasks in plan order, one task per
-commit.
+is, and `docs/PLAN.md` for the work queue and the rules for working with other bots.
+Do tasks in plan order, one task per PR.
 
 ## Every session
 
@@ -90,3 +90,19 @@ a visual result you have not looked at.
 - Saves are `user://barrowfall_save.json`. New save keys must have a default in
   `Game._fresh()` (old saves are merged over the defaults). Never rename or
   remove a key without a migration.
+
+## Working with other bots
+
+Claude and other bots (grokbot) both commit here, so:
+
+- `docs/PLAN.md` is the one queue. Tick the task in the same PR and add a `CHANGELOG.md`
+  entry; when two PRs both add one, keep both.
+- Branch `claude/<task>` or `grok/<task>`; never push to another bot's open branch.
+- CI must be green before a merge: it fails on a `valid=false` `.import`, an engine load
+  error and an OTA pack over budget. Never commit a `.import` with `valid=false`: re-import
+  from the real file (git LFS files must be pulled first).
+- A new third-party model needs a row in `docs/art-audit.md` (source, author, licence, no
+  commercial game or character in the title). When in doubt use KayKit or draw it in code.
+- Screenshots in the PR for anything visible, and say what they show.
+- Rico decides what ships to `main`, the economy's direction, and anything that needs a phone
+  or a secret.
