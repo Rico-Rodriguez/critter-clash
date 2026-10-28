@@ -11,7 +11,9 @@ extends Boss
 ##            lances: get clear of the pillars and out of the crosses
 ##   phase 3  Whiteout: five fast volleys of six beams, the gaps turning each
 ##            time, and frost left where every beam ends
-## The room: patches of drag-frost take the edges at 2 and 3.
+## The room: patches of drag-frost take the edges at 2 and 3, and from 2 the
+## court's ice cracks: a patch near you turns thin, then snaps to cold water
+## (it freezes over again), faster and in pairs at 3.
 ## (No class_name: scripts the IPA didn't bake are preloaded by path.)
 
 const FROST := Color(0.6, 0.88, 1.0)
@@ -19,11 +21,34 @@ const MINE := ["spikes", "blizzard", "shatter", "whiteout"]
 
 var _yaw0 := 0.0
 var _pillars: Array = []
+var _crack_t := 0.0
+
+const CRACK_DELAY := 1.9
+const CRACK_EVERY := [0.0, 0.0, 6.5, 4.0]
 
 
 func setup(h: Hunt, t: Dictionary) -> void:
 	super.setup(h, t)
 	keep_dist = 3.8
+
+
+func tick(dt: float) -> void:
+	super.tick(dt)
+	if alive and phase >= 2 and state in ["chase", "attack"] and hunt.arena.terrain_live:
+		_crack_t -= dt
+		if _crack_t <= 0.0:
+			_crack_t = float(CRACK_EVERY[mini(phase, 3)])
+			_crack_near_hero(2 if phase >= 3 else 1)
+
+
+## A patch of the floor turns thin just ahead of where the hero is heading.
+func _crack_near_hero(n: int) -> void:
+	var hero := hunt.hero
+	var t: RefCounted = hunt.arena.terrain
+	for i in n:
+		var a := randf() * TAU
+		var at := hero.flat_pos() + hero.vel * 0.9 + Vector3(sin(a), 0, cos(a)) * (3.0 + 2.0 * i)
+		t.crack_disc(at, 1.7, CRACK_DELAY + 0.3 * i)
 
 
 func _choose(dist: float) -> void:
@@ -113,6 +138,8 @@ func _tick_pattern(dt: float, to: Vector3, dist: float) -> void:
 				step_t = 1.1
 				var rot := randf() * PI * 0.5
 				for p: Vector3 in _pillars:
+					if hunt.arena.terrain_live:
+						hunt.arena.terrain.crack_disc(p, 1.3, CRACK_DELAY * 0.8)
 					hunt.add_fire_patch(p, 1.4, 4.0, 0.0, &"frost", true)
 					for k in 4:
 						hunt.beam_from(p, rot + k * PI * 0.5, 0.9, dmg * 0.7, FROST)
@@ -167,3 +194,12 @@ func _phase_fx(n: int) -> void:
 func _phase_arena(n: int) -> void:
 	# Drag-frost takes the crypt's edges: more of it each phase.
 	_patch_ring(4 if n == 2 else 7, 9.5 if n == 2 else 11.0, 1.9, 14.0, 0.0, &"frost", true, randf() * TAU)
+	# The break itself: the ice under the court cracks in a ring around him.
+	if hunt.arena.terrain_live:
+		var base := flat_pos()
+		var k := 5 if n == 2 else 7
+		var off := randf() * TAU
+		for i in k:
+			var a := off + TAU * i / k
+			hunt.arena.terrain.crack_disc(base + Vector3(sin(a), 0, cos(a)) * (6.0 if n == 2 else 7.5), 1.6, CRACK_DELAY + 0.12 * i)
+	_crack_t = 3.0

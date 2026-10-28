@@ -10,6 +10,16 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the Frost Troll cracks the floor
+
+From his second phase the Frost Troll's court cracks. The break itself cracks a
+ring of ice round him; after that a patch just ahead of where you are heading
+turns thin every 6.5 s (every 4 s, two at a time, in the third phase), and
+Shatter's pillars crack the ice they stand on. Cracked ice snaps to cold open
+water after 1.9 s whether you stand on it or not, and freezes over again
+(`Terrain.crack`, `crack_disc`, `boss_rime.gd`). Ice only: snow and the Long
+Road's firm ground never crack.
+
 ## Unreleased: Biome rebuild, foe kits wired in
 
 `DB.enemy` now folds the Art foe kits into the foes' defs (`FoeModels.fold`):
