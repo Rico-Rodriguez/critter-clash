@@ -10,6 +10,13 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the Frost Troll
+
+The Frozen Crypt's boss is now the **Frost Troll** (provisional model by
+moonbaby2402, CC BY, see `CREDITS.md`), 5.7 m tall at scale 3.0. `DB.BOSSES["rime"]`
+names its rig like the Cinder Warlord does; hitbox radius 1.95, occluder 2.1 x 6.0.
+His attacks are the Regent's (cleave, quake, charge, ice lanes, blizzard).
+
 ## Unreleased: Biome rebuild, Rimehollow layout
 
 Rebuild 3. The Frozen Crypt zone (Rimehollow) is a new arena, `arena_rime.gd`,
