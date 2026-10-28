@@ -116,9 +116,8 @@ func open(r: Dictionary) -> void:
 			_note("Chapter replayed: the story pays once", Color(0.8, 0.8, 0.85), "scroll-unfurled")
 	if str(r.get("omen", "")) != "":
 		_note("Weekly omen: bonus paid", Color(0.8, 0.6, 1.0), "moon")
-	if int(s.get("event_pts", 0)) > 0:
-		var tiers := int(s.get("event_tiers", 0))
-		_note("Weekly event: +%d points (%d)%s" % [int(s["event_pts"]), int(s["event_total"]), " · reward ready in camp" if tiers > 0 else ""], Color(0.8, 0.6, 1.0), "round-star")
+	if int(s.get("omen_xp", 0)) > 0:
+		_note("Weekly rule: +%d season XP" % int(s["omen_xp"]), Color(0.8, 0.6, 1.0), "round-star")
 	if not win and not descent and not wild:
 		_advice(r, tier)
 		%Again.text = "Try again"

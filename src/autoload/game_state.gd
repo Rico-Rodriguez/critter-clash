@@ -58,8 +58,10 @@ func _fresh() -> Dictionary:
 		# A new save chooses its first hero once, before the first hunt.
 		"start_picked": false,
 		"omen_on": false,
-		# The weekly event: {week, pts, claimed, hunts}; reset when the week turns.
+		# The retired weekly event track: {week, pts, claimed, hunts}. Only Game._fold_event reads it.
 		"event": {"week": -1, "pts": 0, "claimed": 0, "hunts": 0},
+		# Tiers of the retired event track paid at boot, until the camp has said so.
+		"folded_event": 0,
 		# The story campaign: chapter ids cleared, and the chapter the next hunt plays.
 		"story": {"cleared": [], "run": ""},
 		"clue": {},

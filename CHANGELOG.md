@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the weekly event folds into the season
+
+Your call (2026-10-28). The 10-tier weekly event track is gone. A hunt under the weekly rule now pays bonus season XP (its score / 60, about 30 for a win), shown on the results screen and in Season. The camp's Event sheet is "This week": the rule, its toggle, and the board. The omen egg moved to season tier 23. A save with earned, unclaimed event tiers this week is paid out once at boot (`Game._fold_event`) and the camp says so once. New save key `folded_event` (default 0); the old `event` key stays, unused. Simulated week: casual 1 season tier, regular 3, grinder 13.
+
+---
+
 ## Unreleased: one plan for every bot
 
 `docs/PLAN.md` is rewritten as the live queue (rules for working with other bots, what needs Rico, what is next); the old phases moved to `docs/PLAN-history.md`. New `docs/biomes.md` records which zones are rebuilt. `CLAUDE.md` gains the two-bot rules. Also restored the `---` between changelog entries that the merges dropped.

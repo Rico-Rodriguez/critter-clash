@@ -241,33 +241,7 @@ func pay_reward(rw: Dictionary) -> Dictionary:
 
 # --- Weekly event ------------------------------------------------------------
 
-## This week's event record; a new week starts it afresh.
-func event() -> Dictionary:
-	var e: Dictionary = data.get("event", {})
-	if int(e.get("week", -1)) != week_number():
-		e = {"week": week_number(), "pts": 0, "claimed": 0, "hunts": 0}
-		data["event"] = e
-	return e
-
-
-func event_points() -> int:
-	return int(event()["pts"])
-
-
-## Tiers of the track reached.
-func event_level() -> int:
-	var n := 0
-	for need in DB.EVENT_TRACK:
-		if event_points() >= int(need):
-			n += 1
-	return n
-
-
-func event_claimable() -> int:
-	return event_level() - int(event()["claimed"])
-
-
-## Seconds until the week (and the event) turns over.
+## Seconds until the week (and the weekly rule and board) turns over.
 func event_seconds_left() -> int:
 	var span := 604800
 	var now := int(Time.get_unix_time_from_system())
@@ -286,24 +260,17 @@ static func left_text(secs: int) -> String:
 	return "%dm" % maxi(m, 1)
 
 
-## Points a finished hunt adds to the event (0 off the omen). Returns them.
-func add_event_points(r: Dictionary) -> int:
+## Bonus season XP a finished hunt earns under the weekly rule (0 off it). Returns it.
+func add_omen_xp(r: Dictionary) -> int:
 	if str(r.get("omen", "")) == "":
 		return 0
-	var pts := DB.event_points_for(weekly_score(r))
-	var e := event()
-	e["pts"] = int(e["pts"]) + pts
-	e["hunts"] = int(e["hunts"]) + 1
-	return pts
+	var xp := DB.omen_xp_for(weekly_score(r))
+	season()["xp"] = int(season()["xp"]) + xp
+	return xp
 
 
-## Pays the next event tier. {} when none is ready.
-func claim_event() -> Dictionary:
-	if event_claimable() <= 0:
-		return {}
-	var e := event()
-	e["claimed"] = int(e["claimed"]) + 1
-	return pay_reward(DB.event_reward(int(e["claimed"])))
+# The 10-tier event track is gone. A save from before still holds this week's points; the
+# rewards it had earned and not claimed are paid once at boot (game.gd, _fold_event).
 
 
 # --- Story campaign -----------------------------------------------------------

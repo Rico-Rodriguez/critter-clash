@@ -1046,16 +1046,20 @@ const WEEKLY_OMENS := [
 ## A won omen hunt pays 25% more gold and its chest is one grade better.
 const OMEN_GOLD := 0.25
 
-## The weekly event: the omen's hunts earn event points (score / EVENT_SCORE_DIV)
-## toward a rewards track that resets with the week. EVENT_TRACK[n-1] is the
-## total points for tier n.
+## A hunt under the weekly rule pays bonus season XP: its score / OMEN_XP_DIV
+## (about 30 for a win, against ~30 renown for a plain one).
+const OMEN_XP_DIV := 60
+
+## The old 10-tier weekly event track, retired in favour of season XP. Kept only so
+## Game._fold_event can pay out the tiers a player had already earned this week.
+## EVENT_TRACK[n-1] is the total points for tier n.
 const EVENT_SCORE_DIV := 10
 const EVENT_TRACK := [150, 400, 700, 1100, 1600, 2200, 2900, 3700, 4600, 5600]
 ## Rows of the event board on the camp sheet.
 const EVENT_BOARD_ROWS := 8
 
-static func event_points_for(score: int) -> int:
-	return maxi(score, 0) / EVENT_SCORE_DIV
+static func omen_xp_for(score: int) -> int:
+	return maxi(score, 0) / OMEN_XP_DIV
 
 
 ## What tier `n` (1..10) of the event track pays. The last is the week's prize.
@@ -1590,6 +1594,9 @@ static func season_reward(n: int, sid := 0) -> Dictionary:
 		return {"kind": "egg", "egg": "exotic"}
 	if n == 10 or n == 20:
 		return {"kind": "egg", "egg": "season"}
+	# The omen egg used to come from the weekly event track; it lives here now.
+	if n == 23:
+		return {"kind": "egg", "egg": "omen"}
 	if n == 5 or n == 15:
 		return {"kind": "egg", "egg": "brood"}
 	if n % 5 == 0:
