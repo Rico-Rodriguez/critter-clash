@@ -53,6 +53,12 @@ water deeper in) or bog pools with a boardwalk of planks that burns, and the
 court of the Frost Troll or the Warlord's deck and Pyre Tree at the end. A firm
 line always runs gap to gap. Other zones keep the dungeon. Foes are no longer
 placed in open water.
+## Unreleased: Biome rebuild, the Cinder Mire built from the Art kit
+
+The Mire's boardwalk (with `KitModels.charred("mire")` for burning planks), piles, shacks (one burnt),
+Pyre Tree, braziers, bog stones and reeds are now the Art kit's Blender meshes
+(`assets/kits/mire/mire_kit.glb` via `KitModels.mesh`) instead of the code-built pieces in `mire_kit.gd`: same sizes, transforms and obstacle circles, one palette
+texture. Still code-built: the Long Road's mire rooms (`arena_trial_zone.gd`).
 
 ## Unreleased: Biome rebuild, the Cinder Mire
 

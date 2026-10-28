@@ -3,7 +3,7 @@ extends RefCounted
 ## no class_name): methane vents, flames and the weather particles. Everything here
 ## is built for a clean, crisp read: opaque PBR meshes batched into MultiMeshes,
 ## hard-edged particles, no fog and no bloom. The zones' own pieces are in
-## kit_mesh.gd and mire_kit.gd.
+## kit_mesh.gd and the art kits (kit_models.gd).
 
 const SOFT := preload("res://src/fx/soft.gdshader")
 static var _mats := {}
