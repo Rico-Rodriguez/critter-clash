@@ -206,7 +206,7 @@ static func resting(d: Dictionary, id: String, now: int) -> int:
 ## Why two sidekicks can't breed now ("" when they can).
 static func breed_block(d: Dictionary, a: String, b: String, now: int) -> String:
 	if a == b:
-		return "Pick two different sidekicks"
+		return "Pick two different pets"
 	for id in [a, b]:
 		if not is_owned(d, id):
 			return "Not in your stable"
