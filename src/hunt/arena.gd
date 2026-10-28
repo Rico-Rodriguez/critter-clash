@@ -21,6 +21,10 @@ var start := Vector3(0, 0, 15)
 var crypt_pos := Vector3(0, 0, -26.5)
 var boss_spawn := Vector3(0, 0, -21.0)
 var graves: Array[Vector3] = []
+## Where Winter Callers raise imps, and where wraiths and imps hover to shoot
+## (foe_caster.gd and foe_kite.gd read these; empty means open ground near the hero).
+var spawn_holes: Array[Vector3] = []
+var perches: Array[Vector3] = []
 var lights: Array[OmniLight3D] = []
 var env: Environment
 var sun: DirectionalLight3D

@@ -40,6 +40,7 @@ static func build(a: Arena) -> void:
 	_crystals(a)
 	_dressing(a)
 	_spawn_spots(a)
+	_foe_spots(a)
 
 
 # --- The floor -----------------------------------------------------------------
@@ -350,3 +351,28 @@ static func _spawn_spots(a: Arena) -> void:
 			continue
 		a.graves.append(p)
 		n += 1
+
+
+## Perches for the wraiths (the lake rim, in the open) and holes where the Winter Caller's
+## imps rise (cracks round the court and along the causeway). Ice or snow, never blocked.
+static func _foe_spots(a: Arena) -> void:
+	for i in 18:
+		var ang := TAU * float(i) / 18.0
+		var p := LAKE + Vector3(cos(ang) * (LAKE_RX + 2.2), 0, sin(ang) * (LAKE_RZ + 2.2))
+		if _open(a, p):
+			a.perches.append(p)
+	for i in 10:
+		var ang := TAU * float(i) / 10.0
+		var p := COURT + Vector3(cos(ang) * 6.5, 0, sin(ang) * 4.5)
+		if _open(a, p):
+			a.spawn_holes.append(p)
+	for z in [-9.0, -13.5, -16.5]:
+		for x in [-1.8, 1.8]:
+			var p := Vector3(x, 0, z)
+			if _open(a, p):
+				a.spawn_holes.append(p)
+
+
+static func _open(a: Arena, p: Vector3) -> bool:
+	var k: int = a.terrain.kind_at(p)
+	return (k == Terrain.ICE or k == Terrain.DRY) and not a.blocked(p, 0.8)

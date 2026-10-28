@@ -11,7 +11,7 @@ extends RefCounted
 ## six `anim` keys, `radius`, `scale` and `fly`, never the skeleton.
 ##
 ## They are reached through the zones' `faction_next` (db.gd) while
-## `FoeBrains.next` is off by default; flipping that is the Lead's call.
+## `FoeBrains.next` (on by default; `--old-foes` turns it off for a bot run).
 
 const A_SK := {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"}
 const A_WALK := {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_1H_Attack_Slice_Diagonal", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_A"}
