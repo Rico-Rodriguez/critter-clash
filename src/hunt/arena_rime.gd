@@ -50,7 +50,7 @@ static func _ground(a: Arena) -> void:
 	# the two read apart at a glance.
 	var look: Dictionary = {"dark": (a.zone_env["ground"] as Dictionary)["dark"],
 		"base_a": Color(0.6, 0.67, 0.78), "base_b": Color(0.72, 0.78, 0.88),
-		"ice_a": Color(0.24, 0.5, 0.78), "ice_b": Color(0.4, 0.68, 0.92), "crack_col": Color(0.12, 0.3, 0.58)}
+		"ice_a": Color(0.24, 0.5, 0.78), "ice_b": Color(0.4, 0.68, 0.92), "crack_col": Color(0.12, 0.3, 0.58), "snow_detail": 1.0}
 	a.terrain_begin(look)
 
 
