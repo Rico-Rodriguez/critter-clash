@@ -10,6 +10,9 @@ version is 7.
 
 ---
 
+## Unreleased: unused foe scenes removed
+
+Deleted `assets/foes/bloat*` and `spore*` (scene, glb, palette): nothing referenced them since the Blender models replaced them. They shipped in every pack.
 ## Unreleased: Godot stops importing docs/
 
 Added `docs/.gdignore` and removed 69 `.import` files for review screenshots and videos. They were never in the pack (`docs/*` is excluded from export) but every import, local and CI, processed them. The media itself is untouched.
