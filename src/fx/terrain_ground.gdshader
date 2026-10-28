@@ -67,7 +67,7 @@ void fragment() {
 		float drift = texture(noise_a, p * 0.11 + vec2(0.3, 0.8)).r;
 		col *= mix(vec3(0.86, 0.92, 1.04), vec3(1.04, 1.03, 1.0), smoothstep(0.3, 0.7, drift));
 		col *= 0.93 + 0.14 * rpl;
-		nrm = vec3(0.5 + ((rpl - 0.5) * 0.9 + (n3 - 0.5) * 0.6) * snow_detail, 0.5 + ((texture(noise_b, p * 0.62 + vec2(0.5)).r - 0.5) * 0.9 + (drift - 0.5) * 0.8) * snow_detail, 1.0);
+		nrm = vec3(0.5 + ((rpl - 0.5) * 0.4 + (n3 - 0.5) * 0.3) * snow_detail, 0.5 + ((texture(noise_b, p * 0.62 + vec2(0.5)).r - 0.5) * 0.4 + (drift - 0.5) * 0.4) * snow_detail, 1.0);
 		rough = 0.62;
 		spec = 0.5;
 		// A crust that glints where the light catches it.

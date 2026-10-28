@@ -436,11 +436,13 @@ func _capture(args: PackedStringArray) -> void:
 		seed(7)
 		Game.rng.seed = 7
 	Game.hero(hid)["shards"] = 9
-	# --dress=N: the hero in a full rare set N (the biome beauty shots default to the Seraph set, never the starter kettle hat).
+	# --dress=N: the hero in a full rare set (--set=hexer: the Blackguard plate and helm), so the beauty shots show a knight in plate and not the starter kettle hat.
 	var dress := int(_arg(args, "dress", "4" if "biome" in want else "-1"))
 	if dress >= 0:
 		for slot in DB.SLOTS:
-			Game.equip(hid, int(Game.grant_item(Game.make_item(hid, slot, dress, "rare"))["uid"]))
+			var piece := Game.make_item(hid, slot, dress, "rare")
+			piece["set"] = _arg(args, "set", "hexer")
+			Game.equip(hid, int(Game.grant_item(piece)["uid"]))
 	Game.data["tier_unlocked"] = 1
 	Game.data["mode"] = _arg(args, "mode", "horde")
 	Game.data["mode_tiers"][Game.data["mode"]] = 1
@@ -1540,7 +1542,7 @@ func _capture(args: PackedStringArray) -> void:
 					h.bot = false
 					# The stage: the Cinder Mire's widest dry island (the landing is a fenced strip).
 					if h.arena.zone == "swamp":
-						h.hero.position = Vector3(-1.0, 0.0, 0.8)
+						h.hero.position = Vector3(0.0, 0.0, 15.2)
 					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
 					# A low angle, so the knight reads as a knight and not as the top of a helm.
 					h.cam.pitch_deg = float(_arg(args, "pitch", "34"))
