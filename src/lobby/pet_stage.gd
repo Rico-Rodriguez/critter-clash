@@ -8,10 +8,12 @@ const SKS := preload("res://src/autoload/sidekicks.gd")
 const Look := preload("res://src/core/sidekick_look.gd")
 
 
-static func make(id: String, h: float, hint := true) -> Control:
+## `at_stage` >= 0 shows that growth stage instead of the owned one (the
+## evolve scene, which shows before and after).
+static func make(id: String, h: float, hint := true, at_stage := -1) -> Control:
 	var d: Dictionary = SDB.def(id)
 	var col: Color = d["color"]
-	var stage := SKS.stage(Game.data, id) if SKS.is_owned(Game.data, id) else 1
+	var stage := at_stage if at_stage >= 0 else (SKS.stage(Game.data, id) if SKS.is_owned(Game.data, id) else 1)
 	var size := maxf(float(d["scale"]) * float(SDB.STAGE_SCALE[stage]), 0.55)
 	var fly := float(d.get("fly", 0.0))
 	var root := Control.new()
