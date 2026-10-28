@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://6n4bnnyv2ula"
-valid=false
+path="res://.godot/imported/hero_hurt_1.ogg-8f5a8f2de69759291484a5586eca98f5.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/hero_hurt_1.ogg"
+dest_files=["res://.godot/imported/hero_hurt_1.ogg-8f5a8f2de69759291484a5586eca98f5.oggvorbisstr"]
 
 [params]
 

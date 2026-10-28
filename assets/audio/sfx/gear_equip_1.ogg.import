@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://da1eck714166l"
-valid=false
+path="res://.godot/imported/gear_equip_1.ogg-ac9f7ac120ab01bac6a6837b7d75994b.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/gear_equip_1.ogg"
+dest_files=["res://.godot/imported/gear_equip_1.ogg-ac9f7ac120ab01bac6a6837b7d75994b.oggvorbisstr"]
 
 [params]
 

@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://cui4pomj6x8dc"
-valid=false
+path="res://.godot/imported/sparkle_1.ogg-ca4f52ece5d4b4e9b7040835cc3e98bb.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/sparkle_1.ogg"
+dest_files=["res://.godot/imported/sparkle_1.ogg-ca4f52ece5d4b4e9b7040835cc3e98bb.oggvorbisstr"]
 
 [params]
 

@@ -133,6 +133,7 @@ func load_save() -> void:
 		_rename_gear()
 		_refund_levels()
 		_free_hands()
+		_road_heroes()
 
 
 ## The shake on/off switch became a level (Off, Low, Medium, High). On becomes
@@ -164,6 +165,18 @@ func _free_hands() -> void:
 	for id in DB.HERO_ORDER:
 		if two_hands(id, equipped(id, "weapon")):
 			hero(id)["gear"].erase("trinket")
+
+
+## A hero step on the Trophy Road that a save already counts as claimed must
+## have opened its hero. The road grew from 14 steps to 41 with the Rogue at
+## step 25, so a save past 25 had claimed an old crypt chest there instead
+## (safe to repeat, so no save version is needed).
+func _road_heroes() -> void:
+	var claimed := mini(int(data.get("road", 0)), DB.TROPHY_ROAD.size())
+	for i in claimed:
+		var st: Dictionary = DB.TROPHY_ROAD[i]
+		if str(st["kind"]) == "hero" and data["heroes"].has(str(st["id"])):
+			data["heroes"][str(st["id"])]["unlocked"] = true
 
 
 ## Bought hero levels are gone (skills are the power now): give back the shards

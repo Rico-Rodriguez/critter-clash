@@ -23,6 +23,21 @@ static func run(ok: Callable) -> void:
 	_skins(ok)
 	_hatch(ok)
 	_log(ok)
+	_carve_flags(ok)
+
+
+## Carving rebuilds surfaces from their arrays: a float custom channel must
+## keep its format or the surface is refused and goes missing.
+static func _carve_flags(ok: Callable) -> void:
+	var src := ArrayMesh.new()
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3.ZERO, Vector3.RIGHT, Vector3.UP])
+	arr[Mesh.ARRAY_CUSTOM0] = PackedFloat32Array([0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1])
+	src.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+	var out := ArrayMesh.new()
+	out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, src.surface_get_arrays(0), [], {}, PG._rebuild_flags(src.surface_get_format(0)))
+	ok.call("carving keeps a surface with a float custom channel", src.get_surface_count() == 1 and out.get_surface_count() == 1)
 
 
 static func _sources(ok: Callable) -> void:

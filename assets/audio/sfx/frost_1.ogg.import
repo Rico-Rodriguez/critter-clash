@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://kavfrnse0cww"
-valid=false
+path="res://.godot/imported/frost_1.ogg-beb33f53a42f1064124bc6392386f58e.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/frost_1.ogg"
+dest_files=["res://.godot/imported/frost_1.ogg-beb33f53a42f1064124bc6392386f58e.oggvorbisstr"]
 
 [params]
 

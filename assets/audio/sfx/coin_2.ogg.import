@@ -3,11 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://cvkjyv1qkop1y"
-valid=false
+path="res://.godot/imported/coin_2.ogg-093e1a41965da259cc72b9ba56bf8fde.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/audio/sfx/coin_2.ogg"
+dest_files=["res://.godot/imported/coin_2.ogg-093e1a41965da259cc72b9ba56bf8fde.oggvorbisstr"]
 
 [params]
 
