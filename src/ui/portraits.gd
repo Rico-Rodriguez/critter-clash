@@ -26,7 +26,9 @@ static func build(host: Node) -> void:
 	for id in DB.HERO_ORDER:
 		if not is_instance_valid(host) or not host.is_inside_tree():
 			break
-		_cache[id] = await _render(host, id)
+		var tex := await _render(host, id)
+		if tex:
+			_cache[id] = tex
 	_building = false
 
 
@@ -34,7 +36,9 @@ static func build(host: Node) -> void:
 static func rebuild(host: Node, id: String) -> void:
 	if not ready_all() or DisplayServer.get_name() == "headless":
 		return
-	_cache[id] = await _render(host, id)
+	var tex := await _render(host, id)
+	if tex:
+		_cache[id] = tex
 
 
 static func _render(host: Node, id: String) -> Texture2D:
@@ -75,6 +79,9 @@ static func _render(host: Node, id: String) -> Texture2D:
 	host.add_child(vp)
 	for i in 4:
 		await RenderingServer.frame_post_draw
+	# Leaving camp mid-render frees the host and this viewport with it.
+	if not is_instance_valid(vp):
+		return null
 	var img := vp.get_texture().get_image()
 	vp.queue_free()
 	return ImageTexture.create_from_image(img)

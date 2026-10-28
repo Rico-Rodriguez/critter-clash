@@ -10,6 +10,15 @@ version is 7.
 
 ---
 
+## Unreleased: battles stuck on the crossed swords
+
+- **Bug:** starting a battle could freeze on the crossed-swords curtain for good (Rico's iPhone, every mode). The hunt's shader warm-up loaded all 44 foe models in one frame; on a software renderer that was seen to deadlock the engine (main thread holding a lock while it waited on the shader workers, which all waited on that lock). The warm-up now loads one model per frame.
+- A freeze logs no error, so the hunt start now writes its current step to `user://step.txt`; after a crash the next launch's error report gets a `[crash] last step · warm-up foe …` line.
+- Leaving camp while hero portraits were still rendering raised a script error (`portraits.gd`); it now stops quietly.
+- New check `-- --battle-start` (run with `tools/dev/godot-gpu.sh`): camp, then the Hunt button, with a renderer, as a player does. Bots and captures skip the warm-up, so nothing ran it before. In `check.sh` and CI.
+
+---
+
 ## Unreleased: Season and Daily as picture rows
 
 Each Season tier shows its reward (coins, shards, gems, a real chest, egg or outfit render) with a check on claimed tiers instead of plain text. The Daily login chests are real renders, and the first-win line now mentions the 2 gems.

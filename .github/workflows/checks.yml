@@ -75,5 +75,14 @@ jobs:
           timeout 600 "$GODOT" --headless --path . --fixed-fps 60 -- --bot --hero=knight --idle 2>&1 | tee idle.log
           grep -q "BOT DONE PASS" idle.log
 
+      - name: Camp to battle with a renderer (the warm-up deadlock left the curtain shut)
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -q mesa-vulkan-drivers xvfb > /dev/null
+          export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json
+          timeout 400 xvfb-run -a -s "-screen 0 800x1600x24" "$GODOT" --rendering-driver vulkan --rendering-method mobile --resolution 390x844 --path . -- --battle-start --fresh 2>&1 | tee battle.log || true
+          grep -q "BATTLE START OK" battle.log
+          ! grep -q "SCRIPT ERROR" battle.log
+
       - name: No resource failed to load in any run
         run: python3 tools/dev/check_imports.py test.log bot.log depths.log trial.log idle.log

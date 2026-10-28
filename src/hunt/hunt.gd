@@ -36,6 +36,7 @@ func _spawn_partners() -> void:
 
 
 func _ready() -> void:
+	Game.errors.step("hunt setup")
 	story = Game.story_take()
 	# A story chapter fixes the zone (open to it whatever the road says), plays
 	# the horde on Normal and carries no omen.
@@ -140,6 +141,7 @@ func _ready() -> void:
 		_bot.hunt = self
 	if not bot:
 		await _warmup()
+	Game.errors.step("")
 	Sfx.music(music_track())
 	Sfx.play("hunt_start", -2.0)
 	if mode == "rift":
@@ -194,6 +196,7 @@ func _warmup() -> void:
 	var flat := Vector3.UP
 	for deg in [60, 120, 180, 360]:
 		fx.slash(at, 0.0, 2.0, deg, Color.WHITE)
+	Game.errors.step("warm-up effects")
 	fx.vfx.warmup(at)
 	for shape in 3:
 		fx.telegraph(shape, at, 0.0, Vector2(2.0, 5.0), 0.4)
@@ -208,12 +211,22 @@ func _warmup() -> void:
 	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]), Color(0.6, 0.8, 1.0), &"skill")
 	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe", "frostbolt", "cinderbolt"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
+	# One model per frame. Loading a model compiles its shaders on this thread
+	# while earlier pipelines still compile on the worker threads. With all 44
+	# foes loaded in one frame the engine was seen to deadlock between the two
+	# (the battle never starts, the curtain stays shut); a frame apart, the
+	# workers drain in between. Game.errors.step names the last one reached.
+	await get_tree().process_frame
 	var temp: Array[Enemy] = []
 	var x := -3.0
 	for kind in DB.enemy_kinds():
+		Game.errors.step("warm-up foe " + str(kind))
 		temp.append(spawn_foe(kind, at + Vector3(x, 0, -2.0)))
 		x += 1.5
+		await get_tree().process_frame
 	temp.append(spawn_foe("minion", at + Vector3(0, 0, -4.0), true))
+	await get_tree().process_frame
+	Game.errors.step("warm-up boss " + cur_boss)
 	var b := _make_boss()
 	world.add_child(b)
 	b.position = at + Vector3(0, 0, -7.0)
