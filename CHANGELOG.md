@@ -13,6 +13,9 @@ version is 7.
 ## Unreleased: one plan for every bot
 
 `docs/PLAN.md` is rewritten as the live queue (rules for working with other bots, what needs Rico, what is next); the old phases moved to `docs/PLAN-history.md`. New `docs/biomes.md` records which zones are rebuilt. `CLAUDE.md` gains the two-bot rules. Also restored the `---` between changelog entries that the merges dropped.
+
+---
+
 ## Unreleased: omen hunts score again, and a simulated economy week
 
 - **Bug:** `Game.weekly_score` ran `int()` on the hunt's list of boss ids, so finishing a hunt under the weekly rule raised a script error and the week's best and event points were not recorded. It now counts the list. No bot ran an omen hunt, which is how it shipped.
@@ -23,6 +26,9 @@ version is 7.
 ## Unreleased: main.gd loses its dev modes
 
 The autopilot, screenshot, perf and contact-sheet code (1,850 lines) moved from `src/main.gd` to `src/dev/capture.gd`, which the export leaves out. `main.gd` is 270 lines. Behaviour is the same: `--bot`, `--capture` and the shot helpers run through a shim for Main's `current`, `go` and `pending_chest`.
+
+---
+
 ## Unreleased: unused foe scenes removed
 
 Deleted `assets/foes/bloat*` and `spore*` (scene, glb, palette): nothing referenced them since the Blender models replaced them. They shipped in every pack.
