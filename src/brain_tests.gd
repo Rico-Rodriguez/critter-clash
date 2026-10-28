@@ -56,7 +56,12 @@ static func _registry(ok: Callable) -> void:
 		var z: Dictionary = DB.ZONES[id]
 		var f: Dictionary = z["faction_next"]
 		ok.call("brains: %s fields eight foes through faction_next" % id, f.values().size() == 8 and f.values().all(func(k): return DB.enemy(k).has("brain")))
-	ok.call("brains: the director keeps the old factions until `next` is turned on", not FoeBrains.next and FoeBrains.faction(DB.ZONES["frost"])["minion"] == "thrall")
+	var was := FoeBrains.next
+	FoeBrains.next = false
+	ok.call("brains: with `next` off the director keeps the old factions", FoeBrains.faction(DB.ZONES["frost"])["minion"] == "thrall")
+	FoeBrains.next = true
+	ok.call("brains: with `next` on (the default) the zones field the rebuilt foes", was and FoeBrains.faction(DB.ZONES["frost"])["minion"] != "thrall")
+	FoeBrains.next = was
 
 
 # --- Harness --------------------------------------------------------------------

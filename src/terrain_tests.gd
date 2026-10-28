@@ -278,6 +278,7 @@ static func _arena_live(ok: Callable) -> void:
 	r.break_ice_at(Vector3(-15, 0, -3), 3.0)
 	r.break_ice_at(Vector3(15, 0, 3), 3.0)
 	ok.call("rimehollow: breaking the walls opens both caverns", _reach(r, r.start, r.shrines[0]["pos"]) and _reach(r, r.start, r.shrines[1]["pos"]))
+	ok.call("rimehollow: perches and spawn holes for the wraiths and callers, all on firm open ground", r.perches.size() >= 8 and r.spawn_holes.size() >= 6 and r.perches.all(func(p: Vector3): return r.terrain.kind_at(p) in [T.DRY, T.ICE]) and r.spawn_holes.all(func(p: Vector3): return r.terrain.kind_at(p) in [T.DRY, T.ICE]))
 	r.free()
 	var a := Arena.new()
 	a.build(true, "grove", 0, 1)

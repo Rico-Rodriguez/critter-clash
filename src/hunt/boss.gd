@@ -213,7 +213,8 @@ func _begin(p: String) -> void:
 			rotation.y = yaw
 			step_t = 0.95 * fast
 			tele.append(hunt.fx.telegraph(1, flat_pos(), yaw, Vector2(5.0, 0), step_t, 1.1))
-			play("Melee_2H_Attack_Chop", 0.1, anim_length("Melee_2H_Attack_Chop") * 0.5 / step_t, true)
+			# The clip is sped up so its blow (`strike`, a fraction of the clip; 0.5 for KayKit) lands as the telegraph ends.
+			play("Melee_2H_Attack_Chop", 0.1, anim_length("Melee_2H_Attack_Chop") * float(_rig_def.get("strike", 0.5)) / step_t, true)
 			Sfx.play("boss_windup", -2.0)
 		"quake":
 			step_t = 1.15 * fast

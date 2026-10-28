@@ -26,6 +26,8 @@ const CINDER_WARLORD := {
 ## PROVISIONAL (provenance concern, see CREDITS.md): replace before release.
 const FROST_TROLL := {
 	"model": "glb:frost_troll", "fit": 1.9, "scale": 3.0,
+	# His Slam (the cleave) lands at 58% of the clip; boss.gd times the wind-up to that.
+	"strike": 0.58,
 	"clips": {"idle":"Idle","walk":"Walk","run":"Run","attack":["Attack","Slam"],
 		"cast":"Roar","taunt":"Roar","spawn":"Roar","hit":"Hit","die":"Death"},
 	"alias": {"Melee_2H_Attack_Chop":"Slam","Melee_Dualwield_Attack_Slice":"Attack","Melee_2H_Attack_Spin":"Slam"},
