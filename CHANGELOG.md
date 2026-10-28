@@ -13,6 +13,10 @@ version is 7.
 ## Unreleased: main.gd loses its dev modes
 
 The autopilot, screenshot, perf and contact-sheet code (1,850 lines) moved from `src/main.gd` to `src/dev/capture.gd`, which the export leaves out. `main.gd` is 270 lines. Behaviour is the same: `--bot`, `--capture` and the shot helpers run through a shim for Main's `current`, `go` and `pending_chest`.
+## Unreleased: pinned tool versions
+
+The test-server workflow downloads cloudflared 2025.9.1 instead of `latest` and runs on
+`ubuntu-24.04`, so an upstream release cannot break the server unannounced.
 
 ---
 

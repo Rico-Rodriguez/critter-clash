@@ -15,7 +15,7 @@ permissions:
   actions: write
 jobs:
   serve:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          curl -sL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          curl -fsSL -o cloudflared https://github.com/cloudflare/cloudflared/releases/download/2025.9.1/cloudflared-linux-amd64
           chmod +x cloudflared
           ./cloudflared tunnel --no-autoupdate --url http://127.0.0.1:7350 > tunnel.log 2>&1 &
           for i in $(seq 60); do U=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -1); [ -n "$U" ] && break; sleep 2; done
