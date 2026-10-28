@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: unused foe scenes removed
+
+Deleted `assets/foes/bloat*` and `spore*` (scene, glb, palette): nothing referenced them since the Blender models replaced them. They shipped in every pack.
+
+---
+
 ## Unreleased: the release gate catches broken imports
 
 No game change. PR #118 shipped 93 broken audio imports and nothing failed,

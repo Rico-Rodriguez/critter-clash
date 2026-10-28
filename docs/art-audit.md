@@ -61,9 +61,7 @@ description and the uploader's other work before an App Store build".
 
 ## Unused scenes
 
-`assets/foes/bloat.tscn` and `assets/foes/spore.tscn` have no references in `src/`; they are
-the code-built models the Blender ones replaced. Phase 5 removes unused scenes and their
-`_src.glb` files from the pack.
+`assets/foes/bloat*` and `spore*` (the code-built models the Blender ones replaced) were removed in Phase 5. The generator is still `tools/art/make_foes.py`.
 
 ## Rule for new models
 
