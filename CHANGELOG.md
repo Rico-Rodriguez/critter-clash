@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: casual play earns gems
+
+Your call (2026-10-28). The first win of each day pays 2 gems, and the login calendar pays 5 gems on day 3 and 10 on day 7 (shown on the Login sheet and the results screen). Simulated week: casual 27 gems, regular 42, grinder 61. `economy_tests` now claims the login each day and guards that a casual week earns 5 to 40 gems.
+
+---
+
 ## Unreleased: "Pets" everywhere
 
 The word "sidekick" is gone from player text (results note, hatchery line, credits, daily quests, breeding error, legendary power lines). Internal ids, save keys and sheet names are unchanged, so no migration.

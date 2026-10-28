@@ -1532,9 +1532,11 @@ static func mastery_rank(points: int) -> int:
 
 ## The first win of each day: the chest is a grade better and gold doubles.
 const FIRST_WIN_GOLD := 1.0
+## ...and it pays a few gems, so a casual player sees some without buying.
+const FIRST_WIN_GEMS := 2
 ## Login calendar: day n of a streak (1-7, then it loops). A missed day resets it.
 const LOGIN_REWARDS := [
-	{"gold": 150}, {"shards": 8}, {"gold": 300}, {"chest": "silver"}, {"gold": 500}, {"shards": 20}, {"chest": "gold"},
+	{"gold": 150}, {"shards": 8}, {"gold": 300, "gems": 5}, {"chest": "silver"}, {"gold": 500}, {"shards": 20}, {"chest": "gold", "gems": 10},
 ]
 ## The campfire: gold accrues while away, up to IDLE_HOURS, faster with the
 ## highest tier opened.

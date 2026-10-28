@@ -429,6 +429,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 		var grades := ["silver", "gold", "crypt"]
 		if str(r.get("chest", "")) in grades:
 			r["chest"] = grades[mini(grades.find(str(r["chest"])) + 1, 2)]
+		data["gems"] = int(data.get("gems", 0)) + DB.FIRST_WIN_GEMS
 		summary["first_win"] = true
 	if str(r.get("story", "")) != "" and r.get("win", false):
 		summary["story"] = story_clear(r)

@@ -190,6 +190,8 @@ func _build_daily(s: Sheet) -> void:
 		cc.add_child(Ui.icon_rect(ic, 44, col))
 		v.add_child(cc)
 		var t: String = ("%d gold" % int(rw["gold"])) if rw.has("gold") else (("%d shards" % int(rw["shards"])) if rw.has("shards") else DB.CHESTS[rw["chest"]]["name"])
+		if rw.has("gems"):
+			t += " + %d gems" % int(rw["gems"])
 		var tl := Ui.label(("✓ " if claimed else "") + t, "Small", HORIZONTAL_ALIGNMENT_CENTER)
 		tl.add_theme_font_size_override("font_size", 15)
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
