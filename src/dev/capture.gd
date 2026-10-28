@@ -343,7 +343,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
-			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "eggshop", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "shoplookbuy", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "eggshop", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -379,7 +379,7 @@ func _capture(args: PackedStringArray) -> void:
 					Game.data["weekly"] = {"week": Game.week_number(), "best": 3420, "omen": str(Game.weekly_omen()["id"]), "hero": hid}
 				if shot == "story":
 					Game.data["story"]["cleared"] = ["oath"]
-				if shot in ["shop", "shopbuy", "shoplooks"]:
+				if shot in ["shop", "shopbuy", "shoplooks", "shoplookbuy"]:
 					Game.data["gold"] = 3240
 				if shot == "bounties":
 					Game.data["bounties"]["day"] = ""
@@ -411,6 +411,13 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot == "shoplooks":
 					current.open_sheet("looks")
 					await _wait(1.2)
+				elif shot == "shoplookbuy":
+					# The try-on: an outfit the hero does not own, drawn on the hero.
+					current.open_sheet("looks")
+					await _wait(1.0)
+					var ok_ := "crimson_guard" if DB.OUTFITS.has("crimson_guard") else str(DB.OUTFIT_ORDER[0])
+					current.ui.Shop._confirm(current.ui, current.ui._page, {"kind": "outfit", "outfit": ok_, "hero": Game.hero_id(), "price": Game.outfit_price(ok_)}, -1)
+					await _wait(2.0)
 				elif shot == "shopbuy":
 					current.open_sheet("shop")
 					await _wait(1.0)

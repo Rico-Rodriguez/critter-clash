@@ -27,6 +27,15 @@ static func glow_of(item: Dictionary, boost := 1.0) -> Color:
 	return Color(c.r, c.g, c.b, c.a * boost)
 
 
+## Set around an `apply` call ({"outfit": k, "skin": k}) to show a look the hero does not own,
+## as the shop's preview does. Empty otherwise.
+static var look_override := {}
+
+
+static func _look(key: String, hero_id: String) -> String:
+	return str(look_override[key]) if look_override.has(key) else str(Game.hero(hero_id).get(key, ""))
+
+
 ## Re-dresses `actor` (built from DB.HEROES[hero_id]). `preview` replaces what
 ## is worn in the slots it names (an empty dictionary there means "bare").
 static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
@@ -59,7 +68,7 @@ static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 	if head and not _hood_on(worn["helm"], hero_id):
 		head.visible = true
 	_hands(actor, skel, hero_id, worn)
-	_outfit(actor, skel, str(Game.hero(hero_id).get("outfit", "")))
+	_outfit(actor, skel, _look("outfit", hero_id))
 
 
 ## The worn outfit's dye over every body part: what the hero wears keeps its
@@ -204,7 +213,7 @@ static func _hands(actor: Actor, skel: Skeleton3D, hero_id: String, worn: Dictio
 		file = lk["model"]
 		scale_ = lk["scale"]
 		dye = lk["dye"]
-	var sk := str(Game.hero(hero_id).get("skin", ""))
+	var sk := _look("skin", hero_id)
 	if DB.WEAPON_SKINS.has(sk):
 		file = DB.WEAPON_SKINS[sk]["model"]
 		scale_ = DB.WEAPON_SKINS[sk]["scale"]
