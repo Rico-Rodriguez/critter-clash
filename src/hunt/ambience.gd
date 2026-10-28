@@ -46,6 +46,7 @@ var _breath_t := 1.0
 var _bed: AudioStreamPlayer
 var _vol := -40.0
 var _voices := 0
+var calm := false  ## nothing takes fright (the screenshot lineup sets it)
 
 
 class Bit extends RefCounted:
@@ -370,12 +371,12 @@ static func _capsule(r: float, hgt: float) -> CapsuleMesh:
 ## albedo tint (a grimmer, duller cast on the two that came out too bright).
 const CRIT := "res://assets/critters/"
 const MODELS := {
-	"hare": ["hare", 0.62, Color(1, 1, 1)],
-	"owl": ["owl", 0.62, Color(1, 1, 1)],
-	"wolf": ["wolf", 1.05, Color(1, 1, 1)],
-	"frog": ["frog", 0.3, Color(0.52, 0.6, 0.46)],
-	"dragonfly": ["dragonfly", 0.42, Color(0.62, 0.72, 0.8)],
-	"crow": ["crow", 0.5, Color(1, 1, 1)],
+	"hare": ["hare", 0.8, Color(1, 1, 1)],
+	"owl": ["owl", 0.9, Color(1, 1, 1)],
+	"wolf": ["wolf", 1.2, Color(1, 1, 1)],
+	"frog": ["frog", 0.4, Color(0.52, 0.6, 0.46)],
+	"dragonfly": ["dragonfly", 0.6, Color(0.62, 0.72, 0.8)],
+	"crow": ["crow", 0.7, Color(1, 1, 1)],
 }
 
 
@@ -507,6 +508,8 @@ func _away(b: Bit) -> Vector3:
 
 
 func _dist(b: Bit) -> float:
+	if calm:
+		return 99.0
 	return b.node.position.distance_to(h.hero.flat_pos())
 
 
@@ -575,7 +578,7 @@ func _glide(b: Bit, dt: float) -> void:
 		var to: Vector3 = h.hero.flat_pos() - b.node.position
 		b.dir = Vector3(to.z, 0.0, -to.x).normalized() * (1.0 if randf() < 0.5 else -1.0)
 		b.node.rotation.y = atan2(b.dir.x, b.dir.z)
-	b.node.position += b.dir * 3.4 * dt
+	b.node.position += b.dir * (0.0 if calm else 3.4) * dt
 	bird.position.y = 2.3 + sin(b.t * 1.1) * 0.12
 	bird.rotation.z = sin(b.t * 0.8) * 0.12
 	if _clamped(b.node.position):

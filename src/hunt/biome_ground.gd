@@ -1,7 +1,7 @@
 extends RefCounted
 ## Paints terrain cells into the Rimehollow and Cinder Mire hunts when the zone's
 ## own arena has not (arena.terrain_live is false): ice sheets with a few thin
-## patches in the frost, the bog pools and a boardwalk in the swamp. The cells sit
+## patches in the frost, the bog pools in the swamp (with the zone's own dark earth underfoot). The cells sit
 ## under the props arena_frozen.gd and arena_swamp.gd already place, so the ground
 ## the player sees is the ground the rules use. A zone that paints its own cells
 ## (the Lead's layouts) calls terrain_begin first and this does nothing.
@@ -32,12 +32,12 @@ static func paint(a: Arena, zone_id: String) -> void:
 	else:
 		for p: Vector3 in POOLS:
 			_blob(g, p, T.BOG, 1)
-		# A plank walk through the middle of the swamp: dry for a hero who stays on it, fuel for a fire.
-		for z in range(-14, 15, 2):
-			var c: Vector2i = g.cell_of(Vector3(0, 0, float(z)))
-			if g.kind_of(c) == T.DRY:
-				g.set_kind(c, T.PLANK)
-	a.terrain_begin({})
+	var look := {}
+	if zone_id == "swamp":
+		# Soot-dark earth and wet bog (the zone's own ground colours, lifted a step so it reads).
+		look = {"dark": (a.zone_env["ground"] as Dictionary)["dark"], "base_a": Color(0.22, 0.205, 0.17), "base_b": Color(0.3, 0.28, 0.23),
+			"bog_col": Color(0.07, 0.05, 0.035)}
+	a.terrain_begin(look)
 	a.terrain_painted()
 
 

@@ -1518,26 +1518,53 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot == "perf":
 					await _perf(h, args)
 				elif shot == "biome":
-					# Every foe of the zone in two rows beside the hero, then the critters:
-					# biome_<n>.png (run it with --zone=frost|swamp and --cam=0.5).
-					await _wait_sim(h, 7.0)
+					# Every foe of the zone, four to a frame ahead of the hero, then the critters:
+					# biome_0, biome_1, biome_critters (run it with --zone=frost|swamp and --cam=0.55).
+					# Taken right after the start, on a clean field (no waves, no corpses).
+					h.spawn_t = 1e9
 					h.hero.invuln = 99.0
 					h.bot = false
+					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
+					# Nobody fights in this shot: no blows from the hero, no pet ability bursts on the lineup.
+					h.hero.atk_cd = 1e9
+					if h.sidekick:
+						h.sidekick.cd = 99.0
+					await _wait_sim(h, 2.5)
 					for f in h.foes.duplicate():
-						h.damage_foe(f, 99999.0, h.hero, Vector3.ZERO, 0.0)
-					await _wait_sim(h, 0.6)
+						h.foes.erase(f)
+						f.queue_free()
 					var kinds: Array = preload("res://src/hunt/foe_brains.gd").faction(h.zone).values()
 					h.foe_speed_mult = 0.0
+					h.spawn_t = 1e9
 					# Four foes a frame (2x2 in front of the hero), the zone's eight in two shots.
 					for part in 2:
 						for f in h.foes.duplicate():
-							h.damage_foe(f, 99999.0, h.hero, Vector3.ZERO, 0.0)
-						await _wait_sim(h, 0.5)
+							h.foes.erase(f)
+							f.queue_free()
+						await _wait_sim(h, 0.3)
 						for i in 4:
 							var at: Vector3 = h.hero.position + Vector3((float(i % 2) - 0.5) * 4.4, 0.0, -3.4 - float(i / 2) * 3.4)
 							h.spawn_foe(str(kinds[part * 4 + i]), h.arena.resolve(at, 0.5))
 						await _wait_sim(h, 1.8)
 						await _save("biome_%d" % part)
+					# The zone's critters in an arc ahead of the hero, each just past its flight distance.
+					for f in h.foes.duplicate():
+						h.foes.erase(f)
+						f.queue_free()
+					var amb: Variant = h.get_meta("ambience", null)
+					if amb is RefCounted:
+						(amb as RefCounted).calm = true
+						h.cam.dist_mult = float(_arg(args, "cam2", "0.4"))
+						var far := {"hare": 3.0, "owl": 3.6, "wolf": 4.4, "frog": 2.6, "dragonfly": 3.4, "crow": 4.6, "bubble": 3.0, "ring": 3.2}
+						var life: Dictionary = (amb as RefCounted).cfg["life"]
+						var n := 0
+						for k: String in life:
+							var at: Vector3 = h.hero.flat_pos() + Vector3((float(n) - float(life.size() - 1) * 0.5) * 1.9, 0.0, -float(far[k]) - float(n % 2) * 1.2)
+							var bit: Variant = (amb as RefCounted).spawn(k, at)
+							(bit as RefCounted).life = 99.0
+							n += 1
+						await _wait_sim(h, 1.1)
+						await _save("biome_critters")
 				elif shot == "hazards":
 					# The zone's hazards all at once, winding up around the hero.
 					await _wait_sim(h, 5.0)
