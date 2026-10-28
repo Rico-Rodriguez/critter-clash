@@ -29,7 +29,7 @@ static func _zones(ok: Callable) -> void:
 		ok.call("biome %s: every faction slot is a real foe" % id, (z["faction"] as Dictionary).values().all(func(k): return DB.ENEMIES.has(k) or DB.ENEMIES_EXTRA.has(k)))
 		ok.call("biome %s: weights name every foe class it fields" % id, (z["faction"] as Dictionary).keys().all(func(k): return float(z["weights"].get(k, 1.0)) > 0.0))
 		ok.call("biome %s: a boss with an intro style and an entrance skin" % id, BI.STYLE.has(str(z["boss"])) and DB.SKINS.has(str(DB.BOSSES[str(z["boss"])]["skin"])))
-		ok.call("biome %s: an arena exists in the arena list or by id" % id, FileAccess.file_exists("res://src/hunt/arena_%s.gd" % ("frozen" if id == "frost" else "swamp")))
+		ok.call("biome %s: an arena exists in the arena list or by id" % id, FileAccess.file_exists("res://src/hunt/arena_%s.gd" % ("rime" if id == "frost" else "swamp")))
 		ok.call("biome %s: boss script exists and has no class_name" % id, _plain("res://src/hunt/boss_%s.gd" % str(z["boss"])))
 
 
@@ -84,7 +84,7 @@ static func _files(ok: Callable) -> void:
 		ok.call("biome %s: its music keys are shipped tracks" % z, tracks.all(func(t): return ResourceLoader.exists("res://assets/audio/music/%s.ogg" % t)))
 	for s: String in DB.SKINS:
 		ok.call("skin %s: texture ships" % s, ResourceLoader.exists("res://assets/kaykit/characters/" + str(DB.SKINS[s]["tex"])))
-	for p in ["res://src/hunt/biome.gd", "res://src/hunt/biome_art.gd", "res://src/hunt/arena_frozen.gd", "res://src/hunt/arena_swamp.gd"]:
+	for p in ["res://src/hunt/biome.gd", "res://src/hunt/biome_art.gd", "res://src/hunt/arena_rime.gd", "res://src/hunt/arena_swamp.gd"]:
 		ok.call("%s has no class_name" % p.get_file(), _plain(p))
 
 

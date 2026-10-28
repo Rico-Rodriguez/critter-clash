@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://c1yuvuslbqpf3"
-path="res://.godot/imported/sting_defeat_1.ogg-ca9b75bb59dcd6f62ac43ca842925b38.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/sting_defeat_1.ogg"
-dest_files=["res://.godot/imported/sting_defeat_1.ogg-ca9b75bb59dcd6f62ac43ca842925b38.oggvorbisstr"]
 
 [params]
 

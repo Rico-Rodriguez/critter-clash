@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://bo0iupftrf2qj"
-path="res://.godot/imported/atk_mage_1.ogg-416a166a2ff34aa3a9e6b287cbc2c094.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/atk_mage_1.ogg"
-dest_files=["res://.godot/imported/atk_mage_1.ogg-416a166a2ff34aa3a9e6b287cbc2c094.oggvorbisstr"]
 
 [params]
 

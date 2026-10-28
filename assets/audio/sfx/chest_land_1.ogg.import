@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://dx3vwl88ymgr6"
-path="res://.godot/imported/chest_land_1.ogg-593d213945946456e5d46c11aefe298e.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/chest_land_1.ogg"
-dest_files=["res://.godot/imported/chest_land_1.ogg-593d213945946456e5d46c11aefe298e.oggvorbisstr"]
 
 [params]
 

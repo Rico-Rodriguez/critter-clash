@@ -244,11 +244,43 @@ static func _arena(ok: Callable) -> void:
 		a.free()
 
 
+## Whether a 1 m walk from `from` to `to` exists round obstacles, water and walls.
+static func _reach(a: Arena, from: Vector3, to: Vector3) -> bool:
+	var seen := {}
+	var q: Array = [Vector2i(roundi(from.x), roundi(from.z))]
+	var goal := Vector2i(roundi(to.x), roundi(to.z))
+	seen[q[0]] = true
+	while not q.is_empty():
+		var c: Vector2i = q.pop_back()
+		if c.distance_to(goal) < 1.5:
+			return true
+		for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n := c + d
+			var p := Vector3(n.x, 0, n.y)
+			if seen.has(n) or p.x < a.min_x or p.x > a.max_x or p.z < a.min_z or p.z > a.max_z:
+				continue
+			seen[n] = true
+			if a.blocked(p, 0.45) or a.terrain.flow_cost(p) < 0.0:
+				continue
+			q.append(n)
+	return false
+
+
 ## A zone that paints its cells: ice walls hold until they break, and a broken
 ## wall and open water change what the flow field may cross.
 static func _arena_live(ok: Callable) -> void:
+	var r := Arena.new()
+	r.build(true, "frost", 0, 1)
+	ok.call("rimehollow: paints its cells, a lake with thin ice and holes, ice walls in both caverns", r.terrain_live and r.terrain.kind_at(Vector3(0, 0, 0)) == T.ICE and r.terrain.kind_at(Vector3(-15, 0, -2)) == T.WALL_ICE and r.terrain.kind_at(Vector3(15, 0, 2)) == T.WALL_ICE and r.terrain.kind_at(Vector3(3, 0, -2)) == T.WATER)
+	ok.call("rimehollow: the start is on dry snow, three shrines, spawn points on firm ground", r.terrain.kind_at(r.start) == T.DRY and r.shrines.size() == 3 and r.graves.size() > 8 and r.graves.all(func(g: Vector3): return r.terrain.kind_at(g) in [T.DRY, T.ICE]))
+	ok.call("rimehollow: the throne is reachable on foot", _reach(r, r.start, Vector3(0, 0, -21)))
+	ok.call("rimehollow: a cavern is sealed until its ice is broken", not _reach(r, r.start, r.shrines[0]["pos"]) and not _reach(r, r.start, r.shrines[1]["pos"]) and _reach(r, r.start, r.shrines[2]["pos"]))
+	r.break_ice_at(Vector3(-15, 0, -3), 3.0)
+	r.break_ice_at(Vector3(15, 0, 3), 3.0)
+	ok.call("rimehollow: breaking the walls opens both caverns", _reach(r, r.start, r.shrines[0]["pos"]) and _reach(r, r.start, r.shrines[1]["pos"]))
+	r.free()
 	var a := Arena.new()
-	a.build(true, "frost", 0, 1)
+	a.build(true, "grove", 0, 1)
 	ok.call("terrain live: off until a zone paints it", not a.terrain_live)
 	a.terrain_begin({})
 	ok.call("terrain live: begin turns it on and draws the cells", a.terrain_live and a.tview != null and a.tview.mat != null)

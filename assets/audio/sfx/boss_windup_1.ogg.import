@@ -3,12 +3,11 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://cbjfq0lal78xf"
-path="res://.godot/imported/boss_windup_1.ogg-a740d87eddccff7850f5a41dba2ce83a.oggvorbisstr"
+valid=false
 
 [deps]
 
 source_file="res://assets/audio/sfx/boss_windup_1.ogg"
-dest_files=["res://.godot/imported/boss_windup_1.ogg-a740d87eddccff7850f5a41dba2ce83a.oggvorbisstr"]
 
 [params]
 
