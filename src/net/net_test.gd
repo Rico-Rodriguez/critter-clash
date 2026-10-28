@@ -101,6 +101,9 @@ func run(main: Node) -> int:
 	var stale: Dictionary = await o.rpc_call("weekly_submit", {"week": Game.week_number() - 1, "best": 99})
 	_ok("last week's score refused", stale["ok"] and bool(stale["data"].get("stale", false)), stale)
 
+	var cheat: Dictionary = await o.rpc_call("weekly_submit", {"week": Game.week_number(), "best": 9999999})
+	_ok("an impossible weekly score is refused", cheat["ok"] and bool(cheat["data"].get("implausible", false)), cheat)
+
 	# Parties: the friend joins over their own socket.
 	var perr: String = await o.party.create()
 	_ok("party made", perr == "" and o.party.active() and o.party.is_leader(), perr)
