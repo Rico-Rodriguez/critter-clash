@@ -40,8 +40,8 @@ func setup(e_: Enemy) -> void:
 	_sink_y = -1.7 * float(e.def["scale"])
 
 
-## The terrain cell grid, once the Lead's arena has one (`arena.terrain`, or a
-## "terrain" meta in tests). Null before then: every brain has a fallback.
+## The terrain cell grid (`arena.terrain`; the old
+## "terrain" meta still works). Null if absent: every brain has a fallback.
 func terrain() -> Object:
 	var a: Object = h.arena
 	var tr: Variant = a.get("terrain")

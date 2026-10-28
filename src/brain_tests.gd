@@ -2,8 +2,8 @@ extends RefCounted
 ## Behaviour tests for the sixteen Rimehollow and Cinder Mire foes (foe_brains.gd).
 ## A real Hunt is built in the test tree and its foes are ticked by hand at 20 Hz;
 ## the hero stands still and is topped up each tick, every hit is read off its HP.
-## Terrain is a `Terrain` grid hung on the arena as meta "terrain" (the same
-## place the Lead's `arena.terrain` will be), so the ground rules are the real ones.
+## Terrain is a `Terrain` grid set as `arena.terrain` (with `terrain_live`), so the
+## ground rules are the real ones.
 
 const T := preload("res://src/hunt/terrain.gd")
 const FoeBrains := preload("res://src/hunt/foe_brains.gd")
@@ -101,10 +101,11 @@ func _stage(floor_kind := -1, hero_at := Vector3(0, 0, 0)) -> void:
 	last_tele = -99.0
 	seen_tele = false
 	if floor_kind < 0:
-		if h.arena.has_meta("terrain"):
-			h.arena.remove_meta("terrain")
+		h.arena.terrain = T.make()
+		h.arena.terrain_live = false
 	else:
-		h.arena.set_meta("terrain", _floor(floor_kind))
+		h.arena.terrain = _floor(floor_kind)
+		h.arena.terrain_live = true
 
 
 func _floor(kind: int) -> RefCounted:
@@ -116,7 +117,7 @@ func _floor(kind: int) -> RefCounted:
 
 
 func grid() -> RefCounted:
-	return h.arena.get_meta("terrain")
+	return h.arena.terrain
 
 
 func foe(kind: String, at: Vector3, up := true) -> Enemy:
@@ -148,7 +149,7 @@ func tick() -> void:
 
 
 func grid_ok() -> bool:
-	return h.arena.has_meta("terrain")
+	return h.arena.terrain_live
 
 
 func run_for(sec: float, until := Callable()) -> bool:
