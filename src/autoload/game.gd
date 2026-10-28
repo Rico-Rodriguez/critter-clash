@@ -56,6 +56,7 @@ func _ready() -> void:
 	setting_changed.connect(func(key: String): if key == "fps": apply_perf_limits())
 	if not memory_only:
 		recover_suspended_run()
+	_fold_event()
 	if int(data.get("idle_since", 0)) <= 0:
 		data["idle_since"] = int(Time.get_unix_time_from_system())
 	Sfx.refresh_volume.call_deferred()
@@ -102,6 +103,26 @@ func recover_suspended_run() -> Dictionary:
 
 
 # --- Loading and migrations ---------------------------------------------------
+
+## The weekly event track folded into the season. Pays the tiers of this week's old track
+## that were earned and not claimed, then zeroes it. Safe to repeat: once zeroed there is
+## nothing left to pay. `folded_event` tells the camp to say so, once.
+func _fold_event() -> void:
+	var e = data.get("event")
+	if not e is Dictionary or int(e.get("week", -1)) != week_number():
+		return
+	var level := 0
+	for need in DB.EVENT_TRACK:
+		if int(e.get("pts", 0)) >= int(need):
+			level += 1
+	var paid := 0
+	for n in range(int(e.get("claimed", 0)) + 1, level + 1):
+		pay_reward(DB.event_reward(n))
+		paid += 1
+	data["event"] = {"week": -1, "pts": 0, "claimed": 0, "hunts": 0}
+	if paid > 0:
+		data["folded_event"] = paid
+		save()
 
 func load_save() -> void:
 	data = _fresh()
@@ -414,9 +435,7 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 	if str(r.get("omen", "")) != "":
 		if record_weekly(r):
 			summary["weekly_best"] = weekly_best()
-		summary["event_pts"] = add_event_points(r)
-		summary["event_total"] = event_points()
-		summary["event_tiers"] = event_claimable()
+		summary["omen_xp"] = add_omen_xp(r)
 	data["gold"] = gold() + int(r.get("gold", 0))
 	# Skill XP goes to the hero who earned it.
 	var sk_hid := str(r.get("hero", hero_id()))

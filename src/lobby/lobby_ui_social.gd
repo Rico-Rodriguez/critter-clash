@@ -1439,8 +1439,7 @@ func _build_account(s: Sheet) -> void:
 var _board_stub := {}
 
 
-## The weekly event: this week's rule, how long it runs, the rewards track the
-## rule's hunts fill, and the week's board.
+## This week: the rule, how long it runs, and the week's board.
 func _build_event(s: Sheet) -> void:
 	var b := s.body
 	var om := Game.weekly_omen()
@@ -1452,11 +1451,11 @@ func _build_event(s: Sheet) -> void:
 	var tv := VBoxContainer.new()
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.add_theme_constant_override("separation", 0)
-	tv.add_child(Ui.label("WEEKLY EVENT · ENDS IN %s" % Game.left_text(Game.event_seconds_left()).to_upper(), "Caption"))
+	tv.add_child(Ui.label("THE RULE · ENDS IN %s" % Game.left_text(Game.event_seconds_left()).to_upper(), "Caption"))
 	tv.add_child(Ui.label(str(om["name"]), "Heading"))
 	top.add_child(tv)
 	hv.add_child(top)
-	hv.add_child(_wrap_label("%s Pays 25%% more gold and a better chest, and every hunt under the rule earns event points." % om["desc"], "Small"))
+	hv.add_child(_wrap_label("%s Pays 25%% more gold, a better chest, and bonus season XP." % om["desc"], "Small"))
 	var tog := _button("Rule on: tap to hunt without it" if on else "Hunt under the rule", "Ghost" if on else "GoldButton", func():
 		Game.set_omen(not bool(Game.data.get("omen_on", false)))
 		refresh()
@@ -1467,49 +1466,10 @@ func _build_event(s: Sheet) -> void:
 		hv.add_child(_wrap_label("The Long Road keeps its own rules. Pick another mode to join in.", "Small"))
 	head.add_child(hv)
 	b.add_child(head)
-	# Points toward the next tier.
-	var pts := Game.event_points()
-	var lv := Game.event_level()
-	var full := lv >= DB.EVENT_TRACK.size()
-	var floor_pts := int(DB.EVENT_TRACK[lv - 1]) if lv > 0 else 0
-	var next_pts := int(DB.EVENT_TRACK[mini(lv, DB.EVENT_TRACK.size() - 1)])
-	b.add_child(_row([Ui.label("Event points", "Heading"), _spacer(), Ui.label(Ui.fmt_num(pts) if full else "%s / %s" % [Ui.fmt_num(pts), Ui.fmt_num(next_pts)], "Value")]))
-	var pb := ProgressBar.new()
-	pb.theme_type_variation = &"XPBar"
-	pb.show_percentage = false
-	pb.custom_minimum_size = Vector2(0, 14)
-	pb.value = 100.0 if full else float(pts - floor_pts) / maxf(next_pts - floor_pts, 1.0) * 100.0
-	b.add_child(pb)
-	var claimed := int(Game.event()["claimed"])
-	for n in range(1, DB.EVENT_TRACK.size() + 1):
-		var rw := DB.event_reward(n)
-		var c := _card()
-		var row := _row([], 14)
-		var num := Ui.label("%d" % n, "Value")
-		num.custom_minimum_size = Vector2(54, 0)
-		num.add_theme_font_size_override("font_size", 28)
-		row.add_child(num)
-		var v := VBoxContainer.new()
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.add_theme_constant_override("separation", 0)
-		v.add_child(Ui.label(("✓ " if n <= claimed else "") + _reward_text(rw), "Body"))
-		v.add_child(Ui.label("%s points" % Ui.fmt_num(int(DB.EVENT_TRACK[n - 1])), "Small"))
-		row.add_child(v)
-		if n == claimed + 1 and n <= lv:
-			var cb := Button.new()
-			cb.text = "Claim"
-			cb.theme_type_variation = &"GoldButton"
-			cb.focus_mode = Control.FOCUS_NONE
-			cb.pressed.connect(func():
-				Game.claim_event()
-				Sfx.play("coin", 0.0)
-				refresh()
-				s.rebuild())
-			row.add_child(cb)
-		elif n > lv:
-			c.modulate = Color(1, 1, 1, 0.55)
-		c.add_child(row)
-		b.add_child(c)
+	# The old event track is gone: omen hunts pay bonus season XP, shown here and in Season.
+	var xp := _card()
+	xp.add_child(_row([Ui.label("Season", "Heading"), _spacer(), Ui.label("tier %d · %s XP" % [Game.season_level(), Ui.fmt_num(int(Game.season()["xp"]))], "Value")]))
+	b.add_child(xp)
 	b.add_child(Ui.label("THIS WEEK'S BOARD", "Caption"))
 	var slot := VBoxContainer.new()
 	slot.add_theme_constant_override("separation", 8)

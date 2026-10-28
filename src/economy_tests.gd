@@ -21,14 +21,13 @@ static func run(ok: Callable) -> void:
 	for p in PLAYERS:
 		out[p[0]] = _week(p)
 		var r: Dictionary = out[p[0]]
-		print("ECONOMY %-8s gold=%d gems=%d shards=%d renown=%d season_tiers=%d event_tiers=%d chests=%d" % [p[0], r["gold"], r["gems"], r["shards"], r["renown"], r["season"], r["event"], r["chests"]])
+		print("ECONOMY %-8s gold=%d gems=%d shards=%d renown=%d season_tiers=%d omen_xp=%d chests=%d" % [p[0], r["gold"], r["gems"], r["shards"], r["renown"], r["season"], r["omen_xp"], r["chests"]])
 	Game.data = keep
 	var c: Dictionary = out["casual"]
 	var g: Dictionary = out["grinder"]
 	# A hunt result lists boss ids; this used to throw in int() and skip the weekly score.
 	ok.call("economy: the weekly score takes the hunt's boss list", Game.weekly_score({"win": true, "bosses": ["gravemaw", "hexer"]}) == Game.weekly_score({"win": true, "bosses": 2}))
 	ok.call("economy: even a casual week earns gold, renown and a season tier", c["gold"] > 0 and c["renown"] > 0 and c["season"] >= 1)
-	ok.call("economy: a casual week does not finish the weekly event", c["event"] < DB.EVENT_TRACK.size())
 	ok.call("economy: a grinder out-earns a casual player", g["gold"] > c["gold"] and g["renown"] > c["renown"])
 	ok.call("economy: nobody finishes a six-week season in one week", g["season"] < DB.SEASON_TIERS)
 	# Gold per hunt must not balloon with volume: 7.5x the hunts pays under 9x the gold.
@@ -46,18 +45,17 @@ static func _week(p: Array) -> Dictionary:
 	var shards0 := int(Game.hero("knight")["shards"])
 	var renown0 := Game.renown()
 	var chests := 0
+	var omen_xp := 0
 	for day in 7:
 		Game.data["daily"] = Game._fresh()["daily"]  # a new day: the first win pays again
 		for i in int(p[1]):
 			var r: Dictionary = (WIN if rng.randf() < float(p[2]) else LOSS).duplicate(true)
 			if rng.randf() < float(p[3]):
 				r["omen"] = om
-			Game.finish_hunt(r)
+			omen_xp += int(Game.finish_hunt(r).get("omen_xp", 0))
 			chests += 1
-	var tiers := {"season": Game.season_level(), "event": Game.event_level()}
+	var tiers := {"season": Game.season_level()}
 	while Game.season_claimable() > 0:
 		Game.claim_season()
-	while Game.event_claimable() > 0:
-		Game.claim_event()
 	return {"gold": Game.gold() - gold0, "gems": int(Game.data.get("gems", 0)) - gems0, "shards": int(Game.hero("knight")["shards"]) - shards0,
-		"renown": Game.renown() - renown0, "season": tiers["season"], "event": tiers["event"], "chests": chests}
+		"renown": Game.renown() - renown0, "season": tiers["season"], "omen_xp": omen_xp, "chests": chests}

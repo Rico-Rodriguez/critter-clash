@@ -373,10 +373,9 @@ func _capture(args: PackedStringArray) -> void:
 						Game.hero(h0)["unlocked"] = h0 == hid
 					Game.data["clue"] = {"step": 1, "goals": [{"id": "gold", "hero": "knight"}, {"id": "veteran", "hero": "knight"}, {"id": "elites", "hero": "knight"}]}
 				if shot in ["event", "eventboard"]:
-					# Three tiers in with two ready, and a board of rivals.
+					# The week's rule on, some season XP earned under it, and a board of rivals.
 					Game.data["omen_on"] = true
-					Game.event()["pts"] = 1330
-					Game.event()["claimed"] = 2
+					Game.season()["xp"] = 1330
 					Game.data["weekly"] = {"week": Game.week_number(), "best": 3420, "omen": str(Game.weekly_omen()["id"]), "hero": hid}
 				if shot == "story":
 					Game.data["story"]["cleared"] = ["oath"]
