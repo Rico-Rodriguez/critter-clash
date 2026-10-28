@@ -12,6 +12,13 @@ version is 7.
 
 ## Unreleased: Biome rebuild, terrain engine
 
+The Cinder Mire boss is now the **Cinder Warlord**: Riltariki's orc (CC BY, see
+`CREDITS.md`), 5.7 m tall at scale 3.0 with its own
+clips. `DB.BOSSES["cinder"]` names its rig (`"rig": "cinder_warlord"`) and
+`DB.boss_def` folds in the fit, clips and alias from `boss_models.gd`. Hitbox
+radius is 1.95 and the occluder 2.1 x 6.0 for the taller body. Story cutscenes
+pass the rig to the boss actor so the Warlord shows there too.
+
 Rebuild 2/3. No visible change yet: no zone paints terrain until the Rimehollow
 and Cinder Mire layouts land.
 
