@@ -100,4 +100,4 @@ an address for dev runs.
 
 `weekly_submit` takes `Game.weekly_entry()` after an omen hunt and writes the
 `weekly` leaderboard, which resets Thursday 00:00 UTC (the same boundary as
-`Game.week_number()`). Scores from another week are refused (`stale`).
+`Game.week_number()`). Scores from another week are refused (`stale`). A score above 40000 is refused as `implausible` (not clamped, so it cannot top the board); the game's own formula tops out in the low thousands.

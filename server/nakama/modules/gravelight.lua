@@ -350,7 +350,11 @@ end
 -- Weekly challenge: the game sends its best omen-hunt score for this week.
 -- Weeks are counted from the Unix epoch (Thursday 00:00 UTC), the same as the
 -- game's Game.week_number(), and the board resets on that boundary.
-local WEEKLY_MAX = 100000
+-- The game's score is 1000 for a win, 50 a level, the souls, 250 a boss and 100 a
+-- depth (Game.weekly_score). Real runs sit in the low thousands; 40000 leaves room
+-- for a very deep Descent. Past it the report is refused, not clamped: a clamped
+-- score would still land at the top of the board.
+local WEEKLY_MAX = 40000
 
 local function weekly_submit(context, payload)
 	local uid = need_user(context)
@@ -359,11 +363,15 @@ local function weekly_submit(context, payload)
 	if math.floor(tonumber(p.week) or -1) ~= week then
 		return encode({ ok = false, stale = true, week = week })
 	end
+	local score = math.max(0, math.floor(tonumber(p.best) or 0))
+	if score > WEEKLY_MAX then
+		nk.logger_warn(("weekly_submit: %s reported %d, refused"):format(uid, score))
+		return encode({ ok = false, implausible = true })
+	end
 	if nk.localcache_get("wk:" .. uid) then
 		return encode({ ok = true, throttled = true })
 	end
 	nk.localcache_put("wk:" .. uid, "1", 5)
-	local score = math.max(0, math.min(math.floor(tonumber(p.best) or 0), WEEKLY_MAX))
 	if score <= 0 then
 		return encode({ ok = true })
 	end
