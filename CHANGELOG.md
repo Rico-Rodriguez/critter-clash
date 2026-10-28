@@ -16,6 +16,12 @@ The egg that cracks is the speckled 3D egg render in its kind's colour, and the 
 
 ---
 
+## Unreleased: Boss Rush and Rift use every boss you have opened
+
+From the design audit. Boss Rush was hard-coded to Gravemaw and the Hexer Queen (twice), and a rift picked one of those two, so four of the six bosses never appeared outside their own zone. The rush now fields the boss of every zone you have opened, once each, in zone order, each 7% stronger than the last (`DB.rush_order_for`); with fewer than four zones open the lap repeats at 1.3x so it is never a two-boss sprint. A rift key opens a random boss from your opened zones, and its unique comes from that boss's table. A bot rush with every zone open beat all six.
+
+---
+
 ## Unreleased: one difficulty ladder for the whole account
 
 From the design audit (`reviews/design-audit-2026-10-28.html`). Difficulties used to open per mode, three wins each, so opening Abyss everywhere meant about 105 wins, most far below the player's power. Now a win on your highest difficulty in any mode opens the next one in every mode, and `DB.TIER_WINS` is 1. The first-clear trophy bonus pays once per difficulty for the account (`tier_wins["all:N"]`), not once per mode. Old saves keep the best tier any mode reached (`Game._one_ladder`, safe to repeat, no save version). `mode_tiers` stays in the save, unused. The results screen says "unlocked in every mode".
