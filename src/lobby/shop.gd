@@ -7,6 +7,7 @@ extends RefCounted
 const ItemIcons := preload("res://src/ui/item_icons.gd")
 const GOLD := Color(1.0, 0.82, 0.4)
 const FxUi := preload("res://src/ui/fx_ui.gd")
+const LookIcons := preload("res://src/ui/look_icons.gd")
 const LookPreview := preload("res://src/lobby/look_preview.gd")
 ## Tile colors by rarity and by chest.
 const RARITY_TILE := {"common": &"TileSlate", "magic": &"TileBlue", "rare": &"TileGold", "epic": &"TilePurple", "legendary": &"TileRed"}
@@ -223,7 +224,7 @@ static func _card(art: Control, title: String, sub: String, price: String, tile:
 	v.add_child(cc)
 	FxUi.halo(btn, art, col, 1.7)
 	var nm := Ui.label(title, "Value", HORIZONTAL_ALIGNMENT_CENTER)
-	nm.add_theme_font_size_override("font_size", 21)
+	nm.add_theme_font_size_override("font_size", 21 if title.length() <= 12 else 18)
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	v.add_child(nm)
 	var sl := Ui.label(sub, "Small", HORIZONTAL_ALIGNMENT_CENTER)
@@ -465,7 +466,7 @@ static func _outfit_card(ui, s: Sheet, hid: String, k: String) -> Button:
 	var owned: bool = k in h.get("outfits", [])
 	var worn: bool = str(h.get("outfit", "")) == k
 	var price := Game.outfit_price(k)
-	var art := Ui.icon_rect(str(DB.HEROES[hid]["icon"]), 84, Color(od["dye"]).lightened(0.25))
+	var art := LookIcons.rect(hid, {"outfit": k}, 96, str(DB.HEROES[hid]["icon"]), Color(od["dye"]).lightened(0.25))
 	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_num(price))
 	var tag := "Season outfit" if od.get("gift", false) else "Outfit"
 	var btn := _card(art, str(od["name"]), tag, ptxt, &"TileBlue", "", worn, false, not owned)
@@ -487,7 +488,7 @@ static func _skin_card(ui, s: Sheet, hid: String, k: String) -> Button:
 	var owned: bool = k in h.get("skins", [])
 	var worn: bool = str(h.get("skin", "")) == k
 	var price := Game.skin_price(k)
-	var art := Ui.icon_rect(str(sd["icon"]), 84, Color("f6e3b4"))
+	var art := LookIcons.rect(hid, {"skin": k}, 96, str(sd["icon"]), Color("f6e3b4"))
 	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_num(price))
 	var btn := _card(art, str(sd["name"]), "Weapon skin", ptxt, &"TileGold", "", worn, false, not owned)
 	btn.pressed.connect(func():

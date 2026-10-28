@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: shop look tiles show the look
+
+Outfit and weapon-skin tiles in the shop show the hero wearing the look (`src/ui/look_icons.gd`, same cached off-screen render as the pet portraits) instead of the hero icon, and long names no longer truncate. Weapon skins are still a full-body shot: the weapon is small in it.
+
+---
+
 ## Unreleased: pet portraits instead of icons
 
 The Stable and Breed tiles, the breed slots and the rename sheet now show each pet's own 3D portrait (`src/ui/pet_icons.gd`: one render per pet and growth stage, off screen, cropped to the creature, cached for the session) in place of a flat icon. Locked silhouettes keep the icon. First of the "real renders everywhere" passes.
