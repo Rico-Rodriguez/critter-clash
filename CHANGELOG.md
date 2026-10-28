@@ -10,6 +10,27 @@ version is 7.
 
 ---
 
+## Unreleased: Biome rebuild, the Cinder Mire
+
+The Burning Swamp now paints the terrain grid. `src/hunt/arena_mire.gd` lays out a
+black bog (it drags: speed x0.55) with dry islands, ash and a boardwalk of planks
+from the landing to the Cinder Warlord's platform, a plank deck ring round it,
+and the Pyre Tree as his den. A methane vent or marsh blast now lights the bog
+and planks it reaches; fire runs the boardwalk, a burnt plank falls into the bog
+(`src/hunt/mire_plank.gd` chars and sinks), burnt bog turns to ash and floods
+back. Three shrines, five vents on ash pads, `graves` on firm ground, `perches`
+on island shores and `spawn_holes` in open bog. New pieces are code-built
+low-poly meshes in `src/hunt/mire_kit.gd` (planks, piles, shacks, Pyre Tree,
+braziers, reeds, stones), batched where they can be. `Terrain.fill_ellipse` and
+`fill_line` are shared by both zone layouts.
+
+Retired: the old swamp layout (`arena_swamp.gd`), the prop reskin
+(`env.skin`, `BiomeArt.recolor`, the four recoloured prop textures and their
+script outputs) and the unused mound, crystal, snow-cap, ice-sheet and scorch
+helpers in `biome_art.gd`. Tests: `terrain_tests.gd` adds the Mire (a firm route
+to the platform, reachability, fire over planks, spawn spots on the right
+ground).
+
 ## Unreleased: Biome rebuild, the Frost Troll
 
 The Frozen Crypt's boss is now the **Frost Troll** (provisional model by
