@@ -2,6 +2,7 @@ extends Control
 ## End of hunt: what you earned, what you levelled, what you found.
 
 ## `again`: straight into another hunt with the same setup.
+const PropIcons := preload("res://src/ui/prop_icons.gd")
 const ItemIcons := preload("res://src/ui/item_icons.gd")
 const STORY_DB := preload("res://src/data/story_db.gd")
 const SDB_EGGS := preload("res://src/data/sidekick_db.gd")
@@ -218,7 +219,7 @@ func _chest_card(kind: String) -> void:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 14)
-	var ic := Ui.icon_rect("locked-chest", 72, c["color"])
+	var ic := PropIcons.chest(kind, 84)
 	row.add_child(ic)
 	var v := VBoxContainer.new()
 	v.alignment = BoxContainer.ALIGNMENT_CENTER

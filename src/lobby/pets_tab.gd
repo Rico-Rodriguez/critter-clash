@@ -10,6 +10,7 @@ const SKDB := preload("res://src/data/sidekick_db.gd")
 const Care := preload("res://src/core/pet_care.gd")
 const PetStage := preload("res://src/lobby/pet_stage.gd")
 const PetIcons := preload("res://src/ui/pet_icons.gd")
+const PropIcons := preload("res://src/ui/prop_icons.gd")
 const FxUi := preload("res://src/ui/fx_ui.gd")
 
 
@@ -135,7 +136,9 @@ static func build_egg_shop(ui, s: Sheet) -> void:
 	var daily := int(offers[0]["left"])
 	var weekly := int(offers[offers.size() - 1]["left"])
 	b.add_child(ui._row([Ui.label("EGG SHOP", "Caption"), ui._spacer(), Ui.icon_rect("two-coins", 26, Color(1.0, 0.84, 0.4)), Ui.label("%d" % Game.gold(), "Value")], 8))
-	var info := Ui.label("Fresh eggs every day, one rare feature every week. Daily offers turn in %s · the feature in %s." % [_span(daily), _span(weekly)], "Small")
+	# Both clocks only get a line each when they differ (they match on the last day of the week).
+	var clocks := "Offers turn over in %s." % _span(daily) if weekly - daily < 3600 else "Daily offers turn in %s, the weekly feature in %s." % [_span(daily), _span(weekly)]
+	var info := Ui.label("Fresh eggs every day, one rare feature every week. " + clocks, "Small")
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(info)
 	var grid := GridContainer.new()
@@ -178,7 +181,7 @@ static func _offer_card(ui, s: Sheet, of: Dictionary) -> Control:
 	var tag := Ui.label("WEEKLY FEATURE" if bool(of["weekly"]) else str(ed["rarity"]).to_upper(), "Caption")
 	tag.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4) if bool(of["weekly"]) else col.lightened(0.2))
 	v.add_child(tag)
-	var egg := Ui.icon_rect("egg-clutch", 64, col)
+	var egg := PropIcons.egg(kind, 88)
 	egg.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(egg)
 	if bool(of["weekly"]) and not sold:

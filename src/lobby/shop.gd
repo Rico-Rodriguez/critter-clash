@@ -6,6 +6,7 @@ extends RefCounted
 
 const ItemIcons := preload("res://src/ui/item_icons.gd")
 const GOLD := Color(1.0, 0.82, 0.4)
+const PropIcons := preload("res://src/ui/prop_icons.gd")
 const FxUi := preload("res://src/ui/fx_ui.gd")
 const LookIcons := preload("res://src/ui/look_icons.gd")
 const LookPreview := preload("res://src/lobby/look_preview.gd")
@@ -335,7 +336,7 @@ static func _feature_card(ui, s: Sheet, i: int, d: Dictionary) -> Button:
 	var cc := CenterContainer.new()
 	cc.custom_minimum_size = Vector2(250, 0)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var art := Ui.icon_rect("locked-chest", 150, c["color"])
+	var art := PropIcons.chest(str(d["chest"]), 170)
 	cc.add_child(art)
 	h.add_child(cc)
 	var tv := VBoxContainer.new()
@@ -383,7 +384,7 @@ static func _deal_art(ui, d: Dictionary, size_: float) -> Control:
 			var it: Dictionary = d["item"]
 			return ItemIcons.rect(it, size_, DB.gear_color(it))
 		"chest":
-			return Ui.icon_rect("locked-chest", size_, DB.CHESTS[d["chest"]]["color"])
+			return PropIcons.chest(str(d["chest"]), size_)
 	return Control.new()
 
 
@@ -429,7 +430,7 @@ static func _deal_card(ui, s: Sheet, i: int, d: Dictionary, _gold_label: Label) 
 static func _chest_card(ui, kind: String, n: int) -> Button:
 	var c: Dictionary = DB.CHESTS[kind]
 	var price := Game.shop_chest_price(kind)
-	var art := Ui.icon_rect("locked-chest", 96, c["color"])
+	var art := PropIcons.chest(kind, 110)
 	var btn := _card(art, str(c["name"]).trim_suffix(" Chest"), "%d gear · %d shards" % [int(c["items"]), int(c["shards"])], Ui.fmt_num(price), CHEST_TILE.get(kind, &"TileSlate"), "", false, false)
 	btn.custom_minimum_size.y = 290
 	FxUi.bob(art, 3.0, 2.6, n * 0.4)
