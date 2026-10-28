@@ -366,119 +366,116 @@ static func _capsule(r: float, hgt: float) -> CapsuleMesh:
 	return c
 
 
+## Critter models (CC BY, Sketchfab; assets/critters/CREDITS in CREDITS.md): file, height in metres,
+## albedo tint (a grimmer, duller cast on the two that came out too bright).
+const CRIT := "res://assets/critters/"
+const MODELS := {
+	"hare": ["hare", 0.62, Color(1, 1, 1)],
+	"owl": ["owl", 0.62, Color(1, 1, 1)],
+	"wolf": ["wolf", 1.05, Color(1, 1, 1)],
+	"frog": ["frog", 0.3, Color(0.52, 0.6, 0.46)],
+	"dragonfly": ["dragonfly", 0.42, Color(0.62, 0.72, 0.8)],
+	"crow": ["crow", 0.5, Color(1, 1, 1)],
+}
+
+
+## The critter's model under `parent`: its wrapped scene scaled to the kind's height, the posed
+## culling bounds set, the tint and a lit material applied. The AnimationPlayer goes in parts["ap"].
+func _model(b: Bit, parent: Node3D) -> Node3D:
+	var spec: Array = MODELS[b.kind]
+	var ps := load(CRIT + str(spec[0]) + ".tscn") as PackedScene
+	var m: Node3D = ps.instantiate()
+	m.scale = Vector3.ONE * float(spec[1])
+	var culls: Dictionary = m.get_meta("cull_aabbs", {})
+	var inner := m.get_child(0) if m.get_child_count() > 0 else null
+	for mp: String in culls:
+		var mi := inner.get_node_or_null(mp) as MeshInstance3D if inner else null
+		if mi:
+			mi.custom_aabb = culls[mp]
+	var tint: Color = spec[2]
+	for mi: Node in m.find_children("*", "MeshInstance3D", true, false):
+		var inst := mi as MeshInstance3D
+		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for i in inst.get_surface_override_material_count():
+			var mat := inst.get_active_material(i) as BaseMaterial3D
+			if mat == null:
+				continue
+			mat = mat.duplicate() as BaseMaterial3D
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+			mat.albedo_color = mat.albedo_color * tint
+			inst.set_surface_override_material(i, mat)
+	parent.add_child(m)
+	var ap := m.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	b.parts["ap"] = ap
+	return m
+
+
+## Plays the model's clip whose name has `key` in it (looping), from `at` (0..1 of its length);
+## speed 0 holds that frame.
+func _clip(b: Bit, key: String, speed := 1.0, at := 0.0, loop := true) -> void:
+	var ap: AnimationPlayer = b.parts.get("ap")
+	if ap == null:
+		return
+	for n: String in ap.get_animation_list():
+		if n.to_lower().contains(key) or key == "":
+			var an := ap.get_animation(n)
+			an.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
+			ap.play(n, 0.15, speed)
+			if at > 0.0:
+				ap.seek(an.length * at, true)
+			return
+
+
 func _build_hare(b: Bit) -> void:
-	var white := Color(0.93, 0.95, 1.0)
 	var body := Node3D.new()
 	b.node.add_child(body)
 	b.parts["body"] = body
-	_m(body, _capsule(0.15, 0.5), white, Vector3(0, 0.2, 0), Vector3.ONE, Vector3(PI / 2, 0, 0))
-	_m(body, _sphere(0.11), white, Vector3(0, 0.3, 0.3))
-	_m(body, _sphere(0.07), white, Vector3(0, 0.22, -0.3))
-	_m(body, _sphere(0.02), Color(0.1, 0.1, 0.14), Vector3(0.07, 0.33, 0.39))
-	_m(body, _sphere(0.02), Color(0.1, 0.1, 0.14), Vector3(-0.07, 0.33, 0.39))
+	_model(b, body)
 	var ears := Node3D.new()
 	body.add_child(ears)
 	b.parts["ears"] = ears
-	_m(ears, _box(0.04, 0.22, 0.05), white, Vector3(0.05, 0.5, 0.26), Vector3.ONE, Vector3(-0.25, 0, 0.12))
-	_m(ears, _box(0.04, 0.22, 0.05), Color(0.35, 0.37, 0.42), Vector3(-0.05, 0.5, 0.26), Vector3.ONE, Vector3(-0.25, 0, -0.12))
+	_clip(b, "idle")
 
 
 func _build_owl(b: Bit) -> void:
-	var crystal := Color(0.7, 0.88, 1.0)
-	_m(b.node, _cone(0.3, 1.5, 0.05), crystal, Vector3(0, 0.75, 0))
-	_m(b.node, _cone(0.16, 0.8, 0.0), Color(0.82, 0.94, 1.0), Vector3(0.35, 0.4, 0.1), Vector3.ONE, Vector3(0, 0, -0.2))
+	# The snowy owl model is flying (wings out, no folded pose): it glides across the hollow.
 	var bird := Node3D.new()
-	bird.position = Vector3(0, 1.5, 0)
+	bird.position = Vector3(0, 2.3, 0)
 	b.node.add_child(bird)
 	b.parts["bird"] = bird
-	var white := Color(0.96, 0.96, 0.98)
-	_m(bird, _capsule(0.16, 0.5), white, Vector3(0, 0.25, 0))
-	var head := _m(bird, _sphere(0.14), white, Vector3(0, 0.55, 0.03))
-	b.parts["head"] = head
-	_m(head, _sphere(0.035), Color(1.0, 0.8, 0.2), Vector3(0.06, 0.02, 0.11), Vector3.ONE)
-	_m(head, _sphere(0.035), Color(1.0, 0.8, 0.2), Vector3(-0.06, 0.02, 0.11), Vector3.ONE)
-	_m(head, _cone(0.025, 0.06), Color(0.2, 0.18, 0.18), Vector3(0, -0.03, 0.14), Vector3.ONE, Vector3(PI / 2, 0, 0))
-	var wl := Node3D.new()
-	wl.position = Vector3(0.15, 0.35, 0)
-	bird.add_child(wl)
-	_m(wl, _box(0.05, 0.36, 0.2), Color(0.85, 0.87, 0.92), Vector3(0.03, -0.1, 0))
-	var wr := Node3D.new()
-	wr.position = Vector3(-0.15, 0.35, 0)
-	bird.add_child(wr)
-	_m(wr, _box(0.05, 0.36, 0.2), Color(0.85, 0.87, 0.92), Vector3(-0.03, -0.1, 0))
-	b.parts["wl"] = wl
-	b.parts["wr"] = wr
+	_model(b, bird)
+	_clip(b, "", 1.0)
+	b.st = "glide"
 
 
 func _build_wolf(b: Bit) -> void:
-	var dark := Color(0.11, 0.13, 0.19)
 	var body := Node3D.new()
 	b.node.add_child(body)
 	b.parts["body"] = body
-	_m(body, _box(0.4, 0.42, 1.0), dark, Vector3(0, 0.65, 0))
-	_m(body, _box(0.3, 0.3, 0.34), dark, Vector3(0, 0.82, 0.62))
-	_m(body, _box(0.18, 0.16, 0.26), dark, Vector3(0, 0.76, 0.86))
-	_m(body, _box(0.07, 0.14, 0.06), dark, Vector3(0.1, 1.02, 0.58))
-	_m(body, _box(0.07, 0.14, 0.06), dark, Vector3(-0.1, 1.02, 0.58))
-	_m(body, _box(0.12, 0.12, 0.6), dark, Vector3(0, 0.74, -0.72), Vector3.ONE, Vector3(0.6, 0, 0))
-	var legs := []
-	for lx in [-0.15, 0.15]:
-		for lz in [-0.35, 0.35]:
-			var leg := Node3D.new()
-			leg.position = Vector3(lx, 0.5, lz)
-			body.add_child(leg)
-			_m(leg, _box(0.1, 0.5, 0.1), dark, Vector3(0, -0.25, 0))
-			legs.append(leg)
-	b.parts["legs"] = legs
+	b.parts["legs"] = []
+	_model(b, body)
+	_clip(b, "idle", 0.6)
 
 
 func _build_frog(b: Bit) -> void:
-	var green := Color(0.32, 0.56, 0.24)
-	_m(b.node, _sphere(0.17), green, Vector3(0, 0.13, 0), Vector3(1, 0.62, 1.25))
-	_m(b.node, _sphere(0.05), Color(0.95, 0.85, 0.3), Vector3(0.09, 0.26, 0.12))
-	_m(b.node, _sphere(0.05), Color(0.95, 0.85, 0.3), Vector3(-0.09, 0.26, 0.12))
-	_m(b.node, _sphere(0.02), Color(0.08, 0.08, 0.08), Vector3(0.09, 0.28, 0.16))
-	_m(b.node, _sphere(0.02), Color(0.08, 0.08, 0.08), Vector3(-0.09, 0.28, 0.16))
-	_m(b.node, _box(0.06, 0.05, 0.22), Color(0.24, 0.44, 0.2), Vector3(0.15, 0.06, -0.1))
-	_m(b.node, _box(0.06, 0.05, 0.22), Color(0.24, 0.44, 0.2), Vector3(-0.15, 0.06, -0.1))
+	_model(b, b.node)
+	_clip(b, "", 0.7)
 
 
 func _build_dragonfly(b: Bit) -> void:
-	var teal := Color(0.18, 0.72, 0.78)
-	_m(b.node, _box(0.04, 0.04, 0.36), teal, Vector3.ZERO)
-	_m(b.node, _sphere(0.035), teal.lightened(0.15), Vector3(0, 0, 0.2))
-	var wings := []
-	for s in [-1.0, 1.0]:
-		for z in [0.05, -0.04]:
-			var w := Node3D.new()
-			w.position = Vector3(0.02 * s, 0.03, z)
-			b.node.add_child(w)
-			_m(w, _box(0.2, 0.006, 0.06), Color(0.88, 0.96, 1.0), Vector3(0.1 * s, 0, 0))
-			wings.append([w, s])
-	b.parts["wings"] = wings
+	_model(b, b.node)
+	b.parts["wings"] = []
+	_clip(b, "fly", 1.4)
 
 
 func _build_crow(b: Bit) -> void:
-	_m(b.node, _cone(0.16, 1.0, 0.12), Color(0.34, 0.25, 0.17), Vector3(0, 0.5, 0))
+	_m(b.node, _cone(0.16, 1.0, 0.12), Color(0.34, 0.25, 0.17), Vector3(0, 0.5, 0))  # its stump
 	var bird := Node3D.new()
 	bird.position = Vector3(0, 1.0, 0)
 	b.node.add_child(bird)
 	b.parts["bird"] = bird
-	var ink := Color(0.1, 0.1, 0.14)
-	_m(bird, _capsule(0.1, 0.38), ink, Vector3(0, 0.18, 0), Vector3.ONE, Vector3(0.5, 0, 0))
-	_m(bird, _sphere(0.08), ink, Vector3(0, 0.38, 0.1))
-	_m(bird, _cone(0.03, 0.12), Color(0.85, 0.55, 0.15), Vector3(0, 0.37, 0.2), Vector3.ONE, Vector3(PI / 2, 0, 0))
-	_m(bird, _box(0.08, 0.04, 0.3), ink, Vector3(0, 0.05, -0.2), Vector3.ONE, Vector3(0.4, 0, 0))
-	var wl := Node3D.new()
-	wl.position = Vector3(0.1, 0.25, 0)
-	bird.add_child(wl)
-	_m(wl, _box(0.3, 0.03, 0.2), Color(0.16, 0.16, 0.2), Vector3(0.14, 0, 0))
-	var wr := Node3D.new()
-	wr.position = Vector3(-0.1, 0.25, 0)
-	bird.add_child(wr)
-	_m(wr, _box(0.3, 0.03, 0.2), Color(0.16, 0.16, 0.2), Vector3(-0.14, 0, 0))
-	b.parts["wl"] = wl
-	b.parts["wr"] = wr
+	_model(b, bird)
+	_clip(b, "takeoff", 0.0, 0.3)  # held on a perched frame
 
 
 func _build_bubble(b: Bit) -> void:
@@ -527,19 +524,13 @@ func _scale(b: Bit, dt: float) -> void:
 	b.node.scale = Vector3.ONE * maxf(k, 0.01)
 
 
-func _flap(b: Bit, hz: float, amp: float) -> void:
-	var a := sin(b.t * hz) * amp
-	(b.parts["wl"] as Node3D).rotation.z = -a
-	(b.parts["wr"] as Node3D).rotation.z = a
-
-
 func _think(b: Bit, dt: float) -> void:
 	b.t += dt
 	match b.kind:
 		"hare":
 			_hare(b, dt)
 		"owl":
-			_perched(b, dt, 8.0, 3.5, 2.5, "")
+			_glide(b, dt)
 		"crow":
 			_perched(b, dt, 9.0, 6.5, 4.0, "swamp_crow")
 		"wolf":
@@ -564,11 +555,12 @@ func _hare(b: Bit, dt: float) -> void:
 			b.t = 0.0
 			b.dir = _away(b)
 			b.leave = 2.4
+			_clip(b, "run", 1.4)
 		return
 	var d := b.dir.rotated(Vector3.UP, sin(b.t * 5.0) * 0.5)
 	b.node.position += d * 9.0 * dt
 	b.node.rotation.y = atan2(d.x, d.z)
-	body.position.y = absf(sin(b.t * 13.0)) * 0.2
+	body.position.y = absf(sin(b.t * 13.0)) * 0.07
 	if _clamped(b.node.position):
 		var ar: Node = h.arena
 		b.node.position.x = clampf(b.node.position.x, ar.min_x + 0.5, ar.max_x - 0.5)
@@ -576,28 +568,43 @@ func _hare(b: Bit, dt: float) -> void:
 		b.leave = minf(b.leave, 0.5)
 
 
-## An owl on its ice crystal or a crow on its stump: sits, looks about, flaps off.
+## An owl glides across the hollow, high and slow, and is gone.
+func _glide(b: Bit, dt: float) -> void:
+	var bird: Node3D = b.parts["bird"]
+	if b.dir == Vector3.ZERO:
+		var to: Vector3 = h.hero.flat_pos() - b.node.position
+		b.dir = Vector3(to.z, 0.0, -to.x).normalized() * (1.0 if randf() < 0.5 else -1.0)
+		b.node.rotation.y = atan2(b.dir.x, b.dir.z)
+	b.node.position += b.dir * 3.4 * dt
+	bird.position.y = 2.3 + sin(b.t * 1.1) * 0.12
+	bird.rotation.z = sin(b.t * 0.8) * 0.12
+	if _clamped(b.node.position):
+		var ar: Node = h.arena
+		b.node.position.x = clampf(b.node.position.x, ar.min_x + 0.5, ar.max_x - 0.5)
+		b.node.position.z = clampf(b.node.position.z, ar.min_z + 0.5, ar.max_z - 0.5)
+		b.leave = minf(b.leave, 0.6)
+	if b.t > 7.0 and b.leave == INF:
+		b.leave = 0.6
+
+
+## A crow on its stump: sits, looks about, flaps off.
 func _perched(b: Bit, dt: float, scare: float, speed: float, rise: float, call: String) -> void:
 	var bird: Node3D = b.parts["bird"]
 	if b.st == "idle":
-		if b.kind == "owl":
-			(b.parts["head"] as Node3D).rotation.y = sin(b.t * 0.7) * 1.1
-		else:
-			bird.rotation.y = sin(b.t * 1.3) * 0.5
-			b.croak -= dt
-			if b.croak <= 0.0:
-				b.croak = randf_range(5.0, 11.0)
-				if randf() < 0.6:
-					play(call, -10.0, b.node.position)
+		bird.rotation.y = sin(b.t * 1.3) * 0.5
+		b.croak -= dt
+		if b.croak <= 0.0:
+			b.croak = randf_range(5.0, 11.0)
+			if randf() < 0.6:
+				play(call, -10.0, b.node.position)
 		b.life -= dt
 		if _dist(b) < scare or b.life <= 0.0:
 			b.st = "fly"
 			b.t = 0.0
 			b.dir = _away(b)
-			if call != "":
-				play(call, -8.0, b.node.position)
+			play(call, -8.0, b.node.position)
+			_clip(b, "takeoff", 1.0, 0.62, false)
 		return
-	_flap(b, 20.0, 0.9)
 	bird.position += (b.dir * speed + Vector3.UP * rise) * dt
 	bird.rotation.y = atan2(b.dir.x, b.dir.z)
 	if b.t > 2.6 and b.leave == INF:

@@ -1,0 +1,12 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/critters/hare_src.glb" id="1_s7ja3"]
+
+[node name="hare" type="Node3D" unique_id=1667063208]
+metadata/cull_aabbs = {
+"Sketchfab_model/6b6db248e2724aeca73e8cf71e3bb6d4_fbx/Object_2/RootNode/Armature/Object_9/Skeleton3D/Object_12": AABB(-1.9542303, -2.4399476, -1.6275474, 3.9084606, 5.2243958, 5.679411)
+}
+metadata/posed_aabb = AABB(-0.13845362, 0, -0.4071069, 0.27690724, 1, 0.8142138)
+
+[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=438406883 instance=ExtResource("1_s7ja3")]
+transform = Transform3D(0.40830764, 0, 0, 0, 0.40830764, 0, 0, 0, 0.40830764, 0, 0.0050665406, 0.07033125)

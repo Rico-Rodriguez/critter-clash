@@ -4,14 +4,18 @@ extends SceneTree
 ## Sketchfab imports keep bind-space mesh bounds, so the size is measured on
 ## the posed mesh (first frame of the idle clip, else of the first clip). Re-run after replacing a glb:
 ## tools/dev/godot-gpu.sh -s res://tools/art/wrap_foes.gd (needs a renderer: skins)
-const DIR := "res://assets/foes/"
+const DIR := "res://assets/foes/"  # or the first user arg: -- res://assets/critters/
 
 
 func _init() -> void:
-	for f in DirAccess.get_files_at(DIR):
+	var dir := DIR
+	var ua := OS.get_cmdline_user_args()
+	if ua.size() > 0:
+		dir = ua[0]
+	for f in DirAccess.get_files_at(dir):
 		if not f.ends_with("_src.glb"):
 			continue
-		var model: Node3D = (load(DIR + f) as PackedScene).instantiate()
+		var model: Node3D = (load(dir + f) as PackedScene).instantiate()
 		root.add_child(model)
 		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
 		if ap and ap.get_animation_list().size() > 0:
@@ -58,7 +62,7 @@ func _init() -> void:
 		model.position = Vector3(-box.get_center().x * k, -box.position.y * k, -box.get_center().z * k)
 		var ps := PackedScene.new()
 		ps.pack(wrap)
-		var out := DIR + wrap.name + ".tscn"
+		var out := dir + wrap.name + ".tscn"
 		ResourceSaver.save(ps, out)
 		print("WRAP ", out, " raw_height=", box.size.y, " k=", k)
 	quit()

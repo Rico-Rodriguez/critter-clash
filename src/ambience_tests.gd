@@ -52,10 +52,40 @@ func assets() -> void:
 			unlisted.append(who)
 	ok.call("ambience: every source is credited in CREDITS.md %s" % str(unlisted), unlisted.is_empty())
 	ok.call("ambience: the in-game credits name the ambience sources", sheet.contains("ambience") and sheet.contains("LokiF"))
+	_models(credits, sheet)
 	var decl := false
 	for line in FileAccess.get_file_as_string("res://src/hunt/ambience.gd").split("\n"):
 		decl = decl or line.begins_with("class_name")
 	ok.call("ambience: the module is a plain script (no class_name)", not decl)
+
+
+## Every critter is a real licensed model: wrapped scene, rigged clip, lit, credited by its author.
+func _models(credits: String, sheet: String) -> void:
+	var bad := []
+	var nameless := []
+	var authors := {"hare": "bluekiwi.dog", "owl": "Lilly!", "wolf": "ESO", "frog": "lawtrigg", "dragonfly": "babybuttred2", "crow": "Alexei Ostapenko"}
+	var life := {}
+	for z: String in Ambience.SETS:
+		for k: String in Ambience.SETS[z]["life"]:
+			life[k] = true
+	for k: String in life:
+		if not Ambience.MODELS.has(k):
+			if not k in ["bubble", "ring"]:
+				bad.append(k)
+			continue
+		var ps := load(Ambience.CRIT + str(Ambience.MODELS[k][0]) + ".tscn") as PackedScene
+		if ps == null:
+			bad.append(k)
+			continue
+		var m: Node = ps.instantiate()
+		var ap := m.find_child("AnimationPlayer", true, false) as AnimationPlayer
+		if ap == null or ap.get_animation_list().is_empty() or m.find_children("*", "MeshInstance3D", true, false).is_empty():
+			bad.append(k)
+		m.free()
+		if not credits.contains(str(authors[k])) or not sheet.contains(str(authors[k])):
+			nameless.append(k)
+	ok.call("ambience: every critter kind is a rigged model with a clip %s" % str(bad), bad.is_empty())
+	ok.call("ambience: each critter's author is in CREDITS.md and the in-game credits %s" % str(nameless), nameless.is_empty())
 
 
 func go() -> void:
@@ -130,7 +160,8 @@ func _caps() -> void:
 				var p: Vector3 = b.node.position
 				if p.x < h.arena.min_x - 3.0 or p.x > h.arena.max_x + 3.0 or p.z < h.arena.min_z - 3.0 or p.z > h.arena.max_z + 3.0:
 					out.append(b.kind)
-				meshes = maxi(meshes, b.node.find_children("*", "MeshInstance3D", true, false).size())
+				if b.kind != "ring":  # the fish ring is eight drawn strips, not a model
+					meshes = maxi(meshes, b.node.find_children("*", "MeshInstance3D", true, false).size())
 				colliders += b.node.find_children("*", "CollisionObject3D", true, false).size()
 			for k: String in Ambience.LIMIT:
 				if a.count(k) > int(Ambience.LIMIT[k]):
@@ -138,7 +169,7 @@ func _caps() -> void:
 		ok.call("ambience %s: never more than %d critters alive (saw %d)" % [z, a.cap, worst], worst <= a.cap and worst > 0)
 		ok.call("ambience %s: never more of a kind than its limit %s" % [z, str(over)], over.is_empty())
 		ok.call("ambience %s: critters stay in the arena %s" % [z, str(out)], out.is_empty())
-		ok.call("ambience %s: a critter is a few primitives (%d meshes at most), none collide" % [z, meshes], meshes <= 14 and colliders == 0)
+		ok.call("ambience %s: a critter is one model (%d meshes at most), none collide" % [z, meshes], meshes <= 4 and colliders == 0)
 		ok.call("ambience %s: several kinds turn up in a minute %s" % [z, str(kinds.keys())], kinds.size() >= 2)
 		a._bed.stop()
 		for b in a.bits:
@@ -172,12 +203,14 @@ func _flee() -> void:
 
 	_park(Vector3(0, 0, 0))
 	var owl: RefCounted = _far(a, "owl", Vector3(-12, 0, -2))
-	var y0: float = (owl.parts["bird"] as Node3D).position.y
-	_park(Vector3(-6, 0, -2))
+	var bird: Node3D = owl.parts["bird"]
+	ok.call("ambience: an owl glides high over the hollow", owl.st == "glide" and bird.position.y > 1.8)
 	_step(a, 1.0)
-	ok.call("ambience: an owl flaps off its crystal when the hero comes near", owl.st == "fly" and (owl.parts["bird"] as Node3D).position.y > y0 + 1.5)
-	_step(a, 4.0)
-	ok.call("ambience: and the crystal goes with it", a.bits.is_empty())
+	var to_hero: Vector3 = (h.hero.flat_pos() - owl.node.position).normalized()
+	var fwd := Vector3(sin(owl.node.rotation.y), 0, cos(owl.node.rotation.y))
+	ok.call("ambience: it sails across, not at the hero", absf(fwd.dot(to_hero)) < 0.5)
+	_step(a, 8.0)
+	ok.call("ambience: and is gone", a.bits.is_empty())
 
 	_park(Vector3(0, 0, 0))
 	var wolf: RefCounted = _far(a, "wolf", Vector3(19.8, 0, 0))

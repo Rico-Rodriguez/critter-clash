@@ -1247,7 +1247,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards", "perf":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards", "perf", "biome":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1517,6 +1517,27 @@ func _capture(args: PackedStringArray) -> void:
 					await _save("bossphase_after")
 				elif shot == "perf":
 					await _perf(h, args)
+				elif shot == "biome":
+					# Every foe of the zone in two rows beside the hero, then the critters:
+					# biome_<n>.png (run it with --zone=frost|swamp and --cam=0.5).
+					await _wait_sim(h, 7.0)
+					h.hero.invuln = 99.0
+					h.bot = false
+					for f in h.foes.duplicate():
+						h.damage_foe(f, 99999.0, h.hero, Vector3.ZERO, 0.0)
+					await _wait_sim(h, 0.6)
+					var kinds: Array = preload("res://src/hunt/foe_brains.gd").faction(h.zone).values()
+					h.foe_speed_mult = 0.0
+					# Four foes a frame (2x2 in front of the hero), the zone's eight in two shots.
+					for part in 2:
+						for f in h.foes.duplicate():
+							h.damage_foe(f, 99999.0, h.hero, Vector3.ZERO, 0.0)
+						await _wait_sim(h, 0.5)
+						for i in 4:
+							var at: Vector3 = h.hero.position + Vector3((float(i % 2) - 0.5) * 4.4, 0.0, -3.4 - float(i / 2) * 3.4)
+							h.spawn_foe(str(kinds[part * 4 + i]), h.arena.resolve(at, 0.5))
+						await _wait_sim(h, 1.8)
+						await _save("biome_%d" % part)
 				elif shot == "hazards":
 					# The zone's hazards all at once, winding up around the hero.
 					await _wait_sim(h, 5.0)

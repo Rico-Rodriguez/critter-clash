@@ -248,3 +248,22 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
     https://sketchfab.com/3d-models/bloater-18e00bde1fca4cef9f39188fdfb20b1e
   - Ember Wasp — "Armored Wasp" by Rodrigo Bento —
     https://sketchfab.com/3d-models/armored-wasp-30e45b0f76d64aed8a8c587235d6f6e5
+
+## Ambient critters — Rimehollow and the Cinder Mire (CC BY 4.0)
+
+Animated wildlife in `assets/critters/` (`src/hunt/ambience.gd`), all CC BY 4.0 from Sketchfab, run through
+`tools/art/foe_pipeline.sh` (clips pruned, keyframes reduced, textures shrunk, decimated); the game tints the frog,
+dragonfly and wolf's albedo a shade duller. The methane bubbles and fish rings are drawn in code.
+
+- Snow hare — "Hare (animated)" by bluekiwi.dog —
+  https://sketchfab.com/3d-models/hare-animated-948938cd237d49a9868662213fa05543
+- Snowy owl — "Day 20 - Snowy Owl" by Lilly! (LillyanneTr) —
+  https://sketchfab.com/3d-models/day-20-snowy-owl-745c105544784b9a80bbec49cccd1580
+- Ridge wolf — "Stylized Wolf" by ESO (ESOOOO) —
+  https://sketchfab.com/3d-models/stylized-wolf-2b369cacbd3a4d19b39353f6cf60b8a9
+- Bog frog (critter) — "Green Frog" by lawtrigg —
+  https://sketchfab.com/3d-models/green-frog-5902f063c7a4406aa6f93f9da56a0510
+- Dragonfly — "Dragonfly Chicken Gun" by babybuttred2 —
+  https://sketchfab.com/3d-models/dragonfly-chicken-gun-9004560d14174ee383298e229eb4ddf7
+- Crow — "Crow" by Alexei Ostapenko (alexanders823) —
+  https://sketchfab.com/3d-models/crow-d5a9b0df4da3493688b63ce42c8a83e2
