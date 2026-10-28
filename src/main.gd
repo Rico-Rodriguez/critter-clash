@@ -409,6 +409,15 @@ const BUDGET_DRAWS := 700
 const BUDGET_PRIMS := 400000
 
 
+## A beauty shot: no tutorial hint, no ground warnings under the lineup.
+func _beauty(h: Hunt) -> void:
+	if h.hud._hint:
+		h.hud._hint.visible = false
+	for n in h.find_children("*", "MeshInstance3D", true, false):
+		if n.has_meta("pool") and str(n.get_meta("pool")).begins_with("tele_"):
+			n.visible = false
+
+
 func _capture(args: PackedStringArray) -> void:
 	_shots_dir = _arg(args, "out", _shots_dir)
 	DirAccess.make_dir_recursive_absolute(_shots_dir)
@@ -1525,6 +1534,8 @@ func _capture(args: PackedStringArray) -> void:
 					h.hero.invuln = 99.0
 					h.bot = false
 					h.cam.dist_mult = float(_arg(args, "cam", "0.55"))
+					# A low angle, so the knight reads as a knight and not as the top of a helm.
+					h.cam.pitch_deg = float(_arg(args, "pitch", "34"))
 					# Nobody fights in this shot: no blows from the hero, no pet ability bursts on the lineup.
 					h.hero.atk_cd = 1e9
 					if h.sidekick:
@@ -1546,6 +1557,7 @@ func _capture(args: PackedStringArray) -> void:
 							var at: Vector3 = h.hero.position + Vector3((float(i % 2) - 0.5) * 4.4, 0.0, -3.4 - float(i / 2) * 3.4)
 							h.spawn_foe(str(kinds[part * 4 + i]), h.arena.resolve(at, 0.5))
 						await _wait_sim(h, 1.8)
+						_beauty(h)
 						await _save("biome_%d" % part)
 					# The zone's critters in an arc ahead of the hero, each just past its flight distance.
 					for f in h.foes.duplicate():
@@ -1564,6 +1576,7 @@ func _capture(args: PackedStringArray) -> void:
 							(bit as RefCounted).life = 99.0
 							n += 1
 						await _wait_sim(h, 1.1)
+						_beauty(h)
 						await _save("biome_critters")
 				elif shot == "hazards":
 					# The zone's hazards all at once, winding up around the hero.
