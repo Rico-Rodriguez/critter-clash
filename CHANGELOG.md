@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the shop shows the look before you buy it
+
+The buy sheet for an outfit or a weapon skin now draws your hero wearing it (a small studio render, `src/lobby/look_preview.gd`) instead of repeating the tile's icon and blurb. `GearLook.look_override` lets the preview dress a hero in a look they do not own. `--shots=shoplookbuy` captures it. Glows and gear are not covered yet.
+
+---
+
 ## Unreleased: one plan for every bot
 
 `docs/PLAN.md` is rewritten as the live queue (rules for working with other bots, what needs Rico, what is next); the old phases moved to `docs/PLAN-history.md`. New `docs/biomes.md` records which zones are rebuilt. `CLAUDE.md` gains the two-bot rules. Also restored the `---` between changelog entries that the merges dropped.
