@@ -427,4 +427,4 @@ func _sidekick_notes(sk: Dictionary) -> void:
 	for h in sk.get("hatched", []):
 		_note("The egg hatched: %s joins you" % SDB.def(str(h))["name"], Color(SDB.def(str(h))["color"]), str(SDB.def(str(h))["icon"]))
 	for u in sk.get("unlocked", []):
-		_note("New sidekick: %s (see Sidekicks)" % SDB.def(str(u))["name"], Color(SDB.def(str(u))["color"]), str(SDB.def(str(u))["icon"]))
+		_note("New pet: %s (see Pets)" % SDB.def(str(u))["name"], Color(SDB.def(str(u))["color"]), str(SDB.def(str(u))["icon"]))

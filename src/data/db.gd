@@ -868,10 +868,10 @@ const BOUNTY_POOL := {
 	"level": {"text": "Reach level %d in one hunt", "stat": "level", "targets": [8, 10], "gold": [150, 250], "best": true},
 	# Pet quests: one is dealt a day once a sidekick is yours. `pet` needs one
 	# at your side; `gems` (parallel to gold) pays toward the hatchery.
-	"pet_win": {"text": "Win a hunt with a sidekick at your side", "stat": "wins", "targets": [1], "gold": [250], "gems": [3], "win": true, "pet": true},
-	"pet_kills": {"text": "Slay %d foes with a sidekick at your side", "stat": "kills", "targets": [150, 300], "gold": [150, 300], "gems": [2, 4], "pet": true},
+	"pet_win": {"text": "Win a hunt with a pet at your side", "stat": "wins", "targets": [1], "gold": [250], "gems": [3], "win": true, "pet": true},
+	"pet_kills": {"text": "Slay %d foes with a pet at your side", "stat": "kills", "targets": [150, 300], "gold": [150, 300], "gems": [2, 4], "pet": true},
 	"pet_hatch": {"text": "Hatch an egg", "stat": "hatched", "targets": [1], "gold": [200], "gems": [3]},
-	"pet_breed": {"text": "Breed two sidekicks", "stat": "bred", "targets": [1], "gold": [300], "gems": [4], "needs": 2},
+	"pet_breed": {"text": "Breed two pets", "stat": "bred", "targets": [1], "gold": [300], "gems": [4], "needs": 2},
 }
 ## The bounties a sidekick unlocks (the rest of the pool is open to everyone).
 const PET_BOUNTIES := ["pet_win", "pet_kills", "pet_hatch", "pet_breed"]
@@ -1151,8 +1151,8 @@ const UNIQUES := {
 	"gown": {"cls": "mage", "dye": Color(0.45, 0.2, 0.6), "name": "Gown of Thorns", "slot": "chest", "rarity": "legendary", "source": "hexer", "rate": 25, "stats": {"hp": 24, "armor": 6}, "card": "frost", "power": "Start every hunt with Frost Ring", "icon": "breastplate"},
 	"greaves": {"cls": "knight", "dye": Color(0.5, 0.85, 1.0), "name": "Wraithstep Greaves", "slot": "legs", "rarity": "legendary", "source": "hexer", "rate": 30, "stats": {"speed": 8, "hp": 14}, "card": "regen", "power": "Start every hunt with Second Breath", "icon": "leg-armor"},
 	"charm": {"name": "Hex Charm", "slot": "trophy", "rarity": "magic", "source": "hexer", "rate": 4, "icon": "gems", "power": "A cultist's token. Sells for 90 gold.", "sell": 90},
-	"bonelet": {"name": "Bonelet", "slot": "pet", "rarity": "legendary", "source": "boss", "rate": 50, "icon": "skull-crossed-bones", "power": "Sidekick: Bone Toss bounces between 3 foes.", "model": "Skeleton_Minion"},
-	"hexling": {"name": "Hexling", "slot": "pet", "rarity": "legendary", "source": "hexer", "rate": 50, "icon": "magic-swirl", "power": "Sidekick: Hex curses the toughest foe, then bursts.", "model": "Skeleton_Mage"},
+	"bonelet": {"name": "Bonelet", "slot": "pet", "rarity": "legendary", "source": "boss", "rate": 50, "icon": "skull-crossed-bones", "power": "Pet: Bone Toss bounces between 3 foes.", "model": "Skeleton_Minion"},
+	"hexling": {"name": "Hexling", "slot": "pet", "rarity": "legendary", "source": "hexer", "rate": 50, "icon": "magic-swirl", "power": "Pet: Hex curses the toughest foe, then bursts.", "model": "Skeleton_Mage"},
 	"sigil": {"name": "Champion's Sigil", "slot": "trophy", "rarity": "rare", "source": "elite", "rate": 12, "icon": "rune-stone", "power": "Proof of a champion slain. Sells for 150 gold.", "sell": 150},
 	"tooth": {"name": "Barrow Tooth", "slot": "trophy", "rarity": "magic", "source": "boss", "rate": 4, "icon": "broken-bone", "power": "An old king's tooth. Sells for 60 gold.", "sell": 60},
 	"thornbow": {"cls": "ranger", "fam": "longbow", "dye": Color(0.45, 0.85, 0.3), "name": "Thornwood Longbow", "slot": "weapon", "rarity": "legendary", "source": "thorn", "rate": 25, "stats": {"dmg": 28, "crit": 9}, "card": "barrage", "power": "Start every hunt with Arrow Storm", "icon": "pocket-bow"},
@@ -1160,12 +1160,12 @@ const UNIQUES := {
 	"seedheart": {"cls": "knight", "dye": Color(0.6, 1.0, 0.4), "name": "Seedheart Aegis", "slot": "trinket", "rarity": "legendary", "source": "thorn", "rate": 30, "stats": {"aspd": 12, "regen": 5}, "card": "ward", "power": "Start every hunt with Bone Ward", "icon": "shield"},
 	# Ancient forms (Torment and up): a relic and a pet each.
 	"barrow_relic": {"name": "Ancient Barrow Crown", "slot": "trophy", "rarity": "legendary", "source": "ancient_boss", "rate": 30, "icon": "crowned-skull", "power": "Cold iron from the first king. Sells for 5000 gold.", "sell": 5000},
-	"barrow_squire": {"name": "Barrow Squire", "slot": "pet", "rarity": "legendary", "source": "ancient_boss", "rate": 60, "icon": "skull-crossed-bones", "power": "Sidekick: Shield Bash stuns the pack.", "model": "Skeleton_Warrior"},
+	"barrow_squire": {"name": "Barrow Squire", "slot": "pet", "rarity": "legendary", "source": "ancient_boss", "rate": 60, "icon": "skull-crossed-bones", "power": "Pet: Shield Bash stuns the pack.", "model": "Skeleton_Warrior"},
 	"hex_relic": {"name": "Ancient Hex Spindle", "slot": "trophy", "rarity": "legendary", "source": "ancient_hexer", "rate": 30, "icon": "magic-swirl", "power": "Still spinning. Sells for 5000 gold.", "sell": 5000},
-	"shade": {"name": "Hexbound Shade", "slot": "pet", "rarity": "legendary", "source": "ancient_hexer", "rate": 60, "icon": "ghost", "power": "Sidekick: Shadow Strike hunts the toughest foes.", "model": "Skeleton_Rogue"},
+	"shade": {"name": "Hexbound Shade", "slot": "pet", "rarity": "legendary", "source": "ancient_hexer", "rate": 60, "icon": "ghost", "power": "Pet: Shadow Strike hunts the toughest foes.", "model": "Skeleton_Rogue"},
 	"thorn_relic": {"name": "Ancient Heartwood", "slot": "trophy", "rarity": "legendary", "source": "ancient_thorn", "rate": 30, "icon": "crystal-shine", "power": "Warm to the touch. Sells for 5000 gold.", "sell": 5000},
-	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "Sidekick: Rootsnare holds the pack.", "model": "Sapling"},
-	"acolyte": {"name": "Acolyte", "slot": "pet", "rarity": "legendary", "source": "thorn", "rate": 50, "icon": "ghost", "power": "Sidekick: Thorn Ward throws foes back.", "model": "Rogue_Hooded"},
+	"sapling": {"name": "Thorn Sapling", "slot": "pet", "rarity": "legendary", "source": "ancient_thorn", "rate": 60, "icon": "ghost", "power": "Pet: Rootsnare holds the pack.", "model": "Sapling"},
+	"acolyte": {"name": "Acolyte", "slot": "pet", "rarity": "legendary", "source": "thorn", "rate": 50, "icon": "ghost", "power": "Pet: Thorn Ward throws foes back.", "model": "Rogue_Hooded"},
 	"seed": {"name": "Thorn Seed", "slot": "trophy", "rarity": "magic", "source": "thorn", "rate": 4, "icon": "gems", "power": "It wriggles. Sells for 80 gold.", "sell": 80},
 	# The Gilded Warden (the Vault).
 	"gilded_fang": {"cls": "rogue", "fam": "daggers", "dye": Color(1.0, 0.82, 0.35), "name": "Gilded Fangs", "slot": "weapon", "rarity": "legendary", "source": "warden", "rate": 25, "stats": {"dmg": 27, "crit": 10}, "card": "greed", "power": "Start every hunt with Grave Robber", "icon": "cloak-dagger"},

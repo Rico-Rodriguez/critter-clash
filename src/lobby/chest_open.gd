@@ -525,7 +525,7 @@ func _card_look(r: Dictionary) -> Dictionary:
 			col = ed["color"]
 			icon = "egg-clutch"
 			title = "%s!" % ed["name"]
-			sub = "It warms in your hatchery (Sidekicks)"
+			sub = "It warms in your hatchery (Pets)"
 		"unlock":
 			var d2: Dictionary = DB.HEROES[r["hero"]]
 			col = d2["color"]

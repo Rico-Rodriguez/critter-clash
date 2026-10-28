@@ -10,9 +10,17 @@ version is 7.
 
 ---
 
+## Unreleased: "Pets" everywhere
+
+The word "sidekick" is gone from player text (results note, hatchery line, credits, daily quests, breeding error, legendary power lines). Internal ids, save keys and sheet names are unchanged, so no migration.
+
+---
+
 ## Unreleased: the shop shows the look before you buy it
 
 The buy sheet for an outfit or a weapon skin now draws your hero wearing it (a small studio render, `src/lobby/look_preview.gd`) instead of repeating the tile's icon and blurb. `GearLook.look_override` lets the preview dress a hero in a look they do not own. `--shots=shoplookbuy` captures it. Glows and gear are not covered yet.
+---
+
 ## Unreleased: the weekly event folds into the season
 
 Your call (2026-10-28). The 10-tier weekly event track is gone. A hunt under the weekly rule now pays bonus season XP (its score / 60, about 30 for a win), shown on the results screen and in Season. The camp's Event sheet is "This week": the rule, its toggle, and the board. The omen egg moved to season tier 23. A save with earned, unclaimed event tiers this week is paid out once at boot (`Game._fold_event`) and the camp says so once. New save key `folded_event` (default 0); the old `event` key stays, unused. Simulated week: casual 1 season tier, regular 3, grinder 13.
