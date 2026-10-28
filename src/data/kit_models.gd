@@ -2,7 +2,7 @@ extends RefCounted
 ## Zone prop kits: static meshes built in Blender (tools/art/make_*_kit.py), one glb per kit with
 ## every piece sharing one palette texture and up to three glTF materials (matte, ice, crystal; the Mire uses the third for coals).
 ## The meshes keep their own materials: batch them with MultiMesh and NO material_override.
-## Feet at y = 0, modelled at the size the code-built pieces in kit_mesh.gd / mire_kit.gd used, so the
+## Feet at y = 0, modelled at the size the code-built pieces they replaced were, so the
 ## same transforms and obstacle circles apply. `SPECS[kit][name]` lists each piece's height (m), the
 ## ground circle to give add_obstacle (r, 0 = none), and its triangle cap.
 ## Preloaded by path, no class_name.
