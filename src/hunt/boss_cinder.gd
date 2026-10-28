@@ -1,5 +1,5 @@
 extends Boss
-## The Cinder Ogre, who tends the Burning Swamp: a brute with a furnace in his
+## The Cinder Warlord, who tends the Burning Swamp: a brute with a furnace in his
 ## chest. He keeps Gravemaw's cleave, quake and charge, and adds three:
 ##   eruption  a line of fire bursts out from him toward you, one after another
 ##   inferno   a blast under him, then a ring of fire round that: stand in the gap

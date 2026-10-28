@@ -282,6 +282,11 @@ func nearest_safe(p: Vector3) -> Vector3:
 	return p
 
 
+## Cells with a running fuse, warning or timer (the ones that need repainting).
+func active() -> Array:
+	return _active.keys()
+
+
 # --- Time ---------------------------------------------------------------------
 
 ## Advances every running timer. Returns the events this tick, for the arena to

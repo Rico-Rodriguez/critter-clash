@@ -230,6 +230,7 @@ static func _cost(ok: Callable) -> void:
 
 ## The same rules through the real arena, once it owns a grid.
 static func _arena(ok: Callable) -> void:
+	_arena_live(ok)
 	for zone in ["frost", "swamp"]:
 		var a := Arena.new()
 		a.build(true, zone, 0, 1)
@@ -241,3 +242,26 @@ static func _arena(ok: Callable) -> void:
 			ok.call("terrain %s: the start is dry, safe ground" % zone, terr.kind_at(a.start) == T.DRY)
 			ok.call("terrain %s: the grid shapes the play space with blocked cells only inside the bounds" % zone, terr.cell_of(a.start).y < terr.h)
 		a.free()
+
+
+## A zone that paints its cells: ice walls hold until they break, and a broken
+## wall and open water change what the flow field may cross.
+static func _arena_live(ok: Callable) -> void:
+	var a := Arena.new()
+	a.build(true, "frost", 0, 1)
+	ok.call("terrain live: off until a zone paints it", not a.terrain_live)
+	a.terrain_begin({})
+	ok.call("terrain live: begin turns it on and draws the cells", a.terrain_live and a.tview != null and a.tview.mat != null)
+	var wall := Vector2i(11, 14)
+	var at: Vector3 = a.terrain.center_of(wall)
+	a.add_ice_wall(wall)
+	ok.call("ice wall: solid to a body standing in it", a.blocked(at, 0.4))
+	ok.call("ice wall: solid to the flow field", a.terrain.flow_cost(at) < 0.0)
+	ok.call("ice wall: a far dash does not break it", a.break_ice_at(at + Vector3(6, 0, 0), 0.5) == 0 and a.terrain.kind_at(at) == T.WALL_ICE)
+	ok.call("ice wall: a blow beside it breaks it", a.break_ice_at(at + Vector3(1.0, 0, 0), 0.5) == 1)
+	ok.call("ice wall: broken, the cell is ice and nothing blocks it", a.terrain.kind_at(at) == T.ICE and not a.blocked(at, 0.4) and a.terrain.flow_cost(at) > 0.0)
+	ok.call("ice wall: breaking tells the hunt (event for sound and shards)", a.terrain_ev.size() == 1 and a.terrain_ev[0]["ev"] == "wallbreak")
+	var hole := Vector2i(5, 5)
+	a.terrain.set_kind(hole, T.WATER, 8.0)
+	ok.call("water: the flow field will not route through it", a.terrain.flow_cost(a.terrain.center_of(hole)) < 0.0)
+	a.free()
