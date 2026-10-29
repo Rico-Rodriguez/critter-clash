@@ -487,8 +487,6 @@ func finish_hunt(r: Dictionary) -> Dictionary:
 	season()["xp"] = int(season()["xp"]) + int(summary["renown"])
 	var hid := str(r.get("hero", hero_id()))
 	summary["mastery"] = _gain_mastery(hid, r)
-	if str(r.get("mode", "horde")) != "rift":
-		summary["rating"] = _gain_rating(hid, r)
 	_count_bosses(r)
 	st["best_perfect"] = maxi(int(st.get("best_perfect", 0)), int(r.get("perfect", 0)))
 	if r.get("win", false):

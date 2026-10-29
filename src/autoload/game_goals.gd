@@ -1,9 +1,9 @@
 extends "res://src/autoload/game_rewards.gd"
-## Game, part 5: reasons to come back. Mastery and rating, the campfire,
+## Game, part 5: reasons to come back. Mastery, the campfire,
 ## login calendar, kill counts, achievements, the season and the next goal.
 
 
-# --- Mastery, rating, dailies -------------------------------------------------
+# --- Mastery, dailies -------------------------------------------------
 
 func mastery_title(id: String) -> String:
 	return str(DB.MASTERY[int(hero(id).get("mastery_rank", 0))]["title"])
@@ -30,21 +30,6 @@ func _gain_mastery(id: String, r: Dictionary) -> Dictionary:
 			h["glows"].append(m["glow"])
 		out["titles"].append(str(m["title"]))
 	return out
-
-
-func _gain_rating(id: String, r: Dictionary) -> Dictionary:
-	var h := hero(id)
-	var before := int(h.get("rating", 0))
-	var d := DB.RATING_WIN + DB.RATING_WIN_TIER * int(r.get("tier", 0)) if r.get("win", false) else -DB.RATING_LOSS
-	h["rating"] = maxi(before + d, 0)
-	var paid := 0
-	while int(h["rating"]) >= (int(h.get("rating_paid", 0)) + 1) * DB.RATING_STEP:
-		h["rating_paid"] = int(h.get("rating_paid", 0)) + 1
-		var g := 150 * int(h["rating_paid"])
-		data["gold"] = gold() + g
-		h["shards"] = int(h["shards"]) + 5 + int(h["rating_paid"]) * 2
-		paid += g
-	return {"delta": int(h["rating"]) - before, "rating": int(h["rating"]), "milestone_gold": paid}
 
 
 ## The campfire's gold waiting since the last visit.

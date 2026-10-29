@@ -33,7 +33,7 @@ in this order; tick a line when it merges.
 2. [~] **Boss Rush and Rift use every boss the player has unlocked** (done). Still to do: merge them into one Boss Rush with the rift key as an optional harder run, and make the Wilderness a weekly event.
 3. [x] **Zones are variety, not progress** (audit option B): all six open by 5,000 trophies (Vault 4,100, Frost 4,400, Swamp 5,000), `loot_bonus` flat at 2, each zone keeps its own boss uniques; the Rogue joins at 3,500; every mode opens by 1,200 (the Wilderness at 1,000).
 4. [x] **Economy:** the season is tuned so a regular player finishes in about week 5 (240 xp a tier) and the outfit moves to tier 20. Cosmetics stay on gold. Hero levels no longer exist, so there is no hero curve to fix; shards only buy Super ranks.
-5. [ ] **Fewer meters:** cut hero rating, slim the results screen to earned / opened / next step, add one next-goal card on camp.
+5. [ ] **Fewer meters:** ~~cut hero rating~~ (done), slim the results screen to earned / opened / next step, add one next-goal card on camp (`Game.next_goal()` exists but nothing on camp shows it).
 6. [x] **Small bugs:** Log sheet overflow, the Speed vs Hits/s label and the clipped boss names are fixed. The skin-name clipping and the first-hunt tip covering its card did not reproduce in the `equipskins` and `firstcamp` screenshots, so they are not changed.
 
 Left for later: local notifications (needs a native plugin and an IPA bump), outfits that change the silhouette, trimming breeding and mutations from the Pets tab.

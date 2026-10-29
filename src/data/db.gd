@@ -1517,7 +1517,7 @@ const SETS := {
 }
 const SET_CHANCE := 0.3
 
-# --- Hero mastery and rating ---------------------------------------------------
+# --- Hero mastery ---------------------------------------------------
 
 ## Mastery points per hunt: kills/10 + 40 a win + 15 a tier step. Ranks pay out
 ## once and give a title shown under the hero's name.
@@ -1531,13 +1531,6 @@ const MASTERY := [
 	{"at": 13000, "title": "Grandmaster", "gold": 4500, "shards": 220},
 	{"at": 21000, "title": "Legend", "gold": 7500, "shards": 320, "glow": "sunsteel"},
 ]
-
-## Trophy rating (Brawl Stars): wins add, losses take away, a milestone every
-## RATING_STEP pays out once.
-const RATING_WIN := 10
-const RATING_WIN_TIER := 4
-const RATING_LOSS := 6
-const RATING_STEP := 100
 
 static func mastery_rank(points: int) -> int:
 	var r := 0

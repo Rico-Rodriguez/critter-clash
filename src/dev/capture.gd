@@ -384,7 +384,6 @@ func _capture(args: PackedStringArray) -> void:
 					Game.data["tips"][k] = true
 				Game.hero(hid)["mastery"] = 520
 				Game.hero(hid)["mastery_rank"] = 1
-				Game.hero(hid)["rating"] = 64
 				if shot == "chest" or shot == "lobbychest":
 					pending_chest = "gold"
 				if shot in ["bounties", "lobby"]:

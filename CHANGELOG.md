@@ -21,6 +21,12 @@ Each bounty row has a picture: the boss, the hero's portrait, your pet, an egg, 
 
 ---
 
+## Unreleased: hero rating is gone
+
+From the design audit. Rating was a second per-hero trophy count (+10 a win, -6 a loss) that only the results screen showed, plus a gold-and-shards milestone every 100. Mastery already tracks per-hero progress, so rating and its results line are removed. In the simulated week that is about 150 gold and 7 shards less for the regular player and about 4,200 gold and 90 shards less for the grinder. The save keeps the unused `rating` keys, so no migration.
+
+---
+
 ## Unreleased: the Log shows bosses and uniques as renders
 
 The Log's boss rows show each boss in its idle pose (`PropIcons.boss`), and its uniques show the real thing: pets as their own render, weapons and trinkets as their 3D model, armor and trophies keep the flat icon. Uniques you haven't found are black silhouettes.

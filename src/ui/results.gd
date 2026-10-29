@@ -87,10 +87,6 @@ func open(r: Dictionary) -> void:
 	var ms: Dictionary = s.get("mastery", {})
 	for title in ms.get("titles", []):
 		_note("Mastery rank: %s %s" % [DB.HEROES[r["hero"]]["name"], title], Color(1.0, 0.8, 0.35), "round-star")
-	var rt: Dictionary = s.get("rating", {})
-	if not rt.is_empty():
-		var d := int(rt["delta"])
-		_note("Rating %s%d → %d%s" % ["+" if d >= 0 else "", d, int(rt["rating"]), (" · milestone +%d gold" % int(rt["milestone_gold"])) if int(rt["milestone_gold"]) > 0 else ""], Color(0.6, 0.9, 1.0) if d >= 0 else Color(0.85, 0.6, 0.55), "trophy")
 	_sidekick_notes(s.get("sidekick", {}))
 	if bool(s.get("rift_key", false)):
 		_note("A rift key! Open it from the Expedition", Color(0.6, 0.85, 1.0), "crystal-shine")
