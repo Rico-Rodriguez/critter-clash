@@ -540,9 +540,14 @@ func _capture(args: PackedStringArray) -> void:
 					current.open_sheet("sidekicks")
 					await _wait(1.2)
 					if shot == "sidekick":
-						current.ui._sk_detail = SKC.active(Game.data)
+						# --pet=x1 opens a bred pet's page; --bottom scrolls to its end (Release).
+						current.ui._sk_detail = _arg(args, "pet", SKC.active(Game.data))
 						current.ui._page.rebuild()
 						await _wait(0.8)
+						if args.has("--bottom"):
+							for sc in current.ui._page.find_children("*", "ScrollContainer", true, false):
+								(sc as ScrollContainer).scroll_vertical = 100000
+							await _wait(0.8)
 				elif shot in ["nest", "nestwalk", "nestin", "nestback"]:
 					# The camp with the Nest; "nestwalk" mid-walk, "nestin" arrived, "nestback" walking out again.
 					await _wait(0.8)

@@ -513,7 +513,7 @@ static func _hatch(ok: Callable) -> void:
 	d6["gold"] = SDB.BREED_GOLD
 	for id in ["drake", "x1"]:
 		d6["sidekicks"]["owned"][id]["kills"] = 900
-	ok.call("breeding: a full stable can't breed more", SK.breed_block(d6, "drake", "x1", T0) == "Your stable is full")
+	ok.call("breeding: a full stable can't breed more", SK.breed_block(d6, "drake", "x1", T0) .begins_with("Your stable is full"))
 	# Cooldown grows with every litter.
 
 

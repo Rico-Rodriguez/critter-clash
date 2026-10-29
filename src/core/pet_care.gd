@@ -7,9 +7,9 @@ extends RefCounted
 ## save loads untouched: `bcount` {pet id: times it has bred} and, on a pet's
 ## own entry, `name` (its nickname).
 
-## How long a pet rests after breeding, by how many times it had bred before:
-## the first litter 8 h, then 12, 18, 24, 36, and 48 h from then on.
-const REST_HOURS := [8, 12, 18, 24, 36, 48]
+## How long a pet rests after every litter. Flat: it used to climb to 48 h and
+## stay there, which retired a favourite parent for good.
+const REST_HOURS := 8
 
 const NAME_MIN := 2
 const NAME_MAX := 14
@@ -39,9 +39,9 @@ static func bred_times(d: Dictionary, id: String) -> int:
 	return int(_counts(d).get(id, 0))
 
 
-## Seconds a pet rests after a litter, when it had bred `times` before.
-static func rest_secs(times: int) -> int:
-	return int(REST_HOURS[clampi(times, 0, REST_HOURS.size() - 1)]) * 3600
+## Seconds a pet rests after a litter (the same however often it has bred).
+static func rest_secs(_times := 0) -> int:
+	return REST_HOURS * 3600
 
 
 ## The rest this pet's next litter will cost it.
@@ -50,7 +50,7 @@ static func next_rest(d: Dictionary, id: String) -> int:
 
 
 static func max_rest() -> int:
-	return rest_secs(REST_HOURS.size())
+	return rest_secs()
 
 
 ## Counts a litter and returns the rest earned.
@@ -59,10 +59,6 @@ static func note_bred(d: Dictionary, id: String) -> int:
 	_counts(d)[id] = bred_times(d, id) + 1
 	return secs
 
-
-## True when the pet is already on the longest rest there is.
-static func at_cap(d: Dictionary, id: String) -> bool:
-	return bred_times(d, id) >= REST_HOURS.size() - 1
 
 
 ## "8h", "36h": a rest in whole hours for the UI.
