@@ -46,7 +46,7 @@ Matchmaker from the mockups, and all four rule changes. One PR each:
 1. [x] **Breeding rules:** a flat 8h rest after every litter (was a ladder that stuck at 48h), a
    hybrid pity (a pair's hybrid is certain by its 3rd litter until found), and Release for bred
    pets (+200 gold) so a full stable can't stop breeding. Eggs still always hatch; no lifetime cap.
-2. [ ] **Pets tab:** the Breeding Wheel (all species on one ring, hybrids between their parents,
+2. [x] **Pets tab:** the Breeding Wheel (all species on one ring, hybrids between their parents,
    mutations in the hub) with a bestiary and breed pages, and the Matchmaker breeding screen
    (each outcome's chance, the mutation chance with its pity, partners sorted by what they make).
 

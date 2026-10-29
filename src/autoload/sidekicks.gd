@@ -281,6 +281,78 @@ static func release_block(d: Dictionary, id: String) -> String:
 	return ""
 
 
+## You own a pet of this breed: its species pet, or any bred one.
+static func owns_species(d: Dictionary, sp: String) -> bool:
+	return count_of_species(d, sp) > 0
+
+
+## How many of this breed you own.
+static func count_of_species(d: Dictionary, sp: String) -> int:
+	return (block(d)["owned"] as Dictionary).keys().filter(func(i): return SDB.species(str(i)) == sp).size()
+
+
+## Your best pet of a breed for a pair: ready to breed first, then the most bonded.
+static func best_of_species(d: Dictionary, sp: String) -> String:
+	var now := int(Time.get_unix_time_from_system())
+	var best := ""
+	var score := -1
+	for id: String in block(d)["owned"]:
+		if SDB.species(id) != sp:
+			continue
+		var sc := kills(d, id) + (1_000_000 if resting(d, id, now) == 0 and bond(d, id) >= SDB.BREED_BOND else 0)
+		if sc > score:
+			best = id
+			score = sc
+	return best
+
+
+## {breed: [mutations]} carried by the pets you own.
+static func breed_mutations(d: Dictionary) -> Dictionary:
+	var out := {}
+	for id: String in block(d)["owned"]:
+		var m := str(genes_of(d, id).get("mutation", ""))
+		if m == "":
+			continue
+		var sp := SDB.species(id)
+		if not out.has(sp):
+			out[sp] = []
+		if not (out[sp] as Array).has(m):
+			out[sp].append(m)
+	return out
+
+
+## A pet you own of this breed with this mutation, or "".
+static func mutated_one(d: Dictionary, sp: String, m: String) -> String:
+	for id: String in block(d)["owned"]:
+		if SDB.species(id) == sp and str(genes_of(d, id).get("mutation", "")) == m:
+			return id
+	return ""
+
+
+## What a pair's next litter can hatch: [[breed, chance], ...], parents first,
+## then the hybrid; the chances add up to 1 (SDB.roll_child, plus the pity).
+static func litter_odds(d: Dictionary, a: String, b: String) -> Array:
+	var sa := SDB.species(a)
+	var sb := SDB.species(b)
+	if sa == sb:
+		return [[sa, 1.0]]
+	var hy := SDB.hybrid_for(sa, sb)
+	if hy == "":
+		return [[sa, 0.5], [sb, 0.5]]
+	if hybrid_tries_left(d, a, b) == 1:
+		return [[sa, 0.0], [sb, 0.0], [hy, 1.0]]
+	var each := (1.0 - SDB.BREED_HYBRID) * 0.5
+	return [[sa, each], [sb, each], [hy, SDB.BREED_HYBRID]]
+
+
+## The chance the pair's next litter carries a mutation: a parent's own
+## (MUTATION_INHERIT) or else a fresh one at the nest's chance.
+static func litter_mutation_chance(d: Dictionary, a: String, b: String) -> float:
+	var p := mutation_chance(d, "nest")
+	var held := str(genes_of(d, a).get("mutation", "")) != "" or str(genes_of(d, b).get("mutation", "")) != ""
+	return SDB.GEN.MUTATION_INHERIT + (1.0 - SDB.GEN.MUTATION_INHERIT) * p if held else p
+
+
 ## Releases a bred pet for RELEASE_GOLD, freeing its stable room. Returns the
 ## gold given (0 when it can't go).
 static func release(d: Dictionary, id: String) -> int:

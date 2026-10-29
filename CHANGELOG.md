@@ -9,6 +9,14 @@ version is 7.
 
 ---
 
+## Unreleased: the Breeding Wheel and the Matchmaker
+
+The Pets tab's Album becomes the Wheel. All 11 species sit on one ring, ordered so each hybrid's two parents are neighbours and the hybrid sits in the gap between them. Owned species wear their rarity colour, a gold arc marks a pair you own both halves of, and the hub shows the mutations you have found. Under it, a card offers the next hybrid within reach ("Pair" opens the Matchmaker with both picked), then a bestiary of all 19 breeds: hybrids show their parents before you find them, and six pips show which mutations you own on each. Tapping a breed opens its page, with its bloodlines (who to pair it with, and what's missing) and its six mutation slots.
+
+Breed becomes the Matchmaker. Two parent slots show bond, rest and any mutation a parent carries. With a pair picked, it shows what can hatch and how likely each is (32.5 / 35 / 32.5 for a hybrid pair, the hybrid pity included), the litter's mutation chance with its pity bar, and the cost. With one parent picked, partners are listed by what they would make, and missing partners say where to get them. A content change: ships over the air.
+
+---
+
 ## Unreleased: breeding rules, kinder and simpler
 
 Rico's call after the pets review. A parent now rests 8h after every litter; it used to climb 8, 12, 18, 24, 36 and then stay at 48h for good, so a favourite parent was retired after five litters. Rests already running from the old ladder are cut to 8h. A pair that can make a hybrid you haven't found makes it by its third litter at the latest (`BREED_HYBRID_PITY`, counted per pair in the new `hy_dry` save key; a forced litter keeps the seed's genes). Bred and hatched pets can be released from their page for 200 gold, so a full stable (48) no longer stops breeding for good; species pets and the one at your side stay. Eggs still always hatch, and there is no lifetime breeding cap. A content change: ships over the air.
