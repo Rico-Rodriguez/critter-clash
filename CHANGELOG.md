@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the hatch scene uses the real egg and pet
+
+The egg that cracks is the speckled 3D egg render in its kind's colour, and the hatchling is the pet's own render (a black silhouette that floods back to full colour) instead of flat icons.
+
+---
+
 ## Unreleased: the season is a little shorter
 
 From the design audit. A tier now costs 240 season xp instead of 400, and the season's outfit is at tier 20 instead of 25 (the second season egg moves from 20 to 25 to swap places). In the simulated week a regular player reaches 6 tiers a week (5 weeks for all 30), a casual player 2, and the grinder 22, still under 30 (`economy_tests`).
