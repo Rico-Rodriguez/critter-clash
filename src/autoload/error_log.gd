@@ -9,6 +9,8 @@ extends Logger
 
 const PATH := "user://errors.json"
 const MAX := 40
+## The step a long load is on (see step()); outlives a freeze like the flag.
+const STEP := "user://step.txt"
 
 var _mutex := Mutex.new()
 ## {sessions, crashes, last_crash_build, errors: [{at, kind, where, msg, count, build, first, last}]}
@@ -30,6 +32,12 @@ static func install(enabled: bool) -> Logger:
 		if FileAccess.file_exists(l._flag()):
 			l._d["crashes"] = int(l._d["crashes"]) + 1
 			l._d["last_crash_build"] = int(l._read_flag())
+			# A freeze logs no error; the last step it reached is the clue.
+			var at := FileAccess.get_file_as_string(STEP).strip_edges()
+			if at != "":
+				l._build = int(l._d["last_crash_build"])
+				l._add("crash", "last step", at)
+		DirAccess.remove_absolute(STEP)
 		l.session_open()
 		l._write()
 	OS.add_logger(l)
@@ -48,6 +56,19 @@ func session_open() -> void:
 	var f := FileAccess.open(_flag(), FileAccess.WRITE)
 	if f:
 		f.store_string(str(_build))
+
+
+## Marks the step a long load (a hunt starting) is on, on disk, so a freeze
+## that never logs an error still says where it stopped. "" when done.
+func step(text: String) -> void:
+	if not _enabled:
+		return
+	if text == "":
+		DirAccess.remove_absolute(STEP)
+		return
+	var f := FileAccess.open(STEP, FileAccess.WRITE)
+	if f:
+		f.store_string(text)
 
 
 func session_closed() -> void:

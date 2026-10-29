@@ -4,6 +4,7 @@ extends Node
 ##   -- --bot [--hero=knight] [--tier=0] [--zone=barrow|depths] [--runs=1] [--idle] [--old-foes] [--sidekick=drake[:kills]]   headless autopilot hunts
 ##   -- --capture --shots=lobby,hunt,... --out=/abs/dir         screenshots
 ##   -- --check                                                 compile every script and scene
+##   -- --battle-start [--rounds=2]                             camp to hunt with a renderer (godot-gpu.sh)
 
 const LOBBY := preload("res://src/lobby/lobby.tscn")
 const Online := preload("res://src/net/online.gd")
@@ -72,6 +73,10 @@ func _ready() -> void:
 			ota.connect("boot_done", _launch, CONNECT_ONE_SHOT)
 		else:
 			_launch()
+		# The real launch runs too (update check, privacy, online): the warm-up
+		# deadlock needed it to show.
+		if args.has("--battle-start"):
+			_dev.call_deferred("_battle_start", args)
 
 
 ## The forced-update gate asks once at launch; a blocked player stays on its
@@ -260,7 +265,7 @@ func _arg(args: PackedStringArray, key: String, def: String) -> String:
 	return def
 
 
-## Dev modes (--bot, --capture) live in src/dev/capture.gd, which the export leaves out.
+## Dev modes (--bot, --capture, --battle-start) live in src/dev/capture.gd, which the export leaves out.
 func _dev(method: String, args: PackedStringArray) -> void:
 	var c: Node = load("res://src/dev/capture.gd").new()
 	c.main = self

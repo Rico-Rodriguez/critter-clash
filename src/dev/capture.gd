@@ -38,6 +38,36 @@ func _arg(args: PackedStringArray, key: String, def: String) -> String:
 	return main._arg(args, key, def)
 
 
+# --- Battle start, rendered -----------------------------------------------
+
+## -- --battle-start [--rounds=2]: camp, then the Hunt button, the way a player
+## starts a battle, with a real renderer (tools/dev/godot-gpu.sh). Bots and
+## captures skip the hunt's shader warm-up, so only this run draws it. Prints
+## BATTLE START OK once every round's hunt is up; a hang prints nothing, and
+## the caller's timeout fails it (an engine deadlock cannot be caught in-game).
+func _battle_start(args: PackedStringArray) -> void:
+	Game.data["start_picked"] = true
+	Game.open_whole_road()
+	var modes := ["horde", "trial", "descent", "rush", "wild"]
+	var rounds := int(_arg(args, "rounds", "2"))
+	# Let the launch get going (update check, privacy screen) underneath.
+	await _wait(2.0)
+	await go("lobby")
+	for i in rounds:
+		Game.set_mode(modes[i % modes.size()])
+		# Wall time, not frames: a player taps Hunt while the camp's shaders
+		# are still compiling in the background, which is when it deadlocked.
+		await get_tree().create_timer(3.0).timeout
+		var t0 := Time.get_ticks_msec()
+		current.start_hunt()
+		while not (current is Hunt and not current._warming and not main._busy):
+			await get_tree().process_frame
+		print("BATTLE START round %d %s %.1fs" % [i + 1, Game.mode_id(), (Time.get_ticks_msec() - t0) / 1000.0])
+		await go("lobby")
+	print("BATTLE START OK")
+	get_tree().quit(0)
+
+
 # --- Headless autopilot ---------------------------------------------------
 
 ## --bred=a:b:seed[:kills[:pattern[:mutation]]]: owns the parents, breeds and
