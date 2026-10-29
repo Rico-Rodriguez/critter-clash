@@ -1,9 +1,9 @@
 extends RefCounted
 ## The Pets tab: stable (your companion on stage, the roster), hatchery,
-## breeding, collection and showcase as five segments of one page. The
-## builders live partly here (stable, showcase, rename) and partly in
-## lobby_ui_sheets.gd (hatchery, breeding, collection, a pet's detail page),
-## which this file drives. `ui` is the LobbyUI.
+## the Matchmaker (pets_match.gd), the Breeding Wheel and bestiary
+## (pets_codex.gd) and showcase as five segments of one page. Stable, showcase
+## and rename live here; the hatchery and a pet's detail page live in
+## lobby_ui_sheets.gd. `ui` is the LobbyUI.
 
 const SKS := preload("res://src/autoload/sidekicks.gd")
 const SKDB := preload("res://src/data/sidekick_db.gd")
@@ -12,14 +12,16 @@ const PetStage := preload("res://src/lobby/pet_stage.gd")
 const PetIcons := preload("res://src/ui/pet_icons.gd")
 const PropIcons := preload("res://src/ui/prop_icons.gd")
 const FxUi := preload("res://src/ui/fx_ui.gd")
+const Codex := preload("res://src/lobby/pets_codex.gd")
+const Match := preload("res://src/lobby/pets_match.gd")
 
 
 static func segments(ui) -> Array:
 	return [
 		["Stable", func(s: Sheet): build_stable(ui, s)],
 		["Eggs", func(s: Sheet): build_hatchery(ui, s), egg_ready()],
-		["Breed", func(s: Sheet): ui._build_breeding(s)],
-		["Album", func(s: Sheet): ui._build_collection(s)],
+		["Breed", func(s: Sheet): Match.build(ui, s)],
+		["Wheel", func(s: Sheet): Codex.build(ui, s)],
 		["Podium", func(s: Sheet): build_showcase(ui, s)],
 	]
 

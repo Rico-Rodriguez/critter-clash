@@ -46,7 +46,7 @@ Matchmaker from the mockups, and all four rule changes. One PR each:
 1. [x] **Breeding rules:** a flat 8h rest after every litter (was a ladder that stuck at 48h), a
    hybrid pity (a pair's hybrid is certain by its 3rd litter until found), and Release for bred
    pets (+200 gold) so a full stable can't stop breeding. Eggs still always hatch; no lifetime cap.
-2. [ ] **Pets tab:** the Breeding Wheel (all species on one ring, hybrids between their parents,
+2. [x] **Pets tab:** the Breeding Wheel (all species on one ring, hybrids between their parents,
    mutations in the hub) with a bestiary and breed pages, and the Matchmaker breeding screen
    (each outcome's chance, the mutation chance with its pity, partners sorted by what they make).
 
@@ -66,10 +66,11 @@ the point cap and refund price left to Claude (22 points, 40 gold a rank).
 Full findings with screenshots are in the published report (linked from the PR).
 
 - [x] **Clear wins:** settings credits folded, season and quests fit, log three across, feats sorted, switches, gold Buy, hero sheet, results panel, privacy card.
-- [ ] Expedition sheet still scrolls about 150 px on a modern phone; Feats about 280 px.
-- [ ] Heroes page weapon collection: tier chips ("Att 40", "Att 60") need a legend or a simpler look.
-- [ ] Loot labels pile on top of each other when a boss drops several pieces at once.
-- [ ] Level-up: "Reroll · Banish" reads as one button.
+- [x] Expedition fits one screen (Feats still scrolls about 280 px: 18 feats, sorted, by design).
+- [x] Weapon collection: every rung names its set, a padlock marks one you cannot wear yet.
+- [x] Loot labels stack over nearby drops instead of piling up.
+- [x] Level-up: Reroll and Keep side by side, Banish explained under them.
+- [x] The rest from the report: one price style, This Week switch, Daily today and day 7, Talents badge, Profile.
 
 ## Now: needs Rico
 

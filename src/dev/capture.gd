@@ -314,6 +314,7 @@ func _capture(args: PackedStringArray) -> void:
 		Game.hero(hid)["skin"] = _arg(args, "skin", "")
 	# A stable like the mockup: the Drake at your side (Bond 4), a Grove Egg warming.
 	const SKC := preload("res://src/autoload/sidekicks.gd")
+	const SKDB_C := preload("res://src/data/sidekick_db.gd")
 	for pair in [["drake", 1240], ["wisp", 5600], ["bonelet", 250], ["hexling", 0]]:
 		SKC.own(Game.data, pair[0])
 		Game.data["sidekicks"]["owned"][pair[0]]["kills"] = pair[1]
@@ -375,7 +376,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
-			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "shoplookbuy", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "eggshop", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "nest", "nestwalk", "nestin", "nestback":
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "shoplookbuy", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "eggshop", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "petswheel", "petspage", "petsmatch", "petsmatchpick", "nest", "nestwalk", "nestin", "nestback":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -484,6 +485,31 @@ func _capture(args: PackedStringArray) -> void:
 						current.ui._breed_b = "wisp"
 					current.ui._page.rebuild()
 					await _wait(0.8)
+				elif shot in ["petswheel", "petspage", "petsmatch", "petsmatchpick"]:
+					# The Wheel and the Matchmaker with a mutated bonelet and hexling in the stable.
+					if SKC.mutated_one(Game.data, "bonelet", "frostborn") == "":
+						var gm := SKDB_C.base_genes()
+						gm["mutation"] = "frostborn"
+						SKC._add_bred(Game.data, {"breed": "bonelet", "genes": gm}, [])
+						var gv := SKDB_C.base_genes()
+						gv["mutation"] = "voidborn"
+						SKC._add_bred(Game.data, {"breed": "hexling", "genes": gv}, [])
+					SKC.block(Game.data)["dry"]["mutation"] = 22
+					current.open_sheet("breeding" if shot.begins_with("petsmatch") else "wheel")
+					await _wait(0.6)
+					if shot == "petspage":
+						current.ui._pet_page = _arg(args, "pet", "drake")
+					elif shot == "petsmatch":
+						current.ui._breed_a = "drake"
+						current.ui._breed_b = "bonelet"
+					elif shot == "petsmatchpick":
+						current.ui._breed_a = "drake"
+					current.ui._page.rebuild()
+					await _wait(1.5)
+					if args.has("--bottom"):
+						for sc in current.ui._page.find_children("*", "ScrollContainer", true, false):
+							(sc as ScrollContainer).scroll_vertical = 100000
+						await _wait(0.8)
 				elif shot == "hatchseq":
 					# --pet=drake --egg=exotic [--mutation=Frostbound] [--frames=12 --step=0.4]: a frame every --step s from the egg dropping in.
 					current.open_sheet("sidekicks")

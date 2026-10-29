@@ -79,6 +79,11 @@ func _labels() -> void:
 		theme.set_font_size("font_size", v[0], v[1])
 		theme.set_color("font_color", v[0], v[2])
 		theme.set_constant("outline_size", v[0], v[3])
+	# Labels under pet portraits on the Breeding Wheel and the bestiary.
+	theme.set_type_variation("Tiny", "Label")
+	theme.set_font_size("font_size", "Tiny", 17)
+	theme.set_color("font_color", "Tiny", TEXT)
+	theme.set_font("font", "Tiny", body_med)
 	theme.set_type_variation("Small", "Label")
 	theme.set_font_size("font_size", "Small", 21)
 	theme.set_color("font_color", "Small", DIM)
@@ -109,6 +114,10 @@ func _panels() -> void:
 	theme.set_type_variation("Card", "PanelContainer")
 	var c := box(Color(0.12, 0.1, 0.14, 0.88), 12, 1, Color(1, 1, 1, 0.07))
 	theme.set_stylebox("panel", "Card", c)
+	# A card that is the one to act on now (today's daily reward): gold-edged.
+	theme.set_type_variation("CardHot", "PanelContainer")
+	var ch := box(Color(0.2, 0.15, 0.09, 0.92), 12, 2, GOLD)
+	theme.set_stylebox("panel", "CardHot", ch)
 	theme.set_type_variation("Sheet", "PanelContainer")
 	var sh := box(Color(0.06, 0.05, 0.075, 0.98), 22, 0)
 	sh.corner_radius_bottom_left = 0

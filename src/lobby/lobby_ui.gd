@@ -26,7 +26,7 @@ const SHEET_TAB := {
 	"heroes": ["heroes", 0],
 	"bag": ["heroes", 0], "clan": ["clan", 0], "shop": ["shop", 0],
 	"sidekicks": ["pets", 0], "pets": ["pets", 0], "hatchery": ["pets", 1], "breeding": ["pets", 2],
-	"collection": ["pets", 3], "showcase": ["pets", 4],
+	"collection": ["pets", 3], "wheel": ["pets", 3], "showcase": ["pets", 4],
 }
 
 var _tab_btns := {}
@@ -627,6 +627,7 @@ func show_tab(name_: String, sub := 0) -> void:
 			_page = _make_page("Shop", Shop.segments(self), sub)
 		"pets":
 			_sk_detail = ""
+			_pet_page = ""
 			_page = _make_page("Pets", PetsTab.segments(self), sub)
 	if dir != 0.0:
 		var w := get_viewport().get_visible_rect().size.x
@@ -806,7 +807,7 @@ func open_sheet(name_: String) -> void:
 	%Overlay.add_child(_sheet)
 	match name_:
 		"expedition":
-			_sheet.open("Expedition", _build_expedition)
+			_sheet.open("Expedition", _build_expedition, 0.94)
 		"daily_sheet", "daily":
 			_sheet.open("Daily", _build_daily)
 		"journal":

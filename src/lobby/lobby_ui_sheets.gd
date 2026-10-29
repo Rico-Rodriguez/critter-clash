@@ -171,25 +171,29 @@ func _build_daily(s: Sheet) -> void:
 	var b := s.body
 	var st := Game.login_status()
 	b.add_child(_row([Ui.label("Login streak", "Heading"), _spacer()]))
+	# Six days three across, then day 7, the big one, across the whole row.
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	var day := int(st["day"])
 	for i in DB.LOGIN_REWARDS.size():
 		var rw: Dictionary = DB.LOGIN_REWARDS[i]
+		var claimed: bool = i + 1 < day or (i + 1 == day and not st["ready"])
+		var today: bool = i + 1 == day and st["ready"]
+		var last := i == DB.LOGIN_REWARDS.size() - 1
 		var c := _card()
+		if today:
+			c.theme_type_variation = &"CardHot"
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 2)
 		v.add_child(Ui.label("Day %d" % (i + 1), "Caption", HORIZONTAL_ALIGNMENT_CENTER))
 		var ic := "two-coins" if rw.has("gold") else ("gems" if rw.has("shards") else "locked-chest")
-		var claimed: bool = i + 1 < day or (i + 1 == day and not st["ready"])
-		var today: bool = i + 1 == day and st["ready"]
 		var col := Color(1.0, 0.85, 0.4) if today else (Color(0.5, 0.9, 0.55) if claimed else Color(0.7, 0.66, 0.6))
 		var cc := CenterContainer.new()
 		if rw.has("chest"):
-			var chest_art: TextureRect = PropIcons.chest(str(rw["chest"]), 52)
+			var chest_art: TextureRect = PropIcons.chest(str(rw["chest"]), 72 if last else 52)
 			if not (today or claimed):
 				chest_art.modulate = Color(0.7, 0.66, 0.6)
 			cc.add_child(chest_art)
@@ -204,8 +208,11 @@ func _build_daily(s: Sheet) -> void:
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(tl)
 		c.add_child(v)
-		grid.add_child(c)
-	b.add_child(grid)
+		if last:
+			b.add_child(grid)
+			b.add_child(c)
+		else:
+			grid.add_child(c)
 	if st["ready"]:
 		var cb := Button.new()
 		cb.theme_type_variation = &"GoldButton"
@@ -590,7 +597,8 @@ func _build_expedition(s: Sheet) -> void:
 	_exp_note = ""
 	b.add_child(Ui.label("MODE", "Caption"))
 	var modes := GridContainer.new()
-	modes.columns = 3
+	# All five modes on one row: a second row of tiles pushed the sheet past the screen.
+	modes.columns = 5
 	modes.add_theme_constant_override("h_separation", 10)
 	modes.add_theme_constant_override("v_separation", 10)
 	b.add_child(modes)
@@ -638,7 +646,7 @@ func _build_expedition(s: Sheet) -> void:
 				_exp_note = zn
 			else:
 				Game.set_zone(zid)
-			_picked(s), PropIcons.boss(str(z["boss"]), 72)))
+			_picked(s), PropIcons.boss(str(z["boss"]), 56)))
 	if zone_note != "":
 		b.add_child(_exp_line(zone_note, true))
 	b.add_child(Ui.label("DIFFICULTY", "Caption"))
@@ -649,16 +657,18 @@ func _build_expedition(s: Sheet) -> void:
 		Game.set_omen(not bool(Game.data.get("omen_on", false)))
 		_picked(s)))
 	refresh()
+	# Pinned under the list, so the way in is on screen whatever is picked.
 	var go := Button.new()
 	go.theme_type_variation = "PrimaryButton"
 	go.text = _hunt_text
 	go.disabled = %Hunt.disabled
 	go.focus_mode = Control.FOCUS_NONE
 	go.custom_minimum_size = Vector2(0, 96)
+	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	go.pressed.connect(func():
 		s.close()
 		%Hunt.pressed.emit())
-	b.add_child(go)
+	s.footer.add_child(go)
 
 
 ## The mode names that fit a tile a third of the sheet wide.
@@ -689,7 +699,7 @@ func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool,
 	btn.button_pressed = chosen
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.custom_minimum_size = Vector2(0, 150 if art != null else (112 if icon != "" else 92))
+	btn.custom_minimum_size = Vector2(0, 132 if art != null else (112 if icon != "" else 92))
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -710,7 +720,8 @@ func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool,
 		cc.add_child(Ui.icon_rect("padlock" if locked else icon, 40 if icon != "" else 26, tone))
 		v.add_child(cc)
 	var tl := Ui.label(title, "Body", HORIZONTAL_ALIGNMENT_CENTER)
-	tl.add_theme_font_size_override("font_size", 21)
+	# Long names ("Wilderness") step down to fit a fifth of the sheet.
+	tl.add_theme_font_size_override("font_size", 21 if title.length() < 10 else 18)
 	if chosen:
 		tl.add_theme_color_override("font_color", Color(0.95, 0.8, 0.52))
 	v.add_child(tl)
@@ -752,25 +763,6 @@ func _build_difficulty(b: VBoxContainer, s: Sheet) -> void:
 	row.add_child(_step("›", i < top, func():
 		Game.set_tier(i + 1)
 		_picked(s)))
-	var pips := HBoxContainer.new()
-	pips.add_theme_constant_override("separation", 6)
-	b.add_child(pips)
-	for k in DB.TIERS.size():
-		var p := Panel.new()
-		p.custom_minimum_size = Vector2(0, 10)
-		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var st := StyleBoxFlat.new()
-		st.set_corner_radius_all(5)
-		st.bg_color = Color(DB.TIERS[k]["color"]) if k <= top else Color(0.17, 0.15, 0.19)
-		if k == i:
-			st.set_border_width_all(2)
-			st.border_color = Color(0.98, 0.85, 0.55)
-			st.expand_margin_top = 3
-			st.expand_margin_bottom = 3
-		elif k <= top:
-			st.bg_color = st.bg_color.darkened(0.35)
-		p.add_theme_stylebox_override("panel", st)
-		pips.add_child(p)
 	var pw := Game.power_score(Game.hero_id())
 	var need := int(t["power"])
 	var pr := _row([Ui.label("Your power %s" % Ui.fmt_num(pw), "Body"), _spacer()], 8)
@@ -1260,206 +1252,8 @@ func _genome_card(d: Dictionary) -> Control:
 var _breed_a := ""
 var _breed_b := ""
 var _breed_news := ""
-
-
-## Breeding: pick two sidekicks at Bond 3+, pay gold, and a Nest Egg holding
-## their child goes to the hatchery. The pair determines the breed (a parent's,
-## or sometimes their hybrid); the traits are rolled and unique. Each parent
-## then rests Care.REST_HOURS.
-func _build_breeding(s: Sheet) -> void:
-	var b := s.body
-	var now := int(Time.get_unix_time_from_system())
-	var info := Ui.label("Two pets at Bond %d+ lay a Nest Egg. The pair decides the breed; every child rolls its own traits." % SKDB.BREED_BOND, "Small")
-	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.add_child(info)
-	if _breed_news != "":
-		var news := Ui.label(_breed_news, "Heading", HORIZONTAL_ALIGNMENT_CENTER)
-		news.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
-		b.add_child(news)
-		_breed_news = ""
-	var slots := HBoxContainer.new()
-	slots.add_theme_constant_override("separation", 10)
-	slots.add_child(_breed_slot(s, _breed_a, true))
-	var plus := Ui.label("+", "Title", HORIZONTAL_ALIGNMENT_CENTER)
-	plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	slots.add_child(plus)
-	slots.add_child(_breed_slot(s, _breed_b, false))
-	b.add_child(slots)
-	var plabel := Ui.label("PARENTS", "Caption")
-	b.add_child(plabel)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	for id: String in SKDB.ORDER + SKS.bred_ids(Game.data):
-		if not SKS.is_owned(Game.data, id):
-			continue
-		var d: Dictionary = SKDB.def(id)
-		var lv := SKS.bond(Game.data, id)
-		var rest := SKS.resting(Game.data, id, now)
-		var sel := id == _breed_a or id == _breed_b
-		var status := ("Resting %s" % _dur(rest)) if rest > 0 else (("Bond %d · next rest %s" % [lv, Care.hours_text(Care.next_rest(Game.data, id))]) if lv >= SKDB.BREED_BOND else "Bond %d (needs %d)" % [lv, SKDB.BREED_BOND])
-		var ok := rest == 0 and lv >= SKDB.BREED_BOND
-		var frac := -1.0
-		if rest > 0:
-			frac = clampf(float(rest) / float(Care.rest_secs(maxi(Care.bred_times(Game.data, id) - 1, 0))), 0.0, 1.0)
-		var tile := _sk_tile_box(str(d["icon"]), Color(d["color"]), ("✓ " if sel else "") + _pet_name(id), status, frac, not ok, func():
-			if id == _breed_a:
-				_breed_a = ""
-			elif id == _breed_b:
-				_breed_b = ""
-			elif _breed_a == "":
-				_breed_a = id
-			else:
-				_breed_b = id
-			s.rebuild(), id)
-		(tile as Button).disabled = not ok
-		grid.add_child(tile)
-	b.add_child(grid)
-	var picked := _breed_a != "" and _breed_b != ""
-	if picked:
-		var hy := SKDB.hybrid_for(SKDB.species(_breed_a), SKDB.species(_breed_b))
-		var pc := _card()
-		var pv := VBoxContainer.new()
-		pv.add_theme_constant_override("separation", 4)
-		pv.add_child(Ui.label("OFFSPRING", "Caption"))
-		var odds := "%s or %s" % [SKDB.def(_breed_a)["name"], SKDB.def(_breed_b)["name"]]
-		if hy != "":
-			var left := SKS.hybrid_tries_left(Game.data, _breed_a, _breed_b)
-			odds += "\n%s" % ("A %s for sure" % SKDB.BREEDS[hy]["name"] if left == 1 else "%d%% chance of a %s%s" % [int(SKDB.BREED_HYBRID * 100.0), SKDB.BREEDS[hy]["name"], (", certain within %d tries" % left) if left > 1 else ""])
-		var ol := Ui.label(odds + "\nTraits are rolled: looks, stats, element, personality.", "Body")
-		ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		pv.add_child(ol)
-		var rl := Ui.label("Then they rest: %s %s · %s %s" % [_pet_name(_breed_a), Care.hours_text(Care.next_rest(Game.data, _breed_a)), _pet_name(_breed_b), Care.hours_text(Care.next_rest(Game.data, _breed_b))], "Small")
-		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		rl.add_theme_color_override("font_color", Color(1.0, 0.78, 0.4))
-		pv.add_child(rl)
-		pc.add_child(pv)
-		b.add_child(pc)
-	var why := SKS.breed_block(Game.data, _breed_a, _breed_b, now) if picked else "Pick two parents"
-	var go := Button.new()
-	go.theme_type_variation = &"GoldButton"
-	go.text = "BREED · %s GOLD" % Ui.fmt_num(SKDB.BREED_GOLD)
-	go.focus_mode = Control.FOCUS_NONE
-	go.custom_minimum_size = Vector2(0, 72)
-	go.disabled = why != ""
-	go.pressed.connect(func():
-		var e := SKS.breed(Game.data, _breed_a, _breed_b, int(Time.get_unix_time_from_system()), randi())
-		if e.is_empty():
-			return
-		_breed_a = ""
-		_breed_b = ""
-		_breed_news = "A Nest Egg is in your hatchery!"
-		Game.bounty_note("bred")
-		Sfx.play("rare_chime", 0.0)
-		Game.save()
-		_refresh_camp_sidekick()
-		s.rebuild())
-	b.add_child(go)
-	if why != "":
-		b.add_child(Ui.label(why, "Small", HORIZONTAL_ALIGNMENT_CENTER))
-	# Parents last: the offspring and the button stay in view.
-	b.move_child(plabel, b.get_child_count() - 1)
-	b.move_child(grid, b.get_child_count() - 1)
-
-
-## One parent slot over the pair: the pet, or an invitation to pick one.
-func _breed_slot(s: Sheet, id: String, first: bool) -> Control:
-	var btn := Button.new()
-	btn.theme_type_variation = &"Card"
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.custom_minimum_size = Vector2(0, 150)
-	var v := VBoxContainer.new()
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 2)
-	if id == "":
-		var q := Ui.icon_rect("egg-clutch", 48, Color(1, 1, 1, 0.25))
-		q.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		v.add_child(q)
-		var l := Ui.label("Parent %s" % ("one" if first else "two"), "Small", HORIZONTAL_ALIGNMENT_CENTER)
-		l.modulate.a = 0.6
-		v.add_child(l)
-		btn.disabled = true
-	else:
-		var d: Dictionary = SKDB.def(id)
-		var ic := PetIcons.rect(id, SKS.stage(Game.data, id), 96)
-		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		v.add_child(ic)
-		var nm := Ui.label(_pet_name(id), "Body", HORIZONTAL_ALIGNMENT_CENTER)
-		nm.clip_text = true
-		v.add_child(nm)
-		var rl := Ui.label("Rests %s after" % Care.hours_text(Care.next_rest(Game.data, id)), "Small", HORIZONTAL_ALIGNMENT_CENTER)
-		rl.add_theme_color_override("font_color", Color(1.0, 0.78, 0.4))
-		v.add_child(rl)
-		btn.pressed.connect(func():
-			Sfx.play("ui_tap", -4.0)
-			if first:
-				_breed_a = ""
-			else:
-				_breed_b = ""
-			s.rebuild())
-	for ch in v.get_children():
-		(ch as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
-	btn.add_child(v)
-	return btn
-
-
-## The collection log: every breed and trait you've hatched, and what's left.
-func _build_collection(s: Sheet) -> void:
-	var b := s.body
-	var f: Dictionary = SKS.block(Game.data)["found"]
-	var breeds := SKS.breeds_found(Game.data)
-	var all_breeds: Array = SKDB.ORDER + SKDB.BREED_ORDER
-	var sections := [
-		["BREEDS", all_breeds, breeds, func(k): return str(SKDB.def(k)["name"])],
-		["ELEMENTS", SKDB.ELEMENTS.keys(), f["elements"], func(k): return str(SKDB.ELEMENTS[k]["name"])],
-		["PATTERNS", SKDB.PATTERNS.slice(1), f["patterns"], func(k): return str(k).capitalize()],
-		["PERSONALITIES", SKDB.PERSONALITIES.keys(), f["personalities"], func(k): return str(SKDB.PERSONALITIES[k]["name"])],
-	]
-	for sec in sections:
-		var have: Array = sec[2]
-		var total: Array = sec[1]
-		var n := total.filter(func(k): return have.has(k)).size()
-		b.add_child(Ui.label("%s · %d / %d" % [sec[0], n, total.size()], "Caption"))
-		if sec[0] == "BREEDS":
-			# Breeds are pictures: the pet's own render once found, a dark outline until then.
-			var grid := GridContainer.new()
-			grid.columns = 4
-			grid.add_theme_constant_override("h_separation", 8)
-			grid.add_theme_constant_override("v_separation", 8)
-			for k in total:
-				var got := have.has(k)
-				var pc := _card()
-				pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				var tv := VBoxContainer.new()
-				tv.add_theme_constant_override("separation", 2)
-				var pic: TextureRect = PetIcons.rect(str(k), 1, 84) if got else Ui.icon_rect(str(SKDB.def(k)["icon"]), 60, Color(0.12, 0.12, 0.16))
-				pic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-				tv.add_child(pic)
-				var nl := Ui.label(str(SKDB.def(k)["name"]) if got else "???", "Small", HORIZONTAL_ALIGNMENT_CENTER)
-				nl.add_theme_font_size_override("font_size", 15)
-				nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				nl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5) if got else Color(0.5, 0.5, 0.55))
-				tv.add_child(nl)
-				pc.add_child(tv)
-				grid.add_child(pc)
-			b.add_child(grid)
-			continue
-		var fl := HFlowContainer.new()
-		fl.add_theme_constant_override("h_separation", 8)
-		fl.add_theme_constant_override("v_separation", 8)
-		for k in total:
-			var got := have.has(k)
-			var l := Ui.label(str(sec[3].call(k)) if got else "???", "Small")
-			l.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5) if got else Color(0.5, 0.5, 0.55))
-			var pc := _card()
-			pc.add_child(l)
-			fl.add_child(pc)
-		b.add_child(fl)
-	b.add_child(Ui.label("GLOW · %s" % ("found" if bool(f["glow"]) else "???"), "Caption"))
+## The breed whose page is open on the Wheel (pets_codex.gd), "" for the wheel.
+var _pet_page := ""
 
 
 ## The camp shows the sidekick at your side by the fire.

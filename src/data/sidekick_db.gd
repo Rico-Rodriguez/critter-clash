@@ -198,6 +198,9 @@ const BREEDS := {
 }
 const BREED_ORDER := ["cinderbone", "hexstorm", "briarshade", "bloodmist", "thundermimic", "thornknight", "emberbat", "bonehex"]
 const BREED_HYBRID := 0.35
+## The Breeding Wheel's ring (pets_codex.gd): every species once, ordered so the
+## two parents of each hybrid sit side by side and the hybrid between them.
+const WHEEL := ["barrow_squire", "acolyte", "sapling", "shade", "wisp", "bat", "drake", "bonelet", "hexling", "crow", "mimic"]
 ## A pair that can make a hybrid you haven't found yet makes it by this try at
 ## the latest, so bad luck can't burn a run of litters.
 const BREED_HYBRID_PITY := 3
