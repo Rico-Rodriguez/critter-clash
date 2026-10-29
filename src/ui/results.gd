@@ -368,9 +368,6 @@ func _advice(r: Dictionary, tier: Dictionary) -> void:
 		if e["hero"] == id and Game.is_better(e["item"], id) and Game.owner_of(int(e["item"]["uid"])) != id:
 			_note("Equip the upgrades you found above", col, "breastplate")
 			return
-	if Game.can_rub_lamp(id):
-		_note("Rub an XP lamp in Skills: skills are the %s's health and damage" % DB.HEROES[id]["name"], col, "upgrade")
-		return
 	var pw := Game.power_score(id)
 	var rec := int(tier["power"])
 	if pw < rec:

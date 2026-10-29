@@ -13,6 +13,8 @@ extends Control
 
 const FxUi := preload("res://src/ui/fx_ui.gd")
 const SKDB := preload("res://src/data/sidekick_db.gd")
+const PropIcons := preload("res://src/ui/prop_icons.gd")
+const PetIcons := preload("res://src/ui/pet_icons.gd")
 const WOBBLES := [7.0, 12.0, 18.0]
 const EGG := 240.0
 
@@ -116,6 +118,7 @@ class Cracks extends Control:
 
 
 var _res := {}
+var _egg_col := Color.WHITE
 var _egg: TextureRect
 var _pet: TextureRect
 var _flash: ColorRect
@@ -182,8 +185,12 @@ func play(host: Control, res: Dictionary, on_done := Callable()) -> void:
 	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	_glow.material = add
 	add_child(_glow)
-	_egg = Ui.icon_rect("egg-clutch", EGG, Color.WHITE)
-	_egg.self_modulate = egg_col
+	# The real egg (a render in the egg's own colours), or the flat icon for an unknown kind.
+	_egg_col = egg_col
+	if SKDB.EGGS.has(str(res["kind"])):
+		_egg = PropIcons.egg(str(res["kind"]), EGG)
+	else:
+		_egg = Ui.icon_rect("egg-clutch", EGG, egg_col)
 	_egg.size = Vector2(EGG, EGG)
 	_egg.position = _mid - _egg.size * 0.5 + Vector2(0, -420)
 	_egg.pivot_offset = Vector2(EGG * 0.5, EGG * 0.92)
@@ -198,7 +205,8 @@ func play(host: Control, res: Dictionary, on_done := Callable()) -> void:
 		c.size = _egg.size
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_egg.add_child(c)
-	_pet = Ui.icon_rect(str(pd["icon"]), 260.0, Color.WHITE)
+	# The hatchling's own render: a black silhouette until it floods with colour.
+	_pet = PetIcons.rect(str(res["id"]), 0, 260.0)
 	_pet.self_modulate = Color.BLACK
 	_pet.size = Vector2(260, 260)
 	_pet.position = _mid - _pet.size * 0.5
@@ -299,7 +307,7 @@ func _crack(i: int) -> void:
 	# A few flecks of shell and light jump off the crack.
 	for j in 5 + 2 * i:
 		var a := randf_range(-PI, 0.0)
-		_shards.throw(_mid + Vector2(randf_range(-30, 30), randf_range(-50, 20)), Vector2(cos(a), sin(a)) * randf_range(120, 300), randf_range(4, 8), _egg.self_modulate.darkened(0.1), 0.7, randf_range(-8, 8))
+		_shards.throw(_mid + Vector2(randf_range(-30, 30), randf_range(-50, 20)), Vector2(cos(a), sin(a)) * randf_range(120, 300), randf_range(4, 8), _egg_col.darkened(0.1), 0.7, randf_range(-8, 8))
 	for j in 4:
 		var a2 := randf() * TAU
 		_sparks.throw(_mid + Vector2(randf_range(-30, 30), randf_range(-40, 30)), Vector2.from_angle(a2) * randf_range(160, 380), 3.0, Color(_col.lightened(0.6), 0.9), 0.5)
@@ -354,7 +362,7 @@ func _burst() -> void:
 
 
 func egg_shell_color() -> Color:
-	return _egg.self_modulate
+	return _egg_col
 
 
 ## The hatchling: a black silhouette that leaps out, floods with colour,
@@ -407,7 +415,7 @@ func _reveal() -> void:
 	_tween.parallel().tween_property(_pet, "position:y", _mid.y - 130.0 - 130.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_tween.tween_property(_pet, "position:y", _mid.y - 130.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_tween.parallel().tween_property(_pet, "scale", Vector2(1.0, 1.0), 0.2)
-	_tween.parallel().tween_property(_pet, "self_modulate", _col, 0.36).set_trans(Tween.TRANS_SINE)
+	_tween.parallel().tween_property(_pet, "self_modulate", Color.WHITE, 0.36).set_trans(Tween.TRANS_SINE)
 	_tween.tween_callback(_thud)
 	_tween.tween_property(_pet, "scale", Vector2(1.28, 0.82), 0.07).set_ease(Tween.EASE_OUT)
 	_tween.tween_property(_pet, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
@@ -542,7 +550,7 @@ func _mutate(mut: String) -> void:
 			var rb := Color.from_hsv(v, 0.55, 1.0)
 			banner.add_theme_color_override("font_color", rb)
 			m_l.add_theme_color_override("font_color", Color.from_hsv(fmod(v + 0.5, 1.0), 0.5, 1.0))
-			_pet.self_modulate = _col.lerp(Color.from_hsv(v, 0.5, 1.0), 0.28), 0.0, 1.0, 2.4)
+			_pet.self_modulate = Color.WHITE.lerp(Color.from_hsv(v, 0.5, 1.0), 0.2), 0.0, 1.0, 2.4)
 		_idle())
 
 
