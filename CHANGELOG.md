@@ -9,6 +9,14 @@ version is 7.
 
 ---
 
+## Unreleased: the Breeding Wheel and the Matchmaker
+
+The Pets tab's Album becomes the Wheel. All 11 species sit on one ring, ordered so each hybrid's two parents are neighbours and the hybrid sits in the gap between them. Owned species wear their rarity colour, a gold arc marks a pair you own both halves of, and the hub shows the mutations you have found. Under it, a card offers the next hybrid within reach ("Pair" opens the Matchmaker with both picked), then a bestiary of all 19 breeds: hybrids show their parents before you find them, and six pips show which mutations you own on each. Tapping a breed opens its page, with its bloodlines (who to pair it with, and what's missing) and its six mutation slots.
+
+Breed becomes the Matchmaker. Two parent slots show bond, rest and any mutation a parent carries. With a pair picked, it shows what can hatch and how likely each is (32.5 / 35 / 32.5 for a hybrid pair, the hybrid pity included), the litter's mutation chance with its pity bar, and the cost. With one parent picked, partners are listed by what they would make, and missing partners say where to get them. A content change: ships over the air.
+
+---
+
 ## Unreleased: UI polish pass from the phone-size audit
 
 Every camp sheet and hunt screen was captured at 720×1560 and measured for needless scrolling. Settings fits one screen again: the long art credits sit behind a Credits button. The season list fits without scrolling, the Log's collection is three tiles across (about a third shorter), and Feats lose their repeated heading and list the ones ready to claim first. Quests is a two by two grid. On/off switches are drawn phone-sized, gold when on. The Shop's Buy button is gold when you can afford it, the hero sheet drops its greyed-out "In use" bar, a short hunt's results panel shrinks to its content instead of leaving a blank middle, and the first-launch privacy card no longer covers the game's title. The Log's boss lines say "0 kills" instead of "KC 0 · dry 0 (worst 0)". A content change: ships over the air.

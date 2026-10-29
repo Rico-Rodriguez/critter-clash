@@ -2110,6 +2110,45 @@ func _hybrid_pity_tests() -> void:
 	_ok("hybrid pity: an old save without counts loads", SK.hybrid_tries_left(old, "drake", "bonelet") == SKDB_T.BREED_HYBRID_PITY)
 
 
+## The Breeding Wheel's ring and the Matchmaker's numbers match the rules.
+func _matchmaker_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	var ring: Array = SKDB_T.WHEEL
+	var every := ring.size() == SKDB_T.ORDER.size() and SKDB_T.ORDER.all(func(k): return ring.count(k) == 1)
+	_ok("wheel: every species is on the ring once", every)
+	var near := true
+	for h: String in SKDB_T.BREED_ORDER:
+		var p: Array = SKDB_T.BREEDS[h]["pair"]
+		var gap := absi(ring.find(p[0]) - ring.find(p[1]))
+		near = near and (gap == 1 or gap == ring.size() - 1)
+	_ok("wheel: each hybrid's parents are neighbours", near)
+	var d := Game._fresh()
+	SK.migrate(d)
+	for id in ["drake", "bonelet", "wisp"]:
+		SK.own(d, id)
+	var odds := SK.litter_odds(d, "drake", "bonelet")
+	var total := 0.0
+	for o: Array in odds:
+		total += float(o[1])
+	_ok("matchmaker: a hybrid pair's odds add to 1", is_equal_approx(total, 1.0) and odds.size() == 3)
+	# The odds shown are the odds rolled.
+	var hits := 0
+	for sd in 4000:
+		if str(SKDB_T.roll_child("drake", {}, "bonelet", {}, sd)["breed"]) == "cinderbone":
+			hits += 1
+	_ok("matchmaker: the hybrid share matches the roll (%d / 4000)" % hits, absf(hits / 4000.0 - float(odds[2][1])) < 0.03)
+	_ok("matchmaker: a pair with no hybrid is 50/50", SK.litter_odds(d, "drake", "wisp") == [["drake", 0.5], ["wisp", 0.5]])
+	d["sidekicks"]["hy_dry"] = {"bonelet+drake": SKDB_T.BREED_HYBRID_PITY - 1}
+	_ok("matchmaker: on the pity litter the hybrid is certain", float(SK.litter_odds(d, "drake", "bonelet")[2][1]) == 1.0)
+	var base := SK.mutation_chance(d, "nest")
+	_ok("matchmaker: unmutated parents give the nest's mutation chance", is_equal_approx(SK.litter_mutation_chance(d, "drake", "bonelet"), base))
+	var cid := SK._add_bred(d, {"breed": "bonelet", "genes": SKDB_T.base_genes().merged({"mutation": "gilded"}, true)}, [])
+	var want := SKDB_T.GEN.MUTATION_INHERIT + (1.0 - SKDB_T.GEN.MUTATION_INHERIT) * base
+	_ok("matchmaker: a mutated parent adds its inherit chance", is_equal_approx(SK.litter_mutation_chance(d, "drake", cid), want))
+	_ok("matchmaker: owning a bred bonelet owns the breed", SK.owns_species(d, "bonelet") and SK.count_of_species(d, "bonelet") == 2 and SK.mutated_one(d, "bonelet", "gilded") == cid)
+	_ok("matchmaker: breed mutations list what you own", SK.breed_mutations(d).get("bonelet", []) == ["gilded"])
+
+
 ## Releasing a bred pet frees its room for gold; species pets and the one at
 ## your side stay.
 func _release_tests() -> void:
@@ -2176,6 +2215,7 @@ func _pet_care_tests() -> void:
 	_ok("care: an old save without counts still loads", Care.bred_times(old, "drake") == 0 and Care.next_rest(old, "drake") == 8 * 3600)
 	_hybrid_pity_tests()
 	_release_tests()
+	_matchmaker_tests()
 	# Names.
 	_ok("name: plain names pass", bool(Care.check_name("Ember")["ok"]) and bool(Care.check_name("Sir Wiggles-II")["ok"]) and bool(Care.check_name("O'Malley")["ok"]))
 	_ok("name: spaces are trimmed and squeezed", str(Care.check_name("   Big    Boo  ")["name"]) == "Big Boo")

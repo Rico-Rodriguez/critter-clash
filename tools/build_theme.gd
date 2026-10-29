@@ -79,6 +79,11 @@ func _labels() -> void:
 		theme.set_font_size("font_size", v[0], v[1])
 		theme.set_color("font_color", v[0], v[2])
 		theme.set_constant("outline_size", v[0], v[3])
+	# Labels under pet portraits on the Breeding Wheel and the bestiary.
+	theme.set_type_variation("Tiny", "Label")
+	theme.set_font_size("font_size", "Tiny", 17)
+	theme.set_color("font_color", "Tiny", TEXT)
+	theme.set_font("font", "Tiny", body_med)
 	theme.set_type_variation("Small", "Label")
 	theme.set_font_size("font_size", "Small", 21)
 	theme.set_color("font_color", "Small", DIM)
