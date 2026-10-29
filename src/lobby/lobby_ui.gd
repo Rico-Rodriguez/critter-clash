@@ -342,6 +342,14 @@ func _coach() -> void:
 		_guide.setup(%Hunt, "The weekly event changed", "Hunts under the weekly rule now earn bonus season XP. You had %d reward%s waiting from the old track; they are paid." % [n, "" if n == 1 else "s"], false, camp_idle)
 		%Overlay.add_child(_guide)
 		return
+	# The talent trees were rebuilt and old points refunded: say so, once.
+	if int(Game.data.get("talents_refunded", 0)) > 0:
+		Game.data["talents_refunded"] = 0
+		Game.save()
+		_guide = CampGuide.new()
+		_guide.setup(_tab_btns["heroes"], "Talent trees have changed", "Every path is now a tree with ranks, choices and a keystone. Your talent points are back to spend in Heroes.", false, camp_idle)
+		%Overlay.add_child(_guide)
+		return
 	var tips: Dictionary = Game.data["tips"]
 	var played := int(Game.data["stats"]["hunts"]) > 0
 	for st in [
@@ -824,7 +832,9 @@ func open_sheet(name_: String) -> void:
 		"skills":
 			_sheet.open("Skills", _build_skills)
 		"talents":
-			_sheet.open("Talents", _build_talents)
+			Game.talents_opened(_shown_hero)
+			_talent_sel = ""
+			_sheet.open("Talents", _build_talents, 0.94)
 		_:
 			if not _open_social_sheet(_sheet, name_):
 				_sheet.queue_free()

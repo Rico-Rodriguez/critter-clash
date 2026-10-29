@@ -21,6 +21,7 @@ func _fresh() -> Dictionary:
 	var heroes := {}
 	for id in DB.HERO_ORDER:
 		heroes[id] = {"level": 1, "shards": 0, "unlocked": DB.HEROES[id]["unlock"] == "start", "gear": {}, "talents": [],
+			"tree": {"build": 0, "builds": [{"ranks": {}, "picks": {}}, {"ranks": {}, "picks": {}}]},
 			"mastery": 0, "mastery_rank": 0, "rating": 0, "rating_paid": 0, "free_respec": true, "glow": "", "glows": [], "skin": "", "skins": [], "outfit": "", "outfits": [], "best_mat": -1, "skills": _fresh_skills()}
 	return {
 		"version": SAVE_VERSION,
@@ -62,6 +63,8 @@ func _fresh() -> Dictionary:
 		"event": {"week": -1, "pts": 0, "claimed": 0, "hunts": 0},
 		# Tiers of the retired event track paid at boot, until the camp has said so.
 		"folded_event": 0,
+		# Heroes whose old straight-line talents were refunded for the new trees, until the camp has said so.
+		"talents_refunded": 0,
 		# The story campaign: chapter ids cleared, and the chapter the next hunt plays.
 		"story": {"cleared": [], "run": ""},
 		"clue": {},

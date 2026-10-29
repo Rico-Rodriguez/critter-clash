@@ -38,6 +38,17 @@ in this order; tick a line when it merges.
 
 Left for later: local notifications (needs a native plugin and an IPA bump), outfits that change the silhouette, trimming breeding and mutations from the Pets tab.
 
+## Talent trees v2 (Rico, 2026-10-29)
+
+Proposal: the "Gravelight Talent Trees" artifact in the project thread. Rico approved it, with
+the point cap and refund price left to Claude (22 points, 40 gold a rank).
+
+1. [x] **Trees, not lines:** ranked minors, rows that open at 0/3/6/10/13 points in the path, a
+   pick-one node, one keystone at a time with a cost, attunement, rank refunds, two saved builds,
+   old talents refunded. One-screen sheet.
+2. [ ] **Tune:** autopilot runs with a spent tree per hero against the old talents, so the
+   overhaul is a change of shape, not a power spike.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

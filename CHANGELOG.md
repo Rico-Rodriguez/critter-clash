@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: talent trees rebuilt like an ARPG
+
+Each hero's three talent paths were straight lines of eight nodes, so the only choice was which column to fill first, and a maxed hero owned 80% of the tree. Each path is now a small tree: minors take up to 3 ranks, rows open after 3, 6, 10 and 13 points in that path, the middle node is a pick-one upgrade (several change the hero's super), and the path ends in a keystone with a real cost; only one keystone can be active. Every point in a path also adds a little of its theme stat (attunement). Points cap at 22 (combat 113), ranks refund one at a time for 40 gold (free for anything learned since the tree was opened), and each hero has two saved builds. The sheet fits one screen: three path columns of icon nodes and a detail panel with Learn and Refund, so a tap no longer spends a point. Old talents do not map onto the new trees, so every hero's points come back unspent with a one-time camp notice. Also fixed: the Rogue's hero sheet had no icon for Shadowstep. A content change: ships over the air.
+
+---
+
 ## Unreleased: the Rift is a Boss Rush option, not its own mode
 
 From the design audit. The Expedition no longer has a Rift tile. With a rift key in hand, picking Boss Rush shows a "Spend a rift key" toggle that swaps the full rush for one boss at more than twice its strength and a guaranteed unique. Nothing underneath changed: the hunt still runs the `rift` mode, so keys, the Riftwalker feat, stats and saves are untouched. Key rewards now say to spend it on a Boss Rush.

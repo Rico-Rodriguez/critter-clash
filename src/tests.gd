@@ -528,7 +528,10 @@ func _meta_tests() -> void:
 	for s in DB.SKILLS:
 		Game.skills("knight")[s] = DB.xp_for_level(60)
 	var g0 := Game.gold()
+	Game.hero("knight")["free_respec"] = true
+	Game.learn_talent("knight", 0, 0)
 	_ok("first respec is free", Game.respec("knight") and Game.gold() == g0)
+	Game.learn_talent("knight", 0, 0)
 	_ok("second respec costs gold", Game.respec("knight") and Game.gold() < g0)
 	# Sets: four pieces of the Regalia give the 2 and 4 piece bonuses.
 	var plain := Game.hero_stats("knight")
@@ -579,22 +582,67 @@ func _depth_tests() -> void:
 	for sk in DB.STYLE_SKILLS["melee"]:
 		Game.skills("knight")[sk] = DB.xp_for_level(16)
 	_ok("three points at combat 18", Game.combat_level("knight") == 18 and Game.talent_points("knight") == 3)
-	_ok("nodes need the one above", not Game.can_learn("knight", 0, 1) and Game.can_learn("knight", 0, 0))
+	_ok("rows open with points in the path", Game.can_learn("knight", 0, 0) and not Game.can_learn("knight", 0, 2))
 	var hp0: float = Game.hero_stats("knight")["hp"]
 	Game.learn_talent("knight", 0, 0)
-	_ok("talent adds health", float(Game.hero_stats("knight")["hp"]) > hp0 * 1.07)
-	Game.learn_talent("knight", 0, 1)
-	Game.learn_talent("knight", 0, 2)
-	_ok("stalwart sets second wind", float(Game.hero_stats("knight")["flags"].get("second_wind", 0.0)) > 0.0)
+	_ok("a rank adds health", float(Game.hero_stats("knight")["hp"]) > hp0 * 1.03)
+	Game.learn_talent("knight", 0, 0)
+	Game.learn_talent("knight", 0, 0)
+	_ok("a minor stops at its max", Game.talent_rank("knight", 0, 0) == 3 and not Game.can_learn("knight", 0, 0))
 	_ok("points spent", Game.talent_points("knight") == 0)
 	Game.respec("knight")
 	_ok("respec is free", Game.talent_points("knight") == 3 and absf(float(Game.hero_stats("knight")["hp"]) - hp0) < 0.01)
+	# A deep tree: ranks, gates, a choice, one keystone, refunds and builds.
+	for sk in DB.STYLE_SKILLS["melee"]:
+		Game.skills("knight")[sk] = DB.xp_for_level(99)
+	_ok("22 points at the top combat level", Game.talent_earned("knight") == DB.TALENT_MAX and DB.TALENT_MAX == 22)
+	Game.talents_opened("knight")
+	for n in [[1, 0], [1, 0], [1, 0], [1, 2], [1, 1], [1, 1], [1, 1], [1, 3]]:
+		Game.learn_talent("knight", n[0], n[1])
+	_ok("the choice row opens at 6", Game.row_open("knight", 1, 2) and not Game.row_open("knight", 1, 3))
+	_ok("smiter starts the hunt with Holy Smite", "smite" in Game.hero_stats("knight")["cards"])
+	Game.learn_talent("knight", 1, 4, 1)
+	_ok("a choice keeps its option", Game.talent_pick("knight", 1, 4) == 1 and float(Game.hero_stats("knight")["sp"].get("echo", 0.0)) > 0.0)
+	_ok("attunement adds crit damage", absf(float(Game.hero_stats("knight")["flags"].get("critdmg", 0.0)) - 0.02 * 9) < 0.001)
+	for n in [[1, 3], [1, 3], [1, 5], [1, 5], [1, 6]]:
+		Game.learn_talent("knight", n[0], n[1])
+	_ok("crit damage adds up", absf(float(Game.hero_stats("knight")["flags"]["critdmg"]) - (0.5 + 0.02 * 14)) < 0.001)
+	_ok("keystone row opens at 13", Game.row_open("knight", 1, 4) and Game.can_learn("knight", 1, 7))
+	Game.learn_talent("knight", 1, 7)
+	_ok("the keystone bends the card pool", "smite" in Game.hero_stats("knight")["always"])
+	for n in [[0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 2]]:
+		Game.learn_talent("knight", n[0], n[1])
+	_ok("all 22 spent", Game.talent_points("knight") == 0 and Game.talent_spent("knight") == 22)
+	Game.data["gold"] = 1000
+	_ok("ranks learned this visit refund free", Game.refund_cost("knight", 0, 2) == 0 and Game.refund_talent("knight", 0, 2) and Game.gold() == 1000)
+	Game.learn_talent("knight", 0, 2)
+	Game.talents_opened("knight")
+	_ok("a refund costs gold", Game.refund_talent("knight", 1, 0) and Game.gold() == 1000 - DB.TALENT_REFUND_GOLD)
+	_ok("a higher row holds the ranks below", not Game.can_refund("knight", 1, 0))
+	_ok("only one keystone", Game.keystone("knight") == "1.7")
+	_ok("refund the keystone", Game.refund_talent("knight", 1, 7) and Game.keystone("knight") == "")
+	Game.set_talent_build("knight", 1)
+	_ok("build B starts empty", Game.talent_spent("knight") == 0 and Game.talent_points("knight") == 22)
+	Game.set_talent_build("knight", 0)
+	_ok("build A is kept", Game.talent_spent("knight") == 20)
+	# An old straight-line save gets its points back.
+	Game.hero("knight")["talents"] = ["0.0", "0.1"]
+	Game.data["talents_refunded"] = 0
+	Game._refund_old_talents()
+	_ok("old talents are refunded", Game.hero("knight")["talents"].is_empty() and int(Game.data["talents_refunded"]) == 1)
 	for hid in DB.HERO_ORDER:
 		for path in TalentDB.paths(hid):
 			_ok("%s %s has eight nodes" % [hid, path["name"]], path["nodes"].size() == 8)
+			var slots := 0
 			for n in path["nodes"]:
-				for c in n.get("cards", []):
-					_ok("talent card %s exists" % c, DB.CARDS.has(c))
+				slots += TalentDB.max_rank(n)
+				for src in [n] + n.get("opts", []):
+					for c in src.get("cards", []) + src.get("always", []) + src.get("never", []):
+						_ok("talent card %s exists" % c, DB.CARDS.has(c))
+					for k in src.get("sp", {}):
+						_ok("%s super perk %s is real" % [hid, k], DB.SUPER_PERKS[DB.HEROES[hid]["super"]].any(func(r): return r.has(k)))
+			_ok("%s %s takes 15 points" % [hid, path["name"]], slots == 15)
+			_ok("%s %s describes every node" % [hid, path["name"]], path["nodes"].all(func(n): return TalentDB.describe(n) != ""))
 	Game.data = Game._fresh()
 	_ok("a new save starts with one hero", Game.hero("knight")["unlocked"] and not Game.hero("ranger")["unlocked"] and not Game.hero("barbarian")["unlocked"] and not Game.data["start_picked"])
 	Game.pick_start_hero("mage")

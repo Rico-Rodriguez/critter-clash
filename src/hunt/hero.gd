@@ -218,6 +218,10 @@ func recompute() -> void:
 	rate *= 1.0 + 0.05 * rage
 	dash_cd_max = 2.2 * (1.0 - 0.2 * lv.call("dash")) * (1.0 - float(base.get("dash", 0.0)))
 	sp = DB.super_perks(str(def["super"]), Game.super_rank(id))
+	# Talent upgrades to the super add to the rank's.
+	var tsp: Dictionary = base.get("sp", {})
+	for k: String in tsp:
+		sp[k] = float(sp.get(k, 0.0)) + float(tsp[k])
 	super_open = Game.super_unlocked(id)
 	super_dmg = 1.0
 	super_rate = DB.super_rate(0.25 * lv.call("wrath") + float(base.get("super", 0.0)) + hunt.pact_sum("super"))

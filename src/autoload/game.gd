@@ -156,6 +156,20 @@ func load_save() -> void:
 		_free_hands()
 		_road_heroes()
 		_one_ladder()
+		_refund_old_talents()
+
+
+## Talents used to be straight paths saved as a list of "path.index". The
+## trees that replaced them do not map onto those keys, so the points come
+## back to spend (they are counted from the tree, so emptying the old list is
+## the whole refund). `talents_refunded` tells the camp to say so, once. Safe
+## to repeat, so no save version is needed.
+func _refund_old_talents() -> void:
+	for id in DB.HERO_ORDER:
+		var old = hero(id).get("talents", [])
+		if old is Array and not old.is_empty():
+			hero(id)["talents"] = []
+			data["talents_refunded"] = int(data.get("talents_refunded", 0)) + 1
 
 
 ## Difficulties used to open per mode (`mode_tiers`). One ladder now opens them

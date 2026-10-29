@@ -1256,9 +1256,12 @@ const SKILL_LATE := 0.015
 const SKILL_KNEE := 40
 const SKILL_SPEED := 0.006
 const SKILL_ARMOR := 0.004
-## Talent points: one per this many combat levels above 3, up to the cap.
+## Talent points: one per this many combat levels above 3, up to the cap
+## (22 is what the top combat level, 113, earns).
 const TALENT_COMBAT_STEP := 5
-const TALENT_MAX := 19
+const TALENT_MAX := 22
+## Saved talent builds per hero, swapped for free in camp.
+const TALENT_BUILDS := 2
 
 ## Super ranks: the job for shards. Each rank costs shards plus gold and adds
 ## the change its line says, so the price and payoff are always readable.
@@ -1385,8 +1388,9 @@ const PIECE_GOLD_SET := 0.6
 ## piece in the same slot and set, for TRADE_GOLD x the set's gold factor.
 const TRADE_COPIES := 3
 const TRADE_GOLD := 200
-## Talent reset: the first is free, then this much per talent point earned.
-const RESPEC_GOLD := 90
+## Refunding one talent rank (free for ranks learned since the tree was
+## opened). A full reset costs this per spent point, the first one free.
+const TALENT_REFUND_GOLD := 40
 
 ## What taking a piece from level `lv` to the next costs: {cards, gold}.
 static func level_cost(it: Dictionary) -> Dictionary:
