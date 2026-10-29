@@ -393,6 +393,10 @@ func _capture(args: PackedStringArray) -> void:
 					var bl: Array = Game.data["bounties"]["list"]
 					bl[0]["progress"] = bl[0]["target"]
 					bl[1]["progress"] = int(bl[1]["target"]) / 2
+				if shot == "expedition":
+					# Boss Rush with a rift key in hand: the key toggle shows.
+					Game.data["rift_keys"] = 2
+					Game.data["mode"] = "rush"
 				if shot == "pickhero":
 					Game.data["start_picked"] = false
 				if shot in ["road", "roadreveal"]:

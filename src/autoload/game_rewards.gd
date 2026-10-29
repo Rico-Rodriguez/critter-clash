@@ -185,7 +185,7 @@ func claim_road(pick := "") -> Array:
 			lines.append("%s is open" % road_reward_text(n))
 		"rift_key":
 			data["rift_keys"] = int(data.get("rift_keys", 0)) + 1
-			lines.append("A rift key: the Rift is open")
+			lines.append("A rift key: spend it on a Boss Rush")
 		"egg":
 			var got := SK.award_egg(data, str(rw["egg"]), int(Time.get_unix_time_from_system()), rng.randi())
 			lines.append("%s: %s" % [road_reward_text(n), "it warms in your hatchery" if int(got["uid"]) > 0 else "hatchery full, +%d gems" % int(got["gems"])])

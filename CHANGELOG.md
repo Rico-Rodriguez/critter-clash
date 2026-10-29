@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: the Rift is a Boss Rush option, not its own mode
+
+From the design audit. The Expedition no longer has a Rift tile. With a rift key in hand, picking Boss Rush shows a "Spend a rift key" toggle that swaps the full rush for one boss at more than twice its strength and a guaranteed unique. Nothing underneath changed: the hunt still runs the `rift` mode, so keys, the Riftwalker feat, stats and saves are untouched. Key rewards now say to spend it on a Boss Rush.
+
+---
+
 ## Unreleased: no foe models in the battle warm-up
 
 Rico's iPhone on IPA 399 (16 worker threads) still froze, and the new crash breadcrumb said where: `warm-up foe rh_wraith`. The warm-up no longer loads every foe and the boss up front; each model loads the first time it spawns, at the cost of a hitch the first time each appears. Locally, camp to battle plus 20 s of play passed at 16 threads (3 of 3) and at the old 4 threads (1 of 1; with the warm-up that setup froze 3 of 3). `--battle-start` now stays in the hunt for `--stay=20` seconds so those first spawns are covered. A content change: ships over the air.

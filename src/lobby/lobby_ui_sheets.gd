@@ -571,9 +571,13 @@ func _build_expedition(s: Sheet) -> void:
 	modes.add_theme_constant_override("v_separation", 10)
 	b.add_child(modes)
 	for mid: String in DB.MODE_ORDER:
+		# A rift is a Boss Rush with a key spent (the toggle below), not a tile of its own.
+		if mid == "rift":
+			continue
 		var m: Dictionary = DB.MODES[mid]
 		var mlock := "" if Game.mode_unlocked(mid) else str(m["unlock"])
-		modes.add_child(_tile(MODE_ICON.get(mid, "crossed-swords"), _short_mode(str(m["name"])), "", mid == Game.mode_id(), mlock != "", func():
+		var on_tile := mid == Game.mode_id() or (mid == "rush" and Game.mode_id() == "rift")
+		modes.add_child(_tile(MODE_ICON.get(mid, "crossed-swords"), _short_mode(str(m["name"])), "", on_tile, mlock != "", func():
 			if mlock != "":
 				_exp_note = "%s: %s" % [m["name"], mlock]
 			else:
@@ -587,6 +591,11 @@ func _build_expedition(s: Sheet) -> void:
 		blurb += " Your deepest: %d." % Game.best_depth(Game.hero_id())
 	var mode_note := note != "" and note in _mode_notes()
 	b.add_child(_exp_line(note if mode_note else blurb, mode_note))
+	if Game.mode_id() in ["rush", "rift"] and Game.mode_unlocked("rift"):
+		var keys := int(Game.data.get("rift_keys", 0))
+		b.add_child(_option("crystal-shine", "Spend a rift key (%d)" % keys, "One boss at more than twice its strength instead of the full rush, and a unique drop if you win.", Game.mode_id() == "rift", "", func():
+			Game.set_mode("rush" if Game.mode_id() == "rift" else "rift")
+			_picked(s)))
 	b.add_child(Ui.label("LOCATION", "Caption"))
 	var zones := GridContainer.new()
 	zones.columns = 3
