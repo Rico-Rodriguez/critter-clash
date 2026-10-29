@@ -15,6 +15,12 @@ Rico's call (2026-10-29). `tools/ota_gate.json` sets `min_native` 4, so an insta
 
 ---
 
+## Unreleased: boss names fit the Expedition location tiles
+
+From the design audit. "The Cinder Warlord", "The Gilded Warden" and "The Thornmother" ran to or past the edge of their location tile; long boss names now use a smaller size.
+
+---
+
 ## Unreleased: battles stuck on the crossed swords (reinstall the IPA)
 
 - **Bug:** starting a battle could freeze on the crossed-swords curtain for good (Rico's iPhone, every mode; each stuck battle shows up as a "crash" on the next launch). With a renderer, the hunt's shader warm-up deadlocks the engine: the main thread waits on the shader-compile tasks while every `WorkerThreadPool` thread waits on a lock the main thread holds. The pool is one thread per core by default; at 4 threads it froze 3 runs of 3 locally (and in CI), at 16 it never did. `project.godot` now sets `threading/worker_pool/max_threads=16`.
