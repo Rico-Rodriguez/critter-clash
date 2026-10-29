@@ -4,8 +4,7 @@ Patch notes for Gravelight (formerly Barrowfall), newest first. Each entry lists
 shipped it. What comes next is in [docs/PLAN.md](docs/PLAN.md), under
 **Next**.
 
-Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is 3 (the boot
-splash settings changed: reinstall the IPA). Save
+Version in `project.godot` is still 2.0.0. `NATIVE_VERSION` is 4 (the engine worker pool size changed: reinstall the IPA). Save
 version is 7.
 
 ---
@@ -13,6 +12,16 @@ version is 7.
 ## Unreleased: the Log shows bosses and uniques as renders
 
 The Log's boss rows show each boss in its idle pose (`PropIcons.boss`), and its uniques show the real thing: pets as their own render, weapons and trinkets as their 3D model, armor and trophies keep the flat icon. Uniques you haven't found are black silhouettes.
+
+---
+
+## Unreleased: battles stuck on the crossed swords (reinstall the IPA)
+
+- **Bug:** starting a battle could freeze on the crossed-swords curtain for good (Rico's iPhone, every mode; each stuck battle shows up as a "crash" on the next launch). With a renderer, the hunt's shader warm-up deadlocks the engine: the main thread waits on the shader-compile tasks while every `WorkerThreadPool` thread waits on a lock the main thread holds. The pool is one thread per core by default; at 4 threads it froze 3 runs of 3 locally (and in CI), at 16 it never did. `project.godot` now sets `threading/worker_pool/max_threads=16`.
+- That is a project setting, which a content pack cannot carry: `NATIVE_VERSION` is 4, so a shell below 4 keeps its old content until the new IPA is installed. The forced "Update required" gate stays off (`min_native` 0): the store check refuses it while `store_url` is the sideload page.
+- A freeze logs no error, so the hunt start now writes its current step to `user://step.txt`; after a crash the next launch's error report gets a `[crash] last step · warm-up foe …` line.
+- Leaving camp while hero portraits were still rendering raised a script error (`portraits.gd`); it now stops quietly.
+- New check `-- --battle-start` (run with `tools/dev/godot-gpu.sh`): camp, then the Hunt button, with a renderer, as a player does. Bots and captures skip the warm-up, so nothing ran it before. In `check.sh` and CI; it is what caught the freeze again before the pool fix.
 
 ---
 

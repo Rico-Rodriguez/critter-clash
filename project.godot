@@ -90,6 +90,10 @@ super={
 
 pointing/emulate_touch_from_mouse=true
 
+[threading]
+
+worker_pool/max_threads=16
+
 [rendering]
 
 renderer/rendering_method="forward_plus"

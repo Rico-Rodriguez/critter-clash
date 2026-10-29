@@ -6,6 +6,7 @@
 #      (the Frozen Crypt and Burning Swamp also with the old foes, --old-foes)
 #   4. Endless Descent runs 260 s without errors, Boss Rush and the Wilderness can be won
 #   5. an idle hero must lose
+#   5a. camp to battle with a software renderer starts the hunt (no warm-up deadlock)
 #   5b. no broken .import file, no resource that fails to load (tools/dev/check_imports.py)
 #   6. with --perf: the Frozen Crypt and Burning Swamp stay inside the frame budget
 # Usage: tools/dev/check.sh [--quick] [--perf]   (a private TMPDIR keeps bots apart)
@@ -72,6 +73,12 @@ if [ $QUICK -eq 0 ]; then
 	timeout 600 "$D/godot.sh" --fixed-fps 60 -- --bot --hero=knight --idle > "$LOG/idle.log" 2>&1
 	grep -E "^BOT" "$LOG/idle.log" | cut -c1-110
 	grep -q "BOT DONE PASS" "$LOG/idle.log" || fail=1
+	# Camp to battle with a renderer, the player's way: bots skip the shader
+	# warm-up, and a warm-up that deadlocked the engine shipped (blank battle).
+	timeout 400 "$D/godot-gpu.sh" --rendering-method mobile --resolution 390x844 -- --battle-start --fresh > "$LOG/battle.log" 2>&1
+	grep -E "^BATTLE|SCRIPT ERROR" "$LOG/battle.log" | cut -c1-150
+	grep -q "BATTLE START OK" "$LOG/battle.log" || fail=1
+	grep -q "SCRIPT ERROR" "$LOG/battle.log" && fail=1
 fi
 if [ $QUICK -eq 0 ]; then
 	python3 -I "$D/check_imports.py" "$LOG"/bot.log "$LOG"/depths.log "$LOG"/trial.log "$LOG"/rush.log "$LOG"/wild.log "$LOG"/frost*.log "$LOG"/swamp*.log "$LOG"/descent.log "$LOG"/idle.log || fail=1

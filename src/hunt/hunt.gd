@@ -36,6 +36,7 @@ func _spawn_partners() -> void:
 
 
 func _ready() -> void:
+	Game.errors.step("hunt setup")
 	story = Game.story_take()
 	# A story chapter fixes the zone (open to it whatever the road says), plays
 	# the horde on Normal and carries no omen.
@@ -140,6 +141,7 @@ func _ready() -> void:
 		_bot.hunt = self
 	if not bot:
 		await _warmup()
+	Game.errors.step("")
 	Sfx.music(music_track())
 	Sfx.play("hunt_start", -2.0)
 	if mode == "rift":
@@ -194,6 +196,7 @@ func _warmup() -> void:
 	var flat := Vector3.UP
 	for deg in [60, 120, 180, 360]:
 		fx.slash(at, 0.0, 2.0, deg, Color.WHITE)
+	Game.errors.step("warm-up effects")
 	fx.vfx.warmup(at)
 	for shape in 3:
 		fx.telegraph(shape, at, 0.0, Vector2(2.0, 5.0), 0.4)
@@ -211,9 +214,11 @@ func _warmup() -> void:
 	var temp: Array[Enemy] = []
 	var x := -3.0
 	for kind in DB.enemy_kinds():
+		Game.errors.step("warm-up foe " + str(kind))
 		temp.append(spawn_foe(kind, at + Vector3(x, 0, -2.0)))
 		x += 1.5
 	temp.append(spawn_foe("minion", at + Vector3(0, 0, -4.0), true))
+	Game.errors.step("warm-up boss " + cur_boss)
 	var b := _make_boss()
 	world.add_child(b)
 	b.position = at + Vector3(0, 0, -7.0)
