@@ -10,6 +10,12 @@ version is 7.
 
 ---
 
+## Unreleased: the Log shows bosses and uniques as renders
+
+The Log's boss rows show each boss in its idle pose (`PropIcons.boss`), and its uniques show the real thing: pets as their own render, weapons and trinkets as their 3D model, armor and trophies keep the flat icon. Uniques you haven't found are black silhouettes.
+
+---
+
 ## Unreleased: the hatch scene uses the real egg and pet
 
 The egg that cracks is the speckled 3D egg render in its kind's colour, and the hatchling is the pet's own render (a black silhouette that floods back to full colour) instead of flat icons.

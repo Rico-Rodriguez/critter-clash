@@ -24,6 +24,11 @@ static func egg(kind: String, size_: float) -> TextureRect:
 	return _rect("egg|" + kind, size_, "egg-clutch", Color(SKDB.EGGS[kind]["color"]))
 
 
+## A boss in its idle pose, lit in its own colour.
+static func boss(bid: String, size_: float) -> TextureRect:
+	return _rect("boss|" + bid, size_, "crowned-skull", Color(DB.BOSSES[bid]["color"]))
+
+
 static func _rect(k: String, size_: float, flat: String, flat_tint: Color) -> TextureRect:
 	var t := Ui.icon_rect(flat, size_, flat_tint)
 	if DisplayServer.get_name() == "headless":
@@ -132,7 +137,22 @@ func _render(k: String) -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	_vp.add_child(cam)
-	if k.begins_with("chest|"):
+	if k.begins_with("boss|"):
+		var bd: Dictionary = DB.BOSSES[kind]
+		var col: Color = bd["color"]
+		var m := Actor.new()
+		_vp.add_child(m)
+		m.build_model(str(bd["model"]), bd["weapons"], col, 0.55, Color(col, 1.0), 0.8, bd)
+		m.rotation.y = 0.45
+		m.play("Skeletons_Idle", 0.0)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(bd["color"]).lerp(Color.WHITE, 0.25)
+		glow.light_energy = 1.4
+		glow.omni_range = 5.0
+		glow.position = Vector3(-1.0, 1.4, 1.6)
+		_vp.add_child(glow)
+		cam.look_at_from_position(Vector3(0.7, 1.3, 4.4), Vector3(0, 0.95, 0), Vector3.UP)
+	elif k.begins_with("chest|"):
 		var c: Dictionary = DB.CHESTS[kind]
 		var m := KK.prop(DUNGEON + str(c["model"]) + ".gltf")
 		m.rotation.y = -0.55
