@@ -30,7 +30,7 @@ const BOOT_VERSION := 3
 ## new IPA (engine version, export preset, plugins, project settings such as
 ## autoloads or input map). CI stamps it into version.json as min_engine, so
 ## an older IPA refuses packs that need a newer shell.
-const NATIVE_VERSION := 3
+const NATIVE_VERSION := 4
 const DEFAULT_URL := "https://github.com/Rico-Rodriguez/critter-clash/releases/download/ota/version.json"
 const DIR := "user://ota"
 const MANIFEST := "user://ota/manifest.json"

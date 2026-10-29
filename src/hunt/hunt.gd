@@ -211,21 +211,13 @@ func _warmup() -> void:
 	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]), Color(0.6, 0.8, 1.0), &"skill")
 	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe", "frostbolt", "cinderbolt"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
-	# One model per frame. Loading a model compiles its shaders on this thread
-	# while earlier pipelines still compile on the worker threads. With all 44
-	# foes loaded in one frame the engine was seen to deadlock between the two
-	# (the battle never starts, the curtain stays shut); a frame apart, the
-	# workers drain in between. Game.errors.step names the last one reached.
-	await get_tree().process_frame
 	var temp: Array[Enemy] = []
 	var x := -3.0
 	for kind in DB.enemy_kinds():
 		Game.errors.step("warm-up foe " + str(kind))
 		temp.append(spawn_foe(kind, at + Vector3(x, 0, -2.0)))
 		x += 1.5
-		await get_tree().process_frame
 	temp.append(spawn_foe("minion", at + Vector3(0, 0, -4.0), true))
-	await get_tree().process_frame
 	Game.errors.step("warm-up boss " + cur_boss)
 	var b := _make_boss()
 	world.add_child(b)
