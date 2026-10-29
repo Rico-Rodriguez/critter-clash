@@ -39,7 +39,8 @@ store_url = str(gate.get("store_url", ""))
 listed = bool(app_id) or store_url.startswith(("https://apps.apple.com/", "https://itunes.apple.com/"))
 if not listed:
     if int(gate.get("min_native", 0)) > 0:
-        errors.append("min_native is on but store_url is still the sideload placeholder: set app_store_id first")
+        # Rico's call (2026-10-29): while the game is sideloaded the gate points at the IPA release.
+        warnings.append("min_native is on and store_url is the sideload page: switch it to the App Store link before launch")
     warnings.append("App Store URL is a placeholder: set app_store_id in tools/ota_gate.json (python3 tools/store/set_app_id.py <id>)")
 
 priv = (root / "src/core/privacy.gd").read_text()
