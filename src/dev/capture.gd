@@ -40,7 +40,7 @@ func _arg(args: PackedStringArray, key: String, def: String) -> String:
 
 # --- Battle start, rendered -----------------------------------------------
 
-## -- --battle-start [--rounds=2]: camp, then the Hunt button, the way a player
+## -- --battle-start [--rounds=2] [--stay=20]: camp, then the Hunt button, the way a player
 ## starts a battle, with a real renderer (tools/dev/godot-gpu.sh). Bots and
 ## captures skip the hunt's shader warm-up, so only this run draws it. Prints
 ## BATTLE START OK once every round's hunt is up; a hang prints nothing, and
@@ -63,6 +63,8 @@ func _battle_start(args: PackedStringArray) -> void:
 		while not (current is Hunt and not current._warming and not main._busy):
 			await get_tree().process_frame
 		print("BATTLE START round %d %s %.1fs" % [i + 1, Game.mode_id(), (Time.get_ticks_msec() - t0) / 1000.0])
+		# Stay a while: foe models now load as each kind first spawns.
+		await get_tree().create_timer(float(_arg(args, "stay", "20"))).timeout
 		await go("lobby")
 	print("BATTLE START OK")
 	get_tree().quit(0)

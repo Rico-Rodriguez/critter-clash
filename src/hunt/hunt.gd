@@ -211,18 +211,10 @@ func _warmup() -> void:
 	fx.lightning(PackedVector3Array([at + flat, at + flat + Vector3(2, 0, 0)]), Color(0.6, 0.8, 1.0), &"skill")
 	for kind in ["arrow", "bolt", "fireball", "spear", "wave", "orb", "axe", "frostbolt", "cinderbolt"]:
 		spawn_proj(kind, at, Vector3.ZERO, 0.0, 1, hero, {"life": 0.04})
-	var temp: Array[Enemy] = []
-	var x := -3.0
-	for kind in DB.enemy_kinds():
-		Game.errors.step("warm-up foe " + str(kind))
-		temp.append(spawn_foe(kind, at + Vector3(x, 0, -2.0)))
-		x += 1.5
-	temp.append(spawn_foe("minion", at + Vector3(0, 0, -4.0), true))
-	Game.errors.step("warm-up boss " + cur_boss)
-	var b := _make_boss()
-	world.add_child(b)
-	b.position = at + Vector3(0, 0, -7.0)
-	b.setup(self, tier)
+	# No foe or boss models here. Loading all 44 at once deadlocked the engine
+	# on iPhone (main thread and shader workers waiting on each other; the
+	# battle never started). They load when they first spawn instead, at the
+	# cost of a hitch the first time each one appears.
 	_drop("soul", at, 1)
 	_drop("gold", at, 1)
 	_drop("heart", at, 1)
@@ -230,13 +222,6 @@ func _warmup() -> void:
 	for i in 3:
 		await get_tree().process_frame
 	lu.queue_free()
-	for e in temp:
-		foes.erase(e)
-		e.queue_free()
-	for o in arena.occluders.duplicate():
-		if o.get("node") == b:
-			arena.occluders.erase(o)
-	b.queue_free()
 	fx.release_beam(beam)
 	for pk in pickups:
 		if is_instance_valid(pk):
