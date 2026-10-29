@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: UI polish pass from the phone-size audit
+
+Every camp sheet and hunt screen was captured at 720×1560 and measured for needless scrolling. Settings fits one screen again: the long art credits sit behind a Credits button. The season list fits without scrolling, the Log's collection is three tiles across (about a third shorter), and Feats lose their repeated heading and list the ones ready to claim first. Quests is a two by two grid. On/off switches are drawn phone-sized, gold when on. The Shop's Buy button is gold when you can afford it, the hero sheet drops its greyed-out "In use" bar, a short hunt's results panel shrinks to its content instead of leaving a blank middle, and the first-launch privacy card no longer covers the game's title. The Log's boss lines say "0 kills" instead of "KC 0 · dry 0 (worst 0)". A content change: ships over the air.
+
+---
+
 ## Unreleased: the Rift is a Boss Rush option, not its own mode
 
 From the design audit. The Expedition no longer has a Rift tile. With a rift key in hand, picking Boss Rush shows a "Spend a rift key" toggle that swaps the full rush for one boss at more than twice its strength and a guaranteed unique. Nothing underneath changed: the hunt still runs the `rift` mode, so keys, the Riftwalker feat, stats and saves are untouched. Key rewards now say to spend it on a Boss Rush.

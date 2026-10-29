@@ -36,6 +36,16 @@ in this order; tick a line when it merges.
 5. [x] **Fewer meters:** hero rating is cut and camp shows one next-goal line (`Game.next_goal()`). The results screen is otherwise unchanged: its remaining lines each say something earned, opened or ready, so I did not cut more.
 6. [x] **Small bugs:** Log sheet overflow, the Speed vs Hits/s label and the clipped boss names are fixed. The skin-name clipping and the first-hunt tip covering its card did not reproduce in the `equipskins` and `firstcamp` screenshots, so they are not changed.
 
+## UI polish audit (2026-10-29)
+
+Full findings with screenshots are in the published report (linked from the PR).
+
+- [x] **Clear wins:** settings credits folded, season and quests fit, log three across, feats sorted, switches, gold Buy, hero sheet, results panel, privacy card.
+- [ ] Expedition sheet still scrolls about 150 px on a modern phone; Feats about 280 px.
+- [ ] Heroes page weapon collection: tier chips ("Att 40", "Att 60") need a legend or a simpler look.
+- [ ] Loot labels pile on top of each other when a boss drops several pieces at once.
+- [ ] Level-up: "Reroll · Banish" reads as one button.
+
 Left for later: local notifications (needs a native plugin and an IPA bump), outfits that change the silhouette, trimming breeding and mutations from the Pets tab.
 
 ## Now: needs Rico

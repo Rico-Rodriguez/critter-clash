@@ -9,7 +9,8 @@ extends "res://src/lobby/lobby_ui_hero_sheets.gd"
 ## sheet. (The road and the season have their own buttons on the home.)
 func _build_journal(s: Sheet) -> void:
 	var grid := GridContainer.new()
-	grid.columns = 3
+	# Four tiles: two by two, so Story is not left alone on a row of its own.
+	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
 	var st := Game.login_status()
@@ -277,6 +278,10 @@ func _build_season(s: Sheet) -> void:
 	var note := Ui.label("Tier %d of %d" % [lv, DB.SEASON_TIERS], "Small")
 	b.add_child(note)
 	var claimed := int(se["claimed"])
+	# Ten tiers in tighter rows fit a phone without scrolling.
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 8)
+	b.add_child(list)
 	for n in range(maxi(claimed - 1, 1), mini(claimed + 9, DB.SEASON_TIERS) + 1):
 		var rw := DB.season_reward(n, Game.season_id())
 		var c := _card()
@@ -286,8 +291,8 @@ func _build_season(s: Sheet) -> void:
 		num.add_theme_font_size_override("font_size", 28)
 		row.add_child(num)
 		var art := CenterContainer.new()
-		art.custom_minimum_size = Vector2(72, 72)
-		art.add_child(_season_art(rw, 64))
+		art.custom_minimum_size = Vector2(56, 56)
+		art.add_child(_season_art(rw, 52))
 		row.add_child(art)
 		var tl := Ui.label(_reward_text(rw), "Body")
 		tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -311,14 +316,27 @@ func _build_season(s: Sheet) -> void:
 		elif n > lv:
 			c.modulate = Color(1, 1, 1, 0.55)
 		c.add_child(row)
-		b.add_child(c)
+		list.add_child(c)
 
 
 func _build_feats(s: Sheet) -> void:
 	var b := s.body
 	var done: int = Game.data["achievements"].size()
-	b.add_child(_row([Ui.label("Feats %d / %d" % [done, DB.ACHIEVEMENTS.size()], "Heading"), _spacer()]))
-	for a: Dictionary in DB.ACHIEVEMENTS:
+	# The sheet is titled Feats already: the count is a caption, not a second heading.
+	b.add_child(Ui.label("%d of %d earned" % [done, DB.ACHIEVEMENTS.size()], "Small"))
+	# Ready to claim first, then the closest to done, then the ones already claimed.
+	var order: Array = DB.ACHIEVEMENTS.duplicate()
+	var rank := func(a: Dictionary) -> float:
+		if Game.data["achievements"].has(a["id"]):
+			return -1.0
+		if Game.achievement_done(a):
+			return 2.0
+		return float(mini(Game.achievement_value(str(a["stat"])), int(a["n"]))) / maxf(float(a["n"]), 1.0)
+	order.sort_custom(func(x, y): return rank.call(x) > rank.call(y))
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 8)
+	b.add_child(list)
+	for a: Dictionary in order:
 		var claimed: bool = Game.data["achievements"].has(a["id"])
 		var ready_a := Game.achievement_done(a) and not claimed
 		var c := _card()
@@ -348,7 +366,7 @@ func _build_feats(s: Sheet) -> void:
 		else:
 			c.modulate = Color(1, 1, 1, 0.7)
 		c.add_child(row)
-		b.add_child(c)
+		list.add_child(c)
 
 
 ## Mode, place and difficulty, each a short list of cards that say what the
@@ -471,14 +489,20 @@ func _build_log(s: Sheet) -> void:
 	kv.add_child(Ui.label("BOSSES", "Caption"))
 	for zid: String in DB.ZONE_ORDER:
 		var bid := str(DB.ZONES[zid]["boss"])
-		var line := "%s KC %s · dry %d (worst %d)" % [DB.BOSSES[bid]["name"], Ui.fmt_num(Game.kc(bid)), Game.dry(bid), int(Game.data["dry_best"].get(bid, 0))]
+		# Plain words for the kill count and dry streak; the streak only once there is one.
+		var line := "%s · %s kills" % [DB.BOSSES[bid]["name"], Ui.fmt_num(Game.kc(bid))]
+		if Game.dry(bid) > 0:
+			line += " · %d since a unique (worst %d)" % [Game.dry(bid), int(Game.data["dry_best"].get(bid, 0))]
 		kv.add_child(_row([PropIcons.boss(bid, 68), Ui.label(line, "Body")], 8))
 	kv.add_child(Ui.label("Rift keys: %d · rifts closed: %d" % [int(Game.data.get("rift_keys", 0)), int(st.get("rifts", 0))], "Small"))
 	kcc.add_child(kv)
 	b.add_child(kcc)
 	# Boss pets are sidekicks now: picked on the Sidekicks sheet.
 	var grid := GridContainer.new()
-	grid.columns = 2
+	# Three across: 37 tiles in two columns ran the page past three screens.
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
 	for u in DB.LOG_ORDER:
 		var ud: Dictionary = DB.UNIQUES[u]
 		var n := int(Game.data["log"].get(u, 0))
@@ -488,7 +512,7 @@ func _build_log(s: Sheet) -> void:
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 2)
 		var cc := CenterContainer.new()
-		var ic := _unique_art(u, ud, 72, col if n > 0 else Color(0.08, 0.08, 0.09))
+		var ic := _unique_art(u, ud, 64, col if n > 0 else Color(0.08, 0.08, 0.09))
 		if n == 0:
 			cc.modulate = Color(0.06, 0.06, 0.07)
 		cc.add_child(ic)
@@ -790,6 +814,17 @@ func _build_settings(s: Sheet) -> void:
 	b.add_child(HSeparator.new())
 	var cr := Ui.label("Art: KayKit by Kay Lousberg (CC0). Pets and bosses: LasquetiSpice, Alexei Ostapenko, Batuhan13, matisosanimation, Joseph Payeur, Spinnee, danielmclogan, BeardenInc, EvgeshQa, Mateus Schwaab, Riltariki, Sololopenko (CC BY 4.0, Sketchfab). Rimehollow and Cinder Mire foes and critters: jbnotjeebe, toro ardido modelos 3d, Vasian-Digital3D, SuperKapoo913, Rodolfoisreal1423, Ultaraga Ultra Ultronus, Rodrigo Bento, CyberDriger83, mateuszpyska, DJMaesen, Al (lightningocelot), Dr Helmi Norman, Goofy goober bird, bluekiwi.dog, Lilly!, ESO, lawtrigg (CC BY 4.0, Sketchfab). Rimehollow and Cinder Mire foes also Quaternius (CC0). Icons: game-icons.net (CC BY 3.0). Music and boss stings: Kevin MacLeod (CC BY 4.0). Effects and ambience: Kenney, rubberduck, LokiF, Écrivain, EZduzziteh and others (CC0). Full list in CREDITS.md.", "Small")
 	cr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# The credits are long: folded behind a tap so the settings fit one screen.
+	cr.visible = false
+	var crb := Button.new()
+	crb.text = "Credits"
+	crb.theme_type_variation = "Ghost"
+	crb.focus_mode = Control.FOCUS_NONE
+	crb.pressed.connect(func():
+		cr.visible = not cr.visible
+		Sfx.play("ui_tap", -4.0)
+		s._fit.call_deferred())
+	b.add_child(crb)
 	b.add_child(cr)
 	var ota := get_node_or_null("/root/Ota")
 	var ver := "Gravelight v%s" % ProjectSettings.get_setting("application/config/version")

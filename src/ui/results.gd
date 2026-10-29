@@ -126,9 +126,25 @@ func open(r: Dictionary) -> void:
 		closed.emit(true))
 	%Continue.disabled = true
 	%Again.disabled = true
+	_fit_panel()
 	Ui.pop_in(%Panel, 0.0, 0.9)
 	Ui.pop_in(%Title, 0.15, 1.4)
 	_run_counts()
+
+
+## A short run left a tall empty gap in the middle of the panel: shrink it to
+## its content and centre it, title and all. A long one still fills the
+## screen and scrolls.
+func _fit_panel() -> void:
+	var p: Control = %Panel
+	var body: Control = $Panel/M/V/Scroll/Body
+	var want := p.get_combined_minimum_size().y + body.get_combined_minimum_size().y
+	var room := get_viewport_rect().size.y - p.offset_top + p.offset_bottom
+	var spare := maxf(room - want, 0.0) * 0.5
+	p.offset_top += spare
+	p.offset_bottom -= spare
+	%Title.offset_top += spare
+	%Title.offset_bottom += spare
 
 
 var _counters: Array = []
