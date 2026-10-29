@@ -50,6 +50,17 @@ Matchmaker from the mockups, and all four rule changes. One PR each:
    mutations in the hub) with a bestiary and breed pages, and the Matchmaker breeding screen
    (each outcome's chance, the mutation chance with its pity, partners sorted by what they make).
 
+## Talent trees v2 (Rico, 2026-10-29)
+
+Proposal: the "Gravelight Talent Trees" artifact in the project thread. Rico approved it, with
+the point cap and refund price left to Claude (22 points, 40 gold a rank).
+
+1. [x] **Trees, not lines:** ranked minors, rows that open at 0/3/6/10/13 points in the path, a
+   pick-one node, one keystone at a time with a cost, attunement, rank refunds, two saved builds,
+   old talents refunded. One-screen sheet.
+2. [ ] **Tune:** autopilot runs with a spent tree per hero against the old talents, so the
+   overhaul is a change of shape, not a power spike.
+
 ## UI polish audit (2026-10-29)
 
 Full findings with screenshots are in the published report (linked from the PR).

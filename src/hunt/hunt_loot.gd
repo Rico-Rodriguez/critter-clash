@@ -280,12 +280,21 @@ func roll_cards(n: int, exclude := []) -> Array:
 			continue
 		if c.has("evo") or id in exclude or id in banished:
 			continue # evolutions are offered by rule, below
+		if id in hero.base.get("never", []):
+			continue # a keystone took it out of the pool
 		pool.append(id)
 		weights.append(float(DB.CARD_WEIGHT[c["rarity"]]))
 	var out := []
 	var evos := eligible_evolutions()
 	if not evos.is_empty() and exclude.is_empty():
 		out.append(evos.pick_random())
+	# A keystone can keep a card in every offer until it is maxed.
+	for id in hero.base.get("always", []):
+		var at := pool.find(id)
+		if at >= 0 and out.size() < n:
+			out.append(id)
+			pool.remove_at(at)
+			weights.remove_at(at)
 	while out.size() < n and not pool.is_empty():
 		var total := 0.0
 		for w in weights:

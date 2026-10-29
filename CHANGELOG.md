@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: talent trees rebuilt like an ARPG
+
+Each hero's three talent paths were straight lines of eight nodes, so the only choice was which column to fill first, and a maxed hero owned 80% of the tree. Each path is now a small tree: minors take up to 3 ranks, rows open after 3, 6, 10 and 13 points in that path, the middle node is a pick-one upgrade (several change the hero's super), and the path ends in a keystone with a real cost; only one keystone can be active. Every point in a path also adds a little of its theme stat (attunement). Points cap at 22 (combat 113), ranks refund one at a time for 40 gold (free for anything learned since the tree was opened), and each hero has two saved builds. The sheet fits one screen: three path columns of icon nodes and a detail panel with Learn and Refund, so a tap no longer spends a point. Old talents do not map onto the new trees, so every hero's points come back unspent with a one-time camp notice. Also fixed: the Rogue's hero sheet had no icon for Shadowstep. A content change: ships over the air.
+
+---
+
 ## Unreleased: the Breeding Wheel and the Matchmaker
 
 The Pets tab's Album becomes the Wheel. All 11 species sit on one ring, ordered so each hybrid's two parents are neighbours and the hybrid sits in the gap between them. Owned species wear their rarity colour, a gold arc marks a pair you own both halves of, and the hub shows the mutations you have found. Under it, a card offers the next hybrid within reach ("Pair" opens the Matchmaker with both picked), then a bestiary of all 19 breeds: hybrids show their parents before you find them, and six pips show which mutations you own on each. Tapping a breed opens its page, with its bloodlines (who to pair it with, and what's missing) and its six mutation slots.

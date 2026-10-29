@@ -424,7 +424,8 @@ func _capture(args: PackedStringArray) -> void:
 				if _arg(args, "pin", "") != "":
 					SKC.pin(Game.data, _arg(args, "pin", ""))
 				if shot == "talents":
-					for n in [[0, 0], [0, 1], [0, 2], [1, 0]]:
+					# A path three ranks deep with its notable, and a start on another.
+					for n in [[1, 0], [1, 0], [1, 0], [1, 2], [0, 0]]:
 						Game.learn_talent(hid, n[0], n[1])
 				_set_screen_now("lobby")
 				await _wait(1.2)
@@ -586,6 +587,11 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot != "lobby" and shot != "lobbychest":
 					current.open_sheet("bag" if shot.begins_with("equip") else shot)
 					await _wait(1.0 if shot != "chest" else 2.8)
+					if shot == "talents" and _arg(args, "node", "") != "":
+						# --node=P.I: that node picked, its detail and buttons showing.
+						current.ui._talent_sel = _arg(args, "node", "")
+						current.ui._sheet.rebuild()
+						await _wait(0.6)
 					if shot == "equipskins":
 						# The Skins collection with a glow on trial.
 						var eqs: Node = current.ui.equipment
