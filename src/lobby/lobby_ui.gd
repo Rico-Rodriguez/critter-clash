@@ -141,6 +141,10 @@ func refresh() -> void:
 	if pw < rec:
 		%ExpPlace.text += " · needs %s power" % Ui.fmt_num(rec)
 	%ExpPlace.add_theme_color_override("font_color", Color(1.0, 0.55, 0.5) if pw < rec else Color(0.64, 0.6, 0.54))
+	# One nearest goal under the place line, so camp always says what to chase next.
+	var goal := Game.next_goal()
+	%ExpGoal.text = "NEXT · %s" % goal if goal != "" else ""
+	%ExpGoal.visible = goal != ""
 	# The road: trophies toward the next step, and what that step gives.
 	var steps := Game.road_claimable()
 	var nxt := int(Game.data["road"]) + 1

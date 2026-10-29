@@ -15,6 +15,12 @@ Rico's iPhone on IPA 399 (16 worker threads) still froze, and the new crash brea
 
 ---
 
+## Unreleased: camp shows the next goal
+
+From the design audit. `Game.next_goal()` already worked out the nearest thing to chase (a Super rank to buy, a talent point, the next difficulty, the next mastery rank) but nothing on camp showed it. The hunt card now has a "NEXT · ..." line under the place line, hidden when there is no goal.
+
+---
+
 ## Unreleased: zones show their boss
 
 The Expedition's location tiles and the Trophy Road's arenas show the zone's boss render instead of text or a flat icon, as a black silhouette while the zone is locked. Heroes already used their portraits.
