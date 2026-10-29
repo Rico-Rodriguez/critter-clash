@@ -652,7 +652,11 @@ func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool,
 		tl.add_theme_color_override("font_color", Color(0.95, 0.8, 0.52))
 	v.add_child(tl)
 	if sub != "":
-		v.add_child(Ui.label(sub, "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+		var sl := Ui.label(sub, "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		# Boss names in small caps ("The Cinder Warlord") are wider than a third of the sheet.
+		if sub.length() > 13:
+			sl.add_theme_font_size_override("font_size", 15)
+		v.add_child(sl)
 	if locked:
 		v.modulate.a = 0.45
 	btn.pressed.connect(cb)
