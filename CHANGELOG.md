@@ -16,6 +16,12 @@ The egg that cracks is the speckled 3D egg render in its kind's colour, and the 
 
 ---
 
+## Unreleased: the season is a little shorter
+
+From the design audit. A tier now costs 240 season xp instead of 400, and the season's outfit is at tier 20 instead of 25 (the second season egg moves from 20 to 25 to swap places). In the simulated week a regular player reaches 6 tiers a week (5 weeks for all 30), a casual player 2, and the grinder 22, still under 30 (`economy_tests`).
+
+---
+
 ## Unreleased: zones and modes open early, zones stop out-paying each other
 
 From the design audit. Zones never got harder, they only paid more loot, so the newest zone made every older one pointless, and the gates sat 10,500 and 12,500 trophies out (about 23 and 27 weeks for a casual player). Now the zones are variety, not rungs: Vault 4,100, Frozen Crypt 4,400, Burning Swamp 5,000 trophies; the Wilderness opens at 1,000 and the Rogue at 3,500. Every zone now has loot bonus 2 and the Vault's and Swamp's extra gold is gone, so the choice is the boss and its uniques. Done by swapping what the road's steps pay, so step numbers (and the cards gated by them) do not move. `mode_unlocked` now also counts passed steps, like zones do, so a save already past the Wilderness's new step has it. A save loses at most one chest it would have been paid at a step that now pays something else.
@@ -31,6 +37,12 @@ From the design audit. Boss Rush was hard-coded to Gravemaw and the Hexer Queen 
 ## Unreleased: one difficulty ladder for the whole account
 
 From the design audit (`reviews/design-audit-2026-10-28.html`). Difficulties used to open per mode, three wins each, so opening Abyss everywhere meant about 105 wins, most far below the player's power. Now a win on your highest difficulty in any mode opens the next one in every mode, and `DB.TIER_WINS` is 1. The first-clear trophy bonus pays once per difficulty for the account (`tier_wins["all:N"]`), not once per mode. Old saves keep the best tier any mode reached (`Game._one_ladder`, safe to repeat, no save version). `mode_tiers` stays in the save, unused. The results screen says "unlocked in every mode".
+
+---
+
+## Unreleased: the dead XP lamp code and tip are gone
+
+The XP lamp screen was removed from Skills earlier, but the results screen still told players to "Rub an XP lamp in Skills" whenever they had 10 shards, and the lamp functions and constants were still there. Removed the tip, `lamp_xp`, `can_rub_lamp`, `rub_lamp`, `DB.LAMP_SHARDS` and `DB.LAMP_XP`, and their tests. Shards now only buy Super ranks.
 
 ---
 

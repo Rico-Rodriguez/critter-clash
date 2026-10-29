@@ -212,7 +212,7 @@ func _road_heroes() -> void:
 
 
 ## Bought hero levels are gone (skills are the power now): give back the shards
-## and gold each level cost. Shards rub XP lamps. Level 1 marks it done.
+## and gold each level cost. Level 1 marks it done.
 func _refund_levels() -> void:
 	for id in DB.HERO_ORDER:
 		var lvl := clampi(int(hero(id)["level"]), 1, DB.HERO_MAX_LEVEL)

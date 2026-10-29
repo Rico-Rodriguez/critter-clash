@@ -1259,9 +1259,6 @@ const SKILL_ARMOR := 0.004
 ## Talent points: one per this many combat levels above 3, up to the cap.
 const TALENT_COMBAT_STEP := 5
 const TALENT_MAX := 19
-## XP lamps: shards rubbed into a skill, worth this much XP per shard per
-## level of the skill (OSRS lamps scale with level too).
-const LAMP_SHARDS := 10
 
 ## Super ranks: the job for shards. Each rank costs shards plus gold and adds
 ## the change its line says, so the price and payoff are always readable.
@@ -1329,7 +1326,6 @@ static func super_perks(kind: String, rank: int) -> Dictionary:
 			if k != "text":
 				out[k] = float(out.get(k, 0.0)) + float(list[i][k])
 	return out
-const LAMP_XP := 5
 ## Skill XP per point of damage dealt.
 const XP_PER_DAMAGE := 0.16
 
@@ -1492,7 +1488,7 @@ const OUTFIT_ORDER := ["crimson", "gilded", "frostwood", "emberstalker", "ashen"
 ## The season pass's outfit, one a season in turn.
 const SEASON_OUTFITS := ["embergilt", "moonsilk", "verdigris"]
 ## The pass pays it at this tier.
-const SEASON_OUTFIT_TIER := 25
+const SEASON_OUTFIT_TIER := 20
 
 # --- Online ---------------------------------------------------------------------
 
@@ -1607,7 +1603,7 @@ const SEASON_WEEKS := 6
 ## the card's recommended power already warns about a fluke, and a loss costs nothing.
 const TIER_WINS := 1
 const SEASON_TIERS := 30
-const SEASON_XP := 400
+const SEASON_XP := 240
 const SEASON_NAMES := ["Season of Bones", "Season of the Hex", "Season of Ash", "Season of the Grove"]
 
 static func season_reward(n: int, sid := 0) -> Dictionary:
@@ -1617,7 +1613,7 @@ static func season_reward(n: int, sid := 0) -> Dictionary:
 		return {"kind": "outfit", "outfit": SEASON_OUTFITS[sid % SEASON_OUTFITS.size()]}
 	if n == 28:
 		return {"kind": "egg", "egg": "exotic"}
-	if n == 10 or n == 20:
+	if n == 10 or n == 25:
 		return {"kind": "egg", "egg": "season"}
 	# The omen egg used to come from the weekly event track; it lives here now.
 	if n == 23:

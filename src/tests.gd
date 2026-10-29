@@ -50,10 +50,6 @@ func run() -> int:
 	Game._refund_levels()
 	Game._refund_levels()
 	_ok("bought levels refunded once", Game.gold() == g_lv + DB.UPGRADE_GOLD[1] + DB.UPGRADE_GOLD[2] and int(Game.hero("knight")["shards"]) == s_lv + DB.UPGRADE_SHARDS[1] + DB.UPGRADE_SHARDS[2] and int(Game.hero("knight")["level"]) == 1)
-	# Lamps turn shards into XP for a skill the hero trains.
-	Game.hero("knight")["shards"] = DB.LAMP_SHARDS
-	var xp_lamp := Game.lamp_xp("knight", "strength")
-	_ok("a ranger skill takes no lamp", not Game.rub_lamp("knight", "ranged"))
 	Game.hero("knight")["shards"] = 60
 	Game.data["gold"] = 999
 	_ok("super rank needs its gold", not Game.buy_super_rank("knight") and Game.super_rank("knight") == 0)
@@ -99,8 +95,6 @@ func run() -> int:
 		if p["id"] == "still":
 			still = p
 	_ok("super: Stillness is +50%", float(still.get("mod", {}).get("super", 0.0)) == 0.5 and str(still["desc"]).contains("50%"))
-	_ok("lamp adds xp", Game.rub_lamp("knight", "strength") and Game.skill_xp("strength", "knight") == xp_lamp and int(Game.hero("knight")["shards"]) == 0)
-	_ok("no shards, no lamp", not Game.can_rub_lamp("knight"))
 	Game.data = keep_lv
 
 	var common_boss := 0
@@ -1097,7 +1091,7 @@ func _hatchery_tests() -> void:
 				gems += int(x["amount"])
 	_ok("chests: gems every time, brood eggs sometimes", gems == 30 * int(SKDB_T.CHEST_GEMS["crypt"]) and got_egg and SK.gems(d5) == gems)
 	_ok("chests: silver never has an egg", SK.chest_extras(Game._fresh(), "silver", t0, r5).all(func(x): return str(x["type"]) != "egg"))
-	_ok("season: Season Eggs at tiers 10 and 20, gems along the road", str(DB.season_reward(10)["kind"]) == "egg" and str(DB.season_reward(20)["egg"]) == "season" and str(DB.season_reward(3)["kind"]) == "gems" and str(DB.season_reward(30)["kind"]) == "glow")
+	_ok("season: Season Eggs at tiers 10 and 25, gems along the road", str(DB.season_reward(10)["kind"]) == "egg" and str(DB.season_reward(25)["egg"]) == "season" and str(DB.season_reward(3)["kind"]) == "gems" and str(DB.season_reward(30)["kind"]) == "glow")
 	Game.data = Game._fresh()
 	Game.data["season"] = {"id": Game.season_id(), "xp": DB.SEASON_XP * 10, "claimed": 9}
 	Game.claim_season()
