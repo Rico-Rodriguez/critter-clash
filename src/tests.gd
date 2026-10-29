@@ -521,7 +521,7 @@ func _same(a, b) -> bool:
 
 
 ## Talents, the renown road, clue scrolls, modes.
-## Phase 11 meta: gold sinks, sets, mastery, rating, dailies, season, feats.
+## Phase 11 meta: gold sinks, sets, mastery, dailies, season, feats.
 func _meta_tests() -> void:
 	var keep := Game.data.duplicate(true)
 	Game.data["gold"] = 100000
@@ -540,24 +540,20 @@ func _meta_tests() -> void:
 	_ok("set counts", int(Game.set_counts("knight").get("gravemaw", 0)) == 4)
 	_ok("set flags reach the hunt", dressed["flags"].has("exposed"))
 	_ok("boss items can be set pieces", Game.item_set({"unique": "cleaver"}) == "gravemaw")
-	# Mastery and rating move with every hunt.
+	# Mastery moves with every hunt.
 	var r := {"win": true, "tier": 2, "hero": "knight", "gold": 100, "kills": 400, "elites": 2, "xp": {}, "items": [], "mode": "horde", "time": 90.0, "zone": "barrow", "chest": "silver", "bosses": ["gravemaw"], "perfect": 4}
 	Game.data["daily"] = {"day": "", "won": false}
 	var m0 := int(Game.hero("knight")["mastery"])
-	var r0 := int(Game.hero("knight")["rating"])
 	var sm := Game.finish_hunt(r)
 	_ok("first win of the day doubles gold", bool(sm.get("first_win", false)) and int(r["gold"]) == 200 and str(r["chest"]) == "gold")
 	_ok("only once a day", not Game.first_win_ready())
 	_ok("mastery gained", int(Game.hero("knight")["mastery"]) - m0 == 400 / 10 + 40 + 30)
-	_ok("rating up on a win", int(Game.hero("knight")["rating"]) - r0 == DB.RATING_WIN + DB.RATING_WIN_TIER * 2)
 	_ok("kill count and dry streak", Game.kc("gravemaw") == 1 and Game.dry("gravemaw") == 1)
 	r["items"] = [Game.make_unique("crown")]
 	Game.finish_hunt(r)
 	_ok("a unique ends the dry streak", Game.kc("gravemaw") == 2 and Game.dry("gravemaw") == 0)
 	r["win"] = false
-	var before := int(Game.hero("knight")["rating"])
 	Game.finish_hunt(r)
-	_ok("rating down on a loss", int(Game.hero("knight")["rating"]) == before - DB.RATING_LOSS)
 	_ok("best perfect dodges kept", int(Game.data["stats"]["best_perfect"]) == 4)
 	# Dailies.
 	Game.data["login"] = {"last": "", "count": 0}
