@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: bounties show what they are about
+
+Each bounty row has a picture: the boss, the hero's portrait, your pet, an egg, or a flat icon for the plain ones (kills, gold, level).
+
+---
+
 ## Unreleased: the Log shows bosses and uniques as renders
 
 The Log's boss rows show each boss in its idle pose (`PropIcons.boss`), and its uniques show the real thing: pets as their own render, weapons and trinkets as their 3D model, armor and trophies keep the flat icon. Uniques you haven't found are black silhouettes.
