@@ -89,7 +89,7 @@ func open(r: Dictionary) -> void:
 		_note("Mastery rank: %s %s" % [DB.HEROES[r["hero"]]["name"], title], Color(1.0, 0.8, 0.35), "round-star")
 	_sidekick_notes(s.get("sidekick", {}))
 	if bool(s.get("rift_key", false)):
-		_note("A rift key! Open it from the Expedition", Color(0.6, 0.85, 1.0), "crystal-shine")
+		_note("A rift key! Spend it on a Boss Rush from the Expedition", Color(0.6, 0.85, 1.0), "crystal-shine")
 	if int(s.get("achievements", 0)) > 0:
 		_note("%d feat%s ready to claim in camp" % [int(s["achievements"]), "" if int(s["achievements"]) == 1 else "s"], Color(1.0, 0.82, 0.35), "trophy")
 	var cl: Dictionary = s.get("clue", {})

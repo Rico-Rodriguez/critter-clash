@@ -568,7 +568,7 @@ const MODES := {
 	"trial": {"name": "The Long Road", "short": "Long Road", "blurb": "Fight room by room down a new dungeon to the boss.", "unlock": "Trophy Road: 150 trophies", "rooms": [5, 5, 6, 6, 7, 7, 7, 8]},
 	"descent": {"name": "Endless Descent", "short": "Descent", "blurb": "The dead never stop. Each minute goes a level deeper; a boss every fifth. How deep can you go?", "unlock": "Trophy Road: 1200 trophies"},
 	"wild": {"name": "The Wilderness", "short": "Wilderness", "blurb": "A closing ring and rival bands hunting you. Be the last band standing.", "unlock": "Trophy Road: 1000 trophies"},
-	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Every boss you have unlocked, back to back, each a little stronger. A card and a breath between each.", "unlock": "Trophy Road: 550 trophies"},
+	"rush": {"name": "Boss Rush", "short": "Boss Rush", "blurb": "Every boss you have unlocked, back to back, each a little stronger. A card and a breath between each. A rift key turns it into one boss at more than twice its strength.", "unlock": "Trophy Road: 550 trophies"},
 	"rift": {"name": "Rift", "short": "Rift", "blurb": "Spend a rift key: one of your unlocked bosses at more than twice its strength, and a unique drop if you win.", "unlock": "Reach depth 8 in the Descent for a rift key"},
 }
 ## Endless Descent: the horde never stops. Every DESCENT_TIME seconds the depth
