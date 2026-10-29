@@ -574,7 +574,8 @@ static func _confirm_body(ui, page: Sheet, cs: Sheet, d: Dictionary, i: int) -> 
 	var short := Game.gold() < price
 	var block := Game.shop_block(i) if i >= 0 else ("Not enough gold" if short else "")
 	var buy := Button.new()
-	buy.theme_type_variation = &"PriceButton"
+	# Gold when it can be bought, like every other main action; a dark price tag when not.
+	buy.theme_type_variation = &"PriceButton" if block != "" else &"GoldButton"
 	buy.focus_mode = Control.FOCUS_NONE
 	buy.custom_minimum_size = Vector2(0, 92)
 	buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL

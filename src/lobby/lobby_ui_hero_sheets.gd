@@ -76,12 +76,17 @@ func _build_hero_sheet(s: Sheet) -> void:
 		tb.pressed.connect(func(): open_sheet(to))
 		row.add_child(tb)
 	b.add_child(row)
+	# The hero already in use needs no dead button, just a word that it is.
+	if id == Game.hero_id():
+		var inuse := Ui.label("✓ Your hero for the next hunt", "Small", HORIZONTAL_ALIGNMENT_CENTER)
+		inuse.add_theme_color_override("font_color", Color(0.6, 0.88, 0.55))
+		b.add_child(inuse)
+		return
 	var use := Button.new()
 	use.theme_type_variation = &"GoldButton"
 	use.focus_mode = Control.FOCUS_NONE
 	use.custom_minimum_size = Vector2(0, 92)
-	use.text = "In use" if id == Game.hero_id() else "Use"
-	use.disabled = id == Game.hero_id()
+	use.text = "Use"
 	use.pressed.connect(func():
 		Game.set_hero(id)
 		Sfx.play("ui_press", 0.0)

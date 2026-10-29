@@ -61,6 +61,16 @@ the point cap and refund price left to Claude (22 points, 40 gold a rank).
 2. [ ] **Tune:** autopilot runs with a spent tree per hero against the old talents, so the
    overhaul is a change of shape, not a power spike.
 
+## UI polish audit (2026-10-29)
+
+Full findings with screenshots are in the published report (linked from the PR).
+
+- [x] **Clear wins:** settings credits folded, season and quests fit, log three across, feats sorted, switches, gold Buy, hero sheet, results panel, privacy card.
+- [ ] Expedition sheet still scrolls about 150 px on a modern phone; Feats about 280 px.
+- [ ] Heroes page weapon collection: tier chips ("Att 40", "Att 60") need a legend or a simpler look.
+- [ ] Loot labels pile on top of each other when a boss drops several pieces at once.
+- [ ] Level-up: "Reroll · Banish" reads as one button.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

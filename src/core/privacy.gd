@@ -105,8 +105,9 @@ func build() -> void:
 	var card := PanelContainer.new()
 	card.anchor_left = 0.06
 	card.anchor_right = 0.94
-	card.anchor_top = 0.5
-	card.anchor_bottom = 0.5
+	# Below centre, so the splash's title stays clear above the card.
+	card.anchor_top = 0.6
+	card.anchor_bottom = 0.6
 	card.grow_vertical = Control.GROW_DIRECTION_BOTH
 	root.add_child(card)
 	var pad := MarginContainer.new()
