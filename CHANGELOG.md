@@ -17,6 +17,12 @@ Breed becomes the Matchmaker. Two parent slots show bond, rest and any mutation 
 
 ---
 
+## Unreleased: the rest of the UI audit
+
+The nine findings the first polish pass left open. The Expedition fits one screen: the five modes share one row, location portraits are smaller, the tier pips that repeated "1 of 8" are gone, and the Hunt button is pinned under the list. Weapon ladders name every set; one you cannot wear yet gets a padlock, and its tile says "Attack 40" in full. A boss's pile of loot stacks its labels instead of printing them on top of each other. Level-up puts Reroll and Keep side by side, with a line saying the ✕ on a card banishes it. Cosmetic prices read 1.75k, 6k, 35k in every row. This Week's rule is a switch. Daily rings today's reward in gold and gives day 7 the full width. The Talents button loses its empty red pill (it already shows the count). Profile shows the record as four numbers and the account link as a real button. Small numbers also lose the ".0" ("12k", not "12.0k"), and the Shop's deal says "Was 1100 · 30% off". A content change: ships over the air.
+
+---
+
 ## Unreleased: UI polish pass from the phone-size audit
 
 Every camp sheet and hunt screen was captured at 720×1560 and measured for needless scrolling. Settings fits one screen again: the long art credits sit behind a Credits button. The season list fits without scrolling, the Log's collection is three tiles across (about a third shorter), and Feats lose their repeated heading and list the ones ready to claim first. Quests is a two by two grid. On/off switches are drawn phone-sized, gold when on. The Shop's Buy button is gold when you can afford it, the hero sheet drops its greyed-out "In use" bar, a short hunt's results panel shrinks to its content instead of leaving a blank middle, and the first-launch privacy card no longer covers the game's title. The Log's boss lines say "0 kills" instead of "KC 0 · dry 0 (worst 0)". A content change: ships over the air.

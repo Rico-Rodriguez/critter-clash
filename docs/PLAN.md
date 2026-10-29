@@ -55,10 +55,11 @@ Matchmaker from the mockups, and all four rule changes. One PR each:
 Full findings with screenshots are in the published report (linked from the PR).
 
 - [x] **Clear wins:** settings credits folded, season and quests fit, log three across, feats sorted, switches, gold Buy, hero sheet, results panel, privacy card.
-- [ ] Expedition sheet still scrolls about 150 px on a modern phone; Feats about 280 px.
-- [ ] Heroes page weapon collection: tier chips ("Att 40", "Att 60") need a legend or a simpler look.
-- [ ] Loot labels pile on top of each other when a boss drops several pieces at once.
-- [ ] Level-up: "Reroll · Banish" reads as one button.
+- [x] Expedition fits one screen (Feats still scrolls about 280 px: 18 feats, sorted, by design).
+- [x] Weapon collection: every rung names its set, a padlock marks one you cannot wear yet.
+- [x] Loot labels stack over nearby drops instead of piling up.
+- [x] Level-up: Reroll and Keep side by side, Banish explained under them.
+- [x] The rest from the report: one price style, This Week switch, Daily today and day 7, Talents badge, Profile.
 
 ## Now: needs Rico
 

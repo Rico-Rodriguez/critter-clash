@@ -171,25 +171,29 @@ func _build_daily(s: Sheet) -> void:
 	var b := s.body
 	var st := Game.login_status()
 	b.add_child(_row([Ui.label("Login streak", "Heading"), _spacer()]))
+	# Six days three across, then day 7, the big one, across the whole row.
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	var day := int(st["day"])
 	for i in DB.LOGIN_REWARDS.size():
 		var rw: Dictionary = DB.LOGIN_REWARDS[i]
+		var claimed: bool = i + 1 < day or (i + 1 == day and not st["ready"])
+		var today: bool = i + 1 == day and st["ready"]
+		var last := i == DB.LOGIN_REWARDS.size() - 1
 		var c := _card()
+		if today:
+			c.theme_type_variation = &"CardHot"
 		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 2)
 		v.add_child(Ui.label("Day %d" % (i + 1), "Caption", HORIZONTAL_ALIGNMENT_CENTER))
 		var ic := "two-coins" if rw.has("gold") else ("gems" if rw.has("shards") else "locked-chest")
-		var claimed: bool = i + 1 < day or (i + 1 == day and not st["ready"])
-		var today: bool = i + 1 == day and st["ready"]
 		var col := Color(1.0, 0.85, 0.4) if today else (Color(0.5, 0.9, 0.55) if claimed else Color(0.7, 0.66, 0.6))
 		var cc := CenterContainer.new()
 		if rw.has("chest"):
-			var chest_art: TextureRect = PropIcons.chest(str(rw["chest"]), 52)
+			var chest_art: TextureRect = PropIcons.chest(str(rw["chest"]), 72 if last else 52)
 			if not (today or claimed):
 				chest_art.modulate = Color(0.7, 0.66, 0.6)
 			cc.add_child(chest_art)
@@ -204,8 +208,11 @@ func _build_daily(s: Sheet) -> void:
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(tl)
 		c.add_child(v)
-		grid.add_child(c)
-	b.add_child(grid)
+		if last:
+			b.add_child(grid)
+			b.add_child(c)
+		else:
+			grid.add_child(c)
 	if st["ready"]:
 		var cb := Button.new()
 		cb.theme_type_variation = &"GoldButton"
@@ -590,7 +597,8 @@ func _build_expedition(s: Sheet) -> void:
 	_exp_note = ""
 	b.add_child(Ui.label("MODE", "Caption"))
 	var modes := GridContainer.new()
-	modes.columns = 3
+	# All five modes on one row: a second row of tiles pushed the sheet past the screen.
+	modes.columns = 5
 	modes.add_theme_constant_override("h_separation", 10)
 	modes.add_theme_constant_override("v_separation", 10)
 	b.add_child(modes)
@@ -638,7 +646,7 @@ func _build_expedition(s: Sheet) -> void:
 				_exp_note = zn
 			else:
 				Game.set_zone(zid)
-			_picked(s), PropIcons.boss(str(z["boss"]), 72)))
+			_picked(s), PropIcons.boss(str(z["boss"]), 56)))
 	if zone_note != "":
 		b.add_child(_exp_line(zone_note, true))
 	b.add_child(Ui.label("DIFFICULTY", "Caption"))
@@ -649,16 +657,18 @@ func _build_expedition(s: Sheet) -> void:
 		Game.set_omen(not bool(Game.data.get("omen_on", false)))
 		_picked(s)))
 	refresh()
+	# Pinned under the list, so the way in is on screen whatever is picked.
 	var go := Button.new()
 	go.theme_type_variation = "PrimaryButton"
 	go.text = _hunt_text
 	go.disabled = %Hunt.disabled
 	go.focus_mode = Control.FOCUS_NONE
 	go.custom_minimum_size = Vector2(0, 96)
+	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	go.pressed.connect(func():
 		s.close()
 		%Hunt.pressed.emit())
-	b.add_child(go)
+	s.footer.add_child(go)
 
 
 ## The mode names that fit a tile a third of the sheet wide.
@@ -689,7 +699,7 @@ func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool,
 	btn.button_pressed = chosen
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.custom_minimum_size = Vector2(0, 150 if art != null else (112 if icon != "" else 92))
+	btn.custom_minimum_size = Vector2(0, 132 if art != null else (112 if icon != "" else 92))
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -710,7 +720,8 @@ func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool,
 		cc.add_child(Ui.icon_rect("padlock" if locked else icon, 40 if icon != "" else 26, tone))
 		v.add_child(cc)
 	var tl := Ui.label(title, "Body", HORIZONTAL_ALIGNMENT_CENTER)
-	tl.add_theme_font_size_override("font_size", 21)
+	# Long names ("Wilderness") step down to fit a fifth of the sheet.
+	tl.add_theme_font_size_override("font_size", 21 if title.length() < 10 else 18)
 	if chosen:
 		tl.add_theme_color_override("font_color", Color(0.95, 0.8, 0.52))
 	v.add_child(tl)
@@ -752,25 +763,6 @@ func _build_difficulty(b: VBoxContainer, s: Sheet) -> void:
 	row.add_child(_step("›", i < top, func():
 		Game.set_tier(i + 1)
 		_picked(s)))
-	var pips := HBoxContainer.new()
-	pips.add_theme_constant_override("separation", 6)
-	b.add_child(pips)
-	for k in DB.TIERS.size():
-		var p := Panel.new()
-		p.custom_minimum_size = Vector2(0, 10)
-		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var st := StyleBoxFlat.new()
-		st.set_corner_radius_all(5)
-		st.bg_color = Color(DB.TIERS[k]["color"]) if k <= top else Color(0.17, 0.15, 0.19)
-		if k == i:
-			st.set_border_width_all(2)
-			st.border_color = Color(0.98, 0.85, 0.55)
-			st.expand_margin_top = 3
-			st.expand_margin_bottom = 3
-		elif k <= top:
-			st.bg_color = st.bg_color.darkened(0.35)
-		p.add_theme_stylebox_override("panel", st)
-		pips.add_child(p)
 	var pw := Game.power_score(Game.hero_id())
 	var need := int(t["power"])
 	var pr := _row([Ui.label("Your power %s" % Ui.fmt_num(pw), "Body"), _spacer()], 8)

@@ -1350,12 +1350,27 @@ func _build_profile(s: Sheet) -> void:
 	v.add_child(_row([e, save]))
 	v.add_child(err)
 	b.add_child(c)
-	b.add_child(Ui.label("Hunts %d · wins %d · kills %s · bosses %d" % [int(st["hunts"]), int(st["wins"]), Ui.fmt_num(int(st["kills"])), int(st["boss_kills"])], "Body"))
+	# The record as four numbers in a row, like the results screen, not a sentence.
+	var rec := _card()
+	var rh := HBoxContainer.new()
+	rec.add_child(rh)
+	for pair in [["Hunts", Ui.fmt_num(int(st["hunts"]))], ["Wins", Ui.fmt_num(int(st["wins"]))], ["Kills", Ui.fmt_num(int(st["kills"]))], ["Bosses", Ui.fmt_num(int(st["boss_kills"]))]]:
+		var cv := VBoxContainer.new()
+		cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cv.add_theme_constant_override("separation", 0)
+		cv.add_child(Ui.label(pair[1], "Value", HORIZONTAL_ALIGNMENT_CENTER))
+		cv.add_child(Ui.label(pair[0], "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+		rh.add_child(cv)
+	b.add_child(rec)
 	if o and o.my_code() != "":
 		b.add_child(Ui.label("Friend code %s · %s" % [o.my_code(), _clan_line()], "Small"))
 	# The battle log lives with the rest of your record.
-	b.add_child(_button("Battle log", "Button", func(): open_sheet("log")))
-	b.add_child(_button("Account, cloud save and new phone", "Ghost", func(): open_sheet("account")))
+	# Two real buttons, side by side: the account link used to be bare text.
+	var logb := _button("Battle log", "Button", func(): open_sheet("log"))
+	logb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var acc := _button("Account & save", "Button", func(): open_sheet("account"))
+	acc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_child(_row([logb, acc]))
 
 
 func _local_name(n: String) -> Dictionary:
@@ -1456,11 +1471,17 @@ func _build_event(s: Sheet) -> void:
 	top.add_child(tv)
 	hv.add_child(top)
 	hv.add_child(_wrap_label("%s Pays 25%% more gold, a better chest, and bonus season XP." % om["desc"], "Small"))
-	var tog := _button("Rule on: tap to hunt without it" if on else "Hunt under the rule", "Ghost" if on else "GoldButton", func():
-		Game.set_omen(not bool(Game.data.get("omen_on", false)))
-		refresh()
-		s.rebuild(), 64)
+	# A switch, like Settings: the old button's label had to explain itself.
+	var tog := CheckButton.new()
+	tog.text = "Hunt under %s" % om["name"]
+	tog.button_pressed = on
+	tog.focus_mode = Control.FOCUS_NONE
 	tog.disabled = Game.mode_id() == "trial"
+	tog.toggled.connect(func(_on: bool):
+		Game.set_omen(not bool(Game.data.get("omen_on", false)))
+		Sfx.play("ui_toggle", -4.0)
+		refresh()
+		s.rebuild())
 	hv.add_child(tog)
 	if Game.mode_id() == "trial":
 		hv.add_child(_wrap_label("The Long Road keeps its own rules. Pick another mode to join in.", "Small"))

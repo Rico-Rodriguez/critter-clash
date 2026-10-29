@@ -516,13 +516,21 @@ func _rung(it: Dictionary, on: bool) -> Button:
 	b.custom_minimum_size = Vector2(0, 34)
 	var block := Game.wear_block(hero_id, it)
 	# The body font, not the button's wide capitals: set names fit the rung.
-	var l := Ui.label(_tier_tag(it) if block == "" or found else "%s %d" % [DB.SKILL_NAME[GearDB.skill_for(hero_id, str(it["slot"]))].left(3), GearDB.req_for(it)], "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	# Every rung names its set; one the hero cannot wear yet adds a padlock
+	# (its card says which skill level it needs) rather than a cryptic "Att 40".
+	var l := Ui.label(_tier_tag(it), "Small", HORIZONTAL_ALIGNMENT_CENTER)
 	l.add_theme_font_size_override("font_size", 15)
 	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.clip_text = true
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(l)
+	if block != "" and not found:
+		var lk := Ui.icon_rect("padlock", 14, Color(1.0, 0.6, 0.55))
+		lk.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		lk.position += Vector2(4, -7)
+		lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(lk)
 	var box := StyleBoxFlat.new()
 	box.set_corner_radius_all(8)
 	box.anti_aliasing = true
@@ -643,7 +651,7 @@ func _cos_tile(c: Dictionary) -> Button:
 	if info["worn"]:
 		b.add_child(_badge("✓", GOLD, Control.PRESET_BOTTOM_RIGHT))
 	elif not info["owned"]:
-		b.add_child(_badge(Ui.fmt_num(int(info["price"])), Color(0.95, 0.85, 0.6), Control.PRESET_TOP_LEFT))
+		b.add_child(_badge(Ui.fmt_price(int(info["price"])), Color(0.95, 0.85, 0.6), Control.PRESET_TOP_LEFT))
 	b.pressed.connect(func():
 		Sfx.play("ui_tap", -4.0)
 		if on:
@@ -779,8 +787,10 @@ func _tile(it: Dictionary) -> Button:
 			st.bg_color = Color(0.06, 0.055, 0.07)
 			b.add_theme_stylebox_override(k, st)
 		if Game.wear_block(hero_id, it) != "":
-			var lv := Ui.label("%s %d" % [DB.SKILL_NAME[GearDB.skill_for(hero_id, str(it["slot"]))].left(3), GearDB.req_for(it)], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-			lv.add_theme_font_size_override("font_size", 17)
+			# The skill in full ("Attack 40"): "Att 40" read as a stat, not a requirement.
+			var lv := Ui.label("%s %d" % [DB.SKILL_NAME[GearDB.skill_for(hero_id, str(it["slot"]))], GearDB.req_for(it)], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+			lv.add_theme_font_size_override("font_size", 14)
+			lv.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			lv.add_theme_color_override("font_color", Color(1.0, 0.6, 0.55))
 			lv.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 			lv.offset_top = 4.0
@@ -949,8 +959,8 @@ func _build_skills() -> void:
 	v.add_child(chips)
 
 
-## Talents, Equip best and skins. A red dot on Talents is the
-## same red dot the Heroes tab and the faces show.
+## Talents, Equip best and skins. Points to spend turn Talents green with
+## the count on it; the hero faces above carry the red dot.
 func _build_hero_row() -> void:
 	Ui.clear(_hero_row)
 	var pts := Game.talent_points(hero_id)
@@ -969,14 +979,6 @@ func _build_hero_row() -> void:
 		if what == "best":
 			_best_btn = b
 			b.modulate = Color.WHITE if _best_ups > 0 else Color(1, 1, 1, 0.45)
-		if what == "talents" and pts > 0:
-			var dot := PanelContainer.new()
-			dot.theme_type_variation = "Badge"
-			dot.custom_minimum_size = Vector2(20, 20)
-			dot.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-			dot.position += Vector2(-14, -6)
-			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			b.add_child(dot)
 		b.pressed.connect(func():
 			if what != "best":
 				Sfx.play("ui_tap", -4.0)
