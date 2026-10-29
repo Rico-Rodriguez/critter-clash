@@ -353,6 +353,23 @@ func _build_feats(s: Sheet) -> void:
 
 ## Mode, place and difficulty, each a short list of cards that say what the
 ## choice means (and, when locked, how to open it).
+## The picture for a bounty: the boss, hero, pet or egg it is about, else an icon.
+func _bounty_art(e: Dictionary, size_: float) -> Control:
+	match str(e["id"]):
+		"boss": return PropIcons.boss("gravemaw", size_)
+		"hero": return _portrait(str(e["hero"]), DB.HEROES[e["hero"]]["color"], size_)
+		"veteran": return Ui.icon_rect("crowned-skull", size_ * 0.8, Color(1.0, 0.6, 0.3))
+		"elites": return Ui.icon_rect("crowned-skull", size_ * 0.8, Color(0.85, 0.5, 0.95))
+		"gold": return Ui.icon_rect("two-coins", size_ * 0.8, Color(1.0, 0.84, 0.4))
+		"level": return Ui.icon_rect("trophy", size_ * 0.8, Color(1.0, 0.84, 0.4))
+		"pet_hatch", "pet_breed": return PropIcons.egg("brood", size_)
+		"pet_win", "pet_kills":
+			var pid := SKS.active(Game.data)
+			if pid != "" and not SKDB.def(pid).is_empty():
+				return PetIcons.rect(pid, SKS.stage(Game.data, pid), size_)
+	return Ui.icon_rect("skull-crossed-bones", size_ * 0.8, Color(0.8, 0.78, 0.7))
+
+
 func _build_bounties(s: Sheet) -> void:
 	var b := s.body
 	var left := 86400 - int(Time.get_unix_time_from_system()) % 86400
@@ -370,8 +387,14 @@ func _build_bounties(s: Sheet) -> void:
 			rew += " + %d gems" % int(e["gems"])
 		if int(e["shards"]) > 0:
 			rew += " + %d %s shards" % [int(e["shards"]), DB.HEROES[e["shard_hero"]]["name"]]
-		var top := _row([Ui.label(Game.bounty_text(e), "Body"), _spacer()], 8)
-		top.get_child(0).add_theme_color_override("font_color", Color(0.6, 0.6, 0.6) if claimed else Color(1.0, 0.94, 0.85))
+		var art := _bounty_art(e, 64)
+		if claimed:
+			art.modulate = Color(1, 1, 1, 0.45)
+		var txt := Ui.label(Game.bounty_text(e), "Body")
+		txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		txt.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6) if claimed else Color(1.0, 0.94, 0.85))
+		var top := _row([art, txt], 12)
 		v.add_child(top)
 		var pb := ProgressBar.new()
 		pb.theme_type_variation = "XPBar"
@@ -652,7 +675,11 @@ func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool,
 		tl.add_theme_color_override("font_color", Color(0.95, 0.8, 0.52))
 	v.add_child(tl)
 	if sub != "":
-		v.add_child(Ui.label(sub, "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+		var sl := Ui.label(sub, "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		# Boss names in small caps ("The Cinder Warlord") are wider than a third of the sheet.
+		if sub.length() > 13:
+			sl.add_theme_font_size_override("font_size", 15)
+		v.add_child(sl)
 	if locked:
 		v.modulate.a = 0.45
 	btn.pressed.connect(cb)

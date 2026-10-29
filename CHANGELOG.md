@@ -15,6 +15,12 @@ Rico's iPhone on IPA 399 (16 worker threads) still froze, and the new crash brea
 
 ---
 
+## Unreleased: bounties show what they are about
+
+Each bounty row has a picture: the boss, the hero's portrait, your pet, an egg, or a flat icon for the plain ones (kills, gold, level).
+
+---
+
 ## Unreleased: the Log shows bosses and uniques as renders
 
 The Log's boss rows show each boss in its idle pose (`PropIcons.boss`), and its uniques show the real thing: pets as their own render, weapons and trinkets as their 3D model, armor and trophies keep the flat icon. Uniques you haven't found are black silhouettes.
@@ -24,6 +30,12 @@ The Log's boss rows show each boss in its idle pose (`PropIcons.boss`), and its 
 ## Unreleased: the "Update required" screen is on
 
 Rico's call (2026-10-29). `tools/ota_gate.json` sets `min_native` 4, so an install whose shell is below `NATIVE_VERSION` 4 (anything before the worker-pool fix) gets the blocking "Update required" screen, linking to the IPA release. `check_store.py` now warns instead of failing when the gate points at the sideload page; switch it to the App Store link before launch.
+
+---
+
+## Unreleased: boss names fit the Expedition location tiles
+
+From the design audit. "The Cinder Warlord", "The Gilded Warden" and "The Thornmother" ran to or past the edge of their location tile; long boss names now use a smaller size.
 
 ---
 
