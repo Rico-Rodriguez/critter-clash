@@ -605,7 +605,7 @@ func _build_expedition(s: Sheet) -> void:
 				_exp_note = zn
 			else:
 				Game.set_zone(zid)
-			_picked(s)))
+			_picked(s), PropIcons.boss(str(z["boss"]), 72)))
 	if zone_note != "":
 		b.add_child(_exp_line(zone_note, true))
 	b.add_child(Ui.label("DIFFICULTY", "Caption"))
@@ -649,14 +649,14 @@ func _exp_line(text: String, warn: bool) -> Label:
 
 
 ## A square choice: an icon (or none) over a name and a small line.
-func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool, cb: Callable) -> Button:
+func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool, cb: Callable, art: Control = null) -> Button:
 	var btn := Button.new()
 	btn.theme_type_variation = "Choice"
 	btn.toggle_mode = true
 	btn.button_pressed = chosen
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.custom_minimum_size = Vector2(0, 112 if icon != "" else 92)
+	btn.custom_minimum_size = Vector2(0, 150 if art != null else (112 if icon != "" else 92))
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -664,7 +664,14 @@ func _tile(icon: String, title: String, sub: String, chosen: bool, locked: bool,
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(v)
 	var tone := Color(0.91, 0.71, 0.35) if chosen else Color(0.64, 0.6, 0.54)
-	if icon != "" or locked:
+	if art != null:
+		var ac := CenterContainer.new()
+		ac.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if locked:
+			ac.modulate = Color(0.06, 0.06, 0.07)
+		ac.add_child(art)
+		v.add_child(ac)
+	elif icon != "" or locked:
 		var cc := CenterContainer.new()
 		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cc.add_child(Ui.icon_rect("padlock" if locked else icon, 40 if icon != "" else 26, tone))

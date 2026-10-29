@@ -267,7 +267,10 @@ func _add_arena(i: int, y: float, w: float) -> float:
 	var col: Color = a["color"]
 	var well := CenterContainer.new()
 	well.custom_minimum_size = Vector2(120, 120)
-	well.add_child(Ui.icon_rect(ZONE_ICON.get(zid, "tombstone"), 104, col.lightened(0.35) if open else Color(0.45, 0.42, 0.4)))
+	var boss_art := PropIcons.boss(str(z["boss"]), 112)
+	if not open:
+		well.modulate = Color(0.06, 0.06, 0.07)
+	well.add_child(boss_art)
 	row.add_child(well)
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL

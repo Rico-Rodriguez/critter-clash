@@ -15,6 +15,12 @@ Rico's iPhone on IPA 399 (16 worker threads) still froze, and the new crash brea
 
 ---
 
+## Unreleased: zones show their boss
+
+The Expedition's location tiles and the Trophy Road's arenas show the zone's boss render instead of text or a flat icon, as a black silhouette while the zone is locked. Heroes already used their portraits.
+
+---
+
 ## Unreleased: bounties show what they are about
 
 Each bounty row has a picture: the boss, the hero's portrait, your pet, an egg, or a flat icon for the plain ones (kills, gold, level).
