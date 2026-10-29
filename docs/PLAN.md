@@ -50,6 +50,16 @@ Matchmaker from the mockups, and all four rule changes. One PR each:
    mutations in the hub) with a bestiary and breed pages, and the Matchmaker breeding screen
    (each outcome's chance, the mutation chance with its pity, partners sorted by what they make).
 
+## UI polish audit (2026-10-29)
+
+Full findings with screenshots are in the published report (linked from the PR).
+
+- [x] **Clear wins:** settings credits folded, season and quests fit, log three across, feats sorted, switches, gold Buy, hero sheet, results panel, privacy card.
+- [ ] Expedition sheet still scrolls about 150 px on a modern phone; Feats about 280 px.
+- [ ] Heroes page weapon collection: tier chips ("Att 40", "Att 60") need a legend or a simpler look.
+- [ ] Loot labels pile on top of each other when a boss drops several pieces at once.
+- [ ] Level-up: "Reroll · Banish" reads as one button.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

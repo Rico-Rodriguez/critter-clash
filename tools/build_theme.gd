@@ -345,9 +345,31 @@ func _misc() -> void:
 	theme.set_color("font_hover_color", "CheckButton", TEXT)
 	theme.set_color("font_hover_pressed_color", "CheckButton", TEXT)
 	theme.set_stylebox("focus", "CheckButton", StyleBoxEmpty.new())
+	# The engine's switch is tiny and its off state is a lone dot: draw a
+	# phone-sized one, a gold track when on and a dark one when off.
+	# Buttons cap icons at 36 px; the switch is not an icon beside a label.
+	theme.set_constant("icon_max_width", "CheckButton", 0)
+	theme.set_icon("checked", "CheckButton", _switch(true))
+	theme.set_icon("unchecked", "CheckButton", _switch(false))
+	theme.set_icon("checked_disabled", "CheckButton", _switch(true))
+	theme.set_icon("unchecked_disabled", "CheckButton", _switch(false))
 	# Tooltip-ish panel for the item card.
 	theme.set_color("font_color", "LineEdit", TEXT)
 	_social()
+
+
+## A switch for CheckButton: a pill track with a round knob. An SVG source
+## keeps it a few hundred bytes in the theme and sharp at any scale.
+func _switch(on: bool) -> DPITexture:
+	var track := GOLD_FILL if on else Color(0, 0, 0, 0.55)
+	var rim := GOLD_RIM if on else Color(1, 1, 1, 0.22)
+	var knob := Color("fff6e0") if on else Color(0.62, 0.58, 0.52)
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="76" height="42">' \
+		+ '<rect x="1" y="1" width="74" height="40" rx="20" fill="#%s" fill-opacity="%.2f" stroke="#%s" stroke-opacity="%.2f" stroke-width="2"/>' % [track.to_html(false), track.a, rim.to_html(false), rim.a] \
+		+ '<circle cx="%d" cy="21" r="16" fill="#%s"/></svg>' % [55 if on else 21, knob.to_html(false)]
+	var t := DPITexture.new()
+	t.set_source(svg)
+	return t
 
 
 ## The camp's bottom tab bar, chat bubbles and text fields (names, codes, chat).
