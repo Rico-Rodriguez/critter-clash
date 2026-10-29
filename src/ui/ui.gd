@@ -30,10 +30,19 @@ static func fmt_time(sec: float) -> String:
 
 static func fmt_num(n: int) -> String:
 	if n >= 1000000:
-		return "%.1fM" % (n / 1000000.0)
+		return ("%.1fM" % (n / 1000000.0)).replace(".0M", "M")
 	if n >= 10000:
-		return "%.1fk" % (n / 1000.0)
+		return ("%.1fk" % (n / 1000.0)).replace(".0k", "k")
 	return str(n)
+
+
+## A price on a tile in a row of others: thousands always in k ("1.75k",
+## "6k", "35k"), so one row never mixes "6000" with "12k".
+static func fmt_price(n: int) -> String:
+	if n < 1000:
+		return str(n)
+	var t := "%.2f" % (n / 1000.0)
+	return t.rstrip("0").rstrip(".") + "k"
 
 
 static func hex(c: Color) -> String:

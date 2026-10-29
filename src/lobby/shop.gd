@@ -357,7 +357,8 @@ static func _feature_card(ui, s: Sheet, i: int, d: Dictionary) -> Button:
 		tv.add_child(_price_tag("SOLD", false))
 		btn.modulate = Color(0.62, 0.6, 0.62)
 	else:
-		var was := Ui.label("%s  −%d%%" % [Ui.fmt_num(Game.shop_chest_price(str(d["chest"]))), int(round(100 * DB.SHOP_CHEST_OFF))], "Small")
+		# Said in words: "1100 −30%" read as one number with a dash.
+		var was := Ui.label("Was %s · %d%% off" % [Ui.fmt_num(Game.shop_chest_price(str(d["chest"]))), int(round(100 * DB.SHOP_CHEST_OFF))], "Small")
 		was.add_theme_color_override("font_color", Color("9a8f7c"))
 		tv.add_child(was)
 		tv.add_child(_price_tag(Ui.fmt_num(price)))
@@ -448,7 +449,7 @@ static func _glow_card(ui, s: Sheet, hid: String, g: String) -> Button:
 	var sale := price < int(gd["gold"])
 	var col := Color(gd["color"], 1.0)
 	var art: Control = Ui.icon_rect("dripping-sword", 84, col.lerp(Color.WHITE, 0.2))
-	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_num(price))
+	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_price(price))
 	var btn := _card(art, str(gd["name"]), "Weapon glow", ptxt, &"TilePurple", "−%d%%" % int(round(100 * DB.SHOP_GLOW_OFF)) if sale and not owned else "", worn, false, not owned)
 	btn.pressed.connect(func():
 		if owned:
@@ -468,7 +469,7 @@ static func _outfit_card(ui, s: Sheet, hid: String, k: String) -> Button:
 	var worn: bool = str(h.get("outfit", "")) == k
 	var price := Game.outfit_price(k)
 	var art := LookIcons.rect(hid, {"outfit": k}, 96, str(DB.HEROES[hid]["icon"]), Color(od["dye"]).lightened(0.25))
-	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_num(price))
+	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_price(price))
 	var tag := "Season outfit" if od.get("gift", false) else "Outfit"
 	var btn := _card(art, str(od["name"]), tag, ptxt, &"TileBlue", "", worn, false, not owned)
 	btn.pressed.connect(func():
@@ -490,7 +491,7 @@ static func _skin_card(ui, s: Sheet, hid: String, k: String) -> Button:
 	var worn: bool = str(h.get("skin", "")) == k
 	var price := Game.skin_price(k)
 	var art := LookIcons.rect(hid, {"skin": k}, 96, str(sd["icon"]), Color("f6e3b4"))
-	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_num(price))
+	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_price(price))
 	var btn := _card(art, str(sd["name"]), "Weapon skin", ptxt, &"TileGold", "", worn, false, not owned)
 	btn.pressed.connect(func():
 		if owned:

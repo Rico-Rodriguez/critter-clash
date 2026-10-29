@@ -799,7 +799,7 @@ func open_sheet(name_: String) -> void:
 	%Overlay.add_child(_sheet)
 	match name_:
 		"expedition":
-			_sheet.open("Expedition", _build_expedition)
+			_sheet.open("Expedition", _build_expedition, 0.94)
 		"daily_sheet", "daily":
 			_sheet.open("Daily", _build_daily)
 		"journal":

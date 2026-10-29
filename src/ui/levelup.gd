@@ -9,28 +9,38 @@ var _done := false
 var _hunt: Hunt
 var _choices: Array = []
 var _reroll: Button
+var _banish_note: Label
 
 
 func open(h: Hunt, choices: Array, level: int, banked := 1) -> void:
 	_hunt = h
 	%Title.text = "Level %d" % level
 	_held_row(h)
+	# Reroll and Keep side by side; Banish is the ✕ on each card, so it gets
+	# a line that says so instead of sharing Reroll's button.
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	$Box.add_child(row)
 	_reroll = Button.new()
 	_reroll.theme_type_variation = "CardButton"
-	_reroll.add_theme_font_size_override("font_size", 26)
+	_reroll.add_theme_font_size_override("font_size", 24)
 	_reroll.focus_mode = Control.FOCUS_NONE
 	_reroll.custom_minimum_size = Vector2(0, 72)
+	_reroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_reroll.pressed.connect(_do_reroll)
-	$Box.add_child(_reroll)
+	row.add_child(_reroll)
 	var keep := Button.new()
 	keep.name = "Keep"
 	keep.theme_type_variation = "CardButton"
-	keep.add_theme_font_size_override("font_size", 22)
+	keep.add_theme_font_size_override("font_size", 24)
 	keep.focus_mode = Control.FOCUS_NONE
-	keep.custom_minimum_size = Vector2(0, 60)
+	keep.custom_minimum_size = Vector2(0, 72)
+	keep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	keep.text = "Keep for later" if banked <= 1 else "Keep %d for later" % banked
 	keep.pressed.connect(_keep)
-	$Box.add_child(keep)
+	row.add_child(keep)
+	_banish_note = Ui.label("", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	$Box.add_child(_banish_note)
 	_fill(choices)
 	Ui.pop_in(%Title, 0.0, 1.3)
 
@@ -78,7 +88,9 @@ func _fill(choices: Array) -> void:
 	Ui.clear(%Cards)
 	for id in choices:
 		%Cards.add_child(_card(id))
-	_reroll.text = "Reroll (%d) · Banish ✕ (%d)" % [_hunt.rerolls_left, _hunt.banishes_left]
+	_reroll.text = "Reroll · %d" % _hunt.rerolls_left
+	_banish_note.text = "Tap ✕ on a card to banish it · %d left" % _hunt.banishes_left
+	_banish_note.visible = _hunt.banishes_left > 0
 	_reroll.disabled = _hunt.rerolls_left <= 0
 	_reroll.modulate.a = 0.4 if _hunt.rerolls_left <= 0 else 1.0
 	await get_tree().process_frame
