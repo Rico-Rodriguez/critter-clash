@@ -198,7 +198,13 @@ const BREEDS := {
 }
 const BREED_ORDER := ["cinderbone", "hexstorm", "briarshade", "bloodmist", "thundermimic", "thornknight", "emberbat", "bonehex"]
 const BREED_HYBRID := 0.35
-## Breeding: both parents at BREED_BOND, BREED_GOLD, then they rest BREED_REST s.
+## A pair that can make a hybrid you haven't found yet makes it by this try at
+## the latest, so bad luck can't burn a run of litters.
+const BREED_HYBRID_PITY := 3
+## Gold back for releasing a bred pet (a full stable must never stop breeding).
+const RELEASE_GOLD := 200
+## Breeding: both parents at BREED_BOND, BREED_GOLD, then they rest BREED_REST s
+## (pet_care.gd's REST_HOURS).
 const BREED_BOND := 3
 const BREED_GOLD := 1000
 const BREED_REST := 8 * 3600
@@ -278,14 +284,16 @@ static func base_genes() -> Dictionary:
 ## Rolls a child: the breed (a parent's, or their hybrid) and a genome from
 ## both parents' genes plus mutation. Pure and seeded: the same parents and
 ## seed always give the same child.
-static func roll_child(a: String, ga: Dictionary, b: String, gb: Dictionary, sd: int, mut_p := MUTATION_BASE) -> Dictionary:
+## `force_hybrid` makes the pair's hybrid, when it has one (the hybrid pity).
+static func roll_child(a: String, ga: Dictionary, b: String, gb: Dictionary, sd: int, mut_p := MUTATION_BASE, force_hybrid := false) -> Dictionary:
 	var r := RandomNumberGenerator.new()
 	r.seed = sd
 	var sa := species(a)
 	var sb := species(b)
 	var hy := hybrid_for(sa, sb)
 	var breed := sa if r.randf() < 0.5 else sb
-	if hy != "" and r.randf() < BREED_HYBRID:
+	# The roll is drawn either way, so a forced hybrid keeps the rest of the seed's genome.
+	if hy != "" and (r.randf() < BREED_HYBRID or force_hybrid):
 		breed = hy
 	var g := base_genes()
 	for k in GENE_RANGE:

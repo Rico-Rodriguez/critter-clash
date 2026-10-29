@@ -2115,46 +2115,115 @@ func _feel_tests() -> void:
 	small.free()
 
 
-## Pets 2.0 care: the rest that grows with every litter, and names.
+## A pair with an unfound hybrid makes it by BREED_HYBRID_PITY tries; once
+## found, the pair rolls plain odds again.
+func _hybrid_pity_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	var d := Game._fresh()
+	SK.migrate(d)
+	for id in ["drake", "bonelet", "wisp"]:
+		SK.own(d, id)
+		d["sidekicks"]["owned"][id]["kills"] = 700
+	d["gold"] = SKDB_T.BREED_GOLD * 100
+	_ok("hybrid pity: a pair with no hybrid has none", SK.hybrid_tries_left(d, "drake", "wisp") == 0)
+	_ok("hybrid pity: a fresh pair is sure by try %d" % SKDB_T.BREED_HYBRID_PITY, SK.hybrid_tries_left(d, "drake", "bonelet") == SKDB_T.BREED_HYBRID_PITY)
+	# Seeds whose first rolls miss the hybrid: the pity must still deliver it on time.
+	var now := 1_000_000
+	var got := ""
+	var tries := 0
+	var sd := 0
+	while tries < SKDB_T.BREED_HYBRID_PITY and got != "cinderbone":
+		sd += 1
+		var trial: Dictionary = SKDB_T.roll_child("drake", {}, "bonelet", {}, sd)
+		if str(trial["breed"]) == "cinderbone" and tries < SKDB_T.BREED_HYBRID_PITY - 1:
+			continue
+		d["sidekicks"]["hatchery"] = []
+		d["sidekicks"]["rest"] = {}
+		var e := SK.breed(d, "drake", "bonelet", now, sd)
+		got = str(e["child"]["breed"])
+		tries += 1
+	_ok("hybrid pity: misses then a sure hybrid on try %d" % SKDB_T.BREED_HYBRID_PITY, got == "cinderbone" and tries == SKDB_T.BREED_HYBRID_PITY)
+	_ok("hybrid pity: the count clears after the hybrid", not (d["sidekicks"]["hy_dry"] as Dictionary).has("bonelet+drake"))
+	# Either order of the parents counts toward the same pair.
+	d["sidekicks"]["hy_dry"] = {"bonelet+drake": 1}
+	_ok("hybrid pity: parent order doesn't matter", SK.hybrid_tries_left(d, "bonelet", "drake") == SK.hybrid_tries_left(d, "drake", "bonelet"))
+	d["sidekicks"]["found"]["breeds"].append("cinderbone")
+	_ok("hybrid pity: none once the hybrid is found", SK.hybrid_tries_left(d, "drake", "bonelet") == 0)
+	# A forced roll changes only the breed: the rest of the genome is the seed's.
+	var plain: Dictionary = SKDB_T.roll_child("drake", {}, "bonelet", {}, 99)
+	var forced: Dictionary = SKDB_T.roll_child("drake", {}, "bonelet", {}, 99, SKDB_T.MUTATION_BASE, true)
+	_ok("hybrid pity: a forced roll keeps the seed's genes", str(forced["breed"]) == "cinderbone" and forced["genes"]["dmg"] == plain["genes"]["dmg"] and forced["genes"]["personality"] == plain["genes"]["personality"])
+	var old := Game._fresh()
+	old["sidekicks"].erase("hy_dry")
+	_ok("hybrid pity: an old save without counts loads", SK.hybrid_tries_left(old, "drake", "bonelet") == SKDB_T.BREED_HYBRID_PITY)
+
+
+## Releasing a bred pet frees its room for gold; species pets and the one at
+## your side stay.
+func _release_tests() -> void:
+	const SK := preload("res://src/autoload/sidekicks.gd")
+	var d := Game._fresh()
+	SK.migrate(d)
+	SK.own(d, "drake")
+	d["gold"] = 0
+	var cid := SK._add_bred(d, SKDB_T.roll_wild("bonelet", 5), [])
+	SK.set_active(d, "drake")
+	_ok("release: a species pet can't go", SK.release(d, "drake") == 0 and SK.is_owned(d, "drake"))
+	SK.set_active(d, cid)
+	_ok("release: not the pet at your side", SK.release(d, cid) == 0 and SK.is_owned(d, cid))
+	SK.set_active(d, "drake")
+	SK.pin(d, cid)
+	_ok("release: a bred pet goes for gold", SK.release(d, cid) == SKDB_T.RELEASE_GOLD and not SK.is_owned(d, cid) and int(d["gold"]) == SKDB_T.RELEASE_GOLD)
+	_ok("release: it leaves the showcase", not SK.is_pinned(d, cid))
+	# A full stable stops breeding until a release makes room.
+	for i in SKDB_T.STABLE_MAX:
+		SK._add_bred(d, SKDB_T.roll_wild("bonelet", 100 + i), [])
+	_ok("release: a full stable blocks breeding", not SK.stable_room(d))
+	SK.release(d, str(SK.bred_ids(d)[0]))
+	_ok("release: and a release makes room", SK.stable_room(d))
+
+
+## Pets 2.0 care: the flat rest after a litter, the hybrid pity, releasing, and names.
 func _pet_care_tests() -> void:
 	const SK := preload("res://src/autoload/sidekicks.gd")
 	const Care := preload("res://src/core/pet_care.gd")
 	var t0 := 1_000_000
-	# The rest steps up and stops at the cap.
-	var want := [8, 12, 18, 24, 36, 48, 48, 48]
+	# The rest is flat: 8h after every litter, however many came before.
 	var ok := true
-	for i in want.size():
-		ok = ok and Care.rest_secs(i) == int(want[i]) * 3600
-	_ok("care: rest grows 8h, 12h, 18h, 24h, 36h, 48h and stops", ok)
+	for i in 8:
+		ok = ok and Care.rest_secs(i) == 8 * 3600
+	_ok("care: rest is 8h after every litter", ok)
 	var d := Game._fresh()
 	SK.migrate(d)
 	for id in ["drake", "wisp", "bonelet"]:
 		SK.own(d, id)
 		d["sidekicks"]["owned"][id]["kills"] = 700
 	_ok("care: a pet that never bred has bred 0 times", Care.bred_times(d, "drake") == 0 and Care.next_rest(d, "drake") == 8 * 3600)
-	d["gold"] = SKDB_T.BREED_GOLD * 10
+	d["gold"] = SKDB_T.BREED_GOLD * 20
 	var now := t0
 	SK.breed(d, "drake", "wisp", now, 1)
 	_ok("care: the first litter rests both parents 8h", SK.resting(d, "drake", now) == 8 * 3600 and SK.resting(d, "wisp", now) == 8 * 3600)
-	_ok("care: and counts it", Care.bred_times(d, "drake") == 1 and Care.next_rest(d, "drake") == 12 * 3600)
+	_ok("care: and counts it", Care.bred_times(d, "drake") == 1 and Care.next_rest(d, "drake") == 8 * 3600)
 	now += 8 * 3600
 	SK.breed(d, "drake", "bonelet", now, 2)
-	_ok("care: the second litter costs the repeat parent 12h but a first-timer 8h", SK.resting(d, "drake", now) == 12 * 3600 and SK.resting(d, "bonelet", now) == 8 * 3600)
+	_ok("care: a repeat parent rests 8h like a first-timer", SK.resting(d, "drake", now) == 8 * 3600 and SK.resting(d, "bonelet", now) == 8 * 3600)
 	_ok("care: a rested parent is not blocked, a resting one is", SK.breed_block(d, "wisp", "bonelet", now) != "" and SK.breed_block(d, "wisp", "wisp", now) != "")
 	for i in 8:
-		now += 60 * 3600
+		now += 9 * 3600
 		d["sidekicks"]["hatchery"] = []
 		SK.breed(d, "drake", "wisp", now, 10 + i)
-	_ok("care: after many litters the rest holds at the cap", SK.resting(d, "drake", now) == 48 * 3600 and Care.at_cap(d, "drake"))
-	# A clock set far ahead can't strand a pet beyond the longest rest.
-	d["sidekicks"]["rest"]["drake"] = now + 900 * 86400
-	_ok("care: a rest never reads longer than the cap", SK.resting(d, "drake", now) == 48 * 3600)
+	_ok("care: after many litters the rest is still 8h", SK.resting(d, "drake", now) == 8 * 3600 and Care.bred_times(d, "drake") == 10)
+	# A clock set far ahead (or a 48h rest from the old ladder) reads as 8h at most.
+	d["sidekicks"]["rest"]["drake"] = now + 48 * 3600
+	_ok("care: an old 48h rest is cut to 8h", SK.resting(d, "drake", now) == 8 * 3600)
 	# Save-safe: counts survive a save round trip; an old save has none.
 	var saved: Dictionary = JSON.parse_string(JSON.stringify(d))
 	_ok("care: counts survive the save", Care.bred_times(saved, "drake") == Care.bred_times(d, "drake"))
 	var old := Game._fresh()
 	old["sidekicks"].erase("bcount")
 	_ok("care: an old save without counts still loads", Care.bred_times(old, "drake") == 0 and Care.next_rest(old, "drake") == 8 * 3600)
+	_hybrid_pity_tests()
+	_release_tests()
 	# Names.
 	_ok("name: plain names pass", bool(Care.check_name("Ember")["ok"]) and bool(Care.check_name("Sir Wiggles-II")["ok"]) and bool(Care.check_name("O'Malley")["ok"]))
 	_ok("name: spaces are trimmed and squeezed", str(Care.check_name("   Big    Boo  ")["name"]) == "Big Boo")
