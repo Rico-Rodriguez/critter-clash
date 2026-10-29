@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: the Log shows bosses and uniques as renders
+
+The Log's boss rows show each boss in its idle pose (`PropIcons.boss`), and its uniques show the real thing: pets as their own render, weapons and trinkets as their 3D model, armor and trophies keep the flat icon. Uniques you haven't found are black silhouettes.
+
+---
+
 ## Unreleased: the "Update required" screen is on
 
 Rico's call (2026-10-29). `tools/ota_gate.json` sets `min_native` 4, so an install whose shell is below `NATIVE_VERSION` 4 (anything before the worker-pool fix) gets the blocking "Update required" screen, linking to the IPA release. `check_store.py` now warns instead of failing when the gate points at the sideload page; switch it to the App Store link before launch.

@@ -405,6 +405,16 @@ func _build_bounties(s: Sheet) -> void:
 		b.add_child(c)
 
 
+## A unique's picture: the pet's own render, the weapon or trinket's model, or
+## its flat icon (armor pieces and trophies).
+func _unique_art(u: String, ud: Dictionary, size_: float, tint: Color) -> TextureRect:
+	if ud["slot"] == "pet" and not SKDB.def(u).is_empty():
+		return PetIcons.rect(u, 1, size_)
+	if ud.has("cls") and ud["slot"] in ["weapon", "trinket"]:
+		return ItemIcons.rect(Game.make_unique(u), size_, tint)
+	return Ui.icon_rect(ud["icon"], size_, tint)
+
+
 func _build_log(s: Sheet) -> void:
 	var b := s.body
 	var got := 0
@@ -439,7 +449,7 @@ func _build_log(s: Sheet) -> void:
 	for zid: String in DB.ZONE_ORDER:
 		var bid := str(DB.ZONES[zid]["boss"])
 		var line := "%s KC %s · dry %d (worst %d)" % [DB.BOSSES[bid]["name"], Ui.fmt_num(Game.kc(bid)), Game.dry(bid), int(Game.data["dry_best"].get(bid, 0))]
-		kv.add_child(_row([Ui.icon_rect("crowned-skull", 28, Color(DB.BOSSES[bid]["color"])), Ui.label(line, "Body")], 8))
+		kv.add_child(_row([PropIcons.boss(bid, 68), Ui.label(line, "Body")], 8))
 	kv.add_child(Ui.label("Rift keys: %d · rifts closed: %d" % [int(Game.data.get("rift_keys", 0)), int(st.get("rifts", 0))], "Small"))
 	kcc.add_child(kv)
 	b.add_child(kcc)
@@ -455,7 +465,9 @@ func _build_log(s: Sheet) -> void:
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 2)
 		var cc := CenterContainer.new()
-		var ic := Ui.icon_rect(ud["icon"], 72, col if n > 0 else Color(0.08, 0.08, 0.09))
+		var ic := _unique_art(u, ud, 72, col if n > 0 else Color(0.08, 0.08, 0.09))
+		if n == 0:
+			cc.modulate = Color(0.06, 0.06, 0.07)
 		cc.add_child(ic)
 		v.add_child(cc)
 		var nm := Ui.label(ud["name"] if n > 0 else "???", "Body", HORIZONTAL_ALIGNMENT_CENTER)
@@ -805,6 +817,7 @@ const PetStage := preload("res://src/lobby/pet_stage.gd")
 const PropIcons := preload("res://src/ui/prop_icons.gd")
 const LookIcons := preload("res://src/ui/look_icons.gd")
 const PetIcons := preload("res://src/ui/pet_icons.gd")
+const ItemIcons := preload("res://src/ui/item_icons.gd")
 ## The sidekick whose detail page is open in the sheet ("" = the stable).
 var _sk_detail := ""
 
