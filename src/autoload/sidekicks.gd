@@ -13,10 +13,11 @@ const Care := preload("res://src/core/pet_care.gd")
 ## {egg_id: {"kills"}} (moved into the hatchery on load); `dry`: {egg_id or
 ## "exotic": tries without a drop}; `chests`: chests opened (the Mimic's
 ## goal); `migrated`: pets and ally folded in; `shop`: the egg shop's sold
-## offers (egg_shop.gd).
+## offers (egg_shop.gd); `hy_dry`: {"a+b" species pair: litters without its
+## hybrid} for the hybrid pity.
 static func fresh() -> Dictionary:
 	return {"active": "", "owned": {}, "eggs": {}, "hatchery": [], "egg_uid": 1, "dry": {}, "chests": 0, "seen": [], "migrated": false,
-		"bred_uid": 1, "rest": {}, "showcase": [], "shop": {}, "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false, "variants": [], "mutations": [], "parts": []}}
+		"bred_uid": 1, "rest": {}, "hy_dry": {}, "showcase": [], "shop": {}, "found": {"breeds": [], "elements": [], "patterns": [], "personalities": [], "glow": false, "variants": [], "mutations": [], "parts": []}}
 
 
 static func block(d: Dictionary) -> Dictionary:
@@ -217,7 +218,7 @@ static func breed_block(d: Dictionary, a: String, b: String, now: int) -> String
 	if hatchery_full(d):
 		return "The hatchery is full"
 	if not stable_room(d):
-		return "Your stable is full"
+		return "Your stable is full: release a pet to make room"
 	if int(d.get("gold", 0)) < SDB.BREED_GOLD:
 		return "Needs %d gold" % SDB.BREED_GOLD
 	return ""
@@ -234,10 +235,66 @@ static func breed(d: Dictionary, a: String, b: String, now: int, sd: int) -> Dic
 	bl["rest"][a] = now + Care.note_bred(d, a)
 	bl["rest"][b] = now + Care.note_bred(d, b)
 	var e := _add_egg(bl, "nest", now, 0, sd)
-	e["child"] = SDB.roll_child(a, genes_of(d, a), b, genes_of(d, b), sd, mutation_chance(d, "nest"))
+	var force := hybrid_tries_left(d, a, b) == 1
+	e["child"] = SDB.roll_child(a, genes_of(d, a), b, genes_of(d, b), sd, mutation_chance(d, "nest"), force)
 	_note_mutation(d, e["child"]["genes"])
+	_note_hybrid(d, a, b, str(e["child"]["breed"]))
 	e["parents"] = [a, b]
 	return e
+
+
+## The hybrid pity's key for a pair: the two species, sorted.
+static func _pair_key(a: String, b: String) -> String:
+	var p := [SDB.species(a), SDB.species(b)]
+	p.sort()
+	return "%s+%s" % p
+
+
+## Litters until this pair is sure to make its hybrid (1: the next one), or 0
+## when the pair has no hybrid or you have already found it.
+static func hybrid_tries_left(d: Dictionary, a: String, b: String) -> int:
+	var hy := SDB.hybrid_for(SDB.species(a), SDB.species(b))
+	if hy == "" or (block(d)["found"]["breeds"] as Array).has(hy):
+		return 0
+	return maxi(SDB.BREED_HYBRID_PITY - int(block(d)["hy_dry"].get(_pair_key(a, b), 0)), 1)
+
+
+## Counts a litter toward the pair's hybrid pity: its hybrid clears the count.
+static func _note_hybrid(d: Dictionary, a: String, b: String, got: String) -> void:
+	var hy := SDB.hybrid_for(SDB.species(a), SDB.species(b))
+	if hy == "":
+		return
+	var dry: Dictionary = block(d)["hy_dry"]
+	if got == hy:
+		dry.erase(_pair_key(a, b))
+	else:
+		dry[_pair_key(a, b)] = int(dry.get(_pair_key(a, b), 0)) + 1
+
+
+## Why a pet can't be released ("" when it can): only bred or hatched
+## individuals go, never a species' own pet or the one at your side.
+static func release_block(d: Dictionary, id: String) -> String:
+	if not is_owned(d, id) or not str(id).begins_with("x"):
+		return "Only bred and hatched pets can be released"
+	if active(d) == id:
+		return "Send it home before releasing it"
+	return ""
+
+
+## Releases a bred pet for RELEASE_GOLD, freeing its stable room. Returns the
+## gold given (0 when it can't go).
+static func release(d: Dictionary, id: String) -> int:
+	if release_block(d, id) != "":
+		return 0
+	var b := block(d)
+	b["owned"].erase(id)
+	b["rest"].erase(id)
+	(b["showcase"] as Array).erase(id)
+	if b.get("bcount") is Dictionary:
+		(b["bcount"] as Dictionary).erase(id)
+	SDB.BRED.erase(id)
+	d["gold"] = int(d.get("gold", 0)) + SDB.RELEASE_GOLD
+	return SDB.RELEASE_GOLD
 
 
 static func _add_bred(d: Dictionary, child: Dictionary, parents: Array) -> String:

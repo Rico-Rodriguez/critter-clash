@@ -905,13 +905,13 @@ func _pet_name(id: String) -> String:
 	return Care.shown_name(Game.data, id, SKDB.display_name(id, SKS.kills(Game.data, id)))
 
 
-## "Bred 2× · next rest 18h": what a litter has cost this pet and will cost it.
+## "Bred 2× · rests 8h after a litter": what a litter costs this pet.
 func _rest_note(id: String) -> String:
 	var n := Care.bred_times(Game.data, id)
 	var nxt := Care.hours_text(Care.next_rest(Game.data, id))
 	if n == 0:
 		return "Never bred · rests %s after a litter" % nxt
-	return "Bred %d× · rests %s after the next litter%s" % [n, nxt, " (the longest)" if Care.at_cap(Game.data, id) else ""]
+	return "Bred %d× · rests %s after a litter" % [n, nxt]
 
 
 ## The egg just hatched in the sheet, handed to the hatching show.
@@ -1171,6 +1171,9 @@ func _build_sidekick_detail(s: Sheet, id: String) -> void:
 	b.add_child(pin)
 	if not pinned and (Game.data["sidekicks"]["showcase"] as Array).size() >= SKDB.SHOWCASE_SLOTS:
 		b.add_child(Ui.label("The showcase is full: unpin one first.", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+	if str(id).begins_with("x"):
+		PetsTab.release_button(self, s, id)
+
 
 
 ## How often this pet may breed: the litters so far, the rest it is on (a bar
@@ -1262,14 +1265,13 @@ var _breed_news := ""
 ## Breeding: pick two sidekicks at Bond 3+, pay gold, and a Nest Egg holding
 ## their child goes to the hatchery. The pair determines the breed (a parent's,
 ## or sometimes their hybrid); the traits are rolled and unique. Each parent
-## then rests, longer every time it breeds (Care.REST_HOURS).
+## then rests Care.REST_HOURS.
 func _build_breeding(s: Sheet) -> void:
 	var b := s.body
 	var now := int(Time.get_unix_time_from_system())
 	var info := Ui.label("Two pets at Bond %d+ lay a Nest Egg. The pair decides the breed; every child rolls its own traits." % SKDB.BREED_BOND, "Small")
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(info)
-	b.add_child(_rest_ladder())
 	if _breed_news != "":
 		var news := Ui.label(_breed_news, "Heading", HORIZONTAL_ALIGNMENT_CENTER)
 		news.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
@@ -1323,7 +1325,8 @@ func _build_breeding(s: Sheet) -> void:
 		pv.add_child(Ui.label("OFFSPRING", "Caption"))
 		var odds := "%s or %s" % [SKDB.def(_breed_a)["name"], SKDB.def(_breed_b)["name"]]
 		if hy != "":
-			odds += "\n%d%% chance of a %s" % [int(SKDB.BREED_HYBRID * 100.0), SKDB.BREEDS[hy]["name"]]
+			var left := SKS.hybrid_tries_left(Game.data, _breed_a, _breed_b)
+			odds += "\n%s" % ("A %s for sure" % SKDB.BREEDS[hy]["name"] if left == 1 else "%d%% chance of a %s%s" % [int(SKDB.BREED_HYBRID * 100.0), SKDB.BREEDS[hy]["name"], (", certain within %d tries" % left) if left > 1 else ""])
 		var ol := Ui.label(odds + "\nTraits are rolled: looks, stats, element, personality.", "Body")
 		ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		pv.add_child(ol)
@@ -1358,30 +1361,6 @@ func _build_breeding(s: Sheet) -> void:
 	# Parents last: the offspring and the button stay in view.
 	b.move_child(plabel, b.get_child_count() - 1)
 	b.move_child(grid, b.get_child_count() - 1)
-
-
-## The rests a pet earns, litter by litter: 8h, 12h, 18h, 24h, 36h, 48h.
-func _rest_ladder() -> Control:
-	var c := _card()
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	v.add_child(Ui.label("REST AFTER EACH LITTER", "Caption"))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	for i in Care.REST_HOURS.size():
-		var chip := PanelContainer.new()
-		chip.theme_type_variation = &"Card"
-		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var l := Ui.label("%dh" % int(Care.REST_HOURS[i]), "Body", HORIZONTAL_ALIGNMENT_CENTER)
-		l.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45) if i == Care.REST_HOURS.size() - 1 else Color(0.9, 0.88, 0.84))
-		chip.add_child(l)
-		row.add_child(chip)
-	v.add_child(row)
-	var note := Ui.label("Every litter makes a pet rest longer, up to %s. It never goes past that." % Care.hours_text(Care.max_rest()), "Small")
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(note)
-	c.add_child(v)
-	return c
 
 
 ## One parent slot over the pair: the pet, or an invitation to pick one.

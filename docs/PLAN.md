@@ -36,6 +36,20 @@ in this order; tick a line when it merges.
 5. [x] **Fewer meters:** hero rating is cut and camp shows one next-goal line (`Game.next_goal()`). The results screen is otherwise unchanged: its remaining lines each say something earned, opened or ready, so I did not cut more.
 6. [x] **Small bugs:** Log sheet overflow, the Speed vs Hits/s label and the clipped boss names are fixed. The skin-name clipping and the first-hunt tip covering its card did not reproduce in the `equipskins` and `firstcamp` screenshots, so they are not changed.
 
+Left for later: local notifications (needs a native plugin and an IPA bump), outfits that change the silhouette.
+
+## Pets overhaul (Rico, 2026-10-29)
+
+Rico keeps breeding and mutations and wants them clearer. He picked the Breeding Wheel and the
+Matchmaker from the mockups, and all four rule changes. One PR each:
+
+1. [x] **Breeding rules:** a flat 8h rest after every litter (was a ladder that stuck at 48h), a
+   hybrid pity (a pair's hybrid is certain by its 3rd litter until found), and Release for bred
+   pets (+200 gold) so a full stable can't stop breeding. Eggs still always hatch; no lifetime cap.
+2. [ ] **Pets tab:** the Breeding Wheel (all species on one ring, hybrids between their parents,
+   mutations in the hub) with a bestiary and breed pages, and the Matchmaker breeding screen
+   (each outcome's chance, the mutation chance with its pity, partners sorted by what they make).
+
 ## UI polish audit (2026-10-29)
 
 Full findings with screenshots are in the published report (linked from the PR).
@@ -45,8 +59,6 @@ Full findings with screenshots are in the published report (linked from the PR).
 - [ ] Heroes page weapon collection: tier chips ("Att 40", "Att 60") need a legend or a simpler look.
 - [ ] Loot labels pile on top of each other when a boss drops several pieces at once.
 - [ ] Level-up: "Reroll · Banish" reads as one button.
-
-Left for later: local notifications (needs a native plugin and an IPA bump), outfits that change the silhouette, trimming breeding and mutations from the Pets tab.
 
 ## Now: needs Rico
 

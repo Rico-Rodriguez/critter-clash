@@ -312,6 +312,39 @@ static func _pin_tile(ui, s: Sheet, id: String) -> Control:
 	return tile
 
 
+# --- Releasing ----
+
+## Releases a bred pet for gold, after a second tap to be sure.
+static func release_button(ui, s: Sheet, id: String) -> void:
+	var why := SKS.release_block(Game.data, id)
+	var rel := Button.new()
+	rel.theme_type_variation = &"Ghost"
+	rel.text = "RELEASE · +%d GOLD" % SKDB.RELEASE_GOLD
+	rel.focus_mode = Control.FOCUS_NONE
+	rel.custom_minimum_size = Vector2(0, 64)
+	rel.disabled = why != ""
+	var armed := [false]
+	rel.pressed.connect(func():
+		if not armed[0]:
+			armed[0] = true
+			Sfx.play("ui_tap", -4.0)
+			rel.text = "TAP AGAIN TO RELEASE %s" % ui._pet_name(id).to_upper()
+			rel.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45))
+			return
+		var name_: String = ui._pet_name(id)
+		if SKS.release(Game.data, id) == 0:
+			return
+		Sfx.play("ui_back", -2.0)
+		Game.save()
+		ui._toast("%s was released · +%d gold" % [name_, SKDB.RELEASE_GOLD], Color(1.0, 0.84, 0.4))
+		ui._sk_detail = ""
+		ui._refresh_camp_sidekick()
+		s.rebuild())
+	s.body.add_child(rel)
+	if why != "":
+		s.body.add_child(Ui.label(why + ".", "Small", HORIZONTAL_ALIGNMENT_CENTER))
+
+
 # --- Renaming ----------------------------------------------------------------
 
 static func rename_button(ui, id: String, done: Callable) -> Button:
