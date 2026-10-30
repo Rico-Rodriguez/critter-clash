@@ -99,7 +99,7 @@ labels in two or three words; tabs with icons only, the open one named. One PR e
 2. [x] **Camp:** the scene is the screen, three side buttons, one gold Hunt card, icon-only tabs.
 3. [x] **Hunt HUD:** closer camera, thin XP line, one elite banner, health over the hero, two
    ability buttons.
-4. [ ] **Hero:** Gear, Talents and Skins as tabs, a big hero, rarity-lit slots, one stats row.
+4. [x] **Hero:** Gear, Talents and Skins as tabs, a big hero, rarity-lit slots, one stats row.
 5. [ ] **Pets, Shop and Victory** to their mockups.
 6. [ ] **Every other sheet** (quests, season, road, expedition, settings, clan) swept to the rules.
 

@@ -9,6 +9,13 @@ version is 7.
 
 ---
 
+## Unreleased: Iron & Ember, hero
+
+Part 4 of the overhaul. Gear, Talents, Skills and Skins are tabs across the top of the hero page
+instead of a row of quiet buttons under Equip best, and Gear or Skins lights up for the page you are
+on. The power is a large gold number in the condensed face, and the page and its stage are warm iron
+instead of violet. A content change: ships over the air.
+
 ## Unreleased: Iron & Ember, hunt HUD
 
 Part 3 of the overhaul. The hunt camera sits closer (16.5 m instead of 19.5; Wide is about the old

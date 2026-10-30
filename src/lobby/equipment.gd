@@ -48,7 +48,8 @@ var _slots := {}
 var _best_btn: Button
 var _best_ups := 0
 var _strip: GridContainer
-var _hero_row: HBoxContainer
+## Gear, Talents, Skills and Skins as tabs across the top.
+var _tabs: HBoxContainer
 var _list: VBoxContainer
 var _scroll: DragScroll
 var _count: Label
@@ -85,7 +86,7 @@ func open(u: LobbyUI) -> void:
 		if Game.is_new(int(it["uid"])):
 			_new_uids[int(it["uid"])] = true
 	var bg := ColorRect.new()
-	bg.color = Color(0.045, 0.04, 0.055)
+	bg.color = Color("0b0b0d")
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -101,6 +102,9 @@ func open(u: LobbyUI) -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	safe.add_child(col)
 	_build_header(col)
+	_tabs = HBoxContainer.new()
+	_tabs.add_theme_constant_override("separation", 0)
+	col.add_child(_tabs)
 	_build_top(col)
 	_build_bag(col)
 	_toast = Ui.label("", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
@@ -219,17 +223,17 @@ func _build_top(col: VBoxContainer) -> void:
 	pw.add_theme_constant_override("separation", 14)
 	pw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(pw)
-	_power = Ui.label("", "Title")
-	_power.add_theme_font_size_override("font_size", 58)
-	_power.add_theme_color_override("font_color", Color(1.0, 0.84, 0.5))
+	_power = Ui.label("", "Value")
+	_power.add_theme_font_size_override("font_size", 66)
+	_power.add_theme_color_override("font_color", Color("f3cf7a"))
 	pw.add_child(_power)
 	var pv := VBoxContainer.new()
 	pv.alignment = BoxContainer.ALIGNMENT_CENTER
 	pv.add_theme_constant_override("separation", -4)
 	pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pv.add_child(Ui.label("POWER", "Caption"))
-	_power_up = Ui.label("", "Body")
-	_power_up.add_theme_font_size_override("font_size", 22)
+	_power_up = Ui.label("", "Caption")
+	_power_up.add_theme_font_size_override("font_size", 20)
 	pv.add_child(_power_up)
 	pw.add_child(pv)
 	var top := HBoxContainer.new()
@@ -260,8 +264,6 @@ func _build_top(col: VBoxContainer) -> void:
 	_set_bar.theme_type_variation = &"Card"
 	_set_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hero_panel.add_child(_set_bar)
-	_hero_row = HBoxContainer.new()
-	_hero_row.add_theme_constant_override("separation", 8)
 	_card_box = VBoxContainer.new()
 	region.add_child(_card_box)
 	_best_btn = Button.new()
@@ -271,7 +273,6 @@ func _build_top(col: VBoxContainer) -> void:
 	_best_btn.add_theme_font_size_override("font_size", 28)
 	_best_btn.pressed.connect(_equip_best)
 	_hero_panel.add_child(_best_btn)
-	_hero_panel.add_child(_hero_row)
 
 
 func _slot_column(slots: Array) -> VBoxContainer:
@@ -299,8 +300,8 @@ func _build_stage(col: Container) -> void:
 	var glow := TextureRect.new()
 	var gt := GradientTexture2D.new()
 	var g := Gradient.new()
-	g.set_color(0, Color(0.26, 0.2, 0.17, 1.0))
-	g.set_color(1, Color(0.05, 0.045, 0.055, 0.0))
+	g.set_color(0, Color(0.24, 0.15, 0.07, 1.0))
+	g.set_color(1, Color(0.043, 0.043, 0.051, 0.0))
 	gt.gradient = g
 	gt.fill = GradientTexture2D.FILL_RADIAL
 	gt.fill_from = Vector2(0.5, 0.6)
@@ -456,7 +457,7 @@ func _refresh() -> void:
 	var pw := Game.power_score(hero_id)
 	var gain := Game.power_score(hero_id, best) - pw if not best.is_empty() else 0
 	_power.text = Ui.fmt_num(pw)
-	_power_up.text = "▲ %s ready to equip" % Ui.fmt_num(gain) if gain > 0 else "Wearing your best"
+	_power_up.text = "▲ %s ready to equip" % Ui.fmt_num(gain) if gain > 0 else "Your best"
 	_power_up.add_theme_color_override("font_color", GREEN if gain > 0 else DIM)
 	_build_strip()
 	_build_set_bar()
@@ -1031,34 +1032,40 @@ func _build_set_bar() -> void:
 ## The one gold button, and the quiet ones under it: Talents (the count of
 ## points to spend on it), Skills and Skins.
 func _build_hero_row() -> void:
-	Ui.clear(_hero_row)
 	_best_btn.text = "EQUIP BEST  ▲%d" % _best_ups if _best_ups > 0 else "WEARING YOUR BEST"
 	_best_btn.theme_type_variation = &"GoldButton" if _best_ups > 0 else &"Ghost"
+	Ui.clear(_tabs)
 	var pts := Game.talent_points(hero_id)
-	for spec in [["Talents" + (" · %d" % pts if pts > 0 else ""), "talents"],
-			["Skills · %d" % Game.combat_level(hero_id), "skills"],
-			["Skins", "looks"]]:
+	for spec in [["Gear", "gear"], ["Talents" + (" · %d" % pts if pts > 0 else ""), "talents"],
+			["Skills · %d" % Game.combat_level(hero_id), "skills"], ["Skins", "looks"]]:
 		var b := Button.new()
-		b.theme_type_variation = &"Ghost"
+		b.theme_type_variation = &"TextTab"
 		b.text = spec[0]
-		b.custom_minimum_size = Vector2(0, 56)
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(0, 60)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 20)
 		b.clip_text = true
 		var what: String = spec[1]
+		b.button_pressed = (what == "looks") == (filter == "skins") and what in ["gear", "looks"]
 		if what == "talents" and pts > 0:
 			b.add_theme_color_override("font_color", GREEN)
-		elif what == "looks" and filter == "skins":
-			b.add_theme_color_override("font_color", GOLD)
 		b.pressed.connect(func():
 			Sfx.play("ui_tap", -4.0)
 			if what == "looks":
 				_on_skins()
+			elif what == "gear" and filter == "skins":
+				filter = "weapon"
+				selected = {}
+				_dress()
+				_refresh()
+			elif what == "gear":
+				_build_hero_row()
 			else:
+				_build_hero_row()
 				ui._shown_hero = hero_id
 				ui.open_sheet(what))
-		_hero_row.add_child(b)
+		_tabs.add_child(b)
 
 
 func _open_hero(id: String) -> void:
