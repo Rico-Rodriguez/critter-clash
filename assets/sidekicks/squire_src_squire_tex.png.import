@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cx6y1iulio5h0"
-path="res://.godot/imported/squire_src_2.png-47ff2e2542795fd201ba573c81701674.ctex"
+uid="uid://b8syd7gf3umx1"
+path="res://.godot/imported/squire_src_squire_tex.png-82d342ed62e2240b6990eb26fc88d398.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "34b4a4dc630d4b22a4fc6e6b09e2b326"
+"md5": "11648309bd15cdbfd36aec2fa0c9343c"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/squire_src_2.png"
-dest_files=["res://.godot/imported/squire_src_2.png-47ff2e2542795fd201ba573c81701674.ctex"]
+source_file="res://assets/sidekicks/squire_src_squire_tex.png"
+dest_files=["res://.godot/imported/squire_src_squire_tex.png-82d342ed62e2240b6990eb26fc88d398.ctex"]
 
 [params]
 

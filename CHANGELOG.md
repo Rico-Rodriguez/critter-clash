@@ -9,6 +9,17 @@ version is 7.
 
 ---
 
+## Unreleased: the Barrow Squire, made in Blender
+
+The eleventh and last pet remade in the heroes' style. The Barrow Squire is now an original Blender
+model (`tools/blender/pets/squire.py`): a grown-up skeleton knight in old iron, with a gilt-rimmed
+kettle helm and red plume, a cuirass, pauldrons, bracers and greaves, a faded red tabard with a
+gilt stripe, a round red shield with a gilt boss on its left arm and a notched short sword. It
+stands on guard behind its shield, thrusts and slams the shield for Shield Bash, and raises its
+sword for its special. Bred, its helm and arms take the other parent's colours (shield and sword
+keep theirs), and it lends a small war banner as its wings trait. The Sketchfab skeleton warrior
+and its credit are gone. A content change: ships over the air.
+
 ## Unreleased: the Plague Acolyte, made in Blender
 
 The tenth pet remade in the heroes' style. The Acolyte is now an original Blender model

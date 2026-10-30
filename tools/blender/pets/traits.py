@@ -199,6 +199,15 @@ join("barrow_squire_head", [
     tube("sqp", [((0, -0.14, 0.06), 0.03, 0.06), ((0, -0.02, 0.2), 0.05, 0.1), ((0, 0.16, 0.22), 0.05, 0.09), ((0, 0.34, 0.1), 0.03, 0.05), ((0, 0.42, -0.04), 0.01, 0.02)], PLUME, n=8, sub=1),
 ])
 
+LEATHER_T = mat("t_leather", "4a3424")
+GILT_T = mat("t_gilt", "cdaf5a", 0.35)
+# Barrow Squire: a small war banner on a pole, carried across the back.
+parts = [tube("sqpole", [((-0.2, 0.06, -0.2), 0.02, 0.02), ((0.08, 0.06, 0.62), 0.02, 0.02)], LEATHER_T, n=6, sub=0),
+         blob("sqfin", (0.085, 0.06, 0.64), (0.05, 0.05, 0.05), GILT_T, sub=1),
+         sheet("sqban", [(0.06, 0.06, 0.56), (0.32, 0.06, 0.62), (0.3, 0.06, 0.4), (0.22, 0.06, 0.46), (0.14, 0.06, 0.34), (0.0, 0.06, 0.36)], PLUME, 0.02),
+         sheet("sqbanb", [(0.06, 0.075, 0.54), (0.3, 0.075, 0.6), (0.29, 0.075, 0.56), (0.06, 0.075, 0.5)], GILT_T, 0.005)]
+join("barrow_squire_wings", parts)
+
 SHADE = mat("t_shade", "2c2440")
 SHADE_G = glow("t_shade_g", "8a73ff", 1.8)
 parts = []

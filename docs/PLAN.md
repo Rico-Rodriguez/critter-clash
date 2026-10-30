@@ -126,7 +126,7 @@ a Sketchfab model and drops that model's credit. One pet per PR:
    - [x] **Hexling.**
    - [x] **Plague Acolyte**, built like the beasts instead (`tools/blender/pets/acolyte.py`), its
      own grown-up figure, while Rico picks the new hero body.
-   - [ ] Barrow Squire, the same way.
+   - [x] **Barrow Squire**, the same way (`tools/blender/pets/squire.py`).
    - [ ] The Bonelet and Hexling move onto the new hero body if Rico approves one.
    - [x] **Hexbound Shade**, a legless wraith, needs no hero body: built like the beasts
      (`tools/blender/pets/shade.py`).
