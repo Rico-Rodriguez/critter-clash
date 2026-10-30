@@ -40,6 +40,8 @@ BUILDS = {
     "faceted": {"len": (0.19, 0.38, 0.2, 0.37, 0.33, 0.48, 0.44), "head": 1.3, "w": 1.18, "l": 1.22, "hand": 1.25, "facet": True},
 }
 BUILD = BUILDS["lean"]
+# Builders that wind every face outward themselves turn this off.
+ORIENT_SMALL = True
 
 
 def lengths():
@@ -425,7 +427,7 @@ def write(m, sk, g, nodes, joints, name, out):
         vn = acc / np.maximum(np.linalg.norm(acc, axis=1, keepdims=True), 1e-9)
         # Small closed details (a nose, an eye) are wound however they were
         # listed: point each face away from the part's middle instead.
-        if len(verts) <= 40:
+        if ORIENT_SMALL and len(verts) <= 40:
             mid = verts.mean(axis=0)
             q2, f2 = [], []
             for (idx, sw, ts), fn in zip(quads, fnorm):

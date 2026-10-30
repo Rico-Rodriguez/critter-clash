@@ -398,6 +398,44 @@ def shield(k):
             place(m, rot=(-90, 0, 0), at=(x, y, -0.04))
 
 
+def sword_dark():
+    """The dark plate mockup's longsword: a long bright blade, a gold
+    cross-guard and pommel, a black grip (make_dark_plate.py)."""
+    length, w, y0 = 1.3, 0.07, 0.2
+    pts = [(-w, y0), (w, y0), (w * 0.9, y0 + length * 0.82), (0, y0 + length), (-w * 0.9, y0 + length * 0.82)]
+    plate(pts, 0.02, "steel", [1, 2, 3, 4], "white")
+    plate([(-w * 0.2, y0 + 0.03), (w * 0.2, y0 + 0.03), (w * 0.08, y0 + length * 0.6), (-w * 0.08, y0 + length * 0.6)], 0.024, "steel_dark")
+    box((0, y0 - 0.02, 0), (0.42, 0.05, 0.06), "gold")
+    for x in (-1, 1):
+        spike((x * 0.21, y0 - 0.02, 0), 0.03, (x * 0.27, y0 + 0.05, 0), "gold", sides=5)
+    m = mark()
+    lathe([(0.0, 0.0), (0.05, 0.035), (0.11, 0.0)], "gold", sides=4)
+    place(m, rot=(0, 0, 0), at=(0, y0 - 0.02 + 0.02, 0))
+    lathe([(-0.2, 0.03), (-0.1, 0.034), (0.0, 0.034), (y0 - 0.05, 0.03)], "black", sides=6)
+    for y in (-0.15, -0.08, -0.01, 0.06):
+        lathe([(y, 0.036), (y + 0.012, 0.036)], "leather", sides=6)
+    lathe([(-0.31, 0.0), (-0.29, 0.04), (-0.25, 0.055), (-0.22, 0.04), (-0.2, 0.03)], "gold", sides=8)
+
+
+def shield_dark():
+    """A black heater with a silver rim and a silver four-pointed star."""
+    hw, top, bot = 0.37, 0.5, -0.6
+    outline = [(-hw, top), (-hw, 0.05), (-hw * 0.78, -0.25), (-hw * 0.4, bot * 0.82), (0.0, bot), (hw * 0.4, bot * 0.82), (hw * 0.78, -0.25), (hw, 0.05), (hw, top)]
+    outline = list(reversed(outline))
+    plate(outline, 0.04, "black", list(range(len(outline))), "steel", edge_out=0.03)
+    m = mark()
+    for i in range(8):
+        a = i * math.pi / 4
+        ln = 0.3 if i % 2 == 0 else 0.11
+        spike((0, 0, 0), 0.05 if i % 2 == 0 else 0.03, (ln * math.sin(a), ln * math.cos(a), 0), "steel", sides=4)
+    gem((0, 0, 0.01), 0.05, 0.05, 0.04, sw="white")
+    place(m, rot=(0, 180, 0), at=(0, 0.02, -0.045))
+    for x, y in ((-hw * 0.85, top * 0.85), (hw * 0.85, top * 0.85), (-hw * 0.85, 0.0), (hw * 0.85, 0.0), (0.0, bot * 0.8)):
+        m = mark()
+        lathe([(0, 0.025), (0.015, 0.02), (0.025, 0.0)], "steel", sides=5)
+        place(m, rot=(-90, 0, 0), at=(x, y, -0.04))
+
+
 PIECES = {
     "helm": ("gear", helm), "cuirass": ("gear", cuirass), "fauld": ("gear", fauld),
     "pauldron": ("gear", pauldron), "vambrace": ("gear", vambrace), "greave": ("gear", greave),
@@ -416,6 +454,12 @@ BODY_FIT = {
 
 
 if __name__ == "__main__":
+    if "--dark" in sys.argv:
+        for name, fn in (("sword", sword_dark), ("shield", shield_dark)):
+            K.reset()
+            fn()
+            export("dark_plate_" + name, os.path.join(ROOT, "assets", "kaykit", "weapons", "dark_plate_%s.gltf" % name))
+        sys.exit(0)
     body = "--body" in sys.argv
     ks = [int(a) for a in sys.argv[1:] if a != "--body"] or list(range(len(SETS)))
     prefix = "hero_plate" if body else "knight_plate"

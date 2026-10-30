@@ -1755,6 +1755,29 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 		cam.look_at_from_position(Vector3(0, -0.35, 13.5), Vector3(0, -0.35, 0), Vector3.UP)
 		await _wait(1.0)
 		return
+	if view == "dark" or view == "darkclose":
+		# The dark plate mockup (tools/art/make_dark_plate.py): front, back,
+		# running and swinging; "darkclose" the first two, larger.
+		var poses := [["Idle_A", 0.0, -20.0], ["Idle_A", 0.0, 155.0], ["Running_A", 0.3, -40.0], ["Melee_1H_Attack_Slice_Diagonal", 0.45, -25.0]]
+		if view == "darkclose":
+			poses = [["Idle_A", 0.0, -35.0], ["Idle_A", 0.0, 145.0]]
+		for c in poses.size():
+			var d := _hero_body(root, "Hero_Knight_Dark")
+			d.position = Vector3((c - (poses.size() - 1) * 0.5) * 1.75, 0, 0)
+			d.rotation_degrees.y = poses[c][2]
+			_arm(d, "dark_plate_sword.gltf", "dark_plate_shield.gltf")
+			for mi in d.find_children("*", "MeshInstance3D", true, false):
+				(mi as MeshInstance3D).set_instance_shader_parameter("grade", Vector4(0.8, 0.0, 0.0, 0.0))
+				(mi as MeshInstance3D).set_instance_shader_parameter("accent", Color(0.85, 0.85, 0.85))
+			d.play(poses[c][0], 0.0)
+			d.anim.seek(d.anim.current_animation_length * float(poses[c][1]), true)
+			d.anim.pause()
+		if view == "darkclose":
+			cam.look_at_from_position(Vector3(0, 1.4, 6.6), Vector3(0, 1.15, 0), Vector3.UP)
+		else:
+			cam.look_at_from_position(Vector3(0, 1.15, 12.0), Vector3(0, 1.05, 0), Vector3.UP)
+		await _wait(1.0)
+		return
 	if view == "body" or view == "bodyplate":
 		await _body_sheet(root, cam, view == "bodyplate")
 		return
@@ -1866,12 +1889,18 @@ func _wear_plate(a: Actor, k: int, prefix := "knight_plate") -> void:
 		mi.set_instance_shader_parameter("dye", Color(0, 0, 0, 0))
 		mi.set_instance_shader_parameter("grade", GearDB.grade(it))
 		mi.set_instance_shader_parameter("accent", GearDB.accent(it))
+	_arm(a, "knight_plate_sword_%d.gltf" % k, "knight_plate_shield_%d.gltf" % k)
+
+
+## A sword and shield in the hands, in place of the Knight's own.
+func _arm(a: Actor, sword: String, shield: String) -> void:
+	var skel: Skeleton3D = a.model.find_child("Skeleton3D", true, false)
 	for att in skel.get_children():
 		if att is BoneAttachment3D and str((att as BoneAttachment3D).bone_name).begins_with("handslot"):
 			(att as Node3D).visible = false
 	var hold := GearDB.weapon_hold("knight", "sword")
 	var oh := GearDB.offhand_hold("knight", "shield_badge_color.gltf")
-	for pair in [["handslot.r", "knight_plate_sword_%d.gltf" % k, hold["xf"]], [oh["bone"], "knight_plate_shield_%d.gltf" % k, oh["xf"]]]:
+	for pair in [["handslot.r", sword, hold["xf"]], [oh["bone"], shield, oh["xf"]]]:
 		var att := BoneAttachment3D.new()
 		att.bone_name = pair[0]
 		skel.add_child(att)
