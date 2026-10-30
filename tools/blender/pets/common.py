@@ -48,8 +48,14 @@ def mat(name, hexcol, rough=0.75, emit=None):
     return m
 
 
+# Angular style: parts keep their facets (no subdivision, flat shading), and
+# tube rings put a corner on top and bottom so bodies get a ridge and a keel.
+HARD = False
+
+
 def _ring(n, rx, rz):
-    return [(math.cos(2 * math.pi * i / n) * rx, math.sin(2 * math.pi * i / n) * rz) for i in range(n)]
+    ph = math.pi / 2 if HARD else 0.0
+    return [(math.cos(ph + 2 * math.pi * i / n) * rx, math.sin(ph + 2 * math.pi * i / n) * rz) for i in range(n)]
 
 
 def tube(name, path, m, n=10, sub=1, cap0=True, cap1=True):
@@ -121,6 +127,8 @@ def _obj(name, bm, m, sub, smooth=True):
     o = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(o)
     me.materials.append(m)
+    if HARD:
+        sub, smooth = 0, False
     if sub:
         md = o.modifiers.new("s", "SUBSURF")
         md.levels = sub

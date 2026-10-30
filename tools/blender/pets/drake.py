@@ -43,68 +43,88 @@ for s, x in (("l", 1), ("r", -1)):
     ]
 rig = armature(S)
 
-# Body: chest broad, hips narrower, two-tone with a plated belly.
-body = tube("body", [((0, 0.47, 1.0), 0.1, 0.1), ((0, 0.32, 1.0), 0.17, 0.17), ((0, 0.12, 1.02), 0.22, 0.21),
-                     ((0, -0.1, 1.05), 0.23, 0.22), ((0, -0.27, 1.1), 0.19, 0.19), ((0, -0.37, 1.16), 0.13, 0.14)], SCALE, n=12)
+# Angular build: hard facets, a keel and a ridge, swept horns, barbed wings.
+import common
+common.HARD = True
+
+
+def scallop(pts, wrist, k=0.35):
+    """Between each pair of trailing points, a cut pulled toward the wrist."""
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        mid = [(a[i] + b[i]) / 2 for i in range(3)]
+        out.append(tuple(mid[i] + (wrist[i] - mid[i]) * k for i in range(3)))
+        out.append(b)
+    return out
+
+
+# Body: a deep keeled chest narrowing hard to the hips; belly, flank and back
+# each take their own flat band of colour.
+body = tube("body", [((0, 0.47, 1.0), 0.07, 0.08), ((0, 0.32, 1.0), 0.15, 0.17), ((0, 0.12, 1.02), 0.2, 0.24),
+                     ((0, -0.1, 1.05), 0.22, 0.27), ((0, -0.27, 1.1), 0.16, 0.21), ((0, -0.37, 1.16), 0.11, 0.14)], SCALE, n=6)
 two_tone(body, BELLY, DARK)
 bind(body, ["hips", "spine_01", "neck_01"])
-neck = tube("neck", [((0, -0.3, 1.1), 0.14, 0.14), ((0, -0.42, 1.26), 0.11, 0.11), ((0, -0.52, 1.42), 0.095, 0.095),
-                     ((0, -0.6, 1.56), 0.09, 0.09)], SCALE, n=10)
+neck = tube("neck", [((0, -0.3, 1.1), 0.13, 0.15), ((0, -0.42, 1.26), 0.1, 0.12), ((0, -0.52, 1.42), 0.085, 0.1),
+                     ((0, -0.6, 1.56), 0.08, 0.09)], SCALE, n=6)
 two_tone(neck, BELLY, DARK, down=-0.2)
 bind(neck, ["spine_01", "neck_01", "neck_02"])
-# Head: a long wedge with a brow, the jaw hinged below.
-head = tube("head", [((0, -0.5, 1.6), 0.07, 0.08), ((0, -0.58, 1.6), 0.115, 0.105), ((0, -0.7, 1.585), 0.11, 0.09),
-                     ((0, -0.84, 1.56), 0.08, 0.065), ((0, -0.97, 1.545), 0.058, 0.048)], SCALE, n=10)
+# Head: a long blade of a skull ending in a point, the jaw a wedge below.
+head = tube("head", [((0, -0.5, 1.6), 0.07, 0.08), ((0, -0.58, 1.615), 0.115, 0.1), ((0, -0.7, 1.6), 0.1, 0.08),
+                     ((0, -0.86, 1.565), 0.06, 0.055), ((0, -1.0, 1.54), 0.02, 0.025)], SCALE, n=6)
 two_tone(head, BELLY, DARK, down=-0.6, up=0.75)
 bind(head, ["head"])
-jaw = tube("jaw", [((0, -0.6, 1.5), 0.075, 0.035), ((0, -0.78, 1.48), 0.06, 0.03), ((0, -0.95, 1.47), 0.042, 0.022)], BELLY, n=8)
+jaw = tube("jaw", [((0, -0.6, 1.5), 0.075, 0.04), ((0, -0.78, 1.48), 0.055, 0.03), ((0, -0.96, 1.475), 0.018, 0.015)], BELLY, n=4)
 bind(jaw, ["jaw"])
 for s, x in (("l", 1), ("r", -1)):
-    bind(blob("brow_" + s, (x * 0.075, -0.66, 1.66), (0.05, 0.08, 0.025), DARK, rot=(0.15, 0, x * -0.25)), ["head"])
-    bind(blob("eye_" + s, (x * 0.088, -0.71, 1.615), (0.022, 0.035, 0.022), EYE, sub=1), ["head"])
-    bind(blob("pupil_" + s, (x * 0.104, -0.715, 1.615), (0.006, 0.02, 0.016), PUPIL, sub=1), ["head"])
-    bind(cone("horn_" + s, (x * 0.06, -0.56, 1.66), (x * 0.13, -0.3, 1.82), 0.035, HORN, bend=(x * 0.02, 0, 0.08)), ["head"])
-    bind(cone("horn2_" + s, (x * 0.1, -0.6, 1.6), (x * 0.2, -0.42, 1.64), 0.022, HORN, bend=(0, 0, 0.03)), ["head"])
-    bind(blob("nostril_" + s, (x * 0.03, -0.955, 1.585), (0.012, 0.012, 0.008), CLAW, sub=1), ["head"])
+    # A heavy brow plate over a narrow, slanted eye.
+    bind(blob("brow_" + s, (x * 0.08, -0.68, 1.665), (0.06, 0.15, 0.025), DARK, rot=(0.22, x * -0.2, x * -0.3)), ["head"])
+    bind(blob("eye_" + s, (x * 0.09, -0.72, 1.62), (0.016, 0.06, 0.018), EYE, rot=(0.3, 0, x * -0.25)), ["head"])
+    bind(blob("pupil_" + s, (x * 0.098, -0.72, 1.62), (0.006, 0.03, 0.014), PUPIL, rot=(0.3, 0, x * -0.25)), ["head"])
+    # Long horns swept back past the neck, a shorter pair below, a cheek spur.
+    bind(cone("horn_" + s, (x * 0.06, -0.57, 1.67), (x * 0.17, -0.16, 1.86), 0.042, HORN, n=4, bend=(x * 0.03, 0, 0.06)), ["head"])
+    bind(cone("horn2_" + s, (x * 0.1, -0.6, 1.6), (x * 0.24, -0.36, 1.62), 0.026, HORN, n=4, bend=(0, 0, 0.02)), ["head"])
+    bind(cone("spur_" + s, (x * 0.07, -0.66, 1.5), (x * 0.17, -0.5, 1.46), 0.02, HORN, n=3), ["jaw"])
+    bind(blob("nostril_" + s, (x * 0.022, -0.955, 1.565), (0.012, 0.02, 0.006), CLAW), ["head"])
     for k in range(3):
-        # Teeth along the upper lip.
-        bind(cone("tooth_%s%d" % (s, k), (x * 0.042, -0.82 - k * 0.05, 1.525), (x * 0.042, -0.82 - k * 0.05, 1.495), 0.008, HORN, n=4), ["head"])
-# Back ridge: spikes from the skull to the tail tip.
-ridge = [((0, -0.56, 1.67), 0.03, "head"), ((0, -0.47, 1.47), 0.03, "neck_02"), ((0, -0.38, 1.3), 0.035, "neck_01"),
-         ((0, -0.22, 1.29), 0.045, "spine_01"), ((0, -0.02, 1.26), 0.05, "spine_01"), ((0, 0.18, 1.22), 0.045, "hips"),
-         ((0, 0.38, 1.12), 0.035, "hips"), ((0, 0.6, 1.06), 0.03, "tail_01"), ((0, 0.82, 1.01), 0.025, "tail_02"), ((0, 1.04, 1.02), 0.02, "tail_03")]
+        bind(cone("tooth_%s%d" % (s, k), (x * 0.04, -0.8 - k * 0.055, 1.525), (x * 0.04, -0.8 - k * 0.055, 1.48), 0.01, HORN, n=3), ["head"])
+# Back ridge: tall blades raked back, from the skull to the tail tip.
+ridge = [((0, -0.56, 1.67), 0.035, "head"), ((0, -0.47, 1.49), 0.035, "neck_02"), ((0, -0.38, 1.32), 0.045, "neck_01"),
+         ((0, -0.22, 1.33), 0.06, "spine_01"), ((0, -0.02, 1.31), 0.065, "spine_01"), ((0, 0.18, 1.25), 0.055, "hips"),
+         ((0, 0.38, 1.12), 0.045, "hips"), ((0, 0.6, 1.06), 0.035, "tail_01"), ((0, 0.82, 1.01), 0.03, "tail_02"), ((0, 1.04, 1.02), 0.025, "tail_03")]
 for i, (p, r, bn) in enumerate(ridge):
-    bind(cone("spike_%d" % i, p, (p[0], p[1] + r * 1.4, p[2] + r * 2.2), r, HORN, n=4), [bn])
-# Tail: tapering, curling up at the tip into a spade.
-tail = tube("tail", [((0, 0.42, 1.0), 0.11, 0.11), ((0, 0.66, 0.955), 0.08, 0.08), ((0, 0.96, 0.925), 0.055, 0.055),
-                     ((0, 1.22, 0.98), 0.035, 0.035), ((0, 1.42, 1.09), 0.02, 0.02)], SCALE, n=10)
+    bind(cone("spike_%d" % i, p, (p[0], p[1] + r * 2.4, p[2] + r * 2.4), r, HORN, n=3), [bn])
+# Tail: faceted, ending in a barbed arrowhead.
+tail = tube("tail", [((0, 0.42, 1.0), 0.1, 0.11), ((0, 0.66, 0.955), 0.075, 0.08), ((0, 0.96, 0.925), 0.05, 0.055),
+                     ((0, 1.22, 0.98), 0.03, 0.035), ((0, 1.42, 1.09), 0.015, 0.015)], SCALE, n=6)
 two_tone(tail, BELLY, DARK)
 bind(tail, ["hips", "tail_01", "tail_02", "tail_03", "tail_04"])
-bind(sheet("spade", [(0, 1.42, 1.09), (0.08, 1.5, 1.14), (0, 1.64, 1.22), (-0.08, 1.5, 1.14)], WING, 0.025), ["tail_04"])
-# Legs folded under the body in flight, with pale claws.
+bind(sheet("spade", [(0, 1.4, 1.08), (0.13, 1.44, 1.1), (0.05, 1.52, 1.16), (0, 1.74, 1.28), (-0.05, 1.52, 1.16), (-0.13, 1.44, 1.1)],
+           WING, 0.025), ["tail_04"])
+# Legs folded under in flight, hooked claws.
 for s, x in (("l", 1), ("r", -1)):
-    # Tucked back like a bird's in flight.
     for leg, (top, knee, foot) in (("f", ((0.13, -0.22, 1.0), (0.17, -0.18, 0.86), (0.16, -0.04, 0.84))),
                                    ("b", ((0.15, 0.26, 0.98), (0.2, 0.34, 0.83), (0.18, 0.56, 0.82)))):
         P = lambda v: (x * v[0], v[1], v[2])
         r = 0.065 if leg == "b" else 0.05
-        bind(tube("leg_%s%s" % (leg, s), [(P(top), r, r), (P(knee), r * 0.8, r * 0.8), (P(foot), r * 0.55, r * 0.5)], SCALE, n=8),
+        bind(tube("leg_%s%s" % (leg, s), [(P(top), r, r), (P(knee), r * 0.75, r * 0.8), (P(foot), r * 0.45, r * 0.45)], SCALE, n=5),
              ["leg_%s%s" % (leg, s), "spine_01" if leg == "f" else "hips"])
         for k in (-1, 0, 1):
             f = P(foot)
-            bind(cone("claw_%s%s%d" % (leg, s, k), (f[0] + k * 0.02, f[1], f[2]), (f[0] + k * 0.03, f[1] + 0.07, f[2] - 0.02), 0.012, CLAW, n=4), ["leg_%s%s" % (leg, s)])
-# Wings: a bony arm and a two-tone membrane between its fingers.
+            bind(cone("claw_%s%s%d" % (leg, s, k), (f[0] + k * 0.02, f[1], f[2]), (f[0] + k * 0.035, f[1] + 0.1, f[2] - 0.05), 0.014, CLAW, n=3,
+                      bend=(0, 0.02, 0.02)), ["leg_%s%s" % (leg, s)])
+# Wings: a bony arm, long finger struts, and a membrane cut into points.
 for s, x in (("l", 1), ("r", -1)):
     P = lambda v: (x * v[0], v[1], v[2])
     bones = ["wing_%s_1" % s, "wing_%s_2" % s, "wing_%s_3" % s]
-    bind(tube("arm_" + s, [(P((0.13, -0.14, 1.19)), 0.05, 0.05), (P((0.58, -0.06, 1.42)), 0.032, 0.032),
-                          (P((1.02, 0.08, 1.34)), 0.022, 0.022), (P((1.34, 0.25, 1.52)), 0.006, 0.006)], SCALE, n=8), bones)
-    tip = [P((1.34, 0.25, 1.52)), P((1.2, 0.5, 1.08)), P((0.86, 0.58, 0.98)), P((0.5, 0.48, 1.04)), P((0.18, 0.3, 1.04))]
-    bind(sheet("membrane_" + s, [P((0.58, -0.06, 1.42)), P((1.02, 0.08, 1.34))] + tip + [P((0.14, -0.12, 1.18))], WING, 0.018), bones + ["spine_01"])
-    # Finger struts from the wrist out to the trailing points.
-    for k, t in enumerate(tip[1:4]):
-        bind(cone("finger_%s%d" % (s, k), P((1.02, 0.08, 1.35)), t, 0.014, WING_HI, n=5), bones)
-    bind(cone("thumb_" + s, P((1.02, 0.08, 1.34)), P((1.04, -0.04, 1.42)), 0.016, HORN, n=4), [bones[1]])
+    bind(tube("arm_" + s, [(P((0.13, -0.14, 1.19)), 0.05, 0.05), (P((0.58, -0.06, 1.42)), 0.032, 0.036),
+                          (P((1.02, 0.08, 1.34)), 0.022, 0.025), (P((1.38, 0.24, 1.56)), 0.005, 0.005)], SCALE, n=4), bones)
+    wrist = P((1.02, 0.08, 1.34))
+    tips = [P((1.38, 0.24, 1.56)), P((1.3, 0.56, 1.02)), P((0.92, 0.7, 0.9)), P((0.52, 0.58, 0.98)), P((0.18, 0.34, 1.02))]
+    edge = scallop(tips, wrist)
+    bind(sheet("membrane_" + s, [P((0.58, -0.06, 1.42)), wrist] + edge + [P((0.14, -0.12, 1.18))], WING, 0.018), bones + ["spine_01"])
+    for k, t in enumerate(tips[1:4]):
+        bind(cone("finger_%s%d" % (s, k), wrist, t, 0.016, WING_HI, n=3), bones)
+    bind(cone("thumb_" + s, wrist, P((1.06, -0.1, 1.46)), 0.022, HORN, n=3, bend=(0, -0.02, 0.03)), [bones[1]])
 
 drake = skin(rig, "Drake")
 bake(drake, 1024, OUT + "dragon_tex.png",
