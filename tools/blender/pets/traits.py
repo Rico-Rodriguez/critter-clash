@@ -218,6 +218,18 @@ join("shade_tail", [
     sheet("shtg", [(0.018, 0.16, 0.06), (0.018, 0.3, 0.02), (0.018, 0.4, 0.06), (0.018, 0.3, -0.02)], SHADE_G, 0.01),
 ])
 
+# Acolyte: a short moss cape over the shoulders, a thorned vine along its edge.
+MOSS = mat("t_moss", "4f6b34")
+MOSS_D = mat("t_moss_d", "324a22")
+THORN = mat("t_thorn", "d8c9a0")
+parts = [sheet("acc", [(0, 0.04, 0.06), (0.34, 0.04, 0.04), (0.38, 0.16, -0.22), (0.18, 0.2, -0.34), (0, 0.22, -0.38),
+                       (-0.18, 0.2, -0.34), (-0.38, 0.16, -0.22), (-0.34, 0.04, 0.04)], MOSS, 0.025),
+         tube("acv", [((-0.36, 0.17, -0.2), 0.016, 0.016), ((-0.18, 0.22, -0.32), 0.016, 0.016), ((0, 0.24, -0.36), 0.016, 0.016),
+                      ((0.18, 0.22, -0.32), 0.016, 0.016), ((0.36, 0.17, -0.2), 0.016, 0.016)], MOSS_D, n=5, sub=0)]
+for i, (x, z) in enumerate([(-0.27, -0.27), (0.0, -0.36), (0.27, -0.27)]):
+    parts.append(cone(f"act{i}", (x, 0.22, z), (x * 1.15, 0.3, z - 0.03), 0.014, THORN, n=4))
+join("acolyte_wings", parts)
+
 BARK = mat("t_bark", "6b4a2e")
 LEAF = mat("t_leaf", "6aa83a")
 LEAF_D = mat("t_leaf_d", "3f7a26")

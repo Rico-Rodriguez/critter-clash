@@ -532,7 +532,7 @@ static func _log(ok: Callable) -> void:
 	var d := Game._fresh()
 	SK.migrate(d)
 	var c0 := SK.collection(d)
-	ok.call("log: a new save has nothing found, with real totals", int(c0["variants"]["have"]) == 0 and int(c0["variants"]["total"]) == 11 * 4 + 8 * 4 and int(c0["mutations"]["total"]) == 6 and int(c0["parts"]["total"]) == GEN.donor_parts() and GEN.donor_parts() == 21 and int(c0["breeds"]["total"]) == 19)
+	ok.call("log: a new save has nothing found, with real totals", int(c0["variants"]["have"]) == 0 and int(c0["variants"]["total"]) == 11 * 4 + 8 * 4 and int(c0["mutations"]["total"]) == 6 and int(c0["parts"]["total"]) == GEN.donor_parts() and GEN.donor_parts() == 22 and int(c0["breeds"]["total"]) == 19)
 	var child := {"breed": "cinderbone", "genes": SDB.base_genes()}
 	child["genes"]["variant"] = "bright"
 	child["genes"]["mutation"] = "gilded"

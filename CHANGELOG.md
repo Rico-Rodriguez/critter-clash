@@ -9,6 +9,17 @@ version is 7.
 
 ---
 
+## Unreleased: the Plague Acolyte, made in Blender
+
+The tenth pet remade in the heroes' style. The Acolyte is now an original Blender model
+(`tools/blender/pets/acolyte.py`), a grown-up figure rather than a chibi: a moss-green robe and deep
+hood, a carved bark beak-mask with round amber lenses, a mantle wound with a thorny vine and one
+rose, a rope belt hung with herbs, boots, and a thorned briar crook with a seed censer swinging from
+its hook. It walks and runs on its own legs, raises the crook and drives it down for Thorn Ward,
+and lifts a hand to the Thornmother for its special. Bred, its hood and sleeves take the other
+parent's colours (the crook stays wood), and it lends a short moss cape as its wings trait. The
+Sketchfab plague doctor and its credit are gone. A content change: ships over the air.
+
 ## Unreleased: the Hexbound Shade, made in Blender
 
 The ninth pet remade in the heroes' style. The Hexbound Shade is now an original Blender model

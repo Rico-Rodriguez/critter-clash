@@ -124,9 +124,10 @@ a Sketchfab model and drops that model's credit. One pet per PR:
    (`tools/blender/pets/kaykit.py`):
    - [x] **Bonelet.**
    - [x] **Hexling.**
-   - [ ] Plague Acolyte, Barrow Squire: paused. Rico doesn't like the KayKit hero body, and the
-     hero thread is modelling a new adult body on the same rig. These two, and then the Bonelet
-     and Hexling, move onto it if he approves.
+   - [x] **Plague Acolyte**, built like the beasts instead (`tools/blender/pets/acolyte.py`), its
+     own grown-up figure, while Rico picks the new hero body.
+   - [ ] Barrow Squire, the same way.
+   - [ ] The Bonelet and Hexling move onto the new hero body if Rico approves one.
    - [x] **Hexbound Shade**, a legless wraith, needs no hero body: built like the beasts
      (`tools/blender/pets/shade.py`).
 8. [ ] Hero weapons and armour pieces.

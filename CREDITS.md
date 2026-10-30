@@ -167,7 +167,7 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 - Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic, Night Bat and Thorn Sapling: original,
   made for this project in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`,
-  `mimic.py`, `bat.py`, `sapling.py`, `shade.py`): models,
+  `mimic.py`, `bat.py`, `sapling.py`, `shade.py`, `acolyte.py`): models,
   skeletons, clips and textures. The traits bred pets wear (horns, crests, lures, crowns...) are
   made the same way (`tools/blender/pets/traits.py`).
 - Bonelet: the KayKit Skeleton_Minion (CC0, see the KayKit entry) at the heroes' adult build, with
@@ -181,8 +181,6 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`). The Attack, Hit, Special, Run, Hover,
   Idle_Loop and Walk_Loop clips are original keyframes made for this project on the authors' own rigs
   (`tools/art/sidekick_clips.py`); the shipped clips are kept as they were:
-  - Acolyte — "Plague Doctor" by BeardenInc (display base removed) —
-    https://sketchfab.com/3d-models/plague-doctor-41f7a1dfd6984135b876f334908e3ca4
   - Barrow Squire — "Skelet_warrior" by EvgeshQa (uchaikineugene) —
     https://sketchfab.com/3d-models/skelet-warrior-1337edb8b567486aa22f15b519e60c4d
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
