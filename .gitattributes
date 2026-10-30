@@ -18,3 +18,6 @@
 assets/fonts/Barlow*.ttf -filter -diff -merge binary
 assets/fonts/CormorantSC-Bold.ttf -filter -diff -merge binary
 assets/fonts/GravelightCaps-Bold.ttf -filter -diff -merge binary
+# The remade hero plate, kept out of LFS (its upload is blocked here); small files.
+assets/kaykit/gear/knight_plate_*.bin -filter -diff -merge binary
+assets/kaykit/weapons/knight_plate_*.bin -filter -diff -merge binary

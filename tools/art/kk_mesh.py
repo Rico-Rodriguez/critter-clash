@@ -179,8 +179,7 @@ def export(name: str, out: str) -> None:
     bm.normal_update()
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
-    for p in mesh.polygons:
-        p.use_smooth = False
+    # Faces stay flat, as KayKit's are, unless a builder set `smooth` on them.
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.scene.collection.objects.link(obj)
     # Blender is Z-up and the exporter turns it to glTF's Y-up, so the mesh,

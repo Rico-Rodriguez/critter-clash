@@ -653,6 +653,10 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
+			"plate":
+				# -- --view=close|items: the remade Knight plate up close, or its sword and shield.
+				await _contact_sheet(shot, _arg(args, "view", ""))
+				await _save(shot)
 			"parts", "weapons", "dress", "sets", "sets2", "arms", "skins", "outfits":
 				await _contact_sheet(shot, _arg(args, "hero", ""))
 				await _save(shot)
@@ -1695,6 +1699,109 @@ func _wait_sim(h: Hunt, sec: float) -> void:
 		await get_tree().process_frame
 
 
+## The Knight at the adult build in each of the five sets: the look the game
+## gives today on the top row, the remade plate (tools/art/make_knight_plate.py)
+## below. `view` "close" frames three sets larger, turned to show the side.
+func _plate_sheet(root: Node3D, view: String) -> void:
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.fov = 30
+	if view == "items":
+		# The sword and shield of each set, side by side, face on.
+		for k in GearDB.TIERS:
+			var x := (k - 2) * 1.6
+			var sw := KK.prop(KK.WEAPON_DIR + "knight_plate_sword_%d.gltf" % k)
+			root.add_child(sw)
+			sw.position = Vector3(x - 0.38, -0.55, 0)
+			sw.rotation_degrees = Vector3(0, 0, -8)
+			var sh := KK.prop(KK.WEAPON_DIR + "knight_plate_shield_%d.gltf" % k)
+			root.add_child(sh)
+			sh.position = Vector3(x + 0.35, 0.05, 0)
+			sh.rotation_degrees = Vector3(0, 180, 0)
+			sh.scale = Vector3.ONE * 0.8
+			var lb := Label3D.new()
+			lb.text = GearDB.SET_NAMES[k]
+			lb.font_size = 44
+			lb.pixel_size = 0.004
+			lb.outline_size = 10
+			lb.modulate = DB.TIER_COLOR[k]
+			lb.position = Vector3(x, -1.05, 0.2)
+			root.add_child(lb)
+		cam.look_at_from_position(Vector3(0, 0.1, 11.0), Vector3(0, 0.1, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	var close := view == "close"
+	var sets: Array = [0, 2, 4] if close else [0, 1, 2, 3, 4]
+	var rows: Array = ["new"] if close else ["old", "new"]
+	var gap := 2.0 if close else 1.7
+	for r in rows.size():
+		for c in sets.size():
+			var k: int = sets[c]
+			var a := Actor.new()
+			a.adult_build = true
+			root.add_child(a)
+			a.build_model("Knight", {}, Color(0.5, 0.6, 1.0), 0.2)
+			a.position = Vector3((c - (sets.size() - 1) * 0.5) * gap, -r * 2.6, 0)
+			a.rotation_degrees.y = -28.0 if close else -12.0
+			var pre := {}
+			for slot in DB.SLOTS:
+				# The remade plate goes over the Knight's own body, bare-handed.
+				if rows[r] == "old":
+					pre[slot] = Game.make_item("knight", slot, k, "rare")
+				elif slot in ["weapon", "helm", "trinket"]:
+					pre[slot] = {}
+			GearLook.apply(a, "knight", pre)
+			if rows[r] == "new":
+				_wear_plate(a, k)
+			a.play(DB.HEROES["knight"]["anim"]["idle"], 0.0)
+			var lbl := Label3D.new()
+			lbl.text = GearDB.SET_NAMES[k] + ("" if close else ("\nnow" if rows[r] == "old" else "\nremade"))
+			lbl.font_size = 44
+			lbl.pixel_size = 0.004
+			lbl.outline_size = 10
+			lbl.modulate = DB.TIER_COLOR[k]
+			lbl.position = a.position + Vector3(0, -0.2, 0.6)
+			root.add_child(lbl)
+	if close:
+		cam.look_at_from_position(Vector3(0, 1.25, 8.6), Vector3(0, 1.05, 0), Vector3.UP)
+	else:
+		cam.look_at_from_position(Vector3(0, -0.2, 14.5), Vector3(0, -0.25, 0), Vector3.UP)
+	await _wait(1.0)
+
+
+## Pins the knight_plate_* pieces of set k on a bare Knight, graded like a worn set.
+func _wear_plate(a: Actor, k: int) -> void:
+	var skel: Skeleton3D = a.model.find_child("Skeleton3D", true, false)
+	var it := Game.make_item("knight", "chest", k, "rare")
+	var specs := ["helm@head", "cuirass@chest", "fauld@hips", "pauldron@upperarm.l", "pauldron@upperarm.r",
+		"vambrace@lowerarm.l", "vambrace@lowerarm.r", "greave@lowerleg.l", "greave@lowerleg.r"]
+	# The KayKit head goes under a closed helm.
+	var head := skel.get_node_or_null("Knight_Head") as MeshInstance3D
+	if head and k >= 2:
+		head.visible = false
+	for sp: String in specs:
+		var mi := GearLook._part(a, skel, "P:knight_plate_%s_%d.gltf@%s" % [sp.get_slice("@", 0), k, sp.get_slice("@", 1)])
+		if mi == null:
+			continue
+		mi.visible = true
+		mi.set_instance_shader_parameter("dye", Color(0, 0, 0, 0))
+		mi.set_instance_shader_parameter("grade", GearDB.grade(it))
+		mi.set_instance_shader_parameter("accent", GearDB.accent(it))
+	for att in skel.get_children():
+		if att is BoneAttachment3D and str((att as BoneAttachment3D).bone_name).begins_with("handslot"):
+			(att as Node3D).visible = false
+	var hold := GearDB.weapon_hold("knight", "sword")
+	var oh := GearDB.offhand_hold("knight", "shield_badge_color.gltf")
+	for pair in [["handslot.r", "knight_plate_sword_%d.gltf" % k, hold["xf"]], [oh["bone"], "knight_plate_shield_%d.gltf" % k, oh["xf"]]]:
+		var att := BoneAttachment3D.new()
+		att.bone_name = pair[0]
+		skel.add_child(att)
+		var p := KK.prop(KK.WEAPON_DIR + str(pair[1]))
+		att.add_child(p)
+		p.transform = pair[2]
+		a.restyle(att)
+
+
 ## A lineup of every character (or weapon) on a bare stage, for choosing parts.
 func _contact_sheet(kind: String, only := "") -> void:
 	if current:
@@ -1716,6 +1823,9 @@ func _contact_sheet(kind: String, only := "") -> void:
 	sun.rotation_degrees = Vector3(-40, -20, 0)
 	root.add_child(sun)
 	var names: Array = []
+	if kind == "plate":
+		await _plate_sheet(root, only)
+		return
 	if kind == "dress" or kind.begins_with("sets"):
 		var cam2 := Camera3D.new()
 		root.add_child(cam2)
