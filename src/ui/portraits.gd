@@ -68,6 +68,7 @@ static func _render(host: Node, id: String) -> Texture2D:
 	vp.add_child(rim)
 	var hero := Actor.new()
 	vp.add_child(hero)
+	hero.adult_build = true
 	hero.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
 	GearLook.apply(hero, id)
 	hero.rotation.y = 0.35
@@ -75,7 +76,7 @@ static func _render(host: Node, id: String) -> Texture2D:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0.55, 1.78, 2.6), Vector3(0, 1.5, 0), Vector3.UP)
+	cam.look_at_from_position(Vector3(0.55, 1.92, 2.6), Vector3(0, 1.64, 0), Vector3.UP)
 	host.add_child(vp)
 	for i in 4:
 		await RenderingServer.frame_post_draw

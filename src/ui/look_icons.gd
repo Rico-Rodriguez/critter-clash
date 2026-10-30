@@ -87,6 +87,7 @@ func _render(job: Array) -> void:
 	var d: Dictionary = DB.HEROES[hero_id]
 	var hero := Actor.new()
 	_vp.add_child(hero)
+	hero.adult_build = true
 	hero.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
 	GearLook.look_override = look
 	GearLook.apply(hero, hero_id)
@@ -96,7 +97,7 @@ func _render(job: Array) -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	_vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0.8, 1.35, 4.6), Vector3(0, 0.95, 0), Vector3.UP)
+	cam.look_at_from_position(Vector3(0.8, 1.45, 4.9), Vector3(0, 1.03, 0), Vector3.UP)
 	# One frame for the pose to apply, one for the draw.
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	await RenderingServer.frame_post_draw

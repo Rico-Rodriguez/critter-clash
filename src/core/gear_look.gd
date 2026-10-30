@@ -71,13 +71,26 @@ static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 	_outfit(actor, skel, _look("outfit", hero_id))
 
 
-## The worn outfit's dye over every body part: what the hero wears keeps its
+## The worn outfit: its own pieces (a cape, pauldrons, a helm in place of the
+## worn one), then its dye over every body part. What the hero wears keeps its
 ## shape and its own light and dark, the cloth takes the color. Heads, weapons
 ## and hands-held props keep their own colors.
 static func _outfit(actor: Actor, skel: Skeleton3D, key: String) -> void:
 	if not DB.OUTFITS.has(key):
 		return
 	var o: Dictionary = DB.OUTFITS[key]
+	var specs: Array = o.get("parts", []).duplicate()
+	if o.has("helm"):
+		# Everything on the head goes (the worn helm, a lifted hat), the outfit's helm comes on.
+		for c in skel.get_children():
+			if c is BoneAttachment3D and str(c.name).begins_with("Part_") and (c as BoneAttachment3D).bone_name == "head":
+				for m in c.get_children():
+					(m as Node3D).visible = false
+		specs.append(o["helm"])
+	for spec: String in specs:
+		var mi := _part(actor, skel, spec)
+		if mi:
+			mi.visible = true
 	var dye: Color = o["dye"]
 	var grade := Vector4(float(o["polish"]), float(o["shimmer"]), 0.0, 0.0)
 	for mi: MeshInstance3D in _body_meshes(skel):

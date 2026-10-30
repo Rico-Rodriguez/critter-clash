@@ -79,14 +79,14 @@ const LINES := {
 		# Helms and pauldrons are our own props, one per set
 		# (tools/art/make_hero_armor.py).
 		"helm": [
-			{"from": 0, "name": "Kettle Hat", "parts": ["P:knight_helm_0.gltf@head"]},
+			{"from": 0, "name": "Nasal Helm", "parts": ["P:knight_helm_0.gltf@head"]},
 			{"from": 1, "name": "Bascinet", "parts": ["P:knight_helm_1.gltf@head"]},
 			{"from": 2, "name": "Crested Helm", "parts": ["P:knight_helm_2.gltf@head"]},
 			{"from": 3, "name": "Dread Helm", "parts": ["P:knight_helm_3.gltf@head"]},
 			{"from": 4, "name": "Seraph Helm", "parts": ["P:knight_helm_4.gltf@head"]},
 		],
 		"chest": [
-			{"from": 0, "name": "Hauberk", "parts": ["T:Ranger", "P:knight_pauldron_0.gltf@upperarm.l"]},
+			{"from": 0, "name": "Hauberk", "parts": ["T:Knight", "P:knight_pauldron_0.gltf@upperarm.l"]},
 			{"from": 1, "name": "Cuirass", "parts": ["T:Knight", "P:knight_pauldron_1.gltf@upperarm.l", "P:knight_pauldron_1.gltf@upperarm.r"]},
 			{"from": 2, "name": "Plated Cuirass", "parts": ["T:Knight", "Rogue_Hooded/Cape", "P:knight_pauldron_2.gltf@upperarm.l", "P:knight_pauldron_2.gltf@upperarm.r"], "alts": [
 				{"name": "Plated Cuirass", "parts": ["T:Knight", "Skeleton_Warrior/Cloak", "P:knight_pauldron_2.gltf@upperarm.l", "P:knight_pauldron_2.gltf@upperarm.r"]},

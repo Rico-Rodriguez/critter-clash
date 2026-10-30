@@ -395,6 +395,7 @@ func show_hero(id: String, cheer := true) -> void:
 	var d: Dictionary = DB.HEROES[id]
 	hero = Actor.new()
 	add_child(hero)
+	hero.adult_build = true
 	hero.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.45)
 	GearLook.apply(hero, id)
 	hero.rotation.y = 0.3 + _spin

@@ -23,6 +23,7 @@ func setup(h: Hunt, hero_id: String) -> void:
 	reach = float(st["range"])
 	speed = float(st["speed"]) * 1.05
 	radius = 0.45
+	adult_build = true
 	build_model(def["model"], {}, Color(0.6, 0.9, 1.0), 0.5)
 	GearLook.apply(self, id)
 	var tag := Label3D.new()

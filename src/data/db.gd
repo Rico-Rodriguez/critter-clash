@@ -1408,7 +1408,7 @@ const GLOWS := {
 	# Not for sale: earned when a friend you invited plays their first hunts.
 	"kinship": {"name": "Kinship", "color": Color(0.35, 0.75, 1.0, 0.55), "gold": 0, "gift": true},
 	# Not for sale: hero mastery ranks pay these, so the shop's glows stay worth buying.
-	"bloodmoon": {"name": "Bloodmoon", "color": Color(0.85, 0.12, 0.18, 0.5), "gold": 0, "gift": true},
+	"bloodmoon": {"name": "Bloodmoon", "color": Color(0.85, 0.12, 0.18, 0.5), "gold": 0, "gift": true, "parts": ["Knight/Cape", "P:barb_pauldron_3.gltf@upperarm.l", "P:barb_pauldron_3.gltf@upperarm.r"], "helm": "P:barb_helm_3.gltf@head"},
 	"wraith": {"name": "Wraith", "color": Color(0.8, 0.95, 0.9, 0.5), "gold": 0, "gift": true},
 	"sunsteel": {"name": "Sunsteel", "color": Color(1.0, 0.95, 0.7, 0.6), "gold": 0, "gift": true},
 }
@@ -1472,21 +1472,24 @@ const WEAPON_SKIN_ORDER := ["oathbound", "squire", "warden", "dawn", "willow", "
 ## it stays crisp. `mix` is how much of the dye replaces the texture, `polish`
 ## (0..1) a clean, glossy finish, `shimmer` a band of light sweeping the
 ## outfit. `gift` outfits are earned (the season pass), never sold.
+## An outfit dyes the whole look and changes its shape: `parts` it adds (capes,
+## pauldrons, masks) and a `helm` that replaces the worn one, so an outfit reads
+## as a new silhouette and not a recolor.
 const OUTFITS := {
-	"crimson": {"name": "Crimson Guard", "heroes": ["knight"], "dye": Color(0.8, 0.13, 0.16), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 12000},
-	"gilded": {"name": "Gilded Oath", "heroes": ["knight"], "dye": Color(1.0, 0.76, 0.28), "mix": 0.85, "polish": 0.8, "shimmer": 0.6, "gold": 32000},
-	"frostwood": {"name": "Frostwood", "heroes": ["ranger"], "dye": Color(0.55, 0.82, 1.0), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
-	"emberstalker": {"name": "Emberstalker", "heroes": ["ranger"], "dye": Color(0.95, 0.42, 0.12), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 26000},
-	"ashen": {"name": "Ashen Weave", "heroes": ["mage"], "dye": Color(0.62, 0.62, 0.7), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
-	"sunfire": {"name": "Sunfire Vestments", "heroes": ["mage"], "dye": Color(1.0, 0.6, 0.15), "mix": 0.82, "polish": 0.7, "shimmer": 0.6, "gold": 28000},
+	"crimson": {"name": "Crimson Guard", "heroes": ["knight"], "dye": Color(0.8, 0.13, 0.16), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 12000, "parts": ["Knight/Cape", "P:knight_pauldron_2.gltf@upperarm.l", "P:knight_pauldron_2.gltf@upperarm.r"], "helm": "P:knight_helm_2.gltf@head"},
+	"gilded": {"name": "Gilded Oath", "heroes": ["knight"], "dye": Color(1.0, 0.76, 0.28), "mix": 0.85, "polish": 0.8, "shimmer": 0.6, "gold": 32000, "parts": ["Knight/Cape", "P:knight_pauldron_4.gltf@upperarm.l", "P:knight_pauldron_4.gltf@upperarm.r"], "helm": "P:knight_helm_4.gltf@head"},
+	"frostwood": {"name": "Frostwood", "heroes": ["ranger"], "dye": Color(0.55, 0.82, 1.0), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000, "parts": ["Ranger/Cape", "P:ranger_pauldron_1.gltf@upperarm.l", "P:ranger_pauldron_1.gltf@upperarm.r"], "helm": "P:ranger_helm_1.gltf@head"},
+	"emberstalker": {"name": "Emberstalker", "heroes": ["ranger"], "dye": Color(0.95, 0.42, 0.12), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 26000, "parts": ["Ranger/Cape", "P:ranger_pauldron_3.gltf@upperarm.l", "P:ranger_pauldron_3.gltf@upperarm.r"], "helm": "P:ranger_helm_3.gltf@head"},
+	"ashen": {"name": "Ashen Weave", "heroes": ["mage"], "dye": Color(0.62, 0.62, 0.7), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 10000, "parts": ["Rogue_Hooded/Cape"], "helm": "P:mage_helm_1.gltf@head"},
+	"sunfire": {"name": "Sunfire Vestments", "heroes": ["mage"], "dye": Color(1.0, 0.6, 0.15), "mix": 0.82, "polish": 0.7, "shimmer": 0.6, "gold": 28000, "parts": ["Knight/Cape", "P:mage_pauldron_4.gltf@upperarm.l", "P:mage_pauldron_4.gltf@upperarm.r"], "helm": "P:mage_helm_4.gltf@head"},
 	"bloodmoon": {"name": "Bloodmoon Raider", "heroes": ["barbarian"], "dye": Color(0.62, 0.07, 0.1), "mix": 0.8, "polish": 0.0, "shimmer": 0.0, "gold": 12000},
-	"glacier": {"name": "Glacier Clan", "heroes": ["barbarian"], "dye": Color(0.6, 0.86, 0.96), "mix": 0.8, "polish": 0.6, "shimmer": 0.5, "gold": 28000},
-	"midnight": {"name": "Midnight Shroud", "heroes": ["rogue"], "dye": Color(0.16, 0.2, 0.5), "mix": 0.82, "polish": 0.0, "shimmer": 0.0, "gold": 10000},
-	"viper": {"name": "Viridian Viper", "heroes": ["rogue"], "dye": Color(0.15, 0.72, 0.38), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 28000},
+	"glacier": {"name": "Glacier Clan", "heroes": ["barbarian"], "dye": Color(0.6, 0.86, 0.96), "mix": 0.8, "polish": 0.6, "shimmer": 0.5, "gold": 28000, "parts": ["Ranger/Cape", "P:barb_pauldron_2.gltf@upperarm.l", "P:barb_pauldron_2.gltf@upperarm.r"], "helm": "P:barb_helm_1.gltf@head"},
+	"midnight": {"name": "Midnight Shroud", "heroes": ["rogue"], "dye": Color(0.16, 0.2, 0.5), "mix": 0.82, "polish": 0.0, "shimmer": 0.0, "gold": 10000, "parts": ["Rogue_Hooded/Cape", "Rogue_Hooded/Mask"]},
+	"viper": {"name": "Viridian Viper", "heroes": ["rogue"], "dye": Color(0.15, 0.72, 0.38), "mix": 0.82, "polish": 0.6, "shimmer": 0.5, "gold": 28000, "parts": ["Skeleton_Warrior/Cloak", "Rogue_Hooded/Mask"]},
 	# Season pass outfits fit every hero.
-	"embergilt": {"name": "Embergilt", "heroes": HERO_ORDER, "dye": Color(0.95, 0.55, 0.18), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
-	"moonsilk": {"name": "Moonsilk", "heroes": HERO_ORDER, "dye": Color(0.72, 0.8, 1.0), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
-	"verdigris": {"name": "Verdigris", "heroes": HERO_ORDER, "dye": Color(0.2, 0.78, 0.62), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true},
+	"embergilt": {"name": "Embergilt", "heroes": HERO_ORDER, "dye": Color(0.95, 0.55, 0.18), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true, "parts": ["Knight/Cape"]},
+	"moonsilk": {"name": "Moonsilk", "heroes": HERO_ORDER, "dye": Color(0.72, 0.8, 1.0), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true, "parts": ["Knight/Cape"]},
+	"verdigris": {"name": "Verdigris", "heroes": HERO_ORDER, "dye": Color(0.2, 0.78, 0.62), "mix": 0.85, "polish": 0.9, "shimmer": 0.7, "gold": 0, "gift": true, "parts": ["Knight/Cape"]},
 }
 const OUTFIT_ORDER := ["crimson", "gilded", "frostwood", "emberstalker", "ashen", "sunfire", "bloodmoon", "glacier", "midnight", "viper", "embergilt", "moonsilk", "verdigris"]
 ## The season pass's outfit, one a season in turn.

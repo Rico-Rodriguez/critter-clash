@@ -132,6 +132,7 @@ func _build_stage() -> void:
 	var hd: Dictionary = DB.HEROES[hero_id]
 	_hero = Actor.new()
 	_vp.add_child(_hero)
+	_hero.adult_build = true
 	_hero.build_model(hd["model"], hd["weapons"], Color(0.55, 0.68, 1.0), 0.5)
 	GearLook.apply(_hero, hero_id)
 	_hero.position = Vector3(-1.5, 0, 0)

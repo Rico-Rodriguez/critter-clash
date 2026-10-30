@@ -72,6 +72,21 @@ Full findings with screenshots are in the published report (linked from the PR).
 - [x] Level-up: Reroll and Keep side by side, Banish explained under them.
 - [x] The rest from the report: one price style, This Week switch, Daily today and day 7, Talents badge, Profile.
 
+## Polish pass (Rico, 2026-10-30)
+
+From the "Gravelight polish diagnosis" artifact: five reasons the game doesn't look professional yet.
+Rico asked for the full pass, all four parts. One PR each:
+
+1. [x] **Look:** heroes get an adult build (smaller head, longer trunk and legs, on the shared
+   skeleton), the Knight's starter helm is a nasal helm and not a kettle hat, and every outfit adds
+   its own pieces (capes, pauldrons, a helm) instead of only recoloring.
+2. [ ] **Stages:** Pets, the hero sheet and the shop built around one big lit subject, three
+   numbers and one button; gear shown as rarity-lit renders, not silhouettes.
+3. [ ] **Moments:** the boss kill and the loot get a close camera, hit-stop and a one-at-a-time
+   reveal instead of a list.
+4. [ ] **Focus:** red dots only for something you can do now, camp buttons that open over the first
+   hunts, pet extras behind one More.
+
 ## Now: needs Rico
 
 | Task | Why it waits |
