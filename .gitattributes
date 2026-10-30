@@ -35,3 +35,5 @@ assets/sidekicks/treant_src.glb -filter -diff -merge binary
 assets/sidekicks/treant_src_treant_tex.png -filter -diff -merge binary
 assets/sidekicks/skeleton_src.glb -filter -diff -merge binary
 assets/sidekicks/skeleton_src_skeleton_texture.png -filter -diff -merge binary
+assets/sidekicks/lich_src.glb -filter -diff -merge binary
+assets/sidekicks/lich_src_rogue_texture_recolour.png -filter -diff -merge binary

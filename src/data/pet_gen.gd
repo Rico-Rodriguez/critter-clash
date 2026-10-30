@@ -132,7 +132,7 @@ const GRAFT := {
 		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
 	"bonelet": {"head": {"bones": ["head"], "pivot": "chest"}},
-	"hexling": {"head": {"bones": ["head_06", "jaw", "lowerteeth", "sight", "eye_", "beard", "mustache"], "pivot": "neck1"}},
+	"hexling": {"head": {"bones": ["head"], "pivot": "chest"}},
 	"acolyte": {"head": {"bones": ["face"], "pivot": "neck"}},
 	"crow": {
 		"head": {"bones": ["head", "jaw"], "pivot": "neck_01"},
@@ -177,7 +177,7 @@ const MOUNT := {
 	"drake": {"wings": "spine_01", "tail": "tail_01"},
 	"wisp": {"wings": "spine_01", "tail": "tail_01"},
 	"bonelet": {"wings": "chest", "tail": "hips"},
-	"hexling": {"wings": "spine3", "tail": "hip"},
+	"hexling": {"wings": "chest", "tail": "hips"},
 	"acolyte": {"wings": "chest", "tail": "pelvis"},
 	"crow": {"wings": "spine_01", "tail": "tail_01"},
 	"mimic": {"wings": "hips", "tail": "tail_01"},

@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cse8i6draqdvh"
-path="res://.godot/imported/lich_src_0.png-1fde1819d66eaa7d299370b52c1645b6.ctex"
+uid="uid://ytna0y25r024"
+path="res://.godot/imported/lich_src_rogue_texture_recolour.png-6c52a147bf430580d929592359f33ccc.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "1e021a5c9fb6b7004833cd62f2e1ea84"
+"md5": "149e67949598e63ec4bce8da80029b0d"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/lich_src_0.png"
-dest_files=["res://.godot/imported/lich_src_0.png-1fde1819d66eaa7d299370b52c1645b6.ctex"]
+source_file="res://assets/sidekicks/lich_src_rogue_texture_recolour.png"
+dest_files=["res://.godot/imported/lich_src_rogue_texture_recolour.png-6c52a147bf430580d929592359f33ccc.ctex"]
 
 [params]
 

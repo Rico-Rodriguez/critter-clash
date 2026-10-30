@@ -129,3 +129,34 @@ def export(rig, path):
         export_apply=False, export_yup=True)
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in rig.children if o.type == "MESH")
     print("PET", path, "tris", tris, "bones", len(rig.data.bones), "clips", [a.name for a in bpy.data.actions])
+
+
+def recolour(meshes, cells):
+    """Gives the character its own copy of its palette texture with some
+    swatches repainted. KayKit textures are an 8 x 4 grid of gradient
+    swatches; `cells` maps (column, row from the top) to a hex colour, and each
+    swatch keeps its own light-to-dark gradient around the new colour (pixels
+    and hex both sRGB)."""
+    mats = {s.material for o in meshes for s in o.material_slots if s.material}
+    for m in mats:
+        tex = [n for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image]
+        if not tex:
+            continue
+        src = tex[0].image
+        w, h = src.size
+        px = list(src.pixels)
+        cw, ch = w // 8, h // 4
+        for (cx, cy), hexc in cells.items():
+            t = [int(hexc[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
+            y0 = h - (cy + 1) * ch
+            idx = [((y * w) + x) * 4 for y in range(y0, y0 + ch) for x in range(cx * cw, cx * cw + cw)]
+            lum = [0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2] for i in idx]
+            mean = max(sum(lum) / len(lum), 1e-4)
+            for i, l in zip(idx, lum):
+                k = l / mean
+                for c in range(3):
+                    px[i + c] = min(1.0, t[c] * k)
+        img = bpy.data.images.new(src.name + "_recolour", w, h, alpha=True)
+        img.pixels = px
+        img.pack()
+        tex[0].image = img

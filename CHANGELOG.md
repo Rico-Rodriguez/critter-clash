@@ -9,6 +9,16 @@ version is 7.
 
 ---
 
+## Unreleased: the Hexling, on the heroes' rig
+
+The eighth pet remade in the heroes' style. The Hexling is now the heroes' KayKit hooded figure
+at their adult build, its cloth dyed cult violet so it never reads as the Rogue, with a crooked
+staff made in Blender that hooks around a violet orb. It walks rather than floats now. Its clips
+are KayKit ones: an idle, a walk, a run, a spell shot for Hex, a hit and a summon. The Bonehex Lich
+it breeds into wears the same body. The Sketchfab lich and its credit are gone (the Pyre Shaman's
+old "Lich" credit too: it has been Quaternius's Ghost Skull for a while). A content change: ships
+over the air.
+
 ## Unreleased: the Bonelet, on the heroes' rig
 
 The seventh pet remade in the heroes' style, and the first humanoid. The Bonelet is now the KayKit
