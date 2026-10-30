@@ -3,7 +3,7 @@
 # keys its clips, bakes the flat colours into one texture and writes a .glb.
 # Style: the heroes' (KayKit) look at real proportions: soft low-poly forms,
 # flat colours, two tones per surface (darker back, lighter belly).
-import bpy, bmesh, math
+import bpy, bmesh, math, os
 from mathutils import Vector, Matrix, Quaternion
 
 parts = []      # [object, [bone names it may weigh on]]
@@ -19,10 +19,25 @@ def srgb(h):
     return tuple(((x + 0.055) / 1.055) ** 2.4 if x > 0.04045 else x / 12.92 for x in c)
 
 
+_PAL = None
+
+
+def _palette():
+    global _PAL
+    if _PAL is None:
+        import json
+        f = os.environ.get("PET_PALETTE", "")
+        _PAL = json.load(open(f)) if f else {}
+    return _PAL
+
+
 def mat(name, hexcol, rough=0.75, emit=None):
     m = bpy.data.materials.get(name)
     if m:
         return m
+    # PET_PALETTE names a JSON file of {material: hex}, for trying a restyle
+    # without touching the pet's own colours.
+    hexcol = _palette().get(name, hexcol)
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     b = m.node_tree.nodes["Principled BSDF"]
