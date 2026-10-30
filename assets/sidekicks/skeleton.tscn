@@ -2,11 +2,24 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/skeleton_src.glb" id="1_x7cvk"]
 
-[node name="skeleton" type="Node3D" unique_id=525578338]
+[node name="skeleton" type="Node3D" unique_id=1563563855]
 metadata/cull_aabbs = {
-"Sketchfab_model/f0356766e0e94761aa548edea20aad34_fbx/Object_2/RootNode/Bip01/Object_5/Skeleton3D/Object_74": AABB(-48.904682, -75.03429, -43.348457, 98.38094, 145.7906, 97.072586)
+"Rig_Medium/Skeleton3D/Skeleton_Minion_ArmLeft": AABB(-0.33989325, 0.24950704, -0.69527304, 1.5055147, 1.6039627, 1.2518089),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_ArmRight": AABB(-1.1630145, 0.23710078, -0.66083264, 1.5070972, 1.6246397, 1.3008068),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_Body": AABB(-1.132866, -0.25486022, -1.1123536, 2.264339, 2.657968, 2.2137365),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_Cloak": AABB(-1.1733693, 0.2527383, -1.0927236, 2.3462415, 1.9538025, 2.1946964),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_Eyes": AABB(-0.29909816, 1.4974794, -0.03088846, 0.60414386, 0.39181712, 0.3641795),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_Head": AABB(-0.76956165, 0.997035, -0.79560614, 1.5344266, 1.5184832, 1.5597644),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_Jaw": AABB(-0.36458272, 1.1870847, -0.28700978, 0.7304939, 0.6453292, 0.6959538),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_LegLeft": AABB(-0.36096781, -0.41391662, -0.51518214, 1.0589715, 1.4967859, 1.2206134),
+"Rig_Medium/Skeleton3D/Skeleton_Minion_LegRight": AABB(-0.7634919, -0.4163464, -0.5604705, 1.1193085, 1.5000187, 1.2297103),
+"Rig_Medium/Skeleton3D/femur": AABB(-1.1206424, 0.4432723, -0.30712572, 1.1888047, 0.71852785, 0.7712422),
+"Rig_Medium/Skeleton3D/knuckle": AABB(-0.30739105, 0.60358495, 0.026157588, 0.25055355, 0.25405407, 0.2335222),
+"Rig_Medium/Skeleton3D/knuckle_001": AABB(-0.3013614, 0.70947576, 0.022539675, 0.25055367, 0.2540542, 0.23352227),
+"Rig_Medium/Skeleton3D/knuckle_002": AABB(-1.0016721, 0.64154255, -0.09907122, 0.25055364, 0.2540541, 0.23352224),
+"Rig_Medium/Skeleton3D/knuckle_003": AABB(-0.9956424, 0.7474333, -0.10268912, 0.25055367, 0.2540542, 0.23352227)
 }
-metadata/posed_aabb = AABB(-0.15824595, 0, -0.16638286, 0.3164919, 1, 0.33276573)
+metadata/posed_aabb = AABB(-0.3991325, 0, -0.19977513, 0.798265, 1, 0.39955026)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1589383706 instance=ExtResource("1_x7cvk")]
-transform = Transform3D(0.5593589, 0, 0, 0, 0.5593589, 0, 0, 0, 0.5593589, -0.0040518907, 0.32671124, -0.069309235)
+[node name="skeleton_src" type="Node3D" parent="." unique_id=2101147536 instance=ExtResource("1_x7cvk")]
+transform = Transform3D(0.49222577, 0, 0, 0, 0.49222577, 0, 0, 0, 0.49222577, 0.055456646, 0.0017413076, -0.0022763058)

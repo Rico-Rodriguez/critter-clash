@@ -170,6 +170,8 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
   `mimic.py`, `bat.py`, `sapling.py`): models,
   skeletons, clips and textures. The traits bred pets wear (horns, crests, lures, crowns...) are
   made the same way (`tools/blender/pets/traits.py`).
+- Bonelet: the KayKit Skeleton_Minion (CC0, see the KayKit entry) at the heroes' adult build, with
+  KayKit clips, a red mantle and a femur made in Blender (`tools/blender/pets/bonelet.py`).
 
 - Sidekick models, Creative Commons Attribution 4.0
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
@@ -177,8 +179,6 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`). The Attack, Hit, Special, Run, Hover,
   Idle_Loop and Walk_Loop clips are original keyframes made for this project on the authors' own rigs
   (`tools/art/sidekick_clips.py`); the shipped clips are kept as they were:
-  - Bonelet — "Skeleton animated" by danielmclogan —
-    https://sketchfab.com/3d-models/skeleton-animated-9210377c7a514cf6b48a31b9d3991ff3
   - Hexling — "Lich" by Spinnee —
     https://sketchfab.com/3d-models/lich-4ad4ece50273473ba1d843797b8f4fa6
   - Acolyte — "Plague Doctor" by BeardenInc (display base removed) —

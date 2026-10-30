@@ -131,7 +131,7 @@ const GRAFT := {
 		"wings": {"bones": ["fin_"], "pivot": "spine_01", "split": true},
 		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
-	"bonelet": {"head": {"bones": ["head1", "head2"], "pivot": "neck1"}},
+	"bonelet": {"head": {"bones": ["head"], "pivot": "chest"}},
 	"hexling": {"head": {"bones": ["head_06", "jaw", "lowerteeth", "sight", "eye_", "beard", "mustache"], "pivot": "neck1"}},
 	"acolyte": {"head": {"bones": ["face"], "pivot": "neck"}},
 	"crow": {
@@ -163,7 +163,7 @@ const REGION_COLOR := {
 	"crow": {"head": "1e2331", "wings": "121520", "tail": "1e2331"},
 	"mimic": {"head": "7c4b2a", "tail": "e2aa3c"},
 	"bat": {"head": "4a3036", "wings": "6e2a36"},
-	"bonelet": {"head": "89775a"},
+	"bonelet": {"head": "e5c9ad"},
 	"hexling": {"head": "3a2f4a"},
 	"acolyte": {"head": "4a4937"},
 	"barrow_squire": {"head": "cdaf5a"},
@@ -176,7 +176,7 @@ const REGION_COLOR := {
 const MOUNT := {
 	"drake": {"wings": "spine_01", "tail": "tail_01"},
 	"wisp": {"wings": "spine_01", "tail": "tail_01"},
-	"bonelet": {"wings": "spine4", "tail": "pelvis"},
+	"bonelet": {"wings": "chest", "tail": "hips"},
 	"hexling": {"wings": "spine3", "tail": "hip"},
 	"acolyte": {"wings": "chest", "tail": "pelvis"},
 	"crow": {"wings": "spine_01", "tail": "tail_01"},

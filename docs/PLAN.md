@@ -120,8 +120,10 @@ a Sketchfab model and drops that model's credit. One pet per PR:
      other parent's colours and wears a small trait of theirs. Genes, stats and card text unchanged.
 5. [x] **Night Bat.**
 6. [x] **Thorn Sapling.**
-7. [ ] Bonelet, Hexling, Plague Acolyte, Barrow Squire, Shade (on the heroes' KayKit rig, adult
-   build, with Blender-made gear).
+7. Humanoids on the heroes' KayKit rig, adult build, with Blender-made gear
+   (`tools/blender/pets/kaykit.py`):
+   - [x] **Bonelet.**
+   - [ ] Hexling, Plague Acolyte, Barrow Squire, Shade.
 8. [ ] Hero weapons and armour pieces.
 
 ## Now: needs Rico

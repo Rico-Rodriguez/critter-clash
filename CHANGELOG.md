@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: the Bonelet, on the heroes' rig
+
+The seventh pet remade in the heroes' style, and the first humanoid. The Bonelet is now the KayKit
+skeleton the heroes' kit comes with, built to the heroes' adult proportions (smaller head, longer
+body and legs, so not a chibi), in a red mantle that sets it apart from the enemy dead, with a
+femur in its hand. Its clips are KayKit ones: a skeleton's idle and shamble, a run, the throw for
+Bone Toss, a hit and a taunt. `tools/blender/pets/kaykit.py` builds it and will build the other
+humanoids. The Sketchfab skeleton and its credit are gone. A content change: ships over the air.
+
 ## Unreleased: the Thorn Sapling, made in Blender
 
 The sixth pet remade in the heroes' style. The Thorn Sapling is now an original Blender model

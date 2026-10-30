@@ -4,8 +4,6 @@ Attribution (verified via the Sketchfab API, 2026-10-23):
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
   one draw per material (`tools/art/merge_skinned.py`), clips renamed or cut by time, scaled to size in
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`):
-  - Bonelet — "Skeleton animated" by danielmclogan —
-    https://sketchfab.com/3d-models/skeleton-animated-9210377c7a514cf6b48a31b9d3991ff3
   - Hexling — "Lich" by Spinnee —
     https://sketchfab.com/3d-models/lich-4ad4ece50273473ba1d843797b8f4fa6
   - Acolyte — "Plague Doctor" by BeardenInc (display base removed) —
