@@ -9,6 +9,14 @@ version is 7.
 
 ---
 
+## Unreleased: Iron & Ember, the new look starts with the theme
+
+The first of six parts of the UI overhaul Rico approved. Every screen gets the new palette and
+type: near-black iron panels, gold for value and ember for action, no purple. Names and titles
+are set in Cormorant SC, buttons, captions, tabs and numbers in Barlow Condensed, and text in
+Barlow; Cinzel and the bold Alegreya Sans are gone. Buttons other than the gold one are quiet
+outlines. A content change: ships over the air.
+
 ## Unreleased: camp opens up over the first hunts, and a red dot means something
 
 A new player met five tabs, seven round buttons and seven red dots on the first camp screen, so none of the dots meant anything. The camp's side buttons now open over the first hunts: Story from the start, Quests and the Campfire after the first hunt, Season after the third and This week after the fifth. At most two side buttons wear a red dot at once, Story first, then Quests, then Season, and the Campfire shows its gold as its label instead of a dot as well. Pet extras (Breed, the Breeding Wheel and the Podium) already sit behind More on the Pets page. A content change: ships over the air.

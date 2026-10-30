@@ -13,3 +13,8 @@
 *.gdshader text eol=lf
 *.import text eol=lf
 
+# The Iron & Ember fonts are small and live in git itself (LFS uploads are
+# refused from the cloud sessions that added them).
+assets/fonts/Barlow*.ttf -filter -diff -merge binary
+assets/fonts/CormorantSC-Bold.ttf -filter -diff -merge binary
+assets/fonts/GravelightCaps-Bold.ttf -filter -diff -merge binary

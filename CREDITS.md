@@ -77,10 +77,13 @@ unchanged. Authors:
 
 ## Fonts (SIL Open Font License 1.1)
 
-- Cinzel by Natanael Gama and the Cinzel Project Authors — titles and numbers.
-  `assets/fonts/Cinzel-Variable.ttf`, license `assets/fonts/OFL-Cinzel.txt`.
-- Alegreya Sans by Juan Pablo del Peral and Huerta Tipográfica — body text.
-  `assets/fonts/AlegreyaSans-*.ttf`, license `assets/fonts/OFL-AlegreyaSans.txt`.
+- Cormorant SC by Christian Thalmann (Catharsis Fonts) — names and titles.
+  `assets/fonts/CormorantSC-Bold.ttf`, license `assets/fonts/OFL-CormorantSC.txt`.
+- Barlow and Barlow Condensed by Jeremy Tribby — buttons, numbers and body text.
+  `assets/fonts/Barlow*.ttf`, license `assets/fonts/OFL-Barlow.txt`. `GravelightCaps-Bold.ttf` is
+  Barlow Condensed Bold with lowercase mapped to capitals (`tools/caps_font.py`), same licence.
+- Alegreya Sans by Juan Pablo del Peral and Huerta Tipográfica — the boot screen.
+  `assets/fonts/AlegreyaSans-Medium.ttf`, license `assets/fonts/OFL-AlegreyaSans.txt`.
 
 ## Music (CC BY 4.0)
 
