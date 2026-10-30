@@ -1,6 +1,6 @@
 extends Node
-## Not a class_name (see item_icons.gd). A hero wearing an outfit or carrying a
-## weapon skin, rendered once per hero and look, off screen and one per frame,
+## Not a class_name (see item_icons.gd). A hero wearing an outfit, or a
+## weapon skin on its own, rendered once per hero and look, off screen and one per frame,
 ## then cached for the session. Until it is ready (and on headless runs) the
 ## flat icon stands in. `look` is {"outfit": key} or {"skin": key}.
 
@@ -84,6 +84,10 @@ func _render(job: Array) -> void:
 	var k: String = job[2]
 	Ui.clear(_vp)
 	GearStage.light(_vp, false)
+	if look.has("skin"):
+		_weapon_alone(str(DB.WEAPON_SKINS[look["skin"]]["model"]))
+		await _snap(k)
+		return
 	var d: Dictionary = DB.HEROES[hero_id]
 	var hero := Actor.new()
 	_vp.add_child(hero)
@@ -98,6 +102,33 @@ func _render(job: Array) -> void:
 	cam.fov = 30.0
 	_vp.add_child(cam)
 	cam.look_at_from_position(Vector3(0.8, 1.45, 4.9), Vector3(0, 1.03, 0), Vector3.UP)
+	await _snap(k)
+
+
+## A weapon skin is about the weapon: it floats alone, tilted like a sword
+## on a rack, instead of in a small hand on a whole hero.
+func _weapon_alone(model: String) -> void:
+	var holder := Actor.new()
+	_vp.add_child(holder)
+	var prop := GearLook.prop_for(model)
+	holder.add_child(prop)
+	holder.restyle(prop)
+	var box := AABB()
+	var first := true
+	for mi in KK.meshes(prop):
+		var b: AABB = prop.transform.inverse() * mi.global_transform * mi.get_aabb() if mi.is_inside_tree() else mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	prop.position = -box.get_center()
+	holder.rotation = Vector3(0.0, 0.5, -0.75)
+	var big := maxf(box.size.y, maxf(box.size.x, box.size.z))
+	var cam := Camera3D.new()
+	cam.fov = 30.0
+	_vp.add_child(cam)
+	cam.look_at_from_position(Vector3(0, big * 0.1, big * 2.2 + 0.4), Vector3.ZERO, Vector3.UP)
+
+
+func _snap(k: String) -> void:
 	# One frame for the pose to apply, one for the draw.
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	await RenderingServer.frame_post_draw

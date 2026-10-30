@@ -9,6 +9,10 @@ const FRAME := {
 	"helm": [Vector3(0, 1.95, 0), 3.4], "chest": [Vector3(0, 1.25, 0), 4.6],
 	"legs": [Vector3(0, 0.6, 0), 4.2], "trinket": [Vector3(0, 1.2, 0), 5.0],
 }
+## The same for a piece shown alone (icons), framed to fill a square.
+const FRAME_ALONE := {
+	"helm": [Vector3(0, 2.05, 0), 1.1], "chest": [Vector3(0, 1.28, 0), 2.2], "legs": [Vector3(0, 0.42, 0), 1.45],
+}
 
 
 static func light(vp: SubViewport, with_floor := true) -> void:
@@ -49,12 +53,14 @@ static func light(vp: SubViewport, with_floor := true) -> void:
 ## Puts one piece under `pivot` and aims `cam` at it: a weapon or offhand
 ## floats alone, a worn piece is shown on its hero wearing nothing else.
 ## `zoom` < 1 frames it tighter (square icons).
-static func show_piece(pivot: Node3D, cam: Camera3D, it: Dictionary, sparks := true, zoom := 1.0) -> void:
+## `alone` shows a worn piece by itself, on an unseen body (item icons), so
+## a chest piece reads as armor and not as a portrait of the hero.
+static func show_piece(pivot: Node3D, cam: Camera3D, it: Dictionary, sparks := true, zoom := 1.0, alone := false) -> void:
 	var model := str(GearDB.piece(it).get("model", ""))
 	if model != "":
 		_show_prop(pivot, cam, it, model, sparks, zoom)
 	else:
-		_show_worn(pivot, cam, it, zoom)
+		_show_worn(pivot, cam, it, zoom, alone)
 
 
 ## A weapon or offhand on its own, centered and framed by its size.
@@ -94,7 +100,7 @@ static func _show_prop(pivot: Node3D, cam: Camera3D, it: Dictionary, model: Stri
 
 
 ## A worn piece on the hero, everything else bare.
-static func _show_worn(pivot: Node3D, cam: Camera3D, it: Dictionary, zoom: float) -> void:
+static func _show_worn(pivot: Node3D, cam: Camera3D, it: Dictionary, zoom: float, alone := false) -> void:
 	var cls := str(it["cls"])
 	var a := Actor.new()
 	pivot.add_child(a)
@@ -105,7 +111,20 @@ static func _show_worn(pivot: Node3D, cam: Camera3D, it: Dictionary, zoom: float
 		pre[slot] = {}
 	pre[it["slot"]] = it
 	GearLook.apply(a, cls, pre)
+	if alone:
+		var reg: Dictionary = a.get_meta("gl_parts", {})
+		var keep := []
+		for spec: String in GearDB.expand(GearDB.look(it)["parts"]):
+			if reg.has(spec) and is_instance_valid(reg[spec]):
+				keep.append(reg[spec])
+		for mi in a.model.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).visible = mi in keep
 	a.play(GearDB.anims(cls, Game.weapon_family(cls, {"weapon": it} if it["slot"] == "weapon" else {}))["idle"], 0.0)
+	if alone and FRAME_ALONE.has(str(it["slot"])):
+		var fa: Array = FRAME_ALONE[str(it["slot"])]
+		var aim: Vector3 = fa[0]
+		cam.look_at_from_position(aim + Vector3(0, 0.25, float(fa[1])), aim, Vector3.UP)
+		return
 	var fr: Array = FRAME.get(str(it["slot"]), FRAME["chest"])
 	var at: Vector3 = fr[0]
 	cam.look_at_from_position(at + Vector3(0, 0.15 * zoom, float(fr[1]) * zoom), at, Vector3.UP)

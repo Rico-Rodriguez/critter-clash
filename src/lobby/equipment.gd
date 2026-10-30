@@ -283,6 +283,21 @@ func _build_stage(col: Container) -> void:
 	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(glow)
+	# Slow warm rays behind the hero, as on the pet stage: one light, one subject.
+	var rays := ColorRect.new()
+	rays.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rm := ShaderMaterial.new()
+	rm.shader = preload("res://src/fx/ui_rays.gdshader")
+	rm.set_shader_parameter("tint", Color(1.0, 0.78, 0.45))
+	rm.set_shader_parameter("strength", 0.14)
+	rays.material = rm
+	rays.set_anchors_preset(Control.PRESET_CENTER)
+	rays.offset_left = -STAGE_H * 0.6
+	rays.offset_right = STAGE_H * 0.6
+	rays.offset_top = -STAGE_H * 0.62
+	rays.offset_bottom = STAGE_H * 0.58
+	stage.add_child(rays)
+	stage.clip_contents = true
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

@@ -52,16 +52,26 @@ static func build_stable(ui, s: Sheet) -> void:
 		_side_card(ui, s, a)
 	var owned: int = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)).size() + SKS.bred_ids(Game.data).size()
 	b.add_child(Ui.label("STABLE · %d / %d" % [owned, SKDB.ORDER.size() + SKS.bred_ids(Game.data).size()], "Caption"))
+	# Owned pets first, three across as portraits; the ones still to find after, two across.
+	var mine: Array = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)) + SKS.bred_ids(Game.data)
 	var grid := GridContainer.new()
-	grid.columns = 2
+	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
-	for id: String in SKDB.ORDER:
-		grid.add_child(ui._sidekick_tile(s, id))
-	for id: String in SKS.bred_ids(Game.data):
+	for id: String in mine:
 		grid.add_child(ui._sidekick_tile(s, id))
 	b.add_child(grid)
 	FxUi.deal_in(grid, 0.04)
+	var rest: Array = SKDB.ORDER.filter(func(i): return not SKS.is_owned(Game.data, i))
+	if not rest.is_empty():
+		b.add_child(Ui.label("STILL TO FIND", "Caption"))
+		var g2 := GridContainer.new()
+		g2.columns = 2
+		g2.add_theme_constant_override("h_separation", 10)
+		g2.add_theme_constant_override("v_separation", 10)
+		for id: String in rest:
+			g2.add_child(ui._sidekick_tile(s, id))
+		b.add_child(g2)
 
 
 static func _empty_side() -> Control:
@@ -96,12 +106,17 @@ static func _side_card(ui, s: Sheet, id: String) -> void:
 		ui._refresh_camp_sidekick()
 		s.rebuild())], 10))
 	var rar := SKDB.rarity(id)
-	var sub := Ui.label("%s · %s · Bond %d · %s" % [SKDB.GRADES[rar].to_upper(), str(d["element"]).capitalize(), lv, SKDB.STAGE_LABELS[SKDB.stage_of(lv)]], "Caption")
+	var sub := Ui.label("%s · %s · %s" % [SKDB.GRADES[rar].to_upper(), str(d["element"]).capitalize(), SKDB.STAGE_LABELS[SKDB.stage_of(lv)]], "Caption")
 	sub.add_theme_color_override("font_color", SKDB.GRADE_COLORS[rar])
 	b.add_child(sub)
-	var line := Ui.label("%s · %s" % [d["ability"]["name"], d["desc"]], "Small")
-	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	b.add_child(line)
+	# Its ability as three numbers; the sentence lives on its page (Details).
+	b.add_child(Ui.label(str(d["ability"]["name"]).to_upper(), "Caption"))
+	var chips := HBoxContainer.new()
+	chips.add_theme_constant_override("separation", 8)
+	for c: Array in ability_chips(d["ability"]):
+		chips.add_child(_chip(str(c[0]), str(c[1])))
+	b.add_child(chips)
+	b.add_child(_bond_meter(lv, k))
 	var btn := Button.new()
 	btn.theme_type_variation = &"GoldButton"
 	btn.text = "DETAILS"
@@ -112,6 +127,61 @@ static func _side_card(ui, s: Sheet, id: String) -> void:
 		ui._sk_detail = id
 		s.rebuild())
 	b.add_child(btn)
+
+
+## A pet ability as up to three [value, label] chips: its damage, its
+## cooldown and the one number that makes it what it is.
+static func ability_chips(ab: Dictionary) -> Array:
+	var out := [["%d%%" % roundi(float(ab.get("dmg", 0.0)) * 100.0), "damage"], ["%ss" % _num(float(ab["cd"])), "cooldown"]]
+	var third := {
+		"burn": ["%ss", "burn"], "heal": ["%s%%", "heal"], "bounces": ["%s", "bounces"], "chain": ["%s", "chain"],
+		"strikes": ["%s", "strikes"], "bites": ["%s", "bites"], "stun": ["%ss", "stun"], "gold": ["+%s", "gold"],
+		"pulses": ["%s", "pulses"], "burst": ["%s%%", "burst"],
+	}
+	for key: String in third:
+		if ab.has(key):
+			var v := float(ab[key]) * (100.0 if key in ["heal", "burst"] else 1.0)
+			out.append([str(third[key][0]) % _num(v), str(third[key][1])])
+			break
+	return out
+
+
+static func _num(v: float) -> String:
+	return str(int(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v
+
+
+static func _chip(value: String, what: String) -> Control:
+	var c := PanelContainer.new()
+	c.theme_type_variation = &"Chip"
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	v.add_child(Ui.label(value, "Heading", HORIZONTAL_ALIGNMENT_CENTER))
+	v.add_child(Ui.label(what.to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+	c.add_child(v)
+	return c
+
+
+## Bond as a bar toward the next level, kills on the right.
+static func _bond_meter(lv: int, kills: int) -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	var top := HBoxContainer.new()
+	var l := Ui.label("Bond %d" % lv, "Small")
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(l)
+	var lo := int(SKDB.BOND_KILLS[lv - 1])
+	var hi := SKDB.bond_next(kills)
+	var maxed := lv >= SKDB.BOND_MAX
+	top.add_child(Ui.label("Max bond" if maxed else "%s / %s kills" % [Ui.fmt_num(kills), Ui.fmt_num(hi)], "Small"))
+	v.add_child(top)
+	var bar := ProgressBar.new()
+	bar.theme_type_variation = &"XPBar"
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 12)
+	bar.value = 100.0 if maxed else clampf(float(kills - lo) / float(maxi(hi - lo, 1)), 0.0, 1.0) * 100.0
+	v.add_child(bar)
+	return v
 
 
 # --- Hatchery ----------------------------------------------------------------
@@ -139,8 +209,8 @@ static func build_egg_shop(ui, s: Sheet) -> void:
 	var weekly := int(offers[offers.size() - 1]["left"])
 	b.add_child(ui._row([Ui.label("EGG SHOP", "Caption"), ui._spacer(), Ui.icon_rect("two-coins", 26, Color(1.0, 0.84, 0.4)), Ui.label("%d" % Game.gold(), "Value")], 8))
 	# Both clocks only get a line each when they differ (they match on the last day of the week).
-	var clocks := "Offers turn over in %s." % _span(daily) if weekly - daily < 3600 else "Daily offers turn in %s, the weekly feature in %s." % [_span(daily), _span(weekly)]
-	var info := Ui.label("Fresh eggs every day, one rare feature every week. " + clocks, "Small")
+	var clocks := "New eggs in %s" % _span(daily) if weekly - daily < 3600 else "New eggs in %s · new feature in %s" % [_span(daily), _span(weekly)]
+	var info := Ui.label(clocks, "Small")
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_child(info)
 	var grid := GridContainer.new()

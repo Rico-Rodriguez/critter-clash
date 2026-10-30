@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: the things you own take the stage
+
+Pets, gear and looks were lists of text and thumbnails. The pet at your side now stands on a lit pedestal with slow rays in its colour (the camera keeps the whole stand in view, so a flier no longer floats off its base), and its ability reads as three numbers (damage, cooldown and the one number that makes it what it is, like burn or bounces) over a Bond bar, instead of a sentence. Owned pets come first in the stable as rarity-framed portraits three across, the one at your side framed in gold; the pets still to find follow under their own heading. Helms, chests and legs had flat silhouette icons: every piece is now rendered from its own 3D model, shown by itself, so a Barrowsteel cuirass looks like that cuirass in the slot, the bag, the shop, chests and results. The hero sheet's turntable gets the same slow rays. In the shop, weapon skins show the weapon itself instead of a small hero holding it, and outfit and skin cards give the render most of the card. Egg cards put the egg first: big and centered, rocking and lit once it is ready, one line of time and kills, Hatch in gold and Skip in a quiet button; the egg shop's paragraph is now one line of timers. A content change: ships over the air.
+
+---
+
 ## Unreleased: heroes look like grown fighters, outfits change the shape
 
 The heroes stood in the dark world like toys: big heads, short legs, and the Knight began in a wide kettle hat that read as a farmer. Every hero now has an adult build on the shared skeleton: the head is about a fifth smaller, the trunk and legs are longer, and the arms keep their size, in the hunt, at camp, on the hero sheet, in portraits and in cutscenes (the dead keep theirs). The Knight's first helm is now a nasal helm in dull iron. Outfits were only dyes, so every look was the same model in a new color; each now adds its own pieces as well: Crimson Guard a red-crested helm, pauldrons and a cape, Gilded Oath the winged helm and pauldrons, the Ranger, Mage and Barbarian outfits their own helms, pauldrons and capes, the Rogue's a cape or cloak and mask, and the season outfits a cape. A content change: ships over the air.

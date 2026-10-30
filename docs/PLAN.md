@@ -80,7 +80,7 @@ Rico asked for the full pass, all four parts. One PR each:
 1. [x] **Look:** heroes get an adult build (smaller head, longer trunk and legs, on the shared
    skeleton), the Knight's starter helm is a nasal helm and not a kettle hat, and every outfit adds
    its own pieces (capes, pauldrons, a helm) instead of only recoloring.
-2. [ ] **Stages:** Pets, the hero sheet and the shop built around one big lit subject, three
+2. [x] **Stages:** Pets, the hero sheet and the shop built around one big lit subject, three
    numbers and one button; gear shown as rarity-lit renders, not silhouettes.
 3. [ ] **Moments:** the boss kill and the loot get a close camera, hit-stop and a one-at-a-time
    reveal instead of a list.

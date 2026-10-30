@@ -6,6 +6,7 @@ extends RefCounted
 const SDB := preload("res://src/data/sidekick_db.gd")
 const SKS := preload("res://src/autoload/sidekicks.gd")
 const Look := preload("res://src/core/sidekick_look.gd")
+const RAYS := preload("res://src/fx/ui_rays.gdshader")
 
 
 ## `at_stage` >= 0 shows that growth stage instead of the owned one (the
@@ -38,6 +39,21 @@ static func make(id: String, h: float, hint := true, at_stage := -1) -> Control:
 	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(glow)
+	# Slow rays behind it in its colour: the pet is the hero of this screen.
+	var rays := ColorRect.new()
+	rays.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rm0 := ShaderMaterial.new()
+	rm0.shader = RAYS
+	rm0.set_shader_parameter("tint", col.lerp(Color(1.0, 0.85, 0.55), 0.35))
+	rm0.set_shader_parameter("strength", 0.22)
+	rays.material = rm0
+	# A square, so the rays stay round on a wide stage (the stage clips it).
+	rays.set_anchors_preset(Control.PRESET_CENTER)
+	rays.offset_left = -h * 0.85
+	rays.offset_right = h * 0.85
+	rays.offset_top = -h * 0.9
+	rays.offset_bottom = h * 0.8
+	root.add_child(rays)
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -93,12 +109,15 @@ static func make(id: String, h: float, hint := true, at_stage := -1) -> Control:
 	look["root"].position.y = fly * 0.6
 	vp.add_child(pivot)
 	Look.play(look, "idle")
-	var mid := size * 0.5 + fly * 0.5
+	# Frame the pet and the whole pedestal: aim between the disc and the pet's
+	# middle, from a little above, so a flier never leaves its stand off screen.
+	var top := fly * 0.6 + size
+	var aim := top * 0.42
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	vp.add_child(cam)
-	var dist := size * 3.9 + 1.3
-	cam.look_at_from_position(Vector3(0, mid + size * 0.3, dist), Vector3(0, mid - size * 0.24, 0), Vector3.UP)
+	var dist := maxf(size * 3.4 + 1.2, top * 2.4 + 1.0)
+	cam.look_at_from_position(Vector3(0, aim + dist * 0.28, dist), Vector3(0, aim, 0), Vector3.UP)
 	# Drag turns it; a tap makes it perform.
 	var st := {"x": 0.0, "moved": 0.0, "spin": 0.0, "down": false}
 	svc.gui_input.connect(func(e: InputEvent):

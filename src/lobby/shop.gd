@@ -468,10 +468,12 @@ static func _outfit_card(ui, s: Sheet, hid: String, k: String) -> Button:
 	var owned: bool = k in h.get("outfits", [])
 	var worn: bool = str(h.get("outfit", "")) == k
 	var price := Game.outfit_price(k)
-	var art := LookIcons.rect(hid, {"outfit": k}, 96, str(DB.HEROES[hid]["icon"]), Color(od["dye"]).lightened(0.25))
+	var art := LookIcons.rect(hid, {"outfit": k}, 150, str(DB.HEROES[hid]["icon"]), Color(od["dye"]).lightened(0.25))
 	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_price(price))
 	var tag := "Season outfit" if od.get("gift", false) else "Outfit"
 	var btn := _card(art, str(od["name"]), tag, ptxt, &"TileBlue", "", worn, false, not owned)
+	# A look is sold by how it looks: the render gets most of the card.
+	btn.custom_minimum_size.y = 300
 	btn.pressed.connect(func():
 		if owned:
 			Game.set_outfit(hid, "" if worn else k)
@@ -490,9 +492,11 @@ static func _skin_card(ui, s: Sheet, hid: String, k: String) -> Button:
 	var owned: bool = k in h.get("skins", [])
 	var worn: bool = str(h.get("skin", "")) == k
 	var price := Game.skin_price(k)
-	var art := LookIcons.rect(hid, {"skin": k}, 96, str(sd["icon"]), Color("f6e3b4"))
+	var art := LookIcons.rect(hid, {"skin": k}, 150, str(sd["icon"]), Color("f6e3b4"))
 	var ptxt := "EQUIPPED" if worn else ("EQUIP" if owned else Ui.fmt_price(price))
 	var btn := _card(art, str(sd["name"]), "Weapon skin", ptxt, &"TileGold", "", worn, false, not owned)
+	# A look is sold by how it looks: the render gets most of the card.
+	btn.custom_minimum_size.y = 300
 	btn.pressed.connect(func():
 		if owned:
 			Game.set_skin(hid, "" if worn else k)

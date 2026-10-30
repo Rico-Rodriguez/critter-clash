@@ -1,8 +1,8 @@
 extends Node
 ## Not a class_name: an over-the-air pack cannot register new global classes
 ## (the baked IPA's class list is fixed), so users preload it by path.
-## Weapon and offhand icons rendered from the piece's own 3D model, so a
-## Crystal Staff looks like that staff and not like every other staff. Each
+## Item icons rendered from the piece's own 3D model, so a Crystal Staff
+## looks like that staff and a Bloodiron Cuirass like that cuirass. Each
 ## look is rendered once, off screen, one per frame, and cached for the
 ## session; until it is ready (and on headless runs) the flat icon stands in.
 
@@ -20,9 +20,8 @@ var _busy := false
 ## A TextureRect showing `it`: the flat icon now, its render when ready.
 static func rect(it: Dictionary, size_: float, flat_tint: Color) -> TextureRect:
 	var t := Ui.icon_rect(GearDB.item_icon(it), size_, flat_tint)
-	# Worn armor renders as a whole hero in it, which reads as a portrait at
-	# tile size: helms, chests and legs keep the flat icon in the tier color.
-	if DisplayServer.get_name() == "headless" or not it.has("cls") or not (str(it["slot"]) in ["weapon", "trinket"]):
+	# Worn armor renders by itself, off the body (GearStage `alone`).
+	if DisplayServer.get_name() == "headless" or not it.has("cls"):
 		return t
 	var k := key(it)
 	if _cache.has(k):
@@ -86,10 +85,7 @@ func _render(job: Array) -> void:
 	_vp.add_child(cam)
 	# Body armor is framed tighter so the piece, not the hero, fills the icon.
 	var slot := str(it["slot"])
-	GearStage.show_piece(pivot, cam, it, false, 0.36 if slot in ["chest", "legs"] else 0.62)
-	if slot == "chest":
-		# The big chibi head sits right above the chest: look a little lower.
-		cam.position.y -= 0.22
+	GearStage.show_piece(pivot, cam, it, false, {"chest": 0.36, "legs": 0.34, "helm": 0.3}.get(slot, 0.62), true)
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	# One frame for the pose to apply, one for the draw.
 	await RenderingServer.frame_post_draw
