@@ -376,7 +376,7 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(0.1 if shot == "storytitle" else 3.6)
 				await _save(shot)
 				cs.queue_free()
-			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "shoplookbuy", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "eggshop", "petsbreed", "petsshowcase", "petrename", "petrenamebad", "petresting", "petswheel", "petspage", "petsmatch", "petsmatchpick", "nest", "nestwalk", "nestin", "nestback":
+			"story", "sidekicks", "sidekick", "breeding", "collection", "lobby", "heroes", "hero", "looks", "skills", "log", "bag", "equip", "equipcard", "equipskins", "chest", "settings", "bounties", "expedition", "talents", "lobbychest", "road", "roadreveal", "pickhero", "daily", "season", "event", "eventboard", "feats", "campfire", "journal", "clan", "profile", "shop", "shopbuy", "shoplooks", "shoplookbuy", "hatch", "hatchwobble", "hatchseq", "evolveseq", "pets", "petshatch", "eggshop", "petsbreed", "petsshowcase", "petsmore", "petrename", "petrenamebad", "petresting", "petswheel", "petspage", "petsmatch", "petsmatchpick", "nest", "nestwalk", "nestin", "nestback":
 				# The new camp systems with something to show.
 				Game.data["idle_since"] = int(Time.get_unix_time_from_system()) - 3 * 3600
 				Game.season()["xp"] = DB.SEASON_XP * 4 + 60
@@ -555,6 +555,11 @@ func _capture(args: PackedStringArray) -> void:
 				elif shot == "petsshowcase":
 					current.open_sheet("showcase")
 					await _wait(1.0)
+				elif shot == "petsmore":
+					current.open_sheet("sidekicks")
+					await _wait(0.8)
+					current.ui._page.show_segment(current.ui.PetsTab.MORE)
+					await _wait(0.8)
 				elif shot in ["petrename", "petrenamebad"]:
 					current.open_sheet("sidekicks")
 					await _wait(1.0)

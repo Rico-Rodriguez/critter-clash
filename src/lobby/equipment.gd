@@ -28,7 +28,7 @@ const TILE := 118.0
 const LINE_TILE := 104.0
 const COLS := 5
 ## The place under the stats that holds the skills or the piece's card.
-const REGION_H := 176.0
+const REGION_H := 214.0
 ## Slots down the left of the hero, then down the right.
 const LEFT_SLOTS := ["helm", "chest", "legs"]
 const RIGHT_SLOTS := ["weapon", "trinket"]
@@ -60,7 +60,10 @@ var _card: PanelContainer
 ## Where the card sits, in place of the hero buttons.
 var _card_box: VBoxContainer
 var _hero_panel: VBoxContainer
-var _skills_btn: Button
+var _power: Label
+var _power_up: Label
+var _combat: Label
+var _set_bar: PanelContainer
 var _slot_title: Label
 var _new_uids := {}
 
@@ -144,6 +147,13 @@ func _build_header(col: VBoxContainer) -> void:
 		if e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			_open_hero(hero_id))
 	row.add_child(_title)
+	var pill := PanelContainer.new()
+	pill.theme_type_variation = &"Chip"
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_combat = Ui.label("", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	pill.add_child(_combat)
+	row.add_child(pill)
 	_faces = HBoxContainer.new()
 	_faces.add_theme_constant_override("separation", 8)
 	row.add_child(_faces)
@@ -200,9 +210,28 @@ func _round_button(text: String, cb: Callable) -> Button:
 	return b
 
 
-## The paper doll: armor slots down the left, weapon and offhand down the
-## right, the hero between; the stat strip below.
+## One number for the hero and what the bag would add to it; the paper doll
+## (armor down the left, weapon and offhand down the right, the hero between);
+## the stats in one slim line; then the set, one gold button and the quiet ones.
 func _build_top(col: VBoxContainer) -> void:
+	var pw := HBoxContainer.new()
+	pw.alignment = BoxContainer.ALIGNMENT_CENTER
+	pw.add_theme_constant_override("separation", 14)
+	pw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(pw)
+	_power = Ui.label("", "Title")
+	_power.add_theme_font_size_override("font_size", 58)
+	_power.add_theme_color_override("font_color", Color(1.0, 0.84, 0.5))
+	pw.add_child(_power)
+	var pv := VBoxContainer.new()
+	pv.alignment = BoxContainer.ALIGNMENT_CENTER
+	pv.add_theme_constant_override("separation", -4)
+	pv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pv.add_child(Ui.label("POWER", "Caption"))
+	_power_up = Ui.label("", "Body")
+	_power_up.add_theme_font_size_override("font_size", 22)
+	pv.add_child(_power_up)
+	pw.add_child(pv)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -212,37 +241,37 @@ func _build_top(col: VBoxContainer) -> void:
 	_build_stage(top)
 	var right := _slot_column(RIGHT_SLOTS)
 	top.add_child(right)
-	var card := PanelContainer.new()
-	card.theme_type_variation = "Card"
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(card)
 	_strip = GridContainer.new()
 	_strip.columns = 4
 	_strip.add_theme_constant_override("h_separation", 6)
-	card.add_child(_strip)
-	# One fixed-height place under the stats: the hero's skills and buttons,
-	# or the card of the piece picked. Neither pushes the collection around.
+	_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_strip)
+	# One fixed-height place under the stats: the set, Equip best and the
+	# quiet buttons, or the card of the piece picked. Neither pushes the
+	# collection around.
 	var region := VBoxContainer.new()
 	region.custom_minimum_size = Vector2(0, REGION_H)
 	region.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(region)
 	_hero_panel = VBoxContainer.new()
-	_hero_panel.add_theme_constant_override("separation", 8)
+	_hero_panel.add_theme_constant_override("separation", 10)
 	region.add_child(_hero_panel)
-	_skills_btn = Button.new()
-	_skills_btn.theme_type_variation = "CardButton"
-	_skills_btn.focus_mode = Control.FOCUS_NONE
-	_skills_btn.custom_minimum_size = Vector2(0, 92)
-	_skills_btn.pressed.connect(func():
-		Sfx.play("ui_tap", -4.0)
-		ui._shown_hero = hero_id
-		ui.open_sheet("skills"))
-	_hero_panel.add_child(_skills_btn)
+	_set_bar = PanelContainer.new()
+	_set_bar.theme_type_variation = &"Card"
+	_set_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hero_panel.add_child(_set_bar)
 	_hero_row = HBoxContainer.new()
 	_hero_row.add_theme_constant_override("separation", 8)
-	_hero_panel.add_child(_hero_row)
 	_card_box = VBoxContainer.new()
 	region.add_child(_card_box)
+	_best_btn = Button.new()
+	_best_btn.theme_type_variation = &"GoldButton"
+	_best_btn.focus_mode = Control.FOCUS_NONE
+	_best_btn.custom_minimum_size = Vector2(0, 76)
+	_best_btn.add_theme_font_size_override("font_size", 28)
+	_best_btn.pressed.connect(_equip_best)
+	_hero_panel.add_child(_best_btn)
+	_hero_panel.add_child(_hero_row)
 
 
 func _slot_column(slots: Array) -> VBoxContainer:
@@ -283,6 +312,21 @@ func _build_stage(col: Container) -> void:
 	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(glow)
+	# Slow warm rays behind the hero, as on the pet stage: one light, one subject.
+	var rays := ColorRect.new()
+	rays.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rm := ShaderMaterial.new()
+	rm.shader = preload("res://src/fx/ui_rays.gdshader")
+	rm.set_shader_parameter("tint", Color(1.0, 0.78, 0.45))
+	rm.set_shader_parameter("strength", 0.14)
+	rays.material = rm
+	rays.set_anchors_preset(Control.PRESET_CENTER)
+	rays.offset_left = -STAGE_H * 0.6
+	rays.offset_right = STAGE_H * 0.6
+	rays.offset_top = -STAGE_H * 0.62
+	rays.offset_bottom = STAGE_H * 0.58
+	stage.add_child(rays)
+	stage.clip_contents = true
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -403,8 +447,19 @@ func _refresh() -> void:
 			ups += 1
 	_best_ups = ups
 	_slot_title.text = "Skins · looks only, never stats" if filter == "skins" else "%s collection" % str(DB.SLOT_NAME[filter])
+	_combat.text = "COMBAT %d" % Game.combat_level(hero_id)
+	var best := {}
+	for slot in SLOT_ORDER:
+		var bt := _best_for(slot)
+		if not bt.is_empty():
+			best[slot] = bt
+	var pw := Game.power_score(hero_id)
+	var gain := Game.power_score(hero_id, best) - pw if not best.is_empty() else 0
+	_power.text = Ui.fmt_num(pw)
+	_power_up.text = "▲ %s ready to equip" % Ui.fmt_num(gain) if gain > 0 else "Wearing your best"
+	_power_up.add_theme_color_override("font_color", GREEN if gain > 0 else DIM)
 	_build_strip()
-	_build_skills()
+	_build_set_bar()
 	_build_hero_row()
 	_hero_panel.visible = _card == null
 	var keep := _scroll.scroll_vertical
@@ -903,9 +958,11 @@ func _build_strip() -> void:
 		var cell := VBoxContainer.new()
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		cell.add_theme_constant_override("separation", -2)
-		cell.add_child(Ui.label(spec[0], "Caption", HORIZONTAL_ALIGNMENT_CENTER))
+		var cap := Ui.label(spec[0], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		cap.add_theme_font_size_override("font_size", 14)
+		cell.add_child(cap)
 		var val := Ui.label(a if a == b else "%s → %s" % [a, b], "Body", HORIZONTAL_ALIGNMENT_CENTER)
-		val.add_theme_font_size_override("font_size", 24 if a == b else 20)
+		val.add_theme_font_size_override("font_size", 21 if a == b else 18)
 		if a != b:
 			var up := tv > nv
 			val.text += " ▲" if up else " ▼"
@@ -922,71 +979,82 @@ func _keep_scroll(v: int) -> void:
 		_scroll.scroll_vertical = v
 
 
-## The hero's skill levels at a glance (what gear they can wear rests on
-## them); tapping opens the Skills sheet.
-func _build_skills() -> void:
-	Ui.clear(_skills_btn)
-	var v := VBoxContainer.new()
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.offset_left = 16.0
-	v.offset_right = -16.0
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 4)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_skills_btn.add_child(v)
-	var top := HBoxContainer.new()
-	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var cl := Ui.label("Combat level %d" % Game.combat_level(hero_id), "Body")
-	cl.add_theme_font_size_override("font_size", 20)
-	cl.add_theme_color_override("font_color", GOLD)
-	cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(cl)
-	var more := Ui.label("Skills ›", "Caption")
-	more.add_theme_font_size_override("font_size", 16)
-	top.add_child(more)
-	v.add_child(top)
-	var chips := HBoxContainer.new()
-	chips.add_theme_constant_override("separation", 18)
-	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for sk: String in DB.STYLE_SKILLS[DB.HEROES[hero_id]["skill"]]:
-		var c := HBoxContainer.new()
-		c.add_theme_constant_override("separation", 6)
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		c.add_child(Ui.icon_rect(DB.SKILL_ICON[sk], 28, Color(0.95, 0.78, 0.45)))
-		var l := Ui.label("%s %d" % [DB.SKILL_NAME[sk], Game.skill_level(sk, hero_id)], "Body")
-		l.add_theme_font_size_override("font_size", 19)
-		c.add_child(l)
-		chips.add_child(c)
-	v.add_child(chips)
+## The set the hero is closest to finishing, as a bar: its name, a pip per
+## piece worn, and the next bonus. With no set piece yet, where they come from.
+func _build_set_bar() -> void:
+	Ui.clear(_set_bar)
+	var counts := Game.set_counts(hero_id, _try_on())
+	var best := ""
+	for st: String in counts:
+		if best == "" or int(counts[st]) > int(counts[best]):
+			best = st
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_set_bar.add_child(h)
+	var n := int(counts.get(best, 0))
+	var col := Color(0.72, 0.5, 1.0) if best != "" else DIM
+	var nm := Ui.label(str(DB.SETS[best]["name"]) if best != "" else "No set yet", "Heading")
+	nm.add_theme_font_size_override("font_size", 22)
+	nm.add_theme_color_override("font_color", col)
+	h.add_child(nm)
+	var pips := HBoxContainer.new()
+	pips.add_theme_constant_override("separation", 4)
+	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in DB.SLOTS.size():
+		var pip := Panel.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = col if i < n else Color(1, 1, 1, 0.14)
+		sb.set_corner_radius_all(4)
+		pip.add_theme_stylebox_override("panel", sb)
+		pip.custom_minimum_size = Vector2(24, 10)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pips.add_child(pip)
+	h.add_child(pips)
+	var next := ""
+	if best == "":
+		next = "Boss hoards drop set pieces"
+	elif n < 2:
+		next = "%d/%d · 2: %s" % [n, DB.SLOTS.size(), DB.SETS[best]["2"]["desc"]]
+	elif n < 4:
+		next = "%d/%d · 4: %s" % [n, DB.SLOTS.size(), DB.SETS[best]["4"]["desc"]]
+	else:
+		next = "%d/%d · both bonuses on" % [n, DB.SLOTS.size()]
+	var nl := Ui.label(next, "Small", HORIZONTAL_ALIGNMENT_RIGHT)
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nl.clip_text = true
+	nl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	h.add_child(nl)
 
 
-## Talents, Equip best and skins. Points to spend turn Talents green with
-## the count on it; the hero faces above carry the red dot.
+## The one gold button, and the quiet ones under it: Talents (the count of
+## points to spend on it), Skills and Skins.
 func _build_hero_row() -> void:
 	Ui.clear(_hero_row)
+	_best_btn.text = "EQUIP BEST  ▲%d" % _best_ups if _best_ups > 0 else "WEARING YOUR BEST"
+	_best_btn.theme_type_variation = &"GoldButton" if _best_ups > 0 else &"Ghost"
 	var pts := Game.talent_points(hero_id)
-	for spec in [["Talents" + (" · %d" % pts if pts > 0 else ""), "GreenButton" if pts > 0 else "BlueButton", "talents"],
-			["Equip best" + (" · ▲%d" % _best_ups if _best_ups > 0 else ""), "GoldButton", "best"],
-			["Skins", "BlueButton" if filter != "skins" else "GoldButton", "looks"]]:
+	for spec in [["Talents" + (" · %d" % pts if pts > 0 else ""), "talents"],
+			["Skills · %d" % Game.combat_level(hero_id), "skills"],
+			["Skins", "looks"]]:
 		var b := Button.new()
-		b.theme_type_variation = spec[1]
+		b.theme_type_variation = &"Ghost"
 		b.text = spec[0]
-		b.custom_minimum_size = Vector2(0, 60)
+		b.custom_minimum_size = Vector2(0, 56)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 19)
+		b.add_theme_font_size_override("font_size", 20)
 		b.clip_text = true
-		var what: String = spec[2]
-		if what == "best":
-			_best_btn = b
-			b.modulate = Color.WHITE if _best_ups > 0 else Color(1, 1, 1, 0.45)
+		var what: String = spec[1]
+		if what == "talents" and pts > 0:
+			b.add_theme_color_override("font_color", GREEN)
+		elif what == "looks" and filter == "skins":
+			b.add_theme_color_override("font_color", GOLD)
 		b.pressed.connect(func():
-			if what != "best":
-				Sfx.play("ui_tap", -4.0)
+			Sfx.play("ui_tap", -4.0)
 			if what == "looks":
 				_on_skins()
-			elif what == "best":
-				_equip_best()
 			else:
 				ui._shown_hero = hero_id
 				ui.open_sheet(what))
@@ -1028,17 +1096,47 @@ func _style_slot(b: Button, slot: String) -> void:
 		cc.add_child(Ui.icon_rect(GearDB.icon(hero_id, slot), SLOT_TILE * 0.5, Color(0.5, 0.48, 0.46, 0.45)))
 		b.add_child(cc)
 	else:
-		var t := _tile_button(it, SLOT_TILE, on)
-		for k in ["normal", "hover", "pressed", "focus"]:
-			b.add_theme_stylebox_override(k, t.get_theme_stylebox(k))
-		for c in t.get_children():
-			t.remove_child(c)
-			b.add_child(c)
-		t.free()
+		# Worn gear is treasure: lit in its rarity from inside, glowing out,
+		# with its level in the corner (no copies bar; the collection has it).
+		var col := _frame_color(it)
+		for k in ["normal", "hover", "pressed"]:
+			var box := _tile_box(col, on or k == "pressed", 0.06 if k == "hover" else 0.0)
+			box.shadow_color = Color(col.r, col.g, col.b, 0.6 if on else 0.42)
+			box.shadow_size = 14 if on else 10
+			b.add_theme_stylebox_override(k, box)
+		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		var glow := TextureRect.new()
+		var gt := GradientTexture2D.new()
+		var g := Gradient.new()
+		g.set_color(0, Color(col.r, col.g, col.b, 0.55))
+		g.set_color(1, Color(col.r, col.g, col.b, 0.0))
+		gt.gradient = g
+		gt.fill = GradientTexture2D.FILL_RADIAL
+		gt.fill_from = Vector2(0.5, 0.4)
+		gt.fill_to = Vector2(0.5, 1.0)
+		glow.texture = gt
+		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		glow.offset_left = 4
+		glow.offset_top = 4
+		glow.offset_right = -4
+		glow.offset_bottom = -4
+		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(glow)
+		var cc := CenterContainer.new()
+		cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cc.add_child(ItemIcons.rect(it, SLOT_TILE * 0.78, _icon_tone(it)))
+		b.add_child(cc)
+		var lv := _badge("%d" % int(it.get("lv", 1)), Color.WHITE, Control.PRESET_BOTTOM_RIGHT)
+		lv.add_theme_font_size_override("font_size", 24)
+		b.add_child(lv)
 	if _hands_full(slot):
 		b.add_child(_strike())
 	elif not _best_for(slot).is_empty():
-		b.add_child(_badge("▲", GREEN, Control.PRESET_TOP_RIGHT))
+		var up := _badge("▲", GREEN, Control.PRESET_TOP_LEFT)
+		up.add_theme_font_size_override("font_size", 22)
+		b.add_child(up)
 
 
 ## The shield slot while the weapon in hand (worn or tried on) takes both hands.

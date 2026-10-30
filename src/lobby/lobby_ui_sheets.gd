@@ -941,18 +941,27 @@ func _egg_tile(s: Sheet, e: Dictionary, now: int) -> Control:
 	c.custom_minimum_size = Vector2(0, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
-	v.add_child(_row([PropIcons.egg(str(e["kind"]), 56), Ui.label(str(ed["name"]), "Body")], 8))
+	# The egg is the card: big and centered, glowing and rocking once it's ready.
 	var hatchable := SKS.egg_ready(e, now)
+	var art := PropIcons.egg(str(e["kind"]), 92)
+	var ac := CenterContainer.new()
+	ac.add_child(art)
+	v.add_child(ac)
+	if hatchable:
+		FxUi.halo(c, art, col, 2.0)
+		FxUi.bob(art, 4.0, 1.4, 0.0)
+	v.add_child(Ui.label(str(ed["name"]), "Body", HORIZONTAL_ALIGNMENT_CENTER))
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.custom_minimum_size = Vector2(0, 12)
 	bar.value = SKS.egg_frac(e, now) * 100.0
 	v.add_child(bar)
 	var left := maxi(int(ed["kills"]) - int(e["kills"]), 0)
-	v.add_child(Ui.label("Ready!" if hatchable else "%s or %d kills" % [_dur(SKS.egg_secs_left(e, now)), left], "Small"))
+	v.add_child(Ui.label("Ready to hatch" if hatchable else "%s · %d kills" % [_dur(SKS.egg_secs_left(e, now)), left], "Small", HORIZONTAL_ALIGNMENT_CENTER))
 	var go := Button.new()
 	go.focus_mode = Control.FOCUS_NONE
-	go.theme_type_variation = &"GoldButton"
+	# Gold is for the one thing to do (Hatch); skipping the wait is a quieter choice.
+	go.theme_type_variation = &"GoldButton" if hatchable else &"Ghost"
 	go.add_theme_font_size_override("font_size", 24)
 	go.clip_text = true
 	if hatchable:
@@ -962,7 +971,7 @@ func _egg_tile(s: Sheet, e: Dictionary, now: int) -> Control:
 			_after_hatch(s))
 	else:
 		var cost := SKS.rush_cost(e, now)
-		go.text = "%d gems" % cost
+		go.text = "SKIP · %d GEMS" % cost
 		go.disabled = SKS.gems(Game.data) < cost
 		go.pressed.connect(func():
 			_hatch_news = SKS.rush(Game.data, uid, int(Time.get_unix_time_from_system()))
@@ -1008,7 +1017,7 @@ func _sidekick_tile(s: Sheet, id: String) -> Control:
 		var tag := ""
 		if d.has("genes"):
 			tag = " · %s" % SKDB.GRADES[SKDB.grade(d["genes"])]
-		return _sk_tile_box(str(d["icon"]), Color(d["color"]), _pet_name(id), ("At your side · " if here else "") + "Bond %d · %s" % [SKDB.bond_level(k), SKDB.STAGE_LABELS[SKDB.stage_of(SKDB.bond_level(k))]] + tag, -1.0, false, func():
+		return _sk_tile_box(str(d["icon"]), Color(d["color"]), _pet_name(id), ("At your side" if here else "Bond %d" % SKDB.bond_level(k)) + tag, -1.0, false, func():
 			_sk_detail = id
 			s.rebuild(), id)
 	var pr: Array = SKS.progress(Game.data, id)
@@ -1028,19 +1037,37 @@ func _sk_tile_box(icon: String, col: Color, title: String, status: String, frac:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 4)
 	# An owned pet shows its own render; a locked silhouette keeps the flat icon.
-	var ic: TextureRect = PetIcons.rect(pet, SKS.stage(Game.data, pet), 72) if pet != "" else Ui.icon_rect(icon if Ui.icon(icon) else "ghost", 40, col if not locked else col.darkened(0.45))
+	var ic: TextureRect = PetIcons.rect(pet, SKS.stage(Game.data, pet), 104) if pet != "" else Ui.icon_rect(icon if Ui.icon(icon) else "ghost", 40, col if not locked else col.darkened(0.45))
 	if pet != "" and locked:
 		ic.modulate = Color(1, 1, 1, 0.5)
 	if pet != "":
-		btn.custom_minimum_size.y = 172.0
+		# An owned pet is a portrait card framed in its rarity, lit from behind.
+		btn.custom_minimum_size.y = 196.0
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		var here := SKS.active(Game.data) == pet
+		var rc: Color = SKDB.GRADE_COLORS[SKDB.rarity(pet)]
+		for st_name in ["normal", "hover", "pressed"]:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.07, 0.06, 0.08).lerp(rc, 0.1 + (0.06 if st_name != "normal" else 0.0))
+			sb.set_corner_radius_all(14)
+			sb.set_border_width_all(4 if here else 2)
+			sb.border_color = Color(1.0, 0.82, 0.4) if here else rc.darkened(0.15)
+			if here:
+				sb.shadow_color = Color(1.0, 0.75, 0.3, 0.35)
+				sb.shadow_size = 8
+			btn.add_theme_stylebox_override(st_name, sb)
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(ic)
-	var t := Ui.label(title, "Body")
+	var t := Ui.label(title, "Body" if pet == "" else "Small", HORIZONTAL_ALIGNMENT_LEFT if pet == "" else HORIZONTAL_ALIGNMENT_CENTER)
+	if pet != "":
+		t.clip_text = true
+		t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if locked:
 		t.add_theme_color_override("font_color", Color(0.7, 0.7, 0.72))
 	v.add_child(t)
-	var st := Ui.label(status, "Small")
+	var st := Ui.label(status, "Small" if pet == "" else "Caption", HORIZONTAL_ALIGNMENT_LEFT if pet == "" else HORIZONTAL_ALIGNMENT_CENTER)
 	st.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(st)

@@ -20,12 +20,15 @@ signal closed
 var body: VBoxContainer
 var panel: PanelContainer
 var title_label: Label
+var _tag: Label
 var builder: Callable
 var _scroll: DragScroll
 var _fade: TextureRect
 var _cap := 0.86
 var page := false
 ## [[label, builder], ...] for a page's sub-tabs; `segment` is the one shown.
+## [label, builder, dot, parent] lives under segment `parent`: it is left out
+## of the row, reached from inside that page, and lights its parent's button.
 var segments: Array = []
 var segment := 0
 var _seg_row: HBoxContainer
@@ -85,6 +88,10 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	title_label.add_theme_font_size_override("font_size", 40)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_label)
+	# A short count beside the title ("4 / 14"), set by the builder.
+	_tag = Ui.label("", "Caption")
+	_tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_tag)
 	var x := Button.new()
 	x.theme_type_variation = "RoundButton"
 	x.text = "✕"
@@ -97,9 +104,9 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 		head.add_child(x)
 	v.add_child(head)
 	# One segment needs no row of choices.
-	if segments.size() > 1:
+	if _shown() > 1:
 		_seg_row = HBoxContainer.new()
-		_seg_row.add_theme_constant_override("separation", 8 if segments.size() < 5 else 6)
+		_seg_row.add_theme_constant_override("separation", 8 if _shown() < 5 else 6)
 		v.add_child(_seg_row)
 		_build_segments()
 	var wrap := Control.new()
@@ -210,17 +217,19 @@ func _build_segments() -> void:
 		return
 	Ui.clear(_seg_row)
 	for i in segments.size():
+		if _parent(i) >= 0:
+			continue
 		var b := Button.new()
 		b.theme_type_variation = &"Choice"
 		b.toggle_mode = true
-		b.button_pressed = i == segment
+		b.button_pressed = i == segment or _parent(segment) == i
 		b.text = str(segments[i][0])
 		b.custom_minimum_size = Vector2(0, 66)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.focus_mode = Control.FOCUS_NONE
 		# Five segments need a smaller label to fit one row.
-		b.add_theme_font_size_override("font_size", 22 if segments.size() < 5 else 17)
-		if segments.size() >= 5:
+		b.add_theme_font_size_override("font_size", 22 if _shown() < 5 else 17)
+		if _shown() >= 5:
 			b.clip_text = true
 		var n := i
 		b.pressed.connect(func():
@@ -234,6 +243,22 @@ func _build_segments() -> void:
 			dot.position = Vector2(10, 8)
 			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			b.add_child(dot)
+
+
+func _parent(i: int) -> int:
+	if i < 0 or i >= segments.size() or segments[i].size() < 4:
+		return -1
+	return int(segments[i][3])
+
+
+func _shown() -> int:
+	return range(segments.size()).filter(func(i): return _parent(i) < 0).size()
+
+
+## The count beside the title; "" hides it.
+func set_tag(text: String) -> void:
+	_tag.text = text
+	_tag.visible = text != ""
 
 
 func close() -> void:
@@ -251,5 +276,19 @@ func close() -> void:
 
 func _call_builder() -> void:
 	Ui.clear(footer)
+	set_tag("")
+	# A page that lives under another gets a way back to it.
+	var up := _parent(segment) if page and not segments.is_empty() else -1
+	if up >= 0:
+		var back := Button.new()
+		back.theme_type_variation = &"Ghost"
+		back.text = "‹  " + str(segments[up][0]).to_upper()
+		back.focus_mode = Control.FOCUS_NONE
+		back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		back.custom_minimum_size = Vector2(180, 56)
+		back.pressed.connect(func():
+			Sfx.play("ui_back", -6.0)
+			show_segment(up))
+		body.add_child(back)
 	builder.call(self)
 	footer.visible = footer.get_child_count() > 0
