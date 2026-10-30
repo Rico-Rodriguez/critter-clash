@@ -437,6 +437,7 @@ func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
 	badge.visible = false
 	b.add_child(badge)
 	_side_badges[key] = badge
+	_rail_cols[key] = col
 	col.add_child(b)
 	var l := Ui.label(text.to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 	l.add_theme_font_size_override("font_size", 14)
@@ -469,9 +470,22 @@ func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
 	return col
 
 
+## Hunts played before a camp button shows: a new player meets them one at a
+## time instead of seven at once.
+const RAIL_OPENS := {"quests": 1, "idle": 1, "season": 3, "event": 5}
+## At most this many rail buttons wear a badge at once, in this order: a badge
+## means "something good to do now", and seven of them mean nothing.
+const RAIL_BADGES := 2
+const RAIL_BADGE_ORDER := ["story", "quests", "season"]
+var _rail_cols := {}
+
+
 func _refresh_side() -> void:
 	if _side == null:
 		return
+	var hunts := int(Game.data["stats"]["hunts"])
+	for k: String in _rail_cols:
+		(_rail_cols[k] as Control).visible = hunts >= int(RAIL_OPENS.get(k, 0))
 	var login := Game.login_status()
 	_side_badges["quests"].visible = bool(login["ready"]) or Game.bounty_claimable() > 0 or Game.achievement_claimable() > 0
 	_side_badges["season"].visible = Game.season_claimable() > 0
@@ -486,7 +500,13 @@ func _refresh_side() -> void:
 		_story_tween = null
 		_story_btn.scale = Vector2.ONE
 	var g := Game.idle_gold()
-	_side_badges["idle"].visible = g >= 50
+	# The campfire's gold shows as its label; it needs no badge as well.
+	_side_badges["idle"].visible = false
+	var lit := 0
+	for k: String in RAIL_BADGE_ORDER:
+		var bd: Control = _side_badges[k]
+		bd.visible = bd.visible and lit < RAIL_BADGES and (_rail_cols[k] as Control).visible
+		lit += int(bd.visible)
 	_idle_label.text = "+%d" % g if g >= 50 else "CAMPFIRE"
 	_idle_label.add_theme_color_override("font_color", Color("f3d58f") if g >= 50 else Color("b9a27a"))
 

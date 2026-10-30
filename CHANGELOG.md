@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: camp opens up over the first hunts, and a red dot means something
+
+A new player met five tabs, seven round buttons and seven red dots on the first camp screen, so none of the dots meant anything. The camp's side buttons now open over the first hunts: Story from the start, Quests and the Campfire after the first hunt, Season after the third and This week after the fifth. At most two side buttons wear a red dot at once, Story first, then Quests, then Season, and the Campfire shows its gold as its label instead of a dot as well. Pet extras (Breed, the Breeding Wheel and the Podium) already sit behind More on the Pets page. A content change: ships over the air.
+
+---
+
 ## Unreleased: the hoard comes out one piece at a time
 
 Killing a boss and seeing the loot should be the best seconds of a run, and it went by as a list. When the boss falls the camera now holds on it longer, closer and lower, then swings to the hoard while it fountains out and lands, and only then returns to the hero as the loot flies in. Loot names over a pile are stacked further apart, because the camera looks down and squeezed them into each other. After a win, the gear comes out one card at a time before the results list, worst first and best last, each in its rarity's light with its 3D render and how much power it adds over what its hero wears, under the boss's name and VICTORY. Dots count the pieces, a tray underneath collects the ones you have seen, and Equip now puts an upgrade on its hero there and then; a tap shows the next, Skip goes straight to the list. On the list, a piece for another hero says so in small type instead of a big green name. A content change: ships over the air.
