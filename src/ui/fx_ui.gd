@@ -81,8 +81,8 @@ static func halo(host: Control, around: Control, tint: Color, reach := 1.8) -> T
 
 
 ## A slow misty gradient with motes drifting up, behind everything in `c`.
-static func backdrop(c: Control, top := Color(0.11, 0.08, 0.14), bottom := Color(0.04, 0.03, 0.06),
-		mist := Color(0.5, 0.32, 0.6), motes := Color(1.0, 0.78, 0.45, 0.55)) -> Control:
+static func backdrop(c: Control, top := Color(0.11, 0.085, 0.06), bottom := Color(0.043, 0.043, 0.051),
+		mist := Color(0.5, 0.33, 0.18), motes := Color(1.0, 0.78, 0.45, 0.55)) -> Control:
 	var host := Control.new()
 	host.name = "Backdrop"
 	host.mouse_filter = Control.MOUSE_FILTER_IGNORE

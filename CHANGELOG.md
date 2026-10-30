@@ -9,6 +9,14 @@ version is 7.
 
 ---
 
+## Unreleased: Iron & Ember, pets and shop
+
+Part 5 of the overhaul. Every page's backdrop (Pets, Shop, Clan and the rest) is warm iron with an
+ember mist instead of violet. The pet on the Pets page stands in a card edged and lit in its rarity,
+with its rarity, element, stage and name over the card's foot. The shop's featured look and the
+victory reveal already had their mockup layout and now wear the new palette. A content change: ships
+over the air.
+
 ## Unreleased: Iron & Ember, hero
 
 Part 4 of the overhaul. Gear, Talents, Skills and Skins are tabs across the top of the hero page
