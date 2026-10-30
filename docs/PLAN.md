@@ -97,7 +97,7 @@ labels in two or three words; tabs with icons only, the open one named. One PR e
 
 1. [x] **Theme:** the new palette and fonts in `tools/build_theme.gd`, outline buttons, no purple.
 2. [x] **Camp:** the scene is the screen, three side buttons, one gold Hunt card, icon-only tabs.
-3. [ ] **Hunt HUD:** closer camera, thin XP line, one elite banner, health over the hero, two
+3. [x] **Hunt HUD:** closer camera, thin XP line, one elite banner, health over the hero, two
    ability buttons.
 4. [ ] **Hero:** Gear, Talents and Skins as tabs, a big hero, rarity-lit slots, one stats row.
 5. [ ] **Pets, Shop and Victory** to their mockups.

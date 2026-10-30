@@ -2155,6 +2155,30 @@ corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_i00nh"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+bg_color = Color(0, 0, 0, 0.55)
+border_color = Color(0, 0, 0, 0.9)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kdopr"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+bg_color = Color(0.9529412, 0.8117647, 0.47843137, 1)
+border_color = Color(0.9694118, 0.87764704, 0.6609804, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
 [resource]
 default_font = ExtResource("5_jc0sv")
 default_font_size = 26
@@ -2808,3 +2832,10 @@ XPBar/constants/outline_size = 5
 XPBar/font_sizes/font_size = 18
 XPBar/styles/background = SubResource("StyleBoxFlat_uupmn")
 XPBar/styles/fill = SubResource("StyleBoxFlat_nuo1m")
+XPLine/base_type = &"ProgressBar"
+XPLine/colors/font_color = Color(0.9372549, 0.9019608, 0.8235294, 1)
+XPLine/colors/font_outline_color = Color(0, 0, 0, 1)
+XPLine/constants/outline_size = 5
+XPLine/font_sizes/font_size = 18
+XPLine/styles/background = SubResource("StyleBoxFlat_i00nh")
+XPLine/styles/fill = SubResource("StyleBoxFlat_kdopr")

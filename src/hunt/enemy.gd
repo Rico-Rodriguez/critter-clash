@@ -83,21 +83,26 @@ func setup(h: Hunt, kind_: String, tier: Dictionary, elite_ := false, force_affi
 		if "swift" in affixes:
 			speed *= 1.45
 		elite_name = "%s%s %s" % [DB.ELITE_NAMES_A.pick_random(), DB.ELITE_NAMES_B.pick_random(), DB.ELITE_TITLES.pick_random()]
-		nameplate = Label3D.new()
-		nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		nameplate.no_depth_test = true
-		nameplate.pixel_size = 0.006
-		nameplate.font = hunt.fx.title_font
-		nameplate.font_size = 48
-		nameplate.outline_size = 14
-		nameplate.modulate = c.lightened(0.3)
-		nameplate.outline_modulate = Color(0, 0, 0, 0.9)
-		var tags := []
-		for af in affixes:
-			tags.append(DB.ELITE_AFFIXES[af]["name"])
-		nameplate.text = "%s\n%s" % [elite_name, " · ".join(tags)]
-		nameplate.position = Vector3(0, 2.9, 0)
-		add_child(nameplate)
+		# The name and affixes ride the HUD's elite banner; over the foe there
+		# is only a small chevron in its affix colour, so a pack of elites
+		# doesn't stack walls of text.
+		var mark := MeshInstance3D.new()
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.26
+		cone.bottom_radius = 0.0
+		cone.height = 0.38
+		cone.radial_segments = 4
+		cone.rings = 1
+		mark.mesh = cone
+		var mm := StandardMaterial3D.new()
+		mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mm.no_depth_test = true
+		mm.albedo_color = c.lightened(0.3)
+		mm.render_priority = 10
+		mark.material_override = mm
+		mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mark.position = Vector3(0, 2.7, 0)
+		add_child(mark)
 	if def.has("tint") and not elite:
 		set_tint(def["tint"])
 	if def.has("rival"):
