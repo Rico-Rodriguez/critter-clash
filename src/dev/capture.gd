@@ -1730,6 +1730,9 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 		cam.look_at_from_position(Vector3(0, 0.1, 11.0), Vector3(0, 0.1, 0), Vector3.UP)
 		await _wait(1.0)
 		return
+	if view == "body" or view == "bodyplate":
+		await _body_sheet(root, cam, view == "bodyplate")
+		return
 	var close := view == "close"
 	var sets: Array = [0, 2, 4] if close else [0, 1, 2, 3, 4]
 	var rows: Array = ["new"] if close else ["old", "new"]
@@ -1769,8 +1772,58 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 	await _wait(1.0)
 
 
+## The new hero body (tools/art/make_hero_body.py) next to today's adult-build
+## Knight: standing, turned, running and swinging. `plate`: in Barrowsteel plate.
+func _body_sheet(root: Node3D, cam: Camera3D, plate: bool) -> void:
+	if plate:
+		for k in GearDB.TIERS:
+			var b := _hero_body(root, "Hero_Knight")
+			b.position = Vector3((k - 2) * 1.5, 0, 0)
+			b.rotation_degrees.y = -20.0
+			_wear_plate(b, k, "hero_plate")
+			b.play("Idle_A", 0.0)
+		cam.look_at_from_position(Vector3(0, 1.25, 12.5), Vector3(0, 1.15, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	var poses := [["Idle_A", 0.0, -15.0], ["Idle_A", 0.0, -70.0], ["Running_A", 0.3, -30.0], ["Melee_1H_Attack_Slice_Diagonal", 0.45, -20.0]]
+	for r in 2:
+		for c in poses.size():
+			var a := Actor.new()
+			root.add_child(a)
+			if r == 0:
+				a.adult_build = true
+				a.build_model("Knight", {}, Color(0.5, 0.6, 1.0), 0.2)
+			else:
+				root.remove_child(a)
+				a.free()
+				a = _hero_body(root, "Hero_Knight")
+			a.position = Vector3((c - 1.5) * 1.6, -r * 2.9, 0)
+			a.rotation_degrees.y = poses[c][2]
+			if r == 0:
+				var pre := {}
+				for slot in ["weapon", "helm", "trinket"]:
+					pre[slot] = {}
+				GearLook.apply(a, "knight", pre)
+			a.play(poses[c][0], 0.0)
+			a.anim.seek(a.anim.current_animation_length * float(poses[c][1]), true)
+			a.anim.pause()
+	cam.look_at_from_position(Vector3(0, -0.2, 13.0), Vector3(0, -0.25, 0), Vector3.UP)
+	await _wait(1.0)
+
+
+func _hero_body(root: Node3D, model: String) -> Actor:
+	var a := Actor.new()
+	root.add_child(a)
+	a.build_model(model, {}, Color(0.5, 0.6, 1.0), 0.2, Color(0, 0, 0, 0), 1.0)
+	# Its legs are longer than KayKit's: the clips' hip height needs lifting.
+	var bs := BoneScaler.new()
+	bs.lift = 0.6735
+	a.model.find_child("Skeleton3D", true, false).add_child(bs)
+	return a
+
+
 ## Pins the knight_plate_* pieces of set k on a bare Knight, graded like a worn set.
-func _wear_plate(a: Actor, k: int) -> void:
+func _wear_plate(a: Actor, k: int, prefix := "knight_plate") -> void:
 	var skel: Skeleton3D = a.model.find_child("Skeleton3D", true, false)
 	var it := Game.make_item("knight", "chest", k, "rare")
 	var specs := ["helm@head", "cuirass@chest", "fauld@hips", "pauldron@upperarm.l", "pauldron@upperarm.r",
@@ -1780,7 +1833,7 @@ func _wear_plate(a: Actor, k: int) -> void:
 	if head and k >= 2:
 		head.visible = false
 	for sp: String in specs:
-		var mi := GearLook._part(a, skel, "P:knight_plate_%s_%d.gltf@%s" % [sp.get_slice("@", 0), k, sp.get_slice("@", 1)])
+		var mi := GearLook._part(a, skel, "P:%s_%s_%d.gltf@%s" % [prefix, sp.get_slice("@", 0), k, sp.get_slice("@", 1)])
 		if mi == null:
 			continue
 		mi.visible = true

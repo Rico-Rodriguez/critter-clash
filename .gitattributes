@@ -21,3 +21,5 @@ assets/fonts/GravelightCaps-Bold.ttf -filter -diff -merge binary
 # The remade hero plate, kept out of LFS (its upload is blocked here); small files.
 assets/kaykit/gear/knight_plate_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/knight_plate_*.bin -filter -diff -merge binary
+assets/kaykit/characters/Hero_*.glb -filter -diff -merge binary
+assets/kaykit/gear/hero_plate_*.bin -filter -diff -merge binary

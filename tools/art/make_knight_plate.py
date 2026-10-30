@@ -405,14 +405,31 @@ PIECES = {
 }
 
 
+# Refit for the new hero body (make_hero_body.py): its bones are longer and
+# its head and limbs slimmer than KayKit's, so each piece is scaled (x, y, z)
+# and moved in its bone's space. `--body` writes them as hero_plate_*.
+BODY_FIT = {
+    "helm": ((0.36, 0.36, 0.36), (0, 0.0, 0.0)), "cuirass": ((0.8, 1.2, 0.85), (0, -0.2, 0.0)),
+    "fauld": ((0.85, 1.25, 0.85), (0, -0.32, 0.0)), "pauldron": ((0.85, 0.85, 0.85), (0, 0.0, 0.0)),
+    "vambrace": ((0.55, 1.6, 0.55), (0, 0.0, 0.0)), "greave": ((0.65, 2.9, 0.65), (0, 0.0, 0.0)),
+}
+
+
 if __name__ == "__main__":
-    ks = [int(a) for a in sys.argv[1:]] or list(range(len(SETS)))
+    body = "--body" in sys.argv
+    ks = [int(a) for a in sys.argv[1:] if a != "--body"] or list(range(len(SETS)))
+    prefix = "hero_plate" if body else "knight_plate"
     for k in ks:
         for name, (where, fn) in PIECES.items():
+            if body and name not in BODY_FIT:
+                continue
             K.reset()
             fn(k)
-            path = os.path.join(ROOT, "assets", "kaykit", where, "knight_plate_%s_%d.gltf" % (name, k))
-            export("knight_plate_%s_%d" % (name, k), path)
+            if body:
+                sc, at = BODY_FIT[name]
+                place(0, at=at, scale=sc)
+            path = os.path.join(ROOT, "assets", "kaykit", where, "%s_%s_%d.gltf" % (prefix, name, k))
+            export("%s_%s_%d" % (prefix, name, k), path)
             if where == "gear":
                 # One texture for all our props: the weapons folder's copy.
                 with open(path) as f:
