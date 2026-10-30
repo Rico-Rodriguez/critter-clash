@@ -46,7 +46,7 @@ static func gear_color(it: Dictionary) -> Color:
 const HEROES := {
 	"knight": {
 		"name": "Knight", "title": "The Oathsworn", "role": "Tank",
-		"model": "Knight",
+		"model": "DarkKnight",
 		"weapons": {"handslot.r": "sword_1handed.gltf", "handslot.l": "shield_badge_color.gltf"},
 		"weapon_bone": "handslot.r", "weapon_looks": ["", "", "sword_2handed_color.gltf", "sword_2handed_color.gltf"],
 		"style": "melee", "hp": 430.0, "speed": 5.3, "dmg": 26.0, "rate": 1.15,

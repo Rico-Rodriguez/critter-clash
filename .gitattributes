@@ -24,3 +24,5 @@ assets/kaykit/weapons/knight_plate_*.bin -filter -diff -merge binary
 assets/kaykit/characters/Hero_*.glb -filter -diff -merge binary
 assets/kaykit/gear/hero_plate_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/dark_plate_*.bin -filter -diff -merge binary
+assets/kaykit/weapons/dark_texture*.png -filter -diff -merge binary
+assets/kaykit/characters/Dark*.glb -filter -diff -merge binary

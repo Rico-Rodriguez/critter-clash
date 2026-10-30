@@ -1755,6 +1755,42 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 		cam.look_at_from_position(Vector3(0, -0.35, 13.5), Vector3(0, -0.35, 0), Vector3.UP)
 		await _wait(1.0)
 		return
+	if view == "knight" or view == "knightclose":
+		# The Knight as the game dresses him, in each set: standing, and
+		# (the wide sheet only) mid-swing from behind.
+		var ks: Array = [0, 1, 2, 3, 4]
+		var rows := 1 if view == "knightclose" else 2
+		for r in rows:
+			for k: int in ks:
+				var a := Actor.new()
+				a.adult_build = true
+				root.add_child(a)
+				a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				a.position = Vector3((k - 2) * 1.75, -r * 3.0, 0)
+				a.rotation_degrees.y = -25.0 if r == 0 else 150.0
+				var pre := {}
+				for slot in DB.SLOTS:
+					pre[slot] = Game.make_item("knight", slot, k, "rare")
+				GearLook.apply(a, "knight", pre)
+				var clip: String = DB.HEROES["knight"]["anim"]["idle"] if r == 0 else "Melee_1H_Attack_Slice_Diagonal"
+				a.play(clip, 0.0)
+				a.anim.seek(a.anim.current_animation_length * (0.0 if r == 0 else 0.45), true)
+				a.anim.pause()
+				if r == 0:
+					var lbl := Label3D.new()
+					lbl.text = GearDB.SET_NAMES[k]
+					lbl.font_size = 44
+					lbl.pixel_size = 0.004
+					lbl.outline_size = 10
+					lbl.modulate = DB.TIER_COLOR[k]
+					lbl.position = a.position + Vector3(0, -0.2, 0.6)
+					root.add_child(lbl)
+		if view == "knightclose":
+			cam.look_at_from_position(Vector3(0, 1.3, 11.0), Vector3(0, 1.1, 0), Vector3.UP)
+		else:
+			cam.look_at_from_position(Vector3(0, -0.3, 16.0), Vector3(0, -0.4, 0), Vector3.UP)
+		await _wait(1.0)
+		return
 	if view == "dark" or view == "darkclose":
 		# The dark plate mockup (tools/art/make_dark_plate.py): front, back,
 		# running and swinging; "darkclose" the first two, larger.
@@ -1862,12 +1898,8 @@ func _body_sheet(root: Node3D, cam: Camera3D, plate: bool) -> void:
 func _hero_body(root: Node3D, model: String) -> Actor:
 	var a := Actor.new()
 	root.add_child(a)
+	# Actor lifts the hips of our longer-legged bodies itself.
 	a.build_model(model, {}, Color(0.5, 0.6, 1.0), 0.2, Color(0, 0, 0, 0), 1.0)
-	# Its legs are longer than KayKit's: the clips' hip height needs lifting.
-	var skel: Skeleton3D = a.model.find_child("Skeleton3D", true, false)
-	var bs := BoneScaler.new()
-	bs.lift = skel.get_bone_rest(skel.find_bone("hips")).origin.y - 0.405663
-	skel.add_child(bs)
 	return a
 
 

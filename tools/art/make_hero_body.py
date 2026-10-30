@@ -60,6 +60,9 @@ SWATCH = {
     "red": (0, 1), "wood": (6, 1), "leather": (6, 0), "bone": (1, 1),
     "copper": (5, 1), "skin": (0, 0), "rust": (5, 0), "tan": (1, 0),
     "slate": (7, 1), "stone": (1, 2), "white": (0, 2),
+    # dark_texture.png only: our dark-fantasy palette in its spare swatches.
+    "iron": (0, 3), "silver": (1, 3), "agold": (2, 3), "blood": (3, 3), "pale": (4, 3),
+    "cloth": (5, 3), "hide": (6, 3), "fur": (7, 3), "wine": (6, 2), "moss": (7, 2),
 }
 
 
@@ -398,9 +401,8 @@ def seg_dist(p, a, b):
     return np.linalg.norm(p - (a + ab * t))
 
 
-def write(m, sk, g, nodes, joints, name, out):
-    seg = segments(sk)
-    jidx = {nodes[j]["name"]: k for k, j in enumerate(joints)}
+def _arrays(m, seg, jidx):
+    """Vertex and index arrays of one mesh, skinned and wound outward."""
     P, N, UV, JO, WE, IDX = [], [], [], [], [], []
     for verts, quads, _, smooth, bones in m.parts:
         # Weights per vertex from the part's own bones.
@@ -460,27 +462,45 @@ def write(m, sk, g, nodes, joints, name, out):
     wn = np.cross(b - a, c - a)
     flip = (wn * (N[tri[:, 0]] + N[tri[:, 1]] + N[tri[:, 2]])).sum(1) < 0
     tri[flip] = tri[flip][:, [0, 2, 1]]
-    IDX = tri.reshape(-1)
+    return P, N, UV, JO, WE, tri.reshape(-1)
+
+
+def write(m, sk, g, nodes, joints, name, out, meshes=None, image="../weapons/knight_texture.png"):
+    """Writes a .glb of the skeleton and skinned meshes: `meshes` is a list of
+    (node name, Mesh); by default the one mesh `m` as <name>_Body."""
+    meshes = meshes or [(name + "_Body", m)]
+    seg = segments(sk)
+    jidx = {nodes[j]["name"]: k for k, j in enumerate(joints)}
     ibm = []
     for j in joints:
         ibm.append(np.linalg.inv(sk[nodes[j]["name"]][1]).T.astype(np.float32).reshape(-1))
     IBM = np.array(ibm, np.float32)
+    views, buf, acc = [], b"", []
 
-    blobs = [P.tobytes(), N.tobytes(), UV.tobytes(), JO.tobytes(), WE.tobytes(), IDX.tobytes(), IBM.tobytes()]
-    views, buf = [], b""
-    for bl in blobs:
+    def view(bl):
+        nonlocal buf
         views.append({"buffer": 0, "byteOffset": len(buf), "byteLength": len(bl)})
         buf += bl + b"\0" * ((4 - len(bl) % 4) % 4)
-    nv = len(P)
-    acc = [
-        {"bufferView": 0, "componentType": 5126, "count": nv, "type": "VEC3", "min": P.min(0).tolist(), "max": P.max(0).tolist()},
-        {"bufferView": 1, "componentType": 5126, "count": nv, "type": "VEC3"},
-        {"bufferView": 2, "componentType": 5126, "count": nv, "type": "VEC2"},
-        {"bufferView": 3, "componentType": 5123, "count": nv, "type": "VEC4"},
-        {"bufferView": 4, "componentType": 5126, "count": nv, "type": "VEC4"},
-        {"bufferView": 5, "componentType": 5125, "count": len(IDX), "type": "SCALAR"},
-        {"bufferView": 6, "componentType": 5126, "count": len(joints), "type": "MAT4"},
-    ]
+        return len(views) - 1
+
+    acc.append({"bufferView": view(IBM.tobytes()), "componentType": 5126, "count": len(joints), "type": "MAT4"})
+    gl_meshes, total = [], [0, 0]
+    for mname, mm in meshes:
+        P, N, UV, JO, WE, IDX = _arrays(mm, seg, jidx)
+        nv = len(P)
+        first = len(acc)
+        acc.extend([
+            {"bufferView": view(P.tobytes()), "componentType": 5126, "count": nv, "type": "VEC3", "min": P.min(0).tolist(), "max": P.max(0).tolist()},
+            {"bufferView": view(N.tobytes()), "componentType": 5126, "count": nv, "type": "VEC3"},
+            {"bufferView": view(UV.tobytes()), "componentType": 5126, "count": nv, "type": "VEC2"},
+            {"bufferView": view(JO.tobytes()), "componentType": 5123, "count": nv, "type": "VEC4"},
+            {"bufferView": view(WE.tobytes()), "componentType": 5126, "count": nv, "type": "VEC4"},
+            {"bufferView": view(IDX.tobytes()), "componentType": 5125, "count": len(IDX), "type": "SCALAR"},
+        ])
+        gl_meshes.append({"name": mname, "primitives": [{"attributes": {"POSITION": first, "NORMAL": first + 1, "TEXCOORD_0": first + 2, "JOINTS_0": first + 3, "WEIGHTS_0": first + 4},
+                                                          "indices": first + 5, "material": 0}]})
+        total[0] += nv
+        total[1] += len(IDX) // 3
     jn = [dict(nodes[j]) for j in joints]
     # Keep the joint nodes in their source order, remapping child indices.
     remap = {j: k for k, j in enumerate(joints)}
@@ -491,18 +511,20 @@ def write(m, sk, g, nodes, joints, name, out):
             n["children"] = [remap[c] for c in n["children"]]
         out_nodes.append(n)
     root_joint = remap[[j for j in joints if nodes[j]["name"] == "root"][0]]
-    mesh_node = len(out_nodes)
-    out_nodes.append({"name": name + "_Body", "mesh": 0, "skin": 0})
-    out_nodes.append({"name": "Rig_Medium", "children": [mesh_node, root_joint]})
+    mesh_nodes = []
+    for k, (mname, _) in enumerate(meshes):
+        mesh_nodes.append(len(out_nodes))
+        out_nodes.append({"name": mname, "mesh": k, "skin": 0})
+    out_nodes.append({"name": "Rig_Medium", "children": mesh_nodes + [root_joint]})
     gl = {
         "asset": {"version": "2.0", "generator": "make_hero_body.py"},
         "scene": 0, "scenes": [{"name": "Scene", "nodes": [len(out_nodes) - 1]}],
         "nodes": out_nodes,
-        "meshes": [{"name": name + "_Body", "primitives": [{"attributes": {"POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2, "JOINTS_0": 3, "WEIGHTS_0": 4}, "indices": 5, "material": 0}]}],
-        "skins": [{"joints": list(range(len(joints))), "inverseBindMatrices": 6, "name": "Rig_Medium"}],
+        "meshes": gl_meshes,
+        "skins": [{"joints": list(range(len(joints))), "inverseBindMatrices": 0, "name": "Rig_Medium"}],
         "materials": [{"doubleSided": False, "name": "knight", "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}, "metallicFactor": 0, "roughnessFactor": 0.5}}],
         "textures": [{"source": 0}],
-        "images": [{"mimeType": "image/png", "name": "knight_texture", "uri": "../weapons/knight_texture.png"}],
+        "images": [{"mimeType": "image/png", "name": os.path.basename(image).split(".")[0], "uri": image}],
         "accessors": acc, "bufferViews": views, "buffers": [{"byteLength": len(buf)}],
     }
     js = json.dumps(gl, separators=(",", ":")).encode()
@@ -510,7 +532,7 @@ def write(m, sk, g, nodes, joints, name, out):
     glb = struct.pack("<III", 0x46546C67, 2, 12 + 8 + len(js) + 8 + len(buf))
     glb += struct.pack("<II", len(js), 0x4E4F534A) + js + struct.pack("<II", len(buf), 0x004E4942) + buf
     open(out, "wb").write(glb)
-    print("WROTE", out, nv, "verts", len(IDX) // 3, "tris")
+    print("WROTE", out, total[0], "verts", total[1], "tris")
 
 
 LOOKS = {
