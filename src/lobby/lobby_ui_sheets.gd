@@ -120,7 +120,9 @@ func _build_story(s: Sheet) -> void:
 		foe.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		foe.add_theme_color_override("font_color", Color(bd["color"]).lightened(0.2))
 		v.add_child(foe)
-		v.add_child(Ui.label(("First clear: " if not done else "Cleared · ") + _story_reward_text(ch), "Small"))
+		var rw := Ui.label(("First clear: " if not done else "Cleared · ") + _story_reward_text(ch), "Small")
+		rw.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(rw)
 		if open:
 			var btn := Button.new()
 			btn.text = "Replay" if done else "Begin"

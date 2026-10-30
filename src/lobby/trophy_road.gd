@@ -106,8 +106,8 @@ func _process(dt: float) -> void:
 func _background() -> void:
 	var bg := TextureRect.new()
 	var g := Gradient.new()
-	g.set_color(0, Color("1d1622"))
-	g.set_color(1, Color("09080b"))
+	g.set_color(0, Color("1c160f"))
+	g.set_color(1, Color("0b0b0d"))
 	var gt := GradientTexture2D.new()
 	gt.gradient = g
 	gt.fill_from = Vector2(0.5, 0.0)

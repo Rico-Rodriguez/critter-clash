@@ -79,7 +79,7 @@ unchanged. Authors:
 
 - Cormorant SC by Christian Thalmann (Catharsis Fonts) — names and titles.
   `assets/fonts/CormorantSC-Bold.ttf`, license `assets/fonts/OFL-CormorantSC.txt`.
-- Barlow and Barlow Condensed by Jeremy Tribby — buttons, numbers and body text.
+- Barlow Condensed and Barlow Semi Condensed by Jeremy Tribby — buttons, numbers and body text.
   `assets/fonts/Barlow*.ttf`, license `assets/fonts/OFL-Barlow.txt`. `GravelightCaps-Bold.ttf` is
   Barlow Condensed Bold with lowercase mapped to capitals (`tools/caps_font.py`), same licence.
 - Alegreya Sans by Juan Pablo del Peral and Huerta Tipográfica — the boot screen.
