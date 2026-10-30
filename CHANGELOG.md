@@ -9,6 +9,18 @@ version is 7.
 
 ---
 
+## Unreleased: the Bonelet and Hexling, made from scratch
+
+Rico wants every model made by us, so the two pets that still stood on the heroes' KayKit body are
+rebuilt as original Blender models on a shared grown-up biped rig (`tools/blender/pets/biped.py`).
+The Bonelet is a full skeleton (ribs, spine, pelvis, finger bones) in a ragged red hooded mantle,
+with a broken iron shackle on one wrist and the femur it throws; it shambles, hurls overarm and
+rattles its head in a taunt. The Hexling is a robed cultist under a tall pointed hood, its face a
+pale carved mask with a hex sign over narrow eye slits, talismans on its cord belt, and a crooked
+staff whose three claws hold a violet orb; it thrusts the staff to hex and raises it for its
+special. The same colours as before. `tools/blender/pets/kaykit.py` is gone. A content change:
+ships over the air.
+
 ## Unreleased: the Barrow Squire, made in Blender
 
 The eleventh and last pet remade in the heroes' style. The Barrow Squire is now an original Blender

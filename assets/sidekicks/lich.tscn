@@ -2,20 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/lich_src.glb" id="1_xmyfm"]
 
-[node name="lich" type="Node3D" unique_id=934608807]
+[node name="lich" type="Node3D" unique_id=627878758]
 metadata/cull_aabbs = {
-"Rig_Medium/Skeleton3D/RogueHooded_ArmLeft": AABB(-0.4139142, 0.1935823, -0.77879876, 1.6573749, 1.7333264, 1.3958089),
-"Rig_Medium/Skeleton3D/RogueHooded_ArmRight": AABB(-1.2197949, 0.20856708, -0.72182643, 1.6398151, 1.7247964, 1.516131),
-"Rig_Medium/Skeleton3D/RogueHooded_Body": AABB(-1.3410745, -0.32176238, -1.1612624, 2.6858678, 2.6801198, 2.3829038),
-"Rig_Medium/Skeleton3D/RogueHooded_Cape": AABB(-1.3269258, -0.601543, -1.2175038, 2.5751276, 2.8360772, 1.9999156),
-"Rig_Medium/Skeleton3D/RogueHooded_Head": AABB(-0.9358405, 0.7110521, -0.956663, 1.8746413, 1.923232, 1.9094578),
-"Rig_Medium/Skeleton3D/RogueHooded_LegLeft": AABB(-0.35806227, -0.4354567, -0.62190074, 1.2285693, 1.5414395, 1.2736261),
-"Rig_Medium/Skeleton3D/RogueHooded_LegRight": AABB(-0.76537764, -0.4181849, -0.5302499, 1.1203902, 1.5072913, 1.2527103),
-"Rig_Medium/Skeleton3D/RogueHooded_Mask": AABB(-0.725126, 0.93396467, -0.7301527, 1.4527748, 1.1548746, 1.5079479),
-"Rig_Medium/Skeleton3D/orb": AABB(-0.682482, 1.6094842, 0.030589424, 0.35688388, 0.35997903, 0.35652062),
-"Rig_Medium/Skeleton3D/staff": AABB(-1.4965811, -0.79379994, -0.9128751, 1.9953359, 3.714113, 2.143247)
+"Rig/Skeleton3D/Hexling": AABB(-1.3829534, -1.0160357, -1.2680603, 2.7659068, 3.903232, 2.5361207)
 }
-metadata/posed_aabb = AABB(-0.35268426, 0, -0.19977011, 0.7053685, 1, 0.39954022)
+metadata/posed_aabb = AABB(-0.19346176, 0, -0.1315285, 0.38692352, 1, 0.263057)
 
-[node name="lich_src" type="Node3D" parent="." unique_id=931008554 instance=ExtResource("1_xmyfm")]
-transform = Transform3D(0.49184147, 0, 0, 0, 0.49184147, 0, 0, 0, 0.49184147, -0.0073488853, 0.0010019483, 0.0032726517)
+[node name="lich_src" type="Node3D" parent="." unique_id=1182169676 instance=ExtResource("1_xmyfm")]
+transform = Transform3D(0.53905123, 0, 0, 0, 0.53905123, 0, 0, 0, 0.53905123, 0, -0.0043257256, 0)

@@ -166,15 +166,12 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 ## Sidekicks
 
 - Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic, Night Bat, Thorn Sapling, Hexbound
-  Shade, Acolyte and Barrow Squire: original,
+  Shade, Acolyte, Barrow Squire, Bonelet and Hexling: original,
   made for this project in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`,
-  `mimic.py`, `bat.py`, `sapling.py`, `shade.py`, `acolyte.py`, `squire.py`): models,
+  `mimic.py`, `bat.py`, `sapling.py`, `shade.py`, `acolyte.py`, `squire.py`, `bonelet.py`,
+  `hexling.py`, `biped.py`): models,
   skeletons, clips and textures. The traits bred pets wear (horns, crests, lures, crowns...) are
   made the same way (`tools/blender/pets/traits.py`).
-- Bonelet: the KayKit Skeleton_Minion (CC0, see the KayKit entry) at the heroes' adult build, with
-  KayKit clips, a red mantle and a femur made in Blender (`tools/blender/pets/bonelet.py`).
-- Hexling: the KayKit Rogue_Hooded (CC0) at the heroes' adult build, cloth re-dyed violet, with
-  KayKit clips and a staff made in Blender (`tools/blender/pets/hexling.py`).
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
   Lorc, from game-icons.net, CC BY 3.0.
 
