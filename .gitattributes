@@ -28,3 +28,4 @@ assets/sidekicks/crow_src.glb -filter -diff -merge binary
 assets/sidekicks/crow_src_crow_tex.png -filter -diff -merge binary
 assets/sidekicks/mimic_src.glb -filter -diff -merge binary
 assets/sidekicks/mimic_src_mimic_tex.png -filter -diff -merge binary
+assets/sidekicks/pet_traits.glb -filter -diff -merge binary

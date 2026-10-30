@@ -56,9 +56,9 @@ static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 				if mi:
 					mi.custom_aabb = culls[mp]
 			_add_fill(root, float(d["scale"]) * grow, float(d.get("fill", 1.6)))
-			# A bred pet's borrowed parts replace its own: cut those out before the lighting pass.
+			# A bred pet's inherited regions are marked for the skin before the lighting pass.
 			if d.has("genes") and spec == str(d["model"]):
-				PARTS.carve(model, d)
+				PARTS.regions(model, d)
 			_lit_opaque(model, spec.substr(3) in KEEP_EMISSION)
 		else:
 			_fit(model, float(d["scale"]) * grow)
@@ -91,8 +91,8 @@ static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 	if d.has("genes") and spec == str(d["model"]):
 		PARTS.attach(model, d)
 	if d.has("genes"):
-		# Coat, glow and mutation: variant materials on the body and its borrowed parts.
-		SKIN.apply(model, d["genes"], Color(d["color"]), spec.trim_prefix("sf:"))
+		# Coat, glow, mutation and inherited colours: variant materials on the body and its traits.
+		SKIN.apply(model, d["genes"], Color(d["color"]), spec.trim_prefix("sf:"), PARTS.tints(d) if spec == str(d["model"]) else {})
 	out["root"] = root
 	return out
 

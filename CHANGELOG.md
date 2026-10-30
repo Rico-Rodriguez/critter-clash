@@ -9,6 +9,17 @@ version is 7.
 
 ---
 
+## Unreleased: bred pets look like one animal
+
+A bred pet no longer wears pieces cut out of its other parent. It keeps its body parent's whole
+model, and each part it inherited shows as that region in the other parent's colours, shading and
+detail kept (a crow-headed drake has a black head with its own white horns), plus one small trait
+of the other parent's: drake horns, a crow's feather crest, the wisp's lantern lure, a gold crown
+for a mimic, bat ears, a leaf sprout and so on, all modelled in Blender
+(`tools/blender/pets/traits.py`). A body without that part (a mimic with dragon wings) wears only
+the trait, as small winglets. Genes, part bonuses and card text are unchanged. A content change:
+ships over the air.
+
 ## Unreleased: the Gilded Mimic, made in Blender
 
 The fourth pet remade in the heroes' style. The Gilded Mimic is now an original Blender model

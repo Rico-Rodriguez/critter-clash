@@ -88,9 +88,10 @@ const VARIANTS_HYBRID := [
 const LEAN := 1.08
 
 ## What each species lends a child that takes its head, wings or tail: the
-## part's name on the card. The part itself is real: core/pet_graft.gd lifts it
-## out of the donor's own model by the GRAFT spec below. A slot with no GRAFT
-## entry is data and card text only (nothing is drawn for it).
+## part's name on the card. On the pet it shows as the donor's colours over the
+## body's own part (GRAFT below finds it) plus the donor's small trait
+## (core/pet_parts.gd). A slot with no GRAFT entry is data and card text only
+## (nothing is drawn for it).
 const PART_STYLES := {
 	"drake": {"head": "horns", "wings": "dragon", "tail": "spike"},
 	"wisp": {"head": "maw", "wings": "fins", "tail": "flame"},
@@ -148,6 +149,25 @@ const GRAFT := {
 	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
 	"shade": {"head": {"bones": ["head_08", "bone.019", "hair"], "pivot": "neck_07"}},
 	"sapling": {"head": {"bones": ["head_04", "jaw", "brow"], "pivot": "root.002"}},
+}
+
+## Each part's own colour (sRGB hex), for a bred pet whose body inherited it:
+## that region of the body is recoloured from its own colour to the donor's
+## (core/pet_parts.gd tints, fx/pet_skin.gdshader). The commonest colour over
+## the part's GRAFT region (tools/dev/region_colours.gd prints them), or the
+## Blender pet's palette colour for that part where horns or eyes outweigh it.
+const REGION_COLOR := {
+	"drake": {"head": "b9472a", "wings": "8e2c22", "tail": "b9472a"},
+	"wisp": {"head": "8e9096", "wings": "5cc9bb", "tail": "8e9096"},
+	"crow": {"head": "1e2331", "wings": "121520", "tail": "1e2331"},
+	"mimic": {"head": "7c4b2a", "tail": "e2aa3c"},
+	"bat": {"head": "362926", "wings": "332826"},
+	"bonelet": {"head": "89775a"},
+	"hexling": {"head": "3a2f4a"},
+	"acolyte": {"head": "4a4937"},
+	"barrow_squire": {"head": "cdaf5a"},
+	"shade": {"head": "2a2438"},
+	"sapling": {"head": "643a10"},
 }
 
 ## Where a receiver hangs wings and a tail that its own model has no slot for

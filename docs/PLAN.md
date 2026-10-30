@@ -115,6 +115,9 @@ a Sketchfab model and drops that model's credit. One pet per PR:
 2. [x] **Grave Wisp.**
 3. [x] **Storm Crow.**
 4. [x] **Gilded Mimic.**
+   - [x] **Bred pets look like one animal** (Rico chose "one body, inherited colours + trait"):
+     a hybrid keeps its body parent's whole model; an inherited head, wings or tail takes the
+     other parent's colours and wears a small trait of theirs. Genes, stats and card text unchanged.
 5. [ ] Bonelet, Hexling, Plague Acolyte, Night Bat,
    Barrow Squire, Shade, Thorn Sapling.
 6. [ ] Hero weapons and armour pieces.

@@ -167,7 +167,8 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 - Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow and Gilded Mimic: original, made for this project
   in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`, `mimic.py`): models,
-  skeletons, clips and textures.
+  skeletons, clips and textures. The traits bred pets wear (horns, crests, lures, crowns...) are
+  made the same way (`tools/blender/pets/traits.py`).
 
 - Sidekick models, Creative Commons Attribution 4.0
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
