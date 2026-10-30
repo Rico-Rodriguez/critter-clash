@@ -98,6 +98,7 @@ static func _show_worn(pivot: Node3D, cam: Camera3D, it: Dictionary, zoom: float
 	var cls := str(it["cls"])
 	var a := Actor.new()
 	pivot.add_child(a)
+	a.adult_build = true
 	a.build_model(DB.HEROES[cls]["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
 	var pre := {}
 	for slot in DB.SLOTS:

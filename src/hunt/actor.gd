@@ -64,6 +64,14 @@ static var _grime: NoiseTexture2D
 ## more adult build; the chest is broadened a little to match.
 ## A "glb:"/"proc:" `model_name` builds a foreign rig instead (foe_rig.gd);
 ## `rig_def` is the foe or boss def that carries its fit, clips and alias.
+## The hero build (`adult_build`): bone scales on the shared KayKit skeleton.
+## Bone scales multiply down the chain (spine > chest > head and arms), so
+## `head` and `arm` are the sizes wanted on screen and are divided by the trunk.
+const HERO_BUILD := {"head": 0.64, "arm": Vector3(1.04, 1.06, 1.04), "chest": Vector3(1.1, 1.04, 1.1), "spine": Vector3(1.0, 1.08, 1.0), "leg": 1.28}
+## Set before `build_model` for heroes (in the hunt, camp and portraits).
+var adult_build := false
+
+
 func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_strength := 0.5, eyes := Color(0, 0, 0, 0), head_scale := 0.8, rig_def := {}) -> void:
 	if FoeRig.is_foreign(model_name):
 		_build_foreign(model_name, weapons, rig_def)
@@ -73,7 +81,18 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
 	if merge_parts and skel:
 		_merge_parts(skel, model_name)
-	if skel and head_scale != 1.0:
+	if skel and adult_build:
+		# Heroes go further than the dead: a smaller head on a longer body and
+		# longer legs, so a knight reads as a grown man in armor, not a toy.
+		var bs := BoneScaler.new()
+		var leg := HERO_BUILD["leg"] as float
+		var trunk: Vector3 = (HERO_BUILD["spine"] as Vector3) * (HERO_BUILD["chest"] as Vector3)
+		var arm: Vector3 = (HERO_BUILD["arm"] as Vector3) / trunk
+		bs.scales = {"head": Vector3.ONE * float(HERO_BUILD["head"]) / trunk, "chest": HERO_BUILD["chest"], "spine": HERO_BUILD["spine"],
+			"upperarm.l": arm, "upperarm.r": arm, "upperleg.l": Vector3(1.0, leg, 1.0), "upperleg.r": Vector3(1.0, leg, 1.0)}
+		bs.lift = skel.get_bone_global_rest(skel.find_bone("upperleg.l")).origin.y * (leg - 1.0)
+		skel.add_child(bs)
+	elif skel and head_scale != 1.0:
 		var bs := BoneScaler.new()
 		bs.scales = {"head": Vector3.ONE * head_scale, "chest": Vector3(1.06, 1.0, 1.1)}
 		skel.add_child(bs)

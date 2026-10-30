@@ -68,6 +68,7 @@ static func _render(host: Node, id: String) -> Texture2D:
 	vp.add_child(rim)
 	var hero := Actor.new()
 	vp.add_child(hero)
+	hero.adult_build = true
 	hero.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
 	GearLook.apply(hero, id)
 	hero.rotation.y = 0.35

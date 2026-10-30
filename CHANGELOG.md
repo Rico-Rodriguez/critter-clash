@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: heroes look like grown fighters, outfits change the shape
+
+The heroes stood in the dark world like toys: big heads, short legs, and the Knight began in a wide kettle hat that read as a farmer. Every hero now has an adult build on the shared skeleton: the head is about a fifth smaller, the trunk and legs are longer, and the arms keep their size, in the hunt, at camp, on the hero sheet, in portraits and in cutscenes (the dead keep theirs). The Knight's first helm is now a nasal helm in dull iron. Outfits were only dyes, so every look was the same model in a new color; each now adds its own pieces as well: Crimson Guard a red-crested helm, pauldrons and a cape, Gilded Oath the winged helm and pauldrons, the Ranger, Mage and Barbarian outfits their own helms, pauldrons and capes, the Rogue's a cape or cloak and mask, and the season outfits a cape. A content change: ships over the air.
+
+---
+
 ## Unreleased: talent trees rebuilt like an ARPG
 
 Each hero's three talent paths were straight lines of eight nodes, so the only choice was which column to fill first, and a maxed hero owned 80% of the tree. Each path is now a small tree: minors take up to 3 ranks, rows open after 3, 6, 10 and 13 points in that path, the middle node is a pick-one upgrade (several change the hero's super), and the path ends in a keystone with a real cost; only one keystone can be active. Every point in a path also adds a little of its theme stat (attunement). Points cap at 22 (combat 113), ranks refund one at a time for 40 gold (free for anything learned since the tree was opened), and each hero has two saved builds. The sheet fits one screen: three path columns of icon nodes and a detail panel with Learn and Refund, so a tap no longer spends a point. Old talents do not map onto the new trees, so every hero's points come back unspent with a one-time camp notice. Also fixed: the Rogue's hero sheet had no icon for Shadowstep. A content change: ships over the air.

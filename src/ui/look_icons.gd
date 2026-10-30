@@ -87,6 +87,7 @@ func _render(job: Array) -> void:
 	var d: Dictionary = DB.HEROES[hero_id]
 	var hero := Actor.new()
 	_vp.add_child(hero)
+	hero.adult_build = true
 	hero.build_model(d["model"], {}, Color(0.55, 0.68, 1.0), 0.5)
 	GearLook.look_override = look
 	GearLook.apply(hero, hero_id)

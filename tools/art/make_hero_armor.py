@@ -8,7 +8,7 @@ in the bone spaces make_barbarian_armor.py describes (helm on `head`, +z the
 face; pauldron on `upperarm.l` / `.r`, symmetric in x). All four heroes share
 one skeleton and nearly one head, so the sizes carry over.
 
-- Knight: kettle hat, bascinet, crested helm, horned dread helm, winged
+- Knight: nasal helm, bascinet, crested helm, horned dread helm, winged
   seraph helm; round steel pauldrons growing to spiked and winged.
 - Ranger: leather cap, feathered cap, a gold circlet over the hood, black
   antlers, a pale stag crown; leather pads.
@@ -50,10 +50,16 @@ def knight_helm(k):
     s = SETS[k]
     r = 0.6 * s["size"]
     if k == 0:
-        # A kettle hat: a low bowl and a wide brim.
-        bowl(r * 0.95, 1.0, "rust")
-        lathe([(BASE - 0.02, r * 1.45), (BASE + 0.02, r * 1.45), (BASE + 0.06, r * 1.0)], "rust", sides=10)
-        band(r * 0.95, "leather", h=0.08)
+        # A nasal helm: a blackened iron bowl on a rusted band and a nose guard, so
+        # the first knight already reads as a knight (it was a kettle hat,
+        # which read as a farmer).
+        bowl(r * 1.02, 1.22, "black")
+        band(r * 1.02, "rust", h=0.1)
+        plate([(-0.05, BASE + 0.08), (0.05, BASE + 0.08), (0.035, BASE - 0.22), (-0.035, BASE - 0.22)], 0.025, "steel_dark")
+        K.bm.verts.ensure_lookup_table()
+        for v in K.bm.verts[-8:]:
+            v.co.z += r * 1.0
+        lathe([(1.16, 0.05), (1.24, 0.05)], "rust", sides=6)
         return
     peak = 1.15 + 0.05 * k
     bowl(r, peak, s["metal"])

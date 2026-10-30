@@ -124,6 +124,7 @@ func setup(h: Hunt, hero_id: String, stats: Dictionary) -> void:
 		def["anim"] = GearDB.anims(id, fam)
 	radius = 0.5
 	mass = 4.0
+	adult_build = true
 	build_model(def["model"], {}, Color(1.0, 0.78, 0.5), 0.35)
 	GearLook.apply(self, id)
 	_build_tree()
