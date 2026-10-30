@@ -347,6 +347,6 @@ func _apply_talent(s: Dictionary, n: Dictionary) -> void:
 
 
 ## One number for the roster: roughly damage per second times survivability.
-func power_score(id: String) -> int:
-	var s := hero_stats(id)
+func power_score(id: String, preview := {}) -> int:
+	var s := hero_stats(id, preview)
 	return int(round(s["dmg"] * s["rate"] * 4.0 + s["hp"] * (1.0 + s["armor"]) * 0.5))

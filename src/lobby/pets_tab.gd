@@ -1,7 +1,8 @@
 extends RefCounted
-## The Pets tab: stable (your companion on stage, the roster), hatchery,
-## the Matchmaker (pets_match.gd), the Breeding Wheel and bestiary
-## (pets_codex.gd) and showcase as five segments of one page. Stable, showcase
+## The Pets tab: stable (a pet on stage, the roster to swipe), hatchery, and
+## More, which holds the Matchmaker (pets_match.gd), the Breeding Wheel and
+## bestiary (pets_codex.gd) and the showcase. Stable and Eggs are the daily
+## loop; the rest is one tap down. Stable, showcase
 ## and rename live here; the hatchery and a pet's detail page live in
 ## lobby_ui_sheets.gd. `ui` is the LobbyUI.
 
@@ -19,11 +20,23 @@ const Match := preload("res://src/lobby/pets_match.gd")
 static func segments(ui) -> Array:
 	return [
 		["Stable", func(s: Sheet): build_stable(ui, s)],
-		["Eggs", func(s: Sheet): build_hatchery(ui, s), egg_ready()],
-		["Breed", func(s: Sheet): Match.build(ui, s)],
-		["Wheel", func(s: Sheet): Codex.build(ui, s)],
-		["Podium", func(s: Sheet): build_showcase(ui, s)],
+		[_eggs_label(), func(s: Sheet): build_hatchery(ui, s), egg_ready()],
+		["Breed", func(s: Sheet): Match.build(ui, s), false, MORE],
+		["Wheel", func(s: Sheet): Codex.build(ui, s), false, MORE],
+		["Podium", func(s: Sheet): build_showcase(ui, s), false, MORE],
+		["More", func(s: Sheet): build_more(ui, s)],
 	]
+
+
+## The segment that holds Breed, Wheel and Podium.
+const MORE := 5
+## The pet on the stable's stage ("" for the one at your side).
+static var pick := ""
+
+
+static func _eggs_label() -> String:
+	var n := SKS.hatchery(Game.data).size()
+	return "Eggs · %d" % n if n > 0 else "Eggs"
 
 
 static func egg_ready() -> bool:
@@ -38,40 +51,26 @@ static func dot() -> bool:
 
 # --- Stable ------------------------------------------------------------------
 
-## Who is at your side, on a stage; the roster below. A pet's tile opens its page.
+## One pet on a stage, big, with three numbers and one button; the roster
+## to swipe underneath. A tap on a portrait puts it on the stage, a second
+## tap opens its page.
 static func build_stable(ui, s: Sheet) -> void:
 	if str(ui._sk_detail) != "" and SKS.is_owned(Game.data, str(ui._sk_detail)):
 		ui._build_sidekick_detail(s, str(ui._sk_detail))
 		return
 	ui._sk_detail = ""
 	var b := s.body
-	var a := SKS.active(Game.data)
-	if a == "":
+	var mine: Array = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)) + SKS.bred_ids(Game.data)
+	s.set_tag("%d / %d" % [mine.size(), SKDB.ORDER.size() + SKS.bred_ids(Game.data).size()])
+	if not SKS.is_owned(Game.data, pick):
+		pick = SKS.active(Game.data)
+	if pick == "" and not mine.is_empty():
+		pick = str(mine[0])
+	if pick == "":
 		b.add_child(_empty_side())
 	else:
-		_side_card(ui, s, a)
-	var owned: int = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)).size() + SKS.bred_ids(Game.data).size()
-	b.add_child(Ui.label("STABLE · %d / %d" % [owned, SKDB.ORDER.size() + SKS.bred_ids(Game.data).size()], "Caption"))
-	# Owned pets first, three across as portraits; the ones still to find after, two across.
-	var mine: Array = SKDB.ORDER.filter(func(i): return SKS.is_owned(Game.data, i)) + SKS.bred_ids(Game.data)
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	for id: String in mine:
-		grid.add_child(ui._sidekick_tile(s, id))
-	b.add_child(grid)
-	FxUi.deal_in(grid, 0.04)
-	var rest: Array = SKDB.ORDER.filter(func(i): return not SKS.is_owned(Game.data, i))
-	if not rest.is_empty():
-		b.add_child(Ui.label("STILL TO FIND", "Caption"))
-		var g2 := GridContainer.new()
-		g2.columns = 2
-		g2.add_theme_constant_override("h_separation", 10)
-		g2.add_theme_constant_override("v_separation", 10)
-		for id: String in rest:
-			g2.add_child(ui._sidekick_tile(s, id))
-		b.add_child(g2)
+		_side_card(ui, s, pick)
+	b.add_child(_roster(ui, s, mine))
 
 
 static func _empty_side() -> Control:
@@ -92,41 +91,200 @@ static func _empty_side() -> Control:
 	return c
 
 
-## The companion at your side: stage, name (rename), role line and Bond.
+## The pet on stage: rarity and element, its name, its ability as three
+## numbers, Bond, and one button. The sentences live on its page (Details).
 static func _side_card(ui, s: Sheet, id: String) -> void:
 	var b := s.body
 	var d: Dictionary = SKDB.def(id)
 	var k := SKS.kills(Game.data, id)
 	var lv := SKDB.bond_level(k)
-	b.add_child(PetStage.make(id, 400))
-	var name_l := Ui.label(ui._pet_name(id), "Title")
-	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_l.clip_text = true
-	b.add_child(ui._row([name_l, rename_button(ui, id, func():
-		ui._refresh_camp_sidekick()
-		s.rebuild())], 10))
+	var here := SKS.active(Game.data) == id
+	b.add_child(PetStage.make(id, 520))
+	var name_box := VBoxContainer.new()
+	name_box.add_theme_constant_override("separation", 0)
 	var rar := SKDB.rarity(id)
-	var sub := Ui.label("%s · %s · %s" % [SKDB.GRADES[rar].to_upper(), str(d["element"]).capitalize(), SKDB.STAGE_LABELS[SKDB.stage_of(lv)]], "Caption")
+	var sub := Ui.label("%s · %s · %s" % [SKDB.GRADES[rar].to_upper(), str(d["element"]).to_upper(), SKDB.STAGE_LABELS[SKDB.stage_of(lv)].to_upper()], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 	sub.add_theme_color_override("font_color", SKDB.GRADE_COLORS[rar])
-	b.add_child(sub)
-	# Its ability as three numbers; the sentence lives on its page (Details).
-	b.add_child(Ui.label(str(d["ability"]["name"]).to_upper(), "Caption"))
+	name_box.add_child(sub)
+	var name_l := Ui.label(ui._pet_name(id), "Title", HORIZONTAL_ALIGNMENT_CENTER)
+	name_l.add_theme_font_size_override("font_size", 54)
+	name_l.clip_text = true
+	name_box.add_child(name_l)
+	if here:
+		var at := Ui.label("AT YOUR SIDE", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		at.add_theme_color_override("font_color", Color(1.0, 0.84, 0.45))
+		name_box.add_child(at)
+	b.add_child(name_box)
 	var chips := HBoxContainer.new()
-	chips.add_theme_constant_override("separation", 8)
+	chips.alignment = BoxContainer.ALIGNMENT_CENTER
+	chips.add_theme_constant_override("separation", 10)
 	for c: Array in ability_chips(d["ability"]):
 		chips.add_child(_chip(str(c[0]), str(c[1])))
 	b.add_child(chips)
 	b.add_child(_bond_meter(lv, k))
-	var btn := Button.new()
-	btn.theme_type_variation = &"GoldButton"
-	btn.text = "DETAILS"
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.custom_minimum_size = Vector2(0, 68)
-	btn.pressed.connect(func():
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	var more := Button.new()
+	more.theme_type_variation = &"Ghost"
+	more.text = "DETAILS"
+	more.focus_mode = Control.FOCUS_NONE
+	more.custom_minimum_size = Vector2(190, 80)
+	more.pressed.connect(func():
 		Sfx.play("ui_tap", -4.0)
 		ui._sk_detail = id
 		s.rebuild())
-	b.add_child(btn)
+	row.add_child(more)
+	# The one big button: bring this pet along, or, when it already is, go hunt.
+	var go := Button.new()
+	go.theme_type_variation = &"GoldButton"
+	go.text = "GO HUNT" if here else "TAKE ON HUNT"
+	go.focus_mode = Control.FOCUS_NONE
+	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	go.custom_minimum_size = Vector2(0, 80)
+	go.add_theme_font_size_override("font_size", 30)
+	go.pressed.connect(func():
+		if here:
+			Sfx.play("ui_tap", -4.0)
+			ui.show_tab("hunt")
+			return
+		SKS.set_active(Game.data, id)
+		Sfx.play("gear_equip", -3.0)
+		Game.save()
+		ui._refresh_camp_sidekick()
+		ui._toast("%s joins your hunts" % ui._pet_name(id), SKDB.GRADE_COLORS[rar])
+		s.rebuild())
+	row.add_child(go)
+	b.add_child(row)
+
+
+## Every pet as a portrait in a row you swipe: yours first, ringed in their
+## rarity (the one on stage in gold), then the ones still to find, dark.
+static func _roster(ui, s: Sheet, mine: Array) -> Control:
+	var sc := ScrollContainer.new()
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	sc.custom_minimum_size = Vector2(0, 128)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	sc.add_child(h)
+	var on: Control = null
+	for id: String in mine:
+		var t := _portrait(id, true, id == pick, SKS.active(Game.data) == id)
+		t.pressed.connect(func():
+			Sfx.play("ui_tap", -4.0)
+			if id == pick:
+				ui._sk_detail = id
+			pick = id
+			s.rebuild())
+		h.add_child(t)
+		if id == pick:
+			on = t
+	for id: String in SKDB.ORDER:
+		if SKS.is_owned(Game.data, id):
+			continue
+		var t := _portrait(id, false, false, false)
+		# The bestiary says how to find it.
+		t.pressed.connect(func():
+			Sfx.play("ui_tap", -4.0)
+			ui._pet_page = "" if SKS.hidden(Game.data, id) else id
+			s.show_segment(3))
+		h.add_child(t)
+	FxUi.deal_in(h, 0.03)
+	if on != null:
+		var keep := on
+		sc.ready.connect(func():
+			await sc.get_tree().process_frame
+			if is_instance_valid(keep):
+				sc.ensure_control_visible(keep))
+	return sc
+
+
+static func _portrait(id: String, owned: bool, on: bool, here: bool) -> Button:
+	var gc: Color = SKDB.GRADE_COLORS[SKDB.rarity(id)]
+	var btn := Button.new()
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(116, 116)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.08, 0.12).lerp(gc, 0.12 if owned else 0.0)
+	sb.set_corner_radius_all(20)
+	sb.set_border_width_all(5 if on else 3)
+	sb.border_color = Color(1.0, 0.8, 0.4) if on else (gc if owned else Color(1, 1, 1, 0.12))
+	if on:
+		sb.shadow_color = Color(1.0, 0.65, 0.25, 0.55)
+		sb.shadow_size = 14
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		btn.add_theme_stylebox_override(st, sb)
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if owned:
+		cc.add_child(PetIcons.rect(id, SKS.stage(Game.data, id), 100))
+	elif SKS.hidden(Game.data, id):
+		cc.add_child(Ui.icon_rect("egg-clutch", 56, Color(1, 1, 1, 0.18)))
+	else:
+		# Still to find: its shape in shadow.
+		var sil := PetIcons.rect(id, 1, 96)
+		sil.modulate = Color(0, 0, 0, 0.7)
+		cc.add_child(sil)
+	btn.add_child(cc)
+	if here:
+		var dot := Ui.label("✓", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		var ds := StyleBoxFlat.new()
+		ds.bg_color = Color(1.0, 0.78, 0.35)
+		ds.set_corner_radius_all(14)
+		dot.add_theme_stylebox_override("normal", ds)
+		dot.add_theme_color_override("font_color", Color(0.18, 0.1, 0.02))
+		dot.custom_minimum_size = Vector2(28, 28)
+		dot.position = Vector2(82, 4)
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		btn.add_child(dot)
+	return btn
+
+
+# --- More --------------------------------------------------------------------
+
+## Breeding, the bestiary and the podium, one tap down from the daily loop.
+static func build_more(ui, s: Sheet) -> void:
+	var items := [
+		["heart-plus", "Breed", "Pair two pets for a new bloodline", 2, Color(1.0, 0.5, 0.6)],
+		["book-cover", "Breeding Wheel", "Every breed, and how to find it", 3, Color(0.6, 0.75, 1.0)],
+		["podium-winner", "Podium", "Show off your best three", 4, Color(1.0, 0.82, 0.4)],
+	]
+	for it: Array in items:
+		s.body.add_child(_more_card(s, str(it[0]), str(it[1]), str(it[2]), int(it[3]), it[4]))
+
+
+static func _more_card(s: Sheet, icon: String, title: String, line: String, seg: int, col: Color) -> Control:
+	var btn := Button.new()
+	btn.theme_type_variation = &"Card"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(0, 150)
+	var h := HBoxContainer.new()
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 24
+	h.offset_right = -24
+	h.add_theme_constant_override("separation", 20)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := Ui.icon_rect(icon, 84, col)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(Ui.label(title, "Heading"))
+	var l := Ui.label(line, "Small")
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(l)
+	h.add_child(v)
+	var chev := Ui.label("›", "Title")
+	chev.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(chev)
+	btn.add_child(h)
+	btn.pressed.connect(func():
+		Sfx.play("ui_tap", -4.0)
+		s.show_segment(seg))
+	return btn
 
 
 ## A pet ability as up to three [value, label] chips: its damage, its
@@ -153,7 +311,7 @@ static func _num(v: float) -> String:
 static func _chip(value: String, what: String) -> Control:
 	var c := PanelContainer.new()
 	c.theme_type_variation = &"Chip"
-	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.custom_minimum_size = Vector2(170, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 0)
 	v.add_child(Ui.label(value, "Heading", HORIZONTAL_ALIGNMENT_CENTER))

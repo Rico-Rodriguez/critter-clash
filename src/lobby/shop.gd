@@ -33,6 +33,9 @@ static func segments(ui) -> Array:
 
 static func build(ui, s: Sheet) -> void:
 	var gl := _gold_row(s.body, "")
+	var look := _featured_look(ui, s)
+	if look != null:
+		s.body.add_child(look)
 	build_deals(ui, s, gl)
 	build_chests(ui, s)
 	build_skins(ui, s)
@@ -44,6 +47,60 @@ static func focus_skins(page: Sheet) -> void:
 		await page.get_tree().process_frame
 	if is_instance_valid(page) and is_instance_valid(_skins_at):
 		page._scroll.scroll_vertical = int(_skins_at.global_position.y - page._scroll.global_position.y) + page._scroll.scroll_vertical - 8
+
+
+## The shop's front window: one outfit your hero doesn't own yet, worn by
+## them, big and lit, a different one each day. Nothing when they own them all.
+static func _featured_look(ui, s: Sheet) -> Control:
+	var hid := Game.hero_id()
+	var h := Game.hero(hid)
+	var keys: Array = DB.OUTFIT_ORDER.filter(func(k): return hid in DB.OUTFITS[k]["heroes"] and not DB.OUTFITS[k].get("gift", false) and not k in h.get("outfits", []))
+	if keys.is_empty():
+		return null
+	var k: String = keys[int(Time.get_unix_time_from_system() / 86400.0) % keys.size()]
+	var od: Dictionary = DB.OUTFITS[k]
+	var col := Color(od["dye"]).lightened(0.3)
+	var price := Game.outfit_price(k)
+	var btn := Button.new()
+	btn.theme_type_variation = &"TileBlue"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(0, 640)
+	btn.clip_contents = true
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_left = 18
+	v.offset_right = -18
+	v.offset_top = 18
+	v.offset_bottom = -22
+	v.add_theme_constant_override("separation", 4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(v)
+	var cap := Ui.label("FEATURED LOOK", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	cap.add_theme_color_override("font_color", GOLD)
+	v.add_child(cap)
+	var cc := CenterContainer.new()
+	cc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var art := LookPreview.make(hid, {"outfit": k}, Vector2(400, 440))
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.add_child(art)
+	v.add_child(cc)
+	FxUi.rays(btn, art, col.lerp(Color(1.0, 0.85, 0.55), 0.4), 1.5, 0.3)
+	FxUi.halo(btn, art, col, 1.3)
+	var nm := Ui.label(str(od["name"]), "Title", HORIZONTAL_ALIGNMENT_CENTER)
+	nm.add_theme_font_size_override("font_size", 44)
+	v.add_child(nm)
+	var sub := Ui.label("%s outfit · looks only, never stats" % str(DB.HEROES[hid]["name"]), "Small", HORIZONTAL_ALIGNMENT_CENTER)
+	sub.add_theme_color_override("font_color", col)
+	v.add_child(sub)
+	var pt := _price_tag(Ui.fmt_price(price))
+	pt.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pt.custom_minimum_size = Vector2(220, 0)
+	v.add_child(pt)
+	FxUi.gloss(btn, 16.0, 0.3, 4.6)
+	btn.pressed.connect(func():
+		_confirm(ui, s, {"kind": "outfit", "outfit": k, "hero": hid, "price": price}, -1))
+	return btn
 
 
 ## The gold you hold, top right; after a purchase it counts down.
