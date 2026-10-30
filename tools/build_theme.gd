@@ -418,7 +418,7 @@ func _social() -> void:
 	for k in ["pressed", "hover_pressed"]:
 		theme.set_stylebox(k, "NavTab", tp)
 	theme.set_font("font", "NavTab", title_wide)
-	theme.set_font_size("font_size", "NavTab", 14)
+	theme.set_font_size("font_size", "NavTab", 17)
 	theme.set_constant("outline_size", "NavTab", 0)
 	theme.set_constant("icon_max_width", "NavTab", 40)
 	theme.set_constant("h_separation", "NavTab", 0)
@@ -657,6 +657,31 @@ func _premium() -> void:
 	var rbg := theme.get_stylebox("background", "RoadBar").duplicate() as StyleBoxFlat
 	rbg.set_border_width_all(0)
 	theme.set_stylebox("background", "RoadBar", rbg)
+	# The camp's side column: dark square tiles with a quiet outline.
+	theme.set_type_variation("SideButton", "Button")
+	var sb := box(Color(0, 0, 0, 0.62), 16, 1, OUTLINE)
+	sb.set_content_margin_all(16)
+	var sbp := sb.duplicate() as StyleBoxFlat
+	sbp.bg_color = Color(0.12, 0.122, 0.14, 0.8)
+	sbp.border_color = Color(GOLD, 0.6)
+	for k in ["normal", "hover", "disabled"]:
+		theme.set_stylebox(k, "SideButton", sb)
+	for k in ["pressed", "hover_pressed"]:
+		theme.set_stylebox(k, "SideButton", sbp)
+	theme.set_stylebox("focus", "SideButton", StyleBoxEmpty.new())
+	theme.set_constant("icon_max_width", "SideButton", 46)
+	for k in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_hover_pressed_color", "icon_focus_color"]:
+		theme.set_color(k, "SideButton", GOLD_HI)
+	# Something ready to collect (the campfire's gold): a small ember tag.
+	theme.set_type_variation("EmberTag", "PanelContainer")
+	var et := box(EMBER, 10, 0)
+	et.content_margin_left = 8
+	et.content_margin_right = 8
+	et.content_margin_top = 0
+	et.content_margin_bottom = 0
+	et.shadow_color = Color(EMBER, 0.5)
+	et.shadow_size = 8
+	theme.set_stylebox("panel", "EmberTag", et)
 	# The mode's icon well on the mode card: dark bronze.
 	theme.set_type_variation("ModeWell", "PanelContainer")
 	var mw := box(Color("1a1408"), 12, 1, Color(GOLD, 0.45))

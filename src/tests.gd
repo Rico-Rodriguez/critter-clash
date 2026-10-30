@@ -1636,7 +1636,7 @@ func _story_tests() -> void:
 	_ok("story: a fresh save has no story", Game.data["story"]["cleared"].is_empty() and Game.story_next() == 0)
 	_ok("story: the camp button points a new player at Chapter 1", Game.story_home_label() == "CHAPTER 1")
 	var camp_src := FileAccess.get_file_as_string("res://src/lobby/lobby_ui.gd")
-	_ok("story: the camp rail has its own Story button that opens the story", camp_src.contains("_rail_button(\"story\"") and camp_src.contains("open_sheet(\"story\")"))
+	_ok("story: the camp rail has its own Story button that opens the story", camp_src.contains("[\"story\", \"scroll-unfurled\"]") and camp_src.contains("open_sheet(\"story\")"))
 	_ok("story: chapter 1 is open, 2 is not", Game.story_open(0) and not Game.story_open(1) and not Game.story_open(9) and not Game.story_open(-1))
 	_ok("story: a locked chapter cannot be queued", not Game.story_begin("roots") and str(Game.data["story"]["run"]) == "")
 	_ok("story: an unknown chapter cannot be queued", not Game.story_begin("nope"))
