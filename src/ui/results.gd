@@ -136,12 +136,18 @@ func open(r: Dictionary) -> void:
 	%Panel.modulate.a = 0.0
 	%Title.modulate.a = 0.0
 	var rv: Control = LootReveal.new()
-	rv.setup(shown, str(r["hero"]))
+	# "Gravemaw falls" over VICTORY when a zone's boss died; the hoard otherwise.
+	var zd: Dictionary = DB.ZONES.get(str(r.get("zone", "")), {})
+	var boss := str(zd.get("boss", ""))
+	var head := "%s falls" % DB.BOSSES[boss]["name"] if str(r.get("mode", "horde")) in ["horde", "trial"] and DB.BOSSES.has(boss) else ""
+	rv.setup(shown, str(r["hero"]), head)
 	rv.finished.connect(_show_panel)
 	add_child(rv)
 
 
 func _show_panel() -> void:
+	# Equip now in the reveal may have changed what each hero wears.
+	_refresh_upgrades()
 	%Panel.modulate.a = 1.0
 	%Title.modulate.a = 1.0
 	Ui.pop_in(%Panel, 0.0, 0.9)
