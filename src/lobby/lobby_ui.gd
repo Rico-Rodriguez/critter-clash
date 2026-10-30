@@ -31,9 +31,8 @@ const SHEET_TAB := {
 
 var _tab_btns := {}
 var _tab_dots := {}
-var _rail_r: VBoxContainer
+var _campfire_tag: Control
 var _season_label: Label
-var _story_label: Label
 var _story_btn: Button
 var _story_tween: Tween
 ## A horizontal swipe in progress: where and when the finger went down.
@@ -118,7 +117,7 @@ func refresh() -> void:
 	%PlayerName.text = Game.player_name()
 	%PlayerSub.text = "%s · Combat %d" % [_clan_line(), Game.combat_level(id)]
 	var pw := Game.power_score(id)
-	%HeroName.text = str(d["name"]).to_upper()
+	%HeroName.text = str(d["name"])
 	%HeroTitle.text = "Power %s" % Ui.fmt_num(pw)
 	var locked := not bool(h["unlocked"])
 	%Hunt.disabled = locked
@@ -294,8 +293,6 @@ func _first_steps() -> void:
 	var fresh := int(Game.data["stats"]["hunts"]) == 0
 	if _side:
 		_side.visible = not fresh
-	if _rail_r:
-		_rail_r.visible = not fresh
 	%Road.modulate.a = 0.45 if fresh else 1.0
 	_coach.call_deferred()
 
@@ -393,81 +390,96 @@ func _road_icon(rw: Dictionary) -> String:
 	return "visored-helm"
 
 
+## One column of dark square buttons, icons only: Story while chapters wait,
+## Quests, Season and This week. The campfire's gold lives on the gold chip.
 func _build_side() -> void:
 	_side = VBoxContainer.new()
-	_side.add_theme_constant_override("separation", 18)
-	_side.position = Vector2(0, 18)
+	_side.add_theme_constant_override("separation", 14)
+	_side.position = Vector2(0, 14)
 	%Space.add_child(_side)
-	# Daily, bounties and feats are one place (Quests); the road has the top bar.
-	for spec in [["quests", "archery-target", "Quests"], ["season", "round-star", "Season"], ["event", "moon", "This week"]]:
-		_side.add_child(_rail_button(spec[0], spec[1], spec[2]))
-	_rail_r = VBoxContainer.new()
-	_rail_r.add_theme_constant_override("separation", 0)
-	_rail_r.anchor_left = 1.0
-	_rail_r.anchor_right = 1.0
-	_rail_r.offset_left = -84.0
-	_rail_r.offset_top = 18.0
-	%Space.add_child(_rail_r)
-	_rail_r.add_child(_rail_button("idle", "campfire", "Campfire"))
-	# The story is a headline, not a tile in Quests: open from the first launch.
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 18)
-	_rail_r.add_child(gap)
-	_rail_r.add_child(_rail_button("story", "scroll-unfurled", "Story"))
+	for spec in [["story", "scroll-unfurled"], ["quests", "archery-target"], ["season", "round-star"], ["event", "moon"]]:
+		_side.add_child(_rail_button(spec[0], spec[1]))
+	_build_campfire()
 
 
-func _rail_button(key: String, icon: String, text: String) -> VBoxContainer:
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 6)
+func _rail_button(key: String, icon: String) -> Control:
 	var b := Button.new()
-	b.theme_type_variation = &"RoundButton"
-	b.custom_minimum_size = Vector2(76, 76)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.theme_type_variation = &"SideButton"
+	b.custom_minimum_size = Vector2(80, 80)
 	b.icon = Ui.icon(icon)
 	b.expand_icon = true
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.focus_mode = Control.FOCUS_NONE
 	b.pressed.connect(func(): _side_pressed(key))
-	# A small glowing dot: something to claim in there.
+	# A small dot: something to claim in there.
 	var badge := PanelContainer.new()
 	badge.theme_type_variation = &"Badge"
-	badge.custom_minimum_size = Vector2(18, 18)
-	badge.position = Vector2(56, 2)
+	badge.custom_minimum_size = Vector2(20, 20)
+	badge.position = Vector2(66, -6)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.visible = false
 	b.add_child(badge)
 	_side_badges[key] = badge
-	_rail_cols[key] = col
-	col.add_child(b)
-	var l := Ui.label(text.to_upper(), "Caption", HORIZONTAL_ALIGNMENT_CENTER)
-	l.add_theme_font_size_override("font_size", 14)
-	col.add_child(l)
-	if key == "idle":
-		_idle_label = l
+	_rail_cols[key] = b
 	if key == "season":
-		_season_label = l
+		# The tier sits in the corner; there is no label under the button.
+		_season_label = Ui.label("4", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+		_season_label.add_theme_font_size_override("font_size", 17)
+		_season_label.add_theme_color_override("font_color", Color("f3cf7a"))
+		_season_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		_season_label.offset_top = -24.0
+		_season_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(_season_label)
 	if key == "story":
-		_story_label = l
 		_story_btn = b
 		b.name = "StoryButton"
-		b.custom_minimum_size = Vector2(84, 84)
 		# The badge carries the waiting chapter's number.
-		badge.custom_minimum_size = Vector2(26, 26)
-		badge.position = Vector2(60, -2)
+		badge.custom_minimum_size = Vector2(28, 28)
+		badge.position = Vector2(62, -10)
 		var num := Ui.label("1", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 		num.name = "Num"
-		num.add_theme_font_size_override("font_size", 15)
+		num.add_theme_font_size_override("font_size", 17)
 		num.add_theme_color_override("font_color", Color.WHITE)
 		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		badge.add_child(num)
-		l.add_theme_color_override("font_color", Color("f3d58f"))
 		# A slow breath while a chapter waits, pivoting on the button's middle.
-		b.pivot_offset = Vector2(42, 42)
+		b.pivot_offset = Vector2(40, 40)
 		var tw := b.create_tween().set_loops()
 		_story_tween = tw
 		tw.tween_property(b, "scale", Vector2(1.06, 1.06), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		tw.tween_property(b, "scale", Vector2.ONE, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	return col
+	return b
+
+
+## The campfire's gold: an ember tag hanging under the gold chip once enough
+## has piled up; tapping the chip collects it.
+func _build_campfire() -> void:
+	var chip := %GoldChip as PanelContainer
+	chip.mouse_filter = Control.MOUSE_FILTER_STOP
+	chip.gui_input.connect(func(e: InputEvent):
+		var tap: bool = (e is InputEventMouseButton and not e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and not e.pressed)
+		if tap and int(Game.data["stats"]["hunts"]) >= int(RAIL_OPENS["idle"]):
+			_side_pressed("idle"))
+	_idle_label = Ui.label("+0", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	_idle_label.name = "CampfireTag"
+	_idle_label.add_theme_font_size_override("font_size", 17)
+	_idle_label.add_theme_color_override("font_color", Color("1e1406"))
+	# The chip lays out its children, so the tag hangs from a free holder.
+	var hold := Control.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_child(hold)
+	var tag := PanelContainer.new()
+	tag.theme_type_variation = &"EmberTag"
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.anchor_left = 0.5
+	tag.anchor_right = 0.5
+	tag.anchor_top = 1.0
+	tag.anchor_bottom = 1.0
+	tag.offset_top = 8.0
+	tag.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tag.add_child(_idle_label)
+	hold.add_child(tag)
+	_campfire_tag = tag
 
 
 ## Hunts played before a camp button shows: a new player meets them one at a
@@ -490,25 +502,24 @@ func _refresh_side() -> void:
 	_side_badges["quests"].visible = bool(login["ready"]) or Game.bounty_claimable() > 0 or Game.achievement_claimable() > 0
 	_side_badges["season"].visible = Game.season_claimable() > 0
 	_side_badges["event"].visible = false
-	_season_label.text = "TIER %d" % Game.season_level()
+	_season_label.text = str(Game.season_level())
 	var story_left := Game.story_next() < STORY_DB.count()
 	_side_badges["story"].visible = story_left
-	_story_label.text = "STORY" if story_left else "STORY ✓"
+	# A told story stays to replay, quieter.
+	_story_btn.modulate.a = 1.0 if story_left else 0.6
 	(_side_badges["story"].get_node("Num") as Label).text = str(Game.story_next() + 1)
 	if not story_left and _story_tween != null:
 		_story_tween.kill()
 		_story_tween = null
 		_story_btn.scale = Vector2.ONE
 	var g := Game.idle_gold()
-	# The campfire's gold shows as its label; it needs no badge as well.
-	_side_badges["idle"].visible = false
 	var lit := 0
 	for k: String in RAIL_BADGE_ORDER:
 		var bd: Control = _side_badges[k]
 		bd.visible = bd.visible and lit < RAIL_BADGES and (_rail_cols[k] as Control).visible
 		lit += int(bd.visible)
-	_idle_label.text = "+%d" % g if g >= 50 else "CAMPFIRE"
-	_idle_label.add_theme_color_override("font_color", Color("f3d58f") if g >= 50 else Color("b9a27a"))
+	_idle_label.text = "+%s" % Ui.fmt_num(g)
+	_campfire_tag.visible = g >= 50 and hunts >= int(RAIL_OPENS["idle"])
 
 
 func _side_pressed(key: String) -> void:
@@ -600,13 +611,14 @@ func _build_tabs() -> void:
 	_style_tabs()
 
 
-## Each tab is an icon over its name; the open one is gold with a glowing
-## line along the bar's top.
+## Each tab is an icon; the open one is gold, named, with a glowing line
+## along the bar's top.
 func _style_tabs() -> void:
 	for k in TABS:
 		var b: Button = _tab_btns[k]
 		b.button_pressed = k == tab
-		b.text = str(TAB_LOOK[k][0]).to_upper()
+		# Icons only; the open tab lights up and says its name.
+		b.text = str(TAB_LOOK[k][0]) if k == tab else ""
 		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 
 

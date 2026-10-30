@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: Iron & Ember, camp
+
+Part 2 of the overhaul. The camp's side buttons are one column of dark square tiles with icons only
+(Story, Quests, Season with its tier in the corner, This week) instead of seven labelled orbs on both
+sides. The campfire's gold hangs as an ember tag under the gold counter, and tapping the counter
+collects it. The Trophy Road plate is slimmer, the player chip drops its clan line, the hero's name
+is set in Cormorant with the power in gold capitals under it, and the tab bar shows icons with only
+the open tab named. A content change: ships over the air.
+
 ## Unreleased: Iron & Ember, the new look starts with the theme
 
 The first of six parts of the UI overhaul Rico approved. Every screen gets the new palette and
