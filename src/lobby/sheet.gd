@@ -13,7 +13,7 @@ const DragScroll := preload("res://src/ui/drag_scroll.gd")
 const SwipeDismiss := preload("res://src/ui/swipe_dismiss.gd")
 const FxUi := preload("res://src/ui/fx_ui.gd")
 ## A page's backdrop runs from this down to near-black.
-const PAGE_BOTTOM := Color(0.04, 0.03, 0.06)
+const PAGE_BOTTOM := Color(0.043, 0.043, 0.051)
 
 signal closed
 
@@ -61,7 +61,7 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	panel.anchor_bottom = 1.0
 	add_child(panel)
 	if page:
-		FxUi.backdrop(self, Color(0.11, 0.08, 0.14), PAGE_BOTTOM)
+		FxUi.backdrop(self, Color(0.11, 0.085, 0.06), PAGE_BOTTOM)
 	else:
 		var motes := Control.new()
 		motes.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -122,7 +122,7 @@ func open(title: String, build: Callable, height := 0.86) -> void:
 	# A fade at the bottom edge says there is more to scroll to.
 	_fade = TextureRect.new()
 	var g := Gradient.new()
-	var under := PAGE_BOTTOM if page else Color(0.075, 0.07, 0.09)
+	var under := PAGE_BOTTOM if page else Color(0.055, 0.057, 0.066)
 	g.set_color(0, Color(under, 0.0))
 	g.set_color(1, under)
 	var gt := GradientTexture2D.new()

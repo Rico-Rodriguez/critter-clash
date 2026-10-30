@@ -99,10 +99,53 @@ static func _side_card(ui, s: Sheet, id: String) -> void:
 	var k := SKS.kills(Game.data, id)
 	var lv := SKDB.bond_level(k)
 	var here := SKS.active(Game.data) == id
-	b.add_child(PetStage.make(id, 520))
+	var rar := SKDB.rarity(id)
+	var rc: Color = SKDB.GRADE_COLORS[rar]
+	# The pet in a card edged and lit in its rarity, its name over the foot.
+	var card := PanelContainer.new()
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color("0e0f12")
+	cs.set_corner_radius_all(20)
+	cs.set_border_width_all(2)
+	cs.border_color = rc
+	cs.shadow_color = Color(rc, 0.28)
+	cs.shadow_size = 18
+	cs.anti_aliasing = true
+	card.add_theme_stylebox_override("panel", cs)
+	card.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	b.add_child(card)
+	var hold := Control.new()
+	hold.custom_minimum_size = Vector2(0, 600)
+	hold.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(hold)
+	var stage := PetStage.make(id, 520)
+	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.offset_bottom = -104.0
+	hold.add_child(stage)
+	var shade := TextureRect.new()
+	var sg := Gradient.new()
+	sg.set_color(0, Color(0.055, 0.06, 0.07, 0.0))
+	sg.set_color(1, Color(0.055, 0.06, 0.07, 0.95))
+	var st := GradientTexture2D.new()
+	st.gradient = sg
+	st.fill_from = Vector2(0, 0)
+	st.fill_to = Vector2(0, 1)
+	st.width = 4
+	st.height = 64
+	shade.texture = st
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	shade.offset_top = -190.0
+	hold.add_child(shade)
 	var name_box := VBoxContainer.new()
 	name_box.add_theme_constant_override("separation", 0)
-	var rar := SKDB.rarity(id)
+	name_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	name_box.offset_top = -140.0
+	name_box.offset_bottom = -14.0
+	name_box.alignment = BoxContainer.ALIGNMENT_END
 	var sub := Ui.label("%s · %s · %s" % [SKDB.GRADES[rar].to_upper(), str(d["element"]).to_upper(), SKDB.STAGE_LABELS[SKDB.stage_of(lv)].to_upper()], "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 	sub.add_theme_color_override("font_color", SKDB.GRADE_COLORS[rar])
 	name_box.add_child(sub)
@@ -114,7 +157,7 @@ static func _side_card(ui, s: Sheet, id: String) -> void:
 		var at := Ui.label("AT YOUR SIDE", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 		at.add_theme_color_override("font_color", Color(1.0, 0.84, 0.45))
 		name_box.add_child(at)
-	b.add_child(name_box)
+	hold.add_child(name_box)
 	var chips := HBoxContainer.new()
 	chips.alignment = BoxContainer.ALIGNMENT_CENTER
 	chips.add_theme_constant_override("separation", 10)
