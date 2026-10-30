@@ -41,8 +41,8 @@ var num: FontVariation
 
 
 func _init() -> void:
-	body = load("res://assets/fonts/Barlow-SemiBold.ttf")
-	body_med = load("res://assets/fonts/Barlow-Medium.ttf")
+	body = load("res://assets/fonts/BarlowSemiCondensed-SemiBold.ttf")
+	body_med = load("res://assets/fonts/BarlowSemiCondensed-Medium.ttf")
 	title = FontVariation.new()
 	title.base_font = load("res://assets/fonts/CormorantSC-Bold.ttf")
 	title_wide = FontVariation.new()

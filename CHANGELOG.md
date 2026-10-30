@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: Iron & Ember, every other sheet
+
+Part 6 of the overhaul. Body text moves to Barlow Semi Condensed, which sets about as wide as the
+old Alegreya Sans, so no sheet's text runs past its edge in the new type (the Story sheet's reward
+line did, and now wraps as well). The Trophy Road's backdrop is warm iron like every other page.
+Quests, Season, This week, Story, Feats, Daily, Profile, Talents, the Log, Bounties and Settings
+were checked in screenshots after the sweep. Also fixed: a Cinder Mire lantern whose fuse ran out after
+its hunt had been freed raised a script error. A content change: ships over the air.
+
 ## Unreleased: Iron & Ember, pets and shop
 
 Part 5 of the overhaul. Every page's backdrop (Pets, Shop, Clan and the rest) is warm iron with an

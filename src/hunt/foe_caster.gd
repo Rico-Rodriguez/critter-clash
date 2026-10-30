@@ -130,7 +130,8 @@ func _plant(at: Vector3, r: float) -> void:
 		var b: Object = me.get_ref()
 		if b != null:
 			b._lanterns -= 1
-		if hunt._ended or not is_instance_valid(hunt.hero):
+		# The hunt can end and be freed while a fuse burns (the bot's next run).
+		if not is_instance_valid(hunt) or hunt._ended or not is_instance_valid(hunt.hero):
 			return
 		burst(hunt, at, r, dmg))
 	_aim = at

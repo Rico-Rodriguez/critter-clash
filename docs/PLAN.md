@@ -101,7 +101,7 @@ labels in two or three words; tabs with icons only, the open one named. One PR e
    ability buttons.
 4. [x] **Hero:** Gear, Talents and Skins as tabs, a big hero, rarity-lit slots, one stats row.
 5. [x] **Pets, Shop and Victory** to their mockups.
-6. [ ] **Every other sheet** (quests, season, road, expedition, settings, clan) swept to the rules.
+6. [x] **Every other sheet** (quests, season, road, expedition, settings, clan) swept to the rules.
 
 ## Now: needs Rico
 
