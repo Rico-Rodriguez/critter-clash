@@ -87,6 +87,22 @@ Rico asked for the full pass, all four parts. One PR each:
 4. [x] **Focus:** red dots only for something you can do now, camp buttons that open over the first
    hunts, pet extras behind one More.
 
+## Iron & Ember overhaul (Rico, 2026-10-30)
+
+Rico approved the "Iron & Ember" direction artifact (six phone mockups) as the new look for every
+screen. Rules: the 3D scene is the background and panels float small and dark over it; one gold
+button per screen, everything else a quiet outline; Cormorant SC for names, Barlow Condensed for
+buttons and numbers, Barlow for text; iron, gold and ember plus rarity colours, no purple panels;
+labels in two or three words; tabs with icons only, the open one named. One PR each:
+
+1. [x] **Theme:** the new palette and fonts in `tools/build_theme.gd`, outline buttons, no purple.
+2. [ ] **Camp:** the scene is the screen, three side buttons, one gold Hunt card, icon-only tabs.
+3. [ ] **Hunt HUD:** closer camera, thin XP line, one elite banner, health over the hero, two
+   ability buttons.
+4. [ ] **Hero:** Gear, Talents and Skins as tabs, a big hero, rarity-lit slots, one stats row.
+5. [ ] **Pets, Shop and Victory** to their mockups.
+6. [ ] **Every other sheet** (quests, season, road, expedition, settings, clan) swept to the rules.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

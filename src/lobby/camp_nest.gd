@@ -9,7 +9,7 @@ const G := "res://assets/kaykit/graveyard/"
 const F := "res://assets/kaykit/forest/"
 const SDB := preload("res://src/data/sidekick_db.gd")
 const SKS := preload("res://src/autoload/sidekicks.gd")
-const FONT := preload("res://assets/fonts/Cinzel-Variable.ttf")
+const FONT := preload("res://assets/fonts/GravelightCaps-Bold.ttf")
 const STRAW := Color(0.80, 0.62, 0.30)
 ## Local slots for the eggs: a ring around the middle, a lone egg in the heart.
 const EGG_SPOTS := [Vector3(0, 0, 0.05), Vector3(0.48, 0, 0.2), Vector3(-0.48, 0, 0.2), Vector3(0.3, 0, -0.42), Vector3(-0.3, 0, -0.42), Vector3(0, 0, 0.62)]

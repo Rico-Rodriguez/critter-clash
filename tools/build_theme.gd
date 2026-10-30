@@ -3,41 +3,53 @@ extends SceneTree
 ## godot --headless --path . -s res://tools/build_theme.gd
 ## Edit the tokens here (or the saved theme in the editor) — never per node.
 
-const INK := Color("0d0c10")
-const PANEL := Color("17151c")
-const PANEL_HI := Color("221f29")
-const LINE := Color("4a3d2a")
-const GOLD := Color("e8b65a")
-const TEXT := Color("f1e8d8")
-const DIM := Color("a39a8a")
-const EMBER := Color("d9622b")
+# Iron & Ember: near-black iron, gold for value, ember for action. Rarity
+# colours are the only others; no purple panels.
+const INK := Color("0b0b0d")
+const PANEL := Color("17181c")
+const PANEL_HI := Color("24262d")
+const LINE := Color("3a3c45")
+const GOLD := Color("d9a441")
+const GOLD_HI := Color("f3cf7a")
+const TEXT := Color("efe6d2")
+const DIM := Color("9a9488")
+const EMBER := Color("ff7a2f")
 const EMBER_DK := Color("7e2f10")
-const SLATE := Color("2d2a36")
-const SLATE_DK := Color("15131a")
-const RED := Color("c23a32")
+const SLATE := Color("24262d")
+const SLATE_DK := Color("121316")
+const RED := Color("b3262e")
 const TEAL := Color("3fc6c0")
-const GOLD_FILL := Color("d4a24c")
+const GOLD_FILL := Color("d9a441")
 const GOLD_RIM := Color("f6dfa6")
-const GOLD_INK := Color("24170a")
-## Dark glass: panels and cards over the camp, with a gold hairline.
-const GLASS := Color(0.085, 0.07, 0.105, 0.9)
+const GOLD_INK := Color("1e1406")
+## Iron plate: panels and cards over the scene, small and dark.
+const GLASS := Color(0.07, 0.072, 0.085, 0.9)
+## The quiet outline every button but the one gold one wears.
+const OUTLINE := Color(1, 1, 1, 0.14)
 
 var theme := Theme.new()
 var body: FontFile
 var body_med: FontFile
+## Cormorant SC: names and titles.
 var title: FontVariation
-## Cinzel with air between the letters: buttons, captions and tabs.
+## Barlow Condensed set in capitals (tools/caps_font.py maps lowercase to
+## caps, so strings stay mixed case) with air between the letters: buttons,
+## captions and tabs.
 var title_wide: FontVariation
+## Barlow Condensed ExtraBold: numbers.
+var num: FontVariation
 
 
 func _init() -> void:
-	body = load("res://assets/fonts/AlegreyaSans-Bold.ttf")
-	body_med = load("res://assets/fonts/AlegreyaSans-Medium.ttf")
+	body = load("res://assets/fonts/Barlow-SemiBold.ttf")
+	body_med = load("res://assets/fonts/Barlow-Medium.ttf")
 	title = FontVariation.new()
-	title.base_font = load("res://assets/fonts/Cinzel-Variable.ttf")
-	title.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 800}
-	title_wide = title.duplicate() as FontVariation
+	title.base_font = load("res://assets/fonts/CormorantSC-Bold.ttf")
+	title_wide = FontVariation.new()
+	title_wide.base_font = load("res://assets/fonts/GravelightCaps-Bold.ttf")
 	title_wide.spacing_glyph = 2
+	num = FontVariation.new()
+	num.base_font = load("res://assets/fonts/BarlowCondensed-ExtraBold.ttf")
 	theme.default_font = body
 	theme.default_font_size = 26
 
@@ -73,9 +85,9 @@ func _labels() -> void:
 	theme.set_color("font_outline_color", "Label", Color(0, 0, 0, 0.85))
 	theme.set_constant("outline_size", "Label", 0)
 	theme.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.0))
-	for v in [["Title", 50, GOLD, 10], ["Heading", 32, GOLD, 0], ["HudTitle", 40, GOLD, 10], ["Value", 30, TEXT, 0], ["HudValue", 30, TEXT, 8]]:
+	for v in [["Title", 56, GOLD_HI, 10], ["Heading", 36, GOLD_HI, 0], ["HudTitle", 46, GOLD_HI, 10], ["Value", 32, TEXT, 0], ["HudValue", 32, TEXT, 8]]:
 		theme.set_type_variation(v[0], "Label")
-		theme.set_font("font", v[0], title)
+		theme.set_font("font", v[0], num if v[0].ends_with("Value") else title)
 		theme.set_font_size("font_size", v[0], v[1])
 		theme.set_color("font_color", v[0], v[2])
 		theme.set_constant("outline_size", v[0], v[3])
@@ -96,8 +108,8 @@ func _labels() -> void:
 	theme.set_font_size("font_size", "HudLabel", 24)
 	theme.set_type_variation("Caption", "Label")
 	theme.set_font("font", "Caption", title_wide)
-	theme.set_font_size("font_size", "Caption", 18)
-	theme.set_color("font_color", "Caption", Color("b9a27a"))
+	theme.set_font_size("font_size", "Caption", 20)
+	theme.set_color("font_color", "Caption", DIM)
 	theme.set_color("default_color", "RichTextLabel", TEXT)
 	theme.set_font("normal_font", "RichTextLabel", body_med)
 	theme.set_font("bold_font", "RichTextLabel", body)
@@ -112,18 +124,18 @@ func _panels() -> void:
 	theme.set_stylebox("panel", "PanelContainer", p)
 	theme.set_stylebox("panel", "Panel", p)
 	theme.set_type_variation("Card", "PanelContainer")
-	var c := box(Color(0.12, 0.1, 0.14, 0.88), 12, 1, Color(1, 1, 1, 0.07))
+	var c := box(Color(0.095, 0.098, 0.112, 0.9), 12, 1, Color(1, 1, 1, 0.08))
 	theme.set_stylebox("panel", "Card", c)
 	# A card that is the one to act on now (today's daily reward): gold-edged.
 	theme.set_type_variation("CardHot", "PanelContainer")
-	var ch := box(Color(0.2, 0.15, 0.09, 0.92), 12, 2, GOLD)
+	var ch := box(Color(0.16, 0.12, 0.06, 0.92), 12, 2, GOLD)
 	theme.set_stylebox("panel", "CardHot", ch)
 	theme.set_type_variation("Sheet", "PanelContainer")
-	var sh := box(Color(0.06, 0.05, 0.075, 0.98), 22, 0)
+	var sh := box(Color(0.055, 0.057, 0.066, 0.98), 22, 0)
 	sh.corner_radius_bottom_left = 0
 	sh.corner_radius_bottom_right = 0
 	sh.border_width_top = 1
-	sh.border_color = Color(GOLD, 0.45)
+	sh.border_color = Color(GOLD, 0.35)
 	sh.content_margin_left = 24
 	sh.content_margin_right = 24
 	sh.content_margin_top = 22
@@ -138,7 +150,7 @@ func _panels() -> void:
 	pg.shadow_size = 0
 	theme.set_stylebox("panel", "Page", pg)
 	theme.set_type_variation("Chip", "PanelContainer")
-	var chip := box(Color(0.08, 0.065, 0.1, 0.82), 40, 1, Color(GOLD, 0.35))
+	var chip := box(Color(0.07, 0.072, 0.085, 0.82), 40, 1, OUTLINE)
 	chip.content_margin_top = 6
 	chip.content_margin_bottom = 6
 	chip.content_margin_left = 14
@@ -146,7 +158,7 @@ func _panels() -> void:
 	theme.set_stylebox("panel", "Chip", chip)
 	# Notification badge: a red pill with a count (or empty, as a dot).
 	theme.set_type_variation("Badge", "PanelContainer")
-	var bd := box(Color("e0473a"), 20, 2, INK)
+	var bd := box(RED.lightened(0.1), 20, 2, INK)
 	bd.content_margin_left = 7
 	bd.content_margin_right = 7
 	bd.content_margin_top = 0
@@ -156,7 +168,7 @@ func _panels() -> void:
 	theme.set_font_size("font_size", "BadgeLabel", 18)
 	theme.set_color("font_color", "BadgeLabel", TEXT)
 	theme.set_type_variation("Plaque", "PanelContainer")
-	var pl := box(GLASS, 10, 1, Color(GOLD, 0.35))
+	var pl := box(GLASS, 10, 1, OUTLINE)
 	pl.content_margin_top = 8
 	pl.content_margin_bottom = 8
 	theme.set_stylebox("panel", "Plaque", pl)
@@ -221,11 +233,12 @@ func _button_set(type: String, bg: Color, dk: Color, font_color: Color, size := 
 
 
 func _buttons() -> void:
-	_button_set("Button", Color("1c1823"), Color.BLACK, TEXT, 24, 12, null, Color(GOLD, 0.32))
+	# Every button but the gold one is a quiet outline.
+	_button_set("Button", Color(0.09, 0.092, 0.105, 0.9), Color.BLACK, TEXT, 24, 10, null, Color(1, 1, 1, 0.2))
 	# The main actions are polished gold: a pale rim and a warm glow under them.
 	_button_set("PrimaryButton", GOLD_FILL, GOLD_FILL, GOLD_INK, 30, 12, null, GOLD_RIM)
 	_button_set("GoldButton", GOLD_FILL, GOLD_FILL, GOLD_INK, 26, 12, null, GOLD_RIM)
-	_button_set("DangerButton", Color("6e231e"), Color.BLACK, TEXT, 24, 12, null, Color("d9776c"))
+	_button_set("DangerButton", Color("5a1a1e"), Color.BLACK, TEXT, 24, 10, null, Color("d9776c"))
 	# Flat tab / ghost buttons.
 	theme.set_type_variation("Ghost", "Button")
 	var g := box(Color(0, 0, 0, 0), 12, 0)
@@ -236,9 +249,9 @@ func _buttons() -> void:
 		theme.set_stylebox(k, "Ghost", gh)
 	theme.set_stylebox("focus", "Ghost", StyleBoxEmpty.new())
 	theme.set_color("font_color", "Ghost", DIM)
-	theme.set_color("font_pressed_color", "Ghost", GOLD)
+	theme.set_color("font_pressed_color", "Ghost", GOLD_HI)
 	theme.set_color("font_hover_color", "Ghost", TEXT)
-	theme.set_color("font_hover_pressed_color", "Ghost", GOLD)
+	theme.set_color("font_hover_pressed_color", "Ghost", GOLD_HI)
 	theme.set_color("icon_normal_color", "Ghost", DIM)
 	theme.set_color("icon_pressed_color", "Ghost", GOLD)
 	theme.set_color("icon_hover_color", "Ghost", TEXT)
@@ -248,8 +261,8 @@ func _buttons() -> void:
 	theme.set_constant("icon_max_width", "Ghost", 46)
 	# Segmented choice buttons (mode, location, difficulty): the chosen one is lit.
 	theme.set_type_variation("Choice", "Ghost")
-	var cn := box(Color(1, 1, 1, 0.03), 12, 1, Color(1, 1, 1, 0.09))
-	var cp := box(Color(GOLD, 0.12), 12, 1, Color(GOLD, 0.85))
+	var cn := box(Color(1, 1, 1, 0.03), 10, 1, OUTLINE)
+	var cp := box(Color(GOLD, 0.12), 10, 1, Color(GOLD, 0.85))
 	cp.shadow_color = Color(GOLD, 0.18)
 	cp.shadow_size = 10
 	for k in ["normal", "hover", "disabled"]:
@@ -258,10 +271,10 @@ func _buttons() -> void:
 		theme.set_stylebox(k, "Choice", cp)
 	# A tappable summary card (the camp's expedition card): opens a picker.
 	theme.set_type_variation("CardButton", "Ghost")
-	var cb := box(GLASS, 12, 1, Color(GOLD, 0.38))
+	var cb := box(GLASS, 12, 1, OUTLINE)
 	cb.shadow_color = Color(0, 0, 0, 0.45)
 	cb.shadow_size = 12
-	var cbp := box(Color(0.13, 0.11, 0.15, 0.92), 12, 1, Color(GOLD, 0.75))
+	var cbp := box(Color(0.12, 0.122, 0.14, 0.92), 12, 1, Color(GOLD, 0.6))
 	for k in ["normal", "disabled"]:
 		theme.set_stylebox(k, "CardButton", cb)
 	for k in ["hover", "pressed", "hover_pressed"]:
@@ -269,13 +282,13 @@ func _buttons() -> void:
 	# Round icon buttons (pause, settings, arrows).
 	theme.set_type_variation("RoundButton", "Button")
 	# An orb: dark glass, a gold hairline, a soft drop shadow.
-	var r := box(Color(0.1, 0.085, 0.12, 0.9), 60, 1, Color(GOLD, 0.5))
+	var r := box(Color(0.07, 0.072, 0.085, 0.88), 60, 1, OUTLINE)
 	r.shadow_color = Color(0, 0, 0, 0.5)
 	r.shadow_size = 8
 	r.shadow_offset = Vector2(0, 3)
 	r.set_content_margin_all(12)
 	var rp := r.duplicate()
-	rp.bg_color = Color(0.12, 0.1, 0.12, 0.9)
+	rp.bg_color = Color(0.12, 0.122, 0.14, 0.9)
 	for k in ["normal", "hover", "disabled"]:
 		theme.set_stylebox(k, "RoundButton", r)
 	for k in ["pressed", "hover_pressed"]:
@@ -380,9 +393,9 @@ func _switch(on: bool) -> DPITexture:
 func _social() -> void:
 	# The bar sits flush with the bottom edge under a gold hairline.
 	theme.set_type_variation("NavBar", "PanelContainer")
-	var nb := box(Color("0f0d13"), 0, 0)
+	var nb := box(Color("0b0b0d"), 0, 0)
 	nb.border_width_top = 1
-	nb.border_color = Color(GOLD, 0.35)
+	nb.border_color = Color(1, 1, 1, 0.08)
 	nb.set_content_margin_all(0)
 	nb.shadow_color = Color(0, 0, 0, 0.6)
 	nb.shadow_size = 18
@@ -410,10 +423,10 @@ func _social() -> void:
 	theme.set_constant("icon_max_width", "NavTab", 40)
 	theme.set_constant("h_separation", "NavTab", 0)
 	for k in ["font_color", "font_hover_color"]:
-		theme.set_color(k, "NavTab", Color("7d7466"))
+		theme.set_color(k, "NavTab", Color("6f6a62"))
 	for k in ["font_pressed_color", "font_hover_pressed_color"]:
 		theme.set_color(k, "NavTab", Color("f3d58f"))
-	theme.set_color("icon_normal_color", "NavTab", Color("7d7466"))
+	theme.set_color("icon_normal_color", "NavTab", Color("6f6a62"))
 	theme.set_color("icon_hover_color", "NavTab", Color("a39a8a"))
 	theme.set_color("icon_pressed_color", "NavTab", Color("f6e3b4"))
 	theme.set_color("icon_hover_pressed_color", "NavTab", Color("f6e3b4"))
@@ -429,17 +442,17 @@ func _social() -> void:
 	theme.set_stylebox("panel", "Bubble", bo)
 	theme.set_type_variation("BubbleMine", "PanelContainer")
 	var bm := bo.duplicate()
-	bm.bg_color = Color("3a2f1f")
+	bm.bg_color = Color("3a2c16")
 	bm.corner_radius_bottom_left = 14
 	bm.corner_radius_bottom_right = 3
 	theme.set_stylebox("panel", "BubbleMine", bm)
 	# An invite or raid card inside the chat: outlined in the party blue.
 	theme.set_type_variation("InviteCard", "PanelContainer")
-	var ic := box(Color("1b1f2a"), 12, 3, Color("4f8de0"))
+	var ic := box(Color("171b24"), 12, 2, Color("4f8df0"))
 	theme.set_stylebox("panel", "InviteCard", ic)
 	# A reward: a warm card with a gold edge (gifts, the invite screen).
 	theme.set_type_variation("GiftCard", "PanelContainer")
-	var gc := box(Color("2a2116"), 12, 3, GOLD)
+	var gc := box(Color("221a0e"), 12, 2, GOLD)
 	gc.shadow_color = Color(GOLD, 0.18)
 	gc.shadow_size = 10
 	theme.set_stylebox("panel", "GiftCard", gc)
@@ -447,18 +460,18 @@ func _social() -> void:
 	# mode, arena or hero (warm, gold edge), the step ready to claim (ember
 	# edge, glowing), an arena's banner, and the "you are here" pill.
 	theme.set_type_variation("RoadStep", "PanelContainer")
-	var rs := box(Color("1a171f"), 16, 2, Color(1, 1, 1, 0.07))
+	var rs := box(Color("17181c"), 16, 2, Color(1, 1, 1, 0.07))
 	rs.content_margin_top = 14
 	rs.content_margin_bottom = 14
 	theme.set_stylebox("panel", "RoadStep", rs)
 	theme.set_type_variation("RoadDone", "PanelContainer")
 	var rd := rs.duplicate()
-	rd.bg_color = Color("141217")
+	rd.bg_color = Color("121316")
 	rd.border_color = Color(GOLD, 0.16)
 	theme.set_stylebox("panel", "RoadDone", rd)
 	theme.set_type_variation("RoadUnlock", "PanelContainer")
 	var ru := rs.duplicate()
-	ru.bg_color = Color("241c18")
+	ru.bg_color = Color("221c14")
 	ru.border_color = Color(GOLD, 0.55)
 	ru.shadow_color = Color(GOLD, 0.08)
 	ru.shadow_size = 12
@@ -472,7 +485,7 @@ func _social() -> void:
 	rr.shadow_size = 22
 	theme.set_stylebox("panel", "RoadReady", rr)
 	theme.set_type_variation("RoadArena", "PanelContainer")
-	var ra := box(Color(0.06, 0.05, 0.08, 0.72), 22, 3, Color(GOLD, 0.6))
+	var ra := box(Color(0.055, 0.057, 0.066, 0.72), 22, 3, Color(GOLD, 0.6))
 	ra.shadow_color = Color(0, 0, 0, 0.55)
 	ra.shadow_size = 18
 	ra.content_margin_left = 26
@@ -490,15 +503,15 @@ func _social() -> void:
 	rh.shadow_size = 14
 	theme.set_stylebox("panel", "RoadHere", rh)
 	theme.set_type_variation("RoadHereLabel", "Label")
-	theme.set_font("font", "RoadHereLabel", title)
+	theme.set_font("font", "RoadHereLabel", num)
 	theme.set_font_size("font_size", "RoadHereLabel", 24)
 	theme.set_color("font_color", "RoadHereLabel", Color("2a1a06"))
 	theme.set_type_variation("RoadTag", "Label")
-	theme.set_font("font", "RoadTag", title)
+	theme.set_font("font", "RoadTag", title_wide)
 	theme.set_font_size("font_size", "RoadTag", 17)
 	theme.set_color("font_color", "RoadTag", GOLD)
 	theme.set_type_variation("RoadNum", "Label")
-	theme.set_font("font", "RoadNum", title)
+	theme.set_font("font", "RoadNum", num)
 	theme.set_font_size("font_size", "RoadNum", 26)
 	theme.set_color("font_color", "RoadNum", Color("f5d38c"))
 	theme.set_constant("outline_size", "RoadNum", 6)
@@ -526,8 +539,9 @@ func _social() -> void:
 func _premium() -> void:
 	_button_set("HuntButton", GOLD_FILL, GOLD_FILL, GOLD_INK, 40, 12, null, GOLD_RIM)
 	theme.set_type_variation("HuntLabel", "Label")
-	var hunt_font := title.duplicate() as FontVariation
-	hunt_font.spacing_glyph = 8
+	var hunt_font := title_wide.duplicate() as FontVariation
+	hunt_font.base_font = num.base_font
+	hunt_font.spacing_glyph = 6
 	theme.set_font("font", "HuntLabel", hunt_font)
 	theme.set_font_size("font_size", "HuntLabel", 40)
 	theme.set_color("font_color", "HuntLabel", GOLD_INK)
@@ -537,15 +551,15 @@ func _premium() -> void:
 	theme.set_font_size("font_size", "HuntSub", 20)
 	theme.set_color("font_color", "HuntSub", Color("5a3c14"))
 	# A price tag: dark, trimmed in gold.
-	_button_set("PriceButton", Color("1e1810"), Color.BLACK, Color("f3dca6"), 24, 10, body, Color("d6ae62"))
-	for v in [["SeasonPill", Color(0.66, 0.55, 0.86, 0.55)], ["TrophyPill", Color(GOLD, 0.45)], ["SlotButton", Color(GOLD, 0.4)], ["ModeButton", Color(GOLD, 0.4)]]:
+	_button_set("PriceButton", Color("17130c"), Color.BLACK, GOLD_HI, 24, 10, num, Color(GOLD, 0.7))
+	for v in [["SeasonPill", OUTLINE], ["TrophyPill", OUTLINE], ["SlotButton", OUTLINE], ["ModeButton", OUTLINE]]:
 		_button_set(v[0], GLASS, Color.BLACK, TEXT, 18, 12, null, v[1])
 	for t in ["SlotButton", "ModeButton"]:
 		theme.set_constant("icon_max_width", t, 52)
 	theme.set_type_variation("PillLabel", "Label")
 	theme.set_font("font", "PillLabel", title_wide)
 	theme.set_font_size("font_size", "PillLabel", 15)
-	theme.set_color("font_color", "PillLabel", Color("cdbb96"))
+	theme.set_color("font_color", "PillLabel", DIM)
 	theme.set_constant("outline_size", "PillLabel", 0)
 	# Shop tiles: dark cards edged in their rarity's color, brighter along
 	# the top; a glow behind the art comes from the code.
@@ -553,7 +567,7 @@ func _premium() -> void:
 			["TilePurple", "a970f0"], ["TileGold", "f3d58f"], ["TileRed", "e8705e"]]:
 		theme.set_type_variation(v[0], "Button")
 		var rim := Color(v[1])
-		var t := box(Color(0.1, 0.085, 0.12, 0.94), 12, 1, Color(rim, 0.5))
+		var t := box(Color(0.075, 0.077, 0.09, 0.94), 10, 1, Color(rim, 0.5))
 		t.border_width_top = 2
 		t.set_content_margin_all(0)
 		t.shadow_color = Color(0, 0, 0, 0.45)
@@ -562,7 +576,7 @@ func _premium() -> void:
 		var h := t.duplicate() as StyleBoxFlat
 		h.border_color = Color(rim, 0.8)
 		var pr := t.duplicate() as StyleBoxFlat
-		pr.bg_color = Color(0.07, 0.06, 0.085, 0.96)
+		pr.bg_color = Color(0.055, 0.057, 0.066, 0.96)
 		pr.border_color = Color(rim, 0.9)
 		pr.shadow_size = 3
 		for k in ["normal", "disabled"]:
@@ -573,7 +587,7 @@ func _premium() -> void:
 		theme.set_stylebox("focus", v[0], StyleBoxEmpty.new())
 	# The price under a shop tile: a gold-trimmed tag, or a faint one once
 	# it's yours.
-	for v in [["PricePlate", Color("1e1810"), Color("d6ae62")], ["OwnedPlate", Color(0, 0, 0, 0), Color(1, 1, 1, 0.14)]]:
+	for v in [["PricePlate", Color("17130c"), Color(GOLD, 0.7)], ["OwnedPlate", Color(0, 0, 0, 0), Color(1, 1, 1, 0.14)]]:
 		theme.set_type_variation(v[0], "PanelContainer")
 		var p := box(v[1], 8, 1, v[2])
 		p.content_margin_top = 4
@@ -582,9 +596,9 @@ func _premium() -> void:
 		p.content_margin_right = 8
 		theme.set_stylebox("panel", v[0], p)
 	theme.set_type_variation("PriceLabel", "Label")
-	theme.set_font("font", "PriceLabel", body)
+	theme.set_font("font", "PriceLabel", num)
 	theme.set_font_size("font_size", "PriceLabel", 22)
-	theme.set_color("font_color", "PriceLabel", Color("f3dca6"))
+	theme.set_color("font_color", "PriceLabel", GOLD_HI)
 	theme.set_constant("outline_size", "PriceLabel", 0)
 	# A discount in a tile's corner: gold lettering, no plate.
 	theme.set_type_variation("Ribbon", "PanelContainer")
@@ -593,10 +607,10 @@ func _premium() -> void:
 	theme.set_type_variation("RibbonLabel", "Label")
 	theme.set_font("font", "RibbonLabel", title_wide)
 	theme.set_font_size("font_size", "RibbonLabel", 16)
-	theme.set_color("font_color", "RibbonLabel", Color("f3d58f"))
+	theme.set_color("font_color", "RibbonLabel", GOLD_HI)
 	# The day's headline deal: a card with a brighter gold edge.
 	theme.set_type_variation("FeatureCard", "PanelContainer")
-	var fc := box(Color(0.1, 0.08, 0.11, 0.95), 14, 1, Color(GOLD, 0.55))
+	var fc := box(Color(0.075, 0.077, 0.09, 0.95), 14, 1, Color(GOLD, 0.55))
 	fc.border_width_top = 2
 	fc.border_color = Color(GOLD, 0.6)
 	fc.shadow_color = Color(0, 0, 0, 0.5)
@@ -627,7 +641,7 @@ func _premium() -> void:
 	var hero_font := title.duplicate() as FontVariation
 	hero_font.spacing_glyph = 5
 	theme.set_font("font", "HeroTitle", hero_font)
-	theme.set_font_size("font_size", "HeroTitle", 44)
+	theme.set_font_size("font_size", "HeroTitle", 50)
 	theme.set_color("font_color", "HeroTitle", Color("f6e7c4"))
 	theme.set_color("font_shadow_color", "HeroTitle", Color(GOLD, 0.35))
 	theme.set_constant("shadow_outline_size", "HeroTitle", 12)
@@ -643,8 +657,8 @@ func _premium() -> void:
 	var rbg := theme.get_stylebox("background", "RoadBar").duplicate() as StyleBoxFlat
 	rbg.set_border_width_all(0)
 	theme.set_stylebox("background", "RoadBar", rbg)
-	# The mode's icon well on the mode card: violet glass.
+	# The mode's icon well on the mode card: dark bronze.
 	theme.set_type_variation("ModeWell", "PanelContainer")
-	var mw := box(Color("261a3a"), 12, 1, Color(0.66, 0.55, 0.86, 0.5))
+	var mw := box(Color("1a1408"), 12, 1, Color(GOLD, 0.45))
 	mw.set_content_margin_all(14)
 	theme.set_stylebox("panel", "ModeWell", mw)

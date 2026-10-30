@@ -45,8 +45,7 @@ func _ready() -> void:
 	_quad = PlaneMesh.new()
 	_quad.size = Vector2(2, 2)
 	title_font = FontVariation.new()
-	title_font.base_font = load("res://assets/fonts/Cinzel-Variable.ttf")
-	title_font.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 900}
+	title_font.base_font = load("res://assets/fonts/BarlowCondensed-ExtraBold.ttf")
 	for i in 36:
 		var l := Label3D.new()
 		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
