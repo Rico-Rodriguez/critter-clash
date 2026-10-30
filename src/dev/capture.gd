@@ -1730,6 +1730,31 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 		cam.look_at_from_position(Vector3(0, 0.1, 11.0), Vector3(0, 0.1, 0), Vector3.UP)
 		await _wait(1.0)
 		return
+	if view == "face":
+		for c in 2:
+			var fb := _hero_body(root, "Hero_Knight" + ["", "_Heroic"][c])
+			fb.position = Vector3(c * 0.9 - 0.45, 0, 0)
+			fb.rotation_degrees.y = -20.0 + c * 40.0
+			fb.play("Idle_A", 0.0)
+		cam.fov = 20
+		cam.look_at_from_position(Vector3(0, 2.0, 3.2), Vector3(0, 2.0, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if view == "bodies":
+		# The body types side by side: standing, and mid-swing turned.
+		var types := ["", "_Heroic", "_Stout", "_Faceted"]
+		var poses := [["Idle_A", 0.0, -12.0], ["Melee_1H_Attack_Slice_Diagonal", 0.45, -35.0]]
+		for r in poses.size():
+			for c in types.size():
+				var b := _hero_body(root, "Hero_Knight" + str(types[c]))
+				b.position = Vector3((c - 1.5) * 1.9, -r * 3.0, 0)
+				b.rotation_degrees.y = poses[r][2]
+				b.play(poses[r][0], 0.0)
+				b.anim.seek(b.anim.current_animation_length * float(poses[r][1]), true)
+				b.anim.pause()
+		cam.look_at_from_position(Vector3(0, -0.35, 13.5), Vector3(0, -0.35, 0), Vector3.UP)
+		await _wait(1.0)
+		return
 	if view == "body" or view == "bodyplate":
 		await _body_sheet(root, cam, view == "bodyplate")
 		return
@@ -1816,9 +1841,10 @@ func _hero_body(root: Node3D, model: String) -> Actor:
 	root.add_child(a)
 	a.build_model(model, {}, Color(0.5, 0.6, 1.0), 0.2, Color(0, 0, 0, 0), 1.0)
 	# Its legs are longer than KayKit's: the clips' hip height needs lifting.
+	var skel: Skeleton3D = a.model.find_child("Skeleton3D", true, false)
 	var bs := BoneScaler.new()
-	bs.lift = 0.6735
-	a.model.find_child("Skeleton3D", true, false).add_child(bs)
+	bs.lift = skel.get_bone_rest(skel.find_bone("hips")).origin.y - 0.405663
+	skel.add_child(bs)
 	return a
 
 

@@ -8,7 +8,7 @@ node for node, with longer bones where the clips only rotate them (upper and
 lower arm and leg, spine, chest, neck); the clips also set the shoulder, hip
 and leg-root positions, so those stay KayKit's. The legs come out about 0.69
 longer than KayKit's, so the hips must be lifted by that much in play
-(BoneScaler.lift, BODY_LIFT below).
+(BoneScaler.lift, body_lift() below).
 
 The mesh is lofted from rings (an ellipse per ring, `loft`), in glTF space:
 +y up, +z the front, the hero standing in the rest T-pose. Colors come from
@@ -28,12 +28,30 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SRC = os.path.join(ROOT, "assets", "kaykit", "characters", "Knight.glb")
 
 # New lengths (the child's translation along its parent bone).
-LENGTHS = {"spine": 0.2, "chest": 0.4, "head": 0.215, "lowerarm.l": 0.4, "lowerarm.r": 0.4,
-           "wrist.l": 0.35, "wrist.r": 0.35, "lowerleg.l": 0.55, "lowerleg.r": 0.55,
-           "foot.l": 0.5, "foot.r": 0.5}
 KK_LEG = 0.22707749903202057 + 0.14943702518939972
-HEAD_SCALE = 1.12
-BODY_LIFT = LENGTHS["lowerleg.l"] + LENGTHS["foot.l"] - KK_LEG
+
+# Body types: bone lengths (spine, chest, neck, upper arm, forearm, thigh,
+# shin), then the head's scale, torso width, limb thickness and hand size;
+# `facet` builds it low-poly and flat-shaded.
+BUILDS = {
+    "lean": {"len": (0.2, 0.4, 0.215, 0.4, 0.35, 0.55, 0.5), "head": 1.12, "w": 1.0, "l": 1.0, "hand": 1.0},
+    "heroic": {"len": (0.19, 0.38, 0.2, 0.37, 0.33, 0.48, 0.44), "head": 1.35, "w": 1.2, "l": 1.28, "hand": 1.3},
+    "stout": {"len": (0.17, 0.35, 0.17, 0.32, 0.3, 0.38, 0.34), "head": 1.42, "w": 1.38, "l": 1.5, "hand": 1.4, "belly": 0.06},
+    "faceted": {"len": (0.19, 0.38, 0.2, 0.37, 0.33, 0.48, 0.44), "head": 1.3, "w": 1.18, "l": 1.22, "hand": 1.25, "facet": True},
+}
+BUILD = BUILDS["lean"]
+
+
+def lengths():
+    sp, ch, hd, ua, fa, th, sh = BUILD["len"]
+    return {"spine": sp, "chest": ch, "head": hd, "lowerarm.l": ua, "lowerarm.r": ua, "wrist.l": fa, "wrist.r": fa,
+            "lowerleg.l": th, "lowerleg.r": th, "foot.l": sh, "foot.r": sh}
+
+
+def body_lift():
+    """How far the clips' hips must be raised for these legs to stand on the ground."""
+    L = lengths()
+    return L["lowerleg.l"] + L["foot.l"] - KK_LEG
 
 SWATCH = {
     "steel": (3, 0), "steel_dark": (4, 0), "black": (2, 0), "gold": (4, 1),
@@ -80,11 +98,11 @@ def skeleton():
     joints = g["skins"][0]["joints"]
     for i in joints:
         n = nodes[i]
-        if n["name"] in LENGTHS:
+        if n["name"] in lengths():
             t = n.get("translation", [0, 0, 0])
-            n["translation"] = [t[0], LENGTHS[n["name"]], t[2]]
+            n["translation"] = [t[0], lengths()[n["name"]], t[2]]
         if n["name"] == "hips":
-            n["translation"] = [0, n["translation"][1] + BODY_LIFT, 0]
+            n["translation"] = [0, n["translation"][1] + body_lift(), 0]
     parent = {}
     for i, n in enumerate(nodes):
         for c in n.get("children", []):
@@ -109,6 +127,7 @@ class Mesh:
         self.parts = []  # (verts, faces, uvs, smooth, bones)
 
     def add(self, verts, quads, uvs, bones, smooth=True):
+        smooth = smooth and not BUILD.get("facet")
         self.parts.append((np.array(verts, float), quads, uvs, smooth, bones))
 
 
@@ -171,6 +190,8 @@ def loft(mesh, rings, sws, bones, smooth=True, cap0=True, cap1=True, ts=None):
 
 def limb(mesh, pts, radii, sws, bones, n=10, smooth=True, front=None):
     """A tube through points with a radius at each (rx, rz) or r."""
+    if BUILD.get("facet"):
+        n = max(5, int(n * 0.6))
     rings = []
     for k, p in enumerate(pts):
         d = np.array(pts[min(k + 1, len(pts) - 1)]) - np.array(pts[max(k - 1, 0)])
@@ -216,42 +237,49 @@ def build(look):
     # Torso: pelvis to collar, a V from broad shoulders to the waist, the
     # pelvis wide enough to take the tops of the thighs.
     y0 = hips[1] - 0.06
-    prof = [(y0, 0.2, 0.13, 0.0), (hips[1] + 0.1, 0.26, 0.15, 0.0), (spine[1] + 0.08, 0.215, 0.14, 0.05),
+    prof = [(y0, 0.22, 0.135, 0.0), (hips[1] + 0.1, 0.26, 0.15, 0.0), (spine[1] + 0.08, 0.215, 0.14, 0.05),
             (spine[1] + 0.25, 0.23, 0.15, 0.15), (chest[1] - 0.04, 0.26, 0.16, 0.2), (chest[1] + 0.07, 0.275, 0.155, 0.15),
             (chest[1] + 0.14, 0.24, 0.125, 0.05), (chest[1] + 0.19, 0.09, 0.075, 0.0)]
-    rings = [ring((0, y, 0), rx, rz, 16, front=f) for y, rx, rz, f in prof]
+    W, Lt = BUILD["w"], BUILD["l"]
+    bel = BUILD.get("belly", 0.0)
+    rings = [ring((0, y, 0), rx * W, rz * (W if k > 3 else W * 0.9 + 0.1) + (bel if 1 <= k <= 3 else 0.0), 8 if BUILD.get("facet") else 16, front=f)
+             for k, (y, rx, rz, f) in enumerate(prof)]
     belt = look.get("belt", "leather")
     loft(m, rings, [pants, belt, shirt, shirt, shirt, shirt, shirt], T + ["head"], ts=None)
     # Neck.
-    limb(m, [(0, chest[1] + 0.12, 0.0), (0, head[1] + 0.06, 0.01)], [0.07, 0.065], [skin], ["chest", "head"], n=10)
+    limb(m, [(0, chest[1] + 0.12, 0.0), (0, head[1] + 0.06, 0.01)], [0.07 * Lt, 0.065 * Lt], [skin], ["chest", "head"], n=10)
     # Head, a little larger than life so the face reads on a phone.
     n0 = len(m.parts)
     head_mesh(m, head, look)
     for k in range(n0, len(m.parts)):
         v, q, u, sm, b = m.parts[k]
-        m.parts[k] = (head + (v - head) * HEAD_SCALE, q, u, sm, b)
+        m.parts[k] = (head + (v - head) * BUILD["head"], q, u, sm, b)
     # Arms.
     for s, side in ((1, "l"), (-1, "r")):
         ua, la, wr, ha = J(sk, "upperarm." + side), J(sk, "lowerarm." + side), J(sk, "wrist." + side), J(sk, "hand." + side)
         sleeve = shirt if look.get("sleeves", "long") != "none" else skin
         limb(m, [ua + [-0.02 * s, 0, 0], ua + [0.12 * s, 0, 0], la, la + (wr - la) * 0.1, wr - [0.02 * s, 0, 0]],
-             [(0.1, 0.095), (0.095, 0.09), (0.075, 0.072), (0.072, 0.07), (0.05, 0.045)],
+             [(0.1 * Lt, 0.095 * Lt), (0.095 * Lt, 0.09 * Lt), (0.075 * Lt, 0.072 * Lt), (0.072 * Lt, 0.07 * Lt), (0.05 * Lt, 0.045 * Lt)],
              [sleeve, sleeve, look.get("cuff", sleeve) if look.get("sleeves", "long") == "long" else skin, skin],
              ["chest", "upperarm." + side, "lowerarm." + side, "wrist." + side], n=10)
         # Deltoid over the shoulder.
-        blob(m, ua + [0.06 * s, 0.01, 0], 0.115, sleeve, ["chest", "upperarm." + side], squash=(1.1, 0.9, 1.0))
+        blob(m, ua + [0.06 * s, 0.01, 0], 0.115 * Lt, sleeve, ["chest", "upperarm." + side], squash=(1.1, 0.9, 1.0))
+        n0 = len(m.parts)
         hand_mesh(m, wr, ha, s, side, look.get("gloves", skin))
+        for k in range(n0, len(m.parts)):
+            v, q, u, sm, b = m.parts[k]
+            m.parts[k] = (wr + (v - wr) * BUILD["hand"], q, u, sm, b)
     # Legs.
     for s, side in ((1, "l"), (-1, "r")):
         ul, ll, ft, to = J(sk, "upperleg." + side), J(sk, "lowerleg." + side), J(sk, "foot." + side), J(sk, "toes." + side)
-        top = ul + [0.0, -0.07, 0]
+        top = ul + [-0.05 * s, -0.07, 0]
         limb(m, [top, top + (ll - top) * 0.45, ll, ll + (ft - ll) * 0.35, ll + (ft - ll) * 0.6, ft + [0, 0.02, 0]],
-             [(0.122, 0.12), (0.112, 0.108), (0.082, 0.085), (0.08, 0.09), (0.08, 0.078), (0.068, 0.068)],
+             [(0.122 * Lt, 0.12 * Lt), (0.112 * Lt, 0.108 * Lt), (0.082 * Lt, 0.085 * Lt), (0.08 * Lt, 0.09 * Lt), (0.08 * Lt, 0.078 * Lt), (0.068 * Lt, 0.068 * Lt)],
              [pants, pants, pants, boots, boots], ["hips", "upperleg." + side, "lowerleg." + side, "foot." + side], n=10,
              front=[0.0, 0.0, 0.1, -0.15, 0.0, 0.0])
         # Boot top cuff and foot.
         cuff = ll + (ft - ll) * 0.6
-        limb(m, [cuff - [0, 0.03, 0], cuff + [0, 0.03, 0]], [0.085, 0.085], [boots], ["lowerleg." + side], n=10)
+        limb(m, [cuff - [0, 0.03, 0], cuff + [0, 0.03, 0]], [0.085 * Lt, 0.085 * Lt], [boots], ["lowerleg." + side], n=10)
         foot_mesh(m, ft, to, s, side, boots)
     return m, sk
 
@@ -277,23 +305,27 @@ def head_mesh(m, head, look):
             r.append(c + np.array([x * sq, y, z * (1.0 if z > 0 else sq) + 0.01]))
         rings.append(r)
     loft(m, rings, [skin] * 5 + [hair, hair], hb)
-    f = c + np.array([0, 0, 0.12])
-    # Nose: a wedge down the middle of the face.
-    nose = [[f + [0, 0.205, -0.01], f + [0, 0.13, 0.035], f + [-0.02, 0.12, 0.005], f + [0.02, 0.12, 0.005]]]
-    vs = nose[0]
-    m.add(vs, [((0, 2, 1), skin, (0.2, 0.4, 0.3)), ((0, 1, 3), skin, (0.2, 0.3, 0.4)), ((1, 2, 3), skin, (0.6, 0.6, 0.6))], None, hb, smooth=False)
-    # Brow ridge and eyes set under it.
-    boxy(m, f + [0, 0.215, -0.012], (0.17, 0.028, 0.03), look.get("brow", hair), hb)
+    # The face sits on the head's front surface, z about 0.125 at the eyes.
+    f = c + np.array([0, 0, 0.125])
+    # Nose: a bridge from the brow, widening to the nostrils.
+    m.add([f + [0, 0.2, 0.0], f + [-0.013, 0.19, -0.006], f + [0.013, 0.19, -0.006], f + [0, 0.128, 0.04],
+           f + [-0.026, 0.12, 0.006], f + [0.026, 0.12, 0.006], f + [0, 0.114, 0.02]],
+          [((0, 3, 1), skin, (0.2, 0.3, 0.45)), ((0, 2, 3), skin, (0.2, 0.45, 0.3)), ((1, 3, 4), skin, (0.45, 0.3, 0.6)),
+           ((2, 5, 3), skin, (0.45, 0.6, 0.3)), ((3, 6, 4), skin, (0.3, 0.7, 0.6)), ((3, 5, 6), skin, (0.3, 0.6, 0.7))], None, hb, smooth=False)
+    brow = look.get("brow", hair)
     for s in (1, -1):
-        blob(m, f + [s * 0.045, 0.185, -0.022], 0.017, "black", hb, n=8, m=4, squash=(1.2, 0.7, 0.6), smooth=False)
-        # Ears.
-        boxy(m, c + [s * 0.11, 0.17, -0.01], (0.025, 0.07, 0.045), skin, hb)
+        # A heavy brow angled down toward the nose, the eye in its shadow.
+        rot = frame(np.array([s * 1.0, -0.25 * s * s, 0.0]))
+        boxy(m, f + [s * 0.044, 0.212, -0.012], (0.03, 0.062, 0.03), brow, hb, rot=frame(np.array([s, -0.22, -0.35 * s * 0])))
+        blob(m, f + [s * 0.043, 0.188, -0.014], 0.016, "black", hb, n=8, m=4, squash=(1.3, 0.75, 0.6), smooth=False)
+        # Ears: a thick wedge on the side of the head.
+        blob(m, c + [s * 0.112, 0.17, -0.015], 0.03, skin, hb, n=6, m=4, squash=(0.45, 1.25, 0.8), smooth=False)
     # Mouth line.
     boxy(m, f + [0, 0.085, -0.008], (0.06, 0.008, 0.012), "leather", hb)
     # Hair: a cap over the crown and back, and a beard if any.
     style = look.get("hair_style", "short")
     if style != "bald":
-        caps = [(0.2, 0.112, 0.12, 0.05), (0.26, 0.112, 0.125, 0.09), (0.31, 0.088, 0.1, 0.085), (0.345, 0.045, 0.05, 0.045)]
+        caps = [(0.19, 0.114, 0.122, 0.07), (0.255, 0.116, 0.128, 0.112), (0.3, 0.1, 0.112, 0.104), (0.33, 0.07, 0.08, 0.07), (0.352, 0.025, 0.03, 0.025)]
         rings = []
         for y, hw, bk, fr in caps:
             r = []
@@ -308,7 +340,7 @@ def head_mesh(m, head, look):
                  [hair], hb + ["chest"], n=8, smooth=False)
     if look.get("beard"):
         rings = []
-        for y, hw, fr in ((0.0, 0.04, 0.11), (0.05, 0.085, 0.13), (0.11, 0.1, 0.125), (0.14, 0.104, 0.118)):
+        for y, hw, fr in ((0.0, 0.04, 0.11), (0.05, 0.085, 0.13), (0.09, 0.1, 0.128), (0.115, 0.104, 0.12)):
             r = []
             for i in range(n):
                 a = 2 * math.pi * i / n
@@ -391,6 +423,17 @@ def write(m, sk, g, nodes, joints, name, out):
             for i in idx:
                 acc[i] += nrm
         vn = acc / np.maximum(np.linalg.norm(acc, axis=1, keepdims=True), 1e-9)
+        # Small closed details (a nose, an eye) are wound however they were
+        # listed: point each face away from the part's middle instead.
+        if len(verts) <= 40:
+            mid = verts.mean(axis=0)
+            q2, f2 = [], []
+            for (idx, sw, ts), fn in zip(quads, fnorm):
+                if fn @ (verts[list(idx)].mean(axis=0) - mid) < 0:
+                    idx, ts, fn = idx[::-1], ts[::-1], -fn
+                q2.append((idx, sw, ts))
+                f2.append(fn)
+            quads, fnorm = q2, f2
         for (idx, sw, ts), fn in zip(quads, fnorm):
             base = len(P)
             for i, t in zip(idx, ts):
@@ -469,13 +512,19 @@ def write(m, sk, g, nodes, joints, name, out):
 
 
 LOOKS = {
-    "knight": {"shirt": "tan", "pants": "leather", "boots": "black", "hair": "leather", "beard": "leather", "hair_style": "short"},
+    "knight": {"shirt": "slate", "pants": "leather", "boots": "black", "hair": "leather", "beard": "leather", "hair_style": "short"},
 }
 
 
 if __name__ == "__main__":
-    names = sys.argv[1:] or list(LOOKS)
-    for nm in names:
-        g, nodes, joints, _ = skeleton()
-        m, sk = build(LOOKS[nm])
-        write(m, sk, g, nodes, joints, "Hero_" + nm.capitalize(), os.path.join(ROOT, "assets", "kaykit", "characters", "Hero_%s.glb" % nm.capitalize()))
+    # make_hero_body.py [hero ...] [--build=lean|heroic|stout|faceted|all]
+    names = [a for a in sys.argv[1:] if not a.startswith("--")] or list(LOOKS)
+    bw = ([a[8:] for a in sys.argv[1:] if a.startswith("--build=")] or ["lean"])[0]
+    for b in (list(BUILDS) if bw == "all" else [bw]):
+        BUILD = BUILDS[b]
+        for nm in names:
+            g, nodes, joints, _ = skeleton()
+            m, sk = build(LOOKS[nm])
+            nm2 = "Hero_" + nm.capitalize() + ("" if b == "lean" else "_" + b.capitalize())
+            write(m, sk, g, nodes, joints, nm2, os.path.join(ROOT, "assets", "kaykit", "characters", nm2 + ".glb"))
+            print("LIFT", nm2, round(body_lift(), 4))
