@@ -2,6 +2,9 @@ extends "res://src/hunt/hunt_state.gd"
 ## The hunt, part 2: what falls and what flies. Souls, gold and item drops,
 ## pickups, level-up cards, and the projectile pool.
 
+## World height between stacked loot labels.
+const LABEL_STEP := 1.1
+
 
 # --- Pickups -------------------------------------------------------------
 
@@ -86,11 +89,13 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 			l.outline_modulate = Color(0, 0, 0, 0.9)
 			# Stacked over any labelled drop close by: a boss's pile of loot
 			# lands in one spot, and labels at the same height read as one smear.
+			# The camera looks down at 50°, which squeezes height on screen, so
+			# the step is taller than a line of text.
 			var lift := 0
 			for q in pickups:
 				if q != p and is_instance_valid(q) and q.label != null and Vector2(q.position.x - p.position.x, q.position.z - p.position.z).length() < 2.4:
-					lift = maxi(lift, int(round((q.label.position.y - 1.6) / 0.62)) + 1)
-			l.position = Vector3(0, 1.6 + 0.62 * lift, 0)
+					lift = maxi(lift, int(round((q.label.position.y - 1.6) / LABEL_STEP)) + 1)
+			l.position = Vector3(0, 1.6 + LABEL_STEP * lift, 0)
 			p.add_child(l)
 			p.label = l
 			Sfx.play("gear_drop", -2.0)

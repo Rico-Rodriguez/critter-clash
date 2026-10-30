@@ -1132,7 +1132,7 @@ func _capture(args: PackedStringArray) -> void:
 				for i in 6:
 					await _save("film%d" % i)
 					await _wait(0.13)
-			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards", "perf", "biome":
+			"hunt", "levelup", "levelup_slow", "bank", "boss", "victory", "results", "resultslist", "death", "defeat", "hexer", "warden", "powers", "fire", "descent", "pact", "wild", "vfx", "collision", "busy", "superlock", "loot", "spikes", "exotic", "cast", "traits", "stages", "bossintro", "petfx", "bosspat", "bossphase", "hazards", "perf", "biome":
 				if shot in ["descent", "pact"]:
 					Game.data["mode"] = "descent"
 				elif shot == "wild":
@@ -1479,21 +1479,27 @@ func _capture(args: PackedStringArray) -> void:
 						if h.phase_t >= float(marks[n]):
 							await _save("bossintro_%d" % n)
 							n += 1
-				elif shot in ["boss", "victory", "results"]:
+				elif shot in ["boss", "victory", "results", "resultslist"]:
 					await _wait_sim(h, 4.0)
 					h.souls = h.souls_goal
 					await _wait_sim(h, 12.0 if shot == "boss" else 4.0)
 					if shot != "boss":
 						# Off autopilot first: the loot vacuum can end the win
 						# before the shot, and a bot hunt skips the results.
-						if shot == "results":
+						if shot in ["results", "resultslist"]:
 							h.bot = false
 						h.damage_foe(h.boss, 999999.0, h.hero, Vector3.ZERO, 0.0)
 						await _wait(2.5 if shot == "victory" else 5.0)
-						if shot == "results":
+						if shot in ["results", "resultslist"]:
 							h.bot = false
 							h._end(true)
 							await _wait(2.2)
+						if shot == "resultslist":
+							# Past the loot reveal to the list.
+							for n in get_tree().root.find_children("*", "Control", true, false):
+								if n.has_signal("finished") and n.has_method("_finish"):
+									n.call("_finish")
+							await _wait(1.6)
 				elif shot == "death" or shot == "defeat":
 					await _wait_sim(h, 5.0)
 					if shot == "defeat":

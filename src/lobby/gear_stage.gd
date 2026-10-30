@@ -11,7 +11,7 @@ const FRAME := {
 }
 ## The same for a piece shown alone (icons), framed to fill a square.
 const FRAME_ALONE := {
-	"helm": [Vector3(0, 2.05, 0), 1.1], "chest": [Vector3(0, 1.28, 0), 2.2], "legs": [Vector3(0, 0.42, 0), 1.45],
+	"helm": [Vector3(0, 2.12, 0), 1.45], "chest": [Vector3(0, 1.28, 0), 2.2], "legs": [Vector3(0, 0.42, 0), 1.45],
 }
 
 
