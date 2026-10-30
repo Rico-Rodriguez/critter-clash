@@ -24,3 +24,5 @@ assets/sidekicks/dragon_src_dragon_tex.png -filter -diff -merge binary
 assets/sidekicks/dragon_ash_*.png -filter -diff -merge binary
 assets/sidekicks/mawko_src.glb -filter -diff -merge binary
 assets/sidekicks/mawko_src_mawko_tex.png -filter -diff -merge binary
+assets/sidekicks/crow_src.glb -filter -diff -merge binary
+assets/sidekicks/crow_src_crow_tex.png -filter -diff -merge binary

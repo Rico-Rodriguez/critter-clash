@@ -133,9 +133,9 @@ const GRAFT := {
 	"hexling": {"head": {"bones": ["head_06", "jaw", "lowerteeth", "sight", "eye_", "beard", "mustache"], "pivot": "neck1"}},
 	"acolyte": {"head": {"bones": ["face"], "pivot": "neck"}},
 	"crow": {
-		"head": {"bones": ["head_05", "queue"], "pivot": "neck_04"},
-		"wings": {"bones": ["wingleft", "wingright", "clavicle", "upperarm", "forearm", "hand"], "pivot": "spine_03", "split": true},
-		"tail": {"bones": ["crowtail"], "pivot": "pelvis"},
+		"head": {"bones": ["head", "jaw"], "pivot": "neck_01"},
+		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
+		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
 	"mimic": {"head": {"meshes": ["polysurface63"], "pivot": ""}},
 	"bat": {
@@ -155,7 +155,7 @@ const MOUNT := {
 	"bonelet": {"wings": "spine4", "tail": "pelvis"},
 	"hexling": {"wings": "spine3", "tail": "hip"},
 	"acolyte": {"wings": "chest", "tail": "pelvis"},
-	"crow": {"wings": "spine_03", "tail": "pelvis"},
+	"crow": {"wings": "spine_01", "tail": "tail_01"},
 	"mimic": {"wings": "", "tail": ""},
 	"bat": {"wings": "chest", "tail": "hip"},
 	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},

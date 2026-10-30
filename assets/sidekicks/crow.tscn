@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/crow_src.glb" id="1_l61y6"]
 
-[node name="crow" type="Node3D" unique_id=1701598048]
+[node name="crow" type="Node3D" unique_id=1658408099]
 metadata/cull_aabbs = {
-"Sketchfab_model/f49d25f511314a49b13a692940e42945_fbx/Object_2/RootNode/SK_Crow/root/Object_6/Skeleton3D/Object_100": AABB(-111.941444, -83.171074, -58.226475, 223.91774, 169.25372, 137.06473)
+"Rig/Skeleton3D/Crow": AABB(-1.1389298, -0.8258834, -1.5232282, 2.2778597, 2.6554255, 2.9491248)
 }
-metadata/posed_aabb = AABB(-2.8373134, 0, -1.3662424, 5.674627, 1, 2.7324848)
+metadata/posed_aabb = AABB(-0.3043003, 0, -0.6522298, 0.6086006, 0.99999994, 1.3044596)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=593304176 instance=ExtResource("1_l61y6")]
-transform = Transform3D(0.05382228, 0, 0, 0, 0.05382228, 0, 0, 0, 0.05382228, -0.0009738124, 3.4726868, -1.0468276)
+[node name="crow_src" type="Node3D" parent="." unique_id=938057068 instance=ExtResource("1_l61y6")]
+transform = Transform3D(1.0366379, 0, 0, 0, 1.0366379, 0, 0, 0, 1.0366379, 0, -0.020215478, 0.050448712)

@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cofc8wp4lnycs"
-path="res://.godot/imported/crow_src_0.png-5eded56091ca05aaa59693e808683bc9.ctex"
+uid="uid://c6mqsm88lbjik"
+path="res://.godot/imported/crow_src_crow_tex.png-02381c0d283e902d954541415efc5399.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "3fef3a9eb9013e4b9c8102611a099a02"
+"md5": "8248d34d04dd6da589330f4c984d71a7"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/crow_src_0.png"
-dest_files=["res://.godot/imported/crow_src_0.png-5eded56091ca05aaa59693e808683bc9.ctex"]
+source_file="res://assets/sidekicks/crow_src_crow_tex.png"
+dest_files=["res://.godot/imported/crow_src_crow_tex.png-02381c0d283e902d954541415efc5399.ctex"]
 
 [params]
 

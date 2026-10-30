@@ -43,7 +43,7 @@ description and the uploader's other work before an App Store build".
 | "Imp" | Al (lightningocelot) | Cinder Imp |
 | "Monster frog" | Goofy goober bird | Bog Frog |
 | "Armored Wasp" | Rodrigo Bento | Ember Wasp |
-| "Crow" | Alexei Ostapenko | Storm Crow, crow critter |
+| "Crow" | Alexei Ostapenko | Crow critter (the Storm Crow pet is now made in Blender) |
 | "Treant - Week 2" | Batuhan13 | Thorn Sapling |
 | "Bat" | matisosanimation | Night Bat |
 | "Mimic_Chest" | Joseph Payeur | Gilded Mimic |

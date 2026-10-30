@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: the Storm Crow, made in Blender
+
+The third pet remade in the heroes' style. The Storm Crow is now an original Blender model
+(`tools/blender/pets/crow.py`): a big raven, blue-black with a storm-blue sheen, a band of pale
+blue across each wing and a yellow eye. It stands with its wings folded, spreads them to fly and
+has its own skeleton and five clips (look around, fly, peck, hit and a wing-spread caw). Bred pets
+borrow its head, wings and tail as before. The Sketchfab crow pet and its credit are gone; the crow
+on a stump in the hunts is a separate model and stays. A content change: ships over the air.
+
 ## Unreleased: the Grave Wisp, made in Blender
 
 The second pet remade in the heroes' style. The Grave Wisp is now an original Blender model

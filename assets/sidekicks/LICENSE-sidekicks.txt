@@ -4,8 +4,6 @@ Attribution (verified via the Sketchfab API, 2026-10-23):
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
   one draw per material (`tools/art/merge_skinned.py`), clips renamed or cut by time, scaled to size in
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`):
-  - Storm Crow — "Crow" by Alexei Ostapenko (alexanders823) —
-    https://sketchfab.com/3d-models/crow-d5a9b0df4da3493688b63ce42c8a83e2
   - Thorn Sapling — "Treant - Week 2" by Batuhan13 —
     https://sketchfab.com/3d-models/treant-week-2-aa60f5de1ed94b2e96e46ad08cde4d5a
   - Night Bat — "Bat" by matisosanimation —
