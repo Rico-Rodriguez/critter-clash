@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: the Grave Wisp, made in Blender
+
+The second pet remade in the heroes' style. The Grave Wisp is now an original Blender model
+(`tools/blender/pets/wisp.py`): a stone-skinned spirit fish that swims through the air, with a pale
+glowing belly, a toothed maw, a lantern lure over its brow, wide spirit fins and a tail that
+trails off into spirit flame. It has its own skeleton and five clips (drift, swim, bite, hit and a
+rising mend). Bred pets borrow its maw, fins and flame tail as before. The Sketchfab "Mawko" model
+and its credit are gone. A content change: ships over the air.
+
 ## Unreleased: the Ember Drake, made in Blender
 
 The first pet remade to match the heroes. The drake is now an original model built in Blender from

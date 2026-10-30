@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/mawko_src.glb" id="1_0wddm"]
 
-[node name="mawko" type="Node3D" unique_id=533227533]
+[node name="mawko" type="Node3D" unique_id=878009635]
 metadata/cull_aabbs = {
-"Sketchfab_model/8f37ce85af204ddcbc82c7d3b13c6ba7_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-14.529484, -12.2438965, -20.993706, 29.058968, 25.292042, 37.668915)
+"Rig/Skeleton3D/Wisp": AABB(-2.106486, -0.5449684, -2.4400878, 4.212972, 3.306187, 4.500107)
 }
-metadata/posed_aabb = AABB(-0.8709661, 0, -1.7188718, 1.7419322, 1, 3.4377437)
+metadata/posed_aabb = AABB(-1.1387666, 0, -1.3410331, 2.2775333, 1, 2.6820662)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2134551215 instance=ExtResource("1_0wddm")]
-transform = Transform3D(1.0457376, 0, 0, 0, 1.0457376, 0, 0, 0, 1.0457376, 0, 0.4207979, 0.42528442)
+[node name="mawko_src" type="Node3D" parent="." unique_id=166739721 instance=ExtResource("1_0wddm")]
+transform = Transform3D(1.4088602, 0, 0, 0, 1.4088602, 0, 0, 0, 1.4088602, 8.397461e-08, -1.0611933, 0.26773205)

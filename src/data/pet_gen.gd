@@ -125,9 +125,9 @@ const GRAFT := {
 		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
 	"wisp": {
-		"head": {"bones": ["mawko_rig", "jaw_"], "pivot": "neck_01"},
-		"wings": {"bones": ["fin1_", "fin2_"], "pivot": "spine2", "split": true},
-		"tail": {"bones": ["tail"], "pivot": "tail1"},
+		"head": {"bones": ["head", "jaw", "lure"], "pivot": "neck_01"},
+		"wings": {"bones": ["fin_"], "pivot": "spine_01", "split": true},
+		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
 	"bonelet": {"head": {"bones": ["head1", "head2"], "pivot": "neck1"}},
 	"hexling": {"head": {"bones": ["head_06", "jaw", "lowerteeth", "sight", "eye_", "beard", "mustache"], "pivot": "neck1"}},
@@ -151,7 +151,7 @@ const GRAFT := {
 ## (bone name fragments; "" = the body's bounds, for a model without a skeleton).
 const MOUNT := {
 	"drake": {"wings": "spine_01", "tail": "tail_01"},
-	"wisp": {"wings": "spine2", "tail": "tail1"},
+	"wisp": {"wings": "spine_01", "tail": "tail_01"},
 	"bonelet": {"wings": "spine4", "tail": "pelvis"},
 	"hexling": {"wings": "spine3", "tail": "hip"},
 	"acolyte": {"wings": "chest", "tail": "pelvis"},

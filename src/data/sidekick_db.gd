@@ -516,7 +516,7 @@ static func bred_def(breed: String, g: Dictionary) -> Dictionary:
 ## hit, special. A missing key falls back to a procedural move in
 ## hunt/sidekick.gd (lunge, hop-spin, recoil, bob), so a model never stalls.
 const CLIPS := {
-	"wisp": {"idle": "Idle_Loop", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"wisp": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"drake": {"idle": "Flying_Idle", "move": "Fast_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"bonelet": {"idle": "Idle_Loop", "move": "Walk_Loop", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"hexling": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},

@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dqojbijouteu6"
-path="res://.godot/imported/mawko_src_1.png-3235c7914c73da4ac21df94fe0683d73.ctex"
+uid="uid://crh2esq5vl684"
+path="res://.godot/imported/mawko_src_mawko_tex.png-8ce2e491f79cb08388aee24c31f46fe6.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "8199fa59614702ffd0074786468264ea"
+"md5": "ea19cd4ce613da64e8f3d259af4fdd70"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/mawko_src_1.png"
-dest_files=["res://.godot/imported/mawko_src_1.png-3235c7914c73da4ac21df94fe0683d73.ctex"]
+source_file="res://assets/sidekicks/mawko_src_mawko_tex.png"
+dest_files=["res://.godot/imported/mawko_src_mawko_tex.png-8ce2e491f79cb08388aee24c31f46fe6.ctex"]
 
 [params]
 

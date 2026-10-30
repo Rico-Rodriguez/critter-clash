@@ -112,9 +112,10 @@ skeleton, clips and one flat-colour texture, so breeding parts and skins keep wo
 a Sketchfab model and drops that model's credit. One pet per PR:
 
 1. [x] **Ember Drake** (and the Ash Wyrm textures).
-2. [ ] Grave Wisp, Bonelet, Hexling, Storm Crow, Plague Acolyte, Gilded Mimic, Night Bat,
+2. [x] **Grave Wisp.**
+3. [ ] Bonelet, Hexling, Storm Crow, Plague Acolyte, Gilded Mimic, Night Bat,
    Barrow Squire, Shade, Thorn Sapling.
-3. [ ] Hero weapons and armour pieces.
+4. [ ] Hero weapons and armour pieces.
 
 ## Now: needs Rico
 
