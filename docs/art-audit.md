@@ -44,7 +44,6 @@ description and the uploader's other work before an App Store build".
 | "Imp" | Al (lightningocelot) | Cinder Imp |
 | "Monster frog" | Goofy goober bird | Bog Frog |
 | "Armored Wasp" | Rodrigo Bento | Ember Wasp |
-| "Animated Dragon Three Motion Loops" | LasquetiSpice | Ember Drake / Ash Wyrm |
 | "Crow" | Alexei Ostapenko | Storm Crow, crow critter |
 | "Treant - Week 2" | Batuhan13 | Thorn Sapling |
 | "Bat" | matisosanimation | Night Bat |

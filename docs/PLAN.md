@@ -103,6 +103,19 @@ labels in two or three words; tabs with icons only, the open one named. One PR e
 5. [x] **Pets, Shop and Victory** to their mockups.
 6. [x] **Every other sheet** (quests, season, road, expedition, settings, clan) swept to the rules.
 
+## Models made in Blender (Rico, 2026-10-30)
+
+Rico approved the plan on the Iron & Ember samples page: the heroes keep their KayKit bodies, and
+weapons, armour and props are modelled in Blender to match. Pets get the same treatment at real
+proportions (not chibi): each one is built from code in `tools/blender/pets/`, with its own
+skeleton, clips and one flat-colour texture, so breeding parts and skins keep working. It replaces
+a Sketchfab model and drops that model's credit. One pet per PR:
+
+1. [x] **Ember Drake** (and the Ash Wyrm textures).
+2. [ ] Grave Wisp, Bonelet, Hexling, Storm Crow, Plague Acolyte, Gilded Mimic, Night Bat,
+   Barrow Squire, Shade, Thorn Sapling.
+3. [ ] Hero weapons and armour pieces.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

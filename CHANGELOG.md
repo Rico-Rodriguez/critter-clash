@@ -9,6 +9,16 @@ version is 7.
 
 ---
 
+## Unreleased: the Ember Drake, made in Blender
+
+The first pet remade to match the heroes. The drake is now an original model built in Blender from
+code (`tools/blender/pets/drake.py`): a young dragon at real proportions with a long neck and tail,
+wide wings and a plated belly, in flat colours like the hero kit. It has its own skeleton and five
+clips (hover, fast flight, bite, hit and a rearing fire breath). The Ash Wyrm keeps its grey-and-ember
+look, now painted for the new model, and its embers glow only in the cracks (the glow used to be
+added over the whole body). Bred pets still borrow the drake's head, wings and tail. The Sketchfab
+dragon and its credit are gone. A content change: ships over the air.
+
 ## Unreleased: Iron & Ember, every other sheet
 
 Part 6 of the overhaul. Body text moves to Barlow Semi Condensed, which sets about as wide as the

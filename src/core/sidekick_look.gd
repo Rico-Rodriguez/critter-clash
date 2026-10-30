@@ -118,7 +118,7 @@ static func _crest(root: Node3D, col: Color, top: float) -> Node3D:
 
 
 ## The Ash Wyrm: the drake's own textures baked to ash grey, with embers
-## glowing in the crevices (both baked by tools/art/ash_textures.py, so no
+## glowing in the crevices (both painted by tools/blender/pets/drake.py, so no
 ## colour multiply and the detail stays crisp).
 ## The grown-up form reads at a glance: the coat drifts toward the pet's own
 ## colour and a faint glow of it comes up through the surface. Materials are
@@ -161,6 +161,8 @@ static func _ash(model: Node3D) -> void:
 			m.emission = Color.WHITE
 			m.emission_energy_multiplier = 1.0
 			m.emission_texture = ASH_EMBERS
+			# Add would put the white on top of the map and wash the whole body out.
+			m.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
 			# One-surface meshes take it as material_override: a surface override on
 			# the cached scene's mesh logs "Parameter material is null" when freed
 			# under the headless renderer.

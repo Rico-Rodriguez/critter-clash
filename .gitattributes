@@ -18,3 +18,7 @@
 assets/fonts/Barlow*.ttf -filter -diff -merge binary
 assets/fonts/CormorantSC-Bold.ttf -filter -diff -merge binary
 assets/fonts/GravelightCaps-Bold.ttf -filter -diff -merge binary
+# Pets made in Blender (tools/blender/pets): small, and kept out of LFS for the same reason.
+assets/sidekicks/dragon_src.glb -filter -diff -merge binary
+assets/sidekicks/dragon_src_dragon_tex.png -filter -diff -merge binary
+assets/sidekicks/dragon_ash_*.png -filter -diff -merge binary

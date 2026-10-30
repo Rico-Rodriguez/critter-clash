@@ -120,9 +120,9 @@ const GRAFT_YAW := {"bat": -90.0}
 ## tools/dev/graft_sheet.sh (every part, extracted, one PNG per species).
 const GRAFT := {
 	"drake": {
-		"head": {"bones": ["head.", "jaw_", "tongu", "nose", "_eye", "lid", "brow"], "pivot": "neck_11"},
-		"wings": {"bones": ["clavicle", "_shoulder.", "forearm", "_hand", "finger", "wingflap"], "pivot": "spine_06", "split": true},
-		"tail": {"bones": ["tail_", "tailspike", "tailbasespike"], "pivot": "tail_01"},
+		"head": {"bones": ["head", "jaw"], "pivot": "neck_02"},
+		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
+		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
 	"wisp": {
 		"head": {"bones": ["mawko_rig", "jaw_"], "pivot": "neck_01"},
@@ -150,7 +150,7 @@ const GRAFT := {
 ## Where a receiver hangs wings and a tail that its own model has no slot for
 ## (bone name fragments; "" = the body's bounds, for a model without a skeleton).
 const MOUNT := {
-	"drake": {"wings": "spine_06", "tail": "tail_01"},
+	"drake": {"wings": "spine_01", "tail": "tail_01"},
 	"wisp": {"wings": "spine2", "tail": "tail1"},
 	"bonelet": {"wings": "spine4", "tail": "pelvis"},
 	"hexling": {"wings": "spine3", "tail": "hip"},

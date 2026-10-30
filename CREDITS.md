@@ -165,15 +165,15 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 ## Sidekicks
 
+- Ember Drake / Ash Wyrm: original, made for this project in Blender from code
+  (`tools/blender/pets/drake.py`): model, skeleton, clips and textures.
+
 - Sidekick models, Creative Commons Attribution 4.0
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
   one draw per material (`tools/art/merge_skinned.py`), clips renamed or cut by time, scaled to size in
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`). The Attack, Hit, Special, Run, Hover,
   Idle_Loop and Walk_Loop clips are original keyframes made for this project on the authors' own rigs
   (`tools/art/sidekick_clips.py`); the shipped clips are kept as they were:
-  - Ember Drake / Ash Wyrm — "Animated Dragon Three Motion Loops" by LasquetiSpice —
-    https://sketchfab.com/3d-models/animated-dragon-three-motion-loops-eca98cf6cd084c1596cecf716e110c29
-    (decimated to 7.8k tris for mobile; Ash Wyrm textures baked from its base colour)
   - Storm Crow — "Crow" by Alexei Ostapenko (alexanders823) —
     https://sketchfab.com/3d-models/crow-d5a9b0df4da3493688b63ce42c8a83e2
   - Thorn Sapling — "Treant - Week 2" by Batuhan13 —
