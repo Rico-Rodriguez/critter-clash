@@ -180,7 +180,7 @@ static func _ash(model: Node3D) -> void:
 ## edges. One copy per source material, shared by every instance.
 ## Kept emission: the bat's eyes, the mimic's gold and the treant's sap are
 ## small emission maps painted by their artists (no white wash).
-const KEEP_EMISSION := ["bat", "mimic", "treant"]
+const KEEP_EMISSION := ["mimic", "treant"]
 static var _lit_cache := {}
 static func _lit_opaque(model: Node3D, keep_emission: bool) -> void:
 	for node in model.find_children("*", "MeshInstance3D", true, false):

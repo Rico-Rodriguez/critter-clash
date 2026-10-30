@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: the Night Bat, made in Blender
+
+The fifth pet remade in the heroes' style. The Night Bat is now an original Blender model
+(`tools/blender/pets/bat.py`): a big vampire bat with dark fur and a rusty chest, tall pink-lined
+ears, red eyes and two small fangs. Its blood-red wing membranes stretch over four long finger
+bones. It has its own skeleton and five clips: hovering on beating wings, flying, a diving bite,
+a hit and a screeching wind-up for Blood Dive. Bred pets take its ears and wings as before. The
+Sketchfab bat and its credit are gone. A content change: ships over the air.
+
 ## Unreleased: bred pets look like one animal
 
 A bred pet no longer wears pieces cut out of its other parent. It keeps its body parent's whole

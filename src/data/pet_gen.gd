@@ -112,7 +112,7 @@ const PART_NAMES := {
 }
 
 ## Which turn (degrees about Y) makes a species' model face +Z; 0 when it does.
-const GRAFT_YAW := {"bat": -90.0}
+const GRAFT_YAW := {}
 
 ## Which of a donor's triangles are its head, wings or tail: `bones` (lower-case
 ## name fragments; a triangle belongs when most of its weight sits on them,
@@ -143,8 +143,8 @@ const GRAFT := {
 		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
 	"bat": {
-		"head": {"bones": ["haed", "ear", "eyes"], "meshes": ["eye_"], "pivot": "neck"},
-		"wings": {"bones": ["clavicle", "elbow", "hand", "finger"], "pivot": "chest", "split": true},
+		"head": {"bones": ["head", "jaw", "ear_"], "pivot": "neck_01"},
+		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
 	},
 	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
 	"shade": {"head": {"bones": ["head_08", "bone.019", "hair"], "pivot": "neck_07"}},
@@ -161,7 +161,7 @@ const REGION_COLOR := {
 	"wisp": {"head": "8e9096", "wings": "5cc9bb", "tail": "8e9096"},
 	"crow": {"head": "1e2331", "wings": "121520", "tail": "1e2331"},
 	"mimic": {"head": "7c4b2a", "tail": "e2aa3c"},
-	"bat": {"head": "362926", "wings": "332826"},
+	"bat": {"head": "4a3036", "wings": "6e2a36"},
 	"bonelet": {"head": "89775a"},
 	"hexling": {"head": "3a2f4a"},
 	"acolyte": {"head": "4a4937"},
@@ -180,7 +180,7 @@ const MOUNT := {
 	"acolyte": {"wings": "chest", "tail": "pelvis"},
 	"crow": {"wings": "spine_01", "tail": "tail_01"},
 	"mimic": {"wings": "hips", "tail": "tail_01"},
-	"bat": {"wings": "chest", "tail": "hip"},
+	"bat": {"wings": "spine_01", "tail": "tail_01"},
 	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},
 	"shade": {"wings": "spine2", "tail": "spine4"},
 	"sapling": {"wings": "root.002", "tail": "root_01"},

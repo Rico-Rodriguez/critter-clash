@@ -45,7 +45,6 @@ description and the uploader's other work before an App Store build".
 | "Armored Wasp" | Rodrigo Bento | Ember Wasp |
 | "Crow" | Alexei Ostapenko | Crow critter (the Storm Crow pet is now made in Blender) |
 | "Treant - Week 2" | Batuhan13 | Thorn Sapling |
-| "Bat" | matisosanimation | Night Bat |
 | "Skeleton animated" | danielmclogan | Bonelet |
 | "Lich" | Spinnee | Hexling, Pyre Shaman |
 | "Plague Doctor" | BeardenInc | Acolyte |

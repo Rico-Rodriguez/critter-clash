@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dudffw1hw14e2"
-path="res://.godot/imported/bat_src_0.jpg-f37d406f59b12d222d4c98b6b185a81e.ctex"
+uid="uid://c7jmjiapuq1ot"
+path="res://.godot/imported/bat_src_bat_tex.png-10332d6b48714d481b64213780590392.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "5742cca1dc46672566cce49f253a775d"
+"md5": "0f81dc4a069673c2679d299ca0fdcf4e"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/bat_src_0.jpg"
-dest_files=["res://.godot/imported/bat_src_0.jpg-f37d406f59b12d222d4c98b6b185a81e.ctex"]
+source_file="res://assets/sidekicks/bat_src_bat_tex.png"
+dest_files=["res://.godot/imported/bat_src_bat_tex.png-10332d6b48714d481b64213780590392.ctex"]
 
 [params]
 
