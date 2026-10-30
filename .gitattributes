@@ -18,3 +18,4 @@
 assets/fonts/Barlow*.ttf -filter -diff -merge binary
 assets/fonts/CormorantSC-Bold.ttf -filter -diff -merge binary
 assets/fonts/GravelightCaps-Bold.ttf -filter -diff -merge binary
+assets/samples/*.glb -filter -diff -merge binary
