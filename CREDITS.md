@@ -165,8 +165,9 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 ## Sidekicks
 
-- Ember Drake / Ash Wyrm, Grave Wisp and Storm Crow: original, made for this project in Blender
-  from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`): models, skeletons, clips and textures.
+- Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow and Gilded Mimic: original, made for this project
+  in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`, `mimic.py`): models,
+  skeletons, clips and textures.
 
 - Sidekick models, Creative Commons Attribution 4.0
   (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
@@ -178,8 +179,6 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
     https://sketchfab.com/3d-models/treant-week-2-aa60f5de1ed94b2e96e46ad08cde4d5a
   - Night Bat — "Bat" by matisosanimation —
     https://sketchfab.com/3d-models/bat-28af38de4d2c401d809148c7f63a73f9
-  - Gilded Mimic — "Mimic_Chest" by Joseph Payeur (joseph.payeur) —
-    https://sketchfab.com/3d-models/mimic-chest-a3489678d43a44a194f10f7b2cb929ce
   - Bonelet — "Skeleton animated" by danielmclogan —
     https://sketchfab.com/3d-models/skeleton-animated-9210377c7a514cf6b48a31b9d3991ff3
   - Hexling — "Lich" by Spinnee —

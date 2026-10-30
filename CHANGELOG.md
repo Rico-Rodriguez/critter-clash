@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: the Gilded Mimic, made in Blender
+
+The fourth pet remade in the heroes' style. The Gilded Mimic is now an original Blender model
+(`tools/blender/pets/mimic.py`): an iron-bound treasure chest with gold corners on four crab legs,
+its lid a jaw of fangs over a lolling tongue and one gold eye, a gold chain dragging behind. It has
+its own skeleton and five clips (breathing lid, scuttle, bite, hit and a wide-open gloat). Bred
+pets borrow its fanged lid and, new, its gold chain tail. The Sketchfab mimic and its credit are
+gone. A content change: ships over the air.
+
 ## Unreleased: the Storm Crow, made in Blender
 
 The third pet remade in the heroes' style. The Storm Crow is now an original Blender model

@@ -114,9 +114,10 @@ a Sketchfab model and drops that model's credit. One pet per PR:
 1. [x] **Ember Drake** (and the Ash Wyrm textures).
 2. [x] **Grave Wisp.**
 3. [x] **Storm Crow.**
-4. [ ] Bonelet, Hexling, Plague Acolyte, Gilded Mimic, Night Bat,
+4. [x] **Gilded Mimic.**
+5. [ ] Bonelet, Hexling, Plague Acolyte, Night Bat,
    Barrow Squire, Shade, Thorn Sapling.
-5. [ ] Hero weapons and armour pieces.
+6. [ ] Hero weapons and armour pieces.
 
 ## Now: needs Rico
 

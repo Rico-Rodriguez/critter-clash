@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dyy67pak18o7i"
-path="res://.godot/imported/mimic_src_0.png-525b0e1be2341a6c4572022b83792994.ctex"
+uid="uid://dtqjqvt5w27be"
+path="res://.godot/imported/mimic_src_mimic_tex.png-988d310e140ff717e2fb37b4e3541e51.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "308f18486da1f655c7291b5090da0a06"
+"md5": "6e7b3ecc521c171f94608bd33960895d"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/mimic_src_0.png"
-dest_files=["res://.godot/imported/mimic_src_0.png-525b0e1be2341a6c4572022b83792994.ctex"]
+source_file="res://assets/sidekicks/mimic_src_mimic_tex.png"
+dest_files=["res://.godot/imported/mimic_src_mimic_tex.png-988d310e140ff717e2fb37b4e3541e51.ctex"]
 
 [params]
 

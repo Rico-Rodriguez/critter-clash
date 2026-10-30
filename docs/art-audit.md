@@ -46,7 +46,6 @@ description and the uploader's other work before an App Store build".
 | "Crow" | Alexei Ostapenko | Crow critter (the Storm Crow pet is now made in Blender) |
 | "Treant - Week 2" | Batuhan13 | Thorn Sapling |
 | "Bat" | matisosanimation | Night Bat |
-| "Mimic_Chest" | Joseph Payeur | Gilded Mimic |
 | "Skeleton animated" | danielmclogan | Bonelet |
 | "Lich" | Spinnee | Hexling, Pyre Shaman |
 | "Plague Doctor" | BeardenInc | Acolyte |
