@@ -76,7 +76,7 @@ static func _render(host: Node, id: String) -> Texture2D:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0.55, 1.78, 2.6), Vector3(0, 1.5, 0), Vector3.UP)
+	cam.look_at_from_position(Vector3(0.55, 1.92, 2.6), Vector3(0, 1.64, 0), Vector3.UP)
 	host.add_child(vp)
 	for i in 4:
 		await RenderingServer.frame_post_draw

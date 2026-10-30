@@ -299,7 +299,7 @@ func _build_stage(col: Container) -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	_vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0, 1.3, 4.7), Vector3(0, 0.88, 0), Vector3.UP)
+	cam.look_at_from_position(Vector3(0, 1.42, 5.0), Vector3(0, 0.98, 0), Vector3.UP)
 	_hint = Ui.label("Drag to turn", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -30.0
