@@ -9,6 +9,18 @@ version is 7.
 
 ---
 
+## Unreleased: the Hexbound Shade, made in Blender
+
+The ninth pet remade in the heroes' style. The Hexbound Shade is now an original Blender model
+(`tools/blender/pets/shade.py`): a tall, legless wraith in a dusk-violet robe that thins into a
+ragged tail of shadow, long sleeves over pale clawed hands, and an open cowl with nothing inside
+but two pale eyes. The Hexer Queen's silver thread is bound round its waist, and her spindle
+dangles at its side. It drifts in idle, leans into a glide to move, rakes a claw for Shadow Strike,
+and rises with its arms spread for its special. Bred, its hood, sleeves and hem take the other
+parent's colours, and it now lends its own: ragged shadow-cloth winglets and a tongue of shadow for
+a tail join its hood-veil trait. The Sketchfab wraith and its credit are gone. A content change: ships over the
+air.
+
 ## Unreleased: the Hexling, on the heroes' rig
 
 The eighth pet remade in the heroes' style. The Hexling is now the heroes' KayKit hooded figure

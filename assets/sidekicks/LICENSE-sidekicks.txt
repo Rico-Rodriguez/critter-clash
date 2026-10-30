@@ -8,5 +8,3 @@ Attribution (verified via the Sketchfab API, 2026-10-23):
     https://sketchfab.com/3d-models/plague-doctor-41f7a1dfd6984135b876f334908e3ca4
   - Barrow Squire — "Skelet_warrior" by EvgeshQa (uchaikineugene) —
     https://sketchfab.com/3d-models/skelet-warrior-1337edb8b567486aa22f15b519e60c4d
-  - Hexbound Shade — "Wraith" by Mateus Schwaab (Mehrus) —
-    https://sketchfab.com/3d-models/wraith-37fb72ef0c0642f68c968589fbda60d4

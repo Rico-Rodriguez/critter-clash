@@ -206,6 +206,17 @@ for s in (1, -1):
     parts.append(cone(f"sh{s}", (0.16 * s, 0.0, 0.0), (0.42 * s, 0.24, 0.42), 0.08, SHADE, n=6, bend=(0.12 * s, -0.08, 0.04)))
     parts.append(cone(f"sh2{s}", (0.2 * s, 0.04, 0.12), (0.36 * s, 0.22, 0.34), 0.02, SHADE_G, n=4, bend=(0.1 * s, -0.06, 0.04)))
 join("shade_head", parts)
+# Ragged shadow-cloth winglets with a glowing hem, and a tongue of shadow.
+parts = []
+for s in (1, -1):
+    parts.append(sheet(f"shw{s}", [(0.1 * s, 0.0, 0.0), (0.44 * s, 0.1, 0.24), (0.5 * s, 0.24, 0.04), (0.42 * s, 0.3, -0.12),
+        (0.34 * s, 0.22, -0.04), (0.26 * s, 0.3, -0.16), (0.14 * s, 0.16, -0.06)], SHADE, 0.02))
+    parts.append(cone(f"shwg{s}", (0.44 * s, 0.1, 0.24), (0.5 * s, 0.24, 0.04), 0.02, SHADE_G, n=4))
+join("shade_wings", parts)
+join("shade_tail", [
+    sheet("sht", [(0, 0.0, 0.06), (0, 0.18, 0.14), (0, 0.3, 0.04), (0, 0.46, 0.12), (0, 0.42, -0.04), (0, 0.24, -0.08), (0, 0.0, -0.06)], SHADE, 0.03),
+    sheet("shtg", [(0.018, 0.16, 0.06), (0.018, 0.3, 0.02), (0.018, 0.4, 0.06), (0.018, 0.3, -0.02)], SHADE_G, 0.01),
+])
 
 BARK = mat("t_bark", "6b4a2e")
 LEAF = mat("t_leaf", "6aa83a")

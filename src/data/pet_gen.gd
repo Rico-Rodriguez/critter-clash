@@ -148,7 +148,11 @@ const GRAFT := {
 		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
 	},
 	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
-	"shade": {"head": {"bones": ["head_08", "bone.019", "hair"], "pivot": "neck_07"}},
+	"shade": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "spine_01", "split": true},
+		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
+	},
 	"sapling": {"head": {"bones": ["head", "jaw", "crown"], "own_colour": ["crown"], "pivot": "spine_01"}},
 }
 
@@ -167,7 +171,7 @@ const REGION_COLOR := {
 	"hexling": {"head": "3a2f4a"},
 	"acolyte": {"head": "4a4937"},
 	"barrow_squire": {"head": "cdaf5a"},
-	"shade": {"head": "2a2438"},
+	"shade": {"head": "3b3152", "wings": "3b3152", "tail": "3b3152"},
 	"sapling": {"head": "6b4a2e"},
 }
 
@@ -183,7 +187,7 @@ const MOUNT := {
 	"mimic": {"wings": "hips", "tail": "tail_01"},
 	"bat": {"wings": "spine_01", "tail": "tail_01"},
 	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},
-	"shade": {"wings": "spine2", "tail": "spine4"},
+	"shade": {"wings": "spine_01", "tail": "tail_01"},
 	"sapling": {"wings": "spine_01", "tail": "hips"},
 }
 
