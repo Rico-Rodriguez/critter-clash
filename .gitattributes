@@ -31,3 +31,5 @@ assets/sidekicks/mimic_src_mimic_tex.png -filter -diff -merge binary
 assets/sidekicks/pet_traits.glb -filter -diff -merge binary
 assets/sidekicks/bat_src.glb -filter -diff -merge binary
 assets/sidekicks/bat_src_bat_tex.png -filter -diff -merge binary
+assets/sidekicks/treant_src.glb -filter -diff -merge binary
+assets/sidekicks/treant_src_treant_tex.png -filter -diff -merge binary

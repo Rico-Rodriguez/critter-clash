@@ -2,13 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/treant_src.glb" id="1_ck07u"]
 
-[node name="treant" type="Node3D" unique_id=1554528928]
+[node name="treant" type="Node3D" unique_id=784294110]
 metadata/cull_aabbs = {
-"Sketchfab_model/300ebd3ce7d4496884f5e673d7527578_fbx/Object_2/RootNode/Armature/Object_6/Skeleton3D/Object_10": AABB(-6.248951, -5.7036476, -1.2575414, 11.384773, 12.103798, 12.384148),
-"Sketchfab_model/300ebd3ce7d4496884f5e673d7527578_fbx/Object_2/RootNode/Armature/Object_6/Skeleton3D/Object_11": AABB(-7.3640804, -4.20487, -1.8577633, 8.786968, 8.744366, 11.182781),
-"Sketchfab_model/300ebd3ce7d4496884f5e673d7527578_fbx/Object_2/RootNode/Armature/Object_6/Skeleton3D/Object_9": AABB(-7.5270543, -7.1519628, -4.7091374, 14.577638, 14.218455, 15.83957)
+"Rig/Skeleton3D/Sapling": AABB(-1.2027271, -0.81234854, -1.1723955, 2.4069784, 2.9434037, 2.2521515)
 }
-metadata/posed_aabb = AABB(-0.45091778, 0, -0.34376964, 0.90183556, 1, 0.6875393)
+metadata/posed_aabb = AABB(-0.29472655, 0, -0.23547907, 0.5894531, 1, 0.47095814)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2055979928 instance=ExtResource("1_ck07u")]
-transform = Transform3D(0.13682637, 0, 0, 0, 0.13682637, 0, 0, 0, 0.13682637, 0.13345456, -0.0029082736, 0.012435029)
+[node name="treant_src" type="Node3D" parent="." unique_id=541061596 instance=ExtResource("1_ck07u")]
+transform = Transform3D(0.76533836, 0, 0, 0, 0.76533836, 0, 0, 0, 0.76533836, -0.00058324536, -0.0046283705, 0.03545033)

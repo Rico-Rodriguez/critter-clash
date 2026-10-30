@@ -9,6 +9,16 @@ version is 7.
 
 ---
 
+## Unreleased: the Thorn Sapling, made in Blender
+
+The sixth pet remade in the heroes' style. The Thorn Sapling is now an original Blender model
+(`tools/blender/pets/sapling.py`): a young treant with a ridged bark trunk, a face of two
+green-lit hollows under a heavy brow, a big crown of leaves with pink blossoms, branch arms with
+twig fingers, thorns, and two root legs. It has its own skeleton and five clips: a swaying idle, a
+rooted walk, a branch lash, a hit and the arms-up stomp of Rootsnare. When bred, its face takes
+the other parent's colours but its leaves stay green. The Sketchfab treant and its credit are
+gone. A content change: ships over the air.
+
 ## Unreleased: the Night Bat, made in Blender
 
 The fifth pet remade in the heroes' style. The Night Bat is now an original Blender model

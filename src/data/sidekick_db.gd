@@ -526,7 +526,7 @@ const CLIPS := {
 	"bat": {"idle": "Hover", "move": "Bat_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Punch", "hit": "Hit", "special": "Special"},
 	"shade": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
-	"sapling": {"idle": "Idle", "move": "Walk_Loop", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"sapling": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
 }
 ## Abilities shown with the "special" animation (bigger, area or support
 ## moves); the rest use "attack".

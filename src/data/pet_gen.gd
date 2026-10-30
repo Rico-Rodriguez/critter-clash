@@ -117,7 +117,8 @@ const GRAFT_YAW := {}
 ## Which of a donor's triangles are its head, wings or tail: `bones` (lower-case
 ## name fragments; a triangle belongs when most of its weight sits on them,
 ## minus `not`) or `meshes` (name fragments of rigid meshes), `pivot` the bone
-## the part hangs from, `split` makes a left and a right piece. Reviewed with
+## the part hangs from, `split` makes a left and a right piece, `own_colour` bones
+## keep their colours when a child inherits the part (core/pet_graft.gd regions). Reviewed with
 ## tools/dev/graft_sheet.sh (every part, extracted, one PNG per species).
 const GRAFT := {
 	"drake": {
@@ -148,7 +149,7 @@ const GRAFT := {
 	},
 	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
 	"shade": {"head": {"bones": ["head_08", "bone.019", "hair"], "pivot": "neck_07"}},
-	"sapling": {"head": {"bones": ["head_04", "jaw", "brow"], "pivot": "root.002"}},
+	"sapling": {"head": {"bones": ["head", "jaw", "crown"], "own_colour": ["crown"], "pivot": "spine_01"}},
 }
 
 ## Each part's own colour (sRGB hex), for a bred pet whose body inherited it:
@@ -167,7 +168,7 @@ const REGION_COLOR := {
 	"acolyte": {"head": "4a4937"},
 	"barrow_squire": {"head": "cdaf5a"},
 	"shade": {"head": "2a2438"},
-	"sapling": {"head": "643a10"},
+	"sapling": {"head": "6b4a2e"},
 }
 
 ## Where a receiver hangs wings and a tail that its own model has no slot for
@@ -183,7 +184,7 @@ const MOUNT := {
 	"bat": {"wings": "spine_01", "tail": "tail_01"},
 	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},
 	"shade": {"wings": "spine2", "tail": "spine4"},
-	"sapling": {"wings": "root.002", "tail": "root_01"},
+	"sapling": {"wings": "spine_01", "tail": "hips"},
 }
 
 ## True when `donor` has a real `slot` part to lend (a GRAFT entry).

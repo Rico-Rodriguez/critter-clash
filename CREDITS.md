@@ -165,9 +165,9 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 ## Sidekicks
 
-- Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic and Night Bat: original, made for this
-  project in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`, `mimic.py`,
-  `bat.py`): models,
+- Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic, Night Bat and Thorn Sapling: original,
+  made for this project in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`,
+  `mimic.py`, `bat.py`, `sapling.py`): models,
   skeletons, clips and textures. The traits bred pets wear (horns, crests, lures, crowns...) are
   made the same way (`tools/blender/pets/traits.py`).
 
@@ -177,8 +177,6 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
   `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`). The Attack, Hit, Special, Run, Hover,
   Idle_Loop and Walk_Loop clips are original keyframes made for this project on the authors' own rigs
   (`tools/art/sidekick_clips.py`); the shipped clips are kept as they were:
-  - Thorn Sapling — "Treant - Week 2" by Batuhan13 —
-    https://sketchfab.com/3d-models/treant-week-2-aa60f5de1ed94b2e96e46ad08cde4d5a
   - Bonelet — "Skeleton animated" by danielmclogan —
     https://sketchfab.com/3d-models/skeleton-animated-9210377c7a514cf6b48a31b9d3991ff3
   - Hexling — "Lich" by Spinnee —

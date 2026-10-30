@@ -119,8 +119,10 @@ a Sketchfab model and drops that model's credit. One pet per PR:
      a hybrid keeps its body parent's whole model; an inherited head, wings or tail takes the
      other parent's colours and wears a small trait of theirs. Genes, stats and card text unchanged.
 5. [x] **Night Bat.**
-6. [ ] Bonelet, Hexling, Plague Acolyte, Barrow Squire, Shade, Thorn Sapling.
-7. [ ] Hero weapons and armour pieces.
+6. [x] **Thorn Sapling.**
+7. [ ] Bonelet, Hexling, Plague Acolyte, Barrow Squire, Shade (on the heroes' KayKit rig, adult
+   build, with Blender-made gear).
+8. [ ] Hero weapons and armour pieces.
 
 ## Now: needs Rico
 
