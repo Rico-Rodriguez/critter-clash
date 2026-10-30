@@ -4,6 +4,7 @@ extends Control
 ## `again`: straight into another hunt with the same setup.
 const PropIcons := preload("res://src/ui/prop_icons.gd")
 const ItemIcons := preload("res://src/ui/item_icons.gd")
+const LootReveal := preload("res://src/ui/loot_reveal.gd")
 const STORY_DB := preload("res://src/data/story_db.gd")
 const SDB_EGGS := preload("res://src/data/sidekick_db.gd")
 
@@ -127,6 +128,22 @@ func open(r: Dictionary) -> void:
 	%Continue.disabled = true
 	%Again.disabled = true
 	_fit_panel()
+	# A won hunt shows its gear one piece at a time, best last, before the list.
+	var shown: Array = LootReveal.pick(items) if win else []
+	if shown.is_empty():
+		_show_panel()
+		return
+	%Panel.modulate.a = 0.0
+	%Title.modulate.a = 0.0
+	var rv: Control = LootReveal.new()
+	rv.setup(shown, str(r["hero"]))
+	rv.finished.connect(_show_panel)
+	add_child(rv)
+
+
+func _show_panel() -> void:
+	%Panel.modulate.a = 1.0
+	%Title.modulate.a = 1.0
 	Ui.pop_in(%Panel, 0.0, 0.9)
 	Ui.pop_in(%Title, 0.15, 1.4)
 	_run_counts()
@@ -298,7 +315,7 @@ func _loot_row(it: Dictionary, hero_id: String, played := "") -> Control:
 		cp.add_theme_color_override("font_color", Color(0.55, 0.75, 1.0))
 		row.add_child(cp)
 	elif is_gear:
-		var up := Ui.label("▲" if hero_id == played else "▲ %s" % DB.HEROES[hero_id]["name"], "Value")
+		var up := Ui.label("▲" if hero_id == played else "▲ %s" % DB.HEROES[hero_id]["name"], "Value" if hero_id == played else "Small")
 		up.add_theme_color_override("font_color", Color(0.4, 1.0, 0.5))
 		row.add_child(up)
 		var eq := Button.new()

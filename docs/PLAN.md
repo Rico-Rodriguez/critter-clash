@@ -82,7 +82,7 @@ Rico asked for the full pass, all four parts. One PR each:
    its own pieces (capes, pauldrons, a helm) instead of only recoloring.
 2. [x] **Stages:** Pets, the hero sheet and the shop built around one big lit subject, three
    numbers and one button; gear shown as rarity-lit renders, not silhouettes.
-3. [ ] **Moments:** the boss kill and the loot get a close camera, hit-stop and a one-at-a-time
+3. [x] **Moments:** the boss kill and the loot get a close camera, hit-stop and a one-at-a-time
    reveal instead of a list.
 4. [ ] **Focus:** red dots only for something you can do now, camp buttons that open over the first
    hunts, pet extras behind one More.

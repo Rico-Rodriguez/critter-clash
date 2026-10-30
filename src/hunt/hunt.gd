@@ -366,10 +366,15 @@ func _frame_camera() -> void:
 				cam.focus_override = null
 		"victory":
 			cam.pitch_shift = 0.0
-			# First the fall, close on the boss, then back to the hero and the loot.
-			if phase_t < 0.6 and boss:
-				cam.zoom_target = 0.75
+			# First the fall, close and low on the boss; then the hoard as it
+			# fountains out and lands; then back to the hero as it flies in.
+			if phase_t < 1.1 and boss:
+				cam.zoom_target = 0.62
+				cam.pitch_shift = -8.0
 				cam.focus_override = boss.position
+			elif phase_t < 1.9 and boss:
+				cam.zoom_target = 0.78
+				cam.focus_override = boss.position.lerp(hero.position, 0.35)
 			else:
 				cam.zoom_target = 0.85
 				cam.focus_override = null
