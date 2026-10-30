@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: Iron & Ember, hunt HUD
+
+Part 3 of the overhaul. The hunt camera sits closer (16.5 m instead of 19.5; Wide is about the old
+view). Run XP is a thin gold line along the top edge instead of a ring round the medal. Elites no
+longer carry two lines of text over their heads: a small chevron in their affix colour marks them,
+and one plate under the top bar names the nearest elite with its affixes and health. The pet's
+read-out is its cooldown ring with the seconds left, without the ability name and kill count.
+A content change: ships over the air.
+
 ## Unreleased: Iron & Ember, camp
 
 Part 2 of the overhaul. The camp's side buttons are one column of dark square tiles with icons only

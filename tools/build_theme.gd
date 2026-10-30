@@ -322,6 +322,13 @@ func _bars() -> void:
 	_bar("XPBar", TEAL, Color(0, 0, 0, 0.55), 5)
 	_bar("BossBar", Color("b0281f"), Color(0, 0, 0, 0.7), 4)
 	_bar("SoulBar", Color("7fd6ff"), Color(0, 0, 0, 0.55), 6)
+	# The hunt's thin lines (run XP along the top, an elite's health): a flat
+	# gold fill, no rim or label.
+	_bar("XPLine", GOLD_HI, Color(0, 0, 0, 0.55), 3)
+	for k in ["background", "fill"]:
+		var xs := theme.get_stylebox(k, "XPLine").duplicate() as StyleBoxFlat
+		xs.set_border_width_all(0)
+		theme.set_stylebox(k, "XPLine", xs)
 
 
 func _misc() -> void:

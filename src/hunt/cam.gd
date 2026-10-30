@@ -5,7 +5,7 @@ extends Camera3D
 ## shakes on trauma. Every number is a var so the dev panel can tune it live.
 
 var pitch_deg := 50.0     # angle above the ground (90 = straight down)
-var distance := 19.5      # metres from focus to camera
+var distance := 16.5      # metres from focus to camera (Wide is about the old 19.5)
 var fov_w := 40.0         # horizontal FOV; portrait keeps width
 var anchor := 0.57        # hero's screen height: 0 top, 0.5 center, 1 bottom
 var lookahead := 0.35     # seconds of velocity to lead by

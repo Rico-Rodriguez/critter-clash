@@ -29,6 +29,14 @@ var _feed: VBoxContainer
 ## The sidekick read-out: a cooldown ring round its icon, its ability, kills.
 var _sk_ring: XpRing
 var _sk_text: Label
+## A thin run-XP line along the top edge, and the banner for the nearest elite.
+var _xp_line: ProgressBar
+var _elite_box: PanelContainer
+var _elite_name: Label
+var _elite_tags: Label
+var _elite_bar: ProgressBar
+var _elite: Enemy
+var _elite_t := 0.0
 
 
 var _bank: Button
@@ -87,6 +95,8 @@ func setup(h: Hunt) -> void:
 	_streak.visible = false
 	_feed.add_child(_streak)
 	_build_sidekick_box()
+	_build_xp_line()
+	_build_elite_box()
 	%Stick.idle_alpha = 0.0 if bool(Game.data.get("seen_tutorial", false)) else 0.3
 	if not bool(Game.data.get("seen_tutorial", false)):
 		_hint = Ui.label("Drag anywhere to move\nYou attack on your own · tap the buttons to dash and unleash", "HudLabel", HORIZONTAL_ALIGNMENT_CENTER)
@@ -116,11 +126,88 @@ func _build_sidekick_box() -> void:
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sk_ring.add_child(ic)
 	row.add_child(_sk_ring)
-	_sk_text = Ui.label("", "HudLabel")
-	_sk_text.add_theme_font_size_override("font_size", 20)
-	row.add_child(_sk_text)
+	# Just the seconds left inside the ring: the ring and icon say the rest.
+	_sk_text = Ui.label("", "HudValue", HORIZONTAL_ALIGNMENT_CENTER)
+	_sk_text.add_theme_font_size_override("font_size", 18)
+	_sk_text.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_sk_text.offset_top = -14.0
+	_sk_text.offset_bottom = 8.0
+	_sk_ring.add_child(_sk_text)
 	_feed.add_child(row)
 	_feed.move_child(row, 0)
+
+
+func _build_xp_line() -> void:
+	_xp_line = ProgressBar.new()
+	_xp_line.theme_type_variation = &"XPLine"
+	_xp_line.show_percentage = false
+	_xp_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_xp_line.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_xp_line.offset_bottom = 6.0
+	add_child(_xp_line)
+	move_child(_xp_line, %Safe.get_index())
+	# The ring round the medal said the same thing.
+	%XPRing.visible = false
+
+
+## One plate under the top row names the nearest elite, its affixes and its
+## health, instead of a wall of text floating over every elite.
+func _build_elite_box() -> void:
+	_elite_box = PanelContainer.new()
+	_elite_box.theme_type_variation = &"Plaque"
+	_elite_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_elite_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_elite_box.custom_minimum_size = Vector2(400, 0)
+	_elite_box.visible = false
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_elite_box.add_child(v)
+	_elite_name = Ui.label("", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	_elite_name.add_theme_font_size_override("font_size", 24)
+	v.add_child(_elite_name)
+	_elite_tags = Ui.label("", "Caption", HORIZONTAL_ALIGNMENT_CENTER)
+	_elite_tags.add_theme_font_size_override("font_size", 16)
+	v.add_child(_elite_tags)
+	_elite_bar = ProgressBar.new()
+	_elite_bar.theme_type_variation = &"XPLine"
+	_elite_bar.show_percentage = false
+	_elite_bar.custom_minimum_size = Vector2(0, 6)
+	_elite_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(_elite_bar)
+	%Safe.get_node("Top").add_child(_elite_box)
+	%Safe.get_node("Top").move_child(_elite_box, 1)
+
+
+## Picks the nearest live elite a few times a second; tracks its health
+## every frame.
+func _refresh_elite(dt: float) -> void:
+	_elite_t -= dt
+	if _elite_t <= 0.0:
+		_elite_t = 0.25
+		var best: Enemy = null
+		var bd := 26.0
+		var p := hunt.hero.global_position
+		for f in hunt.foes:
+			if f.elite and f.alive:
+				var d := Vector2(f.position.x - p.x, f.position.z - p.z).length()
+				if d < bd:
+					bd = d
+					best = f
+		if best != _elite and best != null:
+			var c: Color = DB.ELITE_AFFIXES[best.affixes[0]]["color"]
+			_elite_name.text = best.elite_name
+			_elite_name.add_theme_color_override("font_color", c.lightened(0.35))
+			var tags: PackedStringArray = ["Elite"]
+			for af in best.affixes:
+				tags.append(str(DB.ELITE_AFFIXES[af]["name"]))
+			_elite_tags.text = " · ".join(tags)
+			_elite_bar.self_modulate = c.lightened(0.2)
+		_elite = best
+	var on: bool = _elite != null and is_instance_valid(_elite) and _elite.alive and not %BossBox.visible
+	_elite_box.visible = on
+	if on:
+		_elite_bar.value = clampf(_elite.hp / _elite.max_hp, 0.0, 1.0) * 100.0
 
 
 ## Dash and Super tuck into the bottom corner on the thumb's side (setting
@@ -234,7 +321,8 @@ func refresh(dt: float) -> void:
 		var sp := hunt.cam.unproject_position(hero.global_position)
 		%HeroBar.position = sp + Vector2(-%HeroBar.size.x * 0.5, 10.0)
 	%Lvl.text = str(hunt.run_level)
-	%XPRing.value = float(hunt.run_xp) / DB.run_level_xp(hunt.run_level)
+	_xp_line.value = float(hunt.run_xp) / DB.run_level_xp(hunt.run_level) * 100.0
+	_refresh_elite(dt)
 	%Clock.text = Ui.fmt_time(hunt.time)
 	%Souls.value = hunt.objective_fill() * 100.0
 	%SoulText.text = hunt.objective_text()
@@ -269,7 +357,7 @@ func refresh(dt: float) -> void:
 	if _sk_ring and hunt.sidekick:
 		var sk = hunt.sidekick
 		_sk_ring.value = 1.0 - clampf(sk.cd / maxf(sk.cooldown(), 0.01), 0.0, 1.0)
-		_sk_text.text = "%s · %d slain\n%s" % [sk.ability_name(), sk.slain, "ready" if sk.cd <= 0.0 else "ready in %ds" % ceili(sk.cd)]
+		_sk_text.text = "" if sk.cd <= 0.0 else str(ceili(sk.cd))
 	%Super.visible = hero.super_open
 	%Super.fill = hero.super_charge
 	%Super.is_ready = hero.super_ready()
