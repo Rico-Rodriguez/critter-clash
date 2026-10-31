@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/cinder_imp_src_0.jpg-0bc63c59ee05effb3305bcb2
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

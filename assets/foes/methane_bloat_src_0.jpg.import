@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/methane_bloat_src_0.jpg-1a330cce01cbacce57552
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
