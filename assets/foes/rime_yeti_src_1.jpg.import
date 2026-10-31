@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/rime_yeti_src_1.jpg-509fe6d3739a85ea06001808f
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

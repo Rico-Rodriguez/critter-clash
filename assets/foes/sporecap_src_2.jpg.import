@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/sporecap_src_2.jpg-f72720e2b3d4714dcdd5ba8a03
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

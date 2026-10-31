@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/pyre_shaman_src_0.png-849258849058ae5c4ab146c
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

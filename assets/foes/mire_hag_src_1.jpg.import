@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/mire_hag_src_1.jpg-885591d9661a7dfcdb2ab0c43d
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

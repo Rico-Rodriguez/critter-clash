@@ -161,9 +161,10 @@ step; one PR each:
 
 1. **Economy from the playtest.** Tune `DB` from what the playtest finds; the simulated week
    in `src/economy_tests.gd` is the guard. Casual players currently get 0 gems a week.
-2. **Pack size.** The OTA pack is ~186 MiB against a 200 MiB budget. Find unused textures and
-   audio with the export's file list (a name search cannot tell: music and foe textures are
-   loaded by built names), and cut what nothing loads.
+2. [x] **Pack size.** The OTA pack was ~186 MiB against a 200 MiB budget: foe and critter
+   textures now import as lossy WebP and 231 unused KayKit props are cut (see CHANGELOG). Once the
+   dark plate outfits are refit, cut the KayKit hero gear the outfits no longer lift, then lower
+   `PACK_BUDGET_MB` in `ios-ipa.yml` to the new size plus headroom.
 3. **Social go-live.** Deploy the server (`server/README.md`), set `HOST`, `SERVER_KEY` and
    `SUPPORT` in `src/net/net_config.gd`. Then on two phones: chat with the keyboard up, a
    party hunt, an invite from a fresh install, moving to a new phone.
