@@ -178,9 +178,8 @@ static func _ash(model: Node3D) -> void:
 ## puts the material back on the lit, opaque path. Blended surfaces become an
 ## alpha cut-out (still the opaque pass), so feathers and tatters keep their
 ## edges. One copy per source material, shared by every instance.
-## Kept emission: the bat's eyes, the mimic's gold and the treant's sap are
-## small emission maps painted by their artists (no white wash).
-const KEEP_EMISSION := ["bat", "mimic", "treant"]
+## Kept emission: the mimic's gold is a small emission map, not a white wash.
+const KEEP_EMISSION := ["mimic"]
 static var _lit_cache := {}
 static func _lit_opaque(model: Node3D, keep_emission: bool) -> void:
 	for node in model.find_children("*", "MeshInstance3D", true, false):

@@ -555,16 +555,23 @@ static func _region_mesh(model: Node3D, mi: MeshInstance3D, sp: String, specs: D
 			var slot: String = GEN.PART_SLOTS[i]
 			if not specs.has(slot):
 				continue
-			var vd := _vertex_data(model, mi, arrays, specs[slot], yaw(sp))
+			var spec: Dictionary = specs[slot]
+			var vd := _vertex_data(model, mi, arrays, spec, yaw(sp))
 			var w: PackedFloat32Array = vd["w"]
 			var pos: PackedVector3Array = vd["pos"]
+			# Bones under `own_colour` count toward where the part is, not toward
+			# what gets recoloured (a sapling's leaves stay green).
+			var tw := w
+			if spec.has("own_colour"):
+				var ts := spec.duplicate()
+				ts["not"] = (spec.get("not", []) as Array) + (spec["own_colour"] as Array)
+				tw = _vertex_data(model, mi, arrays, ts, yaw(sp))["w"]
 			for v in n:
 				# Sharpen the skin weights a little: a seam a few vertices wide.
-				var k := smoothstep(0.25, 0.75, w[v])
 				var c := cols[v]
-				c[i] = k
+				c[i] = smoothstep(0.25, 0.75, tw[v])
 				cols[v] = c
-				if k >= 0.5:
+				if w[v] >= 0.5:
 					var bx: Variant = boxes.get(slot)
 					boxes[slot] = AABB(pos[v], Vector3.ZERO) if bx == null else (bx as AABB).expand(pos[v])
 		arrays[Mesh.ARRAY_COLOR] = cols
