@@ -229,15 +229,16 @@ func run() -> int:
 	_unique_names()
 	_net_tests()
 	_gear_tests()
-	# The Rogue's Hood helm is her own head mesh, so wearing it must not hide it.
+	# A hood helm brings its own hood: the bare head under it goes, the helm shows.
 	var ra := Actor.new()
 	ra.build_model(DB.HEROES["rogue"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
 	var hood_pre := {}
 	for slot in DB.SLOTS:
 		hood_pre[slot] = Game.make_item("rogue", slot, 4, "rare")
 	GearLook.apply(ra, "rogue", hood_pre)
-	var rh := ra.model.find_child("RogueHooded_Head", true, false) as MeshInstance3D
-	_ok("hooded rogue keeps her head", GearDB.look(hood_pre["helm"])["hood"] and rh != null and rh.visible)
+	var rh := ra.model.find_child("DarkRogue_Head", true, false) as MeshInstance3D
+	var rhelm := ra.model.find_child("DarkRogue_Helm4_Mesh", true, false) as MeshInstance3D
+	_ok("hooded rogue wears the hood", GearDB.look(hood_pre["helm"])["hood"] and rh != null and not rh.visible and rhelm != null and rhelm.visible)
 	ra.free()
 	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
 	_sidekick_tests()
@@ -383,14 +384,15 @@ func _gear_tests() -> void:
 		n.free()
 	_ok("gear parts exist %s" % str(missing), missing.is_empty())
 	var it := Game.make_item("mage", "chest", 2, "rare")
-	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 2 and (str(it["name"]).ends_with("Barrowsteel Robe") or str(it["name"]).ends_with("Barrowsteel Ragged Robe")))
+	_ok("item is class gear", it["cls"] == "mage" and it["mat"] == 2 and str(it["name"]).ends_with("Barrowsteel Star Robe"))
 	# Alternatives and set looks change the model and the name, never the stats.
 	it["look"] = 0
-	_ok("look 0 is the stage", GearDB.base_name(it) == "Barrowsteel Robe")
-	it["look"] = 1
-	_ok("look 1 is the alternative", GearDB.base_name(it) == "Barrowsteel Ragged Robe" and GearDB.piece(it)["parts"].has("Skeleton_Mage/Body"))
+	_ok("look 0 is the stage", GearDB.base_name(it) == "Barrowsteel Star Robe")
 	it["set"] = "hexer"
 	_ok("a set piece wears the set", GearDB.base_name(it) == "Barrowsteel Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
+	var orb := Game.make_item("mage", "trinket", 2, "rare")
+	orb["look"] = 1
+	_ok("look 1 is the alternative", GearDB.base_name(orb) == "Barrowsteel Skull Orb" and GearDB.piece(orb)["model"] == "kit:skull_orb")
 	# Weapon families: the scythe is endgame, boss-only, and no Gravedigger.
 	var fams := {}
 	for i in 200:

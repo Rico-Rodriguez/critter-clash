@@ -47,7 +47,7 @@ static func apply(actor: Actor, hero_id: String, preview := {}) -> void:
 		starter[slot] = worn[slot].is_empty() and not preview.has(slot)
 		if starter[slot] and slot in ["weapon", "helm", "trinket"]:
 			worn[slot] = {"slot": slot, "cls": hero_id, "mat": 0, "rarity": "common", "unique": "", "stats": {}}
-	var own_head := "%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")
+	var own_head := "%s_Head" % DB.HEROES[hero_id]["model"]
 	# Everything dressable goes away, then the wanted parts come back.
 	for mi in skel.get_children():
 		if mi is MeshInstance3D and mi.name != own_head:
@@ -148,8 +148,8 @@ static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictio
 		mi.set_instance_shader_parameter("grade", gr)
 		mi.set_instance_shader_parameter("accent", acc)
 	if hood:
-		var own := skel.get_node_or_null("%s_Head" % DB.HEROES[hero_id]["model"].replace("Rogue_Hooded", "RogueHooded")) as MeshInstance3D
-		# The Rogue's hood IS her own head mesh: hiding it would leave her headless.
+		var own := skel.get_node_or_null("%s_Head" % DB.HEROES[hero_id]["model"]) as MeshInstance3D
+		# A helm that is the hero's own head mesh must not hide it.
 		if own and not (parts as Array).any(func(sp): return _part(actor, skel, sp) == own):
 			own.visible = false
 
