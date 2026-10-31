@@ -9,6 +9,74 @@ version is 7.
 
 ---
 
+## Unreleased: every pet in the dark plate style
+
+Rico liked the dark plate Knight and asked for sharper, less rounded shapes, so every pet now matches
+it. The shape helpers in `tools/blender/pets/common.py` build angular by default: flat-shaded facets,
+tubes with fewer sides and no subdivision, at most one subdivision on rounded parts, and a corner on
+the top and bottom of every ring, so bodies get a ridge and a keel. The Ember Drake is reshaped by
+hand: a keeled chest, a blade of a skull under a heavy brow, horns swept back past the neck, tall
+raked spines, wings cut into points and a barbed tail. All eleven pets and the bred-pet traits take a
+darker palette that keeps each one's colour identity: a charcoal drake with an ember belly, aged
+bone, oxblood cloth, mail steel, aged gold, moss, and wine. The colours bred pets inherit follow. The
+pets have about a third fewer triangles. Rigs and animations are unchanged.
+
+## Unreleased: the Bonelet and Hexling, made from scratch
+
+Rico wants every model made by us, so the two pets that still stood on the heroes' KayKit body are
+rebuilt as original Blender models on a shared grown-up biped rig (`tools/blender/pets/biped.py`).
+The Bonelet is a full skeleton (ribs, spine, pelvis, finger bones) in a ragged red hooded mantle,
+with a broken iron shackle on one wrist and the femur it throws; it shambles, hurls overarm and
+rattles its head in a taunt. The Hexling is a robed cultist under a tall pointed hood, its face a
+pale carved mask with a hex sign over narrow eye slits, talismans on its cord belt, and a crooked
+staff whose three claws hold a violet orb; it thrusts the staff to hex and raises it for its
+special. The same colours as before. `tools/blender/pets/kaykit.py` is gone. A content change:
+ships over the air.
+
+## Unreleased: the Barrow Squire, made in Blender
+
+The eleventh and last pet remade in the heroes' style. The Barrow Squire is now an original Blender
+model (`tools/blender/pets/squire.py`): a grown-up skeleton knight in old iron, with a gilt-rimmed
+kettle helm and red plume, a cuirass, pauldrons, bracers and greaves, a faded red tabard with a
+gilt stripe, a round red shield with a gilt boss on its left arm and a notched short sword. It
+stands on guard behind its shield, thrusts and slams the shield for Shield Bash, and raises its
+sword for its special. Bred, its helm and arms take the other parent's colours (shield and sword
+keep theirs), and it lends a small war banner as its wings trait. The Sketchfab skeleton warrior
+and its credit are gone. A content change: ships over the air.
+
+## Unreleased: the Plague Acolyte, made in Blender
+
+The tenth pet remade in the heroes' style. The Acolyte is now an original Blender model
+(`tools/blender/pets/acolyte.py`), a grown-up figure rather than a chibi: a moss-green robe and deep
+hood, a carved bark beak-mask with round amber lenses, a mantle wound with a thorny vine and one
+rose, a rope belt hung with herbs, boots, and a thorned briar crook with a seed censer swinging from
+its hook. It walks and runs on its own legs, raises the crook and drives it down for Thorn Ward,
+and lifts a hand to the Thornmother for its special. Bred, its hood and sleeves take the other
+parent's colours (the crook stays wood), and it lends a short moss cape as its wings trait. The
+Sketchfab plague doctor and its credit are gone. A content change: ships over the air.
+
+## Unreleased: the Hexbound Shade, made in Blender
+
+The ninth pet remade in the heroes' style. The Hexbound Shade is now an original Blender model
+(`tools/blender/pets/shade.py`): a tall, legless wraith in a dusk-violet robe that thins into a
+ragged tail of shadow, long sleeves over pale clawed hands, and an open cowl with nothing inside
+but two pale eyes. The Hexer Queen's silver thread is bound round its waist, and her spindle
+dangles at its side. It drifts in idle, leans into a glide to move, rakes a claw for Shadow Strike,
+and rises with its arms spread for its special. Bred, its hood, sleeves and hem take the other
+parent's colours, and it now lends its own: ragged shadow-cloth winglets and a tongue of shadow for
+a tail join its hood-veil trait. The Sketchfab wraith and its credit are gone. A content change: ships over the
+air.
+
+## Unreleased: the Hexling, on the heroes' rig
+
+The eighth pet remade in the heroes' style. The Hexling is now the heroes' KayKit hooded figure
+at their adult build, its cloth dyed cult violet so it never reads as the Rogue, with a crooked
+staff made in Blender that hooks around a violet orb. It walks rather than floats now. Its clips
+are KayKit ones: an idle, a walk, a run, a spell shot for Hex, a hit and a summon. The Bonehex Lich
+it breeds into wears the same body. The Sketchfab lich and its credit are gone (the Pyre Shaman's
+old "Lich" credit too: it has been Quaternius's Ghost Skull for a while). A content change: ships
+over the air.
+
 ## Unreleased: the Bonelet, on the heroes' rig
 
 The seventh pet remade in the heroes' style, and the first humanoid. The Bonelet is now the KayKit

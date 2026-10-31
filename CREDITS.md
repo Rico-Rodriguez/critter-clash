@@ -165,28 +165,13 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 ## Sidekicks
 
-- Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic, Night Bat and Thorn Sapling: original,
+- Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic, Night Bat, Thorn Sapling, Hexbound
+  Shade, Acolyte, Barrow Squire, Bonelet and Hexling: original,
   made for this project in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`,
-  `mimic.py`, `bat.py`, `sapling.py`): models,
+  `mimic.py`, `bat.py`, `sapling.py`, `shade.py`, `acolyte.py`, `squire.py`, `bonelet.py`,
+  `hexling.py`, `biped.py`): models,
   skeletons, clips and textures. The traits bred pets wear (horns, crests, lures, crowns...) are
   made the same way (`tools/blender/pets/traits.py`).
-- Bonelet: the KayKit Skeleton_Minion (CC0, see the KayKit entry) at the heroes' adult build, with
-  KayKit clips, a red mantle and a femur made in Blender (`tools/blender/pets/bonelet.py`).
-
-- Sidekick models, Creative Commons Attribution 4.0
-  (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
-  one draw per material (`tools/art/merge_skinned.py`), clips renamed or cut by time, scaled to size in
-  `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`). The Attack, Hit, Special, Run, Hover,
-  Idle_Loop and Walk_Loop clips are original keyframes made for this project on the authors' own rigs
-  (`tools/art/sidekick_clips.py`); the shipped clips are kept as they were:
-  - Hexling — "Lich" by Spinnee —
-    https://sketchfab.com/3d-models/lich-4ad4ece50273473ba1d843797b8f4fa6
-  - Acolyte — "Plague Doctor" by BeardenInc (display base removed) —
-    https://sketchfab.com/3d-models/plague-doctor-41f7a1dfd6984135b876f334908e3ca4
-  - Barrow Squire — "Skelet_warrior" by EvgeshQa (uchaikineugene) —
-    https://sketchfab.com/3d-models/skelet-warrior-1337edb8b567486aa22f15b519e60c4d
-  - Hexbound Shade — "Wraith" by Mateus Schwaab (Mehrus) —
-    https://sketchfab.com/3d-models/wraith-37fb72ef0c0642f68c968589fbda60d4
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
   Lorc, from game-icons.net, CC BY 3.0.
 
@@ -243,8 +228,6 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
     https://sketchfab.com/3d-models/lizardman-a710eb3eaeab4200a2ff83abc9b0c4db
   - Cinder Imp — "Imp" by Al (lightningocelot) —
     https://sketchfab.com/3d-models/imp-ea693fce383d4d859dd510946c5b0d4e
-  - Pyre Shaman — "Lich" by Spinnee —
-    https://sketchfab.com/3d-models/lich-4ad4ece50273473ba1d843797b8f4fa6
   - Mire Hag — "Parameswara Chronicles: Witch" by Dr Helmi Norman —
     https://sketchfab.com/3d-models/parameswara-chronicles-witch-3aec47eaaeae4f9693a1bb038aa86091
   - Bog Frog — "Monster frog" by Goofy goober bird —

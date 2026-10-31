@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c03utwmdsmcyi"
-path="res://.godot/imported/plague_src_0.png-a3699bc480ad4eaa7250601916b92b57.ctex"
+uid="uid://bro1mxaes73i6"
+path="res://.godot/imported/wraith_src_wraith_tex.png-54a038311df5bcfb54864c6a92c0047d.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "15dae8fd45acb24fdb7390735290363f"
+"md5": "f23edc4024f7de1adcc5e6c401c05278"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/plague_src_0.png"
-dest_files=["res://.godot/imported/plague_src_0.png-a3699bc480ad4eaa7250601916b92b57.ctex"]
+source_file="res://assets/sidekicks/wraith_src_wraith_tex.png"
+dest_files=["res://.godot/imported/wraith_src_wraith_tex.png-54a038311df5bcfb54864c6a92c0047d.ctex"]
 
 [params]
 

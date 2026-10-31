@@ -34,4 +34,12 @@ assets/sidekicks/bat_src_bat_tex.png -filter -diff -merge binary
 assets/sidekicks/treant_src.glb -filter -diff -merge binary
 assets/sidekicks/treant_src_treant_tex.png -filter -diff -merge binary
 assets/sidekicks/skeleton_src.glb -filter -diff -merge binary
-assets/sidekicks/skeleton_src_skeleton_texture.png -filter -diff -merge binary
+assets/sidekicks/skeleton_src_skeleton_tex.png -filter -diff -merge binary
+assets/sidekicks/lich_src.glb -filter -diff -merge binary
+assets/sidekicks/lich_src_lich_tex.png -filter -diff -merge binary
+assets/sidekicks/wraith_src.glb -filter -diff -merge binary
+assets/sidekicks/wraith_src_wraith_tex.png -filter -diff -merge binary
+assets/sidekicks/plague_src.glb -filter -diff -merge binary
+assets/sidekicks/plague_src_plague_tex.png -filter -diff -merge binary
+assets/sidekicks/squire_src.glb -filter -diff -merge binary
+assets/sidekicks/squire_src_squire_tex.png -filter -diff -merge binary
