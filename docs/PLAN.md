@@ -148,6 +148,9 @@ step; one PR each:
    own offhand per hero and set (`make_dark_offhands.py`): shields, quiver, tome, parrying dagger.
 4. [x] **Outfits:** each outfit adds our own cape, mantle, cowl or scarf (`make_dark_outfits.py`)
    and, where it has one, wears one of its hero's dark helms.
+5. [x] **Uniques:** every boss unique's armour (`make_dark_uniques.py`) and weapon or offhand
+   (`make_unique_arms.py`) in its own colours (`dark_swatches.py`), the Mage's skull orb, candelabra
+   and phylactery, and the bare-handed starters on our set 0 weapons. No KayKit gear is left on a hero.
 
 ## Now: needs Rico
 

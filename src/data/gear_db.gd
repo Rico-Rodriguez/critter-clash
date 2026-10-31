@@ -59,7 +59,7 @@ const ENCHANT_FROM := 3
 const LINES := {
 	"knight": {
 		"dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
-		"starter": "dagger.gltf", "offhand_bone": "handslot.l", "shield": true,
+		"starter": "knight_sword_0.gltf", "offhand_bone": "handslot.l", "shield": true,
 		"weapon": [
 			{"from": 0, "name": "Shortsword", "model": "sword_1handed.gltf", "alts": [
 				{"name": "War Axe", "model": "axe_1handed.gltf", "scale": 1.2, "icon": "battle-axe"},
@@ -110,7 +110,7 @@ const LINES := {
 	},
 	"barbarian": {
 		"dye": METAL, "weapon_skill": "attack", "armor_skill": "defence",
-		"starter": "axe_1handed.gltf", "offhand_bone": "back", "shield": true,
+		"starter": "barb_axe_0.gltf", "offhand_bone": "back", "shield": true,
 		"weapon": [
 			{"from": 0, "name": "Hatchet", "model": "axe_1handed.gltf", "scale": 1.35, "alts": [
 				{"name": "Cudgel", "model": "kit:bone_club", "icon": "bone-gnawer"},
@@ -161,7 +161,7 @@ const LINES := {
 	# The Rogue: KayKit's hooded rogue, daggers in both hands.
 	"rogue": {
 		"dye": HIDE, "weapon_skill": "attack", "armor_skill": "defence",
-		"starter": "dagger.gltf", "offhand_bone": "handslot.l",
+		"starter": "rogue_daggers_0.gltf", "offhand_bone": "handslot.l",
 		"weapon": [
 			{"from": 0, "name": "Dagger", "model": "dagger.gltf"},
 			{"from": 2, "name": "Kris", "model": "dagger_A.gltf", "alts": [
@@ -202,7 +202,7 @@ const LINES := {
 	},
 	"mage": {
 		"dye": CLOTH, "weapon_skill": "magic", "armor_skill": "magic",
-		"starter": "wand.gltf", "offhand_bone": "handslot.l",
+		"starter": "mage_staff_0.gltf", "offhand_bone": "handslot.l",
 		"weapon": [
 			{"from": 0, "name": "Wand", "model": "wand.gltf", "scale": 1.15, "alts": [
 				{"name": "Crystal Wand", "model": "wand_A.gltf", "icon": "fairy-wand"},
@@ -244,18 +244,18 @@ const LINES := {
 			{"from": 0, "name": "Tome", "model": "mage_off_0.gltf"},
 			{"from": 1, "name": "Bound Tome", "model": "mage_off_1.gltf"},
 			{"from": 2, "name": "Star Grimoire", "model": "mage_off_2.gltf", "alts": [
-				{"name": "Skull Orb", "model": "kit:skull_orb", "icon": "crowned-skull"},
+				{"name": "Skull Orb", "model": "uniq_skull_orb.gltf", "icon": "crowned-skull"},
 			]},
 			{"from": 3, "name": "Blood Grimoire", "model": "mage_off_3.gltf", "alts": [
-				{"name": "Candelabra", "model": "kit:candelabra", "icon": "flame"},
-				{"name": "Phylactery", "model": "kit:phylactery", "icon": "gems"},
+				{"name": "Candelabra", "model": "uniq_candelabra.gltf", "icon": "flame"},
+				{"name": "Phylactery", "model": "uniq_phylactery.gltf", "icon": "gems"},
 			]},
 			{"from": 4, "name": "Sun Grimoire", "model": "mage_off_4.gltf"},
 		],
 	},
 	"ranger": {
 		"dye": HIDE, "weapon_skill": "ranged", "armor_skill": "ranged",
-		"starter": "bow.gltf", "offhand_bone": "back",
+		"starter": "ranger_shortbow_0.gltf", "offhand_bone": "back",
 		"weapon": [
 			{"from": 0, "name": "Shortbow", "model": "bow.gltf", "alts": [
 				{"name": "Hunting Bow", "model": "kit:hunting_bow"},
@@ -440,18 +440,27 @@ const GEAR_DIR := "res://assets/kaykit/gear/"
 ## Rigid parts made for the skeletons' taller skulls sit lower on a living head.
 const PART_NUDGE := {"Skeleton_Mage/Hat": Vector3(0, -0.13, 0)}
 
-## Uniques with a model of their own (the rest wear their set's look).
+## Uniques with a model of their own, in their own colors, so no dye goes
+## over them (tools/art/make_dark_uniques.py, make_unique_arms.py).
 const UNIQUE_LOOKS := {
-	"crown": {"parts": ["Skeleton_Warrior/Helmet"]},
-	"cleaver": {"model": "Skeleton_Axe.gltf", "scale": 1.1},
-	"scepter": {"model": "kit:deathlight"},
-	"emberheart": {"model": "kit:candelabra"},
-	"gown": {"parts": ["Skeleton_Mage/Body", "Mage/ArmLeft", "Mage/ArmRight", "Mage/Cape"]},
-	"shroud": {"parts": ["T:Rogue_Hooded", "Skeleton_Rogue/Cape"]},
-	"barkplate": {"parts": ["T:Barbarian", "Ranger/Cape"]},
-	"thornbow": {"model": "bow_withString.gltf", "scale": 1.2},
-	"seedheart": {"model": "shield_round_color.gltf"},
-	"greaves": {"parts": ["DarkKnight_Legs4/Mesh"]},
+	"crown": {"parts": ["DarkUnique_crown/Mesh"], "hood": true},
+	"greaves": {"parts": ["DarkUnique_greaves/Mesh"]},
+	"hoardplate": {"parts": ["DarkUnique_hoardplate/Mesh"]},
+	"cinder_plate": {"parts": ["DarkUnique_cinder_plate/Mesh"]},
+	"shroud": {"parts": ["DarkUnique_shroud/Mesh"]},
+	"rime_cowl": {"parts": ["DarkUnique_rime_cowl/Mesh"], "hood": true},
+	"gown": {"parts": ["DarkUnique_gown/Mesh"]},
+	"rime_robe": {"parts": ["DarkUnique_rime_robe/Mesh"]},
+	"barkplate": {"parts": ["DarkUnique_barkplate/Mesh"]},
+	"cinder_boots": {"parts": ["DarkUnique_cinder_boots/Mesh"]},
+	"cleaver": {"model": "uniq_cleaver.gltf"},
+	"scepter": {"model": "uniq_scepter.gltf"},
+	"thornbow": {"model": "uniq_thornbow.gltf"},
+	"gilded_fang": {"model": "uniq_gilded_fang.gltf"},
+	"rime_maul": {"model": "uniq_rime_maul.gltf"},
+	"cinder_maul": {"model": "uniq_cinder_maul.gltf"},
+	"emberheart": {"model": "uniq_emberheart.gltf"},
+	"seedheart": {"model": "uniq_seedheart.gltf"},
 }
 
 ## Weapons and offhands put together from several KayKit props: "kit:name".
@@ -706,7 +715,7 @@ static func look(it: Dictionary) -> Dictionary:
 		amount = 0.0
 	if u != "" and DB.UNIQUES[u].has("dye"):
 		c = DB.UNIQUES[u]["dye"]
-		amount = 0.8
+		amount = 0.0 if UNIQUE_LOOKS.has(u) else 0.8
 	return {
 		"parts": expand(st.get("parts", [])), "model": str(st.get("model", "")), "dye": Color(c, amount),
 		"scale": float(st.get("scale", 1.0)), "hood": bool(st.get("hood", false)),

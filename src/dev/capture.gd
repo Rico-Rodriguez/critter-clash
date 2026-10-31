@@ -1789,6 +1789,74 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 		cam.look_at_from_position(Vector3(0, -0.3, 15.0), Vector3(0, -0.4, 0), Vector3.UP)
 		await _wait(1.0)
 		return
+	if view == "uniqueprops":
+		# The uniques' weapons and offhands on their own, face on.
+		var names := ["cleaver", "scepter", "thornbow", "gilded_fang", "rime_maul", "cinder_maul", "emberheart", "seedheart", "skull_orb", "candelabra", "phylactery"]
+		for i in names.size():
+			var p := KK.prop(KK.WEAPON_DIR + "uniq_%s.gltf" % names[i])
+			root.add_child(p)
+			var x := (i % 6 - 2.5) * 1.3
+			var y := -int(i / 6) * 2.4
+			p.position = Vector3(x, y - 0.6, 0)
+			if names[i] == "thornbow":
+				p.rotation_degrees = Vector3(0, 90, 90)
+				p.position.y += 0.6
+				p.scale = Vector3.ONE * 0.7
+			elif i >= 6:
+				p.scale = Vector3.ONE * (0.9 if names[i] == "seedheart" else 1.6)
+				p.position.y += 0.5
+			else:
+				p.rotation_degrees = Vector3(0, 20, 0)
+			var lb := Label3D.new()
+			lb.text = names[i]
+			lb.font_size = 40
+			lb.pixel_size = 0.004
+			lb.outline_size = 10
+			lb.position = Vector3(x, y - 0.9, 0.3)
+			root.add_child(lb)
+		cam.look_at_from_position(Vector3(0, -0.9, 10.5), Vector3(0, -0.9, 0), Vector3.UP)
+		await _wait(1.0)
+		return
+	if view == "uniques":
+		# Every boss unique on its hero over Barrowsteel, then the Mage's
+		# offhand alternatives, then each hero with no weapon (its starter).
+		var cases: Array = []
+		for u: String in DB.UNIQUES:
+			if DB.UNIQUES[u].has("cls") and str(DB.UNIQUES[u]["slot"]) in DB.SLOTS:
+				cases.append([str(DB.UNIQUES[u]["cls"]), str(DB.UNIQUES[u]["slot"]), Game.make_unique(u), str(DB.UNIQUES[u]["name"])])
+		for alt: Array in [[2, 1], [3, 1], [3, 2]]:
+			var it := Game.make_item("mage", "trinket", alt[0], "rare")
+			it["look"] = alt[1]
+			cases.append(["mage", "trinket", it, GearDB.base_name(it)])
+		for hid: String in DB.HERO_ORDER:
+			cases.append([hid, "weapon", {}, "%s bare" % DB.HEROES[hid]["name"]])
+		for i in cases.size():
+			var c: Array = cases[i]
+			var hid: String = c[0]
+			var a := Actor.new()
+			a.adult_build = true
+			root.add_child(a)
+			a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+			a.position = Vector3((i % 9 - 4) * 1.6, -int(i / 9) * 3.0, 0)
+			a.rotation_degrees.y = 155.0 if c[1] == "chest" and i % 2 else -25.0
+			var pre := {}
+			for slot in DB.SLOTS:
+				pre[slot] = Game.make_item(hid, slot, 2, "rare")
+			pre[c[1]] = c[2]
+			GearLook.apply(a, hid, pre)
+			a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+			a.anim.seek(0.0, true)
+			a.anim.pause()
+			var lbl := Label3D.new()
+			lbl.text = c[3]
+			lbl.font_size = 30
+			lbl.pixel_size = 0.004
+			lbl.outline_size = 10
+			lbl.position = a.position + Vector3(0, -0.2, 0.6)
+			root.add_child(lbl)
+		cam.look_at_from_position(Vector3(0, -1.6, 17.5), Vector3(0, -1.6, 0), Vector3.UP)
+		await _wait(1.0)
+		return
 	if DB.HEROES.has(view.trim_suffix("close")):
 		# A hero as the game dresses it, in each set: standing, and (the wide
 		# sheet only) mid-attack from behind. --view=ranger, --view=mageclose...

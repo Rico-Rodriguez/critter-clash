@@ -53,3 +53,4 @@ assets/kaykit/weapons/knight_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/ranger_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary
+assets/kaykit/weapons/uniq_*.bin -filter -diff -merge binary

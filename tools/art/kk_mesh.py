@@ -26,6 +26,8 @@ SWATCH = {
     # dark_texture.png only: our dark-fantasy palette in its spare swatches.
     "iron": (0, 3), "silver": (1, 3), "agold": (2, 3), "blood": (3, 3), "pale": (4, 3),
     "cloth": (5, 3), "hide": (6, 3), "fur": (7, 3), "wine": (6, 2), "moss": (7, 2),
+    # The uniques' own colors (dark_swatches.py).
+    "violet": (2, 1), "frost": (3, 1), "ember": (2, 2), "verdant": (3, 2), "bark": (4, 2),
 }
 
 # Dark mode: builders write onto dark_texture.png (whose mask makes metal
