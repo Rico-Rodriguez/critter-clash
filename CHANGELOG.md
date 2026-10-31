@@ -19,6 +19,14 @@ Glacierfall Maul, Ashmaker, Emberheart, Seedheart Aegis). The Mage's skull orb, 
 phylactery are our own models, and a hero with no weapon holds its first family's Gravedigger
 weapon. A content change: ships over the air.
 
+## Unreleased: the old hero gear goes
+
+With the dark outfits in, nothing wears the KayKit-style helms and pauldrons in `assets/kaykit/gear/`
+(40 props for the Knight, Ranger, Mage and Barbarian) any more, so they are gone, with the
+`make_hero_armor.py` builder and the `tools/hero_armor.gd` preview. The Bloodmoon glow loses the
+unused parts and helm it still listed. The OTA pack is about 79 MiB, so its CI budget drops from
+200 to 120 MiB, a ceiling that still leaves room for new art.
+
 ## Unreleased: outfits for the dark heroes
 
 The shop's outfits are refitted to the new heroes. Each one now adds a piece of our own over

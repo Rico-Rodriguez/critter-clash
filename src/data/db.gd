@@ -1408,7 +1408,7 @@ const GLOWS := {
 	# Not for sale: earned when a friend you invited plays their first hunts.
 	"kinship": {"name": "Kinship", "color": Color(0.35, 0.75, 1.0, 0.55), "gold": 0, "gift": true},
 	# Not for sale: hero mastery ranks pay these, so the shop's glows stay worth buying.
-	"bloodmoon": {"name": "Bloodmoon", "color": Color(0.85, 0.12, 0.18, 0.5), "gold": 0, "gift": true, "parts": ["Knight/Cape", "P:barb_pauldron_3.gltf@upperarm.l", "P:barb_pauldron_3.gltf@upperarm.r"], "helm": "P:barb_helm_3.gltf@head"},
+	"bloodmoon": {"name": "Bloodmoon", "color": Color(0.85, 0.12, 0.18, 0.5), "gold": 0, "gift": true},
 	"wraith": {"name": "Wraith", "color": Color(0.8, 0.95, 0.9, 0.5), "gold": 0, "gift": true},
 	"sunsteel": {"name": "Sunsteel", "color": Color(1.0, 0.95, 0.7, 0.6), "gold": 0, "gift": true},
 }
