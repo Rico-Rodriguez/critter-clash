@@ -827,6 +827,9 @@ func _capture(args: PackedStringArray) -> void:
 					lcam.look_at_from_position(Vector3(0, 1.9, 6.6), Vector3(0, 0.75, 0), Vector3.UP)
 				await _wait(1.5)
 				await _save("petlineup_" + (solo if solo != "" else (mix.replace(",", "_") if mix != "" else lrow)) + ("_" + ortho if ortho != "" else "") + ("_back" if args.has("--back") else ""))
+			"petcompare":
+				# Pets beside the Knight, today's or a candidate set (tools/dev/pet_compare.gd).
+				await load("res://tools/dev/pet_compare.gd").shoot(self, _arg(args, "petrow", "today"))
 			"petskins":
 				# Pet coats and mutations: one species in every variant (tools/dev/pet_skin_sheet.gd).
 				await load("res://tools/dev/pet_skin_sheet.gd").shoot(self, _arg(args, "skinsp", "bonelet").split(","), _arg(args, "skinmode", "grid"))

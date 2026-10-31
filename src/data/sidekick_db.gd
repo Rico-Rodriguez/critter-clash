@@ -44,7 +44,7 @@ const ROSTER := {
 	},
 	"hexling": {
 		"name": "Hexling", "element": "Shadow", "icon": "magic-swirl", "color": Color(0.7, 0.45, 1.0),
-		"model": "sf:lich", "camp_scale": 1.7, "fly": 0.3, "scale": 1.0,
+		"model": "sf:lich", "camp_scale": 1.7, "fly": 0.0, "scale": 1.0,
 		"unlock": {"kind": "pet", "unique": "hexling"}, "how": "The Hexer's rare drop (1/50)",
 		"origin": "A tiny cultist with a tinier staff",
 		"ability": {"kind": "hex", "name": "Hex", "cd": 6.0, "dmg": 0.35, "burst": 0.6, "delay": 1.5, "radius": 2.5},
@@ -188,7 +188,7 @@ const BREEDS := {
 	},
 	"bonehex": {
 		"name": "Bonehex Lich", "element": "Shadow · Bone", "icon": "magic-swirl", "color": Color(0.78, 0.68, 0.95),
-		"model": "sf:lich", "camp_scale": 1.7, "fly": 0.3, "scale": 1.05,
+		"model": "sf:lich", "camp_scale": 1.7, "fly": 0.0, "scale": 1.05,
 		"pair": ["hexling", "bonelet"], "unlock": {"kind": "bred"}, "how": "Breed a Hexling with a Bonelet",
 		"origin": "A cultist who traded the staff for a bone",
 		"ability": {"kind": "hex", "name": "Bonehex", "cd": 6.0, "dmg": 0.35, "burst": 0.6, "delay": 1.5, "radius": 2.5},
@@ -516,17 +516,17 @@ static func bred_def(breed: String, g: Dictionary) -> Dictionary:
 ## hit, special. A missing key falls back to a procedural move in
 ## hunt/sidekick.gd (lunge, hop-spin, recoil, bob), so a model never stalls.
 const CLIPS := {
-	"wisp": {"idle": "Idle_Loop", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"wisp": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"drake": {"idle": "Flying_Idle", "move": "Fast_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
-	"bonelet": {"idle": "Idle_Loop", "move": "Walk_Loop", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
-	"hexling": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
-	"acolyte": {"idle": "Idle", "move": "Walk_Loop", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"bonelet": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"hexling": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"acolyte": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"crow": {"idle": "Idle", "move": "Fast_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"mimic": {"idle": "Idle", "move": "Walk", "attack": "Bite_Front", "hit": "Hit", "special": "Special"},
 	"bat": {"idle": "Hover", "move": "Bat_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
-	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Punch", "hit": "Hit", "special": "Special"},
+	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"shade": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
-	"sapling": {"idle": "Idle", "move": "Walk_Loop", "attack": "Attack", "hit": "Hit", "special": "Special"},
+	"sapling": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
 }
 ## Abilities shown with the "special" animation (bigger, area or support
 ## moves); the rest use "attack".

@@ -2,9 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/mimic_src.glb" id="1_dtpw1"]
 
-[node name="mimic" type="Node3D" unique_id=121838404]
-metadata/cull_aabbs = {}
-metadata/posed_aabb = AABB(-0.51913273, 0, -0.5017974, 1.0382653, 1, 1.0035948)
+[node name="mimic" type="Node3D" unique_id=579426906]
+metadata/cull_aabbs = {
+"Rig/Skeleton3D/Mimic": AABB(-1.950201, -1.2286283, -2.1413617, 3.900402, 3.6626334, 3.7908168)
+}
+metadata/posed_aabb = AABB(-0.5942688, 0, -0.5508212, 1.1885376, 1, 1.1016424)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=380389916 instance=ExtResource("1_dtpw1")]
-transform = Transform3D(0.0027936457, 0, 0, 0, 0.0027936457, 0, 0, 0, 0.0027936457, -1.1174582, 0.42719167, -0.6365608)
+[node name="mimic_src" type="Node3D" parent="." unique_id=956537047 instance=ExtResource("1_dtpw1")]
+transform = Transform3D(0.7929454, 0, 0, 0, 0.7929454, 0, 0, 0, 0.7929454, 0, 0.02210092, 0.19502755)

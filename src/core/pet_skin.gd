@@ -42,10 +42,11 @@ static func accent(g: Dictionary, fallback: Color) -> Color:
 	return Color.html(hex) if hex.is_valid_html_color() else fallback
 
 
-## Gives every mesh under `model` (the body and its grafted parts) the variant
-## of genome `g`. A plain genome changes nothing.
-static func apply(model: Node3D, g: Dictionary, fallback: Color, body_model: String) -> void:
-	if is_plain(g):
+## Gives every mesh under `model` (the body and its traits) the variant of
+## genome `g`, and the body's inherited regions their donors' colours
+## (`tints`, from pet_parts.tints). A plain genome with no tints changes nothing.
+static func apply(model: Node3D, g: Dictionary, fallback: Color, body_model: String, tints := {}) -> void:
+	if is_plain(g) and tints.is_empty():
 		return
 	var v := variant(g)
 	var acc := accent(g, fallback)
@@ -72,10 +73,14 @@ static func apply(model: Node3D, g: Dictionary, fallback: Color, body_model: Str
 				mi.set_surface_override_material(i, m)
 		if touched:
 			mi.set_instance_shader_parameter("accent", acc)
+			if not tints.is_empty() and _model_of(mi, "") == "":
+				for slot: String in tints:
+					var t: Color = tints[slot]
+					mi.set_instance_shader_parameter("tint_" + slot, Vector4(t.r, t.g, t.b, t.a))
 
 
-## The model a mesh comes from: a borrowed part carries its donor's, anything
-## else is the body's.
+## The model a mesh comes from: a trait carries its donor's, anything else is
+## the body's.
 static func _model_of(mi: Node, body_model: String) -> String:
 	var n: Node = mi
 	while n != null:
