@@ -146,7 +146,8 @@ step; one PR each:
    their five sets each (`make_dark_heroes.py`), wired into GearDB with the boss sets.
 3. [x] **Weapons and offhands:** every family rebuilt in the dark palette (`kk_mesh.DARK`), and our
    own offhand per hero and set (`make_dark_offhands.py`): shields, quiver, tome, parrying dagger.
-4. [ ] **Outfits:** the cosmetic outfits that lift KayKit capes and pauldrons, refitted.
+4. [x] **Outfits:** each outfit adds our own cape, mantle, cowl or scarf (`make_dark_outfits.py`)
+   and, where it has one, wears one of its hero's dark helms.
 
 ## Now: needs Rico
 
