@@ -56,9 +56,9 @@ static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 				if mi:
 					mi.custom_aabb = culls[mp]
 			_add_fill(root, float(d["scale"]) * grow, float(d.get("fill", 1.6)))
-			# A bred pet's borrowed parts replace its own: cut those out before the lighting pass.
+			# A bred pet's inherited regions are marked for the skin before the lighting pass.
 			if d.has("genes") and spec == str(d["model"]):
-				PARTS.carve(model, d)
+				PARTS.regions(model, d)
 			_lit_opaque(model, spec.substr(3) in KEEP_EMISSION)
 		else:
 			_fit(model, float(d["scale"]) * grow)
@@ -91,8 +91,8 @@ static func build(id: String, evolved := false, stage := -1) -> Dictionary:
 	if d.has("genes") and spec == str(d["model"]):
 		PARTS.attach(model, d)
 	if d.has("genes"):
-		# Coat, glow and mutation: variant materials on the body and its borrowed parts.
-		SKIN.apply(model, d["genes"], Color(d["color"]), spec.trim_prefix("sf:"))
+		# Coat, glow, mutation and inherited colours: variant materials on the body and its traits.
+		SKIN.apply(model, d["genes"], Color(d["color"]), spec.trim_prefix("sf:"), PARTS.tints(d) if spec == str(d["model"]) else {})
 	out["root"] = root
 	return out
 
@@ -118,7 +118,7 @@ static func _crest(root: Node3D, col: Color, top: float) -> Node3D:
 
 
 ## The Ash Wyrm: the drake's own textures baked to ash grey, with embers
-## glowing in the crevices (both baked by tools/art/ash_textures.py, so no
+## glowing in the crevices (both painted by tools/blender/pets/drake.py, so no
 ## colour multiply and the detail stays crisp).
 ## The grown-up form reads at a glance: the coat drifts toward the pet's own
 ## colour and a faint glow of it comes up through the surface. Materials are
@@ -161,6 +161,8 @@ static func _ash(model: Node3D) -> void:
 			m.emission = Color.WHITE
 			m.emission_energy_multiplier = 1.0
 			m.emission_texture = ASH_EMBERS
+			# Add would put the white on top of the map and wash the whole body out.
+			m.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
 			# One-surface meshes take it as material_override: a surface override on
 			# the cached scene's mesh logs "Parameter material is null" when freed
 			# under the headless renderer.
@@ -176,9 +178,8 @@ static func _ash(model: Node3D) -> void:
 ## puts the material back on the lit, opaque path. Blended surfaces become an
 ## alpha cut-out (still the opaque pass), so feathers and tatters keep their
 ## edges. One copy per source material, shared by every instance.
-## Kept emission: the bat's eyes, the mimic's gold and the treant's sap are
-## small emission maps painted by their artists (no white wash).
-const KEEP_EMISSION := ["bat", "mimic", "treant"]
+## Kept emission: the mimic's gold is a small emission map, not a white wash.
+const KEEP_EMISSION := ["mimic"]
 static var _lit_cache := {}
 static func _lit_opaque(model: Node3D, keep_emission: bool) -> void:
 	for node in model.find_children("*", "MeshInstance3D", true, false):

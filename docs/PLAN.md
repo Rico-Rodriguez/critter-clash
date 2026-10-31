@@ -103,6 +103,34 @@ labels in two or three words; tabs with icons only, the open one named. One PR e
 5. [x] **Pets, Shop and Victory** to their mockups.
 6. [x] **Every other sheet** (quests, season, road, expedition, settings, clan) swept to the rules.
 
+## Models made in Blender (Rico, 2026-10-30)
+
+Rico approved the plan on the Iron & Ember samples page: the heroes keep their KayKit bodies, and
+weapons, armour and props are modelled in Blender to match. Pets get the same treatment at real
+proportions (not chibi): each one is built from code in `tools/blender/pets/`, with its own
+skeleton, clips and one flat-colour texture, so breeding parts and skins keep working. It replaces
+a Sketchfab model and drops that model's credit. One pet per PR:
+
+1. [x] **Ember Drake** (and the Ash Wyrm textures).
+2. [x] **Grave Wisp.**
+3. [x] **Storm Crow.**
+4. [x] **Gilded Mimic.**
+   - [x] **Bred pets look like one animal** (Rico chose "one body, inherited colours + trait"):
+     a hybrid keeps its body parent's whole model; an inherited head, wings or tail takes the
+     other parent's colours and wears a small trait of theirs. Genes, stats and card text unchanged.
+5. [x] **Night Bat.**
+6. [x] **Thorn Sapling.**
+7. The two-legged pets, each its own grown-up figure made from code (Rico wants every model
+   made by us, no KayKit bodies):
+   - [x] **Bonelet** and **Hexling**, on a shared biped rig (`tools/blender/pets/biped.py`).
+   - [x] **Plague Acolyte**, built like the beasts instead (`tools/blender/pets/acolyte.py`), its
+     own grown-up figure, while Rico picks the new hero body.
+   - [x] **Barrow Squire**, the same way (`tools/blender/pets/squire.py`).
+   - [x] A darker restyle of the pets: flat facets and a dark palette to sit beside the dark plate heroes.
+   - [x] **Hexbound Shade**, a legless wraith, needs no hero body: built like the beasts
+     (`tools/blender/pets/shade.py`).
+8. [x] Hero weapons and armour pieces: moved to **Dark plate heroes** below.
+
 ## Dark plate heroes (Rico, 2026-10-30)
 
 Rico chose a darker, fully armoured hero look from a reference (black plate, silver trim, a closed

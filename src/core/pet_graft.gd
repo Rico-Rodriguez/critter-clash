@@ -1,11 +1,10 @@
 extends RefCounted
-## Real parts for bred pets: lifts a head, a pair of wings or a tail out of a
-## donor species' own model (its textured mesh and its own PBR, untouched: art
-## lock) as plain static meshes in the donor's model space (the 1 m wrapped
-## scene, idle clip first frame). Which triangles belong to a part comes from
-## GEN.GRAFT: the bones (or mesh names) that own them. `carve` removes the
-## receiver's own part so nothing doubles up. Pure and cached; core/pet_parts.gd
-## mounts the results. Every position here is in the species' "canonical"
+## A species' head, wings and tail, found in its own model by GEN.GRAFT (the
+## bones, or mesh names, that own them). `regions` marks them on a bred pet's
+## body so the skin can colour an inherited one like its donor; `part` lifts
+## one out as plain static meshes (the review sheet, tools/dev/graft_sheet.gd).
+## Model space is the 1 m wrapped scene on its idle clip's first frame. Pure
+## and cached; core/pet_parts.gd uses the results. Every position here is in the species' "canonical"
 ## frame: its model space turned by GEN.GRAFT_YAW so it faces +Z. No class_name
 ## (OTA packs): preload by path.
 
@@ -15,7 +14,6 @@ const SF_DIR := "res://assets/sidekicks/"
 
 static var _posed := {}
 static var _parts := {}
-static var _carved := {}
 static var _bounds := {}
 
 
@@ -160,8 +158,9 @@ static func _has_token(name_: String, tokens: Array) -> bool:
 	return false
 
 
-## Which of a surface's vertices the spec owns, and where they sit (and face)
-## in model space on the idle pose. {"sel": PackedByteArray, "pos", "nrm", "tan"}.
+## Which of a surface's vertices the spec owns, how much of each one's weight
+## sits on its bones, and where they sit (and face) in model space on the idle
+## pose. {"sel": PackedByteArray, "w": PackedFloat32Array, "pos", "nrm", "tan"}.
 static func _vertex_data(model: Node3D, mi: MeshInstance3D, arrays: Array, spec: Dictionary, rot := Basis.IDENTITY) -> Dictionary:
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var n := verts.size()
@@ -169,6 +168,8 @@ static func _vertex_data(model: Node3D, mi: MeshInstance3D, arrays: Array, spec:
 	var tan_in: PackedFloat32Array = arrays[Mesh.ARRAY_TANGENT] if arrays[Mesh.ARRAY_TANGENT] != null else PackedFloat32Array()
 	var sel := PackedByteArray()
 	sel.resize(n)
+	var share := PackedFloat32Array()
+	share.resize(n)
 	var pos := PackedVector3Array()
 	pos.resize(n)
 	var nrm := PackedVector3Array()
@@ -230,6 +231,7 @@ static func _vertex_data(model: Node3D, mi: MeshInstance3D, arrays: Array, spec:
 				tan[4 * v + 2] = tn.z
 				tan[4 * v + 3] = tan_in[4 * v + 3]
 			sel[v] = 1 if (w >= 0.5 or by_mesh) else 0
+			share[v] = 1.0 if by_mesh else w
 	else:
 		var xf := Transform3D(rot, Vector3.ZERO) * _rel(mi, model)
 		for v in n:
@@ -243,7 +245,8 @@ static func _vertex_data(model: Node3D, mi: MeshInstance3D, arrays: Array, spec:
 				tan[4 * v + 2] = tn.z
 				tan[4 * v + 3] = tan_in[4 * v + 3]
 			sel[v] = 1 if by_mesh else 0
-	return {"sel": sel, "pos": pos, "nrm": nrm, "tan": tan}
+			share[v] = 1.0 if by_mesh else 0.0
+	return {"sel": sel, "w": share, "pos": pos, "nrm": nrm, "tan": tan}
 
 
 static func _indices(arrays: Array, n: int) -> PackedInt32Array:
@@ -482,45 +485,10 @@ static func _owned(model: Node3D, mi: MeshInstance3D, arrays: Array, specs: Arra
 	return sel
 
 
-## Cuts the receiver's own `slots` out of its (just instanced) model, so a
-## borrowed part replaces them instead of sitting over them. Meshes are built
-## once per species and slot set, skin and materials kept; a mesh that is
-## wholly the part (the mimic's lid) is hidden.
-static func carve(model: Node3D, sp: String, slots: Array) -> void:
-	var specs := _specs(sp, slots)
-	if specs.is_empty():
-		return
-	var key := sp + "|" + ",".join(slots)
-	var cache: Dictionary = _carved.get(key, {})
-	var fresh := cache.is_empty()
-	# Selection runs on a private copy posed like extraction does.
-	var probe: Node3D = _instance(sp)
-	if probe != null and fresh:
-		_pose_idle(probe, sp)
-	for node in model.find_children("*", "MeshInstance3D", true, false):
-		var mi := node as MeshInstance3D
-		if mi.mesh == null:
-			continue
-		var path := str(model.get_path_to(mi))
-		if fresh:
-			cache[path] = _carve_mesh(probe, probe.get_node_or_null(NodePath(path)) as MeshInstance3D, specs)
-		var m: Variant = cache.get(path, "keep")
-		if m is ArrayMesh:
-			var old := mi.mesh
-			mi.mesh = m
-			for s in old.get_surface_count():
-				mi.mesh.surface_set_material(s, old.surface_get_material(s))
-		elif str(m) == "hide":
-			mi.visible = false
-	if probe != null:
-		probe.free()
-	_carved[key] = cache
-
-
 ## The flags add_surface_from_arrays needs to take a surface's arrays back:
 ## 8 bone weights and each custom channel's format. Without the custom formats
 ## a model with CUSTOM0-3 data is refused ("Invalid array format for surface")
-## and that surface goes missing from the carved mesh.
+## and that surface goes missing from the rebuilt mesh.
 static func _rebuild_flags(fmt: int) -> int:
 	var flags := fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
 	for sh in [Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT, Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT, Mesh.ARRAY_FORMAT_CUSTOM2_SHIFT, Mesh.ARRAY_FORMAT_CUSTOM3_SHIFT]:
@@ -528,38 +496,85 @@ static func _rebuild_flags(fmt: int) -> int:
 	return flags
 
 
-## The mesh without the triangles the specs own; "keep" when it has none and
-## "hide" when nothing would be left.
-static func _carve_mesh(model: Node3D, mi: MeshInstance3D, specs: Array) -> Variant:
-	if mi == null:
-		return "keep"
+static var _regions := {}
+static var _region_boxes := {}
+
+## Paints the body's own meshes with which slot each vertex belongs to, as a
+## vertex colour (r head, g wings, b tail, soft across the seam) so the skin
+## shader can colour an inherited region like its donor: the pet stays one
+## whole animal. Meshes are built once per species, skin and materials kept.
+static func regions(model: Node3D, sp: String) -> void:
+	var cache := _survey(sp)
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		var m: Variant = cache.get(str(model.get_path_to(mi)))
+		if mi.mesh == null or not (m is ArrayMesh):
+			continue
+		var old := mi.mesh
+		mi.mesh = m
+		for s in old.get_surface_count():
+			mi.mesh.surface_set_material(s, old.surface_get_material(s))
+
+
+## Where a species' own head / wings / tail sits (canonical frame, idle pose):
+## an empty AABB when it has none.
+static func region_box(sp: String, slot: String) -> AABB:
+	_survey(sp)
+	return (_region_boxes.get(sp, {}) as Dictionary).get(slot, AABB())
+
+
+static func _survey(sp: String) -> Dictionary:
+	if _regions.has(sp):
+		return _regions[sp]
+	var cache := {}
+	var boxes := {}
+	var specs: Dictionary = GEN.GRAFT.get(sp, {})
+	var probe := _instance(sp)
+	if probe != null and not specs.is_empty():
+		_pose_idle(probe, sp)
+		for node in probe.find_children("*", "MeshInstance3D", true, false):
+			var mi := node as MeshInstance3D
+			if mi.mesh != null:
+				cache[str(probe.get_path_to(mi))] = _region_mesh(probe, mi, sp, specs, boxes)
+	if probe != null:
+		probe.free()
+	_regions[sp] = cache
+	_region_boxes[sp] = boxes
+	return cache
+
+
+static func _region_mesh(model: Node3D, mi: MeshInstance3D, sp: String, specs: Dictionary, boxes: Dictionary) -> ArrayMesh:
 	var out := ArrayMesh.new()
-	var kept_any := false
-	var touched := false
 	for s in mi.mesh.get_surface_count():
 		var arrays := mi.mesh.surface_get_arrays(s)
 		var n := (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
-		var sel := _owned(model, mi, arrays, specs)
-		var idx := _indices(arrays, n)
-		var keep := PackedInt32Array()
-		for t in idx.size() / 3:
-			var c := int(sel[idx[3 * t]]) + int(sel[idx[3 * t + 1]]) + int(sel[idx[3 * t + 2]])
-			if c < 2:
-				keep.append_array(idx.slice(3 * t, 3 * t + 3))
-		if keep.size() == idx.size():
-			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, _rebuild_flags(mi.mesh.surface_get_format(s)))
-			kept_any = true
-			continue
-		touched = true
-		if keep.is_empty():
-			keep = PackedInt32Array([0, 0, 0])
-		else:
-			kept_any = true
-		arrays[Mesh.ARRAY_INDEX] = keep
+		var cols := PackedColorArray()
+		cols.resize(n)
+		cols.fill(Color(0, 0, 0, 1))
+		for i in GEN.PART_SLOTS.size():
+			var slot: String = GEN.PART_SLOTS[i]
+			if not specs.has(slot):
+				continue
+			var spec: Dictionary = specs[slot]
+			var vd := _vertex_data(model, mi, arrays, spec, yaw(sp))
+			var w: PackedFloat32Array = vd["w"]
+			var pos: PackedVector3Array = vd["pos"]
+			# Bones under `own_colour` count toward where the part is, not toward
+			# what gets recoloured (a sapling's leaves stay green).
+			var tw := w
+			if spec.has("own_colour"):
+				var ts := spec.duplicate()
+				ts["not"] = (spec.get("not", []) as Array) + (spec["own_colour"] as Array)
+				tw = _vertex_data(model, mi, arrays, ts, yaw(sp))["w"]
+			for v in n:
+				# Sharpen the skin weights a little: a seam a few vertices wide.
+				var c := cols[v]
+				c[i] = smoothstep(0.25, 0.75, tw[v])
+				cols[v] = c
+				if w[v] >= 0.5:
+					var bx: Variant = boxes.get(slot)
+					boxes[slot] = AABB(pos[v], Vector3.ZERO) if bx == null else (bx as AABB).expand(pos[v])
+		arrays[Mesh.ARRAY_COLOR] = cols
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, _rebuild_flags(mi.mesh.surface_get_format(s)))
-	if not touched:
-		return "keep"
-	if not kept_any:
-		return "hide"
 	out.custom_aabb = mi.mesh.get_aabb()
 	return out
