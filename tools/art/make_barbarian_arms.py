@@ -2,12 +2,12 @@
 
     python tools/art/make_barbarian_arms.py   (Blender's Python: pip install bpy)
 
-Writes assets/kaykit/weapons/barb_<family>_<set>.gltf, set 0 to 4:
-Gravedigger (scavenged: grey wood, rope, rusted iron), Warden (clean steel
-on oak), Barrowsteel (dark steel, gold trim, spikes), Bloodiron (black iron
-with red edges, serrated) and Gravelight (pale steel on bone, gold, huge and
-ornate). Each step is bigger and adds a feature, so the sets read apart from
-across the screen. See kk_mesh.py for how the coloring works.
+Writes assets/kaykit/weapons/barb_<family>_<set>.gltf, set 0 to 4, in the
+dark heroes' palette: Gravedigger (scavenged: grey wood, rope, rusted iron),
+Warden (black iron, steel edges, on hide), Barrowsteel (black iron edged in
+silver, spikes), Bloodiron (black iron with blood-red edges, serrated) and
+Gravelight (pale steel and gold, huge and ornate). Each step is bigger and
+adds a feature, so the sets read apart from across the screen. See kk_mesh.py for how the coloring works.
 """
 import math
 import os
@@ -17,13 +17,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kk_mesh as K  # noqa: E402
 from kk_mesh import ROOT, lathe, gem, plate, box, spike, mark, place, export  # noqa: E402
 
-# Per set: haft, grip wrap, head metal, cutting edge, trim, size of the head.
+# Per set: haft, grip wrap, head metal, cutting edge, trim, size of the head,
+# in the dark heroes' palette (dark_texture.png): rust, then black iron with
+# steel, silver, blood red, and pale steel with gold.
+K.DARK = True
 SETS = [
-    {"haft": "wood", "wrap": "tan", "metal": "rust", "edge": "rust", "trim": "rust", "size": 0.9},
-    {"haft": "copper", "wrap": "leather", "metal": "steel", "edge": "steel", "trim": "steel_dark", "size": 1.0},
-    {"haft": "black", "wrap": "leather", "metal": "slate", "edge": "steel", "trim": "gold", "size": 1.08},
-    {"haft": "black", "wrap": "red", "metal": "steel_dark", "edge": "red", "trim": "black", "size": 1.17},
-    {"haft": "slate", "wrap": "gold", "metal": "steel", "edge": "white", "trim": "gold", "size": 1.27},
+    {"haft": "wood", "wrap": "fur", "metal": "rust", "edge": "rust", "trim": "rust", "size": 0.9},
+    {"haft": "hide", "wrap": "black", "metal": "iron", "edge": "steel", "trim": "steel", "size": 1.0},
+    {"haft": "black", "wrap": "hide", "metal": "iron", "edge": "silver", "trim": "silver", "size": 1.08},
+    {"haft": "black", "wrap": "blood", "metal": "iron", "edge": "red", "trim": "blood", "size": 1.17},
+    {"haft": "pale", "wrap": "agold", "metal": "pale", "edge": "white", "trim": "agold", "size": 1.27},
 ]
 
 

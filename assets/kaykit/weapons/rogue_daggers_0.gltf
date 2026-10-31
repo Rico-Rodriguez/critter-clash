@@ -1,6 +1,6 @@
 {
  "asset": {
-  "generator": "Khronos glTF Blender I/O v4.5.48",
+  "generator": "Khronos glTF Blender I/O v5.1.20",
   "version": "2.0"
  },
  "scene": 0,
@@ -118,8 +118,8 @@
  "images": [
   {
    "mimeType": "image/png",
-   "name": "knight_texture",
-   "uri": "knight_texture.png"
+   "name": "dark_texture",
+   "uri": "dark_texture.png"
   }
  ],
  "textures": [
