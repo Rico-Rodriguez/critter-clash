@@ -9,6 +9,17 @@ version is 7.
 
 ---
 
+## Unreleased: the other heroes in dark kit
+
+The Ranger, Mage, Barbarian and Rogue are remodelled the Knight's way: our own hard-edged, low-poly
+bodies on the shared skeleton, never seen bare, each set its own helm, chest and legs. The Ranger
+goes from a leather cap and hide to a studded brigandine, a hood and mask, and an antlered gold
+crown. The Mage's robes run from a hide witch hat to a horned cowl and a gold mitre over white. The
+Barbarian, broader than the rest, climbs from an iron cap and fur to a horned, spiked helm and
+plated harness. The Rogue keeps to black: a deep hood and mask, a knife bandolier, a trailing scarf
+and a gilded mask at the top. The three boss sets wear the same pieces in their colours. A content
+change: ships over the air.
+
 ## Unreleased: the Knight in dark plate
 
 The Knight is remodelled from scratch: a grown-up body on the same skeleton (every animation plays

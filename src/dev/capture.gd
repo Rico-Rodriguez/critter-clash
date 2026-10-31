@@ -1755,24 +1755,26 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 		cam.look_at_from_position(Vector3(0, -0.35, 13.5), Vector3(0, -0.35, 0), Vector3.UP)
 		await _wait(1.0)
 		return
-	if view == "knight" or view == "knightclose":
-		# The Knight as the game dresses him, in each set: standing, and
-		# (the wide sheet only) mid-swing from behind.
+	if DB.HEROES.has(view.trim_suffix("close")):
+		# A hero as the game dresses it, in each set: standing, and (the wide
+		# sheet only) mid-attack from behind. --view=ranger, --view=mageclose...
+		var hid := view.trim_suffix("close")
+		var close := view.ends_with("close")
 		var ks: Array = [0, 1, 2, 3, 4]
-		var rows := 1 if view == "knightclose" else 2
+		var rows := 1 if close else 2
 		for r in rows:
 			for k: int in ks:
 				var a := Actor.new()
 				a.adult_build = true
 				root.add_child(a)
-				a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
 				a.position = Vector3((k - 2) * 1.75, -r * 3.0, 0)
 				a.rotation_degrees.y = -25.0 if r == 0 else 150.0
 				var pre := {}
 				for slot in DB.SLOTS:
-					pre[slot] = Game.make_item("knight", slot, k, "rare")
-				GearLook.apply(a, "knight", pre)
-				var clip: String = DB.HEROES["knight"]["anim"]["idle"] if r == 0 else "Melee_1H_Attack_Slice_Diagonal"
+					pre[slot] = Game.make_item(hid, slot, k, "rare")
+				GearLook.apply(a, hid, pre)
+				var clip: String = DB.HEROES[hid]["anim"]["idle"] if r == 0 else DB.HEROES[hid]["anim"]["attack"][0]
 				a.play(clip, 0.0)
 				a.anim.seek(a.anim.current_animation_length * (0.0 if r == 0 else 0.45), true)
 				a.anim.pause()
@@ -1785,7 +1787,7 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 					lbl.modulate = DB.TIER_COLOR[k]
 					lbl.position = a.position + Vector3(0, -0.2, 0.6)
 					root.add_child(lbl)
-		if view == "knightclose":
+		if close:
 			cam.look_at_from_position(Vector3(0, 1.3, 11.0), Vector3(0, 1.1, 0), Vector3.UP)
 		else:
 			cam.look_at_from_position(Vector3(0, -0.3, 16.0), Vector3(0, -0.4, 0), Vector3.UP)

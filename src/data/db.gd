@@ -59,7 +59,7 @@ const HEROES := {
 	},
 	"ranger": {
 		"name": "Ranger", "title": "The Grave Warden", "role": "Marksman",
-		"model": "Ranger",
+		"model": "DarkRanger",
 		"weapons": {"handslot.l": "bow_withString.gltf"},
 		"weapon_bone": "handslot.l", "weapon_looks": [],
 		"style": "bow", "hp": 360.0, "speed": 5.8, "dmg": 16.0, "rate": 1.9, "pierce": 1, "shots": 2,
@@ -72,7 +72,7 @@ const HEROES := {
 	},
 	"mage": {
 		"name": "Mage", "title": "The Ember Witch", "role": "Caster",
-		"model": "Mage",
+		"model": "DarkMage",
 		"weapons": {"handslot.r": "staff.gltf"},
 		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "magic", "hp": 380.0, "speed": 5.4, "dmg": 28.0, "rate": 1.15,
@@ -85,7 +85,7 @@ const HEROES := {
 	},
 	"barbarian": {
 		"name": "Barbarian", "title": "The Bonebreaker", "role": "Bruiser",
-		"model": "Barbarian",
+		"model": "DarkBarbarian",
 		"weapons": {"handslot.r": "axe_2handed.gltf"},
 		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "melee", "hp": 500.0, "speed": 5.1, "dmg": 40.0, "rate": 0.82,
@@ -98,7 +98,7 @@ const HEROES := {
 	},
 	"rogue": {
 		"name": "Rogue", "title": "The Unseen", "role": "Assassin",
-		"model": "Rogue_Hooded",
+		"model": "DarkRogue",
 		"weapons": {"handslot.r": "dagger.gltf", "handslot.l": "dagger.gltf"},
 		"weapon_bone": "handslot.r", "weapon_looks": [],
 		"style": "melee", "hp": 360.0, "speed": 5.9, "dmg": 21.0, "rate": 1.7,

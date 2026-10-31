@@ -114,7 +114,8 @@ step; one PR each:
 
 1. [x] **Knight:** the shader's metal mask, `DarkKnight` and its five sets (`make_dark_knight.py`),
    wired into GearDB with the boss sets on the same pieces.
-2. [ ] **Ranger, Mage, Barbarian, Rogue:** one set each for Rico's OK, then all five.
+2. [x] **Ranger, Mage, Barbarian, Rogue:** `DarkRanger`, `DarkMage`, `DarkBarbarian`, `DarkRogue` and
+   their five sets each (`make_dark_heroes.py`), wired into GearDB with the boss sets.
 3. [ ] **Weapons and offhands:** every family in the dark palette, set by set.
 4. [ ] **Outfits:** the cosmetic outfits that lift KayKit capes and pauldrons, refitted.
 
