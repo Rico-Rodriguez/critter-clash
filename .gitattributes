@@ -18,3 +18,7 @@
 assets/fonts/Barlow*.ttf -filter -diff -merge binary
 assets/fonts/CormorantSC-Bold.ttf -filter -diff -merge binary
 assets/fonts/GravelightCaps-Bold.ttf -filter -diff -merge binary
+# Our own hero models and their texture, kept out of LFS (its upload is
+# blocked from the cloud sessions that make them).
+assets/kaykit/characters/Dark*.glb -filter -diff -merge binary
+assets/kaykit/weapons/dark_texture*.png -filter -diff -merge binary

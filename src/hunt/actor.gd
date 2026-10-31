@@ -70,6 +70,8 @@ static var _grime: NoiseTexture2D
 const HERO_BUILD := {"head": 0.64, "arm": Vector3(1.04, 1.06, 1.04), "chest": Vector3(1.1, 1.04, 1.1), "spine": Vector3(1.0, 1.08, 1.0), "leg": 1.28}
 ## Set before `build_model` for heroes (in the hunt, camp and portraits).
 var adult_build := false
+## The hips' rest height on KayKit's Rig_Medium, which the baked clips assume.
+const KK_HIPS := 0.405663
 
 
 func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_strength := 0.5, eyes := Color(0, 0, 0, 0), head_scale := 0.8, rig_def := {}) -> void:
@@ -81,7 +83,15 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
 	if merge_parts and skel:
 		_merge_parts(skel, model_name)
-	if skel and adult_build:
+	var own_hips := skel.get_bone_rest(skel.find_bone("hips")).origin.y if skel and skel.find_bone("hips") >= 0 else 0.0
+	if own_hips > KK_HIPS + 0.05:
+		# Our own grown-up bodies (tools/art/make_hero_body.py) are built to
+		# size: their legs are longer than the clips expect, so only the hips
+		# are lifted, to stand on the ground.
+		var lift := BoneScaler.new()
+		lift.lift = own_hips - KK_HIPS
+		skel.add_child(lift)
+	elif skel and adult_build:
 		# Heroes go further than the dead: a smaller head on a longer body and
 		# longer legs, so a knight reads as a grown man in armor, not a toy.
 		var bs := BoneScaler.new()
@@ -262,6 +272,10 @@ func restyle(root: Node) -> void:
 				m.set_shader_parameter("rim_strength", _rim_strength)
 				m.set_shader_parameter("eye_glow", _eyes)
 				m.set_shader_parameter("grime_tex", _grime)
+				# Our dark models carry a metal and roughness mask beside their swatches.
+				var mask_path := tex.resource_path.get_basename() + "_mask.png"
+				if tex.resource_path.ends_with("dark_texture.png") and ResourceLoader.exists(mask_path):
+					m.set_shader_parameter("mask_tex", load(mask_path))
 				_mats[key] = m
 			mi.set_surface_override_material(s, _mats[key])
 
