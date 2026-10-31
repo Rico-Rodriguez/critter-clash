@@ -99,20 +99,13 @@ const LINES := {
 			{"from": 3, "name": "Dread Greaves", "parts": ["DarkKnight_Legs3/Mesh"]},
 			{"from": 4, "name": "Seraph Greaves", "parts": ["DarkKnight_Legs4/Mesh"]},
 		],
+		# Our own offhands, one per set (tools/art/make_dark_offhands.py).
 		"trinket": [
-			{"from": 0, "name": "Buckler", "model": "shield_round.gltf", "alts": [
-				{"name": "Plank Shield", "model": "shield_A.gltf"},
-			]},
-			{"from": 1, "name": "Kite Shield", "model": "shield_badge.gltf", "alts": [
-				{"name": "Heater Shield", "model": "shield_badge_color.gltf"},
-				{"name": "Tower Shield", "model": "shield_square.gltf"},
-				{"name": "Crest Shield", "model": "shield_B.gltf"},
-			]},
-			{"from": 3, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
-				{"name": "Heraldic Shield", "model": "shield_round_color.gltf"},
-				{"name": "Bulwark", "model": "shield_C.gltf"},
-			]},
-			{"from": 4, "name": "Warden Shield", "model": "shield_square_color.gltf"},
+			{"from": 0, "name": "Buckler", "model": "knight_off_0.gltf"},
+			{"from": 1, "name": "Heater Shield", "model": "knight_off_1.gltf"},
+			{"from": 2, "name": "Barrow Heater", "model": "knight_off_2.gltf"},
+			{"from": 3, "name": "Dread Heater", "model": "knight_off_3.gltf"},
+			{"from": 4, "name": "Seraph Shield", "model": "knight_off_4.gltf"},
 		],
 	},
 	"barbarian": {
@@ -156,15 +149,13 @@ const LINES := {
 			{"from": 3, "name": "Spiked Greaves", "parts": ["DarkBarbarian_Legs3/Mesh"]},
 			{"from": 4, "name": "Soul Greaves", "parts": ["DarkBarbarian_Legs4/Mesh"]},
 		],
+		# Our own offhands, one per set (tools/art/make_dark_offhands.py).
 		"trinket": [
-			{"from": 0, "name": "Round Shield", "model": "shield_round_barbarian.gltf", "alts": [
-				{"name": "Painted Shield", "model": "shield_round_color.gltf"},
-				{"name": "Plank Shield", "model": "shield_A.gltf"},
-			]},
-			{"from": 3, "name": "Spiked Shield", "model": "shield_spikes.gltf", "alts": [
-				{"name": "Boss Shield", "model": "Skeleton_Shield_Small_B.gltf", "scale": 1.2},
-				{"name": "Bulwark", "model": "shield_C.gltf"},
-			]},
+			{"from": 0, "name": "Round Shield", "model": "barb_off_0.gltf"},
+			{"from": 1, "name": "Bound Shield", "model": "barb_off_1.gltf"},
+			{"from": 2, "name": "Studded Shield", "model": "barb_off_2.gltf"},
+			{"from": 3, "name": "Spiked Shield", "model": "barb_off_3.gltf"},
+			{"from": 4, "name": "Sun Shield", "model": "barb_off_4.gltf"},
 		],
 	},
 	# The Rogue: KayKit's hooded rogue, daggers in both hands.
@@ -200,9 +191,13 @@ const LINES := {
 			{"from": 3, "name": "Dread Leggings", "parts": ["DarkRogue_Legs3/Mesh"]},
 			{"from": 4, "name": "Seraph Leggings", "parts": ["DarkRogue_Legs4/Mesh"]},
 		],
+		# Our own offhands, one per set (tools/art/make_dark_offhands.py).
 		"trinket": [
-			{"from": 0, "name": "Parrying Dagger", "model": "dagger.gltf"},
-			{"from": 3, "name": "Shadow Dagger", "model": "dagger_B.gltf"},
+			{"from": 0, "name": "Parrying Dagger", "model": "rogue_off_0.gltf"},
+			{"from": 1, "name": "Main Gauche", "model": "rogue_off_1.gltf"},
+			{"from": 2, "name": "Hooked Dagger", "model": "rogue_off_2.gltf"},
+			{"from": 3, "name": "Dread Dagger", "model": "rogue_off_3.gltf"},
+			{"from": 4, "name": "Seraph Dagger", "model": "rogue_off_4.gltf"},
 		],
 	},
 	"mage": {
@@ -244,15 +239,18 @@ const LINES := {
 			{"from": 3, "name": "Dread Skirt", "parts": ["DarkMage_Legs3/Mesh"]},
 			{"from": 4, "name": "Archmage Skirt", "parts": ["DarkMage_Legs4/Mesh"]},
 		],
+		# Our own offhands, one per set (tools/art/make_dark_offhands.py).
 		"trinket": [
-			{"from": 0, "name": "Tome", "model": "spellbook_closed.gltf"},
-			{"from": 2, "name": "Grimoire", "model": "spellbook_open.gltf", "alts": [
+			{"from": 0, "name": "Tome", "model": "mage_off_0.gltf"},
+			{"from": 1, "name": "Bound Tome", "model": "mage_off_1.gltf"},
+			{"from": 2, "name": "Star Grimoire", "model": "mage_off_2.gltf", "alts": [
 				{"name": "Skull Orb", "model": "kit:skull_orb", "icon": "crowned-skull"},
 			]},
-			{"from": 3, "name": "Grimoire", "model": "spellbook_open.gltf", "alts": [
+			{"from": 3, "name": "Blood Grimoire", "model": "mage_off_3.gltf", "alts": [
 				{"name": "Candelabra", "model": "kit:candelabra", "icon": "flame"},
 				{"name": "Phylactery", "model": "kit:phylactery", "icon": "gems"},
 			]},
+			{"from": 4, "name": "Sun Grimoire", "model": "mage_off_4.gltf"},
 		],
 	},
 	"ranger": {
@@ -292,11 +290,13 @@ const LINES := {
 			{"from": 3, "name": "Dread Chaps", "parts": ["DarkRanger_Legs3/Mesh"]},
 			{"from": 4, "name": "Seraph Chaps", "parts": ["DarkRanger_Legs4/Mesh"]},
 		],
+		# Our own offhands, one per set (tools/art/make_dark_offhands.py).
 		"trinket": [
-			{"from": 0, "name": "Quiver", "parts": ["Ranger/Quiver"]},
-			{"from": 3, "name": "Quiver", "parts": ["Ranger/Quiver"], "alts": [
-				{"name": "Bone Quiver", "model": "Skeleton_Quiver.gltf"},
-			]},
+			{"from": 0, "name": "Quiver", "model": "ranger_off_0.gltf"},
+			{"from": 1, "name": "Banded Quiver", "model": "ranger_off_1.gltf"},
+			{"from": 2, "name": "Star Quiver", "model": "ranger_off_2.gltf"},
+			{"from": 3, "name": "Dread Quiver", "model": "ranger_off_3.gltf"},
+			{"from": 4, "name": "Seraph Quiver", "model": "ranger_off_4.gltf"},
 		],
 	},
 }
@@ -313,35 +313,35 @@ const SET_LOOKS := {
 			"helm": {"name": "Barrow Helm", "parts": ["DarkKnight_Helm3/Mesh"], "hood": true},
 			"chest": {"name": "Barrow Plate", "parts": ["DarkKnight_Chest3/Mesh"]},
 			"legs": {"name": "Barrow Greaves", "parts": ["DarkKnight_Legs3/Mesh"]},
-			"trinket": {"name": "Skull Shield", "model": "Skeleton_Shield_Large_A.gltf", "icon": "skull-crossed-bones"},
+			"trinket": {"name": "Skull Shield", "model": "knight_off_3.gltf", "icon": "skull-crossed-bones"},
 		},
 		"barbarian": {
 			"weapon": {"name": "Gravecleaver", "model": "Skeleton_Axe.gltf", "icon": "crossed-axes"},
 			"helm": {"name": "Barrow Horns", "parts": ["DarkBarbarian_Helm3/Mesh"], "hood": true},
 			"chest": {"name": "Ribcage Harness", "parts": ["DarkBarbarian_Chest3/Mesh"]},
 			"legs": {"name": "Barrow Legs", "parts": ["DarkBarbarian_Legs3/Mesh"]},
-			"trinket": {"name": "Bone Shield", "model": "Skeleton_Shield_Small_A.gltf", "scale": 1.2},
+			"trinket": {"name": "Bone Shield", "model": "barb_off_3.gltf"},
 		},
 		"mage": {
 			"weapon": {"name": "Bone Staff", "model": "kit:bone_staff"},
 			"helm": {"name": "Gravecaller Hat", "parts": ["DarkMage_Helm3/Mesh"], "hood": true},
 			"chest": {"name": "Gravecaller Robe", "parts": ["DarkMage_Chest3/Mesh"]},
 			"legs": {"name": "Gravecaller Skirt", "parts": ["DarkMage_Legs3/Mesh"]},
-			"trinket": {"name": "Skull Orb", "model": "kit:skull_orb", "icon": "crowned-skull"},
+			"trinket": {"name": "Skull Orb", "model": "mage_off_3.gltf", "icon": "crowned-skull"},
 		},
 		"rogue": {
 			"weapon": {"name": "Barrow Shiv", "model": "Skeleton_Blade.gltf"},
 			"helm": {"name": "Barrow Cowl", "parts": ["DarkRogue_Helm3/Mesh"], "hood": true},
 			"chest": {"name": "Barrow Garb", "parts": ["DarkRogue_Chest3/Mesh"]},
 			"legs": {"name": "Barrow Shiv Legs", "parts": ["DarkRogue_Legs3/Mesh"]},
-			"trinket": {"name": "Barrow Shiv Offhand", "model": "Skeleton_Blade.gltf"},
+			"trinket": {"name": "Barrow Shiv Offhand", "model": "rogue_off_3.gltf"},
 		},
 		"ranger": {
 			"weapon": {"name": "Bone Bow", "model": "bow_withString.gltf", "scale": 1.15},
 			"helm": {"name": "Barrow Hood", "parts": ["DarkRanger_Helm3/Mesh"], "hood": true},
 			"chest": {"name": "Barrow Hide", "parts": ["DarkRanger_Chest3/Mesh"]},
 			"legs": {"name": "Barrow Chaps", "parts": ["DarkRanger_Legs3/Mesh"]},
-			"trinket": {"name": "Bone Quiver", "model": "Skeleton_Quiver.gltf"},
+			"trinket": {"name": "Bone Quiver", "model": "ranger_off_3.gltf"},
 		},
 	}},
 	# The Crypt Queen's: blackened plate and robes with violet fire in the seams.
@@ -351,35 +351,35 @@ const SET_LOOKS := {
 			"helm": {"name": "Blackguard Helm", "parts": ["DarkKnight_Helm2/Mesh"], "hood": true},
 			"chest": {"name": "Blackguard Plate", "parts": ["DarkKnight_Chest2/Mesh"]},
 			"legs": {"name": "Blackguard Legs", "parts": ["DarkKnight_Legs2/Mesh"]},
-			"trinket": {"name": "Blackguard Shield", "model": "shield_B.gltf"},
+			"trinket": {"name": "Blackguard Shield", "model": "knight_off_2.gltf"},
 		},
 		"barbarian": {
 			"weapon": {"name": "Dread Axe", "model": "axe_B.gltf", "scale": 1.1, "icon": "crossed-axes"},
 			"helm": {"name": "Dread Horns", "parts": ["DarkBarbarian_Helm2/Mesh"], "hood": true},
 			"chest": {"name": "Dread Hide", "parts": ["DarkBarbarian_Chest2/Mesh"]},
 			"legs": {"name": "Dread Legs", "parts": ["DarkBarbarian_Legs2/Mesh"]},
-			"trinket": {"name": "Dread Shield", "model": "shield_C.gltf"},
+			"trinket": {"name": "Dread Shield", "model": "barb_off_2.gltf"},
 		},
 		"mage": {
 			"weapon": {"name": "Deathlight Staff", "model": "kit:deathlight"},
 			"helm": {"name": "Necromancer Hat", "parts": ["DarkMage_Helm2/Mesh"], "hood": true},
 			"chest": {"name": "Necromancer Robe", "parts": ["DarkMage_Chest2/Mesh"]},
 			"legs": {"name": "Necromancer Skirt", "parts": ["DarkMage_Legs2/Mesh"]},
-			"trinket": {"name": "Phylactery", "model": "kit:phylactery", "icon": "gems"},
+			"trinket": {"name": "Phylactery", "model": "mage_off_2.gltf", "icon": "gems"},
 		},
 		"rogue": {
 			"weapon": {"name": "Hexfang", "model": "dagger_B.gltf"},
 			"helm": {"name": "Hex Cowl", "parts": ["DarkRogue_Helm2/Mesh"], "hood": true},
 			"chest": {"name": "Hex Garb", "parts": ["DarkRogue_Chest2/Mesh"]},
 			"legs": {"name": "Hexfang Legs", "parts": ["DarkRogue_Legs2/Mesh"]},
-			"trinket": {"name": "Hexfang Offhand", "model": "dagger_B.gltf"},
+			"trinket": {"name": "Hexfang Offhand", "model": "rogue_off_2.gltf"},
 		},
 		"ranger": {
 			"weapon": {"name": "Shade Bow", "model": "kit:recurve", "scale": 1.15},
 			"helm": {"name": "Shade Hood", "parts": ["DarkRanger_Helm2/Mesh"], "hood": true},
 			"chest": {"name": "Shade Garb", "parts": ["DarkRanger_Chest2/Mesh"]},
 			"legs": {"name": "Shade Legs", "parts": ["DarkRanger_Legs2/Mesh"]},
-			"trinket": {"name": "Shade Quiver", "model": "Skeleton_Quiver.gltf"},
+			"trinket": {"name": "Shade Quiver", "model": "ranger_off_2.gltf"},
 		},
 	}},
 	# The Thornmother's: living bark with green sap in the grain.
@@ -389,35 +389,35 @@ const SET_LOOKS := {
 			"helm": {"name": "Grove Helm", "parts": ["DarkKnight_Helm1/Mesh"], "hood": true},
 			"chest": {"name": "Barkplate", "parts": ["DarkKnight_Chest4/Mesh"]},
 			"legs": {"name": "Bark Greaves", "parts": ["DarkKnight_Legs1/Mesh"]},
-			"trinket": {"name": "Grove Shield", "model": "shield_A.gltf", "scale": 1.1},
+			"trinket": {"name": "Grove Shield", "model": "knight_off_1.gltf"},
 		},
 		"barbarian": {
 			"weapon": {"name": "Root Club", "model": "hammer_C.gltf", "scale": 1.15, "icon": "bone-gnawer"},
 			"helm": {"name": "Bear Mask", "parts": ["DarkBarbarian_Helm1/Mesh"], "hood": true},
 			"chest": {"name": "Bark Hide", "parts": ["DarkBarbarian_Chest4/Mesh"]},
 			"legs": {"name": "Bark Legs", "parts": ["DarkBarbarian_Legs1/Mesh"]},
-			"trinket": {"name": "Bark Shield", "model": "shield_round_barbarian.gltf"},
+			"trinket": {"name": "Bark Shield", "model": "barb_off_1.gltf"},
 		},
 		"mage": {
 			"weapon": {"name": "Grove Lantern", "model": "kit:lantern_staff"},
 			"helm": {"name": "Druid Cowl", "parts": ["DarkMage_Helm1/Mesh"], "hood": true},
 			"chest": {"name": "Druid Robe", "parts": ["DarkMage_Chest4/Mesh"]},
 			"legs": {"name": "Druid Skirt", "parts": ["DarkMage_Legs1/Mesh"]},
-			"trinket": {"name": "Seed Tome", "model": "spellbook_closed.gltf"},
+			"trinket": {"name": "Seed Tome", "model": "mage_off_1.gltf"},
 		},
 		"rogue": {
 			"weapon": {"name": "Thorn Shiv", "model": "dagger_A.gltf"},
 			"helm": {"name": "Grove Cowl", "parts": ["DarkRogue_Helm1/Mesh"], "hood": true},
 			"chest": {"name": "Grove Garb", "parts": ["DarkRogue_Chest4/Mesh"]},
 			"legs": {"name": "Thorn Shiv Legs", "parts": ["DarkRogue_Legs1/Mesh"]},
-			"trinket": {"name": "Thorn Shiv Offhand", "model": "dagger_A.gltf"},
+			"trinket": {"name": "Thorn Shiv Offhand", "model": "rogue_off_1.gltf"},
 		},
 		"ranger": {
 			"weapon": {"name": "Thornbow", "model": "kit:hunting_bow", "scale": 1.15},
 			"helm": {"name": "Grove Hood", "parts": ["DarkRanger_Helm1/Mesh"], "hood": true},
 			"chest": {"name": "Grove Garb", "parts": ["DarkRanger_Chest4/Mesh"]},
 			"legs": {"name": "Grove Chaps", "parts": ["DarkRanger_Legs1/Mesh"]},
-			"trinket": {"name": "Grove Quiver", "parts": ["Ranger/Quiver"]},
+			"trinket": {"name": "Grove Quiver", "model": "ranger_off_1.gltf"},
 		},
 	}},
 }
@@ -777,6 +777,11 @@ const HOLDS := {
 const OFF_HOLDS := {
 	"spellbook_open.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4), "scale": 0.8},
 	"spellbook_closed.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4)},
+	"mage_off_0.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4)},
+	"mage_off_1.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4)},
+	"mage_off_2.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4)},
+	"mage_off_3.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4)},
+	"mage_off_4.gltf": {"bone": "chest", "rot": Vector3(-20, 35, 0), "at": Vector3(0.55, 0.15, 0.4)},
 	# These shields face the arm, and the plank one hangs low off the hand.
 	"shield_A.gltf": {"rot": Vector3(0, 180, 0), "at": Vector3(0, 0.3, 0)},
 	"shield_B.gltf": {"rot": Vector3(0, 180, 0)},

@@ -47,3 +47,9 @@ assets/sidekicks/squire_src_squire_tex.png -filter -diff -merge binary
 # blocked from the cloud sessions that make them).
 assets/kaykit/characters/Dark*.glb -filter -diff -merge binary
 assets/kaykit/weapons/dark_texture*.png -filter -diff -merge binary
+# Our weapon families (make_*_arms.py), rebuilt in the dark palette.
+assets/kaykit/weapons/barb_*.bin -filter -diff -merge binary
+assets/kaykit/weapons/knight_*.bin -filter -diff -merge binary
+assets/kaykit/weapons/ranger_*.bin -filter -diff -merge binary
+assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
+assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary

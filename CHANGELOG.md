@@ -9,6 +9,15 @@ version is 7.
 
 ---
 
+## Unreleased: dark weapons and offhands
+
+Every weapon family is reforged in the dark heroes' palette: rusted scrap, then black iron edged in
+steel, silver, blood red, and pale steel and gold at the top, and the metal now shines like the
+armour's. Offhands are our own models too, one per set: the Knight's heater shields (a cross, a
+star, spikes, then gilt wings), the Barbarian's iron-bound round shields, the Ranger's quivers, the
+Mage's grimoires and the Rogue's parrying daggers. Boss sets carry the matching piece. A content
+change: ships over the air.
+
 ## Unreleased: the other heroes in dark kit
 
 The Ranger, Mage, Barbarian and Rogue are remodelled the Knight's way: our own hard-edged, low-poly

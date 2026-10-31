@@ -28,6 +28,12 @@ SWATCH = {
     "cloth": (5, 3), "hide": (6, 3), "fur": (7, 3), "wine": (6, 2), "moss": (7, 2),
 }
 
+# Dark mode: builders write onto dark_texture.png (whose mask makes metal
+# shine) and the old warm swatches turn to their dark-fantasy kin, so the
+# weapons match the dark heroes (make_dark_heroes.py).
+DARK = False
+DARK_SWATCH = {"leather": "hide", "tan": "fur", "copper": "hide", "gold": "agold", "slate": "iron", "steel_dark": "iron", "skin": "pale"}
+
 bm = None
 uvl = None
 
@@ -127,7 +133,7 @@ def spike(base_c, base_r, tip, sw, sides=4):
 def uv(sw: str, t: float) -> tuple:
     """A point in a swatch; t 0 = its light top, 1 = its dark bottom.
     Blender's v runs up, glTF's down: the exporter flips it."""
-    c, r = SWATCH[sw]
+    c, r = SWATCH[DARK_SWATCH.get(sw, sw) if DARK else sw]
     t = min(max(t, 0.0), 1.0)
     return ((c + 0.5) / 8.0, 1.0 - (r + 0.06 + t * 0.88) / 4.0)
 
@@ -174,8 +180,10 @@ def gem(c, w, h, depth, sw="red", facing=1):
         face(tri, sw, [0.2 + 0.1 * (i % 3), 0.2 + 0.1 * ((i + 1) % 3), 0.0])
 
 
-def export(name: str, out: str, image: str = "knight_texture.png") -> None:
-    """Writes the mesh as name.gltf + .bin, textured by knight_texture.png."""
+def export(name: str, out: str, image: str = "") -> None:
+    """Writes the mesh as name.gltf + .bin, textured by knight_texture.png
+    (dark_texture.png in dark mode)."""
+    image = image or ("dark_texture.png" if DARK else "knight_texture.png")
     # The game's character shader culls back faces, so every face must look
     # out: the builders above don't all wind them that way.
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
