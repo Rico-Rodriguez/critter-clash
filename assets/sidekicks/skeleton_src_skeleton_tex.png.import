@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dgffgx8ilcgtw"
-path="res://.godot/imported/squire_src_0.png-1dccd640f5adbf7f014f2e76b984e70f.ctex"
+uid="uid://col140gmkyuf4"
+path="res://.godot/imported/skeleton_src_skeleton_tex.png-7dc3c5d0b880c6974212ad6a044c408b.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "b7224790aa26c81072865ba892caffb7"
+"md5": "4774643e833a1bb0914f2e073042955e"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/squire_src_0.png"
-dest_files=["res://.godot/imported/squire_src_0.png-1dccd640f5adbf7f014f2e76b984e70f.ctex"]
+source_file="res://assets/sidekicks/skeleton_src_skeleton_tex.png"
+dest_files=["res://.godot/imported/skeleton_src_skeleton_tex.png-7dc3c5d0b880c6974212ad6a044c408b.ctex"]
 
 [params]
 

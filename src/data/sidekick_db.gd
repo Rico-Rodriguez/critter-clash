@@ -524,7 +524,7 @@ const CLIPS := {
 	"crow": {"idle": "Idle", "move": "Fast_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"mimic": {"idle": "Idle", "move": "Walk", "attack": "Bite_Front", "hit": "Hit", "special": "Special"},
 	"bat": {"idle": "Hover", "move": "Bat_Flying", "attack": "Attack", "hit": "Hit", "special": "Special"},
-	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Punch", "hit": "Hit", "special": "Special"},
+	"barrow_squire": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"shade": {"idle": "Idle", "move": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "special": "Special"},
 	"sapling": {"idle": "Idle", "move": "Walk", "attack": "Attack", "hit": "Hit", "special": "Special"},
 }

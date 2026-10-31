@@ -150,7 +150,10 @@ const GRAFT := {
 		"head": {"bones": ["head", "jaw", "ear_"], "pivot": "neck_01"},
 		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
 	},
-	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
+	"barrow_squire": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "chest", "split": true},
+	},
 	"shade": {
 		"head": {"bones": ["head"], "pivot": "neck_01"},
 		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "spine_01", "split": true},
@@ -165,17 +168,17 @@ const GRAFT := {
 ## the part's GRAFT region (tools/dev/region_colours.gd prints them), or the
 ## Blender pet's palette colour for that part where horns or eyes outweigh it.
 const REGION_COLOR := {
-	"drake": {"head": "b9472a", "wings": "8e2c22", "tail": "b9472a"},
-	"wisp": {"head": "8e9096", "wings": "5cc9bb", "tail": "8e9096"},
-	"crow": {"head": "1e2331", "wings": "121520", "tail": "1e2331"},
-	"mimic": {"head": "7c4b2a", "tail": "e2aa3c"},
-	"bat": {"head": "4a3036", "wings": "6e2a36"},
-	"bonelet": {"head": "e5c9ad"},
-	"hexling": {"head": "3a2f4a"},
-	"acolyte": {"head": "4f6b34", "wings": "4f6b34"},
-	"barrow_squire": {"head": "cdaf5a"},
-	"shade": {"head": "3b3152", "wings": "3b3152", "tail": "3b3152"},
-	"sapling": {"head": "6b4a2e"},
+	"drake": {"head": "3a2e2a", "wings": "2a1d1a", "tail": "3a2e2a"},
+	"wisp": {"head": "5d6066", "wings": "48a89b", "tail": "5d6066"},
+	"crow": {"head": "171a22", "wings": "0d0f15", "tail": "171a22"},
+	"mimic": {"head": "4f3222", "tail": "b8893a"},
+	"bat": {"head": "2e2226", "wings": "4a1c25"},
+	"bonelet": {"head": "bdb39c"},
+	"hexling": {"head": "33204d"},
+	"acolyte": {"head": "34402a", "wings": "34402a"},
+	"barrow_squire": {"head": "4a5155", "wings": "bdb39c"},
+	"shade": {"head": "221c30", "wings": "221c30", "tail": "221c30"},
+	"sapling": {"head": "47331f"},
 }
 
 ## Where a receiver hangs wings and a tail that its own model has no slot for
@@ -189,7 +192,7 @@ const MOUNT := {
 	"crow": {"wings": "spine_01", "tail": "tail_01"},
 	"mimic": {"wings": "hips", "tail": "tail_01"},
 	"bat": {"wings": "spine_01", "tail": "tail_01"},
-	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},
+	"barrow_squire": {"wings": "chest", "tail": "hips"},
 	"shade": {"wings": "spine_01", "tail": "tail_01"},
 	"sapling": {"wings": "spine_01", "tail": "hips"},
 }
