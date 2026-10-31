@@ -169,7 +169,7 @@ jobs:
           # A pack that lacks an imported sound or texture ships a silent or
           # blank game (PR #118 did): fail here, before anything is published.
           # The budget (MiB) is a ceiling to lower as the pack shrinks.
-          PACK_BUDGET_MB=200 python3 tools/dev/check_pack.py dist/critter_clash.pck
+          PACK_BUDGET_MB=120 python3 tools/dev/check_pack.py dist/critter_clash.pck
           SHA256="$(shasum -a 256 dist/critter_clash.pck | cut -d' ' -f1)"
           SIZE="$(stat -f%z dist/critter_clash.pck)"
           python3 - "$SHA256" "$SIZE" << 'PY'
