@@ -88,9 +88,10 @@ const VARIANTS_HYBRID := [
 const LEAN := 1.08
 
 ## What each species lends a child that takes its head, wings or tail: the
-## part's name on the card. The part itself is real: core/pet_graft.gd lifts it
-## out of the donor's own model by the GRAFT spec below. A slot with no GRAFT
-## entry is data and card text only (nothing is drawn for it).
+## part's name on the card. On the pet it shows as the donor's colours over the
+## body's own part (GRAFT below finds it) plus the donor's small trait
+## (core/pet_parts.gd). A slot with no GRAFT entry is data and card text only
+## (nothing is drawn for it).
 const PART_STYLES := {
 	"drake": {"head": "horns", "wings": "dragon", "tail": "spike"},
 	"wisp": {"head": "maw", "wings": "fins", "tail": "flame"},
@@ -111,12 +112,13 @@ const PART_NAMES := {
 }
 
 ## Which turn (degrees about Y) makes a species' model face +Z; 0 when it does.
-const GRAFT_YAW := {"bat": -90.0}
+const GRAFT_YAW := {}
 
 ## Which of a donor's triangles are its head, wings or tail: `bones` (lower-case
 ## name fragments; a triangle belongs when most of its weight sits on them,
 ## minus `not`) or `meshes` (name fragments of rigid meshes), `pivot` the bone
-## the part hangs from, `split` makes a left and a right piece. Reviewed with
+## the part hangs from, `split` makes a left and a right piece, `own_colour` bones
+## keep their colours when a child inherits the part (core/pet_graft.gd regions). Reviewed with
 ## tools/dev/graft_sheet.sh (every part, extracted, one PNG per species).
 const GRAFT := {
 	"drake": {
@@ -129,9 +131,12 @@ const GRAFT := {
 		"wings": {"bones": ["fin_"], "pivot": "spine_01", "split": true},
 		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
-	"bonelet": {"head": {"bones": ["head1", "head2"], "pivot": "neck1"}},
-	"hexling": {"head": {"bones": ["head_06", "jaw", "lowerteeth", "sight", "eye_", "beard", "mustache"], "pivot": "neck1"}},
-	"acolyte": {"head": {"bones": ["face"], "pivot": "neck"}},
+	"bonelet": {"head": {"bones": ["head"], "pivot": "chest"}},
+	"hexling": {"head": {"bones": ["head"], "pivot": "chest"}},
+	"acolyte": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "chest", "split": true},
+	},
 	"crow": {
 		"head": {"bones": ["head", "jaw"], "pivot": "neck_01"},
 		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
@@ -142,12 +147,38 @@ const GRAFT := {
 		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
 	"bat": {
-		"head": {"bones": ["haed", "ear", "eyes"], "meshes": ["eye_"], "pivot": "neck"},
-		"wings": {"bones": ["clavicle", "elbow", "hand", "finger"], "pivot": "chest", "split": true},
+		"head": {"bones": ["head", "jaw", "ear_"], "pivot": "neck_01"},
+		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
 	},
-	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
-	"shade": {"head": {"bones": ["head_08", "bone.019", "hair"], "pivot": "neck_07"}},
-	"sapling": {"head": {"bones": ["head_04", "jaw", "brow"], "pivot": "root.002"}},
+	"barrow_squire": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "chest", "split": true},
+	},
+	"shade": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "spine_01", "split": true},
+		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
+	},
+	"sapling": {"head": {"bones": ["head", "jaw", "crown"], "own_colour": ["crown"], "pivot": "spine_01"}},
+}
+
+## Each part's own colour (sRGB hex), for a bred pet whose body inherited it:
+## that region of the body is recoloured from its own colour to the donor's
+## (core/pet_parts.gd tints, fx/pet_skin.gdshader). The commonest colour over
+## the part's GRAFT region (tools/dev/region_colours.gd prints them), or the
+## Blender pet's palette colour for that part where horns or eyes outweigh it.
+const REGION_COLOR := {
+	"drake": {"head": "3a2e2a", "wings": "2a1d1a", "tail": "3a2e2a"},
+	"wisp": {"head": "5d6066", "wings": "48a89b", "tail": "5d6066"},
+	"crow": {"head": "171a22", "wings": "0d0f15", "tail": "171a22"},
+	"mimic": {"head": "4f3222", "tail": "b8893a"},
+	"bat": {"head": "2e2226", "wings": "4a1c25"},
+	"bonelet": {"head": "bdb39c"},
+	"hexling": {"head": "33204d"},
+	"acolyte": {"head": "34402a", "wings": "34402a"},
+	"barrow_squire": {"head": "4a5155", "wings": "bdb39c"},
+	"shade": {"head": "221c30", "wings": "221c30", "tail": "221c30"},
+	"sapling": {"head": "47331f"},
 }
 
 ## Where a receiver hangs wings and a tail that its own model has no slot for
@@ -155,15 +186,15 @@ const GRAFT := {
 const MOUNT := {
 	"drake": {"wings": "spine_01", "tail": "tail_01"},
 	"wisp": {"wings": "spine_01", "tail": "tail_01"},
-	"bonelet": {"wings": "spine4", "tail": "pelvis"},
-	"hexling": {"wings": "spine3", "tail": "hip"},
-	"acolyte": {"wings": "chest", "tail": "pelvis"},
+	"bonelet": {"wings": "chest", "tail": "hips"},
+	"hexling": {"wings": "chest", "tail": "hips"},
+	"acolyte": {"wings": "chest", "tail": "hips"},
 	"crow": {"wings": "spine_01", "tail": "tail_01"},
 	"mimic": {"wings": "hips", "tail": "tail_01"},
-	"bat": {"wings": "chest", "tail": "hip"},
-	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},
-	"shade": {"wings": "spine2", "tail": "spine4"},
-	"sapling": {"wings": "root.002", "tail": "root_01"},
+	"bat": {"wings": "spine_01", "tail": "tail_01"},
+	"barrow_squire": {"wings": "chest", "tail": "hips"},
+	"shade": {"wings": "spine_01", "tail": "tail_01"},
+	"sapling": {"wings": "spine_01", "tail": "hips"},
 }
 
 ## True when `donor` has a real `slot` part to lend (a GRAFT entry).

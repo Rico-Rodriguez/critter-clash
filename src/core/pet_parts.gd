@@ -1,25 +1,30 @@
 extends RefCounted
-## The real parts a bred pet wears: the head, wings and tail it borrowed from a
-## parent that isn't its body breed, lifted out of that parent's own model
-## (core/pet_graft.gd) and hung on the body's skeleton so they move with it.
-## The body's own part is cut out first (carve), so nothing doubles up. PBR is
-## never touched (art lock: clean, crisp, no tint). A slot whose donor has no
-## real part (GEN.donates) draws nothing: it stays data and card text.
-## Nodes: BoneAttachment3D "Graft_<slot>" > Frame (canonical axes) > the meshes
-## (wings: "Wing" pivots that flap). No class_name (OTA packs): preload by path.
+## How a bred pet shows the head, wings and tail it inherited from a parent that
+## isn't its body breed. The pet stays its body parent, one whole animal: the
+## inherited region takes the donor's colours (pet_graft.regions marks it,
+## fx/pet_skin.gdshader recolours it) and wears a small designed trait of the
+## donor's (horns, a crest, a lure...; tools/blender/pets/traits.py). A body
+## without that part (a mimic's wings) wears only the trait. A slot whose donor
+## has no real part (GEN.donates) draws nothing: it stays data and card text.
+## Nodes: BoneAttachment3D "Graft_<slot>" > Frame (canonical axes) > the trait.
+## No class_name (OTA packs): preload by path.
 
 const SDB := preload("res://src/data/sidekick_db.gd")
 const GEN := preload("res://src/data/pet_gen.gd")
 const PG := preload("res://src/core/pet_graft.gd")
 
 const FILL_LAYER := 1 << 19
-## Wing span (both wings) and tail length, as a share of the body's own height.
-const SPAN := 1.5
-const TAIL := 0.7
-const FLAP := 0.2
+const TRAITS := "res://assets/sidekicks/pet_traits.glb"
+## Trait size, as a share of what it sits on: the head's width, the back's
+## width, the body's length.
+const HEAD := 0.55
+const WINGS := 0.8
+const TAIL := 0.35
+
+static var _trait_meshes := {}
 
 
-## The slots this def wears a donor's real part in: [[slot, donor], ...].
+## The slots this def inherits from a donor that has that part: [[slot, donor], ...].
 static func swaps(d: Dictionary) -> Array:
 	var out := []
 	var g: Dictionary = d.get("genes", {})
@@ -34,90 +39,103 @@ static func swaps(d: Dictionary) -> Array:
 	return out
 
 
-## Cuts the body's own head / wings / tail out of its fresh model, for the
-## slots that get a donor's. Call before the model is lit.
-static func carve(model: Node3D, d: Dictionary) -> void:
-	var slots := []
+## Marks the body's own regions for the slots it inherited, before the model
+## is lit (the colours themselves are tints() on the skin).
+static func regions(model: Node3D, d: Dictionary) -> void:
+	var body := SDB.body_of(str(d.get("breed", "")))
 	for sw: Array in swaps(d):
-		slots.append(sw[0])
-	if slots.is_empty():
-		return
-	PG.carve(model, SDB.body_of(str(d.get("breed", ""))), slots)
+		if (GEN.GRAFT[body] as Dictionary).has(sw[0]):
+			PG.regions(model, body)
+			return
 
 
-## Mounts the donors' parts on the model.
+## The skin's recolour per inherited region the body has: {slot: Color}, rgb
+## the donor's colour for that part and a its body's own brightness there.
+static func tints(d: Dictionary) -> Dictionary:
+	var out := {}
+	var body := SDB.body_of(str(d.get("breed", "")))
+	for sw: Array in swaps(d):
+		var own := str((GEN.REGION_COLOR.get(body, {}) as Dictionary).get(sw[0], ""))
+		var donor := str((GEN.REGION_COLOR.get(str(sw[1]), {}) as Dictionary).get(sw[0], ""))
+		if own == "" or donor == "":
+			continue
+		var o := Color.html(own).srgb_to_linear()
+		var c := Color.html(donor).srgb_to_linear()
+		out[sw[0]] = Color(c.r, c.g, c.b, maxf(o.get_luminance(), 0.02))
+	return out
+
+
+## Mounts each inherited part's trait on the model.
 static func attach(model: Node3D, d: Dictionary) -> void:
 	var body := SDB.body_of(str(d.get("breed", "")))
 	for sw: Array in swaps(d):
 		var slot: String = sw[0]
-		var part := PG.part(str(sw[1]), slot)
-		if part.is_empty():
+		var mesh := trait_mesh(str(sw[1]), slot)
+		if mesh == null:
 			continue
-		var plan := _plan(body, slot, part)
-		if plan.is_empty():
-			continue
-		var frame := _frame(model, body, str(plan["bone"]), slot, str(sw[1]))
-		for it: Dictionary in plan["items"]:
-			var holder: Node3D = frame
-			if slot == "wings":
-				var w := Node3D.new()
-				w.name = "Wing"
-				w.position = it["at"]
-				w.set_meta("side", int(it["side"]))
-				frame.add_child(w, true)
-				holder = w
-				w.tree_entered.connect(_flap.bind(w, int(it["side"])), CONNECT_ONE_SHOT)
-			var mi := MeshInstance3D.new()
-			mi.mesh = it["mesh"]
-			mi.transform = it["xf"]
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-			mi.layers = 1 | FILL_LAYER
-			holder.add_child(mi)
+		var at := _place(body, slot)
+		var frame := _frame(model, body, str(at["bone"]), slot, str(sw[1]))
+		var mi := MeshInstance3D.new()
+		mi.name = "Trait"
+		mi.mesh = mesh
+		mi.transform = at["xf"]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		mi.layers = 1 | FILL_LAYER
+		frame.add_child(mi)
 
 
-## Where and how big each piece goes, in the body's canonical frame:
-## {"bone": token, "items": [{"mesh", "side", "at": Vector3, "xf": Transform3D}]}.
-static func _plan(body: String, slot: String, part: Dictionary) -> Dictionary:
+## The donor's designed trait for `slot` (null when it has none).
+static func trait_mesh(donor: String, slot: String) -> Mesh:
+	if _trait_meshes.is_empty():
+		var sc := load(TRAITS) as PackedScene
+		if sc != null:
+			var n := sc.instantiate()
+			for c in n.find_children("*", "MeshInstance3D", true, false):
+				_trait_meshes[str(c.name)] = (c as MeshInstance3D).mesh
+			n.free()
+	return _trait_meshes.get(donor + "_" + slot)
+
+
+## Where a trait sits on `body` and how big: {"bone": token, "xf": Transform3D}
+## in the body's canonical frame (+Z forward, +Y up, metres of its idle pose).
+static func _place(body: String, slot: String) -> Dictionary:
 	var bb := PG.bounds(body)
-	var h := maxf(bb.size.y, 0.3)
-	var items := []
+	var own := PG.region_box(body, slot)
+	var has_own := own.size != Vector3.ZERO
+	var at := Vector3.ZERO
+	var size := 1.0
 	var bone := ""
 	match slot:
 		"head":
-			var own := PG.part(body, "head")
-			if own.is_empty():
-				return {}
-			bone = str(GEN.GRAFT[body]["head"].get("pivot", ""))
-			var ob: AABB = own["aabb"]
-			var pb: AABB = part["aabb"]
-			var s := clampf(ob.size.length() / maxf(pb.size.length(), 0.01), 0.25, 5.0)
-			var xf := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * s), ob.get_center() - pb.get_center() * s)
-			for it: Dictionary in part["items"]:
-				items.append({"mesh": it["mesh"], "side": 0, "at": Vector3.ZERO, "xf": xf})
+			var box := own if has_own else AABB(bb.position + Vector3(0, bb.size.y * 0.7, bb.size.z * 0.5), bb.size * Vector3(1, 0.3, 0.5))
+			bone = str((GEN.GRAFT[body]["head"]["bones"] as Array)[0]) if has_own else str(GEN.MOUNT[body]["wings"])
+			at = Vector3(box.get_center().x, box.end.y - box.size.y * 0.08, box.get_center().z)
+			size = maxf(box.size.x, bb.size.x * 0.35) * HEAD
 		"wings":
 			bone = str(GEN.MOUNT[body]["wings"])
-			var a := _anchor(body, bone, bb)
-			var pb: AABB = part["aabb"]
-			# A wing's reach: its span, or its length when it is folded along the body.
-			var reach := maxf(pb.size.x * 0.5, pb.size.z)
-			var s := clampf(maxf(SPAN * h * 0.5, bb.size.x * 1.1) / maxf(reach, 0.01), 0.2, 3.0)
-			for it: Dictionary in part["items"]:
-				var sd := int(it["side"])
-				var piv: Vector3 = it["pivot"]
-				var at := Vector3(sd * bb.size.x * 0.5 * 0.5, a.y, a.z)
-				items.append({"mesh": it["mesh"], "side": sd, "at": at, "xf": Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * s), -piv * s)})
+			at = _anchor(body, bone, bb)
+			at.y = maxf(at.y, bb.position.y + bb.size.y * 0.55)
+			size = bb.size.x * WINGS
 		"tail":
-			bone = str(GEN.MOUNT[body]["tail"])
-			var a := _anchor(body, bone, bb)
-			# A real tail bone is the root; a pelvis sits mid-body, so the tail starts at the rear.
-			if not bone.contains("tail"):
-				a.z = bb.position.z + 0.12 * bb.size.z
-			var pb: AABB = part["aabb"]
-			var s := clampf(TAIL * sqrt(h * bb.size.z) / maxf(pb.size.z, 0.01), 0.2, 3.0)
-			var org: Vector3 = part["origin"]
-			for it: Dictionary in part["items"]:
-				items.append({"mesh": it["mesh"], "side": 0, "at": Vector3.ZERO, "xf": Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * s), a - org * s)})
-	return {"bone": bone, "items": items}
+			if has_own:
+				bone = _last_bone(body, "tail")
+				at = Vector3(own.get_center().x, own.get_center().y, own.position.z + own.size.z * 0.08)
+			else:
+				bone = str(GEN.MOUNT[body]["tail"])
+				at = _anchor(body, bone, bb)
+				if not bone.contains("tail"):
+					at.z = bb.position.z + 0.12 * bb.size.z
+			size = bb.size.z * TAIL
+	return {"bone": bone, "xf": Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size), at)}
+
+
+## The last bone in a chain (the tail's tip): the highest-numbered match.
+static func _last_bone(body: String, token: String) -> String:
+	var best := ""
+	for k: String in PG.bones(body):
+		if k.contains(token) and k > best:
+			best = k
+	return best
 
 
 ## The body's anchor for `token` (its bone, else the middle of the body).
@@ -156,9 +174,3 @@ static func _frame(model: Node3D, body: String, bone: String, slot: String, dono
 	holder.set_meta("donor", donor)
 	holder.add_child(frame)
 	return holder.get_child(0) as Node3D
-
-
-static func _flap(w: Node3D, side: int) -> void:
-	var tw := w.create_tween().set_loops()
-	tw.tween_property(w, "rotation:z", side * FLAP, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(w, "rotation:z", -side * FLAP * 0.5, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)

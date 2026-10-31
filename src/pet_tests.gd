@@ -26,7 +26,7 @@ static func run(ok: Callable) -> void:
 	_carve_flags(ok)
 
 
-## Carving rebuilds surfaces from their arrays: a float custom channel must
+## Marking regions rebuilds surfaces from their arrays: a float custom channel must
 ## keep its format or the surface is refused and goes missing.
 static func _carve_flags(ok: Callable) -> void:
 	var src := ArrayMesh.new()
@@ -37,7 +37,7 @@ static func _carve_flags(ok: Callable) -> void:
 	src.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 	var out := ArrayMesh.new()
 	out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, src.surface_get_arrays(0), [], {}, PG._rebuild_flags(src.surface_get_format(0)))
-	ok.call("carving keeps a surface with a float custom channel", src.get_surface_count() == 1 and out.get_surface_count() == 1)
+	ok.call("rebuilding keeps a surface with a float custom channel", src.get_surface_count() == 1 and out.get_surface_count() == 1)
 
 
 static func _sources(ok: Callable) -> void:
@@ -253,7 +253,7 @@ static func _breeds(ok: Callable) -> void:
 	var old := {"dmg": 1.1, "haste": 1.0, "reach": 1.0, "size": 1.0, "element": "fire", "pattern": "spots", "accent": "ff0000", "glow": false, "personality": "keen", "echo": ""}
 	var od := SDB.bred_def("drake", old)
 	ok.call("breeds: a pet saved before pets 2.0 still builds", not od.is_empty() and (od["notes"] as Array).is_empty() and not od.has("skin"))
-	# Real parts: lifted from the donor's own model and hung on the body's.
+	# Inherited parts: the body's region in the donor's colours, plus the donor's trait.
 	ok.call("breeds: a pet saved before pets 2.0 wears no borrowed part", PARTS.swaps(od).is_empty())
 	var gp := SDB.base_genes()
 	gp["parts"] = {"head": "bonelet", "wings": "bat", "tail": "drake"}
@@ -265,7 +265,7 @@ static func _breeds(ok: Callable) -> void:
 	var lr: Node3D = look["root"]
 	var gh := lr.find_child("Graft_head", true, false)
 	var gw := lr.find_child("Graft_wings", true, false)
-	ok.call("breeds: borrowed head and wings hang on the body's skeleton, an own tail adds nothing", gh != null and gw != null and gh is BoneAttachment3D and lr.find_child("Graft_tail", true, false) == null and gw.get_child(0).get_child_count() == 2)
+	ok.call("breeds: inherited head and wings wear a trait on the body's skeleton, an own tail adds nothing", gh != null and gw != null and gh is BoneAttachment3D and lr.find_child("Graft_tail", true, false) == null and gw.find_children("Trait", "MeshInstance3D", true, false).size() == 1)
 	var prim := 0
 	var real := 0
 	for n in lr.find_children("*", "MeshInstance3D", true, false):
@@ -280,17 +280,26 @@ static func _breeds(ok: Callable) -> void:
 		for n in gn.find_children("*", "MeshInstance3D", true, false):
 			var m := (n as MeshInstance3D).mesh
 			meshes_ok = meshes_ok and m is ArrayMesh and m.surface_get_material(0) is BaseMaterial3D and (m as ArrayMesh).get_aabb().size.length() > 0.02
-	ok.call("breeds: a borrowed part is the donor's own mesh with its own PBR", meshes_ok)
-	var wing_sides := []
-	for n in gw.find_children("Wing*", "Node3D", true, false):
-		wing_sides.append(int(n.get_meta("side")))
-	wing_sides.sort()
-	ok.call("breeds: wings come as a left and a right pivot", wing_sides == [-1, 1])
+	ok.call("breeds: a trait is a real mesh with its own PBR", meshes_ok)
+	# The inherited regions are marked on the body and coloured like the donor.
+	var marked := Vector3.ZERO
+	var tinted := false
+	for n in lr.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null or mi.get_parent().name.begins_with("Frame"):
+			continue
+		var cols: Variant = mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+		if cols is PackedColorArray:
+			for c: Color in cols:
+				marked += Vector3(1 if c.r > 0.5 else 0, 1 if c.g > 0.5 else 0, 1 if c.b > 0.5 else 0)
+		var th: Variant = mi.get_instance_shader_parameter("tint_head")
+		tinted = tinted or (th is Vector4 and (th as Vector4).w > 0.0)
+	ok.call("breeds: the body's own head and wings are marked and take the donor's colours", marked.x > 20 and marked.y > 20 and marked.z > 20 and tinted)
 	lr.free()
-	# The body's own head is cut out where the donor's goes on.
+	# The pet stays one whole animal: nothing of the body is cut away.
 	var own_tris := _tris(SKL.build("drake", false)["root"])
-	var carved_tris := _tris(SKL.build("x98", false)["root"])
-	ok.call("breeds: the body's own head and wings are cut out so nothing doubles up", carved_tris < own_tris and carved_tris > own_tris / 2)
+	var bred_tris := _tris(SKL.build("x98", false)["root"])
+	ok.call("breeds: a bred pet keeps its body's whole model", bred_tris == own_tris)
 	SDB.BRED.erase("x98")
 	# Every part a species can lend builds on every body: real meshes of sane size.
 	var every := true
@@ -523,7 +532,7 @@ static func _log(ok: Callable) -> void:
 	var d := Game._fresh()
 	SK.migrate(d)
 	var c0 := SK.collection(d)
-	ok.call("log: a new save has nothing found, with real totals", int(c0["variants"]["have"]) == 0 and int(c0["variants"]["total"]) == 11 * 4 + 8 * 4 and int(c0["mutations"]["total"]) == 6 and int(c0["parts"]["total"]) == GEN.donor_parts() and GEN.donor_parts() == 19 and int(c0["breeds"]["total"]) == 19)
+	ok.call("log: a new save has nothing found, with real totals", int(c0["variants"]["have"]) == 0 and int(c0["variants"]["total"]) == 11 * 4 + 8 * 4 and int(c0["mutations"]["total"]) == 6 and int(c0["parts"]["total"]) == GEN.donor_parts() and GEN.donor_parts() == 23 and int(c0["breeds"]["total"]) == 19)
 	var child := {"breed": "cinderbone", "genes": SDB.base_genes()}
 	child["genes"]["variant"] = "bright"
 	child["genes"]["mutation"] = "gilded"
