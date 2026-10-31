@@ -28,7 +28,6 @@ description and the uploader's other work before an App Store build".
 | "THE ABOMINABLE SNOWMAN (READ DESC)" by toro ardido modelos 3d | `assets/foes/rime_yeti.tscn`, the Rime Yeti | The title tells readers to read the description, which usually holds a usage condition. | Read the description. The CREDITS note that the shipped yeti is "Lowpoly bigfoot" by Sololopenko, so one of the two entries may be stale. |
 | "Parameswara Chronicles: Witch" by Dr Helmi Norman | Mire Hag | Named after a game project. | Whether Dr Norman's project is the source, and whether they made the upload. |
 | "FREE Low-poly PSX/PS1 Wendigo/Demon model" by Ultaraga Ultra Ultronus | Winter Caller | PSX-style packs are often recreations of console-game monsters. | Whether it recreates a game character. |
-| "Soulthirsty Mawko" by Spinnee | Grave Wisp sidekick | Reads like a game-creature name. The same uploader's "Lich" is used twice (Hexling, Pyre Shaman). | The uploader's other models for a pattern. |
 
 ## Low risk (generic subject, a named author, no franchise in the title)
 
@@ -44,15 +43,7 @@ description and the uploader's other work before an App Store build".
 | "Imp" | Al (lightningocelot) | Cinder Imp |
 | "Monster frog" | Goofy goober bird | Bog Frog |
 | "Armored Wasp" | Rodrigo Bento | Ember Wasp |
-| "Crow" | Alexei Ostapenko | Storm Crow, crow critter |
-| "Treant - Week 2" | Batuhan13 | Thorn Sapling |
-| "Bat" | matisosanimation | Night Bat |
-| "Mimic_Chest" | Joseph Payeur | Gilded Mimic |
-| "Skeleton animated" | danielmclogan | Bonelet |
-| "Lich" | Spinnee | Hexling, Pyre Shaman |
-| "Plague Doctor" | BeardenInc | Acolyte |
-| "Skelet_warrior" | EvgeshQa | Barrow Squire |
-| "Wraith" | Mateus Schwaab | Hexbound Shade |
+| "Crow" | Alexei Ostapenko | Crow critter (the Storm Crow pet is now made in Blender) |
 | "Hare (animated)" | bluekiwi.dog | Snow hare critter |
 | "Day 20 - Snowy Owl" | Lilly! | Snowy owl critter |
 | "Stylized Wolf" | ESO | Ridge wolf critter |
