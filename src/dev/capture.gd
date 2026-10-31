@@ -653,6 +653,9 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
+			"deadsample":
+				await _contact_sheet(shot, _arg(args, "view", ""))
+				await _save(shot)
 			"plate":
 				# -- --view=close|items: the remade Knight plate up close, or its sword and shield.
 				await _contact_sheet(shot, _arg(args, "view", ""))
@@ -2069,6 +2072,54 @@ func _contact_sheet(kind: String, only := "") -> void:
 	var names: Array = []
 	if kind == "plate":
 		await _plate_sheet(root, only)
+		return
+	if kind == "deadsample":
+		# Today's Gravemaw and Risen Bones (KayKit) beside the dark plate Knight and the remade pair.
+		var camd := Camera3D.new()
+		root.add_child(camd)
+		camd.fov = 30
+		env.background_color = Color(0.13, 0.13, 0.16)
+		var row: Array = [["Skeleton_Minion", {"handslot.r": "Skeleton_Blade.gltf"}, 1.0, "Skeletons_Idle"],
+			["Skeleton_Warrior", {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"}, 1.55, "Idle_A"],
+			["hero", {}, 1.0, "Idle_A"],
+			["DarkDead_King", {"handslot.r": "barb_axe_3.gltf", "handslot.l": "knight_off_3.gltf"}, 1.3, "Idle_A"],
+			["DarkDead_Minion", {"handslot.r": "knight_sword_0.gltf"}, 1.0, "Idle_A"]]
+		if only == "new":
+			row = [row[2], row[3], row[4]]
+		elif only == "bosses":
+			row = [["hero", {}, 1.0, "Idle_A"]]
+			for bid: String in ["gravemaw", "hexer", "thorn", "warden", "rime", "cinder"]:
+				var bd: Dictionary = DB.BOSSES[bid]
+				row.append([bd["model"], bd["weapons"], 0.75, "Idle_A", bd])
+		for i in row.size():
+			var spec: Array = row[i]
+			var a := Actor.new()
+			root.add_child(a)
+			if str(spec[0]) == "hero":
+				a.adult_build = true
+				a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				var pre := {}
+				for slot in DB.SLOTS:
+					pre[slot] = Game.make_item("knight", slot, 6, "rare")
+				GearLook.apply(a, "knight", pre)
+			elif spec.size() > 4:
+				# A boss as the hunt builds it, the foreign rig through its boss_models def.
+				var bd2: Dictionary = spec[4]
+				var rd: Dictionary = bd2.duplicate()
+				if bd2.has("rig"):
+					rd.merge(preload("res://src/data/boss_models.gd").DEFS[str(bd2["rig"])], true)
+				a.build_model(str(spec[0]), spec[1], Color(0.4, 1.0, 0.75), 0.45, Color(1.0, 0.55, 0.15, 1.0), 0.8, rd)
+				if bd2.has("skin") and not a.foreign:
+					if DB.SKINS.has(str(bd2["skin"])):
+						a.reskin(DB.SKINS[str(bd2["skin"])])
+			else:
+				a.build_model(str(spec[0]), spec[1], Color(0.4, 1.0, 0.75), 0.45, Color(1.0, 0.55, 0.15, 1.0), 0.8)
+			a.scale = Vector3.ONE * float(spec[2])
+			a.position = Vector3((i - (row.size() - 1) * 0.5) * 1.9, 0, 0)
+			a.rotation.y = 0.35 * (1.0 if i < row.size() / 2 else -1.0)
+			a.play(str(spec[3]), 0.0)
+		camd.look_at_from_position(Vector3(0, 1.9, 13.0 if row.size() > 5 else (9.5 if row.size() > 3 else 7.0)), Vector3(0, 1.3, 0), Vector3.UP)
+		await _wait(1.2)
 		return
 	if kind == "dress" or kind.begins_with("sets"):
 		var cam2 := Camera3D.new()
