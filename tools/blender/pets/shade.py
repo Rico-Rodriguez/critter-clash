@@ -12,14 +12,14 @@ ROOT = sys.argv[sys.argv.index("--") + 1]
 OUT = os.path.join(ROOT, "assets/sidekicks/")
 reset()
 
-ROBE = mat("shade_robe", "2f2742")
-DEEP = mat("shade_deep", "262036")
-LIGHT = mat("shade_light", "463a63")
+ROBE = mat("shade_robe", "221c30")
+DEEP = mat("shade_deep", "1a1526")
+LIGHT = mat("shade_light", "342b4a")
 VOID = mat("shade_void", "06040a", 1.0)
-EYE = mat("shade_eye", "ddd2ff")
-HAND = mat("shade_hand", "8d84a6")
-SILVER = mat("shade_silver", "aaa5c2", 0.4)
-WOOD = mat("shade_wood", "5a4031")
+EYE = mat("shade_eye", "c8bcf0")
+HAND = mat("shade_hand", "6a6380")
+SILVER = mat("shade_silver", "8d89a3", 0.4)
+WOOD = mat("shade_wood", "3b2a20")
 
 # Skeleton (Blender: -Y forward, Z up). It floats: the tail tip clears the ground.
 S = [

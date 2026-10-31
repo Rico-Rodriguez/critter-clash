@@ -9,6 +9,30 @@ version is 7.
 
 ---
 
+## Unreleased: every pet in the dark plate style
+
+Rico liked the dark plate Knight and asked for sharper, less rounded shapes, so every pet now matches
+it. The shape helpers in `tools/blender/pets/common.py` build angular by default: flat-shaded facets,
+tubes with fewer sides and no subdivision, at most one subdivision on rounded parts, and a corner on
+the top and bottom of every ring, so bodies get a ridge and a keel. The Ember Drake is reshaped by
+hand: a keeled chest, a blade of a skull under a heavy brow, horns swept back past the neck, tall
+raked spines, wings cut into points and a barbed tail. All eleven pets and the bred-pet traits take a
+darker palette that keeps each one's colour identity: a charcoal drake with an ember belly, aged
+bone, oxblood cloth, mail steel, aged gold, moss, and wine. The colours bred pets inherit follow. The
+pets have about a third fewer triangles. Rigs and animations are unchanged.
+
+## Unreleased: the Bonelet and Hexling, made from scratch
+
+Rico wants every model made by us, so the two pets that still stood on the heroes' KayKit body are
+rebuilt as original Blender models on a shared grown-up biped rig (`tools/blender/pets/biped.py`).
+The Bonelet is a full skeleton (ribs, spine, pelvis, finger bones) in a ragged red hooded mantle,
+with a broken iron shackle on one wrist and the femur it throws; it shambles, hurls overarm and
+rattles its head in a taunt. The Hexling is a robed cultist under a tall pointed hood, its face a
+pale carved mask with a hex sign over narrow eye slits, talismans on its cord belt, and a crooked
+staff whose three claws hold a violet orb; it thrusts the staff to hex and raises it for its
+special. The same colours as before. `tools/blender/pets/kaykit.py` is gone. A content change:
+ships over the air.
+
 ## Unreleased: the Barrow Squire, made in Blender
 
 The eleventh and last pet remade in the heroes' style. The Barrow Squire is now an original Blender

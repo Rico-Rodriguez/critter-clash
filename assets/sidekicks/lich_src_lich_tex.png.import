@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqma8pgcfwwke"
-path="res://.godot/imported/skeleton_src_skeleton_texture.png-2c46079d0931f3544b1c32bc3ea621f5.ctex"
+uid="uid://dhx47t45ywgkf"
+path="res://.godot/imported/lich_src_lich_tex.png-384d9cfb3e93a01c70e87acdbbb40528.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "661544b1e8ba10b5a0c98b638eae6d0b"
+"md5": "5c94011912877f62e34a0dc44d627744"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/skeleton_src_skeleton_texture.png"
-dest_files=["res://.godot/imported/skeleton_src_skeleton_texture.png-2c46079d0931f3544b1c32bc3ea621f5.ctex"]
+source_file="res://assets/sidekicks/lich_src_lich_tex.png"
+dest_files=["res://.godot/imported/lich_src_lich_tex.png-384d9cfb3e93a01c70e87acdbbb40528.ctex"]
 
 [params]
 
