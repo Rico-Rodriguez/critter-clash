@@ -498,7 +498,7 @@ func _make_faller(kind: String) -> Node3D:
 		toon(rock, Color(1.0, 0.55, 0.12), 0.04)
 		root.add_child(rock)
 	else:
-		var a := KK.prop("res://assets/kaykit/weapons/arrow_bow.gltf")
+		var a := KK.prop("res://assets/kaykit/weapons/ammo_arrow.gltf")
 		a.scale = Vector3.ONE * 2.2
 		a.rotation = Vector3(0, 0, 0)
 		root.add_child(a)
