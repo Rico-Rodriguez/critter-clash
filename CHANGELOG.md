@@ -9,6 +9,16 @@ version is 7.
 
 ---
 
+## Unreleased: unique gear of our own
+
+Every boss unique now has a look of its own, in its own colours: the Barrow King's crown of gold
+points, the Gown of Thorns, the Shroud of the Barrow, Barkhide Plate, Hoardplate, Pyreplate,
+Wraithstep Greaves, the Rime's robes and cowl, Emberstride Boots, and the uniques' weapons and
+offhands (Gravemaw's Cleaver, the Hexer's Scepter, the Thornwood Longbow, the Gilded Fangs,
+Glacierfall Maul, Ashmaker, Emberheart, Seedheart Aegis). The Mage's skull orb, candelabra and
+phylactery are our own models, and a hero with no weapon holds its first family's Gravedigger
+weapon. A content change: ships over the air.
+
 ## Unreleased: the old hero gear goes
 
 With the dark outfits in, nothing wears the KayKit-style helms and pauldrons in `assets/kaykit/gear/`

@@ -392,7 +392,7 @@ func _gear_tests() -> void:
 	_ok("a set piece wears the set", GearDB.base_name(it) == "Barrowsteel Necromancer Robe" and GearDB.accent(it) == GearDB.SET_LOOKS["hexer"]["accent"])
 	var orb := Game.make_item("mage", "trinket", 2, "rare")
 	orb["look"] = 1
-	_ok("look 1 is the alternative", GearDB.base_name(orb) == "Barrowsteel Skull Orb" and GearDB.piece(orb)["model"] == "kit:skull_orb")
+	_ok("look 1 is the alternative", GearDB.base_name(orb) == "Barrowsteel Skull Orb" and GearDB.piece(orb)["model"] == "uniq_skull_orb.gltf")
 	# Weapon families: the scythe is endgame, boss-only, and no Gravedigger.
 	var fams := {}
 	for i in 200:
