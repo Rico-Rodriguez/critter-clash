@@ -43,15 +43,7 @@ description and the uploader's other work before an App Store build".
 | "Imp" | Al (lightningocelot) | Cinder Imp |
 | "Monster frog" | Goofy goober bird | Bog Frog |
 | "Armored Wasp" | Rodrigo Bento | Ember Wasp |
-| "Crow" | Alexei Ostapenko | Storm Crow, crow critter |
-| "Treant - Week 2" | Batuhan13 | Thorn Sapling |
-| "Bat" | matisosanimation | Night Bat |
-| "Mimic_Chest" | Joseph Payeur | Gilded Mimic |
-| "Skeleton animated" | danielmclogan | Bonelet |
-| "Lich" | Spinnee | Hexling, Pyre Shaman |
-| "Plague Doctor" | BeardenInc | Acolyte |
-| "Skelet_warrior" | EvgeshQa | Barrow Squire |
-| "Wraith" | Mateus Schwaab | Hexbound Shade |
+| "Crow" | Alexei Ostapenko | Crow critter (the Storm Crow pet is now made in Blender) |
 | "Hare (animated)" | bluekiwi.dog | Snow hare critter |
 | "Day 20 - Snowy Owl" | Lilly! | Snowy owl critter |
 | "Stylized Wolf" | ESO | Ridge wolf critter |

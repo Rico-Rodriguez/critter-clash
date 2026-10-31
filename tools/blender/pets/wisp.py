@@ -10,14 +10,14 @@ ROOT = sys.argv[sys.argv.index("--") + 1]
 OUT = os.path.join(ROOT, "assets/sidekicks/")
 reset()
 
-STONE = mat("wisp_stone", "8e9096")
-DARK = mat("wisp_dark", "5a5d64")
-GLOW = mat("wisp_glow", "86e6d8")
-SPIRIT = mat("wisp_spirit", "5cc9bb")
-TOOTH = mat("wisp_tooth", "eee6d2")
-MOUTH = mat("wisp_mouth", "2b2228")
-EYE = mat("wisp_eye", "c9fff6")
-IRON = mat("wisp_iron", "3a3c42")
+STONE = mat("wisp_stone", "5d6066")
+DARK = mat("wisp_dark", "3a3c42")
+GLOW = mat("wisp_glow", "6fd0c2")
+SPIRIT = mat("wisp_spirit", "48a89b")
+TOOTH = mat("wisp_tooth", "c9bfa8")
+MOUTH = mat("wisp_mouth", "1d171b")
+EYE = mat("wisp_eye", "b8f2ea")
+IRON = mat("wisp_iron", "26282c")
 
 # Skeleton (Blender: -Y forward, Z up).
 S = [
