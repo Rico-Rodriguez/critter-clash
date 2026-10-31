@@ -10,14 +10,14 @@ ROOT = sys.argv[sys.argv.index("--") + 1]
 OUT = os.path.join(ROOT, "assets/sidekicks/")
 reset()
 
-BLACK = mat("crow_black", "1e2331")
-DEEP = mat("crow_deep", "121520")
-SHEEN = mat("crow_sheen", "38507a")
-STORM = mat("crow_storm", "8ec2ff")
-BEAK = mat("crow_beak", "2d2c31")
-EYE = mat("crow_eye", "ffd04f")
+BLACK = mat("crow_black", "171a22")
+DEEP = mat("crow_deep", "0d0f15")
+SHEEN = mat("crow_sheen", "2a3a55")
+STORM = mat("crow_storm", "7aa8e0")
+BEAK = mat("crow_beak", "222126")
+EYE = mat("crow_eye", "e6b43a")
 PUPIL = mat("crow_pupil", "0d0d10")
-LEG = mat("crow_leg", "3b3b42")
+LEG = mat("crow_leg", "2c2c31")
 
 S = [
     ("hips", (0, 0.16, 0.55), (0, -0.04, 0.6), None),

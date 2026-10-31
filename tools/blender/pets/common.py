@@ -33,13 +33,25 @@ def mat(name, hexcol, rough=0.75, emit=None):
     return m
 
 
+# Angular style, to sit beside the dark plate heroes: flat-shaded facets, tubes
+# with fewer sides (SIDES of what the script asks) and no subdivision, blobs
+# subdivided at most BLOB_SUB times, and tube rings with a corner on top and
+# bottom so bodies get a ridge and a keel.
+HARD = True
+SIDES = 0.6
+BLOB_SUB = 1
+
+
 def _ring(n, rx, rz):
-    return [(math.cos(2 * math.pi * i / n) * rx, math.sin(2 * math.pi * i / n) * rz) for i in range(n)]
+    ph = math.pi / 2 if HARD else 0.0
+    return [(math.cos(ph + 2 * math.pi * i / n) * rx, math.sin(ph + 2 * math.pi * i / n) * rz) for i in range(n)]
 
 
 def tube(name, path, m, n=10, sub=1, cap0=True, cap1=True):
     """A soft tube along `path`: [(point, rx, rz), ...]. Rings sit square to
     the path; rx is sideways (world X), rz the other way."""
+    if HARD:
+        n, sub = max(3, round(n * SIDES)), 0
     bm = bmesh.new()
     rings = []
     pts = [Vector(p) for p, _, _ in path]
@@ -66,6 +78,8 @@ def tube(name, path, m, n=10, sub=1, cap0=True, cap1=True):
 
 
 def blob(name, at, size, m, sub=2, rot=(0, 0, 0)):
+    if HARD:
+        sub = min(sub, BLOB_SUB)
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
@@ -106,6 +120,8 @@ def _obj(name, bm, m, sub, smooth=True):
     o = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(o)
     me.materials.append(m)
+    if HARD:
+        smooth = False
     if sub:
         md = o.modifiers.new("s", "SUBSURF")
         md.levels = sub

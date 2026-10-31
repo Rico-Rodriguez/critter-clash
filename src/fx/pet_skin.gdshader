@@ -40,8 +40,16 @@ uniform float glow_on = 0.0;
 uniform vec3 mut_color : source_color = vec3(1.0);
 uniform float pat_scale = 16.0;
 instance uniform vec3 accent : source_color = vec3(1.0, 0.8, 0.3);
+// A bred pet's inherited regions (the mesh's vertex colour: r head, g wings,
+// b tail; core/pet_graft.gd paints it): rgb the donor's colour for that part
+// (linear), a the body's own brightness there, 0 = not inherited. The region
+// keeps the body's shading and detail, moved onto the donor's colour.
+instance uniform vec4 tint_head = vec4(0.0);
+instance uniform vec4 tint_wings = vec4(0.0);
+instance uniform vec4 tint_tail = vec4(0.0);
 
 varying vec3 wnorm;
+varying vec3 region;
 
 float h21(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -96,6 +104,18 @@ float cut(float v, float edge) {
 
 void vertex() {
 	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	region = COLOR.rgb;
+}
+
+vec3 inherit(vec3 alb, vec4 t, float m) {
+	if (t.a <= 0.0 || m <= 0.0) {
+		return alb;
+	}
+	float l = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+	// Eyes, teeth and glints well above the region's own tone stay as they are.
+	float keep = smoothstep(2.2 * t.a, 3.6 * t.a, l);
+	vec3 moved = clamp(t.rgb * (l / t.a), 0.0, 1.0);
+	return mix(alb, moved, m * (1.0 - keep));
 }
 
 void fragment() {
@@ -109,6 +129,9 @@ void fragment() {
 		vec3 et = texture(tex_emit, uv).rgb;
 		emi = (emit_mul > 0.5 ? emit_col.rgb * et : emit_col.rgb + et) * emit_energy;
 	}
+	alb = inherit(alb, tint_head, region.r);
+	alb = inherit(alb, tint_wings, region.g);
+	alb = inherit(alb, tint_tail, region.b);
 	vec2 p = uv * pat_scale;
 	float up = clamp(wnorm.y, 0.0, 1.0);
 

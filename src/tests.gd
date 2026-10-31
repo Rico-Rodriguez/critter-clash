@@ -268,7 +268,7 @@ func run() -> int:
 	_focus_tests()
 	_levelup_tests()
 	_bank_tests()
-	# The Thorn Sapling is its own rigged treant (licensed, see CREDITS.md), not a reused Rogue.
+	# The Thorn Sapling is its own rigged treant (made in Blender, see CREDITS.md), not a reused Rogue.
 	var sap_m := str(preload("res://src/data/sidekick_db.gd").ROSTER["sapling"]["model"])
 	var sap_look: Dictionary = preload("res://src/core/sidekick_look.gd").build("sapling")
 	var sap: Node3D = sap_look["root"]
