@@ -165,26 +165,13 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 ## Sidekicks
 
-- Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic, Night Bat and Thorn Sapling: original,
+- Ember Drake / Ash Wyrm, Grave Wisp, Storm Crow, Gilded Mimic, Night Bat, Thorn Sapling, Hexbound
+  Shade, Acolyte, Barrow Squire, Bonelet and Hexling: original,
   made for this project in Blender from code (`tools/blender/pets/drake.py`, `wisp.py`, `crow.py`,
-  `mimic.py`, `bat.py`, `sapling.py`, `shade.py`): models,
+  `mimic.py`, `bat.py`, `sapling.py`, `shade.py`, `acolyte.py`, `squire.py`, `bonelet.py`,
+  `hexling.py`, `biped.py`): models,
   skeletons, clips and textures. The traits bred pets wear (horns, crests, lures, crowns...) are
   made the same way (`tools/blender/pets/traits.py`).
-- Bonelet: the KayKit Skeleton_Minion (CC0, see the KayKit entry) at the heroes' adult build, with
-  KayKit clips, a red mantle and a femur made in Blender (`tools/blender/pets/bonelet.py`).
-- Hexling: the KayKit Rogue_Hooded (CC0) at the heroes' adult build, cloth re-dyed violet, with
-  KayKit clips and a staff made in Blender (`tools/blender/pets/hexling.py`).
-
-- Sidekick models, Creative Commons Attribution 4.0
-  (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials; meshes merged into
-  one draw per material (`tools/art/merge_skinned.py`), clips renamed or cut by time, scaled to size in
-  `assets/sidekicks/*.tscn` (`tools/art/wrap_sidekicks.gd`). The Attack, Hit, Special, Run, Hover,
-  Idle_Loop and Walk_Loop clips are original keyframes made for this project on the authors' own rigs
-  (`tools/art/sidekick_clips.py`); the shipped clips are kept as they were:
-  - Acolyte — "Plague Doctor" by BeardenInc (display base removed) —
-    https://sketchfab.com/3d-models/plague-doctor-41f7a1dfd6984135b876f334908e3ca4
-  - Barrow Squire — "Skelet_warrior" by EvgeshQa (uchaikineugene) —
-    https://sketchfab.com/3d-models/skelet-warrior-1337edb8b567486aa22f15b519e60c4d
 - Icons dragon-head, bat-wing, raven, egg-clutch, thorny-vine and fire-breath by
   Lorc, from game-icons.net, CC BY 3.0.
 

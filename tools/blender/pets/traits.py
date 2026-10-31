@@ -58,11 +58,11 @@ def wing_pair(name, membrane, strut, tip=None):
 
 
 # --- Ember Drake --------------------------------------------------------------
-HORN = mat("t_horn", "eadcbf", 0.6)
-HORN_D = mat("t_horn_d", "a8977a", 0.6)
-SCALE = mat("t_drake", "b9472a")
-WING = mat("t_drake_wing", "8e2c22")
-CLAW = mat("t_claw", "2b2523", 0.5)
+HORN = mat("t_horn", "a89e88", 0.6)
+HORN_D = mat("t_horn_d", "7a6f5c", 0.6)
+SCALE = mat("t_drake", "3a2e2a")
+WING = mat("t_drake_wing", "2a1d1a")
+CLAW = mat("t_claw", "141414", 0.5)
 
 parts = []
 for s in (1, -1):
@@ -79,8 +79,8 @@ join("drake_tail", [
 ])
 
 # --- Storm Crow ---------------------------------------------------------------
-FEATHER = mat("t_crow", "1e2331")
-SHEEN = mat("t_crow_sheen", "38507a")
+FEATHER = mat("t_crow", "171a22")
+SHEEN = mat("t_crow_sheen", "2a3a55")
 STORM = glow("t_storm", "8ec2ff", 1.5)
 
 
@@ -113,10 +113,10 @@ for i, a in enumerate((-28, -10, 10, 28)):
 join("crow_tail", parts)
 
 # --- Grave Wisp ---------------------------------------------------------------
-STONE = mat("t_stone", "8e9096")
-STONE_D = mat("t_stone_d", "5a5d64")
+STONE = mat("t_stone", "5d6066")
+STONE_D = mat("t_stone_d", "3a3c42")
 LAMP = glow("t_lamp", "86e6d8", 3.0)
-IRON = mat("t_iron", "3a3c42", 0.5)
+IRON = mat("t_iron", "26282c", 0.5)
 
 join("wisp_head", [
     tube("wl", [((0, 0.05, 0.0), 0.04, 0.04), ((0, 0.0, 0.28), 0.032, 0.032), ((0, -0.2, 0.46), 0.026, 0.026), ((0, -0.4, 0.44), 0.02, 0.02)], STONE_D, n=8),
@@ -135,8 +135,8 @@ join("wisp_tail", [
 ])
 
 # --- Gilded Mimic -------------------------------------------------------------
-GOLD = mat("t_gold", "e2aa3c", 0.35)
-GOLD_D = mat("t_gold_d", "a3712a", 0.4)
+GOLD = mat("t_gold", "b8893a", 0.35)
+GOLD_D = mat("t_gold_d", "7a5622", 0.4)
 RUBY = glow("t_ruby", "e0344a", 0.6)
 
 parts = [tube("mcr", [((math.cos(a) * 0.3, math.sin(a) * 0.3, 0.04), 0.04, 0.05) for a in [i * math.pi / 8 for i in range(17)]], GOLD, n=6, sub=0, cap0=False, cap1=False)]
@@ -159,9 +159,9 @@ parts.append(tube("mts", [((0.0, 0.5, 0.04), 0.03, 0.03), ((0.0, 0.5, 0.1), 0.03
 join("mimic_tail", parts)
 
 # --- Night Bat ----------------------------------------------------------------
-BAT = mat("t_bat", "4a3346")
-BAT_IN = mat("t_bat_in", "c46a7a")
-BAT_WING = mat("t_bat_wing", "5b2a3a")
+BAT = mat("t_bat", "2e2226")
+BAT_IN = mat("t_bat_in", "7a3a44")
+BAT_WING = mat("t_bat_wing", "4a1c25")
 parts = []
 for s in (1, -1):
     parts.append(sheet(f"be{s}", [(0.16 * s, 0.04, 0.0), (0.4 * s, 0.06, 0.06), (0.36 * s, 0.1, 0.56), (0.14 * s, 0.08, 0.12)], BAT, 0.03))
@@ -170,36 +170,45 @@ join("bat_head", parts)
 join("bat_wings", wing_pair("bw", BAT_WING, BAT, CLAW))
 
 # --- Heads only: the humanoids and the sapling --------------------------------
-BONE = mat("t_bone", "e9e0c9", 0.7)
+BONE = mat("t_bone", "bdb39c", 0.7)
 parts = []
 for s in (1, -1):
     parts.append(cone(f"sk{s}", (0.18 * s, 0.0, 0.0), (0.3 * s, 0.1, 0.36), 0.07, BONE, n=6, bend=(0.06 * s, 0.0, 0.0)))
     parts.append(cone(f"sk2{s}", (0.08 * s, 0.04, 0.02), (0.12 * s, 0.14, 0.24), 0.045, BONE, n=6))
 join("bonelet_head", parts)
 
-HEX = mat("t_hex", "3d2b55")
+HEX = mat("t_hex", "2a1d3d")
 HEX_G = glow("t_hex_g", "b47cff", 2.2)
 join("hexling_head", [
     tube("hh", [((0, 0.0, 0.0), 0.36, 0.36), ((0, 0.02, 0.06), 0.2, 0.2), ((0, 0.06, 0.24), 0.12, 0.12), ((0, 0.16, 0.42), 0.05, 0.05), ((0, 0.3, 0.5), 0.015, 0.015)], HEX, n=10, cap0=True),
     tube("hb", [((0, 0.0, 0.07), 0.21, 0.21), ((0, 0.0, 0.1), 0.205, 0.205)], HEX_G, n=10),
 ])
 
-THORN = mat("t_thorn", "4f6b2a")
-THORN_D = mat("t_thorn_d", "2e3f1a")
+THORN = mat("t_thorn", "34421f")
+THORN_D = mat("t_thorn_d", "1f2a12")
 parts = [tube("ac", [((math.cos(a) * 0.3, math.sin(a) * 0.3, 0.03), 0.03, 0.03) for a in [i * math.pi / 8 for i in range(17)]], THORN_D, n=5, sub=0, cap0=False, cap1=False)]
 for i in range(8):
     a = i * math.pi / 4 + 0.2
     parts.append(cone(f"at{i}", (math.cos(a) * 0.3, math.sin(a) * 0.3, 0.04), (math.cos(a) * 0.4, math.sin(a) * 0.4, 0.2), 0.03, THORN, n=4))
 join("acolyte_head", parts)
 
-PLUME = mat("t_plume", "a8322c")
-STEEL = mat("t_steel", "8a8f99", 0.4)
+PLUME = mat("t_plume", "5a1a18")
+STEEL = mat("t_steel", "4a5155", 0.4)
 join("barrow_squire_head", [
     blob("sqb", (0, 0.0, 0.04), (0.08, 0.36, 0.08), STEEL),
     tube("sqp", [((0, -0.14, 0.06), 0.03, 0.06), ((0, -0.02, 0.2), 0.05, 0.1), ((0, 0.16, 0.22), 0.05, 0.09), ((0, 0.34, 0.1), 0.03, 0.05), ((0, 0.42, -0.04), 0.01, 0.02)], PLUME, n=8, sub=1),
 ])
 
-SHADE = mat("t_shade", "2c2440")
+LEATHER_T = mat("t_leather", "2e2118")
+GILT_T = mat("t_gilt", "a8893f", 0.35)
+# Barrow Squire: a small war banner on a pole, carried across the back.
+parts = [tube("sqpole", [((-0.2, 0.06, -0.2), 0.02, 0.02), ((0.08, 0.06, 0.62), 0.02, 0.02)], LEATHER_T, n=6, sub=0),
+         blob("sqfin", (0.085, 0.06, 0.64), (0.05, 0.05, 0.05), GILT_T, sub=1),
+         sheet("sqban", [(0.06, 0.06, 0.56), (0.32, 0.06, 0.62), (0.3, 0.06, 0.4), (0.22, 0.06, 0.46), (0.14, 0.06, 0.34), (0.0, 0.06, 0.36)], PLUME, 0.02),
+         sheet("sqbanb", [(0.06, 0.075, 0.54), (0.3, 0.075, 0.6), (0.29, 0.075, 0.56), (0.06, 0.075, 0.5)], GILT_T, 0.005)]
+join("barrow_squire_wings", parts)
+
+SHADE = mat("t_shade", "221c30")
 SHADE_G = glow("t_shade_g", "8a73ff", 1.8)
 parts = []
 for s in (1, -1):
@@ -218,9 +227,21 @@ join("shade_tail", [
     sheet("shtg", [(0.018, 0.16, 0.06), (0.018, 0.3, 0.02), (0.018, 0.4, 0.06), (0.018, 0.3, -0.02)], SHADE_G, 0.01),
 ])
 
-BARK = mat("t_bark", "6b4a2e")
-LEAF = mat("t_leaf", "6aa83a")
-LEAF_D = mat("t_leaf_d", "3f7a26")
+# Acolyte: a short moss cape over the shoulders, a thorned vine along its edge.
+MOSS = mat("t_moss", "34402a")
+MOSS_D = mat("t_moss_d", "1f2a19")
+THORN = mat("t_thorn", "d8c9a0")
+parts = [sheet("acc", [(0, 0.04, 0.06), (0.34, 0.04, 0.04), (0.38, 0.16, -0.22), (0.18, 0.2, -0.34), (0, 0.22, -0.38),
+                       (-0.18, 0.2, -0.34), (-0.38, 0.16, -0.22), (-0.34, 0.04, 0.04)], MOSS, 0.025),
+         tube("acv", [((-0.36, 0.17, -0.2), 0.016, 0.016), ((-0.18, 0.22, -0.32), 0.016, 0.016), ((0, 0.24, -0.36), 0.016, 0.016),
+                      ((0.18, 0.22, -0.32), 0.016, 0.016), ((0.36, 0.17, -0.2), 0.016, 0.016)], MOSS_D, n=5, sub=0)]
+for i, (x, z) in enumerate([(-0.27, -0.27), (0.0, -0.36), (0.27, -0.27)]):
+    parts.append(cone(f"act{i}", (x, 0.22, z), (x * 1.15, 0.3, z - 0.03), 0.014, THORN, n=4))
+join("acolyte_wings", parts)
+
+BARK = mat("t_bark", "47331f")
+LEAF = mat("t_leaf", "4a6e2c")
+LEAF_D = mat("t_leaf_d", "2c4a1c")
 parts = [tube("sp", [((0, 0.0, 0.0), 0.05, 0.05), ((0, 0.04, 0.2), 0.035, 0.035), ((0, 0.02, 0.36), 0.02, 0.02)], BARK, n=6)]
 for i, (a, z) in enumerate([(0.3, 0.2), (2.4, 0.28), (4.4, 0.36)]):
     d = (math.cos(a), math.sin(a))

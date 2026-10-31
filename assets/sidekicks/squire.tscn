@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/squire_src.glb" id="1_o215q"]
 
-[node name="squire" type="Node3D" unique_id=742125699]
+[node name="squire" type="Node3D" unique_id=770603685]
 metadata/cull_aabbs = {
-"Sketchfab_model/eb16ca1b089b4117ac9622f8faaf7ec0_fbx/Object_2/RootNode/rig/Object_8/Skeleton3D/Object_11": AABB(-1.4885273, -1.7086322, -1.153204, 2.9657464, 3.2211034, 4.315161)
+"Rig/Skeleton3D/Squire": AABB(-1.4368393, -1.0640624, -1.3515402, 3.020185, 3.8811336, 3.0877707)
 }
-metadata/posed_aabb = AABB(-0.16430123, 0, -0.22782734, 0.32860246, 0.99999994, 0.45565468)
+metadata/posed_aabb = AABB(-0.25119543, 0, -0.27072692, 0.50239086, 0.99999994, 0.54145384)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1681936277 instance=ExtResource("1_o215q")]
-transform = Transform3D(0.6231837, 0, 0, 0, 0.6231837, 0, 0, 0, 0.6231837, 0.0028131497, 0.00027523018, -0.048799634)
+[node name="squire_src" type="Node3D" parent="." unique_id=366442222 instance=ExtResource("1_o215q")]
+transform = Transform3D(0.5779778, 0, 0, 0, 0.5779778, 0, 0, 0, 0.5779778, -0.042338748, -0.006600134, -0.11117122)

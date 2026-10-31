@@ -10,17 +10,17 @@ ROOT = sys.argv[sys.argv.index("--") + 1]
 OUT = os.path.join(ROOT, "assets/sidekicks/")
 reset()
 
-BARK = mat("sap_bark", "6b4a2e")
-BARK_D = mat("sap_bark_d", "4a301c")
-BARK_L = mat("sap_bark_l", "8a6a44")
-LEAF = mat("sap_leaf", "5f9a35")
-LEAF_D = mat("sap_leaf_d", "3d6e24")
-LEAF_L = mat("sap_leaf_l", "86c24a")
-BLOSSOM = mat("sap_blossom", "e06a8a")
-THORN = mat("sap_thorn", "d8c7a0")
-EYE = mat("sap_eye", "c8ff6a")
-HOLLOW = mat("sap_hollow", "1c1209")
-MOSS = mat("sap_moss", "7aa83a")
+BARK = mat("sap_bark", "47331f")
+BARK_D = mat("sap_bark_d", "2e1f12")
+BARK_L = mat("sap_bark_l", "5e4a32")
+LEAF = mat("sap_leaf", "3e6526")
+LEAF_D = mat("sap_leaf_d", "27441a")
+LEAF_L = mat("sap_leaf_l", "5a8231")
+BLOSSOM = mat("sap_blossom", "a3445f")
+THORN = mat("sap_thorn", "a89c80")
+EYE = mat("sap_eye", "a8e050")
+HOLLOW = mat("sap_hollow", "120b05")
+MOSS = mat("sap_moss", "4f6e27")
 
 S = [
     ("hips", (0, 0, 0.3), (0, 0, 0.45), None),

@@ -120,13 +120,13 @@ a Sketchfab model and drops that model's credit. One pet per PR:
      other parent's colours and wears a small trait of theirs. Genes, stats and card text unchanged.
 5. [x] **Night Bat.**
 6. [x] **Thorn Sapling.**
-7. Humanoids on the heroes' KayKit rig, adult build, with Blender-made gear
-   (`tools/blender/pets/kaykit.py`):
-   - [x] **Bonelet.**
-   - [x] **Hexling.**
-   - [ ] Plague Acolyte, Barrow Squire: paused. Rico doesn't like the KayKit hero body, and the
-     hero thread is modelling a new adult body on the same rig. These two, and then the Bonelet
-     and Hexling, move onto it if he approves.
+7. The two-legged pets, each its own grown-up figure made from code (Rico wants every model
+   made by us, no KayKit bodies):
+   - [x] **Bonelet** and **Hexling**, on a shared biped rig (`tools/blender/pets/biped.py`).
+   - [x] **Plague Acolyte**, built like the beasts instead (`tools/blender/pets/acolyte.py`), its
+     own grown-up figure, while Rico picks the new hero body.
+   - [x] **Barrow Squire**, the same way (`tools/blender/pets/squire.py`).
+   - [x] A darker restyle of the pets: flat facets and a dark palette to sit beside the dark plate heroes.
    - [x] **Hexbound Shade**, a legless wraith, needs no hero body: built like the beasts
      (`tools/blender/pets/shade.py`).
 8. [ ] Hero weapons and armour pieces.
