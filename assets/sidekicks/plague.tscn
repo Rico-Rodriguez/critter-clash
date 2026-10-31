@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/plague_src.glb" id="1_j6ebm"]
 
-[node name="plague" type="Node3D" unique_id=1919161011]
+[node name="plague" type="Node3D" unique_id=1527877121]
 metadata/cull_aabbs = {
-"Rig/Skeleton3D/Acolyte": AABB(-1.2838073, -0.9395122, -1.1672655, 2.5676146, 3.5302458, 2.5771341)
+"Rig/Skeleton3D/Acolyte": AABB(-1.2845216, -0.93549013, -1.1728325, 2.56614, 3.5099945, 2.5782592)
 }
-metadata/posed_aabb = AABB(-0.20564833, 0, -0.2085592, 0.41129667, 1, 0.4171184)
+metadata/posed_aabb = AABB(-0.20899625, 0, -0.21273279, 0.4179925, 1, 0.42546558)
 
-[node name="plague_src" type="Node3D" parent="." unique_id=594773302 instance=ExtResource("1_j6ebm")]
-transform = Transform3D(0.6115565, 0, 0, 0, 0.6115565, 0, 0, 0, 0.6115565, 0, -0.004907558, -0.07418273)
+[node name="plague_src" type="Node3D" parent="." unique_id=659605176 instance=ExtResource("1_j6ebm")]
+transform = Transform3D(0.6166283, 0, 0, 0, 0.6166283, 0, 0, 0, 0.6166283, 0.0008951047, -0.005331295, -0.07171205)

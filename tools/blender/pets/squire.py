@@ -12,16 +12,16 @@ ROOT = sys.argv[sys.argv.index("--") + 1]
 OUT = os.path.join(ROOT, "assets/sidekicks/")
 reset()
 
-BONE = mat("sq_bone", "e3d8bb")
-BONE_D = mat("sq_bone_d", "a8997a")
-IRON = mat("sq_iron", "6f747c", 0.45)
-IRON_D = mat("sq_iron_d", "474b52", 0.5)
-GILT = mat("sq_gilt", "cdaf5a", 0.35)
-RED = mat("sq_red", "8e2a26")
-RED_D = mat("sq_red_d", "5e1b19")
-VOID = mat("sq_void", "15100c", 1.0)
-EYE = mat("sq_eye", "ffe39a")
-LEATHER = mat("sq_leather", "4a3424")
+BONE = mat("sq_bone", "bdb39c")
+BONE_D = mat("sq_bone_d", "7f7663")
+IRON = mat("sq_iron", "4a5155", 0.45)
+IRON_D = mat("sq_iron_d", "2e3236", 0.5)
+GILT = mat("sq_gilt", "a8893f", 0.35)
+RED = mat("sq_red", "5a1a18")
+RED_D = mat("sq_red_d", "3a100f")
+VOID = mat("sq_void", "0b0a0a", 1.0)
+EYE = mat("sq_eye", "e6c87a")
+LEATHER = mat("sq_leather", "2e2118")
 
 S = [
     ("hips", (0, 0, 0.62), (0, 0, 0.8), None),

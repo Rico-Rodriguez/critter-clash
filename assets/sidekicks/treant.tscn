@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/treant_src.glb" id="1_ck07u"]
 
-[node name="treant" type="Node3D" unique_id=784294110]
+[node name="treant" type="Node3D" unique_id=916240494]
 metadata/cull_aabbs = {
-"Rig/Skeleton3D/Sapling": AABB(-1.2027271, -0.81234854, -1.1723955, 2.4069784, 2.9434037, 2.2521515)
+"Rig/Skeleton3D/Sapling": AABB(-1.2017877, -0.81283975, -1.1742557, 2.4066732, 2.9437737, 2.2503579)
 }
-metadata/posed_aabb = AABB(-0.29472655, 0, -0.23547907, 0.5894531, 1, 0.47095814)
+metadata/posed_aabb = AABB(-0.29455736, 0, -0.2347663, 0.5891147, 1, 0.4695326)
 
-[node name="treant_src" type="Node3D" parent="." unique_id=541061596 instance=ExtResource("1_ck07u")]
-transform = Transform3D(0.76533836, 0, 0, 0, 0.76533836, 0, 0, 0, 0.76533836, -0.00058324536, -0.0046283705, 0.03545033)
+[node name="treant_src" type="Node3D" parent="." unique_id=609671679 instance=ExtResource("1_ck07u")]
+transform = Transform3D(0.76500624, 0, 0, 0, 0.76500624, 0, 0, 0, 0.76500624, -0.0011848849, -0.004175116, 0.037544034)

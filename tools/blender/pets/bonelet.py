@@ -12,13 +12,13 @@ ROOT = sys.argv[sys.argv.index("--") + 1]
 OUT = os.path.join(ROOT, "assets/sidekicks/")
 reset()
 
-BONE = mat("bl_bone", "e9e0c9")
-BONE_D = mat("bl_bone_d", "b3a78a")
-VOID = mat("bl_void", "15100c", 1.0)
-EYE = mat("bl_eye", "9fe6ff")
-MANTLE = mat("bl_mantle", "a8322c")
-MANTLE_D = mat("bl_mantle_d", "6e1f1c")
-IRON = mat("bl_iron", "5c6068", 0.5)
+BONE = mat("bl_bone", "bdb39c")
+BONE_D = mat("bl_bone_d", "7f7663")
+VOID = mat("bl_void", "0b0a0a", 1.0)
+EYE = mat("bl_eye", "8fd0e6")
+MANTLE = mat("bl_mantle", "4a1714")
+MANTLE_D = mat("bl_mantle_d", "2a0e0c")
+IRON = mat("bl_iron", "4a5155", 0.5)
 
 # The thrown femur has its own bone, so a bred pet's arms take the donor's
 # colours while the bone it throws stays bone.

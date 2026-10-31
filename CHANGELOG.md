@@ -9,6 +9,18 @@ version is 7.
 
 ---
 
+## Unreleased: every pet in the dark plate style
+
+Rico liked the dark plate Knight and asked for sharper, less rounded shapes, so every pet now matches
+it. The shape helpers in `tools/blender/pets/common.py` build angular by default: flat-shaded facets,
+tubes with fewer sides and no subdivision, at most one subdivision on rounded parts, and a corner on
+the top and bottom of every ring, so bodies get a ridge and a keel. The Ember Drake is reshaped by
+hand: a keeled chest, a blade of a skull under a heavy brow, horns swept back past the neck, tall
+raked spines, wings cut into points and a barbed tail. All eleven pets and the bred-pet traits take a
+darker palette that keeps each one's colour identity: a charcoal drake with an ember belly, aged
+bone, oxblood cloth, mail steel, aged gold, moss, and wine. The colours bred pets inherit follow. The
+pets have about a third fewer triangles. Rigs and animations are unchanged.
+
 ## Unreleased: the Bonelet and Hexling, made from scratch
 
 Rico wants every model made by us, so the two pets that still stood on the heroes' KayKit body are

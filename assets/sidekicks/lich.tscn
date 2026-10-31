@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/lich_src.glb" id="1_xmyfm"]
 
-[node name="lich" type="Node3D" unique_id=627878758]
+[node name="lich" type="Node3D" unique_id=964597694]
 metadata/cull_aabbs = {
-"Rig/Skeleton3D/Hexling": AABB(-1.3829534, -1.0160357, -1.2680603, 2.7659068, 3.903232, 2.5361207)
+"Rig/Skeleton3D/Hexling": AABB(-1.387994, -1.0168196, -1.2669686, 2.775988, 3.904201, 2.5339372)
 }
-metadata/posed_aabb = AABB(-0.19346176, 0, -0.1315285, 0.38692352, 1, 0.263057)
+metadata/posed_aabb = AABB(-0.19581956, 0, -0.1305596, 0.3916391, 1, 0.2611192)
 
-[node name="lich_src" type="Node3D" parent="." unique_id=1182169676 instance=ExtResource("1_xmyfm")]
-transform = Transform3D(0.53905123, 0, 0, 0, 0.53905123, 0, 0, 0, 0.53905123, 0, -0.0043257256, 0)
+[node name="lich_src" type="Node3D" parent="." unique_id=545463745 instance=ExtResource("1_xmyfm")]
+transform = Transform3D(0.53922534, 0, 0, 0, 0.53922534, 0, 0, 0, 0.53922534, 0, -0.0043271226, 0)
