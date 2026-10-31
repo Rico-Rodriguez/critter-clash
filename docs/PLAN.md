@@ -119,8 +119,17 @@ a Sketchfab model and drops that model's credit. One pet per PR:
      a hybrid keeps its body parent's whole model; an inherited head, wings or tail takes the
      other parent's colours and wears a small trait of theirs. Genes, stats and card text unchanged.
 5. [x] **Night Bat.**
-6. [ ] Bonelet, Hexling, Plague Acolyte, Barrow Squire, Shade, Thorn Sapling.
-7. [ ] Hero weapons and armour pieces.
+6. [x] **Thorn Sapling.**
+7. The two-legged pets, each its own grown-up figure made from code (Rico wants every model
+   made by us, no KayKit bodies):
+   - [x] **Bonelet** and **Hexling**, on a shared biped rig (`tools/blender/pets/biped.py`).
+   - [x] **Plague Acolyte**, built like the beasts instead (`tools/blender/pets/acolyte.py`), its
+     own grown-up figure, while Rico picks the new hero body.
+   - [x] **Barrow Squire**, the same way (`tools/blender/pets/squire.py`).
+   - [x] A darker restyle of the pets: flat facets and a dark palette to sit beside the dark plate heroes.
+   - [x] **Hexbound Shade**, a legless wraith, needs no hero body: built like the beasts
+     (`tools/blender/pets/shade.py`).
+8. [ ] Hero weapons and armour pieces.
 
 ## Now: needs Rico
 

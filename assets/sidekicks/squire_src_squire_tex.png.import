@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cgnynd7jt2i0g"
-path="res://.godot/imported/wraith_src_1.png-72d266ee9a0c8dcba4b21406a1b717a4.ctex"
+uid="uid://b8syd7gf3umx1"
+path="res://.godot/imported/squire_src_squire_tex.png-82d342ed62e2240b6990eb26fc88d398.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "4c1864795492aff3259661286c1c1a36"
+"md5": "e0ece52a0dff7e7af62d748d184a55b1"
 }
 
 [deps]
 
-source_file="res://assets/sidekicks/wraith_src_1.png"
-dest_files=["res://.godot/imported/wraith_src_1.png-72d266ee9a0c8dcba4b21406a1b717a4.ctex"]
+source_file="res://assets/sidekicks/squire_src_squire_tex.png"
+dest_files=["res://.godot/imported/squire_src_squire_tex.png-82d342ed62e2240b6990eb26fc88d398.ctex"]
 
 [params]
 
