@@ -76,27 +76,28 @@ const LINES := {
 				{"name": "Halberd", "model": "halberd.gltf", "scale": 0.72, "icon": "battle-axe"},
 			]},
 		],
-		# Helms and pauldrons are our own props, one per set
-		# (tools/art/make_hero_armor.py).
+		# Helm, chest and legs are our own skinned models, one per set
+		# (tools/art/make_dark_knight.py), worn on DarkKnight's body.
 		"helm": [
-			{"from": 0, "name": "Nasal Helm", "parts": ["P:knight_helm_0.gltf@head"]},
-			{"from": 1, "name": "Bascinet", "parts": ["P:knight_helm_1.gltf@head"]},
-			{"from": 2, "name": "Crested Helm", "parts": ["P:knight_helm_2.gltf@head"]},
-			{"from": 3, "name": "Dread Helm", "parts": ["P:knight_helm_3.gltf@head"]},
-			{"from": 4, "name": "Seraph Helm", "parts": ["P:knight_helm_4.gltf@head"]},
+			{"from": 0, "name": "Kettle Hat", "parts": ["DarkKnight_Helm0/Mesh"]},
+			{"from": 1, "name": "Bascinet", "parts": ["DarkKnight_Helm1/Mesh"], "hood": true},
+			{"from": 2, "name": "Beaked Helm", "parts": ["DarkKnight_Helm2/Mesh"], "hood": true},
+			{"from": 3, "name": "Horned Helm", "parts": ["DarkKnight_Helm3/Mesh"], "hood": true},
+			{"from": 4, "name": "Seraph Helm", "parts": ["DarkKnight_Helm4/Mesh"], "hood": true},
 		],
 		"chest": [
-			{"from": 0, "name": "Hauberk", "parts": ["T:Knight", "P:knight_pauldron_0.gltf@upperarm.l"]},
-			{"from": 1, "name": "Cuirass", "parts": ["T:Knight", "P:knight_pauldron_1.gltf@upperarm.l", "P:knight_pauldron_1.gltf@upperarm.r"]},
-			{"from": 2, "name": "Plated Cuirass", "parts": ["T:Knight", "Rogue_Hooded/Cape", "P:knight_pauldron_2.gltf@upperarm.l", "P:knight_pauldron_2.gltf@upperarm.r"], "alts": [
-				{"name": "Plated Cuirass", "parts": ["T:Knight", "Skeleton_Warrior/Cloak", "P:knight_pauldron_2.gltf@upperarm.l", "P:knight_pauldron_2.gltf@upperarm.r"]},
-			]},
-			{"from": 3, "name": "Dread Cuirass", "parts": ["T:Knight", "Knight/Cape", "P:knight_pauldron_3.gltf@upperarm.l", "P:knight_pauldron_3.gltf@upperarm.r"]},
-			{"from": 4, "name": "Seraph Cuirass", "parts": ["T:Knight", "Knight/Cape", "P:knight_pauldron_4.gltf@upperarm.l", "P:knight_pauldron_4.gltf@upperarm.r"]},
+			{"from": 0, "name": "Hauberk", "parts": ["DarkKnight_Chest0/Mesh"]},
+			{"from": 1, "name": "Cuirass", "parts": ["DarkKnight_Chest1/Mesh"]},
+			{"from": 2, "name": "Plated Cuirass", "parts": ["DarkKnight_Chest2/Mesh"]},
+			{"from": 3, "name": "Dread Cuirass", "parts": ["DarkKnight_Chest3/Mesh"]},
+			{"from": 4, "name": "Seraph Cuirass", "parts": ["DarkKnight_Chest4/Mesh"]},
 		],
 		"legs": [
-			{"from": 0, "name": "Chausses", "parts": ["L:Ranger"]},
-			{"from": 1, "name": "Greaves", "parts": ["L:Knight"]},
+			{"from": 0, "name": "Chausses", "parts": ["DarkKnight_Legs0/Mesh"]},
+			{"from": 1, "name": "Greaves", "parts": ["DarkKnight_Legs1/Mesh"]},
+			{"from": 2, "name": "Plated Greaves", "parts": ["DarkKnight_Legs2/Mesh"]},
+			{"from": 3, "name": "Dread Greaves", "parts": ["DarkKnight_Legs3/Mesh"]},
+			{"from": 4, "name": "Seraph Greaves", "parts": ["DarkKnight_Legs4/Mesh"]},
 		],
 		"trinket": [
 			{"from": 0, "name": "Buckler", "model": "shield_round.gltf", "alts": [
@@ -296,9 +297,9 @@ const SET_LOOKS := {
 	"gravemaw": {"dye": Color(1.0, 0.97, 0.86, 0.85), "accent": Color(0.4, 1.0, 0.55), "icon": Color(0.85, 0.95, 0.8), "grade": Vector4(0.35, 0.3, 0.45, 0.0), "cls": {
 		"knight": {
 			"weapon": {"name": "Barrow Blade", "model": "Skeleton_Blade.gltf", "scale": 1.1, "icon": "dripping-sword"},
-			"helm": {"name": "Barrow Helm", "parts": ["Skeleton_Warrior/Helmet"]},
-			"chest": {"name": "Barrow Plate", "parts": ["T:Knight", "Skeleton_Warrior/Cloak"]},
-			"legs": {"name": "Barrow Greaves", "parts": ["L:Knight"]},
+			"helm": {"name": "Barrow Helm", "parts": ["DarkKnight_Helm3/Mesh"], "hood": true},
+			"chest": {"name": "Barrow Plate", "parts": ["DarkKnight_Chest3/Mesh"]},
+			"legs": {"name": "Barrow Greaves", "parts": ["DarkKnight_Legs3/Mesh"]},
 			"trinket": {"name": "Skull Shield", "model": "Skeleton_Shield_Large_A.gltf", "icon": "skull-crossed-bones"},
 		},
 		"barbarian": {
@@ -334,9 +335,9 @@ const SET_LOOKS := {
 	"hexer": {"dye": Color(0.045, 0.04, 0.06, 1.0), "accent": Color(0.75, 0.35, 1.0), "icon": Color(0.78, 0.6, 1.0), "grade": Vector4(0.75, 0.25, 0.55, 0.0), "cls": {
 		"knight": {
 			"weapon": {"name": "Blackguard Blade", "model": "sword_E.gltf", "scale": 0.66, "icon": "dripping-sword"},
-			"helm": {"name": "Blackguard Helm", "parts": ["Knight/Helmet", "Knight/HelmetVisor"]},
-			"chest": {"name": "Blackguard Plate", "parts": ["T:Knight", "Knight/Cape"]},
-			"legs": {"name": "Blackguard Legs", "parts": ["L:Knight"]},
+			"helm": {"name": "Blackguard Helm", "parts": ["DarkKnight_Helm2/Mesh"], "hood": true},
+			"chest": {"name": "Blackguard Plate", "parts": ["DarkKnight_Chest2/Mesh"]},
+			"legs": {"name": "Blackguard Legs", "parts": ["DarkKnight_Legs2/Mesh"]},
 			"trinket": {"name": "Blackguard Shield", "model": "shield_B.gltf"},
 		},
 		"barbarian": {
@@ -372,9 +373,9 @@ const SET_LOOKS := {
 	"thorn": {"dye": Color(0.36, 0.25, 0.14, 0.85), "accent": Color(0.55, 1.0, 0.3), "icon": Color(0.7, 0.95, 0.5), "grade": Vector4(0.1, 0.2, 0.6, 0.0), "cls": {
 		"knight": {
 			"weapon": {"name": "Thornblade", "model": "sword_C.gltf", "scale": 1.0},
-			"helm": {"name": "Grove Helm", "parts": ["Knight/Helmet"]},
-			"chest": {"name": "Barkplate", "parts": ["T:Knight", "Ranger/Cape"]},
-			"legs": {"name": "Bark Greaves", "parts": ["L:Knight"]},
+			"helm": {"name": "Grove Helm", "parts": ["DarkKnight_Helm1/Mesh"], "hood": true},
+			"chest": {"name": "Barkplate", "parts": ["DarkKnight_Chest4/Mesh"]},
+			"legs": {"name": "Bark Greaves", "parts": ["DarkKnight_Legs1/Mesh"]},
 			"trinket": {"name": "Grove Shield", "model": "shield_A.gltf", "scale": 1.1},
 		},
 		"barbarian": {
@@ -437,7 +438,7 @@ const UNIQUE_LOOKS := {
 	"barkplate": {"parts": ["T:Barbarian", "Ranger/Cape"]},
 	"thornbow": {"model": "bow_withString.gltf", "scale": 1.2},
 	"seedheart": {"model": "shield_round_color.gltf"},
-	"greaves": {"parts": ["L:Knight"]},
+	"greaves": {"parts": ["DarkKnight_Legs4/Mesh"]},
 }
 
 ## Weapons and offhands put together from several KayKit props: "kit:name".

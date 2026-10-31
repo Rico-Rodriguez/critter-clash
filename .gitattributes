@@ -43,3 +43,7 @@ assets/sidekicks/plague_src.glb -filter -diff -merge binary
 assets/sidekicks/plague_src_plague_tex.png -filter -diff -merge binary
 assets/sidekicks/squire_src.glb -filter -diff -merge binary
 assets/sidekicks/squire_src_squire_tex.png -filter -diff -merge binary
+# Our own hero models and their texture, kept out of LFS (its upload is
+# blocked from the cloud sessions that make them).
+assets/kaykit/characters/Dark*.glb -filter -diff -merge binary
+assets/kaykit/weapons/dark_texture*.png -filter -diff -merge binary

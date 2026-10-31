@@ -9,6 +9,10 @@ uniform vec4 rim_color : source_color = vec4(0.55, 0.68, 1.0, 1.0);
 uniform float rim_strength = 0.5;
 uniform float roughness = 0.78;
 uniform vec4 eye_glow : source_color = vec4(0.0);
+// Our own models' material mask (dark_texture_mask.png, laid out like their
+// swatch texture): r metallic, g roughness, b 1 where it applies. Black (the
+// default) leaves KayKit's textures shaded as before.
+uniform sampler2D mask_tex : hint_default_black, filter_linear, repeat_enable;
 
 // The grit pass: tune these to taste. desat 0 = KayKit's own palette.
 uniform sampler2D grime_tex : filter_linear_mipmap, repeat_enable;
@@ -51,9 +55,13 @@ void fragment() {
 	// Fine gear is kept clean.
 	dirt *= 1.0 - grade.x * 0.85;
 	c = mix(c, grime_color.rgb * (0.7 + 0.6 * n), dirt);
+	vec4 mk = texture(mask_tex, UV);
 	ALBEDO = mix(c, vec3(1.0), flash * 0.85);
-	ROUGHNESS = mix(mix(roughness, 0.42, grade.x), 0.95, dirt);
-	SPECULAR = mix(0.3, 0.5, grade.x);
+	float rough = mix(mix(roughness, 0.42, grade.x), mk.g, mk.b);
+	ROUGHNESS = mix(rough, 0.95, dirt);
+	// Metal loses its shine where it is dirty.
+	METALLIC = mk.r * mk.b * (1.0 - dirt);
+	SPECULAR = mix(0.3, 0.5, max(grade.x, mk.b * mk.r));
 	float fr = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	vec3 e = rim_color.rgb * fr * rim_strength;
 	// Sheen in the metal's own color, so mithril reads blue, not white.
