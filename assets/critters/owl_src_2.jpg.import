@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/owl_src_2.jpg-f31235024f64bf56e8a13e29f3ba712
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

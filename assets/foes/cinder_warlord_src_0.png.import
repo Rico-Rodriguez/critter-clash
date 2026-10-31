@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/cinder_warlord_src_0.png-c4c9d099f5ef2464d097
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

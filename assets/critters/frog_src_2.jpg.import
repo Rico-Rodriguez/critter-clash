@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/frog_src_2.jpg-956e9d185f02d73c13e8eb5bee67a4
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

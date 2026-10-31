@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/frost_wolf_src_0.jpg-3400890877512aacfd1df63d
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

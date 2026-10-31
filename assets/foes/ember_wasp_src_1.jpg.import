@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/ember_wasp_src_1.jpg-9703b1a372d7a09fd9fae426
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

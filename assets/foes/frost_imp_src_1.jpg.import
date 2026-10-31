@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/frost_imp_src_1.jpg-ac9a9d1c8630f2a13016b5f0e
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

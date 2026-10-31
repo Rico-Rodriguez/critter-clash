@@ -17,6 +17,22 @@ armour's. Offhands are our own models too, one per set: the Knight's heater shie
 star, spikes, then gilt wings), the Barbarian's iron-bound round shields, the Ranger's quivers, the
 Mage's grimoires and the Rogue's parrying daggers. Boss sets carry the matching piece. A content
 change: ships over the air.
+## Unreleased: a smaller update download
+
+The over-the-air pack was about 186 MiB of its 200 MiB budget. Two cuts:
+
+- The big Sketchfab textures on the Rimehollow and Cinder Mire foes and the wildlife critters (77
+  files, 512 px and up) were imported lossless, so a 400 KB JPG shipped as a 2.6 MB PNG with mipmaps.
+  They now import as lossy WebP (`compress/mode=1`, quality 0.7). Their sources are JPGs already, so
+  the look is the same, and memory on the phone is unchanged. Small palette textures stay lossless.
+  The imported data drops from about 149 MB to 81 MB.
+- 231 KayKit dungeon, forest and graveyard props that no arena, camp or cutscene places are gone
+  (with their `.bin` and `.import` files). The seven KayKit animation sources
+  (`assets/kaykit/animations/Rig_Medium_*.glb`) stay in the repo for `tools/bake_anims.gd` but no
+  longer ship: the game plays the baked `rig_medium_lib.res`. `server/` is left out of the export too.
+
+Hero files (`kaykit/characters`, `gear`, `weapons`) are untouched while the dark plate heroes are
+built; the outfits still use them.
 
 ## Unreleased: the other heroes in dark kit
 
@@ -28,6 +44,7 @@ Barbarian, broader than the rest, climbs from an iron cap and fur to a horned, s
 plated harness. The Rogue keeps to black: a deep hood and mask, a knife bandolier, a trailing scarf
 and a gilded mask at the top. The three boss sets wear the same pieces in their colours. A content
 change: ships over the air.
+
 ## Unreleased: every pet in the dark plate style
 
 Rico liked the dark plate Knight and asked for sharper, less rounded shapes, so every pet now matches

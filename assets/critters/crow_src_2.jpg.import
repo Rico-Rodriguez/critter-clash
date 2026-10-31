@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/crow_src_2.jpg-876bc86f5a99ca5ba52dea7663c4e1
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

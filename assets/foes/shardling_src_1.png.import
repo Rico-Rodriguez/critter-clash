@@ -18,7 +18,7 @@ dest_files=["res://.godot/imported/shardling_src_1.png-45c4712681feec6a41c2570a4
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
