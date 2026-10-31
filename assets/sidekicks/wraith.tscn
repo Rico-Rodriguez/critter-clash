@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/sidekicks/wraith_src.glb" id="1_s2syy"]
 
-[node name="wraith" type="Node3D" unique_id=822334016]
+[node name="wraith" type="Node3D" unique_id=1985276207]
 metadata/cull_aabbs = {
-"Rig/Skeleton3D/Shade": AABB(-1.5090048, -0.7950312, -1.2630469, 3.016626, 3.5627136, 2.4602659)
+"Rig/Skeleton3D/Shade": AABB(-1.5196781, -0.8204721, -1.2891802, 3.036798, 3.596736, 2.4946637)
 }
-metadata/posed_aabb = AABB(-0.32865518, 0, -0.15408735, 0.65731037, 1, 0.3081747)
+metadata/posed_aabb = AABB(-0.32604748, 0, -0.157626, 0.65209496, 1, 0.315252)
 
-[node name="wraith_src" type="Node3D" parent="." unique_id=608033522 instance=ExtResource("1_s2syy")]
-transform = Transform3D(0.6275357, 0, 0, 0, 0.6275357, 0, 0, 0, 0.6275357, 0.00043418613, -0.118954524, 0.020654662)
+[node name="wraith_src" type="Node3D" parent="." unique_id=755389283 instance=ExtResource("1_s2syy")]
+transform = Transform3D(0.6213277, 0, 0, 0, 0.6213277, 0, 0, 0, 0.6213277, 0.00079475, -0.1075938, 0.02600151)

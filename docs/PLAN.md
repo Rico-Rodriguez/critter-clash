@@ -126,7 +126,7 @@ a Sketchfab model and drops that model's credit. One pet per PR:
    - [x] **Plague Acolyte**, built like the beasts instead (`tools/blender/pets/acolyte.py`), its
      own grown-up figure, while Rico picks the new hero body.
    - [x] **Barrow Squire**, the same way (`tools/blender/pets/squire.py`).
-   - [ ] A darker restyle of the pets, only if Rico approves the hero thread's style mockup.
+   - [x] A darker restyle of the pets: flat facets and a dark palette to sit beside the dark plate heroes.
    - [x] **Hexbound Shade**, a legless wraith, needs no hero body: built like the beasts
      (`tools/blender/pets/shade.py`).
 8. [ ] Hero weapons and armour pieces.
