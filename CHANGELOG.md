@@ -9,6 +9,17 @@ version is 7.
 
 ---
 
+## Unreleased: the Knight in dark plate
+
+The Knight is remodelled from scratch: a grown-up body on the same skeleton (every animation plays
+on it unchanged) that is never seen bare. With nothing on he wears a quilted gambeson and a mail coif. Each of
+the five sets is its own helm, chest and legs: Gravedigger's kettle hat and scavenged mail,
+Warden's bascinet and wine tabard, Barrowsteel's beaked helm, cape and silver-edged black plate,
+Bloodiron's horned helm and spikes, and Gravelight's winged crown in pale steel and gold. The
+three boss sets wear the same pieces in their own colours. Metal now shines: our models carry a
+mask that the character shader reads for metal and roughness. A content change: ships over the
+air.
+
 ## Unreleased: Iron & Ember, every other sheet
 
 Part 6 of the overhaul. Body text moves to Barlow Semi Condensed, which sets about as wide as the

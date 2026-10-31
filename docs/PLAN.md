@@ -103,6 +103,21 @@ labels in two or three words; tabs with icons only, the open one named. One PR e
 5. [x] **Pets, Shop and Victory** to their mockups.
 6. [x] **Every other sheet** (quests, season, road, expedition, settings, clan) swept to the rules.
 
+## Dark plate heroes (Rico, 2026-10-30)
+
+Rico chose a darker, fully armoured hero look from a reference (black plate, silver trim, a closed
+helm, a cape and a tabard, no skin showing), modelled by us, low-poly. Each hero gets its own
+undersuit body and, per set, a helm, a chest and legs, each a skinned model on the hero skeleton
+(`tools/art/make_hero_body.py`), so any piece goes with any other. Our models use
+`weapons/dark_texture.png`, whose mask gives the metal its shine. Screenshots to Rico at each
+step; one PR each:
+
+1. [x] **Knight:** the shader's metal mask, `DarkKnight` and its five sets (`make_dark_knight.py`),
+   wired into GearDB with the boss sets on the same pieces.
+2. [ ] **Ranger, Mage, Barbarian, Rogue:** one set each for Rico's OK, then all five.
+3. [ ] **Weapons and offhands:** every family in the dark palette, set by set.
+4. [ ] **Outfits:** the cosmetic outfits that lift KayKit capes and pauldrons, refitted.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

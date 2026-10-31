@@ -23,6 +23,9 @@ SWATCH = {
     "red": (0, 1), "wood": (6, 1), "leather": (6, 0), "bone": (1, 1),
     "copper": (5, 1), "skin": (0, 0), "rust": (5, 0), "tan": (1, 0),
     "slate": (7, 1), "stone": (1, 2), "white": (0, 2),
+    # dark_texture.png only: our dark-fantasy palette in its spare swatches.
+    "iron": (0, 3), "silver": (1, 3), "agold": (2, 3), "blood": (3, 3), "pale": (4, 3),
+    "cloth": (5, 3), "hide": (6, 3), "fur": (7, 3), "wine": (6, 2), "moss": (7, 2),
 }
 
 bm = None
@@ -171,7 +174,7 @@ def gem(c, w, h, depth, sw="red", facing=1):
         face(tri, sw, [0.2 + 0.1 * (i % 3), 0.2 + 0.1 * ((i + 1) % 3), 0.0])
 
 
-def export(name: str, out: str) -> None:
+def export(name: str, out: str, image: str = "knight_texture.png") -> None:
     """Writes the mesh as name.gltf + .bin, textured by knight_texture.png."""
     # The game's character shader culls back faces, so every face must look
     # out: the builders above don't all wind them that way.
@@ -179,8 +182,7 @@ def export(name: str, out: str) -> None:
     bm.normal_update()
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
-    for p in mesh.polygons:
-        p.use_smooth = False
+    # Faces stay flat, as KayKit's are, unless a builder set `smooth` on them.
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.scene.collection.objects.link(obj)
     # Blender is Z-up and the exporter turns it to glTF's Y-up, so the mesh,
@@ -197,7 +199,7 @@ def export(name: str, out: str) -> None:
     # already beside the KayKit weapons, as theirs do.
     with open(out) as f:
         g = json.load(f)
-    g["images"] = [{"mimeType": "image/png", "name": "knight_texture", "uri": "knight_texture.png"}]
+    g["images"] = [{"mimeType": "image/png", "name": image.split("/")[-1].split(".")[0], "uri": image}]
     g["textures"] = [{"source": 0}]
     g["materials"][0] = {"doubleSided": True, "name": "knight",
                          "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}, "metallicFactor": 0, "roughnessFactor": 0.5}}

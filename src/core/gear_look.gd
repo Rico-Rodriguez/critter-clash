@@ -112,6 +112,11 @@ static func _body_meshes(skel: Skeleton3D) -> Array[MeshInstance3D]:
 	return out
 
 
+## Our own art (a "P:" prop, a "Dark..." model) is colored as made, never dyed.
+static func _own_art(spec: String) -> bool:
+	return spec.begins_with("P:") or spec.begins_with("Dark")
+
+
 static func _hood_on(item: Dictionary, hero_id: String) -> bool:
 	return not item.is_empty() and bool(GearDB.look(item)["hood"])
 
@@ -135,8 +140,9 @@ static func _dress(actor: Actor, skel: Skeleton3D, hero_id: String, item: Dictio
 		if mi == null:
 			continue
 		mi.visible = true
-		# Our own props carry their colors; only lifted KayKit parts take the dye.
-		var da := 0.0 if spec.begins_with("P:") else dye.a * (0.4 if hood else 1.0)
+		# Our own props and models carry their colors; only lifted KayKit parts take the dye.
+		# A boss set's color still goes over ours: that is its look.
+		var da := 0.0 if _own_art(spec) and (item.is_empty() or GearDB.set_look(item).is_empty()) else dye.a * (0.4 if hood else 1.0)
 		mi.set_instance_shader_parameter("dye", Color(dye, da))
 		mi.set_instance_shader_parameter("tint", glow)
 		mi.set_instance_shader_parameter("grade", gr)
