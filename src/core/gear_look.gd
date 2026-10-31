@@ -81,11 +81,14 @@ static func _outfit(actor: Actor, skel: Skeleton3D, key: String) -> void:
 	var o: Dictionary = DB.OUTFITS[key]
 	var specs: Array = o.get("parts", []).duplicate()
 	if o.has("helm"):
-		# Everything on the head goes (the worn helm, a lifted hat), the outfit's helm comes on.
+		# Everything on the head goes (the worn helm, a lifted hat, the bare
+		# head under them), the outfit's helm comes on.
 		for c in skel.get_children():
 			if c is BoneAttachment3D and str(c.name).begins_with("Part_") and (c as BoneAttachment3D).bone_name == "head":
 				for m in c.get_children():
 					(m as Node3D).visible = false
+			elif c is MeshInstance3D and (str(c.name).contains("_Helm") or str(c.name).ends_with("_Head")):
+				(c as MeshInstance3D).visible = false
 		specs.append(o["helm"])
 	for spec: String in specs:
 		var mi := _part(actor, skel, spec)

@@ -1758,6 +1758,37 @@ func _plate_sheet(root: Node3D, view: String) -> void:
 		cam.look_at_from_position(Vector3(0, -0.35, 13.5), Vector3(0, -0.35, 0), Vector3.UP)
 		await _wait(1.0)
 		return
+	if view == "outfits":
+		# Every outfit on its first hero, over the Barrowsteel set.
+		var keys: Array = DB.OUTFIT_ORDER
+		for i in keys.size():
+			var key: String = keys[i]
+			var hid: String = DB.OUTFITS[key]["heroes"][0] if key not in DB.SEASON_OUTFITS else DB.HERO_ORDER[i % DB.HERO_ORDER.size()]
+			var a := Actor.new()
+			a.adult_build = true
+			root.add_child(a)
+			a.build_model(DB.HEROES[hid]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+			a.position = Vector3((i % 7 - 3) * 1.6, -int(i / 7) * 3.0, 0)
+			a.rotation_degrees.y = 160.0 if i % 2 else -25.0
+			var pre := {}
+			for slot in DB.SLOTS:
+				pre[slot] = Game.make_item(hid, slot, 2, "rare")
+			GearLook.look_override = {"outfit": key}
+			GearLook.apply(a, hid, pre)
+			GearLook.look_override = {}
+			a.play(DB.HEROES[hid]["anim"]["idle"], 0.0)
+			a.anim.seek(0.0, true)
+			a.anim.pause()
+			var lbl := Label3D.new()
+			lbl.text = str(DB.OUTFITS[key]["name"])
+			lbl.font_size = 36
+			lbl.pixel_size = 0.004
+			lbl.outline_size = 10
+			lbl.position = a.position + Vector3(0, -0.2, 0.6)
+			root.add_child(lbl)
+		cam.look_at_from_position(Vector3(0, -0.3, 15.0), Vector3(0, -0.4, 0), Vector3.UP)
+		await _wait(1.0)
+		return
 	if DB.HEROES.has(view.trim_suffix("close")):
 		# A hero as the game dresses it, in each set: standing, and (the wide
 		# sheet only) mid-attack from behind. --view=ranger, --view=mageclose...

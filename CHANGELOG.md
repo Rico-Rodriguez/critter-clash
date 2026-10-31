@@ -9,6 +9,13 @@ version is 7.
 
 ---
 
+## Unreleased: outfits for the dark heroes
+
+The shop's outfits are refitted to the new heroes. Each one now adds a piece of our own over
+whatever is worn: a long cape hung clear of the set's own, a cowl, a fur mantle or a trailing scarf.
+Outfits with a helm wear one of their hero's dark helms in the outfit's colour. The season outfits'
+capes fit every hero. A content change: ships over the air.
+
 ## Unreleased: dark weapons and offhands
 
 Every weapon family is reforged in the dark heroes' palette: rusted scrap, then black iron edged in
