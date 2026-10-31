@@ -131,9 +131,12 @@ const GRAFT := {
 		"wings": {"bones": ["fin_"], "pivot": "spine_01", "split": true},
 		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
 	},
-	"bonelet": {"head": {"bones": ["head1", "head2"], "pivot": "neck1"}},
-	"hexling": {"head": {"bones": ["head_06", "jaw", "lowerteeth", "sight", "eye_", "beard", "mustache"], "pivot": "neck1"}},
-	"acolyte": {"head": {"bones": ["face"], "pivot": "neck"}},
+	"bonelet": {"head": {"bones": ["head"], "pivot": "chest"}},
+	"hexling": {"head": {"bones": ["head"], "pivot": "chest"}},
+	"acolyte": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "chest", "split": true},
+	},
 	"crow": {
 		"head": {"bones": ["head", "jaw"], "pivot": "neck_01"},
 		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
@@ -147,8 +150,15 @@ const GRAFT := {
 		"head": {"bones": ["head", "jaw", "ear_"], "pivot": "neck_01"},
 		"wings": {"bones": ["wing_"], "pivot": "spine_01", "split": true},
 	},
-	"barrow_squire": {"head": {"bones": ["spine.006"], "pivot": "spine.005"}},
-	"shade": {"head": {"bones": ["head_08", "bone.019", "hair"], "pivot": "neck_07"}},
+	"barrow_squire": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "chest", "split": true},
+	},
+	"shade": {
+		"head": {"bones": ["head"], "pivot": "neck_01"},
+		"wings": {"bones": ["upperarm_", "forearm_", "hand_"], "pivot": "spine_01", "split": true},
+		"tail": {"bones": ["tail_"], "pivot": "tail_01"},
+	},
 	"sapling": {"head": {"bones": ["head", "jaw", "crown"], "own_colour": ["crown"], "pivot": "spine_01"}},
 }
 
@@ -158,17 +168,17 @@ const GRAFT := {
 ## the part's GRAFT region (tools/dev/region_colours.gd prints them), or the
 ## Blender pet's palette colour for that part where horns or eyes outweigh it.
 const REGION_COLOR := {
-	"drake": {"head": "b9472a", "wings": "8e2c22", "tail": "b9472a"},
-	"wisp": {"head": "8e9096", "wings": "5cc9bb", "tail": "8e9096"},
-	"crow": {"head": "1e2331", "wings": "121520", "tail": "1e2331"},
-	"mimic": {"head": "7c4b2a", "tail": "e2aa3c"},
-	"bat": {"head": "4a3036", "wings": "6e2a36"},
-	"bonelet": {"head": "89775a"},
-	"hexling": {"head": "3a2f4a"},
-	"acolyte": {"head": "4a4937"},
-	"barrow_squire": {"head": "cdaf5a"},
-	"shade": {"head": "2a2438"},
-	"sapling": {"head": "6b4a2e"},
+	"drake": {"head": "3a2e2a", "wings": "2a1d1a", "tail": "3a2e2a"},
+	"wisp": {"head": "5d6066", "wings": "48a89b", "tail": "5d6066"},
+	"crow": {"head": "171a22", "wings": "0d0f15", "tail": "171a22"},
+	"mimic": {"head": "4f3222", "tail": "b8893a"},
+	"bat": {"head": "2e2226", "wings": "4a1c25"},
+	"bonelet": {"head": "bdb39c"},
+	"hexling": {"head": "33204d"},
+	"acolyte": {"head": "34402a", "wings": "34402a"},
+	"barrow_squire": {"head": "4a5155", "wings": "bdb39c"},
+	"shade": {"head": "221c30", "wings": "221c30", "tail": "221c30"},
+	"sapling": {"head": "47331f"},
 }
 
 ## Where a receiver hangs wings and a tail that its own model has no slot for
@@ -176,14 +186,14 @@ const REGION_COLOR := {
 const MOUNT := {
 	"drake": {"wings": "spine_01", "tail": "tail_01"},
 	"wisp": {"wings": "spine_01", "tail": "tail_01"},
-	"bonelet": {"wings": "spine4", "tail": "pelvis"},
-	"hexling": {"wings": "spine3", "tail": "hip"},
-	"acolyte": {"wings": "chest", "tail": "pelvis"},
+	"bonelet": {"wings": "chest", "tail": "hips"},
+	"hexling": {"wings": "chest", "tail": "hips"},
+	"acolyte": {"wings": "chest", "tail": "hips"},
 	"crow": {"wings": "spine_01", "tail": "tail_01"},
 	"mimic": {"wings": "hips", "tail": "tail_01"},
 	"bat": {"wings": "spine_01", "tail": "tail_01"},
-	"barrow_squire": {"wings": "spine.004", "tail": "hips_018"},
-	"shade": {"wings": "spine2", "tail": "spine4"},
+	"barrow_squire": {"wings": "chest", "tail": "hips"},
+	"shade": {"wings": "spine_01", "tail": "tail_01"},
 	"sapling": {"wings": "spine_01", "tail": "hips"},
 }
 
