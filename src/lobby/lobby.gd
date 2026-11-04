@@ -3,6 +3,7 @@ extends Node3D
 ## pick a difficulty, open what you brought home, and go back in.
 
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 const D := "res://assets/kaykit/dungeon/"
 const F := "res://assets/kaykit/forest/"
 const Nest := preload("res://src/lobby/camp_nest.gd")
@@ -172,7 +173,7 @@ func _build_world() -> void:
 	_put(G + "fence.gltf", Vector3(-4.6, 0, -4.2), 0.2, 1.3)
 	_put(G + "fence_broken.gltf", Vector3(-6.6, 0, -4.6), 0.2, 1.3)
 	_put(G + "fence.gltf", Vector3(5.0, 0, -5.0), -0.15, 1.3)
-	_put(G + "skull_candle.gltf", Vector3(-2.9, 0, -1.6), 0.4, 0.9)
+	_put(P + "skull_candle.gltf", Vector3(-2.9, 0, -1.6), 0.4, 0.9)
 	# Foreground: grass, stones and a candle in front of the hero, so the bottom
 	# of the frame is ground to stand on rather than a dark band.
 	for spec in [["Grass_1_A_Color1.gltf", Vector3(-1.4, 0, 1.9)], ["Grass_2_B_Color1.gltf", Vector3(1.5, 0, 2.1)], ["Grass_1_C_Color1.gltf", Vector3(0.4, 0, 2.6)],
@@ -437,7 +438,7 @@ func place_chest(kind: String) -> void:
 	if chest:
 		chest.queue_free()
 	var c: Dictionary = DB.CHESTS[kind]
-	chest = KK.prop(D + c["model"] + ".gltf")
+	chest = KK.prop(P + c["model"] + ".gltf")
 	chest.position = Vector3(1.25, 0, 0.9)
 	chest.rotation.y = -0.5
 	chest.scale = Vector3.ONE * 0.85

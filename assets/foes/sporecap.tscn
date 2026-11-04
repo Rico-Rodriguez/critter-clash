@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/foes/sporecap_src.glb" id="1_opxgu"]
 
-[node name="sporecap" type="Node3D" unique_id=675300126]
+[node name="sporecap" type="Node3D" unique_id=1719418409]
 metadata/cull_aabbs = {
-"Sketchfab_model/grzybolud_rig_fbx/Object_2/RootNode/root/Object_6/Skeleton3D/Object_9": AABB(-10.22953, -10.345575, -11.348026, 20.435678, 20.189852, 23.928242)
+"Rig/Skeleton3D/Sporecap": AABB(-1.3928952, -0.90569973, -1.3867047, 2.7860818, 3.0315752, 2.7789645)
 }
-metadata/posed_aabb = AABB(-0.3282695, 0, -0.3161822, 0.656539, 1, 0.6323644)
+metadata/posed_aabb = AABB(-0.39861715, 0, -0.3956778, 0.7972343, 1, 0.7913556)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=630219784 instance=ExtResource("1_opxgu")]
-transform = Transform3D(0.0983406, 0, 0, 0, 0.0983406, 0, 0, 0, 0.0983406, 0.00014140419, 0.41299045, -0.0003625959)
+[node name="sporecap_src" type="Node3D" parent="." unique_id=2143941474 instance=ExtResource("1_opxgu")]
+transform = Transform3D(0.8259525, 0, 0, 0, 0.8259525, 0, 0, 0, 0.8259525, -0.0001203196, -0.0039035673, -0.0022940969)

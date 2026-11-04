@@ -6,6 +6,7 @@ extends RefCounted
 ## balustrade so the camera never looks at the back of a wall.
 
 const D := "res://assets/kaykit/dungeon/"
+const P := "res://assets/props/"
 const G := "res://assets/kaykit/graveyard/"
 
 
@@ -154,12 +155,12 @@ static func _clutter(a: Arena) -> void:
 		a.put(D + "barrel_large.gltf", c, a._rng.randf() * TAU, 1.0, 1.0, true, 1.0)
 		a.put(D + "crates_stacked.gltf", c + Vector3(0.0, 0, 2.4) * (1.0 if a._rng.randf() < 0.5 else -1.0), a._rng.randf() * TAU, 1.0, 1.1, true, 1.1)
 		a.put(D + "barrel_small_stack.gltf", c + Vector3(-signf(c.x) * -1.6, 0, 0.8), a._rng.randf() * TAU, 1.0, 0.9, true, 0.9)
-	a.put(D + "chest.gltf", Vector3(-13.5, 0, 18.5), 0.4, 1.0, 0.9)
-	a.put(D + "chest.gltf", Vector3(13.0, 0, -9.0), -0.6, 1.0, 0.9)
+	a.put(P + "chest.gltf", Vector3(-13.5, 0, 18.5), 0.4, 1.0, 0.9)
+	a.put(P + "chest.gltf", Vector3(13.0, 0, -9.0), -0.6, 1.0, 0.9)
 	for i in 24:
 		var p := a._free_spot(0.5)
-		var bn: String = ["bone_A.gltf", "bone_B.gltf", "bone_C.gltf", "skull.gltf", "ribcage.gltf", "skull.gltf"][a._rng.randi() % 6]
-		a.put(G + bn, p, a._rng.randf() * TAU, a._rng.randf_range(0.8, 1.1), -1.0, false)
+		var bn: String = [G + "bone_A.gltf", G + "bone_B.gltf", G + "bone_C.gltf", P + "skull.gltf", G + "ribcage.gltf", P + "skull.gltf"][a._rng.randi() % 6]
+		a.put(bn, p, a._rng.randf() * TAU, a._rng.randf_range(0.8, 1.1), -1.0, false)
 	for i in 6:
 		a.put(D + ["rubble_half.gltf", "rubble_large.gltf"][a._rng.randi() % 2], a._free_spot(1.6), a._rng.randf() * TAU, 0.4, 1.0, false)
 
@@ -169,5 +170,5 @@ static func _spawn_spots(a: Arena) -> void:
 	for i in 16:
 		var p := a._free_spot(0.8)
 		a.put(G + "ribcage.gltf", p, a._rng.randf() * TAU, 1.2, -1.0, false)
-		a.put(G + "skull_candle.gltf", p + Vector3(0.6, 0, 0.3), 0.0, 1.2, -1.0, false)
+		a.put(P + "skull_candle.gltf", p + Vector3(0.6, 0, 0.3), 0.0, 1.2, -1.0, false)
 		a.graves.append(p + Vector3(0, 0, 0.8))

@@ -240,7 +240,16 @@ func run() -> int:
 	var rhelm := ra.model.find_child("DarkRogue_Helm4_Mesh", true, false) as MeshInstance3D
 	_ok("hooded rogue wears the hood", GearDB.look(hood_pre["helm"])["hood"] and rh != null and not rh.visible and rhelm != null and rhelm.visible)
 	ra.free()
-	_ok("warden wears his own gold skin", ResourceLoader.exists(KK.CHAR_DIR + str(DB.BOSSES["warden"].get("skin", ""))) and str(DB.BOSSES["warden"].get("skin", "")) != "")
+	# The Vault's dark plate remake: the Warden and his four guard are our own gold-trimmed models.
+	var vault_kinds := {"gildedguard": "warrior", "vaultbow": "rogue", "vaultbrute": "brute", "vaulthound": "hound"}
+	_ok("warden stands on his own dark plate model, no gilded skin", str(DB.BOSSES["warden"]["model"]) == "DarkVault_Warden" and not DB.BOSSES["warden"].has("skin") and ResourceLoader.exists(KK.CHAR_DIR + "DarkVault_Warden.glb"))
+	var vault_ok := true
+	for vk: String in vault_kinds:
+		var vd: Dictionary = DB.enemy(vk)
+		var vb: Dictionary = DB.enemy(str(vault_kinds[vk]))
+		vault_ok = vault_ok and str(vd["base"]) == str(vault_kinds[vk]) and is_equal_approx(float(vd["hp"]), float(vb["hp"])) and is_equal_approx(float(vd["dmg"]), float(vb["dmg"])) and str(vd["ai"]) == str(vb["ai"]) and ResourceLoader.exists(KK.CHAR_DIR + str(vd["model"]) + ".glb")
+	_ok("vault guard keep their base role's hp, dmg and ai", vault_ok)
+	_ok("the vault fields its guard in place of the skeletons", (DB.ZONES["vault"]["faction"] as Dictionary).values().all(func(k): return vault_kinds.has(k)) and (DB.ZONES["vault"]["faction"] as Dictionary).size() == 4)
 	_sidekick_tests()
 	_pet_polish_tests()
 	_hatchery_tests()
@@ -374,7 +383,7 @@ func _gear_tests() -> void:
 				missing.append(model)
 			else:
 				for part: Array in GearDB.KITS[model.trim_prefix("kit:")]:
-					if not ResourceLoader.exists("res://assets/kaykit/" + str(part[0])):
+					if not ResourceLoader.exists(str(part[0]) if str(part[0]).begins_with("res://") else "res://assets/kaykit/" + str(part[0])):
 						missing.append(part[0])
 		elif model != "" and not ResourceLoader.exists(KK.WEAPON_DIR + model):
 			missing.append(model)

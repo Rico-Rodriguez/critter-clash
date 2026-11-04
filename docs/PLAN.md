@@ -152,11 +152,13 @@ step; one PR each:
    (`make_unique_arms.py`) in its own colours (`dark_swatches.py`), the Mage's skull orb, candelabra
    and phylactery, and the bare-handed starters on our set 0 weapons. No KayKit gear is left on a hero.
 
-### Dark plate foes (Rico, 2026-10-31)
+## Dark plate bosses and foes (Rico, 2026-10-31)
 
-The early zones' bosses and foes rebuilt in the same style, on the hero skeleton so the baked clips
-play unchanged (`tools/art/make_dark_dead.py`, `make_barrow_dead.py`). Four bots, one zone each.
+The early zones' bosses and foes get the same dark plate look on the hero skeleton, so the baked
+clips play unchanged. One PR per zone:
 
+- [x] **Vault:** the Gilded Warden and the gilded guard (`make_dark_vault.py`): Gilded Guard,
+   Vault Crossbowman, Vault Brute, Vault Hound, fielded through `DB.ZONES["vault"]["faction"]`.
 - [x] **The Barrow:** Gravemaw and the base skeleton foes (Risen Bones, Barrow Guard, Crypt Stalker,
   Bone Hexer, Grave Caller, Grave Hound, Bone Brute, Pumpkin Bomber, Grave Robber), `DarkDead_*`.
   The Rime, Mire and Cinder foes still point at the KayKit `Skeleton_*` models.
@@ -183,7 +185,10 @@ play unchanged (`tools/art/make_dark_dead.py`, `make_barrow_dead.py`). Four bots
    party hunt, an invite from a fresh install, moving to a new phone.
 4. **Long Road polish** after the playtest: room count and length, gate readability, the boss
    hall, loot worth the walk. Nightmare and Veteran tuning (`DB.TIERS`).
-5. **Foe brains in the older zones.** The Barrow, Crypt, Grove and Vault still use the old
+5. [x] **Grove in dark plate:** the Thornmother and the Grove Cult (Cutthroat, Slinger, Shaman, Brawler) remade
+   in the dark plate style (`make_dark_grove.py`, `make_grove_arms.py`). The other zones' bosses and foes
+   follow in their own PRs.
+6. **Foe brains in the older zones.** The Barrow, Crypt, Grove and Vault still use the old
    foes; the rebuilt faction brains exist only for Rimehollow and the Cinder Mire
    (`--old-foes` switches back). See `docs/biomes.md`.
 

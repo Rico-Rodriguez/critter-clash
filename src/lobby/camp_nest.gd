@@ -5,6 +5,7 @@ extends Node3D
 ## Pets tab. Pure scenery plus a few tweens; the camp (lobby.gd) owns the walk.
 
 const D := "res://assets/kaykit/dungeon/"
+const P := "res://assets/props/"
 const G := "res://assets/kaykit/graveyard/"
 const F := "res://assets/kaykit/forest/"
 const SDB := preload("res://src/data/sidekick_db.gd")
@@ -85,7 +86,7 @@ func _build() -> void:
 	name_l.shaded = false
 	body.add_child(name_l)
 	# A hanging lantern and a pennant pole give it a warm, lived-in look.
-	var lan := KK.prop(G + "lantern_hanging.gltf")
+	var lan := KK.prop(P + "lantern_hanging.gltf")
 	lan.position = Vector3(0.0, 1.78, 0.2)
 	lan.scale = Vector3.ONE * 0.9
 	body.add_child(lan)

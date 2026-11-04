@@ -1,12 +1,12 @@
 [gd_scene format=3]
 
-[ext_resource type="PackedScene" path="res://assets/foes/cinder_warlord_src.glb" id="1_xwxrg"]
+[ext_resource type="PackedScene" path="res://assets/foes/cinder_warlord_src.glb" id="1_eg0v5"]
 
-[node name="cinder_warlord" type="Node3D" unique_id=566045853]
+[node name="cinder_warlord" type="Node3D" unique_id=2126678421]
 metadata/cull_aabbs = {
-"Sketchfab_model/fbx_merge_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-2494.504, -1673.6428, -1344.2155, 4419.421, 3418.802, 4590.5713)
+"Rig/Skeleton3D/CinderWarlord": AABB(-2.312723, -1.4881209, -1.8712835, 4.637005, 5.165863, 4.101926)
 }
-metadata/posed_aabb = AABB(-0.45432168, 0, -0.19490504, 0.90864336, 1, 0.3898101)
+metadata/posed_aabb = AABB(-0.3793678, 0, -0.25731662, 0.7587356, 1, 0.51463324)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=626677489 instance=ExtResource("1_xwxrg")]
-transform = Transform3D(0.4067349, 0, 0, 0, 0.4067349, 0, 0, 0, 0.4067349, 0.072832614, 0.7983927, -0.009452107)
+[node name="cinder_warlord_src" type="Node3D" parent="." unique_id=1318058124 instance=ExtResource("1_eg0v5")]
+transform = Transform3D(0.45619875, 0, 0, 0, 0.45619875, 0, 0, 0, 0.45619875, -0.0026366028, 0.00054878887, -0.08196957)

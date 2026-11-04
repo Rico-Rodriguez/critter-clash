@@ -8,6 +8,7 @@ signal finished
 
 const STORY_DB := preload("res://src/data/story_db.gd")
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 const D := "res://assets/kaykit/dungeon/"
 const BAR_H := 120.0
 const TYPE_SPEED := 46.0
@@ -16,13 +17,13 @@ const GOLD := Color(0.95, 0.78, 0.4)
 ## Props per zone: [file, x, z, yaw, scale].
 const SETS := {
 	"barrow": [[G + "gravestone.gltf", -4.2, -2.0, 0.3, 1.4], [G + "grave_A.gltf", 5.0, -3.0, -0.4, 1.4], [G + "tree_dead_large.gltf", -6.5, -6.0, 0.0, 1.8],
-		[G + "lantern_standing.gltf", -2.4, 1.2, 0.0, 1.5], [G + "pillar.gltf", 6.5, -7.0, 0.0, 1.6], [G + "gravestone.gltf", 1.2, -8.0, 0.2, 1.5]],
+		[P + "lantern_standing.gltf", -2.4, 1.2, 0.0, 1.5], [G + "pillar.gltf", 6.5, -7.0, 0.0, 1.6], [G + "gravestone.gltf", 1.2, -8.0, 0.2, 1.5]],
 	"grove": [[G + "tree_pine_orange_large.gltf", -5.5, -4.0, 0.0, 2.0], [G + "tree_pine_yellow_medium.gltf", 6.0, -5.0, 0.0, 2.0], [G + "tree_pine_orange_large.gltf", 1.0, -10.0, 0.0, 2.4],
-		[G + "tree_dead_medium.gltf", -2.8, -9.0, 0.0, 1.8], [G + "lantern_standing.gltf", -2.4, 1.2, 0.0, 1.5], [G + "pumpkin_orange_jackolantern.gltf", 3.0, 1.0, 0.4, 1.6]],
-	"depths": [[G + "pillar.gltf", -5.0, -3.0, 0.0, 2.0], [G + "pillar.gltf", 5.5, -3.5, 0.0, 2.0], [G + "coffin_decorated.gltf", -3.0, -7.0, 0.6, 1.5],
+		[G + "tree_dead_medium.gltf", -2.8, -9.0, 0.0, 1.8], [P + "lantern_standing.gltf", -2.4, 1.2, 0.0, 1.5], [G + "pumpkin_orange_jackolantern.gltf", 3.0, 1.0, 0.4, 1.6]],
+	"depths": [[G + "pillar.gltf", -5.0, -3.0, 0.0, 2.0], [G + "pillar.gltf", 5.5, -3.5, 0.0, 2.0], [P + "coffin_decorated.gltf", -3.0, -7.0, 0.6, 1.5],
 		[G + "candle_triple.gltf", -1.8, 1.4, 0.0, 2.0], [G + "crypt.gltf", 0.5, -12.0, 0.0, 2.2]],
-	"vault": [[D + "chest_gold.gltf", -3.4, -1.0, 0.5, 1.8], [D + "coin_stack_large.gltf", 4.6, -2.0, 0.0, 1.8], [D + "barrel_large_decorated.gltf", -5.5, -4.0, 0.0, 1.8],
-		[D + "barrier_column.gltf", 6.0, -6.0, 0.0, 2.0], [D + "coin_stack_medium.gltf", -2.2, 1.2, 0.0, 1.8], [D + "barrier_column.gltf", -7.0, -8.0, 0.0, 2.0]],
+	"vault": [[P + "chest_gold.gltf", -3.4, -1.0, 0.5, 1.8], [P + "coin_stack_large.gltf", 4.6, -2.0, 0.0, 1.8], [D + "barrel_large_decorated.gltf", -5.5, -4.0, 0.0, 1.8],
+		[D + "barrier_column.gltf", 6.0, -6.0, 0.0, 2.0], [P + "coin_stack_medium.gltf", -2.2, 1.2, 0.0, 1.8], [D + "barrier_column.gltf", -7.0, -8.0, 0.0, 2.0]],
 }
 
 ## Camera presets: [from position, to position, look-at].
