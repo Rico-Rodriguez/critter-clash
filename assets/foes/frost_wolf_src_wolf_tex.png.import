@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bf5ybe07wjw4q"
-path="res://.godot/imported/shardling_src_0.jpg-a917cb492d6072049ff0852f8e869d56.ctex"
+uid="uid://bgcb708wj6hjf"
+path="res://.godot/imported/frost_wolf_src_wolf_tex.png-f05605a09db4ecde27bf50a9ff8e9d86.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "38c5369c51db97b50b40afc9cab139a5"
+"md5": "b329037b4eb9741f01df1e7f757cf613"
 }
 
 [deps]
 
-source_file="res://assets/foes/shardling_src_0.jpg"
-dest_files=["res://.godot/imported/shardling_src_0.jpg-a917cb492d6072049ff0852f8e869d56.ctex"]
+source_file="res://assets/foes/frost_wolf_src_wolf_tex.png"
+dest_files=["res://.godot/imported/frost_wolf_src_wolf_tex.png-f05605a09db4ecde27bf50a9ff8e9d86.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
