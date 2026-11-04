@@ -1,5 +1,6 @@
-"""SAMPLE: the Barrow's dead in the dark plate style, on the hero skeleton, so
-the baked clips play on them unchanged (a mockup for Rico, not wired in).
+"""The Barrow's dead in the dark plate style, on the hero skeleton, so the
+baked clips play on them unchanged. Risen Bones and Gravemaw live here;
+the rest of the Barrow's foes are in make_barrow_dead.py.
 
     python3 tools/art/make_dark_dead.py   (plain Python + numpy)
 
@@ -106,7 +107,8 @@ def king():
 
 
 if __name__ == "__main__":
+    import make_barrow_dead as B
     g, nodes, joints, _ = H.skeleton()
-    for name, parts in (("DarkDead_Minion", minion()), ("DarkDead_King", king())):
+    for name, parts in (("DarkDead_Minion", minion()), ("DarkDead_King", king())) + tuple(B.all_models()):
         H.write(None, K.SK, g, nodes, joints, name, K.out(name), meshes=parts, image=IMAGE)
         print("WROTE", name)

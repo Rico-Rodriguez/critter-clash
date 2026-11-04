@@ -152,6 +152,15 @@ step; one PR each:
    (`make_unique_arms.py`) in its own colours (`dark_swatches.py`), the Mage's skull orb, candelabra
    and phylactery, and the bare-handed starters on our set 0 weapons. No KayKit gear is left on a hero.
 
+### Dark plate foes (Rico, 2026-10-31)
+
+The early zones' bosses and foes rebuilt in the same style, on the hero skeleton so the baked clips
+play unchanged (`tools/art/make_dark_dead.py`, `make_barrow_dead.py`). Four bots, one zone each.
+
+- [x] **The Barrow:** Gravemaw and the base skeleton foes (Risen Bones, Barrow Guard, Crypt Stalker,
+  Bone Hexer, Grave Caller, Grave Hound, Bone Brute, Pumpkin Bomber, Grave Robber), `DarkDead_*`.
+  The Rime, Mire and Cinder foes still point at the KayKit `Skeleton_*` models.
+
 ## Now: needs Rico
 
 | Task | Why it waits |

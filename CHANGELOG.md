@@ -14,6 +14,19 @@ version is 7.
 The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped in the hunt are
 replaced by small faceted models in the dark palette (`tools/art/make_dark_ammo.py`,
 `assets/kaykit/weapons/ammo_*.gltf`; `tools/dev/ammo_preview.gd` lays old beside new).
+## Unreleased: the Barrow's dead in dark plate
+
+Gravemaw and the Barrow's foes (also met in the Crypt and the Vault) are rebuilt in the dark plate
+style on the hero skeleton: faceted bone-grey skulls with ember eyes, heroic proportions, and an
+outline of their own each. Gravemaw is the crowned Bloodiron king; the Barrow Guard a kettle-hatted
+blackguard with a heater shield; the Crypt Stalker hooded and cloaked; the Bone Hexer a violet-gowned
+witch with a pointed hat; the Grave Caller cowled in black with a collar of bone spikes; the Grave
+Hound a long-jawed beast with a spiked back; the Bone Brute horned and fur-mantled with spiked
+pauldrons; the Pumpkin Bomber has a pumpkin strapped to its belly; the Grave Robber a floppy hat,
+scarf and ragged coat. Weapons are the dark weapon kit (a foe's `weapons` value may now be
+`{"m": file, "rot": degrees, "at": offset}` to hold one turned). Scales, hitboxes and the boss
+occluder are retuned for the taller skeleton; hp, damage and speed are untouched. The Rime, Mire and
+Cinder foes keep the old KayKit skeletons. A content change: ships over the air.
 
 ## Unreleased: unique gear of our own
 

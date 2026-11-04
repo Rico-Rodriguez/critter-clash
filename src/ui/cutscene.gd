@@ -146,7 +146,7 @@ func _build_stage() -> void:
 	_boss.model.scale = Vector3.ONE * float(bd["scale"])
 	_boss.position = Vector3(1.9, 0, -1.2)
 	_boss.rotation.y = -PI * 0.5 + 0.3
-	_boss.play("Skeletons_Idle" if str(bd["model"]).begins_with("Skeleton") or _boss.foreign else str(hd["anim"]["idle"]), 0.0)
+	_boss.play("Skeletons_Idle" if str(bd["model"]).begins_with("Skeleton") or str(bd["model"]).begins_with("DarkDead") or _boss.foreign else str(hd["anim"]["idle"]), 0.0)
 	var glow := OmniLight3D.new()
 	glow.light_color = aura
 	glow.light_energy = 1.6
