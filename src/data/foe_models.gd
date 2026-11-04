@@ -7,8 +7,8 @@ extends RefCounted
 ## def's own `scale`), `clips` (class -> clip name or names), `alias` (exact KayKit clip name -> clip).
 ## The foe defs' `anim` maps keep naming KayKit clips; FoeRig maps them through the classes.
 ##
-## Foes with no entry here (rh_imp, rh_effigy, rh_seer, rh_caller, cm_imp, cm_hag, cm_frog, cm_bogfin,
-## cm_wasp) stay on their KayKit skeletons: no in-tone, cleanly licensed model fits them yet.
+## Foes with no entry here carry their own `model` in next_foes.gd (our Blender models, tools/blender/foes/);
+## rh_seer stays on its KayKit skeleton.
 
 ## Frost Wolf. "Wolf" by Quaternius (CC0), palette-merged to one material (tools/art/palette_merge.py).
 const WOLF := {

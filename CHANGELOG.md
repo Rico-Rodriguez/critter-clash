@@ -9,6 +9,18 @@ version is 7.
 
 ---
 
+## Unreleased: Rimehollow foes of our own
+
+The Rime Crawler, Frost Wolf, Crystal Shardling, Frozen Effigy, Wail Wraith, Winter Caller and Rime Yeti are
+rebuilt from code as faceted dark plate models, each with its own rig and clips (`tools/blender/foes/`).
+Their seven Sketchfab credits are gone.
+
+## Unreleased: Cinder Mire foes of our own
+
+The Sporecap, Bogfin, Bog Frog, Methane Bloat, Cinder Imp, Mire Hag, Ember Wasp and the Cinder Warlord
+boss are rebuilt from code as faceted dark plate models, each with its own rig and clips
+(`tools/blender/foes/`). Their eight Sketchfab credits are gone.
+
 ## Unreleased: VFX graded to the dark plate
 
 - Element colours pulled down and warmed (fire deeper ember, holy and buff less neon), toon puffs get a bone-warm core instead of near white, a deeper rim band and a wider burn edge on dissolve, and the hit star core is bone instead of pure white.

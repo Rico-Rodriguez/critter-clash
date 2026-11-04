@@ -508,7 +508,7 @@ const BOSSES := {
 	},
 	"cinder": {
 		"name": "The Cinder Warlord", "title": "of the Burning Swamp", "wake": "the Warlord climbs from the embers", "fall": "The Warlord gutters out. The Swamp smoulders.",
-		# Riltariki's orc (assets/foes/cinder_warlord.tscn); `rig` pulls fit, clips and alias from boss_models.gd.
+		# Our own dark-plate orc (assets/foes/cinder_warlord.tscn); `rig` pulls fit, clips and alias from boss_models.gd.
 		# 5.7 m tall at scale 3.0, so the hitbox is wider and the occluder taller than the Ogre's.
 		"model": "glb:cinder_warlord", "rig": "cinder_warlord", "weapons": {}, "skin": "ogre",
 		"hp": 6400.0, "dmg": 29.0, "speed": 3.0, "radius": 1.95, "scale": 3.0, "mass": 60.0,
