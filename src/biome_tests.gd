@@ -28,7 +28,7 @@ static func _zones(ok: Callable) -> void:
 		ok.call("biome %s: names its boss, hazards, weather and music" % id, DB.BOSSES.has(str(z["boss"])) and (z["hazards"] as Array).size() >= 3 and str(env["weather"]) != "" and str(z["music"]) != "" and str(z["boss_music"]) != "")
 		ok.call("biome %s: every faction slot is a real foe" % id, (z["faction"] as Dictionary).values().all(func(k): return DB.ENEMIES.has(k) or DB.ENEMIES_EXTRA.has(k)))
 		ok.call("biome %s: weights name every foe class it fields" % id, (z["faction"] as Dictionary).keys().all(func(k): return float(z["weights"].get(k, 1.0)) > 0.0))
-		ok.call("biome %s: a boss with an intro style and an entrance skin" % id, BI.STYLE.has(str(z["boss"])) and DB.SKINS.has(str(DB.BOSSES[str(z["boss"])]["skin"])))
+		ok.call("biome %s: a boss with an intro style and an entrance skin (or a model of its own)" % id, BI.STYLE.has(str(z["boss"])) and (not DB.BOSSES[str(z["boss"])].has("skin") or DB.SKINS.has(str(DB.BOSSES[str(z["boss"])]["skin"]))))
 		ok.call("biome %s: an arena exists in the arena list or by id" % id, FileAccess.file_exists("res://src/hunt/arena_%s.gd" % ("rime" if id == "frost" else "mire")))
 		ok.call("biome %s: boss script exists and has no class_name" % id, _plain("res://src/hunt/boss_%s.gd" % str(z["boss"])))
 

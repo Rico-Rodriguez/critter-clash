@@ -153,6 +153,8 @@ step; one PR each:
    and phylactery, and the bare-handed starters on our set 0 weapons. No KayKit gear is left on a hero.
 6. [x] **Hexer Queen** (Sunken Crypt boss) rebuilt in dark plate on the hero skeleton
    (`make_dark_hexer.py`, her staff in `make_dark_hexer_arms.py`, shared bones in `dark_bones.py`).
+7. [x] **Rime Regent** (Frozen Crypt boss) rebuilt in dark plate on the hero skeleton
+   (`make_dark_regent.py`, his axe and shield in `make_dark_regent_arms.py`, shared bones in `dark_bones.py`).
 
 ## Dark plate bosses and foes (Rico, 2026-10-31)
 

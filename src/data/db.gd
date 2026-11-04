@@ -502,9 +502,9 @@ const BOSSES := {
 	},
 	"rime": {
 		"name": "The Rime Regent", "title": "of the Frozen Crypt", "wake": "the Regent stirs in the ice", "fall": "The Regent shatters. The Crypt thaws.",
-		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"}, "skin": "regent",
-		"hp": 6000.0, "dmg": 28.0, "speed": 3.0, "radius": 1.45, "scale": 2.6, "mass": 45.0,
-		"color": Color(0.55, 0.85, 1.0), "el": "frost", "source": "rime", "occluder": Vector2(1.6, 4.9), "summon_line": "The Regent calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
+		"model": "DarkBoss_rime", "weapons": {"handslot.r": "boss_rime_axe.gltf", "handslot.l": "boss_rime_shield.gltf"},
+		"hp": 6000.0, "dmg": 28.0, "speed": 3.0, "radius": 1.45, "scale": 1.9, "mass": 45.0,
+		"color": Color(0.55, 0.85, 1.0), "el": "frost", "source": "rime", "occluder": Vector2(1.7, 5.3), "summon_line": "The Regent calls the frozen dead!", "enrage_line": "\"Winter keeps what it takes.\"",
 	},
 	"cinder": {
 		"name": "The Cinder Warlord", "title": "of the Burning Swamp", "wake": "the Warlord climbs from the embers", "fall": "The Warlord gutters out. The Swamp smoulders.",
