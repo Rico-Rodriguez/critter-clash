@@ -151,7 +151,11 @@ func _render(k: String) -> void:
 		glow.omni_range = 5.0
 		glow.position = Vector3(-1.0, 1.4, 1.6)
 		_vp.add_child(glow)
-		cam.look_at_from_position(Vector3(0.7, 1.3, 4.4), Vector3(0, 0.95, 0), Vector3.UP)
+		if str(bd["model"]).begins_with("DarkBoss"):
+			# Our own bosses stand on the hero skeleton: twice the height of the KayKit skeletons.
+			cam.look_at_from_position(Vector3(1.1, 1.9, 8.2), Vector3(0, 1.35, 0), Vector3.UP)
+		else:
+			cam.look_at_from_position(Vector3(0.7, 1.3, 4.4), Vector3(0, 0.95, 0), Vector3.UP)
 	elif k.begins_with("chest|"):
 		var c: Dictionary = DB.CHESTS[kind]
 		var m := KK.prop("res://assets/props/" + str(c["model"]) + ".gltf")

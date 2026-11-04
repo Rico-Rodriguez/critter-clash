@@ -76,6 +76,14 @@ The Rime and Mire terrain kits get a darker colour grade (`GRADE` in `tools/art/
 rebuilt), the Rime floor and its ambient light are dimmer, and the Mire soil and bog are darker.
 A content change: ships over the air.
 
+## Unreleased: the Hexer Queen in dark plate
+
+The Sunken Crypt's boss is no longer a KayKit skeleton in a hat: she is a skull-faced queen on the
+hero skeleton, in a trailing violet gown with a black bodice, bell sleeves and a long veil, a raised
+collar and a spired crown with swept horns, and a violet-orbed staff of black horns. Same clips, same
+numbers; scale, occluder and the boss icon framing retuned for the taller body. A content change:
+ships over the air.
+
 ## Unreleased: unique gear of our own
 
 Every boss unique now has a look of its own, in its own colours: the Barrow King's crown of gold

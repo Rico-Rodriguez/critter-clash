@@ -653,6 +653,10 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
+			"darkboss":
+				# -- --view=hexer|rime[:top|:back]: a dark plate boss beside the one it replaces.
+				await _contact_sheet(shot, _arg(args, "view", "hexer"))
+				await _save(shot + "_" + _arg(args, "view", "hexer").replace(":", "_"))
 			"barrow":
 				# -- --view=a|b|king: the Barrow's dead as the hunt builds them, beside the Knight.
 				await _contact_sheet(shot, _arg(args, "view", "a"))
@@ -1738,6 +1742,47 @@ func _wait_sim(h: Hunt, sec: float) -> void:
 		await get_tree().process_frame
 
 
+## A boss in dark plate beside the KayKit skeleton it replaces and the Knight for scale,
+## as the hunt builds it (`view` = boss id, then ":top" for the hunt camera's angle,
+## ":close" for the boss alone or ":back" for the far side).
+func _darkboss_sheet(root: Node3D, view: String) -> void:
+	var parts := view.split(":")
+	var bid := parts[0]
+	var mode := parts[1] if parts.size() > 1 else "front"
+	var old := {"hexer": ["Skeleton_Mage", {"handslot.r": "Skeleton_Staff.gltf"}, 2.3],
+		"rime": ["Skeleton_Warrior", {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"}, 2.6]}
+	var bd: Dictionary = DB.BOSSES[bid]
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.fov = 30
+	var row: Array = [[old[bid][0], old[bid][1], float(old[bid][2]), false], [bd["model"], bd["weapons"], float(bd["scale"]), true], ["hero", {}, 2.0, false]]
+	for i in row.size():
+		var spec: Array = row[i]
+		var a := Actor.new()
+		root.add_child(a)
+		if str(spec[0]) == "hero":
+			a.adult_build = true
+			a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+			var pre := {}
+			for slot in DB.SLOTS:
+				pre[slot] = Game.make_item("knight", slot, 6, "rare")
+			GearLook.apply(a, "knight", pre)
+		else:
+			var aura: Color = bd["color"]
+			a.build_model(str(spec[0]), spec[1], aura, 0.55, Color(aura, 1.0), 0.8, bd if spec[3] else {})
+		a.model.scale = Vector3.ONE * float(spec[2])
+		a.position = Vector3((i - 1) * 4.6, 0, 0)
+		a.rotation.y = 0.3 * (1.0 if i == 0 else -1.0) + (PI if mode == "back" else 0.0)
+		a.play("Skeletons_Idle" if str(spec[0]).begins_with("Skeleton") else "Idle_A", 0.0)
+	if mode == "top":
+		cam.look_at_from_position(Vector3(0, 13.0, 9.5), Vector3(0, 1.6, 0.4), Vector3.UP)
+	elif mode == "close":
+		cam.look_at_from_position(Vector3(0, 3.4, 9.0), Vector3(0, 2.7, 0), Vector3.UP)
+	else:
+		cam.look_at_from_position(Vector3(0, 3.6, 19.0), Vector3(0, 2.6, 0), Vector3.UP)
+	await _wait(1.2)
+
+
 ## The Knight at the adult build in each of the five sets: the look the game
 ## gives today on the top row, the remade plate (tools/art/make_knight_plate.py)
 ## below. `view` "close" frames three sets larger, turned to show the side.
@@ -2152,6 +2197,9 @@ func _contact_sheet(kind: String, only := "") -> void:
 		return
 	if kind == "plate":
 		await _plate_sheet(root, only)
+		return
+	if kind == "darkboss":
+		await _darkboss_sheet(root, only)
 		return
 	if kind == "barrow":
 		await _barrow_sheet(root, env, only)

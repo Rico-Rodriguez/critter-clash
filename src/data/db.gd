@@ -490,9 +490,9 @@ const BOSSES := {
 	},
 	"hexer": {
 		"name": "Hexer Queen", "title": "of the Sunken Crypt", "wake": "the Queen of the Crypt rises", "fall": "The Hexer Queen unravels. Take what is yours.",
-		"model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
-		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.3, "mass": 30.0,
-		"color": Color(0.75, 0.4, 1.0), "el": "shadow", "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
+		"model": "DarkBoss_hexer", "weapons": {"handslot.r": "boss_hexer_staff.gltf"},
+		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.0, "mass": 30.0,
+		"color": Color(0.75, 0.4, 1.0), "el": "shadow", "source": "hexer", "occluder": Vector2(1.5, 5.3), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
 	},
 	"warden": {
 		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
