@@ -55,20 +55,6 @@ assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/uniq_*.bin -filter -diff -merge binary
 # Foes made in Blender (tools/blender/foes): small, and kept out of LFS for the same reason.
-assets/foes/frost_imp_src.glb -filter -diff -merge binary
-assets/foes/frost_imp_src_frost_imp_tex.png -filter -diff -merge binary
-assets/foes/frost_wolf_src.glb -filter -diff -merge binary
-assets/foes/frost_wolf_src_frost_wolf_tex.png -filter -diff -merge binary
-assets/foes/shardling_src.glb -filter -diff -merge binary
-assets/foes/shardling_src_shardling_tex.png -filter -diff -merge binary
-assets/foes/frozen_effigy_src.glb -filter -diff -merge binary
-assets/foes/frozen_effigy_src_frozen_effigy_tex.png -filter -diff -merge binary
-assets/foes/wail_wraith_src.glb -filter -diff -merge binary
-assets/foes/wail_wraith_src_wail_wraith_tex.png -filter -diff -merge binary
-assets/foes/winter_caller_src.glb -filter -diff -merge binary
-assets/foes/winter_caller_src_winter_caller_tex.png -filter -diff -merge binary
-assets/foes/rime_yeti_src.glb -filter -diff -merge binary
-assets/foes/rime_yeti_src_rime_yeti_tex.png -filter -diff -merge binary
 assets/foes/sporecap_src.glb -filter -diff -merge binary
 assets/foes/sporecap_src_sporecap_tex.png -filter -diff -merge binary
 assets/foes/bogfin_src.glb -filter -diff -merge binary
