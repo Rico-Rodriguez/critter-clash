@@ -255,27 +255,27 @@ static var _next_folded := {}
 
 const ENEMIES := {
 	"minion": {
-		"name": "Risen Bones", "model": "Skeleton_Minion", "weapons": {"handslot.r": "Skeleton_Blade.gltf"},
+		"name": "Risen Bones", "model": "DarkDead_Minion", "weapons": {"handslot.r": "knight_sword_0.gltf"},
 		"ai": "melee", "hp": 32.0, "dmg": 9.0, "speed": 3.5, "radius": 0.42, "reach": 1.25,
-		"windup": 0.38, "cooldown": 1.1, "mass": 1.0, "xp": 1, "scale": 1.0,
+		"windup": 0.38, "cooldown": 1.1, "mass": 1.0, "xp": 1, "scale": 0.7,
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"warrior": {
-		"name": "Barrow Guard", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "Skeleton_Axe.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"},
+		"name": "Barrow Guard", "model": "DarkDead_Guard", "weapons": {"handslot.r": "barb_axe_0.gltf", "handslot.l": "knight_off_1.gltf"},
 		"ai": "melee", "hp": 125.0, "dmg": 19.0, "speed": 2.6, "radius": 0.6, "reach": 1.55,
-		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 1.12,
+		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 0.82,
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_1H_Attack_Slice_Diagonal", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_A"},
 	},
 	"rogue": {
-		"name": "Crypt Stalker", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Crossbow.gltf"},
+		"name": "Crypt Stalker", "model": "DarkDead_Stalker", "weapons": {"handslot.r": {"m": "ranger_crossbow_0.gltf", "rot": Vector3(0, 180, 0)}},
 		"ai": "ranged", "hp": 46.0, "dmg": 12.0, "speed": 3.1, "radius": 0.45, "reach": 8.0,
-		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 1.0, "proj_speed": 13.0,
+		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 0.72, "proj_speed": 13.0,
 		"anim": {"idle": "Ranged_1H_Aiming", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"mage": {
-		"name": "Bone Hexer", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
+		"name": "Bone Hexer", "model": "DarkDead_Hexer", "weapons": {"handslot.r": {"m": "mage_skullstaff_0.gltf", "rot": Vector3(15, 0, 70), "at": Vector3(0, 0.35, 0)}},
 		"ai": "caster", "hp": 60.0, "dmg": 24.0, "speed": 2.7, "radius": 0.45, "reach": 9.0,
-		"windup": 1.15, "cooldown": 4.0, "mass": 1.2, "xp": 3, "scale": 1.0, "blast": 1.9,
+		"windup": 1.15, "cooldown": 4.0, "mass": 1.2, "xp": 3, "scale": 0.74, "blast": 1.9,
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Spellcasting", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 }
@@ -284,27 +284,27 @@ const ENEMIES := {
 ## necro: keeps its distance and raises minions. robber: the treasure goblin.
 const ENEMIES_EXTRA := {
 	"bomber": {
-		"name": "Pumpkin Bomber", "model": "Skeleton_Minion", "weapons": {"handslot.r": "res://assets/kaykit/graveyard/pumpkin_orange_jackolantern.gltf"},
+		"name": "Pumpkin Bomber", "model": "DarkDead_Bomber", "weapons": {},
 		"ai": "bomb", "hp": 22.0, "dmg": 38.0, "speed": 4.3, "radius": 0.42, "reach": 1.7,
-		"windup": 0.75, "cooldown": 9.0, "mass": 1.0, "xp": 2, "scale": 1.0, "blast": 2.4, "tint": Color(1.0, 0.5, 0.1, 0.4),
+		"windup": 0.75, "cooldown": 9.0, "mass": 1.0, "xp": 2, "scale": 0.7, "blast": 2.4, "tint": Color(1.0, 0.5, 0.1, 0.4),
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"necro": {
-		"name": "Grave Caller", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
+		"name": "Grave Caller", "model": "DarkDead_Caller", "weapons": {"handslot.r": {"m": "mage_skullstaff_2.gltf", "rot": Vector3(15, 0, 70), "at": Vector3(0, 0.35, 0)}},
 		"ai": "necro", "hp": 90.0, "dmg": 0.0, "speed": 2.6, "radius": 0.5, "reach": 9.0,
-		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 1.18, "blast": 3.0, "tint": Color(0.7, 0.3, 1.0, 0.45),
+		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 0.88, "blast": 3.0, "tint": Color(0.7, 0.3, 1.0, 0.45),
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Summon", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"hound": {
-		"name": "Grave Hound", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Blade.gltf"},
+		"name": "Grave Hound", "model": "DarkDead_Hound", "weapons": {"handslot.r": "dagger.gltf"},
 		"ai": "charge", "hp": 58.0, "dmg": 17.0, "speed": 3.9, "radius": 0.45, "reach": 1.4,
-		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.95, "tint": Color(1.0, 0.3, 0.25, 0.4),
+		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.8, "tint": Color(1.0, 0.3, 0.25, 0.4),
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"brute": {
-		"name": "Bone Brute", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf"},
+		"name": "Bone Brute", "model": "DarkDead_Brute", "weapons": {"handslot.r": "barb_axe_2.gltf"},
 		"ai": "slam", "hp": 520.0, "dmg": 36.0, "speed": 2.2, "radius": 0.85, "reach": 2.8,
-		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.55, "blast": 3.2, "tint": Color(0.7, 0.45, 0.3, 0.3),
+		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.12, "blast": 3.2, "tint": Color(0.7, 0.45, 0.3, 0.3),
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	# The Grove Cult (the Hollow Grove's faction): hooded folk, not bones.
@@ -456,9 +456,9 @@ const ENEMIES_EXTRA := {
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"robber": {
-		"name": "Grave Robber", "model": "Skeleton_Rogue", "weapons": {},
+		"name": "Grave Robber", "model": "DarkDead_Robber", "weapons": {},
 		"ai": "flee", "hp": 260.0, "dmg": 0.0, "speed": 6.2, "radius": 0.45, "reach": 0.0,
-		"windup": 1.0, "cooldown": 99.0, "mass": 1.0, "xp": 10, "scale": 1.1, "tint": Color(1.0, 0.8, 0.2, 0.55),
+		"windup": 1.0, "cooldown": 99.0, "mass": 1.0, "xp": 10, "scale": 0.78, "tint": Color(1.0, 0.8, 0.2, 0.55),
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 }
@@ -478,9 +478,9 @@ const SKINS := {
 const BOSSES := {
 	"gravemaw": {
 		"name": "Gravemaw", "title": "the Barrow King", "wake": "the Barrow King wakes", "fall": "Gravemaw falls. Take what is yours.",
-		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"},
-		"hp": 4250.0, "dmg": 26.0, "speed": 3.0, "radius": 1.5, "scale": 2.6, "mass": 40.0,
-		"color": Color(0.4, 1.0, 0.75), "el": "poison", "source": "boss", "occluder": Vector2(1.8, 5.0), "summon_line": "The King calls his dead!", "enrage_line": "\"You will lie beside them.\"",
+		"model": "DarkDead_King", "weapons": {"handslot.r": "barb_axe_3.gltf", "handslot.l": "knight_off_3.gltf"},
+		"hp": 4250.0, "dmg": 26.0, "speed": 3.0, "radius": 1.5, "scale": 1.85, "mass": 40.0,
+		"color": Color(0.4, 1.0, 0.75), "el": "poison", "source": "boss", "occluder": Vector2(1.9, 4.8), "summon_line": "The King calls his dead!", "enrage_line": "\"You will lie beside them.\"",
 	},
 	"thorn": {
 		"name": "The Thornmother", "title": "of the Hollow Grove", "wake": "the Thornmother uncurls", "fall": "The Thornmother withers. Take what is yours.",

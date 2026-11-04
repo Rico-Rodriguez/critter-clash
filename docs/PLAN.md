@@ -159,6 +159,9 @@ clips play unchanged. One PR per zone:
 
 - [x] **Vault:** the Gilded Warden and the gilded guard (`make_dark_vault.py`): Gilded Guard,
    Vault Crossbowman, Vault Brute, Vault Hound, fielded through `DB.ZONES["vault"]["faction"]`.
+- [x] **The Barrow:** Gravemaw and the base skeleton foes (Risen Bones, Barrow Guard, Crypt Stalker,
+  Bone Hexer, Grave Caller, Grave Hound, Bone Brute, Pumpkin Bomber, Grave Robber), `DarkDead_*`.
+  The Rime, Mire and Cinder foes still point at the KayKit `Skeleton_*` models.
 
 ## Now: needs Rico
 

@@ -653,6 +653,10 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
+			"barrow":
+				# -- --view=a|b|king: the Barrow's dead as the hunt builds them, beside the Knight.
+				await _contact_sheet(shot, _arg(args, "view", "a"))
+				await _save(shot)
 			"vaultsheet":
 				# -- --view=all|boss|foes|back|old: the Gilded Vault's remade boss and guard.
 				await _contact_sheet(shot, _arg(args, "view", ""))
@@ -1042,6 +1046,30 @@ func _capture(args: PackedStringArray) -> void:
 					hf2.spawn_foe(lineup[i][0], at, lineup[i][1] != "", lineup[i][1])
 				await _wait(2.4)
 				await _save("foes")
+			"barrowfoes":
+				# The Barrow's nine foes in two staggered rows in front of the hero, as the hunt camera sees them.
+				_set_screen_now("hunt")
+				var hb: Hunt = current
+				hb.bot = true
+				hb._bot = HuntBot.new()
+				hb._bot.hunt = hb
+				hb._bot.idle = true
+				await _wait(2.5)
+				hb.hero.invuln = 999.0
+				hb.robber_spawned = true
+				hb.foe_speed_mult = 0.0
+				hb.spawn_t = 1e9
+				for f in hb.foes.duplicate():
+					hb.foes.erase(f)
+					f.queue_free()
+				var bk := ["minion", "warrior", "rogue", "mage", "necro", "hound", "brute", "bomber", "robber"]
+				if _arg(args, "view", "") == "elite":
+					bk = ["minion", "warrior", "brute", "necro"]
+				for i in bk.size():
+					var at: Vector3 = hb.hero.position + Vector3((float(i % 5) - 2.0) * 2.2 + (1.1 if i >= 5 else 0.0), 0.0, -3.6 - float(i / 5) * 2.4)
+					hb.spawn_foe(bk[i], hb.arena.resolve(at, 0.5), _arg(args, "view", "") == "elite")
+				await _wait_sim(hb, 2.2)
+				await _save("barrowfoes")
 			"swing":
 				# Close in on one attack, frame by frame: how a weapon family
 				# swings, hits and trails.
@@ -2054,6 +2082,49 @@ func _arm(a: Actor, sword: String, shield: String) -> void:
 		a.restyle(att)
 
 
+## The Barrow's foes and Gravemaw built from their DB defs (model, weapons, scale), left to right
+## as the hunt meets them, a Knight at the left for height. `only`: "a" (default: the first five), "b" (the rest and Gravemaw), "king".
+func _barrow_sheet(root: Node3D, env: Environment, only: String) -> void:
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.fov = 30
+	env.background_color = Color(0.13, 0.13, 0.16)
+	var rows: Array = []
+	var ids: Array = []
+	if only == "b":
+		ids = ["hound", "brute", "bomber", "robber"]
+	elif only != "king":
+		ids = ["minion", "warrior", "rogue", "mage", "necro"]
+	for id: String in ids:
+		rows.append(DB.ENEMIES[id] if DB.ENEMIES.has(id) else DB.ENEMIES_EXTRA[id])
+	if only == "king":
+		rows.append(DB.BOSSES["gravemaw"])
+	var n := rows.size() + 1
+	for i in n:
+		var a := Actor.new()
+		root.add_child(a)
+		var sc := 1.0
+		if i == 0:
+			a.adult_build = true
+			a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+			var pre := {}
+			for slot in DB.SLOTS:
+				pre[slot] = Game.make_item("knight", slot, 6, "rare")
+			GearLook.apply(a, "knight", pre)
+			a.play("Idle_A", 0.0)
+		else:
+			var d: Dictionary = rows[i - 1]
+			a.build_model(str(d["model"]), d["weapons"], Color(0.4, 1.0, 0.75), 0.45, Color(1.0, 0.55, 0.15, 1.0), 0.8, d)
+			sc = float(d["scale"])
+			a.model.scale = Vector3.ONE * sc
+			a.play("Skeletons_Idle" if not str(d["anim"]["idle"] if d.has("anim") else "").begins_with("Ranged") else str(d["anim"]["idle"]), 0.0)
+		a.position = Vector3((i - (n - 1) * 0.5) * (2.3 if n > 3 else 3.0), 0, 0)
+		a.rotation.y = 0.3 * (1.0 if i < n / 2 else -1.0)
+	var back := 12.5 if only != "king" else 11.0
+	cam.look_at_from_position(Vector3(0, 2.0, back), Vector3(0, 1.4, 0), Vector3.UP)
+	await _wait(1.2)
+
+
 ## A lineup of every character (or weapon) on a bare stage, for choosing parts.
 func _contact_sheet(kind: String, only := "") -> void:
 	if current:
@@ -2081,6 +2152,9 @@ func _contact_sheet(kind: String, only := "") -> void:
 		return
 	if kind == "plate":
 		await _plate_sheet(root, only)
+		return
+	if kind == "barrow":
+		await _barrow_sheet(root, env, only)
 		return
 	if kind == "grove":
 		# Old KayKit Grove foes on the back row, the dark plate remakes in front. --view=top looks

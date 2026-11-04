@@ -55,6 +55,8 @@ assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/uniq_*.bin -filter -diff -merge binary
 
+# The Barrow's dead (make_dark_dead.py): kept out of LFS, uploads are refused from cloud sessions.
+assets/kaykit/characters/DarkDead_*.glb -filter -diff -merge binary
 # The Gilded Vault's dark plate models: kept out of LFS (uploads are refused from cloud sessions).
 assets/kaykit/characters/DarkVault_*.glb -filter -diff -merge binary
 # Foes made in Blender (tools/blender/foes): small, and kept out of LFS for the same reason.
