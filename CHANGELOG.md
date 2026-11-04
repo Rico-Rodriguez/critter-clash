@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: projectiles and coins of our own
+
+The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped in the hunt are
+replaced by small faceted models in the dark palette (`tools/art/make_dark_ammo.py`,
+`assets/kaykit/weapons/ammo_*.gltf`; `tools/dev/ammo_preview.gd` lays old beside new).
+
 ## Unreleased: unique gear of our own
 
 Every boss unique now has a look of its own, in its own colours: the Barrow King's crown of gold

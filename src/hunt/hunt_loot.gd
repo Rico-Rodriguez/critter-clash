@@ -39,8 +39,8 @@ func _drop(kind: String, at: Vector3, value: int) -> void:
 			p.add_child(mi)
 			p.body = mi
 		"gold":
-			var c := KK.prop("res://assets/kaykit/dungeon/coin.gltf")
-			c.scale = Vector3.ONE * 1.5
+			var c := KK.prop("res://assets/kaykit/weapons/ammo_coin.gltf")
+			c.scale = Vector3.ONE * 1.7
 			c.rotation.x = PI * 0.5
 			var holder := Node3D.new()
 			holder.add_child(c)
@@ -385,14 +385,13 @@ func _proj_body(kind: String) -> Node3D:
 	var root := Node3D.new()
 	match kind:
 		"arrow":
-			var a := KK.prop("res://assets/kaykit/weapons/arrow_bow.gltf")
-			a.rotation = Vector3(0, 0, 0)
+			var a := KK.prop("res://assets/kaykit/weapons/ammo_arrow.gltf")
 			a.scale = Vector3.ONE * 1.4
 			root.add_child(a)
 			root.add_child(_streak(Color(1.0, 0.9, 0.6), 1.8))
 		"bolt":
-			var b := KK.prop("res://assets/kaykit/weapons/Skeleton_Arrow.gltf")
-			b.scale = Vector3.ONE * 1.4
+			var b := KK.prop("res://assets/kaykit/weapons/ammo_bolt.gltf")
+			b.scale = Vector3.ONE * 1.5
 			root.add_child(b)
 			root.add_child(_streak(Color(1.0, 0.3, 0.2), 1.6))
 		"fireball":
@@ -436,7 +435,7 @@ func _proj_body(kind: String) -> Node3D:
 			root.add_child(cb)
 			root.add_child(_streak(bc, 1.9, 0.7))
 		"axe":
-			var ax := KK.prop("res://assets/kaykit/weapons/axe_1handed.gltf")
+			var ax := KK.prop("res://assets/kaykit/weapons/ammo_axe.gltf")
 			ax.scale = Vector3.ONE * 1.9
 			ax.rotation = Vector3(PI * 0.5, 0, 0)
 			ax.position = Vector3(0, 0, -0.55)
@@ -445,7 +444,7 @@ func _proj_body(kind: String) -> Node3D:
 		"throwaxe":
 			# The hero's own weapon, spinning flat.
 			var w := Game.equipped(hero.id, "weapon")
-			var lk := GearDB.look(w) if not w.is_empty() else {"model": "axe_1handed.gltf", "scale": 1.2}
+			var lk := GearDB.look(w) if not w.is_empty() else {"model": "ammo_axe.gltf", "scale": 1.2}
 			var ta := GearLook.prop_for(str(lk["model"]))
 			ta.scale = Vector3.ONE * float(lk["scale"]) * 1.4
 			ta.rotation = Vector3(PI * 0.5, 0, 0)
@@ -465,25 +464,24 @@ func _proj_body(kind: String) -> Node3D:
 			root.add_child(o)
 			root.add_child(_streak(Color(0.7, 0.4, 1.0), 1.4, 0.6))
 		"spear":
-			var bone := KK.prop("res://assets/kaykit/graveyard/bone_A.gltf")
-			bone.scale = Vector3.ONE * 2.2
-			bone.rotation = Vector3(0, PI * 0.5, 0)
+			var bone := KK.prop("res://assets/kaykit/weapons/ammo_bone.gltf")
+			bone.scale = Vector3.ONE * 1.6
 			root.add_child(bone)
 			root.add_child(_streak(Color(0.45, 1.0, 0.7), 1.6, 0.6))
 		"knife":
-			var kn := KK.prop("res://assets/kaykit/weapons/dagger.gltf")
+			var kn := KK.prop("res://assets/kaykit/weapons/ammo_knife.gltf")
 			kn.scale = Vector3.ONE * 1.5
 			kn.rotation = Vector3(PI * 0.5, 0, 0)
 			kn.position = Vector3(0, 0, -0.2)
 			root.add_child(kn)
 			root.add_child(_streak(Color(0.9, 0.95, 1.0), 0.9, 0.3))
 		"quarrel":
-			var q := KK.prop("res://assets/kaykit/weapons/arrow_crossbow.gltf")
+			var q := KK.prop("res://assets/kaykit/weapons/ammo_bolt.gltf")
 			q.scale = Vector3.ONE * 1.6
 			root.add_child(q)
 			root.add_child(_streak(Color(1.0, 0.8, 0.5), 2.2, 0.4))
 		"soularrow":
-			var sa := KK.prop("res://assets/kaykit/weapons/arrow_bow.gltf")
+			var sa := KK.prop("res://assets/kaykit/weapons/ammo_arrow.gltf")
 			sa.scale = Vector3.ONE * 1.5
 			root.add_child(sa)
 			root.add_child(_streak(Color(0.5, 1.0, 0.7), 2.4, 0.5))
