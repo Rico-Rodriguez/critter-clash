@@ -145,7 +145,7 @@ func _prop(model: String) -> Node3D:
 		return KK.prop(KK.WEAPON_DIR + model)
 	var r := Node3D.new()
 	for part: Array in GearDB.KITS[model.trim_prefix("kit:")]:
-		var n := KK.prop("res://assets/kaykit/" + str(part[0]))
+		var n := KK.prop(str(part[0]) if str(part[0]).begins_with("res://") else "res://assets/kaykit/" + str(part[0]))
 		var rot: Vector3 = part[2]
 		var sc: Vector3 = part[3] if part[3] is Vector3 else Vector3.ONE * float(part[3])
 		n.transform = Transform3D(Basis.from_euler(rot * PI / 180.0) * Basis.from_scale(sc), part[1])

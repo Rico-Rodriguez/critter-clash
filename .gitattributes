@@ -54,3 +54,8 @@ assets/kaykit/weapons/ranger_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/uniq_*.bin -filter -diff -merge binary
+# Our dark plate props and the Rime and Mire kits (make_plate_props.py, make_*_kit.py): small, and
+# kept out of LFS because its upload is blocked from the cloud sessions that rebuild them.
+assets/props/*.png -filter -diff -merge binary
+assets/kits/*/*.glb -filter -diff -merge binary
+assets/kits/*/*.png -filter -diff -merge binary

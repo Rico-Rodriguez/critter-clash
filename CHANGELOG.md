@@ -19,6 +19,16 @@ The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped
 replaced by small faceted models in the dark palette (`tools/art/make_dark_ammo.py`,
 `assets/kaykit/weapons/ammo_*.gltf`; `tools/dev/ammo_preview.gd` lays old beside new).
 
+## Unreleased: dark plate props in every zone and the camp
+
+The KayKit coffins, skulls, lanterns (standing, hanging, and the lamp and skull posts), toy chests
+and coin stacks are replaced by our own flat-faceted models in gunmetal plate, old bone and
+tarnished gold, with a warm glow only in the lantern cores and candle flames
+(`tools/art/make_plate_props.py`, `assets/props/`). The camp chest keeps its `chest_lid` hinge.
+The Rime and Mire terrain kits get a darker colour grade (`GRADE` in `tools/art/kit_lib.py`, kits
+rebuilt), the Rime floor and its ambient light are dimmer, and the Mire soil and bog are darker.
+A content change: ships over the air.
+
 ## Unreleased: unique gear of our own
 
 Every boss unique now has a look of its own, in its own colours: the Barrow King's crown of gold

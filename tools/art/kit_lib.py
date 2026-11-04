@@ -17,6 +17,10 @@ LEVELS = 63           # sRGB steps per channel when a face colour is quantised i
 CELL, GRID = 8, 32    # 8 px cells, 32 x 32 of them: up to 1024 colours, a 256 px texture
 MATTE, ICE, CRYSTAL = 0, 1, 2
 EMIT = {"mire": 0.8, "mire_road": 0.8}   # emission strength of the third material, per kit (default 0.18); the Mire uses it for coals
+# Colour grade per kit, applied to the palette image when it is written, so the builders' swatches stay
+# as authored: (gain, desaturation, (r, g, b) tint). Glowing warm cells (embers, coals) are left alone.
+GRADE = {"rime": (0.6, 0.22, (0.94, 1.0, 1.08)), "rime_road": (0.6, 0.22, (0.94, 1.0, 1.08)),
+         "mire": (0.74, 0.12, (0.96, 1.0, 0.96)), "mire_road": (0.74, 0.12, (0.96, 1.0, 0.96))}
 SLOTS = {}   # object name -> the material slots (0..2) its faces use, in order
 
 
@@ -73,6 +77,10 @@ class Palette:
         px = [0.0] * (size * size * 4)
         for key, i in self.cells.items():
             rgb = [k / LEVELS for k in key]
+            if self.name in GRADE and not (rgb[0] > 0.55 and rgb[0] > rgb[2] * 1.8):
+                gain, desat, tint = GRADE[self.name]
+                lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+                rgb = [max(0.0, min(1.0, (lum + (c - lum) * (1.0 - desat)) * gain * t)) for c, t in zip(rgb, tint)]
             for y in range((i // GRID) * CELL, (i // GRID + 1) * CELL):
                 for x in range((i % GRID) * CELL, (i % GRID + 1) * CELL):
                     o = ((size - 1 - y) * size + x) * 4   # Blender images start at the bottom row
