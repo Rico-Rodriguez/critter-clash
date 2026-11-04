@@ -653,6 +653,10 @@ func _capture(args: PackedStringArray) -> void:
 				await _wait(1.5)
 				print("FLOW at ", current.name)
 				await _save("flow")
+			"vaultsheet":
+				# -- --view=all|boss|foes|back|old: the Gilded Vault's remade boss and guard.
+				await _contact_sheet(shot, _arg(args, "view", ""))
+				await _save(shot)
 			"grove":
 				# -- --view=top|boss: the Grove Cult and the Thornmother, old KayKit above new.
 				await _contact_sheet(shot, _arg(args, "view", ""))
@@ -2071,6 +2075,10 @@ func _contact_sheet(kind: String, only := "") -> void:
 	sun.rotation_degrees = Vector3(-40, -20, 0)
 	root.add_child(sun)
 	var names: Array = []
+	if kind == "vaultsheet":
+		preload("res://src/dev/vault_sheet.gd").stage(root, env, only)
+		await _wait(1.2)
+		return
 	if kind == "plate":
 		await _plate_sheet(root, only)
 		return

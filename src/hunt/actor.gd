@@ -81,6 +81,12 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 	model = KK.character(model_name, weapons)
 	add_child(model)
 	var skel: Skeleton3D = model.find_child("Skeleton3D", true, false)
+	# `wscale` sizes every weapon in the hands (a giant's key, a guard's small door).
+	var ws := float(rig_def.get("wscale", 1.0))
+	if ws != 1.0 and skel:
+		for att in skel.get_children():
+			if att is BoneAttachment3D and att.get_child_count() > 0:
+				(att.get_child(0) as Node3D).scale *= ws
 	if merge_parts and skel:
 		_merge_parts(skel, model_name)
 	var own_hips := skel.get_bone_rest(skel.find_bone("hips")).origin.y if skel and skel.find_bone("hips") >= 0 else 0.0
@@ -119,7 +125,8 @@ func build_model(model_name: String, weapons: Dictionary, rim: Color, rim_streng
 	anim.playback_default_blend_time = 0.12
 	_rim = rim
 	_rim_strength = rim_strength
-	_eyes = eyes
+	# A def of ours in gold plate asks for no eye glow: gold texels are "hot" to the shader.
+	_eyes = Color(0, 0, 0, 0) if bool(rig_def.get("noglow", false)) else eyes
 	restyle(model)
 
 
