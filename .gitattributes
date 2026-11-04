@@ -54,3 +54,8 @@ assets/kaykit/weapons/ranger_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/uniq_*.bin -filter -diff -merge binary
+# The Grove Cult and the Thornmother (make_dark_grove.py, make_grove_arms.py): kept out of LFS because
+# its upload is blocked from the cloud sessions that make them.
+assets/kaykit/characters/Grove*.glb -filter -diff -merge binary
+assets/kaykit/characters/Thornmother.glb -filter -diff -merge binary
+assets/kaykit/weapons/grove_*.bin -filter -diff -merge binary

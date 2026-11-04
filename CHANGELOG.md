@@ -15,6 +15,17 @@ The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped
 replaced by small faceted models in the dark palette (`tools/art/make_dark_ammo.py`,
 `assets/kaykit/weapons/ammo_*.gltf`; `tools/dev/ammo_preview.gd` lays old beside new).
 
+## Unreleased: the Hollow Grove in dark plate
+
+The Thornmother and the Grove Cult are remade in the dark plate style on the hero skeleton
+(`tools/art/make_dark_grove.py`), so the baked clips play on them unchanged. The Thornmother is a huge
+hooded root-mother with a halo of thorns, antlers, bark pauldrons and a skirt of creeping roots, holding a
+gnarled thorn staff; the Cutthroat is lean with a long ember scarf and a hooked thorn knife, the Slinger wears a
+wide leather hat and a quiver, the Shaman a green robe with an orange leaf mantle and tall antlers, the
+Brawler iron and bark with thorned pauldrons. New weapons (`make_grove_arms.py`): the thorn knife, the
+shaman's staff and the Thornmother's staff. Numbers are unchanged; scale, tint and the boss occluder are
+retuned for the taller skeleton. A content change: ships over the air.
+
 ## Unreleased: unique gear of our own
 
 Every boss unique now has a look of its own, in its own colours: the Barrow King's crown of gold

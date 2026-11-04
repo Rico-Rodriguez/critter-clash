@@ -309,27 +309,27 @@ const ENEMIES_EXTRA := {
 	},
 	# The Grove Cult (the Hollow Grove's faction): hooded folk, not bones.
 	"cutthroat": {
-		"name": "Grove Cutthroat", "model": "Rogue_Hooded", "weapons": {"handslot.r": "dagger.gltf"},
+		"name": "Grove Cutthroat", "model": "GroveCutthroat", "weapons": {"handslot.r": "grove_knife.gltf"},
 		"ai": "melee", "hp": 30.0, "dmg": 10.0, "speed": 4.1, "radius": 0.42, "reach": 1.2,
-		"windup": 0.3, "cooldown": 0.95, "mass": 1.0, "xp": 1, "scale": 1.0, "tint": Color(0.35, 0.75, 0.3, 0.3),
+		"windup": 0.3, "cooldown": 0.95, "mass": 1.0, "xp": 1, "scale": 0.95, "tint": Color(0.35, 0.75, 0.3, 0.2),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Stab", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"slinger": {
-		"name": "Grove Slinger", "model": "Rogue_Hooded", "weapons": {"handslot.r": "crossbow_1handed.gltf"},
+		"name": "Grove Slinger", "model": "GroveSlinger", "weapons": {"handslot.r": "ranger_crossbow_0.gltf"},
 		"ai": "ranged", "hp": 42.0, "dmg": 12.0, "speed": 3.4, "radius": 0.45, "reach": 8.5,
-		"windup": 0.7, "cooldown": 2.2, "mass": 1.0, "xp": 2, "scale": 1.0, "proj_speed": 14.0, "tint": Color(0.35, 0.75, 0.3, 0.3),
+		"windup": 0.7, "cooldown": 2.2, "mass": 1.0, "xp": 2, "scale": 0.95, "proj_speed": 14.0, "tint": Color(0.35, 0.75, 0.3, 0.2),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"shaman": {
-		"name": "Thorn Shaman", "model": "Rogue_Hooded", "weapons": {"handslot.r": "staff.gltf"},
+		"name": "Thorn Shaman", "model": "GroveShaman", "weapons": {"handslot.r": "grove_staff.gltf"},
 		"ai": "caster", "hp": 58.0, "dmg": 22.0, "speed": 2.9, "radius": 0.45, "reach": 9.0,
-		"windup": 1.1, "cooldown": 3.8, "mass": 1.2, "xp": 3, "scale": 1.05, "blast": 2.1, "root": true, "tint": Color(0.5, 0.95, 0.35, 0.45),
+		"windup": 1.1, "cooldown": 3.8, "mass": 1.2, "xp": 3, "scale": 1.0, "blast": 2.1, "root": true, "tint": Color(0.5, 0.95, 0.35, 0.3),
 		"anim": {"idle": "Idle_A", "run": "Walking_A", "attack": "Ranged_Magic_Spellcasting", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"brawler": {
-		"name": "Grove Brawler", "model": "Barbarian", "weapons": {"handslot.r": "axe_1handed.gltf"},
+		"name": "Grove Brawler", "model": "GroveBrawler", "weapons": {"handslot.r": "barb_axe_0.gltf"},
 		"ai": "melee", "hp": 130.0, "dmg": 20.0, "speed": 2.9, "radius": 0.6, "reach": 1.6,
-		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.15, "tint": Color(0.3, 0.55, 0.25, 0.45),
+		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.1, "tint": Color(0.3, 0.55, 0.25, 0.25),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	# The Frozen Crypt's dead (the Rime Regent's court): the same bones, frozen
@@ -457,9 +457,9 @@ const BOSSES := {
 	},
 	"thorn": {
 		"name": "The Thornmother", "title": "of the Hollow Grove", "wake": "the Thornmother uncurls", "fall": "The Thornmother withers. Take what is yours.",
-		"model": "Rogue_Hooded", "weapons": {"handslot.r": "staff.gltf"},
-		"hp": 5200.0, "dmg": 25.0, "speed": 3.1, "radius": 1.3, "scale": 2.5, "mass": 35.0,
-		"color": Color(0.55, 0.95, 0.35), "el": "nature", "source": "thorn", "occluder": Vector2(1.5, 4.8), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
+		"model": "Thornmother", "weapons": {"handslot.r": "grove_thorn_staff.gltf"},
+		"hp": 5200.0, "dmg": 25.0, "speed": 3.1, "radius": 1.3, "scale": 1.6, "mass": 35.0,
+		"color": Color(0.55, 0.95, 0.35), "el": "nature", "source": "thorn", "occluder": Vector2(1.5, 4.4), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
 	},
 	"hexer": {
 		"name": "Hexer Queen", "title": "of the Sunken Crypt", "wake": "the Queen of the Crypt rises", "fall": "The Hexer Queen unravels. Take what is yours.",
