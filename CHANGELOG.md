@@ -29,6 +29,7 @@ wide leather hat and a quiver, the Shaman a green robe with an orange leaf mantl
 Brawler iron and bark with thorned pauldrons. New weapons (`make_grove_arms.py`): the thorn knife, the
 shaman's staff and the Thornmother's staff. Numbers are unchanged; scale, tint and the boss occluder are
 retuned for the taller skeleton. A content change: ships over the air.
+
 ## Unreleased: dark plate props in every zone and the camp
 
 The KayKit coffins, skulls, lanterns (standing, hanging, and the lamp and skull posts), toy chests
