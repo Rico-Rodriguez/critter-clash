@@ -170,7 +170,7 @@ func _wear_sack() -> void:
 	var att := BoneAttachment3D.new()
 	att.bone_name = "chest"
 	skel.add_child(att)
-	var sack := KK.prop("res://assets/kaykit/dungeon/coin_stack_medium.gltf")
+	var sack := KK.prop("res://assets/props/coin_stack_medium.gltf")
 	sack.position = Vector3(0, 0.05, -0.3)
 	sack.scale = Vector3.ONE * 1.7
 	att.add_child(sack)

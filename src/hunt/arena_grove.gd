@@ -7,6 +7,7 @@ extends RefCounted
 
 const F := "res://assets/kaykit/forest/"
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 
 
 static func build(a: Arena) -> void:
@@ -69,7 +70,7 @@ static func _shrines(a: Arena) -> void:
 ## The cult keeps lanterns lit along its paths.
 static func _lanterns(a: Arena) -> void:
 	for lp in [Vector3(-2.6, 0, 9), Vector3(4.2, 0, -1.5), Vector3(-6, 0, -3), Vector3(2.8, 0, -17), Vector3(-3.4, 0, 19.5), Vector3(3.4, 0, 19.5)]:
-		a.put(G + "post_lantern.gltf", lp, a._rng.randf() * TAU, 1.35, 0.3, true, 0.6)
+		a.put(P + "post_lantern.gltf", lp, a._rng.randf() * TAU, 1.35, 0.3, true, 0.6)
 		a._light(lp + Vector3(0, 2.4, 0), Color(1.0, 0.62, 0.32), 1.5, 7.5)
 
 

@@ -538,7 +538,7 @@ const ZONES := {
 		"souls_mult": 1.0, "unlock": "Trophy Road: 4400 trophies", "music": "frozen", "boss_music": "frozen_boss",
 		"hazards": ["icefall", "thin_ice", "gale"],
 		"hazard_line": "Icicles fall, thin ice gives way and gales shove",
-		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.5, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "", "weather": "snow",
+		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.34, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "", "weather": "snow",
 			"sun": Color(0.95, 0.97, 1.0), "sun_e": 1.1, "sun_rot": Vector3(-54, -32, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(0.92, 0.97, 1.0, 1.0),
 			"ground": {"grass_a": Color(0.5, 0.57, 0.67), "grass_b": Color(0.64, 0.71, 0.8), "dirt": Color(0.36, 0.41, 0.5), "dark": Color(0.05, 0.07, 0.11)}},
 	},

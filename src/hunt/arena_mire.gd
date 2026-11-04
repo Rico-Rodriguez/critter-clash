@@ -11,6 +11,7 @@ extends RefCounted
 ## (assets/kits/mire/mire_kit.glb via KitModels). Crisp PBR: no fog, no bloom, no tint.
 
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 const Terrain := preload("res://src/hunt/terrain.gd")
 const KitModels := preload("res://src/data/kit_models.gd")
 const KitMesh := preload("res://src/hunt/kit_mesh.gd")
@@ -68,7 +69,7 @@ static func _ground(a: Arena) -> void:
 	# Scorched soil on the islands; the bog is near black and glossy so the two read
 	# apart at a glance.
 	var look: Dictionary = {"dark": (a.zone_env["ground"] as Dictionary)["dark"],
-		"base_a": Color(0.36, 0.31, 0.24), "base_b": Color(0.5, 0.43, 0.33), "bog_col": Color(0.085, 0.1, 0.085)}
+		"base_a": Color(0.25, 0.22, 0.18), "base_b": Color(0.36, 0.31, 0.25), "bog_col": Color(0.05, 0.06, 0.055)}
 	a.terrain_begin(look)
 	_light(a)
 
@@ -167,7 +168,7 @@ static func _pyre(a: Arena) -> void:
 		Art.flame(a, PYRE + o, 1.5)
 	a._light(PYRE + Vector3(0, 6.5, 4.0), FIRE, 3.0, 13.0, true)
 	for sx in [-1.0, 1.0]:
-		a.put(G + "post_skull.gltf", PYRE + Vector3(4.6 * sx, 0, 2.2), 0.0, 1.3, 0.3, true, 0.8)
+		a.put(P + "post_skull.gltf", PYRE + Vector3(4.6 * sx, 0, 2.2), 0.0, 1.3, 0.3, true, 0.8)
 		a.put(G + "pillar.gltf", PYRE + Vector3(7.5 * sx, 0, 1.0), 0.0, 1.4, 0.5, true, 1.0)
 		a.put(G + "tree_dead_large_decorated.gltf", Vector3(14.0 * sx, 0, -25.0), 1.1 + sx, 1.9, 0.45, true, 1.4)
 
@@ -183,7 +184,7 @@ static func _shacks(a: Arena) -> void:
 		a.add_child(mi)
 		a.add_box(Vector2(at.x, at.z), Vector2(1.6, 1.3), s[1])
 	for lp in [Vector3(-3.4, 0, 12.4), Vector3(3.4, 0, 12.4)]:
-		a.put(G + "lantern_standing.gltf", lp, 0.0, 1.3, 0.3, true, 0.6)
+		a.put(P + "lantern_standing.gltf", lp, 0.0, 1.3, 0.3, true, 0.6)
 	a._light(Vector3(0, 2.4, 12.4), Color(1.0, 0.6, 0.3), 1.4, 8.0)
 
 
@@ -303,8 +304,8 @@ static func _scenery(a: Arena) -> void:
 		var p = _firm(a, 0.5, 3.0)
 		if p == null:
 			continue
-		var bn: String = ["bone_A.gltf", "bone_B.gltf", "bone_C.gltf", "skull.gltf", "ribcage.gltf", "skull.gltf"][a._rng.randi() % 6]
-		a.put(G + bn, p, a._rng.randf() * TAU, a._rng.randf_range(0.8, 1.1), -1.0, false)
+		var bn: String = [G + "bone_A.gltf", G + "bone_B.gltf", G + "bone_C.gltf", P + "skull.gltf", G + "ribcage.gltf", P + "skull.gltf"][a._rng.randi() % 6]
+		a.put(bn, p, a._rng.randf() * TAU, a._rng.randf_range(0.8, 1.1), -1.0, false)
 
 
 ## Where the drowned and the dead come up: firm ground, never on the landing, never

@@ -4,7 +4,7 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 G="$HOME/.local/godot/Godot_v4.7.2-stable_linux.x86_64"
-OUT="$ROOT/docs/review/vfx3"
+OUT="${VFX_OUT:-$ROOT/docs/review/vfx3}"
 TMP="${TMPDIR:-/tmp}/vfx3"
 mkdir -p "$OUT" "$TMP"
 cd "$ROOT"
