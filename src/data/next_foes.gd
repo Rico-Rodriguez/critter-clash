@@ -87,7 +87,7 @@ const FOES := {
 		"brain": {"kind": "ambush", "trigger": 3.6, "dive_after": 4.0},
 	},
 	"cm_imp": {
-		"name": "Cinder Imp", "model": "glb:cinder_imp", "fit": 1.444, "clips": {"idle": "ArmatureAction_001", "walk": "ArmatureAction_001", "run": "ArmatureAction_001"}, "gen": [], "weapons": {}, "skin": "cinder", "base": "rogue",
+		"name": "Cinder Imp", "model": "glb:cinder_imp", "fit": 1.444, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "die": "Death"}, "gen": ["cast", "spawn", "taunt"], "weapons": {}, "skin": "cinder", "base": "rogue",
 		"ai": "ranged", "hp": 44.0, "dmg": 13.0, "speed": 3.3, "radius": 0.42, "reach": 9.0, "rider": "scorch", "proj": "cinderbolt", "proj_speed": 12.0,
 		"windup": 0.8, "cooldown": 2.3, "mass": 0.9, "xp": 2, "scale": 0.9, "element": "fire", "anim": A_SHOOT,
 		"brain": {"kind": "kite", "keep": 7.5, "perch": true, "shots": 1},
@@ -99,7 +99,7 @@ const FOES := {
 		"brain": {"kind": "caster", "spell": "ignite", "keep": 7.5, "r": 2.2},
 	},
 	"cm_hag": {
-		"name": "Mire Hag", "model": "glb:mire_hag", "fit": 1.696, "clips": {"idle": "mixamo_com", "walk": "mixamo_com", "run": "mixamo_com"}, "gen": ["cast"], "weapons": {}, "skin": "bog", "base": "necro",
+		"name": "Mire Hag", "model": "glb:mire_hag", "fit": 1.696, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "cast": "Cast", "hit": "Hit", "die": "Death"}, "gen": ["spawn", "taunt"], "weapons": {}, "skin": "bog", "base": "necro",
 		"ai": "necro", "hp": 96.0, "dmg": 18.0, "speed": 2.6, "radius": 0.5, "reach": 9.0, "blast": 2.4,
 		"windup": 1.1, "cooldown": 6.0, "mass": 1.4, "xp": 5, "scale": 1.12, "element": "fire", "anim": A_SUMMON,
 		"brain": {"kind": "caster", "spell": "lantern", "keep": 8.5, "r": 2.4, "fuse": 4.5, "cap": 3},
@@ -117,7 +117,7 @@ const FOES := {
 		"brain": {"kind": "drift", "pop": "methane", "hover": 0.9, "ignite_r": 2.4},
 	},
 	"cm_wasp": {
-		"name": "Ember Wasp", "model": "glb:ember_wasp", "fit": 1.181, "clips": {"idle": "wasp_idle", "walk": "wasp_def", "run": "wasp_def", "attack": "wasp_attack", "hit": "wasp_damage", "die": "wasp_death"}, "gen": [], "weapons": {}, "skin": "cinder", "base": "rogue",
+		"name": "Ember Wasp", "model": "glb:ember_wasp", "fit": 1.181, "clips": {"idle": "Idle", "walk": "Fly", "run": "Fly", "attack": "Attack", "hit": "Hit", "die": "Death"}, "gen": ["cast", "spawn", "taunt"], "weapons": {}, "skin": "cinder", "base": "rogue",
 		"ai": "charge", "hp": 38.0, "dmg": 12.0, "speed": 5.2, "radius": 0.38, "reach": 1.3, "rider": "scorch",
 		"windup": 0.55, "cooldown": 2.0, "mass": 0.6, "xp": 2, "scale": 0.72, "fly": true, "element": "fire", "anim": A_SK,
 		"brain": {"kind": "wasp", "hover": 1.4, "orbit": 5.5, "dive_len": 9.0, "spark_every": 0.35},

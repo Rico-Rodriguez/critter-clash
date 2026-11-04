@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ba7tbv2md2e3l"
-path="res://.godot/imported/cinder_imp_src_4.jpg-e069f42ec5155d012b5dae2dd723484d.ctex"
+uid="uid://icy52cvhuhr7"
+path="res://.godot/imported/ember_wasp_src_ember_wasp_tex.png-2ad5d11e9aaa419e10cf181a769e3c82.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "b2910d66d86e6dd85032309d67a4bfd6"
+"md5": "4414f0a0890f80df570d9d127d3fce8f"
 }
 
 [deps]
 
-source_file="res://assets/foes/cinder_imp_src_4.jpg"
-dest_files=["res://.godot/imported/cinder_imp_src_4.jpg-e069f42ec5155d012b5dae2dd723484d.ctex"]
+source_file="res://assets/foes/ember_wasp_src_ember_wasp_tex.png"
+dest_files=["res://.godot/imported/ember_wasp_src_ember_wasp_tex.png-2ad5d11e9aaa419e10cf181a769e3c82.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ckt7nfrko2ebf"
-path="res://.godot/imported/mire_hag_src_2.jpg-f39fa5c89c5d39aa0d2c3bc6f6c3845e.ctex"
+uid="uid://w27habcs0atx"
+path="res://.godot/imported/cinder_imp_src_cinder_imp_tex.png-a0e6e7060b527597d4b21d6e194d0800.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "909f0cbd2738c747799e9ed679835cb6"
+"md5": "c444df87d4d69fcb9ed91453f1d670bc"
 }
 
 [deps]
 
-source_file="res://assets/foes/mire_hag_src_2.jpg"
-dest_files=["res://.godot/imported/mire_hag_src_2.jpg-f39fa5c89c5d39aa0d2c3bc6f6c3845e.ctex"]
+source_file="res://assets/foes/cinder_imp_src_cinder_imp_tex.png"
+dest_files=["res://.godot/imported/cinder_imp_src_cinder_imp_tex.png-a0e6e7060b527597d4b21d6e194d0800.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
