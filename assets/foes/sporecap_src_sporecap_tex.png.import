@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cfgwe5wl1ex1i"
-path="res://.godot/imported/methane_bloat_src_0.jpg-1a330cce01cbacce57552dae97e6e18c.ctex"
+uid="uid://drv8s20x8krw8"
+path="res://.godot/imported/sporecap_src_sporecap_tex.png-a37d2fc4ec2256148f85534e2d58c4a5.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "936c3756288d8727806f61be9a93bc24"
+"md5": "93950af076a3179b774d1b1d4d223452"
 }
 
 [deps]
 
-source_file="res://assets/foes/methane_bloat_src_0.jpg"
-dest_files=["res://.godot/imported/methane_bloat_src_0.jpg-1a330cce01cbacce57552dae97e6e18c.ctex"]
+source_file="res://assets/foes/sporecap_src_sporecap_tex.png"
+dest_files=["res://.godot/imported/sporecap_src_sporecap_tex.png-a37d2fc4ec2256148f85534e2d58c4a5.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

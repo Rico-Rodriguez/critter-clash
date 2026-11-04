@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/foes/methane_bloat_src.glb" id="1_adgyh"]
 
-[node name="methane_bloat" type="Node3D" unique_id=432897234]
+[node name="methane_bloat" type="Node3D" unique_id=1696642961]
 metadata/cull_aabbs = {
-"Sketchfab_model/9b1b5db56afb4676ade0c2159e71a978_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-152.13861, -139.75037, -108.61292, 310.64618, 274.4409, 406.4122)
+"Rig/Skeleton3D/MethaneBloat": AABB(-1.9624605, -1.1819973, -1.7099617, 3.9249115, 4.0713887, 3.4688356)
 }
-metadata/posed_aabb = AABB(-0.2461706, 0, -0.15020788, 0.4923412, 1, 0.30041575)
+metadata/posed_aabb = AABB(-0.45516655, 0, -0.31557143, 0.9103331, 1, 0.63114285)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=1345348615 instance=ExtResource("1_adgyh")]
-transform = Transform3D(0.53010327, 0, 0, 0, 0.53010327, 0, 0, 0, 0.53010327, -0.016881093, -0.0014415527, -0.013411184)
+[node name="methane_bloat_src" type="Node3D" parent="." unique_id=2116526895 instance=ExtResource("1_adgyh")]
+transform = Transform3D(0.61215717, 0, 0, 0, 0.61215717, 0, 0, 0, 0.61215717, 2.8825054e-06, -0.02259671, -0.014971003)
