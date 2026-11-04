@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/foes/bogfin_src.glb" id="1_xacft"]
 
-[node name="bogfin" type="Node3D" unique_id=1598538616]
+[node name="bogfin" type="Node3D" unique_id=305108255]
 metadata/cull_aabbs = {
-"Sketchfab_model/2c9b8689f78049eb9057bda276e6a2e5_fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-200.16064, -146.55484, -174.23138, 400.82855, 550.30945, 365.08405)
+"Rig/Skeleton3D/Bogfin": AABB(-1.8846813, -1.4438785, -2.5613961, 3.7940125, 4.821696, 4.9351416)
 }
-metadata/posed_aabb = AABB(-0.21168701, 0, -0.14274439, 0.42337403, 1, 0.28548878)
+metadata/posed_aabb = AABB(-0.23058084, 0, -0.5297411, 0.46116167, 1, 1.0594822)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2136983069 instance=ExtResource("1_xacft")]
-transform = Transform3D(0.0038575223, 0, 0, 0, 0.0038575223, 0, 0, 0, 0.0038575223, -0.0009783747, 0.00392302, -0.03205849)
+[node name="bogfin_src" type="Node3D" parent="." unique_id=1320009554 instance=ExtResource("1_xacft")]
+transform = Transform3D(0.5243232, 0, 0, 0, 0.5243232, 0, 0, 0, 0.5243232, -0.0064622154, -0.00700455, 0.04919487)

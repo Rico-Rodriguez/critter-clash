@@ -30,7 +30,8 @@ static func prop(path: String) -> Node3D:
 
 ## Builds a character: the model, an AnimationPlayer with the shared library,
 ## and weapons in its hand slots. `weapons` maps "handslot.r"/"handslot.l" to a
-## weapon file name inside assets/kaykit/weapons.
+## weapon file name inside assets/kaykit/weapons, or a {"m": file, "rot":
+## degrees, "at": offset} to hold it turned (a staff stood up in the fist).
 static func character(model: String, weapons := {}) -> Node3D:
 	var root: Node3D = scene(CHAR_DIR + model + ".glb").instantiate()
 	var ap := AnimationPlayer.new()
@@ -42,8 +43,19 @@ static func character(model: String, weapons := {}) -> Node3D:
 		var att := BoneAttachment3D.new()
 		att.bone_name = slot
 		skel.add_child(att)
-		att.add_child(prop(str(weapons[slot]) if str(weapons[slot]).begins_with("res://") else WEAPON_DIR + str(weapons[slot])))
+		var w: Variant = weapons[slot]
+		var path := str(w["m"]) if w is Dictionary else str(w)
+		var p := prop(path if path.begins_with("res://") else WEAPON_DIR + path)
+		att.add_child(p)
+		if w is Dictionary:
+			p.transform = grip(w.get("rot", Vector3.ZERO), w.get("at", Vector3.ZERO))
 	return root
+
+
+## A grip as rotation (degrees, X then Y then Z) and an offset of the model in the hand.
+static func grip(rot: Vector3, at: Vector3) -> Transform3D:
+	var b := Basis.from_euler(rot * PI / 180.0)
+	return Transform3D(b, b * at)
 
 
 static func anim_player(character_root: Node) -> AnimationPlayer:

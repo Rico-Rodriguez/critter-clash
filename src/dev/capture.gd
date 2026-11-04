@@ -657,6 +657,18 @@ func _capture(args: PackedStringArray) -> void:
 				# -- --view=hexer|rime[:top|:back]: a dark plate boss beside the one it replaces.
 				await _contact_sheet(shot, _arg(args, "view", "hexer"))
 				await _save(shot + "_" + _arg(args, "view", "hexer").replace(":", "_"))
+			"barrow":
+				# -- --view=a|b|king: the Barrow's dead as the hunt builds them, beside the Knight.
+				await _contact_sheet(shot, _arg(args, "view", "a"))
+				await _save(shot)
+			"vaultsheet":
+				# -- --view=all|boss|foes|back|old: the Gilded Vault's remade boss and guard.
+				await _contact_sheet(shot, _arg(args, "view", ""))
+				await _save(shot)
+			"grove":
+				# -- --view=top|boss: the Grove Cult and the Thornmother, old KayKit above new.
+				await _contact_sheet(shot, _arg(args, "view", ""))
+				await _save(shot)
 			"plate":
 				# -- --view=close|items: the remade Knight plate up close, or its sword and shield.
 				await _contact_sheet(shot, _arg(args, "view", ""))
@@ -1038,6 +1050,30 @@ func _capture(args: PackedStringArray) -> void:
 					hf2.spawn_foe(lineup[i][0], at, lineup[i][1] != "", lineup[i][1])
 				await _wait(2.4)
 				await _save("foes")
+			"barrowfoes":
+				# The Barrow's nine foes in two staggered rows in front of the hero, as the hunt camera sees them.
+				_set_screen_now("hunt")
+				var hb: Hunt = current
+				hb.bot = true
+				hb._bot = HuntBot.new()
+				hb._bot.hunt = hb
+				hb._bot.idle = true
+				await _wait(2.5)
+				hb.hero.invuln = 999.0
+				hb.robber_spawned = true
+				hb.foe_speed_mult = 0.0
+				hb.spawn_t = 1e9
+				for f in hb.foes.duplicate():
+					hb.foes.erase(f)
+					f.queue_free()
+				var bk := ["minion", "warrior", "rogue", "mage", "necro", "hound", "brute", "bomber", "robber"]
+				if _arg(args, "view", "") == "elite":
+					bk = ["minion", "warrior", "brute", "necro"]
+				for i in bk.size():
+					var at: Vector3 = hb.hero.position + Vector3((float(i % 5) - 2.0) * 2.2 + (1.1 if i >= 5 else 0.0), 0.0, -3.6 - float(i / 5) * 2.4)
+					hb.spawn_foe(bk[i], hb.arena.resolve(at, 0.5), _arg(args, "view", "") == "elite")
+				await _wait_sim(hb, 2.2)
+				await _save("barrowfoes")
 			"swing":
 				# Close in on one attack, frame by frame: how a weapon family
 				# swings, hits and trails.
@@ -2091,6 +2127,49 @@ func _arm(a: Actor, sword: String, shield: String) -> void:
 		a.restyle(att)
 
 
+## The Barrow's foes and Gravemaw built from their DB defs (model, weapons, scale), left to right
+## as the hunt meets them, a Knight at the left for height. `only`: "a" (default: the first five), "b" (the rest and Gravemaw), "king".
+func _barrow_sheet(root: Node3D, env: Environment, only: String) -> void:
+	var cam := Camera3D.new()
+	root.add_child(cam)
+	cam.fov = 30
+	env.background_color = Color(0.13, 0.13, 0.16)
+	var rows: Array = []
+	var ids: Array = []
+	if only == "b":
+		ids = ["hound", "brute", "bomber", "robber"]
+	elif only != "king":
+		ids = ["minion", "warrior", "rogue", "mage", "necro"]
+	for id: String in ids:
+		rows.append(DB.ENEMIES[id] if DB.ENEMIES.has(id) else DB.ENEMIES_EXTRA[id])
+	if only == "king":
+		rows.append(DB.BOSSES["gravemaw"])
+	var n := rows.size() + 1
+	for i in n:
+		var a := Actor.new()
+		root.add_child(a)
+		var sc := 1.0
+		if i == 0:
+			a.adult_build = true
+			a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+			var pre := {}
+			for slot in DB.SLOTS:
+				pre[slot] = Game.make_item("knight", slot, 6, "rare")
+			GearLook.apply(a, "knight", pre)
+			a.play("Idle_A", 0.0)
+		else:
+			var d: Dictionary = rows[i - 1]
+			a.build_model(str(d["model"]), d["weapons"], Color(0.4, 1.0, 0.75), 0.45, Color(1.0, 0.55, 0.15, 1.0), 0.8, d)
+			sc = float(d["scale"])
+			a.model.scale = Vector3.ONE * sc
+			a.play("Skeletons_Idle" if not str(d["anim"]["idle"] if d.has("anim") else "").begins_with("Ranged") else str(d["anim"]["idle"]), 0.0)
+		a.position = Vector3((i - (n - 1) * 0.5) * (2.3 if n > 3 else 3.0), 0, 0)
+		a.rotation.y = 0.3 * (1.0 if i < n / 2 else -1.0)
+	var back := 12.5 if only != "king" else 11.0
+	cam.look_at_from_position(Vector3(0, 2.0, back), Vector3(0, 1.4, 0), Vector3.UP)
+	await _wait(1.2)
+
+
 ## A lineup of every character (or weapon) on a bare stage, for choosing parts.
 func _contact_sheet(kind: String, only := "") -> void:
 	if current:
@@ -2112,11 +2191,71 @@ func _contact_sheet(kind: String, only := "") -> void:
 	sun.rotation_degrees = Vector3(-40, -20, 0)
 	root.add_child(sun)
 	var names: Array = []
+	if kind == "vaultsheet":
+		preload("res://src/dev/vault_sheet.gd").stage(root, env, only)
+		await _wait(1.2)
+		return
 	if kind == "plate":
 		await _plate_sheet(root, only)
 		return
 	if kind == "darkboss":
 		await _darkboss_sheet(root, only)
+		return
+	if kind == "barrow":
+		await _barrow_sheet(root, env, only)
+		return
+	if kind == "grove":
+		# Old KayKit Grove foes on the back row, the dark plate remakes in front. --view=top looks
+		# down from the hunt camera; --view=boss is the Thornmother beside a hero for size.
+		var camg := Camera3D.new()
+		root.add_child(camg)
+		camg.fov = 30
+		env.background_color = Color(0.13, 0.13, 0.16)
+		var ids: Array = ["cutthroat", "slinger", "shaman", "brawler"]
+		var old: Dictionary = {"cutthroat": ["Rogue_Hooded", {"handslot.r": "dagger.gltf"}, 1.0], "slinger": ["Rogue_Hooded", {"handslot.r": "crossbow_1handed.gltf"}, 1.0],
+			"shaman": ["Rogue_Hooded", {"handslot.r": "staff.gltf"}, 1.05], "brawler": ["Barbarian", {"handslot.r": "axe_1handed.gltf"}, 1.15]}
+		var specs: Array = []
+		if only == "boss":
+			specs = [["hero", {}, 1.0, 0.0, -1], ["Rogue_Hooded", {"handslot.r": "staff.gltf"}, 2.5, 0.0, 0], ["thorn", {}, 0.0, 0.0, 1]]
+		else:
+			for i in ids.size():
+				if only != "new":
+					var od: Array = old[ids[i]]
+					specs.append([od[0], od[1], od[2], 0.0, i])
+				specs.append([ids[i], {}, 0.0, 0.0, i + (5 if only != "new" else 0)])
+		for sp: Array in specs:
+			var a := Actor.new()
+			root.add_child(a)
+			var sc := float(sp[2])
+			if str(sp[0]) == "hero":
+				a.adult_build = true
+				a.build_model(DB.HEROES["knight"]["model"], {}, Color(0.5, 0.6, 1.0), 0.2)
+				var pre := {}
+				for slot in DB.SLOTS:
+					pre[slot] = Game.make_item("knight", slot, 6, "rare")
+				GearLook.apply(a, "knight", pre)
+				sc = 1.0
+			elif DB.ENEMIES_EXTRA.has(str(sp[0])) or DB.BOSSES.has(str(sp[0])):
+				var d: Dictionary = DB.BOSSES[str(sp[0])] if DB.BOSSES.has(str(sp[0])) else DB.ENEMIES_EXTRA[str(sp[0])]
+				a.build_model(d["model"], d["weapons"], Color(0.5, 1.0, 0.4), 0.45, Color(1.0, 0.55, 0.15, 1.0), 0.8, d)
+				sc = float(d["scale"])
+			else:
+				a.build_model(str(sp[0]), sp[1], Color(0.5, 1.0, 0.4), 0.45, Color(1.0, 0.55, 0.15, 1.0), 0.8)
+			a.scale = Vector3.ONE * sc
+			var n_cols := (9 if only != "new" else 4) if only != "boss" else 3
+			var x_gap := 1.9 if only != "boss" else 3.6
+			a.position = Vector3((float(sp[4]) - (n_cols - 1) * 0.5) * x_gap, 0, float(sp[3]) * 0.6 if only != "boss" else 0.0)
+			a.rotation.y = 0.3 if only != "boss" else (0.4 if float(sp[4]) < 1 else -0.2)
+			a.play("Idle_A", 0.0)
+		if only == "top":
+			camg.look_at_from_position(Vector3(0, 15.0, 9.5), Vector3(0, 0.6, 0.2), Vector3.UP)
+		elif only == "boss":
+			camg.look_at_from_position(Vector3(0, 3.2, 15.0), Vector3(0, 2.4, 0), Vector3.UP)
+		elif only == "new":
+			camg.look_at_from_position(Vector3(0, 2.2, 9.0), Vector3(0, 1.2, 0), Vector3.UP)
+		else:
+			camg.look_at_from_position(Vector3(0, 2.6, 17.5), Vector3(0, 1.3, 0), Vector3.UP)
+		await _wait(1.2)
 		return
 	if kind == "dress" or kind.begins_with("sets"):
 		var cam2 := Camera3D.new()

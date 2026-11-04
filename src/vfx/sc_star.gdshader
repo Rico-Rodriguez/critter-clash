@@ -20,5 +20,5 @@ void fragment() {
 	float lim = 0.32 + 0.68 * pow(abs(cos(ang * cd.z * 0.5)), 6.0);
 	if (r > lim) discard;
 	if (r < min(cd.y * 1.6, 1.0) * lim) discard;
-	ALBEDO = r < lim * 0.55 ? vec3(1.0) : col;
+	ALBEDO = r < lim * 0.55 ? vec3(1.0, 0.93, 0.78) : col*0.92;
 }

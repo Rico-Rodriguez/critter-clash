@@ -24,9 +24,11 @@ void fragment() {
 	float n = texture(nz, UV * vec2(2.0, 1.0) + vec2(cd.x, cd.x * 0.7)).r;
 	float erode = cd.y;
 	if (erode > 0.001 && n < erode) discard;
-	vec3 core = mix(bodyc, vec3(1.0, 0.98, 0.86), 0.72);
-	vec3 rim = hsv(vec3(cd.z, 0.82, cd.w));
+	// Graded to sit beside the dark plate heroes: a bone-warm core instead of
+	// near white, a deeper rim band, and a wider dark burn edge on dissolve.
+	vec3 core = mix(bodyc, vec3(1.0, 0.9, 0.7), 0.62);
+	vec3 rim = hsv(vec3(cd.z, 0.9, cd.w * 0.78));
 	vec3 c = f > 0.78 ? core : (f > 0.3 ? bodyc : rim);
-	if (erode > 0.001 && n < erode + 0.07) c = rim;
+	if (erode > 0.001 && n < erode + 0.1) c = rim;
 	ALBEDO = c;
 }

@@ -255,27 +255,27 @@ static var _next_folded := {}
 
 const ENEMIES := {
 	"minion": {
-		"name": "Risen Bones", "model": "Skeleton_Minion", "weapons": {"handslot.r": "Skeleton_Blade.gltf"},
+		"name": "Risen Bones", "model": "DarkDead_Minion", "weapons": {"handslot.r": "knight_sword_0.gltf"},
 		"ai": "melee", "hp": 32.0, "dmg": 9.0, "speed": 3.5, "radius": 0.42, "reach": 1.25,
-		"windup": 0.38, "cooldown": 1.1, "mass": 1.0, "xp": 1, "scale": 1.0,
+		"windup": 0.38, "cooldown": 1.1, "mass": 1.0, "xp": 1, "scale": 0.7,
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"warrior": {
-		"name": "Barrow Guard", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "Skeleton_Axe.gltf", "handslot.l": "Skeleton_Shield_Large_A.gltf"},
+		"name": "Barrow Guard", "model": "DarkDead_Guard", "weapons": {"handslot.r": "barb_axe_0.gltf", "handslot.l": "knight_off_1.gltf"},
 		"ai": "melee", "hp": 125.0, "dmg": 19.0, "speed": 2.6, "radius": 0.6, "reach": 1.55,
-		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 1.12,
+		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 0.82,
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_1H_Attack_Slice_Diagonal", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_A"},
 	},
 	"rogue": {
-		"name": "Crypt Stalker", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Crossbow.gltf"},
+		"name": "Crypt Stalker", "model": "DarkDead_Stalker", "weapons": {"handslot.r": {"m": "ranger_crossbow_0.gltf", "rot": Vector3(0, 180, 0)}},
 		"ai": "ranged", "hp": 46.0, "dmg": 12.0, "speed": 3.1, "radius": 0.45, "reach": 8.0,
-		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 1.0, "proj_speed": 13.0,
+		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 0.72, "proj_speed": 13.0,
 		"anim": {"idle": "Ranged_1H_Aiming", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"mage": {
-		"name": "Bone Hexer", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
+		"name": "Bone Hexer", "model": "DarkDead_Hexer", "weapons": {"handslot.r": {"m": "mage_skullstaff_0.gltf", "rot": Vector3(15, 0, 70), "at": Vector3(0, 0.35, 0)}},
 		"ai": "caster", "hp": 60.0, "dmg": 24.0, "speed": 2.7, "radius": 0.45, "reach": 9.0,
-		"windup": 1.15, "cooldown": 4.0, "mass": 1.2, "xp": 3, "scale": 1.0, "blast": 1.9,
+		"windup": 1.15, "cooldown": 4.0, "mass": 1.2, "xp": 3, "scale": 0.74, "blast": 1.9,
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Spellcasting", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 }
@@ -284,52 +284,52 @@ const ENEMIES := {
 ## necro: keeps its distance and raises minions. robber: the treasure goblin.
 const ENEMIES_EXTRA := {
 	"bomber": {
-		"name": "Pumpkin Bomber", "model": "Skeleton_Minion", "weapons": {"handslot.r": "res://assets/kaykit/graveyard/pumpkin_orange_jackolantern.gltf"},
+		"name": "Pumpkin Bomber", "model": "DarkDead_Bomber", "weapons": {},
 		"ai": "bomb", "hp": 22.0, "dmg": 38.0, "speed": 4.3, "radius": 0.42, "reach": 1.7,
-		"windup": 0.75, "cooldown": 9.0, "mass": 1.0, "xp": 2, "scale": 1.0, "blast": 2.4, "tint": Color(1.0, 0.5, 0.1, 0.4),
+		"windup": 0.75, "cooldown": 9.0, "mass": 1.0, "xp": 2, "scale": 0.7, "blast": 2.4, "tint": Color(1.0, 0.5, 0.1, 0.4),
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"necro": {
-		"name": "Grave Caller", "model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
+		"name": "Grave Caller", "model": "DarkDead_Caller", "weapons": {"handslot.r": {"m": "mage_skullstaff_2.gltf", "rot": Vector3(15, 0, 70), "at": Vector3(0, 0.35, 0)}},
 		"ai": "necro", "hp": 90.0, "dmg": 0.0, "speed": 2.6, "radius": 0.5, "reach": 9.0,
-		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 1.18, "blast": 3.0, "tint": Color(0.7, 0.3, 1.0, 0.45),
+		"windup": 1.3, "cooldown": 7.0, "mass": 1.5, "xp": 5, "scale": 0.88, "blast": 3.0, "tint": Color(0.7, 0.3, 1.0, 0.45),
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Ranged_Magic_Summon", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"hound": {
-		"name": "Grave Hound", "model": "Skeleton_Rogue", "weapons": {"handslot.r": "Skeleton_Blade.gltf"},
+		"name": "Grave Hound", "model": "DarkDead_Hound", "weapons": {"handslot.r": "dagger.gltf"},
 		"ai": "charge", "hp": 58.0, "dmg": 17.0, "speed": 3.9, "radius": 0.45, "reach": 1.4,
-		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.95, "tint": Color(1.0, 0.3, 0.25, 0.4),
+		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.8, "tint": Color(1.0, 0.3, 0.25, 0.4),
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	"brute": {
-		"name": "Bone Brute", "model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf"},
+		"name": "Bone Brute", "model": "DarkDead_Brute", "weapons": {"handslot.r": "barb_axe_2.gltf"},
 		"ai": "slam", "hp": 520.0, "dmg": 36.0, "speed": 2.2, "radius": 0.85, "reach": 2.8,
-		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.55, "blast": 3.2, "tint": Color(0.7, 0.45, 0.3, 0.3),
+		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.12, "blast": 3.2, "tint": Color(0.7, 0.45, 0.3, 0.3),
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 	# The Grove Cult (the Hollow Grove's faction): hooded folk, not bones.
 	"cutthroat": {
-		"name": "Grove Cutthroat", "model": "Rogue_Hooded", "weapons": {"handslot.r": "dagger.gltf"},
+		"name": "Grove Cutthroat", "model": "GroveCutthroat", "weapons": {"handslot.r": "grove_knife.gltf"},
 		"ai": "melee", "hp": 30.0, "dmg": 10.0, "speed": 4.1, "radius": 0.42, "reach": 1.2,
-		"windup": 0.3, "cooldown": 0.95, "mass": 1.0, "xp": 1, "scale": 1.0, "tint": Color(0.35, 0.75, 0.3, 0.3),
+		"windup": 0.3, "cooldown": 0.95, "mass": 1.0, "xp": 1, "scale": 0.95, "tint": Color(0.35, 0.75, 0.3, 0.2),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Stab", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"slinger": {
-		"name": "Grove Slinger", "model": "Rogue_Hooded", "weapons": {"handslot.r": "crossbow_1handed.gltf"},
+		"name": "Grove Slinger", "model": "GroveSlinger", "weapons": {"handslot.r": "ranger_crossbow_0.gltf"},
 		"ai": "ranged", "hp": 42.0, "dmg": 12.0, "speed": 3.4, "radius": 0.45, "reach": 8.5,
-		"windup": 0.7, "cooldown": 2.2, "mass": 1.0, "xp": 2, "scale": 1.0, "proj_speed": 14.0, "tint": Color(0.35, 0.75, 0.3, 0.3),
+		"windup": 0.7, "cooldown": 2.2, "mass": 1.0, "xp": 2, "scale": 0.95, "proj_speed": 14.0, "tint": Color(0.35, 0.75, 0.3, 0.2),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"shaman": {
-		"name": "Thorn Shaman", "model": "Rogue_Hooded", "weapons": {"handslot.r": "staff.gltf"},
+		"name": "Thorn Shaman", "model": "GroveShaman", "weapons": {"handslot.r": "grove_staff.gltf"},
 		"ai": "caster", "hp": 58.0, "dmg": 22.0, "speed": 2.9, "radius": 0.45, "reach": 9.0,
-		"windup": 1.1, "cooldown": 3.8, "mass": 1.2, "xp": 3, "scale": 1.05, "blast": 2.1, "root": true, "tint": Color(0.5, 0.95, 0.35, 0.45),
+		"windup": 1.1, "cooldown": 3.8, "mass": 1.2, "xp": 3, "scale": 1.0, "blast": 2.1, "root": true, "tint": Color(0.5, 0.95, 0.35, 0.3),
 		"anim": {"idle": "Idle_A", "run": "Walking_A", "attack": "Ranged_Magic_Spellcasting", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"brawler": {
-		"name": "Grove Brawler", "model": "Barbarian", "weapons": {"handslot.r": "axe_1handed.gltf"},
+		"name": "Grove Brawler", "model": "GroveBrawler", "weapons": {"handslot.r": "barb_axe_0.gltf"},
 		"ai": "melee", "hp": 130.0, "dmg": 20.0, "speed": 2.9, "radius": 0.6, "reach": 1.6,
-		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.15, "tint": Color(0.3, 0.55, 0.25, 0.45),
+		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.1, "tint": Color(0.3, 0.55, 0.25, 0.25),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	# The Frozen Crypt's dead (the Rime Regent's court): the same bones, frozen
@@ -428,10 +428,37 @@ const ENEMIES_EXTRA := {
 		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.6, "blast": 3.3,
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
+	# The Gilded Vault's guard (the Warden's court): dark plate edged in gold on the
+	# hero skeleton (tools/art/make_dark_vault.py), so they take the grove's clips.
+	# Each keeps its base role's numbers.
+	"gildedguard": {
+		"name": "Gilded Guard", "model": "DarkVault_Guard", "noglow": true, "wscale": 0.8, "weapons": {"handslot.r": "knight_sword_4.gltf", "handslot.l": "warden_door.gltf"}, "base": "warrior",
+		"ai": "melee", "hp": 125.0, "dmg": 19.0, "speed": 2.6, "radius": 0.6, "reach": 1.55,
+		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 0.95,
+		"anim": {"idle": "Idle_A", "run": "Walking_A", "attack": "Melee_1H_Attack_Slice_Diagonal", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
+	"vaultbow": {
+		"name": "Vault Crossbowman", "model": "DarkVault_Crossbowman", "noglow": true, "weapons": {"handslot.r": "crossbow_1handed.gltf"}, "base": "rogue",
+		"ai": "ranged", "hp": 46.0, "dmg": 12.0, "speed": 3.1, "radius": 0.45, "reach": 8.0,
+		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 0.9, "proj_speed": 13.0,
+		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
+	"vaultbrute": {
+		"name": "Vault Brute", "model": "DarkVault_Brute", "noglow": true, "weapons": {"handslot.r": "barb_axe_4.gltf"}, "base": "brute",
+		"ai": "slam", "hp": 520.0, "dmg": 36.0, "speed": 2.2, "radius": 0.85, "reach": 2.8,
+		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.3, "blast": 3.2,
+		"anim": {"idle": "Idle_A", "run": "Walking_A", "attack": "Melee_2H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
+	"vaulthound": {
+		"name": "Vault Hound", "model": "DarkVault_Hound", "noglow": true, "weapons": {"handslot.r": "dagger.gltf"}, "base": "hound",
+		"ai": "charge", "hp": 58.0, "dmg": 17.0, "speed": 3.9, "radius": 0.45, "reach": 1.4,
+		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.88, "tint": Color(1.0, 0.82, 0.3, 0.3),
+		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
 	"robber": {
-		"name": "Grave Robber", "model": "Skeleton_Rogue", "weapons": {},
+		"name": "Grave Robber", "model": "DarkDead_Robber", "weapons": {},
 		"ai": "flee", "hp": 260.0, "dmg": 0.0, "speed": 6.2, "radius": 0.45, "reach": 0.0,
-		"windup": 1.0, "cooldown": 99.0, "mass": 1.0, "xp": 10, "scale": 1.1, "tint": Color(1.0, 0.8, 0.2, 0.55),
+		"windup": 1.0, "cooldown": 99.0, "mass": 1.0, "xp": 10, "scale": 0.78, "tint": Color(1.0, 0.8, 0.2, 0.55),
 		"anim": {"idle": "Skeletons_Idle", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
 }
@@ -451,26 +478,26 @@ const SKINS := {
 const BOSSES := {
 	"gravemaw": {
 		"name": "Gravemaw", "title": "the Barrow King", "wake": "the Barrow King wakes", "fall": "Gravemaw falls. Take what is yours.",
-		"model": "Skeleton_Warrior", "weapons": {"handslot.r": "axe_2handed.gltf", "handslot.l": "Skeleton_Shield_Large_B.gltf"},
-		"hp": 4250.0, "dmg": 26.0, "speed": 3.0, "radius": 1.5, "scale": 2.6, "mass": 40.0,
-		"color": Color(0.4, 1.0, 0.75), "el": "poison", "source": "boss", "occluder": Vector2(1.8, 5.0), "summon_line": "The King calls his dead!", "enrage_line": "\"You will lie beside them.\"",
+		"model": "DarkDead_King", "weapons": {"handslot.r": "barb_axe_3.gltf", "handslot.l": "knight_off_3.gltf"},
+		"hp": 4250.0, "dmg": 26.0, "speed": 3.0, "radius": 1.5, "scale": 1.85, "mass": 40.0,
+		"color": Color(0.4, 1.0, 0.75), "el": "poison", "source": "boss", "occluder": Vector2(1.9, 4.8), "summon_line": "The King calls his dead!", "enrage_line": "\"You will lie beside them.\"",
 	},
 	"thorn": {
 		"name": "The Thornmother", "title": "of the Hollow Grove", "wake": "the Thornmother uncurls", "fall": "The Thornmother withers. Take what is yours.",
-		"model": "Rogue_Hooded", "weapons": {"handslot.r": "staff.gltf"},
-		"hp": 5200.0, "dmg": 25.0, "speed": 3.1, "radius": 1.3, "scale": 2.5, "mass": 35.0,
-		"color": Color(0.55, 0.95, 0.35), "el": "nature", "source": "thorn", "occluder": Vector2(1.5, 4.8), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
+		"model": "Thornmother", "weapons": {"handslot.r": "grove_thorn_staff.gltf"},
+		"hp": 5200.0, "dmg": 25.0, "speed": 3.1, "radius": 1.3, "scale": 1.6, "mass": 35.0,
+		"color": Color(0.55, 0.95, 0.35), "el": "nature", "source": "thorn", "occluder": Vector2(1.5, 4.4), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
 	},
 	"hexer": {
 		"name": "Hexer Queen", "title": "of the Sunken Crypt", "wake": "the Queen of the Crypt rises", "fall": "The Hexer Queen unravels. Take what is yours.",
-		"model": "Skeleton_Mage", "weapons": {"handslot.r": "Skeleton_Staff.gltf"},
-		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.3, "mass": 30.0,
-		"color": Color(0.75, 0.4, 1.0), "el": "shadow", "source": "hexer", "occluder": Vector2(1.4, 4.6), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
+		"model": "DarkBoss_hexer", "weapons": {"handslot.r": "boss_hexer_staff.gltf"},
+		"hp": 4700.0, "dmg": 23.0, "speed": 3.3, "radius": 1.25, "scale": 2.0, "mass": 30.0,
+		"color": Color(0.75, 0.4, 1.0), "el": "shadow", "source": "hexer", "occluder": Vector2(1.5, 5.3), "summon_line": "The Queen calls her cult!", "enrage_line": "\"I will unmake you, thread by thread.\"",
 	},
 	"warden": {
 		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
-		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
-		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
+		"model": "DarkVault_Warden", "noglow": true, "wscale": 1.2, "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"},
+		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 1.7, "mass": 45.0,
 		"color": Color(1.0, 0.82, 0.35), "el": "holy", "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
 	},
 	"rime": {
@@ -481,7 +508,7 @@ const BOSSES := {
 	},
 	"cinder": {
 		"name": "The Cinder Warlord", "title": "of the Burning Swamp", "wake": "the Warlord climbs from the embers", "fall": "The Warlord gutters out. The Swamp smoulders.",
-		# Riltariki's orc (assets/foes/cinder_warlord.tscn); `rig` pulls fit, clips and alias from boss_models.gd.
+		# Our own dark-plate orc (assets/foes/cinder_warlord.tscn); `rig` pulls fit, clips and alias from boss_models.gd.
 		# 5.7 m tall at scale 3.0, so the hitbox is wider and the occluder taller than the Ogre's.
 		"model": "glb:cinder_warlord", "rig": "cinder_warlord", "weapons": {}, "skin": "ogre",
 		"hp": 6400.0, "dmg": 29.0, "speed": 3.0, "radius": 1.95, "scale": 3.0, "mass": 60.0,
@@ -520,7 +547,10 @@ const ZONES := {
 	"vault": {
 		"name": "The Gilded Vault", "boss": "warden", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
 		"wake": "Gather %d souls to wake the King", "defeat": "The Vault keeps you", "enter": "Break into the Vault",
-		"loot_bonus": 2, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 4100 trophies",
+		"loot_bonus": 2, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0},
+		# The treasure guard stands in for the skeletons of the same role (bomber, mage and robber stay bones).
+		"faction": {"warrior": "gildedguard", "rogue": "vaultbow", "brute": "vaultbrute", "hound": "vaulthound"},
+		"souls_mult": 1.0, "unlock": "Trophy Road: 4100 trophies",
 		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
 			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
 	},
@@ -538,7 +568,7 @@ const ZONES := {
 		"souls_mult": 1.0, "unlock": "Trophy Road: 4400 trophies", "music": "frozen", "boss_music": "frozen_boss",
 		"hazards": ["icefall", "thin_ice", "gale"],
 		"hazard_line": "Icicles fall, thin ice gives way and gales shove",
-		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.5, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "", "weather": "snow",
+		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.34, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "", "weather": "snow",
 			"sun": Color(0.95, 0.97, 1.0), "sun_e": 1.1, "sun_rot": Vector3(-54, -32, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(0.92, 0.97, 1.0, 1.0),
 			"ground": {"grass_a": Color(0.5, 0.57, 0.67), "grass_b": Color(0.64, 0.71, 0.8), "dirt": Color(0.36, 0.41, 0.5), "dark": Color(0.05, 0.07, 0.11)}},
 	},

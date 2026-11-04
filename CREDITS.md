@@ -197,45 +197,10 @@ methane bubbles, fish rings) are drawn in code from flat-coloured primitives.
 
 ## Bosses and foes
 
-- Boss and foe models in `assets/foes/`, Creative Commons Attribution 4.0
-  (https://creativecommons.org/licenses/by/4.0/), from Sketchfab. Unmodified materials (the artist's
-  specular/glossiness PBR is carried over untouched), meshes merged into one draw per material
-  (`tools/art/merge_skinned.py`), collapse-decimated for mobile with weights, UVs and clips kept
-  (`tools/art/decimate_skinned.py`), each clip moved to start at 0, scaled to size in
-  `assets/foes/*.tscn` (`tools/art/wrap_foes.gd`):
-  - Cinder Warlord — "Low-poly orc" by Riltariki —
-    https://sketchfab.com/3d-models/low-poly-orc-62f1637181cb4f6aa38897f5b7ab5edf
-    (decimated from 21.6k to 11.4k tris; textures as shipped, 1024 px)
-  (Rimehollow and Cinder Mire foes: CC BY 4.0 from Sketchfab, `tools/art/foe_pipeline.sh`: clips pruned and
-  retimed, keyframes reduced, textures shrunk to at most 1024 px, meshes merged and decimated; materials unmodified)
-  - Frost Wolf — "WILD WOLF" by jbnotjeebe —
-    https://sketchfab.com/3d-models/wild-wolf-eba254adc5d44341b150bb4086d4b662
-  - Rime Yeti — "THE ABOMINABLE SNOWMAN (READ DESC)" by toro ardido modelos 3d —
-    https://sketchfab.com/3d-models/the-abominable-snowman-read-desc-75699f1d63e94e23b40a73df6a3d65b8
-  - Wail Wraith — "Banshee" by Vasian-Digital3D —
-    https://sketchfab.com/3d-models/banshee-690b8bb555fc4d20aba4e169c3220bb8
-  - Frozen Effigy — "Cursed Undead Soldier Rig" by SuperKapoo913 —
-    https://sketchfab.com/3d-models/b2e39de76b834d978adee5716aec814d
-  - Winter Caller — "FREE Low-poly PSX/PS1 Wendigo/Demon model" by Ultaraga Ultra Ultronus —
-    https://sketchfab.com/3d-models/free-low-poly-psxps1-wendigodemon-model-7c98d2c0a7984df2af2b5096c23e3044
-  - Frost Imp — "Nightmare Creature 1#" by Rodolfoisreal1423 —
-    https://sketchfab.com/3d-models/9fb509d207d744babeb5d87a486f7de1
-  - Shardling — "Ice golem" by CyberDriger83 —
-    https://sketchfab.com/3d-models/ice-golem-4070bce587134fe99c99df46d7b44c3a
-  - Sporecap — "Mushroom Guy" by mateuszpyska —
-    https://sketchfab.com/3d-models/mushroom-guy-231be56a49dc45948f47d267044d3286
-  - Bogfin — "Lizardman" by DJMaesen —
-    https://sketchfab.com/3d-models/lizardman-a710eb3eaeab4200a2ff83abc9b0c4db
-  - Cinder Imp — "Imp" by Al (lightningocelot) —
-    https://sketchfab.com/3d-models/imp-ea693fce383d4d859dd510946c5b0d4e
-  - Mire Hag — "Parameswara Chronicles: Witch" by Dr Helmi Norman —
-    https://sketchfab.com/3d-models/parameswara-chronicles-witch-3aec47eaaeae4f9693a1bb038aa86091
-  - Bog Frog — "Monster frog" by Goofy goober bird —
-    https://sketchfab.com/3d-models/monster-frog-2638fa13bdd647d195004bf3dc0047a7
-  - Methane Bloat — "Bloater" by Vasian-Digital3D —
-    https://sketchfab.com/3d-models/bloater-18e00bde1fca4cef9f39188fdfb20b1e
-  - Ember Wasp — "Armored Wasp" by Rodrigo Bento —
-    https://sketchfab.com/3d-models/armored-wasp-30e45b0f76d64aed8a8c587235d6f6e5
+The Rimehollow foes (Rime Crawler, Frost Wolf, Crystal Shardling, Frozen Effigy, Wail Wraith, Winter Caller and Rime Yeti) are
+our own models, built from code in `tools/blender/foes/` (faceted dark plate, own rigs and clips), no third-party art.
+
+All the Rimehollow and Cinder Mire foes and the Cinder Warlord are ours (no Sketchfab models remain among the foes).
 
 ## Ambient critters — Rimehollow and the Cinder Mire (CC BY 4.0)
 
@@ -253,11 +218,6 @@ albedo a shade duller. The dragonflies, methane bubbles and fish rings are drawn
   https://sketchfab.com/3d-models/green-frog-5902f063c7a4406aa6f93f9da56a0510
 - Crow — "Crow" by Alexei Ostapenko (alexanders823) —
   https://sketchfab.com/3d-models/crow-d5a9b0df4da3493688b63ce42c8a83e2
-  - Rimehollow foe, Rime Yeti — "Lowpoly bigfoot" by Sololopenko (CC BY 4.0, listed on the Sketchfab API
-    2026-10-27) — https://sketchfab.com/3d-models/lowpoly-bigfoot-a85b050494a14d8aa7a5a94c82a6176c
-    (decimated from 3.4k to 2.8k tris; its texture as shipped, 1024 px; the shipped take is Idle, the other
-    clips — Walk, Run, Attack, Slam, Roar, Hit, Death — are keyframed for this project on its Mixamo rig,
-    `tools/art/boss_clips.py`)
 - Foe models in `assets/foes/`, public domain (CC0 1.0), no attribution required, credited anyway:
   - Frost Wolf — "Wolf" by Quaternius (via Poly Pizza) — https://poly.pizza/m/P1gU3Qkr9r
   - Wail Wraith (recoloured frost blue) and Pyre Shaman — "Ghost Skull" by Quaternius —
@@ -265,5 +225,6 @@ albedo a shade duller. The dragonflies, methane bubbles and fish rings are drawn
   - The Quaternius models are flat-colour factor materials; each is merged to one material with a palette
     texture of the same colours (`tools/art/palette_merge.py`; the Wraith swaps two palette colours),
     decimated to under 3k tris (`tools/art/decimate_skinned.py`), scaled in `assets/foes/*.tscn`.
-  - Crystal Shardling, Methane Bloat and Sporecap: custom Blender models for this project, built by
-    `tools/art/make_foes.py` (CC0).
+  - Crystal Shardling: a custom Blender model for this project, built by `tools/art/make_foes.py` (CC0).
+  - Sporecap, Bogfin, Bog Frog, Methane Bloat, Cinder Imp, Mire Hag, Ember Wasp and the Cinder Warlord: our own
+    models, built from code in `tools/blender/foes/` (faceted dark plate, own rigs and clips), no third-party art.
