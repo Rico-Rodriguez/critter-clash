@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dq8y6j5l3ji0a"
-path="res://.godot/imported/wail_wraith_src_1.jpg-79148dc89478839587faf34d4d93e5bb.ctex"
+uid="uid://bqrpbw14bp22e"
+path="res://.godot/imported/rime_yeti_src_rime_yeti_tex.png-d127e0b86d367be08dc5f4e1ef77b709.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "719efdb139de3409c17c7e646fe9dd44"
+"md5": "a382325ce0a0bd770131685eec985041"
 }
 
 [deps]
 
-source_file="res://assets/foes/wail_wraith_src_1.jpg"
-dest_files=["res://.godot/imported/wail_wraith_src_1.jpg-79148dc89478839587faf34d4d93e5bb.ctex"]
+source_file="res://assets/foes/rime_yeti_src_rime_yeti_tex.png"
+dest_files=["res://.godot/imported/rime_yeti_src_rime_yeti_tex.png-d127e0b86d367be08dc5f4e1ef77b709.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -38,7 +38,7 @@ const FOES := {
 		"brain": {"kind": "dormant", "wake_r": 6.0, "wake_time": 0.9},
 	},
 	"rh_wraith": {
-		"name": "Wail Wraith", "model": "glb:wail_wraith", "fit": 2.211, "clips": {"idle": "Motion", "walk": "Motion", "run": "Motion"}, "gen": ["cast"], "weapons": {}, "skin": "regent", "base": "rogue",
+		"name": "Wail Wraith", "model": "glb:wail_wraith", "fit": 2.211, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "cast": "Cast", "hit": "Hit", "die": "Die"}, "gen": [], "weapons": {}, "skin": "regent", "base": "rogue",
 		"ai": "ranged", "hp": 48.0, "dmg": 13.0, "speed": 3.2, "radius": 0.45, "reach": 9.5, "rider": "chill", "proj": "frostbolt", "proj_speed": 11.0,
 		"windup": 0.85, "cooldown": 2.6, "mass": 0.8, "xp": 3, "scale": 0.95, "fly": true, "element": "frost", "anim": A_CAST,
 		"brain": {"kind": "kite", "hover": 0.9, "keep": 7.0, "shots": 1},
@@ -50,7 +50,7 @@ const FOES := {
 		"brain": {"kind": "caster", "spell": "thin", "keep": 7.5, "r": 2.2},
 	},
 	"rh_caller": {
-		"name": "Winter Caller", "model": "glb:winter_caller", "fit": 2.5, "clips": {"idle": "Idle", "walk": "Walk", "run": "Walk", "attack": "metarig|Attack", "cast": "metarig|Attack_002", "spawn": "Arise"}, "gen": [], "weapons": {}, "skin": "rime", "base": "necro",
+		"name": "Winter Caller", "model": "glb:winter_caller", "fit": 2.5, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "cast": "Cast", "spawn": "Spawn", "hit": "Hit", "die": "Die"}, "gen": [], "weapons": {}, "skin": "rime", "base": "necro",
 		"ai": "necro", "hp": 100.0, "dmg": 0.0, "speed": 2.6, "radius": 0.5, "reach": 9.0, "blast": 2.0,
 		"windup": 1.3, "cooldown": 7.5, "mass": 1.5, "xp": 5, "scale": 1.2, "element": "frost", "anim": A_SUMMON,
 		"brain": {"kind": "caster", "spell": "summon", "keep": 8.0, "minion": "rh_imp", "count": 2, "cap": 6},
@@ -62,7 +62,7 @@ const FOES := {
 		"brain": {"kind": "pack", "circle": 5.5, "lunge_len": 8.0, "gap": 0.9},
 	},
 	"rh_yeti": {
-		"name": "Rime Yeti", "model": "glb:rime_yeti", "fit": 2.059, "clips": {"idle": "IDLE 1", "walk": "WALK", "run": "RUN (GORILLA)", "attack": ["ATTACK 2", "ATTACK SWIPE"], "cast": "ROAR", "taunt": "ROAR", "spawn": "ROAR", "hit": "DAMAGE 2", "die": "DEATH"}, "gen": [], "weapons": {}, "skin": "rime", "base": "brute",
+		"name": "Rime Yeti", "model": "glb:rime_yeti", "fit": 2.059, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": ["Slam", "Swipe"], "cast": "Roar", "taunt": "Roar", "spawn": "Roar", "hit": "Hit", "die": "Die"}, "gen": [], "weapons": {}, "skin": "rime", "base": "brute",
 		"ai": "slam", "hp": 560.0, "dmg": 34.0, "speed": 2.3, "radius": 0.9, "reach": 2.9, "rider": "chill", "leave": "frost", "death": "shatter", "element": "frost",
 		"windup": 1.05, "cooldown": 3.2, "mass": 6.5, "xp": 9, "scale": 1.7, "blast": 3.4, "anim": A_HEAVY,
 		"brain": {"kind": "yeti", "lob_min": 5.5, "lob_max": 11.0, "lob_r": 1.9, "lob_every": 4.5, "crack_r": 3.4},
