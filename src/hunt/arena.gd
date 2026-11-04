@@ -5,6 +5,7 @@ extends Node3D
 ## so it can be learned; small dressing is random per hunt.
 
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 const F := "res://assets/kaykit/forest/"
 const D := "res://assets/kaykit/dungeon/"
 const GROUND_SHADER := preload("res://src/fx/ground.gdshader")
@@ -807,8 +808,8 @@ func _layout() -> void:
 	put(G + "crypt.gltf", crypt_pos, 0.0, 1.9, -1.0, true, 2.4)
 	var cl := _light(crypt_pos + Vector3(0, 2.5, 3.6), Color(0.35, 1.0, 0.75), 2.6, 9.0, false)
 	cl.set_meta("flicker", 0.15)
-	put(G + "post_skull.gltf", crypt_pos + Vector3(-4.6, 0, 3.2), 0.0, 1.3, 0.3, true, 0.8)
-	put(G + "post_skull.gltf", crypt_pos + Vector3(4.6, 0, 3.2), 0.0, 1.3, 0.3, true, 0.8)
+	put(P + "post_skull.gltf", crypt_pos + Vector3(-4.6, 0, 3.2), 0.0, 1.3, 0.3, true, 0.8)
+	put(P + "post_skull.gltf", crypt_pos + Vector3(4.6, 0, 3.2), 0.0, 1.3, 0.3, true, 0.8)
 	put(G + "pillar.gltf", crypt_pos + Vector3(-6.5, 0, 4.5), 0.0, 1.4, 0.5, true, 1.0)
 	put(G + "pillar.gltf", crypt_pos + Vector3(6.5, 0, 4.5), 0.0, 1.4, 0.5, true, 1.0)
 
@@ -820,8 +821,8 @@ func _layout() -> void:
 	_fence_line(Vector3(max_x + 0.6, 0, min_z - 0.6), Vector3(max_x + 0.6, 0, max_z + 0.6))
 	put(G + "arch_gate.gltf", Vector3(0, 0, max_z + 0.6), 0.0, 1.6, -1.0, true, 3.0)
 	_light(Vector3(-3.4, 2.2, max_z - 0.6), Color(1.0, 0.6, 0.3), 1.6, 7.0)
-	put(G + "lantern_standing.gltf", Vector3(-3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3, true, 0.6)
-	put(G + "lantern_standing.gltf", Vector3(3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3, true, 0.6)
+	put(P + "lantern_standing.gltf", Vector3(-3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3, true, 0.6)
+	put(P + "lantern_standing.gltf", Vector3(3.4, 0, max_z - 0.6), 0.0, 1.3, 0.3, true, 0.6)
 
 	# Grave plots: rows of headstones with open graves the dead climb out of.
 	_plot(Vector3(-12, 0, 8), 3, 4, 0.0)
@@ -842,7 +843,7 @@ func _layout() -> void:
 	put(G + "bench.gltf", Vector3(7, 0, -10), 0.2, 1.3, 0.7)
 	# Lanterns along the paths.
 	for lp in [Vector3(-2.6, 0, 9), Vector3(4.2, 0, -1.5), Vector3(-5, 0, -2), Vector3(2.8, 0, -17)]:
-		put(G + "post_lantern.gltf", lp, _rng.randf() * TAU, 1.35, 0.3, true, 0.6)
+		put(P + "post_lantern.gltf", lp, _rng.randf() * TAU, 1.35, 0.3, true, 0.6)
 		_light(lp + Vector3(0, 2.4, 0), Color(1.0, 0.62, 0.32), 1.5, 7.5)
 	# Dead trees inside the walls.
 	for tp in [Vector3(-17, 0, -2), Vector3(16, 0, 3), Vector3(-17.5, 0, 17), Vector3(17, 0, 17.5), Vector3(-2, 0, -12.5), Vector3(-18, 0, -27), Vector3(18, 0, -27)]:
@@ -851,10 +852,10 @@ func _layout() -> void:
 	# Coffins, skulls and bones lying about.
 	for i in 26:
 		var p := _free_spot(0.5)
-		var bn: String = ["bone_A.gltf", "bone_B.gltf", "bone_C.gltf", "skull.gltf", "ribcage.gltf", "skull.gltf"][_rng.randi() % 6]
-		put(G + bn, p, _rng.randf() * TAU, _rng.randf_range(0.8, 1.1), -1.0, false)
+		var bn: String = [G + "bone_A.gltf", G + "bone_B.gltf", G + "bone_C.gltf", P + "skull.gltf", G + "ribcage.gltf", P + "skull.gltf"][_rng.randi() % 6]
+		put(bn, p, _rng.randf() * TAU, _rng.randf_range(0.8, 1.1), -1.0, false)
 	for cp in [Vector3(5.5, 0, 14), Vector3(-15.5, 0, -8), Vector3(14.5, 0, -20)]:
-		put(G + ("coffin_decorated.gltf" if _rng.randf() < 0.5 else "coffin.gltf"), cp, _rng.randf() * TAU, 1.3, 0.8)
+		put(P + ("coffin_decorated.gltf" if _rng.randf() < 0.5 else "coffin.gltf"), cp, _rng.randf() * TAU, 1.3, 0.8)
 	# A few jack-o'-lanterns for warm accents.
 	for pp in [Vector3(-8.5, 0, 14.5), Vector3(14, 0, -9.5), Vector3(-15, 0, -20)]:
 		put(G + "pumpkin_orange_jackolantern.gltf", pp, _rng.randf() * TAU, 1.3, 0.4)
@@ -885,7 +886,7 @@ func _plot(center: Vector3, cols: int, rows: int, yaw: float) -> void:
 				put(G + s, p, yaw + _rng.randf_range(-0.25, 0.25), _rng.randf_range(0.95, 1.15), 0.38)
 				graves.append(p + Vector3(0, 0, 1.2))
 				if _rng.randf() < 0.25:
-					put(G + ["candle_triple.gltf", "skull_candle.gltf", "candle_melted.gltf"][_rng.randi() % 3], p + Vector3(0.5, 0, 0.6), 0.0, 1.2, -1.0, false)
+					put([G + "candle_triple.gltf", P + "skull_candle.gltf", G + "candle_melted.gltf"][_rng.randi() % 3], p + Vector3(0.5, 0, 0.6), 0.0, 1.2, -1.0, false)
 
 
 func _fence_line(a: Vector3, b: Vector3) -> void:

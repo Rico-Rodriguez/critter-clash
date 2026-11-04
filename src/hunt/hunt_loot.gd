@@ -59,7 +59,7 @@ func _drop_item(at: Vector3, it: Dictionary) -> void:
 	var spd := randf_range(2.0, 4.0)
 	p.vel = Vector3(sin(a) * spd, 7.0, cos(a) * spd)
 	p.settle = 0.75
-	var model_path: String = {"weapon": "res://assets/kaykit/weapons/sword_2handed_color.gltf", "helm": "res://assets/kaykit/graveyard/skull.gltf", "chest": "res://assets/kaykit/weapons/shield_badge_color.gltf", "legs": "res://assets/kaykit/weapons/shield_square_color.gltf", "trinket": "res://assets/kaykit/dungeon/key.gltf", "pet": "res://assets/kaykit/graveyard/skull.gltf", "trophy": "res://assets/kaykit/graveyard/skull_candle.gltf"}.get(it["slot"], "res://assets/kaykit/dungeon/coin_stack_small.gltf")
+	var model_path: String = {"weapon": "res://assets/kaykit/weapons/sword_2handed_color.gltf", "helm": "res://assets/props/skull.gltf", "chest": "res://assets/kaykit/weapons/shield_badge_color.gltf", "legs": "res://assets/kaykit/weapons/shield_square_color.gltf", "trinket": "res://assets/kaykit/dungeon/key.gltf", "pet": "res://assets/props/skull.gltf", "trophy": "res://assets/props/skull_candle.gltf"}.get(it["slot"], "res://assets/props/coin_stack_small.gltf")
 	# A weapon or offhand shows itself; worn pieces keep a stand-in.
 	var own_model := ""
 	if it["slot"] in ["weapon", "trinket"] and it.has("cls") and GearDB.LINES.has(str(it["cls"])):

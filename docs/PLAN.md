@@ -182,7 +182,10 @@ clips play unchanged. One PR per zone:
    party hunt, an invite from a fresh install, moving to a new phone.
 4. **Long Road polish** after the playtest: room count and length, gate readability, the boss
    hall, loot worth the walk. Nightmare and Veteran tuning (`DB.TIERS`).
-5. **Foe brains in the older zones.** The Barrow, Crypt, Grove and Vault still use the old
+5. [x] **Grove in dark plate:** the Thornmother and the Grove Cult (Cutthroat, Slinger, Shaman, Brawler) remade
+   in the dark plate style (`make_dark_grove.py`, `make_grove_arms.py`). The other zones' bosses and foes
+   follow in their own PRs.
+6. **Foe brains in the older zones.** The Barrow, Crypt, Grove and Vault still use the old
    foes; the rebuilt faction brains exist only for Rimehollow and the Cinder Mire
    (`--old-foes` switches back). See `docs/biomes.md`.
 

@@ -4,6 +4,7 @@ extends RefCounted
 ## tools/dev/icon.sh renders it and writes assets/icon.png.
 
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 
 
 static func stage(lob: Node3D) -> Camera3D:
@@ -51,7 +52,7 @@ static func stage(lob: Node3D) -> Camera3D:
 		root.add_child(n)
 	# The light the game is named for: a lantern at the hero's feet, close to
 	# the lens, lighting the face from below.
-	var lantern := KK.prop(G + "lantern_standing.gltf")
+	var lantern := KK.prop(P + "lantern_standing.gltf")
 	lantern.position = Vector3(0.8, 0, 0.55)
 	lantern.rotation.y = -0.5
 	lantern.scale = Vector3.ONE * 0.85
