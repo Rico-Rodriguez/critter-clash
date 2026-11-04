@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c5ef02ppl7yhn"
-path="res://.godot/imported/wail_wraith_src_0.png-98e109df3ff83cfe1f47a22d111b8a1d.ctex"
+uid="uid://dvrat6i6miq2m"
+path="res://.godot/imported/winter_caller_src_winter_caller_tex.png-f9b051dc23759f24a88ed2545fdce477.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "63b798247a5ccf087fd42fa8ba2cb045"
+"md5": "7b6edf681c9531b3d4dd5f37f9ab27d0"
 }
 
 [deps]
 
-source_file="res://assets/foes/wail_wraith_src_0.png"
-dest_files=["res://.godot/imported/wail_wraith_src_0.png-98e109df3ff83cfe1f47a22d111b8a1d.ctex"]
+source_file="res://assets/foes/winter_caller_src_winter_caller_tex.png"
+dest_files=["res://.godot/imported/winter_caller_src_winter_caller_tex.png-f9b051dc23759f24a88ed2545fdce477.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
