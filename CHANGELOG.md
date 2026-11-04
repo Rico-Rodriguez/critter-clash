@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: Rimehollow foes of our own
+
+The Rime Crawler, Frost Wolf, Crystal Shardling, Frozen Effigy, Wail Wraith, Winter Caller and Rime Yeti are
+rebuilt from code as faceted dark plate models, each with its own rig and clips (`tools/blender/foes/`).
+Their seven Sketchfab credits are gone.
+
 ## Unreleased: Cinder Mire foes of our own
 
 The Sporecap, Bogfin, Bog Frog, Methane Bloat, Cinder Imp, Mire Hag, Ember Wasp and the Cinder Warlord

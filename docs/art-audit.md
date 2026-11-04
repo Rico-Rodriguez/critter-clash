@@ -23,18 +23,11 @@ description and the uploader's other work before an App Store build".
 
 | Model | Used as | Signal | What to look at |
 | --- | --- | --- | --- |
-| "Cursed Undead Soldier Rig" by SuperKapoo913 | Frozen Effigy | A "rig" upload with no author notes in the title. | Whether it is the uploader's own mesh. |
-| "THE ABOMINABLE SNOWMAN (READ DESC)" by toro ardido modelos 3d | `assets/foes/rime_yeti.tscn`, the Rime Yeti | The title tells readers to read the description, which usually holds a usage condition. | Read the description. The CREDITS note that the shipped yeti is "Lowpoly bigfoot" by Sololopenko, so one of the two entries may be stale. |
-| "FREE Low-poly PSX/PS1 Wendigo/Demon model" by Ultaraga Ultra Ultronus | Winter Caller | PSX-style packs are often recreations of console-game monsters. | Whether it recreates a game character. |
 
 ## Low risk (generic subject, a named author, no franchise in the title)
 
 | Model | Author | Used as |
 | --- | --- | --- |
-| "WILD WOLF" | jbnotjeebe | Frost Wolf |
-| "Lowpoly bigfoot" | Sololopenko | Rime Yeti |
-| "Nightmare Creature 1#" | Rodolfoisreal1423 | Frost Imp |
-| "Ice golem" | CyberDriger83 | Shardling |
 | "Crow" | Alexei Ostapenko | Crow critter (the Storm Crow pet is now made in Blender) |
 | "Hare (animated)" | bluekiwi.dog | Snow hare critter |
 | "Day 20 - Snowy Owl" | Lilly! | Snowy owl critter |

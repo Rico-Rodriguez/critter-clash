@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cm0wasnteo3f4"
-path="res://.godot/imported/rime_yeti_src_0.png-f7afdaf5dd8e1928d63ea50c8cebf324.ctex"
+uid="uid://bgcb708wj6hjf"
+path="res://.godot/imported/frost_wolf_src_wolf_tex.png-f05605a09db4ecde27bf50a9ff8e9d86.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "9c08a8d54027e9a719ed59c0fc7b82d3"
+"md5": "b329037b4eb9741f01df1e7f757cf613"
 }
 
 [deps]
 
-source_file="res://assets/foes/rime_yeti_src_0.png"
-dest_files=["res://.godot/imported/rime_yeti_src_0.png-f7afdaf5dd8e1928d63ea50c8cebf324.ctex"]
+source_file="res://assets/foes/frost_wolf_src_wolf_tex.png"
+dest_files=["res://.godot/imported/frost_wolf_src_wolf_tex.png-f05605a09db4ecde27bf50a9ff8e9d86.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

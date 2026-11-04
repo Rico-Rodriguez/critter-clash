@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bf5ybe07wjw4q"
-path="res://.godot/imported/shardling_src_0.jpg-a917cb492d6072049ff0852f8e869d56.ctex"
+uid="uid://bmbi80mkoalg2"
+path="res://.godot/imported/frozen_effigy_src_effigy_tex.png-0b58d7ba06dabcae0abe4d6ff8e3f819.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "38c5369c51db97b50b40afc9cab139a5"
+"md5": "8d06b9ae64796229003fc62e807d6a5a"
 }
 
 [deps]
 
-source_file="res://assets/foes/shardling_src_0.jpg"
-dest_files=["res://.godot/imported/shardling_src_0.jpg-a917cb492d6072049ff0852f8e869d56.ctex"]
+source_file="res://assets/foes/frozen_effigy_src_effigy_tex.png"
+dest_files=["res://.godot/imported/frozen_effigy_src_effigy_tex.png-0b58d7ba06dabcae0abe4d6ff8e3f819.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
