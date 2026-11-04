@@ -2112,7 +2112,7 @@ func _barrow_sheet(root: Node3D, env: Environment, only: String) -> void:
 			a.play("Skeletons_Idle" if not str(d["anim"]["idle"] if d.has("anim") else "").begins_with("Ranged") else str(d["anim"]["idle"]), 0.0)
 		a.position = Vector3((i - (n - 1) * 0.5) * (2.3 if n > 3 else 3.0), 0, 0)
 		a.rotation.y = 0.3 * (1.0 if i < n / 2 else -1.0)
-	var back := 12.5 if only != "king" else 8.0
+	var back := 12.5 if only != "king" else 11.0
 	cam.look_at_from_position(Vector3(0, 2.0, back), Vector3(0, 1.4, 0), Vector3.UP)
 	await _wait(1.2)
 
