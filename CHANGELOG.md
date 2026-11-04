@@ -9,6 +9,12 @@ version is 7.
 
 ---
 
+## Unreleased: Cinder Mire foes of our own
+
+The Sporecap, Bogfin, Bog Frog, Methane Bloat, Cinder Imp, Mire Hag, Ember Wasp and the Cinder Warlord
+boss are rebuilt from code as faceted dark plate models, each with its own rig and clips
+(`tools/blender/foes/`). Their eight Sketchfab credits are gone.
+
 ## Unreleased: projectiles and coins of our own
 
 The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped in the hunt are
