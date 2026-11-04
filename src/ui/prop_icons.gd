@@ -154,7 +154,7 @@ func _render(k: String) -> void:
 		cam.look_at_from_position(Vector3(0.7, 1.3, 4.4), Vector3(0, 0.95, 0), Vector3.UP)
 	elif k.begins_with("chest|"):
 		var c: Dictionary = DB.CHESTS[kind]
-		var m := KK.prop(DUNGEON + str(c["model"]) + ".gltf")
+		var m := KK.prop("res://assets/props/" + str(c["model"]) + ".gltf")
 		m.rotation.y = -0.55
 		_vp.add_child(m)
 		var glow := OmniLight3D.new()

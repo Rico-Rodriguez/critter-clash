@@ -7,6 +7,7 @@ extends RefCounted
 ## crystals, hut and ship are the Art kit's meshes (kit_models.gd). Crisp PBR: no fog, no bloom, no tint.
 
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 const Terrain := preload("res://src/hunt/terrain.gd")
 const Kit := preload("res://src/hunt/kit_mesh.gd")
 const KitModels := preload("res://src/data/kit_models.gd")
@@ -49,11 +50,11 @@ static func build(a: Arena) -> void:
 # --- The floor -----------------------------------------------------------------
 
 static func _ground(a: Arena) -> void:
-	# Snow on the shore is a soft blue-white; the lake is a deeper, glossier blue so
-	# the two read apart at a glance.
+	# Snow on the shore is a dim slate-blue and the lake a deep, glossier blue, graded dark to
+	# sit beside the plate props and the darkened kit; the two still read apart at a glance.
 	var look: Dictionary = {"dark": (a.zone_env["ground"] as Dictionary)["dark"],
-		"base_a": Color(0.6, 0.67, 0.78), "base_b": Color(0.72, 0.78, 0.88),
-		"ice_a": Color(0.24, 0.5, 0.78), "ice_b": Color(0.4, 0.68, 0.92), "crack_col": Color(0.12, 0.3, 0.58), "snow_detail": 1.0}
+		"base_a": Color(0.26, 0.31, 0.4), "base_b": Color(0.34, 0.4, 0.5),
+		"ice_a": Color(0.07, 0.19, 0.34), "ice_b": Color(0.14, 0.3, 0.46), "crack_col": Color(0.06, 0.16, 0.34), "snow_detail": 1.0}
 	a.terrain_begin(look)
 
 
@@ -237,7 +238,7 @@ static func _shore(a: Arena) -> void:
 	sled.rotation.y = 0.5
 	a.add_child(sled)
 	for lp in [Vector3(-3.4, 0, 12.5), Vector3(4.2, 0, 11.5), Vector3(7.5, 0, 15.8)]:
-		a.put(G + "post_lantern.gltf", lp, a._rng.randf() * TAU, 1.35, 0.3, true, 0.6)
+		a.put(P + "post_lantern.gltf", lp, a._rng.randf() * TAU, 1.35, 0.3, true, 0.6)
 		a._light(lp + Vector3(0, 2.4, 0), WARM, 1.6, 7.5)
 	# The third shrine, on the shore by the hut.
 	var sp := Vector3(16.5, 0, 12.5)

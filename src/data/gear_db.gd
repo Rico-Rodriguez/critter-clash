@@ -470,24 +470,24 @@ const KITS := {
 	# A long bone for a shaft, a skull on top.
 	"bone_staff": [
 		["graveyard/bone_C.gltf", Vector3(0, 0.12, 0), Vector3(0, 0, 90), Vector3(1.55, 0.5, 0.5)],
-		["graveyard/skull.gltf", Vector3(0, 0.84, 0), Vector3(0, 0, 0), 0.36],
+		["res://assets/props/skull.gltf", Vector3(0, 0.84, 0), Vector3(0, 0, 0), 0.36],
 		["graveyard/bone_A.gltf", Vector3(0, 0.8, 0.02), Vector3(0, 0, 0), Vector3(0.6, 0.45, 0.45)],
 	],
 	# A bone shaft crowned with a skull that holds a burning candle.
 	"deathlight": [
 		["graveyard/bone_C.gltf", Vector3(0, 0.12, 0), Vector3(0, 0, 90), Vector3(1.55, 0.5, 0.5)],
-		["graveyard/skull_candle.gltf", Vector3(0, 0.82, 0), Vector3(0, 0, 0), 0.4],
+		["res://assets/props/skull_candle.gltf", Vector3(0, 0.82, 0), Vector3(0, 0, 0), 0.4],
 	],
 	# A staff with a lantern swinging from a hook at the top.
 	"lantern_staff": [
 		["weapons/staff.gltf", Vector3.ZERO, Vector3.ZERO, 1.0],
-		["graveyard/lantern_hanging.gltf", Vector3(0.22, 1.2, 0), Vector3.ZERO, 0.38],
+		["res://assets/props/lantern_hanging.gltf", Vector3(0.22, 1.2, 0), Vector3.ZERO, 0.38],
 	],
 	"bone_club": [
 		["graveyard/bone_A.gltf", Vector3(0, 0.42, 0), Vector3(0, 0, 90), Vector3(1.7, 1.2, 1.2)],
 	],
 	"skull_orb": [
-		["graveyard/skull.gltf", Vector3(0, -0.1, 0.05), Vector3(0, 180, 0), 0.3],
+		["res://assets/props/skull.gltf", Vector3(0, -0.1, 0.05), Vector3(0, 180, 0), 0.3],
 	],
 	"candelabra": [
 		["dungeon/candle_triple.gltf", Vector3(-0.05, -0.05, 0), Vector3.ZERO, 0.6],
