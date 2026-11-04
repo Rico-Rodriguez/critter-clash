@@ -15,6 +15,14 @@ The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped
 replaced by small faceted models in the dark palette (`tools/art/make_dark_ammo.py`,
 `assets/kaykit/weapons/ammo_*.gltf`; `tools/dev/ammo_preview.gd` lays old beside new).
 
+## Unreleased: the Hexer Queen in dark plate
+
+The Sunken Crypt's boss is no longer a KayKit skeleton in a hat: she is a skull-faced queen on the
+hero skeleton, in a trailing violet gown with a black bodice, bell sleeves and a long veil, a raised
+collar and a spired crown with swept horns, and a violet-orbed staff of black horns. Same clips, same
+numbers; scale, occluder and the boss icon framing retuned for the taller body. A content change:
+ships over the air.
+
 ## Unreleased: unique gear of our own
 
 Every boss unique now has a look of its own, in its own colours: the Barrow King's crown of gold

@@ -151,6 +151,8 @@ step; one PR each:
 5. [x] **Uniques:** every boss unique's armour (`make_dark_uniques.py`) and weapon or offhand
    (`make_unique_arms.py`) in its own colours (`dark_swatches.py`), the Mage's skull orb, candelabra
    and phylactery, and the bare-handed starters on our set 0 weapons. No KayKit gear is left on a hero.
+6. [x] **Hexer Queen** (Sunken Crypt boss) rebuilt in dark plate on the hero skeleton
+   (`make_dark_hexer.py`, her staff in `make_dark_hexer_arms.py`, shared bones in `dark_bones.py`).
 
 ## Now: needs Rico
 
