@@ -428,6 +428,33 @@ const ENEMIES_EXTRA := {
 		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.6, "blast": 3.3,
 		"anim": {"idle": "Skeletons_Idle", "run": "Skeletons_Walking", "attack": "Melee_2H_Attack_Chop", "spawn": "Skeletons_Awaken_Standing", "die": "Skeletons_Death", "hit": "Hit_B"},
 	},
+	# The Gilded Vault's guard (the Warden's court): dark plate edged in gold on the
+	# hero skeleton (tools/art/make_dark_vault.py), so they take the grove's clips.
+	# Each keeps its base role's numbers.
+	"gildedguard": {
+		"name": "Gilded Guard", "model": "DarkVault_Guard", "noglow": true, "wscale": 0.8, "weapons": {"handslot.r": "knight_sword_4.gltf", "handslot.l": "warden_door.gltf"}, "base": "warrior",
+		"ai": "melee", "hp": 125.0, "dmg": 19.0, "speed": 2.6, "radius": 0.6, "reach": 1.55,
+		"windup": 0.6, "cooldown": 1.6, "mass": 3.5, "xp": 3, "scale": 0.95,
+		"anim": {"idle": "Idle_A", "run": "Walking_A", "attack": "Melee_1H_Attack_Slice_Diagonal", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
+	"vaultbow": {
+		"name": "Vault Crossbowman", "model": "DarkVault_Crossbowman", "noglow": true, "weapons": {"handslot.r": "crossbow_1handed.gltf"}, "base": "rogue",
+		"ai": "ranged", "hp": 46.0, "dmg": 12.0, "speed": 3.1, "radius": 0.45, "reach": 8.0,
+		"windup": 0.75, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 0.9, "proj_speed": 13.0,
+		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
+	"vaultbrute": {
+		"name": "Vault Brute", "model": "DarkVault_Brute", "noglow": true, "weapons": {"handslot.r": "barb_axe_4.gltf"}, "base": "brute",
+		"ai": "slam", "hp": 520.0, "dmg": 36.0, "speed": 2.2, "radius": 0.85, "reach": 2.8,
+		"windup": 1.0, "cooldown": 3.4, "mass": 6.0, "xp": 8, "scale": 1.3, "blast": 3.2,
+		"anim": {"idle": "Idle_A", "run": "Walking_A", "attack": "Melee_2H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
+	"vaulthound": {
+		"name": "Vault Hound", "model": "DarkVault_Hound", "noglow": true, "weapons": {"handslot.r": "dagger.gltf"}, "base": "hound",
+		"ai": "charge", "hp": 58.0, "dmg": 17.0, "speed": 3.9, "radius": 0.45, "reach": 1.4,
+		"windup": 0.6, "cooldown": 2.8, "mass": 1.0, "xp": 2, "scale": 0.88, "tint": Color(1.0, 0.82, 0.3, 0.3),
+		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
+	},
 	"robber": {
 		"name": "Grave Robber", "model": "Skeleton_Rogue", "weapons": {},
 		"ai": "flee", "hp": 260.0, "dmg": 0.0, "speed": 6.2, "radius": 0.45, "reach": 0.0,
@@ -469,8 +496,8 @@ const BOSSES := {
 	},
 	"warden": {
 		"name": "The Gilded Warden", "title": "of the Vault", "wake": "the Warden turns the key", "fall": "The Warden kneels. The Vault is open.",
-		"model": "Knight", "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"}, "skin": "Knight_gilded_texture.png",
-		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 2.5, "mass": 45.0,
+		"model": "DarkVault_Warden", "noglow": true, "wscale": 1.2, "weapons": {"handslot.r": "warden_key.gltf", "handslot.l": "warden_door.gltf"},
+		"hp": 5600.0, "dmg": 27.0, "speed": 3.0, "radius": 1.4, "scale": 1.7, "mass": 45.0,
 		"color": Color(1.0, 0.82, 0.35), "el": "holy", "source": "warden", "occluder": Vector2(1.6, 4.9), "summon_line": "The Warden calls the vault guard!", "enrage_line": "\"Nothing leaves the Vault.\"",
 	},
 	"rime": {
@@ -520,7 +547,10 @@ const ZONES := {
 	"vault": {
 		"name": "The Gilded Vault", "boss": "warden", "blurb": "The King's treasury, deep under the barrow. He guards every coin.",
 		"wake": "Gather %d souls to wake the King", "defeat": "The Vault keeps you", "enter": "Break into the Vault",
-		"loot_bonus": 2, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0}, "souls_mult": 1.0, "unlock": "Trophy Road: 4100 trophies",
+		"loot_bonus": 2, "weights": {"warrior": 1.6, "rogue": 1.4, "brute": 1.8, "hound": 1.2, "bomber": 1.2, "mage": 1.0},
+		# The treasure guard stands in for the skeletons of the same role (bomber, mage and robber stay bones).
+		"faction": {"warrior": "gildedguard", "rogue": "vaultbow", "brute": "vaultbrute", "hound": "vaulthound"},
+		"souls_mult": 1.0, "unlock": "Trophy Road: 4100 trophies",
 		"env": {"bg": Color(0.03, 0.022, 0.012), "ambient": Color(0.62, 0.52, 0.38), "ambient_e": 0.36, "fog": Color(0.12, 0.09, 0.05), "fog_d": 0.006,
 			"sun": Color(1.0, 0.86, 0.62), "sun_e": 0.4, "sun_rot": Vector3(-70, -25, 0), "mist": Color(0.8, 0.7, 0.45, 0.06), "motes": Color(1.0, 0.85, 0.4, 0.9)},
 	},

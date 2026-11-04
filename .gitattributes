@@ -54,3 +54,6 @@ assets/kaykit/weapons/ranger_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/uniq_*.bin -filter -diff -merge binary
+
+# The Gilded Vault's dark plate models: kept out of LFS (uploads are refused from cloud sessions).
+assets/kaykit/characters/DarkVault_*.glb -filter -diff -merge binary

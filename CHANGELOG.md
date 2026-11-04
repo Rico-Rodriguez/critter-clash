@@ -15,6 +15,17 @@ The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped
 replaced by small faceted models in the dark palette (`tools/art/make_dark_ammo.py`,
 `assets/kaykit/weapons/ammo_*.gltf`; `tools/dev/ammo_preview.gd` lays old beside new).
 
+## Unreleased: the Gilded Vault in dark plate
+
+The Gilded Warden is no longer a chibi knight in a gold skin. He is a towering jailer in heavy gold
+plate on the hero skeleton (`tools/art/make_dark_vault.py`): a barrel helm with a keyhole slit and a
+crown of teeth, a vault-wheel halo behind his head, a great coin at the breast and a ring of keys at
+his belt, still swinging the Vault's key and carrying its door. The Vault now fields its own guard in
+place of the skeletons of the same role: the Gilded Guard (warrior), Vault Crossbowman (rogue), Vault
+Brute (brute) and Vault Hound (hound), in dark plate edged in gold with coin and key livery. They keep
+their base role's hp and damage. A def can ask for no eye glow (`noglow`) and for its weapons to be
+sized (`wscale`). The old gilded Knight texture is gone. A content change: ships over the air.
+
 ## Unreleased: unique gear of our own
 
 Every boss unique now has a look of its own, in its own colours: the Barrow King's crown of gold

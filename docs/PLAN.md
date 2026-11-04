@@ -152,6 +152,14 @@ step; one PR each:
    (`make_unique_arms.py`) in its own colours (`dark_swatches.py`), the Mage's skull orb, candelabra
    and phylactery, and the bare-handed starters on our set 0 weapons. No KayKit gear is left on a hero.
 
+## Dark plate bosses and foes (Rico, 2026-10-31)
+
+The early zones' bosses and foes get the same dark plate look on the hero skeleton, so the baked
+clips play unchanged. One PR per zone:
+
+- [x] **Vault:** the Gilded Warden and the gilded guard (`make_dark_vault.py`): Gilded Guard,
+   Vault Crossbowman, Vault Brute, Vault Hound, fielded through `DB.ZONES["vault"]["faction"]`.
+
 ## Now: needs Rico
 
 | Task | Why it waits |
