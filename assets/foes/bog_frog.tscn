@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/foes/bog_frog_src.glb" id="1_rsa4c"]
 
-[node name="bog_frog" type="Node3D" unique_id=985730860]
+[node name="bog_frog" type="Node3D" unique_id=293976905]
 metadata/cull_aabbs = {
-"Sketchfab_model/Giang_19_Fbx/Object_2/RootNode/Object_4/Skeleton3D/Object_7": AABB(-155.18982, -106.14416, -207.51404, 310.37967, 275.47388, 388.54688)
+"Rig/Skeleton3D/BogFrog": AABB(-1.5014775, -0.94110113, -1.4889972, 3.002955, 2.5745046, 3.1849542)
 }
-metadata/posed_aabb = AABB(-0.7746955, 0, -1.3898424, 1.549391, 0.99999994, 2.7796848)
+metadata/posed_aabb = AABB(-0.80460083, 0, -0.93399066, 1.6092017, 0.99999994, 1.8679813)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=2049061633 instance=ExtResource("1_rsa4c")]
-transform = Transform3D(1.5739259, 0, 0, 0, 1.5739259, 0, 0, 0, 1.5739259, -9.381329e-08, 0.002752927, 0.20839742)
+[node name="bog_frog_src" type="Node3D" parent="." unique_id=404402447 instance=ExtResource("1_rsa4c")]
+transform = Transform3D(1.4218725, 0, 0, 0, 1.4218725, 0, 0, 0, 1.4218725, 0, 0.007817215, -0.147135)

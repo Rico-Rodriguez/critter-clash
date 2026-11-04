@@ -2,23 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://csryi0bxghobx"
-path="res://.godot/imported/methane_bloat_src_2.jpg-e6e63bc9aad0b8bb53500023972cbba9.ctex"
+uid="uid://dr42fs5yb16o4"
+path="res://.godot/imported/bogfin_src_bogfin_tex.png-cec9d8f7da401c1df0c33cbb6dada519.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "9a03be2036038802730673353c48470a"
+"md5": "4b451dfc52b4f33da374f7a18492b0bc"
 }
 
 [deps]
 
-source_file="res://assets/foes/methane_bloat_src_2.jpg"
-dest_files=["res://.godot/imported/methane_bloat_src_2.jpg-e6e63bc9aad0b8bb53500023972cbba9.ctex"]
+source_file="res://assets/foes/bogfin_src_bogfin_tex.png"
+dest_files=["res://.godot/imported/bogfin_src_bogfin_tex.png-cec9d8f7da401c1df0c33cbb6dada519.ctex"]
 
 [params]
 
-compress/mode=1
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
