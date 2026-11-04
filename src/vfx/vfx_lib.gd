@@ -57,10 +57,10 @@ const TIER := {
 
 ## Body colour per element (a caller's tint overrides it).
 const COLORS := {
-	&"fire": Color(1.0, 0.62, 0.12), &"frost": Color(0.6, 0.88, 1.0), &"storm": Color(0.45, 0.85, 1.0),
-	&"poison": Color(0.55, 0.9, 0.2), &"nature": Color(0.45, 0.82, 0.28), &"holy": Color(1.0, 0.85, 0.35),
-	&"shadow": Color(0.62, 0.36, 0.95), &"physical": Color(0.62, 0.56, 0.5), &"blood": Color(0.86, 0.12, 0.15),
-	&"heal": Color(0.45, 1.0, 0.5), &"buff": Color(1.0, 0.8, 0.3), &"level": Color(1.0, 0.86, 0.4),
+	&"fire": Color(1.0, 0.5, 0.14), &"frost": Color(0.52, 0.78, 0.92), &"storm": Color(0.48, 0.75, 0.92),
+	&"poison": Color(0.46, 0.76, 0.24), &"nature": Color(0.42, 0.72, 0.28), &"holy": Color(0.95, 0.8, 0.42),
+	&"shadow": Color(0.52, 0.32, 0.8), &"physical": Color(0.6, 0.54, 0.48), &"blood": Color(0.76, 0.1, 0.13),
+	&"heal": Color(0.42, 0.86, 0.52), &"buff": Color(0.95, 0.74, 0.32), &"level": Color(0.95, 0.8, 0.4),
 }
 ## Dark rim band per element: [hue, value] (saturation is fixed in the shader).
 const RIM := {

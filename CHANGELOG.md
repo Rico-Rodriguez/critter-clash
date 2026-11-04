@@ -9,6 +9,10 @@ version is 7.
 
 ---
 
+## Unreleased: VFX graded to the dark plate
+
+- Element colours pulled down and warmed (fire deeper ember, holy and buff less neon), toon puffs get a bone-warm core instead of near white, a deeper rim band and a wider burn edge on dissolve, and the hit star core is bone instead of pure white.
+
 ## Unreleased: projectiles and coins of our own
 
 The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped in the hunt are
