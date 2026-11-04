@@ -26,13 +26,13 @@ const SWAMP := ["cm_spore", "cm_bogfin", "cm_imp", "cm_shaman", "cm_hag", "cm_fr
 const FOES := {
 	# --- Rimehollow ---------------------------------------------------------
 	"rh_imp": {
-		"name": "Rime Crawler", "model": "glb:frost_imp", "fit": 1.5, "clips": {"idle": "Creature_armature|battle_idle", "walk": "Creature_armature|walk", "run": "Creature_armature|Run", "attack": "Creature_armature|attack_1", "hit": "Creature_armature|hit_1", "die": "Creature_armature|death_1"}, "gen": [], "weapons": {}, "skin": "rime", "base": "minion",
+		"name": "Rime Crawler", "model": "glb:frost_imp", "fit": 1.5, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "die": "Death", "spawn": "Spawn"}, "gen": [], "weapons": {}, "skin": "rime", "base": "minion",
 		"ai": "melee", "hp": 30.0, "dmg": 8.0, "speed": 4.2, "radius": 0.38, "reach": 1.2, "rider": "chill",
 		"windup": 0.35, "cooldown": 1.0, "mass": 0.8, "xp": 1, "scale": 0.82, "anim": A_SK,
 		"brain": {"kind": "skitter", "hop_at": 4.2, "hop_len": 3.4, "puddle": 0.9},
 	},
 	"rh_effigy": {
-		"name": "Frozen Effigy", "model": "glb:frozen_effigy", "fit": 1.9, "clips": {"idle": "Slash", "walk": "Slash", "run": "Slash"}, "gen": ["cast"], "weapons": {}, "skin": "rime", "base": "warrior",
+		"name": "Frozen Effigy", "model": "glb:frozen_effigy", "fit": 1.9, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "die": "Death", "cast": "Cast", "spawn": "Spawn"}, "gen": [], "weapons": {}, "skin": "rime", "base": "warrior",
 		"ai": "melee", "hp": 170.0, "dmg": 22.0, "speed": 2.7, "radius": 0.62, "reach": 1.6, "rider": "chill",
 		"windup": 0.55, "cooldown": 1.6, "mass": 4.0, "xp": 4, "scale": 1.05, "anim": A_WALK,
 		"brain": {"kind": "dormant", "wake_r": 6.0, "wake_time": 0.9},
@@ -56,7 +56,7 @@ const FOES := {
 		"brain": {"kind": "caster", "spell": "summon", "keep": 8.0, "minion": "rh_imp", "count": 2, "cap": 6},
 	},
 	"rh_wolf": {
-		"name": "Frost Wolf", "model": "glb:frost_wolf", "fit": 1.222, "clips": {"idle": "Take 001", "walk": "Take 001", "run": "Take 001"}, "gen": [], "weapons": {}, "skin": "rime", "base": "hound",
+		"name": "Frost Wolf", "model": "glb:frost_wolf", "fit": 1.222, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "die": "Death", "taunt": "Taunt"}, "gen": [], "weapons": {}, "skin": "rime", "base": "hound",
 		"ai": "charge", "hp": 56.0, "dmg": 15.0, "speed": 4.3, "radius": 0.45, "reach": 1.4, "rider": "chill", "trail": "frost",
 		"windup": 0.65, "cooldown": 2.4, "mass": 1.0, "xp": 2, "scale": 0.9, "anim": A_SK,
 		"brain": {"kind": "pack", "circle": 5.5, "lunge_len": 8.0, "gap": 0.9},
@@ -68,7 +68,7 @@ const FOES := {
 		"brain": {"kind": "yeti", "lob_min": 5.5, "lob_max": 11.0, "lob_r": 1.9, "lob_every": 4.5, "crack_r": 3.4},
 	},
 	"rh_shard": {
-		"name": "Crystal Shardling", "model": "glb:shardling", "fit": 1.625, "clips": {"idle": "animation_001|metarigAction", "walk": "animation_001|metarigAction", "run": "animation_001|metarigAction"}, "gen": [], "weapons": {}, "skin": "regent", "base": "bomber",
+		"name": "Crystal Shardling", "model": "glb:shardling", "fit": 1.625, "clips": {"idle": "Idle", "walk": "Walk", "run": "Run", "attack": "Attack", "hit": "Hit", "die": "Death", "spawn": "Spawn"}, "gen": [], "weapons": {}, "skin": "regent", "base": "bomber",
 		"ai": "bomb", "hp": 26.0, "dmg": 30.0, "speed": 3.6, "radius": 0.4, "reach": 1.9,
 		"windup": 0.8, "cooldown": 9.0, "mass": 0.6, "xp": 2, "scale": 0.8, "blast": 2.6, "fly": true, "element": "frost", "anim": A_SK,
 		"brain": {"kind": "drift", "pop": "shards", "hover": 0.7, "shards": 6},

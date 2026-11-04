@@ -2,11 +2,11 @@
 
 [ext_resource type="PackedScene" path="res://assets/foes/shardling_src.glb" id="1_pwerp"]
 
-[node name="shardling" type="Node3D" unique_id=276262160]
+[node name="shardling" type="Node3D" unique_id=297677399]
 metadata/cull_aabbs = {
-"Sketchfab_model/root/GLTF_SceneRootNode/RootNode (gltf orientation matrix)_0/RootNode (model correction matrix)_1/ice with walking_fbx_2/_3/RootNode_4/animation_001_7/_8/GLTF_created_0/Skeleton3D/Object_14": AABB(-2.8275447, -2.9909358, -1.909942, 5.481414, 5.871253, 6.216422)
+"Rig/Skeleton3D/Shardling": AABB(-1.7761524, -0.6606033, -1.6937767, 3.5525906, 3.2710986, 3.3860073)
 }
-metadata/posed_aabb = AABB(-0.352425, 0, -0.430697, 0.70485, 1, 0.861394)
+metadata/posed_aabb = AABB(-0.6267828, 0, -0.5517545, 1.2535655, 1, 1.103509)
 
-[node name="Sketchfab_Scene" type="Node3D" parent="." unique_id=60301557 instance=ExtResource("1_pwerp")]
-transform = Transform3D(0.00051978295, 0, 0, 0, 0.00051978295, 0, 0, 0, 0.00051978295, 0.03487057, 0.018823173, -0.022209935)
+[node name="shardling_src" type="Node3D" parent="." unique_id=546242901 instance=ExtResource("1_pwerp")]
+transform = Transform3D(0.900791, 0, 0, 0, 0.900791, 0, 0, 0, 0.900791, -0.0001287518, -0.37822255, 0.0006963228)
