@@ -23,19 +23,11 @@ description and the uploader's other work before an App Store build".
 
 | Model | Used as | Signal | What to look at |
 | --- | --- | --- | --- |
-| "Bloater" by Vasian-Digital3D | Methane Bloat | "Bloater" is the name of a Last of Us infected. The uploader's "Banshee" (the Wail Wraith) is also a named creature. | Whether the model is a fan recreation of the game's creature. If so, replace it. |
-| "Parameswara Chronicles: Witch" by Dr Helmi Norman | Mire Hag | Named after a game project. | Whether Dr Norman's project is the source, and whether they made the upload. |
 
 ## Low risk (generic subject, a named author, no franchise in the title)
 
 | Model | Author | Used as |
 | --- | --- | --- |
-| "Low-poly orc" | Riltariki | Cinder Warlord (boss) |
-| "Mushroom Guy" | mateuszpyska | Sporecap |
-| "Lizardman" | DJMaesen | Bogfin |
-| "Imp" | Al (lightningocelot) | Cinder Imp |
-| "Monster frog" | Goofy goober bird | Bog Frog |
-| "Armored Wasp" | Rodrigo Bento | Ember Wasp |
 | "Crow" | Alexei Ostapenko | Crow critter (the Storm Crow pet is now made in Blender) |
 | "Hare (animated)" | bluekiwi.dog | Snow hare critter |
 | "Day 20 - Snowy Owl" | Lilly! | Snowy owl critter |

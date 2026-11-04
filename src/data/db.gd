@@ -309,27 +309,27 @@ const ENEMIES_EXTRA := {
 	},
 	# The Grove Cult (the Hollow Grove's faction): hooded folk, not bones.
 	"cutthroat": {
-		"name": "Grove Cutthroat", "model": "Rogue_Hooded", "weapons": {"handslot.r": "dagger.gltf"},
+		"name": "Grove Cutthroat", "model": "GroveCutthroat", "weapons": {"handslot.r": "grove_knife.gltf"},
 		"ai": "melee", "hp": 30.0, "dmg": 10.0, "speed": 4.1, "radius": 0.42, "reach": 1.2,
-		"windup": 0.3, "cooldown": 0.95, "mass": 1.0, "xp": 1, "scale": 1.0, "tint": Color(0.35, 0.75, 0.3, 0.3),
+		"windup": 0.3, "cooldown": 0.95, "mass": 1.0, "xp": 1, "scale": 0.95, "tint": Color(0.35, 0.75, 0.3, 0.2),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Stab", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"slinger": {
-		"name": "Grove Slinger", "model": "Rogue_Hooded", "weapons": {"handslot.r": "crossbow_1handed.gltf"},
+		"name": "Grove Slinger", "model": "GroveSlinger", "weapons": {"handslot.r": "ranger_crossbow_0.gltf"},
 		"ai": "ranged", "hp": 42.0, "dmg": 12.0, "speed": 3.4, "radius": 0.45, "reach": 8.5,
-		"windup": 0.7, "cooldown": 2.2, "mass": 1.0, "xp": 2, "scale": 1.0, "proj_speed": 14.0, "tint": Color(0.35, 0.75, 0.3, 0.3),
+		"windup": 0.7, "cooldown": 2.2, "mass": 1.0, "xp": 2, "scale": 0.95, "proj_speed": 14.0, "tint": Color(0.35, 0.75, 0.3, 0.2),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Ranged_1H_Shoot", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"shaman": {
-		"name": "Thorn Shaman", "model": "Rogue_Hooded", "weapons": {"handslot.r": "staff.gltf"},
+		"name": "Thorn Shaman", "model": "GroveShaman", "weapons": {"handslot.r": "grove_staff.gltf"},
 		"ai": "caster", "hp": 58.0, "dmg": 22.0, "speed": 2.9, "radius": 0.45, "reach": 9.0,
-		"windup": 1.1, "cooldown": 3.8, "mass": 1.2, "xp": 3, "scale": 1.05, "blast": 2.1, "root": true, "tint": Color(0.5, 0.95, 0.35, 0.45),
+		"windup": 1.1, "cooldown": 3.8, "mass": 1.2, "xp": 3, "scale": 1.0, "blast": 2.1, "root": true, "tint": Color(0.5, 0.95, 0.35, 0.3),
 		"anim": {"idle": "Idle_A", "run": "Walking_A", "attack": "Ranged_Magic_Spellcasting", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	"brawler": {
-		"name": "Grove Brawler", "model": "Barbarian", "weapons": {"handslot.r": "axe_1handed.gltf"},
+		"name": "Grove Brawler", "model": "GroveBrawler", "weapons": {"handslot.r": "barb_axe_0.gltf"},
 		"ai": "melee", "hp": 130.0, "dmg": 20.0, "speed": 2.9, "radius": 0.6, "reach": 1.6,
-		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.15, "tint": Color(0.3, 0.55, 0.25, 0.45),
+		"windup": 0.55, "cooldown": 1.5, "mass": 3.5, "xp": 3, "scale": 1.1, "tint": Color(0.3, 0.55, 0.25, 0.25),
 		"anim": {"idle": "Idle_A", "run": "Running_A", "attack": "Melee_1H_Attack_Chop", "spawn": "Spawn_Ground", "die": "Death_A", "hit": "Hit_A"},
 	},
 	# The Frozen Crypt's dead (the Rime Regent's court): the same bones, frozen
@@ -457,9 +457,9 @@ const BOSSES := {
 	},
 	"thorn": {
 		"name": "The Thornmother", "title": "of the Hollow Grove", "wake": "the Thornmother uncurls", "fall": "The Thornmother withers. Take what is yours.",
-		"model": "Rogue_Hooded", "weapons": {"handslot.r": "staff.gltf"},
-		"hp": 5200.0, "dmg": 25.0, "speed": 3.1, "radius": 1.3, "scale": 2.5, "mass": 35.0,
-		"color": Color(0.55, 0.95, 0.35), "el": "nature", "source": "thorn", "occluder": Vector2(1.5, 4.8), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
+		"model": "Thornmother", "weapons": {"handslot.r": "grove_thorn_staff.gltf"},
+		"hp": 5200.0, "dmg": 25.0, "speed": 3.1, "radius": 1.3, "scale": 1.6, "mass": 35.0,
+		"color": Color(0.55, 0.95, 0.35), "el": "nature", "source": "thorn", "occluder": Vector2(1.5, 4.4), "summon_line": "The Grove answers its Mother!", "enrage_line": "\"Root and rot. Feed the wood.\"",
 	},
 	"hexer": {
 		"name": "Hexer Queen", "title": "of the Sunken Crypt", "wake": "the Queen of the Crypt rises", "fall": "The Hexer Queen unravels. Take what is yours.",
@@ -481,7 +481,7 @@ const BOSSES := {
 	},
 	"cinder": {
 		"name": "The Cinder Warlord", "title": "of the Burning Swamp", "wake": "the Warlord climbs from the embers", "fall": "The Warlord gutters out. The Swamp smoulders.",
-		# Riltariki's orc (assets/foes/cinder_warlord.tscn); `rig` pulls fit, clips and alias from boss_models.gd.
+		# Our own dark-plate orc (assets/foes/cinder_warlord.tscn); `rig` pulls fit, clips and alias from boss_models.gd.
 		# 5.7 m tall at scale 3.0, so the hitbox is wider and the occluder taller than the Ogre's.
 		"model": "glb:cinder_warlord", "rig": "cinder_warlord", "weapons": {}, "skin": "ogre",
 		"hp": 6400.0, "dmg": 29.0, "speed": 3.0, "radius": 1.95, "scale": 3.0, "mass": 60.0,
@@ -538,7 +538,7 @@ const ZONES := {
 		"souls_mult": 1.0, "unlock": "Trophy Road: 4400 trophies", "music": "frozen", "boss_music": "frozen_boss",
 		"hazards": ["icefall", "thin_ice", "gale"],
 		"hazard_line": "Icicles fall, thin ice gives way and gales shove",
-		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.5, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "", "weather": "snow",
+		"env": {"bg": Color(0.05, 0.075, 0.12), "ambient": Color(0.72, 0.78, 0.9), "ambient_e": 0.34, "fog": Color(0.7, 0.8, 0.95), "fog_d": 0.0, "glow": false, "skin": "", "weather": "snow",
 			"sun": Color(0.95, 0.97, 1.0), "sun_e": 1.1, "sun_rot": Vector3(-54, -32, 0), "mist": Color(1, 1, 1, 0.0), "motes": Color(0.92, 0.97, 1.0, 1.0),
 			"ground": {"grass_a": Color(0.5, 0.57, 0.67), "grass_b": Color(0.64, 0.71, 0.8), "dirt": Color(0.36, 0.41, 0.5), "dark": Color(0.05, 0.07, 0.11)}},
 	},

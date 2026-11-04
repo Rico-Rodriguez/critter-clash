@@ -16,6 +16,7 @@ extends RefCounted
 
 const ZoneRooms := preload("res://src/hunt/arena_trial_zone.gd")
 const D := "res://assets/kaykit/dungeon/"
+const P := "res://assets/props/"
 const G := "res://assets/kaykit/graveyard/"
 const ROOM_DEPTH := 34.0
 const START_DEPTH := 26.0
@@ -220,13 +221,13 @@ static func _dress_room(a: Arena, room: Dictionary, rng: RandomNumberGenerator) 
 		a.put(D + ["crates_stacked.gltf", "barrel_small_stack.gltf", "box_stacked.gltf"][rng.randi() % 3], at2 + Vector3(0, 0, 2.3), rng.randf() * TAU, 1.0, 1.1, true, 1.1)
 	for i in 8:
 		var bp := Vector3(rng.randf_range(-18.0, 18.0), 0, rng.randf_range(lo + 3.0, hi - 3.0))
-		a.put(G + ["bone_A.gltf", "bone_B.gltf", "skull.gltf", "ribcage.gltf", "skull.gltf"][rng.randi() % 5], bp, rng.randf() * TAU, rng.randf_range(0.8, 1.1), -1.0, false)
+		a.put([G + "bone_A.gltf", G + "bone_B.gltf", P + "skull.gltf", G + "ribcage.gltf", P + "skull.gltf"][rng.randi() % 5], bp, rng.randf() * TAU, rng.randf_range(0.8, 1.1), -1.0, false)
 	match kind:
 		"shrine":
 			a.put(D + "candle_triple.gltf", Vector3(0, 0, mid), 0.0, 2.0, -1.0, false)
 		"treasure":
 			room["chest_at"] = Vector3(rng.randf_range(-12.0, 12.0), 0, mid - 3.0)
-			a.put(D + "chest_gold.gltf", room["chest_at"], rng.randf() * TAU, 1.2, 1.0)
+			a.put(P + "chest_gold.gltf", room["chest_at"], rng.randf() * TAU, 1.2, 1.0)
 		"elite", "brutes":
 			a.put(D + "banner_patternA_red.gltf", Vector3(-8.0, 0.4, lo + 0.5), 0.0, 1.2, -1.0, false)
 			a.put(D + "banner_patternA_red.gltf", Vector3(8.0, 0.4, lo + 0.5), 0.0, 1.2, -1.0, false)

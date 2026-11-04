@@ -73,3 +73,29 @@ assets/foes/frost_imp_src_imp_tex.png -filter -diff -merge binary
 assets/foes/frost_wolf_src_wolf_tex.png -filter -diff -merge binary
 assets/foes/shardling_src_shard_tex.png -filter -diff -merge binary
 assets/foes/frozen_effigy_src_effigy_tex.png -filter -diff -merge binary
+assets/foes/sporecap_src.glb -filter -diff -merge binary
+assets/foes/sporecap_src_sporecap_tex.png -filter -diff -merge binary
+assets/foes/bogfin_src.glb -filter -diff -merge binary
+assets/foes/bogfin_src_bogfin_tex.png -filter -diff -merge binary
+assets/foes/bog_frog_src.glb -filter -diff -merge binary
+assets/foes/bog_frog_src_bog_frog_tex.png -filter -diff -merge binary
+assets/foes/methane_bloat_src.glb -filter -diff -merge binary
+assets/foes/methane_bloat_src_methane_bloat_tex.png -filter -diff -merge binary
+assets/foes/cinder_imp_src.glb -filter -diff -merge binary
+assets/foes/cinder_imp_src_cinder_imp_tex.png -filter -diff -merge binary
+assets/foes/mire_hag_src.glb -filter -diff -merge binary
+assets/foes/mire_hag_src_mire_hag_tex.png -filter -diff -merge binary
+assets/foes/ember_wasp_src.glb -filter -diff -merge binary
+assets/foes/ember_wasp_src_ember_wasp_tex.png -filter -diff -merge binary
+assets/foes/cinder_warlord_src.glb -filter -diff -merge binary
+assets/foes/cinder_warlord_src_cinder_warlord_tex.png -filter -diff -merge binary
+# The Grove Cult and the Thornmother (make_dark_grove.py, make_grove_arms.py): kept out of LFS because
+# its upload is blocked from the cloud sessions that make them.
+assets/kaykit/characters/Grove*.glb -filter -diff -merge binary
+assets/kaykit/characters/Thornmother.glb -filter -diff -merge binary
+assets/kaykit/weapons/grove_*.bin -filter -diff -merge binary
+# Our dark plate props and the Rime and Mire kits (make_plate_props.py, make_*_kit.py): small, and
+# kept out of LFS because its upload is blocked from the cloud sessions that rebuild them.
+assets/props/*.png -filter -diff -merge binary
+assets/kits/*/*.glb -filter -diff -merge binary
+assets/kits/*/*.png -filter -diff -merge binary

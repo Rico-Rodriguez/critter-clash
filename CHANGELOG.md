@@ -15,11 +15,42 @@ The Rime Crawler, Frost Wolf, Crystal Shardling, Frozen Effigy, Wail Wraith, Win
 rebuilt from code as faceted dark plate models, each with its own rig and clips (`tools/blender/foes/`).
 Their seven Sketchfab credits are gone.
 
+## Unreleased: Cinder Mire foes of our own
+
+The Sporecap, Bogfin, Bog Frog, Methane Bloat, Cinder Imp, Mire Hag, Ember Wasp and the Cinder Warlord
+boss are rebuilt from code as faceted dark plate models, each with its own rig and clips
+(`tools/blender/foes/`). Their eight Sketchfab credits are gone.
+
+## Unreleased: VFX graded to the dark plate
+
+- Element colours pulled down and warmed (fire deeper ember, holy and buff less neon), toon puffs get a bone-warm core instead of near white, a deeper rim band and a wider burn edge on dissolve, and the hit star core is bone instead of pure white.
+
 ## Unreleased: projectiles and coins of our own
 
 The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped in the hunt are
 replaced by small faceted models in the dark palette (`tools/art/make_dark_ammo.py`,
 `assets/kaykit/weapons/ammo_*.gltf`; `tools/dev/ammo_preview.gd` lays old beside new).
+
+## Unreleased: the Hollow Grove in dark plate
+
+The Thornmother and the Grove Cult are remade in the dark plate style on the hero skeleton
+(`tools/art/make_dark_grove.py`), so the baked clips play on them unchanged. The Thornmother is a huge
+hooded root-mother with a halo of thorns, antlers, bark pauldrons and a skirt of creeping roots, holding a
+gnarled thorn staff; the Cutthroat is lean with a long ember scarf and a hooked thorn knife, the Slinger wears a
+wide leather hat and a quiver, the Shaman a green robe with an orange leaf mantle and tall antlers, the
+Brawler iron and bark with thorned pauldrons. New weapons (`make_grove_arms.py`): the thorn knife, the
+shaman's staff and the Thornmother's staff. Numbers are unchanged; scale, tint and the boss occluder are
+retuned for the taller skeleton. A content change: ships over the air.
+
+## Unreleased: dark plate props in every zone and the camp
+
+The KayKit coffins, skulls, lanterns (standing, hanging, and the lamp and skull posts), toy chests
+and coin stacks are replaced by our own flat-faceted models in gunmetal plate, old bone and
+tarnished gold, with a warm glow only in the lantern cores and candle flames
+(`tools/art/make_plate_props.py`, `assets/props/`). The camp chest keeps its `chest_lid` hinge.
+The Rime and Mire terrain kits get a darker colour grade (`GRADE` in `tools/art/kit_lib.py`, kits
+rebuilt), the Rime floor and its ambient light are dimmer, and the Mire soil and bog are darker.
+A content change: ships over the air.
 
 ## Unreleased: unique gear of our own
 

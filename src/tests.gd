@@ -374,7 +374,7 @@ func _gear_tests() -> void:
 				missing.append(model)
 			else:
 				for part: Array in GearDB.KITS[model.trim_prefix("kit:")]:
-					if not ResourceLoader.exists("res://assets/kaykit/" + str(part[0])):
+					if not ResourceLoader.exists(str(part[0]) if str(part[0]).begins_with("res://") else "res://assets/kaykit/" + str(part[0])):
 						missing.append(part[0])
 		elif model != "" and not ResourceLoader.exists(KK.WEAPON_DIR + model):
 			missing.append(model)
