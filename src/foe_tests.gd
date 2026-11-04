@@ -54,7 +54,8 @@ static func _defs(ok: Callable) -> void:
 		if not models[path]:
 			bad_model.append(k)
 		for slot: String in d.get("weapons", {}):
-			var wp := str(d["weapons"][slot])
+			var wv: Variant = d["weapons"][slot]
+			var wp := str(wv["m"]) if wv is Dictionary else str(wv)
 			if not ResourceLoader.exists(wp if wp.begins_with("res://") else KK.WEAPON_DIR + wp):
 				bad_model.append("%s:%s" % [k, wp])
 		for n in NUMS:

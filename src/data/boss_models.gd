@@ -8,18 +8,19 @@ extends RefCounted
 ## clip name the combat code asks for to a clip. Classes the rig lacks fall back along
 ## FoeRig.CHAIN (a boss with no cast clip casts with its attack or its roar).
 
-## Cinder Mire boss. "Low-poly orc" by Riltariki (CC BY 4.0), assets/foes/cinder_warlord.tscn.
+## Cinder Mire boss. Our own dark-plate orc, built in code by tools/blender/foes/cinder_warlord.py
+## (assets/foes/cinder_warlord.tscn).
 const CINDER_WARLORD := {
 	"model": "glb:cinder_warlord", "fit": 1.9, "scale": 3.0,
 	"clips": {
-		"idle": "ANM_IDLE", "walk": "ANM_WALK", "run": "ANM_RUN",
-		"attack": ["ANM_ORC_LIGHT_ATTACK", "ANM_LIGHT_ATTACK_2", "ANM_ATTACK_CRIT"],
-		"cast": "ANM_ORC_Roar", "taunt": "ANM_ORC_Roar", "spawn": "ANM_ORC_Roar",
-		"hit": "ANM_DAMAGED", "die": "ANM_DEATH",
+		"idle": "Idle", "walk": "Walk", "run": "Run",
+		"attack": ["Attack_Chop", "Attack_Slash", "Attack_Spin"],
+		"cast": "Roar", "taunt": "Roar", "spawn": "Roar",
+		"hit": "Hit", "die": "Die",
 	},
 	"alias": {
-		"Melee_2H_Attack_Chop": "ANM_ATTACK_CRIT", "Melee_Dualwield_Attack_Slice": "ANM_LIGHT_ATTACK_2",
-		"Melee_2H_Attack_Spin": "ANM_ORC_LIGHT_ATTACK",
+		"Melee_2H_Attack_Chop": "Attack_Chop", "Melee_Dualwield_Attack_Slice": "Attack_Slash",
+		"Melee_2H_Attack_Spin": "Attack_Spin",
 	},
 }
 

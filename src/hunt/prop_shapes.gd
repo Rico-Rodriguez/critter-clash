@@ -17,7 +17,7 @@ extends RefCounted
 ## pebble never snags a walker.
 
 const FOOT := preload("res://src/data/prop_footprints.gd")
-const DIRS := ["res://assets/kaykit/graveyard/", "res://assets/kaykit/dungeon/", "res://assets/kaykit/forest/"]
+const DIRS := ["res://assets/props/", "res://assets/kaykit/graveyard/", "res://assets/kaykit/dungeon/", "res://assets/kaykit/forest/"]
 
 const BAND_LO := 0.25
 const BAND_HI := 1.6

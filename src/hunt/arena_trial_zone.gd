@@ -13,6 +13,7 @@ extends RefCounted
 ## Crisp PBR: no fog, no bloom, no tint.
 
 const G := "res://assets/kaykit/graveyard/"
+const P := "res://assets/props/"
 const Terrain := preload("res://src/hunt/terrain.gd")
 const Kit := preload("res://src/hunt/kit_mesh.gd")
 const KitModels := preload("res://src/data/kit_models.gd")
@@ -330,11 +331,11 @@ static func _dress(a: Arena, layout: Dictionary, room: Dictionary) -> void:
 	for k in 2:
 		var bp = _spot(a, rng, room, w, -18.0, 18.0)
 		if bp != null:
-			a.put(G + ["bone_A.gltf", "skull.gltf", "ribcage.gltf", "bone_B.gltf"][rng.randi() % 4], bp, rng.randf() * TAU, rng.randf_range(0.8, 1.1), -1.0, false)
+			a.put([G + "bone_A.gltf", P + "skull.gltf", G + "ribcage.gltf", G + "bone_B.gltf"][rng.randi() % 4], bp, rng.randf() * TAU, rng.randf_range(0.8, 1.1), -1.0, false)
 	if kind == "treasure":
 		var cp = _spot(a, rng, room, w, -12.0, 12.0)
 		room["chest_at"] = cp if cp != null else Vector3(0, 0, mid - 3.0)
-		a.put("res://assets/kaykit/dungeon/chest_gold.gltf", room["chest_at"], rng.randf() * TAU, 1.2, 1.0)
+		a.put("res://assets/props/chest_gold.gltf", room["chest_at"], rng.randf() * TAU, 1.2, 1.0)
 
 
 ## One camp prop per room (two in the quiet ones): a banner, a cairn or crates on the ice road; a
