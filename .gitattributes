@@ -54,3 +54,5 @@ assets/kaykit/weapons/ranger_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/mage_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/rogue_*.bin -filter -diff -merge binary
 assets/kaykit/weapons/uniq_*.bin -filter -diff -merge binary
+# The dark plate bosses' weapons (make_dark_*_arms.py): kept out of LFS, its upload is blocked from cloud sessions.
+assets/kaykit/weapons/boss_*.bin -filter -diff -merge binary

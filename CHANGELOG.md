@@ -9,6 +9,13 @@ version is 7.
 
 ---
 
+## Unreleased: the Rime Regent in dark plate
+
+The Frozen Crypt's boss is a skeleton king on the hero skeleton: dark rimed iron edged in ice blue
+under a white fur mantle, shards of ice off his shoulders and back, a rime crown of icicles, a great
+frost axe and a tall kite shield with an ice crystal. Same clips, same numbers; scale and occluder
+retuned for the taller body. A content change: ships over the air.
+
 ## Unreleased: projectiles and coins of our own
 
 The KayKit arrow, crossbow bolt, dagger, axe, bone and coin that flew or dropped in the hunt are
